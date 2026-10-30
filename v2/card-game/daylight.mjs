@@ -1,4 +1,4 @@
-// Released Greek places and the painted Willows places share the saved world clock.
+// Painted Greek and Willows places share the saved world clock.
 export const DAYLIGHT_TURNS = 24;
 const art = (file) => `assets/greek-drama/${file}.webp`;
 const willows = (file) => `assets/willows/${file}.webp`;
@@ -28,6 +28,12 @@ const nightBackdrops = {
   "greek-road-piraeus-eleusis": art("attic-road-night"),
   "greek-road-colonus-eleusis": art("attic-road-night"),
   "greek-road-colonus-marathon": art("attic-road-night"),
+  "greek-aulis": art("aulis-anchorage-night"),
+  "greek-troy": art("trojan-walls-night"),
+  "greek-trojan-camp": art("trojan-night-camp-night"),
+  "greek-lemnos": art("lemnian-cave-night"),
+  "greek-thrace": art("thracian-shore-night"),
+  "greek-troy-beach": art("homecoming-beach-night"),
   "greek-greek-camp": art("ajax-camp-night"),
   "greek-ajax-landing": art("ajax-camp-night"),
   "greek-ajax-household": art("ajax-camp-night"),
@@ -45,6 +51,12 @@ const placeDescriptions = {
   "greek-colonus": "in Colonus Grove",
   "greek-eleusis": "at the Eleusinian Sanctuary",
   "greek-marathon": "at Marathon Altar",
+  "greek-aulis": "at Aulis Anchorage",
+  "greek-troy": "by the Trojan walls",
+  "greek-trojan-camp": "at the Trojan camp",
+  "greek-lemnos": "at the Lemnian Cave",
+  "greek-thrace": "on the Thracian shore",
+  "greek-troy-beach": "on the Homecoming Beach",
   "greek-ship": "aboard the Greek ship",
   "willows-landing": "on the Danube island",
   "willows-camp": "on the Danube island",

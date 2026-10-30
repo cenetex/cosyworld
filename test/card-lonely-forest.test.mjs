@@ -27,6 +27,8 @@ import {
   decodeSave,
   encodeSave,
   exits,
+  reflectionOpen,
+  placeText,
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
@@ -44,6 +46,8 @@ import { hub, packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
   currentScene,
+  backdrop,
+  locationVariant,
   sceneCast,
   sceneStaging,
 } from "../v2/card-game/scene.mjs";
@@ -81,9 +85,9 @@ function attic() {
   });
   world.actors.vale.place = "attic";
   world.items.cloth.holder = "vale";
-  world.items.lamp.holder = "station";
-  world.items.lamp.lit = false;
-  world.items.lamp.fuel = 0;
+  world.items.lamp.holder = "attic";
+  world.items.lamp.lit = true;
+  world.items.lamp.fuel = 12;
   return world;
 }
 function welcome() {
@@ -185,7 +189,7 @@ describe("Tea beneath the oak", () => {
     );
   });
 
-  it("opens with the cloth in the attic and keeps the cottage return after the cloth moves", () => {
+  it("opens with light and cloth in the attic and keeps the cottage return after the cloth moves", () => {
     let world = attic();
     expect(exits(world, "attic", "vale")).toContain(COTTAGE);
     expect(availableCards(world)).toContain(COTTAGE);
@@ -199,6 +203,107 @@ describe("Tea beneath the oak", () => {
     expect(exits(world, "attic", "vale")).toContain(COTTAGE);
     world.items.cloth.holder = "pond";
     expect(exits(world, "attic", "vale")).not.toContain(COTTAGE);
+  });
+
+  it.each(["attic", "vale", "moth", "bell"])(
+    "uses the cloth held by %s in the lit attic without moving it",
+    (holder) => {
+      const world = attic();
+      world.actors.moth.place = "attic";
+      world.items.bell.holder = "attic";
+      world.items.cloth.holder = holder;
+      const restored = reload(world);
+      expect(exits(restored, "attic", "vale")).toEqual(["pond", COTTAGE]);
+      expect(availableCards(restored)).toContain(COTTAGE);
+      expect(backdrop("attic", restored)).toBe(
+        "./assets/shared/places/attic-stairs.webp",
+      );
+      expect(locationVariant(restored, "attic")).toBe("attic-forest-cottage");
+      const next = move(restored, COTTAGE);
+      expect(next.actors.vale.place).toBe(COTTAGE);
+      expect(next.items.cloth.holder).toBe(holder);
+    },
+  );
+
+  it.each(["unlit", "empty", "covered", "at the pond", "at the station"])(
+    "closes the cottage stairs and clears the mirror when the lamp is %s",
+    (condition) => {
+      const world = attic();
+      const stale = legalActions(world).find(
+        (a) => a.kind === "move" && a.target === COTTAGE,
+      );
+      expect(stale).toBeDefined();
+      if (condition === "unlit") world.items.lamp.lit = false;
+      if (condition === "empty") {
+        world.items.lamp.fuel = 0;
+        world.items.lamp.lit = false;
+      }
+      if (condition === "covered") world.items.cloth.holder = "lamp";
+      if (condition === "at the pond") world.items.lamp.holder = "pond";
+      if (condition === "at the station") world.items.lamp.holder = "station";
+      const before = encodeSave(world);
+      const restored = reload(world);
+      expect(reflectionOpen(restored, "attic")).toBe(false);
+      expect(exits(restored, "attic", "vale")).not.toContain(COTTAGE);
+      expect(availableCards(restored)).not.toContain(COTTAGE);
+      expect(backdrop("attic", restored)).toBe(
+        "./assets/shared/places/attic-dark.webp",
+      );
+      expect(locationVariant(restored, "attic")).toBe("dark");
+      expect(placeText(restored, "attic")).toContain("mirror stands dark and empty");
+      expect(placeText(restored, "attic")).not.toContain("black shore");
+      const result = play(world, stale);
+      expect(result.ok).toBe(false);
+      expect(result.state).toBe(world);
+      expect(encodeSave(world)).toBe(before);
+    },
+  );
+
+  it("keeps only the pond mirror when the cloth leaves the lit attic", () => {
+    const world = attic();
+    const stale = legalActions(world).find(
+      (a) => a.kind === "move" && a.target === COTTAGE,
+    );
+    world.items.cloth.holder = "pond";
+    const restored = reload(world);
+    expect(exits(restored, "attic", "vale")).toEqual(["pond"]);
+    expect(backdrop("attic", restored)).toBe("./assets/attic.png");
+    expect(locationVariant(restored, "attic")).toBe("base");
+    expect(placeText(restored, "attic")).toContain("mirror opens onto a black shore");
+    expect(play(restored, stale).ok).toBe(false);
+    expect(move(restored, "pond").actors.vale.place).toBe("pond");
+  });
+
+  it("rejects a shared cottage crossing after another player puts out the lamp", () => {
+    let world = dispatchShared({ op: "create", save: encodeSave(attic()) }).world;
+    world.actors.mara.place = "attic";
+    world.items.lamp.holder = "vale";
+    const command = (actor, fields = {}) =>
+      dispatchShared({
+        op: "view",
+        world,
+        actor,
+        claimed: ["vale", "mara"],
+        present: ["vale", "mara"],
+        ...fields,
+      });
+    const stale = command("mara").actions.find(
+      (a) => a.kind === "move" && a.target === COTTAGE,
+    );
+    expect(stale).toBeDefined();
+    const snuff = command("vale").actions.find((a) => a.kind === "snuff");
+    expect(snuff).toBeDefined();
+    const dark = command("vale", { op: "play", action: snuff });
+    expect(dark.ok, dark.error).toBe(true);
+    world = reload(dark.world);
+    expect(command("mara").exits).not.toContain(COTTAGE);
+    const rejected = command("mara", { op: "play", action: stale });
+    expect(rejected.ok).toBe(false);
+    expect(rejected.world.actors.mara.place).toBe("attic");
+    expect(rejected.world.items.cloth.holder).toBe("vale");
+    expect(backdrop("attic", rejected.world)).toBe(
+      "./assets/shared/places/attic-dark.webp",
+    );
   });
 
   it("keeps all choices grounded in work, custody and the resident's place", () => {

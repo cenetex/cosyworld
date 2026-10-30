@@ -150,3 +150,30 @@ output names, dimensions and WebP hashes are recorded in
 `attica-night-provenance.json`. The image builder supplies the smaller card
 versions. The saved world clock selects the paintings for scenes and road
 approach cards.
+
+## Trojan Shores and Greek Inventory — October 30, 2026
+
+The built-in `image_gen` tool made twelve scene paintings and sixteen item
+sprites for this pack. Aulis Anchorage, the Trojan Walls, the Trojan Night
+Camp, the Lemnian Cave, the Thracian Shore and the Homecoming Beach each have
+a day painting and a matching night view. Their open foregrounds leave room
+for the game's character layers.
+
+The sixteen inventory paintings distinguish four witness tablets, the return
+list, the mothers' petition, the refuge tablet, Teucer's plea, three cloth
+objects, the funeral urn, the grove cup, the quay basket, honey and grave
+tools. The selected return list includes an image-generation edit that removes
+goods and tally pictograms while preserving its blank reply margin.
+
+Each scene is a 1672 × 941 opaque lossless WebP. Its decoded pixels match the
+selected generated PNG without cropping or resizing. The WebP retains those
+pixels without a duplicate scenery PNG in the repository. Each item is an
+unchanged 1254 × 1254 RGBA PNG with its generated transparency.
+
+[trojan-shores-art-provenance.json](trojan-shores-art-provenance.json) records
+source names and hashes, runtime hashes, dimensions, alpha checks and the
+retained prompts. Exact prompts survived for 23 assets. Five night prompts
+were lost with the earlier workspace; their entries explicitly mark that gap
+and provide separately labeled descriptive briefs. The Thracian Shore and
+Homecoming Beach night records also lack their original tool generation IDs;
+their retained source filenames and hashes identify the selected paintings.

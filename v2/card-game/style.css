@@ -1158,6 +1158,19 @@ body .cast[data-count] {
     left: clamp(34%, var(--stage-x), 66%);
     z-index: 4;
   }
+  /* A solo human's 2:3 frame fits the phone, including outstretched hands. */
+  body .cast[data-count="1"] .portrait:is(
+      [data-avatar="vale"],
+      [data-avatar="mara"],
+      [data-avatar="ash"],
+      [data-avatar="nell"],
+      [data-avatar="tavi"],
+      [data-avatar="rue"],
+      [data-avatar="orin"],
+      [data-avatar="ada"]
+    ) {
+    max-height: 144vw;
+  }
   body .cast[data-shared="true"]:not([data-count="1"]):not([data-count="2"]) {
     --bust-drop: clamp(
       0%,
@@ -1377,6 +1390,9 @@ body[data-place="attic"] .cast[data-count="1"] .portrait[data-avatar="vale"] {
   left: 75%;
 }
 @media (max-width: 700px) {
+  body[data-place="attic"] #backdrop[data-location-variant^="attic-forest-cottage"] {
+    object-position: left center;
+  }
   body[data-place="attic"] .cast[data-count="1"] .portrait[data-avatar="vale"] {
     left: 50%;
   }

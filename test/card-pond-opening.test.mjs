@@ -130,25 +130,30 @@ describe("the attic opening and saved pond journeys", () => {
     expect(plan(lit).action).toMatchObject({ kind: "move", target: "pond" });
   });
 
-  it("keeps a way to the pond when the cloth opens an isolated cottage loop", () => {
+  it("keeps the cottage return and pond rescue after the attic light goes out", () => {
     let world = act(fresh(), "light");
     world = act(world, "move", "attic");
     world.items.cloth.holder = "attic";
+    world.items.lamp.holder = "attic";
+    world.items.lamp.fuel = 8;
+    if (places["forest-cottage"]) {
+      expect(exits(world, "attic", "vale")).toContain("forest-cottage");
+      world = act(world, "move", "forest-cottage");
+    }
     world.items.lamp.fuel = 0;
     world.items.lamp.lit = false;
     world.items.oil.holder = "station";
     world = decodeSave(encodeSave(world));
-    expect(exits(world, "attic", "vale")).toContain("pond");
     if (places["forest-cottage"]) {
-      expect(exits(world, "attic", "vale")).toContain("forest-cottage");
-      world = act(world, "move", "forest-cottage");
+      expect(exits(world, "attic", "vale")).not.toContain("forest-cottage");
+      expect(exits(world, "forest-cottage", "vale")).toContain("attic");
       expect(plan(world).action).toMatchObject({
         kind: "move",
         target: "attic",
       });
       world = act(world, "move", "attic");
-      expect(exits(world, "attic", "vale")).toContain("pond");
     }
+    expect(exits(world, "attic", "vale")).toContain("pond");
     world = act(world, "move", "pond");
     expect(world.actors.vale.place).toBe("pond");
   });

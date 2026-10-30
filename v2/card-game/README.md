@@ -455,14 +455,21 @@ Schema 6 saves include location changes, favours and lasting memories. Earlier s
 
 New browser tables and shared worlds use `createWorld({ opening: true })`.
 Vale starts alone in the dark attic with an unlit lamp. The first purpose
-asks for light in the attic. Lighting the lamp reveals the path through
+asks for light in the attic. The dark painting leaves the mirror empty.
+Lighting the lamp reveals the path through
 the mirror. Vale reaches Black pond by playing that path card, meets Pip,
 and can follow the shore to Empty station and the keeper.
 
 Empty station connects to Black pond. Mirror attic connects to the pond through
-the reflection. A lit, fueled, uncovered lamp at either end opens that mirror
-in both directions. A stranded traveler in the attic finds a narrow path to
-the pond when the room's resources have run out.
+the reflection. Leaving the attic requires a lit, fueled, uncovered lamp in
+the attic. Returning from the pond accepts lamplight at either end. The Black
+cloth in the lit attic also reveals stairs down to Cosy Cottage, with a matching
+painting. The cloth can lie in the room or travel with someone or something
+there; covering the lamp blocks both ordinary attic routes. The cottage's
+stairs back up stay open after either item leaves or the light goes out.
+A stranded traveler in the attic still finds a narrow rescue path to the pond
+when reachable lamp remedies have run out. That escape is separate from the
+mirror and cottage gates.
 
 Each newly met card joins the hand through its discovery reveal. Travel loads
 the destination scene before its discoveries and dialogue. Reduced motion uses
@@ -608,7 +615,7 @@ Card selection keeps the current card elements in place and leaves keyboard focu
 
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
 
-When the lamp or oil is trapped beyond the attic, a narrow path can open from Black pond. It appears after reachable lamp remedies are exhausted. A traveler inside can still tend the lamp through the usual item plays. Every object keeps its holder until a play changes it. The Black cloth still opens the cottage from the attic.
+When the lamp or oil is trapped beyond the attic, a narrow path can open from Black pond. It appears after reachable lamp remedies are exhausted. A traveler inside can still tend the lamp through the usual item plays. Every object keeps its holder until a play changes it. The Black cloth and local lamplight reveal the cottage stairs from the attic.
 
 ## Accompany requests
 

@@ -8,6 +8,7 @@ import {
   legalActions,
   placeText,
   play,
+  reflectionOpen,
 } from "../v2/card-game/world.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
@@ -170,13 +171,11 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
 });
 
 describe.each([true, false])(
-  "light on the far side (opening: %s)",
+  "return toward light in the attic (opening: %s)",
   (opening) => {
     it.each([
       ["pond", "attic", "attic"],
       ["pond", "attic", "moth"],
-      ["attic", "pond", "pond"],
-      ["attic", "pond", "moth"],
     ])("opens %s to %s with the lamp held by %s", (from, to, holder) => {
       const s = pond(opening);
       s.actors.vale.place = from;
@@ -191,6 +190,25 @@ describe.each([true, false])(
       expect(result.ok).toBe(true);
       expect(result.state.actors.vale.place).toBe(to);
     });
+    it.each(["pond", "moth"])(
+      "keeps the attic mirror dark when a distant lamp is held by %s",
+      (holder) => {
+        const s = pond(opening);
+        s.actors.vale.place = "attic";
+        s.items.lamp.holder = holder;
+        expect(itemPlace(s, "lamp")).toBe("pond");
+        const restored = decodeSave(encodeSave(s));
+        expect(reflectionOpen(restored, "attic")).toBe(false);
+        expect(reflectionOpen(restored, "pond")).toBe(true);
+        expect(placeText(restored, "attic")).toContain("mirror stands dark and empty");
+        // Losing the local lamp keeps the existing emergency escape, not a mirror gate.
+        const rescue = cardPlay(restored, ["pond"]).action;
+        expect(rescue?.text).toContain("along a narrow path");
+        const result = play(restored, rescue);
+        expect(result.ok).toBe(true);
+        expect(result.state.actors.vale.place).toBe("pond");
+      },
+    );
   },
 );
 

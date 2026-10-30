@@ -2,16 +2,22 @@
   "schemaVersion": 1,
   "id": "shore-lonely-forest",
   "pack": "lonely-forest",
-  "description": "The Black cloth in the attic opens the mirror onto the cottage. The cottage keeps a free path back to the attic.",
+  "description": "The Black cloth in the lamplit attic reveals stairs down to the cottage. The cottage keeps a free stair back to the attic.",
   "crossings": [
     {
       "id": "attic-forest-cottage",
       "from": "attic",
       "to": "forest-cottage",
       "travelers": "player",
-      "travel": "through the attic mirror",
-      "travelLabel": "Enter the cottage",
+      "travel": "down the attic stairs",
+      "travelLabel": "Down to the cottage",
       "requires": [
+        {
+          "kind": "light",
+          "item": "lamp",
+          "at": ["attic"],
+          "uncovered": true
+        },
         {
           "kind": "item_present",
           "item": "cloth",
@@ -19,23 +25,24 @@
         }
       ],
       "scenery": {
-        "open": "The mirror shows a blue cottage beneath an oak.",
-        "closed": "The mirror holds the room and its window.",
+        "open": "A narrow stair leads down to the cosy cottage.",
+        "closed": "The floorboards show no way downstairs.",
+        "backdrop": "assets/shared/places/attic-stairs.webp",
         "cardArt": "assets/lonely-forest/cottage.png",
         "cardName": "Cosy Cottage"
       },
-      "opened": "A blue cottage appears beneath the oak in the mirror."
+      "opened": "Lamplight reveals stairs leading down to the cosy cottage."
     },
     {
       "id": "forest-cottage-attic",
       "from": "forest-cottage",
       "to": "attic",
       "travelers": "player",
-      "travel": "through the cottage mirror",
-      "travelLabel": "Return to the attic",
+      "travel": "up the cottage stairs",
+      "travelLabel": "Up to the attic",
       "requires": [],
       "scenery": {
-        "open": "A mirror beside the low doorway opens onto the attic."
+        "open": "A narrow stair leads up to the attic."
       }
     }
   ]

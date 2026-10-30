@@ -31,7 +31,7 @@
           "text": "The lamp lights a stone arch. Pale rails lead through it to the empty station."
         }
       },
-      "image": "assets/shared/characters/vale.png"
+      "image": "assets/shared/characters/vale-scarf.png"
     },
     {
       "id": "mara",
@@ -56,7 +56,7 @@
           "text": "The mask hangs between sage curtains. Their folds open onto the paper theatre."
         }
       },
-      "image": "assets/shared/characters/mara.png"
+      "image": "assets/shared/characters/mara-scarf.png"
     },
     {
       "id": "ash",
@@ -81,7 +81,7 @@
           "text": "The float draws a diving bell to the shore. Its open hatch leads into the dry belfry."
         }
       },
-      "image": "assets/shared/characters/ash.png"
+      "image": "assets/shared/characters/ash-scarf.png"
     },
     {
       "id": "nell",
@@ -106,7 +106,7 @@
           "text": "Water touches the shore. A gate of new shoots opens into the glasshouse."
         }
       },
-      "image": "assets/shared/characters/nell.png"
+      "image": "assets/shared/characters/nell-scarf.png"
     },
     {
       "id": "tavi",
@@ -131,7 +131,7 @@
           "text": "The kite pulls a ribbon of path into the air. It curls up to the clear hilltop."
         }
       },
-      "image": "assets/shared/characters/tavi.png"
+      "image": "assets/shared/characters/tavi-scarf.png"
     },
     {
       "id": "rue",
@@ -158,7 +158,7 @@
         "connection": "pond",
         "returnTravel": "back to the pond"
       },
-      "image": "assets/shared/characters/rue.png"
+      "image": "assets/shared/characters/rue-scarf.png"
     },
     {
       "id": "orin",
@@ -183,7 +183,7 @@
           "text": "The board unfolds a short bridge of game tiles. It leads across the water to the pavilion."
         }
       },
-      "image": "assets/shared/characters/orin.png"
+      "image": "assets/shared/characters/orin-scarf.png"
     },
     {
       "id": "ada",
@@ -208,7 +208,7 @@
           "text": "The shears find a seam in the air. It parts like cloth and opens into the sail loft."
         }
       },
-      "image": "assets/shared/characters/ada.png"
+      "image": "assets/shared/characters/ada-scarf.png"
     }
   ]
 }

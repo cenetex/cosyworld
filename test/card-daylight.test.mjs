@@ -49,18 +49,25 @@ function wait(world) {
 }
 
 describe("day and night in Greece", () => {
-  it("gives every released Greek place a night painting on the saved world clock", () => {
+  it("gives released places and painted Trojan shores a night painting on the saved world clock", () => {
     let world = createWorld({ packScopes: { "greek-drama": "full" } });
     world.actors.vale.place = "greek-courtyard";
-    const day = new Map(
-      greek.release.places.map((place) => [place, backdrop(place, world)]),
-    );
-    for (const place of greek.release.places)
+    const places = [
+      ...greek.release.places,
+      "greek-aulis",
+      "greek-troy",
+      "greek-trojan-camp",
+      "greek-troy-beach",
+      "greek-lemnos",
+      "greek-thrace",
+    ];
+    const day = new Map(places.map((place) => [place, backdrop(place, world)]));
+    for (const place of places)
       expect(locationDaylight(world, place)?.phase, place).toBe("day");
     world.turn = world.revision = DAYLIGHT_TURNS - 1;
     world = wait(world);
     const restored = decodeSave(encodeSave(world));
-    for (const place of greek.release.places) {
+    for (const place of places) {
       expect(locationDaylight(world, place)?.phase, place).toBe("night");
       expect(night(world, place), place).toBe(true);
       expect(backdrop(place, world), place).not.toBe(day.get(place));
@@ -68,7 +75,7 @@ describe("day and night in Greece", () => {
     }
     world.turn = world.revision = DAYLIGHT_TURNS * 2 - 1;
     world = wait(world);
-    for (const place of greek.release.places) {
+    for (const place of places) {
       expect(locationDaylight(world, place)?.phase, place).toBe("day");
       expect(backdrop(place, world), place).toBe(day.get(place));
     }
@@ -195,19 +202,13 @@ describe("day and night in Greece", () => {
     },
   );
 
-  it("keeps the other coastal places on their current paintings", () => {
+  it("keeps the unpainted Argive sanctuary on its current backdrop", () => {
     const world = createWorld({ packScopes: { "greek-drama": "full" } });
-    for (const place of [
-      "greek-aulis",
-      "greek-argos-sanctuary",
-      "greek-thrace",
-    ]) {
-      const day = backdrop(place, world);
-      world.turn = world.revision = DAYLIGHT_TURNS;
-      expect(locationDaylight(world, place)).toBeNull();
-      expect(backdrop(place, world)).toBe(day);
-      world.turn = world.revision = 0;
-    }
+    const place = "greek-argos-sanctuary";
+    const day = backdrop(place, world);
+    world.turn = world.revision = DAYLIGHT_TURNS;
+    expect(locationDaylight(world, place)).toBeNull();
+    expect(backdrop(place, world)).toBe(day);
   });
 
   it("gives the Trojan camp's local places a shared day and night", () => {

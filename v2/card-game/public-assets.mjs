@@ -26,7 +26,15 @@ const files = [
   "introductions.mjs",
   "boardyai.json",
   "assets/greek-drama/harbor-day.webp",
+  // Keep alternate scenery referenced by released shared rules available.
+  "assets/greek-drama/book-three-lemnos-day.webp",
+  "assets/greek-drama/book-three-thrace-day.webp",
   "assets/shared/places/pond.png",
+  "assets/shared/places/attic-dark.webp",
+  "assets/shared/places/attic-stairs.webp",
+  ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].map(
+    (id) => `assets/shared/characters/${id}-scarf.png`,
+  ),
   "assets/shared/characters/vale.png",
   "assets/shared/places/station.png",
   "assets/shared/items/lamp.png",

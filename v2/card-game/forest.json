@@ -30,7 +30,7 @@
     "attic": {
       "sanctuary": true,
       "name": "Mirror attic",
-      "text": "A tall mirror reflects a black shore. Dust gathers along its frame.",
+      "text": "A tall mirror stands dark and empty. Dust gathers along its frame.",
       "exits": []
     },
     "pond": {
@@ -571,7 +571,7 @@
         ],
         "light": false,
         "speaker": "World",
-        "text": "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
+        "text": "Vale stands alone in Mirror attic, holding an unlit lamp. The tall mirror stands dark and empty."
       }
     ]
   },

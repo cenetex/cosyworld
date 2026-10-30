@@ -37,7 +37,7 @@ describe("return journeys and fixed meetings", () => {
     expect(world).toEqual(after);
   });
 
-  it("fetches the cottage key before recovering a lamp beyond its door", () => {
+  it("leaves through the rescue path when a remote cottage lamp cannot light the attic", () => {
     let world = createWorld();
     world.turn = world.revision = 400;
     world.actors.vale.place = world.actors.moth.place = "attic";
@@ -50,15 +50,11 @@ describe("return journeys and fixed meetings", () => {
     world.items.oil.holder = world.items.cloth.holder = "keeper";
     world.items.bell.holder = "vale";
     expect(plan(world).action).toMatchObject({ kind: "move", target: "pond" });
-    let recovered = false;
-    for (let turn = 0; turn < 80 && !recovered; turn++) {
-      const result = play(world, plan(world).action);
-      expect(result.ok).toBe(true);
-      recovered = result.state.items.lamp.holder === "vale";
-      world = result.state;
-    }
-    expect(recovered).toBe(true);
-    expect(world.items.lamp.history.some((line) => line.includes("Vale takes the Lamp"))).toBe(true);
+    world = commit(world, "move", { target: "pond" });
+    world = commit(world, "move", { target: "station" });
+    expect(world.actors.vale.place).toBe("station");
+    expect(world.items.lamp.holder).toBe("forest-oak");
+    expect(exits(world, "attic", "vale")).not.toContain("forest-cottage");
     expect(decodeSave(encodeSave(world))).toEqual(world);
   });
 
@@ -322,6 +318,62 @@ function trappedOil() {
   return world;
 }
 
+function trappedRefillBell() {
+  const world = trappedOil();
+  world.items.lamp.holder = world.items.oil.holder = "vale";
+  world.items.oil.doses = 0;
+  world.items.bell.holder = "attic";
+  return world;
+}
+
+describe("a refill bell trapped behind the attic gate", () => {
+  it("recovers the bell by a saved physical journey after both fuel supplies run out", () => {
+    const world = trappedRefillBell(), items = structuredClone(world.items);
+    expect(exits(world, "pond", "vale")).toContain("attic");
+    expect(exits(world, "attic", "vale")).not.toContain("forest-cottage");
+    const restored = decodeSave(encodeSave(world));
+    expect(restored.items).toEqual(items);
+    const action = legalActions(restored).find((a) => a.kind === "move" && a.target === "attic");
+    expect(action.text).toContain("along a narrow path");
+    const next = commit(restored, "move", { target: "attic" });
+    expect(next.actors.vale.place).toBe("attic");
+    expect(next.items.bell.holder).toBe("attic");
+    expect(next.items.lamp.fuel).toBe(0);
+    expect(next.items.oil.doses).toBe(0);
+    expect(legalActions(next)).toContainEqual(expect.objectContaining({ kind: "take", item: "bell" }));
+    expect(exits(next, "attic", "vale")).not.toContain("forest-cottage");
+  });
+
+  it.each(["fuel", "reachable oil", "reachable bell", "helper inside", "bell carrier inside"])("keeps ordinary %s recovery in use", (kind) => {
+    const world = trappedRefillBell();
+    if (kind === "fuel") world.items.lamp.fuel = 4;
+    if (kind === "reachable oil") world.items.oil.doses = 1;
+    if (kind === "reachable bell") world.items.bell.holder = "station";
+    if (kind === "helper inside") world.actors.keeper.place = "attic";
+    if (kind === "bell carrier inside") {
+      world.actors.moth.place = "attic";
+      world.items.bell.holder = "moth";
+    }
+    expect(exits(world, "pond", "vale")).not.toContain("attic");
+  });
+
+  it("brings the refill bell along before the helper meets stranded travelers", () => {
+    let world = trappedRefillBell();
+    world.turn = world.revision = 40;
+    world.actors.keeper.place = "attic";
+    world.actors.keeper.progress = { program: 0, step: 1, marks: [7] };
+    world.items.cloth.holder = "keeper";
+    expect(plan(world, "keeper").action).toMatchObject({ kind: "take", item: "bell" });
+    world = commit(world, "wait");
+    expect(world.items.bell.holder).toBe("keeper");
+    expect(plan(world, "keeper").action).toMatchObject({ kind: "move", target: "pond" });
+    world = commit(world, "wait");
+    expect(world.actors.keeper.place).toBe("pond");
+    expect(world.items.bell.holder).toBe("keeper");
+    expect(exits(world, "attic", "vale")).not.toContain("forest-cottage");
+  });
+});
+
 describe("oil trapped behind the attic gate", () => {
   it("opens a physical recovery path while each item keeps its place", () => {
     const world = trappedOil(), items = structuredClone(world.items);
@@ -390,31 +442,25 @@ function trappedLamp() {
 }
 
 describe("a lamp trapped beyond the attic", () => {
-  it("recovers the exact loose-play state through physical plays and cloth care", () => {
+  it("keeps an inaccessible cottage lamp in place while rescue travel remains available", () => {
     let world = trappedLamp();
     const items = structuredClone(world.items);
     expect(exits(world, "pond", "vale")).toContain("attic");
     expect(exits(world, "attic", "vale")).not.toContain("forest-cottage");
     world = decodeSave(encodeSave(world));
     expect(world.items).toEqual(items);
-    let movedLamp = false;
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 3; i++) {
       const action = plan(world).action, result = play(world, action);
       expect(result.ok).toBe(true);
       expect(play(decodeSave(encodeSave(world)), action)).toEqual(result);
       world = result.state;
-      if (world.items.lamp.holder !== "forest-oak") movedLamp = true;
-      if (world.actors.moth.progress.marks.length > 0 &&
-        world.actors.vale.progress.marks.at(-1) > 9 && world.actors.keeper.progress.marks.at(-1) > 9) break;
+      expect(world.items.lamp.holder).toBe("forest-oak");
+      expect(exits(world, "attic", "vale")).not.toContain("forest-cottage");
     }
-    expect(movedLamp).toBe(true);
-    expect(world.actors.moth.progress.marks.length).toBeGreaterThan(0);
-    for (const id of ["vale", "keeper"])
-      expect(world.actors[id].progress.marks.at(-1)).toBeGreaterThan(9);
-    expect(world.log.some((e) => e.verb === "take" && e.itemId === "lamp")).toBe(true);
+    expect(world.log.some((e) => e.verb === "take" && e.itemId === "lamp")).toBe(false);
   });
 
-  it("lets the cloth carrier approach when an inside oil carrier still cannot reach the lamp", () => {
+  it("lets the cloth carrier approach without opening an unlit cottage stair", () => {
     let world = trappedLamp();
     world.actors.vale.place = "attic";
     world.actors.vale.progress = { program: 1, step: 1, marks: [1, 9, 66, 67] };
@@ -426,8 +472,8 @@ describe("a lamp trapped beyond the attic", () => {
     world = commit(world, "wait");
     expect(world.actors.keeper.place).toBe("attic");
     expect(world.items.cloth.holder).toBe("keeper");
-    expect(exits(world, "attic", "vale")).toContain("forest-cottage");
-    expect(plan(world).action).toMatchObject({ kind: "move", target: "forest-cottage" });
+    expect(exits(world, "attic", "vale")).not.toContain("forest-cottage");
+    expect(plan(world).action).not.toMatchObject({ kind: "move", target: "forest-cottage" });
     expect(world.items.lamp.holder).toBe("forest-oak");
   });
 

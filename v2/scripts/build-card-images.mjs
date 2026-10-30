@@ -67,19 +67,44 @@ if (
     "Image sources or settings changed. Run npm run v2:card:images:build.",
   );
 
+// Keep published derivatives when both source and encoded bytes are current.
+// Adding a painting must not re-encode unrelated art with a different codec.
+async function reusable(file, sourceHash) {
+  const saved = old?.images?.[file];
+  if (
+    old?.version !== 1 ||
+    JSON.stringify(old.settings) !== JSON.stringify(settings) ||
+    saved?.sourceHash !== sourceHash ||
+    saved.stage !== (file.endsWith(".png") ? pathFor(file, "stage") : file) ||
+    ![saved.stage, pathFor(file, "card")].includes(saved.card)
+  )
+    return false;
+  try {
+    const stage = await readFile(new URL(saved.stage, root));
+    const card =
+      saved.card === saved.stage
+        ? stage
+        : await readFile(new URL(saved.card, root));
+    return hash(stage) === saved.stageHash && hash(card) === saved.cardHash;
+  } catch {
+    return false;
+  }
+}
+
 let next = 0;
 async function build() {
   while (next < files.length) {
     const file = files[next++];
     const source = await readFile(new URL(file, root));
     const sourceHash = hash(source);
+    const verify = check || (await reusable(file, sourceHash));
     const metadata = await sharp(source).metadata();
     const png = file.endsWith(".png");
     let stage = file,
       stageBody = source;
     if (png) {
       stage = pathFor(file, "stage");
-      if (check) {
+      if (verify) {
         if (
           old.images[file].sourceHash !== sourceHash ||
           old.images[file].stage !== stage
@@ -99,7 +124,7 @@ async function build() {
     }
     let card = stage,
       cardBody = stageBody;
-    if (check) {
+    if (verify) {
       const saved = old.images[file];
       if (
         saved.sourceHash !== sourceHash ||

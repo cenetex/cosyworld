@@ -1,0 +1,594 @@
+{
+  "schemaVersion": 1,
+  "title": "Player scarves and attic variants",
+  "created": "2026-10-30",
+  "referenceCommit": "585c17717b437a3e7f4a83a09d43dcf01b7b3d8c",
+  "paletteSource": "v2/docs/card-table/art-prompts.json",
+  "scope": {
+    "playerPortraits": 8,
+    "atticBackdrops": 2
+  },
+  "activation": {
+    "playerPortraits": "shared-cast.json selects the eight scarf images for the avatar picker and player list; scene.mjs uses the same entries for stage and card portraits, including Vale.",
+    "originalPortraits": "All earlier portrait PNGs are retained. Vale uses the established black-clothed shared portrait as the scarf edit reference.",
+    "scarves": "These are visual variants selected as the current artwork. No equipment, possession, or progression system is introduced for the coloured scarves.",
+    "attic": "The dark painting has an empty mirror. The lit stair painting adds a descent to Cosy Cottage while retaining the Black Pond mirror. The existing cloth item ID remains stable."
+  },
+  "preservation": {
+    "portraits": "The eight runtime PNGs preserve the selected generated PNG bytes and alpha without pixel editing or re-encoding.",
+    "backdrops": "The two original PNGs are represented by source basenames and hashes. Runtime WebPs are lossless and decode to the same pixels, without resizing. Original source PNGs are not duplicated in this repository.",
+    "dimensionNote": "The generated dark-attic image is 1671 by 941 pixels; the stairs image is 1672 by 941. The one-pixel width difference is preserved."
+  },
+  "assets": [
+    {
+      "id": "vale-scarf",
+      "kind": "player-portrait",
+      "actorId": "vale",
+      "palette": {
+        "primaryAndButton": "Black",
+        "complementaryScarf": "Ivory"
+      },
+      "nativeFacing": "right",
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "references": [
+        {
+          "path": "v2/card-game/assets/shared/characters/vale.png",
+          "sha256": "7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512"
+        }
+      ],
+      "generations": [
+        {
+          "prompt": "Use case: identity-preserve. Production transparent full-body player sprite for Cosyworld.\nInput image 1 is the EDIT TARGET: the established Vale character painting.\nPrimary request: make a scarf variant of this exact person. Add a comfortably wrapped, worn woven scarf in warm IVORY, their established complementary colour. Fasten the scarf at the upper chest with ONE clearly readable round sewn button in charcoal BLACK, the character's primary colour. Show its tiny stitch holes so it reads as a real garment button. Keep the scarf modest enough that the entire face and familiar outfit remain visible; the scarf can have one short natural hanging end.\nPreserve the exact identity, facial features, skin tone, age, hair, expression, right-facing gaze, body proportions, gesture, pose, original primary-colour clothing, boots, and empty hands from the reference. Keep the same full-body framing from hair or hat to both boot soles on a portrait 2:3 canvas, with clear margins and same scale. Preserve the fine ink and hand-painted watercolour/gouache style, worn fabric textures and delicate self-shadows.\nOnly change the scarf and its primary-colour button. Existing ordinary buckles and other clothing details stay. The entire background and internal gaps must be genuinely transparent alpha. Paint only the person and their clothes, with crisp natural cutout edges. No coloured halo, backdrop, floor, cast shadow, scenery, text, lettering, border, UI, watermark, or added held object. Output one final individual game sprite, ideally the original 1024 by 1536 framing.",
+          "inputs": [
+            {
+              "kind": "repository",
+              "path": "v2/card-game/assets/shared/characters/vale.png",
+              "sha256": "7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512"
+            }
+          ],
+          "output": {
+            "generationId": "exec-e171cfa5-ccb3-4f11-89ee-2afbe276636d",
+            "basename": "exec-e171cfa5-ccb3-4f11-89ee-2afbe276636d.png",
+            "sha256": "db446b75fa43c60658acfdd0704ecdb3187b89c031874eb6ae9d2ba4fdb97f0c"
+          },
+          "selected": true
+        }
+      ],
+      "runtime": {
+        "path": "v2/card-game/assets/shared/characters/vale-scarf.png",
+        "sha256": "db446b75fa43c60658acfdd0704ecdb3187b89c031874eb6ae9d2ba4fdb97f0c",
+        "format": "PNG",
+        "width": 1024,
+        "height": 1536,
+        "mode": "RGBA",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 254,
+          "fullyTransparentPixels": 1018971,
+          "fullyTransparentFraction": 0.6478443145751953,
+          "generatedAlphaPreserved": true
+        },
+        "originalGeneratedBytesPreserved": true
+      },
+      "visualReview": "Same identity and pose; complementary scarf and primary-colour sewn button; full body and clear alpha margins."
+    },
+    {
+      "id": "mara-scarf",
+      "kind": "player-portrait",
+      "actorId": "mara",
+      "palette": {
+        "primaryAndButton": "Crimson red",
+        "complementaryScarf": "Sage green"
+      },
+      "nativeFacing": "right",
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "references": [
+        {
+          "path": "v2/card-game/assets/shared/characters/mara.png",
+          "sha256": "c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1"
+        }
+      ],
+      "generations": [
+        {
+          "prompt": "Use case: identity-preserve. Production transparent full-body player sprite for Cosyworld.\nInput image 1 is the EDIT TARGET: the established Mara character painting.\nPrimary request: make a scarf variant of this exact person. Add a comfortably wrapped, worn woven scarf in soft SAGE GREEN, their established complementary colour. Fasten the scarf at the upper chest with ONE clearly readable round sewn button in crimson RED, the character's primary colour. Show its tiny stitch holes so it reads as a real garment button. Keep the scarf modest enough that the entire face and familiar outfit remain visible; the scarf can have one short natural hanging end.\nPreserve the exact identity, facial features, skin tone, age, hair, expression, right-facing gaze, body proportions, gesture, pose, original primary-colour clothing, boots, and empty hands from the reference. Keep the same full-body framing from hair or hat to both boot soles on a portrait 2:3 canvas, with clear margins and same scale. Preserve the fine ink and hand-painted watercolour/gouache style, worn fabric textures and delicate self-shadows.\nOnly change the scarf and its primary-colour button. Existing ordinary buckles and other clothing details stay. The entire background and internal gaps must be genuinely transparent alpha. Paint only the person and their clothes, with crisp natural cutout edges. No coloured halo, backdrop, floor, cast shadow, scenery, text, lettering, border, UI, watermark, or added held object. Output one final individual game sprite, ideally the original 1024 by 1536 framing.",
+          "inputs": [
+            {
+              "kind": "repository",
+              "path": "v2/card-game/assets/shared/characters/mara.png",
+              "sha256": "c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1"
+            }
+          ],
+          "output": {
+            "generationId": "exec-9124a93e-8967-4655-8f1d-39b3c2250df6",
+            "basename": "exec-9124a93e-8967-4655-8f1d-39b3c2250df6.png",
+            "sha256": "68242c050db52986c8563f894943ae5391ec31489065d9375d37035e65bb3f7f"
+          },
+          "selected": true
+        }
+      ],
+      "runtime": {
+        "path": "v2/card-game/assets/shared/characters/mara-scarf.png",
+        "sha256": "68242c050db52986c8563f894943ae5391ec31489065d9375d37035e65bb3f7f",
+        "format": "PNG",
+        "width": 1024,
+        "height": 1536,
+        "mode": "RGBA",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 254,
+          "fullyTransparentPixels": 905521,
+          "fullyTransparentFraction": 0.5757147471110026,
+          "generatedAlphaPreserved": true
+        },
+        "originalGeneratedBytesPreserved": true
+      },
+      "visualReview": "Same identity and pose; complementary scarf and primary-colour sewn button; full body and clear alpha margins."
+    },
+    {
+      "id": "ash-scarf",
+      "kind": "player-portrait",
+      "actorId": "ash",
+      "palette": {
+        "primaryAndButton": "Burnt orange",
+        "complementaryScarf": "Dusty blue"
+      },
+      "nativeFacing": "right",
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "references": [
+        {
+          "path": "v2/card-game/assets/shared/characters/ash.png",
+          "sha256": "2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285"
+        }
+      ],
+      "generations": [
+        {
+          "prompt": "Use case: identity-preserve. Production transparent full-body player sprite for Cosyworld.\nInput image 1 is the EDIT TARGET: the established Ash character painting.\nPrimary request: make a scarf variant of this exact person. Add a comfortably wrapped, worn woven scarf in muted DUSTY BLUE, their established complementary colour. Fasten the scarf at the upper chest with ONE clearly readable round sewn button in burnt ORANGE, the character's primary colour. Show its tiny stitch holes so it reads as a real garment button. Keep the scarf modest enough that the entire face and familiar outfit remain visible; the scarf can have one short natural hanging end.\nPreserve the exact identity, facial features, skin tone, age, hair, expression, right-facing gaze, body proportions, gesture, pose, original primary-colour clothing, boots, and empty hands from the reference. Keep the same full-body framing from hair or hat to both boot soles on a portrait 2:3 canvas, with clear margins and same scale. Preserve the fine ink and hand-painted watercolour/gouache style, worn fabric textures and delicate self-shadows.\nOnly change the scarf and its primary-colour button. Existing ordinary buckles and other clothing details stay. The entire background and internal gaps must be genuinely transparent alpha. Paint only the person and their clothes, with crisp natural cutout edges. No coloured halo, backdrop, floor, cast shadow, scenery, text, lettering, border, UI, watermark, or added held object. Output one final individual game sprite, ideally the original 1024 by 1536 framing.",
+          "inputs": [
+            {
+              "kind": "repository",
+              "path": "v2/card-game/assets/shared/characters/ash.png",
+              "sha256": "2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285"
+            }
+          ],
+          "output": {
+            "generationId": "exec-066a2468-9ea8-498b-8db9-7dd0c5ba34d2",
+            "basename": "exec-066a2468-9ea8-498b-8db9-7dd0c5ba34d2.png",
+            "sha256": "a39874896719827006f457eb6b2622a04e08f1a906394bea0c4f39abab6785bb"
+          },
+          "selected": true
+        }
+      ],
+      "runtime": {
+        "path": "v2/card-game/assets/shared/characters/ash-scarf.png",
+        "sha256": "a39874896719827006f457eb6b2622a04e08f1a906394bea0c4f39abab6785bb",
+        "format": "PNG",
+        "width": 1024,
+        "height": 1536,
+        "mode": "RGBA",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 254,
+          "fullyTransparentPixels": 841984,
+          "fullyTransparentFraction": 0.5353190104166666,
+          "generatedAlphaPreserved": true
+        },
+        "originalGeneratedBytesPreserved": true
+      },
+      "visualReview": "Same identity and pose; complementary scarf and primary-colour sewn button; full body and clear alpha margins."
+    },
+    {
+      "id": "nell-scarf",
+      "kind": "player-portrait",
+      "actorId": "nell",
+      "palette": {
+        "primaryAndButton": "Mustard yellow",
+        "complementaryScarf": "Violet / lavender"
+      },
+      "nativeFacing": "right",
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "references": [
+        {
+          "path": "v2/card-game/assets/shared/characters/nell.png",
+          "sha256": "705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f"
+        }
+      ],
+      "generations": [
+        {
+          "prompt": "Use case: identity-preserve. Production transparent full-body player sprite for Cosyworld.\nInput image 1 is the EDIT TARGET: the established Nell character painting.\nPrimary request: make a scarf variant of this exact person. Add a comfortably wrapped, worn woven scarf in soft VIOLET / LAVENDER, their established complementary colour. Fasten the scarf at the upper chest with ONE clearly readable round sewn button in mustard YELLOW, the character's primary colour. Show its tiny stitch holes so it reads as a real garment button. Keep the scarf modest enough that the entire face and familiar outfit remain visible; the scarf can have one short natural hanging end.\nPreserve the exact identity, facial features, skin tone, age, hair, expression, right-facing gaze, body proportions, gesture, pose, original primary-colour clothing, boots, and empty hands from the reference. Keep the same full-body framing from hair or hat to both boot soles on a portrait 2:3 canvas, with clear margins and same scale. Preserve the fine ink and hand-painted watercolour/gouache style, worn fabric textures and delicate self-shadows.\nOnly change the scarf and its primary-colour button. Existing ordinary buckles and other clothing details stay. The entire background and internal gaps must be genuinely transparent alpha. Paint only the person and their clothes, with crisp natural cutout edges. No coloured halo, backdrop, floor, cast shadow, scenery, text, lettering, border, UI, watermark, or added held object. Output one final individual game sprite, ideally the original 1024 by 1536 framing.",
+          "inputs": [
+            {
+              "kind": "repository",
+              "path": "v2/card-game/assets/shared/characters/nell.png",
+              "sha256": "705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f"
+            }
+          ],
+          "output": {
+            "generationId": "exec-c857a60c-bc73-402c-a78a-1497af009d5b",
+            "basename": "exec-c857a60c-bc73-402c-a78a-1497af009d5b.png",
+            "sha256": "c869f75b71093df0878c902f2ae68b065d58c32f35962c25616888ba5f61b3d3"
+          },
+          "selected": true
+        }
+      ],
+      "runtime": {
+        "path": "v2/card-game/assets/shared/characters/nell-scarf.png",
+        "sha256": "c869f75b71093df0878c902f2ae68b065d58c32f35962c25616888ba5f61b3d3",
+        "format": "PNG",
+        "width": 1024,
+        "height": 1536,
+        "mode": "RGBA",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 254,
+          "fullyTransparentPixels": 962124,
+          "fullyTransparentFraction": 0.6117019653320312,
+          "generatedAlphaPreserved": true
+        },
+        "originalGeneratedBytesPreserved": true
+      },
+      "visualReview": "Same identity and pose; complementary scarf and primary-colour sewn button; full body and clear alpha margins."
+    },
+    {
+      "id": "tavi-scarf",
+      "kind": "player-portrait",
+      "actorId": "tavi",
+      "palette": {
+        "primaryAndButton": "Moss green",
+        "complementaryScarf": "Brick red"
+      },
+      "nativeFacing": "right",
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "references": [
+        {
+          "path": "v2/card-game/assets/shared/characters/tavi.png",
+          "sha256": "6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a"
+        }
+      ],
+      "generations": [
+        {
+          "prompt": "Use case: identity-preserve. Asset type: final individual transparent full-body CosyWorld character sprite, portrait 2:3. Input image 1 is the exact edit target: Tavi. Preserve this same face, tousled dark curls, warm skin, expression, right-facing head, right-hand pointing gesture, empty hands, full-body pose, boots, body scale, framing, and fine ink with painted watercolor/gouache cloth texture. Change only the neck scarf: replace the flowing green neck scarf with a worn BRICK RED wool scarf of the same flowing shape. Keep the jacket and remaining cape fabric moss/leaf GREEN. Fasten the red scarf at the neck with ONE clearly visible round sewn MOSS GREEN button, with sewing holes. The scarf's button must be green, not brass. Preserve existing costume fasteners elsewhere. Entire figure hair-to-soles with all cloth tips inside the frame and comfortable margins. Genuine alpha transparency everywhere outside the figure and all internal silhouette gaps; only the person and clothing are painted. No background, glow, halo, floor shadow, checkerboard pattern, text, watermark, border, held object, additional person, or extra fingers.",
+          "inputs": [
+            {
+              "kind": "repository",
+              "path": "v2/card-game/assets/shared/characters/tavi.png",
+              "sha256": "6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a"
+            }
+          ],
+          "output": {
+            "generationId": "exec-cb970787-f444-4889-aa19-abd19f021981",
+            "basename": "exec-cb970787-f444-4889-aa19-abd19f021981.png",
+            "sha256": "69895904f5358ef3e66daabd53152ddacf7cf2c8d814f1120333f3ee7d944fb9"
+          },
+          "selected": true
+        }
+      ],
+      "runtime": {
+        "path": "v2/card-game/assets/shared/characters/tavi-scarf.png",
+        "sha256": "69895904f5358ef3e66daabd53152ddacf7cf2c8d814f1120333f3ee7d944fb9",
+        "format": "PNG",
+        "width": 1024,
+        "height": 1536,
+        "mode": "RGBA",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 254,
+          "fullyTransparentPixels": 924759,
+          "fullyTransparentFraction": 0.5879459381103516,
+          "generatedAlphaPreserved": true
+        },
+        "originalGeneratedBytesPreserved": true
+      },
+      "visualReview": "Preserves right-facing identity, full pose and empty hands; red scarf and green sewn button visibly correct."
+    },
+    {
+      "id": "rue-scarf",
+      "kind": "player-portrait",
+      "actorId": "rue",
+      "palette": {
+        "primaryAndButton": "Cobalt blue",
+        "complementaryScarf": "Apricot orange"
+      },
+      "nativeFacing": "right",
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "references": [
+        {
+          "path": "v2/card-game/assets/shared/characters/rue.png",
+          "sha256": "e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633"
+        }
+      ],
+      "generations": [
+        {
+          "prompt": "Use case: identity-preserve. Asset type: final individual transparent full-body CosyWorld character sprite, portrait 2:3. Input image 1 is the exact edit target: Rue. Preserve this same adult Black woman's face, cropped black curls, expression, right-facing head, two-finger route gesture, empty hands, full-body upright pose, blue conductor coat and trousers, boots, belt cap, body scale, framing, and fine ink with painted watercolor/gouache cloth texture. Add a worn APRICOT ORANGE wool scarf wrapped neatly once at her neck with two short fabric tails over the upper chest, suited to her practical conductor coat. Fasten the orange scarf with ONE clearly visible round sewn COBALT BLUE button, with sewing holes. The scarf's button must be blue, not brass. Preserve existing coat fasteners elsewhere. Entire figure hair-to-soles with comfortable margins. Genuine alpha transparency everywhere outside the figure and all internal silhouette gaps; only the person and clothing are painted. No background, glow, halo, floor shadow, checkerboard pattern, text, watermark, border, held object, additional person, or extra fingers.",
+          "inputs": [
+            {
+              "kind": "repository",
+              "path": "v2/card-game/assets/shared/characters/rue.png",
+              "sha256": "e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633"
+            }
+          ],
+          "output": {
+            "generationId": "exec-0500e79c-dacf-4b12-8875-f8068b7033a1",
+            "basename": "exec-0500e79c-dacf-4b12-8875-f8068b7033a1.png",
+            "sha256": "c8e3593650e08f71678427169ea95aaec69ffd17ee00a3661c896a2e1cf05796"
+          },
+          "selected": true
+        }
+      ],
+      "runtime": {
+        "path": "v2/card-game/assets/shared/characters/rue-scarf.png",
+        "sha256": "c8e3593650e08f71678427169ea95aaec69ffd17ee00a3661c896a2e1cf05796",
+        "format": "PNG",
+        "width": 1024,
+        "height": 1536,
+        "mode": "RGBA",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 254,
+          "fullyTransparentPixels": 1146269,
+          "fullyTransparentFraction": 0.7287782033284506,
+          "generatedAlphaPreserved": true
+        },
+        "originalGeneratedBytesPreserved": true
+      },
+      "visualReview": "Complementary scarf and primary-colour sewn button correct; original identity and right-facing pose retained."
+    },
+    {
+      "id": "orin-scarf",
+      "kind": "player-portrait",
+      "actorId": "orin",
+      "palette": {
+        "primaryAndButton": "Indigo blue-violet",
+        "complementaryScarf": "Ochre yellow"
+      },
+      "nativeFacing": "right",
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "references": [
+        {
+          "path": "v2/card-game/assets/shared/characters/orin.png",
+          "sha256": "909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4"
+        }
+      ],
+      "generations": [
+        {
+          "prompt": "Use case: identity-preserve. Asset type: final individual transparent full-body CosyWorld character sprite, portrait 2:3. Input image 1 is the exact edit target: Orin. Preserve this same clean-shaven narrow face, auburn ponytail and loose lock, spectacles, smile, right-facing head, long fingers held together in thought, empty hands, full-body crossed-leg pose, long indigo waistcoat, ivory shirt, trousers, shoes, pocket-watch chain, body scale, framing, and fine ink with painted watercolor/gouache cloth texture. Add a worn OCHRE YELLOW wool scarf at his neck with restrained short tails lying over the upper chest, leaving the fingers unobstructed. Fasten the ochre scarf with ONE clearly visible round sewn INDIGO BLUE-VIOLET button, with sewing holes. The scarf's button must be indigo, not brass. Preserve existing waistcoat buttons elsewhere. Entire figure hair-to-soles with comfortable margins. Genuine alpha transparency everywhere outside the figure and all internal silhouette gaps; only the person and clothing are painted. No background, glow, halo, floor shadow, checkerboard pattern, text, watermark, border, held object, additional person, or extra fingers.",
+          "inputs": [
+            {
+              "kind": "repository",
+              "path": "v2/card-game/assets/shared/characters/orin.png",
+              "sha256": "909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4"
+            }
+          ],
+          "output": {
+            "generationId": "exec-6b824ddc-ad6f-4198-90f2-ecd6e942b12b",
+            "basename": "exec-6b824ddc-ad6f-4198-90f2-ecd6e942b12b.png",
+            "sha256": "3812b42acdb754238d18ff453c9f8f5c9ba4513b272d726ca1af342fe4b49530"
+          },
+          "selected": true
+        }
+      ],
+      "runtime": {
+        "path": "v2/card-game/assets/shared/characters/orin-scarf.png",
+        "sha256": "3812b42acdb754238d18ff453c9f8f5c9ba4513b272d726ca1af342fe4b49530",
+        "format": "PNG",
+        "width": 1024,
+        "height": 1536,
+        "mode": "RGBA",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 254,
+          "fullyTransparentPixels": 1098880,
+          "fullyTransparentFraction": 0.6986490885416666,
+          "generatedAlphaPreserved": true
+        },
+        "originalGeneratedBytesPreserved": true
+      },
+      "visualReview": "Complementary scarf and primary-colour sewn button correct; original identity and right-facing pose retained."
+    },
+    {
+      "id": "ada-scarf",
+      "kind": "player-portrait",
+      "actorId": "ada",
+      "palette": {
+        "primaryAndButton": "Violet",
+        "complementaryScarf": "Pale yellow-green"
+      },
+      "nativeFacing": "right",
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "references": [
+        {
+          "path": "v2/card-game/assets/shared/characters/ada.png",
+          "sha256": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512"
+        }
+      ],
+      "generations": [
+        {
+          "prompt": "Use case: identity-preserve. Asset type: final individual transparent full-body CosyWorld character sprite, portrait 2:3. Input image 1 is the exact edit target: Ada. Preserve this exact older woman's freckled face, short white bob, bright smile, right-facing head, raised precise measuring gesture, left hand on push rim, empty hands, seated pose, violet work clothes, boots, and complete wooden hand-powered wheelchair with its wheels, spokes, brass push rims, frame, front caster and footrest. Match original body and chair scale, full framing, and fine ink with painted watercolor/gouache texture. Replace only the violet neckerchief with a worn PALE YELLOW-GREEN wool scarf of similar tidy shape, fastened at her chest by ONE clearly visible round sewn VIOLET button with sewing holes. The scarf button must be violet, not brass. Preserve other costume and chair fasteners. Keep every wheel and both feet completely inside the frame with comfortable margins. Genuine alpha transparency everywhere outside the figure and chair, including all open spaces between wheel spokes, frame, limbs and hair; only person, clothing and chair are painted. No background, glow, halo, floor shadow, checkerboard pattern, text, watermark, border, held object, additional person, or extra fingers.",
+          "inputs": [
+            {
+              "kind": "repository",
+              "path": "v2/card-game/assets/shared/characters/ada.png",
+              "sha256": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512"
+            }
+          ],
+          "output": {
+            "generationId": "exec-5e09d625-4113-42f9-bceb-59eea7cc17b6",
+            "basename": "exec-5e09d625-4113-42f9-bceb-59eea7cc17b6.png",
+            "sha256": "977ecc94d55d960dad5720e3c0eb3d21bda3cf653a5de6df86f432dd731afbae"
+          },
+          "selected": false,
+          "reasonReplaced": "Too close to horizontal edges; replaced by framing correction."
+        },
+        {
+          "prompt": "Use case: precise-object-edit. Input image 1 is the exact edit target, Ada wearing her new pale yellow-green scarf and violet sewn button. Make ONLY a framing correction: keep this exact finished artwork, identity, face, scarf, violet button, clothing, pose, hands, complete chair, colors, linework and textures unchanged, but scale the whole person-and-wheelchair group slightly smaller, about 8 percent smaller, centered on the same portrait 2:3 canvas. Leave clearly transparent breathing room of at least 40 pixels at both left and right edges and keep hair, all wheels, both feet and entire footrest fully contained. Do not crop any portion. Genuine alpha transparency around the full figure and all open wheel-spoke/frame gaps. Do not add any background, glow, halo, checkerboard, floor, shadow, text, object or border. Output the corrected individual transparent game sprite.",
+          "inputs": [
+            {
+              "kind": "generated",
+              "basename": "exec-5e09d625-4113-42f9-bceb-59eea7cc17b6.png",
+              "generationId": "exec-5e09d625-4113-42f9-bceb-59eea7cc17b6",
+              "sha256": "977ecc94d55d960dad5720e3c0eb3d21bda3cf653a5de6df86f432dd731afbae"
+            }
+          ],
+          "output": {
+            "generationId": "exec-11cc1409-5aca-4533-a1b9-42164e69909d",
+            "basename": "exec-11cc1409-5aca-4533-a1b9-42164e69909d.png",
+            "sha256": "401bf9cc37ba4bb8ebcfaae2fa45b9e3126e197d1a6e482da7bf006b63b98c8f"
+          },
+          "selected": true
+        }
+      ],
+      "runtime": {
+        "path": "v2/card-game/assets/shared/characters/ada-scarf.png",
+        "sha256": "401bf9cc37ba4bb8ebcfaae2fa45b9e3126e197d1a6e482da7bf006b63b98c8f",
+        "format": "PNG",
+        "width": 1024,
+        "height": 1536,
+        "mode": "RGBA",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 254,
+          "fullyTransparentPixels": 777376,
+          "fullyTransparentFraction": 0.4942423502604167,
+          "generatedAlphaPreserved": true
+        },
+        "originalGeneratedBytesPreserved": true
+      },
+      "visualReview": "Final framing corrected; complete chair and feet retained inside comfortable transparent margins. Pale yellow-green scarf, violet sewn button, identity and right-facing pose correct. Wheel-spoke and frame gaps remain transparent."
+    },
+    {
+      "id": "attic-dark",
+      "kind": "location-backdrop",
+      "placeId": "attic",
+      "tool": "built-in image_gen",
+      "transparentBackground": false,
+      "references": [
+        {
+          "path": "v2/card-game/assets/attic.png",
+          "sha256": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e"
+        }
+      ],
+      "generations": [
+        {
+          "prompt": "Use case: lighting-weather and precise-object-edit. Asset type: opaque painted game backdrop for CosyWorld. Edit target: the supplied existing attic painting. Keep its exact wide 16:9 framing, camera, floorboard perspective, rafters, chimney, windows, trunks, covered furniture and rear-centre tall oval gilded mirror. Create the UNLIT ATTIC state. Remove the entire impossible seascape and moon from inside the mirror: its glass is completely empty, still, dark silver-grey, with absolutely no landscape, doorway, sky, person, creature, reflected object or portal light. The mirror reads as one quiet dark pane in its existing ornate frame. The attic has no lit lamp and no warm light pool; use restrained cool indigo ambient night light, deep but readable wood and furniture detail. Keep enough midtone separation for a game background, not a nearly black image. The left stairwell is closed by a dark flush wooden trapdoor behind its existing balustrade, with no visible descending steps or light from below. Preserve all other room geometry, painterly animation detail, fine irregular ink outlines and aged wood textures. Keep the lower central foreground empty for separate character sprites. No people, lamp prop, scarf prop, text, interface, borders or watermark. Match the source's 1672 by 941 composition. Opaque background.",
+          "inputs": [
+            {
+              "kind": "repository",
+              "path": "v2/card-game/assets/attic.png",
+              "sha256": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e"
+            }
+          ],
+          "output": {
+            "generationId": "exec-26e6ec2c-f8d1-4bfd-bb0b-d168045e2e59",
+            "basename": "exec-26e6ec2c-f8d1-4bfd-bb0b-d168045e2e59.png",
+            "sha256": "d589c103e8303c20985bc0265ff2df3f4d492dff594d909dbd48e059ed2af022",
+            "format": "PNG",
+            "width": 1671,
+            "height": 941,
+            "mode": "RGB",
+            "alpha": {
+              "present": false,
+              "opaque": true
+            }
+          },
+          "selected": true
+        }
+      ],
+      "runtime": {
+        "path": "v2/card-game/assets/shared/places/attic-dark.webp",
+        "sha256": "0d8404b94403ea9d5473547b4f3474325e9696e12816e7419a70ec6d1e3e2683",
+        "format": "WebP",
+        "width": 1671,
+        "height": 941,
+        "mode": "RGB",
+        "alpha": {
+          "present": false,
+          "opaque": true
+        },
+        "conversion": {
+          "method": "ImageMagick lossless WebP, quality 100",
+          "lossless": true,
+          "decodedPixelsIdenticalToSourcePng": true,
+          "resized": false
+        }
+      },
+      "visualReview": {
+        "preservesRoomAndFraming": true,
+        "emptyMirror": true,
+        "descendingStairsVisible": false,
+        "foregroundClear": true,
+        "noPeopleOrUi": true
+      }
+    },
+    {
+      "id": "attic-stairs",
+      "kind": "location-backdrop",
+      "placeId": "attic",
+      "tool": "built-in image_gen",
+      "transparentBackground": false,
+      "references": [
+        {
+          "path": "v2/card-game/assets/attic.png",
+          "sha256": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e"
+        }
+      ],
+      "generations": [
+        {
+          "prompt": "Use case: precise-object-edit. Asset type: opaque painted game backdrop for CosyWorld. Edit target: the supplied existing attic painting. Preserve its exact wide 16:9 camera and framing, floorboard perspective, high rafters, chimney, windows, trunks, covered furniture, and tall oval gilded mirror at rear centre. Create the LIT ATTIC WITH COTTAGE STAIRS OPEN state. Warm lamplight from an unseen source softly illuminates the old room, preserving its uncanny painted animation atmosphere. In the existing LEFT foreground floor opening, show a clear flight of old wooden steps DESCENDING away from the attic into a cosy cottage below. Retain the wooden railing and post in their original position. The steps must visibly recede downward in correct perspective, with a warm amber light at the bottom and just a modest glimpse of a pale cottage wall below; no staircase rising up and no extra room dominating the composition. The oval mirror remains open to the same black shore and immense pale moon seen in the reference; preserve that established portal image and mirror frame. Keep the lower centre and right foreground spacious for separate character sprites. Preserve the existing fine ink, painterly brushwork, worn wood grain, architecture and spatial scale. No people, drawn lamp, scarf prop, UI, lettering, borders or watermark. Match the source's 1672 by 941 composition. Opaque background.",
+          "inputs": [
+            {
+              "kind": "repository",
+              "path": "v2/card-game/assets/attic.png",
+              "sha256": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e"
+            }
+          ],
+          "output": {
+            "generationId": "exec-de5896f3-8ccc-4031-ab99-942553ad11b4",
+            "basename": "exec-de5896f3-8ccc-4031-ab99-942553ad11b4.png",
+            "sha256": "880e2c138269fc134b3272d44ce4b9ca640ba829bc90fe9ba533f4866044761e",
+            "format": "PNG",
+            "width": 1672,
+            "height": 941,
+            "mode": "RGB",
+            "alpha": {
+              "present": false,
+              "opaque": true
+            }
+          },
+          "selected": true
+        }
+      ],
+      "runtime": {
+        "path": "v2/card-game/assets/shared/places/attic-stairs.webp",
+        "sha256": "1184ccdc03049f071e089e0952a6fc363e8370d43a4d28f5ae4232b53791847d",
+        "format": "WebP",
+        "width": 1672,
+        "height": 941,
+        "mode": "RGB",
+        "alpha": {
+          "present": false,
+          "opaque": true
+        },
+        "conversion": {
+          "method": "ImageMagick lossless WebP, quality 100",
+          "lossless": true,
+          "decodedPixelsIdenticalToSourcePng": true,
+          "resized": false
+        }
+      },
+      "visualReview": {
+        "preservesRoomAndFraming": true,
+        "emptyMirror": false,
+        "descendingStairsVisible": true,
+        "foregroundClear": true,
+        "noPeopleOrUi": true
+      }
+    }
+  ]
+}

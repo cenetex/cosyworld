@@ -8,6 +8,7 @@ import {
   rootHolder,
   itemPlace,
   shining,
+  reflectionOpen,
   senses,
 } from "./world.mjs";
 import { entityActive, crossings, transports } from "./pack-registry.mjs";
@@ -20,14 +21,17 @@ import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 
 // Pack art lives in the pack's own asset folder and is named by its data.
+const darkAttic = (world, id) =>
+  id === "attic" && world?.actors && !reflectionOpen(world, id);
 export function backdrop(id, world = null) {
+  if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
   const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
   const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
   return file ? `./${file}` : `./assets/${id}.png`;
 }
 export function portrait(id, facing = null, world = null) {
   const human = humanAvatar(id);
-  if (human && id !== "vale") return `./${human.image}`;
+  if (human) return `./${human.image}`;
   const resident = packPeople[id];
   if (resident)
     return `./${
@@ -57,6 +61,7 @@ const visibleCrossing = (world, place) =>
       crossingOpen(world, c, senses),
   );
 export function locationVariant(world, id) {
+  if (darkAttic(world, id)) return "dark";
   const crossing = visibleCrossing(world, id)?.id || "base";
   const weather = locationWeather(world, id);
   const variant = weather ? `${crossing}:${weather.variant}` : crossing;

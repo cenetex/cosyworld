@@ -242,9 +242,9 @@ describe("hopes lean on open stories", () => {
     });
     w.actors.vale.place = "attic";
     w.items.cloth.holder = "vale";
-    w.items.lamp.holder = "station";
-    w.items.lamp.lit = false;
-    w.items.lamp.fuel = 0;
+    w.items.lamp.holder = "attic";
+    w.items.lamp.lit = true;
+    w.items.lamp.fuel = 12;
     w = act(w, "move", { target: "forest-cottage" });
     w = act(w, "talk", { target: "rati" });
     w = act(w, "choose", { choiceId: "forest-stay-for-tea" });

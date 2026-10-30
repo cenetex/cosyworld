@@ -9,8 +9,11 @@ const groups = {
     ),
     "assets/vale.png",
     "assets/keeper-right.png",
-    ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].map(
-      (id) => `assets/shared/characters/${id}.png`,
+    ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].flatMap(
+      (id) => [
+        `assets/shared/characters/${id}.png`,
+        `assets/shared/characters/${id}-scarf.png`,
+      ],
     ),
   ],
   left: [
