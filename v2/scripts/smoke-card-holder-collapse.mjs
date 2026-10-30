@@ -216,6 +216,13 @@ try {
           ["lamp", "pond"],
           "a held item stays raised when a third card replaces its partner",
         );
+        // A place left out of the new pair is lowered, not drawn raised.
+        await tap("moth");
+        assert(!(await selected()).includes("pond"), "Black pond is lowered");
+        assert.equal(await card("pond").getAttribute("aria-pressed"), "false");
+        assert.equal(await frame("oil").getAttribute("hidden"), "");
+        await tap("pond");
+        assert.deepEqual(await selected(), ["lamp", "pond"]);
         await tap("lamp");
         assert.deepEqual(await selected(), ["pond"]);
         assert.equal(await frame("oil").getAttribute("hidden"), null);
