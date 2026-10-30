@@ -379,7 +379,9 @@ export function sceneStaging(
   // Things lying in this place rest on the floor as pictures. The hand keeps
   // every one of them; the stage shows only the first few.
   const floorItems = items
-    .filter((item) => item.holder === locationId)
+    .filter(
+      (item) => item.holder === locationId && entityActive(world, item.id),
+    )
     .slice(0, 6)
     .map(({ id, lit, ringing }) => {
       const cover = items.find((other) => other.holder === id)?.id || null;
