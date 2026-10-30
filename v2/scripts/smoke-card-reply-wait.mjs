@@ -22,20 +22,24 @@ const app = await readFile(
   new URL("../card-game/app.mjs", import.meta.url),
   "utf8",
 );
+// Pip must stay to answer here: a partner who walks away this turn speaks at
+// the destination. On this turn Pip leaves the station when Rue asks.
+const scenePlace = (actor) => (actor === "rue" ? "pond" : "station");
 function fixture(actor) {
+  const place = scenePlace(actor);
   const world = createWorld();
   world.playerActorId = actor;
   world.sharedVersion = 1;
   world.controlledActors = [actor];
   world.presentActors = [actor];
   for (const id of [actor, "moth", "keeper"])
-    world.actors[id].place = "station";
+    world.actors[id].place = place;
   world.items.lamp.holder = "moth";
   addLog(world, "Vale", "An earlier line from Vale.", {
     generated: true,
     kind: "dialogue",
     actorId: "vale",
-    locationId: "station",
+    locationId: place,
   });
   return play(
     world,
@@ -247,7 +251,7 @@ try {
       // The next play's wait replaces the old one, even with old Vale speech saved.
       snapshot = structuredClone(snapshot);
       const next = structuredClone(committed);
-      next.actors.keeper.place = "station";
+      next.actors.keeper.place = scenePlace(actor);
       const reply = legalActions(next).find(
         (a) => a.kind === "talk" && a.target === "keeper",
       );

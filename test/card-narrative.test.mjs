@@ -727,7 +727,7 @@ describe("witnessed departures and conversation continuity", () => {
     ).toEqual(["vale"]);
   });
 
-  it("keeps a departing avatar's farewell in the source scene and in memory", () => {
+  it("places a departed avatar's words at the destination, not the origin", () => {
     let world = createWorld();
     for (let i = 0; i < 4; i++) world = act(world, "wait");
     expect(world.actors.moth.place).toBe("pond");
@@ -742,27 +742,38 @@ describe("witnessed departures and conversation continuity", () => {
     );
     expect(pip.facts.join(" ")).toContain("currently at Black pond");
     const next = applyGeneratedText(world, context, response(context));
-    expect(
-      next.log
-        .filter(
-          (e) => e.turn === next.turn && e.generated && e.kind === "dialogue",
-        )
-        .map((e) => e.actorId),
-    ).toEqual(["vale", "moth"]);
-    const farewell = next.log.at(-1);
-    expect(farewell).toMatchObject({
+    const lines = next.log.filter(
+      (e) => e.turn === next.turn && e.generated && e.kind === "dialogue",
+    );
+    expect(lines.map((e) => e.actorId)).toEqual(["vale", "moth"]);
+    // The departure action stays at the origin; the later words do not.
+    const words = lines.at(-1);
+    expect(words).toMatchObject({
       actorId: "moth",
-      departureTo: "pond",
-      locationId: "station",
-      cast: ["vale", "moth"],
+      arrivalFrom: "station",
+      locationId: "pond",
     });
-    expect(currentScene(next, next.log.length - 1).slots).toEqual([
-      "vale",
-      "moth",
-    ]);
-    expect(currentScene(next).slots).toEqual(["vale", null]);
-    expect(next.memories.vale.events.at(-1).text).toContain("Pip remembers");
-    expect(sceneScript(next).beats.at(-1).departureTo).toBe("pond");
+    expect(words.departureTo).toBeUndefined();
+    expect(words.cast).toContain("moth");
+    expect(words.cast).not.toContain("vale");
+    expect(lines[0]).toMatchObject({ actorId: "vale", locationId: "station" });
+    expect(lines[0].cast).not.toContain("moth");
+    // Vale at the origin never sees the line; someone at the pond does.
+    const here = (w) =>
+      w.log
+        .filter(
+          (e) =>
+            e.generated &&
+            e.kind === "dialogue" &&
+            e.turn === w.turn &&
+            e.locationId === w.actors.vale.place,
+        )
+        .map((e) => e.actorId);
+    expect(here(next)).toEqual(["vale"]);
+    const atPond = structuredClone(next);
+    atPond.actors.vale.place = "pond";
+    expect(here(atPond)).toEqual(["moth"]);
+    expect(next.memories.moth.text).toBe(words.text);
     expect(decodeSave(encodeSave(next))).toEqual(next);
     const later = act(next, "wait");
     expect(narrativeContext(later).speakers).not.toContain("moth");
@@ -874,11 +885,18 @@ describe("witnessed departures and conversation continuity", () => {
       "keeper",
     ]);
     const next = applyGeneratedText(world, context, response(context));
-    const farewells = next.log.filter((e) => e.departureTo);
-    expect(farewells.map((e) => e.departureTo)).toEqual(["pond", "pond"]);
-    expect(farewells[0].cast).toContain("moth");
-    expect(farewells[1].cast).not.toContain("moth");
-    expect(farewells[1].cast).toContain("keeper");
+    const departed = next.log.filter((e) => e.generated && e.arrivalFrom);
+    expect(departed.map((e) => [e.actorId, e.locationId])).toEqual([
+      ["moth", "pond"],
+      ["keeper", "pond"],
+    ]);
+    for (const line of departed)
+      expect(line.cast).toEqual(expect.arrayContaining(["moth", "keeper"]));
+    expect(
+      next.log.filter(
+        (e) => e.generated && e.turn === next.turn && e.locationId === "station",
+      ).every((e) => !e.cast.includes("moth") && !e.cast.includes("keeper")),
+    ).toBe(true);
   });
   it("includes a retreating opponent's answer with the witnessed result", () => {
     let world = createWorld();
@@ -894,7 +912,7 @@ describe("witnessed departures and conversation continuity", () => {
     const next = applyGeneratedText(world, context, response(context));
     expect(
       next.log.findLast((e) => e.generated && e.actorId === "moth"),
-    ).toMatchObject({ departureTo: "pond", locationId: "station" });
+    ).toMatchObject({ arrivalFrom: "station", locationId: "pond" });
   });
   it("validates saved movement captions and preserves old generated lines", () => {
     const world = createWorld(),
