@@ -376,9 +376,26 @@ export function sceneStaging(
   const items = snapshots.length
     ? [...new Map(snapshots.map((item) => [item.id, item])).values()]
     : Object.entries(world.items).map(([id, item]) => ({ id, ...item }));
+  // Things lying in this place rest on the floor as pictures. The hand keeps
+  // every one of them; the stage shows only the first few.
+  const floorItems = items
+    .filter((item) => item.holder === locationId)
+    .slice(0, 6)
+    .map(({ id, lit, ringing }) => {
+      const cover = items.find((other) => other.holder === id)?.id || null;
+      return {
+        id,
+        cover,
+        ...(typeof lit === "boolean" ? { lit } : {}),
+        ...(typeof ringing === "number"
+          ? { ringing: ringing > 0 && !cover }
+          : {}),
+      };
+    });
   return {
     layout: mirror ? "foreground-right" : "foreground-left",
     focalId: focal || null,
+    floorItems,
     actors: order.map((id, index) => {
       let gazeTargetId =
         activeSpeaker && ids.includes(activeSpeaker)

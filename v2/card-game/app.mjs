@@ -1587,6 +1587,47 @@ function renderHeldItem(figure, actor, itemId) {
   preview.dataset.ringing = String(item.ringing > 0 && !covering);
 }
 
+// Things lying here rest on the floor in the hand's card style. They are
+// pictures only; the hand cards remain the way to play them.
+function renderFloorItems(items) {
+  const floor = $("floor-items");
+  const existing = new Map(
+    [...floor.children].map((el) => [el.dataset.item, el]),
+  );
+  floor.dataset.count = String(items.length);
+  floor.replaceChildren(
+    ...items.map(({ id, cover, lit, ringing }) => {
+      let tile = existing.get(id);
+      if (!tile) {
+        tile = node("span", undefined, "floor-item");
+        tile.dataset.item = id;
+        tile.append(node("span", undefined, "art"));
+      }
+      const key = JSON.stringify([id, cover]);
+      if (tile.dataset.key !== key) {
+        tile.dataset.key = key;
+        tile.firstChild.replaceChildren(
+          ...[id, cover].filter(Boolean).map((art, index) => {
+            const image = node("img", undefined, index ? "object-cover" : "");
+            image.decoding = "async";
+            image.src = imageUrl(
+              packMedia(art, "art") || `./assets/${art}-card.png`,
+              "card",
+            );
+            image.alt = "";
+            image.draggable = false;
+            return image;
+          }),
+        );
+      }
+      tile.dataset.lit = lit === undefined ? "" : String(lit);
+      tile.dataset.covered = String(Boolean(cover));
+      tile.dataset.ringing = String(Boolean(ringing));
+      return tile;
+    }),
+  );
+}
+
 function renderScene() {
   // Every path to this renderer keeps the source visible until the veil covers it.
   if (covering) return;
@@ -1635,6 +1676,7 @@ function renderScene() {
     currentState: true,
     sharedPlays: sharedSession?.state.history,
   });
+  renderFloorItems(staging.floorItems);
   $("cast").dataset.layout = staging.layout;
   $("cast").dataset.count = String(staging.actors.length);
   $("cast").dataset.shared = String(Boolean(sharedSession));
