@@ -822,6 +822,10 @@ body .card-frame {
 body .card-frame[data-raised="true"] {
   transform: translateY(-10px);
 }
+/* Lift the full stack while the face keeps its shadow on the same layer. */
+#hand:not([aria-busy="true"]) .card-frame:has(> .card:hover) {
+  top: -2px;
+}
 body .card {
   position: relative;
   width: 100%;
@@ -837,7 +841,6 @@ body .card {
   box-shadow: 0 6px 20px #0006;
 }
 body .card:hover {
-  transform: translateY(-2px);
   background: #181b22;
 }
 body .card[aria-pressed="true"] {
