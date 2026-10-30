@@ -21,6 +21,13 @@ function table() {
   s.items.bell.holder = "keeper";
   return s;
 }
+// Pip, who cares nothing for the bell, is here while Vale holds it.
+function bellForPip() {
+  const s = createWorld();
+  s.actors.moth.place = "station";
+  s.items.bell.holder = "vale";
+  return s;
+}
 const find = (s, kind, item, extra = {}) =>
   legalActions(s).find(
     (a) =>
@@ -71,27 +78,27 @@ describe("Give and Trade are always offered", () => {
   });
 
   it("records a refusal with its reason, costs a turn and moves nothing", () => {
-    const s = table();
-    const give = find(s, "give", "cloth", { target: "keeper" });
+    const s = bellForPip();
+    const give = find(s, "give", "bell", { target: "moth" });
     expect(expects(s, give)).toBe(false);
     const result = play(s, give);
     expect(result.ok).toBe(true);
     const next = result.state;
     expect(next.turn).toBe(s.turn + 1);
     expect(next.revision).toBe(s.revision + 1);
-    expect(next.items.cloth.holder).toBe("vale");
+    expect(next.items.bell.holder).toBe("vale");
     const entry = next.log.findLast((e) => e.verb === "give");
     expect(entry).toMatchObject({
       accepted: false,
       reason: "wants-something-else",
-      itemId: "cloth",
-      targetId: "keeper",
+      itemId: "bell",
+      targetId: "moth",
     });
     expect(entry.text).toContain("declines");
     expect(decodeSave(encodeSave(next))).toEqual(next);
     // The cast hears the reason so they can say it in dialogue.
-    expect(facts(next, "keeper", give)).toContain(
-      "refused Vale's offer of Black cloth: they want something else",
+    expect(facts(next, "moth", give)).toContain(
+      "refused Vale's offer of Bell: they want something else",
     );
   });
 
@@ -117,8 +124,8 @@ describe("Give and Trade are always offered", () => {
   });
 
   it("rejects a refusal reason on any other verb or an accepted play", () => {
-    const s = table();
-    const next = play(s, find(s, "give", "cloth", { target: "keeper" })).state;
+    const s = bellForPip();
+    const next = play(s, find(s, "give", "bell", { target: "moth" })).state;
     const entry = next.log.findLast((e) => e.verb === "give");
     for (const broken of [
       { ...entry, reason: "bored" },
@@ -132,25 +139,20 @@ describe("Give and Trade are always offered", () => {
     }
   });
 
-  it("keeps residents' planned offers to the ones they expect accepted", () => {
+  it("lets a resident offer trades for its want, some of them refused", () => {
     let s = enableMotives(createWorld());
     for (const id of ["vale", "moth", "keeper"]) s.actors[id].place = "station";
-    s.items.lamp.holder = "moth";
     s.items.oil.holder = "keeper";
-    let offers = 0;
-    for (let turn = 0; turn < 120; turn++) {
-      const chosen = plan(s).action;
-      if (["give", "trade"].includes(chosen.kind)) {
-        offers += 1;
-        expect(expects(s, chosen), chosen.key).toBe(true);
-      }
-      s = play(s, chosen).state;
-    }
-    expect(offers).toBeGreaterThan(0);
-    expect(
-      s.log.filter(
-        (e) => ["give", "trade"].includes(e.verb) && e.accepted === false,
-      ),
-    ).toEqual([]);
+    s.items.bell.holder = "moth";
+    s.items.cloth.holder = "moth";
+    s.actors.moth.want = { kind: "item", target: "oil", since: 0, refusals: 0 };
+    s.actors.keeper.want = null;
+    for (let turn = 0; turn < 12; turn++)
+      s = play(s, legalActions(s).find((a) => a.kind === "wait")).state;
+    const offers = s.log.filter((e) => e.verb === "trade" && e.actorId === "moth");
+    expect(offers.length).toBeGreaterThan(0);
+    // An offer the keeper would refuse still costs Pip's turn and counts
+    // against its want.
+    expect(offers.every((e) => typeof e.accepted === "boolean")).toBe(true);
   });
 });

@@ -93,7 +93,10 @@ fn local_road_visitors_and_belongings_continue_inside_the_town_after_replay() {
         assert_eq!(w.game["actors"]["vale"]["place"], port);
         assert_eq!(w.game["actors"]["mara"]["place"], port);
         assert_eq!(w.game["items"]["lamp"]["holder"], port);
-        assert_eq!(w.game["log"], old.game["log"]);
+        assert_eq!(
+            w.game["log"],
+            super::full_tests::quest_free_log(&old.game["log"])
+        );
         let action = w.project(0).unwrap()["actions"]
             .as_array()
             .unwrap()

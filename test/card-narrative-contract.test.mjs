@@ -63,7 +63,8 @@ describe("browser dialogue history contract", () => {
       [1, 2, 3, 4].map((i) => ({
         actorId: "vale",
         text: `Avatar line ${i}`,
-        witnesses: ["vale", "moth"],
+        // Whoever is at the pond hears it; the cast follows its own wants.
+        witnesses: expect.arrayContaining(["vale", "moth"]),
       })),
     );
   });

@@ -3,7 +3,6 @@ import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 import { wantFact, wantHeard } from "./want-talk.mjs";
 import { BOARDY, boardyFacts } from "./boardyai.mjs";
-import { questRecord } from "./shared-quests.mjs";
 import { recitalContext, recitalFacts } from "./pack-recital.mjs";
 import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
 import { sceneChanges } from "./scene.mjs";
@@ -37,14 +36,8 @@ import {
   laneTalkFacts,
   waitNarration,
 } from "./world.mjs";
-import { desireFor, knownActors } from "./quests.mjs";
-import { lifeFacts, lifeOf } from "./life.mjs";
+import { knownActors, wantOf } from "./want.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
-import {
-  conditionMet,
-  conditionText,
-  questItemAvailable,
-} from "./situations.mjs";
 const REFUSAL_WORDS = {
   grudge: "a grudge",
   "needs-it": "they need what was asked for",
@@ -78,7 +71,12 @@ export function turnOutcome(world) {
   const played = events.findLast(
     (entry) => entry.kind === "action" && entry.actorId === currentActor(world),
   );
-  const quest = played?.questKey && questRecord(world, played.questKey);
+  // A want met by this play reaches the scene as an outcome of the card.
+  const wantMet =
+    played &&
+    events.find(
+      (entry) => entry.verb === "want_met" && entry.actorId === played.actorId,
+    )?.wantMet;
   const here = world.actors[currentActor(world)].place;
   const known = knownActors(world);
   // The original table has a small, fixed cast. Packs can contain a whole
@@ -124,22 +122,7 @@ export function turnOutcome(world) {
       receive: played?.receiveId || null,
       destination: played?.destinationId || null,
       accepted: played?.accepted ?? null,
-      ...(quest
-        ? {
-            quest: {
-              key: quest.key,
-              title: quest.program.name,
-              holder: {
-                kind: world.actors[played.targetId]
-                  ? "avatar"
-                  : world.items[played.targetId]
-                    ? "item"
-                    : "place",
-                id: played.targetId,
-              },
-            },
-          }
-        : {}),
+      ...(wantMet ? { wantMet: structuredClone(wantMet) } : {}),
     },
     avatars: actorIds.map((id) => {
       const actor = world.actors[id];
@@ -295,8 +278,6 @@ export function narrativeContext(world, action = null) {
       (entry) =>
         entry.turn === world.turn &&
         !entry.generated &&
-        entry.kind !== "quest" &&
-        !entry.questPlan &&
         (entry.locationId === location ||
           entry.fromLocationId === location ||
           entry.witnesses?.includes(currentActor(world))),
@@ -462,11 +443,16 @@ export function narrativeContext(world, action = null) {
           facts.push(
             `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: ${conflict.guarding[id] ? "guarding" : "open stance"}. Talk, trade, guard, attack or leave are available.`,
           );
-        const target = desireFor(world, id);
+        const want = wantHeard(world, played, id, currentActor(world))
+          ? wantOf(world, id)
+          : null;
         desire = {
-          items: target.items,
-          location: target.location,
-          avatars: target.avatars.filter((other) => known.includes(other)),
+          items: want?.kind === "item" ? [want.target] : [],
+          location: want?.kind === "place" ? want.target : null,
+          avatars:
+            want?.kind === "person" && known.includes(want.target)
+              ? [want.target]
+              : [],
         };
         if (hasMotives(world)) {
           const personal = motiveFacts(world, id, 2);
@@ -480,10 +466,6 @@ export function narrativeContext(world, action = null) {
           facts.push(
             `This is your first meeting with ${nameOf(currentActor(world))}. You were already here when ${nameOf(currentActor(world))} arrived. Greet this newcomer in your own voice.`,
           );
-        for (const c of target.conditions || [])
-          facts.push(
-            `${conditionMet(world, c, id) ? "Already true" : "Still hoped for"}: ${conditionText(c, nameOf)}.`,
-          );
         const helpers = Object.entries(world.actors[id].trust)
           .filter(([, n]) => n > 0)
           .map(([other]) => nameOf(other));
@@ -495,9 +477,7 @@ export function narrativeContext(world, action = null) {
           facts.push(
             carried(world, id).includes(item)
               ? `Already holds the wanted ${nameOf(item)}.`
-              : questItemAvailable(world, id, item)
-                ? `Shared use of ${nameOf(item)} with ${nameOf(rootHolder(world, item))} here satisfies this quest item. Its owner keeps it.`
-                : itemPlace(world, item) === world.actors[id].place
+              : itemPlace(world, item) === world.actors[id].place
                   ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.`
                   : `Wants ${nameOf(item)}.`,
           );
@@ -569,12 +549,7 @@ export function narrativeContext(world, action = null) {
         ...(kind === "avatar"
           ? {
               inner_life: world.memories[id].innerLife || null,
-              hope: lifeOf(world, id)
-                ? (([wish, next]) => ({
-                    wish: wish.slice(0, 240),
-                    next: next.slice(0, 240),
-                  }))(lifeFacts(world, id))
-                : null,
+              hope: null,
             }
           : {}),
       };

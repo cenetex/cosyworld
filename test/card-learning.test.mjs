@@ -21,6 +21,10 @@ function bargain() {
   world.actors.keeper.place = "station";
   world.items.lamp.holder = "vale";
   world.items.bell.holder = "keeper";
+  // Vale wants the keeper's oil for the whole exchange.
+  world.actors.vale.want = { kind: "item", target: "oil", since: 0, refusals: 0 };
+  // The keeper wants nothing for now, so its side of the request holds still.
+  world.actors.keeper.want = null;
   return world;
 }
 const askOil = (world) =>

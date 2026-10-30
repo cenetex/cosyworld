@@ -1,11 +1,9 @@
 import { privateView } from "./learning.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
-import { BOARDY } from "./boardyai.mjs";
 // One pure adapter for the browser model and the server's C-backed JS runtime.
 // The host supplies authenticated claims and presence on every operation.
 import {
   createWorld,
-  ensurePrograms,
   decodeSave,
   validateWorld,
   legalActions,
@@ -25,7 +23,6 @@ import {
   humanAvatarIds,
   roomHumanCount,
 } from "./human-cast.mjs";
-import { installQuestCollection } from "./quests.mjs";
 import { profiles } from "./memory.mjs";
 import { enableMotives } from "./motives.mjs";
 import { narrativeContext, applySharedReflections } from "./narrative.mjs";
@@ -121,10 +118,7 @@ export function dispatchShared(request) {
   if (request.op === "create") {
     const world =
       request.save == null
-        ? enableMotives(createWorld({ opening: true }), {
-            questPrograms: true,
-            personalQuests: true,
-          })
+        ? enableMotives(createWorld({ opening: true }))
         : importClientSave(request.save);
     if (!world.sharedVersion) settleHomeItems(world);
     enableShared(world);
@@ -144,11 +138,10 @@ export function dispatchShared(request) {
   const world = load(request);
   const actor = request.actor || "vale";
   if (request.op === "upgrade") {
-    for (const id of Object.keys(world.actors))
-      installQuestCollection(world, id);
+    // Loading already moved the save onto the current rules: quest records
+    // are dropped and each avatar holds one want.
     if (request.from === "full-card-world/2")
       settleHomeItems(world, world.controlledActors);
-    ensurePrograms(world, [BOARDY]);
     world.revision += 1;
     validateWorld(world);
     return response(world);
@@ -269,7 +262,7 @@ function migrate(request) {
   )
     throw new Error("This older shared world has an invalid save.");
   const world = enableShared(
-    enableMotives(createWorld(), { questPrograms: true, personalQuests: true }),
+    enableMotives(createWorld()),
   );
   const rooms = ["pond", ...humanAvatars.map((a) => a.home.id)];
   for (const [index, avatar] of humanAvatars.entries()) {

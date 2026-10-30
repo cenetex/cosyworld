@@ -80,7 +80,9 @@ describe("Greek section save upgrade", () => {
         "attic-forest-cottage": { discovered: false },
         "forest-cottage-attic": { discovered: false },
       });
-      for (const [id, actor] of Object.entries(before.actors)) {
+      for (const [id, { progress, ...actor }] of Object.entries(before.actors)) {
+        // Quest progress is dropped; the rest of the avatar survives.
+        expect(after.actors[id].progress).toBeUndefined();
         expect(after.actors[id]).toMatchObject(actor);
         for (const other of Object.keys(after.actors).filter(
           (key) => !before.actors[key],

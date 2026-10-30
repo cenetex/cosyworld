@@ -3,7 +3,6 @@ import { selectCard } from "./card-browser-helpers.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { humanAvatars, humanAvatarIds } from "../card-game/human-cast.mjs";
 import { places, things, people } from "../card-game/world.mjs";
-import { questCards } from "../card-game/quest-cards.mjs";
 
 // The real server tests cover the saved play journal. This fixture checks how
 // the shipping browser uses its per-avatar music permission on each snapshot.
@@ -29,22 +28,17 @@ export async function checkSharedMusicOpenings(browser, origin) {
       ...Object.keys(things),
       ...Object.keys(people),
     ];
-    const quests = questCards(project().world, actor).map((q) => q.key);
     await context.addInitScript(
-      ({ actor, seen, quests }) => {
+      ({ actor, seen }) => {
         const key = `cosyworld.reflected-shore.v1.shared.music-opening.${actor}`;
         localStorage.setItem(key + ".seen", JSON.stringify(seen));
-        localStorage.setItem(
-          key + ".quests",
-          JSON.stringify({ seen: quests, read: quests }),
-        );
         localStorage.setItem("cosyworld.dialogue.sound", "off");
         localStorage.setItem(
           "cosyworld.room-music",
           JSON.stringify({ enabled: true, volume: 0.18 }),
         );
       },
-      { actor, seen, quests },
+      { actor, seen },
     );
     await context.route("**/auth/account", (route) =>
       route.fulfill({ json: { authenticated: true } }),

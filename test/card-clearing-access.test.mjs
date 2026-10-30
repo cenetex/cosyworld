@@ -1,3 +1,4 @@
+import { newWant } from "../v2/card-game/want.mjs";
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it } from "vitest";
 import {
@@ -153,6 +154,9 @@ describe("the temporary ringing path to Forest Clearing", () => {
     s.items.lamp.fuel = 1;
     s.items.lamp.lit = true;
     s.items.cloth.holder = "pond";
+    // Pip wants the station and carries the ringing bell there.
+    s.actors.moth.want = newWant("place", "station", s.turn);
+    delete s.actors.moth.metTurn;
     const stale = cardPlay(s, ["clearing"]).action;
     s = act(s, "wait");
     expect(s.actors.moth.place).toBe("station");

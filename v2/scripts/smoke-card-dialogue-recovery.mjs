@@ -10,9 +10,7 @@ import {
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 
-let fixture = enableMotives(createWorld({ opening: true }), {
-  questPrograms: true,
-});
+let fixture = enableMotives(createWorld({ opening: true }));
 for (const kind of ["light", "move"])
   fixture = play(
     fixture,

@@ -1,3 +1,4 @@
+import { newWant } from "../v2/card-game/want.mjs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -214,11 +215,13 @@ describe.each([true, false])(
 
 it("removes entry after an autonomous carrier departure in the same completed turn", () => {
   const start = pond();
-  // Pip first completes the lamp hand at the pond, then seeks the keeper's oil.
+  // Pip first takes the wanted lamp at the pond, then wants the station.
   const s = play(
     start,
     legalActions(start).find((a) => a.kind === "wait"),
   ).state;
+  s.actors.moth.want = newWant("place", "station", s.turn);
+  delete s.actors.moth.metTurn;
   const stale = cardPlay(s, ["attic"]).action;
   const result = play(
     s,

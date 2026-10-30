@@ -11,12 +11,7 @@ import {
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-import {
-  knownActors,
-  programFor,
-  desireFor,
-  levelOf,
-} from "../v2/card-game/quests.mjs";
+import { knownActors, levelOf } from "../v2/card-game/want.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
 import {
   narrativeContext,
@@ -25,8 +20,7 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { sceneCast, currentScene } from "../v2/card-game/scene.mjs";
 
-const fresh = () =>
-  enableMotives(createWorld({ opening: true }), { questPrograms: true });
+const fresh = () => enableMotives(createWorld({ opening: true }));
 const choose = (s, kind, fields = {}) => {
   const action = legalActions(s).find(
     (a) =>
@@ -48,7 +42,7 @@ const meetEveryone = () =>
   });
 
 describe("the first light in the attic", () => {
-  it("starts with one avatar, an unlit carried lamp, and the light target hand", () => {
+  it("starts with one avatar, an unlit carried lamp, and the lamp as Vale's want", () => {
     const s = fresh();
     expect(s.actors.vale.place).toBe("attic");
     expect(s.items.lamp).toMatchObject({ holder: "vale", lit: false, fuel: 8 });
@@ -57,20 +51,14 @@ describe("the first light in the attic", () => {
     expect(exits(s, "attic")).toEqual([]);
     expect(exits(s, "station")).toEqual(["pond"]);
     expect(cardPlay(s, ["lamp"]).action.kind).toBe("light");
-    expect(programFor(s, "vale").name).toBe("Light the lamp");
-    expect(desireFor(s, "vale")).toMatchObject({
-      items: ["lamp"],
-      location: "attic",
-      avatars: [],
-      conditions: [{ kind: "lit", item: "lamp" }],
-    });
+    expect(s.actors.vale.want).toMatchObject({ kind: "item", target: "lamp" });
     expect(placeText(s, "attic")).toContain("Dust gathers");
     expect(JSON.stringify(narrativeContext(s))).not.toMatch(
       /keeper|moth|Pip|Oil flask|bell|cloth/,
     );
   });
 
-  it("keeps the waiting cast and their progress in place while the first play is delayed", () => {
+  it("keeps the waiting cast and their wants in place while the first play is delayed", () => {
     let s = fresh();
     const before = structuredClone([
       s.actors.moth,
@@ -88,7 +76,8 @@ describe("the first light in the attic", () => {
     expect(knownActors(s)).toEqual(["vale"]);
     expect(s.memories.moth.events).toEqual([]);
     expect(s.memories.keeper.events).toEqual([]);
-    expect(levelOf(s, "vale")).toBe(1);
+    // Vale already holds the lamp, so the first play meets that want.
+    expect(levelOf(s, "vale")).toBe(2);
     s = act(s, "light");
     expect(s.actors.vale.place).toBe("attic");
     expect(knownActors(s)).toEqual(["vale"]);
@@ -114,14 +103,10 @@ describe("the first light in the attic", () => {
     ).toEqual(["pond"]);
     expect(exits(lit, "attic")).toEqual(["pond"]);
     expect(levelOf(lit, "vale")).toBe(2);
-    const receipt = lit.log.find(
-      (e) => e.kind === "quest" && e.actorId === "vale",
+    const met = lit.log.find(
+      (e) => e.verb === "want_met" && e.actorId === "vale",
     );
-    expect(receipt.fulfillment).toMatchObject({
-      location: "attic",
-      items: ["lamp"],
-      conditions: [{ kind: "lit", item: "lamp", met: true }],
-    });
+    expect(met.wantMet).toEqual({ kind: "item", target: "lamp" });
     expect(turnOutcome(lit)).toMatchObject({
       card: { kind: "light" },
       avatars: [{ id: "vale", location: "attic", travel: null }],
@@ -223,14 +208,9 @@ describe("the first light in the attic", () => {
     ).toContain("An open passage is visible in the reflection.");
   });
 
-  it("meets the keeper on reaching the station, then grows a new program from the discovered world", () => {
+  it("meets the keeper on reaching the station", () => {
     let s = act(fresh(), "light");
     s = act(s, "move", { target: "pond" });
-    expect(desireFor(s, "vale")).toEqual({
-      items: ["lamp"],
-      location: "station",
-      avatars: [],
-    });
     expect(knownActors(s)).toEqual(["vale", "moth"]);
     const keeper = structuredClone(s.actors.keeper);
     s = act(s, "move", { target: "station" });
@@ -239,11 +219,6 @@ describe("the first light in the attic", () => {
     expect(narrativeContext(s).speakers).toEqual(["vale", "keeper", "moth"]);
     expect(knownActors(s)).toEqual(["vale", "moth", "keeper"]);
     expect(availableCards(s)).toContain("keeper");
-    expect(levelOf(s, "vale")).toBe(3);
-    expect(programFor(s, "vale").generated).toMatchObject({
-      level: 3,
-      turn: 3,
-    });
     expect(
       turnOutcome(s).avatars.find((a) => a.id === "keeper").travel,
     ).toBeNull();
@@ -291,13 +266,16 @@ describe("the first light in the attic", () => {
     expect(validateWorld(s)).toBe(s);
   });
 
-  it("keeps new and existing saves on their own routes and authored hands", () => {
+  it("keeps new and existing saves on their own routes and authored wants", () => {
     const old = createWorld();
     const restored = decodeSave(encodeSave(old));
     expect(restored).toEqual(old);
     expect(restored.opening).toBeUndefined();
     expect(exits(restored, "attic")).toEqual([]);
-    expect(programFor(restored, "vale").id).toBe("borrowed-light");
+    expect(restored.actors.keeper.want).toMatchObject({
+      kind: "item",
+      target: "bell",
+    });
     for (const s of [fresh(), act(fresh(), "light"), meetEveryone()])
       expect(decodeSave(encodeSave(s))).toEqual(s);
   });
@@ -317,7 +295,7 @@ describe("the first light in the attic", () => {
     }
   });
 
-  it("keeps trading and levelling through cooperative play after the opening", () => {
+  it("keeps meeting wants and trading through cooperative play after the opening", () => {
     for (const seedStart of [7, 42, 1729]) {
       let s = meetEveryone(),
         seed = seedStart,
@@ -349,7 +327,8 @@ describe("the first light in the attic", () => {
       }
       expect(levelOf(s, "moth")).toBeGreaterThan(3);
       expect(levelOf(s, "keeper")).toBeGreaterThan(3);
-      expect(trades).toBeGreaterThan(3);
+      // Trades are one escalation among several; most wants end sooner.
+      expect(trades).toBeGreaterThan(0);
       expect(decodeSave(encodeSave(s))).toEqual(s);
     }
   }, 60_000);

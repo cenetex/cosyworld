@@ -50,50 +50,21 @@ exports[`want data > keeps the hub tastes and decisions 2`] = `
     "keeper": [
       3,
       8,
-      10,
+      16,
       6,
     ],
     "moth": [
-      12,
+      18,
       3,
       1,
       6,
     ],
     "vale": [
-      8,
+      14,
       5,
       5,
       4,
     ],
-  },
-  "wants": {
-    "keeper": {
-      "avatars": [],
-      "items": [
-        "bell",
-      ],
-      "location": "station",
-      "reason": "Quiet hours and properly returned things",
-      "text": "Interested in the Bell",
-    },
-    "moth": {
-      "avatars": [],
-      "items": [
-        "lamp",
-      ],
-      "location": "station",
-      "reason": "Warm light and a splendid waistcoat",
-      "text": "Interested in the Lamp",
-    },
-    "vale": {
-      "avatars": [],
-      "items": [
-        "lamp",
-      ],
-      "location": "station",
-      "reason": "Interesting routes and a decent bargain",
-      "text": "Interested in the Lamp",
-    },
   },
 }
 `;

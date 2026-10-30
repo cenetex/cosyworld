@@ -4,14 +4,8 @@ import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { encodeSave } from "../card-game/world.mjs";
-import {
-  activeQuests,
-  openingPoem,
-  questCards,
-  questHistoryCards,
-} from "../card-game/quest-cards.mjs";
-import { dropQuest } from "../card-game/quest-hands.mjs";
-import { joinQuest } from "../card-game/shared-quests.mjs";
+import { recitalPoem } from "../card-game/pack-recital.mjs";
+import { packDefinition } from "../card-game/pack-registry.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { narrativeContext } from "../card-game/narrative.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
@@ -26,23 +20,14 @@ export async function checkOpeningPoem(browser, origin) {
       const world = structuredClone(
         fixtures.beforeGraveReport || fixtures.returning,
       );
-      // This saved poem scene carries the report alongside one personal purpose.
-      const report = questHistoryCards(world).find(
-        (quest) =>
-          quest.key.startsWith("greek-drama:story-quest-greek-courtyard") &&
-          quest.status === "pending",
-      );
-      assert.ok(report, "The courtyard report is ready to carry");
-      if (!questCards(world).some((quest) => quest.key === report.key)) {
-        // Make room in a full two-card hand, preferring another story card.
-        const spare =
-          questCards(world).find((quest) => quest.story) ||
-          (questCards(world).length >= 2 && questCards(world)[0]);
-        if (spare) assert.ok(dropQuest(world, "vale", spare.key));
-        assert.ok(joinQuest(world, "vale", report.key));
-      }
-      assert.ok(questCards(world).some((quest) => quest.key === report.key));
-      assert.equal(questCards(world).length, 2);
+      // The Bard's quest is to hear Vale's account. The world rules carry
+      // it to the courtyard by its known roads; the Talk there meets it.
+      world.actors["greek-rhapsode"].want = {
+        kind: "person",
+        target: "vale",
+        since: world.turn,
+        refusals: 0,
+      };
       const table = `poem-${branch}-${width}`;
       const key = `cosyworld.reflected-shore.v1.${table}`;
       const page = await browser.newPage({
@@ -58,14 +43,10 @@ export async function checkOpeningPoem(browser, origin) {
       page.on("pageerror", (e) => errors.push(e.message));
       try {
         await page.addInitScript(
-          ({ key, save, seen, quests }) => {
+          ({ key, save, seen }) => {
             if (!localStorage.getItem(key)) {
               localStorage.setItem(key, save);
               localStorage.setItem(key + ".seen", JSON.stringify(seen));
-              localStorage.setItem(
-                key + ".quests",
-                JSON.stringify({ seen: quests, read: quests }),
-              );
             }
             localStorage.setItem("cosyworld.dialogue.sound", "off");
             localStorage.setItem(
@@ -77,7 +58,6 @@ export async function checkOpeningPoem(browser, origin) {
             key,
             save: encodeSave(world),
             seen: Object.keys(profiles),
-            quests: activeQuests(world).map((q) => q.key),
           },
         );
         await page.route("**/card-game/text", (route) => {
@@ -121,8 +101,8 @@ export async function checkOpeningPoem(browser, origin) {
           ),
           "The toolbar fits the screen",
         );
-        // The story has no card. Since #1451 Talk carries one want line,
-        // not open-story lines; the save still holds the report quest.
+        // The story has no card, and quests are not cards: Talk carries
+        // one want line, not open-story lines.
         assert.equal(
           await page
             .locator('#hand [data-card="story-quest-greek-courtyard"]')
@@ -147,11 +127,12 @@ export async function checkOpeningPoem(browser, origin) {
             : `greek-courtyard-${branch}`;
         await page.locator(`[data-choice="${choice}"]`).click();
         await settle();
-        const expected = openingPoem(fixtures.closed).stanzas.map((s) =>
-          s.lines.join(" "),
-        );
-        // The longer burial route leaves one ordinary step before arrival.
-        for (let step = 0; step < 4; step++) {
+        const expected = recitalPoem(
+          fixtures.closed,
+          packDefinition("greek-drama"),
+        ).stanzas.map((s) => s.lines.join(" "));
+        // The Bard sails and walks from wherever the fixture left it.
+        for (let step = 0; step < 10; step++) {
           const arrived = await page.evaluate((key) => {
             const s = JSON.parse(localStorage.getItem(key));
             return s.actors["greek-rhapsode"].place === s.actors.vale.place;
@@ -193,10 +174,24 @@ export async function checkOpeningPoem(browser, origin) {
         });
         await page.reload();
         await settle();
-        await speak();
+        // Hearing Vale met the Bard's quest; after reload the saved world
+        // keeps that fact and sends the Bard home by the world rules.
+        const bard = await page.evaluate((key) => {
+          const s = JSON.parse(localStorage.getItem(key));
+          return {
+            xp: s.actors["greek-rhapsode"].xp,
+            want: s.actors["greek-rhapsode"].want,
+            met: s.log.filter(
+              (e) => e.verb === "want_met" && e.actorId === "greek-rhapsode",
+            ).length,
+          };
+        }, key);
+        assert.ok(bard.met >= 1, "The Bard's quest was met by the Talk");
+        assert.ok(bard.xp >= 1);
+        assert.notDeepEqual(bard.want?.target, "vale");
         assert.deepEqual(errors, []);
         console.log(
-          `Opening poem: ${branch}, ${width}px, story line in Talk, quest-site bard, full song context, talk, and reload passed.`,
+          `Opening poem: ${branch}, ${width}px, story line in Talk, the Bard's quest to hear Vale, full song context, talk, and reload passed.`,
         );
       } finally {
         await page.close();

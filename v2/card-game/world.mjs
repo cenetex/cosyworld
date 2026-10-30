@@ -1,48 +1,14 @@
-import { captureQuestHands, advanceQuestPrograms } from "./quest-progress.mjs";
 import { expressionOf } from "./expression.mjs";
 import { recordLearning, beginLearning, reconsiderPlan } from "./learning.mjs";
-import {
-  dropQuest,
-  questCarried,
-  carryQuest,
-  questHolderActor,
-  canCarryQuest,
-  questHandKeys,
-  settleQuestHands,
-  validQuestHands,
-} from "./quest-hands.mjs";
-import { syncStoryQuests, validStoryQuest } from "./story-quests.mjs";
-import {
-  installRoamingQuests,
-  roamingPlan,
-  roamingHelpPlan,
-  settleRoamingArrival,
-  roamingHelpMet,
-  validRoamingQuests,
-} from "./roaming-quests.mjs";
 import {
   roamingActors,
   authoredRouteEdges,
   initialRouteEdges,
   visibleRouteEdges,
-  witnessedRouteEdges,
+  rememberRoutes,
+  knownRoute,
+  validRouteKnowledge,
 } from "./roaming-routes.mjs";
-import {
-  collectionCards,
-  installSharedQuestRegistry,
-  questRecord,
-  questRecords,
-  focusedQuest,
-  focusQuest,
-  joinQuest,
-  canJoinQuest,
-  shareQuest,
-  validSharedQuestRegistry,
-} from "./shared-quests.mjs";
-import {
-  publishQuestCompletions,
-  validQuestCompletions,
-} from "./quest-completions.mjs";
 import { arriveRecitals, arriveRoamingRecitals } from "./pack-recital.mjs";
 import {
   currentActor,
@@ -69,14 +35,12 @@ export {
   itemPlace as sharedItemPlace,
 } from "./shared-rules.mjs";
 import {
-  hasMotives,
-  hasQuestPrograms,
+  enableMotives,
   resentment,
   valueOf,
   tradeDecision,
   giftDecision,
   socialTravel,
-  socialPlan,
   recordReaction,
   validMotives,
   tastes,
@@ -91,48 +55,26 @@ import {
   validKnowledge,
 } from "./knowledge.mjs";
 import {
-  programsFor,
-  personalQuestActor,
   knownActors as readKnownActors,
-  newProgress,
-  programFor,
-  savedProgramFor,
-  desireFor,
+  installWants,
   levelOf,
-  targetsFor,
-  alternatives,
-  generateProgram,
-  sequence,
-  actorQuests,
-  installQuestCollection,
-  ensureCollectedQuest,
-  collectExperienceQuests,
-  pursueQuest,
-} from "./quests.mjs";
+  wantOf,
+  travels,
+  resting,
+  settleWants,
+  refuseWant,
+  reviseStalledWants,
+  validWant,
+  WANT_KINDS,
+} from "./want.mjs";
 import {
-  lifeOf,
-  questActive,
   keepReason,
-  stayingWith,
+  installLife,
   recordLifeAction,
-  validExperience,
   validLife,
-  installHumanLife,
-  hopeOf,
-  settleLife,
-  purposeOrigin,
 } from "./life.mjs";
 import {
-  conditionMet,
-  questItemAvailable,
-  conditionText,
-  requiredItems,
-  validCondition,
-  validConsequence,
-} from "./situations.mjs";
-import {
   packPlaces,
-  canonicalPlace,
   packThings,
   crossings,
   entityActive,
@@ -196,26 +138,14 @@ import {
   knowsLane,
   learnLane,
   laneOfEdge,
-  seaEdge,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
-import { shareStoryEndings } from "./story-life.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { BOARDY } from "./boardyai.mjs";
-import {
-  introductionPair,
-  introductionPlan,
-  validIntroductionProgram,
-  introductionTarget,
-  recordIntroductionTurn,
-  validIntroductionVisits,
-} from "./introductions.mjs";
 
 // Authored forest data and mounted packs share the same rule path.
 export const places = { ...forest.places, ...packPlaces };
 const homeGates = { ...forest.homeGates, ...humanHomeGates };
-const itemGateCrossings = crossings.filter((crossing) =>
-  crossing.requires.some((condition) => condition.kind === "item_present"));
 export const sanctuaries = Object.keys(places).filter(
   (id) => places[id].sanctuary === true,
 );
@@ -295,7 +225,9 @@ export function createWorld({ opening = false, packScopes = {} } = {}) {
       throw new Error("Unknown content scope.");
     world.packs[id].scope = scope;
   }
-  installRoamingQuests(world, roamingActors, roamingAPI(world));
+  enableMotives(world);
+  installLife(world, travels);
+  installRouteKnowledge(world);
   installKnowledge(world);
   rememberEvent(world, world.log[0]);
   return world;
@@ -315,7 +247,6 @@ function installPacks(s) {
       if (s.actors[id]) throw new Error("A pack resident is already present.");
       s.actors[id] = {
         place: a.place,
-        progress: newProgress(),
         crossed: 0,
         lastTalk: -9,
         trust: Object.fromEntries(
@@ -337,8 +268,18 @@ function installPacks(s) {
         if (other !== id) actor.trust[other] ??= 0;
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
-  installHumanLife(s, (id) => tastes[id]);
-  installRoamingQuests(s, roamingActors, roamingAPI(s));
+  installLife(s, travels);
+  installRouteKnowledge(s);
+  installWants(s);
+}
+// Travellers who learn the roads start from their home region's routes.
+function installRouteKnowledge(s) {
+  s.routeKnowledge ??= {};
+  for (const actor of roamingActors)
+    if (!s.routeKnowledge[actor]) {
+      rememberRoutes(s, actor, initialRouteEdges(actor));
+      rememberRoutes(s, actor, visibleRouteEdges(s.actors[actor].place));
+    }
 }
 export function rootHolder(s, id) {
   let holder = s.items[id].holder;
@@ -512,15 +453,6 @@ export function exits(s, place, actor = null, previous = null) {
   );
 }
 
-const programPlaces = (s) =>
-  s.opening
-    ? Object.fromEntries(
-        Object.keys(places).map((id) => [
-          id,
-          { ...places[id], exits: exits(s, id) },
-        ]),
-      )
-    : places;
 function meetCast(s) {
   const player = currentActor(s);
   for (const [id, a] of Object.entries(packPeople))
@@ -547,99 +479,35 @@ const canReach = (s, actor, item) =>
   (itemPlace(s, item) === s.actors[actor].place &&
     !actorIds.includes(rootHolder(s, item))) ||
   rootHolder(s, item) === actor;
-const canUse = (s, actor, item) =>
-  canReach(s, actor, item) || questItemAvailable(s, actor, item);
+const canUse = canReach;
 const loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
 const hasSpace = (s, actor, id) =>
   carried(s, actor).length +
     (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <=
   3;
-export function handStatus(s, actor, hand = desireFor(s, actor)) {
-  const held = carried(s, actor),
-    here = s.actors[actor].place;
-  const items = hand.items.map((id) => ({
-    id,
-    met: questItemAvailable(s, actor, id),
-    ...(!held.includes(id) && questItemAvailable(s, actor, id)
-      ? { sharedBy: rootHolder(s, id) }
-      : {}),
-  }));
-  const location = {
-    id: hand.location,
-    met: !hand.location || here === hand.location,
-  };
-  const avatars = hand.avatars.map((id) => ({
-    id,
-    met: s.actors[id].place === here,
-  }));
-  const conditions = (hand.conditions || []).map((c) => ({
-    ...c,
-    met: conditionMet(s, c, actor),
-  }));
-  return {
-    items,
-    location,
-    avatars,
-    conditions,
-    met:
-      items.every((e) => e.met) &&
-      location.met &&
-      avatars.every((e) => e.met) &&
-      conditions.every((e) => e.met) &&
-      roamingHelpMet(s, hand, roamingAPI(s)),
-  };
-}
-export function handText(hand) {
-  return [
-    hand.items.length
-      ? `hold ${hand.items.map(nameOf).join(" + ")}`
-      : "hold any items",
-    hand.location ? `at ${nameOf(hand.location)}` : "in any place",
-    hand.avatars.length
-      ? `with ${hand.avatars.map(nameOf).join(" + ")}`
-      : "with any company",
-    ...(hand.conditions || []).map((c) => conditionText(c, nameOf)),
-  ].join(" · ");
+// A want in words, for cards and history.
+export function wantText(want) {
+  if (!want) return "nothing in particular";
+  if (want.kind === "item") return `hold ${nameOf(want.target)}`;
+  if (want.kind === "place") return `be at ${nameOf(want.target)}`;
+  return `talk with ${nameOf(want.target)}`;
 }
 const bundle = (s, item) => [
   item,
   ...(s.items.cloth.holder === item ? ["cloth"] : []),
 ];
-const needed = (s, actor, item) =>
-  bundle(s, item).some((id) =>
-    requiredItems(s, actor, desireFor(s, actor)).includes(id),
-  );
-const accepts = (s, actor, item) =>
-  (hasMotives(s) && valueOf(s, actor, item) >= 2) ||
-  controlledByHuman(s, actor) ||
-  (item === "lamp" && !s.items.lamp.fuel && s.items.oil.doses > 0 &&
-    rootHolder(s, "oil") === actor && !staysPut(actor) &&
-    (s.actors[actor].place === "attic" || desireFor(s, actor).location === "attic")) ||
-  bundle(s, item).some(
-    (id) =>
-      requiredItems(s, actor, desireFor(s, actor)).includes(id) &&
-      rootHolder(s, id) !== actor,
-  );
-// The cast gives a spare once its own items are in hand. After Vale has gone
-// a long while without completing a hand, it gives Vale spares sooner, so the
-// player always has a way forward.
-export const valeStalled = (s) =>
-  s.turn - (s.actors.vale.progress.marks.at(-1) || 0) >= 24;
+// An item is needed when it is, or carries, the actor's wanted item.
+const needed = (s, actor, item) => {
+  const want = wantOf(s, actor);
+  return want?.kind === "item" && bundle(s, item).includes(want.target);
+};
 export function willingToGive(s, owner, item, recipient = null) {
-  if (hasMotives(s) && recipient && resentment(s, owner, recipient))
-    return false;
-  if (!hasQuestPrograms(s) || lifeOf(s, owner))
-    return (
-      !controlledByHuman(s, owner) &&
-      recipient !== null &&
-      giftDecision(s, owner, item, recipient).accepted
-    );
   return (
     !controlledByHuman(s, owner) &&
+    recipient !== null &&
+    !resentment(s, owner, recipient) &&
     !needed(s, owner, item) &&
-    (handStatus(s, owner).items.every((e) => e.met) ||
-      (recipient && s.actors[owner].trust[recipient] > 0) ||
-      (recipient === "vale" && valeStalled(s)))
+    giftDecision(s, owner, item, recipient).accepted
   );
 }
 // A trade is possible when both items are in hand and both sides have room.
@@ -662,16 +530,15 @@ export function tradePossible(s, actor, give, receive) {
     carried(s, other).length - incoming + outgoing <= 3
   );
 }
+// Nobody trades away their own want; anyone takes it in trade.
+// A grudge raises the price in tradeDecision; the other side's own want is
+// worth any grudge.
 function tradeWilling(s, actor, give, receive) {
   const other = s.items[receive].holder;
-  return hasMotives(s)
-    ? tradeDecision(s, actor, give, receive).accepted ||
-        (hasQuestPrograms(s) &&
-          !s.life &&
-          !resentment(s, other, actor) &&
-          needed(s, other, give) &&
-          !needed(s, other, receive))
-    : accepts(s, other, give) && !needed(s, other, receive);
+  return (
+    !needed(s, other, receive) &&
+    (needed(s, other, give) || tradeDecision(s, actor, give, receive).accepted)
+  );
 }
 export function canTrade(s, actor, give, receive) {
   return (
@@ -679,28 +546,25 @@ export function canTrade(s, actor, give, receive) {
     tradeWilling(s, actor, give, receive)
   );
 }
-function giftWilling(s, actor, item, recipient) {
+function giftWilling(s, item, recipient) {
   return (
-    accepts(s, recipient, item) ||
-    targetsFor(s, actor).some((h) =>
-      h.conditions?.some(
-        (c) => c.kind === "heldBy" && c.item === item && c.avatar === recipient,
-      ),
-    )
+    controlledByHuman(s, recipient) ||
+    needed(s, recipient, item) ||
+    valueOf(s, recipient, item) >= 2
   );
 }
 // Refusal reasons are recorded on the play so the cast can say them.
 export const REFUSAL_REASONS = ["grudge", "needs-it", "wants-something-else"];
 function refusalReason(s, a) {
   const other = a.kind === "trade" ? s.items[a.receive].holder : a.target;
-  if (hasMotives(s) && resentment(s, other, a.actor)) return "grudge";
+  if (resentment(s, other, a.actor)) return "grudge";
   if (a.kind === "trade" && needed(s, other, a.receive)) return "needs-it";
   return "wants-something-else";
 }
 // What the other side will say to a Give or Trade. The residents' planner
-// uses this so it only makes offers it expects to be accepted.
+// reads this to avoid some offers it expects to be refused.
 export function expects(s, a) {
-  if (a.kind === "give") return giftWilling(s, a.actor, a.item, a.target);
+  if (a.kind === "give") return giftWilling(s, a.item, a.target);
   if (a.kind === "trade") return tradeWilling(s, a.actor, a.item, a.receive);
   return true;
 }
@@ -710,158 +574,65 @@ const refusalText = {
     `${other} needs the ${nameOf(a.receive)}.`,
   "wants-something-else": (other) => `${other} wants something else.`,
 };
-function captureHands(s, met) {
-  captureQuestHands(s, met, { actorIds, handStatus });
+// Places an actor can route to now, for drawing a next want.
+function reachable(s, actor) {
+  const from = s.actors[actor].place,
+    seen = new Set([from]),
+    queue = [from];
+  for (let i = 0; i < queue.length; i++)
+    for (const next of exits(s, queue[i], actor))
+      if (!seen.has(next) && entityActive(s, next)) {
+        seen.add(next);
+        queue.push(next);
+      }
+  return [...seen].filter((id) => id !== from && !transportPlace(id)).sort();
 }
-// Each new program reads the programs chosen before it in the same round, so two
-// actors never pick goals against each other's stale wants.
-export function ensurePrograms(s, candidates = actorIds) {
-  const placesForGeneration = () => programPlaces(s);
-  for (const actor of candidates.filter(
-    (id) =>
-      personalQuestActor(id) &&
-      (id !== BOARDY || (lifeOf(s, id) && entityActive(s, id))),
-  )) {
-    const p = s.actors[actor].progress;
-    if (ensureCollectedQuest(s, actor, placesForGeneration, things)) continue;
-    if (p.program >= programsFor(s, actor).length && !p.current) {
-      p.completedHands ??= programsFor(s, actor).reduce(
-        (n, program) => n + program.steps.length,
-        0,
-      );
-      p.recent ??= [];
-      p.recentKinds ??= [];
-      if (!questActive(s, actor)) continue;
-      p.current = generateProgram(
-        structuredClone(s),
-        actor,
-        programPlaces(s),
-        things,
-      );
-    }
-  }
-}
-// Cast members reconsider an unfinished bargain after twelve turns. Keep the
-// completed prefix; every remaining hand still needs a real world match.
-function refreshStalledPrograms(s) {
-  if (!hasQuestPrograms(s)) return;
-  for (const actor of knownActors(s).filter(
-    (id) => !controlledByHuman(s, id) && personalQuestActor(id),
-  )) {
-    const p = s.actors[actor].progress,
-      current = programFor(s, actor);
-    if (lifeOf(s, actor)?.collection) continue;
-    if (
-      !current?.generated ||
-      s.turn - Math.max(current.generated.turn, p.marks.at(-1) || 0) < 12
-    )
-      continue;
-    const fresh = generateProgram(
-      structuredClone(s),
-      actor,
-      programPlaces(s),
-      things,
-      {
-        independent: true,
-        solo: s.turn - (p.marks.at(-1) || 0) >= 24,
-      },
-    );
-    const unfinished = fresh.steps.filter(
-      (step) => !alternatives(step).some((h) => handStatus(s, actor, h).met),
-    );
-    if (!unfinished.length) continue;
-    p.current = {
-      ...fresh,
-      steps: sequence(
-        current.steps.slice(0, p.step),
-        unfinished.slice(0, current.steps.length - p.step),
-      ),
-    };
-    addLog(
-      s,
-      "World",
-      `${nameOf(actor)} finds a new purpose: ${handText(desireFor(s, actor))}.`,
-      {
-        actorId: actor,
-        questPlan: structuredClone(p.current),
-      },
-    );
-  }
-}
-function applyConsequence(s, actor, target) {
-  const effect = target.consequence;
-  if (!effect) return;
-  let text;
-  switch (effect.kind) {
-    case "anchor":
-      s.locations.attic.anchored = true;
-      text =
-        "The mirror remembers the crossing. Light at either shore opens the way back to the attic.";
-      break;
-    case "oil":
-      s.items.oil.doses = 3;
-      s.locations.pond.answer = "call";
-      remember(
-        s,
-        "oil",
-        "The pond answered the bell. Three measures of oil fill the flask.",
-      );
-      text =
-        "The pond answers the bell. Three measures of oil fill the flask, wherever its carrier stands.";
-      break;
-    case "hush":
-      s.locations.pond.answer = "hush";
-      for (const c of [...s.standoffs].filter((c) => c.location === "pond"))
-        closeStandoff(s, c);
-      text =
-        "The pond accepts the muffled bell. Its shore becomes a refuge: the cast will settle disputes here until the bell rings again.";
-      break;
-    case "trust":
-      s.actors[effect.avatar].trust[actor] = Math.min(
-        3,
-        s.actors[effect.avatar].trust[actor] + 1,
-      );
-      text = `${nameOf(effect.avatar)} remembers ${nameOf(actor)}'s help. They will share spare items sooner and accept a detour in their company.`;
-      break;
-  }
-  addLog(s, "World", text, {
-    actorId: actor,
-    consequence: structuredClone(effect),
-    itemId: effect.kind === "oil" ? "oil" : undefined,
-    targetId: effect.avatar,
-  });
-}
-function advancePrograms(s, met) {
-  return advanceQuestPrograms(s, met, {
-    applyConsequence,
-    ensurePrograms,
+const homeOf = (id) =>
+  tastes[id]?.home || humanAvatar(id)?.home?.id || null;
+function wantAPI(s) {
+  return {
+    carried: (actor) => carried(s, actor),
+    rootHolder: (item) => rootHolder(s, item),
+    valueOf: (actor, item) => valueOf(s, actor, item),
+    reachable: (actor) => reachable(s, actor),
+    home: homeOf,
     sanctuaries,
-    nameOf,
-    handText,
-    addLog,
-  });
+    log: (actor, want) =>
+      addLog(
+        s,
+        "World",
+        want.kind === "item"
+          ? `${nameOf(actor)} has the ${nameOf(want.target)} at last.`
+          : want.kind === "place"
+            ? `${nameOf(actor)} reaches ${nameOf(want.target)}.`
+            : `${nameOf(actor)} and ${nameOf(want.target)} talk at last.`,
+        {
+          kind: "narration",
+          actorId: actor,
+          verb: "want_met",
+          wantMet: { kind: want.kind, target: want.target },
+          ...(want.kind === "item" ? { itemId: want.target } : {}),
+          ...(want.kind === "person" ? { targetId: want.target } : {}),
+        },
+      ),
+  };
 }
-
-// Accepted speech can reveal a new fact during the same saved turn.
-export function refreshQuestProgress(s) {
-  const met = new Map();
-  captureHands(s, met);
-  publishCompletions(s, advancePrograms(s, met));
-}
-// Story endings written this turn also reach lives and shared news.
-function publishCompletions(s, completions) {
-  shareStoryEndings(s, publishQuestCompletions(s, completions), {
-    nameOf,
-    present: (place) =>
-      knownActors(s).filter(
+// Who can meet a want this turn: the cast that acts and the people it met.
+// Pack residents join only when they act or are spoken to, so a resident
+// already at its wanted place does not fill the history unseen.
+function wantActors(s, extra = []) {
+  return [
+    ...new Set([
+      ...actorIds.filter(
         (id) =>
-          s.actors[id].place === place &&
+          travels(id) &&
           entityActive(s, id) &&
           (!controlledByHuman(s, id) || humanPresent(s, id)),
       ),
-  });
+      ...extra,
+    ]),
+  ].filter((id) => s.actors[id] && entityActive(s, id));
 }
-// The table's record of a Wait; narration reads it to know who rested.
 export const waitNarration = (actor) =>
   `${nameOf(actor)} waits. The cast takes a turn.`;
 export function addLog(s, speaker, text, detail = {}) {
@@ -940,7 +711,10 @@ function talkKnowledge(s, action, entry) {
       ];
   for (const [speaker, listener] of pairs) {
     if (expressionOf(people[speaker]) !== "speech") continue;
-    const choices = packChoices(s, listener);
+    // A story choice is the listener's own deed: only their Talk commits it.
+    // A resident who seeks them out may tell the account, which their own
+    // later Talk can still turn into the choice, one choice per turn.
+    const choices = listener === action.actor ? packChoices(s, listener) : [];
     const topics = authoredKnowledgeTopics()
       .filter((topic) =>
         conditionsMet(s, topic.packId, topic.requires || [], listener),
@@ -1055,15 +829,6 @@ export function publishKnowledgeSpeech(s, entry, disclosures) {
       locationId: s.actors[listener].place,
     });
   }
-  if (learned.length) {
-    const met = new Map();
-    captureHands(s, met);
-    publishCompletions(s, [
-      ...advancePrograms(s, met),
-      ...syncStoryQuests(s, learned[0].listener),
-    ]);
-    settleQuestHands(s);
-  }
   return learned;
 }
 // Rules read recent history, so generated words never shorten the authoritative
@@ -1101,15 +866,7 @@ function remember(s, item, text) {
   s.items[item].history = s.items[item].history.slice(-12);
 }
 function transfer(s, item, holder, text) {
-  const owned = new Map(
-    questRecords(s).map((q) => [q.key, questHolderActor(s, q)]),
-  );
   s.items[item].holder = holder;
-  settleQuestHands(s);
-  for (const q of questRecords(s)) {
-    const actor = questHolderActor(s, q);
-    if (actor && actor !== owned.get(q.key)) carryQuest(s, actor, q);
-  }
   remember(s, item, text);
 }
 function offer(kind, actor, item, target, text, cards) {
@@ -1187,142 +944,39 @@ export function accompanyDecision(
     return invited && packJourneyDestination(s, companion) === destination
       ? { accepted: true, reason: "Follow the road we agreed to take." }
       : { accepted: false, reason: "Keep to the agreed journey." };
-  if (hasMotives(s)) {
-    const social = socialTravel(s, actor, companion, destination);
-    if (
-      !hasQuestPrograms(s) ||
-      resentment(s, companion, actor) ||
-      social.accepted
-    )
-      return social;
-  }
+  if (resentment(s, companion, actor))
+    return socialTravel(s, actor, companion, destination);
+  // A companion goes along when the trip brings its own want closer.
+  const want = wantOf(s, companion);
+  // A companion stays near its wanted item when the requester carries it.
+  if (want?.kind === "item" && rootHolder(s, want.target) === actor)
+    return {
+      accepted: true,
+      reason: `Stay near the wanted ${nameOf(want.target)}.`,
+    };
+  const goal =
+    want?.kind === "place"
+      ? want.target
+      : want?.kind === "person"
+        ? s.actors[want.target]?.place
+        : want?.kind === "item" && rootHolder(s, want.target) !== companion
+          ? itemPlace(s, want.target)
+          : null;
   const distance = (from, to) => {
     const route = routeBetween(s, from, to);
     return route ? route.length - 1 : Infinity;
   };
-  const closer = (place) =>
-    distance(destination, place) < distance(here, place);
-  const agree = (reason) => ({ accepted: true, reason });
-  if (
-    s.life &&
-    targetsFor(s, actor).some(
-      (hand) =>
-        hand.location &&
-        closer(hand.location) &&
-        hand.items.some(
-          (id) =>
-            rootHolder(s, id) === companion && questItemAvailable(s, actor, id),
-        ),
-    )
-  )
-    return agree("Keep our shared belongings with us for this journey.");
-  for (const hand of targetsFor(s, companion)) {
-    const missing = requiredItems(s, companion, hand).filter(
-      (id) => rootHolder(s, id) !== companion,
-    );
-    // Collect a wanted object here before leaving it behind. Objects carried
-    // by the requester travel with the pair and remain within reach.
-    if (
-      missing.some(
-        (id) => itemPlace(s, id) === here && rootHolder(s, id) !== actor,
-      )
-    )
-      continue;
-    const distant = missing.filter((id) => rootHolder(s, id) !== actor);
-    const sought = distant.find((id) => closer(itemPlace(s, id)));
-    if (sought) return agree(`Seek the ${nameOf(sought)}.`);
-    if (distant.length) continue;
-    if (hand.location) {
-      if (closer(hand.location))
-        return agree(`Reach ${nameOf(hand.location)} for the target hand.`);
-      continue;
-    }
-    const company = hand.avatars.filter((id) => id !== actor);
-    const meet = company.find((id) => closer(s.actors[id].place));
-    if (meet) return agree(`Meet ${nameOf(meet)}.`);
-    if (company.every((id) => s.actors[id].place === destination))
-      return agree(`Travel in ${nameOf(actor)}'s company.`);
-  }
+  if (goal && (goal === destination || distance(destination, goal) < distance(here, goal)))
+    return {
+      accepted: true,
+      reason: `${nameOf(goal)} is on the way to what I want.`,
+    };
   if (s.actors[companion].trust[actor] > 0)
     return {
-      ...agree(`Remember ${nameOf(actor)}'s help and share this detour.`),
-      favor: true,
+      accepted: true,
+      reason: `Remember ${nameOf(actor)}'s help and share this detour.`,
     };
-  return {
-    accepted: false,
-    reason: `Pursue this hand first: ${handText(desireFor(s, companion))}.`,
-  };
-}
-
-function visibleQuest(s, actor, quest) {
-  const holder = quest.holder;
-  if (!holder || !entityActive(s, holder.id)) return false;
-  const here = s.actors[actor].place;
-  return holder.kind === "place"
-    ? holder.id === here
-    : holder.kind === "item"
-      ? itemPlace(s, holder.id) === here
-      : s.actors[holder.id]?.place === here;
-}
-function sharedQuestActions(s, actor) {
-  const actions = [],
-    here = s.actors[actor].place;
-  for (const quest of questRecords(s)) {
-    if (
-      quest.completedTurn !== null ||
-      quest.retired ||
-      quest.droppedBy?.[actor] !== undefined ||
-      !visibleQuest(s, actor, quest)
-    )
-      continue;
-    if (
-      !quest.participants.includes(actor) &&
-      canJoinQuest(s, actor, quest.key)
-    )
-      actions.push({
-        kind: "join-quest",
-        actor,
-        questKey: quest.key,
-        key: `join-quest:${actor}:${quest.key}`,
-        label: "Help",
-        text: `${nameOf(actor)} joins ${quest.program.name}.`,
-        parts: [],
-      });
-    if (quest.mode === "story") continue;
-    const holder = quest.holder;
-    const canShare =
-      holder.kind === "avatar"
-        ? holder.id === actor
-        : holder.kind === "item"
-          ? rootHolder(s, holder.id) === actor
-          : quest.participants.includes(actor);
-    if (!canShare) continue;
-    const targets = [
-      { kind: "place", id: here },
-      ...actorIds
-        .filter((id) => entityActive(s, id) && s.actors[id].place === here)
-        .map((id) => ({ kind: "avatar", id })),
-      ...carried(s, actor).map((id) => ({ kind: "item", id })),
-    ];
-    for (const to of targets) {
-      if (to.kind === holder.kind && to.id === holder.id) continue;
-      if (to.kind === "avatar" && !canJoinQuest(s, to.id, quest.key)) continue;
-      actions.push({
-        kind: "share-quest",
-        actor,
-        questKey: quest.key,
-        holder: to,
-        key: `share-quest:${actor}:${quest.key}:${to.kind}:${to.id}`,
-        label:
-          to.kind === "place"
-            ? `Leave at ${nameOf(to.id)}`
-            : `Share with ${nameOf(to.id)}`,
-        text: `${nameOf(actor)} leaves ${quest.program.name} with ${nameOf(to.id)}.`,
-        parts: [],
-      });
-    }
-  }
-  return actions;
+  return socialTravel(s, actor, companion, destination);
 }
 
 export function legalActions(s, actor = currentActor(s)) {
@@ -1335,40 +989,6 @@ export function legalActions(s, actor = currentActor(s)) {
   const out = [
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
-  for (const quest of actorQuests(s, actor).filter(
-    (q) => q.status === "pending" && canCarryQuest(s, actor, q),
-  )) {
-    out.push({
-      kind: "pursue",
-      actor,
-      questKey: quest.key,
-      key: `pursue:${actor}:${quest.key}`,
-      label: "Pursue",
-      text: `${nameOf(actor)} chooses ${quest.program.name}.`,
-      parts: [],
-    });
-  }
-  out.push(...sharedQuestActions(s, actor));
-  const carried = questHandKeys(s, actor).map((key) => s.quests.records[key]);
-  if (
-    lifeOf(s, actor) &&
-    !lifeOf(s, actor).collection &&
-    canCarryQuest(s, actor)
-  )
-    carried.push(...actorQuests(s, actor).filter((q) => !q.holder));
-  for (const q of carried) {
-    const key = q.key;
-    out.push({
-      kind: "drop-quest",
-      actor,
-      questKey: key,
-      key: `drop-quest:${actor}:${key}`,
-      cards: [],
-      label: "Drop",
-      text: `${nameOf(actor)} sets aside ${q.program.name}.`,
-      parts: [],
-    });
-  }
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
     // A course card aboard a docked ship sets the voyage for everyone aboard.
     if (isCourse(s, here, to)) {
@@ -1743,7 +1363,15 @@ function travelParty(s, actors, destination) {
 }
 const travel = (s, actor, destination) => travelParty(s, [actor], destination);
 
-function perform(s, a, capture = () => {}, round = null) {
+// Trust has one source: someone gave me the item I wanted.
+function trustGiver(s, recipient, item, giver) {
+  if (!needed(s, recipient, item) || !s.actors[recipient].trust) return;
+  s.actors[recipient].trust[giver] = Math.min(
+    3,
+    (s.actors[recipient].trust[giver] || 0) + 1,
+  );
+}
+function perform(s, a, round = null, settle = []) {
   const who = nameOf(a.actor);
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
   const here = s.actors[a.actor].place;
@@ -1775,41 +1403,6 @@ function perform(s, a, capture = () => {}, round = null) {
     }
     return;
   }
-  if (a.kind === "drop-quest") {
-    dropQuest(s, a.actor, a.questKey);
-    const remaining = questHandKeys(s, a.actor).find(
-      (key) => s.quests.records[key].completedTurn === null,
-    );
-    if (!focusedQuest(s, a.actor) && remaining)
-      pursueQuest(s, a.actor, remaining);
-    addLog(s, "World", a.text, {
-      kind: "action",
-      verb: "drop-quest",
-      actorId: a.actor,
-      locationId: here,
-      questKey: a.questKey,
-      targetId: questRecord(s, a.questKey).holder.id,
-    });
-    return;
-  }
-  if (a.kind === "join-quest" || a.kind === "share-quest") {
-    if (a.kind === "join-quest") focusQuest(s, a.actor, a.questKey);
-    else shareQuest(s, a.questKey, a.holder);
-    addLog(s, "World", a.text, {
-      kind: "action",
-      actorId: a.actor,
-      locationId: here,
-      verb: a.kind,
-      questKey: a.questKey,
-      targetId: questRecord(s, a.questKey).holder.id,
-    });
-    return;
-  }
-  if (a.kind === "pursue") {
-    pursueQuest(s, a.actor, a.questKey);
-    addLog(s, "World", a.text, { actorId: a.actor, locationId: here });
-    return;
-  }
   const learningStart = beginLearning(s, a);
   const holder = holderBefore(s, a);
   const usefulGift =
@@ -1839,7 +1432,6 @@ function perform(s, a, capture = () => {}, round = null) {
           respondentConflict.answered = true;
       }
       invitation = accompanyDecision(s, a.actor, a.target, a.destination, true);
-      if (invitation.favor) s.actors[a.target].trust[a.actor] -= 1;
       s.actors[a.actor].lastTalk = s.turn;
       if (invitation.accepted) {
         const visits = (s.invitedPlaces ??= {});
@@ -1944,6 +1536,7 @@ function perform(s, a, capture = () => {}, round = null) {
       requestAccepted = expects(s, a);
       if (!requestAccepted) {
         refusal = refusalReason(s, a);
+        if (a.kind === "trade") refuseWant(s, a.actor, a.receive, wantAPI(s));
         text =
           a.kind === "give"
             ? `${who} offers the ${nameOf(a.item)} to ${nameOf(a.target)}.`
@@ -1951,6 +1544,7 @@ function perform(s, a, capture = () => {}, round = null) {
         text += ` ${nameOf(a.target)} declines. ${refusalText[refusal](nameOf(a.target), who, a)}`;
         break;
       }
+      if (a.kind === "give") trustGiver(s, a.target, a.item, a.actor);
       transfer(s, a.item, a.target, a.text);
       if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
       break;
@@ -2022,17 +1616,13 @@ function perform(s, a, capture = () => {}, round = null) {
       const willing = willingToGive(s, a.target, a.item, a.actor);
       requestAccepted = willing;
       if (willing) {
-        if (
-          !handStatus(s, a.target).items.every((e) => e.met) &&
-          s.actors[a.target].trust[a.actor] > 0
-        )
-          s.actors[a.target].trust[a.actor] -= 1;
+        trustGiver(s, a.actor, a.item, a.target);
         text = `${nameOf(a.target)} hands the ${nameOf(a.item)} to ${who}.`;
         transfer(s, a.item, a.actor, text);
       } else {
         text += ` ${nameOf(a.target)} keeps it for now.`;
-        if (hasMotives(s))
-          text += ` ${giftDecision(s, a.target, a.item, a.actor).reason}`;
+        text += ` ${giftDecision(s, a.target, a.item, a.actor).reason}`;
+        refuseWant(s, a.actor, a.item, wantAPI(s));
       }
       s.actors[a.actor].lastTalk = s.turn;
       break;
@@ -2045,9 +1635,6 @@ function perform(s, a, capture = () => {}, round = null) {
       ? arriveRecitals(s, packDefinitions, a.actor)
       : [];
   meetCast(s);
-  // Record the completed physical act while its shared use is still agreed.
-  // Reactions can change who is willing to share on the following play.
-  capture();
   recordReaction(s, a, witnesses, requestAccepted);
   recordLifeAction(
     s,
@@ -2094,6 +1681,13 @@ function perform(s, a, capture = () => {}, round = null) {
     addLog(s, "World", arrivalText, details);
   }
   settleStandoffs(s);
+  // A want met by this play is a world fact recorded right after it.
+  settleWants(
+    s,
+    wantActors(s, [a.actor, ...(s.actors[a.target] ? [a.target] : []), ...settle]),
+    wantAPI(s),
+    a,
+  );
   // Resolved plays, and only those, can advance a crossing's signal.
   if (round)
     noteAct(s, a, here, holder, round, sensesFor(s), (line, locationId) =>
@@ -2101,31 +1695,6 @@ function perform(s, a, capture = () => {}, round = null) {
     );
   // Answering the request is the invited avatar's action for this round.
   return invitation ? a.target : null;
-}
-
-function roamingAPI(s) {
-  return {
-    canonicalPlace,
-    nameOf: (id) => (id ? nameOf(id) : "a traveler"),
-    crossing: (from, to) => crossingBetween(from, to, s),
-    itemPlace: (id) => itemPlace(s, id),
-    route: (from, to, actor) => routeBetween(s, from, to, actor),
-    initialEdges: initialRouteEdges,
-    active: (place) => entityActive(s, place),
-    berthOpen: (place) => berthOpen(s, place),
-    visibleEdges: visibleRouteEdges,
-    witnessedEdges: (actor) => witnessedRouteEdges(s, actor),
-    exits: (from, actor, previous = null) =>
-      exits(s, from, actor, previous ?? (transportPlace(from) ? VOYAGE : null)),
-    actions: (actor) => legalActions(s, actor),
-    voyage: (actor, dock) => voyageAction(s, actor, dock),
-    // Waiting at a port to board brings the empty ship one lane closer.
-    callShip: (actor, next) => {
-      if (transportPlace(next)) callTransport(s, s.actors[actor].place, true);
-    },
-    present: (actor) => !controlledByHuman(s, actor) || humanPresent(s, actor),
-    arrive: (actor) => arriveRoamingRecitals(s, packDefinitions, actor),
-  };
 }
 
 // Routes use the exits available to the actor who is planning the trip.
@@ -2257,30 +1826,7 @@ function readPlan(s, actor) {
     );
   if (landing)
     return { action: landing, reason: `Step ashore at ${nameOf(arrival)}.` };
-  const program = programFor(s, actor);
-  const pair = introductionPair(program);
-  if (pair && questActive(s, actor))
-    return introductionPlan(
-      s,
-      actor,
-      focusedQuest(s, actor)?.key || program.id,
-      program,
-      {
-        actions: legalActions(s, actor),
-        toward: (place) => toward(s, actor, place),
-        name: nameOf,
-      },
-    );
-  const selected = basePlan(s, actor);
-  // Earlier authored programs keep their recorded route and turn order.
-  if (!hasMotives(s)) return selected;
-  const futureItems = new Set(
-    hasQuestPrograms(s)
-      ? (program?.steps || []).flatMap((step) =>
-          alternatives(step).flatMap((hand) => requiredItems(s, actor, hand)),
-        )
-      : [],
-  );
+  const selected = wantPlan(s, actor);
   return reconsiderPlan(
     s,
     actor,
@@ -2289,411 +1835,159 @@ function readPlan(s, actor) {
       (a) =>
         a.key === selected.action.key ||
         !["trade", "give"].includes(a.kind) ||
-        (!needed(s, actor, a.item) &&
-          !keepReason(s, actor, a.item) &&
-          (a.kind !== "give" ||
-            !bundle(s, a.item).some((id) => futureItems.has(id)))),
+        (!needed(s, actor, a.item) && !keepReason(s, actor, a.item)),
     ),
   );
 }
-function basePlan(s, actor) {
-  const help = !staysPut(actor) && roamingHelpPlan(s, actor, roamingAPI(s));
-  if (help) return help;
-  // A resident who never leaves home keeps to it.
-  if (staysPut(actor))
-    return {
-      action: legalActions(s, actor)[0],
-      reason: packPeople[actor].tastes.reason,
-    };
-  if (isPackActor(actor) && !personalQuestActor(actor)) {
-    const actions = legalActions(s, actor).filter(
-      (a) =>
-        !["move", "course", "accompany", "threaten"].includes(a.kind) &&
-        (a.kind !== "take" || desireFor(s, actor).items.includes(a.item)),
-    );
-    return socialPlan(s, actor, actions, {
-      standoffFor,
-      opponentOf,
-      routeBetween,
-      carried,
-      willingToGive,
-      courseToward,
-    });
-  }
-  if (!knownActors(s).includes(actor))
-    return {
-      action: legalActions(s, actor)[0],
-      reason: "Wait for a first meeting.",
-    };
-  const acts = legalActions(s, actor).filter((a) => {
-      if (
-        !lifeOf(s, actor) ||
-        !["give", "drop"].includes(a.kind) ||
-        !keepReason(s, actor, a.item)
-      )
-        return true;
-      return (
-        a.kind === "give" &&
-        targetsFor(s, actor).some((h) =>
-          h.conditions?.some(
-            (c) =>
-              c.kind === "heldBy" && c.item === a.item && c.avatar === a.target,
-          ),
-        )
-      );
-    }),
-    hand = desireFor(s, actor);
-  const carryingPromise = hand.conditions?.some((condition) =>
-    condition.kind === "heldBy" && condition.avatar !== actor &&
-    s.items[condition.item]?.holder === actor);
-  if (
-    hasMotives(s) &&
-    (!hasQuestPrograms(s) ||
-      !questActive(s, actor) ||
-      stayingWith(s, actor) ||
-      standoffFor(s, actor) ||
-      s.peaceUntil[actor] > s.turn ||
-      (!carryingPromise && actorIds.some(
-        (other) =>
-          s.actors[other].place === s.actors[actor].place &&
-          resentment(s, actor, other) > 0,
-      )))
-  )
-    return socialPlan(s, actor, acts, {
-      standoffFor,
-      opponentOf,
-      routeBetween,
-      carried,
-      willingToGive,
-      courseToward,
-    });
+// One legal step toward a place. Travellers who learn the roads keep to
+// the routes they know and explore the edge of that map; the others use
+// the open routes and the plays that open them.
+function stepToward(s, actor, target) {
+  const known = s.routeKnowledge?.[actor];
+  if (!known) return { action: toward(s, actor, target) || null };
   const here = s.actors[actor].place;
-  const find = (kind, item, target) =>
-    acts.find(
-      (a) =>
-        a.kind === kind &&
-        (item === undefined || a.item === item) &&
-        (target === undefined || a.target === target),
+  const open = (from, to, previous) =>
+    exits(s, from, actor, previous ?? (transportPlace(from) ? VOYAGE : null)).includes(to);
+  let path =
+    knownRoute(s, actor, here, target, open) ||
+    knownRoute(s, actor, here, target);
+  if (!path) {
+    const frontiers = [...new Set(known.map(([, to]) => to))].filter(
+      (to) =>
+        to !== here &&
+        entityActive(s, to) &&
+        berthOpen(s, to) !== false &&
+        !known.some(([from]) => from === to),
     );
-  const idle = (reason) => ({ action: acts[0], reason });
-  const choose = (action, reason) =>
-    action ? { action, reason } : idle(reason);
+    if (!entityActive(s, here)) frontiers.push(...exits(s, here, actor));
+    path = frontiers
+      .map((to) => knownRoute(s, actor, here, to))
+      .filter(Boolean)
+      .sort((a, b) => a.length - b.length || a.at(-1).localeCompare(b.at(-1)))[0];
+    if (!path) return { action: null };
+  }
+  const actions = legalActions(s, actor);
+  const action =
+    actions.find((a) => a.kind === "move" && a.target === path[1]) ||
+    voyageAction(s, actor, path[1], actions);
+  // Waiting at a port for the ship calls it one lane closer.
+  return {
+    action: action || null,
+    ...(!action && transportPlace(path[1]) ? { callShip: true } : {}),
+  };
+}
+const wantReason = (want) => `I want to ${wantText(want)}.`;
+// Pursue the want with the fixed verbs: go there, then ask, trade, threaten.
+// A refusal is an outcome: it counts against the want, and enough of them
+// set it aside.
+function wantPlan(s, actor) {
+  const acts = legalActions(s, actor);
+  const find = (kind, test = () => true) =>
+    acts.find((a) => a.kind === kind && test(a));
+  const idle = (reason) => ({ action: find("wait") || acts[0], reason });
+  const here = s.actors[actor].place;
   if (s.peaceUntil[actor] > s.turn)
     return idle("Catch a breath after the standoff.");
   const conflict = standoffFor(s, actor);
+  const want = wantOf(s, actor);
   if (conflict) {
     const other = opponentOf(conflict, actor);
+    const answer = (action, reason) =>
+      action ? { action, reason } : idle("Hold firm.");
     if (actor === conflict.defender && !conflict.answered)
-      return choose(
-        find(
-          levelOf(s, actor) > levelOf(s, other) ? "talk" : "guard",
-          undefined,
-          other,
-        ),
+      return answer(
+        levelOf(s, actor) > levelOf(s, other)
+          ? find("talk", (a) => a.target === other)
+          : find("guard"),
         "Answer the threat.",
       );
     if (conflict.struck[other] || conflict.struck[actor])
-      return choose(find("attack", undefined, other), "Answer the attack.");
+      return answer(find("attack", (a) => a.target === other), "Answer the attack.");
     if (
       conflict.challenger === actor &&
       conflict.item &&
       needed(s, actor, conflict.item) &&
       s.turn - conflict.opened >= 2
     )
-      return choose(
-        find("attack", undefined, other),
+      return answer(
+        find("attack", (a) => a.target === other),
         "Press the demand for the disputed item.",
       );
+    return idle("Hold firm.");
   }
-  const resources = requiredItems(s, actor, hand);
-  const missing = resources.filter((id) =>
-    hand.items.includes(id)
-      ? !questItemAvailable(s, actor, id)
-      : rootHolder(s, id) !== actor,
-  );
-  const reason = `Seek this hand: ${handText(hand)}.`;
-  // Quiet the carried bell before preparing travel for a simple cloth hand.
-  if (!missing.length && !hand.conditions?.length && hand.items.includes("cloth") &&
-    rootHolder(s, "bell") === actor && s.items.bell.ringing && find("cover", "cloth", "bell"))
-    return choose(find("cover", "cloth", "bell"), "Wrap the ringing bell.");
-  // Prepare a closed route for this hand or a nearby traveler's ready hand.
-  const collecting = missing.some((item) => itemPlace(s, item) !== here &&
-    routeBetween(s, here, itemPlace(s, item), actor));
-  const destinations = [...missing.map((id) => itemPlace(s, id)),
-    ...(!collecting ? [hand.location, ...hand.avatars.map((id) => s.actors[id].place)] : []),
-    ...(!collecting ? knownActors(s).filter((id) => id !== actor && s.actors[id].place === here &&
-      handStatus(s, id).items.every((item) => item.met))
-      .map((id) => desireFor(s, id).location) : [])];
-  for (const destination of new Set(destinations)) {
-    if (!destination || destination === here || routeBetween(s, here, destination, actor)) continue;
-    const prepare = toward(s, actor, destination);
-    if (prepare && prepare.kind !== "move") {
-      if (prepare.kind === "light" && here === "station" && missing.some((item) => {
-        const owner = rootHolder(s, item);
-        return itemPlace(s, item) === here && actorIds.includes(owner) &&
-          !controlledByHuman(s, owner) && needed(s, owner, item) &&
-          resources.some((held) => rootHolder(s, held) === actor && needed(s, owner, held));
-      })) continue;
-      return choose(prepare, "Prepare the way for the meeting.");
-    }
-  }
-  // Another avatar can hold its whole hand somewhere else and wait only for
-  // this one. Going there completes that hand and ends the wait.
-  const waitingHere = (ids) =>
-    ids.find((id) => {
-      const theirs = desireFor(s, id),
-        there = s.actors[id].place;
-      return (
-        id !== actor &&
-        entityActive(s, id) &&
-        there !== here &&
-        theirs.avatars.includes(actor) &&
-        (theirs.location || there) === there &&
-        handStatus(s, id, theirs).items.every((e) => e.met) &&
-        theirs.avatars.every(
-          (other) => other === actor || s.actors[other].place === there,
-        ) &&
-        toward(s, actor, there)
-      );
-    });
-  const goMeet = (id) =>
-    choose(
-      toward(s, actor, s.actors[id].place),
-      `Meet ${nameOf(id)}, who is waiting at ${nameOf(s.actors[id].place)}.`,
-    );
-  const acquire = (item, seen = new Set()) => {
-    if (seen.has(item) || rootHolder(s, item) === actor) return null;
-    seen = new Set([...seen, item]);
-    const owner = rootHolder(s, item),
-      local = itemPlace(s, item) === here;
-    if (local) {
-      const take = find("take", item);
-      if (take) return choose(take, reason);
-      const trade = acts.find(
-        (a) =>
-          a.kind === "trade" &&
-          bundle(s, a.receive).includes(item) &&
-          !needed(s, actor, a.item),
-      );
-      if (trade) return choose(trade, reason);
-      if (hasMotives(s) && actorIds.includes(owner) && !willingToGive(s, owner, item, actor)) {
-        const help = acts.find((a) =>
-          a.kind === "give" && a.target === owner && !needed(s, actor, a.item) &&
-          (needed(s, owner, a.item) ||
-            (resentment(s, owner, actor) > 0 && valueOf(s, owner, a.item) >= 4)),
-        );
-        if (help)
-          return choose(help, `Help ${nameOf(owner)} with ${nameOf(help.item)} before asking for ${nameOf(item)}.`);
-      }
-      let heldItem = item;
-      while (s.items[s.items[heldItem].holder])
-        heldItem = s.items[heldItem].holder;
-      const ask = find("ask", heldItem);
-      if (ask && willingToGive(s, owner, heldItem, actor))
-        return choose(ask, reason);
-      if (!hasSpace(s, actor, item)) {
-        const drop = acts.find(
-          (a) => a.kind === "drop" && !needed(s, actor, a.item),
-        );
-        if (drop) return choose(drop, "Make room for the target hand.");
-        if (
-          rootHolder(s, "cloth") === actor &&
-          !hand.items.includes("cloth") &&
-          find("take", "cloth")
-        )
-          return choose(
-            find("take", "cloth"),
-            "Uncover the object to make room.",
-          );
-      }
-    }
-    // A desired item can require another item as payment. Follow that need
-    // through the same take, travel and trade rules, with cycle detection.
-    if (
-      programFor(s, actor)?.generated &&
-      actorIds.includes(owner) &&
-      !needed(s, owner, item)
-    ) {
-      for (const payment of requiredItems(s, owner, desireFor(s, owner))) {
-        if (!hand.items.includes(payment) && rootHolder(s, payment) !== owner) {
-          const purchase = acquire(payment, seen);
-          if (purchase)
-            return {
-              ...purchase,
-              reason: `Seek ${nameOf(payment)} to trade for ${nameOf(item)}.`,
-            };
-        }
-      }
-    }
-    if (!local) {
-      for (const crossing of routeBetween(s, here, itemPlace(s, item), actor) ? [] : itemGateCrossings) {
-        if (crossing.transport || !actorCanVisit(actor, crossing.to, s) ||
-          !routeBetween(s, crossing.to, itemPlace(s, item), actor)) continue;
-        for (const gate of crossing.requires.filter((condition) =>
-          condition.kind === "item_present" && itemPlace(s, condition.item) !== condition.place)) {
-          const key = acquire(gate.item, seen);
-          if (key) return { ...key, reason: `Bring ${nameOf(gate.item)} to ${nameOf(gate.place)} to reach ${nameOf(item)}.` };
-          if (rootHolder(s, gate.item) === actor) {
-            const doorstep = toward(s, actor, gate.place);
-            if (doorstep) return choose(doorstep, `Bring ${nameOf(gate.item)} to ${nameOf(gate.place)}.`);
-          }
-        }
-      }
-      const approach = toward(s, actor, itemPlace(s, item));
-      return approach ? choose(approach, reason) : null;
-    }
-    if (
-      actorIds.includes(owner) &&
-      local &&
-      needed(s, owner, item) &&
-      programFor(s, actor)?.generated
-    ) {
-      const refusals = s.log.filter(
-        (e) =>
-          e.kind === "action" &&
-          e.verb === "ask" &&
-          e.actorId === actor &&
-          e.targetId === owner &&
-          e.itemId === item &&
-          s.turn - e.turn <= 12,
-      );
-      const threat =
-        here === "pond" && s.locations.pond.answer === "hush"
-          ? null
-          : find("threaten", undefined, owner);
-      if (refusals.length >= 2 && threat)
-        return choose(threat, "The same item is blocking both target hands.");
-    }
-    if (actorIds.includes(owner) && s.turn - s.actors[actor].lastTalk >= 3) {
-      let heldItem = item;
-      while (s.items[s.items[heldItem].holder])
-        heldItem = s.items[heldItem].holder;
-      if (find("ask", heldItem)) return choose(find("ask", heldItem), reason);
-    }
-    return null;
+  if (staysPut(actor) && packPeople[actor]?.tastes?.reason && !want)
+    return idle(packPeople[actor].tastes.reason);
+  if (!want) return idle("Look around for something worth wanting.");
+  if (resting(s, actor, homeOf(actor))) return idle(`Rest at ${nameOf(here)}.`);
+  const reason = wantReason(want);
+  const go = (place) => {
+    if (!travels(actor) || staysPut(actor)) return idle(reason);
+    const step = stepToward(s, actor, place);
+    return step.action
+      ? { action: step.action, reason }
+      : { ...idle(reason), ...(step.callShip ? { callShip: true } : {}) };
   };
-  for (const item of missing
-    .slice()
-    .sort(
-      (a, b) =>
-        Number(itemPlace(s, b) === here) - Number(itemPlace(s, a) === here),
-    )) {
-    const next = acquire(item);
-    if (next) return next;
+  if (want.kind === "place") return here === want.target ? idle(reason) : go(want.target);
+  if (want.kind === "person") {
+    const there = s.actors[want.target]?.place;
+    if (there !== here) return go(there);
+    const talk = find("talk", (a) => a.target === want.target);
+    return talk && s.turn - s.actors[actor].lastTalk >= 1
+      ? { action: talk, reason }
+      : idle(reason);
   }
-  if (missing.length) {
-    // Stay while Vale is here holding a wanted item; the player may hand it over.
-    const offered = missing.some(
-      (id) =>
-        controlledByHuman(s, rootHolder(s, id)) &&
-        s.actors[rootHolder(s, id)].place === here,
-    );
-    const waiting = !offered && waitingHere(actorIds);
-    return waiting ? goMeet(waiting) : idle(reason);
-  }
-  // Timing matters: reach the meeting place before using a brief sound or light.
-  if (hand.conditions?.length) {
-    if (
-      hand.conditions.some((c) => c.kind === "lit") &&
-      !s.items.lamp.fuel &&
-      !s.items.oil.doses
-    ) {
-      if (here !== "pond")
-        return choose(toward(s, actor, "pond"), "Call for oil at the pond.");
-      if (covered(s, "bell"))
-        return choose(find("take", "cloth"), "Unwrap the bell for the pond.");
-      return choose(
-        find("ring", "bell"),
-        "Call one measure of oil into the empty flask.",
+  const item = want.target,
+    owner = rootHolder(s, item);
+  if (owner === actor) return idle(reason);
+  if (itemPlace(s, item) !== here) return go(itemPlace(s, item));
+  let top = item;
+  while (s.items[s.items[top].holder]) top = s.items[top].holder;
+  const spares = (kind) =>
+    acts
+      .filter((a) => a.kind === kind && !needed(s, actor, a.item))
+      .sort(
+        (x, y) =>
+          valueOf(s, actor, x.item) - valueOf(s, actor, y.item) ||
+          x.item.localeCompare(y.item),
       );
-    }
-    if (hand.location && here !== hand.location)
-      return choose(toward(s, actor, hand.location), reason);
-    for (const c of hand.conditions.filter((c) => !conditionMet(s, c, actor))) {
-      if (c.kind === "knows") {
-        const source = s.knowledge?.facts?.[c.topic]?.source.actorId;
-        if (source && s.actors[source].place !== here) return goMeet(source);
-        return choose(
-          find("talk", undefined, source),
-          "Ask for the shared news.",
-        );
-      }
-      if (c.kind === "heldBy") {
-        if (s.items[c.item].holder !== actor && rootHolder(s, c.item) === actor)
-          return choose(
-            find("take", c.item),
-            "Uncover the promised item before handing it over.",
-          );
-        if (s.actors[c.avatar].place !== here)
-          return hand.location
-            ? idle(`Wait for ${nameOf(c.avatar)} at ${nameOf(here)} to hand it over.`)
-            : goMeet(c.avatar);
-        return choose(
-          find("give", c.item, c.avatar),
-          "Put the promised item in their hands.",
-        );
-      }
-      if (c.kind === "covered")
-        return choose(
-          find("cover", "cloth", c.item),
-          "Wrap the sound or light.",
-        );
-      if (covered(s, c.item))
-        return choose(
-          find("take", "cloth"),
-          "Uncover the wanted sound or light.",
-        );
-      if (c.kind === "ringing")
-        return choose(find("ring", "bell"), "Let the pond hear the bell.");
-      if (c.kind === "lit") {
-        if (!s.items.lamp.fuel)
-          return choose(find("refill", "oil"), "Feed oil to the lamp.");
-        return choose(find("light", "lamp"), "Make a light for the meeting.");
-      }
-    }
+  if (!actorIds.includes(owner)) {
+    const take =
+      find("take", (a) => a.item === top) || find("take", (a) => a.item === item);
+    if (take) return { action: take, reason };
+    const drop = spares("drop")[0];
+    return drop ? { action: drop, reason: "Make room for what I want." } : idle(reason);
   }
-  // Item affordances also apply when an avatar carries its target hand.
-  if (hand.items.includes("lamp") && rootHolder(s, "lamp") === actor) {
-    if (covered(s, "lamp") && !hand.items.includes("cloth"))
-      return choose(find("take", "cloth"), "Uncover the light.");
-    if (s.items.lamp.fuel <= 2 && find("refill", "oil"))
-      return choose(find("refill", "oil"), "Feed oil to the lamp.");
-    if (!s.items.lamp.lit && s.items.lamp.fuel > 0)
-      return choose(find("light", "lamp"), "Light the lamp.");
+  const recent = (verb, test = () => true) =>
+    s.log.some(
+      (e) =>
+        e.kind === "action" &&
+        e.verb === verb &&
+        e.actorId === actor &&
+        e.targetId === owner &&
+        s.turn - e.turn <= 4 &&
+        test(e),
+    );
+  if (!hasSpace(s, actor, top)) {
+    const drop = spares("drop")[0];
+    if (drop) return { action: drop, reason: "Make room for what I want." };
   }
-  if (
-    hand.items.includes("cloth") &&
-    rootHolder(s, "bell") === actor &&
-    s.items.bell.ringing &&
-    find("cover", "cloth", "bell")
-  )
-    return choose(find("cover", "cloth", "bell"), "Wrap the ringing bell.");
-  // When both avatars hold their hands and wait, the later one in cast order
-  // goes. Keep following that meeting across intermediate rooms instead of
-  // returning to this avatar's own meeting place after the first step.
-  const waiting = waitingHere(actorIds.slice(0, actorIds.indexOf(actor)));
-  if (waiting) return goMeet(waiting);
-  if (hand.location && here !== hand.location)
-    return choose(toward(s, actor, hand.location), reason);
-  const rescue = homeRescueExit(s, here, actor);
-  if (rescue && hand.avatars.some((other) =>
-    s.actors[other].place !== here &&
-    !routeBetween(s, s.actors[other].place, here, other),
-  )) {
-    if (!s.items.lamp.fuel && s.items.oil.doses > 0 && find("take", "oil"))
-      return choose(find("take", "oil"), "Bring oil to the travelers at the shore.");
-    if (!s.items.lamp.fuel && !s.items.oil.doses && find("take", "bell"))
-      return choose(find("take", "bell"), "Bring the bell to call for oil at the shore.");
-    return choose(find("move", undefined, rescue), "Meet the waiting travelers at the shore.");
-  }
-  return idle(
-    handStatus(s, actor).met
-      ? "Hold the target hand."
-      : `Wait for ${hand.avatars
-          .filter((id) => s.actors[id].place !== here)
-          .map(nameOf)
-          .join(" and ")} at ${nameOf(here)}.`,
-  );
+  const ask = find("ask", (a) => a.item === top && a.target === owner);
+  if (ask && !recent("ask")) return { action: ask, reason };
+  const trades = spares("trade").filter((a) => a.receive === top);
+  const trade =
+    trades.find((a) => expects(s, a)) ||
+    trades.find((a) => !recent("trade", (e) => e.itemId === a.item));
+  if (trade) return { action: trade, reason };
+  const bold =
+    travels(actor) &&
+    !avoidsStandoffs(actor) &&
+    want.refusals >= 1 &&
+    (resentment(s, actor, owner) > 0 ||
+      want.refusals >= 2 ||
+      levelOf(s, actor) > levelOf(s, owner));
+  const threat = bold && find("threaten", (a) => a.target === owner);
+  if (threat) return { action: threat, reason };
+  return idle(reason);
 }
 export function play(
   s,
@@ -2716,12 +2010,6 @@ export function play(
     };
   const next = structuredClone(s);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
-  for (const id of actorIds) installQuestCollection(next, id);
-  if (entityActive(next, BOARDY) && lifeOf(next, BOARDY))
-    ensureCollectedQuest(next, BOARDY, () => programPlaces(next), things);
-  const previousHopes = Object.fromEntries(
-    knownActors(s).map((id) => [id, lifeOf(s, id)?.milestones.length || 0]),
-  );
   // Crossings open before the play decide whether a signal refreshes them.
   const round = beginRound(s, sensesFor(s));
   next.turn += 1;
@@ -2729,29 +2017,12 @@ export function play(
   const reflectionSource = next.actors[actor].place;
   const wasOpen = reflectionOpen(next, reflectionSource);
   if (exact.kind === "wait") addLog(next, "World", waitNarration(actor));
-  const met = new Map();
-  if (exact.kind === "pursue") pursueQuest(next, actor, exact.questKey);
-  captureHands(next, met);
   const active = knownActors(next);
-  const respondent = perform(next, exact, () => captureHands(next, met), round);
-  captureHands(next, met);
-  if (
-    next.opening &&
-    !next.locations.attic.anchored &&
-    exact.kind === "light" &&
-    next.actors.vale.place === "attic"
-  ) {
-    next.locations.attic.anchored = true;
-  }
   const residents = [
     ...new Set([
       "moth",
       "keeper",
-      ...active.filter(
-        (id) =>
-          !controlledByHuman(next, id) &&
-          (id === BOARDY || introductionPair(programFor(next, id))),
-      ),
+      ...active.filter((id) => id === BOARDY && !controlledByHuman(next, id)),
       ...active.filter(
         (id) =>
           isPackActor(id) &&
@@ -2761,24 +2032,23 @@ export function play(
       ),
     ]),
   ];
-  for (const actor of residents) {
+  const respondent = perform(next, exact, round, residents);
+  if (
+    next.opening &&
+    !next.locations.attic.anchored &&
+    exact.kind === "light" &&
+    next.actors.vale.place === "attic"
+  ) {
+    next.locations.attic.anchored = true;
+  }
+  for (const id of residents) {
     if (
-      actor === respondent ||
-      !active.includes(actor) ||
-      controlledByHuman(next, actor)
+      id === respondent ||
+      !active.includes(id) ||
+      controlledByHuman(next, id)
     )
       continue;
-    const program = programFor(next, actor);
-    const key = focusedQuest(next, actor)?.key || program?.id;
-    const target = introductionTarget(next, actor, key, program);
-    perform(
-      next,
-      plan(next, actor).action,
-      () => captureHands(next, met),
-      round,
-    );
-    recordIntroductionTurn(next, actor, key, program, target);
-    captureHands(next, met);
+    perform(next, plan(next, id).action, round, residents);
   }
   if (next.items.lamp.lit) {
     next.items.lamp.fuel = Math.max(0, next.items.lamp.fuel - 1);
@@ -2821,17 +2091,17 @@ export function play(
           : "The attic mirror's path to the pond closes.",
       { locationId: reflectionSource },
     );
-  publishCompletions(next, [
-    ...advancePrograms(next, met),
-    ...syncStoryQuests(next, exact.actor),
-  ]);
-  installRoamingQuests(next, roamingActors, roamingAPI(next));
+  // Travellers who learn the roads act every round, wherever they are.
   for (const id of roamingActors) {
-    if (controlledByHuman(next, id)) continue;
-    if (id === respondent) next.roamingQuests[id].lastActedTurn = next.turn;
-    const action = roamingPlan(next, id, roamingAPI(next));
-    if (action) perform(next, action, () => {}, round);
-    settleRoamingArrival(next, id, roamingAPI(next));
+    if (controlledByHuman(next, id) || id === respondent) continue;
+    const from = next.actors[id].place;
+    rememberRoutes(next, id, visibleRouteEdges(from));
+    const chosen = plan(next, id);
+    if (chosen.callShip) callTransport(next, from, true);
+    if (chosen.action.kind !== "wait") perform(next, chosen.action, round, [id]);
+    rememberRoutes(next, id, visibleRouteEdges(next.actors[id].place));
+    if (next.actors[id].place !== from)
+      arriveRoamingRecitals(next, packDefinitions, id);
   }
   if (exact.kind === "wait")
     waitForTransport(next, next.actors[actor].place, actor);
@@ -2846,41 +2116,13 @@ export function play(
       { locationId: ship },
     );
   }
-
-  for (const actor of knownActors(next)) {
-    const life = lifeOf(next, actor);
-    if (life && life.milestones.length > (previousHopes[actor] || 0)) {
-      const hope = hopeOf(next, actor);
-      addLog(
-        next,
-        "World",
-        `${nameOf(actor)} reaches a hope milestone: ${hope.milestones[life.milestones.length - 1].title}. Hope ${life.milestones.length}/${hope.milestones.length}.`,
-        { actorId: actor },
-      );
-    }
-  }
-  for (const actor of settleLife(
+  reviseStalledWants(
     next,
-    knownActors(next).filter(
-      (id) => !controlledByHuman(next, id) || id === exact.actor,
+    wantActors(next, [...residents, ...roamingActors]).filter(
+      (id) => !controlledByHuman(next, id),
     ),
-    sanctuaries,
-  )) {
-    ensurePrograms(next);
-    const origin = purposeOrigin(next, actor);
-    const program = savedProgramFor(next, actor);
-    if (!program) continue;
-    addLog(
-      next,
-      "World",
-      `${nameOf(actor)} finds a new purpose: ${program.name}.${origin ? ` It began with ${origin}.` : ""}`,
-      { actorId: actor, questPlan: structuredClone(program) },
-    );
-  }
-  for (const id of knownActors(next))
-    collectExperienceQuests(next, id, () => programPlaces(next), things);
-  ensurePrograms(next);
-  refreshStalledPrograms(next);
+    wantAPI(next),
+  );
   for (const [id, allowance] of Object.entries(
     next.sharedMigration?.inventoryAllowances || {},
   )) {
@@ -2888,119 +2130,8 @@ export function play(
     if (count <= 3) delete next.sharedMigration.inventoryAllowances[id];
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
-  settleQuestHands(next);
   validateWorld(next);
   return { ok: true, state: next };
-}
-function validHand(h, actor) {
-  return (
-    h &&
-    Array.isArray(h.items) &&
-    h.items.length <= 3 &&
-    new Set(h.items).size === h.items.length &&
-    h.items.every((id) => ids.includes(id)) &&
-    (h.location === null || Object.hasOwn(places, h.location)) &&
-    Array.isArray(h.avatars) &&
-    h.avatars.length <= 2 &&
-    new Set(h.avatars).size === h.avatars.length &&
-    h.avatars.every((id) => actorIds.includes(id) && id !== actor) &&
-    (h.conditions === undefined ||
-      (Array.isArray(h.conditions) &&
-        h.conditions.length <= 3 &&
-        h.conditions.every((c) => validCondition(c, actor)))) &&
-    (h.consequence === undefined || validConsequence(h.consequence, actor)) &&
-    (h.passage === undefined ||
-      (h.passage &&
-        roamingActors.includes(h.passage.actor) &&
-        ["directions", "passage"].includes(h.passage.kind) &&
-        Object.hasOwn(places, h.passage.from) &&
-        Object.hasOwn(places, h.passage.to)))
-  );
-}
-function validQuestOrigin(s, origin) {
-  return (
-    origin === null || validExperience(s, origin, Object.keys(places))
-  );
-}
-function validProgram(p, actor, s, shared = false) {
-  if (
-    !p ||
-    (!shared && !actorIds.includes(actor)) ||
-    typeof p.id !== "string" ||
-    p.id.length > 80 ||
-    !p.id.length ||
-    typeof p.name !== "string" ||
-    p.name.length > 100 ||
-    !p.name.length ||
-    !Array.isArray(p.steps) ||
-    !p.steps.length ||
-    p.steps.length > 12
-  )
-    return false;
-  if (
-    p.purpose !== undefined &&
-    (typeof p.purpose !== "string" || p.purpose.length > 240)
-  )
-    return false;
-  for (const step of p.steps) {
-    const options = step?.any ?? [step];
-    if (
-      !Array.isArray(options) ||
-      !options.length ||
-      options.length > 6 ||
-      !options.every((h) => validHand(h, actor))
-    )
-      return false;
-  }
-  if (p.generated) {
-    const g = p.generated;
-    const pair = introductionPair(p);
-    if (!validIntroductionProgram(p)) return false;
-    if (
-      !Number.isSafeInteger(g.turn) ||
-      g.turn < 0 ||
-      g.turn > s.turn ||
-      !Number.isSafeInteger(g.level) ||
-      g.level < (lifeOf(s, actor)?.collection ? 1 : 3) ||
-      g.level > s.turn * (lifeOf(s, actor)?.collection ? 8 : 1) + 1 ||
-      ![...actorIds, ...Object.keys(places)].includes(g.owner) ||
-      (pair
-        ? g.item !== null ||
-          g.owner !== actor ||
-          !Array.isArray(pair) ||
-          pair.length !== 2 ||
-          new Set(pair).size !== 2 ||
-          pair.some((id) => !actorIds.includes(id) || id === actor) ||
-          g.partner !== pair[0]
-        : g.solo === undefined
-          ? !ids.includes(g.item) ||
-            !actorIds.includes(g.partner) ||
-            g.partner === actor
-          : g.solo !== true ||
-            g.owner !== actor ||
-            g.partner !== null ||
-            (g.item !== null && !ids.includes(g.item)))
-    )
-      return false;
-  }
-  return true;
-}
-// JSON hosts may reorder object keys. Save equality follows values and array order.
-function sameValue(a, b) {
-  if (a === b) return true;
-  if (
-    !a ||
-    !b ||
-    typeof a !== "object" ||
-    typeof b !== "object" ||
-    Array.isArray(a) !== Array.isArray(b)
-  )
-    return false;
-  const keys = Object.keys(a);
-  return (
-    keys.length === Object.keys(b).length &&
-    keys.every((key) => Object.hasOwn(b, key) && sameValue(a[key], b[key]))
-  );
 }
 export function validateWorld(s) {
   const fail = () => {
@@ -3025,19 +2156,6 @@ export function validateWorld(s) {
       authoredKnowledgeTopics(),
       laneFactText,
     )
-  )
-    fail();
-  if (
-    !validSharedQuestRegistry(s, {
-      actors: actorIds,
-      items: ids,
-      places: Object.keys(places),
-      program: (p, actor) => validProgram(p, actor, s, true),
-      origin: (value) => validQuestOrigin(s, value),
-      story: (quest) => validStoryQuest(s, quest),
-    }) ||
-    !validQuestHands(s) ||
-    !validQuestCompletions(s, actorIds, Object.keys(places))
   )
     fail();
   if (s.sharedMigration !== undefined) {
@@ -3142,18 +2260,9 @@ export function validateWorld(s) {
     fail();
   if (!validPackState(s, sensesFor(s))) fail();
   if (
-    !validRoamingQuests(
-      s,
-      roamingActors,
-      Object.keys(places),
-      [...authoredRouteEdges(), ...laneEdges()],
-    )
-  )
-    fail();
-  if (
+    !validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) ||
     !validMemories(s) ||
     !validMotives(s) ||
-    !validIntroductionVisits(s, actorIds, Object.keys(places)) ||
     !validLife(s, Object.keys(places))
   )
     fail();
@@ -3234,200 +2343,11 @@ export function validateWorld(s) {
       a.lastTalk > s.turn
     )
       fail();
-    // Pack residents follow their own interests, never authored programs.
-    if (isPackActor(id) && !personalQuestActor(id)) {
-      if (!sameValue(a.progress, newProgress())) fail();
-      continue;
-    }
     if (
-      isPackActor(id) &&
-      personalQuestActor(id) &&
-      !lifeOf(s, id)?.collection &&
-      sameValue(a.progress, newProgress())
-    )
-      continue;
-    const progress = a.progress,
-      programs = programsFor(s, id);
-    if (
-      !progress ||
-      !Number.isSafeInteger(progress.program) ||
-      progress.program < 0 ||
-      progress.program > s.turn * (lifeOf(s, id)?.collection ? 8 : 1) ||
-      !Number.isInteger(progress.step) ||
-      progress.step < 0
-    )
-      fail();
-    const program = savedProgramFor(s, id);
-    const personalActive = !lifeOf(s, id) || lifeOf(s, id).phase === "active";
-    const resting = !personalActive && progress.step === 0;
-    if (
-      (!program && !resting) ||
-      (program &&
-        (!validProgram(program, id, s) ||
-          progress.step >= program.steps.length)) ||
-      (!personalActive && !resting)
-    )
-      fail();
-    const collection = lifeOf(s, id)?.collection;
-    if (collection) {
-      const cards = collectionCards(s, id);
-      const archive = collectionCards(s, id, true);
-      if (
-        !Array.isArray(cards) ||
-        cards.length > 32 ||
-        !Array.isArray(archive) ||
-        cards.length + archive.length > 256 ||
-        archive.some(
-          (q) =>
-            !q ||
-            typeof q.key !== "string" ||
-            !q.key.startsWith(`${id}:quest:`) ||
-            q.key.length > 80 ||
-            !validQuestOrigin(s, q.origin) ||
-            !q.program ||
-            typeof q.program.id !== "string" ||
-            typeof q.program.name !== "string" ||
-            q.program.name.length > 120 ||
-            typeof q.program.purpose !== "string" ||
-            q.program.purpose.length > 240 ||
-            !Array.isArray(q.program.steps) ||
-            q.program.steps.length !== 0 ||
-            !Number.isInteger(q.totalSteps) ||
-            q.totalSteps < 1 ||
-            q.totalSteps > 32 ||
-            q.step !== q.totalSteps ||
-            !Number.isSafeInteger(q.createdTurn) ||
-            q.createdTurn < 0 ||
-            !Number.isSafeInteger(q.completedTurn) ||
-            q.completedTurn < q.createdTurn ||
-            q.completedTurn > s.turn,
-        ) ||
-        new Set([...cards, ...archive].map((q) => q.key)).size !==
-          cards.length + archive.length ||
-        !Number.isSafeInteger(collection.next) ||
-        collection.next < cards.length + archive.length ||
-        !Number.isSafeInteger(collection.earned) ||
-        collection.earned < 0 ||
-        collection.earned > s.turn * 8 ||
-        !Number.isSafeInteger(collection.archivedCompleted) ||
-        collection.archivedCompleted < 0 ||
-        !Number.isSafeInteger(collection.authoredThrough) ||
-        collection.authoredThrough < 0 ||
-        collection.authoredThrough > programs.length ||
-        !Number.isSafeInteger(collection.collectedThrough) ||
-        collection.collectedThrough < 0 ||
-        collection.collectedThrough > s.turn ||
-        (collection.lastOfferTurn !== undefined &&
-          (!Number.isSafeInteger(collection.lastOfferTurn) ||
-            collection.lastOfferTurn < 0 ||
-            collection.lastOfferTurn > s.turn)) ||
-        new Set(cards.map((q) => q.key)).size !== cards.length ||
-        cards.filter(
-          (q) => q.completedTurn === null && questCarried(s, id, q.key),
-        ).length > 8 ||
-        cards.some(
-          (q) =>
-            !q ||
-            typeof q.key !== "string" ||
-            !q.key.startsWith(`${id}:quest:`) ||
-            q.key.length > 80 ||
-            !validQuestOrigin(s, q.origin) ||
-            (q.lastProgressTurn !== undefined &&
-              (!Number.isSafeInteger(q.lastProgressTurn) ||
-                q.lastProgressTurn < q.createdTurn ||
-                q.lastProgressTurn > s.turn)) ||
-            !validProgram(q.program, id, s) ||
-            !Number.isInteger(q.step) ||
-            q.step < 0 ||
-            !Number.isSafeInteger(q.createdTurn) ||
-            q.createdTurn < 0 ||
-            q.createdTurn > s.turn ||
-            (q.completedTurn === null
-              ? q.step >= q.program.steps.length
-              : !Number.isSafeInteger(q.completedTurn) ||
-                q.completedTurn < q.createdTurn ||
-                q.completedTurn > s.turn ||
-                q.step !== q.program.steps.length),
-        ) ||
-        collection.archivedCompleted +
-          archive.length +
-          cards.filter((q) => q.completedTurn !== null).length !==
-          progress.program ||
-        (collection.active !== null &&
-          !cards.some(
-            (q) =>
-              q.key === collection.active &&
-              q.completedTurn === null &&
-              q.step === progress.step,
-          )) ||
-        (collection.active === null && progress.step !== 0) ||
-        !Array.isArray(progress.marks) ||
-        progress.marks.length !== Math.min(32, collection.earned) ||
-        progress.marks.some(
-          (turn, i) =>
-            !Number.isSafeInteger(turn) ||
-            turn < 1 ||
-            turn > s.turn ||
-            (i > 0 && turn < progress.marks[i - 1]),
-        )
-      )
-        fail();
-      continue;
-    }
-    let completed = programs
-      .slice(0, progress.program)
-      .reduce((n, p) => n + p.steps.length, 0);
-    if (progress.program >= programs.length) {
-      if (
-        !Number.isSafeInteger(progress.completedHands) ||
-        progress.completedHands <
-          completed + (progress.program - programs.length) ||
-        progress.completedHands >
-          completed + 12 * (progress.program - programs.length) ||
-        (program &&
-          (program.id !== `generated-${id}-${levelOf(s, id)}` ||
-            program.generated?.level !== levelOf(s, id))) ||
-        !Array.isArray(progress.recent) ||
-        progress.recent.length > 4 ||
-        progress.recent.some((item) => !ids.includes(item))
-      )
-        fail();
-      completed = progress.completedHands;
-      if (
-        progress.recentKinds !== undefined &&
-        (!Array.isArray(progress.recentKinds) ||
-          progress.recentKinds.length > 4 ||
-          progress.recentKinds.some(
-            (kind) =>
-              ![
-                "crossing",
-                "answer",
-                "delivery",
-                "gathering",
-                "introduction",
-                "bargain",
-              ].includes(kind),
-          ))
-      )
-        fail();
-    } else if (
-      progress.current ||
-      progress.completedHands !== undefined ||
-      progress.recent !== undefined
-    )
-      fail();
-    const count = completed + progress.step;
-    if (
-      count > s.turn ||
-      !Array.isArray(progress.marks) ||
-      progress.marks.length !== Math.min(32, count) ||
-      progress.marks.some(
-        (turn, i) =>
-          !Number.isSafeInteger(turn) ||
-          turn < 1 ||
-          turn > s.turn ||
-          (i > 0 && turn <= progress.marks[i - 1]),
-      )
+      !validWant(s, id) ||
+      a.visited.length > Object.keys(places).length ||
+      a.visited.some((place) => !Object.hasOwn(places, place)) ||
+      (a.want?.kind === "place" && !Object.hasOwn(places, a.want.target))
     )
       fail();
   }
@@ -3519,9 +2439,7 @@ export function validateWorld(s) {
     fail();
   let seq = 0;
   const verbs = [
-    "drop-quest",
-    "join-quest",
-    "share-quest",
+    "want_met",
     "accompany",
     "threaten",
     "guard",
@@ -3551,7 +2469,7 @@ export function validateWorld(s) {
     }
     if (
       e.kind !== undefined &&
-      !["action", "dialogue", "narration", "input", "hint", "quest"].includes(
+      !["action", "dialogue", "narration", "input", "hint"].includes(
         e.kind,
       )
     )
@@ -3621,74 +2539,18 @@ export function validateWorld(s) {
       fail();
     if (e.itemId != null && !ids.includes(e.itemId)) fail();
     if (e.receiveId != null && !ids.includes(e.receiveId)) fail();
-    if (e.questPlan !== undefined && !validProgram(e.questPlan, e.actorId, s))
-      fail();
     if (
-      e.consequence !== undefined &&
-      !validConsequence(e.consequence, e.actorId)
+      (e.verb === "want_met") !== (e.wantMet !== undefined) ||
+      (e.wantMet !== undefined &&
+        (!e.wantMet ||
+          Object.keys(e.wantMet).length !== 2 ||
+          !WANT_KINDS.includes(e.wantMet.kind) ||
+          !actorIds.includes(e.actorId) ||
+          ![...actorIds, ...ids, ...Object.keys(places)].includes(
+            e.wantMet.target,
+          )))
     )
       fail();
-    if (e.kind === "quest") {
-      const authored = s.actors[e.actorId] ? programsFor(s, e.actorId) : [];
-      const authoredIndex = authored.findIndex((p) => p.id === e.programId);
-      const program = e.program || authored[authoredIndex];
-      const index = e.programIndex ?? authoredIndex;
-      if (
-        !validProgram(program, e.actorId, s) ||
-        program.id !== e.programId ||
-        (e.questMode !== "shared" &&
-          (!Number.isSafeInteger(index) ||
-            index < 0 ||
-            index > s.actors[e.actorId].progress.program)) ||
-        !Number.isInteger(e.step) ||
-        e.step < 0 ||
-        e.step >= program.steps.length ||
-        (e.questMode !== "shared" &&
-          e.level !==
-            index + 1 + Number(e.step === program.steps.length - 1)) ||
-        (e.questMode !== "shared" &&
-          program.generated &&
-          (program.generated.level !== index + 1 ||
-            program.id !== `generated-${e.actorId}-${index + 1}`))
-      )
-        fail();
-      const options = alternatives(program.steps[e.step]),
-        target = e.target || options[0];
-      if (
-        !validHand(target, e.actorId) ||
-        !options.some((h) => sameValue(h, target))
-      )
-        fail();
-      if (e.fulfillment !== undefined) {
-        const seen = e.fulfillment;
-        if (
-          !seen ||
-          !Array.isArray(seen.items) ||
-          seen.items.length > 3 ||
-          new Set(seen.items).size !== seen.items.length ||
-          seen.items.some((id) => !ids.includes(id)) ||
-          !Object.hasOwn(places, seen.location) ||
-          !Array.isArray(seen.avatars) ||
-          seen.avatars.length > 2 ||
-          new Set(seen.avatars).size !== seen.avatars.length ||
-          seen.avatars.some(
-            (id) => !actorIds.includes(id) || id === e.actorId,
-          ) ||
-          target.items.some((id) => !seen.items.includes(id)) ||
-          (target.location && target.location !== seen.location) ||
-          target.avatars.some((id) => !seen.avatars.includes(id))
-        )
-          fail();
-        if (
-          target.conditions?.length &&
-          !sameValue(
-            seen.conditions,
-            target.conditions.map((c) => ({ ...c, met: true })),
-          )
-        )
-          fail();
-      }
-    }
     if (
       e.targetId != null &&
       ![...actorIds, ...ids, ...Object.keys(places)].includes(e.targetId)
@@ -3723,14 +2585,8 @@ export function validateWorld(s) {
 export const encodeSave = (s) => JSON.stringify(validateWorld(s));
 export function decodeSave(text) {
   const s = JSON.parse(text);
-  upgradeSave(s, {
-    actorIds,
-    ensurePrograms,
-    installPacks,
-    profileOf: (id) => tastes[id],
-  });
+  upgradeSave(s, { actorIds, installPacks });
   validateWorld(s);
   preserveTransportAccess(s);
-  settleQuestHands(s);
   return validateWorld(s);
 }

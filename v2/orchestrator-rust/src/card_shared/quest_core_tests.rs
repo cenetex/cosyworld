@@ -129,17 +129,23 @@ fn quest_history_upgrade(version: &str, speeches: usize) {
     // BoardyAI revision 2 moved his parlour door back to the station.
     expected_packs["boardyai"]["revision"] = json!(2);
     assert_saved_values(&expected_packs, &upgraded.game["packs"], "packs");
-    for field in [
-        "actors",
-        "items",
-        "quests",
-        "questCompletions",
-        "memories",
-        "log",
-        "turn",
-        "eventSeq",
-    ] {
+    // The want model drops quest records and progress on upgrade; every other
+    // saved field and the rest of the history survive.
+    for field in ["items", "memories", "turn", "eventSeq"] {
         assert_saved_values(&old.game[field], &upgraded.game[field], field);
+    }
+    super::full_tests::assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
+    assert_saved_values(
+        &super::full_tests::quest_free_log(&old.game["log"]),
+        &upgraded.game["log"],
+        "log",
+    );
+    for field in ["quests", "questCompletions"] {
+        assert!(upgraded.game.get(field).is_none(), "Drop {field}");
+    }
+    for actor in upgraded.game["actors"].as_object().unwrap().values() {
+        assert!(actor.get("progress").is_none());
+        assert!(actor.get("want").is_some());
     }
     for (id, actor) in old.game["actors"].as_object().unwrap() {
         for (other, trust) in upgraded.game["actors"][id]["trust"].as_object().unwrap() {
@@ -234,15 +240,8 @@ fn quest_core_talk_disclosure_retries_the_original_scene_and_replays_accepted_le
         expected.game["packs"]["greek-drama"]["receipts"]["greek-hear-decree"],
         played_turn
     );
-    let story = &expected.game["quests"]["records"]["greek-drama:story-quest-greek-burial"];
-    assert!(story["participants"]
-        .as_array()
-        .unwrap()
-        .contains(&json!("vale")));
-    assert!(!story["participants"]
-        .as_array()
-        .unwrap()
-        .contains(&json!("greek-guard")));
+    // The heard decree is a receipt and a known fact; no quest record joins it.
+    assert!(expected.game.get("quests").is_none());
     full::finish_work(&app, &id, duplicate, Err("A duplicate reply.".into())).unwrap();
     full::finish_work(&app, &id, stale_attempt, Err("An earlier attempt.".into())).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);

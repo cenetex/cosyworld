@@ -222,8 +222,10 @@ describe("Greek ports and fixed roads", () => {
         recall: null,
       };
       const current = decodeSave(JSON.stringify(old));
-      for (const [id, actor] of Object.entries(old.actors))
-        expect(current.actors[id]).toEqual({
+      // Quest progress is dropped; each avatar gains its want record.
+      const lived = ({ want, xp, visited, talked, metTurn, gaveUp, ...a }) => a;
+      for (const [id, { progress, ...actor }] of Object.entries(old.actors))
+        expect(lived(current.actors[id])).toEqual({
           ...actor,
           trust: {
             ...actor.trust,

@@ -1,5 +1,3 @@
-import { hasMotives, interest } from "./motives.mjs";
-import { desireFor } from "./quests.mjs";
 import {
   entityActive,
   packThings,
@@ -17,7 +15,6 @@ import {
   rootHolder,
   exits,
   covered,
-  handText,
 } from "./world.mjs";
 
 export function availableCards(world) {
@@ -234,20 +231,16 @@ export function cardPlay(world, selected) {
       people[rootHolder(world, id)] &&
       rootHolder(world, id) !== currentActor(world),
   );
-  if (!action && heldByOther && hasMotives(world)) {
+  // Another person's quest is learned by talking with them, not from a card.
+  if (!action && heldByOther) {
     const give = cards.find(
       (id) => things[id] && world.items[id].holder === currentActor(world),
     );
     const other = rootHolder(world, heldByOther);
     // Trade is offered whenever both sides have room, so only space is missing.
     if (give) return result(null, "Make room for both sides of the exchange.");
-    return result(null, `${nameOf(other)}: ${interest(world, other).text}.`);
+    return result(null, `Talk with ${nameOf(other)} to learn their quest.`);
   }
-  if (!action && heldByOther)
-    return result(
-      null,
-      `${nameOf(rootHolder(world, heldByOther))} wants to ${handText(desireFor(world, rootHolder(world, heldByOther)))}.`,
-    );
   return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
 }
 // The row lists every play for this selection. The world owns legality.

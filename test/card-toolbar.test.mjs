@@ -8,11 +8,11 @@ function snapshot() {
     present: [1, 1, 0, 1, 0, 0, 0, 0],
     world: {
       actors: {
-        vale: { place: "station", progress: { program: 0 } },
-        mara: { place: "pond", progress: { program: 3 } },
-        ash: { place: "belfry", progress: { program: 0 } },
-        nell: { place: "glasshouse", progress: { program: 0 } },
-        keeper: { place: "station", progress: { program: 0 } },
+        vale: { place: "station", xp: 0 },
+        mara: { place: "pond", xp: 6 },
+        ash: { place: "belfry", xp: 0 },
+        nell: { place: "glasshouse", xp: 0 },
+        keeper: { place: "station", xp: 0 },
       },
     },
   };
@@ -38,7 +38,7 @@ describe("players in the shared world", () => {
     const before = onlinePlayers(state);
     state.world.actors.vale.place = "pond";
     expect(onlinePlayers(state)).toEqual(before);
-    state.world.actors.vale.progress.program = 2;
+    state.world.actors.vale.xp = 3;
     expect(onlinePlayers(state)[1].level).toBe(3);
     expect(onlinePlayers(state).every((row) => !("location" in row))).toBe(
       true,

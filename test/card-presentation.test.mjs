@@ -39,9 +39,10 @@ describe("observable card descriptions", () => {
   it("never treats a person's internal progress as visible description", () => {
     const world = createWorld();
     const before = cardObservation(world, "vale");
-    world.actors.vale.progress.step = 99;
+    world.actors.vale.xp = 99;
+    world.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
     expect(cardObservation(world, "vale")).toBe(before);
-    expect(before).not.toMatch(/quest|level|inspiration|hope|\d/i);
+    expect(before).not.toMatch(/quest|level|want|inspiration|hope|\d/i);
   });
   it("does not change the world or spend a turn", () => {
     const world = createWorld();

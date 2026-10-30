@@ -109,7 +109,10 @@ fn assert_boardy_upgrade(version: &str) {
         world.game["items"]["boardyai-calling-card"]["holder"],
         "station"
     );
-    assert_eq!(world.game["log"], old.game["log"]);
+    assert_eq!(
+        world.game["log"],
+        super::full_tests::quest_free_log(&old.game["log"])
+    );
     assert!(world.game["actors"]["boardyai"].is_object());
     let action = world.project(0).unwrap()["actions"]
         .as_array()
@@ -134,12 +137,67 @@ fn assert_boardy_upgrade(version: &str) {
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
 }
 
+// Boardy no longer runs an introduction quest. A want to meet a person sends
+// him along the open roads, and the Talk there meets it in the C host.
 #[test]
-fn boardy_searches_and_alternates_visits_in_the_c_host() {
-    assert_boardy_search_visits(
-        World::create(None).unwrap(),
-        ["station", "pond", "station", "pond", "station", "pond"],
-    );
+fn boardy_follows_a_want_to_meet_a_human_in_the_c_host() {
+    let mut world = World::create(None).unwrap();
+    world.game.as_object_mut().unwrap().remove("opening");
+    world.game["actors"]["vale"]["place"] = json!("station");
+    world.game["actors"]["mara"]["place"] = json!("pond");
+    world.game["actors"]["boardyai"]["want"] =
+        json!({"kind":"person","target":"mara","since":0,"refusals":0});
+    for actor in ["vale", "mara"] {
+        world.apply(&json!({"op":"claim", "actor":actor})).unwrap();
+        world.apply(&json!({"op":"enter", "actor":actor})).unwrap();
+    }
+    let met = |world: &World| {
+        world.game["log"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|e| e["verb"] == "want_met" && e["actorId"] == "boardyai")
+            .count()
+    };
+    for _ in 0..8 {
+        if met(&world) > 0 {
+            break;
+        }
+        let view = world.project(0).unwrap();
+        let wait = view["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == "wait")
+            .unwrap()
+            .clone();
+        world
+            .apply(&json!({"op":"play", "actor":"vale", "action":wait}))
+            .unwrap();
+        assert_eq!(world.game["actors"]["vale"]["place"], "station");
+        assert_eq!(world.game["actors"]["mara"]["place"], "pond");
+    }
+    if met(&world) == 0 {
+        // Mara answers when he has reached her.
+        assert_eq!(world.game["actors"]["boardyai"]["place"], "pond");
+        let view = world.project(1).unwrap();
+        let talk = view["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == "talk" && a["target"] == "boardyai")
+            .unwrap()
+            .clone();
+        world
+            .apply(&json!({"op":"play", "actor":"mara", "action":talk}))
+            .unwrap();
+    }
+    assert_eq!(met(&world), 1);
+    assert_eq!(world.game["actors"]["boardyai"]["xp"], 1);
+    assert!(world.game["actors"]["boardyai"]["talked"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("mara")));
 }
 
 #[test]
@@ -240,7 +298,10 @@ fn boardy_version_sixteen_upgrade_preserves_sightings_and_replays() {
     for (key, item) in old.game["items"].as_object().unwrap() {
         assert_eq!(&world.game["items"][key], item, "saved item {key}");
     }
-    assert_eq!(world.game["log"], old.game["log"]);
+    assert_eq!(
+        world.game["log"],
+        super::full_tests::quest_free_log(&old.game["log"])
+    );
     for _ in 0..4 {
         let view = world.project(0).unwrap();
         let wait = view["actions"]
@@ -259,7 +320,9 @@ fn boardy_version_sixteen_upgrade_preserves_sightings_and_replays() {
         )
         .unwrap();
     }
-    assert!(world.game["introductionVisits"]["boardyai"].is_object());
+    // Introduction visits were quest machinery; the upgrade drops them.
+    assert!(world.game.get("introductionVisits").is_none());
+    assert!(world.game["actors"]["boardyai"].get("want").is_some());
     drop(c);
     let c = store::open(&path).unwrap();
     full_store::schema(&c).unwrap();

@@ -31,10 +31,6 @@ function commit(world, kind, target) {
 
 let fixture = enableMotives(
   createWorld({ opening: true, packScopes: { "greek-drama": "full" } }),
-  {
-    questPrograms: true,
-    personalQuests: true,
-  },
 );
 // Keep the first ship signal part of this story fixture's legal journey.
 fixture.actors["greek-rhapsode"].place = "attic";

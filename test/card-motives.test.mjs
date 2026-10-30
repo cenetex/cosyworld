@@ -13,7 +13,6 @@ import {
 } from "../v2/card-game/world.mjs";
 import {
   enableMotives,
-  interest,
   resentment,
   recordReaction,
 } from "../v2/card-game/motives.mjs";
@@ -51,12 +50,17 @@ describe("shore wants and grievances", () => {
 
   it("lets different tastes support the same trade, while a slight raises the price", () => {
     let s = together(fresh());
+    // Tastes alone decide here: the keeper's quest is elsewhere.
+    s.actors.keeper.want = null;
     s.items.bell.holder = "vale";
     expect(canTrade(s, "vale", "bell", "oil")).toBe(true);
     expect(cardPlay(s, ["bell", "oil"]).action.kind).toBe("trade");
     s = act(s, "ring", { item: "bell" });
     expect(resentment(s, "keeper", "vale")).toBe(1);
     s.actors.keeper.place = s.actors.vale.place;
+    // One slight leaves the bell just enough; a second raises the price.
+    expect(canTrade(s, "vale", "bell", "oil")).toBe(true);
+    recordReaction(s, { kind: "ring", actor: "vale", item: "bell" }, ["keeper"], false);
     expect(canTrade(s, "vale", "bell", "oil")).toBe(false);
     expect(decodeSave(encodeSave(s)).motives).toEqual(s.motives);
   });
@@ -73,7 +77,7 @@ describe("shore wants and grievances", () => {
     });
   });
 
-  it("records only witnessed noise and makes the Keeper seek space", () => {
+  it("records only witnessed noise", () => {
     let far = fresh();
     far.items.bell.holder = "vale";
     far = act(far, "ring", { item: "bell" });
@@ -81,14 +85,20 @@ describe("shore wants and grievances", () => {
     let near = together(fresh());
     near.items.bell.holder = "vale";
     near = act(near, "ring", { item: "bell" });
-    expect(near.actors.keeper.place).toBe("pond");
     expect(near.motives.grievances.keeper[0].reason).toContain("quiet moment");
   });
 
-  it("lets Pip follow a wanted lamp, then refuse company after its light is spoiled", () => {
+  it("lets Pip follow a wanted lamp that Vale carries", () => {
+    const s = together(fresh());
+    s.items.lamp.holder = "vale";
+    expect(accompanyDecision(s, "vale", "moth", "pond").accepted).toBe(true);
+  });
+
+  it("lets Pip go along toward its want, then refuse company after its light is spoiled", () => {
     let s = together(fresh());
     s.items.lamp.holder = "vale";
     s.items.lamp.lit = true;
+    s.actors.moth.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
     expect(accompanyDecision(s, "vale", "moth", "pond").accepted).toBe(true);
     s = act(s, "snuff", { item: "lamp" });
     expect(resentment(s, "moth", "vale")).toBe(1);
@@ -105,7 +115,7 @@ describe("shore wants and grievances", () => {
     expect(facts.join(" ")).toContain("spoiled Pip's light");
   });
 
-  it("softens a grievance through a useful gift", () => {
+  it("softens a grievance through a gift, and trusts the giver of a wanted item", () => {
     let s = together(fresh());
     s.items.bell.holder = "vale";
     s.items.lamp.holder = "vale";
@@ -115,25 +125,11 @@ describe("shore wants and grievances", () => {
       ["keeper"],
       false,
     );
-    expect(canTrade(s, "vale", "bell", "oil")).toBe(false);
-    s = act(s, "give", { item: "lamp", target: "keeper" });
+    expect(resentment(s, "keeper", "vale")).toBe(1);
+    // The keeper wants the bell, so this gift also earns its trust.
+    s = act(s, "give", { item: "bell", target: "keeper" });
     expect(resentment(s, "keeper", "vale")).toBe(0);
     expect(s.actors.keeper.trust.vale).toBe(1);
-    expect(canTrade(s, "vale", "bell", "oil")).toBe(true);
-  });
-
-  it("lets Pip tend a lamp and travel to a preferred place", () => {
-    const s = together(fresh());
-    s.items.lamp.holder = "moth";
-    expect(plan(s, "moth").action.kind).toBe("light");
-    s.items.lamp.lit = true;
-    expect(plan(s, "moth").action).toMatchObject({
-      kind: "move",
-      target: "pond",
-    });
-    s.items.oil.holder = "moth";
-    s.items.lamp.fuel = 1;
-    expect(plan(s, "moth").action.kind).toBe("refill");
   });
 
   it("rejects malformed and oversized grievance state", () => {
@@ -156,43 +152,6 @@ describe("shore wants and grievances", () => {
     }
   });
 
-  it("lets a changed need lead Pip to trade with the Keeper", () => {
-    const s = together(fresh());
-    s.items.lamp.holder = "moth";
-    s.items.lamp.fuel = 1;
-    s.items.lamp.lit = true;
-    s.items.bell.holder = "keeper";
-    s.items.bell.ringing = 3;
-    expect(plan(s, "moth").action).toMatchObject({
-      kind: "trade",
-      item: "cloth",
-      receive: "oil",
-    });
-    const next = act(s, "wait");
-    expect(next.items.oil.holder).toBe("moth");
-    expect(next.items.cloth.holder).toBe("bell");
-    expect(next.items.bell.ringing).toBe(0);
-  });
-
-  it("gives an annoyed owner space instead of pursuing them between rooms", () => {
-    const s = together(fresh());
-    s.items.lamp.holder = "moth";
-    s.items.lamp.fuel = 1;
-    recordReaction(
-      s,
-      { kind: "threaten", actor: "moth", target: "keeper" },
-      ["keeper"],
-      false,
-    );
-    expect(interest(s, "moth").location).toBe("pond");
-    expect(plan(s, "moth").action).toMatchObject({ kind: "light" });
-    s.items.lamp.lit = true;
-    expect(plan(s, "moth").action).toMatchObject({
-      kind: "move",
-      target: "pond",
-    });
-  });
-
   it("takes the homeward exit when both paths give space from a grievance", () => {
     const s = fresh();
     s.turn = s.revision = 12;
@@ -209,34 +168,10 @@ describe("shore wants and grievances", () => {
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 
-  it("continues saved quest programs alongside personal grievances", () => {
-    let s = together(createWorld());
-    s.turn = s.revision = 5;
-    s.actors.vale.progress = { program: 1, step: 1, marks: [1, 2, 3, 4] };
-    s.items.lamp.holder = s.items.bell.holder = "vale";
-    s = enableMotives(s, { questPrograms: true });
-    recordReaction(
-      s,
-      { kind: "ring", actor: "vale", item: "bell" },
-      ["keeper"],
-      false,
-    );
-    const before = structuredClone(s.actors.vale.progress);
-    s = enableMotives(decodeSave(encodeSave(s)), { questPrograms: true });
-    expect(s.actors.vale.progress).toEqual(before);
-    s = act(s, "wait");
-    expect(s.actors.vale.progress.program).toBe(2);
-    expect(s.actors.vale.progress.current.generated).toBeTruthy();
-    expect(resentment(s, "keeper", "vale")).toBe(1);
-    expect(decodeSave(encodeSave(s))).toEqual(s);
-  });
-
-  it("keeps the cast progressing and trading with quests and motives together", async () => {
+  it("keeps the cast meeting wants with motives", async () => {
     for (const initial of [7, 42, 1729]) {
-      let s = enableMotives(createWorld(), { questPrograms: true });
-      let seed = initial,
-        trades = 0;
-      const kinds = new Set();
+      let s = fresh();
+      let seed = initial;
       for (let i = 0; i < 240; i++) {
         if (i % 20 === 0) await yieldToRunner();
         seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
@@ -247,31 +182,17 @@ describe("shore wants and grievances", () => {
           expect(result).toEqual(play(decodeSave(encodeSave(s)), action));
         expect(result.ok).toBe(true);
         s = result.state;
-        trades += s.log.filter(
-          (e) =>
-            e.turn === s.turn && e.verb === "trade" && e.accepted !== false,
-        ).length;
-        for (const actor of Object.values(s.actors))
-          if (actor.progress.current?.generated.situation)
-            kinds.add(actor.progress.current.generated.situation);
       }
-      expect(s.actors.moth.progress.program).toBeGreaterThan(3);
-      expect(s.actors.keeper.progress.program).toBeGreaterThan(3);
-      expect(trades).toBeGreaterThan(3);
-      expect(kinds.size).toBeGreaterThanOrEqual(3);
+      // A resident can end up behind a closed reflection for a while, so
+      // the pair is measured together.
+      expect(s.actors.moth.xp + s.actors.keeper.xp).toBeGreaterThan(6);
       expect(decodeSave(encodeSave(s))).toEqual(s);
     }
   }, 60_000);
 
-  it("keeps mixed play deterministic and preserves archived quest progress", async () => {
+  it("keeps mixed play deterministic", async () => {
     let s = fresh(),
       seed = 1729;
-    const progress = Object.fromEntries(
-      Object.entries(s.actors).map(([id, a]) => [
-        id,
-        structuredClone(a.progress),
-      ]),
-    );
     for (let i = 0; i < 320; i++) {
       if (i % 20 === 0) await yieldToRunner();
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
@@ -282,10 +203,7 @@ describe("shore wants and grievances", () => {
       expect(left).toEqual(right);
       expect(left.ok).toBe(true);
       s = left.state;
-      for (const [id, a] of Object.entries(s.actors))
-        expect(a.progress).toEqual(progress[id]);
       expect(s.log.some((e) => e.kind === "quest")).toBe(false);
     }
-    expect(interest(s, "moth").reason).toBeTruthy();
   }, 60_000);
 });

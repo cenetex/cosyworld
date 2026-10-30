@@ -15,7 +15,7 @@ import {
   turnOutcome,
   applyGeneratedText,
 } from "../v2/card-game/narrative.mjs";
-import { knownActors } from "../v2/card-game/quests.mjs";
+import { knownActors } from "../v2/card-game/want.mjs";
 
 function pond() {
   const s = enableMotives(createWorld());
@@ -164,11 +164,8 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(availableCards(s)).not.toContain("clearing");
     s = reach(ring(ring(decodeSave(encodeSave(s)))));
     expect(s.actors.badger.awake).toBe(true);
-    expect(s.actors.badger.progress).toEqual({
-      program: 0,
-      step: 0,
-      marks: [],
-    });
+    // Badger keeps to the clearing, so he never sets out on a want.
+    expect(s.actors.badger.place).toBe("clearing");
     expect(narrativeContext(s).outcome.avatars.map((a) => a.id)).toEqual([
       "vale",
       "badger",
