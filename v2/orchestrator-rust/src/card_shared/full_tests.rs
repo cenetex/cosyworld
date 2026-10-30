@@ -7,13 +7,17 @@ use serde_json::json;
 
 // The authored Greek pack revision that an upgraded save should reach.
 pub(super) fn greek_revision() -> Value {
+    pack_revision("greek-drama")
+}
+
+pub(super) fn pack_revision(id: &str) -> Value {
     let catalog: Value =
         serde_json::from_str(include_str!("../../../card-game/packs.json")).unwrap();
     catalog["packs"]
         .as_array()
         .unwrap()
         .iter()
-        .find(|pack| pack["id"] == "greek-drama")
+        .find(|pack| pack["id"] == id)
         .unwrap()["revision"]
         .clone()
 }
@@ -2707,7 +2711,10 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
             }
         }
         assert_eq!(world.game["log"], old.game["log"]);
-        assert_eq!(world.game["packs"]["hoppycat-archive"]["revision"], 1);
+        assert_eq!(
+            world.game["packs"]["hoppycat-archive"]["revision"],
+            pack_revision("hoppycat-archive")
+        );
         assert_eq!(
             world.game["actors"]["hoppycat-hoppy-cat"]["place"],
             "hoppycat-halfway-tea-garden"
@@ -2720,10 +2727,23 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
         assert_eq!(count(), before_upgrade + 1);
 
-        // Enter the new pack, use its custody rule, commit a story receipt,
-        // then return through the bridge using the current C-hosted rules.
+        // The red thread from Black pond is retired: a newly joined Hoppy Cat
+        // has no pond door, and its ship lane is learned. Continue from a
+        // visitor already in the garden.
+        assert!(!world.project(0).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|a| a["kind"] == "move" && a["target"] == "hoppycat-halfway-tea-garden"));
+        world.game["actors"]["vale"]["place"] = json!("hoppycat-halfway-tea-garden");
+        let id = "g".repeat(48);
+        store::create(&c, &id, "owner", now()).unwrap();
+        full_store::seed(&c, &id, &world, "hoppycat-garden-visitor", now()).unwrap();
+        let mut world = full_store::world(&c, &id, now()).unwrap();
+
+        // Use the pack's custody rule, commit a story receipt, then return
+        // through the bridge using the current C-hosted rules.
         for (kind, field, value) in [
-            ("move", "target", "hoppycat-halfway-tea-garden"),
             ("take", "item", "hoppycat-halfway-cup"),
             ("choose", "choiceId", "hoppycat-welcome"),
             ("move", "target", "pond"),

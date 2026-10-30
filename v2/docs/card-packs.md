@@ -159,7 +159,9 @@ settles any pending recall, and a return to the deck joins its current voyage.
 
 A crossing is open when its signal window is open (if it has a signal) and
 every condition holds. The bridge must have a way in to the entry and a way
-back to the hub.
+back to the hub. A crossing marked `"retired": true` stays open only in saves
+that had already found it; new games never open it. Hoppy Cat's red thread
+from Black pond is retired this way, so new games reach Hoppy Cat by ship.
 
 ### Conditions
 
@@ -171,6 +173,10 @@ back to the hub.
 item's physical place. It follows custody through covered items and their
 carrier. Hub and pack items can use this crossing condition. An item on the
 floor and an item held by someone in that room satisfy the same condition.
+
+`{ "kind": "pack_item_present", "pack": "hoppycat-archive", "place": "greek-ship" }`
+holds while any thing from that pack is in the place: resting there, or
+carried by someone present there.
 
 The vocabulary also includes `light`, bounded `not`, and persistent pack
 `choice`, `choice_unset`, `flag`, `holding`, `item_at` and `met`. Environmental
@@ -350,7 +356,18 @@ that pack travel between the shores.
 two-way unless it has `"oneWay": true`. Each dock has at most four lanes and at
 least one lane out; the pack check rejects more. The order of the list decides
 each dock's first lane. A new world's dock should join a port that still has a
-free lane, so the sea grows outward.
+free lane, so the sea grows outward. A dock may be another pack's place: the
+Signal Jetty is Hoppy Cat's, with one lane from Piraeus Quays.
+
+Course cards show only lanes the person knows. A lane can instead list
+`opensWith` conditions: such a gated lane is open, both ways, only while they
+hold, for everyone aboard, and knowing it opens nothing. The Piraeus–Signal
+Jetty lane opens with `pack_item_present` while a Hoppy Cat thing is aboard.
+Myrto knows every lane; through Talk she tells a gated lane together with its
+condition. Hoppy Cat revision 2 saves keep a red thread they had already
+found, and anyone who had been in Hoppy Cat learns the jetty lane as
+knowledge. In a new game every Hoppy Cat thing starts inside Hoppy Cat, so the
+jetty waits for things scattered into other worlds.
 
 The ship place uses the existing place cards. At a dock, the ship card offers
 Board. Boarding keeps the ship at its harbour. Aboard a docked ship, the other

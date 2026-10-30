@@ -202,10 +202,7 @@ describe("a path out of a stranded home", () => {
     const s = opening();
     s.items.lamp.fuel = 0;
     expect(exits(s, "attic", "moth")).toEqual([]);
-    expect(exits(s, "pond", "vale")).toEqual([
-      "station",
-      "hoppycat-halfway-tea-garden",
-    ]);
+    expect(exits(s, "pond", "vale")).toEqual(["station"]);
     expect(move(s, "vale", "pond")).toBeDefined();
   });
 });

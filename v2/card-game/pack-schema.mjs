@@ -75,6 +75,7 @@ export const CONDITION_KINDS = [
   "connected_humans",
   "met",
   "knows",
+  "pack_item_present",
 ];
 export const TRAVELERS = ["player", "any"];
 export const VARIANTS = ["asleep", "awake", "irritated"];
@@ -101,7 +102,7 @@ export function laneProblems(t) {
     leaving = new Set();
   for (const lane of t.lanes) {
     if (
-      !keysOk(lane, ["from", "to", "oneWay"]) ||
+      !keysOk(lane, ["from", "to", "oneWay", "opensWith"]) ||
       !docks.includes(lane.from) ||
       !docks.includes(lane.to) ||
       lane.from === lane.to ||
@@ -759,6 +760,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "met":
           ok = keysOk(c, ["kind", "actor"]) && owns(avatars, c.actor);
           break;
+        case "pack_item_present":
+          ok =
+            keysOk(c, ["kind", "pack", "place"]) &&
+            idOk(c.pack) &&
+            anyPlace(c.place);
+          break;
         case "knows": {
           // `topics` accepts any one of several facts, so a needed fact can
           // come from more than one person or place.
@@ -1300,7 +1307,20 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
     if (!valid) continue;
     transportPlaces.add(t.place);
-    for (const message of laneProblems(t)) check(false, `transport ${id} ${message}`);
+    for (const message of laneProblems(t))
+      check(false, `transport ${id} ${message}`);
+    // A gated lane opens with conditions on the ship, from its first port.
+    for (const lane of t.lanes || [])
+      if (lane?.opensWith !== undefined) {
+        check(
+          Array.isArray(lane.opensWith) &&
+            lane.opensWith.length > 0 &&
+            lane.opensWith.length <= 4,
+          `transport ${id} lane opensWith must be a short list`,
+        );
+        for (const c of Array.isArray(lane.opensWith) ? lane.opensWith : [])
+          condition(c, `transport ${id} lane condition`);
+      }
     check(
       t.shipmaster === undefined ||
         (typeof t.shipmaster === "string" && t.shipmaster.length > 0),
@@ -1343,8 +1363,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "closed",
         "travelLabel",
         "transport",
+        "retired",
       ]) &&
         idOk(c.id) &&
+        (c.retired === undefined ||
+          (c.retired === true &&
+            c.transport === undefined &&
+            c.signal === undefined)) &&
         !crossingIds.has(c.id),
       `${name} needs a distinct id and only known fields`,
     );

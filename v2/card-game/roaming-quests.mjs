@@ -233,7 +233,10 @@ export function roamingPlan(world, actor, api) {
     const edges = world.routeKnowledge[actor] || [];
     const frontiers = [...new Set(edges.map(([, to]) => to))].filter(
       (to) =>
-        to !== here && api.active?.(to) && !edges.some(([from]) => from === to),
+        to !== here &&
+        api.active?.(to) &&
+        api.berthOpen?.(to) !== false &&
+        !edges.some(([from]) => from === to),
     );
     // An older dormant spawn can leave by an authored open exit. Otherwise
     // explore only the boundary of its known map, one legal step at a time.
