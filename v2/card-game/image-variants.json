@@ -1393,12 +1393,26 @@
       "card": "assets/optimized/card/webp/willows/bank.webp",
       "cardHash": "abdc2d0d01a27a4cc0892cf9dd890fd3f0606194b175f2ab69929bd8cd59add8"
     },
+    "assets/willows/camp-lit-night.webp": {
+      "sourceHash": "3aeac8f45d6c1422f1ffb410a01a7709d607c25a4f9a4781e6fcef1ed41e2aef",
+      "stage": "assets/willows/camp-lit-night.webp",
+      "stageHash": "3aeac8f45d6c1422f1ffb410a01a7709d607c25a4f9a4781e6fcef1ed41e2aef",
+      "card": "assets/optimized/card/webp/willows/camp-lit-night.webp",
+      "cardHash": "d842740114832e55dd76b6eb965aa9f8b882e7cffb6855ceea1902e7f8b92654"
+    },
     "assets/willows/camp.webp": {
       "sourceHash": "b45b2f36bca38d187e277b57704bbb9a7600a087d9cb4dcb6406049c74e10314",
       "stage": "assets/willows/camp.webp",
       "stageHash": "b45b2f36bca38d187e277b57704bbb9a7600a087d9cb4dcb6406049c74e10314",
       "card": "assets/optimized/card/webp/willows/camp.webp",
       "cardHash": "e889169ffbcfe684c0cfbb21e662e05040296a99a2810c2af574072057a9f13d"
+    },
+    "assets/willows/landing-ship-night.webp": {
+      "sourceHash": "eccc07e492fe00237e93746026c69d88e515a91553cdc766cbdf97e0e102a887",
+      "stage": "assets/willows/landing-ship-night.webp",
+      "stageHash": "eccc07e492fe00237e93746026c69d88e515a91553cdc766cbdf97e0e102a887",
+      "card": "assets/optimized/card/webp/willows/landing-ship-night.webp",
+      "cardHash": "bd6b83f10cea6848879426b1d81f36e79ddd71cde59b75e9fc53245f5cf9e1bb"
     },
     "assets/willows/landing.webp": {
       "sourceHash": "589d52b6c0d24168c7f57952f2fae3aa6550726c7e1897eef7616979fff55804",
