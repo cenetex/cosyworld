@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "1.2.63",
+  "version": "1.2.64",
   "description": "A persistent card world with local and shared play",
   "type": "module",
   "private": true,
@@ -56,6 +56,7 @@
     "format": "npx prettier --write .",
     "format:check": "npx prettier --check .",
     "check:version": "node scripts/check-version-bump.mjs",
+    "land": "node scripts/land-branch.mjs",
     "version:bump": "node scripts/bump-version.mjs",
     "prepare": "node scripts/install-git-hooks.mjs",
     "test": "vitest run",
