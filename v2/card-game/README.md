@@ -728,7 +728,7 @@ Boarding keeps the ship at its departure shore so other players can join.
 The voyage moves it to the arrival shore, where it stays after the first
 passenger lands. Passengers still aboard can step off there or stay for the
 next course, so a passenger can stay aboard through several trips. A lamp
-recall waits until the ship is empty. Shared rules version 25 adds the sea
+recall waits until the ship is empty. Shared rules version 26 adds the sea
 lanes and the round at sea (ship record version 3). Older occupied ships wait
 docked for a course; ships that had landed keep their arrival. Older journal
 actions replay with their original rules.

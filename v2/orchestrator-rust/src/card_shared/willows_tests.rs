@@ -79,7 +79,11 @@ fn replay_willows(version: &str) {
                 {
                     break;
                 }
-                let wait = actions.iter().find(|a| a["kind"] == "wait").unwrap().clone();
+                let wait = actions
+                    .iter()
+                    .find(|a| a["kind"] == "wait")
+                    .unwrap()
+                    .clone();
                 full_store::commit(
                     &c,
                     &id,

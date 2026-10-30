@@ -170,7 +170,7 @@ keeps its saved destination, and its passengers can land; boarding still needs
 the completed signal. The upgrade validates the old save before granting this
 human passenger allowance.
 
-Rule version 25 makes each voyage a shared world round. The first course card
+Rule version 26 makes each voyage a shared world round. The first course card
 played aboard sets the ship's course for every passenger; the round ends with
 the ship at sea, and the next round ends with its arrival. Each player's view
 shows course cards only while the ship is docked, and Disembark only to the
