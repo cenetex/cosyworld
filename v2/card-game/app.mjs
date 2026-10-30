@@ -104,7 +104,9 @@ let world = sharedSession
   saveBlocked = false,
   lineSeq = null,
   selectionRevision = 0,
-  dragging = [];
+  dragging = [],
+  // A scene click folds the row away while the held item stays raised.
+  rowCollapsed = false;
 // Name the save slot: table saves are keyed off the URL param, so a player
 // landing through a different link silently lands in a different slot.
 {
@@ -758,6 +760,8 @@ function choose(id) {
   playQueue.clear();
   lastPlayAt = -Infinity;
   fresh.delete(id);
+  // Any tap opens a folded row again; the held item is still raised.
+  rowCollapsed = false;
   if (places[id] && expandedHolders.has(id)) {
     expandedHolders.delete(id);
     selectCards(
@@ -1211,7 +1215,8 @@ function renderActions(animate = false) {
     selected.length > 0,
   );
   document.body.dataset.handExpanded = String(
-    selected.length > 0 || dragging.length > 0 || expandedHolders.size > 0,
+    dragging.length > 0 ||
+      (!rowCollapsed && (selected.length > 0 || expandedHolders.size > 0)),
   );
   const revision = world.revision;
   const nudgeTarget =
@@ -1992,9 +1997,11 @@ function render() {
   $("place-title").textContent = nameOf(
     world.actors[currentActor(world)].place,
   );
-  for (const id of selected) {
-    if (people[id] || places[id]) expandedHolders.add(id);
-  }
+  if (rowCollapsed) expandedHolders.clear();
+  else
+    for (const id of selected) {
+      if (people[id] || places[id]) expandedHolders.add(id);
+    }
   const handCards = availableCards(world);
   // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
@@ -2008,6 +2015,7 @@ function render() {
     [...expandedHolders],
     [...fresh],
     saveBlocked,
+    rowCollapsed,
   ]);
   if (handKey !== renderedHand) {
     const sameWorld =
@@ -2180,13 +2188,22 @@ document.addEventListener("keydown", (e) => {
     playQueue.clear();
     selected = [];
     expandedHolders.clear();
+    rowCollapsed = false;
     render();
   }
 });
+// A click outside the row folds it. A held item stays raised and is still
+// held when the row opens again; Escape or a second tap lowers it.
 document.addEventListener("click", (e) => {
+  if (rowCollapsed) {
+    if (e.target instanceof Element && e.target.closest(".play-dock")) {
+      rowCollapsed = false;
+      render();
+    }
+    return;
+  }
   if (
     (selected.length || expandedHolders.size) &&
-    !selectedHandItem(world, selected) &&
     !e
       .composedPath()
       .some(
@@ -2198,7 +2215,8 @@ document.addEventListener("click", (e) => {
       )
   ) {
     playQueue.clear();
-    selected = [];
+    if (selectedHandItem(world, selected)) rowCollapsed = true;
+    else selected = [];
     expandedHolders.clear();
     render();
   }
@@ -2282,6 +2300,7 @@ $("confirm-reset").onclick = () => {
   lineSeq = null;
   selected = [];
   expandedHolders.clear();
+  rowCollapsed = false;
   saveBlocked = false;
   notice("");
   save();
@@ -2307,6 +2326,7 @@ window.addEventListener("storage", (event) => {
     lineSeq = null;
     selected = [];
     expandedHolders.clear();
+    rowCollapsed = false;
     saveBlocked = false;
     notice("The world was updated in another tab.");
     resumeScene();
