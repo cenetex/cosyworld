@@ -2164,6 +2164,7 @@ function render() {
       .querySelector(`[data-card="${focusId}"]`)
       ?.focus({ preventScroll: true });
   }
+  updateHandArrows();
 }
 function revealHandCard(id, alignStart = false, instant = false) {
   const hand = $("hand"),
@@ -2184,6 +2185,33 @@ function revealHandCard(id, alignStart = false, instant = false) {
     behavior: instant || reducedMotion.matches ? "instant" : "smooth",
   });
 }
+// Arrows beside the hand reach cards past either edge.
+function updateHandArrows() {
+  const hand = $("hand"),
+    overflow = hand.scrollWidth > hand.clientWidth + 2,
+    first = hand.querySelector(".card-frame:not([hidden])");
+  // Scroll snapping rests the first card at its padded start, not at zero.
+  const start = first
+    ? first.offsetLeft -
+      hand.offsetLeft -
+      (parseFloat(getComputedStyle(hand).scrollPaddingLeft) || 0)
+    : 0;
+  $("hand-previous").hidden = $("hand-next").hidden = !overflow;
+  $("hand-previous").disabled = hand.scrollLeft <= Math.max(0, start) + 1;
+  $("hand-next").disabled =
+    hand.scrollLeft + hand.clientWidth >= hand.scrollWidth - 2;
+}
+for (const [id, direction] of [
+  ["hand-previous", -1],
+  ["hand-next", 1],
+])
+  $(id).onclick = () =>
+    $("hand").scrollBy({
+      left: direction * $("hand").clientWidth * 0.75,
+      behavior: reducedMotion.matches ? "instant" : "smooth",
+    });
+$("hand").addEventListener("scroll", updateHandArrows, { passive: true });
+new ResizeObserver(updateHandArrows).observe($("hand"));
 new ResizeObserver(([entry]) => {
   document.documentElement.style.setProperty(
     "--dock-height",
@@ -2194,13 +2222,13 @@ $("hand").addEventListener(
   "wheel",
   (e) => {
     const hand = $("hand");
-    if (
-      hand.scrollWidth <= hand.clientWidth + 1 ||
-      Math.abs(e.deltaY) <= Math.abs(e.deltaX)
-    )
-      return;
+    // Pinch zoom passes through; line and page wheels scroll by their unit.
+    if (hand.scrollWidth <= hand.clientWidth + 1 || e.ctrlKey) return;
     e.preventDefault();
-    hand.scrollLeft += e.deltaY;
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    hand.scrollLeft +=
+      delta *
+      (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? hand.clientWidth : 1);
   },
   { passive: false },
 );

@@ -170,14 +170,48 @@ try {
       const overflow = await hand.evaluate(
         (h) => h.scrollWidth > h.clientWidth + 1,
       );
+      const handPrevious = page.locator("#hand-previous"),
+        handNext = page.locator("#hand-next");
+      assert.equal(await handPrevious.isVisible(), overflow, "hand arrows");
+      assert.equal(await handNext.isVisible(), overflow, "hand arrows");
       if (overflow) {
         await hand.evaluate((h) => (h.scrollLeft = 0));
+        await page.waitForFunction(
+          () => document.querySelector("#hand-previous").disabled,
+        );
+        assert.equal(await handNext.isDisabled(), false, "more cards arrow");
         const bounds = await hand.boundingBox();
         await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + 30);
         await page.mouse.wheel(0, 180);
         await page.waitForFunction(
           () => document.querySelector("#hand").scrollLeft > 0,
         );
+        // A sideways wheel or trackpad swipe also scrolls the hand.
+        await hand.evaluate((h) => (h.scrollLeft = 0));
+        await page.mouse.wheel(120, 0);
+        await page.waitForFunction(
+          () => document.querySelector("#hand").scrollLeft > 0,
+        );
+        // The arrows step through the hand and stop at each end.
+        await hand.evaluate((h) => (h.scrollLeft = 0));
+        await page.waitForFunction(
+          () => document.querySelector("#hand-previous").disabled,
+        );
+        await handNext.click();
+        await page.waitForFunction(
+          () =>
+            document.querySelector("#hand").scrollLeft > 0 &&
+            !document.querySelector("#hand-previous").disabled,
+        );
+        await hand.evaluate((h) => (h.scrollLeft = h.scrollWidth));
+        await page.waitForFunction(
+          () => document.querySelector("#hand-next").disabled,
+        );
+        await handPrevious.click();
+        await page.waitForFunction(
+          () => !document.querySelector("#hand-next").disabled,
+        );
+        await hand.evaluate((h) => (h.scrollLeft = 0));
       }
       const tapCard = async (id) => {
         await selectCard(page, id, { touch: width === 390 });

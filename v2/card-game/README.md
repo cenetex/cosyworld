@@ -145,7 +145,7 @@ Hover lifts a card and its preview stack together.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 On wide screens, the resting hand occupies two card widths at the right. Dialogue
 sits at the left. Selecting a card opens the hand across the screen and moves
-dialogue above it. Swipe, use the wheel, or use the arrow keys to reach more cards.
+dialogue above it. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, and a sideways swipe stays inside the hand.
 Play stays available during an exchange. A waiting play shows **Queued**;
 tapping it again cancels it. Selecting another card clears the waiting play.
 Shared play waits for the player's current turn to finish, then checks the
