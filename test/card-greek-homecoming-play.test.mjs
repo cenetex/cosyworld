@@ -57,7 +57,7 @@ describe("the household reaches its berth", () => {
           entry.verb === "accompany" &&
           entry.targetId === "greek-household-witness",
       );
-      expect(travel).toHaveLength(2);
+      expect(travel).toHaveLength(1);
       expect(travel.every((entry) => entry.accepted)).toBe(true);
       expect(flag(world, "arrived")).toBe(true);
       expect(flag(world, "witness-heard")).toBe(true);
@@ -120,7 +120,7 @@ describe("the household reaches its berth", () => {
     world = decodeSave(encodeSave(world));
     const later = shared(world, "mara", ["mara"]);
     let result;
-    for (const destination of ["greek-road-piraeus-eleusis", "greek-piraeus"]) {
+    for (const destination of ["greek-piraeus"]) {
       const view = shared(world, "mara", ["mara"]);
       const next = openDoorAction(view.world, "accompany", {
         target: "greek-household-witness",

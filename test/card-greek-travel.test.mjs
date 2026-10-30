@@ -240,7 +240,9 @@ describe("Greek ports and fixed roads", () => {
         since: current.turn,
         recall: null,
       });
-      expect(current.packs["greek-drama"].revision).toBe(7);
+      expect(current.packs["greek-drama"].revision).toBe(
+        packDefinition("greek-drama").revision,
+      );
       for (const [id, memory] of Object.entries(old.memories)) {
         const { seen, ...retained } = current.memories[id];
         expect(retained).toEqual(memory);

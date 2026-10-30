@@ -18,17 +18,6 @@ fn play(
                 .as_str()
                 .unwrap()
                 .to_string();
-            if (from == "greek-eleusis" && *target == "greek-piraeus")
-                || (from == "greek-piraeus" && *target == "greek-eleusis")
-            {
-                play(
-                    c,
-                    id,
-                    world,
-                    actor,
-                    &[("kind", "move"), ("target", "greek-road-piraeus-eleusis")],
-                );
-            }
             // Aboard, a dock is a voyage: course, a round at sea, Disembark.
             if from == "greek-ship" && *target != "greek-ship" {
                 let who = if actor == 0 { "vale" } else { "mara" };
@@ -234,17 +223,6 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-eleusis");
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
             assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
-            play(
-                &c,
-                &id,
-                &mut world,
-                1,
-                &[
-                    ("kind", "accompany"),
-                    ("target", MYRINE),
-                    ("destination", "greek-road-piraeus-eleusis"),
-                ],
-            );
             let travel = play(
                 &c,
                 &id,

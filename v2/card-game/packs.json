@@ -409,9 +409,9 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 7,
+      "revision": 8,
       "name": "The Wine-Dark Sea",
-      "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. Fixed roads lead through the Attic places where welcome becomes a growing poem.",
+      "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
       "entry": "greek-harbor",
       "continuity": {
@@ -556,23 +556,21 @@
             "greek-jury-house",
             "greek-festival",
             "greek-attic-farm",
-            "greek-road-athens-colonus",
-            "greek-road-athens-eleusis",
-            "greek-road-athens-marathon",
+            "greek-colonus",
             "greek-delphi",
             "greek-road-athens-harbor"
           ],
           "backdrop": "assets/greek-drama/athens-grand-agora.webp",
-          "persona": "The Agora is the great civic heart of Athens. Colonnades, public monuments and the high Acropolis give the city its scale. Theseus receives the mothers’ petition at the herald’s table. Roads lead toward the harbor, the quays, Eleusis, Colonus and Marathon."
+          "persona": "The Agora is the great civic heart of Athens. Colonnades, public monuments and the high Acropolis give the city its scale. Theseus receives the mothers’ petition at the herald’s table. A road leads to the Piraeus quays. Streets lead to the harbor and the grove at Colonus."
         },
         "greek-piraeus": {
           "name": "Piraeus Quays",
-          "text": "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. Roads lead inland to Athens and along the coast to Eleusis.",
+          "text": "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. A road leads inland to Athens. A shore path leads to Eleusis.",
           "exits": [
             "greek-road-athens-piraeus",
             "greek-tauris",
             "greek-sicily",
-            "greek-road-piraeus-eleusis"
+            "greek-eleusis"
           ],
           "backdrop": "assets/greek-drama/piraeus-open-berth.webp",
           "persona": "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler’s chosen terms."
@@ -654,33 +652,29 @@
         },
         "greek-colonus": {
           "name": "Colonus Grove",
-          "text": "A cup and a small pot of honey stand at the grove’s edge. A keeper rests beside a smooth stone. Local roads lead toward Eleusis and the Marathon altar.",
+          "text": "A cup and a small pot of honey stand at the grove’s edge. A keeper rests beside a smooth stone. Paths lead back to the Agora and on to the Marathon altar.",
           "exits": [
-            "greek-road-athens-colonus",
+            "greek-athens",
             "greek-underworld",
-            "greek-road-colonus-eleusis",
-            "greek-road-colonus-marathon"
+            "greek-marathon"
           ],
           "backdrop": "assets/greek-drama/open-door-colonus.webp",
           "persona": "The keeper tells Sophocles’s Oedipus at Colonus as an earlier tale, before the brothers died at Thebes. Oedipus and his daughters belong to that named tale. The traveler’s offerings and refuge tablet belong to the present grove."
         },
         "greek-eleusis": {
           "name": "Eleusinian Sanctuary",
-          "text": "Mothers hold olive branches on Demeter’s steps. Aethra keeps a clear space beside the altar for their request. A coast road leads to Piraeus; a local road returns through Colonus.",
+          "text": "Mothers hold olive branches on Demeter’s steps. Aethra keeps a clear space beside the altar for their request. A shore path leads back to the Piraeus quays.",
           "exits": [
-            "greek-road-athens-eleusis",
-            "greek-road-piraeus-eleusis",
-            "greek-road-colonus-eleusis"
+            "greek-piraeus"
           ],
           "backdrop": "assets/greek-drama/open-door-eleusis.webp",
           "persona": "This episode follows the attack on Thebes. The Argive mothers seek their sons’ remains. The traveler’s own Theban deed stays true. The city’s recovery, the funeral and the later care each need their own recorded action or report."
         },
         "greek-marathon": {
           "name": "Marathon Altar",
-          "text": "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. A local road runs back through Colonus.",
+          "text": "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. A path runs back to the Colonus grove.",
           "exits": [
-            "greek-road-athens-marathon",
-            "greek-road-colonus-marathon"
+            "greek-colonus"
           ],
           "backdrop": "assets/greek-drama/open-door-marathon.webp",
           "persona": "The keeper tells Euripides’s Children of Heracles as a separate tale under Demophon, son of Theseus, after Heracles’s death. The daughter, battle and captive king belong to that tale. The traveler’s blanket stays at the present altar for guests."
@@ -1065,6 +1059,7 @@
             "greek-athens",
             "greek-colonus"
           ],
+          "retired": true,
           "backdrop": "assets/greek-drama/attic-road.webp"
         },
         "greek-road-athens-eleusis": {
@@ -1079,6 +1074,7 @@
             "greek-athens",
             "greek-eleusis"
           ],
+          "retired": true,
           "backdrop": "assets/greek-drama/attic-road.webp"
         },
         "greek-road-athens-marathon": {
@@ -1093,6 +1089,7 @@
             "greek-athens",
             "greek-marathon"
           ],
+          "retired": true,
           "backdrop": "assets/greek-drama/attic-road.webp"
         },
         "greek-road-piraeus-eleusis": {
@@ -1107,6 +1104,7 @@
             "greek-piraeus",
             "greek-eleusis"
           ],
+          "retired": true,
           "backdrop": "assets/greek-drama/attic-road.webp"
         },
         "greek-road-colonus-eleusis": {
@@ -1121,6 +1119,7 @@
             "greek-colonus",
             "greek-eleusis"
           ],
+          "retired": true,
           "backdrop": "assets/greek-drama/attic-road.webp"
         },
         "greek-road-colonus-marathon": {
@@ -1135,6 +1134,7 @@
             "greek-colonus",
             "greek-marathon"
           ],
+          "retired": true,
           "backdrop": "assets/greek-drama/attic-road.webp"
         },
         "greek-ajax-landing": {
@@ -1876,7 +1876,6 @@
             "after": "greek-homecoming-agree-journey",
             "path": [
               "greek-eleusis",
-              "greek-road-piraeus-eleusis",
               "greek-piraeus"
             ]
           },
@@ -5964,8 +5963,8 @@
           "subject": "greek-household-witness",
           "at": "greek-eleusis",
           "label": "Agree to walk with Myrine to the quay",
-          "text": "Myrine names the household she represents. She agrees to walk from Eleusis to Piraeus along the coast road with a traveler from Vale’s company. She will wait for company before setting out. At the quay she will claim the care prepared for her household.",
-          "textTemplate": "Myrine names the household she represents. She agrees to walk from Eleusis to Piraeus along the coast road with a traveler from {actor}’s company. She will wait for company before setting out. At the quay she will claim the care prepared for her household.",
+          "text": "Myrine names the household she represents. She agrees to walk from Eleusis to Piraeus along the shore path with a traveler from Vale’s company. She will wait for company before setting out. At the quay she will claim the care prepared for her household.",
+          "textTemplate": "Myrine names the household she represents. She agrees to walk from Eleusis to Piraeus along the shore path with a traveler from {actor}’s company. She will wait for company before setting out. At the quay she will claim the care prepared for her household.",
           "requires": [
             {
               "kind": "flag",
@@ -5985,7 +5984,7 @@
               "value": true
             }
           ],
-          "summary": "Myrine agreed at Eleusis to walk along the coast road to Piraeus with a traveler from this company. Her departure needs their company."
+          "summary": "Myrine agreed at Eleusis to walk along the shore path to Piraeus with a traveler from this company. Her departure needs their company."
         },
         {
           "id": "greek-homecoming-receive-family",
@@ -8984,12 +8983,6 @@
             "greek-marathon",
             "greek-road-athens-harbor",
             "greek-road-athens-piraeus",
-            "greek-road-athens-colonus",
-            "greek-road-athens-eleusis",
-            "greek-road-athens-marathon",
-            "greek-road-piraeus-eleusis",
-            "greek-road-colonus-eleusis",
-            "greek-road-colonus-marathon",
             "greek-athens-harbor"
           ],
           "requires": [

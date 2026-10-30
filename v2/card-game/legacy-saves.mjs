@@ -16,7 +16,9 @@ import {
   transports,
   canonicalPlace,
   localRoadEnds,
+  packPlaces,
 } from "./pack-registry.mjs";
+import { authoredRouteEdges } from "./roaming-routes.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import { passengers, upgradeTransportState } from "./pack-transport.mjs";
 import { installKnowledge } from "./knowledge.mjs";
@@ -96,6 +98,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekOneRoadSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -111,6 +114,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekOneRoadSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -241,6 +245,44 @@ export function upgradeGreekRoadSave(s) {
 export function upgradeGreekTownSave(s) {
   const saved = s.packs?.["greek-drama"];
   if (saved?.revision !== 5) return;
+  foldRetiredRoads(s);
+  saved.revision = 6;
+}
+
+// Revision 8 keeps one Attic road, from Athens to Piraeus. The other Attic
+// roads are retired; their towns link Colonus, Marathon and Eleusis directly.
+export function upgradeGreekOneRoadSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+  foldRetiredRoads(s);
+  saved.revision = 8;
+}
+
+// A known step between two Greek places that no exit or route joins any more
+// becomes the shortest walkable path between them.
+function walkablePath(from, to) {
+  const edges = authoredRouteEdges().filter(
+    ([a, b]) => !localRoadEnds(a) && !localRoadEnds(b),
+  );
+  const queue = [[from]],
+    seen = new Set([from]);
+  while (queue.length) {
+    const path = queue.shift(),
+      here = path.at(-1);
+    if (here === to) return path;
+    for (const [a, b] of edges)
+      if (a === here && !seen.has(b)) {
+        seen.add(b);
+        queue.push([...path, b]);
+      }
+  }
+  return null;
+}
+
+// Move saved visits, belongings, knowledge and current purposes off retired
+// roads. The road IDs stay in memories and completed records.
+export function foldRetiredRoads(s) {
   for (const [id, actor] of Object.entries(s.actors || {})) {
     const ends = localRoadEnds(actor.place);
     if (!ends) continue;
@@ -251,10 +293,20 @@ export function upgradeGreekTownSave(s) {
   }
   for (const item of Object.values(s.items || {}))
     item.holder = canonicalPlace(item.holder);
+  const authored = new Set(
+    authoredRouteEdges().map((edge) => JSON.stringify(edge)),
+  );
+  const greek = (id) => packPlaces[id]?.packId === "greek-drama";
   for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
     const paths = edges
       .map(([from, to]) => [canonicalPlace(from), canonicalPlace(to)])
-      .filter(([from, to]) => from !== to);
+      .filter(([from, to]) => from !== to)
+      .flatMap((edge) => {
+        if (authored.has(JSON.stringify(edge)) || !edge.every(greek))
+          return [edge];
+        const path = walkablePath(...edge);
+        return path ? path.slice(1).map((end, i) => [path[i], end]) : [];
+      });
     s.routeKnowledge[actor] = [
       ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values(),
     ];
@@ -299,7 +351,6 @@ export function upgradeGreekTownSave(s) {
   s.standoffs = (s.standoffs || []).filter(
     (conflict) => !localRoadEnds(conflict.location),
   );
-  saved.revision = 6;
 }
 
 // Revision 7 adds the invited Trojan account while earlier journeys retain

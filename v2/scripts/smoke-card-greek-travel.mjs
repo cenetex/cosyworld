@@ -140,11 +140,11 @@ try {
       "greek-athens",
       "greek-road-athens-piraeus",
       "greek-piraeus",
+      "greek-eleusis",
+      "greek-piraeus",
       "greek-road-athens-piraeus",
       "greek-athens",
-      "greek-road-athens-eleusis",
-      "greek-eleusis",
-      "greek-road-athens-eleusis",
+      "greek-colonus",
       "greek-athens",
       "greek-athens-harbor",
       "greek-ship",
@@ -169,7 +169,7 @@ try {
       if (
         [
           "greek-athens-harbor",
-          "greek-road-athens-eleusis",
+          "greek-road-athens-piraeus",
           "greek-athens",
           "greek-piraeus",
         ].includes(target)
@@ -184,7 +184,7 @@ try {
           fullPage: true,
         });
       }
-      if (target === "greek-road-athens-eleusis") {
+      if (target === "greek-road-athens-piraeus") {
         const before = await state();
         await page.reload();
         await settle();

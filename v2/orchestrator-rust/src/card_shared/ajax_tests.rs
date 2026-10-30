@@ -304,7 +304,7 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         }
         let mut current = full_store::world(&c, &id, now()).unwrap();
         assert_eq!(current.version, engine::VERSION);
-        assert_eq!(current.game["packs"]["greek-drama"]["revision"], 7);
+        assert_eq!(current.game["packs"]["greek-drama"]["revision"], super::full_tests::greek_revision());
         assert_eq!(current.claimed, old.claimed);
         assert_eq!(current.present, old.present);
         for field in ["turn", "eventSeq", "log", "routeKnowledge", "knowledge"] {

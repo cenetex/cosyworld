@@ -48,7 +48,7 @@ traveler can bring each completed local story to Dione, then return for
 the rest. The full account remains available when all five stories are ready.
 
 Myrine, an original household representative, agrees at Eleusis to walk
-to Piraeus. Accompany takes her along the coast road. She receives her
+to Piraeus. One Accompany play takes her along the shore path. She receives her
 household’s basket or joins the shared quay, following the chosen berth.
 Her signed return list carries her own words to Dione. The traveler chooses
 an earned basket or berth stanza, and Dione answers the reading. Read the [full scene and source guide](OPEN-DOOR.md) for the

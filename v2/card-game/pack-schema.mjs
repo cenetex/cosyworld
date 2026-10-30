@@ -422,6 +422,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "stage",
         "requires",
         "road",
+        "retired",
       ]),
       `place ${id} has an unknown field`,
     );
@@ -445,10 +446,21 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             (end, i) =>
               owns(places, end) &&
               p.exits[i] === end &&
-              places[end].exits.includes(id),
+              (p.retired === true || places[end].exits.includes(id)),
           ) &&
           p.exits.length === 2,
         `road ${id} needs two fixed ends with a return path`,
+      );
+    // A retired road keeps its ID for saved history. No place leads onto it.
+    if (p.retired !== undefined)
+      check(
+        p.retired === true &&
+          p.road !== undefined &&
+          Object.values(places).every(
+            (other) =>
+              !(Array.isArray(other.exits) && other.exits.includes(id)),
+          ),
+        `retired road ${id} must be a road that no exit names`,
       );
     if (p.art !== undefined) media(p.art, `place ${id} art`);
     if (p.music !== undefined)
@@ -1207,7 +1219,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       ].filter((id) => r.places.includes(id)))
         reachable.add(to);
     check(
-      r.places.every((p) => reachable.has(p)),
+      r.places.every((p) => reachable.has(p) || places[p]?.retired === true),
       "release contains a disconnected place",
     );
   }
@@ -1449,7 +1461,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     ])
       reached.add(to);
   check(
-    Object.keys(places).every((id) => reached.has(id)),
+    Object.entries(places).every(
+      ([id, p]) => reached.has(id) || p.retired === true,
+    ),
     "every place must be reachable from the entry",
   );
   check(

@@ -352,11 +352,21 @@ bytes. The builder writes `engine-v20.js`; older journals replay with the
 recorded rules before the saved upgrade.
 
 Shared rules version 19 makes the harbor and Agora a direct local visit, and
-joins the Theban harbor directly to the courtyard. Seven roads connect the
-towns. Each road has two fixed ends, shown by destination cards. Earlier internal road IDs
+joins the Theban harbor directly to the courtyard. Seven roads connected the
+towns then. Each road has two fixed ends, shown by destination cards. Earlier internal road IDs
 stay in saved history. Current visitors, belongings and unfinished purposes
 continue at a town endpoint. The migration uses the other endpoint when the
 port already holds four human avatars. Released versions 16 and 17 keep their exact bytes.
+
+Greek pack revision 8, in the next shared rules version, keeps one Attic road, from
+Athens to Piraeus. The other six Attic roads are marked `retired`: their IDs
+stay in saved history, and no exit leads onto them. Athens links directly to
+Colonus, Colonus to Marathon, and Piraeus to Eleusis. The revision 8 upgrade
+uses the same road fold as revision 6. A visitor or object on a retired road
+continues at its first end. A learned step that no longer exists becomes the
+shortest walkable path, so Athens to Eleusis passes through Piraeus. Myrine's
+journey is her saved place on its path. If she was on the coast road, she and
+her companion continue at Piraeus, where she arrives.
 
 ## Learning from outcomes
 

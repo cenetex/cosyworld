@@ -51,10 +51,12 @@ describe("Greek section save upgrade", () => {
       const before = oldWorld(scope);
       expect(before.packs["greek-drama"].revision).toBe(2);
       const after = decodeSave(JSON.stringify(before));
-      expect(after.packs["greek-drama"].revision).toBe(7);
+      expect(after.packs["greek-drama"].revision).toBe(
+        packDefinition("greek-drama").revision,
+      );
       expect(after.packs["greek-drama"]).toEqual({
         ...before.packs["greek-drama"],
-        revision: 7,
+        revision: packDefinition("greek-drama").revision,
       });
       // The version 2 ship keeps its dock as a version 3 record.
       expect(after.transports["greek-ship"]).toMatchObject({

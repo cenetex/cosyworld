@@ -28,11 +28,11 @@ import {
   crowdedAgoraWorld,
 } from "./helpers/greek-capacity.mjs";
 
+// Colonus and Marathon now sit inside Athens, so only the Piraeus side
+// reaches the harbor without passing through the Agora.
 const paths = [
   ["eleusis", "piraeus", "harbor"],
   ["piraeus", "harbor"],
-  ["colonus", "eleusis", "piraeus", "harbor"],
-  ["marathon", "colonus", "eleusis", "piraeus", "harbor"],
 ];
 
 describe("roads around a full Agora", () => {
@@ -124,7 +124,7 @@ describe("roads around a full Agora", () => {
 
   it("rejects a stale Agora move and restores the road when someone leaves", () => {
     const world = crowdedAgoraWorld();
-    world.actors.vale.place = "greek-road-athens-eleusis";
+    world.actors.vale.place = "greek-road-athens-piraeus";
     const alone = agoraView(world, ["vale"]);
     const action = alone.actions.find(
       (a) => a.kind === "move" && a.target === "greek-athens",
@@ -138,7 +138,7 @@ describe("roads around a full Agora", () => {
       action,
     });
     expect(rejected.ok).toBe(false);
-    expect(rejected.world.actors.vale.place).toBe("greek-road-athens-eleusis");
+    expect(rejected.world.actors.vale.place).toBe("greek-road-athens-piraeus");
     expect(rejected.world.turn).toBe(world.turn);
     const present = agoraVisitors.filter((id) => id !== "tavi");
     const reopened = agoraView(world, present);
@@ -233,7 +233,9 @@ describe("the side roads in earlier saved worlds", () => {
       }
       expect(world.packs["greek-drama"].revision).toBe(3);
       const restored = decodeSave(JSON.stringify(world));
-      expect(restored.packs["greek-drama"].revision).toBe(7);
+      expect(restored.packs["greek-drama"].revision).toBe(
+        currentPackDefinition("greek-drama").revision,
+      );
       for (const key of ["choices", "flags", "receipts", "recitals"])
         expect(restored.packs["greek-drama"][key]).toEqual(
           world.packs["greek-drama"][key],

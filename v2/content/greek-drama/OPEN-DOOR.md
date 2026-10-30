@@ -3,10 +3,11 @@
 Dione's table opens five places: the Athenian Agora, Piraeus Quays,
 Colonus Grove, Eleusinian Sanctuary and Marathon Altar. The ship reaches
 Athens Harbor and Piraeus Quays. City streets lead straight from Athens
-Harbor into the grand Athenian Agora. Journeys between towns have a shared
-road scene with two fixed ends. The coast road links Eleusis and Piraeus; inland roads
-join Athens, Colonus, Eleusis and Marathon. These routes share Dione’s
-lasting invitation. Waiting at a port lets the empty ship complete its circuit.
+Harbor into the grand Athenian Agora. Roads join towns, not the places
+inside a town. One road, the Athens–Piraeus Road, joins the two Attic towns.
+It is a shared scene with two fixed ends. Colonus and Marathon are direct
+visits from the Agora, and Eleusis is a direct visit from Piraeus. These
+routes share Dione’s lasting invitation. Waiting at a port lets the empty ship complete its circuit.
 
 The opening invitation follows the public account of any of the four
 Theban responses: burial, permission, refusal or warning. Accepting the
@@ -143,8 +144,8 @@ mothers at Eleusis. She speaks for her own household and the care she sees.
 She appears after the Eleusis closing choice.
 
 Once a berth has been reserved, a traveler can agree at Eleusis to walk
-with her to Piraeus. The ordinary **Accompany** action takes them along
-the coast road. Myrine’s position is saved. Another traveler from the same
+with her to Piraeus. One ordinary **Accompany** action takes them along
+the shore path. Myrine’s position is saved. Another traveler from the same
 company can take up the agreed journey. She waits for company before
 leaving and remains at the quay after arriving.
 

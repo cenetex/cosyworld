@@ -35,8 +35,8 @@ const homeward = {
   "greek-athens": ["harbor", "courtyard"],
   "greek-eleusis": ["piraeus", "harbor", "courtyard"],
   "greek-piraeus": ["harbor", "courtyard"],
-  "greek-colonus": ["eleusis", "piraeus", "harbor", "courtyard"],
-  "greek-marathon": ["colonus", "eleusis", "piraeus", "harbor", "courtyard"],
+  "greek-colonus": ["athens", "harbor", "courtyard"],
+  "greek-marathon": ["colonus", "athens", "harbor", "courtyard"],
 };
 let journeys;
 beforeAll(() => {
@@ -106,7 +106,9 @@ describe("early Open Door reports", () => {
 });
 
 describe("Open Door roads home", () => {
-  it.each(["eleusis", "piraeus", "colonus", "marathon"])(
+  // Colonus and Marathon are places inside Athens, so a full Agora holds
+  // them until someone leaves. Eleusis and Piraeus go home by the quays.
+  it.each(["eleusis", "piraeus"])(
     "takes a traveler home from %s while the Agora is full",
     (start) => {
       const created = dispatchShared({
