@@ -149,8 +149,8 @@ mirror and night setting.
 hashes, dimensions and runtime hashes. Seven later places have daytime
 paintings salvaged from closed art PRs: Cithaeron Slopes, the Argive Shore
 Sanctuary, Pherae, Trachis, Proteus's Tomb, the Court at Susa and the Taurian
-Temple. The salvaged Lemnos and Thrace paintings are stored but not currently
-assigned; Trojan Shores paints those two places.
+Temple. Trojan Shores paints the Lemnian Cave and the Thracian Shore, so their
+salvaged paintings now show the Sicilian Cave and Thetis's Sanctuary.
 `assets/greek-drama/salvaged-backdrops-provenance.json` keeps each original
 record. The other later places keep their SVG scenery for now.
 The Ajax chapter adds day and night camp paintings, Tecmessa, Teucer,
