@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: ["**"]
+    # A `full-ci` label runs the main-only checks on a pull request.
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main, develop]
 
@@ -52,21 +54,95 @@ jobs:
         run: npm run lint
 
       # Keep the non-Rust commands from `npm run check` here so they can run
-      # beside the longer Rust and browser gate rather than before it.
-      - name: Test, validate content, and check the kernel
+      # beside the Rust gate rather than before it. Vitest has its own shards.
+      - name: Validate content and check the kernel
         run: |
-          npm test
           npm run docs:check
           npm run v2:worldpack
           npm run v2:kernel
           npm run v2:syntax
 
-  runtime:
-    name: Rust build and tests
+  vitest:
+    name: Vitest (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     env:
       CI: true
-      RUST_TEST_THREADS: "2"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Checkout pinned SRD 5.1 source
+        uses: actions/checkout@v7
+        with:
+          repository: Tabyltop/CC-SRD
+          ref: c05c0438ea6c638bb7cb25224d97c9bd0e187c49
+          path: reference-library/rpg-systems/sources/cc-srd-5e
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      # Shards split files by the seconds in test/ci-timings.json.
+      - name: Run Vitest shard
+        run: npm test -- --shard=${{ matrix.shard }}/3 --maxWorkers=4
+
+  # Pull requests run the released-rule replay suite only when they can change
+  # shared rules. Main always runs it.
+  changes:
+    name: Detect shared-rule changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      rules: ${{ steps.files.outputs.rules }}
+    steps:
+      - name: List changed files
+        id: files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          FULL_CI: ${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$EVENT" != pull_request ] || [ "$FULL_CI" = true ]; then
+            echo "rules=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename' > changed.txt
+          # Rule modules rebuild card_shared/engine-v*.js, which the content
+          # check keeps current, so the bundle path covers them.
+          pattern='^(v2/orchestrator-rust/src/card_shared|v2/orchestrator-rust/Cargo\.|v2/core-c/|v2/card-game/(packs|shared-cast)\.json$|test/fixtures/|\.github/workflows/ci\.yml$|v2/scripts/(check-rust\.sh|rust-test-shard\.mjs|rust-test-timings\.json)$)'
+          if grep -qE "$pattern" changed.txt; then
+            grep -E "$pattern" changed.txt | head -20
+            echo "rules=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No shared-rule changes; the replay suite runs after merge."
+            echo "rules=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  rust-fast:
+    name: Rust tests (fast ${{ matrix.index }}/3)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [1, 2, 3]
+    env:
+      CI: true
+      RUST_TEST_THREADS: "4"
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -91,11 +167,11 @@ jobs:
             ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
             ${{ runner.os }}-cargo-compact-v1-
 
-      - name: Test Rust orchestrator
-        run: bash v2/scripts/check-rust.sh test
+      - name: Test Rust orchestrator shard
+        run: bash v2/scripts/check-rust.sh shard fast ${{ matrix.index }} 3
 
       - name: Save Cargo build cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: matrix.index == 1 && github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/cache/save@v6
         with:
           path: |
@@ -105,10 +181,72 @@ jobs:
             v2/orchestrator-rust/target
           key: ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
 
+  rust-rules:
+    name: Rust shared-rule replay (${{ matrix.index }}/4)
+    needs: changes
+    if: needs.changes.outputs.rules == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [1, 2, 3, 4]
+    env:
+      CI: true
+      RUST_TEST_THREADS: "4"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore Cargo build cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target
+          key: ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-compact-v1-
+
+      - name: Test shared-rule replay shard
+        run: bash v2/scripts/check-rust.sh shard rules ${{ matrix.index }} 4
+
+  # The production gate reuses this check by name. It passes when every fast
+  # shard passed and the replay shards passed, or were skipped on a pull
+  # request that cannot change shared rules.
+  runtime:
+    name: Rust build and tests
+    if: ${{ always() }}
+    needs: [changes, rust-fast, rust-rules]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Rust shards
+        env:
+          EVENT: ${{ github.event_name }}
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          FAST_RESULT: ${{ needs.rust-fast.result }}
+          RULES_RESULT: ${{ needs.rust-rules.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          test "$FAST_RESULT" = success
+          if [ "$EVENT" = pull_request ] && [ "$RULES_RESULT" = skipped ]; then
+            exit 0
+          fi
+          test "$RULES_RESULT" = success
+
   # The browser and composition checks need only the debug binary, so it is
   # built beside the Rust tests instead of after them.
+  # Main runs these after merge; a pull request runs them with `full-ci`.
   smoke-binary:
     name: Smoke-test binary
+    if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
     runs-on: ubuntu-latest
     env:
       CI: true
@@ -157,6 +295,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: true
+      COSYWORLD_CLIPPY_TARGET_DIR: ${{ github.workspace }}/v2/orchestrator-rust/target-clippy
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -165,11 +304,38 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Restore Clippy build cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target-clippy
+          key: ${{ runner.os }}-cargo-clippy-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-clippy-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-clippy-v1-
 
       - name: Check Rust architecture
         run: |
+          bash v2/scripts/check-rust.sh fmt
           bash v2/scripts/check-main-size.sh
           bash v2/scripts/check-rust-lint.sh
+
+      - name: Save Clippy build cache
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target-clippy
+          key: ${{ runner.os }}-cargo-clippy-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
 
   composition:
     name: Composition checks (${{ matrix.suite }})
@@ -217,16 +383,34 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Each group has its own runner, ports, and files. Scripts within a
+      # group run in order. The longest journeys have groups of their own.
       matrix:
-        mode:
-          - baseline
-          - living-world
-          - cards-shared
-          - cards-ui
-          - cards-routes
-          - cards-drama
-          - cards-dialogue
-          - cards-quests
+        include:
+          - mode: baseline
+          - mode: living-world
+          - mode: cards-shared
+            scripts: smoke-shared-cards
+          - mode: cards-capacity
+            scripts: smoke-card-greek-capacity
+          - mode: cards-ui
+            scripts: check-card-awakening smoke-card-unveil smoke-card-hand smoke-card-boardyai smoke-card-music smoke-card-music-network smoke-card-media-cache smoke-scene-video
+          - mode: cards-routes
+            scripts: smoke-card-narrative-contract smoke-card-home-rescue smoke-card-pond-access smoke-card-clearing-access smoke-card-pond-crossings smoke-shared-ship smoke-card-facing smoke-card-image-first smoke-card-toolbar smoke-card-learning smoke-shared-snapshot-order smoke-card-actions
+          - mode: cards-drama
+            scripts: smoke-card-greek-drama smoke-card-theban-scenery
+          - mode: cards-weather
+            scripts: smoke-card-weather
+          - mode: cards-open-door
+            scripts: smoke-card-open-door
+          - mode: cards-travel
+            scripts: smoke-card-greek-travel smoke-card-greek-homecoming
+          - mode: cards-ajax
+            scripts: smoke-card-ajax
+          - mode: cards-dialogue
+            scripts: smoke-card-dialogue-recovery smoke-card-dialogue-timing smoke-card-movement
+          - mode: cards-quests
+            scripts: smoke-card-quests smoke-card-quest-collection smoke-card-shared-discovery smoke-card-bard-travel smoke-card-shared-quests smoke-card-voice
     env:
       CI: true
       COSYWORLD_BROWSER_CHECK_MODE: ${{ matrix.mode }}
@@ -288,69 +472,16 @@ jobs:
         if: matrix.mode == 'baseline' || matrix.mode == 'living-world'
         run: npm run v2:browser:check
 
-      # Each group has its own runner, ports, and files. All groups feed the
-      # required build check. Commands within a group run in order.
-      - name: Check shared card worlds with real passkeys
-        if: matrix.mode == 'cards-shared'
+      - name: Run card browser journeys
+        if: matrix.scripts
+        env:
+          SCRIPTS: ${{ matrix.scripts }}
         run: |
-          node v2/scripts/smoke-shared-cards.mjs
-          node v2/scripts/smoke-card-greek-capacity.mjs
-
-      - name: Check card opening, hand, and music
-        if: matrix.mode == 'cards-ui'
-        run: |
-          node v2/scripts/check-card-awakening.mjs
-          node v2/scripts/smoke-card-unveil.mjs
-          node v2/scripts/smoke-card-hand.mjs
-          node v2/scripts/smoke-card-boardyai.mjs
-          node v2/scripts/smoke-card-music.mjs
-          node v2/scripts/smoke-card-music-network.mjs
-          node v2/scripts/smoke-card-media-cache.mjs
-          node v2/scripts/smoke-scene-video.mjs
-
-      - name: Check card routes and actions
-        if: matrix.mode == 'cards-routes'
-        run: |
-          node v2/scripts/smoke-card-narrative-contract.mjs
-          node v2/scripts/smoke-card-home-rescue.mjs
-          node v2/scripts/smoke-card-pond-access.mjs
-          node v2/scripts/smoke-card-clearing-access.mjs
-          node v2/scripts/smoke-card-pond-crossings.mjs
-          node v2/scripts/smoke-shared-ship.mjs
-          node v2/scripts/smoke-card-facing.mjs
-          node v2/scripts/smoke-card-image-first.mjs
-          node v2/scripts/smoke-card-toolbar.mjs
-          node v2/scripts/smoke-card-learning.mjs
-          node v2/scripts/smoke-shared-snapshot-order.mjs
-          node v2/scripts/smoke-card-actions.mjs
-
-      - name: Check Greek drama, Thebes, the Open Door, and Ajax
-        if: matrix.mode == 'cards-drama'
-        run: |
-          node v2/scripts/smoke-card-greek-drama.mjs
-          node v2/scripts/smoke-card-theban-scenery.mjs
-          node v2/scripts/smoke-card-weather.mjs
-          node v2/scripts/smoke-card-open-door.mjs
-          node v2/scripts/smoke-card-greek-travel.mjs
-          node v2/scripts/smoke-card-greek-homecoming.mjs
-          node v2/scripts/smoke-card-ajax.mjs
-
-      - name: Check dialogue and movement
-        if: matrix.mode == 'cards-dialogue'
-        run: |
-          node v2/scripts/smoke-card-dialogue-recovery.mjs
-          node v2/scripts/smoke-card-dialogue-timing.mjs
-          node v2/scripts/smoke-card-movement.mjs
-
-      - name: Check quests, shared discovery, and voice
-        if: matrix.mode == 'cards-quests'
-        run: |
-          node v2/scripts/smoke-card-quests.mjs
-          node v2/scripts/smoke-card-quest-collection.mjs
-          node v2/scripts/smoke-card-shared-discovery.mjs
-          node v2/scripts/smoke-card-bard-travel.mjs
-          node v2/scripts/smoke-card-shared-quests.mjs
-          node v2/scripts/smoke-card-voice.mjs
+          for script in $SCRIPTS; do
+            echo "::group::$script"
+            node "v2/scripts/$script.mjs"
+            echo "::endgroup::"
+          done
 
       - name: Upload browser images
         if: always()
@@ -390,6 +521,7 @@ jobs:
 
   publication:
     name: Referee guide publication
+    if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
     runs-on: ubuntu-latest
     env:
       CI: true
@@ -468,13 +600,18 @@ jobs:
           if-no-files-found: error
 
   # Keep the existing `CI / build` required-check context while allowing the
-  # independent verification paths above to run concurrently.
+  # independent verification paths above to run concurrently. A pull request
+  # may skip the main-only checks; main must pass all of them.
   build:
     name: build
     if: ${{ always() }}
     needs:
       [
         node,
+        vitest,
+        changes,
+        rust-fast,
+        rust-rules,
         runtime,
         smoke-binary,
         rust-quality,
@@ -486,18 +623,15 @@ jobs:
     steps:
       - name: Verify all CI jobs passed
         env:
-          BROWSER_RESULT: ${{ needs.browser.result }}
-          COMPOSITION_RESULT: ${{ needs.composition.result }}
-          NODE_RESULT: ${{ needs.node.result }}
-          PUBLICATION_RESULT: ${{ needs.publication.result }}
-          RUNTIME_RESULT: ${{ needs.runtime.result }}
-          SMOKE_BINARY_RESULT: ${{ needs.smoke-binary.result }}
-          RUST_QUALITY_RESULT: ${{ needs.rust-quality.result }}
+          EVENT: ${{ github.event_name }}
+          NEEDS: ${{ toJSON(needs) }}
         run: |
-          test "$BROWSER_RESULT" = success
-          test "$COMPOSITION_RESULT" = success
-          test "$NODE_RESULT" = success
-          test "$PUBLICATION_RESULT" = success
-          test "$RUNTIME_RESULT" = success
-          test "$SMOKE_BINARY_RESULT" = success
-          test "$RUST_QUALITY_RESULT" = success
+          echo "$NEEDS" | jq -e --arg event "$EVENT" '
+            to_entries
+            | map(select(
+                .value.result != "success"
+                and ($event != "pull_request" or .value.result != "skipped"
+                  or (.key | IN("node", "vitest", "changes", "rust-fast", "runtime", "rust-quality")))
+              ))
+            | if length == 0 then true else (map("\(.key): \(.value.result)") | join("\n") | halt_error(1)) end
+          '

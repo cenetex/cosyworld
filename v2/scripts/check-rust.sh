@@ -68,6 +68,26 @@ run_tests() {
   )
 }
 
+# One CI shard of the orchestrator tests: fast or rules lane, index, count.
+# Doc tests are skipped; building the plain library for them cost a second
+# full compile and the crate has none.
+run_shard() {
+  (
+    cd "$ROOT/orchestrator-rust"
+    export RUST_MIN_STACK="${RUST_MIN_STACK:-16777216}"
+    local targets=(--lib --bins --tests)
+    run_with_timeout "compiling orchestrator tests" cargo test "${targets[@]}" --no-run
+    local names=()
+    while IFS= read -r name; do
+      names+=("$name")
+    done < <(cargo test -q "${targets[@]}" -- --list --format terse | node "$ROOT/scripts/rust-test-shard.mjs" "$@")
+    if [ "${#names[@]}" -eq 0 ]; then
+      return 0
+    fi
+    run_with_timeout "running orchestrator test shard" cargo test "${targets[@]}" -- --exact "${names[@]}"
+  )
+}
+
 run_build() {
   (
     cd "$ROOT/orchestrator-rust"
@@ -83,6 +103,10 @@ case "${1:-all}" in
     run_fmt
     run_tests
     ;;
+  shard)
+    shift
+    run_shard "$@"
+    ;;
   build)
     run_build
     ;;
@@ -92,7 +116,7 @@ case "${1:-all}" in
     run_build
     ;;
   *)
-    echo "Usage: check-rust.sh [fmt|test|build|all]" >&2
+    echo "Usage: check-rust.sh [fmt|test|shard <fast|rules> <index> <count>|build|all]" >&2
     exit 2
     ;;
 esac

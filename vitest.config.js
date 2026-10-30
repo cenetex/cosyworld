@@ -9,6 +9,7 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { WeightedSequencer } from './test/shard-sequencer.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,9 +63,15 @@ export default defineConfig({
     clearMocks: true,
     
     // Keep room for native and browser checks alongside the larger game suite.
+    // CI test jobs have the runner to themselves and pass --maxWorkers.
     maxWorkers: 2,
     minWorkers: 1,
     
+    // CI shards balance files by measured seconds (test/ci-timings.json).
+    sequence: {
+      sequencer: WeightedSequencer,
+    },
+
     // Retry failed tests once
     retry: 1,
     

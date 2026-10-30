@@ -3,8 +3,13 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CEILING_FILE="$ROOT/scripts/rust-lint-warning-ceiling.txt"
-CLIPPY_TARGET_DIR="$(mktemp -d "${TMPDIR:-/tmp}/cosyworld-clippy.XXXXXX")"
-trap 'rm -rf "$CLIPPY_TARGET_DIR"' EXIT
+# CI keeps its Clippy build in a cached directory. Local runs use a fresh one.
+if [ -n "${COSYWORLD_CLIPPY_TARGET_DIR:-}" ]; then
+  CLIPPY_TARGET_DIR="$COSYWORLD_CLIPPY_TARGET_DIR"
+else
+  CLIPPY_TARGET_DIR="$(mktemp -d "${TMPDIR:-/tmp}/cosyworld-clippy.XXXXXX")"
+  trap 'rm -rf "$CLIPPY_TARGET_DIR"' EXIT
+fi
 
 ceiling="$(awk '!/^[[:space:]]*(#|$)/ { print $1; exit }' "$CEILING_FILE")"
 if [[ ! "$ceiling" =~ ^[0-9]+$ ]]; then

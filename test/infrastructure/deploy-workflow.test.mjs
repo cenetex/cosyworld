@@ -241,7 +241,7 @@ describe("deploy workflow", () => {
   });
 
   it("runs the long CI smoke suites in parallel from one shared binary", () => {
-    const runtime = ciJob("runtime", "smoke-binary");
+    const fast = ciJob("rust-fast", "rust-rules");
     const binary = ciJob("smoke-binary", "rust-quality");
     const composition = ciJob("composition", "browser");
     const browser = ciJob("browser", "publication");
@@ -250,10 +250,10 @@ describe("deploy workflow", () => {
     // The binary builds beside the Rust tests, so the smoke suites need not
     // wait for the tests.
     expect(binary).toContain("actions/upload-artifact@v7");
-    expect(binary).not.toContain("check-rust.sh test");
-    expect(runtime).toContain("check-rust.sh test");
-    expect(runtime).not.toContain("v2:composition:smoke");
-    expect(runtime).not.toContain("v2:browser:check");
+    expect(binary).not.toContain("check-rust.sh shard");
+    expect(fast).toContain("check-rust.sh shard fast");
+    expect(fast).not.toContain("v2:composition:smoke");
+    expect(fast).not.toContain("v2:browser:check");
     expect(composition).toContain("needs: smoke-binary");
     expect(composition).toContain("suite: [standalone, core-ruby]");
     expect(composition).toContain("actions/download-artifact@v8");
@@ -268,21 +268,51 @@ describe("deploy workflow", () => {
       "cards-dialogue",
       "cards-quests",
     ])
-      expect(browser).toContain(`- ${mode}`);
+      expect(browser).toContain(`- mode: ${mode}\n`);
     expect(browser).toContain("actions/download-artifact@v8");
     for (const job of ["node", "runtime", "smoke-binary", "rust-quality"])
       expect(build).toContain(job);
-    expect(build).toContain('test "$SMOKE_BINARY_RESULT" = success');
+    expect(build).toContain("toJSON(needs)");
+  });
+
+  it("keeps the pull-request gate fast and runs the smoke suites on main", () => {
+    const mainOnly =
+      "if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}";
+    expect(ciJob("smoke-binary", "rust-quality")).toContain(mainOnly);
+    expect(ciJob("publication", "build")).toContain(mainOnly);
+    expect(ciJob("rust-rules", "runtime")).toContain(
+      "if: needs.changes.outputs.rules == 'true'",
+    );
+    const changes = ciJob("changes", "rust-fast");
+    expect(changes).toContain('if [ "$EVENT" != pull_request ]');
+    expect(changes).toContain("v2/orchestrator-rust/src/card_shared");
+    // Main must pass every job; only a pull request may skip one, and never
+    // the fast gate.
+    const build = ciJob("build");
+    for (const job of [
+      "node",
+      "vitest",
+      "changes",
+      "rust-fast",
+      "runtime",
+      "rust-quality",
+    ])
+      expect(build).toContain(`"${job}"`);
+    expect(ciJob("runtime", "smoke-binary")).toContain(
+      'test "$RULES_RESULT" = success',
+    );
   });
 
   it("saves the Cargo cache only from main", () => {
-    const runtime = ciJob("runtime", "smoke-binary");
-    expect(runtime).toContain("actions/cache/restore@v6");
-    expect(runtime).toContain("actions/cache/save@v6");
-    expect(runtime).toContain("github.ref == 'refs/heads/main'");
-    expect(ciJob("smoke-binary", "rust-quality")).not.toContain(
-      "actions/cache/save",
-    );
+    const fast = ciJob("rust-fast", "rust-rules");
+    expect(fast).toContain("actions/cache/restore@v6");
+    expect(fast).toContain("actions/cache/save@v6");
+    expect(fast).toContain("github.ref == 'refs/heads/main'");
+    for (const [name, next] of [
+      ["rust-rules", "runtime"],
+      ["smoke-binary", "rust-quality"],
+    ])
+      expect(ciJob(name, next)).not.toContain("actions/cache/save");
   });
 
   it("skips docs-only deploys and reuses release compilation work", () => {

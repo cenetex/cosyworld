@@ -49,9 +49,17 @@ Then run every row that matches the change:
 | Browser, HTTP, persistence, or multiplayer | `npm run v2:check` |
 | Broad V2 or release change | `npm run check:local` and the relevant build |
 
-CI is the final cross-platform authority. It uses Node 24 and stable Rust
-for lint, tests, content, kernel, Rust builds, browser and composition smokes,
-and guide checks. A local suite
+CI is the final cross-platform authority. It uses Node 24 and stable Rust.
+A pull request runs a fast gate of about two minutes: lint, content, kernel,
+Vitest in three shards, the Rust tests in three shards, and Rust lint. The
+released-rule replay suite (`card_shared::` tests, four shards) joins the gate
+only when the pull request can change shared rules: the `card_shared` sources
+and engine bundles, `packs.json`, `shared-cast.json`, test fixtures, Cargo
+files, or `v2/core-c`. Main runs everything after merge, including the
+replay suite, the smoke-test binary, browser and composition smokes, and the
+guide publication. Add the `full-ci` label to run the main-only checks on a
+pull request. Shards balance by recorded timings in `test/ci-timings.json`
+and `v2/scripts/rust-test-timings.json`. A local suite
 that opens ephemeral HTTP listeners may fail inside a restricted sandbox with
 `listen EPERM`; rerun it where loopback binding is permitted rather than
 changing application behavior.
