@@ -98,7 +98,7 @@ const files = [
   "roaming-quests.mjs",
   "roaming-routes.mjs",
   "quest-cards.mjs",
-  "quest-talk.mjs",
+  "want-talk.mjs",
   "situations.mjs",
   "memory.mjs",
   "learning.mjs",

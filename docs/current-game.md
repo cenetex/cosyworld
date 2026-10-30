@@ -24,7 +24,7 @@ The Mac package embeds the same card files and uses the same release version.
 | Runtime pack and avatar lookup | `v2/card-game/pack-registry.mjs` |
 | Quest step evidence and completion | `v2/card-game/quest-progress.mjs` |
 | Pack story cards | `storyQuests` in each card pack, read by `v2/card-game/story-quests.mjs` |
-| Quest facts in Talk context | `v2/card-game/quest-talk.mjs`, used by `narrative.mjs` |
+| A person's want in Talk context | `v2/card-game/want-talk.mjs`, used by `narrative.mjs` |
 | Learned facts and Talk topics | `v2/card-game/knowledge.mjs` and each card pack's `topics` |
 | Dialogue service | `v2/orchestrator-rust/src/card_narrative.rs` and its modules |
 | Shared rules and current version | `v2/orchestrator-rust/src/card_shared/engine.rs` |
