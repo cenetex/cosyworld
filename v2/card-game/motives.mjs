@@ -99,7 +99,7 @@ export function valueOf(s, actor, item) {
     pendingQuestValue(s, actor, item)
   );
 }
-export function bundleValue(s, actor, item) {
+function bundleValue(s, actor, item) {
   return (
     valueOf(s, actor, item) +
     (s.items.cloth.holder === item ? valueOf(s, actor, "cloth") : 0)

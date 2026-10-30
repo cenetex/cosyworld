@@ -30,7 +30,7 @@ export function rememberRoutes(world, actor, edges) {
     edgeKey(a).localeCompare(edgeKey(b)),
   );
 }
-export function knownRoute(world, actor, from, to, allowed = () => true) {
+function knownRoute(world, actor, from, to, allowed = () => true) {
   const queue = [[from]],
     seen = new Set([from]);
   const edges = world.routeKnowledge?.[actor] || [];
@@ -88,7 +88,7 @@ function archiveFamily(world, actor, state) {
   state.history = state.history.slice(-JOURNEY_HISTORY_LIMIT);
   pruneTransientQuestHistory(world, actor);
 }
-export function refreshRoamingQuest(world, actor, api) {
+function refreshRoamingQuest(world, actor, api) {
   const state = world.roamingQuests[actor];
   const latest = latestQuestCompletion(world, { afterSeq: state.afterSeq });
   if (!latest) return state;
@@ -180,7 +180,7 @@ function requestHelp(world, actor, state, from, to, kind, api) {
   state.blocked = { kind, from, to, questKey: record?.key ?? null };
   return record;
 }
-export function shareRoamingDirections(world, actor, api) {
+function shareRoamingDirections(world, actor, api) {
   const state = world.roamingQuests[actor];
   for (const q of questRecords(world).filter(
     (q) =>

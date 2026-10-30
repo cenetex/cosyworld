@@ -33,9 +33,12 @@ import {
 import { availableCards, cardChoices } from "../v2/card-game/cards.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import {
-  forestDefinitions,
-  FOREST_QUEST_CARDS,
-} from "../v2/card-game/forest-quests.mjs";
+  storyGroupDefinitions,
+  storyGroupIds,
+} from "./helpers/story-groups.mjs";
+
+const FOREST_QUEST_CARDS = storyGroupIds("forest");
+const forestDefinitions = (world) => storyGroupDefinitions(world, "forest");
 import { questHistoryCards } from "../v2/card-game/quest-cards.mjs";
 import { hub, packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
