@@ -187,6 +187,17 @@ export function sceneryDue(turn) {
   return turn % 4 === offset;
 }
 
+// The log is long; a Wait is recorded among this turn's newest entries.
+function waitedThisTurn(world) {
+  const text = waitNarration(currentActor(world));
+  for (let i = world.log.length - 1; i >= 0; i--) {
+    const entry = world.log[i];
+    if (entry.turn !== world.turn) return false;
+    if (entry.speaker === "World" && entry.text === text) return true;
+  }
+  return false;
+}
+
 export function narrativeContext(world, action = null) {
   const location = world.actors[currentActor(world)].place;
   // Earlier opening text could include the authored solution. Keep those lines
@@ -336,14 +347,7 @@ export function narrativeContext(world, action = null) {
     // Only the avatar who chose to wait turns inward this turn.
     resting:
       speakers[0] === currentActor(world) &&
-      (played
-        ? played.verb === "wait"
-        : world.log.some(
-            (entry) =>
-              entry.turn === world.turn &&
-              entry.speaker === "World" &&
-              entry.text === waitNarration(currentActor(world)),
-          ))
+      (played ? played.verb === "wait" : waitedThisTurn(world))
         ? currentActor(world)
         : null,
     ...(disclosures.length ? { disclosures } : {}),

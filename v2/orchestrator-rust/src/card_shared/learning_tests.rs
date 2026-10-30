@@ -7,6 +7,16 @@ fn shared_reflections_survive_restart_and_journal_rebuild_with_private_views() {
     claim(&mut c, &id, 1);
     let mut w = full_store::world(&c, &id, now()).unwrap();
     let action = home_action(&w, 0, "light");
+    full_store::commit(
+        &c,
+        &id,
+        &mut w,
+        json!({"op":"play","actor":"vale","action":action}),
+        now(),
+    )
+    .unwrap();
+    // Only the avatar who waits after something new turns inward.
+    let action = home_action(&w, 0, "wait");
     let result = full_store::commit(
         &c,
         &id,
@@ -15,6 +25,7 @@ fn shared_reflections_survive_restart_and_journal_rebuild_with_private_views() {
         now(),
     )
     .unwrap();
+    assert_eq!(result["context"]["resting"], "vale");
     let entity = result["context"]["entities"]
         .as_array()
         .unwrap()
@@ -30,8 +41,8 @@ fn shared_reflections_survive_restart_and_journal_rebuild_with_private_views() {
         .collect();
     let entry = json!({"id":"vale","model":"voice-model","reflection":{
         "thought":"The light gave me a reason to look closer.","persona":"I am learning to take care with borrowed things.",
-        "dream":"A bright bird rested on the shore.","evidence":evidence,
-        "models":{"thought":"thought-model","persona":"persona-model","dream":"dream-model"}
+        "evidence":evidence,
+        "models":{"thought":"thought-model","persona":"persona-model"}
     }});
     let room = w.room(0).unwrap().to_string();
     full_store::commit(&c,&id,&mut w,json!({"op":"speech","actor":"vale","room":room,"lines":[{"actorId":"vale","text":"I can see the shore."}],"entries":[entry]}),now()).unwrap();
@@ -84,9 +95,19 @@ fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
 fn publication_keeps_reflection_private_after_disconnect_and_duplicate_finish() {
     let (path, mut c, id) = fixture();
     claim(&mut c, &id, 0);
+    let mut lit = full_store::world(&c, &id, now()).unwrap();
+    let light = home_action(&lit, 0, "light");
+    full_store::commit(
+        &c,
+        &id,
+        &mut lit,
+        json!({"op":"play","actor":"vale","action":light}),
+        now(),
+    )
+    .unwrap();
     let mut queued = body("play", None);
     queued.key = "learning-publication".into();
-    queued.action = home_action(&full_store::world(&c, &id, now()).unwrap(), 0, "light");
+    queued.action = home_action(&full_store::world(&c, &id, now()).unwrap(), 0, "wait");
     full::run(&c, &id, "user0", &queued, now()).unwrap();
     let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();

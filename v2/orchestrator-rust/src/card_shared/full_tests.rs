@@ -1206,8 +1206,7 @@ fn shared_speech_publication_retries_a_write_lock_with_the_original_reply() {
     let reflection = json!({
         "thought":"I have time to listen.",
         "persona":"I listen closely to the people near me.",
-        "dream":"I heard a bell beyond the trees.",
-        "models":{"thought":"private-fixture","persona":"private-fixture","dream":"private-fixture"},
+        "models":{"thought":"private-fixture","persona":"private-fixture"},
         "evidence":evidence,
     });
     let lines = json!([{"speaker":"Vale","actorId":"vale","entityId":"vale",
