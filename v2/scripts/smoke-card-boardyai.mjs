@@ -112,7 +112,7 @@ try {
     await page.locator('#hand [data-card="boardyai"]').waitFor();
     await page.locator('#cast [data-avatar="boardyai"]').waitFor();
     await selectCard(page, "boardyai");
-    // His introduction quest has no card; Talk context carries it.
+    // His introduction quest has no card.
     assert.equal(await page.locator("#hand .quest-frame").count(), 0);
     await page
       .locator("#hand img")
@@ -146,14 +146,15 @@ try {
       .flatMap((input) => input.entities)
       .filter((entity) => entity.id === "boardyai")
       .at(-1);
+    // Since #1451 Talk carries one want line, not quest titles. BoardyAI has
+    // no authored want, so his own facts carry the introductions.
     assert(
-      told.facts.some(
-        (fact) =>
-          fact.startsWith("What I want most now: ") &&
-          fact.includes("Help Vale and Mara meet"),
+      told.facts.some((fact) =>
+        fact.startsWith("I favour introducing two human players."),
       ),
-      "BoardyAI's Talk context names his introduction quest",
+      "BoardyAI's Talk context names his introductions",
     );
+    assert(!told.facts.some((fact) => fact.startsWith("What I want most now")));
     const settle = async () => {
       for (let i = 0; i < 180; i++) {
         if (await page.locator("#unveil-dialog[open]").count())

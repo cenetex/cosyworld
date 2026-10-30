@@ -121,7 +121,8 @@ export async function checkOpeningPoem(browser, origin) {
           ),
           "The toolbar fits the screen",
         );
-        // The story has no card. Its one line reaches Vale's Talk context.
+        // The story has no card. Since #1451 Talk carries one want line,
+        // not open-story lines; the save still holds the report quest.
         assert.equal(
           await page
             .locator('#hand [data-card="story-quest-greek-courtyard"]')
@@ -129,11 +130,11 @@ export async function checkOpeningPoem(browser, origin) {
           0,
         );
         assert.equal(await page.locator("#hand [data-quest]").count(), 0);
-        assert.match(
+        assert.doesNotMatch(
           narrativeContext(world)
             .entities.find((entity) => entity.id === "vale")
             .facts.join(" "),
-          /What words will you bring home\?/,
+          /What words will you bring home\?|Open story here/,
         );
         assert.equal(await page.locator("#poem-button").count(), 0);
         await page.screenshot({

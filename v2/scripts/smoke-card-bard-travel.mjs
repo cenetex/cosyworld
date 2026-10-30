@@ -12,7 +12,6 @@ import { enableMotives } from "../card-game/motives.mjs";
 import { addQuestRecord } from "../card-game/shared-quests.mjs";
 import { recordQuestCompletion } from "../card-game/quest-completions.mjs";
 import { questCards } from "../card-game/quest-cards.mjs";
-import { narrativeContext } from "../card-game/narrative.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
 const singer = "greek-rhapsode";
@@ -298,20 +297,15 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=bard-${width}`,
     );
-    // The journey and help cards stay out of the hand. Talk context tells
-    // the bard's journey and the shared help to the people at the theatre.
+    // The journey and help cards stay out of the hand. Since #1451 Talk
+    // carries one want line, not the journey or help titles.
     await page.waitForSelector(`#hand [data-card="${singer}"]`);
     assert.equal(await page.locator("#hand .quest-frame").count(), 0);
     assert.equal(await page.locator("#hand [data-quest]").count(), 0);
     const journey = questCards(world, singer).find(
       (q) => q.key === world.roamingQuests[singer].questKey,
     );
-    const facts = (id) =>
-      narrativeContext(world)
-        .entities.find((entity) => entity.id === id)
-        .facts.join(" ");
-    assert(facts(singer).includes(journey.title));
-    assert(facts("vale").includes(helpCard.title));
+    assert(journey, "the bard keeps a roaming journey");
     await page.screenshot({
       path: new URL(`journey-${width}.png`, output).pathname,
     });
