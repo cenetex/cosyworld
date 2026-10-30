@@ -1355,16 +1355,15 @@ impl RuntimeWorld {
             }
             ResidentPlanningStatus::Rejected
             | ResidentPlanningStatus::Superseded
-            | ResidentPlanningStatus::Committed => {
+            | ResidentPlanningStatus::Committed
                 if continuity
                     .last_planning_disposition
                     .as_ref()
                     .is_some_and(|disposition| {
                         disposition.trace.generation_id == incoming.generation_id
-                    })
-                {
-                    continuity.last_planning_disposition = None;
-                }
+                    }) =>
+            {
+                continuity.last_planning_disposition = None;
             }
             _ => {}
         }
