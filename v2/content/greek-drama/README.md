@@ -146,8 +146,13 @@ mirror and night setting.
 
 `assets/greek-drama/scenery-provenance.json` records the opening scenery.
 `assets/greek-drama/open-door-art.json` records the new art prompts, source
-hashes, dimensions and runtime hashes. Most later repertoire places retain their
-original SVG scenery.
+hashes, dimensions and runtime hashes. Seven more later places use daytime
+paintings salvaged from closed art PRs: Cithaeron Slopes, the Argive Shore
+Sanctuary, Pherae, Trachis, Proteus's Tomb, the Court at Susa and the Taurian
+Temple. The salvaged Lemnian Cave and Thracian Shore images remain published
+for released shared rules; current scenery uses the matched day/night pairs
+below. `assets/greek-drama/salvaged-backdrops-provenance.json` preserves those
+original records. The other later places keep their SVG scenery for now.
 The Ajax chapter adds day and night camp paintings, Tecmessa, Teucer,
 Odysseus and the shield. Its [art record](../../card-game/assets/greek-drama/AJAX-ART.md)
 lists the retained sources and prompt records.

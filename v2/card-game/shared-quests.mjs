@@ -1,10 +1,10 @@
 import { canCarryQuest, carryQuest, questHolderActor } from "./quest-hands.mjs";
 // One saved record owns each quest. Holders, helpers and personal focus are separate.
-export const SHARED_QUEST_VERSION = 1;
-export const QUEST_RECORD_LIMIT = 4096;
-export const SHARED_QUEST_PENDING_LIMIT = 8;
-export const SHARED_QUEST_COLLECTION_LIMIT = 256;
-export const TRANSIENT_QUEST_HISTORY_LIMIT = 32;
+const SHARED_QUEST_VERSION = 1;
+const QUEST_RECORD_LIMIT = 4096;
+const SHARED_QUEST_PENDING_LIMIT = 8;
+const SHARED_QUEST_COLLECTION_LIMIT = 256;
+const TRANSIENT_QUEST_HISTORY_LIMIT = 32;
 const historyLimit = 24;
 const sameHolder = (a, b) => a?.kind === b?.kind && a?.id === b?.id;
 const unfinished = (q) => q.completedTurn === null && !q.retired;
@@ -161,7 +161,7 @@ export function focusQuest(world, actor, key) {
 }
 export const focusedQuest = (world, actor) =>
   questRecord(world, world.quests?.focus?.[actor]);
-export const questsHeldBy = (world, holder) =>
+const questsHeldBy = (world, holder) =>
   questRecords(world).filter((q) => sameHolder(q.holder, holder));
 export const questStatus = (world, quest) =>
   quest.retired

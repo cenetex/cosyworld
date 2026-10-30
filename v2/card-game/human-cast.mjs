@@ -146,22 +146,3 @@ export const humanQuestPrograms = Object.fromEntries(
     ],
   ]),
 );
-export const humanHopes = Object.fromEntries(
-  visitors.map((a) => [
-    a.id,
-    {
-      title: a.pleasure,
-      keeps: {
-        [a.item.id]: `Keep the ${a.item.name} ready for shared moments.`,
-      },
-      milestones: [
-        { title: "Share a useful belonging", kinds: ["delivery", "bargain"] },
-        { title: "Spend time together", kinds: ["gathering"] },
-        {
-          title: "Make a way through the world",
-          kinds: ["crossing", "answer"],
-        },
-      ],
-    },
-  ]),
-);

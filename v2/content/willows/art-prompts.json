@@ -88,6 +88,43 @@
       "file": "assets/willows/pipe.png",
       "sha256": "327cbfe4dd1381730402d6262136d5af6e6812fa20a38fbb0414805000f4fd59",
       "prompt": "Use case: stylized-concept. Asset type: one isolated inventory item sprite for Cosyworld's The Willows world pack. Square 1024 x 1024 image, true transparent RGBA background. Style: richly detailed hand-painted gouache and fine ink, a beautiful illustrated 1907 weird tale, semi-realistic tangible materials, restrained natural textures, gently irregular painterly edges rather than thick cartoon outlines. Muted warm ochre and umber, sage, charcoal and cool slate, soft amber light from upper left, cool shadows confined to the object itself. Strong readable silhouette for a small inventory icon. Show a single complete object centered and large with at least 10 percent clear margin on every edge. Three-quarter view unless the subject specifies otherwise. Entire item in focus. Subject itself fully opaque; alpha zero everywhere outside its silhouette and inside physical openings. No floor, no ground plane, no drop shadow, no halo, no scenery, no card frame, no border, no lettering, no labels, no watermark. Not a photograph, not 3D plastic, not pixel art. Make no other objects. Subject: ONE well-used BRIAR TOBACCO PIPE belonging to the Swede, a compact rounded deep reddish-umber briar bowl on the left with worn irregular wood grain and a dark rim, short wooden shank leading to a gently bent slender black vulcanite stem curving upward to the right, small aged warm brass-colored ferrule at the join. Human and much-handled, modest practical river-traveller's possession in 1907. Side view at a slight angle from above so the dark open bowl is visible. No smoke, no embers, no tobacco pouch, no human hand, no other objects."
+    },
+    {
+      "asset": "camp-lit-night",
+      "prompt": "Use case: lighting-weather. Edit target: supplied Willows camp daylight painting. Create the same exact camp at deep blue night. Preserve the camera, tent, camping gear, iron pot, willow shapes, sand, river and all prop locations. The campfire is fully lit with modest orange flames and gives a strong local warm glow to the nearby sand, pot, tent edge and leaves. Beyond that small circle the island is dark cool blue with faint soft natural sky light. Preserve readable shadow detail and the original detailed painted illustration. A dark ordinary sky with thin soft clouds. Empty of people and text. Same wide landscape format.",
+      "file": "assets/willows/camp-lit-night.webp",
+      "references": [
+        "assets/willows/camp-day.webp"
+      ],
+      "sourceName": "exec-276dc5c3-c6bc-4a8d-a130-360fd47945ea.png",
+      "sourceSha256": "a3d16546e7b1859baa0230d45e1ca22f63280019f8111a87b3cce7a77e1389e9",
+      "sha256": "3aeac8f45d6c1422f1ffb410a01a7709d607c25a4f9a4781e6fcef1ed41e2aef",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha.",
+      "generated": "2026-10-28",
+      "from": "closed PR #1293 (codex/willows-atmosphere); its referenced day painting stayed on that branch"
+    },
+    {
+      "asset": "landing-ship-night",
+      "prompt": "Use case: compositing. Image 1 is the edit target: The Willows river landing. Image 2 is a reference only for the Greek ship's design. Create image 1 at deep blue night and place this Greek ship close to the bank in the backwater at the right, its ornate curved wooden prow, cream square sail and small warm lanterns clearly visible. The ship feels like a quiet mysterious night arrival on the flooded Danube. Preserve image 1's upturned canoe on the left, sand, willow bushes, river channels, tree islands, camera angle, wide landscape format and realistic painted detail. The ship sits naturally in the water with lantern reflections. Use a dark blue sky and light river mist. Keep the foreground open. The reference's mirror and forest remain confined to the reference. Empty of people and text.",
+      "file": "assets/willows/landing-ship-night.webp",
+      "references": [
+        "assets/willows/landing-day.webp",
+        "assets/greek-drama/ship-card.webp"
+      ],
+      "sourceName": "exec-0073b384-3224-458e-b194-fd61a1715b6f.png",
+      "sourceSha256": "f5f08d339f85a50af18942f377f54bea727373bdd1a176bfadb1ca12c9d78419",
+      "sha256": "eccc07e492fe00237e93746026c69d88e515a91553cdc766cbdf97e0e102a887",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha.",
+      "generated": "2026-10-28",
+      "from": "closed PR #1293 (codex/willows-atmosphere); its referenced day painting stayed on that branch"
     }
   ]
 }

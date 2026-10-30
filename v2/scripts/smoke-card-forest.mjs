@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { legalActions } from "../card-game/world.mjs";
+import { itemPlace, legalActions } from "../card-game/world.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 const out = new URL("../../output/card-forest/", import.meta.url).pathname;
 await mkdir(out, { recursive: true });
@@ -183,18 +183,19 @@ try {
       await shot("fresh-attic");
       await step("light", { item: "lamp" });
       await step("move", { target: "pond" });
-      await step("give", { item: "lamp", target: "moth" });
-      if ((await state()).items.cloth.holder !== "vale")
-        await step("ask", {
-          item: "cloth",
-          target: (await state()).items.cloth.holder,
-        });
+      await step("accompany", { target: "moth", destination: "attic" });
+      const litAttic = await state();
+      assert.equal(litAttic.actors.vale.place, "attic");
+      assert.equal(litAttic.actors.moth.place, "attic");
       assert.equal(
-        (await state()).items.cloth.holder,
-        "vale",
-        "Pip hands over the cloth after the gift",
+        litAttic.items.cloth.holder,
+        "moth",
+        "Pip brings the cloth without giving it away",
       );
-      await step("move", { target: "attic" });
+      assert.equal(itemPlace(litAttic, "cloth"), "attic");
+      assert.equal(itemPlace(litAttic, "lamp"), "attic");
+      assert.equal(litAttic.items.lamp.lit, true);
+      assert.ok(litAttic.items.lamp.fuel > 0);
       await shot("attic-cloth-gate");
       await step("move", { target: "forest-cottage" });
       await shot("cottage-arrival");

@@ -30,7 +30,7 @@
     "attic": {
       "sanctuary": true,
       "name": "Mirror attic",
-      "text": "A tall mirror reflects a black shore. Dust gathers along its frame.",
+      "text": "A tall mirror stands dark and empty. Dust gathers along its frame.",
       "exits": []
     },
     "pond": {
@@ -44,15 +44,36 @@
   "people": {
     "vale": {
       "name": "Vale",
-      "text": "Your avatar. A traveller with a coat full of empty pockets."
+      "text": "Your avatar. A traveller with a coat full of empty pockets.",
+      "tastes": {
+        "likes": "Interesting routes and a decent bargain",
+        "sore": "Changed terms"
+      },
+      "home": "attic",
+      "values": { "lamp": 8, "oil": 5, "bell": 5, "cloth": 4 },
+      "want": { "kind": "item", "target": "lamp" }
     },
     "moth": {
       "name": "Pip",
-      "text": "A moth in a borrowed waistcoat. Seeks a lamp and a witness at the pond."
+      "text": "A moth in a borrowed waistcoat. Seeks a lamp and a witness at the pond.",
+      "tastes": {
+        "likes": "Warm light and a splendid waistcoat",
+        "sore": "Someone spoiling the light"
+      },
+      "home": "pond",
+      "values": { "lamp": 12, "oil": 3, "bell": 1, "cloth": 6 },
+      "want": { "kind": "item", "target": "lamp" }
     },
     "keeper": {
       "name": "The keeper",
-      "text": "A tall figure with a clock for a face. Seeks a bell and a witness in the attic."
+      "text": "A tall figure with a clock for a face. Seeks a bell and a witness in the attic.",
+      "tastes": {
+        "likes": "Quiet hours and properly returned things",
+        "sore": "Unnecessary ringing"
+      },
+      "home": "station",
+      "values": { "lamp": 3, "oil": 8, "bell": 10, "cloth": 6 },
+      "want": { "kind": "item", "target": "bell" }
     }
   },
   "things": {
@@ -550,7 +571,7 @@
         ],
         "light": false,
         "speaker": "World",
-        "text": "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
+        "text": "Vale stands alone in Mirror attic, holding an unlit lamp. The tall mirror stands dark and empty."
       }
     ]
   },

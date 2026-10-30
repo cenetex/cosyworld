@@ -361,10 +361,11 @@ export const shining = (s) =>
   s.items.lamp.fuel > 0 &&
   !covered(s, "lamp");
 export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
-  // Light at either end opens the mirror in both directions.
-  ["attic", "pond"].includes(from) &&
+  // Leaving the attic needs its own light; either shore can light the return.
   shining(s) &&
-  ["attic", "pond"].includes(itemPlace(s, "lamp"));
+  (from === "attic"
+    ? itemPlace(s, "lamp") === "attic"
+    : from === "pond" && ["attic", "pond"].includes(itemPlace(s, "lamp")));
 // The bell is the shore's sound source: heard where it rests while it rings
 // uncovered. Packs add their own sounding fixtures through pack-rules.mjs.
 const baseSoundAt = (s, place) =>
@@ -381,10 +382,10 @@ export const sensesFor = (s) => ({
 const baseExits = (_s, place) => places[place].exits;
 export const placeText = (s, place) =>
   [
-    s.opening && place === "attic"
+    place === "attic"
       ? reflectionOpen(s, place)
         ? "A tall mirror opens onto a black shore. A path leads through the glass."
-        : "A tall mirror reflects a black shore. Dust gathers along its frame."
+        : "A tall mirror stands dark and empty. Dust gathers along its frame."
       : s.opening && place === "station"
         ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
         : places[place].text,
@@ -478,9 +479,13 @@ function insideLampRemedy(s, actor) {
 function pondRescueExit(s, place, actor, previous) {
   actor ||= currentActor(s);
   const lamp = itemPlace(s, "lamp"), oil = itemPlace(s, "oil");
+  // An empty lamp and flask need the bell to call fresh oil at the pond.
+  const refillBell = !s.items.lamp.fuel && !s.items.oil.doses
+    ? itemPlace(s, "bell") : null;
   if (place !== "pond" || s.actors[actor]?.place !== place ||
     (!controlledByHuman(s, actor) && !knownActors(s).includes(actor)) ||
-    !(atticInterior.has(lamp) || (s.items.oil.doses > 0 && atticInterior.has(oil))) ||
+    !(atticInterior.has(lamp) || (s.items.oil.doses > 0 && atticInterior.has(oil)) ||
+      (atticInterior.has(refillBell) && !ordinaryRouteHome(s, place, refillBell, actor, previous))) ||
     ordinaryRouteHome(s, place, "attic", actor, previous)) return null;
   if (ordinaryRouteHome(s, place, lamp, actor, previous) &&
     (s.items.lamp.fuel > 0 || (s.items.oil.doses > 0 &&
@@ -488,7 +493,8 @@ function pondRescueExit(s, place, actor, previous) {
   if (knownActors(s).some((id) =>
     (!controlledByHuman(s, id) || humanPresent(s, id)) &&
     (insideLampRemedy(s, id) || (!atticInterior.has(lamp) && s.actors[id].place === "attic" &&
-      homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id))))) return null;
+      homeRescueExit(s, "attic", id) && (localGateResource(s, "attic", "oil", id) ||
+        (refillBell && localGateResource(s, "attic", "bell", id))))))) return null;
   return "attic";
 }
 export function exits(s, place, actor = null, previous = null) {
@@ -704,17 +710,6 @@ const refusalText = {
     `${other} needs the ${nameOf(a.receive)}.`,
   "wants-something-else": (other) => `${other} wants something else.`,
 };
-export function tradeOffers(s, actor) {
-  return ids.filter(
-    (id) =>
-      s.items[id].holder === actor &&
-      (s.life
-        ? !keepReason(s, actor, id)
-        : hasQuestPrograms(s)
-          ? !needed(s, actor, id)
-          : valueOf(s, actor, id) <= 6),
-  );
-}
 function captureHands(s, met) {
   captureQuestHands(s, met, { actorIds, handStatus });
 }
@@ -801,7 +796,7 @@ function applyConsequence(s, actor, target) {
     case "anchor":
       s.locations.attic.anchored = true;
       text =
-        "The mirror remembers the crossing. Its path opens in lamplight at either shore.";
+        "The mirror remembers the crossing. Light at either shore opens the way back to the attic.";
       break;
     case "oil":
       s.items.oil.doses = 3;
@@ -2685,6 +2680,8 @@ function basePlan(s, actor) {
   )) {
     if (!s.items.lamp.fuel && s.items.oil.doses > 0 && find("take", "oil"))
       return choose(find("take", "oil"), "Bring oil to the travelers at the shore.");
+    if (!s.items.lamp.fuel && !s.items.oil.doses && find("take", "bell"))
+      return choose(find("take", "bell"), "Bring the bell to call for oil at the shore.");
     return choose(find("move", undefined, rescue), "Meet the waiting travelers at the shore.");
   }
   return idle(

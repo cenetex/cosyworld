@@ -528,7 +528,7 @@
           "exits": [
             "greek-sanctuary"
           ],
-          "backdrop": "assets/greek-drama/grove.svg",
+          "backdrop": "assets/greek-drama/bacchae-cithaeron-day.webp",
           "persona": "Goat paths cross the wooded slope. A distant drum carries between the trees."
         },
         "greek-aulis": {
@@ -691,7 +691,7 @@
           "exits": [
             "greek-argolid-road"
           ],
-          "backdrop": "assets/greek-drama/harbor.svg",
+          "backdrop": "assets/greek-drama/suppliants-argive-shore-day.webp",
           "persona": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship."
         },
         "greek-argos-palace": {
@@ -787,7 +787,7 @@
             "greek-oeta",
             "greek-pherae"
           ],
-          "backdrop": "assets/greek-drama/courtyard.svg",
+          "backdrop": "assets/greek-drama/book-two-trachis-day.webp",
           "persona": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench."
         },
         "greek-oeta": {
@@ -811,7 +811,7 @@
             "greek-trachis",
             "greek-thetis"
           ],
-          "backdrop": "assets/greek-drama/palace.svg",
+          "backdrop": "assets/greek-drama/book-two-pherae-day.webp",
           "persona": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door."
         },
         "greek-thetis": {
@@ -894,7 +894,7 @@
           "name": "Proteus's Tomb in Egypt",
           "text": "A tomb stands beside the Egyptian palace. A woman receives visitors from the sea.",
           "exits": [],
-          "backdrop": "assets/greek-drama/palace.svg",
+          "backdrop": "assets/greek-drama/helen-egypt-tomb-day.webp",
           "requires": [
             {
               "kind": "choice",
@@ -911,7 +911,7 @@
             "greek-road-black-sea",
             "greek-scythian-crag"
           ],
-          "backdrop": "assets/greek-drama/palace.svg",
+          "backdrop": "assets/greek-drama/tauris-shore-scene.webp",
           "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
         },
         "greek-sicily": {
@@ -929,7 +929,7 @@
           "exits": [
             "greek-road-royal"
           ],
-          "backdrop": "assets/greek-drama/palace.svg",
+          "backdrop": "assets/greek-drama/book-three-susa-day.webp",
           "persona": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
         },
         "greek-scythian-crag": {
@@ -1256,6 +1256,10 @@
           "persona": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
           "voice": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
           "portrait": "assets/greek-drama/chthonic-antigone.png",
+          "want": {
+            "kind": "item",
+            "target": "greek-funeral-cloth"
+          },
           "desire": {
             "items": [
               "greek-funeral-cloth",
@@ -1288,6 +1292,10 @@
           "persona": "A cautious sister who fears another death. Care and reluctance coexist. Ask what a proposal will cost the living; do not invent secret plans or claim the burial happened.",
           "voice": "A cautious sister who fears another death. Care and reluctance coexist. Ask what a proposal will cost the living; do not invent secret plans or claim the burial happened.",
           "portrait": "assets/greek-drama/chthonic-ismene.png",
+          "want": {
+            "kind": "place",
+            "target": "greek-sanctuary"
+          },
           "desire": {
             "items": [],
             "location": "greek-sanctuary",
@@ -1311,6 +1319,10 @@
           "persona": "A ruler holding a damaged city together through commands. Defend order without becoming a cartoon tyrant. A recorded concession is binding; before it, do not announce one.",
           "voice": "A ruler holding a damaged city together through commands. Defend order without becoming a cartoon tyrant. A recorded concession is binding; before it, do not announce one.",
           "portrait": "assets/greek-drama/chthonic-creon.png",
+          "want": {
+            "kind": "place",
+            "target": "greek-palace"
+          },
           "desire": {
             "items": [],
             "location": "greek-palace",
@@ -1352,6 +1364,10 @@
           "persona": "A practical baker concerned with water, bread, and the people at her table. Remember a returned jar. Respond to recorded public outcomes without knowing private choices.",
           "voice": "A practical baker concerned with water, bread, and the people at her table. Remember a returned jar. Respond to recorded public outcomes without knowing private choices.",
           "portrait": "assets/greek-drama/chthonic-baker.png",
+          "want": {
+            "kind": "place",
+            "target": "greek-courtyard"
+          },
           "desire": {
             "items": [],
             "location": "greek-courtyard",
@@ -12052,6 +12068,10 @@
             "willows-rope": 6,
             "willows-sheet": 6
           },
+          "want": {
+            "kind": "place",
+            "target": "willows-landing"
+          },
           "desire": {
             "items": [],
             "location": null,
@@ -12776,6 +12796,10 @@
           },
           "values": {
             "forest-story-button": 8
+          },
+          "want": {
+            "kind": "item",
+            "target": "forest-story-button"
           },
           "desire": {
             "items": [
@@ -13776,7 +13800,7 @@
       ],
       "bridge": {
         "id": "shore-lonely-forest",
-        "description": "The Black cloth in the attic opens the mirror onto the cottage. The cottage keeps a free path back to the attic."
+        "description": "The Black cloth in the lamplit attic reveals stairs down to the cottage. The cottage keeps a free stair back to the attic."
       },
       "crossings": [
         {
@@ -13784,9 +13808,17 @@
           "from": "attic",
           "to": "forest-cottage",
           "travelers": "player",
-          "travel": "through the attic mirror",
-          "travelLabel": "Enter the cottage",
+          "travel": "down the attic stairs",
+          "travelLabel": "Down to the cottage",
           "requires": [
+            {
+              "kind": "light",
+              "item": "lamp",
+              "at": [
+                "attic"
+              ],
+              "uncovered": true
+            },
             {
               "kind": "item_present",
               "item": "cloth",
@@ -13794,23 +13826,24 @@
             }
           ],
           "scenery": {
-            "open": "The mirror shows a blue cottage beneath an oak.",
-            "closed": "The mirror holds the room and its window.",
+            "open": "A narrow stair leads down to the cosy cottage.",
+            "closed": "The floorboards show no way downstairs.",
+            "backdrop": "assets/shared/places/attic-stairs.webp",
             "cardArt": "assets/lonely-forest/cottage.png",
             "cardName": "Cosy Cottage"
           },
-          "opened": "A blue cottage appears beneath the oak in the mirror."
+          "opened": "Lamplight reveals stairs leading down to the cosy cottage."
         },
         {
           "id": "forest-cottage-attic",
           "from": "forest-cottage",
           "to": "attic",
           "travelers": "player",
-          "travel": "through the cottage mirror",
-          "travelLabel": "Return to the attic",
+          "travel": "up the cottage stairs",
+          "travelLabel": "Up to the attic",
           "requires": [],
           "scenery": {
-            "open": "A mirror beside the low doorway opens onto the attic."
+            "open": "A narrow stair leads up to the attic."
           }
         }
       ]

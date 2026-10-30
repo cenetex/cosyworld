@@ -36,7 +36,7 @@ describe("a path out of a stranded home", () => {
     for (const covered of [false, true]) {
       const s = opening();
       if (covered) s.items.cloth.holder = "lamp";
-      expect(exits(s, "attic", "vale")).toEqual(covered ? ["forest-cottage"] : []);
+      expect(exits(s, "attic", "vale")).toEqual([]);
       expect(placeText(s, "attic")).not.toContain("narrow path");
     }
   });
@@ -75,9 +75,9 @@ describe("a path out of a stranded home", () => {
     s.items.lamp.fuel = 0;
     s.items.oil.holder = "attic";
     s.items.cloth.holder = "lamp";
-    expect(exits(s, "attic", "vale")).toEqual(["forest-cottage"]);
+    expect(exits(s, "attic", "vale")).toEqual([]);
     s.items.oil.holder = "station";
-    expect(exits(s, "attic", "vale")).toEqual(["forest-cottage", "pond"]);
+    expect(exits(s, "attic", "vale")).toEqual(["pond"]);
     s.items.lamp.holder = "station";
     s.items.lamp.fuel = 8;
     expect(exits(s, "attic", "vale")).toEqual(["pond"]);
@@ -188,7 +188,7 @@ describe("a path out of a stranded home", () => {
         (a) => a.kind === "trade" && a.receive === "lamp",
       ),
     ).toBe(false);
-    expect(exits(refused, "attic", "vale")).toEqual(["forest-cottage", "pond"]);
+    expect(exits(refused, "attic", "vale")).toEqual(["pond"]);
   });
   it("offers rescue only for the human who stands in the queried home", () => {
     const s = opening();

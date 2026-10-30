@@ -35,9 +35,9 @@ fn forest_crossing_upgrade_replays_with_two_humans(version: &str) {
         w.game["actors"][actor]["place"] = json!("attic");
     }
     w.game["items"]["cloth"]["holder"] = json!("vale");
-    w.game["items"]["lamp"]["holder"] = json!("station");
-    w.game["items"]["lamp"]["lit"] = json!(false);
-    w.game["items"]["lamp"]["fuel"] = json!(0);
+    w.game["items"]["lamp"]["holder"] = json!("attic");
+    w.game["items"]["lamp"]["lit"] = json!(true);
+    w.game["items"]["lamp"]["fuel"] = json!(12);
     full_store::seed(&c, &id, &w, "forest-crossing-two-human-fixture", now()).unwrap();
     assert!(w.game["packs"].get("lonely-forest").is_none());
     // Record an accepted play under the released interpreter before the upgrade.

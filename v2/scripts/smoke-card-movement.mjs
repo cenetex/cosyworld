@@ -189,7 +189,7 @@ try {
           await page.locator("#backdrop").getAttribute("src"),
           await page.evaluate(async () =>
             (await import("/card-game/images.mjs")).imageUrl(
-              "./assets/attic.png",
+              "./assets/shared/places/attic-dark.webp",
             ),
           ),
         );

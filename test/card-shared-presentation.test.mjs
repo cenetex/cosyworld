@@ -29,11 +29,13 @@ function shared() {
 }
 
 describe("the existing card table seen by a shared avatar", () => {
-  it("keeps Vale's solo viewpoint and original art", () => {
+  it("keeps Vale's solo viewpoint and uses the shared scarf portrait", () => {
     const world = createWorld();
     expect(currentActor(world)).toBe("vale");
     expect(currentScene(world).background).toBe("./assets/station.png");
-    expect(portrait("vale", null, world)).toBe("./assets/vale.png");
+    expect(portrait("vale", null, world)).toBe(
+      "./assets/shared/characters/vale-scarf.png",
+    );
   });
   it("uses the claimed person's room without changing Vale's location", () => {
     const world = shared();
@@ -43,7 +45,7 @@ describe("the existing card table seen by a shared avatar", () => {
     expect(availableCards(world)).not.toContain("vale");
     expect(world.actors.vale.place).toBe("station");
     expect(portrait("mara", null, world)).toContain(
-      "assets/shared/characters/mara.png",
+      "assets/shared/characters/mara-scarf.png",
     );
   });
   it("hides a full linked room and restores its card when a place opens", () => {

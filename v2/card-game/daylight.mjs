@@ -1,7 +1,10 @@
-// Painted Greek places share the saved world clock.
+// Painted Greek and Willows places share the saved world clock.
 export const DAYLIGHT_TURNS = 24;
 const art = (file) => `assets/greek-drama/${file}.webp`;
+const willows = (file) => `assets/willows/${file}.webp`;
 const nightBackdrops = {
+  "willows-landing": willows("landing-ship-night"),
+  "willows-camp": willows("camp-lit-night"),
   "greek-harbor": art("harbor-open-berth-night"),
   "greek-courtyard": art("courtyard-night"),
   "greek-well": art("market-well-night"),
@@ -55,6 +58,8 @@ const placeDescriptions = {
   "greek-thrace": "on the Thracian shore",
   "greek-troy-beach": "on the Homecoming Beach",
   "greek-ship": "aboard the Greek ship",
+  "willows-landing": "on the Danube island",
+  "willows-camp": "on the Danube island",
 };
 export const daylightAssets = [
   ...new Set([

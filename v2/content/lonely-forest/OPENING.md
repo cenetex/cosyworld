@@ -55,16 +55,20 @@ The first three cards use existing item illustrations; the fourth uses the oak. 
 own the result. The shared story registry keeps actual participants and
 the completion turn through reload and trimmed conversation history.
 
-## Mirror crossing
+## Attic stairs
 
-The Black cloth physically in the attic opens entry to the cottage. The
-cloth may lie on the attic floor, be carried by someone in the attic, or
-cover an object physically there. The `item_present` descriptor follows
-nested custody. Flame state and fuel are separate facts.
+The Black cloth physically in the attic and a lit, fueled, uncovered lamp
+there reveal stairs down to the cottage. The cloth may lie on the attic floor,
+be carried by someone in the attic, or cover an object physically there.
+The `item_present` descriptor follows nested custody; covering the lamp
+blocks its light and closes the stairs. Light alone opens the attic mirror
+onto Black pond. A dark attic has an empty mirror and no cottage stairs.
 
-The cottage keeps an unconditional return to the attic. Taking the cloth
-through the mirror closes entry from the attic until the cloth returns.
-The cottage's return remains available through that change.
+The cottage keeps an unconditional stair back to the attic. Taking the cloth
+or lamp away closes entry from the attic until both requirements return.
+The cottage's return remains available through that change and after the lamp
+runs dry. The existing narrow rescue paths remain available when reachable
+lamp remedies are exhausted; they are separate from the ordinary gates.
 
 ## Source and art
 

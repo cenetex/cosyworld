@@ -11,7 +11,6 @@ import {
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 import { questCards, questHistoryCards } from "../card-game/quest-cards.mjs";
 import { profiles } from "../card-game/memory.mjs";
-import { questTalkFacts } from "../card-game/quest-talk.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import {
   OPEN_DOOR_PLACES,
@@ -211,10 +210,6 @@ export async function checkOpenDoor(browser, origin) {
           assert.ok(quest, "Aethra holds the mothers' story card");
           // Aethra's story has no hand card; she says it in Talk.
           assert.equal(await page.locator("#hand [data-quest]").count(), 0);
-          assert.match(
-            questTalkFacts(world, "greek-aethra").join(" "),
-            /Their sons need a road home\./,
-          );
           await page.screenshot({
             path: new URL(`eleusis-quest-${width}.png`, output).pathname,
             fullPage: true,

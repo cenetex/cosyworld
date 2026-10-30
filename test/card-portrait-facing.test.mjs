@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createWorld, addLog, people } from "../v2/card-game/world.mjs";
-import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
+import { humanAvatarIds, humanAvatars } from "../v2/card-game/human-cast.mjs";
 import { packPeople } from "../v2/card-game/pack-registry.mjs";
 import { portrait, sceneStaging } from "../v2/card-game/scene.mjs";
 import {
@@ -10,6 +10,17 @@ import {
 } from "../v2/card-game/portrait-facing.mjs";
 
 describe("stage portrait art directions", () => {
+  it("uses the picker scarf portraits on stage, including Vale", () => {
+    for (const avatar of humanAvatars) {
+      expect(avatar.image).toBe(
+        `assets/shared/characters/${avatar.id}-scarf.png`,
+      );
+      for (const facing of ["left", "right"])
+        expect(portrait(avatar.id, facing)).toBe(`./${avatar.image}`);
+      expect(nativePortraitFacing(avatar.image)).toBe("right");
+    }
+  });
+
   it("frames broad forest animals on phones and keeps the other figures at their usual size", () => {
     for (const name of ["skull", "whiskerwind"]) {
       const path = `assets/lonely-forest/${name}.png`;

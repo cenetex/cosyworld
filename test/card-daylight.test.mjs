@@ -267,3 +267,24 @@ describe("day and night in Greece", () => {
     }
   });
 });
+
+describe("Willows night paintings", () => {
+  it("shows the ship-lit landing and the lit camp at night only", () => {
+    const night = { turn: DAYLIGHT_TURNS };
+    const day = { turn: 0 };
+    expect(backdrop("willows-landing", day)).toBe(
+      "./assets/willows/landing.webp",
+    );
+    expect(backdrop("willows-landing", night)).toBe(
+      "./assets/willows/landing-ship-night.webp",
+    );
+    expect(backdrop("willows-camp", night)).toBe(
+      "./assets/willows/camp-lit-night.webp",
+    );
+    expect(locationDaylight(night, "willows-camp").description).toBe(
+      "It is night on the Danube island.",
+    );
+    expect(locationDaylight(night, "willows-thicket")).toBeNull();
+    expect(backdrop("willows-bank", night)).toBe("./assets/willows/bank.webp");
+  });
+});

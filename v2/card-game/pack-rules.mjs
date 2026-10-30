@@ -411,9 +411,6 @@ export function calm(s, place, player) {
         .filter((g) => g.weight > 0);
   }
 }
-export const noiseGrievance = (id) => packPeople[id]?.tastes.noise || null;
-export const noiseText = (id, actor, senses) =>
-  fill(packPeople[id].tastes.noise, { actor: senses.nameOf(actor) });
 
 // --- Validation --------------------------------------------------------
 

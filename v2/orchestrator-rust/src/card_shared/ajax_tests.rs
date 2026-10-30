@@ -278,6 +278,7 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
 #[test]
 fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() {
     let released = engine::NINETEENTH_VERSION;
+    let mut checkpointed = None;
     for keep_checkpoint in [true, false] {
         let seed = engine::reduce_version(released, json!({"op":"create"})).unwrap();
         let mut old = World {
@@ -304,6 +305,13 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         }
         let mut current = full_store::world(&c, &id, now()).unwrap();
+        // The checkpoint path must reach the same upgraded world; the rest of
+        // the case runs once, from the journal.
+        if keep_checkpoint {
+            checkpointed = Some(current.clone());
+            continue;
+        }
+        assert_eq!(Some(&current), checkpointed.as_ref());
         assert_eq!(current.version, engine::VERSION);
         assert_eq!(
             current.game["packs"]["greek-drama"]["revision"],

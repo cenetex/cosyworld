@@ -8,6 +8,7 @@ import {
   rootHolder,
   itemPlace,
   shining,
+  reflectionOpen,
   senses,
 } from "./world.mjs";
 import { entityActive, crossings, transports } from "./pack-registry.mjs";
@@ -20,14 +21,17 @@ import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 
 // Pack art lives in the pack's own asset folder and is named by its data.
+const darkAttic = (world, id) =>
+  id === "attic" && world?.actors && !reflectionOpen(world, id);
 export function backdrop(id, world = null) {
+  if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
   const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
   const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
   return file ? `./${file}` : `./assets/${id}.png`;
 }
 export function portrait(id, facing = null, world = null) {
   const human = humanAvatar(id);
-  if (human && id !== "vale") return `./${human.image}`;
+  if (human) return `./${human.image}`;
   const resident = packPeople[id];
   if (resident)
     return `./${
@@ -57,6 +61,7 @@ const visibleCrossing = (world, place) =>
       crossingOpen(world, c, senses),
   );
 export function locationVariant(world, id) {
+  if (darkAttic(world, id)) return "dark";
   const crossing = visibleCrossing(world, id)?.id || "base";
   const weather = locationWeather(world, id);
   const variant = weather ? `${crossing}:${weather.variant}` : crossing;
@@ -228,6 +233,56 @@ function exchangeCast(world, line) {
 
 // Blocking comes from the completed play and its witnesses. The model writes
 // dialogue; the same event record places the actors and their carried props.
+// Floor spots as [x %, lift] on the stage. Wide stages keep things beside the
+// dialogue; narrow stages stand fewer of them on the floor above it, and short
+// ones set them beside the hand at the front of the floor.
+const FLOOR_SPOTS = {
+  wide: [
+    [6, 2],
+    [15, 0],
+    [22, 4],
+    [78, 3],
+    [86, 0],
+    [94, 2],
+  ],
+  narrow: [
+    [8, 1],
+    [93, 0],
+    [24, 3],
+  ],
+  short: [
+    [6, 0],
+    [15, 2],
+    [93, 1],
+  ],
+};
+
+function floorHash(text) {
+  let hash = 2166136261;
+  for (const char of text)
+    hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+  return hash >>> 0;
+}
+
+// Each thing keeps the same free spot in a place, with a small offset of its
+// own, so props do not jump or stack when the scene renders again.
+function floorSpots(ids, locationId, table) {
+  const taken = new Set();
+  const placed = {};
+  for (const id of [...ids].sort()) {
+    const hash = floorHash(`${locationId}:${id}`);
+    let spot = hash % table.length;
+    while (taken.has(spot)) spot = (spot + 1) % table.length;
+    taken.add(spot);
+    const [x, lift] = table[spot];
+    placed[id] = {
+      x: x + (((hash >>> 8) % 21) - 10) / 5,
+      lift: lift + ((hash >>> 16) % 11) / 10,
+    };
+  }
+  return placed;
+}
+
 export function sceneStaging(
   world,
   {
@@ -376,22 +431,38 @@ export function sceneStaging(
   const items = snapshots.length
     ? [...new Map(snapshots.map((item) => [item.id, item])).values()]
     : Object.entries(world.items).map(([id, item]) => ({ id, ...item }));
-  // Things lying in this place rest on the floor as pictures. The hand keeps
-  // every one of them; the stage shows only the first few.
-  const floorItems = items
+  // Things lying in this place rest on the floor behind the cast. The hand
+  // keeps every one of them; the stage shows only the first few.
+  const lying = items
     .filter((item) => item.holder === locationId)
-    .slice(0, 6)
-    .map(({ id, lit, ringing }) => {
-      const cover = items.find((other) => other.holder === id)?.id || null;
-      return {
-        id,
-        cover,
-        ...(typeof lit === "boolean" ? { lit } : {}),
-        ...(typeof ringing === "number"
-          ? { ringing: ringing > 0 && !cover }
-          : {}),
-      };
-    });
+    .slice(0, FLOOR_SPOTS.wide.length);
+  const spots = Object.fromEntries(
+    Object.entries(FLOOR_SPOTS).map(([layout, table]) => [
+      layout,
+      floorSpots(
+        lying.slice(0, table.length).map(({ id }) => id),
+        locationId,
+        table,
+      ),
+    ]),
+  );
+  const floorItems = lying.map(({ id, lit, ringing }) => {
+    const cover = items.find((other) => other.holder === id)?.id || null;
+    return {
+      id,
+      cover,
+      spots: Object.fromEntries(
+        Object.keys(FLOOR_SPOTS).map((layout) => [
+          layout,
+          spots[layout][id] || null,
+        ]),
+      ),
+      ...(typeof lit === "boolean" ? { lit } : {}),
+      ...(typeof ringing === "number"
+        ? { ringing: ringing > 0 && !cover }
+        : {}),
+    };
+  });
   return {
     layout: mirror ? "foreground-right" : "foreground-left",
     focalId: focal || null,

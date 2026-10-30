@@ -538,6 +538,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "home",
         "values",
         "desire",
+        "want",
         "requires",
         "canonicalPerson",
       ]),
@@ -587,6 +588,21 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         (a.tastes?.noise === undefined ||
           templateOk(a.tastes.noise, 240, ["actor"])),
       `avatar ${id} tastes need likes, sore and reason`,
+    );
+    // One want per resident: an item, a place or a person it seeks first.
+    check(
+      a.want === undefined ||
+        (keysOk(a.want, ["kind", "target"]) &&
+          (a.want.kind === "item"
+            ? owns(items, a.want.target) || hub.items.includes(a.want.target)
+            : a.want.kind === "place"
+              ? owns(places, a.want.target) ||
+                hub.places.includes(a.want.target)
+              : a.want.kind === "person" &&
+                a.want.target !== id &&
+                (owns(avatars, a.want.target) ||
+                  hub.avatars.includes(a.want.target)))),
+      `avatar ${id} want needs an item, place or person target`,
     );
     const t = a.temperament;
     if (t === undefined) {
