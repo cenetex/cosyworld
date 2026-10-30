@@ -6,6 +6,8 @@ import {
   sharedEnabled,
 } from "./human-cast.mjs";
 import { knowsFact } from "./knowledge.mjs";
+import { isNight } from "./daylight.mjs";
+import { locationWeather } from "./weather.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
 // that sound, and residents with a temperament. No rule here names a pack,
 // place, resident or hub object; the compiled packs supply every name.
@@ -145,6 +147,11 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       );
     case "met":
       return !!state?.met && Object.hasOwn(state.met, c.actor);
+    // The saved world clock: night, and the weather where c.place is.
+    case "night":
+      return isNight(s);
+    case "weather":
+      return locationWeather(s, c.place)?.condition === c.condition;
     default:
       return false;
   }

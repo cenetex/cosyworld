@@ -16,10 +16,14 @@ The drowned man is a discovery in the bank scene.
 
 ## Play
 
-Aboard the Greek ship, choose Visit the Willows. River mist beside the rail
-leads to River Landing.
+Aboard the Greek ship on a misty night, choose Visit the Willows. River mist
+beside the rail leads to River Landing. By day, or on a clear night, the mist
+does not rise and the card is not on the deck. With today's weather tables,
+night and mist at the deck meet for twelve turns in every 144.
 The island has a landing, a camp, a willow thicket and a crumbling bank.
-At the landing, choose Return to the ship.
+At the landing, choose Return to the ship while the dark mist holds. The ship
+shows at the landing only then. A traveller still on the island when the mist
+lifts waits there for the next misty night.
 
 Examine the canoe and count the food. Study the sand hollows, listen at the
 bank, and look beneath the roots. Greet the Swede, then compare the signs.
