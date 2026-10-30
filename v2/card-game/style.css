@@ -973,6 +973,14 @@ body .card .name {
   text-wrap: balance;
   text-shadow: 0 2px 5px #000;
 }
+/* Carry the label's shade to the card's edge, wherever the hand clips it. */
+body .card .name::after {
+  content: "";
+  position: absolute;
+  inset: 100% 0 auto;
+  height: var(--card-height);
+  background: #080b12eb;
+}
 body .card[data-lit="true"] .art {
   background: radial-gradient(ellipse at 50% 60%, #e0a94a66, #151b24 76%);
 }
