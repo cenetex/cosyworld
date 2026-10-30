@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { rest } from "./fixtures/card-rest.mjs";
 import {
   createWorld,
   legalActions,
@@ -81,12 +82,15 @@ describe("local dialogue arrives before private thoughts", () => {
 
   it("saves late private updates against their scene and preserves spoken history", () => {
     const original = createWorld();
-    const world = play(
-      original,
-      legalActions(original).find(
-        (x) => x.kind === "take" && x.item === "lamp",
-      ),
-    ).state;
+    const world = rest(
+      play(
+        original,
+        legalActions(original).find(
+          (x) => x.kind === "take" && x.item === "lamp",
+        ),
+      ).state,
+      { dream: true },
+    );
     const context = narrativeContext(world);
     const spoken = applyGeneratedText(world, context, fixture(context));
     const next = applyGeneratedReflections(spoken, context, update(context));

@@ -525,11 +525,13 @@ completed goal ends that link. Human choices and resident choices use the same
 measurement path. The panel shows measured attempts and how often an approach
 helped reach the goal. Earlier lessons remain readable in existing saves.
 
-Solo and shared avatars reflect on witnessed events. A new thought informs the
-persona revision; the revised persona then informs an optional dream. Each
-accepted revision keeps its source events, previous persona and the model used
-for each part. Four revisions stay in the save. The six-turn thought gap and
-twelve-turn dream gap apply in both modes. Shared publication commits the
+Solo and shared avatars reflect when they choose **Wait** after something new
+has happened to them. Other plays never start a reflection. A new thought
+informs the persona revision. A dream may come with the thought, alongside the
+persona. Each accepted revision keeps its source events, previous persona and
+the model used for each part. Four revisions stay in the save. Thoughts stay at
+least six turns apart. A dream needs two thoughts since the last dream and at
+least 24 turns since it. These gaps apply in both modes. Shared publication commits the
 reflection with its speech through the world journal. Retrying the publication
 keeps its original play identity.
 
@@ -653,11 +655,19 @@ with their own calls. Authored personas and voice profiles remain the roots of
 identity; current actions, possessions, travel and relationships come from the
 resolved simulation.
 
-A character can reflect after a new witnessed event. The first reflection is
-available after the first turn; later reflections are at least six turns apart.
-A reflection supplies a thought and an evolved persona. The first reflection
-also supplies a symbolic dream or daydream; later dreams are at least twelve
-turns apart. Sleeping and waking state still comes from game facts. Each field has its own brief completion. Public lines enter the queue first.
+An avatar reflects when it chooses Wait after a new witnessed event; the scene
+names that avatar as `resting`. A reflection supplies a thought and an evolved
+persona. The thought and persona prompts also carry the avatar's hope, its wish
+and next step, from the life rules. Sleeping and waking state still comes from
+game facts. Each field has its own brief completion. Public lines enter the
+queue first.
+
+Dreams run raw. They have no system voice, scene, persona or hope. The prompt
+lists the avatar's kept dreams, oldest first, so each dream can lead into the
+next one. The dreamer and turn then seed what drifts in: sometimes the latest
+thought, a few words from a random memory, or a one-line sketch of someone met
+that day. Dreams use a warmer sampling temperature. A new thought colours speech
+for six turns. A dream colours speech for two turns after waking.
 
 The browser saves the current persona and the latest four thoughts and four
 dreams per avatar beside the existing witnessed memories and landmarks.

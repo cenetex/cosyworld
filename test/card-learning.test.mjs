@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { rest } from "./fixtures/card-rest.mjs";
 import {
   createWorld,
   legalActions,
@@ -119,7 +120,7 @@ describe("avatar learning", () => {
     }
   });
   it("keeps source events, the earlier persona and each model", () => {
-    const world = refused();
+    const world = rest(refused(), { dream: true });
     const { context, response } = speech(world);
     const next = applyGeneratedText(world, context, response);
     const audit = next.memories.vale.reflections[0];
@@ -142,7 +143,7 @@ describe("avatar learning", () => {
   it("commits shared growth and keeps another player's inner life private", () => {
     let world = dispatchShared({
       op: "create",
-      save: encodeSave(refused()),
+      save: encodeSave(rest(refused(), { dream: true })),
     }).world;
     const entry = speech(world).response.entries.find((e) => e.id === "vale");
     world = dispatchShared({

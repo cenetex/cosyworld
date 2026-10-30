@@ -3506,7 +3506,8 @@ async fn request_completion(
         let max_tokens = max_tokens.min(candidate_output_cap);
         let mut provider_managed_reasoning =
             raw_mode && reasoning_effort == Some(RAW_DIALOGUE_REASONING_MODE);
-        let messages = if raw_mode && system.trim().is_empty() {
+        // An empty system voice (a raw dream) sends the user turn alone.
+        let messages = if system.trim().is_empty() {
             json!([{ "role": "user", "content": user_content }])
         } else {
             json!([

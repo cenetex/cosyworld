@@ -827,6 +827,9 @@ function publishCompletions(s, completions) {
       ),
   });
 }
+// The table's record of a Wait; narration reads it to know who rested.
+export const waitNarration = (actor) =>
+  `${nameOf(actor)} waits. The cast takes a turn.`;
 export function addLog(s, speaker, text, detail = {}) {
   const actorId =
     detail.actorId ?? actorIds.find((id) => nameOf(id) === speaker) ?? null;
@@ -2669,8 +2672,7 @@ export function play(
   next.revision += 1;
   const reflectionSource = next.actors[actor].place;
   const wasOpen = reflectionOpen(next, reflectionSource);
-  if (exact.kind === "wait")
-    addLog(next, "World", `${nameOf(actor)} waits. The cast takes a turn.`);
+  if (exact.kind === "wait") addLog(next, "World", waitNarration(actor));
   const met = new Map();
   if (exact.kind === "pursue") pursueQuest(next, actor, exact.questKey);
   captureHands(next, met);

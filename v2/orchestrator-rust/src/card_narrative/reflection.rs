@@ -1,5 +1,5 @@
-//! Each revision sees its new thought. Dreams are optional and keep their own
-//! model attribution. The authored rules check the evidence again at commit.
+//! Each revision sees its new thought. Dreams are optional, run beside the
+//! persona and keep their own model attribution. The authored rules check the evidence again at commit.
 use super::*;
 
 pub(super) async fn generate(
@@ -41,25 +41,8 @@ pub(super) async fn generate(
             turn: context.turn,
             text: thought.clone(),
         });
-    let (persona, persona_model) = speak(
-        config,
-        &revised,
-        models,
-        settings,
-        deadline,
-        id,
-        Part::Persona,
-    )
-    .await
-    .ok()?;
-    revised
-        .entities
-        .iter_mut()
-        .find(|e| e.id == id)?
-        .inner_life
-        .as_mut()?
-        .persona = Some(persona.clone());
-    let dream = if dream_due {
+    // The dream does not read the persona, so both run side by side.
+    let (persona, dream) = tokio::join!(
         speak(
             config,
             &revised,
@@ -67,13 +50,27 @@ pub(super) async fn generate(
             settings,
             deadline,
             id,
-            Part::Dream,
-        )
-        .await
-        .ok()
-    } else {
-        None
-    };
+            Part::Persona
+        ),
+        async {
+            if dream_due {
+                speak(
+                    config,
+                    &revised,
+                    models,
+                    settings,
+                    deadline,
+                    id,
+                    Part::Dream,
+                )
+                .await
+                .ok()
+            } else {
+                None
+            }
+        }
+    );
+    let (persona, persona_model) = persona.ok()?;
     let mut attribution = BTreeMap::from([
         ("thought".into(), thought_model),
         ("persona".into(), persona_model),
