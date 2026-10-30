@@ -212,7 +212,9 @@
         "height": 941,
         "sourceSha256": "070c8b93939636b42537e64f1a33bfaba4772cd7c220ce8c9818f775605374d0"
       },
-      "note": "No prompt was recorded for this painting."
+      "note": "No prompt was recorded for this painting.",
+      "status": "assigned to greek-sicily (The Sicilian Cave)",
+      "displacedBy": "trojan-shores-art-provenance.json"
     },
     {
       "file": "book-three-susa-day.webp",
@@ -254,7 +256,9 @@
         "sourceSha256": "989c5f205717b8091b75056c25fb60a3c5daaeb3478560746f87df6106fcf2b9",
         "tool": "built-in imagegen",
         "prompt": "Use case: historical game scenery. Paint one wide 16:9 CosyWorld backdrop in a rich hand-painted storybook style, detailed ancient stone and cloth, soft northern coastal daylight and depth. A quiet Thracian shore in antiquity: broad empty pale stone and sandy foreground for character portraits; a low canvas summons tent with dark doorway at the left; a path up to two simple uninscribed burial markers and a folded clean cloth on a low stone at the right; distant northern Aegean headland, cypress and scrub, calm empty blue water with a small empty stone landing at the mid-left shore. Keep the middle clear and readable in a narrow phone crop. Pure scenery. Empty water and berth, empty shore, no people, ships, bodies, bones, writing, captions, borders or game UI."
-      }
+      },
+      "status": "assigned to greek-thetis (Thetis's Sanctuary)",
+      "displacedBy": "trojan-shores-art-provenance.json"
     },
     {
       "file": "tauris-shore-scene.webp",

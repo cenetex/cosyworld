@@ -177,3 +177,19 @@ were lost with the earlier workspace; their entries explicitly mark that gap
 and provide separately labeled descriptive briefs. The Thracian Shore and
 Homecoming Beach night records also lack their original tool generation IDs;
 their retained source filenames and hashes identify the selected paintings.
+
+### Reassigned salvaged paintings
+
+Trojan Shores replaces two salvaged daytime paintings with matching day and
+night pairs. The salvaged files are assigned to other places that had SVG
+scenery:
+
+- `book-three-lemnos-day.webp`: a sunlit seaside cave above a stone jetty.
+  It was the Lemnian Cave backdrop and is assigned to the Sicilian Cave.
+- `book-three-thrace-day.webp`: a canvas tent, grave stones and stone steps
+  above a calm bay. It was the Thracian Shore backdrop and is assigned to
+  Thetis's Sanctuary.
+
+Both places are day only.
+[salvaged-backdrops-provenance.json](salvaged-backdrops-provenance.json)
+keeps their source records.

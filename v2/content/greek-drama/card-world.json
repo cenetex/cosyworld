@@ -334,7 +334,7 @@
       "name": "Thetis's Sanctuary",
       "text": "The sanctuary stands beside a great household. A woman has taken refuge near the altar.",
       "exits": ["greek-pherae"],
-      "backdrop": "assets/greek-drama/grove.svg",
+      "backdrop": "assets/greek-drama/book-three-thrace-day.webp",
       "persona": "The sanctuary stands beside a great household. A woman has taken refuge near the altar."
     },
     "greek-troy": {
@@ -422,7 +422,7 @@
       "name": "The Sicilian Cave",
       "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
       "exits": ["greek-road-colonists"],
-      "backdrop": "assets/greek-drama/grove.svg",
+      "backdrop": "assets/greek-drama/book-three-lemnos-day.webp",
       "persona": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
     },
     "greek-susa": {
