@@ -734,14 +734,30 @@ $("story-retry").onclick = async () => {
 // play. Choosing a card ends the pause.
 let lastPlayAt = -Infinity;
 const SETTLE_MS = 500;
-// A held item stays raised until it leaves the player's hands. Cards that
-// arrive through the play, such as the other side of a trade, are lowered.
+// A held item stays raised until it leaves the player's hands. An item that
+// arrives in the player's hands through the play, such as the other side of a
+// trade or a take, becomes the held item instead.
 function heldSelection() {
-  return selected.filter((id) => selectedHandItem(world, [id]));
+  return {
+    held: selected.filter((id) => selectedHandItem(world, [id])),
+    hands: handItems(),
+  };
 }
-function keepHeldSelection(heldBefore) {
+function handItems() {
   const actor = currentActor(world);
-  const held = heldBefore.filter((id) => selectedHandItem(world, [id]));
+  return Object.keys(world.items).filter(
+    (id) => world.items[id].holder === actor && selectedHandItem(world, [id]),
+  );
+}
+function keepHeldSelection(before, action = null) {
+  const actor = currentActor(world);
+  const arrived = handItems().filter((id) => !before.hands.includes(id));
+  const received =
+    [action?.receive, action?.item].find((id) => arrived.includes(id)) ||
+    arrived.at(-1);
+  const held = received
+    ? [received]
+    : before.held.filter((id) => selectedHandItem(world, [id]));
   const keepActor = held.length > 0 && selected.includes(actor);
   const expanded = keepActor && expandedHolders.has(actor);
   selected = keepActor ? [actor, ...held] : held;
@@ -832,7 +848,7 @@ function performAction(action, revision) {
   $("stage").classList.remove("ready", "drag-over");
   exchange.begin();
   lastPlayAt = performance.now();
-  keepHeldSelection(heldBefore);
+  keepHeldSelection(heldBefore, action);
   lineSeq = null;
   notice("");
   save();
@@ -2397,7 +2413,7 @@ async function submitSharedPlay(action) {
     await sharedSession.play(current);
     lastPlayAt = performance.now();
     if (!playQueue.pending && JSON.stringify(selected) === selection) {
-      keepHeldSelection(heldBefore);
+      keepHeldSelection(heldBefore, current);
       reviewing = false;
     }
     if (!playQueue.pending) notice("");

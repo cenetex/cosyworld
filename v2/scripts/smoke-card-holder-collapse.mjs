@@ -333,9 +333,41 @@ try {
           [],
           "a put-down item leaves the selection",
         );
+        // An item that arrives in the player's hands is raised there.
+        await tap("pond");
+        await tap("oil");
+        assert.deepEqual(await selected(), ["oil", "pond"]);
+        await page.waitForTimeout(600);
+        await action("take").click();
+        await settled();
+        assert.deepEqual(
+          await selected(),
+          ["oil"],
+          "a taken item is raised in the hand",
+        );
+        assert.equal(await frame("oil").getAttribute("hidden"), null);
+        await tap("moth");
+        await tap("bell");
+        assert.deepEqual(await selected(), ["bell", "oil"]);
+        assert.equal(
+          await page.locator(".card-primary").innerText(),
+          "Trade Oil flask for Bell",
+        );
+        await page.waitForTimeout(600);
+        await action("trade").click();
+        await settled();
+        assert.deepEqual(
+          await selected(),
+          ["bell"],
+          "Pip's side of the trade is raised in the hand",
+        );
+        assert.equal(await frame("bell").getAttribute("hidden"), null);
+        await page.screenshot({
+          path: new URL(`${table}-received.png`, output).pathname,
+        });
         assert.deepEqual(errors, []);
         console.log(
-          `${table}: avatar stack, chosen child, cross-holder pair, quest-free stacks, Escape and outside reset, held item through Light, Give and Put down passed`,
+          `${table}: avatar stack, chosen child, cross-holder pair, quest-free stacks, Escape and outside reset, held item through Light, Give and Put down, raised Take and Trade passed`,
         );
       } catch (error) {
         await page.screenshot({

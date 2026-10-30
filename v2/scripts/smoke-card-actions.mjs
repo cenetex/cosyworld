@@ -137,6 +137,10 @@ try {
       await ready();
     };
     const labels = () => page.locator("#card-actions button").allTextContents();
+    const pressed = () =>
+      page
+        .locator('#hand .card[aria-pressed="true"]')
+        .evaluateAll((cards) => cards.map((c) => c.dataset.card).sort());
     const shot = async (name) => {
       await page.waitForFunction(() =>
         [...document.images]
@@ -329,8 +333,10 @@ try {
     await shot("trade");
     await page.locator("#card-actions button").click();
     assert.equal(await card("vale").isDisabled(), false);
+    // The received cloth is raised in the hand, so Vale joins it.
+    assert.deepEqual(await pressed(), ["cloth"]);
     await card("vale").dispatchEvent("click");
-    assert.equal(await page.locator('.card[aria-pressed="true"]').count(), 1);
+    assert.deepEqual(await pressed(), ["cloth", "vale"]);
     await card("vale").dispatchEvent("click");
     await ready();
     assert.equal((await state()).turn, before.turn + 1);
