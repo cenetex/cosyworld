@@ -99,21 +99,24 @@ try {
         await page.locator("#dialogue-text").textContent(),
         /There is time to look around\./,
       );
-      // Vale's first line comes from the model, with the opening quest in view.
+      // Vale's first line comes from the model, with the opening goal in view.
+      // Talk names a want in one line (#1451); Vale already holds her wanted
+      // Lamp, so no want line is said and the quest-talk lines are gone.
       assert.equal(requests[0].turn, 0);
       assert.deepEqual(requests[0].speakers, ["vale"]);
-      assert.match(valeFacts(), /What I want most now: First light\./);
-      // The opening quest has no card, reveal or button. Vale says it.
+      const noQuestTalk = () => {
+        assert.match(valeFacts(), /Still hoped for: Lamp alight\./);
+        assert.doesNotMatch(valeFacts(), /What I want most now|I want the /);
+      };
+      noQuestTalk();
+      // The opening quest has no card, reveal or button.
       await ready();
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       await finish();
       await selectCard(page, "vale");
       await page.locator('#card-actions [data-action="wait"]').click();
       await finish();
-      assert.match(
-        valeFacts(),
-        /What I want most now: First light\. A little warmth might wake this empty room\./,
-      );
+      noQuestTalk();
       const openingHand = await page
         .locator("#hand .card")
         .evaluateAll((cards) => cards.map((card) => card.dataset.card));
@@ -150,7 +153,7 @@ try {
       );
       await page.keyboard.press("Escape");
       await finish();
-      // The finished quest reaches the next spoken scene, not a dialog.
+      // The finished quest is recorded, not shown in a dialog.
       const completedKey = await page.evaluate(
         (key) =>
           Object.values(
@@ -172,11 +175,13 @@ try {
       await selectCard(page, "vale");
       await page.locator('#card-actions [data-action="wait"]').click();
       await finish();
-      assert.match(valeFacts(), /I just finished First light \(fulfilled\)\./);
+      // Quest-talk lines left Talk with #1451; the met goal is no longer hoped for.
+      assert.doesNotMatch(valeFacts(), /Still hoped for: Lamp alight/);
+      assert.doesNotMatch(valeFacts(), /I just finished/);
       await page.screenshot({
         path: new URL(`fulfilled-${width}.png`, output).pathname,
       });
-      // Resume a later purpose with an unfinished line. The new card waits for it.
+      // Resume a later purpose with an unfinished line.
       const nextQuestKey = await page.evaluate(async (key) => {
         const { ensureCollectedQuest, pursueQuest } = await import(
           "/quests.mjs"
@@ -221,10 +226,16 @@ try {
         await page.locator("#hand .card").first().getAttribute("data-card"),
         "vale",
       );
-      assert.match(valeFacts(), /Along the shore/);
       const saved = await page.evaluate(
         (key) => localStorage.getItem(key),
         key,
+      );
+      // Carrying the lamp past the moth to the station fulfils the quest.
+      // Talk no longer names it (#1451); the save records the outcome.
+      assert.doesNotMatch(valeFacts(), /What I want most now|I just finished/);
+      assert.equal(
+        JSON.parse(saved).quests.records[nextQuestKey].completion?.outcome,
+        "fulfilled",
       );
       assert.equal(JSON.parse(saved).actors.vale.place, "station");
       await page.reload();
