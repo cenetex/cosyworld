@@ -105,7 +105,7 @@
       "name": "Aulis Anchorage",
       "text": "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
       "exits": ["greek-gate"],
-      "backdrop": "assets/greek-drama/harbor.svg",
+      "backdrop": "assets/greek-drama/aulis-anchorage-day.webp",
       "persona": "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
     },
     "greek-athens": {
@@ -346,7 +346,7 @@
         "greek-thrace",
         "greek-road-royal"
       ],
-      "backdrop": "assets/greek-drama/palace.svg",
+      "backdrop": "assets/greek-drama/trojan-walls-day.webp",
       "persona": "The city road runs between battered walls. Soldiers and displaced households share the remaining wells."
     },
     "greek-greek-camp": {
@@ -366,14 +366,14 @@
       "name": "The Trojan Night Camp",
       "text": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide.",
       "exits": ["greek-troy"],
-      "backdrop": "assets/greek-drama/grove.svg",
+      "backdrop": "assets/greek-drama/trojan-night-camp-day.webp",
       "persona": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide."
     },
     "greek-troy-beach": {
       "name": "The Homecoming Beach",
       "text": "A small boat is drawn above the tideline. Its passengers compare what they remember of the war.",
       "exits": [],
-      "backdrop": "assets/greek-drama/sea.svg",
+      "backdrop": "assets/greek-drama/homecoming-beach-day.webp",
       "requires": [
         {
           "kind": "choice",
@@ -387,14 +387,14 @@
       "name": "The Lemnian Cave",
       "text": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
       "exits": ["greek-greek-camp"],
-      "backdrop": "assets/greek-drama/sea.svg",
+      "backdrop": "assets/greek-drama/lemnian-cave-day.webp",
       "persona": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
     },
     "greek-thrace": {
       "name": "The Thracian Shore",
       "text": "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
       "exits": ["greek-troy", "greek-road-black-sea"],
-      "backdrop": "assets/greek-drama/sea.svg",
+      "backdrop": "assets/greek-drama/thracian-shore-day.webp",
       "persona": "A fleet waits beyond the breakers. Captive households search among the new arrivals."
     },
     "greek-egypt-tomb": {
@@ -1497,7 +1497,7 @@
       "text": "The account records Helen's journey from Troy. It makes no claim that a phantom took her place.",
       "holder": "greek-troy-beach",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/testimony.png",
+      "art": "assets/greek-drama/troy-testimony.png",
       "requires": [
         {
           "kind": "choice",
@@ -1511,7 +1511,7 @@
       "text": "The testimony begins with offerings and a meeting at Agamemnon's tomb.",
       "holder": "greek-argos-tomb",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/testimony.png",
+      "art": "assets/greek-drama/tomb-testimony.png",
       "requires": [
         {
           "kind": "choice",
@@ -1525,7 +1525,7 @@
       "text": "The testimony begins with Electra waiting outside the Mycenaean palace.",
       "holder": "greek-mycenae-palace",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/testimony.png",
+      "art": "assets/greek-drama/palace-testimony.png",
       "requires": [
         {
           "kind": "choice",
@@ -1539,7 +1539,7 @@
       "text": "The testimony begins in a poor household in the Argive countryside.",
       "holder": "greek-argive-farm",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/testimony.png",
+      "art": "assets/greek-drama/farm-testimony.png",
       "requires": [
         {
           "kind": "choice",
@@ -1552,7 +1552,7 @@
       "name": "The Mothers’ Petition",
       "text": "An olive branch lies across a tablet bearing the mothers’ request. Aethra has left room for the city’s answer.",
       "holder": "greek-eleusis",
-      "art": "assets/greek-drama/decree.png",
+      "art": "assets/greek-drama/burial-petition.png",
       "persona": "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler’s present deeds.",
       "requires": [
         {
@@ -1571,7 +1571,7 @@
       "name": "Clean Burial Cloths",
       "text": "Clean folded cloths wait at the quay. Thaleia has set them aside for the rite at Eleusis.",
       "holder": "greek-piraeus",
-      "art": "assets/greek-drama/funeral-cloth.png",
+      "art": "assets/greek-drama/return-cloths.png",
       "persona": "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler’s present deeds.",
       "requires": [
         {
@@ -1585,7 +1585,7 @@
       "name": "The Quay Basket",
       "text": "Grain, bread and cups fill a basket. Thaleia needs it beside the resting place at this quay.",
       "holder": "greek-piraeus",
-      "art": "assets/greek-drama/provisions.png",
+      "art": "assets/greek-drama/provision-basket.png",
       "persona": "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler’s present deeds.",
       "requires": [
         {
@@ -1599,7 +1599,7 @@
       "name": "The Funeral Urn",
       "text": "A covered urn holds ashes entrusted to the mothers after the recorded recovery and funeral. Its clay is cool.",
       "holder": "greek-eleusis",
-      "art": "assets/greek-drama/water-jar.png",
+      "art": "assets/greek-drama/ash-urn.png",
       "persona": "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler’s present deeds.",
       "requires": [
         {
@@ -1623,7 +1623,7 @@
       "name": "The Return List",
       "text": "The mothers’ return list names households who need rest on the homeward road. Its margin leaves room for the quay’s reply.",
       "holder": "greek-eleusis",
-      "art": "assets/greek-drama/testimony.png",
+      "art": "assets/greek-drama/return-list.png",
       "persona": "Describe the list, its actual holder and its recorded use. Myrine signs the margin only after her arrival and care at Piraeus. Her signed account records what she saw there. A later reading carries her words to Dione.",
       "requires": [
         {
@@ -1642,7 +1642,7 @@
       "name": "The Grove Cup",
       "text": "Fresh spring water fills a small cup. The keeper has set it beside the grove boundary.",
       "holder": "greek-colonus",
-      "art": "assets/greek-drama/water-jar.png",
+      "art": "assets/greek-drama/grove-cup.png",
       "persona": "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler’s present deeds.",
       "requires": [
         {
@@ -1656,7 +1656,7 @@
       "name": "Honey for the Grove",
       "text": "A sealed pot holds honey for the grove’s offering.",
       "holder": "greek-colonus",
-      "art": "assets/greek-drama/oil-flask.png",
+      "art": "assets/greek-drama/grove-honey.png",
       "persona": "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler’s present deeds.",
       "requires": [
         {
@@ -1670,7 +1670,7 @@
       "name": "The Shelter Blanket",
       "text": "A thick clean blanket is folded beside the cargo baskets. The altar keeper at Marathon has asked for it.",
       "holder": "greek-piraeus",
-      "art": "assets/greek-drama/funeral-cloth.png",
+      "art": "assets/greek-drama/shelter-blanket.png",
       "persona": "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler’s present deeds.",
       "requires": [
         {
@@ -1684,7 +1684,7 @@
       "name": "The Refuge Tablet",
       "text": "A blank wax tablet waits at the public table. The keeper at Colonus can use it to record the grove’s duty to guests.",
       "holder": "greek-athens",
-      "art": "assets/greek-drama/decree.png",
+      "art": "assets/greek-drama/refuge-tablet.png",
       "persona": "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler’s present deeds.",
       "requires": [
         {
@@ -1713,7 +1713,7 @@
       "text": "Teucer’s burial plea has room for the witnesses’ signed account of the completed rite.",
       "holder": "greek-greek-camp",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
-      "art": "assets/greek-drama/decree.png",
+      "art": "assets/greek-drama/ajax-plea.png",
       "requires": [
         {
           "kind": "flag",
@@ -1732,7 +1732,7 @@
       "text": "Clean linen is set aside for Ajax’s burial in the Trojan account.",
       "holder": "greek-greek-camp",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
-      "art": "assets/greek-drama/funeral-cloth.png",
+      "art": "assets/greek-drama/ajax-cloth.png",
       "requires": [
         {
           "kind": "flag",
@@ -1746,7 +1746,7 @@
       "text": "A short shovel and grave tools wait beside the tents.",
       "holder": "greek-greek-camp",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
-      "art": "assets/greek-drama/shovel.png",
+      "art": "assets/greek-drama/ajax-tools.png",
       "requires": [
         {
           "kind": "flag",

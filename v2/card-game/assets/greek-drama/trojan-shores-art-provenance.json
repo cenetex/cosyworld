@@ -1,0 +1,988 @@
+{
+  "schemaVersion": 1,
+  "generated": "2026-10-30",
+  "tool": "built-in image_gen",
+  "collection": "Trojan Shores and Greek Inventory",
+  "sourceBase": "2d6429ce2e82ce767cb5d505f58a35c40eba892c",
+  "integrationBase": "6945513df196998b849674d11313e1502448493e",
+  "style": "Detailed painted Greek storybook realism, matching the existing Wine-Dark Sea scenery and objects.",
+  "scope": "Six repertoire locations with day and night paintings, plus sixteen distinct transparent inventory objects. Existing access, custody and story conditions remain authoritative.",
+  "counts": {
+    "scenePaintings": 12,
+    "itemSprites": 16
+  },
+  "styleReferencesInspected": [
+    "ajax-camp-day.webp",
+    "ajax-camp-night.webp",
+    "harbor-open-berth.webp",
+    "testimony.png",
+    "funeral-cloth.png"
+  ],
+  "sourceHandling": "Selected generated PNGs were recovered after a workspace loss. Source hashes identify the recovered PNG bytes. Scene WebPs were verified pixel-for-pixel against their PNGs; item PNGs were verified byte-for-byte.",
+  "provenanceGaps": [
+    {
+      "files": [
+        "aulis-anchorage-night.webp",
+        "trojan-walls-night.webp",
+        "trojan-night-camp-night.webp",
+        "lemnian-cave-night.webp",
+        "thracian-shore-night.webp"
+      ],
+      "detail": "The exact generation prompts were not preserved. Each entry marks prompt as unavailable and supplies a separately labeled descriptive brief."
+    },
+    {
+      "files": [
+        "thracian-shore-night.webp",
+        "homecoming-beach-night.webp"
+      ],
+      "detail": "The original tool output filenames and generation IDs were not preserved. Retained source filenames and source hashes identify the selected images."
+    }
+  ],
+  "assets": [
+    {
+      "place": "greek-aulis",
+      "name": "Aulis Anchorage",
+      "phase": "day",
+      "file": "aulis-anchorage-day.webp",
+      "sourceName": "exec-760f09a0-e394-459e-b968-50409c6bb563.png",
+      "generationId": "exec-760f09a0-e394-459e-b968-50409c6bb563",
+      "sourceSha256": "ee4ee6b42b22790b942c29cb1a61a2f61cf1e54a4487eb425e8c7b5433e3ebdc",
+      "sourceBytes": 3054574,
+      "sourceMode": "RGB",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "bytes": 2172010,
+      "sha256": "3dbd3f0343b6e9aca73a1545978597717ad23aa7512894de2c78f756b04a2050",
+      "transparentBackground": false,
+      "processing": "Generated PNG decoded to full-size lossless WebP without cropping or resizing. The WebP retains the source pixels; no duplicate scenery PNG is committed.",
+      "sourcePixelsMatchRuntime": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: opaque full-bleed wide 16:9 landscape location background for Cosyworld Greek Drama. High-quality detailed hand-painted Greek storybook realism, harmonized with a chthonic Greek adventure: weathered limestone, ochre dust, cream linen, worn bronze, dark timber, muted pomegranate cloth, silver olive leaves, wine-dark and cobalt seawater. Beautiful rich natural brushwork, tangible textures, atmospheric depth, mythic but physically grounded. Daytime with clear readable warm natural sunlight and cool shadows; serious, quiet tragic atmosphere rather than cartoon whimsy. Eye-level adventure-game camera with the LOWEST THIRD as broad unobstructed walkable ground for separately rendered characters; keep the main location identity readable in a central vertical phone crop as well as widescreen. Multiple depths, strong useful architectural silhouette. Empty scene, NO PEOPLE, no human silhouettes, no animals, no UI, no labels, no text, no frame. No staged corpse, gore, literal ghost or supernatural spectacle. Full canvas completely opaque, no transparency. Paint the place-specific scene described below, not a generic palace, harbor, courtyard or grove.\n\nLOCATION: Aulis Anchorage\nAulis before the fleet can sail. A broad sheltered Greek anchorage under an unnaturally still late-afternoon sky. Bronze-age style wooden warships stand motionless at anchor and drawn toward the middle-distance shore; all cream sails furled or hanging completely slack, pennants limp, water almost mirror-still. Command tents with restrained dark red trim line the LEFT midground, with simple amphorae and stacked shields confined to the tent margins. Low Greek hills on the horizon, NO fortified Trojan citadel. Broad empty sandy staging ground in the foreground leading naturally toward the ships at centre-right. A calm, held-breath departure shore, not a city port or storm scene. Keep sky balanced, shoreline and slack masts prominent."
+    },
+    {
+      "place": "greek-aulis",
+      "name": "Aulis Anchorage",
+      "phase": "night",
+      "file": "aulis-anchorage-night.webp",
+      "sourceName": "exec-3ee1a8ea-d063-4942-b5f3-cfa98f411c0a.png",
+      "generationId": "exec-3ee1a8ea-d063-4942-b5f3-cfa98f411c0a",
+      "sourceSha256": "c6b1f9ed293cd62b6b580d027030aafca28a0c89eda3d65cf26bd35a33ecb1e2",
+      "sourceBytes": 2699087,
+      "sourceMode": "RGB",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "bytes": 1895020,
+      "sha256": "7944c29c7e522b564fffca8fe7da9becb1c4851f761450d8652c20311be06c62",
+      "transparentBackground": false,
+      "processing": "Generated PNG decoded to full-size lossless WebP without cropping or resizing. The WebP retains the source pixels; no duplicate scenery PNG is committed.",
+      "sourcePixelsMatchRuntime": true,
+      "intent": "lighting-weather edit",
+      "dayCounterpart": "aulis-anchorage-day.webp",
+      "promptStatus": "unavailable after workspace loss",
+      "prompt": null,
+      "descriptiveBrief": "Night counterpart of the still anchorage, command tents and motionless fleet; cool moonlight over the same sandy foreground and shore.",
+      "briefStatus": "Summary of the intended night edit; not the original prompt."
+    },
+    {
+      "place": "greek-troy",
+      "name": "The Trojan Walls",
+      "phase": "day",
+      "file": "trojan-walls-day.webp",
+      "sourceName": "exec-5f6a183c-263c-4903-ae01-95a9cc11175b.png",
+      "generationId": "exec-5f6a183c-263c-4903-ae01-95a9cc11175b",
+      "sourceSha256": "5eb9624e772273f8367fff866c45fadc36e6ece437536b20cfbc3dd00038ad87",
+      "sourceBytes": 3240250,
+      "sourceMode": "RGB",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "bytes": 2233236,
+      "sha256": "63bb4654d9a347f115d52d178686911c19cc71146d59ae6585d8d1ecd9d8304e",
+      "transparentBackground": false,
+      "processing": "Generated PNG decoded to full-size lossless WebP without cropping or resizing. The WebP retains the source pixels; no duplicate scenery PNG is committed.",
+      "sourcePixelsMatchRuntime": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: opaque full-bleed wide 16:9 landscape location background for Cosyworld Greek Drama. High-quality detailed hand-painted Greek storybook realism, harmonized with a chthonic Greek adventure: weathered limestone, ochre dust, cream linen, worn bronze, dark timber, muted pomegranate cloth, silver olive leaves, wine-dark and cobalt seawater. Beautiful rich natural brushwork, tangible textures, atmospheric depth, mythic but physically grounded. Daytime with clear readable warm natural sunlight and cool shadows; serious, quiet tragic atmosphere rather than cartoon whimsy. Eye-level adventure-game camera with the LOWEST THIRD as broad unobstructed walkable ground for separately rendered characters; keep the main location identity readable in a central vertical phone crop as well as widescreen. Multiple depths, strong useful architectural silhouette. Empty scene, NO PEOPLE, no human silhouettes, no animals, no UI, no labels, no text, no frame. No staged corpse, gore, literal ghost or supernatural spectacle. Full canvas completely opaque, no transparency. Paint the place-specific scene described below, not a generic palace, harbor, courtyard or grove.\n\nLOCATION: The Trojan Walls\nA road inside battered monumental Trojan walls, a city surviving war. Massive weathered limestone and ochre stone bastions frame the left and right, an old gateway/road bends toward deeper surviving city masonry in the middle distance. Local cracks, chipped blocks and repaired masonry, not wholesale fire or apocalyptic ruin. One clearly usable round low stone well with a plain wooden crossbeam stands just LEFT of the open central road in the middle foreground, its pulley intact. A few closed household bundles sheltered against a side wall suggest displaced families without showing people. Broad empty dusty stone-paved approach across the entire lower third for conversations. Strong enclosing wall silhouette with a strip of pale blue sky; no crowd, no burning buildings, no wooden horse, no plot-ending victory symbols."
+    },
+    {
+      "place": "greek-troy",
+      "name": "The Trojan Walls",
+      "phase": "night",
+      "file": "trojan-walls-night.webp",
+      "sourceName": "exec-7c5668c5-99d8-4dbd-ba78-3bd29fc29718.png",
+      "generationId": "exec-7c5668c5-99d8-4dbd-ba78-3bd29fc29718",
+      "sourceSha256": "e5dd3894fcf11e308354b206c36fec0c15fa03a33071a4e19b221985e08c8492",
+      "sourceBytes": 2802732,
+      "sourceMode": "RGB",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "bytes": 1952778,
+      "sha256": "35ff919e3bb395da0e74aa2a3f845568f3f3719b0df1a66a528edc0597f21093",
+      "transparentBackground": false,
+      "processing": "Generated PNG decoded to full-size lossless WebP without cropping or resizing. The WebP retains the source pixels; no duplicate scenery PNG is committed.",
+      "sourcePixelsMatchRuntime": true,
+      "intent": "lighting-weather edit",
+      "dayCounterpart": "trojan-walls-day.webp",
+      "promptStatus": "unavailable after workspace loss",
+      "prompt": null,
+      "descriptiveBrief": "Night counterpart of the battered city road, gateway and usable well; readable moonlit stone and the same open approach.",
+      "briefStatus": "Summary of the intended night edit; not the original prompt."
+    },
+    {
+      "place": "greek-trojan-camp",
+      "name": "The Trojan Night Camp",
+      "phase": "day",
+      "file": "trojan-night-camp-day.webp",
+      "sourceName": "exec-d7720e4c-079a-4268-b7a5-17b684fde176.png",
+      "generationId": "exec-d7720e4c-079a-4268-b7a5-17b684fde176",
+      "sourceSha256": "7a12d97c3c08ea9e5d5f8ab6085b4140ffa7db63b831fe629318bd5946e38844",
+      "sourceBytes": 3460830,
+      "sourceMode": "RGB",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "bytes": 2378514,
+      "sha256": "7669f0a43c3f6d9520b858f0e0cf4394107f7242d653e5a55ac3f08f970bea20",
+      "transparentBackground": false,
+      "processing": "Generated PNG decoded to full-size lossless WebP without cropping or resizing. The WebP retains the source pixels; no duplicate scenery PNG is committed.",
+      "sourcePixelsMatchRuntime": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: opaque full-bleed wide 16:9 landscape location background for Cosyworld Greek Drama. High-quality detailed hand-painted Greek storybook realism, harmonized with a chthonic Greek adventure: weathered limestone, ochre dust, cream linen, worn bronze, dark timber, muted pomegranate cloth, silver olive leaves, wine-dark and cobalt seawater. Beautiful rich natural brushwork, tangible textures, atmospheric depth, mythic but physically grounded. Daytime with clear readable warm natural sunlight and cool shadows; serious, quiet tragic atmosphere rather than cartoon whimsy. Eye-level adventure-game camera with the LOWEST THIRD as broad unobstructed walkable ground for separately rendered characters; keep the main location identity readable in a central vertical phone crop as well as widescreen. Multiple depths, strong useful architectural silhouette. Empty scene, NO PEOPLE, no human silhouettes, no animals, no UI, no labels, no text, no frame. No staged corpse, gore, literal ghost or supernatural spectacle. Full canvas completely opaque, no transparency. Paint the place-specific scene described below, not a generic palace, harbor, courtyard or grove.\n\nLOCATION: The Trojan Night Camp\nThe inland Trojan watch camp from the Rhesus telling, shown in its DAYLIGHT state. An earthy clearing among low wind-shaped trees and dark cypress at the edge of gently rising country, no beach and no ships. Muted cream and pomegranate-red tents occupy the left and right MIDGROUND. An approaching dirt track enters between a pair of modest wooden perimeter posts in the central distance, ready for an arriving ally. Three or four simple iron/bronze watch braziers with small restrained ember fires mark the camp edges and approach; preserve these practical light sources for its matching night edition. Broad nearly empty trampled dusty ground across foreground and centre. Serious war-camp atmosphere, improvised and defensible, not luxurious glamping. The arriving ally and guards are not painted into the scene."
+    },
+    {
+      "place": "greek-trojan-camp",
+      "name": "The Trojan Night Camp",
+      "phase": "night",
+      "file": "trojan-night-camp-night.webp",
+      "sourceName": "exec-def7b9e9-0c43-46b8-b551-42e7d06a8ad6.png",
+      "generationId": "exec-def7b9e9-0c43-46b8-b551-42e7d06a8ad6",
+      "sourceSha256": "804edc2a974b9cdc8d7f585835bc622a0ffa2c4730af6b060328424735657173",
+      "sourceBytes": 2897789,
+      "sourceMode": "RGB",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "bytes": 2067260,
+      "sha256": "da3acd81e300cc2b6928dd070b4f901a46f011e2a0199da1eb571f789eb5f28c",
+      "transparentBackground": false,
+      "processing": "Generated PNG decoded to full-size lossless WebP without cropping or resizing. The WebP retains the source pixels; no duplicate scenery PNG is committed.",
+      "sourcePixelsMatchRuntime": true,
+      "intent": "lighting-weather edit",
+      "dayCounterpart": "trojan-night-camp-day.webp",
+      "promptStatus": "unavailable after workspace loss",
+      "prompt": null,
+      "descriptiveBrief": "Night counterpart of the inland watch camp; existing braziers provide restrained amber light around the tents and guarded approach.",
+      "briefStatus": "Summary of the intended night edit; not the original prompt."
+    },
+    {
+      "place": "greek-lemnos",
+      "name": "The Lemnian Cave",
+      "phase": "day",
+      "file": "lemnian-cave-day.webp",
+      "sourceName": "exec-c502ff01-3927-4bf2-83cc-5fd2ebe2c505.png",
+      "generationId": "exec-c502ff01-3927-4bf2-83cc-5fd2ebe2c505",
+      "sourceSha256": "7b29892939ad918d0fdc0e8f3cfff214bd6843f31c188f4aa93f45a2b71f9d15",
+      "sourceBytes": 3498354,
+      "sourceMode": "RGB",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "bytes": 2331420,
+      "sha256": "166478d015bea27d93a25177e86bb7a3d28498baf8acefaa3e98bf1f455185d1",
+      "transparentBackground": false,
+      "processing": "Generated PNG decoded to full-size lossless WebP without cropping or resizing. The WebP retains the source pixels; no duplicate scenery PNG is committed.",
+      "sourcePixelsMatchRuntime": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: opaque full-bleed wide 16:9 landscape location background for Cosyworld Greek Drama. High-quality detailed hand-painted Greek storybook realism, harmonized with a chthonic Greek adventure: weathered limestone, ochre dust, cream linen, worn bronze, dark timber, muted pomegranate cloth, silver olive leaves, wine-dark and cobalt seawater. Beautiful rich natural brushwork, tangible textures, atmospheric depth, mythic but physically grounded. Daytime with clear readable warm natural sunlight and cool shadows; serious, quiet tragic atmosphere rather than cartoon whimsy. Eye-level adventure-game camera with the LOWEST THIRD as broad unobstructed walkable ground for separately rendered characters; keep the main location identity readable in a central vertical phone crop as well as widescreen. Multiple depths, strong useful architectural silhouette. Empty scene, NO PEOPLE, no human silhouettes, no animals, no UI, no labels, no text, no frame. No staged corpse, gore, literal ghost or supernatural spectacle. Full canvas completely opaque, no transparency. Paint the place-specific scene described below, not a generic palace, harbor, courtyard or grove.\n\nLOCATION: The Lemnian Cave\nThe Lemnian sea cave of an abandoned traveller. View FROM JUST INSIDE a rugged shallow limestone cave looking outward to a small rocky blue-water cove and distant pale sea horizon. The cave overhang frames the upper corners but leaves the central entrance readable. At left MIDGROUND against the cave wall, a humble rough bed of reeds and folded worn cloth. A slim cloth-wrapped bow is set against the opposite RIGHT side wall, well above the lower-third clear area, recognisable as a wrapped long bow but not a foreground inventory closeup. Faint footprints cross a dusty patch near the bedding toward the bow. Foreground is broad dry rock floor, flat and unobstructed, suitable for character overlays; luminous sunlight bounces into the shelter without turning the cave black. Isolation, sea salt, and an inhabitable shelter, no person, no skeleton, no abandoned modern items."
+    },
+    {
+      "place": "greek-lemnos",
+      "name": "The Lemnian Cave",
+      "phase": "night",
+      "file": "lemnian-cave-night.webp",
+      "sourceName": "exec-92491158-8259-4739-89a9-d5de5079e7e5.png",
+      "generationId": "exec-92491158-8259-4739-89a9-d5de5079e7e5",
+      "sourceSha256": "a992639c284855c6a569dd2a317bb11a4e775b5bcae73a4cac221af6e7f82e05",
+      "sourceBytes": 3037616,
+      "sourceMode": "RGB",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "bytes": 2048276,
+      "sha256": "8d4d29b2d271e512732b6519025f55d98632c37cd3901ec04b4163c6ab21d023",
+      "transparentBackground": false,
+      "processing": "Generated PNG decoded to full-size lossless WebP without cropping or resizing. The WebP retains the source pixels; no duplicate scenery PNG is committed.",
+      "sourcePixelsMatchRuntime": true,
+      "intent": "lighting-weather edit",
+      "dayCounterpart": "lemnian-cave-day.webp",
+      "promptStatus": "unavailable after workspace loss",
+      "prompt": null,
+      "descriptiveBrief": "Night counterpart of the cave shelter and cove; cool reflected moonlight keeps the rock floor, bedding and wrapped bow readable.",
+      "briefStatus": "Summary of the intended night edit; not the original prompt."
+    },
+    {
+      "place": "greek-thrace",
+      "name": "The Thracian Shore",
+      "phase": "day",
+      "file": "thracian-shore-day.webp",
+      "sourceName": "exec-255f9148-c151-4572-a962-c068a0ae5545.png",
+      "generationId": "exec-255f9148-c151-4572-a962-c068a0ae5545",
+      "sourceSha256": "865783d4cff91e509c6bdf72fa1c8b540b32110971c0a01a8cc40bcdb4c999f7",
+      "sourceBytes": 3319758,
+      "sourceMode": "RGB",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "bytes": 2292272,
+      "sha256": "4f0df1eee3d1ad6362bf7a3ee23d74d44a841bde1fdf74dbd9d09d18bb43d848",
+      "transparentBackground": false,
+      "processing": "Generated PNG decoded to full-size lossless WebP without cropping or resizing. The WebP retains the source pixels; no duplicate scenery PNG is committed.",
+      "sourcePixelsMatchRuntime": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: opaque full-bleed wide 16:9 landscape location background for Cosyworld Greek Drama. High-quality detailed hand-painted Greek storybook realism, harmonized with a chthonic Greek adventure: weathered limestone, ochre dust, cream linen, worn bronze, dark timber, muted pomegranate cloth, silver olive leaves, wine-dark and cobalt seawater. Beautiful rich natural brushwork, tangible textures, atmospheric depth, mythic but physically grounded. Daytime with clear readable warm natural sunlight and cool shadows; serious, quiet tragic atmosphere rather than cartoon whimsy. Eye-level adventure-game camera with the LOWEST THIRD as broad unobstructed walkable ground for separately rendered characters; keep the main location identity readable in a central vertical phone crop as well as widescreen. Multiple depths, strong useful architectural silhouette. Empty scene, NO PEOPLE, no human silhouettes, no animals, no UI, no labels, no text, no frame. No staged corpse, gore, literal ghost or supernatural spectacle. Full canvas completely opaque, no transparency. Paint the place-specific scene described below, not a generic palace, harbor, courtyard or grove.\n\nLOCATION: The Thracian Shore\nThe Thracian shore in the Hecuba telling: exposed windswept coast, slate-blue breakers and a Greek fleet held offshore beyond the surf. Wide pale-grey and ochre sand/pebble beach in foreground; subtle strands of seagrass and driftwood only at the extreme margins. Distant ships have bronze-age long wooden hulls and cream sailcloth, with a low misty headland beyond. At far left, one simple low temporary cloth shelter and a few closed bundles sit above the tideline; no painted people. A thin wind pulls its canvas and shapes the surf. Keep the whole lower third broad clear beach, with the sea edge behind that play area, not across it. Natural cold-blue sea with warm afternoon touches on beach and sail. Grief and unsettled waiting conveyed by weather and space, no gore, no bodies, no magical storm."
+    },
+    {
+      "place": "greek-thrace",
+      "name": "The Thracian Shore",
+      "phase": "night",
+      "file": "thracian-shore-night.webp",
+      "sourceName": "Moonlit Thracian Shore.png",
+      "generationId": null,
+      "sourceSha256": "13ee6fc7c69c8b5e7aabdcd0dd63377cc48ba8d2348037f3a2bea10027918253",
+      "sourceBytes": 2924208,
+      "sourceMode": "RGB",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "bytes": 2006460,
+      "sha256": "b9fb72138258294d9684de9d8ca2186f14224b76e5433477764fb508900aa54b",
+      "transparentBackground": false,
+      "processing": "Generated PNG decoded to full-size lossless WebP without cropping or resizing. The WebP retains the source pixels; no duplicate scenery PNG is committed.",
+      "sourcePixelsMatchRuntime": true,
+      "sourceNameNote": "Retained image filename; original tool output filename and generation ID were not preserved.",
+      "intent": "lighting-weather edit",
+      "dayCounterpart": "thracian-shore-day.webp",
+      "promptStatus": "unavailable after workspace loss",
+      "prompt": null,
+      "descriptiveBrief": "Night counterpart of the exposed coast, temporary shelter and offshore fleet; cool moonlight over the surf and clear beach.",
+      "briefStatus": "Summary of the intended night edit; not the original prompt."
+    },
+    {
+      "place": "greek-troy-beach",
+      "name": "The Homecoming Beach",
+      "phase": "day",
+      "file": "homecoming-beach-day.webp",
+      "sourceName": "exec-d468cfa3-4ce2-42ca-b58a-0145963106ed.png",
+      "generationId": "exec-d468cfa3-4ce2-42ca-b58a-0145963106ed",
+      "sourceSha256": "dfd30698a9901109156c6f1a5c223356bcc2bcadf6d6b5c89b21aa4a1def7f8d",
+      "sourceBytes": 3372034,
+      "sourceMode": "RGB",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "bytes": 2297306,
+      "sha256": "8e461736c23712ada916b04ce2b0d6a9a57185f4a75f1b2a0a8e2cddfe1a65c3",
+      "transparentBackground": false,
+      "processing": "Generated PNG decoded to full-size lossless WebP without cropping or resizing. The WebP retains the source pixels; no duplicate scenery PNG is committed.",
+      "sourcePixelsMatchRuntime": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: opaque full-bleed wide 16:9 landscape location background for Cosyworld Greek Drama. High-quality detailed hand-painted Greek storybook realism, harmonized with a chthonic Greek adventure: weathered limestone, ochre dust, cream linen, worn bronze, dark timber, muted pomegranate cloth, silver olive leaves, wine-dark and cobalt seawater. Beautiful rich natural brushwork, tangible textures, atmospheric depth, mythic but physically grounded. Daytime with clear readable warm natural sunlight and cool shadows; serious, quiet tragic atmosphere rather than cartoon whimsy. Eye-level adventure-game camera with the LOWEST THIRD as broad unobstructed walkable ground for separately rendered characters; keep the main location identity readable in a central vertical phone crop as well as widescreen. Multiple depths, strong useful architectural silhouette. Empty scene, NO PEOPLE, no human silhouettes, no animals, no UI, no labels, no text, no frame. No staged corpse, gore, literal ghost or supernatural spectacle. Full canvas completely opaque, no transparency. Paint the place-specific scene described below, not a generic palace, harbor, courtyard or grove.\n\nLOCATION: The Homecoming Beach\nA quiet homecoming cove after the war, a place for Helen and Menelaus to compare testimony and decide whether to sail. A single SMALL wooden open boat is drawn well ABOVE the tideline at the RIGHT MIDGROUND, angled obliquely toward calm blue water, empty and plainly ready for a short passage. A low sheltered rocky headland on the left curves around the sand, with sparse olive scrub high on the edge. A few humble travel bundles and a folded cream cloth can stay beside the boat, but no witness tablet or other independent quest item. A broad empty gently sloping sandy foreground and central conversation space; tranquil sea and horizon occupy the upper middle. Intimate scale, no fleet, no palace, no triumphant homecoming crowd, no people. Warm late-afternoon light, softly wine-dark shadows and pale ivory surf."
+    },
+    {
+      "place": "greek-troy-beach",
+      "name": "The Homecoming Beach",
+      "phase": "night",
+      "file": "homecoming-beach-night.webp",
+      "sourceName": "Moonlit Homecoming Beach.png",
+      "generationId": null,
+      "sourceSha256": "e925587775466424606fa1081e28909f6455f7598b680a71f13c6f62c0a641ab",
+      "sourceBytes": 2964324,
+      "sourceMode": "RGB",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "bytes": 2040570,
+      "sha256": "15344130863582d6e49500e896f67ed339185f588df5245f3faefbe1a40e48f6",
+      "transparentBackground": false,
+      "processing": "Generated PNG decoded to full-size lossless WebP without cropping or resizing. The WebP retains the source pixels; no duplicate scenery PNG is committed.",
+      "sourcePixelsMatchRuntime": true,
+      "sourceNameNote": "Retained image filename; original tool output filename and generation ID were not preserved.",
+      "intent": "lighting-weather edit",
+      "dayCounterpart": "homecoming-beach-day.webp",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: lighting-weather EDIT. Edit the most recent image, the finished daytime Homecoming Beach painting. Create its NIGHT version. Change ONLY lighting, sky and water reflections; preserve the exact composition, camera, 16:9 framing, empty sandy foreground, rocks, coastline, small boat at the right, rope, bundles, cloth and every object position. Same detailed painted Greek storybook realism. Replace the visible sun with a modest moon in that position; deep indigo sky and restrained stars, silver moonlight reflected on the quiet water. Cool readable slate-blue shadows on the sand and stone, with enough bounced moonlight for game characters to stand visibly in the open foreground. No warm sunlight remains. No people, no added lamps, no new boats, no buildings, no text. Opaque full-bleed image. This must remain the exact same place and viewpoint as the day source."
+    },
+    {
+      "item": "greek-troy-testimony",
+      "name": "The Trojan Witness Tablet",
+      "file": "troy-testimony.png",
+      "replacesArt": "assets/greek-drama/testimony.png",
+      "definition": "The account records Helen's journey from Troy. It makes no claim that a phantom took her place.",
+      "sourceName": "exec-c1ee2ff0-0d61-41b7-80d3-95ee3378e9eb.png",
+      "generationId": "exec-c1ee2ff0-0d61-41b7-80d3-95ee3378e9eb",
+      "sourceSha256": "81e94d20c29b3d6b70e024f1b78693789c20617639d98fcb3e519fdd0a5e520e",
+      "sourceBytes": 2119690,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 2119690,
+      "sha256": "81e94d20c29b3d6b70e024f1b78693789c20617639d98fcb3e519fdd0a5e520e",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: The Trojan Witness Tablet. Sea-worn folding wooden witness diptych with dark slate wax, salt-softened edges and a simple faded red binding cord; a short incised account, space between lines. Treat as a record of Helen returning from Troy, no phantom imagery or supernatural glow.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 783679,
+        "partialPixels": 788486,
+        "opaquePixels": 351,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          19,
+          96,
+          1247,
+          1115
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-tomb-testimony",
+      "name": "The Tomb Witness Tablet",
+      "file": "tomb-testimony.png",
+      "replacesArt": "assets/greek-drama/testimony.png",
+      "definition": "The testimony begins with offerings and a meeting at Agamemnon's tomb.",
+      "sourceName": "exec-123ff128-715b-4a2b-898b-cac2273702fd.png",
+      "generationId": "exec-123ff128-715b-4a2b-898b-cac2273702fd",
+      "sourceSha256": "1a4603a170395e340f04b962c08a6c2b0e7717ddfdf72767fba5740b554a33ae",
+      "sourceBytes": 1819996,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1819996,
+      "sha256": "1a4603a170395e340f04b962c08a6c2b0e7717ddfdf72767fba5740b554a33ae",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: The Tomb Witness Tablet. A single broad, low dark-wood witness tablet, dusty brown wax and restrained ash-grey wear on the outer frame; short clustered incised lines. Its sombre earthy finish links the record to offerings at Agamemnon’s tomb; no bones, burial tools or added magical marks.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 873989,
+        "partialPixels": 697681,
+        "opaquePixels": 846,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          39,
+          261,
+          1227,
+          1120
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-palace-testimony",
+      "name": "The Palace Witness Tablet",
+      "file": "palace-testimony.png",
+      "replacesArt": "assets/greek-drama/testimony.png",
+      "definition": "The testimony begins with Electra waiting outside the Mycenaean palace.",
+      "sourceName": "exec-57525766-21e1-476b-b486-6aec894998e7.png",
+      "generationId": "exec-57525766-21e1-476b-b486-6aec894998e7",
+      "sourceSha256": "5cb88dd060971513619cd30a859d31c4914a96cf6294fcd6c771ed63a73f00d1",
+      "sourceBytes": 1509062,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1509062,
+      "sha256": "5cb88dd060971513619cd30a859d31c4914a96cf6294fcd6c771ed63a73f00d1",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: The Palace Witness Tablet. A tall, formal polished walnut witness tablet with an orderly raised frame and oxblood-brown wax; neat incised lines occupy the upper portion. More carefully finished than the other records, evoking Electra waiting outside Mycenae without painting a palace onto the object.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 913091,
+        "partialPixels": 658808,
+        "opaquePixels": 617,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          329,
+          14,
+          1056,
+          1230
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-farm-testimony",
+      "name": "The Farmer's Witness Tablet",
+      "file": "farm-testimony.png",
+      "replacesArt": "assets/greek-drama/testimony.png",
+      "definition": "The testimony begins in a poor household in the Argive countryside.",
+      "sourceName": "exec-8a3d9b97-039b-42d6-b104-1a95f849da19.png",
+      "generationId": "exec-8a3d9b97-039b-42d6-b104-1a95f849da19",
+      "sourceSha256": "356042f9875ed307e9060e3e599c7b3f82e76f626b1c67fc940713b23d12502f",
+      "sourceBytes": 1831047,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1831047,
+      "sha256": "356042f9875ed307e9060e3e599c7b3f82e76f626b1c67fc940713b23d12502f",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: The Farmer's Witness Tablet. A small humble single tablet in rough pale olive wood with an uneven cream-brown wax field and simple cord hole; sparse scratched lines, worn corners. Rural household workmanship, no gilt or monumental ornament.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 863541,
+        "partialPixels": 708622,
+        "opaquePixels": 353,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          134,
+          91,
+          1188,
+          1169
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-return-list",
+      "name": "The Return List",
+      "file": "return-list.png",
+      "replacesArt": "assets/greek-drama/testimony.png",
+      "definition": "The mothers’ return list names households who need rest on the homeward road. Its margin leaves room for the quay’s reply.",
+      "sourceName": "exec-757ecd1b-d152-4dce-9cae-7ed2b28a2bf4.png",
+      "generationId": "exec-757ecd1b-d152-4dce-9cae-7ed2b28a2bf4",
+      "sourceSha256": "ee7b2dde648a5e5f4c22c4cbc041e60e9c0179a9575c2f77cc5be3e4401372ca",
+      "sourceBytes": 1481063,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1481063,
+      "sha256": "ee7b2dde648a5e5f4c22c4cbc041e60e9c0179a9575c2f77cc5be3e4401372ca",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "precise-object-edit",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: precise-object-edit. Edit target: the supplied transparent ancient papyrus Return List inventory sprite. Change ONLY the marks in the left writing area: remove every food, vessel, goods, plant and object pictogram and all numerical tally bundles; replace those marks with short rows of very small understated dark sepia ancient handwritten character-like strokes representing a list of households. Do not draw any recognizable objects, symbols, icons, numbers, big readable invented words, stamps or signatures. Keep the entire generous right-hand reply margin EMPTY. Preserve the exact papyrus shape, curls, material texture, warm lighting, composition, size, row rules, and real transparent background. Do not add anything outside the scroll. This is a household return list with space for a future reply, not a shopping list or inventory.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 873394,
+        "partialPixels": 698819,
+        "opaquePixels": 303,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          122,
+          15,
+          1195,
+          1236
+        ],
+        "visibleBoundsThreshold": 16
+      },
+      "generationHistory": [
+        {
+          "method": "built-in imagegen",
+          "sourceName": "exec-8d463ee9-dd7a-407b-9976-2eeb10337c06.png",
+          "transparentBackground": true,
+          "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: The Return List. A narrow, partly unrolled papyrus list with small columns of tally-like handwritten entries and a clearly generous blank outer margin for the quay’s reply. Softly curled lower edge, warm cream fibre, no legible modern text or premature signatures."
+        },
+        {
+          "method": "built-in imagegen edit",
+          "sourceName": "exec-757ecd1b-d152-4dce-9cae-7ed2b28a2bf4.png",
+          "transparentBackground": true,
+          "prompt": "Use case: precise-object-edit. Edit target: the supplied transparent ancient papyrus Return List inventory sprite. Change ONLY the marks in the left writing area: remove every food, vessel, goods, plant and object pictogram and all numerical tally bundles; replace those marks with short rows of very small understated dark sepia ancient handwritten character-like strokes representing a list of households. Do not draw any recognizable objects, symbols, icons, numbers, big readable invented words, stamps or signatures. Keep the entire generous right-hand reply margin EMPTY. Preserve the exact papyrus shape, curls, material texture, warm lighting, composition, size, row rules, and real transparent background. Do not add anything outside the scroll. This is a household return list with space for a future reply, not a shopping list or inventory.",
+          "editTargetName": "exec-8d463ee9-dd7a-407b-9976-2eeb10337c06.png"
+        }
+      ]
+    },
+    {
+      "item": "greek-burial-petition",
+      "name": "The Mothers’ Petition",
+      "file": "burial-petition.png",
+      "replacesArt": "assets/greek-drama/decree.png",
+      "definition": "An olive branch lies across a tablet bearing the mothers’ request. Aethra has left room for the city’s answer.",
+      "sourceName": "exec-36575842-c54e-4909-bf24-3cb2fd0bf325.png",
+      "generationId": "exec-36575842-c54e-4909-bf24-3cb2fd0bf325",
+      "sourceSha256": "8da862019d8d638f2a94a4e3fa6f9f929577b9d5a16c7c9a8054d762b090a6f4",
+      "sourceBytes": 2376901,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 2376901,
+      "sha256": "8da862019d8d638f2a94a4e3fa6f9f929577b9d5a16c7c9a8054d762b090a6f4",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: The Mothers’ Petition. A broad wooden wax tablet bearing a short orderly petition with lower space left open; one real olive branch laid diagonally across it, grey-green leaves and a few olives. The branch is explicitly part of the item. Restrained dignity, no stamps implying approval.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 670787,
+        "partialPixels": 901262,
+        "opaquePixels": 467,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          103,
+          61,
+          1200,
+          1222
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-refuge-tablet",
+      "name": "The Refuge Tablet",
+      "file": "refuge-tablet.png",
+      "replacesArt": "assets/greek-drama/decree.png",
+      "definition": "A blank wax tablet waits at the public table. The keeper at Colonus can use it to record the grove’s duty to guests.",
+      "sourceName": "exec-48f1335b-102e-4a27-ad62-a0f72f74efa1.png",
+      "generationId": "exec-48f1335b-102e-4a27-ad62-a0f72f74efa1",
+      "sourceSha256": "205ff4d39046d294b8aa7a64e67544e237bf1a56571122042b2d5e50df8e6e2e",
+      "sourceBytes": 1461922,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1461922,
+      "sha256": "205ff4d39046d294b8aa7a64e67544e237bf1a56571122042b2d5e50df8e6e2e",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: The Refuge Tablet. A pristine blank single wooden wax tablet with honey-amber beeswax, pale worn olive-wood frame and completely smooth empty writing field. No writing, scratches shaped as letters, seal or signature. Simple public-use object.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 882970,
+        "partialPixels": 689190,
+        "opaquePixels": 356,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          54,
+          180,
+          1211,
+          1156
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-ajax-plea",
+      "name": "Teucer’s Written Plea",
+      "file": "ajax-plea.png",
+      "replacesArt": "assets/greek-drama/decree.png",
+      "definition": "Teucer’s burial plea has room for the witnesses’ signed account of the completed rite.",
+      "sourceName": "exec-8b3569f4-4630-4686-ae84-a365a1e4900b.png",
+      "generationId": "exec-8b3569f4-4630-4686-ae84-a365a1e4900b",
+      "sourceSha256": "311917b5e84a4649de75b75967716934fa25ce931f20e2f7039b1678c4a7a61f",
+      "sourceBytes": 1823503,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1823503,
+      "sha256": "311917b5e84a4649de75b75967716934fa25ce931f20e2f7039b1678c4a7a61f",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: Teucer’s Written Plea. A compact open camp writing diptych in weathered dark wood, a short incised plea on one panel and a clearly blank witness-signature area on the other; plain leather hinges. Formal enough to submit, visibly portable. No completed witness signatures.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 828358,
+        "partialPixels": 743652,
+        "opaquePixels": 506,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          58,
+          211,
+          1232,
+          1055
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-return-cloths",
+      "name": "Clean Burial Cloths",
+      "file": "return-cloths.png",
+      "replacesArt": "assets/greek-drama/funeral-cloth.png",
+      "definition": "Clean folded cloths wait at the quay. Thaleia has set them aside for the rite at Eleusis.",
+      "sourceName": "exec-098fd7da-fafb-4722-b712-ad1291c732ac.png",
+      "generationId": "exec-098fd7da-fafb-4722-b712-ad1291c732ac",
+      "sourceSha256": "89a66f6d976431331deb35b1a28db10a6cd965e97eeb9ca49c0136d0ece27f5c",
+      "sourceBytes": 2310477,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 2310477,
+      "sha256": "89a66f6d976431331deb35b1a28db10a6cd965e97eeb9ca49c0136d0ece27f5c",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: Clean Burial Cloths.\nCanonical game definition: Clean folded cloths wait at the quay. Thaleia has set them aside for the rite at Eleusis.\nVisual brief: A tidy stack of three clean folded off-white linen burial cloths, flat broad rectangles, fine weave and modest hem, soft ivory highlights. Clean and unused, no blood, black wrapping or body shape.\nOutput: one finished square PNG inventory sprite, only this complete object or specified cohesive group on true transparent background.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 781653,
+        "partialPixels": 790674,
+        "opaquePixels": 189,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          23,
+          161,
+          1230,
+          1088
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-shelter-blanket",
+      "name": "The Shelter Blanket",
+      "file": "shelter-blanket.png",
+      "replacesArt": "assets/greek-drama/funeral-cloth.png",
+      "definition": "A thick clean blanket is folded beside the cargo baskets. The altar keeper at Marathon has asked for it.",
+      "sourceName": "exec-838324cb-f50f-4379-b476-d1d1c12406d6.png",
+      "generationId": "exec-838324cb-f50f-4379-b476-d1d1c12406d6",
+      "sourceSha256": "68787d5df461e9cd20cf5f8ba6d65c7519551a606ea9e3c3dbe31d17b074769d",
+      "sourceBytes": 1883872,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1883872,
+      "sha256": "68787d5df461e9cd20cf5f8ba6d65c7519551a606ea9e3c3dbe31d17b074769d",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: The Shelter Blanket.\nCanonical game definition: A thick clean blanket is folded beside the cargo baskets. The altar keeper at Marathon has asked for it.\nVisual brief: One thick clean folded woollen shelter blanket, warm muted ochre-brown, broad dense weave and a restrained dark red woven edge, rounded bulky folds. Clearly warmer and heavier than the linen burial cloths.\nOutput: one finished square PNG inventory sprite, only this complete object or specified cohesive group on true transparent background.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 831725,
+        "partialPixels": 740703,
+        "opaquePixels": 88,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          21,
+          209,
+          1239,
+          1101
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-ajax-cloth",
+      "name": "The Camp’s Burial Cloth",
+      "file": "ajax-cloth.png",
+      "replacesArt": "assets/greek-drama/funeral-cloth.png",
+      "definition": "Clean linen is set aside for Ajax’s burial in the Trojan account.",
+      "sourceName": "exec-d26c66fc-d497-4161-b6de-e46c95cb9b73.png",
+      "generationId": "exec-d26c66fc-d497-4161-b6de-e46c95cb9b73",
+      "sourceSha256": "90f2a1f3f3784ee4735b22fb040c68eb94c98f59e80a190e503400ab1b275243",
+      "sourceBytes": 1549108,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1549108,
+      "sha256": "90f2a1f3f3784ee4735b22fb040c68eb94c98f59e80a190e503400ab1b275243",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: The Camp’s Burial Cloth.\nCanonical game definition: Clean linen is set aside for Ajax’s burial in the Trojan account.\nVisual brief: One long clean pale linen burial cloth, folded lengthwise into a narrow oblong bundle, one end gently unfurled to reveal continuous fine weave. Distinct single cloth rather than a stack, no body, blood or weapons.\nOutput: one finished square PNG inventory sprite, only this complete object or specified cohesive group on true transparent background.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 999214,
+        "partialPixels": 573124,
+        "opaquePixels": 178,
+        "edgeMaximum": 3,
+        "visibleSubjectBounds": [
+          9,
+          151,
+          1239,
+          1095
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-ash-urn",
+      "name": "The Funeral Urn",
+      "file": "ash-urn.png",
+      "replacesArt": "assets/greek-drama/water-jar.png",
+      "definition": "A covered urn holds ashes entrusted to the mothers after the recorded recovery and funeral. Its clay is cool.",
+      "sourceName": "exec-c369c3da-df08-4cb2-ac89-1128b4b82841.png",
+      "generationId": "exec-c369c3da-df08-4cb2-ac89-1128b4b82841",
+      "sourceSha256": "01e334934141d439cf4900214bf871d457ef760549cc0c6609131a75b18d5f87",
+      "sourceBytes": 1833131,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1833131,
+      "sha256": "01e334934141d439cf4900214bf871d457ef760549cc0c6609131a75b18d5f87",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: The Funeral Urn.\nCanonical game definition: A covered urn holds ashes entrusted to the mothers after the recorded recovery and funeral. Its clay is cool.\nVisual brief: One covered clay funerary urn, compact rounded dark terracotta body, fitted domed lid and small restrained ochre geometric band. Cool dry surface, lid closed; ashes remain contained. Distinct from a tall open water jar.\nOutput: one finished square PNG inventory sprite, only this complete object or specified cohesive group on true transparent background.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 831909,
+        "partialPixels": 740187,
+        "opaquePixels": 420,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          138,
+          43,
+          1125,
+          1198
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-grove-cup",
+      "name": "The Grove Cup",
+      "file": "grove-cup.png",
+      "replacesArt": "assets/greek-drama/water-jar.png",
+      "definition": "Fresh spring water fills a small cup. The keeper has set it beside the grove boundary.",
+      "sourceName": "exec-bb765ef2-a4ac-4af0-93b5-36ee7d7153c0.png",
+      "generationId": "exec-bb765ef2-a4ac-4af0-93b5-36ee7d7153c0",
+      "sourceSha256": "f095122a5ed04b9a46cf66fe3e94869af80d41ab1c78c510f2eb607493f52628",
+      "sourceBytes": 1359384,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1359384,
+      "sha256": "f095122a5ed04b9a46cf66fe3e94869af80d41ab1c78c510f2eb607493f52628",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: The Grove Cup.\nCanonical game definition: Fresh spring water fills a small cup. The keeper has set it beside the grove boundary.\nVisual brief: One small open ancient Greek clay drinking cup, low brown terracotta bowl with two small handles, clear spring water visibly filling it. Quiet rim reflections, no aura, no jug, no plant growing from it.\nOutput: one finished square PNG inventory sprite, only this complete object or specified cohesive group on true transparent background.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 981596,
+        "partialPixels": 590551,
+        "opaquePixels": 369,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          61,
+          274,
+          1214,
+          1069
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-provision-basket",
+      "name": "The Quay Basket",
+      "file": "provision-basket.png",
+      "replacesArt": "assets/greek-drama/provisions.png",
+      "definition": "Grain, bread and cups fill a basket. Thaleia needs it beside the resting place at this quay.",
+      "sourceName": "exec-d62b8bf6-139f-4eff-a82c-9f938c3e91a6.png",
+      "generationId": "exec-d62b8bf6-139f-4eff-a82c-9f938c3e91a6",
+      "sourceSha256": "6412e6bba9e8d13343ac7d3c39014c13dd3ac80b7cba7b27d971389273aad0af",
+      "sourceBytes": 2297205,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 2297205,
+      "sha256": "6412e6bba9e8d13343ac7d3c39014c13dd3ac80b7cba7b27d971389273aad0af",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: The Quay Basket.\nCanonical game definition: Grain, bread and cups fill a basket. Thaleia needs it beside the resting place at this quay.\nVisual brief: A compact open woven-reed quay basket containing grain in a small folded linen pouch, a round rustic loaf and two small clay drinking cups. Those three content categories must read clearly. No modern packaging or extra food varieties.\nOutput: one finished square PNG inventory sprite, only this complete object or specified cohesive group on true transparent background.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 710863,
+        "partialPixels": 861398,
+        "opaquePixels": 255,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          36,
+          128,
+          1215,
+          1134
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-grove-honey",
+      "name": "Honey for the Grove",
+      "file": "grove-honey.png",
+      "replacesArt": "assets/greek-drama/oil-flask.png",
+      "definition": "A sealed pot holds honey for the grove’s offering.",
+      "sourceName": "exec-fcef4b3f-ec6b-4171-aed4-adad7daeddce.png",
+      "generationId": "exec-fcef4b3f-ec6b-4171-aed4-adad7daeddce",
+      "sourceSha256": "be52d7c78b142ac2bb57df0901052b92d93dc8574d92d1991313be75e48e7691",
+      "sourceBytes": 2205666,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 2205666,
+      "sha256": "be52d7c78b142ac2bb57df0901052b92d93dc8574d92d1991313be75e48e7691",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: Honey for the Grove.\nCanonical game definition: A sealed pot holds honey for the grove’s offering.\nVisual brief: One short broad sealed clay honey pot, warm amber-terracotta, close-fitting linen or clay cap secured by simple cord, modest honey-coloured wax at seal. Emphasize sealed squat vessel; no oil-spout shape, exposed honey pool or dipper.\nOutput: one finished square PNG inventory sprite, only this complete object or specified cohesive group on true transparent background.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 691416,
+        "partialPixels": 880609,
+        "opaquePixels": 491,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          85,
+          96,
+          1177,
+          1171
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    },
+    {
+      "item": "greek-ajax-tools",
+      "name": "The Camp’s Grave Tools",
+      "file": "ajax-tools.png",
+      "replacesArt": "assets/greek-drama/shovel.png",
+      "definition": "A short shovel and grave tools wait beside the tents.",
+      "sourceName": "exec-4c5ffe4d-ea53-4496-9b74-84661c149c1e.png",
+      "generationId": "exec-4c5ffe4d-ea53-4496-9b74-84661c149c1e",
+      "sourceSha256": "d2db3792573a752fdaa280ee549496d6613bda9fba5ea479a0e953b2a277ade1",
+      "sourceBytes": 1369723,
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "bytes": 1369723,
+      "sha256": "d2db3792573a752fdaa280ee549496d6613bda9fba5ea479a0e953b2a277ade1",
+      "transparentBackground": true,
+      "processing": "Original selected PNG bytes copied unchanged, including the generated alpha channel.",
+      "sourceMatchesRuntimeBytes": true,
+      "intent": "generation",
+      "promptStatus": "exact retained prompt",
+      "prompt": "Use case: stylized-concept. Asset type: a SINGLE transparent inventory sprite for Cosyworld Greek Drama, matching its richly painted existing object art. Square image. True RGBA transparency, preserve real alpha. Detailed tangible hand-painted realism with fine painterly edges, weathered natural materials and restrained chthonic Greek character; warm amber light from upper left, soft cool charcoal shadow on the object; earth, ivory, ochre, terracotta, weathered dark wood, sage and muted pomegranate accents. Strong distinct silhouette readable at inventory size. Three-quarter view slightly from above unless the subject demands another view. Whole complete object or specified cohesive object-group, centered, about 80 percent of canvas width/height, substantial clear margins, no cropping. No scene or ground, no floor, no cast shadow, no halo, no frame, no text labels or watermark. Any writing mentioned in the subject consists only of small understated incised marks, no large legible invented words. A blank field must remain completely blank. No premature signatures, approvals or plot outcomes. Do not add unrelated accessories, props or magical effects. Transparent negative spaces within handles and gaps. Do not copy an existing generic item: give this requested object its own form and silhouette.\n\nSubject: The Camp’s Grave Tools.\nCanonical game definition: A short shovel and grave tools wait beside the tents.\nVisual brief: A single compact grouped sprite of a short-handled wooden grave shovel with dark iron blade and one small period mattock, crossed loosely as useful burial tools. Worn practical surfaces; no weapons, skeletal remains, soil mound or scenic background.\nOutput: one finished square PNG inventory sprite, only this complete object or specified cohesive group on true transparent background.",
+      "alpha": {
+        "minimum": 0,
+        "maximum": 255,
+        "clearPixels": 1111484,
+        "partialPixels": 460399,
+        "opaquePixels": 633,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          80,
+          31,
+          1175,
+          1199
+        ],
+        "visibleBoundsThreshold": 16
+      }
+    }
+  ]
+}

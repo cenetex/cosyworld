@@ -146,11 +146,20 @@ mirror and night setting.
 
 `assets/greek-drama/scenery-provenance.json` records the opening scenery.
 `assets/greek-drama/open-door-art.json` records the new art prompts, source
-hashes, dimensions and runtime hashes. Later repertoire places retain their
+hashes, dimensions and runtime hashes. Most later repertoire places retain their
 original SVG scenery.
 The Ajax chapter adds day and night camp paintings, Tecmessa, Teucer,
 Odysseus and the shield. Its [art record](../../card-game/assets/greek-drama/AJAX-ART.md)
 lists the retained sources and prompt records.
+
+Trojan Shores adds matching day and night paintings for Aulis Anchorage,
+the Trojan Walls, the Trojan Night Camp, the Lemnian Cave, the Thracian Shore
+and the Homecoming Beach. Sixteen inventory objects gain their own transparent
+paintings, including the separate witness accounts, petitions, cloths, vessels
+and grave tools. The scenery uses lossless WebP; the item PNGs keep their
+original alpha channels. The [art record](../../card-game/assets/greek-drama/trojan-shores-art-provenance.json)
+lists the selected sources, hashes, retained prompts and known provenance gaps.
+The paintings follow each place's existing access and story conditions.
 
 Card faces show large art and small names. Actions describe immediate deeds.
 Each story has one short line, which the cast uses in Talk. The Bard gives the growing poem.
