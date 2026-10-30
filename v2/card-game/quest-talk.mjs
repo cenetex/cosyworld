@@ -72,7 +72,7 @@ function holderHere(world, q, place) {
 // public wording; step lists and authored purposes stay in the rules. The
 // quest they most recently advanced or heard news about comes first;
 // otherwise the rules' saved focus leads, then the newest card.
-export function talkQuests(world, actor) {
+function talkQuests(world, actor) {
   if (!world.actors?.[actor]) return { own: [], finished: [], nearby: [] };
   const cards = questCards(world, actor);
   const record = (card) => questRecord(world, card.key) || card;

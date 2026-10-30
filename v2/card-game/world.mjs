@@ -704,17 +704,6 @@ const refusalText = {
     `${other} needs the ${nameOf(a.receive)}.`,
   "wants-something-else": (other) => `${other} wants something else.`,
 };
-export function tradeOffers(s, actor) {
-  return ids.filter(
-    (id) =>
-      s.items[id].holder === actor &&
-      (s.life
-        ? !keepReason(s, actor, id)
-        : hasQuestPrograms(s)
-          ? !needed(s, actor, id)
-          : valueOf(s, actor, id) <= 6),
-  );
-}
 function captureHands(s, met) {
   captureQuestHands(s, met, { actorIds, handStatus });
 }
