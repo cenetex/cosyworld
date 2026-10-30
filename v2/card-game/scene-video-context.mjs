@@ -12,7 +12,7 @@ import { entityActive } from "./pack-registry.mjs";
 import { sceneCast } from "./scene.mjs";
 import { cardObservation } from "./cards.mjs";
 
-export const DEFAULT_VIDEO_MODEL = "x-ai/grok-imagine-video-1.5-lite";
+export const DEFAULT_VIDEO_MODEL = "tbc/mischief-1";
 
 export function sceneVideoContext(world, scene) {
   const place = scene.locationId || world.actors[currentActor(world)].place;
