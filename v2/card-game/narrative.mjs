@@ -1,7 +1,7 @@
 import { learningFacts } from "./learning.mjs";
 import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
-import { questTalkFacts, questTopics } from "./quest-talk.mjs";
+import { wantFact, wantHeard } from "./want-talk.mjs";
 import { BOARDY, boardyFacts } from "./boardyai.mjs";
 import { questRecord } from "./shared-quests.mjs";
 import { recitalContext, recitalFacts } from "./pack-recital.mjs";
@@ -371,20 +371,22 @@ export function narrativeContext(world, action = null) {
         kind === "location" || id === currentActor(world)
           ? packSceneFacts(world, location)
           : [];
-      // Quests reach the player through Talk: what this speaker wants, what
-      // else they carry, and which help or story is open here. Narration only.
-      const questFacts = kind === "avatar" ? questTalkFacts(world, id) : [];
+      // A want reaches the player through Talk: one first-person line for
+      // the player and for whoever is in this Talk. Narration only.
+      const want =
+        kind === "avatar" && wantHeard(world, played, id, currentActor(world))
+          ? wantFact(world, id, nameOf)
+          : null;
       const facts = [
+        ...(want ? [want] : []),
         ...knowledgeFacts(
           world,
           id,
           nameOf,
           disclosures.filter((d) => d.speaker === id).map((d) => d.factId),
-          kind === "avatar" ? questTopics(world, id) : [],
         ),
         ...(id === BOARDY ? boardyFacts(world, nameOf) : []),
         ...recitalFacts(world, packDefinitions, id),
-        ...questFacts,
         ...(kind === "avatar" ? laneTalkFacts(world, id) : []),
         ...learningFacts(world, id, nameOf),
         ...[...packFacts(world, id), ...continuity]
