@@ -1769,33 +1769,6 @@ function toward(s, actor, target) {
       ? getActions().find((a) => a.kind === "take" && a.item === "cloth")
       : sound;
   }
-  // Mirror journeys prepare the lamp through the same legal item plays.
-  if (target !== "attic" && here !== "attic") return;
-  const find = (kind, item) => getActions().find((a) => a.kind === kind && a.item === item);
-  const take = find("take", "lamp");
-  if (take) return take;
-  if (covered(s, "lamp") && find("take", "cloth")) return find("take", "cloth");
-  if (!s.items.lamp.fuel && !s.items.oil.doses && here === "pond") {
-    const call = find("ring", "bell");
-    if (call) return call;
-  }
-  if (!s.items.lamp.fuel && s.items.oil.doses > 0) {
-    if (find("refill", "oil")) return find("refill", "oil");
-    if (find("take", "oil")) return find("take", "oil");
-    if (find("ask", "oil") && willingToGive(s, rootHolder(s, "oil"), "oil", actor))
-      return find("ask", "oil");
-    const tender = rootHolder(s, "oil");
-    if (rootHolder(s, "lamp") === actor && !needed(s, actor, "lamp") &&
-      tender !== actor && s.actors[tender]?.place === here &&
-      !controlledByHuman(s, tender) && !staysPut(tender))
-      return getActions().find((action) => action.kind === "give" &&
-        action.item === "lamp" && action.target === tender);
-  }
-  if (!s.items.lamp.lit && find("light", "lamp")) return find("light", "lamp");
-  if (here === "station")
-    return getActions().find((a) => a.kind === "move" && a.target === "pond");
-  if (here === "pond" && itemPlace(s, "lamp") === "station")
-    return getActions().find((a) => a.kind === "move" && a.target === "station");
 }
 export function plan(s, actor = currentActor(s)) {
   const previousReads = planReads;

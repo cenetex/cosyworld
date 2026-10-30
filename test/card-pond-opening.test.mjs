@@ -99,12 +99,14 @@ describe("the attic opening and saved pond journeys", () => {
     expect(world.actors.vale.place).toBe("station");
   });
 
-  it("prepares a carried lamp before planning a return through the mirror", () => {
+  // The planner has no lamp special case: the dark mirror is no route, so
+  // it waits; once the lamp is lit by a play, the mirror is the way home.
+  it("plans the mirror return only once the carried lamp is lit", () => {
     const world = fresh();
     world.actors.vale.place = "attic";
     world.actors.vale.want = wantPlace("pond");
-    expect(plan(world).action.kind).toBe("light");
-    const lit = play(world, plan(world).action).state;
+    expect(plan(world).action.kind).toBe("wait");
+    const lit = act(world, "light");
     expect(plan(lit).action).toMatchObject({ kind: "move", target: "pond" });
   });
 
