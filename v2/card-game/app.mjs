@@ -145,11 +145,12 @@ function node(tag, text, className) {
   if (className) el.className = className;
   return el;
 }
-function notice(text) {
+function notice(text, playStatus = "") {
   // Saved speech failures use the small dialogue retry control.
   if (/^(The|Your) play is saved\./.test(text)) return;
   $("notice").textContent = text;
   $("notice").hidden = !text;
+  $("notice").dataset.playStatus = text ? playStatus : "";
 }
 const localBackups =
   localRuntime()?.backups && !sharedSession
@@ -292,6 +293,37 @@ function selectionBlocked() {
     (!sharedSession && discoveryPending)
   );
 }
+// The player's latest shared play, from sending until the table settles it.
+let sharedPlay = null;
+let sharedSending = false;
+let sharedPlayTimer = 0;
+let sharedRefusal = null;
+let sharedNoticeSeen;
+function ownSharedEntry() {
+  return sharedSession?.state.queue?.find(
+    (entry) => entry.actor === currentActor(world),
+  );
+}
+// Name the one thing a queued play is waiting for.
+function queuedWait() {
+  if (sharedSession && (sharedSending || ownSharedEntry()))
+    return "Waiting for your earlier play.";
+  if (!reveal.complete) return "Waiting for the arrival.";
+  if (cardsCooling) return "Waiting for the cards to settle.";
+  if (document.hidden) return "Waiting for this tab.";
+  if (document.querySelector("dialog[open], .world-menu:popover-open"))
+    return "Waiting for the open menu.";
+  return sharedSession
+    ? "Cancel it to choose again."
+    : "Select a card to change it.";
+}
+function showQueuedPlay() {
+  const pending = playQueue.pending;
+  if (!pending) return false;
+  const text = `Queued: ${playLabel(pending.action)}. ${queuedWait()}`;
+  if ($("notice").textContent !== text) notice(text, "queued");
+  return true;
+}
 const playQueue = createPlayQueue({
   ready: () =>
     !cardsCooling &&
@@ -309,11 +341,13 @@ const playQueue = createPlayQueue({
     else performAction(action, revision);
   },
   changed: (pending) => {
-    notice(
-      pending
-        ? `Queued: ${playLabel(pending.action)}. Select a card to change it.`
-        : "",
-    );
+    if (pending) showQueuedPlay();
+    else if (["sent", "playing"].includes(sharedPlay?.state))
+      notice(
+        sharedPlayText[sharedPlay.state](sharedPlay.label),
+        sharedPlay.state,
+      );
+    else notice("");
     renderActions();
   },
 });
@@ -327,7 +361,8 @@ function updateCardCooldown() {
     button.disabled = selectionBlocked();
     if (button.dataset.card) button.draggable = !button.disabled;
   }
-  if (playQueue.pending) queueMicrotask(() => playQueue.flush());
+  if (playQueue.pending)
+    queueMicrotask(() => playQueue.flush() || showQueuedPlay());
 }
 const exchange = createExchange({
   prepare: prepareScene,
@@ -839,8 +874,10 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   if (selectionBlocked()) return;
   if (renderedAt >= lastPlayAt && performance.now() - lastPlayAt < SETTLE_MS)
     return;
-  if (playQueue.pending?.action.key === action.key) playQueue.clear();
-  else playQueue.submit(action, revision);
+  if (playQueue.pending?.action.key === action.key) {
+    // Shared plays cancel through their own visible control.
+    if (!sharedSession) playQueue.clear();
+  } else playQueue.submit(action, revision);
 }
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
@@ -1258,16 +1295,26 @@ function renderActions(animate = false) {
     );
   row.replaceChildren(
     ...actions.map((action, index) => {
+      const sent =
+        sharedSession &&
+        ["sending", "sent", "playing"].includes(sharedPlay?.state) &&
+        sharedPlay.actionKey === action.key;
       const queued = playQueue.pending?.action.key === action.key;
       const button = node(
         "button",
-        queued ? `Queued: ${playLabel(action)}` : playLabel(action),
+        queued
+          ? `Queued: ${playLabel(action)}`
+          : sent
+            ? `${{ sending: "Sending", sent: "Sent" }[sharedPlay.state] || "Playing"}: ${playLabel(action)}`
+            : playLabel(action),
         index === 0 ? "card-primary" : "card-action",
       );
       button.type = "button";
       button.dataset.action = action.kind;
       button.dataset.queued = String(queued);
-      button.title = queued ? "Cancel this queued play" : action.text;
+      if (sent && !queued) button.dataset.sent = sharedPlay.state;
+      button.title =
+        queued && !sharedSession ? "Cancel this queued play" : action.text;
       button.disabled = selectionBlocked();
       button.setAttribute("aria-pressed", String(queued));
       if (action.choiceId) {
@@ -1279,6 +1326,23 @@ function renderActions(animate = false) {
       return button;
     }),
   );
+  const withdrawable = ownSharedEntry();
+  if (
+    sharedSession &&
+    (playQueue.pending ||
+      (withdrawable && ["waiting", "retry"].includes(withdrawable.status)))
+  ) {
+    const cancel = node("button", "Cancel play", "card-action");
+    cancel.type = "button";
+    cancel.dataset.cancelPlay = "true";
+    cancel.title = "Withdraw your queued play";
+    cancel.onclick = () =>
+      playQueue.pending
+        ? playQueue.clear()
+        : withdrawSharedPlay(withdrawable.id);
+    row.append(cancel);
+    panel.hidden = false;
+  }
   if (nudgeTarget) {
     const nudge = node("button", "Nudge", "card-action");
     nudge.type = "button";
@@ -2026,6 +2090,7 @@ function renderScene() {
       liveActor: mergedPortrait ? actor : null,
       needsLive: reviewing || !matchesLive,
       onLive: returnToLive,
+      onWithdraw: withdrawSharedPlay,
     });
   }
 }
@@ -2495,7 +2560,62 @@ function resumeScene() {
     exchange.load(line ? [line] : []);
   } else render();
 }
-let sharedSending = false;
+const sharedPlayText = {
+  sending: (label) => `Sending: ${label}…`,
+  sent: (label) => `Sent: ${label}. Waiting for the round.`,
+  playing: (label) => `Playing: ${label}.`,
+  played: (label) => `Played: ${label}.`,
+  rejected: (label, reason) => `Not played: ${label}. ${reason}`,
+};
+function showSharedPlay(state, reason = "") {
+  if (!sharedPlay) return;
+  clearTimeout(sharedPlayTimer);
+  const { label } = sharedPlay;
+  sharedPlay.state = state;
+  if (state === "played" || state === "rejected") sharedPlay = null;
+  if (state === "sending") sharedRefusal = null;
+  if (state === "rejected")
+    sharedRefusal = { reason, text: sharedPlayText.rejected(label, reason) };
+  if (state === "uncertain") notice(reason, state);
+  else if (state === "rejected" || !playQueue.pending)
+    notice(sharedPlayText[state](label, reason), state);
+  if (state === "played")
+    sharedPlayTimer = setTimeout(() => {
+      if ($("notice").dataset.playStatus === "played") notice("");
+    }, 2500);
+  renderActions();
+}
+// Follow the play's key through the room queue into the committed history.
+// The server reports a refusal as a new notice for this player.
+function trackSharedPlay(value) {
+  if (!sharedPlay || sharedPlay.state === "sending") return false;
+  const { key, state } = sharedPlay;
+  const entry = value.queue?.find((item) => item.id === key);
+  const refusal = value.notice || "";
+  if (entry) {
+    const next = ["waiting", "retry"].includes(entry.status)
+      ? "sent"
+      : "playing";
+    if (next !== state) showSharedPlay(next);
+  } else if (value.history?.some((scene) => scene.play === key))
+    showSharedPlay("played");
+  else if (state === "uncertain") return false;
+  else if (refusal && refusal !== sharedPlay.notice) {
+    showSharedPlay("rejected", refusal);
+    return true;
+  } else showSharedPlay("played");
+  return false;
+}
+function withdrawSharedPlay(key) {
+  if (sharedPlay?.key === key) {
+    sharedPlay = null;
+    clearTimeout(sharedPlayTimer);
+    notice("");
+  }
+  return sharedSession
+    .command({ op: "cancel", key })
+    .catch((error) => notice(error.message));
+}
 let sharedLineKey = "";
 let sharedWorldKey = "";
 let sharedNudgeKey = "";
@@ -2529,17 +2649,27 @@ async function submitSharedPlay(action) {
   const heldBefore = heldSelection();
   sharedPlayback.reset();
   sharedSending = true;
-  renderActions();
+  sharedPlay = {
+    key: crypto.randomUUID(),
+    actionKey: current.key,
+    label: playLabel(current),
+    notice: sharedSession.state.notice || "",
+  };
+  showSharedPlay("sending");
   try {
-    await sharedSession.play(current);
+    await sharedSession.play(current, sharedPlay.key);
     lastPlayAt = performance.now();
     if (!playQueue.pending && JSON.stringify(selected) === selection) {
       keepHeldSelection(heldBefore, current);
       reviewing = false;
     }
-    if (!playQueue.pending) notice("");
+    if (sharedPlay) {
+      sharedPlay.state = "accepted";
+      trackSharedPlay(sharedSession.state);
+    }
   } catch (error) {
-    notice(error.message);
+    if (error.cause) showSharedPlay("uncertain", error.message);
+    else showSharedPlay("rejected", error.message);
   } finally {
     sharedSending = false;
     renderedHand = "";
@@ -2624,7 +2754,13 @@ function adoptShared(value) {
     renderActions();
     renderScene();
   }
-  if (value.notice) notice(value.notice);
+  // A refusal shows once. A reload retires the one already on the table.
+  const refused = trackSharedPlay(value);
+  const serverNotice = value.notice || "";
+  if (sharedNoticeSeen !== undefined && serverNotice !== sharedNoticeSeen) {
+    if (serverNotice && !refused) notice(serverNotice);
+  }
+  sharedNoticeSeen = serverNotice;
   const nudge = value.nudge
     ? `${value.nudge}:${Math.floor(value.now / 10000)}`
     : "";
@@ -2659,8 +2795,12 @@ installSceneVideo({
 if (sharedSession) {
   world = sharedWorld(sharedSession.state);
   sharedSession.subscribe(adoptShared, (message, recoveredFrom) => {
-    if (!recoveredFrom || $("notice").textContent === recoveredFrom)
-      notice(message);
+    if (!recoveredFrom || $("notice").textContent === recoveredFrom) {
+      // A recovered connection restores a refusal with its play name.
+      if (message && message === sharedRefusal?.reason)
+        notice(sharedRefusal.text, "rejected");
+      else notice(message);
+    }
   });
   adoptShared(sharedSession.state);
   setInterval(syncSharedLine, 200);

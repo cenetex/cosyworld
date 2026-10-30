@@ -322,6 +322,7 @@ jobs:
           node v2/scripts/smoke-card-toolbar.mjs
           node v2/scripts/smoke-card-learning.mjs
           node v2/scripts/smoke-shared-snapshot-order.mjs
+          node v2/scripts/smoke-shared-play-status.mjs
           node v2/scripts/smoke-card-actions.mjs
 
       - name: Check Greek drama, Thebes, the Open Door, and Ajax

@@ -159,7 +159,10 @@ try {
         assert.equal(await play.innerText(), "Queued: Wait");
         assert.equal(await play.isDisabled(), false);
         assert.equal(plays.length, 0);
+        // A second tap keeps the queued play; cancelling has its own control.
         await play.click();
+        assert.equal(await play.innerText(), "Queued: Wait");
+        await page.locator("#card-actions [data-cancel-play]").click();
         assert.equal(await play.innerText(), "Wait");
         await play.click();
         await page.keyboard.press("Escape");

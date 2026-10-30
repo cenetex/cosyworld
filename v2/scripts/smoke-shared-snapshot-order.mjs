@@ -113,16 +113,21 @@ async function checkPlayRecovery(width, scenario) {
     await page.locator('#card-actions [data-action="wait"]').click();
     const expected =
       scenario === "validation"
-        ? "Choose a current play."
+        ? "Not played: Wait. Choose a current play."
         : "The connection paused. Check the table, then try again.";
     await page.waitForFunction(
       (text) => document.querySelector("#notice").textContent === text,
       expected,
     );
     releasePolls = true;
-    if (["accepted", "accepted-poll-error", "queued"].includes(scenario))
+    if (["accepted", "accepted-poll-error"].includes(scenario))
       await page.waitForFunction(
         () => document.querySelector("#notice").hidden,
+      );
+    else if (scenario === "queued")
+      await page.waitForFunction(
+        () =>
+          document.querySelector("#notice").textContent === "Playing: Wait.",
       );
     else if (scenario === "new-notice")
       await page.waitForFunction(
@@ -148,7 +153,7 @@ async function checkPlayRecovery(width, scenario) {
         (validation) =>
           validation
             ? document.querySelector("#notice").textContent ===
-              "Choose a current play."
+              "Not played: Wait. Choose a current play."
             : document.querySelector("#notice").hidden,
         validation,
       );
@@ -158,7 +163,7 @@ async function checkPlayRecovery(width, scenario) {
       if (validation)
         assert.equal(
           await page.locator("#notice").textContent(),
-          "Choose a current play.",
+          "Not played: Wait. Choose a current play.",
         );
       else
         assert(
