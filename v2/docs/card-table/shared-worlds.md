@@ -177,6 +177,11 @@ shows course cards only while the ship is docked, and Disembark only to the
 people who sailed in. Loading an earlier world replays its journal with the
 recorded interpreters, then upgrades the version 2 ship record to version 3.
 
+Rule version 27 keeps sea lanes per person in route knowledge as `sea:` edges.
+Each player's course cards are the lanes that player knows from the dock. A
+lane told in Talk joins the listener's chart only from published speech that
+contains the fact, so replay and every client agree.
+
 ## Collected quests
 
 Each personal quest has a stable card key, its own steps, and the experience
