@@ -189,6 +189,8 @@ export function createExchange({
   settled = () => {},
   transition = () => {},
   busy = () => {},
+  // A streamed exchange has shown every line so far and awaits the next one.
+  waiting: awaiting = () => {},
   now = () => performance.now(),
   setTimer = setTimeout,
   clearTimer = clearTimeout,
@@ -242,6 +244,7 @@ export function createExchange({
     remaining = null;
     if (streaming && index + 1 >= lines.length) {
       waiting = true;
+      awaiting(lines[index]);
       return;
     }
     transitioning = true;
