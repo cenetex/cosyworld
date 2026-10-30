@@ -72,8 +72,9 @@ changing application behavior.
   - `## Validation` listing exact commands and observed results;
   - migration, generated-file, deployment, or compatibility notes when relevant;
   - a short review checklist confirming tests and generated artifacts.
-- Open as draft until local validation is complete. Do not merge with failing or
-  pending required checks.
+- Merge as soon as local targeted tests pass; don't wait for CI. The deploy
+  workflow runs its own gates, so a red main keeps .dev on the last good build.
+  If main goes red, the next PR fixes it forward before anything else.
 - Bump `package.json` and the root versions in `package-lock.json`; CI rejects a
   PR whose version matches the base branch.
 
