@@ -15,6 +15,7 @@ import { enableMotives } from "../v2/card-game/motives.mjs";
 import { questCards } from "../v2/card-game/quest-cards.mjs";
 import { boardyPack, boardyFacts } from "../v2/card-game/boardyai.mjs";
 import { upgradeBoardyStationSave } from "../v2/card-game/legacy-saves.mjs";
+import { sceneStaging } from "../v2/card-game/scene.mjs";
 
 const view = (world, present = ["vale", "mara"], actor = "vale") =>
   dispatchShared({
@@ -113,6 +114,34 @@ describe("BoardyAI's quests and home", () => {
     expect(view(world).exits).toContain("boardyai-parlour");
     act("move", "target", "pond");
     expect(view(world).exits).not.toContain("boardyai-parlour");
+  });
+
+  it("keeps his calling card and parlour door away until two humans connect", () => {
+    const local = createWorld({ opening: true });
+    local.actors.vale.place = "station";
+    expect(entityActive(local, "boardyai-calling-card")).toBe(false);
+    expect(availableCards(local)).not.toContain("boardyai-calling-card");
+    expect(
+      sceneStaging(local, { currentState: true }).floorItems.map((i) => i.id),
+    ).not.toContain("boardyai-calling-card");
+    const world = fresh();
+    world.actors.vale.place = "station";
+    const alone = view(world, ["vale"]);
+    expect(entityActive(alone.world, "boardyai-calling-card")).toBe(false);
+    expect(availableCards(alone.world)).not.toContain("boardyai-calling-card");
+    expect(alone.exits).not.toContain("boardyai-parlour");
+    expect(
+      sceneStaging(alone.world, { currentState: true }).floorItems.map(
+        (i) => i.id,
+      ),
+    ).not.toContain("boardyai-calling-card");
+    const pair = view(world);
+    expect(entityActive(pair.world, "boardyai-calling-card")).toBe(true);
+    expect(
+      sceneStaging(pair.world, { currentState: true }).floorItems.map(
+        (i) => i.id,
+      ),
+    ).toContain("boardyai-calling-card");
   });
 
   it("moves a revision 1 card resting at the pond, with its routes, to the station", () => {
