@@ -286,83 +286,79 @@ main {
   animation: sounding 0.5s ease-in-out infinite alternate;
   transform-origin: 50% 20%;
 }
-/* Things lying in this place rest on the floor as small, untappable copies of
-   their hand cards. They sit behind the cast and beside the dialogue. */
+/* Things lying in this place stand on the painted floor as cutouts, behind the
+   cast and clear of the dialogue. Wide stages set them beside the dialogue;
+   narrower ones stand fewer, smaller props on the floor above it, and short
+   ones set them beside the hand at the front of the floor. */
 .floor-items {
-  --floor-width: clamp(54px, 4.6vw, 84px);
   position: absolute;
   z-index: 0;
-  left: 16px;
-  bottom: calc(var(--dock-height) + 8px);
-  width: calc(var(--floor-width) * 3 + 12px);
-  display: flex;
-  flex-wrap: wrap-reverse;
-  gap: 6px;
+  inset: 0;
   pointer-events: none;
 }
-/* Narrower stages put the dialogue across the floor, so up to three smaller
-   pictures stand at the upper left instead. */
-@media (max-width: 1099px) {
-  .floor-items {
-    --floor-width: 44px;
-    top: 60px;
-    bottom: auto;
-    width: var(--floor-width);
-    flex-direction: column;
-    flex-wrap: nowrap;
+.floor-item {
+  --x: var(--wide-x);
+  --lift: var(--wide-lift);
+  --prop-size: clamp(56px, 10cqh, 104px);
+  --floor-line: calc(var(--dock-height) + 6px);
+  position: absolute;
+  left: clamp(
+    calc(var(--prop-size) / 2 + 4px),
+    var(--x),
+    calc(100% - var(--prop-size) / 2 - 4px)
+  );
+  bottom: calc(var(--floor-line) + var(--lift) * 1.2cqh);
+  width: calc(var(--prop-size) * (1 - var(--lift) * 0.04));
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+@media (max-width: 1299px) {
+  .floor-item {
+    --x: var(--narrow-x);
+    --lift: var(--narrow-lift);
+    --prop-size: clamp(34px, 8cqh, 72px);
+    --floor-line: calc(var(--dock-height) + var(--dialogue-reserve, 140px));
   }
-  .floor-item:nth-child(n + 4) {
+  .floor-item[data-narrow="false"] {
     display: none;
   }
 }
-@media (max-width: 1099px) and (max-height: 640px) {
-  .floor-items {
-    width: auto;
-    flex-direction: row;
+@media (max-width: 1299px) and (max-height: 640px) {
+  .floor-item {
+    --x: var(--short-x);
+    --lift: var(--short-lift);
+    --floor-line: 10px;
+  }
+  .floor-item[data-narrow] {
+    display: block;
+  }
+  .floor-item[data-short="false"] {
+    display: none;
   }
 }
-.floor-items:empty {
-  display: none;
-}
-.floor-item {
-  position: relative;
-  flex: none;
-  width: var(--floor-width);
-  aspect-ratio: 224 / 310;
-  overflow: hidden;
-  border: 1px solid #a48d63b3;
-  border-radius: 8px;
-  background: #181b22;
-  box-shadow: 0 6px 16px #0006;
-}
-.floor-item .art {
+.floor-item img {
   position: absolute;
   inset: 0;
-  overflow: hidden;
-  border-radius: inherit;
-  background: radial-gradient(ellipse at 50% 66%, #70543c6e, #141b2499);
-}
-.floor-item .art img {
-  position: absolute;
-  inset: 6% 3% 8%;
-  width: 94%;
-  height: 86%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 6px 8px #0009);
+  object-position: center bottom;
+  filter: drop-shadow(0 5px 5px #08091399);
 }
-.floor-item[data-lit="true"] .art {
-  background: radial-gradient(ellipse at 50% 60%, #e0a94a66, #151b24 76%);
+.floor-item[data-lit="true"] > img:first-child {
+  filter: drop-shadow(0 5px 5px #08091399) drop-shadow(0 0 9px #e0a94a99);
 }
-.floor-item[data-lit="false"] .art > img:first-child {
-  filter: saturate(0.35) brightness(0.48);
+.floor-item[data-lit="false"] > img:first-child {
+  filter: drop-shadow(0 5px 5px #08091399) saturate(0.35) brightness(0.48);
 }
-.floor-item[data-covered="true"] .art > img:first-child {
+.floor-item[data-covered="true"] > img:first-child {
   opacity: 0.35;
 }
-.floor-item .art .object-cover {
+.floor-item .object-cover {
   filter: brightness(0.65);
 }
-.floor-item[data-ringing="true"] .art > img:first-child {
+.floor-item[data-ringing="true"] > img:first-child {
   animation: sounding 0.5s ease-in-out infinite alternate;
   transform-origin: 50% 20%;
 }
