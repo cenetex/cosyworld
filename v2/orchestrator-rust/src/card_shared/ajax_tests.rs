@@ -305,7 +305,10 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
         }
         let mut current = full_store::world(&c, &id, now()).unwrap();
         assert_eq!(current.version, engine::VERSION);
-        assert_eq!(current.game["packs"]["greek-drama"]["revision"], super::full_tests::greek_revision());
+        assert_eq!(
+            current.game["packs"]["greek-drama"]["revision"],
+            super::full_tests::greek_revision()
+        );
         assert_eq!(current.claimed, old.claimed);
         assert_eq!(current.present, old.present);
         for field in ["turn", "eventSeq", "log", "knowledge"] {
@@ -339,8 +342,7 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             ["greek-aulis", "greek-greek-camp"],
             ["greek-scythian-crag", "greek-susa"],
         ];
-        let walked =
-            |edges: &Value| -> Vec<Value> { edges.as_array().unwrap().iter().cloned().collect() };
+        let walked = |edges: &Value| -> Vec<Value> { edges.as_array().unwrap().to_vec() };
         for (who, edges) in old.game["routeKnowledge"].as_object().unwrap() {
             let now_known = walked(&current.game["routeKnowledge"][who]);
             for edge in walked(edges) {

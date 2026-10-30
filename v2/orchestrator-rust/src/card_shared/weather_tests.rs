@@ -87,7 +87,10 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
             false
         });
     assert_eq!(quests, saved.game["quests"]);
-    assert_eq!(world.game["packs"]["greek-drama"]["revision"], super::full_tests::greek_revision());
+    assert_eq!(
+        world.game["packs"]["greek-drama"]["revision"],
+        super::full_tests::greek_revision()
+    );
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(
         world.project(0).unwrap()["scene"]["weather"]["condition"],
@@ -213,7 +216,10 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
     assert_eq!(world.game["actors"]["ash"]["place"], "greek-road-thebes");
     super::full_tests::assert_saved_actors(&world.game["actors"], &saved.game["actors"]);
     super::full_tests::assert_saved_memories(&world.game["memories"], &saved.game["memories"]);
-    assert_eq!(world.game["packs"]["greek-drama"]["revision"], super::full_tests::greek_revision());
+    assert_eq!(
+        world.game["packs"]["greek-drama"]["revision"],
+        super::full_tests::greek_revision()
+    );
     assert_eq!(world.game["packs"]["hoppycat-archive"]["revision"], 1);
     assert_eq!(world.game["packs"]["willows"]["revision"], 1);
     assert!(world.game["knowledge"].is_object());

@@ -112,7 +112,10 @@ fn replay_journey(version: &str) {
     for (id, item) in old.game["items"].as_object().unwrap() {
         assert_eq!(&w.game["items"][id], item);
     }
-    assert_eq!(w.game["packs"]["greek-drama"]["revision"], super::full_tests::greek_revision());
+    assert_eq!(
+        w.game["packs"]["greek-drama"]["revision"],
+        super::full_tests::greek_revision()
+    );
     for target in [
         "greek-ship",
         "greek-athens-harbor",
