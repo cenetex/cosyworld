@@ -147,6 +147,13 @@ describe("playing the world through cards", () => {
     s.items.cloth.holder = "station";
     expect(cardPlay(s, ["cloth"]).action).toBeFalsy();
     expect(cardPlay(s, ["cloth", "lamp"]).action).toBeFalsy();
-    expect(cardPlay(s, ["oil", "keeper"]).action).toBeFalsy();
+    // Give is always offered. The keeper's refusal costs the turn.
+    expect(cardPlay(s, ["oil", "keeper"]).action.kind).toBe("give");
+    s = cards(s, "oil", "keeper");
+    expect(s.items.oil.holder).toBe("vale");
+    expect(s.log.findLast((e) => e.verb === "give")).toMatchObject({
+      accepted: false,
+      reason: "wants-something-else",
+    });
   });
 });

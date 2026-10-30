@@ -45,6 +45,11 @@ import {
   conditionText,
   questItemAvailable,
 } from "./situations.mjs";
+const REFUSAL_WORDS = {
+  grudge: "a grudge",
+  "needs-it": "they need what was asked for",
+  "wants-something-else": "they want something else",
+};
 
 // Keep a few lasting encounters beside fresh facts. Speech stays secondary to
 // witnessed events. Hidden puzzle bookkeeping is not dialogue material.
@@ -399,6 +404,14 @@ export function narrativeContext(world, action = null) {
           );
         }
         if (
+          ["give", "trade"].includes(played?.verb) &&
+          played.accepted === false &&
+          [played.actorId, played.targetId].includes(id)
+        )
+          facts.unshift(
+            `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s offer of ${nameOf(played.itemId)}: ${REFUSAL_WORDS[played.reason] || "not now"}. Nothing changed hands. Say why in your own words.`,
+          );
+        else if (
           played?.verb === "trade" &&
           [played.actorId, played.targetId].includes(id)
         ) {
