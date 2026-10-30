@@ -15,7 +15,9 @@ import {
 import { locationDaylight, DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
+import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 
+const greek = packDefinition("greek-drama");
 const thebes = [
   "greek-harbor",
   "greek-courtyard",
@@ -27,6 +29,16 @@ const thebes = [
   "greek-road-thebes",
 ];
 const night = (world, place) => backdrop(place, world).endsWith("-night.webp");
+const atticRoads = [
+  "greek-road-athens-harbor",
+  "greek-road-athens-piraeus",
+  "greek-road-athens-colonus",
+  "greek-road-athens-eleusis",
+  "greek-road-athens-marathon",
+  "greek-road-piraeus-eleusis",
+  "greek-road-colonus-eleusis",
+  "greek-road-colonus-marathon",
+];
 function wait(world) {
   const result = play(
     world,
@@ -36,7 +48,79 @@ function wait(world) {
   return result.state;
 }
 
-describe("day and night in Thebes", () => {
+describe("day and night in Greece", () => {
+  it("gives every released Greek place a night painting on the saved world clock", () => {
+    let world = createWorld({ packScopes: { "greek-drama": "full" } });
+    world.actors.vale.place = "greek-courtyard";
+    const day = new Map(
+      greek.release.places.map((place) => [place, backdrop(place, world)]),
+    );
+    for (const place of greek.release.places)
+      expect(locationDaylight(world, place)?.phase, place).toBe("day");
+    world.turn = world.revision = DAYLIGHT_TURNS - 1;
+    world = wait(world);
+    const restored = decodeSave(encodeSave(world));
+    for (const place of greek.release.places) {
+      expect(locationDaylight(world, place)?.phase, place).toBe("night");
+      expect(night(world, place), place).toBe(true);
+      expect(backdrop(place, world), place).not.toBe(day.get(place));
+      expect(backdrop(place, restored), place).toBe(backdrop(place, world));
+    }
+    world.turn = world.revision = DAYLIGHT_TURNS * 2 - 1;
+    world = wait(world);
+    for (const place of greek.release.places) {
+      expect(locationDaylight(world, place)?.phase, place).toBe("day");
+      expect(backdrop(place, world), place).toBe(day.get(place));
+    }
+  });
+
+  it.each([
+    ["greek-athens", "athens-grand-agora", "in the Athenian Agora"],
+    ["greek-colonus", "open-door-colonus", "in Colonus Grove"],
+    ["greek-eleusis", "open-door-eleusis", "at the Eleusinian Sanctuary"],
+    ["greek-marathon", "open-door-marathon", "at Marathon Altar"],
+    ["greek-ship", "ship-deck", "aboard the Greek ship"],
+  ])(
+    "gives %s its own night painting and place facts",
+    (place, file, where) => {
+      const world = createWorld({ packScopes: { "greek-drama": "full" } });
+      world.actors.vale.place = place;
+      expect(backdrop(place, world)).toBe(`./assets/greek-drama/${file}.webp`);
+      world.turn = world.revision = DAYLIGHT_TURNS;
+      const scene = currentScene(world);
+      expect(scene.background).toBe(`./assets/greek-drama/${file}-night.webp`);
+      expect(scene.daylight.description).toBe(`It is night ${where}.`);
+      expect(locationVariant(world, place)).toMatch(/:night$/);
+      expect(
+        narrativeContext(world).entities.find((entity) => entity.id === place)
+          .facts,
+      ).toContain(`It is night ${where}.`);
+    },
+  );
+
+  it.each(atticRoads)(
+    "keeps both approach cards and the scene for %s in the same light",
+    (road) => {
+      const world = createWorld({ packScopes: { "greek-drama": "full" } });
+      for (const turn of [0, DAYLIGHT_TURNS, DAYLIGHT_TURNS * 2]) {
+        world.turn = world.revision = turn;
+        const phase = turn === DAYLIGHT_TURNS ? "night" : "day";
+        const suffix = phase === "night" ? "-night" : "";
+        const painting = `./assets/greek-drama/attic-road${suffix}.webp`;
+        for (const from of greek.places[road].road) {
+          world.actors.vale.place = from;
+          expect(travelCard(world, road).art).toBe(painting);
+        }
+        world.actors.vale.place = road;
+        const scene = currentScene(world);
+        expect(scene.background).toBe(painting);
+        expect(scene.daylight.description).toBe(
+          `It is ${phase} on the Attic roads.`,
+        );
+      }
+    },
+  );
+
   it("changes the Theban places and road on the same accepted turn and restores them from a save", () => {
     let world = createWorld();
     world.actors.vale.place = "greek-courtyard";

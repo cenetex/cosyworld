@@ -683,12 +683,15 @@ server. The served page receives the matching wait budget. Operators can set
 
 ## Painted Greece
 
-The seven Theban places, the Theban Harbor Road, Athens Harbor and Piraeus Quays
-share day and night. Each light setting lasts twenty-four accepted world turns.
-Each place has its own night painting. All three harbors have matching day and
-night views for the ship at the berth and the open berth. The saved ship dock
-selects the painting. The Theban Harbor Road has its own coast and town painting
-in both light settings. Its approach cards use the same light as the road scene.
+All released Greek places share day and night. Each light setting lasts
+twenty-four accepted world turns. The Theban places, Athens, Colonus, Eleusis,
+Marathon, the ship's deck and the Trojan camp have matching night paintings.
+The eight Attic roads share an olive-road painting in both light settings.
+The Theban Harbor Road has its own coast and town painting in both settings.
+Road approach cards use the same light as the road scene. All three harbors
+have matching day and night views for the ship at the berth and the open berth.
+The saved ship dock selects the painting. Reloading preserves the light, and
+dialogue facts name the current place.
 
 Greek weather follows one cycle per region. Each period lasts twelve accepted
 world turns. Clear skies, cloud, rain, and mist appear in the scene and on place

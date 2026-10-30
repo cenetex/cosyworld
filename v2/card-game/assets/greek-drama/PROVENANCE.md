@@ -131,3 +131,22 @@ with the harbor at the left end and Thebes at the right end. Full prompts,
 reference files, generation names, sizes and hashes are recorded in
 `harbor-road-night-provenance.json`. The WebP stage files and card images are
 saved beside the game’s other art.
+
+## Attica and the ship by night — October 29, 2026
+
+The built-in `image_gen` tool made six night paintings from the current game
+art: the Athenian Agora, Colonus Grove, the Eleusinian Sanctuary, Marathon Altar,
+the Attic roads and the Greek ship's deck. The eight Attic roads share one
+painting. These images complete night coverage for the 27 released Greek places.
+
+Each edit preserves its source's full 1672 × 941 canvas, camera and main
+landmarks. Cool moonlight and light from existing lamps keep the foregrounds
+readable. The ship's twilight view gains a separate deep-night counterpart.
+The game still supplies regional rain, cloud and mist.
+
+The generated PNGs were encoded as WebP at quality 94 without resizing or
+cropping. Full prompts, the source commit, reference and generated PNG hashes,
+output names, dimensions and WebP hashes are recorded in
+`attica-night-provenance.json`. The image builder supplies the smaller card
+versions. The saved world clock selects the paintings for scenes and road
+approach cards.
