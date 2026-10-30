@@ -97,7 +97,7 @@ describe("accompany card requests", () => {
     start.items.lamp.lit = true;
     const world = request(start, "moth", "attic");
     expect(reply(world).accepted).toBe(false);
-    expect(reply(world).text).toContain("their own want");
+    expect(reply(world).reason).toBe("wants-something-else");
     expect(world.actors.vale.place).toBe("pond");
     expect(world.actors.moth.place).toBe("pond");
     const next = wait(world);
@@ -181,7 +181,7 @@ describe("accompany card requests", () => {
     const standoff = play(start, threat).state;
     const world = request(standoff, "moth", "pond");
     expect(reply(world).accepted).toBe(false);
-    expect(reply(world).text).toContain("standoff");
+    expect(reply(world).reason).toBe("wants-something-else");
     expect(world.actors.vale.place).toBe("station");
     expect(world.standoffs).toHaveLength(1);
     expect(world.standoffs[0].guarding.moth).toBe(false);

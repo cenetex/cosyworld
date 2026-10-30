@@ -84,12 +84,7 @@ export function tradeDecision(s, requester, give, receive) {
       (lifeOf(s, seller) ? 0 : 1) +
       premium -
       favour;
-  return {
-    accepted,
-    reason: premium
-      ? `${names[seller]} wants a better offer after ${names[requester]}'s recent behaviour.`
-      : `${names[seller]} values ${names[give]} against ${names[receive]}.`,
-  };
+  return { accepted };
 }
 export function giftDecision(s, giver, item, recipient) {
   const annoyed = resentment(s, giver, recipient);
@@ -98,22 +93,16 @@ export function giftDecision(s, giver, item, recipient) {
     s.actors[giver].trust[recipient] > 0 && bundleValue(s, giver, item) <= 6;
   return {
     accepted: !annoyed && !keepReason(s, giver, item) && (spare || favour),
-    reason: annoyed
-      ? `${names[giver]} is still annoyed with ${names[recipient]}.`
-      : keepReason(s, giver, item) ||
-        `${names[giver]} wants to keep the ${names[item]}.`,
   };
 }
-// A companion with no reason to go declines, unless it owes a favour.
+// A companion with no reason to go declines, unless it owes a favour. The
+// refusal is a code; the companion's own line says why.
 export function socialTravel(s, requester, companion) {
-  if (resentment(s, companion, requester))
-    return {
-      accepted: false,
-      reason: `${names[companion]} wants space after ${names[requester]}'s recent behaviour.`,
-    };
   return {
     accepted: false,
-    reason: `${names[companion]} would rather follow their own want.`,
+    reason: resentment(s, companion, requester)
+      ? "grudge"
+      : "wants-something-else",
   };
 }
 export function recordReaction(s, a, witnesses, accepted) {

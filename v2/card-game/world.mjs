@@ -547,12 +547,15 @@ function giftWilling(s, item, recipient) {
     valueOf(s, recipient, item) >= 2
   );
 }
-// Refusal reasons are recorded on the play so the cast can say them.
+// Refusals commit a code on the play; the refuser's own line voices it.
 export const REFUSAL_REASONS = ["grudge", "needs-it", "wants-something-else"];
+export const REFUSED_VERBS = ["give", "trade", "ask", "accompany"];
 function refusalReason(s, a) {
   const other = a.kind === "trade" ? s.items[a.receive].holder : a.target;
   if (resentment(s, other, a.actor)) return "grudge";
   if (a.kind === "trade" && needed(s, other, a.receive)) return "needs-it";
+  if (a.kind === "ask" && (needed(s, other, a.item) || keepReason(s, other, a.item)))
+    return "needs-it";
   return "wants-something-else";
 }
 // What the other side will say to a Give or Trade. The residents' planner
@@ -562,12 +565,6 @@ export function expects(s, a) {
   if (a.kind === "trade") return tradeWilling(s, a.actor, a.item, a.receive);
   return true;
 }
-const refusalText = {
-  grudge: (other, actor) => `${other} is still annoyed with ${actor}.`,
-  "needs-it": (other, actor, a) =>
-    `${other} needs the ${nameOf(a.receive)}.`,
-  "wants-something-else": (other) => `${other} wants something else.`,
-};
 // Places an actor can route to now, for drawing a next want.
 function reachable(s, actor) {
   const from = s.actors[actor].place,
@@ -627,8 +624,6 @@ function wantActors(s, extra = []) {
     ]),
   ].filter((id) => s.actors[id] && entityActive(s, id));
 }
-export const waitNarration = (actor) =>
-  `${nameOf(actor)} waits. The cast takes a turn.`;
 export function addLog(s, speaker, text, detail = {}) {
   const actorId =
     detail.actorId ?? actorIds.find((id) => nameOf(id) === speaker) ?? null;
@@ -921,28 +916,22 @@ export function accompanyDecision(
     s.actors[actor].place === here &&
     (routeApproved || exits(s, here, actor).includes(destination));
   if (!invited && !actorCanVisit(companion, destination, s))
-    return {
-      accepted: false,
-      reason: "Their commitments keep them in this part of the world.",
-    };
+    return { accepted: false, reason: "wants-something-else" };
   if (standoffFor(s, actor) || standoffFor(s, companion))
-    return { accepted: false, reason: "Attend to the standoff first." };
+    return { accepted: false, reason: "wants-something-else" };
   if (s.peaceUntil[companion] > s.turn)
-    return { accepted: false, reason: "Catch a breath after the standoff." };
+    return { accepted: false, reason: "wants-something-else" };
   if (packPeople[companion]?.journey)
     return invited && packJourneyDestination(s, companion) === destination
-      ? { accepted: true, reason: "Follow the road we agreed to take." }
-      : { accepted: false, reason: "Keep to the agreed journey." };
+      ? { accepted: true }
+      : { accepted: false, reason: "wants-something-else" };
   if (resentment(s, companion, actor))
     return socialTravel(s, actor, companion, destination);
   // A companion goes along when the trip brings its own want closer.
   const want = wantOf(s, companion);
   // A companion stays near its wanted item when the requester carries it.
   if (want?.kind === "item" && rootHolder(s, want.target) === actor)
-    return {
-      accepted: true,
-      reason: `Stay near the wanted ${nameOf(want.target)}.`,
-    };
+    return { accepted: true };
   const goal =
     want?.kind === "place"
       ? want.target
@@ -956,15 +945,8 @@ export function accompanyDecision(
     return route ? route.length - 1 : Infinity;
   };
   if (goal && (goal === destination || distance(destination, goal) < distance(here, goal)))
-    return {
-      accepted: true,
-      reason: `${nameOf(goal)} is on the way to what I want.`,
-    };
-  if (s.actors[companion].trust[actor] > 0)
-    return {
-      accepted: true,
-      reason: `Remember ${nameOf(actor)}'s help and share this detour.`,
-    };
+    return { accepted: true };
+  if (s.actors[companion].trust[actor] > 0) return { accepted: true };
   return socialTravel(s, actor, companion, destination);
 }
 
@@ -1381,14 +1363,15 @@ function perform(s, a, round = null, settle = []) {
   if (a.kind === "wait") {
     const learningStart = beginLearning(s, a);
     if (a.actor === currentActor(s)) calm(s, here, a.actor);
-    if (learningStart) {
+    // The player's wait is a committed play like any other.
+    if (learningStart || a.actor === currentActor(s)) {
       addLog(s, "World", a.text, {
         kind: "action",
         actorId: a.actor,
         verb: "wait",
         witnesses,
       });
-      recordLearning(s, a, learningStart, s.log.at(-1));
+      if (learningStart) recordLearning(s, a, learningStart, s.log.at(-1));
     }
     return;
   }
@@ -1428,11 +1411,12 @@ function perform(s, a, round = null, settle = []) {
           ...new Set([...(visits[a.target] || []), a.destination]),
         ].sort();
         const through = travelParty(s, [a.actor, a.target], a.destination);
-        text += ` ${nameOf(a.target)} agrees. ${invitation.reason} They travel together.`;
+        text += ` ${nameOf(a.target)} agrees. They travel together.`;
         if (through && firstCrossing)
           text += " Something on the far shore turns its head.";
       } else {
-        text += ` ${nameOf(a.target)} declines the trip. ${invitation.reason}`;
+        text += ` ${nameOf(a.target)} declines the trip.`;
+        refusal = invitation.reason;
       }
       break;
     }
@@ -1530,7 +1514,7 @@ function perform(s, a, round = null, settle = []) {
           a.kind === "give"
             ? `${who} offers the ${nameOf(a.item)} to ${nameOf(a.target)}.`
             : `${who} offers the ${nameOf(a.item)} for ${nameOf(a.target)}’s ${nameOf(a.receive)}.`;
-        text += ` ${nameOf(a.target)} declines. ${refusalText[refusal](nameOf(a.target), who, a)}`;
+        text += ` ${nameOf(a.target)} declines.`;
         break;
       }
       if (a.kind === "give") trustGiver(s, a.target, a.item, a.actor);
@@ -1610,7 +1594,7 @@ function perform(s, a, round = null, settle = []) {
         transfer(s, a.item, a.actor, text);
       } else {
         text += ` ${nameOf(a.target)} keeps it for now.`;
-        text += ` ${giftDecision(s, a.target, a.item, a.actor).reason}`;
+        refusal = refusalReason(s, a);
         refuseWant(s, a.actor, a.item, wantAPI(s));
       }
       s.actors[a.actor].lastTalk = s.turn;
@@ -1814,7 +1798,7 @@ function readPlan(s, actor) {
       (a) => a.kind === "move" && a.target === arrival,
     );
   if (landing)
-    return { action: landing, reason: `Step ashore at ${nameOf(arrival)}.` };
+    return { action: landing };
   const selected = wantPlan(s, actor);
   return reconsiderPlan(
     s,
@@ -1865,7 +1849,6 @@ function stepToward(s, actor, target) {
     ...(!action && transportPlace(path[1]) ? { callShip: true } : {}),
   };
 }
-const wantReason = (want) => `I want to ${wantText(want)}.`;
 // Pursue the want with the fixed verbs: go there, then ask, trade, threaten.
 // A refusal is an outcome: it counts against the want, and enough of them
 // set it aside.
@@ -1873,25 +1856,23 @@ function wantPlan(s, actor) {
   const acts = legalActions(s, actor);
   const find = (kind, test = () => true) =>
     acts.find((a) => a.kind === kind && test(a));
-  const idle = (reason) => ({ action: find("wait") || acts[0], reason });
+  const idle = () => ({ action: find("wait") || acts[0] });
   const here = s.actors[actor].place;
   if (s.peaceUntil[actor] > s.turn)
-    return idle("Catch a breath after the standoff.");
+    return idle();
   const conflict = standoffFor(s, actor);
   const want = wantOf(s, actor);
   if (conflict) {
     const other = opponentOf(conflict, actor);
-    const answer = (action, reason) =>
-      action ? { action, reason } : idle("Hold firm.");
+    const answer = (action) => (action ? { action } : idle());
     if (actor === conflict.defender && !conflict.answered)
       return answer(
         levelOf(s, actor) > levelOf(s, other)
           ? find("talk", (a) => a.target === other)
-          : find("guard"),
-        "Answer the threat.",
+          : find("guard")
       );
     if (conflict.struck[other] || conflict.struck[actor])
-      return answer(find("attack", (a) => a.target === other), "Answer the attack.");
+      return answer(find("attack", (a) => a.target === other));
     if (
       conflict.challenger === actor &&
       conflict.item &&
@@ -1899,35 +1880,31 @@ function wantPlan(s, actor) {
       s.turn - conflict.opened >= 2
     )
       return answer(
-        find("attack", (a) => a.target === other),
-        "Press the demand for the disputed item.",
+        find("attack", (a) => a.target === other)
       );
-    return idle("Hold firm.");
+    return idle();
   }
-  if (staysPut(actor) && packPeople[actor]?.tastes?.reason && !want)
-    return idle(packPeople[actor].tastes.reason);
-  if (!want) return idle("Look around for something worth wanting.");
-  if (resting(s, actor, homeOf(actor))) return idle(`Rest at ${nameOf(here)}.`);
-  const reason = wantReason(want);
+  if (!want) return idle();
+  if (resting(s, actor, homeOf(actor))) return idle();
   const go = (place) => {
-    if (!travels(actor) || staysPut(actor)) return idle(reason);
+    if (!travels(actor) || staysPut(actor)) return idle();
     const step = stepToward(s, actor, place);
     return step.action
-      ? { action: step.action, reason }
-      : { ...idle(reason), ...(step.callShip ? { callShip: true } : {}) };
+      ? { action: step.action }
+      : { ...idle(), ...(step.callShip ? { callShip: true } : {}) };
   };
-  if (want.kind === "place") return here === want.target ? idle(reason) : go(want.target);
+  if (want.kind === "place") return here === want.target ? idle() : go(want.target);
   if (want.kind === "person") {
     const there = s.actors[want.target]?.place;
     if (there !== here) return go(there);
     const talk = find("talk", (a) => a.target === want.target);
     return talk && s.turn - s.actors[actor].lastTalk >= 1
-      ? { action: talk, reason }
-      : idle(reason);
+      ? { action: talk }
+      : idle();
   }
   const item = want.target,
     owner = rootHolder(s, item);
-  if (owner === actor) return idle(reason);
+  if (owner === actor) return idle();
   if (itemPlace(s, item) !== here) return go(itemPlace(s, item));
   let top = item;
   while (s.items[s.items[top].holder]) top = s.items[top].holder;
@@ -1942,9 +1919,9 @@ function wantPlan(s, actor) {
   if (!actorIds.includes(owner)) {
     const take =
       find("take", (a) => a.item === top) || find("take", (a) => a.item === item);
-    if (take) return { action: take, reason };
+    if (take) return { action: take };
     const drop = spares("drop")[0];
-    return drop ? { action: drop, reason: "Make room for what I want." } : idle(reason);
+    return drop ? { action: drop } : idle();
   }
   const recent = (verb, test = () => true) =>
     s.log.some(
@@ -1958,15 +1935,15 @@ function wantPlan(s, actor) {
     );
   if (!hasSpace(s, actor, top)) {
     const drop = spares("drop")[0];
-    if (drop) return { action: drop, reason: "Make room for what I want." };
+    if (drop) return { action: drop };
   }
   const ask = find("ask", (a) => a.item === top && a.target === owner);
-  if (ask && !recent("ask")) return { action: ask, reason };
+  if (ask && !recent("ask")) return { action: ask };
   const trades = spares("trade").filter((a) => a.receive === top);
   const trade =
     trades.find((a) => expects(s, a)) ||
     trades.find((a) => !recent("trade", (e) => e.itemId === a.item));
-  if (trade) return { action: trade, reason };
+  if (trade) return { action: trade };
   const bold =
     travels(actor) &&
     !avoidsStandoffs(actor) &&
@@ -1975,8 +1952,8 @@ function wantPlan(s, actor) {
       want.refusals >= 2 ||
       levelOf(s, actor) > levelOf(s, owner));
   const threat = bold && find("threaten", (a) => a.target === owner);
-  if (threat) return { action: threat, reason };
-  return idle(reason);
+  if (threat) return { action: threat };
+  return idle();
 }
 export function play(
   s,
@@ -2005,7 +1982,6 @@ export function play(
   next.revision += 1;
   const reflectionSource = next.actors[actor].place;
   const wasOpen = reflectionOpen(next, reflectionSource);
-  if (exact.kind === "wait") addLog(next, "World", waitNarration(actor));
   const active = knownActors(next);
   const residents = [
     ...new Set([
@@ -2509,7 +2485,7 @@ export function validateWorld(s) {
     if (e.accepted !== undefined && typeof e.accepted !== "boolean") fail();
     if (
       e.reason !== undefined &&
-      (!["give", "trade"].includes(e.verb) ||
+      (!REFUSED_VERBS.includes(e.verb) ||
         e.accepted !== false ||
         !REFUSAL_REASONS.includes(e.reason))
     )

@@ -228,9 +228,6 @@ export function learnedPlan(world, actor, selected, actions, conditionsFor) {
     return selected;
   return {
     action: chosen.action,
-    reason: chosen.samples
-      ? `Choose ${approach(chosen.action.kind)} from ${chosen.samples} earlier measured ${chosen.samples === 1 ? "attempt" : "attempts"}.`
-      : `Try ${approach(chosen.action.kind)} for this goal.`,
     lessonSeq: trials.at(-1).seq,
     learning: {
       goal,

@@ -404,9 +404,12 @@ Give and Trade are always offered when the item fits in the other person's
 hands; a trade needs room on both sides. The answer comes when the card is
 played. The same willingness tests as before decide it. A refusal takes the
 turn and moves nothing. It records `accepted: false` and one reason: `grudge`,
-`needs-it` or `wants-something-else`. The narrator brief passes that reason to
-the cast, so the refusal is spoken in dialogue. The residents' planner reads
-`expects(s, action)` to skip some offers it expects to be refused.
+`needs-it` or `wants-something-else`. Ask and Accompany refusals commit the
+same codes. The log says only that the other side declines; the narrator brief
+passes the code to the cast, so the refuser's own line says why. Plans carry no
+reason text, and a player's Wait is an ordinary `wait` action entry. The
+residents' planner reads `expects(s, action)` to skip some offers it expects
+to be refused.
 
 Accompany requests use the companion's quest, the items carried by the requester, favours, and grievances. An agreed trip moves both avatars and their belongings through the usual rules. A refusal leaves both in place for that exchange. The other cast member takes its own turn.
 
