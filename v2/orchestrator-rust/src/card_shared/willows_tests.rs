@@ -1,46 +1,19 @@
 use super::{engine, full_store, full_world::World, now, store};
 use serde_json::json;
 
+// Every released version upgrades through the same command, so each one
+// proves its own upgrade and the journey runs once, from the newest.
 #[test]
-fn willows_upgrades_version_sixteen_and_replays_discoveries_custody_and_return() {
-    replay_willows(engine::SIXTEENTH_VERSION);
-}
-
-#[test]
-fn willows_upgrades_version_seventeen_and_replays_discoveries_custody_and_return() {
-    replay_willows(engine::SEVENTEENTH_VERSION);
+fn willows_upgrades_from_each_released_version() {
+    for version in [engine::SIXTEENTH_VERSION, engine::SEVENTEENTH_VERSION] {
+        upgraded_willows(version);
+    }
 }
 
 #[test]
 fn willows_upgrades_version_eighteen_and_replays_discoveries_custody_and_return() {
-    replay_willows(engine::EIGHTEENTH_VERSION);
-}
-
-fn replay_willows(version: &str) {
-    let path = std::env::temp_dir().join(format!("willows-{}.sqlite", crate::random_hex(12)));
-    let c = store::open(&path).unwrap();
-    full_store::schema(&c).unwrap();
-    let id = "a".repeat(48);
-    store::create(&c, &id, "owner", now()).unwrap();
-    let released = engine::reduce_version(version, json!({"op":"create"})).unwrap();
-    let mut old = World {
-        version: version.into(),
-        game: released["world"].clone(),
-        claimed: [1, 1, 0, 0, 0, 0, 0, 0],
-        present: [1, 1, 0, 0, 0, 0, 0, 0],
-    };
-    assert!(old.game["packs"].get("willows").is_none());
-    old.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
-    old.game["transports"]["greek-ship"]["dock"] = json!("pond");
-    full_store::seed(&c, &id, &old, "before-willows", now()).unwrap();
-    let mut world = full_store::world(&c, &id, now()).unwrap();
-    assert_eq!(world.version, engine::VERSION);
-    assert_eq!(world.game["turn"], old.game["turn"]);
-    for (key, item) in old.game["items"].as_object().unwrap() {
-        assert_eq!(&world.game["items"][key], item);
-    }
-    assert_eq!(world.game["packs"]["willows"]["revision"], 1);
-    assert!(world.game["actors"].get("willows-narrator").is_none());
+    let version = engine::EIGHTEENTH_VERSION;
+    let (path, c, id, mut world) = upgraded_willows(version);
     for (field, value) in [
         ("kind", "light"),
         ("target", "pond"),
@@ -155,4 +128,39 @@ fn replay_willows(version: &str) {
         )
         .unwrap();
     assert_eq!(upgrades, 1);
+}
+
+fn upgraded_willows(version: &str) -> (std::path::PathBuf, rusqlite::Connection, String, World) {
+    let path = std::env::temp_dir().join(format!("willows-{}.sqlite", crate::random_hex(12)));
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "a".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    let released = engine::reduce_version(version, json!({"op":"create"})).unwrap();
+    let mut old = World {
+        version: version.into(),
+        game: released["world"].clone(),
+        claimed: [1, 1, 0, 0, 0, 0, 0, 0],
+        present: [1, 1, 0, 0, 0, 0, 0, 0],
+    };
+    assert!(old.game["packs"].get("willows").is_none());
+    old.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+    old.game["transports"]["greek-ship"]["dock"] = json!("pond");
+    full_store::seed(&c, &id, &old, "before-willows", now()).unwrap();
+    let world = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(world.version, engine::VERSION);
+    assert_eq!(world.game["turn"], old.game["turn"]);
+    for (key, item) in old.game["items"].as_object().unwrap() {
+        assert_eq!(&world.game["items"][key], item);
+    }
+    assert_eq!(world.game["packs"]["willows"]["revision"], 1);
+    assert!(world.game["actors"].get("willows-narrator").is_none());
+    // The upgrade itself replays from the journal.
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(
+        full_store::world(&c, &id, now()).unwrap(),
+        world,
+        "{version}"
+    );
+    (path, c, id, world)
 }

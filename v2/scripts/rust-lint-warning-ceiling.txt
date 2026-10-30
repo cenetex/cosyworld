@@ -43,4 +43,7 @@
 # 225 -> 226: no Rust source changed on this branch. The current stable
 # toolchain reports one additional pre-existing lint for the same source as
 # origin/main, so re-pin the ceiling without allowing future increases.
-226
+#
+# 226 -> 221: collapsing the per-version and per-checkpoint replay copies
+# removed five warnings in the deleted test bodies.
+221
