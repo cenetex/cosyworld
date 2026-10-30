@@ -125,7 +125,9 @@ export function cardPlay(world, selected) {
     const id = cards[0];
     if (places[id])
       return result(
-        id === here ? find("wait") : find("move", null, id),
+        id === here
+          ? find("wait")
+          : find("move", null, id) || find("course", null, id),
         `Travel to ${nameOf(id)}.`,
       );
     if (id === currentActor(world)) return result(find("wait"));

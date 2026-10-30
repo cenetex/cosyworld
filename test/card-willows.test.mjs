@@ -112,10 +112,10 @@ describe("The Willows", () => {
     world.crossings["pond-greek-harbor"].discovered = true;
     summonTransport(world, "greek-ship", "pond");
     const request = { claimed: ["vale", "mara"], present: ["vale", "mara"] };
-    const go = (actor, target) => {
+    const go = (actor, target, kind = "move") => {
       const view = dispatchShared({ op: "view", world, ...request, actor });
       const action = view.actions.find(
-        (a) => a.kind === "move" && a.target === target,
+        (a) => a.kind === kind && (target === null || a.target === target),
       );
       expect(action, `${actor} to ${target}`).toBeDefined();
       const result = dispatchShared({
@@ -134,6 +134,8 @@ describe("The Willows", () => {
     go("vale", "willows-landing");
     expect(world.transports["greek-ship"]).toEqual(voyage);
     expect(world.actors.mara.place).toBe("greek-ship");
+    go("mara", "greek-harbor", "course");
+    go("mara", null, "wait");
     go("mara", "greek-harbor");
     expect(world.transports["greek-ship"].dock).toBe("greek-harbor");
     go("vale", "greek-ship");

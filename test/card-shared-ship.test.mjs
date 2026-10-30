@@ -34,18 +34,30 @@ const ask = (world, actor, op = "view", extra = {}) =>
     present: players,
     ...extra,
   });
-function move(world, actor, target) {
+function playKind(world, actor, kind, target, label) {
   const action = ask(world, actor).actions.find(
-    (a) => a.kind === "move" && a.target === target,
+    (a) => a.kind === kind && (target === undefined || a.target === target),
   );
-  expect(action, `${actor} can travel to ${target}`).toBeDefined();
-  expect(playLabel(action)).toBe(
-    target === "greek-ship" ? "Board" : "Disembark",
-  );
+  expect(action, `${actor} can ${kind} ${target ?? ""}`).toBeDefined();
+  if (label) expect(playLabel(action)).toBe(label);
   const result = ask(world, actor, "play", { action });
   expect(result.ok, result.error).toBe(true);
   return decodeSave(encodeSave(result.world));
 }
+const move = (world, actor, target) =>
+  playKind(
+    world,
+    actor,
+    "move",
+    target,
+    target === "greek-ship" ? "Board" : "Disembark",
+  );
+const course = (world, actor, target) =>
+  playKind(world, actor, "course", target, "Set course");
+const wait = (world, actor) => playKind(world, actor, "wait");
+// A whole voyage for one passenger: course, a round at sea, Disembark.
+const sail = (world, actor, target) =>
+  move(wait(course(world, actor, target), actor), actor, target);
 
 describe("shared ship boarding", () => {
   it("shares the first successful lamp signal and keeps access on later voyages", () => {
@@ -81,8 +93,10 @@ describe("shared ship boarding", () => {
         true,
       );
     s.items.lamp.lit = false;
-    for (const target of ["greek-ship", "greek-harbor", "greek-ship", "pond"])
-      s = move(s, "mara", target);
+    s = move(s, "mara", "greek-ship");
+    s = sail(s, "mara", "greek-harbor");
+    s = move(s, "mara", "greek-ship");
+    s = sail(s, "mara", "pond");
     expect(s.crossings["pond-greek-harbor"].discovered).toBe(true);
     expect(ask(s, "ash").actions.some((a) => a.target === "greek-ship")).toBe(
       true,
@@ -93,7 +107,6 @@ describe("shared ship boarding", () => {
     const old = ask(setup("greek-harbor"), "vale").world;
     old.crossings["pond-greek-harbor"].discovered = false;
     old.actors.mara.place = "greek-ship";
-    old.transports["greek-ship"].destination = "pond";
     const npcOnly = ask(old, "vale", "view", {
       claimed: ["vale"],
       present: ["vale"],
@@ -106,7 +119,7 @@ describe("shared ship boarding", () => {
   });
 
   it.each(["pond", "greek-harbor"])(
-    "waits at %s for companions and moves on the first disembark",
+    "waits at %s for companions, sails one round and stays where the first passenger lands",
     (origin) => {
       const destination = origin === "pond" ? "greek-harbor" : "pond";
       let s = setup(origin);
@@ -125,18 +138,27 @@ describe("shared ship boarding", () => {
       const staleBoarding = ask(s, "ash").actions.find(
         (a) => a.kind === "move" && a.target === "greek-ship",
       );
-      s = move(s, "vale", destination);
-      expect(s.transports["greek-ship"].dock).toBe(destination);
-      expect(s.actors.mara.place).toBe("greek-ship");
-      expect(ask(s, "mara").exits).toContain(destination);
+      // Mara's course card goes stale once Vale sets the course.
+      const staleCourse = ask(s, "mara").actions.find(
+        (a) => a.kind === "course",
+      );
+      s = course(s, "vale", destination);
+      expect(s.transports["greek-ship"].phase).toBe("sea");
+      expect(ask(s, "mara", "play", { action: staleCourse }).ok).toBe(false);
+      // At sea the ship has left the shore.
       expect(availableCards(ask(s, "ash").world)).not.toContain("greek-ship");
       if (origin === "greek-harbor")
         expect(backdrop(origin, ask(s, "ash").world)).toContain(
           "harbor-open-berth.webp",
         );
       expect(ask(s, "ash", "play", { action: staleBoarding }).ok).toBe(false);
+      s = wait(s, "mara");
+      s = move(s, "vale", destination);
+      expect(s.transports["greek-ship"].dock).toBe(destination);
+      expect(s.actors.mara.place).toBe("greek-ship");
+      expect(ask(s, "mara").exits).toContain(destination);
       expect(availableCards(ask(s, "vale").world)).toContain("greek-ship");
-      // Route search accounts for a new boarding reversing the next leg.
+      // Route search through a new boarding plans the next voyage.
       expect(transportExits(s, "greek-ship", destination)).toEqual([origin]);
       s = move(s, "mara", destination);
       expect(s.actors.vale.place).toBe(destination);
@@ -148,27 +170,34 @@ describe("shared ship boarding", () => {
     let s = setup("pond");
     s = move(s, "vale", "greek-ship");
     s = move(s, "mara", "greek-ship");
-    s = move(s, "vale", "greek-harbor");
+    s = sail(s, "vale", "greek-harbor");
     const oldDisembark = ask(s, "mara").actions.find(
       (a) => a.kind === "move" && a.target === "greek-harbor",
     );
     s = move(s, "vale", "greek-ship");
-    expect(s.transports["greek-ship"]).toMatchObject({
-      dock: "greek-harbor",
-      destination: "pond",
-    });
+    // A new boarder cannot step straight back ashore.
+    expect(
+      ask(s, "vale").actions.some(
+        (a) => a.kind === "move" && a.target === "greek-harbor",
+      ),
+    ).toBe(false);
+    s = course(s, "vale", "pond");
     expect(ask(s, "mara", "play", { action: oldDisembark }).ok).toBe(false);
+    s = wait(s, "vale");
     s = move(s, "vale", "pond");
     expect(s.actors.mara.place).toBe("greek-ship");
     expect(availableCards(ask(s, "ash").world)).toContain("greek-ship");
     s = move(s, "ash", "greek-ship");
-    s = move(s, "ash", "greek-harbor");
+    s = course(s, "ash", "greek-harbor");
+    s = wait(s, "ash");
     s = move(s, "mara", "greek-harbor");
     expect(s.actors.vale.place).toBe("pond");
     expect(s.actors.mara.place).toBe("greek-harbor");
     expect(s.transports["greek-ship"]).toMatchObject({
+      phase: "arrived",
       dock: "greek-harbor",
       destination: null,
+      riders: ["ash"],
     });
   });
 });

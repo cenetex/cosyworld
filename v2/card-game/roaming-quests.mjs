@@ -220,8 +220,6 @@ export function roamingPlan(world, actor, api) {
     api.arrive(actor);
     return null;
   }
-  const landing = api.transportExit?.(actor);
-  if (landing) return landing;
   const openPath = knownRoute(
     world,
     actor,
@@ -249,10 +247,12 @@ export function roamingPlan(world, actor, api) {
       )[0];
     if (!path) return null;
   }
-  const action = api
-    .actions(actor)
-    .find((a) => a.kind === "move" && a.target === path[1]);
+  const action =
+    api.actions(actor).find((a) => a.kind === "move" && a.target === path[1]) ||
+    api.voyage?.(actor, path[1]);
   if (!action) {
+    // Waiting at a port for the ship also calls it one lane closer.
+    api.callShip?.(actor, path[1]);
     requestHelp(world, actor, state, here, path[1], "passage", api);
     return null;
   }

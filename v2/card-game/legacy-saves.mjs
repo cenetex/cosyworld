@@ -16,9 +16,11 @@ import {
   transports,
   canonicalPlace,
   localRoadEnds,
+  packPlaces,
 } from "./pack-registry.mjs";
+import { authoredRouteEdges } from "./roaming-routes.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
-import { passengers } from "./pack-transport.mjs";
+import { passengers, upgradeTransportState } from "./pack-transport.mjs";
 import { installKnowledge } from "./knowledge.mjs";
 import { newTemperament } from "./pack-rules.mjs";
 
@@ -96,6 +98,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekOneRoadSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -111,6 +114,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekOneRoadSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -148,16 +152,24 @@ export function upgradeShoreRouteSave(s) {
     const expanded = known.flatMap((edge) => {
       if (!Array.isArray(edge) || edge.length !== 2) return [edge];
       const [from, to] = edge;
-      if ((moved.has(from) && to === "station") ||
-          (from === "station" && moved.has(to))) {
+      if (
+        (moved.has(from) && to === "station") ||
+        (from === "station" && moved.has(to))
+      ) {
         changed = true;
-        return [[from, "pond"], ["pond", to]];
+        return [
+          [from, "pond"],
+          ["pond", to],
+        ];
       }
       return [edge];
     });
-    if (changed) s.routeKnowledge[actor] = [...new Map(
-      expanded.map((edge) => [JSON.stringify(edge), edge]),
-    ).values()];
+    if (changed)
+      s.routeKnowledge[actor] = [
+        ...new Map(
+          expanded.map((edge) => [JSON.stringify(edge), edge]),
+        ).values(),
+      ];
   }
 }
 
@@ -171,15 +183,19 @@ export function upgradeBoardyStationSave(s) {
   if (card?.holder === "pond") card.holder = "station";
   for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
     if (!Array.isArray(known)) continue;
-    s.routeKnowledge[actor] = [...new Map(known.map((edge) => {
-      if (Array.isArray(edge) && edge.length === 2) {
-        if (edge[0] === "pond" && edge[1] === "boardyai-parlour")
-          edge = ["station", "boardyai-parlour"];
-        else if (edge[0] === "boardyai-parlour" && edge[1] === "pond")
-          edge = ["boardyai-parlour", "station"];
-      }
-      return [JSON.stringify(edge), edge];
-    })).values()];
+    s.routeKnowledge[actor] = [
+      ...new Map(
+        known.map((edge) => {
+          if (Array.isArray(edge) && edge.length === 2) {
+            if (edge[0] === "pond" && edge[1] === "boardyai-parlour")
+              edge = ["station", "boardyai-parlour"];
+            else if (edge[0] === "boardyai-parlour" && edge[1] === "pond")
+              edge = ["boardyai-parlour", "station"];
+          }
+          return [JSON.stringify(edge), edge];
+        }),
+      ).values(),
+    ];
   }
   saved.revision = 2;
 }
@@ -241,6 +257,86 @@ export function upgradeGreekRoadSave(s) {
 export function upgradeGreekTownSave(s) {
   const saved = s.packs?.["greek-drama"];
   if (saved?.revision !== 5) return;
+  foldRetiredRoads(s);
+  saved.revision = 6;
+}
+
+// Revision 8 joins towns by one road each. Inside a town places link
+// directly; between towns there is one road or a sea lane.
+// - Attica keeps one road, from Athens to Piraeus. The other Attic roads are
+//   retired; Colonus, Marathon and Eleusis are direct visits in their towns.
+// - The Theban Harbor Road is the only way between the harbor and Thebes.
+// - Distant towns gain purposeful roads (see joinDistantTowns).
+// The named rewrites run first; the road fold then turns any other learned
+// step that no longer exists into the shortest walkable path.
+export function upgradeGreekOneRoadSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+  restoreThebanRoad(s, pack);
+  joinDistantTowns(s, pack, saved);
+  foldRetiredRoads(s);
+  saved.revision = 8;
+}
+
+// The Theban Harbor Road is again the only way between the harbor and Thebes.
+// Known direct steps pass along the road, and an open request for passage
+// between the two asks for the road instead.
+function restoreThebanRoad(s, pack) {
+  const road = "greek-road-thebes";
+  const [harbor, town] = pack.places[road].road;
+  const direct = (from, to) =>
+    (from === harbor && to === town) || (from === town && to === harbor);
+  for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+    if (!Array.isArray(edges)) continue;
+    const paths = edges.flatMap((edge) =>
+      Array.isArray(edge) && direct(...edge)
+        ? [
+            [edge[0], road],
+            [road, edge[1]],
+          ]
+        : [edge],
+    );
+    s.routeKnowledge[actor] = [
+      ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values(),
+    ];
+  }
+  for (const quest of Object.values(s.quests?.records || {}))
+    if (quest.completedTurn === null && !quest.retired)
+      for (const step of quest.program?.steps || []) {
+        const passage = step.passage;
+        if (passage?.kind === "passage" && direct(passage.from, passage.to))
+          passage.to = road;
+      }
+  for (const state of Object.values(s.roamingQuests || {}))
+    if (state.blocked && direct(state.blocked.from, state.blocked.to))
+      state.blocked = null;
+}
+
+// A known step between two Greek places that no exit or route joins any more
+// becomes the shortest walkable path between them.
+function walkablePath(from, to) {
+  const edges = authoredRouteEdges().filter(
+    ([a, b]) => !localRoadEnds(a) && !localRoadEnds(b),
+  );
+  const queue = [[from]],
+    seen = new Set([from]);
+  while (queue.length) {
+    const path = queue.shift(),
+      here = path.at(-1);
+    if (here === to) return path;
+    for (const [a, b] of edges)
+      if (a === here && !seen.has(b)) {
+        seen.add(b);
+        queue.push([...path, b]);
+      }
+  }
+  return null;
+}
+
+// Move saved visits, belongings, knowledge and current purposes off retired
+// roads. The road IDs stay in memories and completed records.
+export function foldRetiredRoads(s) {
   for (const [id, actor] of Object.entries(s.actors || {})) {
     const ends = localRoadEnds(actor.place);
     if (!ends) continue;
@@ -251,10 +347,20 @@ export function upgradeGreekTownSave(s) {
   }
   for (const item of Object.values(s.items || {}))
     item.holder = canonicalPlace(item.holder);
+  const authored = new Set(
+    authoredRouteEdges().map((edge) => JSON.stringify(edge)),
+  );
+  const greek = (id) => packPlaces[id]?.packId === "greek-drama";
   for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
     const paths = edges
       .map(([from, to]) => [canonicalPlace(from), canonicalPlace(to)])
-      .filter(([from, to]) => from !== to);
+      .filter(([from, to]) => from !== to)
+      .flatMap((edge) => {
+        if (authored.has(JSON.stringify(edge)) || !edge.every(greek))
+          return [edge];
+        const path = walkablePath(...edge);
+        return path ? path.slice(1).map((end, i) => [path[i], end]) : [];
+      });
     s.routeKnowledge[actor] = [
       ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values(),
     ];
@@ -299,7 +405,6 @@ export function upgradeGreekTownSave(s) {
   s.standoffs = (s.standoffs || []).filter(
     (conflict) => !localRoadEnds(conflict.location),
   );
-  saved.revision = 6;
 }
 
 // Revision 7 adds the invited Trojan account while earlier journeys retain
@@ -327,6 +432,70 @@ export function upgradeGreekAjaxSave(s) {
   ])
     s.memories[id] ??= fresh[id];
   saved.revision = 7;
+}
+
+// In revision 8 distant towns are joined by one road each. Agora and Delphi meet on
+// the Sacred Way, Delphi and Trachis on the Oeta Road, Troy and Susa on the
+// Royal Road, Thrace and Tauris on the Black Sea Road, and Corinth and Sicily
+// on the Colonists' Road. Piraeus no longer reaches Tauris or Sicily, Aulis no
+// longer reaches the Greek camp, and the Scythian Crag now joins Tauris.
+const GREEK_ROAD_LINKS = {
+  "greek-athens|greek-delphi": "greek-road-sacred-way",
+  "greek-delphi|greek-trachis": "greek-oeta",
+  "greek-susa|greek-troy": "greek-road-royal",
+};
+const GREEK_CUT_LINKS = new Set([
+  "greek-piraeus|greek-tauris",
+  "greek-piraeus|greek-sicily",
+  "greek-aulis|greek-greek-camp",
+  "greek-scythian-crag|greek-susa",
+]);
+// Without the Trojan invitation the ship does not call at the camp landing.
+// A traveler left on that side goes back through the link they came by.
+const GREEK_TROJAN_SIDE = {
+  "greek-greek-camp": "greek-aulis",
+  "greek-troy": "greek-aulis",
+  "greek-trojan-camp": "greek-aulis",
+  "greek-lemnos": "greek-aulis",
+  "greek-thrace": "greek-aulis",
+  "greek-susa": "greek-aulis",
+  "greek-scythian-crag": "greek-aulis",
+  "greek-tauris": "greek-piraeus",
+};
+function joinDistantTowns(s, pack, saved) {
+  const fresh = newMemories();
+  for (const id of [
+    "greek-road-sacred-way",
+    "greek-road-royal",
+    "greek-road-black-sea",
+    "greek-road-colonists",
+  ])
+    if (s.memories) s.memories[id] ??= fresh[id];
+  for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+    if (!Array.isArray(known)) continue;
+    const paths = known.flatMap((edge) => {
+      if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+      const [from, to] = edge;
+      const key = [from, to].sort().join("|");
+      if (GREEK_CUT_LINKS.has(key)) return [];
+      const road = GREEK_ROAD_LINKS[key];
+      return road
+        ? [
+            [from, road],
+            [road, to],
+          ]
+        : [edge];
+    });
+    s.routeKnowledge[actor] = [
+      ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values(),
+    ];
+  }
+  if (!saved.flags?.["greek-ajax-open"])
+    for (const [id, actor] of Object.entries(s.actors || {})) {
+      const home = GREEK_TROJAN_SIDE[actor.place];
+      if (home && !GREEK_TROJAN_SIDE[pack.avatars[id]?.place])
+        actor.place = home;
+    }
 }
 
 // Revision 3 adds these residents and objects. Earlier records keep their
@@ -437,6 +606,17 @@ function upgradeBoardingSave(s) {
     if (occupied)
       state.dock = transport.docks.find((dock) => dock !== state.destination);
     state.version = 2;
+  }
+  // Version 3 ships sail lanes and take a world round at sea.
+  for (const id of Object.keys(transports)) {
+    const state = s.transports?.[id];
+    if (state?.version !== 2) continue;
+    if (
+      Object.keys(state).sort().join() !== "destination,dock,recall,version" ||
+      !transports[id].docks.includes(state.dock)
+    )
+      throw new Error("This save has an invalid ship record.");
+    s.transports[id] = upgradeTransportState(s, id, state);
   }
 }
 

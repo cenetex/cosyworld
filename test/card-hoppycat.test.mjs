@@ -160,8 +160,27 @@ describe("Hoppy Cat refresh", () => {
       ),
       runtime,
     );
+    // Released rules saved version 2 ships; the current rules sail version 3.
+    const v2 = (world) =>
+      world && {
+        ...world,
+        transports: Object.fromEntries(
+          Object.entries(world.transports).map(([id, t]) => [
+            id,
+            { version: 2, dock: t.dock, destination: null, recall: t.recall },
+          ]),
+        ),
+      };
+    const shipless = (out) =>
+      out.world ? { ...out, world: { ...out.world, transports: null } } : out;
     const ask = (request) =>
-      JSON.parse(runtime.cardShared(JSON.stringify(request)));
+      shipless(
+        JSON.parse(
+          runtime.cardShared(
+            JSON.stringify({ ...request, world: v2(request.world) }),
+          ),
+        ),
+      );
     let world = dispatchShared({
       op: "create",
       save: encodeSave(createLandingWorld(pack)),
@@ -175,14 +194,16 @@ describe("Hoppy Cat refresh", () => {
       present: ["vale"],
     };
     const view = dispatchShared(request);
-    expect(ask(request)).toEqual(view);
+    expect(ask(request)).toEqual(shipless(view));
     const action = view.actions.find((a) => a.choiceId === id("welcome"));
     expect(action).toBeDefined();
     const command = { ...request, op: "play", action };
     // Released rules keep the same state; dialogue context is narration only
     // and follows the current bundle.
     const { context: released, ...releasedPlay } = ask(command);
-    const { context: current, ...currentPlay } = dispatchShared(command);
+    const { context: current, ...currentPlay } = shipless(
+      dispatchShared(command),
+    );
     expect(releasedPlay).toEqual(currentPlay);
     expect(released.entities.map((e) => e.id)).toEqual(
       current.entities.map((e) => e.id),

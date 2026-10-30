@@ -111,14 +111,18 @@ const merge = (field) =>
     ),
   );
 export const packPlaces = merge("places");
-// Earlier road IDs remain available to saved history. A direct local link
-// joins their two ends into the town's ordinary paths.
+// Earlier road IDs remain available to saved history. A road is retired when
+// a direct local link joins its two ends, or when the pack marks it retired.
+// Saved visits fold into its first end.
 const localRoads = new Map(
   Object.entries(packPlaces)
-    .filter(([, place]) =>
-      place.road?.every((end, i) =>
-        packPlaces[end]?.exits.includes(place.road[1 - i]),
-      ),
+    .filter(
+      ([, place]) =>
+        place.road &&
+        (place.retired === true ||
+          place.road.every((end, i) =>
+            packPlaces[end]?.exits.includes(place.road[1 - i]),
+          )),
     )
     .map(([id, place]) => [id, place.road]),
 );

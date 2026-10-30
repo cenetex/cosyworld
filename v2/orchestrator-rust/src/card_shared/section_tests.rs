@@ -97,11 +97,15 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 }
                 let upgraded = full_store::world(&c, &id, now()).unwrap();
                 assert_eq!(upgraded.version, engine::VERSION);
-                assert_eq!(upgraded.game["packs"]["greek-drama"]["revision"], 7);
+                assert_eq!(
+                    upgraded.game["packs"]["greek-drama"]["revision"],
+                    super::full_tests::greek_revision()
+                );
                 assert_eq!(upgraded.claimed, old.claimed);
                 assert_eq!(upgraded.present, old.present);
                 preserves_old_entities(&upgraded.game, &old.game);
-                for field in ["turn", "eventSeq", "log", "transports"] {
+                super::sea_steps::assert_upgraded_ship(&upgraded.game, &old.game);
+                for field in ["turn", "eventSeq", "log"] {
                     assert_eq!(upgraded.game[field], old.game[field]);
                 }
                 for (key, value) in old.game["crossings"].as_object().unwrap() {
@@ -144,13 +148,24 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 let mut voyage = upgraded.clone();
                 voyage.game["actors"]["mara"]["place"] = json!("greek-ship");
                 voyage.game["transports"]["greek-ship"] = json!({
-                    "version":2, "dock":"greek-harbor", "destination":"pond", "recall":null
+                    "version":3, "phase":"docked", "dock":"greek-harbor", "destination":null,
+                    "riders":[], "since":voyage.game["turn"], "recall":null
                 });
+                // Mara has heard of the harbor-to-Piraeus lane.
+                let known = &mut voyage.game["routeKnowledge"]["mara"];
+                if !known.is_array() {
+                    *known = json!([]);
+                }
+                known
+                    .as_array_mut()
+                    .unwrap()
+                    .push(json!(["sea:greek-harbor", "sea:greek-piraeus"]));
+                // Piraeus is a course card from the harbor once the full Greece opens.
                 assert_eq!(
                     voyage.project(1).unwrap()["exits"]
                         .as_array()
                         .unwrap()
-                        .contains(&json!("greek-athens-harbor")),
+                        .contains(&json!("greek-piraeus")),
                     scope == "full"
                 );
                 assert!(!upgraded.project(1).unwrap()["exits"]
@@ -228,6 +243,25 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
                 }
                 play(&c, &id, &mut world, 1, "kind", "wait");
             }
+        }
+        // Aboard, Athens Harbor is a voyage of course cards and rounds at sea.
+        if target == "greek-athens-harbor" {
+            for _ in 0..8 {
+                if world.game["actors"]["mara"]["place"] == target {
+                    break;
+                }
+                let step = super::sea_steps::toward(&world.project(1).unwrap()["actions"], target);
+                full_store::commit(
+                    &c,
+                    &id,
+                    &mut world,
+                    json!({"op":"play","actor":"mara","action":step}),
+                    now(),
+                )
+                .unwrap();
+            }
+            assert_eq!(world.game["actors"]["mara"]["place"], target);
+            continue;
         }
         play(&c, &id, &mut world, 1, "target", target);
     }

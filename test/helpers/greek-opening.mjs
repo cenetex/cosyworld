@@ -1,6 +1,12 @@
 import { moveTransport } from "../../v2/card-game/pack-transport.mjs";
 import { atticOpening } from "../fixtures/card-attic-opening.mjs";
-import { createWorld, legalActions, play } from "../../v2/card-game/world.mjs";
+import {
+  createWorld,
+  currentActor,
+  legalActions,
+  play,
+} from "../../v2/card-game/world.mjs";
+import { needsVoyage, sailTo } from "./voyage.mjs";
 import { enableMotives } from "../../v2/card-game/motives.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
 
@@ -30,7 +36,10 @@ export function openingFixture(
     if (!result.ok) throw Error(result.error);
     world = result.state;
   };
-  const move = (target) => act("move", { target });
+  const move = (target) =>
+    needsVoyage(world, currentActor(world), target)
+      ? (world = sailTo(world, target))
+      : act("move", { target });
   const take = (item) => act("take", { item });
   const choose = (choiceId) => act("choose", { choiceId });
   const walk = (...places) =>

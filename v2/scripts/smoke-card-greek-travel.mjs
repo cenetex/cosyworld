@@ -10,6 +10,7 @@ import {
   openDoorAction,
 } from "../../test/helpers/open-door.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
+import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 
 const output = new URL("../../output/greek-travel/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -84,6 +85,15 @@ try {
     };
     const step = async (kind, target) => {
       await settle();
+      // Aboard, a port is a voyage: the course card, a round at sea, Disembark.
+      for (
+        let n = 0;
+        n < 12 && kind === "move" && needsVoyage(await state(), "mara", target);
+        n++
+      ) {
+        const next = nextVoyagePlay(await state(), "mara", target);
+        await step(next.kind, next.target);
+      }
       if (target === "greek-ship")
         for (
           let n = 0;
@@ -124,18 +134,22 @@ try {
       path: new URL(`athens-empty-${width}.png`, output).pathname,
       fullPage: true,
     });
+    // Mara knows the Black Pond lanes, not the Athens Harbor lane to
+    // Piraeus, so she walks to Piraeus and comes back by the town road.
     for (const target of [
-      "greek-ship",
+      "greek-athens",
+      "greek-road-athens-piraeus",
+      "greek-piraeus",
+      "greek-eleusis",
       "greek-piraeus",
       "greek-road-athens-piraeus",
       "greek-athens",
-      "greek-road-athens-eleusis",
-      "greek-eleusis",
-      "greek-road-athens-eleusis",
+      "greek-colonus",
       "greek-athens",
       "greek-athens-harbor",
       "greek-ship",
       "greek-harbor",
+      "greek-road-thebes",
       "greek-courtyard",
     ]) {
       await step("move", target);
@@ -156,7 +170,7 @@ try {
       if (
         [
           "greek-athens-harbor",
-          "greek-road-athens-eleusis",
+          "greek-road-athens-piraeus",
           "greek-athens",
           "greek-piraeus",
         ].includes(target)
@@ -171,7 +185,7 @@ try {
           fullPage: true,
         });
       }
-      if (target === "greek-road-athens-eleusis") {
+      if (target === "greek-road-athens-piraeus") {
         const before = await state();
         await page.reload();
         await settle();

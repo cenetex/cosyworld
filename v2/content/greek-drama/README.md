@@ -48,7 +48,7 @@ traveler can bring each completed local story to Dione, then return for
 the rest. The full account remains available when all five stories are ready.
 
 Myrine, an original household representative, agrees at Eleusis to walk
-to Piraeus. Accompany takes her along the coast road. She receives her
+to Piraeus. One Accompany play takes her along the shore path. She receives her
 household’s basket or joins the shared quay, following the chosen berth.
 Her signed return list carries her own words to Dione. The traveler chooses
 an earned basket or berth stanza, and Dione answers the reading. Read the [full scene and source guide](OPEN-DOOR.md) for the
@@ -68,14 +68,18 @@ to Dione. Three story beats and a return card follow the journey. Four
 earned couplets grow from eight possible verses. Read the [chapter and
 source guide](AJAX.md) for the choices, objects and saved account.
 
-The camp's landing, household and grave have direct local paths. Longer
-journeys between towns use roads. The Greek ship serves Athens Harbor,
+The camp's landing, household and grave have direct local paths. Places inside
+a town link directly. Between towns there is exactly one road or a sea lane:
+the Sacred Way joins the Agora and Delphi, the Oeta Road joins Delphi and
+Trachis, the Royal Road joins Troy and Susa, the Black Sea Road joins Thrace and
+Tauris, and the Colonists' Road joins Corinth and Sicily. Troy is reached by
+ship at the Trojan landing. The Greek ship serves Athens Harbor,
 Piraeus, the Wine-Dark Harbor, Black Pond and the invited Trojan landing.
 Athens Harbor has an empty-water painting while the shared ship is away.
 
 ## Sources and runtime
 
-`card-world.json` is canonical author data: 63 places including the ship,
+`card-world.json` is canonical author data: 67 places including the ship,
 33 residents, 26 objects, 149 typed choices and 44 work records. Nine works
 have developed scenes; 35 retain situated hooks for later releases.
 
@@ -125,10 +129,13 @@ fueled lamp at the pond and quiet at both the pond and clearing.
 
 Completing the signal summons a shared ship. Its saved discovery keeps the
 boarding shores open through lamp changes, reloads and later voyages.
-Boarding starts a crossing while the ship stays at the departure dock for
-other passengers. The first passenger ashore moves it to the arrival dock.
-Those still aboard can disembark there. A new boarding starts the return
-crossing. An occupied ship completes its voyage before a lamp recall.
+The ship sails authored lanes: Black Pond to the Wine-Dark Harbor and Athens
+Harbor; the Wine-Dark Harbor to Piraeus and the Trojan camp landing; Athens
+Harbor to Piraeus. Boarding keeps the ship at its harbour. The first course
+card played aboard sets the voyage for everyone, and the ship spends one world
+round at sea. On arrival the only Disembark card is that port. The ship stays
+where the first passenger lands; others can step off there or stay for the
+next course. An occupied ship completes its voyage before a lamp recall.
 
 ## Art and presentation
 

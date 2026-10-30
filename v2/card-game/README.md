@@ -196,8 +196,8 @@ ritual reload, visible state, travel and conversation without paid model calls.
 ## World packs and the Wine-Dark Sea
 
 At quiet Black Pond, the fueled Lamp and Black cloth can summon a ship.
-Board it, then disembark at **The Wine-Dark Harbor**. The local path leads
-to **Before the Burial**. The ship keeps its dock and passengers in the same
+Board it, then disembark at **The Wine-Dark Harbor**. The Theban Harbor Road
+leads to Thebes and **Before the Burial**. The ship keeps its dock and passengers in the same
 saved world. Once summoned, it remains available for later crossings.
 
 After a public Theban response, Dione offers the next journey at her table.
@@ -206,24 +206,45 @@ Grove, Eleusinian Sanctuary, and Marathon Altar. The invitation opens the
 roads for every traveler in the shared world. Athens Harbor and Piraeus join
 the ship’s stops. Athens Harbor connects directly to the grand Agora through city streets.
 
-Seven shared road scenes connect the towns. Each road has two fixed ends,
-shown by destination cards in a fixed order. Avatars come first in the hand,
-followed by the first end, the road, and the other end. Its entry card names the place ahead.
-Travelers can meet, wait and carry objects on the road. Myrine’s coast walk
-passes through the same road scene in two Accompany plays.
+Roads separate towns, and places inside a town link directly. Between two
+towns there is exactly one road or a sea lane, and every walkable road has its
+own painting. In Attica one shared road scene, the Athens–Piraeus Road, joins
+Athens and Piraeus. Colonus and Marathon are direct visits from the Agora;
+Eleusis is a direct visit from Piraeus. The Theban Harbor Road is the only way
+between the Wine-Dark Harbor and Thebes. The Sacred Way joins the Agora and
+Delphi, the Oeta Road joins Delphi and Trachis, the Royal Road joins Troy and
+Susa, the Black Sea Road joins Thrace and Tauris, and the Colonists' Road joins
+Corinth and Sicily. A road has two fixed ends, shown by destination cards in a
+fixed order. Avatars come first in the hand, followed by the first end, the
+road, and the other end. Its entry card names the place ahead. Travelers can
+meet, wait and carry objects on the road. Myrine walks from Eleusis to Piraeus
+in one Accompany play.
+
+A pack marks an old road `retired: true` to keep its ID for saved history.
+No exit leads onto a retired road. A save that stands on one continues at
+the road's first end.
 
 Run `npm run v2:card:travel:smoke` for desktop and phone trips through Athens
-Harbor, the Agora, inter-town roads, Piraeus and the return to Dione. The check
+Harbor, the Agora, the Athens–Piraeus Road, Piraeus and the return to Dione. The check
 also tests the destination cards, a reload on the road and waiting for the ship.
 
 Athens Harbor shows the ship at its berth when it is docked there, and open
 water while the ship travels elsewhere.
 
-At an open port, Wait lets the empty ship continue its circuit. Resident
-passengers use the same vessel. The first human passenger ashore chooses the
-arrival port for the company. Other passengers can step off there; boarding
-at that port starts the next voyage. The lamp signal still calls the ship to
-Black Pond. Existing saves keep their positions, belongings, stories and poems.
+The ship sails authored sea lanes, at most four from each port. Black Pond
+has lanes to the Wine-Dark Harbor and Athens Harbor. The Wine-Dark Harbor has
+lanes to Piraeus and the Trojan camp landing. Athens Harbor and Piraeus share
+a lane. Aboard a docked ship, the other place cards are course cards. The
+first course played sets the voyage for everyone aboard; the ship then spends
+one world round at sea. On arrival the only Disembark card is that port, and
+someone who boarded there cannot step straight back. Passengers who stay
+aboard can set the next course. A ship left with passengers and no course for
+three rounds sails its first lane. An empty ship stays where it was left;
+waiting at a port to board brings it one lane closer each round. Residents
+use the same vessel and leave the course to a human aboard. The lamp signal
+still calls the ship to Black Pond. Existing saves keep their positions,
+belongings, stories and poems. The design is in
+[ship voyages and scattered things](../../docs/design/ship-voyages-and-scattered-things.md).
 
 Selected cards with authored decisions show their legal actions in the row
 below the hand. Choosing a history is a committed turn:
@@ -719,12 +740,21 @@ one compiled `packs.json`. The new art prompts and hashes are saved in
 `assets/greek-drama/open-door-art.json`.
 
 Boarding keeps the ship at its departure shore so other players can join.
-The first passenger to disembark moves it to the arrival shore. Passengers
-still aboard can step off there. A new boarding starts the return leg, so a
-passenger can stay aboard through several trips. A lamp recall waits until
-the ship is empty. Older occupied saves retain their destination and regain
-the departure dock. Shared rules version 8 records this change; older journal
+The voyage moves it to the arrival shore, where it stays after the first
+passenger lands. Passengers still aboard can step off there or stay for the
+next course, so a passenger can stay aboard through several trips. A lamp
+recall waits until the ship is empty. Shared rules version 27 adds the sea
+lanes and the round at sea (ship record version 3). Older occupied ships wait
+docked for a course; ships that had landed keep their arrival. Older journal
 actions replay with their original rules.
+
+The same rules make knowing a lane personal. Course cards show only
+the lanes the person knows from that port. People from a world with a port
+know its lanes; people from the forest know the Black Pond lanes; Myrto the
+shipmaster knows every lane. Everyone aboard learns the lane they sail. At a
+port or aboard, Talk can tell a lane as a fact ("Ships for Piraeus Quays leave
+from The Wine-Dark Harbor."), and the listener learns it only when the published
+speech says it. Lanes are saved as `sea:` edges in route knowledge.
 
 See the Greek pack README and `test/card-theban-release.test.mjs`; the scene
 journey is `v2/scripts/smoke-card-theban-scenery.mjs`. The weather journey is

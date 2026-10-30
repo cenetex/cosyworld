@@ -3,7 +3,12 @@ import { mkdir } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { encodeSave, legalActions } from "../card-game/world.mjs";
+import {
+  currentActor,
+  encodeSave,
+  legalActions,
+} from "../card-game/world.mjs";
+import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 import { questCards, questHistoryCards } from "../card-game/quest-cards.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { questTalkFacts } from "../card-game/quest-talk.mjs";
@@ -137,6 +142,13 @@ export async function checkOpenDoor(browser, origin) {
       };
       const step = async ({ kind, ...fields }) => {
         await settle();
+        // Aboard, a port is a voyage: the course card, a round at sea, Disembark.
+        for (let n = 0; n < 12 && kind === "move"; n++) {
+          const world = await state();
+          if (!needsVoyage(world, currentActor(world), fields.target)) break;
+          const next = nextVoyagePlay(world, currentActor(world), fields.target);
+          await step(next.target ? next : { kind: next.kind });
+        }
         if (kind === "move" && fields.target === "greek-ship") {
           for (
             let wait = 0;

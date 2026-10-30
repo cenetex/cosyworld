@@ -291,9 +291,19 @@ try {
     await fullVolume();
     assert.equal(await page.locator("#room-music").getAttribute("src"), source);
   }
+  // Aboard, the port card sets the course and the ship card waits out the
+  // round at sea; the deck song keeps playing until Disembark.
+  const voyage = async (port) => {
+    const source = await page.locator("#room-music").getAttribute("src");
+    await playCard(port);
+    await playCard("greek-ship");
+    assert.equal(await page.locator("#room-music").getAttribute("src"), source);
+  };
   await travel("greek-ship", "greek-ship", checkCrossingSong);
+  await voyage("greek-harbor");
   await travel("greek-harbor");
   await travel("greek-ship", "greek-ship", checkCrossingSong);
+  await voyage("pond");
   await travel("pond");
   // Check decoding for every candidate, including songs chance did not select.
   const tracks = Object.values(roomTracks).flat();

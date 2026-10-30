@@ -174,6 +174,18 @@ keeps its saved destination, and its passengers can land; boarding still needs
 the completed signal. The upgrade validates the old save before granting this
 human passenger allowance.
 
+Rule version 27 makes each voyage a shared world round. The first course card
+played aboard sets the ship's course for every passenger; the round ends with
+the ship at sea, and the next round ends with its arrival. Each player's view
+shows course cards only while the ship is docked, and Disembark only to the
+people who sailed in. Loading an earlier world replays its journal with the
+recorded interpreters, then upgrades the version 2 ship record to version 3.
+
+The same version keeps sea lanes per person in route knowledge as `sea:` edges.
+Each player's course cards are the lanes that player knows from the dock. A
+lane told in Talk joins the listener's chart only from published speech that
+contains the fact, so replay and every client agree.
+
 ## Collected quests
 
 Each personal quest has a stable card key, its own steps, and the experience
@@ -344,11 +356,41 @@ bytes. The builder writes `engine-v20.js`; older journals replay with the
 recorded rules before the saved upgrade.
 
 Shared rules version 19 makes the harbor and Agora a direct local visit, and
-joins the Theban harbor directly to the courtyard. Seven roads connect the
-towns. Each road has two fixed ends, shown by destination cards. Earlier internal road IDs
+joins the Theban harbor directly to the courtyard. Seven roads connected the
+towns then. Each road has two fixed ends, shown by destination cards. Earlier internal road IDs
 stay in saved history. Current visitors, belongings and unfinished purposes
 continue at a town endpoint. The migration uses the other endpoint when the
 port already holds four human avatars. Released versions 16 and 17 keep their exact bytes.
+
+Greek pack revision 8, in shared rules version 27, joins towns by one road
+each. Inside a town places link directly; between towns there is one road or a
+sea lane, and every walkable road has its own painting.
+
+- Attica keeps one road, from Athens to Piraeus. The other six Attic roads are
+  marked `retired`: their IDs stay in saved history, and no exit leads onto
+  them. Athens links directly to Colonus, Colonus to Marathon, and Piraeus to
+  Eleusis.
+- The Theban Harbor Road is again the only way between the Wine-Dark Harbor and
+  Thebes.
+- The Sacred Way joins the Agora and Delphi, the Oeta Road joins Delphi and
+  Trachis, the Royal Road joins Troy and Susa, the Black Sea Road joins Thrace
+  and Tauris, and the Colonists' Road joins Corinth and Sicily. The Scythian
+  Crag is now part of Tauris. Piraeus no longer reaches Tauris or Sicily, and
+  Aulis no longer reaches the Greek camp: Troy is reached by ship at the Trojan
+  landing.
+
+One upgrade, `upgradeGreekOneRoadSave`, takes a revision 7 save to revision 8.
+A remembered direct harbor-to-Thebes step becomes two steps along the Theban
+road, and an open request for passage between them asks for the road. A known
+link that now has a road becomes two steps along it, and a cut link is
+forgotten. Without the Trojan invitation, a traveler left on the Trojan side
+goes back the way they came: to Aulis, or to Piraeus from Tauris. Then the
+revision 6 road fold runs. A visitor or object on a retired road continues at
+its first end, and any other learned step that no longer exists becomes the
+shortest walkable path, so Athens to Eleusis passes through Piraeus. Myrine's
+journey is her saved place on its path. If she was on the coast road, she and
+her companion continue at Piraeus, where she arrives. Visitors already on the
+Theban road in an earlier save stay there.
 
 ## Learning from outcomes
 

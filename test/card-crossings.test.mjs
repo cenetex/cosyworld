@@ -19,7 +19,9 @@ import {
   decodeSave,
   validateWorld,
   placeText,
+  currentActor,
 } from "../v2/card-game/world.mjs";
+import { needsVoyage, sailTo } from "./helpers/voyage.mjs";
 import {
   availableCards,
   cardChoices,
@@ -56,6 +58,8 @@ function pond() {
   return next;
 }
 function act(s, kind, target, item) {
+  if (kind === "move" && item === null && needsVoyage(s, currentActor(s), target))
+    return sailTo(s, target);
   const a = legalActions(s).find(
     (a) =>
       a.kind === kind &&

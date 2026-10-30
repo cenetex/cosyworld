@@ -33,6 +33,7 @@ import {
   transportUnlocked,
   validTransports,
   transportCrossing,
+  shipDock,
 } from "./pack-transport.mjs";
 
 const fill = (template, values) =>
@@ -151,7 +152,7 @@ export const crossingOpen = (s, c, senses) =>
   entityActive(s, c.to) &&
   (c.transport
     ? transportUnlocked(s, c.transport) &&
-      s.transports[c.transport]?.dock === c.from
+      shipDock(s, c.transport) === c.from
     : windowOpen(s, c) && signalReady(s, c, senses)) &&
   c.requires.every((r) => conditionMet(s, r, senses, c.packId));
 export const crossingBetween = (from, to, s = null) =>

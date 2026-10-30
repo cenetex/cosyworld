@@ -25,9 +25,9 @@ import { packProblems } from "../v2/card-game/pack-schema.mjs";
 const harbor = "greek-harbor";
 const open = "./assets/greek-drama/harbor-open-berth.webp";
 const docked = "./assets/greek-drama/harbor-ship-at-berth.webp";
-function move(world, target) {
+function move(world, target, kind = "move") {
   const action = legalActions(world).find(
-    (a) => a.kind === "move" && a.target === target,
+    (a) => a.kind === kind && (target === null || a.target === target),
   );
   expect(action).toBeTruthy();
   const result = play(world, action);
@@ -60,10 +60,18 @@ describe("harbor scenery follows the ship", () => {
     check(world, docked);
     world = move(world, "greek-ship");
     check(world, docked);
+    // Once the course is set the ship casts off and leaves an open berth.
+    world = move(world, "pond", "course");
+    check(world, open);
+    world = move(world, null, "wait");
     world = move(world, "pond");
     check(world, open);
     world = move(world, "greek-ship");
     check(world, open);
+    world = move(world, harbor, "course");
+    check(world, open);
+    world = move(world, null, "wait");
+    check(world, docked);
     world = move(world, harbor);
     check(world, docked);
   });
@@ -78,6 +86,10 @@ describe("harbor scenery follows the ship", () => {
     world = move(world, "greek-ship");
     summonTransport(world, "greek-ship", harbor);
     check(world, docked);
+    world = move(world, "pond", "course");
+    check(world, open);
+    world = move(world, null, "wait");
+    // The last passenger ashore lets the pending call bring the ship back.
     world = move(world, "pond");
     check(world, docked);
   });

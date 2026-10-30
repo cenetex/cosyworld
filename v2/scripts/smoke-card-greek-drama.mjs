@@ -186,11 +186,13 @@ try {
       ) {
         // The bard can be on the current trip. Let the ship return through
         // ordinary turns before boarding from this shore.
+        // A ship at sea has left its dock; wait until it lies at this shore.
         for (
           let turn = 0;
-          turn < 8 &&
-          (await state()).transports["greek-ship"].dock !==
-            before.actors.vale.place;
+          turn < 12 &&
+          !legalActions(await state()).some(
+            (a) => a.kind === "move" && a.target === "greek-ship",
+          );
           turn++
         )
           await playCard("vale");
@@ -200,6 +202,18 @@ try {
           "the ship reaches the departure shore",
         );
         await playCard("greek-ship");
+        // The destination card sets the course; the voyage takes a round.
+        await playCard(id);
+        assert.equal((await state()).transports["greek-ship"].phase, "sea");
+        for (
+          let turn = 0;
+          turn < 4 &&
+          !legalActions(await state()).some(
+            (a) => a.kind === "move" && a.target === id,
+          );
+          turn++
+        )
+          await playCard("vale");
       }
       await playCard(id);
       assert.equal((await state()).actors.vale.place, id, `travel to ${id}`);
@@ -350,7 +364,10 @@ try {
     // The returned ship is already waiting for another trip.
     current = await state();
     const updated = commit(
-      commit(current, "move", "greek-ship"),
+      commit(
+        commit(commit(current, "move", "greek-ship"), "course", "greek-harbor"),
+        "wait",
+      ),
       "move",
       "greek-harbor",
     );

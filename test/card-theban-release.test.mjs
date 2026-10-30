@@ -1,3 +1,4 @@
+import { needsVoyage, sailTo } from "./helpers/voyage.mjs";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -35,6 +36,7 @@ const openingPlaces = [
   "greek-battlefield",
   "greek-palace",
   "greek-sanctuary",
+  "greek-road-thebes",
   "greek-ship",
 ];
 const openDoorPlaces = [
@@ -48,11 +50,11 @@ const sectionPlaces = pack.sections.flatMap((section) => section.places);
 const ajaxPlaces = pack.sections.find(
   (section) => section.id === "greek-ajax",
 ).places;
+// Retired roads keep their IDs in the release for saved history only.
+const retired = (id) => pack.places[id]?.retired === true;
 const openDoorReleasedPlaces = pack.release.places.filter(
   (id) =>
-    !["greek-road-thebes", "greek-road-athens-harbor", ...ajaxPlaces].includes(
-      id,
-    ),
+    !retired(id) && !["greek-road-athens-harbor", ...ajaxPlaces].includes(id),
 );
 const openDoorItems = [
   "greek-burial-petition",
@@ -76,6 +78,8 @@ const legacy = (name) =>
     ),
   );
 const act = (s, kind, fields = {}) => {
+  if (kind === "move" && needsVoyage(s, "vale", fields.target))
+    return sailTo(s, fields.target);
   const a = legalActions(s).find(
     (a) =>
       a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
@@ -93,7 +97,7 @@ const reachable = (s) => {
   return [...seen].sort();
 };
 describe("the Theban release and its ship", () => {
-  it("opens seven shore places, then the ship after its first signal", () => {
+  it("opens seven shore places and the harbor road, then the ship after its first signal", () => {
     const s = createWorld();
     expect(s.packs[pack.id].scope).toBe("opening");
     expect(reachable(s)).toEqual(
@@ -101,14 +105,11 @@ describe("the Theban release and its ship", () => {
     );
     s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual([...openingPlaces].sort());
-    expect(reachable(s)).toHaveLength(8);
+    expect(reachable(s)).toHaveLength(9);
     expect(pack.release.places).toHaveLength(27);
     expect(
       pack.release.places
-        .filter(
-          (id) =>
-            !["greek-road-thebes", "greek-road-athens-harbor"].includes(id),
-        )
+        .filter((id) => !retired(id) && id !== "greek-road-athens-harbor")
         .sort(),
     ).toEqual(
       [
@@ -128,10 +129,10 @@ describe("the Theban release and its ship", () => {
     s = act(s, "choose", { choiceId: "greek-decline-burial" });
     s.actors.vale.place = "greek-courtyard";
     s = act(s, "choose", { choiceId: "greek-courtyard-refusal" });
-    expect(reachable(s)).toHaveLength(8);
+    expect(reachable(s)).toHaveLength(9);
     s = act(s, "choose", { choiceId: "greek-open-door-invite-refusal" });
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
-    expect(reachable(s)).toHaveLength(21);
+    expect(reachable(s)).toHaveLength(16);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     for (const start of openDoorPlaces) {
@@ -157,7 +158,7 @@ describe("the Theban release and its ship", () => {
       ).toBe(false);
     }
     expect(pack.works).toHaveLength(44);
-    expect(Object.keys(pack.places)).toHaveLength(63);
+    expect(Object.keys(pack.places)).toHaveLength(67);
   });
   it("preserves opening scope through reloads", () => {
     let s = createWorld();

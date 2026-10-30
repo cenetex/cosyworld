@@ -86,6 +86,7 @@ import {
   installKnowledge,
   witnessKnowledge,
   reserveKnowledge,
+  reserveLaneKnowledge,
   acceptKnowledgeSpeech,
   validKnowledge,
 } from "./knowledge.mjs";
@@ -150,6 +151,7 @@ import {
   packJourneyDestination,
   roamingQuestActor,
   avoidsStandoffs,
+  transports,
 } from "./pack-registry.mjs";
 import {
   newCrossingState,
@@ -179,6 +181,20 @@ import {
   waitForTransport,
   transportArrival,
   preserveTransportAccess,
+  isCourse,
+  setCourse,
+  sailTransports,
+  courseToward,
+  canDisembark,
+  transportPlace,
+  transportScenery,
+  callTransport,
+  VOYAGE,
+  laneEdges,
+  knowsLane,
+  learnLane,
+  laneOfEdge,
+  seaEdge,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
 import { shareStoryEndings } from "./story-life.mjs";
@@ -371,6 +387,7 @@ export const placeText = (s, place) =>
         ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
         : places[place].text,
     ...crossingScenery(s, place, sensesFor(s)),
+    ...transportScenery(s, place, nameOf),
     ...((homeRescueExit(s, place) || pondRescueExit(s, place))
       ? [`A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`]
       : []),
@@ -897,13 +914,81 @@ function talkKnowledge(s, action, entry) {
           (a) => a.packId === topic.packId && a.choiceId === topic.choiceId,
         ),
       }));
+    // At a port or aboard, talk turns to the ships; elsewhere a lane is told
+    // when there is nothing newer to say.
+    const lane = laneToTell(s, speaker, listener);
+    const port = lane && atPort(s, speaker);
+    if (port && reserveLaneKnowledge(s, speaker, listener, entry, lane)) break;
     if (reserveKnowledge(s, speaker, listener, entry, topics)) break;
+    if (lane && !port && reserveLaneKnowledge(s, speaker, listener, entry, lane))
+      break;
   }
 }
+const atPort = (s, actor) =>
+  Object.values(transports).some(
+    (t) =>
+      t.place === s.actors[actor].place ||
+      t.docks.includes(s.actors[actor].place),
+  );
+// A lane the speaker knows and the listener does not, nearest first.
+function laneToTell(s, speaker, listener) {
+  const here = s.actors[speaker].place;
+  const ship = Object.entries(transports).find(([, t]) => t.place === here);
+  const near = ship ? s.transports[ship[0]].dock : here;
+  const lanes = laneEdges()
+    .map(laneOfEdge)
+    .filter(
+      ([from, to]) =>
+        entityActive(s, from) &&
+        entityActive(s, to) &&
+        knowsLane(s, speaker, from, to) &&
+        !knowsLane(s, listener, from, to),
+    )
+    .sort(
+      ([a, b], [c, d]) =>
+        Number(c === near || d === near) - Number(a === near || b === near),
+    );
+  return lanes.length ? laneFact(...lanes[0]) : null;
+}
+// Talk context: the lanes a person at a port knows from it. Narration only.
+export function laneTalkFacts(s, actor) {
+  if (!s.actors[actor] || !atPort(s, actor)) return [];
+  const here = s.actors[actor].place;
+  const ship = Object.entries(transports).find(([, t]) => t.place === here);
+  const near = ship ? s.transports[ship[0]].dock : here;
+  const known = laneEdges()
+    .map(laneOfEdge)
+    .filter(
+      ([from, to]) =>
+        from === near &&
+        entityActive(s, to) &&
+        knowsLane(s, actor, from, to),
+    )
+    .map(([, to]) => nameOf(to));
+  return known.length
+    ? [`I know ships sail from ${nameOf(near)} to ${known.join(" and ")}.`]
+    : [`I know of no ship lane from ${nameOf(near)}.`];
+}
+export const laneFact = (from, to) => ({
+  id: `lane:${from}>${to}`,
+  text: `Ships for ${nameOf(to)} leave from ${nameOf(from)}.`,
+});
+const laneFactText = (id) => {
+  const [from, to] = id.startsWith("lane:") ? id.slice(5).split(">") : [];
+  return from &&
+    to &&
+    laneEdges().some(([a, b]) => a === `sea:${from}` && b === `sea:${to}`)
+    ? laneFact(from, to).text
+    : null;
+};
 
 // Only recorded speech publishes a selected account and its authored effects.
 export function publishKnowledgeSpeech(s, entry, disclosures) {
   const learned = acceptKnowledgeSpeech(s, entry, disclosures);
+  // A lane heard in published speech goes on the listener's own chart.
+  for (const { fact, listener } of learned)
+    if (fact.source.kind === "lane")
+      learnLane(s, listener, ...fact.id.slice(5).split(">"));
   for (const { fact, listener, commitChoice } of learned) {
     const topic = fact.source.topic;
     if (
@@ -1243,6 +1328,20 @@ export function legalActions(s, actor = currentActor(s)) {
     });
   }
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
+    // A course card aboard a docked ship sets the voyage for everyone aboard.
+    if (isCourse(s, here, to)) {
+      const course = offer(
+        "course",
+        actor,
+        null,
+        to,
+        `${nameOf(actor)} sets the ship's course for ${nameOf(to)}.`,
+        [to],
+      );
+      course.label = "Set course";
+      out.push(course);
+      continue;
+    }
     const through = !baseExits(s, here).includes(to);
     const crossing = crossingBetween(here, to, s);
     const way = through
@@ -1252,6 +1351,9 @@ export function legalActions(s, actor = currentActor(s)) {
     for (const other of knownActors(s).filter(
       (id) =>
         (crossing?.travelers !== "player" || controlledByHuman(s, actor)) &&
+        (!transportPlace(here) ||
+          !crossing?.transport ||
+          canDisembark(s, crossing.transport, id)) &&
         id !== actor &&
         !controlledByHuman(s, id) &&
         (!staysPut(id) || packJourneyDestination(s, id) === to) &&
@@ -1684,6 +1786,9 @@ function perform(s, a, capture = () => {}, round = null) {
     case "use":
       remember(s, a.item, a.text);
       break;
+    case "course":
+      setCourse(s, here, a.target);
+      break;
     case "choose":
       applyPackChoice(s, a);
       break;
@@ -1758,7 +1863,9 @@ function perform(s, a, capture = () => {}, round = null) {
           );
           text += ` ${nameOf(a.target)} drops the ${nameOf(dropped)}.`;
         }
-        const retreat = exits(s, here, a.target)[0];
+        const retreat = exits(s, here, a.target).find(
+          (to) => !isCourse(s, here, to),
+        );
         if (retreat) {
           markCrossed(s, here, retreat);
           s.actors[a.target].place = retreat;
@@ -1951,13 +2058,13 @@ function roamingAPI(s) {
     active: (place) => entityActive(s, place),
     visibleEdges: visibleRouteEdges,
     witnessedEdges: (actor) => witnessedRouteEdges(s, actor),
-    exits: (from, actor, previous = null) => exits(s, from, actor, previous),
+    exits: (from, actor, previous = null) =>
+      exits(s, from, actor, previous ?? (transportPlace(from) ? VOYAGE : null)),
     actions: (actor) => legalActions(s, actor),
-    transportExit: (actor) => {
-      const destinations = transportExits(s, s.actors[actor].place);
-      return legalActions(s, actor).find(
-        (a) => a.kind === "move" && destinations.includes(a.target),
-      );
+    voyage: (actor, dock) => voyageAction(s, actor, dock),
+    // Waiting at a port to board brings the empty ship one lane closer.
+    callShip: (actor, next) => {
+      if (transportPlace(next)) callTransport(s, s.actors[actor].place, true);
     },
     present: (actor) => !controlledByHuman(s, actor) || humanPresent(s, actor),
     arrive: (actor) => arriveRoamingRecitals(s, packDefinitions, actor),
@@ -1987,12 +2094,26 @@ function readRouteBetween(s, from, target, actor = null) {
     const projected = s.actors[actor] && s.actors[actor].place !== here
       ? { ...s, actors: { ...s.actors, [actor]: { ...s.actors[actor], place: here } } }
       : s;
-    for (const next of exits(projected, here, actor, route.at(-2)))
+    const previous = route.at(-2) ?? (transportPlace(here) ? VOYAGE : null);
+    for (const next of exits(projected, here, actor, previous))
       if (!visited.has(next)) {
         visited.add(next);
         queue.push([...route, next]);
       }
   }
+}
+// Aboard a ship, reaching a dock means setting a course toward it, waiting
+// out the voyage, or stepping ashore once the ship has arrived.
+function voyageAction(s, actor, dock, actions = legalActions(s, actor)) {
+  const here = s.actors[actor].place;
+  if (!transportPlace(here)) return undefined;
+  const ashore = actions.find((a) => a.kind === "move" && a.target === dock);
+  if (ashore) return ashore;
+  const lane = courseToward(s, here, dock, actor);
+  return (
+    actions.find((a) => a.kind === "course" && a.target === lane) ||
+    actions.find((a) => a.kind === "wait")
+  );
 }
 function toward(s, actor, target) {
   const here = s.actors[actor].place;
@@ -2000,7 +2121,10 @@ function toward(s, actor, target) {
   let actions;
   const getActions = () => (actions ??= legalActions(s, actor));
   if (route)
-    return getActions().find((a) => a.kind === "move" && a.target === route[1]);
+    return (
+      getActions().find((a) => a.kind === "move" && a.target === route[1]) ||
+      voyageAction(s, actor, route[1], getActions())
+    );
   if (target === "attic" && !["attic", "pond", "station"].includes(here)) {
     const approach = routeBetween(s, here, "pond", actor);
     if (approach?.length > 1)
@@ -2127,7 +2251,7 @@ function basePlan(s, actor) {
   if (isPackActor(actor) && !personalQuestActor(actor)) {
     const actions = legalActions(s, actor).filter(
       (a) =>
-        !["move", "accompany", "threaten"].includes(a.kind) &&
+        !["move", "course", "accompany", "threaten"].includes(a.kind) &&
         (a.kind !== "take" || desireFor(s, actor).items.includes(a.item)),
     );
     return socialPlan(s, actor, actions, {
@@ -2136,6 +2260,7 @@ function basePlan(s, actor) {
       routeBetween,
       carried,
       willingToGive,
+      courseToward,
     });
   }
   if (!knownActors(s).includes(actor))
@@ -2183,6 +2308,7 @@ function basePlan(s, actor) {
       routeBetween,
       carried,
       willingToGive,
+      courseToward,
     });
   const here = s.actors[actor].place;
   const find = (kind, item, target) =>
@@ -2651,6 +2777,17 @@ export function play(
   }
   if (exact.kind === "wait")
     waitForTransport(next, next.actors[actor].place, actor);
+  for (const voyage of sailTransports(next)) {
+    const ship = transports[voyage.id].place;
+    addLog(
+      next,
+      "World",
+      voyage.kind === "arrive"
+        ? `${nameOf(ship)} docks at ${nameOf(voyage.dock)}.`
+        : `${nameOf(ship)} ${voyage.idle ? "sails on its own" : "casts off"} for ${nameOf(voyage.to)}.`,
+      { locationId: ship },
+    );
+  }
 
   for (const actor of knownActors(next)) {
     const life = lifeOf(next, actor);
@@ -2823,7 +2960,13 @@ export function validateWorld(s) {
   )
     fail();
   if (
-    !validKnowledge(s, actorIds, Object.keys(places), authoredKnowledgeTopics())
+    !validKnowledge(
+      s,
+      actorIds,
+      Object.keys(places),
+      authoredKnowledgeTopics(),
+      laneFactText,
+    )
   )
     fail();
   if (
@@ -2945,7 +3088,7 @@ export function validateWorld(s) {
       s,
       roamingActors,
       Object.keys(places),
-      authoredRouteEdges(),
+      [...authoredRouteEdges(), ...laneEdges()],
     )
   )
     fail();
@@ -3326,6 +3469,7 @@ export function validateWorld(s) {
     "guard",
     "attack",
     "move",
+    "course",
     "take",
     "drop",
     "give",

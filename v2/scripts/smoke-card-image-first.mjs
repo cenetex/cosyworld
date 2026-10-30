@@ -397,9 +397,15 @@ try {
       await ready();
       assert.equal((await state()).actors.vale.place, "greek-ship");
       assert.equal(await card("pond").count(), 0);
+      // The harbor card sets the course; a round at sea, then Disembark.
+      await cards("greek-harbor");
+      assert.equal((await state()).transports["greek-ship"].phase, "sea");
+      await cards("vale");
       await cards("greek-harbor");
       assert.equal((await state()).actors.vale.place, "greek-harbor");
       assert.equal((await state()).items.lamp.holder, "vale");
+      // The Theban Harbor Road climbs from the harbor to the courtyard.
+      await cards("greek-road-thebes");
       await cards("greek-courtyard");
       await art();
       await page.locator("#toolbar-menu-button").click();
