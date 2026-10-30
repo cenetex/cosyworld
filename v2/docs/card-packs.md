@@ -59,8 +59,11 @@ carried by someone present there.
 (`daylight.mjs`: every other block of 24 turns).
 `{ "kind": "weather", "place": "greek-ship", "condition": "mist" }` holds
 while that place's regional weather (`weather.mjs`) is the named condition:
-`clear`, `cloud`, `rain` or `mist`. The Willows crossings use both, so the
-island appears from the ship's rail only on a misty night.
+`clear`, `cloud`, `rain` or `mist`.
+`{ "kind": "ship_at", "transport": "greek-ship", "dock": "pond" }` holds
+while that transport is docked at, or has just arrived at, that dock (not at
+sea). The Willows crossings use all three, so the island appears from the
+ship's rail only on a misty night while the ship lies at Black Pond.
 
 The vocabulary also includes `light`, bounded `not`, and persistent pack
 `choice`, `choice_unset`, `flag`, `holding`, `item_at` and `met`. Environmental
