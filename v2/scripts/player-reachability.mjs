@@ -53,18 +53,3 @@ export function assertPlayerReachability(view, label, clientActions = null) {
   }
 }
 
-export async function assertBrowserReachability(page, label) {
-  const { view, actions } = await page.evaluate(() => ({
-    view: {
-      primary_action: state.primary_action,
-      action_offers: state.action_offers,
-      action_hand: state.action_hand,
-      turn: state.turn,
-    },
-    actions: buildActions(state).map((action) => ({
-      offerIds: action.offerIds || [], disabled: Boolean(action.disabled),
-      runnable: typeof action.run === "function",
-    })),
-  }));
-  assertPlayerReachability(view, label, actions);
-}

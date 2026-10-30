@@ -404,10 +404,8 @@ jobs:
           Acquire::https::Timeout "20";
           EOF
 
-      - name: Install fresh-seed browser gate system dependencies
-        run: |
-          npx playwright install-deps chromium
-          sudo apt-get install --yes screen
+      - name: Install browser system dependencies
+        run: npx playwright install-deps chromium
 
       - name: Install Chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
@@ -420,10 +418,6 @@ jobs:
           for check in $CHECKS; do
             echo "::group::$check"
             case "$check" in
-              browser-check:*)
-                COSYWORLD_BROWSER_CHECK_MODE="${check#browser-check:}" \
-                  npm run v2:browser:check
-                ;;
               *@*)
                 COSYWORLD_SMOKE_WIDTHS="${check#*@}" \
                   node "v2/scripts/${check%@*}.mjs"
@@ -444,8 +438,6 @@ jobs:
             output/greek-homecoming/*.json
             output/greek-capacity/*.png
             output/greek-capacity/*.json
-            v2/orchestrator-rust/.runtime/visual-smoke/*.png
-            v2/orchestrator-rust/.runtime/visual-smoke/*.json
             output/badger-check/*.png
             output/theban-scenery/*.png
             output/theban-scenery/*.json

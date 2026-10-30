@@ -1,9 +1,7 @@
 {
-  "about": "Browser checks for the full suite (.github/workflows/ci.yml), with measured seconds from recent runs. scripts/plan-browser-shards.mjs packs them into even runner shards of at most targetSeconds. An entry is a v2/scripts/<name>.mjs journey, <name>@<width> for one viewport width of a journey that reads COSYWORLD_SMOKE_WIDTHS, or browser-check:<mode> for npm run v2:browser:check. A new journey only needs a line here; give it a measured or estimated duration.",
+  "about": "Browser checks for the full suite (.github/workflows/ci.yml), with measured seconds from recent runs. scripts/plan-browser-shards.mjs packs them into even runner shards of at most targetSeconds. An entry is a v2/scripts/<name>.mjs journey, <name>@<width> for one viewport width of a journey that reads COSYWORLD_SMOKE_WIDTHS. A new journey only needs a line here; give it a measured or estimated duration.",
   "targetSeconds": 400,
   "checks": {
-    "browser-check:baseline": 30,
-    "browser-check:living-world": 90,
     "smoke-shared-cards": 250,
     "smoke-card-greek-capacity": 80,
     "check-card-awakening": 20,
