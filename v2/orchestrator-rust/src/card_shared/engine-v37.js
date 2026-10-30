@@ -534,7 +534,8 @@
         persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
         requires: [
           {
-            kind: "shared_world"
+            kind: "connected_humans",
+            minimum: 2
           }
         ],
         holder: "station",
@@ -549,7 +550,8 @@
         travelers: "player",
         requires: [
           {
-            kind: "shared_world"
+            kind: "connected_humans",
+            minimum: 2
           },
           {
             kind: "item_near",
@@ -612,7 +614,7 @@
             text: "The lamp lights a stone arch. Pale rails lead through it to the empty station."
           }
         },
-        image: "assets/shared/characters/vale-scarf.png"
+        image: "assets/shared/characters/vale.png"
       },
       {
         id: "mara",
@@ -637,7 +639,7 @@
             text: "The mask hangs between sage curtains. Their folds open onto the paper theatre."
           }
         },
-        image: "assets/shared/characters/mara-scarf.png"
+        image: "assets/shared/characters/mara.png"
       },
       {
         id: "ash",
@@ -662,7 +664,7 @@
             text: "The float draws a diving bell to the shore. Its open hatch leads into the dry belfry."
           }
         },
-        image: "assets/shared/characters/ash-scarf.png"
+        image: "assets/shared/characters/ash.png"
       },
       {
         id: "nell",
@@ -687,7 +689,7 @@
             text: "Water touches the shore. A gate of new shoots opens into the glasshouse."
           }
         },
-        image: "assets/shared/characters/nell-scarf.png"
+        image: "assets/shared/characters/nell.png"
       },
       {
         id: "tavi",
@@ -712,7 +714,7 @@
             text: "The kite pulls a ribbon of path into the air. It curls up to the clear hilltop."
           }
         },
-        image: "assets/shared/characters/tavi-scarf.png"
+        image: "assets/shared/characters/tavi.png"
       },
       {
         id: "rue",
@@ -739,7 +741,7 @@
           connection: "pond",
           returnTravel: "back to the pond"
         },
-        image: "assets/shared/characters/rue-scarf.png"
+        image: "assets/shared/characters/rue.png"
       },
       {
         id: "orin",
@@ -764,7 +766,7 @@
             text: "The board unfolds a short bridge of game tiles. It leads across the water to the pavilion."
           }
         },
-        image: "assets/shared/characters/orin-scarf.png"
+        image: "assets/shared/characters/orin.png"
       },
       {
         id: "ada",
@@ -789,7 +791,7 @@
             text: "The shears find a seam in the air. It parts like cloth and opens into the sail loft."
           }
         },
-        image: "assets/shared/characters/ada-scarf.png"
+        image: "assets/shared/characters/ada.png"
       }
     ]
   };
@@ -1345,7 +1347,7 @@
       attic: {
         sanctuary: true,
         name: "Mirror attic",
-        text: "A tall mirror stands dark and empty. Dust gathers along its frame.",
+        text: "A tall mirror reflects a black shore. Dust gathers along its frame.",
         exits: []
       },
       pond: {
@@ -1886,7 +1888,7 @@
           ],
           light: false,
           speaker: "World",
-          text: "Vale stands alone in Mirror attic, holding an unlit lamp. The tall mirror stands dark and empty."
+          text: "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
         }
       ]
     },
@@ -2628,7 +2630,7 @@
             exits: [
               "greek-gate"
             ],
-            backdrop: "assets/greek-drama/aulis-anchorage-day.webp",
+            backdrop: "assets/greek-drama/harbor.svg",
             persona: "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
           },
           "greek-athens": {
@@ -2923,7 +2925,7 @@
               "greek-thrace",
               "greek-road-royal"
             ],
-            backdrop: "assets/greek-drama/trojan-walls-day.webp",
+            backdrop: "assets/greek-drama/palace.svg",
             persona: "The city road runs between battered walls. Soldiers and displaced households share the remaining wells."
           },
           "greek-greek-camp": {
@@ -2945,14 +2947,14 @@
             exits: [
               "greek-troy"
             ],
-            backdrop: "assets/greek-drama/trojan-night-camp-day.webp",
+            backdrop: "assets/greek-drama/grove.svg",
             persona: "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide."
           },
           "greek-troy-beach": {
             name: "The Homecoming Beach",
             text: "A small boat is drawn above the tideline. Its passengers compare what they remember of the war.",
             exits: [],
-            backdrop: "assets/greek-drama/homecoming-beach-day.webp",
+            backdrop: "assets/greek-drama/sea.svg",
             requires: [
               {
                 kind: "choice",
@@ -2968,7 +2970,7 @@
             exits: [
               "greek-greek-camp"
             ],
-            backdrop: "assets/greek-drama/lemnian-cave-day.webp",
+            backdrop: "assets/greek-drama/book-three-lemnos-day.webp",
             persona: "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
           },
           "greek-thrace": {
@@ -2978,7 +2980,7 @@
               "greek-troy",
               "greek-road-black-sea"
             ],
-            backdrop: "assets/greek-drama/thracian-shore-day.webp",
+            backdrop: "assets/greek-drama/book-three-thrace-day.webp",
             persona: "A fleet waits beyond the breakers. Captive households search among the new arrivals."
           },
           "greek-egypt-tomb": {
@@ -4207,7 +4209,7 @@
             text: "The account records Helen's journey from Troy. It makes no claim that a phantom took her place.",
             holder: "greek-troy-beach",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            art: "assets/greek-drama/troy-testimony.png",
+            art: "assets/greek-drama/testimony.png",
             requires: [
               {
                 kind: "choice",
@@ -4221,7 +4223,7 @@
             text: "The testimony begins with offerings and a meeting at Agamemnon's tomb.",
             holder: "greek-argos-tomb",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            art: "assets/greek-drama/tomb-testimony.png",
+            art: "assets/greek-drama/testimony.png",
             requires: [
               {
                 kind: "choice",
@@ -4235,7 +4237,7 @@
             text: "The testimony begins with Electra waiting outside the Mycenaean palace.",
             holder: "greek-mycenae-palace",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            art: "assets/greek-drama/palace-testimony.png",
+            art: "assets/greek-drama/testimony.png",
             requires: [
               {
                 kind: "choice",
@@ -4249,7 +4251,7 @@
             text: "The testimony begins in a poor household in the Argive countryside.",
             holder: "greek-argive-farm",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            art: "assets/greek-drama/farm-testimony.png",
+            art: "assets/greek-drama/testimony.png",
             requires: [
               {
                 kind: "choice",
@@ -4262,7 +4264,7 @@
             name: "The Mothers\u2019 Petition",
             text: "An olive branch lies across a tablet bearing the mothers\u2019 request. Aethra has left room for the city\u2019s answer.",
             holder: "greek-eleusis",
-            art: "assets/greek-drama/burial-petition.png",
+            art: "assets/greek-drama/decree.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4281,7 +4283,7 @@
             name: "Clean Burial Cloths",
             text: "Clean folded cloths wait at the quay. Thaleia has set them aside for the rite at Eleusis.",
             holder: "greek-piraeus",
-            art: "assets/greek-drama/return-cloths.png",
+            art: "assets/greek-drama/funeral-cloth.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4295,7 +4297,7 @@
             name: "The Quay Basket",
             text: "Grain, bread and cups fill a basket. Thaleia needs it beside the resting place at this quay.",
             holder: "greek-piraeus",
-            art: "assets/greek-drama/provision-basket.png",
+            art: "assets/greek-drama/provisions.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4309,7 +4311,7 @@
             name: "The Funeral Urn",
             text: "A covered urn holds ashes entrusted to the mothers after the recorded recovery and funeral. Its clay is cool.",
             holder: "greek-eleusis",
-            art: "assets/greek-drama/ash-urn.png",
+            art: "assets/greek-drama/water-jar.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4333,7 +4335,7 @@
             name: "The Return List",
             text: "The mothers\u2019 return list names households who need rest on the homeward road. Its margin leaves room for the quay\u2019s reply.",
             holder: "greek-eleusis",
-            art: "assets/greek-drama/return-list.png",
+            art: "assets/greek-drama/testimony.png",
             persona: "Describe the list, its actual holder and its recorded use. Myrine signs the margin only after her arrival and care at Piraeus. Her signed account records what she saw there. A later reading carries her words to Dione.",
             requires: [
               {
@@ -4352,7 +4354,7 @@
             name: "The Grove Cup",
             text: "Fresh spring water fills a small cup. The keeper has set it beside the grove boundary.",
             holder: "greek-colonus",
-            art: "assets/greek-drama/grove-cup.png",
+            art: "assets/greek-drama/water-jar.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4366,7 +4368,7 @@
             name: "Honey for the Grove",
             text: "A sealed pot holds honey for the grove\u2019s offering.",
             holder: "greek-colonus",
-            art: "assets/greek-drama/grove-honey.png",
+            art: "assets/greek-drama/oil-flask.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4380,7 +4382,7 @@
             name: "The Shelter Blanket",
             text: "A thick clean blanket is folded beside the cargo baskets. The altar keeper at Marathon has asked for it.",
             holder: "greek-piraeus",
-            art: "assets/greek-drama/shelter-blanket.png",
+            art: "assets/greek-drama/funeral-cloth.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4394,7 +4396,7 @@
             name: "The Refuge Tablet",
             text: "A blank wax tablet waits at the public table. The keeper at Colonus can use it to record the grove\u2019s duty to guests.",
             holder: "greek-athens",
-            art: "assets/greek-drama/refuge-tablet.png",
+            art: "assets/greek-drama/decree.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4423,7 +4425,7 @@
             text: "Teucer\u2019s burial plea has room for the witnesses\u2019 signed account of the completed rite.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
-            art: "assets/greek-drama/ajax-plea.png",
+            art: "assets/greek-drama/decree.png",
             requires: [
               {
                 kind: "flag",
@@ -4442,7 +4444,7 @@
             text: "Clean linen is set aside for Ajax\u2019s burial in the Trojan account.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
-            art: "assets/greek-drama/ajax-cloth.png",
+            art: "assets/greek-drama/funeral-cloth.png",
             requires: [
               {
                 kind: "flag",
@@ -4456,7 +4458,7 @@
             text: "A short shovel and grave tools wait beside the tents.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
-            art: "assets/greek-drama/ajax-tools.png",
+            art: "assets/greek-drama/shovel.png",
             requires: [
               {
                 kind: "flag",
@@ -15891,7 +15893,7 @@
         ],
         bridge: {
           id: "shore-lonely-forest",
-          description: "The Black cloth in the lamplit attic reveals stairs down to the cottage. The cottage keeps a free stair back to the attic."
+          description: "The Black cloth in the attic opens the mirror onto the cottage. The cottage keeps a free path back to the attic."
         },
         crossings: [
           {
@@ -15899,17 +15901,9 @@
             from: "attic",
             to: "forest-cottage",
             travelers: "player",
-            travel: "down the attic stairs",
-            travelLabel: "Down to the cottage",
+            travel: "through the attic mirror",
+            travelLabel: "Enter the cottage",
             requires: [
-              {
-                kind: "light",
-                item: "lamp",
-                at: [
-                  "attic"
-                ],
-                uncovered: true
-              },
               {
                 kind: "item_present",
                 item: "cloth",
@@ -15917,24 +15911,23 @@
               }
             ],
             scenery: {
-              open: "A narrow stair leads down to the cosy cottage.",
-              closed: "The floorboards show no way downstairs.",
-              backdrop: "assets/shared/places/attic-stairs.webp",
+              open: "The mirror shows a blue cottage beneath an oak.",
+              closed: "The mirror holds the room and its window.",
               cardArt: "assets/lonely-forest/cottage.png",
               cardName: "Cosy Cottage"
             },
-            opened: "Lamplight reveals stairs leading down to the cosy cottage."
+            opened: "A blue cottage appears beneath the oak in the mirror."
           },
           {
             id: "forest-cottage-attic",
             from: "forest-cottage",
             to: "attic",
             travelers: "player",
-            travel: "up the cottage stairs",
-            travelLabel: "Up to the attic",
+            travel: "through the cottage mirror",
+            travelLabel: "Return to the attic",
             requires: [],
             scenery: {
-              open: "A narrow stair leads up to the attic."
+              open: "A mirror beside the low doorway opens onto the attic."
             }
           }
         ]
@@ -18895,7 +18888,7 @@
         if (!entityEnabled(world, id, true) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns3(state.met, id)))
           return false;
       for (const [id, item] of Object.entries(pack.items || {}))
-        if (!entityEnabled(world, id) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0))
+        if (!entityEnabled(world, id, true) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0))
           return false;
     }
     return true;
@@ -22798,8 +22791,8 @@
   var covered = (s, id) => s.items.cloth.holder === id;
   var shining = (s) => entityActive(s, "lamp") && s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
   var reflectionOpen = (s, from = itemPlace2(s, "lamp")) => (
-    // Leaving the attic needs its own light; either shore can light the return.
-    shining(s) && (from === "attic" ? itemPlace2(s, "lamp") === "attic" : from === "pond" && ["attic", "pond"].includes(itemPlace2(s, "lamp")))
+    // Light at either end opens the mirror in both directions.
+    ["attic", "pond"].includes(from) && shining(s) && ["attic", "pond"].includes(itemPlace2(s, "lamp"))
   );
   var baseSoundAt = (s, place) => entityActive(s, "bell") && s.items.bell.ringing > 0 && !covered(s, "bell") && itemPlace2(s, "bell") === place;
   var senses = { player: "vale", baseSoundAt, nameOf };
@@ -22810,7 +22803,7 @@
   });
   var baseExits = (_s, place) => places[place].exits;
   var placeText = (s, place) => [
-    place === "attic" ? reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : "A tall mirror stands dark and empty. Dust gathers along its frame." : s.opening && place === "station" ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond." : places[place].text,
+    s.opening && place === "attic" ? reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : "A tall mirror reflects a black shore. Dust gathers along its frame." : s.opening && place === "station" ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond." : places[place].text,
     ...crossingScenery(s, place, sensesFor(s)),
     ...transportScenery(s, place, nameOf),
     ...homeRescueExit(s, place) || pondRescueExit(s, place) ? [`A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`] : []
@@ -22872,10 +22865,9 @@
   function pondRescueExit(s, place, actor, previous) {
     actor ||= currentActor(s);
     const lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
-    const refillBell = !s.items.lamp.fuel && !s.items.oil.doses ? itemPlace2(s, "bell") : null;
-    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors2(s).includes(actor) || !(atticInterior.has(lamp) || s.items.oil.doses > 0 && atticInterior.has(oil) || atticInterior.has(refillBell) && !ordinaryRouteHome(s, place, refillBell, actor, previous)) || ordinaryRouteHome(s, place, "attic", actor, previous)) return null;
+    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors2(s).includes(actor) || !(atticInterior.has(lamp) || s.items.oil.doses > 0 && atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous)) return null;
     if (ordinaryRouteHome(s, place, lamp, actor, previous) && (s.items.lamp.fuel > 0 || s.items.oil.doses > 0 && ordinaryRouteHome(s, place, oil, actor, previous))) return null;
-    if (knownActors2(s).some((id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && (insideLampRemedy(s, id) || !atticInterior.has(lamp) && s.actors[id].place === "attic" && homeRescueExit(s, "attic", id) && (localGateResource(s, "attic", "oil", id) || refillBell && localGateResource(s, "attic", "bell", id))))) return null;
+    if (knownActors2(s).some((id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && (insideLampRemedy(s, id) || !atticInterior.has(lamp) && s.actors[id].place === "attic" && homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id)))) return null;
     return "attic";
   }
   function exits(s, place, actor = null, previous = null) {
@@ -23082,7 +23074,7 @@
     switch (effect.kind) {
       case "anchor":
         s.locations.attic.anchored = true;
-        text2 = "The mirror remembers the crossing. Light at either shore opens the way back to the attic.";
+        text2 = "The mirror remembers the crossing. Its path opens in lamplight at either shore.";
         break;
       case "oil":
         s.items.oil.doses = 3;
@@ -24565,8 +24557,6 @@
     )) {
       if (!s.items.lamp.fuel && s.items.oil.doses > 0 && find("take", "oil"))
         return choose(find("take", "oil"), "Bring oil to the travelers at the shore.");
-      if (!s.items.lamp.fuel && !s.items.oil.doses && find("take", "bell"))
-        return choose(find("take", "bell"), "Bring the bell to call for oil at the shore.");
       return choose(find("move", void 0, rescue), "Meet the waiting travelers at the shore.");
     }
     return idle(
@@ -25257,12 +25247,6 @@
     "greek-road-piraeus-eleusis": art("attic-road-night"),
     "greek-road-colonus-eleusis": art("attic-road-night"),
     "greek-road-colonus-marathon": art("attic-road-night"),
-    "greek-aulis": art("aulis-anchorage-night"),
-    "greek-troy": art("trojan-walls-night"),
-    "greek-trojan-camp": art("trojan-night-camp-night"),
-    "greek-lemnos": art("lemnian-cave-night"),
-    "greek-thrace": art("thracian-shore-night"),
-    "greek-troy-beach": art("homecoming-beach-night"),
     "greek-greek-camp": art("ajax-camp-night"),
     "greek-ajax-landing": art("ajax-camp-night"),
     "greek-ajax-household": art("ajax-camp-night"),
@@ -25280,12 +25264,6 @@
     "greek-colonus": "in Colonus Grove",
     "greek-eleusis": "at the Eleusinian Sanctuary",
     "greek-marathon": "at Marathon Altar",
-    "greek-aulis": "at Aulis Anchorage",
-    "greek-troy": "by the Trojan walls",
-    "greek-trojan-camp": "at the Trojan camp",
-    "greek-lemnos": "at the Lemnian Cave",
-    "greek-thrace": "on the Thracian shore",
-    "greek-troy-beach": "on the Homecoming Beach",
     "greek-ship": "aboard the Greek ship",
     "willows-landing": "on the Danube island",
     "willows-camp": "on the Danube island"
@@ -25313,9 +25291,7 @@
   }
 
   // v2/card-game/scene.mjs
-  var darkAttic = (world, id) => id === "attic" && world?.actors && !reflectionOpen(world, id);
   function backdrop(id, world = null) {
-    if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
     const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
     const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
     return file ? `./${file}` : `./assets/${id}.png`;
@@ -25324,7 +25300,6 @@
     (c) => c.from === place && (c.scenery?.overlay || c.scenery?.backdrop) && crossingOpen(world, c, senses)
   );
   function locationVariant(world, id) {
-    if (darkAttic(world, id)) return "dark";
     const crossing = visibleCrossing(world, id)?.id || "base";
     const weather = locationWeather(world, id);
     const variant = weather ? `${crossing}:${weather.variant}` : crossing;

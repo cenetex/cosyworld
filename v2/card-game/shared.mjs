@@ -350,8 +350,7 @@ export async function connectSharedWorld(id) {
     command,
     sync,
     showLink: () => showLink(id),
-    async play(action) {
-      const key = crypto.randomUUID();
+    async play(action, key = crypto.randomUUID()) {
       playError = null;
       try {
         return await command({ op: "play", key, action });
@@ -467,7 +466,12 @@ let renderedQueue = "";
 export function renderSharedQueue(
   session,
   portraitFor,
-  { liveActor = null, needsLive = false, onLive = null } = {},
+  {
+    liveActor = null,
+    needsLive = false,
+    onLive = null,
+    onWithdraw = (key) => session.command({ op: "cancel", key }),
+  } = {},
 ) {
   const { state } = session;
   const queue = $("shared-queue");
@@ -508,7 +512,7 @@ export function renderSharedQueue(
     const face = returnsLive
       ? button("", onLive)
       : canWithdraw
-        ? button("", () => session.command({ op: "cancel", key: entry.id }))
+        ? button("", () => onWithdraw(entry.id))
         : node("span");
     face.className = "shared-play-avatar";
     face.dataset.actor = entry.actor;

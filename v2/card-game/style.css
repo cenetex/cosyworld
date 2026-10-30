@@ -1065,7 +1065,8 @@ body .card-frame[hidden] {
 #card-actions button:hover {
   background: #3c3325;
 }
-#card-actions button[data-queued="true"] {
+#card-actions button[data-queued="true"],
+#card-actions button[data-sent] {
   border-color: var(--gold);
   background: #3c3325;
 }

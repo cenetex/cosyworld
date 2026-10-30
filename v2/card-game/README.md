@@ -146,10 +146,16 @@ Arrival starts the hand at the new current place. Selection keeps its scroll pos
 On wide screens, the resting hand occupies two card widths at the right. Dialogue
 sits at the left. Selecting a card opens the hand across the screen and moves
 dialogue above it. Swipe, use the wheel, or use the arrow keys to reach more cards.
-Play stays available during an exchange. A waiting play shows **Queued**;
-tapping it again cancels it. Selecting another card clears the waiting play.
-Shared play waits for the player's current turn to finish, then checks the
-chosen action against the current table before sending it.
+Play stays available during an exchange. A waiting play shows **Queued** and
+the notice names what it waits for: an earlier play, the arrival, the cards or
+an open menu. In a local game tapping it again cancels it. Selecting another
+card clears the waiting play. Shared play waits for the player's current turn
+to finish, then checks the chosen action against the current table before
+sending it. There a second tap keeps the play; **Cancel play** withdraws it.
+The notice follows the player's own shared play: **Sending**, **Sent** while it
+waits for the round, **Playing**, a short **Played**, or **Not played** with the
+server's reason. A refusal stays until the next play and does not return on
+reload.
 Selection, cancellation,
 drag pairing and keyboard navigation spend no turn; only a committed play does.
 The latest selected carried item appears in the player's avatar hand.

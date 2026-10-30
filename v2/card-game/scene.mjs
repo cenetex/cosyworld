@@ -434,7 +434,9 @@ export function sceneStaging(
   // Things lying in this place rest on the floor behind the cast. The hand
   // keeps every one of them; the stage shows only the first few.
   const lying = items
-    .filter((item) => item.holder === locationId)
+    .filter(
+      (item) => item.holder === locationId && entityActive(world, item.id),
+    )
     .slice(0, FLOOR_SPOTS.wide.length);
   const spots = Object.fromEntries(
     Object.entries(FLOOR_SPOTS).map(([layout, table]) => [
