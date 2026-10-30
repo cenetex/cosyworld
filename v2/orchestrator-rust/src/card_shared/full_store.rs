@@ -143,6 +143,89 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
     c.execute("UPDATE card_plays SET status='cancelled' WHERE world=? AND status IN ('waiting','working','playing')",[id]).map_err(sql_error)?;
     Ok(w)
 }
+/// The journal head of one world. The log is append-only, so an unchanged head
+/// means an unchanged world.
+pub(super) fn revision(c: &Connection, id: &str) -> Result<i64> {
+    c.query_row(
+        "SELECT coalesce(max(seq),0) FROM card_full_log WHERE world=?",
+        [id],
+        |r| r.get(0),
+    )
+    .map_err(sql_error)
+}
+/// A world read without the write lock, at journal head `revision`.
+pub(super) struct Prepared {
+    pub revision: i64,
+    pub world: World,
+}
+/// Reads the current checkpoint in a read-only snapshot. It returns `None`
+/// when loading would need a write (replay, upgrade or migration), so the
+/// caller then does all of its work inside the write transaction as before.
+pub(super) fn peek(c: &mut Connection, id: &str) -> Option<Prepared> {
+    let tx = c.transaction().ok()?;
+    let (seq, state): (i64, String) = tx
+        .query_row(
+            "SELECT seq,state FROM card_full_checkpoints WHERE world=?",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .ok()?;
+    let revision: i64 = tx
+        .query_row(
+            "SELECT coalesce(max(seq),0) FROM card_full_log WHERE world=?",
+            [id],
+            |r| r.get(0),
+        )
+        .ok()?;
+    let world: World = serde_json::from_str(&state).ok()?;
+    (seq == revision && world.version == engine::VERSION).then_some(Prepared { revision, world })
+}
+/// A command already reduced outside the write lock, from the world at
+/// `revision`. It is used only while the journal head is still `revision`.
+#[derive(Clone)]
+pub(super) struct Applied {
+    pub revision: i64,
+    pub command: Value,
+    pub world: World,
+    pub result: Value,
+}
+impl Prepared {
+    pub fn apply(&self, command: Value) -> Option<Applied> {
+        let mut world = self.world.clone();
+        let result = world.apply(&command).ok()?;
+        Some(Applied {
+            revision: self.revision,
+            command,
+            world,
+            result,
+        })
+    }
+}
+/// Appends `command` like `commit`. When `applied` holds this exact command
+/// reduced from the current journal head, its result is reused; otherwise the
+/// rules run here.
+pub(super) fn commit_with(
+    c: &Connection,
+    id: &str,
+    w: &mut World,
+    command: Value,
+    applied: Option<Applied>,
+    now: i64,
+) -> Result<Value> {
+    if let Some(applied) = applied {
+        if applied.command == command && applied.revision == revision(c, id)? {
+            c.execute(
+                "INSERT INTO card_full_log(world,command,at) VALUES(?,?,?)",
+                params![id, command.to_string(), now],
+            )
+            .map_err(sql_error)?;
+            *w = applied.world;
+            checkpoint(c, id, w, c.last_insert_rowid())?;
+            return Ok(applied.result);
+        }
+    }
+    commit(c, id, w, command, now)
+}
 pub(super) fn commit(
     c: &Connection,
     id: &str,
@@ -266,6 +349,8 @@ pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result
 pub(super) struct PlayRequest<'a> {
     pub action: Value,
     pub key: &'a str,
+    /// This play already checked against the rules outside the write lock.
+    pub checked: Option<Applied>,
 }
 pub(super) fn enqueue(
     c: &Connection,
@@ -276,7 +361,11 @@ pub(super) fn enqueue(
     play: PlayRequest<'_>,
     now: i64,
 ) -> Result<()> {
-    let PlayRequest { action, key } = play;
+    let PlayRequest {
+        action,
+        key,
+        checked,
+    } = play;
     let command = json!({"op":"play","actor":actor_id(a),"action":action});
     let text = command.to_string();
     let old: Option<(String, String, String)> = c
@@ -305,8 +394,14 @@ pub(super) fn enqueue(
     if minute >= 24 || hour >= 240 || total >= 1200 {
         return Err("The table is resting for a moment. Try your play shortly.".into());
     }
-    let mut probe = w.clone();
-    probe.apply(&command)?;
+    let checked = match checked {
+        Some(checked) => checked.command == command && checked.revision == revision(c, id)?,
+        None => false,
+    };
+    if !checked {
+        let mut probe = w.clone();
+        probe.apply(&command)?;
+    }
     let pending:i32=c.query_row("SELECT count(*) FROM card_full_plays WHERE world=? AND actor=? AND status IN ('waiting','retry','working','playing')",params![id,a],|r|r.get(0)).map_err(sql_error)?;
     if pending > 0 {
         return Err("Your play is already at the table.".into());

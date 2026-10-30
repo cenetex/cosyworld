@@ -17,7 +17,11 @@ use axum::{
 use rusqlite::{params, OptionalExtension, TransactionBehavior};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, Weak},
+    time::{Duration, Instant},
+};
 #[path = "full_browser.rs"]
 mod browser;
 
@@ -50,6 +54,33 @@ async fn blocking(f: impl FnOnce() -> Result<Value> + Send + 'static) -> Result<
         .await
         .map_err(|_| "The shared world is taking a moment.".to_string())?
 }
+// SQLite has one write lock per database file. Shared-world writes take
+// turns here first, so they wait in line in this process instead of racing
+// each other on the five-second busy timeout ("database is locked"). Inside
+// a turn the rules run against a read snapshot, and the write transaction
+// that follows only appends the result.
+fn writer(state: &AppState) -> Arc<Mutex<()>> {
+    static WRITERS: OnceLock<Mutex<HashMap<std::path::PathBuf, Weak<Mutex<()>>>>> = OnceLock::new();
+    let path = state
+        .event_store_path
+        .as_deref()
+        .cloned()
+        .unwrap_or_default();
+    let mut writers = WRITERS
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    if let Some(gate) = writers.get(&path).and_then(Weak::upgrade) {
+        return gate;
+    }
+    writers.retain(|_, gate| gate.strong_count() > 0);
+    let gate = Arc::new(Mutex::new(()));
+    writers.insert(path, Arc::downgrade(&gate));
+    gate
+}
+fn turn(gate: &Mutex<()>) -> MutexGuard<'_, ()> {
+    gate.lock().unwrap_or_else(PoisonError::into_inner)
+}
 async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
     reply(
         blocking(move || {
@@ -74,6 +105,8 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
         admit(&u)?;
         let mut c = db(&state)?;
         store::schema(&c)?;
+        let gate = writer(&state);
+        let _turn = turn(&gate);
         let tx = c
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sql_error)?;
@@ -104,24 +137,12 @@ async fn view(State(state): State<AppState>, Path(id): Path<String>, h: HeaderMa
         valid_id(&id)?;
         let u = user(&state, &h, false)?;
         admit(&u)?;
-        let mut c = db(&state)?;
-        store::schema(&c)?;
-        let tx = c
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(sql_error)?;
-        let time = now();
-        let mut w = store::world(&tx, &id, time)?;
-        store::expire(&tx, &id, &mut w, time)?;
-        let value = store::snapshot(&tx, &id, &u, time)?;
-        let value = super::sync::response(
-            &tx,
+        view_as(
+            &state,
             &id,
             &u,
-            value,
             h.get(super::sync::HEADER).and_then(|v| v.to_str().ok()),
-        )?;
-        tx.commit().map_err(sql_error)?;
-        Ok(value)
+        )
     })
     .await;
     if result.as_ref().is_ok_and(|v: &Value| {
@@ -158,21 +179,13 @@ async fn command(
         valid_id(&id)?;
         let u = user(&state, &h, true)?;
         admit(&u)?;
-        let mut c = db(&state)?;
-        store::schema(&c)?;
-        let tx = c
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(sql_error)?;
-        let value = run(&tx, &id, &u, &body, now())?;
-        let value = super::sync::response(
-            &tx,
+        command_as(
+            &state,
             &id,
             &u,
-            value,
+            &body,
             h.get(super::sync::HEADER).and_then(|v| v.to_str().ok()),
-        )?;
-        tx.commit().map_err(sql_error)?;
-        Ok(value)
+        )
     })
     .await;
     if result.is_ok() {
@@ -180,12 +193,85 @@ async fn command(
     }
     reply(result)
 }
+// The signed-in viewer's snapshot. Expiry and the sync chain write, so this
+// takes the world's write turn, but the rules projection runs before it.
+pub(super) fn view_as(state: &AppState, id: &str, u: &str, cursor: Option<&str>) -> Result<Value> {
+    let mut c = db(state)?;
+    store::schema(&c)?;
+    let gate = writer(state);
+    let _turn = turn(&gate);
+    // The same projection inside the transaction then reads the view cache.
+    if let Some(prepared) = store::peek(&mut c, id) {
+        if let Some(a) = member_index(&c, id, u) {
+            let _ = prepared.world.project(a);
+        }
+    }
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sql_error)?;
+    let time = now();
+    let mut w = store::world(&tx, id, time)?;
+    store::expire(&tx, id, &mut w, time)?;
+    let value = store::snapshot(&tx, id, u, time)?;
+    let value = super::sync::response(&tx, id, u, value, cursor)?;
+    tx.commit().map_err(sql_error)?;
+    Ok(value)
+}
+pub(super) fn command_as(
+    state: &AppState,
+    id: &str,
+    u: &str,
+    body: &Command,
+    cursor: Option<&str>,
+) -> Result<Value> {
+    let mut c = db(state)?;
+    store::schema(&c)?;
+    let gate = writer(state);
+    let _turn = turn(&gate);
+    let checked = prepare(&mut c, id, u, body);
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sql_error)?;
+    let value = run_checked(&tx, id, u, body, now(), checked)?;
+    let value = super::sync::response(&tx, id, u, value, cursor)?;
+    tx.commit().map_err(sql_error)?;
+    Ok(value)
+}
+fn member_index(c: &rusqlite::Connection, id: &str, u: &str) -> Option<usize> {
+    super::store::member(c, id, u)
+        .ok()
+        .flatten()
+        .and_then(|a| usize::try_from(a).ok())
+        .filter(|a| *a < 8)
+}
+// Reduce a play and its reply projection from a read snapshot, outside the
+// write lock. `run_checked` uses the result only at the same journal head.
+fn prepare(c: &mut rusqlite::Connection, id: &str, u: &str, b: &Command) -> Option<store::Applied> {
+    let prepared = store::peek(c, id)?;
+    let a = member_index(c, id, u)?;
+    let checked = (b.op == "play")
+        .then(|| prepared.apply(json!({"op":"play","actor":actor_id(a),"action":b.action})))
+        .flatten();
+    let _ = prepared.world.project(a);
+    checked
+}
+#[cfg(test)]
 pub(super) fn run(
     c: &rusqlite::Connection,
     id: &str,
     u: &str,
     b: &Command,
     time: i64,
+) -> Result<Value> {
+    run_checked(c, id, u, b, time, None)
+}
+fn run_checked(
+    c: &rusqlite::Connection,
+    id: &str,
+    u: &str,
+    b: &Command,
+    time: i64,
+    checked: Option<store::Applied>,
 ) -> Result<Value> {
     let mut w = store::world(c, id, time)?;
     store::expire(c, id, &mut w, time)?;
@@ -279,6 +365,7 @@ pub(super) fn run(
                     store::PlayRequest {
                         action: b.action.clone(),
                         key: &b.key,
+                        checked,
                     },
                     time,
                 )?;
@@ -351,9 +438,25 @@ pub(super) struct Work {
     pub context: Value,
     attempt: i32,
 }
+// Reduce the next waiting play from a read snapshot, outside the write lock.
+fn prepare_work(c: &mut rusqlite::Connection, id: &str) -> Option<store::Applied> {
+    let busy: i32 = c.query_row("SELECT count(*) FROM card_full_plays WHERE world=? AND status IN ('working','playing')", [id], |r| r.get(0)).ok()?;
+    if busy > 0 {
+        return None;
+    }
+    let (status, text): (String, String) = c.query_row("SELECT status,command FROM card_full_plays WHERE world=? AND status IN ('waiting','retry') ORDER BY created,id LIMIT 1", [id], |r| Ok((r.get(0)?, r.get(1)?))).ok()?;
+    if status != "waiting" {
+        return None;
+    }
+    let action: Value = serde_json::from_str(&text).ok()?;
+    store::peek(c, id)?.apply(action)
+}
 pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
     let mut c = db(state)?;
     store::schema(&c)?;
+    let gate = writer(state);
+    let _turn = turn(&gate);
+    let mut applied = prepare_work(&mut c, id);
     let tx = c
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(sql_error)?;
@@ -409,7 +512,7 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
                 Ok(prior.clone())
             }
         } else {
-            store::commit(&tx, id, &mut w, action, time)
+            store::commit_with(&tx, id, &mut w, action, applied.take(), time)
         };
         let result = match valid {
             Ok(v) => v,
@@ -489,6 +592,13 @@ pub(super) fn finish_work_with_lock_budget(
     budget: Duration,
 ) -> Result<()> {
     let started = Instant::now();
+    let gate = writer(state);
+    let _turn = turn(&gate);
+    // Reduce the speech from a read snapshot before the SQLite write lock.
+    let applied = lines.as_ref().ok().and_then(|lines| {
+        let mut c = db(state).ok()?;
+        store::peek(&mut c, id)?.apply(speech(&work, lines))
+    });
     loop {
         let remaining = budget.saturating_sub(started.elapsed());
         match finish_work_attempt(
@@ -496,6 +606,7 @@ pub(super) fn finish_work_with_lock_budget(
             id,
             &work,
             &lines,
+            applied.clone(),
             remaining.min(Duration::from_millis(100)),
         ) {
             Ok(result) => return result,
@@ -512,11 +623,17 @@ pub(super) fn finish_work_with_lock_budget(
     }
 }
 
+fn speech(work: &Work, lines: &Value) -> Value {
+    json!({"op":"speech","actor":actor_id(work.actor),"room":work.room,"lines":lines,
+    "disclosures":work.context["context"]["disclosures"],
+    "entries":lines.as_array().into_iter().flatten().filter(|line| line["reflection"].is_object()).map(|line| json!({"id":line["entityId"],"model":line["model"],"reflection":line["reflection"]})).collect::<Vec<_>>()})
+}
 fn finish_work_attempt(
     state: &AppState,
     id: &str,
     work: &Work,
     lines: &Result<Value>,
+    applied: Option<store::Applied>,
     busy_timeout: Duration,
 ) -> rusqlite::Result<Result<()>> {
     let Some(path) = state.event_store_path.as_deref() else {
@@ -543,15 +660,8 @@ fn finish_work_attempt(
         match lines {
             Ok(lines) => {
                 let mut w = store::world(&tx, id, time)?;
-                let result = store::commit(
-                    &tx,
-                    id,
-                    &mut w,
-                    json!({"op":"speech","actor":actor_id(work.actor),"room":work.room,"lines":lines,
-                    "disclosures":scene["context"]["disclosures"],
-                    "entries":lines.as_array().into_iter().flatten().filter(|line| line["reflection"].is_object()).map(|line| json!({"id":line["entityId"],"model":line["model"],"reflection":line["reflection"]})).collect::<Vec<_>>()}),
-                    time,
-                )?;
+                let result =
+                    store::commit_with(&tx, id, &mut w, speech(work, lines), applied, time)?;
                 scene["lines"] = result["lines"].clone();
             }
             Err(error) => scene["error"] = json!(error),

@@ -131,6 +131,14 @@ store. Each action is checked against the current world as it executes. Unique
 play keys make retries safe. Removing a checkpoint rebuilds the world from its
 seed and recorded operations.
 
+Shared-world writes take turns in the server process before they open a SQLite
+write transaction, so they do not race each other on SQLite's busy timeout. The
+rules for a play, its speech, and each viewer's projection first run against a
+read-only copy of the checkpoint. The write transaction reuses that result only
+if the journal head has not moved; otherwise it runs the rules again inside the
+transaction, as before. The journal keeps one record per accepted play, in the
+same order.
+
 Rule version 3 introduced the home-item floor start. Version 4 added Greek
 story cards and saved bard visits. Versions 5–8 added collected and shared quests,
 shared journeys, quieter offers, and the first-signal ship gate. Published rule

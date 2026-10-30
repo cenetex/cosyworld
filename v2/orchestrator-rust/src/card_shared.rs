@@ -2,6 +2,8 @@
 mod ajax_tests;
 #[cfg(test)]
 mod boardy_tests;
+#[cfg(test)]
+mod concurrency_tests;
 mod engine;
 #[cfg(test)]
 mod forest_tests;
