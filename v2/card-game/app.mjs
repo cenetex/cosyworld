@@ -55,7 +55,7 @@ import {
   currentScene,
   isSceneText,
   sceneCast,
-  pendingReplySpeaker,
+  nextSpeaker,
   movementCaption,
   sceneStaging,
   selectedHandItem,
@@ -236,7 +236,11 @@ let storyStatus = "ready",
   replay = 0,
   cardsCooling = false,
   reviewing = false,
-  pendingSpeaker = null;
+  pendingSpeaker = null,
+  // This play's speakers in order, and those whose lines have been shown.
+  sceneSpeakers = [],
+  shownSpeakers = [],
+  awaitingNext = false;
 // Release the hand if words are still on the way after this. A new play
 // replaces the request, and words that arrive still play.
 const HAND_WAIT = 2500;
@@ -327,6 +331,10 @@ const exchange = createExchange({
   prepare: prepareScene,
   show: (line) => {
     pendingSpeaker = null;
+    awaitingNext = false;
+    const speakerId = line.entityId || line.actorId;
+    if (speakerId && !shownSpeakers.includes(speakerId))
+      shownSpeakers.push(speakerId);
     reviewing = false;
     lineSeq = line.seq;
     renderScene();
@@ -337,6 +345,16 @@ const exchange = createExchange({
       });
   },
   settled: () => {
+    renderScene();
+  },
+  waiting: () => {
+    const next = nextSpeaker(world, {
+      speakers: sceneSpeakers,
+      shown: shownSpeakers,
+    });
+    if (!next) return;
+    pendingSpeaker = next;
+    awaitingNext = true;
     renderScene();
   },
   transition: (previous, next) => {
@@ -363,6 +381,7 @@ const exchange = createExchange({
     // A failed request releases the hand as well.
     if (!value) {
       pendingSpeaker = null;
+      awaitingNext = false;
       renderScene();
       queueMicrotask(() => {
         if (availableCards(world).some((id) => !encountered.has(id)))
@@ -650,9 +669,10 @@ const narrator = createNarrator({
     : null,
   started: (context) => {
     if (localRuntime()) characterSpeech.clear();
-    pendingSpeaker = pendingReplySpeaker(world, {
-      fallback: context.speakers[0],
-    });
+    sceneSpeakers = [...context.speakers];
+    shownSpeakers = [];
+    awaitingNext = false;
+    pendingSpeaker = nextSpeaker(world, { speakers: sceneSpeakers });
     renderScene();
   },
   apply: (next, { pending = false, reflection = false } = {}) => {
@@ -1748,7 +1768,7 @@ function renderScene() {
   if (sharedSpeech) storyStatus = sharedSpeech.status;
   const waitingSpeaker =
     sharedSpeech?.status === "pending"
-      ? pendingReplySpeaker(world, {
+      ? nextSpeaker(world, {
           actor: sharedSession.state.queue.find(
             (entry) => entry.status === "working",
           )?.actor,
@@ -1756,6 +1776,7 @@ function renderScene() {
       : pendingSpeaker;
   const spoken =
     isSceneText(scene.line, Boolean(sharedSession)) &&
+    !(awaitingNext && !reviewing) &&
     (reviewing ||
       scene.line.turn === world.turn ||
       (sharedSession && storyStatus !== "pending"));

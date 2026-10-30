@@ -200,32 +200,15 @@ export function sceneCast(
   return slots;
 }
 
-// The waiting portrait follows a reply partner seen during this play.
-export function pendingReplySpeaker(
+// The waiting portrait names whoever speaks next, in display order: the first
+// scene speaker without a shown line yet. Shared tables receive a whole
+// exchange at once, so they wait on the acting avatar when it is on stage.
+export function nextSpeaker(
   world,
-  { actor = currentActor(world), fallback = actor } = {},
+  { speakers = null, shown = [], actor } = {},
 ) {
-  const visible = sceneCast(world);
-  const action = world.log.findLast(
-    (entry) =>
-      entry.turn === world.turn &&
-      entry.kind === "action" &&
-      entry.actorId === actor,
-  );
-  const here = world.actors[currentActor(world)].place;
-  const witnessed =
-    action?.locationId === here &&
-    action.cast?.includes(action.targetId) &&
-    (actor === currentActor(world) ||
-      action.witnesses?.includes(currentActor(world))) &&
-    entityActive(world, action.targetId);
-  if (
-    ["talk", "ask"].includes(action?.verb) &&
-    action.targetId !== actor &&
-    (visible.includes(action.targetId) || witnessed)
-  )
-    return action.targetId;
-  return visible.includes(fallback) ? fallback : null;
+  if (speakers) return speakers.find((id) => !shown.includes(id)) || null;
+  return actor && sceneCast(world).includes(actor) ? actor : null;
 }
 
 function exchangeCast(world, line) {

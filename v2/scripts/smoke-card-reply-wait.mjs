@@ -79,74 +79,131 @@ async function waitingFor(page, id) {
   assert.equal(await page.locator("#dialogue-text").innerText(), "");
 }
 const reports = [];
+// Stream the story by hand so each line arrives when the check says.
+function storyStream() {
+  const fetch = globalThis.fetch;
+  globalThis.fetch = (url, options) => {
+    if (!String(url).endsWith("/card-game/text")) return fetch(url, options);
+    let controller;
+    const body = new ReadableStream({ start: (value) => (controller = value) });
+    const encoder = new TextEncoder();
+    const send = (event) =>
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+    globalThis.story = {
+      input: JSON.parse(options.body),
+      line: (id, text) =>
+        send({ type: "delta", text: `${JSON.stringify({ id, text })}\n` }),
+      complete: (value) => send({ type: "complete", ...value }),
+    };
+    return Promise.resolve(
+      new Response(body, { headers: { "Content-Type": "text/event-stream" } }),
+    );
+  };
+}
+// The desktop app streams each validated line as soon as it is ready.
+async function desktopApp(page) {
+  await page.route(
+    (url) => url.pathname === "/",
+    async (route) => {
+      const response = await route.fetch();
+      const body = (await response.text()).replace(
+        "<head>",
+        '<head><meta name="cosy-local-app" content="1">',
+      );
+      await route.fulfill({ response, body });
+    },
+  );
+  await page.route("**/card-game/local", (route) =>
+    route.fulfill({
+      json: {
+        schema: 1,
+        dialogueModel: "reply-wait-fixture",
+        voiceModel: "off",
+        voiceTimeoutMs: 1000,
+      },
+    }),
+  );
+}
+const words = (id) => `Accepted words for ${id}.`;
+async function shows(page, id) {
+  await page.waitForFunction(
+    ({ id, text }) =>
+      document.querySelector("#speaker-portrait").dataset.entity === id &&
+      document.querySelector("#dialogue-text").textContent.includes(text),
+    { id, text: words(id) },
+  );
+  assert.equal(await page.locator("#speaker").innerText(), nameOf(id));
+}
+async function localCheck(width, actor, kind, mode) {
+  console.log(`Reply wait: ${actor} ${kind} ${mode} at ${width}px`);
+  const page = await browser.newPage({
+    viewport: { width, height: 900 },
+    reducedMotion: "reduce",
+  });
+  const errors = [];
+  page.setDefaultTimeout(10000);
+  page.on("pageerror", (e) => errors.push(e.message));
+  const world = fixture(actor),
+    table = `reply-${actor}-${mode}-${width}`;
+  const key = `cosyworld.reflected-shore.v1.${table}`;
+  await seed(page, key, world);
+  await page.addInitScript(storyStream);
+  if (mode === "streamed") await desktopApp(page);
+  await page.goto(`${origin}/?table=${table}`);
+  await selectCard(page, "moth");
+  if (kind === "ask") await selectCard(page, "lamp");
+  await page.locator(`#card-actions [data-action="${kind}"]`).first().click();
+  await page.waitForFunction(() => globalThis.story);
+  const speakers = await page.evaluate(() => globalThis.story.input.speakers);
+  assert.deepEqual(speakers.slice(0, 2), [actor, "moth"]);
+  const finish = (from) =>
+    page.evaluate(
+      ({ speakers, from }) => {
+        const entries = globalThis.story.input.entities.map(({ id }) => ({
+          id,
+          text: `Accepted words for ${id}.`,
+        }));
+        // Lines stream in speaking order; the completion carries every entity.
+        for (const id of speakers.slice(from))
+          globalThis.story.line(id, `Accepted words for ${id}.`);
+        globalThis.story.complete({
+          revision: globalThis.story.input.revision,
+          model: "reply-wait-fixture",
+          entries,
+        });
+      },
+      { speakers, from },
+    );
+  // The player's avatar speaks first, so it thinks first.
+  await waitingFor(page, actor);
+  if (mode === "streamed") {
+    await page.evaluate(
+      ([id, text]) => globalThis.story.line(id, text),
+      [actor, words(actor)],
+    );
+    await shows(page, actor);
+    // After that line's reading pause, the reply partner thinks.
+    await waitingFor(page, "moth");
+    await finish(1);
+  } else {
+    // A whole exchange plays in speaking order.
+    await finish(speakers.length);
+    await shows(page, actor);
+  }
+  await shows(page, "moth");
+  assert.deepEqual(errors, []);
+  reports.push({ width, actor, kind, [mode]: "passed" });
+  await page.close();
+}
 try {
   for (const width of [1440, 390]) {
     for (const [actor, kind] of [
       ["vale", "talk"],
       ["rue", "ask"],
     ]) {
-      console.log(`Reply wait: ${actor} ${kind} at ${width}px`);
-      const page = await browser.newPage({
-        viewport: { width, height: 900 },
-        reducedMotion: "reduce",
-      });
-      const errors = [];
-      page.setDefaultTimeout(10000);
-      page.on("pageerror", (e) => errors.push(e.message));
-      const world = fixture(actor),
-        table = `reply-${actor}-${width}`;
-      const key = `cosyworld.reflected-shore.v1.${table}`;
-      await seed(page, key, world);
-      const requests = [];
-      await page.route("**/card-game/text", (route) =>
-        requests.push({ route, input: route.request().postDataJSON() }),
-      );
-      await page.goto(`${origin}/?table=${table}`);
-      await selectCard(page, "moth");
-      if (kind === "ask") await selectCard(page, "lamp");
-      const requested = page.waitForRequest("**/card-game/text");
-      requested.catch(() => {});
-      await page
-        .locator(`#card-actions [data-action="${kind}"]`)
-        .first()
-        .click();
-      await requested;
-      await waitingFor(page, "moth");
-      const request = requests.at(-1);
-      assert(request);
-      await request.route.fulfill({
-        json: {
-          revision: request.input.revision,
-          model: "reply-wait-fixture",
-          entries: request.input.entities.map(({ id }) => ({
-            id,
-            text: `Accepted words for ${id}.`,
-          })),
-        },
-      });
-      await page.waitForFunction(
-        (actor) =>
-          document.querySelector("#speaker-portrait").dataset.entity ===
-            actor &&
-          document
-            .querySelector("#dialogue-text")
-            .textContent.includes(`Accepted words for ${actor}.`),
-        actor,
-      );
-      const saved = await page.evaluate(
-        (key) => JSON.parse(localStorage.getItem(key)),
-        key,
-      );
-      assert.equal(
-        saved.log.find(
-          (e) => e.turn === saved.turn && e.generated && e.kind === "dialogue",
-        ).actorId,
-        actor,
-      );
-      assert.deepEqual(errors, []);
-      reports.push({ width, actor, kind, local: "passed" });
-      await page.close();
-
+      for (const mode of ["hosted", "streamed"])
+        await localCheck(width, actor, kind, mode);
+      const world = fixture(actor);
       const shared = await browser.newPage({
         viewport: { width, height: 900 },
         reducedMotion: "reduce",
@@ -185,8 +242,9 @@ try {
         route.fulfill({ json: snapshot }),
       );
       await shared.goto(`${origin}/?world=reply-wait`);
-      await waitingFor(shared, "moth");
-      // The next visible partner replaces the old wait, even with old Vale speech saved.
+      // A shared exchange arrives whole, so the acting avatar thinks first.
+      await waitingFor(shared, actor);
+      // The next play's wait replaces the old one, even with old Vale speech saved.
       snapshot = structuredClone(snapshot);
       const next = structuredClone(committed);
       next.actors.keeper.place = "station";
@@ -199,7 +257,7 @@ try {
       await shared.evaluate(async () => {
         await globalThis.syncReply();
       });
-      await waitingFor(shared, "keeper");
+      await waitingFor(shared, actor);
       snapshot = structuredClone(snapshot);
       snapshot.queue = [];
       snapshot.now++;
@@ -210,10 +268,6 @@ try {
         () =>
           document.querySelector("#speech-row").getAttribute("aria-busy") ===
           "false",
-      );
-      assert.notEqual(
-        await shared.locator("#speaker-portrait").getAttribute("data-entity"),
-        "keeper",
       );
       assert.deepEqual(sharedErrors, []);
       reports.push({ width, actor, kind, shared: "passed" });

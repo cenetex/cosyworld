@@ -234,6 +234,31 @@ describe("one exchange per card play", () => {
     ];
     return { exchange, lines, show, settled, busy };
   }
+  it("reports a streamed wait after each shown line", async () => {
+    vi.useFakeTimers();
+    const show = vi.fn(),
+      waiting = vi.fn();
+    const exchange = createExchange({ show, waiting });
+    exchange.begin();
+    exchange.load([{ seq: 1, text: "Hello, Moth." }], { pending: true });
+    await vi.advanceTimersByTimeAsync(0);
+    exchange.revealed(1, "Hello, Moth.");
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(waiting).toHaveBeenCalledExactlyOnceWith({
+      seq: 1,
+      text: "Hello, Moth.",
+    });
+    exchange.load(
+      [
+        { seq: 1, text: "Hello, Moth." },
+        { seq: 2, text: "Hello, Vale." },
+      ],
+      { pending: false },
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(show).toHaveBeenLastCalledWith({ seq: 2, text: "Hello, Vale." });
+    expect(waiting).toHaveBeenCalledTimes(1);
+  });
   it("waits for the portrait load and entrance before the first arrival line", async () => {
     vi.useFakeTimers();
     let loaded, arrived;
