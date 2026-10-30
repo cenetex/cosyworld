@@ -1593,6 +1593,11 @@ function renderStage(locationId) {
     sprite.style.setProperty("--sprite-left", `${stage.sprite.left}%`);
     sprite.style.setProperty("--sprite-top", `${stage.sprite.top}%`);
     sprite.style.setProperty("--sprite-width", `${stage.sprite.width}%`);
+    // The square cutout's bottom edge, as a share of the canvas height.
+    canvas.style.setProperty(
+      "--sprite-foot",
+      String((stage.sprite.top + stage.sprite.width * 1.5 * 0.08) / 100),
+    );
     canvas.append(background, sprite);
     picture.append(canvas);
     $("stage").prepend(picture);
