@@ -671,7 +671,10 @@ const narrator = createNarrator({
     : null,
   started: (context) => {
     if (localRuntime()) characterSpeech.clear();
-    sceneSpeakers = [...context.speakers];
+    // A speaker who left this turn speaks at the destination, not here.
+    sceneSpeakers = context.speakers.filter(
+      (id) => world.actors[id]?.place === context.location,
+    );
     shownSpeakers = [];
     awaitingNext = false;
     pendingSpeaker = nextSpeaker(world, { speakers: sceneSpeakers });
