@@ -22,6 +22,7 @@ const files = [
   "toolbar.css",
   "shared-cast.json",
   "human-cast.mjs",
+  "scarves.mjs",
   "boardyai.mjs",
   "introductions.mjs",
   "boardyai.json",

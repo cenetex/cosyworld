@@ -1952,21 +1952,29 @@ function renderScene() {
     ? scene.line.entityId || scene.line.actorId || scene.locationId
     : waitingSpeaker;
   const portraitBox = $("speaker-portrait");
-  if (portraitBox.dataset.entity !== (portraitId || "")) {
-    portraitBox.dataset.entity = portraitId || "";
-    portraitBox.replaceChildren();
-    if (portraitId) {
-      const image = node("img");
-      image.alt = "";
-      image.decoding = "async";
-      image.src = imageUrl(
+  // Key on the resolved art too, so a scarf given or taken repaints it.
+  const portraitSource = portraitId
+    ? imageUrl(
         people[portraitId]
           ? portrait(portraitId, null, world)
           : places[portraitId]
             ? backdrop(portraitId, world)
             : packMedia(portraitId, "art") || `./assets/${portraitId}-card.png`,
         "card",
-      );
+      )
+    : "";
+  if (
+    portraitBox.dataset.entity !== (portraitId || "") ||
+    portraitBox.dataset.source !== portraitSource
+  ) {
+    portraitBox.dataset.entity = portraitId || "";
+    portraitBox.dataset.source = portraitSource;
+    portraitBox.replaceChildren();
+    if (portraitId) {
+      const image = node("img");
+      image.alt = "";
+      image.decoding = "async";
+      image.src = portraitSource;
       portraitBox.dataset.kind = people[portraitId] ? "avatar" : "scene";
       if (people[portraitId]) frameFigure(image);
       portraitBox.append(image);

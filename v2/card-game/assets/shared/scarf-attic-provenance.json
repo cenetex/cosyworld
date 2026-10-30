@@ -9,9 +9,9 @@
     "atticBackdrops": 2
   },
   "activation": {
-    "playerPortraits": "shared-cast.json selects the eight scarf images for the avatar picker and player list; scene.mjs uses the same entries for stage and card portraits, including Vale.",
+    "playerPortraits": "shared-cast.json keeps the plain portraits. scarves.mjs selects a traveler's scarf image for stage, card, speaker and player-list portraits only while that traveler holds their own scarf item, forest-scarf-<id>.",
     "originalPortraits": "All earlier portrait PNGs are retained. Vale uses the established black-clothed shared portrait as the scarf edit reference.",
-    "scarves": "These are visual variants selected as the current artwork. No equipment, possession, or progression system is introduced for the coloured scarves.",
+    "scarves": "These visual variants follow the scarf item that RATi sews for each traveler; they add no rules of their own.",
     "attic": "The dark painting has an empty mirror. The lit stair painting adds a descent to Cosy Cottage while retaining the Black Pond mirror. The existing cloth item ID remains stable."
   },
   "preservation": {

@@ -10,14 +10,15 @@ import {
 } from "../v2/card-game/portrait-facing.mjs";
 
 describe("stage portrait art directions", () => {
-  it("uses the picker scarf portraits on stage, including Vale", () => {
+  it("uses the plain picker portraits on stage, including Vale", () => {
     for (const avatar of humanAvatars) {
-      expect(avatar.image).toBe(
-        `assets/shared/characters/${avatar.id}-scarf.png`,
-      );
+      expect(avatar.image).toBe(`assets/shared/characters/${avatar.id}.png`);
       for (const facing of ["left", "right"])
         expect(portrait(avatar.id, facing)).toBe(`./${avatar.image}`);
       expect(nativePortraitFacing(avatar.image)).toBe("right");
+      expect(
+        nativePortraitFacing(`assets/shared/characters/${avatar.id}-scarf.png`),
+      ).toBe("right");
     }
   });
 
