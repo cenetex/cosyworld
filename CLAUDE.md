@@ -34,8 +34,10 @@ The source map distinguishes the card pack compiler from the classic compiler.
    engine after changing an imported rule module. Commit generated outputs.
 5. Update the closest current guide and bump the package and Rust crate version
    together with `npm run version:bump`.
-6. Commit and push the branch. Open a draft PR during validation. Merge after
-   the required checks pass, then use the release workflow for production.
+6. Commit and push the branch. Keep at most one open PR in the repository;
+   wait for any open PR to merge or close before opening yours. Open a draft PR
+   during validation. Merge after the required checks pass, then use the
+   release workflow for production.
 
 ## Commands
 

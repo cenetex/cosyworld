@@ -62,6 +62,10 @@ changing application behavior.
   `Preserve room state across journal replay`.
 - Keep one coherent behavior or extraction per PR. Split unrelated deployment,
   content, and feature changes.
+- Keep at most one open PR in the repository. Before opening a PR, run
+  `gh pr list --state open`. If one is open, finish your work on a pushed branch
+  and wait until that PR merges or closes. Do not stack PRs on other PR
+  branches. Put dependent changes in the same PR, or open them one after another.
 - The body must contain:
   - `## Summary` with the user-visible or architectural outcome;
   - `Closes #<issue>` for work that fully satisfies an issue;
