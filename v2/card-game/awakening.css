@@ -5,13 +5,23 @@ body[data-stage="resident"] .stage-picture {
   overflow: hidden;
   container-type: size;
 }
+/* The canvas covers the picture. It is lowered only as far as keeps the
+   resident's feet on the floor line, so the cutout is never cut at the waist. */
 body[data-stage="resident"] .stage-canvas {
+  --canvas-height: max(100cqh, 66.667cqw);
   position: absolute;
-  width: max(100cqw, 150cqh);
-  height: max(100cqh, 66.667cqw);
+  width: calc(var(--canvas-height) * 1.5);
+  height: var(--canvas-height);
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  top: clamp(
+    calc(100cqh - var(--canvas-height)),
+    calc(
+      100cqh - var(--floor-reserve, 0px) - var(--sprite-foot, 0.81) *
+        var(--canvas-height)
+    ),
+    0px
+  );
+  transform: translateX(-50%);
 }
 body[data-stage="resident"] .backdrop {
   z-index: 0;
@@ -34,15 +44,20 @@ body[data-stage="resident"] #cast,
 body[data-stage="resident"] #speech-hint {
   display: none;
 }
-body[data-stage="resident"] .dialogue {
-  bottom: calc(var(--dock-height) + 2px);
-  width: min(860px, calc(100% - 28px));
-}
 body[data-stage="resident"] .stage {
   min-height: 350px;
 }
 body[data-stage="resident"] a {
   color: var(--gold);
+}
+/* A wide resting hand sits at the right with the dialogue beside it, so the
+   painting fills the whole stage like any other scene and the resident stands
+   on the floor just above the hand. */
+@media (min-width: 1100px) and (min-aspect-ratio: 3/2) {
+  body[data-stage="resident"][data-hand-expanded="false"] .stage-picture {
+    bottom: 0;
+    --floor-reserve: var(--dock-height);
+  }
 }
 @media (max-width: 700px) {
   body[data-stage="resident"] .stage-picture {
@@ -86,8 +101,7 @@ body[data-stage="resident"] a {
   body .cast {
     top: 46px;
   }
-  body .dialogue,
-  body[data-stage="resident"] .dialogue {
+  body .dialogue {
     bottom: calc(var(--dock-height) + 4px);
     padding: 4px 10px;
   }
