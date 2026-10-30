@@ -98,7 +98,7 @@
       "name": "Cithaeron Slopes",
       "text": "Goat paths cross the wooded slope. A distant drum carries between the trees.",
       "exits": ["greek-sanctuary"],
-      "backdrop": "assets/greek-drama/grove.svg",
+      "backdrop": "assets/greek-drama/bacchae-cithaeron-day.webp",
       "persona": "Goat paths cross the wooded slope. A distant drum carries between the trees."
     },
     "greek-aulis": {
@@ -228,7 +228,7 @@
       "name": "Argive Shore Sanctuary",
       "text": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship.",
       "exits": ["greek-argolid-road"],
-      "backdrop": "assets/greek-drama/harbor.svg",
+      "backdrop": "assets/greek-drama/suppliants-argive-shore-day.webp",
       "persona": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship."
     },
     "greek-argos-palace": {
@@ -312,7 +312,7 @@
       "name": "House at Trachis",
       "text": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
       "exits": ["greek-oeta", "greek-pherae"],
-      "backdrop": "assets/greek-drama/courtyard.svg",
+      "backdrop": "assets/greek-drama/book-two-trachis-day.webp",
       "persona": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench."
     },
     "greek-oeta": {
@@ -327,7 +327,7 @@
       "name": "Palace of Pherae",
       "text": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door.",
       "exits": ["greek-trachis", "greek-thetis"],
-      "backdrop": "assets/greek-drama/palace.svg",
+      "backdrop": "assets/greek-drama/book-two-pherae-day.webp",
       "persona": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door."
     },
     "greek-thetis": {
@@ -387,21 +387,21 @@
       "name": "The Lemnian Cave",
       "text": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
       "exits": ["greek-greek-camp"],
-      "backdrop": "assets/greek-drama/sea.svg",
+      "backdrop": "assets/greek-drama/book-three-lemnos-day.webp",
       "persona": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
     },
     "greek-thrace": {
       "name": "The Thracian Shore",
       "text": "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
       "exits": ["greek-troy", "greek-road-black-sea"],
-      "backdrop": "assets/greek-drama/sea.svg",
+      "backdrop": "assets/greek-drama/book-three-thrace-day.webp",
       "persona": "A fleet waits beyond the breakers. Captive households search among the new arrivals."
     },
     "greek-egypt-tomb": {
       "name": "Proteus's Tomb in Egypt",
       "text": "A tomb stands beside the Egyptian palace. A woman receives visitors from the sea.",
       "exits": [],
-      "backdrop": "assets/greek-drama/palace.svg",
+      "backdrop": "assets/greek-drama/helen-egypt-tomb-day.webp",
       "requires": [
         {
           "kind": "choice",
@@ -415,7 +415,7 @@
       "name": "The Taurian Temple",
       "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
       "exits": ["greek-road-black-sea", "greek-scythian-crag"],
-      "backdrop": "assets/greek-drama/palace.svg",
+      "backdrop": "assets/greek-drama/tauris-shore-scene.webp",
       "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
     },
     "greek-sicily": {
@@ -429,7 +429,7 @@
       "name": "The Court at Susa",
       "text": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
       "exits": ["greek-road-royal"],
-      "backdrop": "assets/greek-drama/palace.svg",
+      "backdrop": "assets/greek-drama/book-three-susa-day.webp",
       "persona": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
     },
     "greek-scythian-crag": {
