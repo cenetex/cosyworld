@@ -175,6 +175,48 @@
       "card": "assets/optimized/card/webp/greek-drama/attic-road.webp",
       "cardHash": "5eb59dff02be232a00002d0854b6ac0d9d381248d4a9eeb197e8e4956e3324b7"
     },
+    "assets/greek-drama/bacchae-cithaeron-day.webp": {
+      "sourceHash": "e9a09eaf250dac0a485655d04fe62bdab60409b770879dddbd2aaad9d4cf68f9",
+      "stage": "assets/greek-drama/bacchae-cithaeron-day.webp",
+      "stageHash": "e9a09eaf250dac0a485655d04fe62bdab60409b770879dddbd2aaad9d4cf68f9",
+      "card": "assets/optimized/card/webp/greek-drama/bacchae-cithaeron-day.webp",
+      "cardHash": "ec5a89c6b3629a9248aa886a1e3dbb533708d70274ac52a66f9d314c5fe8576a"
+    },
+    "assets/greek-drama/book-three-lemnos-day.webp": {
+      "sourceHash": "e258ce08d483b2dd5d8f163e93b2891d0255baea3939d2854df4e5087a2af961",
+      "stage": "assets/greek-drama/book-three-lemnos-day.webp",
+      "stageHash": "e258ce08d483b2dd5d8f163e93b2891d0255baea3939d2854df4e5087a2af961",
+      "card": "assets/optimized/card/webp/greek-drama/book-three-lemnos-day.webp",
+      "cardHash": "5ee81c9c76529d1ac32e07e17af698568d1fddcaa5ba271cdc89e45ce42c3bfd"
+    },
+    "assets/greek-drama/book-three-susa-day.webp": {
+      "sourceHash": "67fdb625eb21ba74606c48509418e171296b027d001321a3b332c799066aa1b1",
+      "stage": "assets/greek-drama/book-three-susa-day.webp",
+      "stageHash": "67fdb625eb21ba74606c48509418e171296b027d001321a3b332c799066aa1b1",
+      "card": "assets/optimized/card/webp/greek-drama/book-three-susa-day.webp",
+      "cardHash": "cf1d251f95d99a6f610f98f997021586d51b59165d867ec53a002038be2419ad"
+    },
+    "assets/greek-drama/book-three-thrace-day.webp": {
+      "sourceHash": "d8413d1c3b7d59ea353612c71a0cf1b66f11118d6c9ff4edf5aa035b2068a2e7",
+      "stage": "assets/greek-drama/book-three-thrace-day.webp",
+      "stageHash": "d8413d1c3b7d59ea353612c71a0cf1b66f11118d6c9ff4edf5aa035b2068a2e7",
+      "card": "assets/optimized/card/webp/greek-drama/book-three-thrace-day.webp",
+      "cardHash": "7e250218a8a039a231b2dad94c1e254f5edbfccf0e2c629ad7efc9381ad580a4"
+    },
+    "assets/greek-drama/book-two-pherae-day.webp": {
+      "sourceHash": "cacb220f62c214c212a5fc926cea102477f81e163f5e0aebd24ac7dc231c6b41",
+      "stage": "assets/greek-drama/book-two-pherae-day.webp",
+      "stageHash": "cacb220f62c214c212a5fc926cea102477f81e163f5e0aebd24ac7dc231c6b41",
+      "card": "assets/optimized/card/webp/greek-drama/book-two-pherae-day.webp",
+      "cardHash": "e83afae0658014045c0cc98029ee6660974751c8f37fd1f5f549d3578ff73811"
+    },
+    "assets/greek-drama/book-two-trachis-day.webp": {
+      "sourceHash": "222c6059bb7bda10db354e2beaef4d436f08d330a5d6f88567c1f36b08af850d",
+      "stage": "assets/greek-drama/book-two-trachis-day.webp",
+      "stageHash": "222c6059bb7bda10db354e2beaef4d436f08d330a5d6f88567c1f36b08af850d",
+      "card": "assets/optimized/card/webp/greek-drama/book-two-trachis-day.webp",
+      "cardHash": "d88886d62b75fda7be117f54bbd682d6959f43d87abf43d3f33df6ae9bd5fb44"
+    },
     "assets/greek-drama/bread.png": {
       "sourceHash": "b9570b0b1db56c334ff070367afdc23cb3595cf0b87971b4c9c5c27ac587859e",
       "stage": "assets/optimized/stage/png/greek-drama/bread.webp",
@@ -377,6 +419,13 @@
       "stageHash": "f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0",
       "card": "assets/optimized/card/webp/greek-drama/harbor-ship-at-berth.webp",
       "cardHash": "c2810e0b0d9e960c6501fa7744d8201de052b4f370c03ae363c00001ba43dd0b"
+    },
+    "assets/greek-drama/helen-egypt-tomb-day.webp": {
+      "sourceHash": "63bc8c00bf579fea29258160385d2ae1c8f2df38d03fd1d2d73b77124af33a81",
+      "stage": "assets/greek-drama/helen-egypt-tomb-day.webp",
+      "stageHash": "63bc8c00bf579fea29258160385d2ae1c8f2df38d03fd1d2d73b77124af33a81",
+      "card": "assets/optimized/card/webp/greek-drama/helen-egypt-tomb-day.webp",
+      "cardHash": "720d8c3e6ab18dadc9ffa62e19ae359ce78aca34b59234530d1f737be07d24dc"
     },
     "assets/greek-drama/household-token.png": {
       "sourceHash": "e5a4d2daa5726d0c70fb0e5f08c02130aeaa3175309bb320a24d9fa7be871e6f",
@@ -615,6 +664,20 @@
       "stageHash": "9c95edb931f81d5b1dc47d320cb21feaa66238d14981310a4c85a2f1ec648832",
       "card": "assets/optimized/card/png/greek-drama/shovel.webp",
       "cardHash": "92dc355856680205066d921c3c99e9fa337284c8948330c8d28404038ed3ee71"
+    },
+    "assets/greek-drama/suppliants-argive-shore-day.webp": {
+      "sourceHash": "eeefe8a71013f2f9fab65cf71b4b153aa4a83ef454e1c87de2487eb42fa1bc60",
+      "stage": "assets/greek-drama/suppliants-argive-shore-day.webp",
+      "stageHash": "eeefe8a71013f2f9fab65cf71b4b153aa4a83ef454e1c87de2487eb42fa1bc60",
+      "card": "assets/optimized/card/webp/greek-drama/suppliants-argive-shore-day.webp",
+      "cardHash": "d938a0d1e5a81b8a161fa3b2e9f322de9a12af33f1643cbe861c726e6de17a8a"
+    },
+    "assets/greek-drama/tauris-shore-scene.webp": {
+      "sourceHash": "57321e6ae138797ca775beac84916d6d6bbe3a8867789f19bd00638b15c16fdc",
+      "stage": "assets/greek-drama/tauris-shore-scene.webp",
+      "stageHash": "57321e6ae138797ca775beac84916d6d6bbe3a8867789f19bd00638b15c16fdc",
+      "card": "assets/optimized/card/webp/greek-drama/tauris-shore-scene.webp",
+      "cardHash": "98e2805d2e804458946d15e51caaa8f459a24d61f5d84d49203e6a22ded3e5a4"
     },
     "assets/greek-drama/testimony.png": {
       "sourceHash": "98374962809e259ecba2e1aa26643f3397c37c038f7f0ab7dc6a42a43b24e7bf",

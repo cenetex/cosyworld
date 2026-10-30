@@ -1,0 +1,306 @@
+{
+  "date": "2026-10-30",
+  "purpose": "Painted backdrops salvaged from closed PRs for Greek places that used generic SVG placeholders (issue #1405, #1426). Each entry keeps its original provenance record.",
+  "assets": [
+    {
+      "file": "bacchae-cithaeron-day.webp",
+      "place": "greek-cithaeron",
+      "sha256": "e9a09eaf250dac0a485655d04fe62bdab60409b770879dddbd2aaad9d4cf68f9",
+      "from": {
+        "pr": 1269,
+        "branch": "codex/greek-sanctuary-art",
+        "provenance": "sanctuary-scenery-provenance.json"
+      },
+      "source": {
+        "file": "bacchae-cithaeron-day.webp",
+        "sourceFile": "sanctuary-sources/bacchae-cithaeron-day.png",
+        "sourceName": "exec-47a093b4-abce-4e48-954e-602dc651ad35.png",
+        "generationId": "exec-47a093b4-abce-4e48-954e-602dc651ad35",
+        "place": "greek-cithaeron",
+        "chapter": "euripides-bacchae",
+        "intent": "reference-based generation",
+        "transparentBackground": false,
+        "references": [
+          {
+            "file": "open-door-colonus.webp",
+            "role": "style reference",
+            "sha256": "ce76091cd3f94db6dec9db104f6ab0d67fa81af1670089d731130a29e4625fb7"
+          },
+          {
+            "file": "burial-ground-dusk.webp",
+            "role": "style reference",
+            "sha256": "a48b519c59a4bdea60ce1d843c8c475238e0fc4b83da7eef6ce8277ca234592f"
+          }
+        ],
+        "processing": "Original generated PNG retained in sanctuary-sources; full-size WebP encoded at quality 94 and effort 6.",
+        "prompt": "Use case: historical-scene.\nAsset type: a wide 16:9 stage painting for Cithaeron Slopes in the Bacchae chapter of the Wine-Dark Sea card game.\nInput images: image 1 is a style reference for richly painted Greek trees, paths and natural light. Image 2 is a style reference for rugged Greek limestone, depth and mountain terrain. Compose a new living woodland setting.\nPrimary request: a rugged wooded slope on Mount Cithaeron above Thebes. Goat paths cross among old holm oaks, tall firs and pines, limestone outcrops, ivy, dry grasses and low mountain shrubs. A rough path climbs between trees toward the ridge; another path bends downhill toward a small distant glimpse of the Theban valley. A tall fir stands beside the uphill path. A few ivy branches and a simple wool ribbon tied around a small stone at the edge suggest a place visited by the worshippers.\nComposition: eye level, wide 16:9. Place the rugged trees and boulders mainly at the sides and in the middle distance. Keep a broad clear rock-and-earth clearing across the lower third for separate cast portraits. The uphill path, wooded slope and limestone ridge stay readable in the center phone crop. Natural landscape and its small ritual marker fill the scene.\nStyle: match the game's detailed painterly Greek storybook realism, weathered bark, rough stone, layered foliage and rich natural textures. Mossy and olive greens, warm pale rock, muted earth and a little blue distance.\nLighting: clear afternoon daylight through the trees, warm highlights and cool green shadows. Quiet mountain air, with a sense of hidden depth beyond the clearing. Opaque full-frame scenery.",
+        "size": [
+          1672,
+          941
+        ],
+        "sourceSha256": "c9d43459ab755cf028251540d3a503fa99794b412a3eb51b00b27206b8d5e132",
+        "sha256": "e9a09eaf250dac0a485655d04fe62bdab60409b770879dddbd2aaad9d4cf68f9",
+        "sourceBytes": 3950788,
+        "bytes": 900820
+      }
+    },
+    {
+      "file": "suppliants-argive-shore-day.webp",
+      "place": "greek-argos-sanctuary",
+      "sha256": "eeefe8a71013f2f9fab65cf71b4b153aa4a83ef454e1c87de2487eb42fa1bc60",
+      "from": {
+        "pr": 1269,
+        "branch": "codex/greek-sanctuary-art",
+        "provenance": "sanctuary-scenery-provenance.json"
+      },
+      "source": {
+        "file": "suppliants-argive-shore-day.webp",
+        "sourceFile": "sanctuary-sources/suppliants-argive-shore-day.png",
+        "sourceName": "exec-775f8181-3e55-45d8-bcbd-a2f5da574dae.png",
+        "generationId": "exec-775f8181-3e55-45d8-bcbd-a2f5da574dae",
+        "place": "greek-argos-sanctuary",
+        "chapter": "aeschylus-suppliant-women",
+        "intent": "precise-object-edit",
+        "transparentBackground": false,
+        "references": [
+          {
+            "file": "sanctuary-sources/suppliants-argive-shore-day-gate-edit.png",
+            "role": "edit target",
+            "sha256": "1aed1d7de19d427bc1927a38ebad450a13ead7c3cb4aa8c483724e794be082e2"
+          }
+        ],
+        "processing": "Original generated PNG retained in sanctuary-sources; full-size WebP encoded at quality 94 and effort 6.",
+        "prompt": "Use case: precise-object-edit.\nAsset type: the daylight Argive Shore Sanctuary stage for a phone-friendly game view.\nInput image: the supplied day painting is the edit target.\nPrimary request: arrange the altar and the open shelter gate together inside the middle of the image. Keep the altar at about one third of the full image width. Place the center of the open gap between the two gateposts at about 55 percent of the full image width. Make this a modest narrow gateway, with both posts inside the central band from 45 to 65 percent of the image width. The gate may stand just behind the right side of the altar. Its open gap and the path to a sheltered house doorway behind it should be clearly visible together in that central band. The path continues from the clear foreground into the gate.\nKeep the same wide 16:9 view, Greek shrine and large olive tree at the left, broad empty foreground, bound suppliant branches, basin, limestone textures, afternoon light and painted style. Keep blue coastal water visible to the left of the gate. The small distant ship can sit in that open water. The town houses can gather around the clear route behind the gate. Make the central crop show the altar, open passage and a welcoming doorway together. The painting is full-frame and opaque.",
+        "size": [
+          1672,
+          941
+        ],
+        "sourceSha256": "24f4cc208fbcbbd917a474fe3c8949a713a15e95d64cdd86872041531ab1302f",
+        "sha256": "eeefe8a71013f2f9fab65cf71b4b153aa4a83ef454e1c87de2487eb42fa1bc60",
+        "sourceBytes": 3315650,
+        "bytes": 745404
+      }
+    },
+    {
+      "file": "book-two-pherae-day.webp",
+      "place": "greek-pherae",
+      "sha256": "cacb220f62c214c212a5fc926cea102477f81e163f5e0aebd24ac7dc231c6b41",
+      "from": {
+        "pr": 1271,
+        "branch": "codex/book-two-art",
+        "provenance": "book-two-art-provenance.json"
+      },
+      "source": {
+        "file": "book-two-pherae-day.webp",
+        "sourceFile": "book-two-sources/book-two-pherae-day.png",
+        "sourceName": "exec-327f9406-9538-44f5-b897-f0b15ea11123.png",
+        "generationId": "exec-327f9406-9538-44f5-b897-f0b15ea11123",
+        "kind": "stage",
+        "place": "greek-pherae",
+        "intent": "reference-based generation",
+        "transparentBackground": false,
+        "references": [
+          {
+            "file": "palace-day.webp",
+            "role": "style reference",
+            "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769"
+          },
+          {
+            "file": "courtyard-day.webp",
+            "role": "style reference",
+            "sha256": "c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559"
+          }
+        ],
+        "processing": "Original generated PNG retained in book-two-sources; full-size WebP encoded at quality 94 and effort 6.",
+        "prompt": "Use case: historical-scene.\nAsset type: a wide 16:9 stage painting of the Palace of Pherae for the Alcestis chapter in the Wine-Dark Sea card game.\nInput images: style references for detailed Greek painted architecture, natural light, aged stone and a broad foreground. Compose a distinct Thessalian palace household.\nScene: a quiet royal court at Pherae. A broad low palace portico has pale limestone columns, soft blue-grey and ochre painted borders, tall wooden inner doors and a little trailing vine. One simple empty wooden chair stands in the shade near the main doorway, slightly left of center. A plain bench and a small unlit oil lamp sit along the wall. The house feels dignified and restrained, with the stillness of a household in mourning. Through a side opening, a green Thessalian plain and distant blue mountain ridge are visible.\nComposition: eye-level wide 16:9. Keep the main doorway and empty chair readable together in the central phone crop. Leave a generous open limestone court across the lower third for separate cast portraits. The palace architecture and landscape fill the frame.\nStyle and light: richly detailed Greek storybook realism, pale weathered stone, natural wood, muted woven cloth and cool blue-grey accents. Clear warm afternoon daylight with soft portico shadows and dry calm air. Opaque full-frame painting.",
+        "size": [
+          1672,
+          941
+        ],
+        "sourceSha256": "3d5548020dda2a4616f93baef8ecb9ca159fdc8f7dacbbe8d3ccc0136aaef16b",
+        "sha256": "cacb220f62c214c212a5fc926cea102477f81e163f5e0aebd24ac7dc231c6b41",
+        "sourceBytes": 3006186,
+        "bytes": 626738
+      }
+    },
+    {
+      "file": "book-two-trachis-day.webp",
+      "place": "greek-trachis",
+      "sha256": "222c6059bb7bda10db354e2beaef4d436f08d330a5d6f88567c1f36b08af850d",
+      "from": {
+        "pr": 1271,
+        "branch": "codex/book-two-art",
+        "provenance": "book-two-art-provenance.json"
+      },
+      "source": {
+        "file": "book-two-trachis-day.webp",
+        "sourceFile": "book-two-sources/book-two-trachis-day.png",
+        "sourceName": "exec-4eb20c32-8a19-44a7-9ee8-64c1ddc6d281.png",
+        "generationId": "exec-4eb20c32-8a19-44a7-9ee8-64c1ddc6d281",
+        "kind": "stage",
+        "place": "greek-trachis",
+        "intent": "reference-based generation",
+        "transparentBackground": false,
+        "references": [
+          {
+            "file": "courtyard-day.webp",
+            "role": "style reference",
+            "sha256": "c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559"
+          }
+        ],
+        "processing": "Original generated PNG retained in book-two-sources; full-size WebP encoded at quality 94 and effort 6.",
+        "prompt": "Use case: historical-scene.\nAsset type: a wide 16:9 stage painting of the House at Trachis for the Women of Trachis chapter in the Wine-Dark Sea card game.\nInput image: a style reference for detailed Greek domestic painting, warm plaster, timber, cloth and open foreground. Compose a distinct household at the foot of wooded mountain slopes.\nScene: a modest, well-kept Greek house around a quiet open court. A long low cream-plastered facade has a red tile roof, simple timber porch posts and a main wooden doorway near the center. A plain wooden workbench immediately beside the doorway holds a neatly folded length of undyed wool. A pair of worn messenger's sandals rests by the threshold. A small unlit hanging oil lamp is beneath the porch. Vines and an olive tree frame the sides; clay jars, a low bench and household plants sit by the walls. Beyond one side of the court, a path turns toward the wooded slopes and pale ridges leading toward Oeta.\nComposition: eye-level wide 16:9. Keep the house doorway, workbench and folded cloth together in the central phone crop. Leave the lower third as clear stone-and-earth court for separate cast portraits. Architecture and landscape fill the frame.\nStyle and light: richly detailed Greek storybook realism, weathered warm plaster, ochre earth, natural timber, muted woven cloth, olive green and blue mountain distance. Clear afternoon daylight with soft vine shadows and dry calm air. Opaque full-frame painting.",
+        "size": [
+          1672,
+          941
+        ],
+        "sourceSha256": "8547dc42b1c54216534f55adfa25e54a632bd89fc02ae44eccb9945907bf13c1",
+        "sha256": "222c6059bb7bda10db354e2beaef4d436f08d330a5d6f88567c1f36b08af850d",
+        "sourceBytes": 3501178,
+        "bytes": 772150
+      }
+    },
+    {
+      "file": "helen-egypt-tomb-day.webp",
+      "place": "greek-egypt-tomb",
+      "sha256": "63bc8c00bf579fea29258160385d2ae1c8f2df38d03fd1d2d73b77124af33a81",
+      "from": {
+        "pr": 1267,
+        "branch": "codex/helen-tomb-art",
+        "provenance": "helen-art-provenance.json"
+      },
+      "source": {
+        "file": "helen-egypt-tomb-day.webp",
+        "sourceFile": "helen-sources/helen-egypt-tomb-day.png",
+        "sourceName": "exec-a1b8ec84-4fc2-47ba-8dfa-d47e9c378a78.png",
+        "generationId": "exec-a1b8ec84-4fc2-47ba-8dfa-d47e9c378a78",
+        "intent": "precise-object-edit",
+        "transparentBackground": false,
+        "references": [
+          {
+            "file": "helen-sources/helen-egypt-tomb-day-initial.png",
+            "role": "edit target",
+            "sha256": "2bc9cf44531dee5e13363640fd92fc6266ace27660c2c76b41af7984b2dff1ad"
+          }
+        ],
+        "processing": "Original generated PNG retained in helen-sources; full-size WebP encoded at quality 94 and effort 6.",
+        "prompt": "Use case: precise-object-edit.\nAsset type: the daylight stage painting of Proteus's tomb on the Egyptian coast for the Helen chapter.\nInput image: the supplied tomb and palace court painting is the edit target.\nPrimary request: replace the distant mountain ridge beyond the water with a low, flat Egyptian coastal horizon. Keep the far shore mostly level, with sandy ground, a few date palms, low sandstone buildings and a narrow line of reeds. The clear blue sky extends down to this low horizon.\nInvariants: preserve the exact 16:9 crop and eye-level camera; the tomb and its lotus reliefs; the palace columns and porch; the palms, foreground paving, steps, lamps, jars, water and distant small sailing boats. Keep all foreground and middle-distance shapes in place. Keep the same warm afternoon light, rich natural color and detailed painted style. Change only the distant land profile beyond the water. The full frame stays opaque.",
+        "size": [
+          1672,
+          941
+        ],
+        "sourceSha256": "306390968bf81a666638c90b3e344f0c5012224441cc5dc40a72b1e47fa33460",
+        "sha256": "63bc8c00bf579fea29258160385d2ae1c8f2df38d03fd1d2d73b77124af33a81",
+        "sourceBytes": 3022422,
+        "bytes": 659266
+      }
+    },
+    {
+      "file": "book-three-lemnos-day.webp",
+      "place": "greek-lemnos",
+      "sha256": "e258ce08d483b2dd5d8f163e93b2891d0255baea3939d2854df4e5087a2af961",
+      "from": {
+        "pr": null,
+        "branch": "codex/greek-epic-complete",
+        "provenance": "book-three-scenery-provenance.json"
+      },
+      "source": {
+        "phase": "day",
+        "source": "book-three-sources/lemnos-day.png",
+        "backdrop": "book-three-lemnos-day.webp",
+        "width": 1672,
+        "height": 941,
+        "sourceSha256": "070c8b93939636b42537e64f1a33bfaba4772cd7c220ce8c9818f775605374d0"
+      },
+      "note": "No prompt was recorded for this painting."
+    },
+    {
+      "file": "book-three-susa-day.webp",
+      "place": "greek-susa",
+      "sha256": "67fdb625eb21ba74606c48509418e171296b027d001321a3b332c799066aa1b1",
+      "from": {
+        "pr": null,
+        "branch": "codex/greek-epic-complete",
+        "provenance": "book-three-scenery-provenance.json"
+      },
+      "source": {
+        "name": "susa-day",
+        "source": "book-three-sources/susa-day.png",
+        "asset": "book-three-susa-day.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sourceSha256": "4929c24f16c699ec29550dfef706246e93c2a44caa9fb039a37f777bbe171028",
+        "tool": "built-in imagegen",
+        "prompt": "Use case: historical game scenery. Paint one wide 16:9 CosyWorld backdrop in a rich hand-painted storybook style with detailed stone, warm light, deep space and a clear central foreground for character portraits. Show the Achaemenid court at ancient Susa in 480 BCE: a broad limestone courtyard, tall slender columns with paired bull capitals, blue and turquoise glazed brick friezes, a distant monumental hypostyle hall, low offering stone and royal tomb enclosure at the left, and a shaded palace threshold at the right. Pale ochre and turquoise, date palms, distant dry foothills, clear afternoon sky. The central paved court is empty and readable in a narrow phone crop. This is a Persian royal court; use Achaemenid architecture. Pure scenery, empty court, no people, ships, writing, captions, borders or game UI."
+      }
+    },
+    {
+      "file": "book-three-thrace-day.webp",
+      "place": "greek-thrace",
+      "sha256": "d8413d1c3b7d59ea353612c71a0cf1b66f11118d6c9ff4edf5aa035b2068a2e7",
+      "from": {
+        "pr": null,
+        "branch": "codex/greek-epic-complete",
+        "provenance": "book-three-scenery-provenance.json"
+      },
+      "source": {
+        "name": "thrace-day",
+        "source": "book-three-sources/thrace-day.png",
+        "asset": "book-three-thrace-day.webp",
+        "width": 1672,
+        "height": 941,
+        "hasAlpha": false,
+        "sourceSha256": "989c5f205717b8091b75056c25fb60a3c5daaeb3478560746f87df6106fcf2b9",
+        "tool": "built-in imagegen",
+        "prompt": "Use case: historical game scenery. Paint one wide 16:9 CosyWorld backdrop in a rich hand-painted storybook style, detailed ancient stone and cloth, soft northern coastal daylight and depth. A quiet Thracian shore in antiquity: broad empty pale stone and sandy foreground for character portraits; a low canvas summons tent with dark doorway at the left; a path up to two simple uninscribed burial markers and a folded clean cloth on a low stone at the right; distant northern Aegean headland, cypress and scrub, calm empty blue water with a small empty stone landing at the mid-left shore. Keep the middle clear and readable in a narrow phone crop. Pure scenery. Empty water and berth, empty shore, no people, ships, bodies, bones, writing, captions, borders or game UI."
+      }
+    },
+    {
+      "file": "tauris-shore-scene.webp",
+      "place": "greek-tauris",
+      "sha256": "57321e6ae138797ca775beac84916d6d6bbe3a8867789f19bd00638b15c16fdc",
+      "from": {
+        "pr": 1289,
+        "branch": "codex/house-blood-scene-art",
+        "provenance": "house-of-blood/scene-provenance.json"
+      },
+      "source": {
+        "name": "tauris-shore-day",
+        "file": "tauris-shore-scene.png",
+        "sourceFile": "tauris-shore-scene.png",
+        "sourceName": "exec-58167dcd-8a4a-4ed1-a0ca-946dd538943f.png",
+        "place": "greek-tauris-shore",
+        "variant": "day",
+        "useCase": "historical-scene",
+        "prompt": "Use case: historical-scene.\nAsset type: native painted background scene for CosyWorld's Greek drama card game.\nInput images: references for the established warm painted Greek storybook style, natural stone, coastal water and architectural scale. Create the new place specified below.\nStyle/medium: finely detailed painterly storybook realism, hand-painted stone and nature, natural daylight, restrained warm earth and blue pigments, soft depth and readable landmarks.\nComposition/framing: one wide native landscape PNG, about 1536 by 1024. Eye-level wide establishing camera. Keep the central vertical strip useful when the wide painting is cropped into a 390 by 580 phone view. Place key location landmarks within that centre area. The bottom third is broad clear, nearly level stone or earth ground for the game's separate full-body cast and carried objects. Build location details toward the middle distance and edges. Only the place's architecture, natural landscape and water occupy this environment painting.\nLighting: clear natural daytime with soft warm sunlight and readable stone shadows. This is the daylight base for an exact-camera night sibling.\nOutput: complete opaque native PNG, with the entire original generated canvas preserved.\nPlace: the Taurian Shore, a rocky coast below a Greek-style coastal temple. Broad worn temple steps descend from a modest pale stone portico in the upper left toward the shore. A clear accessible stone landing projects gently into a sheltered inlet at centre-right. The lower third is broad nearly level stone and sandy shore for Thoas, a traveller and carried objects. Sea water is clearly visible across the middle, especially inside the central phone crop. Coastal rocks frame the inlet and a distant dark headland closes the far horizon. The berth beside the landing faces clear open water. This is the open-berth view. Keep the temple steps, landing, inlet water, headland and rock shapes as strong stable landmarks. Place the landing near enough to the central crop that a later moored ship will read at phone width while the water remains visible. Only the shore, temple architecture, landing, rocks, sea and sky occupy the image. This place reads as being on the Taurian Shore.",
+        "references": [
+          {
+            "file": "v2/card-game/assets/greek-drama/theban-harbor-road.webp",
+            "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/theban-harbor-road.webp",
+            "role": "Published Greek coastal stone and water painting style",
+            "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+            "sha256": "02f068c0f388054541c0e74ee2235836e205742cd0941c5dfdbf22f608f1478f"
+          },
+          {
+            "file": "v2/card-game/assets/greek-drama/harbor-ship-at-berth.webp",
+            "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/harbor-ship-at-berth.webp",
+            "role": "Stone landing scale and shared Greek harbor material style",
+            "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+            "sha256": "f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0"
+          }
+        ],
+        "size": [
+          1536,
+          1024
+        ],
+        "opaque": true,
+        "sourceSha256": "a8203a1f919fbd843e1f6ea6425c04dfa54988da8a98a148126c77ffc1c2d8cd",
+        "sha256": "a8203a1f919fbd843e1f6ea6425c04dfa54988da8a98a148126c77ffc1c2d8cd",
+        "bytes": 3405676,
+        "processing": "Original native PNG copied byte for byte; complete generated canvas preserved"
+      },
+      "processing": "The native PNG tauris-shore-scene.png (sha256 a8203a1f919fbd843e1f6ea6425c04dfa54988da8a98a148126c77ffc1c2d8cd) was encoded to WebP at quality 94, effort 6. It was painted for a Taurian Shore place; here it serves the Taurian Temple, which overlooks the landing."
+    }
+  ]
+}
