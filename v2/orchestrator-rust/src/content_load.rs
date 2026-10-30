@@ -3998,13 +3998,11 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                     ));
                 }
             }
-            CW_PLACEMENT_LOCATION_FLOOR => {
-                if !location_ids.contains(&outcome.target_id) {
-                    return Err(format!(
-                        "recipe {} outcome references missing location {}",
-                        recipe.id, outcome.target_id
-                    ));
-                }
+            CW_PLACEMENT_LOCATION_FLOOR if !location_ids.contains(&outcome.target_id) => {
+                return Err(format!(
+                    "recipe {} outcome references missing location {}",
+                    recipe.id, outcome.target_id
+                ));
             }
             _ => {}
         }
@@ -4035,13 +4033,11 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                         ));
                     }
                 }
-                CW_PLACEMENT_LOCATION_FLOOR => {
-                    if !location_ids.contains(&output.target_id) {
-                        return Err(format!(
-                            "recipe {} output references missing location {}",
-                            recipe.id, output.target_id
-                        ));
-                    }
+                CW_PLACEMENT_LOCATION_FLOOR if !location_ids.contains(&output.target_id) => {
+                    return Err(format!(
+                        "recipe {} output references missing location {}",
+                        recipe.id, output.target_id
+                    ));
                 }
                 _ => {}
             }
@@ -4094,13 +4090,11 @@ pub(super) fn validate_seed_content(content: &SeedContent) -> Result<(), String>
                         ));
                     }
                 }
-                CW_PLACEMENT_LOCATION_FLOOR => {
-                    if !location_ids.contains(&requirement.target_id) {
-                        return Err(format!(
-                            "evolution track for actor {} references missing location target {}",
-                            track.actor_id, requirement.target_id
-                        ));
-                    }
+                CW_PLACEMENT_LOCATION_FLOOR if !location_ids.contains(&requirement.target_id) => {
+                    return Err(format!(
+                        "evolution track for actor {} references missing location target {}",
+                        track.actor_id, requirement.target_id
+                    ));
                 }
                 _ => {}
             }
