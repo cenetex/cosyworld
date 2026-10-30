@@ -571,6 +571,7 @@ jobs:
           - Lonely Forest guards and backup: ${LONELYFOREST_BACKUP_RESULT}
           - Lonely Forest Fly deploy: ${LONELYFOREST_RESULT}
           - Run log: ${GITHUB_SERVER_URL}/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}
+          - Trigger: ${GITHUB_EVENT_NAME} ${GITHUB_REF}
 
           Production may still be serving the previous release. Investigate before merging further changes that require a deploy.
           BODY
@@ -582,21 +583,37 @@ jobs:
             echo "A tracking issue for ${GITHUB_SHA:0:7} already exists."
           fi
 
+      # A main push deploys only the primary app (#1414), so it closes the
+      # issues other main pushes opened once the primary ships. Tag and
+      # dispatch runs must ship both apps, and only they close issues that a
+      # release run opened, so a Lonely Forest failure stays open until a
+      # release deploys it.
       - name: Close tracking issues for commits this deploy shipped
         if: >-
           needs.primary-fly.result == 'success' &&
-          needs.lonelyforest-fly.result == 'success'
+          (needs.lonelyforest-fly.result == 'success' ||
+           (github.event_name == 'push' && github.ref == 'refs/heads/main'))
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          MAIN_PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: |
+          if [ "$MAIN_PUSH" = "true" ]; then
+            scope="the primary app"
+          else
+            scope="both production apps"
+          fi
           gh api --paginate "repos/${GH_REPO}/issues?state=open&per_page=100" \
-            --jq '.[] | select(.pull_request == null) | select(.title | test("^Production did not deploy [0-9a-f]{7,40}$")) | "\(.number) \(.title | split(" ") | last)"' |
-          while read -r number sha; do
+            --jq '.[] | select(.pull_request == null) | select(.title | test("^Production did not deploy [0-9a-f]{7,40}$")) | "\(.number) \(.title | split(" ") | last) \((.body // "") | test("- Trigger: push refs/heads/main\\r?\\n"))"' |
+          while read -r number sha from_main_push; do
+            if [ "$MAIN_PUSH" = "true" ] && [ "$from_main_push" != "true" ]; then
+              echo "Leaving #${number} open: a release run opened it, so a release deploy must close it."
+              continue
+            fi
             status="$(gh api "repos/${GH_REPO}/compare/${sha}...${GITHUB_SHA}" --jq .status 2>/dev/null || true)"
             if [ "$status" = "ahead" ] || [ "$status" = "identical" ]; then
               gh issue close "$number" --reason completed \
-                --comment "Shipped: both production apps deployed ${GITHUB_SHA:0:7}, which contains ${sha}. ${GITHUB_SERVER_URL}/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}"
+                --comment "Shipped: ${scope} deployed ${GITHUB_SHA:0:7}, which contains ${sha}. ${GITHUB_SERVER_URL}/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}"
             fi
           done
 

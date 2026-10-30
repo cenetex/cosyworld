@@ -472,8 +472,33 @@ describe("deploy workflow", () => {
     expect(outcome).toContain("gh api --paginate");
     expect(outcome).toContain("compare/${sha}...${GITHUB_SHA}");
     expect(outcome).toMatch(
-      /needs\.primary-fly\.result == 'success' &&\s+needs\.lonelyforest-fly\.result == 'success'/,
+      /needs\.primary-fly\.result == 'success' &&\s+\(needs\.lonelyforest-fly\.result == 'success' \|\|/,
     );
+  });
+
+  it("lets a primary-only main push close the issues main pushes opened (#1420)", () => {
+    const outcome = job("deploy-outcome", "github-release");
+    expect(outcome).toContain("- Trigger: ${GITHUB_EVENT_NAME} ${GITHUB_REF}");
+    expect(outcome).toMatch(
+      /\(needs\.lonelyforest-fly\.result == 'success' \|\|\s+\(github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'\)\)/,
+    );
+    expect(outcome).toContain(
+      "MAIN_PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}",
+    );
+    expect(outcome).toContain(
+      String.raw`test("- Trigger: push refs/heads/main\\r?\\n")`,
+    );
+    expect(outcome).toContain(
+      'if [ "$MAIN_PUSH" = "true" ] && [ "$from_main_push" != "true" ]; then',
+    );
+    // A main push never runs Lonely Forest, so a skipped forest deploy
+    // must not open an issue.
+    const open = outcome.slice(
+      outcome.indexOf("Open a loud tracking issue"),
+      outcome.indexOf("Close tracking issues"),
+    );
+    expect(open).toContain("needs.lonelyforest-fly.result == 'failure'");
+    expect(open).not.toContain("needs.lonelyforest-fly.result != 'success'");
   });
 
   it("retries a Lonely Forest rolling deploy after a transient Fly polling failure", () => {
