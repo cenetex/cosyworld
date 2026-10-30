@@ -28,7 +28,7 @@ export function sailTo(
     const legal = actions(world, actor);
     const ashore = legal.find((a) => a.kind === "move" && a.target === dock);
     if (ashore) return step(world, ashore);
-    const lane = courseToward(world, here, dock);
+    const lane = courseToward(world, here, dock, actor);
     const course = legal.find((a) => a.kind === "course" && a.target === lane);
     world = step(world, course || legal.find((a) => a.kind === "wait"));
   }
@@ -40,7 +40,7 @@ export function nextVoyagePlay(world, actor, dock, actions = legalActions) {
   const legal = actions(world, actor);
   if (legal.some((a) => a.kind === "move" && a.target === dock))
     return { kind: "move", target: dock };
-  const lane = courseToward(world, world.actors[actor].place, dock);
+  const lane = courseToward(world, world.actors[actor].place, dock, actor);
   if (legal.some((a) => a.kind === "course" && a.target === lane))
     return { kind: "course", target: lane };
   return { kind: "wait" };

@@ -3,10 +3,18 @@ import { packPlaces } from "../../v2/card-game/pack-registry.mjs";
 // Expand a named journey into the actual cards played along its road or ship.
 export function greekTravelTargets(from, to) {
   if (packPlaces[from]?.exits.includes(to)) return [to];
-  if (
-    [from, to].includes("greek-harbor") &&
-    [from, to].includes("greek-piraeus")
-  )
+  // A traveller from the shore knows the Black Pond lanes, so the sea way
+  // between the Wine-Dark Harbor and Piraeus passes Athens Harbor.
+  if (from === "greek-harbor" && to === "greek-piraeus")
+    return [
+      "greek-ship",
+      "greek-athens-harbor",
+      "greek-athens",
+      "greek-road-athens-piraeus",
+      to,
+    ];
+  // From Piraeus an idle ship sails its first lane, to the Wine-Dark Harbor.
+  if (from === "greek-piraeus" && to === "greek-harbor")
     return ["greek-ship", to];
   if (from === "greek-harbor" && to === "greek-athens")
     return ["greek-ship", "greek-athens-harbor", to];

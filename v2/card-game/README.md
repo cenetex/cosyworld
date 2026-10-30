@@ -733,6 +733,14 @@ lanes and the round at sea (ship record version 3). Older occupied ships wait
 docked for a course; ships that had landed keep their arrival. Older journal
 actions replay with their original rules.
 
+Shared rules version 27 makes knowing a lane personal. Course cards show only
+the lanes the person knows from that port. People from a world with a port
+know its lanes; people from the forest know the Black Pond lanes; Myrto the
+shipmaster knows every lane. Everyone aboard learns the lane they sail. At a
+port or aboard, Talk can tell a lane as a fact ("Ships for Piraeus Quays leave
+from The Wine-Dark Harbor."), and the listener learns it only when the published
+speech says it. Lanes are saved as `sea:` edges in route knowledge.
+
 See the Greek pack README and `test/card-theban-release.test.mjs`; the scene
 journey is `v2/scripts/smoke-card-theban-scenery.mjs`. The weather journey is
 `node v2/scripts/smoke-card-weather.mjs`.

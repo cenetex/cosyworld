@@ -1,5 +1,11 @@
 import { controlledByHuman } from "./human-cast.mjs";
-import { transports, crossings, entityActive } from "./pack-registry.mjs";
+import {
+  transports,
+  crossings,
+  entityActive,
+  packPlaces,
+  packPeople,
+} from "./pack-registry.mjs";
 
 // A ship is docked, has a course set, is at sea, or has arrived. It sails
 // authored lanes between its docks. A voyage takes one world round.
@@ -34,18 +40,86 @@ export function lanesFrom(t, dock) {
   }
   return [...new Set(out)];
 }
-const openLanes = (s, t, dock) =>
-  lanesFrom(t, dock).filter((to) => entityActive(s, to));
+// Knowing a lane is personal. Lanes are saved in route knowledge as sea
+// edges, which no walking route can follow.
+
+export const seaEdge = (from, to) => [`sea:${from}`, `sea:${to}`];
+export const laneOfEdge = ([from, to]) =>
+  from?.startsWith("sea:") && to?.startsWith("sea:")
+    ? [from.slice(4), to.slice(4)]
+    : null;
+// Built on first use: the pack registry finishes loading after this module.
+let tables = null;
+function laneTables() {
+  if (tables) return tables;
+  const all = Object.values(transports);
+  tables = {
+    edges: all.flatMap((t) =>
+      t.docks.flatMap((dock) =>
+        lanesFrom(t, dock).map((to) => seaEdge(dock, to)),
+      ),
+    ),
+    ports: new Set(all.flatMap((t) => t.docks.map(regionOf))),
+    shipmasters: new Set(all.map((t) => t.shipmaster).filter(Boolean)),
+  };
+  return tables;
+}
+export const laneEdges = () => laneTables().edges;
+const regionOf = (dock) => packPlaces[dock]?.packId ?? null;
+// A world without a port of its own lives on the hub's shore.
+const homeOf = (actor) => {
+  const pack = packPeople[actor]?.packId ?? null;
+  return laneTables().ports.has(pack) ? pack : null;
+};
+// A dock opened by a story (Myrto's invitation) teaches its lanes to all.
+const storyDock = (s, dock) =>
+  Boolean(packPlaces[dock]?.requires?.length) && entityActive(s, dock);
+export function knowsLane(s, actor, from, to) {
+  // No one in particular, or a shipmaster, knows every lane of the ship.
+  if (!actor || laneTables().shipmasters.has(actor)) return true;
+  const home = homeOf(actor);
+  if (regionOf(from) === home || regionOf(to) === home) return true;
+  const a = `sea:${from}`,
+    b = `sea:${to}`;
+  if ((s.routeKnowledge?.[actor] || []).some(([x, y]) => x === a && y === b))
+    return true;
+  return storyDock(s, from) || storyDock(s, to);
+}
+// Sailing a lane, or hearing it, saves it both ways when it is two-way.
+export function learnLane(s, actor, from, to) {
+  const t = Object.values(transports).find((t) =>
+    lanesFrom(t, from).includes(to),
+  );
+  if (!t || !s.actors[actor]) return false;
+  const edges = [seaEdge(from, to)];
+  if (lanesFrom(t, to).includes(from)) edges.push(seaEdge(to, from));
+  const key = ([x, y]) => `${x}>${y}`;
+  const known = new Map(
+    (s.routeKnowledge?.[actor] || []).map((edge) => [key(edge), edge]),
+  );
+  const before = known.size;
+  for (const edge of edges) known.set(key(edge), edge);
+  if (known.size === before) return false;
+  s.routeKnowledge ??= {};
+  s.routeKnowledge[actor] = [...known.values()].sort((x, y) =>
+    key(x).localeCompare(key(y)),
+  );
+  return true;
+}
+const openLanes = (s, t, dock, actor = null) =>
+  lanesFrom(t, dock).filter(
+    (to) => entityActive(s, to) && knowsLane(s, actor, dock, to),
+  );
 
 // Shortest open lane path between two docks, or null.
-export function lanePath(s, id, from, to) {
+export function lanePath(s, id, from, to, actor = null) {
   const t = transports[id];
   const queue = [[from]],
     seen = new Set([from]);
   for (let i = 0; i < queue.length; i++) {
     const path = queue[i];
     if (path.at(-1) === to) return path;
-    for (const next of openLanes(s, t, path.at(-1))) {
+    for (const next of openLanes(s, t, path.at(-1), actor)) {
       if (seen.has(next)) continue;
       seen.add(next);
       queue.push([...path, next]);
@@ -53,12 +127,12 @@ export function lanePath(s, id, from, to) {
   }
   return null;
 }
-function laneReach(s, id, from) {
+function laneReach(s, id, from, actor = null) {
   const t = transports[id];
   const seen = new Set([from]),
     queue = [from];
   for (let i = 0; i < queue.length; i++)
-    for (const next of openLanes(s, t, queue[i]))
+    for (const next of openLanes(s, t, queue[i], actor))
       if (!seen.has(next)) {
         seen.add(next);
         queue.push(next);
@@ -164,7 +238,7 @@ export function courseOptions(s, id, actor = null) {
   if (!["docked", "arrived"].includes(state.phase)) return [];
   if (actor && s.actors[actor]?.place !== t.place) return [];
   if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
-  return openLanes(s, t, state.dock);
+  return openLanes(s, t, state.dock, actor);
 }
 
 export function isCourse(s, from, to) {
@@ -191,13 +265,13 @@ export function setCourse(s, from, to) {
 }
 
 // The first lane step toward a dock the planner wants to reach by sea.
-export function courseToward(s, place, target) {
+export function courseToward(s, place, target, actor = null) {
   const found = shipAt(place);
   if (!found) return null;
   const dock = read(s, found[0]).dock;
   // Back to the port it left: sail out on the first lane and return.
-  if (dock === target) return openLanes(s, found[1], dock)[0] ?? null;
-  return lanePath(s, found[0], dock, target)?.[1] ?? null;
+  if (dock === target) return openLanes(s, found[1], dock, actor)[0] ?? null;
+  return lanePath(s, found[0], dock, target, actor)?.[1] ?? null;
 }
 
 // An empty docked ship comes one lane closer to a human waiting at a port.
@@ -271,6 +345,9 @@ export function sailTransports(s) {
     pruneRiders(s, id);
     const aboard = passengerIds(s, id);
     if (state.phase === "sea") {
+      // Everyone who sailed the lane now knows it.
+      for (const actor of aboard)
+        learnLane(s, actor, state.dock, state.destination);
       Object.assign(state, {
         dock: state.destination,
         destination: null,
@@ -317,7 +394,7 @@ export function transportExits(s, place, previous = null, actor = null) {
   // Someone ashore, or no one in particular, sees where the ship can reach.
   const aboard = actor && s.actors[actor]?.place === t.place;
   if ((previous !== null && previous !== undefined) || !aboard) {
-    if (t.docks.includes(previous)) return laneReach(s, id, previous);
+    if (t.docks.includes(previous)) return laneReach(s, id, previous, actor);
     const from =
       state.phase === "sea" || state.phase === "course"
         ? state.destination
@@ -328,7 +405,7 @@ export function transportExits(s, place, previous = null, actor = null) {
       canDisembark(s, id, actor)
         ? [from]
         : []),
-      ...laneReach(s, id, from),
+      ...laneReach(s, id, from, actor),
     ].filter((dock, i, all) => all.indexOf(dock) === i);
   }
   return [

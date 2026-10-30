@@ -134,8 +134,11 @@ try {
       path: new URL(`athens-empty-${width}.png`, output).pathname,
       fullPage: true,
     });
+    // Mara knows the Black Pond lanes, not the Athens Harbor lane to
+    // Piraeus, so she walks to Piraeus and comes back by the town road.
     for (const target of [
-      "greek-ship",
+      "greek-athens",
+      "greek-road-athens-piraeus",
       "greek-piraeus",
       "greek-road-athens-piraeus",
       "greek-athens",

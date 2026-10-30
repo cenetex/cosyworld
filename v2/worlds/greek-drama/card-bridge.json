@@ -149,7 +149,8 @@
         { "from": "greek-harbor", "to": "greek-ajax-landing" },
         { "from": "greek-athens-harbor", "to": "greek-piraeus" }
       ],
-      "at": "greek-harbor"
+      "at": "greek-harbor",
+      "shipmaster": "greek-shipmaster"
     }
   }
 }

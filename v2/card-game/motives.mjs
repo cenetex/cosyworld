@@ -438,7 +438,7 @@ export function socialPlan(s, actor, actions, api) {
     if (a.kind === "course") {
       const path = api.routeBetween(s, here, want.location, actor);
       n =
-        path?.[1] && api.courseToward?.(s, here, path[1]) === a.target
+        path?.[1] && api.courseToward?.(s, here, path[1], actor) === a.target
           ? want.items.length ? 19 : 36
           : -15;
     }

@@ -86,6 +86,7 @@ import {
   installKnowledge,
   witnessKnowledge,
   reserveKnowledge,
+  reserveLaneKnowledge,
   acceptKnowledgeSpeech,
   validKnowledge,
 } from "./knowledge.mjs";
@@ -189,6 +190,11 @@ import {
   transportScenery,
   callTransport,
   VOYAGE,
+  laneEdges,
+  knowsLane,
+  learnLane,
+  laneOfEdge,
+  seaEdge,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
 import { shareStoryEndings } from "./story-life.mjs";
@@ -908,13 +914,81 @@ function talkKnowledge(s, action, entry) {
           (a) => a.packId === topic.packId && a.choiceId === topic.choiceId,
         ),
       }));
+    // At a port or aboard, talk turns to the ships; elsewhere a lane is told
+    // when there is nothing newer to say.
+    const lane = laneToTell(s, speaker, listener);
+    const port = lane && atPort(s, speaker);
+    if (port && reserveLaneKnowledge(s, speaker, listener, entry, lane)) break;
     if (reserveKnowledge(s, speaker, listener, entry, topics)) break;
+    if (lane && !port && reserveLaneKnowledge(s, speaker, listener, entry, lane))
+      break;
   }
 }
+const atPort = (s, actor) =>
+  Object.values(transports).some(
+    (t) =>
+      t.place === s.actors[actor].place ||
+      t.docks.includes(s.actors[actor].place),
+  );
+// A lane the speaker knows and the listener does not, nearest first.
+function laneToTell(s, speaker, listener) {
+  const here = s.actors[speaker].place;
+  const ship = Object.entries(transports).find(([, t]) => t.place === here);
+  const near = ship ? s.transports[ship[0]].dock : here;
+  const lanes = laneEdges()
+    .map(laneOfEdge)
+    .filter(
+      ([from, to]) =>
+        entityActive(s, from) &&
+        entityActive(s, to) &&
+        knowsLane(s, speaker, from, to) &&
+        !knowsLane(s, listener, from, to),
+    )
+    .sort(
+      ([a, b], [c, d]) =>
+        Number(c === near || d === near) - Number(a === near || b === near),
+    );
+  return lanes.length ? laneFact(...lanes[0]) : null;
+}
+// Talk context: the lanes a person at a port knows from it. Narration only.
+export function laneTalkFacts(s, actor) {
+  if (!s.actors[actor] || !atPort(s, actor)) return [];
+  const here = s.actors[actor].place;
+  const ship = Object.entries(transports).find(([, t]) => t.place === here);
+  const near = ship ? s.transports[ship[0]].dock : here;
+  const known = laneEdges()
+    .map(laneOfEdge)
+    .filter(
+      ([from, to]) =>
+        from === near &&
+        entityActive(s, to) &&
+        knowsLane(s, actor, from, to),
+    )
+    .map(([, to]) => nameOf(to));
+  return known.length
+    ? [`I know ships sail from ${nameOf(near)} to ${known.join(" and ")}.`]
+    : [`I know of no ship lane from ${nameOf(near)}.`];
+}
+export const laneFact = (from, to) => ({
+  id: `lane:${from}>${to}`,
+  text: `Ships for ${nameOf(to)} leave from ${nameOf(from)}.`,
+});
+const laneFactText = (id) => {
+  const [from, to] = id.startsWith("lane:") ? id.slice(5).split(">") : [];
+  return from &&
+    to &&
+    laneEdges().some(([a, b]) => a === `sea:${from}` && b === `sea:${to}`)
+    ? laneFact(from, to).text
+    : null;
+};
 
 // Only recorded speech publishes a selected account and its authored effects.
 export function publishKnowledgeSpeech(s, entry, disclosures) {
   const learned = acceptKnowledgeSpeech(s, entry, disclosures);
+  // A lane heard in published speech goes on the listener's own chart.
+  for (const { fact, listener } of learned)
+    if (fact.source.kind === "lane")
+      learnLane(s, listener, ...fact.id.slice(5).split(">"));
   for (const { fact, listener, commitChoice } of learned) {
     const topic = fact.source.topic;
     if (
@@ -2035,7 +2109,7 @@ function voyageAction(s, actor, dock, actions = legalActions(s, actor)) {
   if (!transportPlace(here)) return undefined;
   const ashore = actions.find((a) => a.kind === "move" && a.target === dock);
   if (ashore) return ashore;
-  const lane = courseToward(s, here, dock);
+  const lane = courseToward(s, here, dock, actor);
   return (
     actions.find((a) => a.kind === "course" && a.target === lane) ||
     actions.find((a) => a.kind === "wait")
@@ -2886,7 +2960,13 @@ export function validateWorld(s) {
   )
     fail();
   if (
-    !validKnowledge(s, actorIds, Object.keys(places), authoredKnowledgeTopics())
+    !validKnowledge(
+      s,
+      actorIds,
+      Object.keys(places),
+      authoredKnowledgeTopics(),
+      laneFactText,
+    )
   )
     fail();
   if (
@@ -3008,7 +3088,7 @@ export function validateWorld(s) {
       s,
       roamingActors,
       Object.keys(places),
-      authoredRouteEdges(),
+      [...authoredRouteEdges(), ...laneEdges()],
     )
   )
     fail();

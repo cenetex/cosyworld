@@ -18,7 +18,11 @@ import {
   transports,
 } from "../v2/card-game/pack-registry.mjs";
 import { travelCard } from "../v2/card-game/scene.mjs";
-import { lanePath, lanesFrom } from "../v2/card-game/pack-transport.mjs";
+import {
+  lanePath,
+  lanesFrom,
+  learnLane,
+} from "../v2/card-game/pack-transport.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
 
 const docks = ["pond", "greek-harbor", "greek-athens-harbor", "greek-piraeus"];
@@ -34,6 +38,11 @@ function shared(dock) {
     ? dock
     : "greek-harbor";
   for (const id of players) world.actors[id].place = dock;
+  // These travellers have heard every lane from Myrto.
+  const ship = transports["greek-ship"];
+  for (const id of players)
+    for (const from of ship.docks)
+      for (const to of lanesFrom(ship, from)) learnLane(world, id, from, to);
   return world;
 }
 const ask = (world, actor, extra = {}) =>

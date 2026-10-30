@@ -1274,7 +1274,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   for (const [id, t] of Object.entries(pack.transports || {})) {
     const valid = check(
       idOk(id) &&
-        keysOk(t, ["place", "docks", "at", "lanes"]) &&
+        keysOk(t, ["place", "docks", "at", "lanes", "shipmaster"]) &&
         owns(places, t.place) &&
         !transportPlaces.has(t.place) &&
         places[t.place]?.exits.length === 0 &&
@@ -1289,6 +1289,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     if (!valid) continue;
     transportPlaces.add(t.place);
     for (const message of laneProblems(t)) check(false, `transport ${id} ${message}`);
+    check(
+      t.shipmaster === undefined ||
+        (typeof t.shipmaster === "string" && t.shipmaster.length > 0),
+      `transport ${id} shipmaster names a resident`,
+    );
     check(
       crossings.filter((c) => c.transport === id).length === t.docks.length &&
         (t.docks || []).every((from) =>

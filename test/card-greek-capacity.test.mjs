@@ -11,6 +11,7 @@ const ajaxItems = Object.fromEntries(
     .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
 );
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
+import { learnLane } from "../v2/card-game/pack-transport.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
 import { readFileSync } from "node:fs";
@@ -70,13 +71,22 @@ describe("roads around a full Agora", () => {
           expect(result.ok).toBe(true);
           world = result.world;
         }
-        // Aboard, the destination card sets the course; a round at sea follows.
-        if (world.actors.vale.place === "greek-ship")
-          for (const kind of ["course", "wait"]) {
-            const action = agoraView(world).actions.find(
-              (a) => a.kind === kind && (kind === "wait" || a.target === next),
-            );
-            expect(action, `${kind} toward ${next}`).toBeDefined();
+        // Vale knows no lane from Piraeus, so she waits aboard until the idle
+        // ship sails its first lane, to the Wine-Dark Harbor.
+        for (
+          let n = 0;
+          n < 8 &&
+          world.actors.vale.place === "greek-ship" &&
+          !agoraView(world).actions.some(
+            (a) => a.kind === "move" && a.target === next,
+          );
+          n++
+        ) {
+          const actions = agoraView(world).actions;
+          const action =
+            actions.find((a) => a.kind === "course" && a.target === next) ||
+            actions.find((a) => a.kind === "wait");
+          {
             world = dispatchShared({
               op: "play",
               world,
@@ -86,6 +96,7 @@ describe("roads around a full Agora", () => {
               action,
             }).world;
           }
+        }
         const view = agoraView(decodeSave(encodeSave(world)));
         expect(view.world.presentActors).toHaveLength(5);
         expect(view.exits).not.toContain("greek-athens");
@@ -156,6 +167,8 @@ describe("roads around a full Agora", () => {
     ).not.toContain("greek-piraeus");
     const open = crowdedAgoraWorld();
     open.actors.vale.place = "greek-ship";
+    // Vale has heard of the Piraeus lane, which needs The Open Door.
+    learnLane(open, "vale", "greek-harbor", "greek-piraeus");
     open.transports["greek-ship"] = {
       version: 3,
       phase: "docked",

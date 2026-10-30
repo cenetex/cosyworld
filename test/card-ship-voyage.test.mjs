@@ -9,6 +9,7 @@ import {
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   IDLE_ROUNDS,
+  learnLane,
   callTransport,
   lanesFrom,
   summonTransport,
@@ -155,8 +156,12 @@ describe("a real voyage", () => {
     s = act(s, "ash", "move", "greek-ship");
     expect(targets(s, "ash", "move")).toEqual([]);
     expect(targets(s, "vale", "move")).toEqual(["greek-harbor"]);
-    // The Trojan camp landing stays closed until Myrto's invitation.
+    // Ash has heard of the Piraeus lane. The Trojan camp landing stays
+    // closed until Myrto's invitation.
+    learnLane(s, "ash", "greek-harbor", "greek-piraeus");
+    s = reload(s);
     expect(targets(s, "ash", "course")).toEqual(["greek-piraeus", "pond"]);
+    expect(targets(s, "vale", "course")).toEqual(["pond"]);
     s = act(s, "ash", "course", "greek-piraeus");
     expect(targets(s, "vale", "move")).toEqual([]);
     s = act(s, "vale", "wait");
@@ -204,6 +209,13 @@ describe("a real voyage", () => {
       "greek-harbor",
       "greek-athens-harbor",
     ]);
+    // Vale knows the Black Pond lanes; Piraeus needs the lanes she has not
+    // heard of yet.
+    expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
+      "greek-athens-harbor",
+      "greek-harbor",
+    ]);
+    learnLane(s, "vale", "greek-athens-harbor", "greek-piraeus");
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-athens-harbor",
       "greek-harbor",
