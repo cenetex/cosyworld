@@ -171,8 +171,8 @@ try {
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
       assert.equal(await page.locator("#dialogue-text").textContent(), "");
       await playCards("snuff", ["lamp"]);
-      // A replaced slow reply keeps the completion; the next Talk context
-      // names it instead of a completion dialog.
+      // A replaced slow reply keeps the completion. Talk no longer names
+      // finished quests (#1451), and no completion dialog opens.
       assert.notEqual(
         await page.evaluate(
           ({ key, quest }) =>
@@ -182,12 +182,12 @@ try {
         ),
         null,
       );
-      assert.match(
+      assert.doesNotMatch(
         requests
           .at(-1)
           .entities.find((e) => e.id === "vale")
           .facts.join(" "),
-        new RegExp(`I just finished ${openingQuest.title}`),
+        /I just finished|What I want most now/,
       );
       await heldLight.route
         .fulfill({
