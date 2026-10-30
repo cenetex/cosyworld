@@ -306,6 +306,71 @@ export function reserveKnowledge(world, speaker, listener, entry, topics = []) {
   return disclosure;
 }
 
+// A sea lane the speaker knows becomes a fact when it is told. The listener
+// learns the lane only from published speech that says it.
+export function reserveLaneKnowledge(world, speaker, listener, entry, lane) {
+  installKnowledge(world);
+  if (
+    !lane ||
+    !safeId(lane.id) ||
+    !validFactText(lane.text) ||
+    knowsFact(world, listener, lane.id) ||
+    world.actors[speaker]?.place !== world.actors[listener]?.place
+  )
+    return null;
+  const local = world.actors[speaker].place;
+  const fact =
+    world.knowledge.facts[lane.id] ||
+    retainFact(world, {
+      id: lane.id,
+      text: lane.text,
+      source: {
+        kind: "lane",
+        eventSeq: entry.seq,
+        turn: entry.turn,
+        actorId: speaker,
+        locationId: local,
+        witnesses: [speaker],
+        topic: null,
+      },
+    });
+  if (!fact) return null;
+  // The speaker already knew the lane; the saved fact keeps its first teller.
+  if (!knowsFact(world, speaker, fact.id)) {
+    const first = fact.source.witnesses.includes(speaker);
+    if (!first && fact.source.turn >= entry.turn) return null;
+    remember(
+      world,
+      speaker,
+      fact,
+      first ? "witnessed" : "heard",
+      first ? null : fact.source.actorId,
+      fact.source.eventSeq,
+      fact.source.turn,
+    );
+  }
+  if (
+    world.knowledge.pending.some(
+      (p) => p.eventSeq === entry.seq && p.speaker === speaker && p.listener === listener,
+    )
+  )
+    return null;
+  const disclosure = {
+    factId: fact.id,
+    speaker,
+    listener,
+    eventSeq: entry.seq,
+    turn: entry.turn,
+    locationId: local,
+    commitChoice: false,
+  };
+  world.knowledge.pending.push(disclosure);
+  world.knowledge.pending = world.knowledge.pending.slice(
+    -KNOWLEDGE_PENDING_LIMIT,
+  );
+  return disclosure;
+}
+
 export function knowledgeDisclosures(
   world,
   speakers,
@@ -445,7 +510,13 @@ export const ageText = (turns) =>
         ? "some time ago"
         : "long ago";
 
-export function validKnowledge(world, actors, places, topics = []) {
+export function validKnowledge(
+  world,
+  actors,
+  places,
+  topics = [],
+  laneText = () => null,
+) {
   const k = world.knowledge;
   if (k === undefined) return true;
   if (
@@ -478,7 +549,7 @@ export function validKnowledge(world, actors, places, topics = []) {
         "witnesses",
         "topic",
       ]) ||
-      !["event", "topic", "ending"].includes(s.kind) ||
+      !["event", "topic", "ending", "lane"].includes(s.kind) ||
       !whole(s.eventSeq, world.eventSeq) ||
       s.eventSeq < 1 ||
       !whole(s.turn, world.turn) ||
@@ -493,6 +564,8 @@ export function validKnowledge(world, actors, places, topics = []) {
       return false;
     if (s.kind === "event") {
       if (id !== `event:${s.eventSeq}` || s.topic !== null) return false;
+    } else if (s.kind === "lane") {
+      if (laneText(id) !== fact.text || s.topic !== null) return false;
     } else if (s.kind === "ending") {
       if (!/^ending:./u.test(id) || s.topic !== null) return false;
     } else {

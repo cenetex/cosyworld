@@ -34,7 +34,10 @@ export async function checkOpeningPoem(browser, origin) {
       );
       assert.ok(report, "The courtyard report is ready to carry");
       if (!questCards(world).some((quest) => quest.key === report.key)) {
-        const spare = questCards(world).find((quest) => quest.story);
+        // Make room in a full two-card hand, preferring another story card.
+        const spare =
+          questCards(world).find((quest) => quest.story) ||
+          (questCards(world).length >= 2 && questCards(world)[0]);
         if (spare) assert.ok(dropQuest(world, "vale", spare.key));
         assert.ok(joinQuest(world, "vale", report.key));
       }

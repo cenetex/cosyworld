@@ -253,9 +253,7 @@ describe("the Open Door", () => {
         expect.arrayContaining([
           "greek-athens-harbor",
           "greek-road-athens-piraeus",
-          "greek-road-athens-colonus",
-          "greek-road-athens-eleusis",
-          "greek-road-athens-marathon",
+          "greek-colonus",
         ]),
       );
       expect(entityActive(world, "greek-thinkery")).toBe(false);

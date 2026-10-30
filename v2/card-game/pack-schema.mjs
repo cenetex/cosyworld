@@ -89,6 +89,42 @@ const textOk = (v, max = 1200) =>
   v.length <= max &&
   !/[\u0000-\u001f]/.test(v);
 const intOk = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
+// The sea is an authored graph. A lane joins two docks and is two-way unless
+// marked one-way. Each dock has at most four lanes and at least one way out.
+export const MAX_LANES = 4;
+export function laneProblems(t) {
+  const out = [];
+  if (!Array.isArray(t.lanes) || !t.lanes.length) return ["needs sea lanes"];
+  const docks = Array.isArray(t.docks) ? t.docks : [];
+  const seen = new Set(),
+    neighbours = new Map(docks.map((d) => [d, new Set()])),
+    leaving = new Set();
+  for (const lane of t.lanes) {
+    if (
+      !keysOk(lane, ["from", "to", "oneWay"]) ||
+      !docks.includes(lane.from) ||
+      !docks.includes(lane.to) ||
+      lane.from === lane.to ||
+      (lane.oneWay !== undefined && lane.oneWay !== true)
+    ) {
+      out.push("has a lane that does not join two of its docks");
+      continue;
+    }
+    const pair = [lane.from, lane.to].sort().join(">");
+    if (seen.has(pair)) out.push(`repeats the lane ${pair}`);
+    seen.add(pair);
+    neighbours.get(lane.from).add(lane.to);
+    neighbours.get(lane.to).add(lane.from);
+    leaving.add(lane.from);
+    if (!lane.oneWay) leaving.add(lane.to);
+  }
+  for (const [dock, set] of neighbours) {
+    if (set.size > MAX_LANES)
+      out.push(`dock ${dock} has more than ${MAX_LANES} lanes`);
+    if (!leaving.has(dock)) out.push(`dock ${dock} has no lane out`);
+  }
+  return out;
+}
 const keysOk = (o, allowed) =>
   record(o) && Object.keys(o).every((k) => allowed.includes(k));
 // Placeholders are {name} from a fixed list; any other brace is an error.
@@ -386,6 +422,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "stage",
         "requires",
         "road",
+        "retired",
       ]),
       `place ${id} has an unknown field`,
     );
@@ -409,10 +446,21 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             (end, i) =>
               owns(places, end) &&
               p.exits[i] === end &&
-              places[end].exits.includes(id),
+              (p.retired === true || places[end].exits.includes(id)),
           ) &&
           p.exits.length === 2,
         `road ${id} needs two fixed ends with a return path`,
+      );
+    // A retired road keeps its ID for saved history. No place leads onto it.
+    if (p.retired !== undefined)
+      check(
+        p.retired === true &&
+          p.road !== undefined &&
+          Object.values(places).every(
+            (other) =>
+              !(Array.isArray(other.exits) && other.exits.includes(id)),
+          ),
+        `retired road ${id} must be a road that no exit names`,
       );
     if (p.art !== undefined) media(p.art, `place ${id} art`);
     if (p.music !== undefined)
@@ -1171,7 +1219,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       ].filter((id) => r.places.includes(id)))
         reachable.add(to);
     check(
-      r.places.every((p) => reachable.has(p)),
+      r.places.every((p) => reachable.has(p) || places[p]?.retired === true),
       "release contains a disconnected place",
     );
   }
@@ -1238,7 +1286,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   for (const [id, t] of Object.entries(pack.transports || {})) {
     const valid = check(
       idOk(id) &&
-        keysOk(t, ["place", "docks", "at"]) &&
+        keysOk(t, ["place", "docks", "at", "lanes", "shipmaster"]) &&
         owns(places, t.place) &&
         !transportPlaces.has(t.place) &&
         places[t.place]?.exits.length === 0 &&
@@ -1252,6 +1300,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
     if (!valid) continue;
     transportPlaces.add(t.place);
+    for (const message of laneProblems(t)) check(false, `transport ${id} ${message}`);
+    check(
+      t.shipmaster === undefined ||
+        (typeof t.shipmaster === "string" && t.shipmaster.length > 0),
+      `transport ${id} shipmaster names a resident`,
+    );
     check(
       crossings.filter((c) => c.transport === id).length === t.docks.length &&
         (t.docks || []).every((from) =>
@@ -1407,7 +1461,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     ])
       reached.add(to);
   check(
-    Object.keys(places).every((id) => reached.has(id)),
+    Object.entries(places).every(
+      ([id, p]) => reached.has(id) || p.retired === true,
+    ),
     "every place must be reachable from the entry",
   );
   check(

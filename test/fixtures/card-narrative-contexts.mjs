@@ -8,6 +8,7 @@ import {
   decodeSave,
 } from "../../v2/card-game/world.mjs";
 import { enableMotives } from "../../v2/card-game/motives.mjs";
+import { sailTo } from "../helpers/voyage.mjs";
 import {
   narrativeContext,
   applyGeneratedText,
@@ -68,8 +69,9 @@ export function narrativeContractCases() {
   const secondCover = playCard(firstFlash, "cover", "cloth", "lamp");
   const ship = playCard(secondCover, "take", "cloth");
   const aboard = playCard(ship, "move", null, "greek-ship");
-  const harbor = playCard(aboard, "move", null, "greek-harbor");
-  const courtyard = playCard(harbor, "move", null, "greek-courtyard");
+  const harbor = sailTo(aboard, "greek-harbor");
+  const road = playCard(harbor, "move", null, "greek-road-thebes");
+  const courtyard = playCard(road, "move", null, "greek-courtyard");
   const gate = playCard(courtyard, "move", null, "greek-gate");
   const choose = (world, choiceId) => {
     const action = legalActions(world).find((a) => a.choiceId === choiceId);
@@ -112,7 +114,15 @@ export function narrativeContractCases() {
   ];
   for (const branch of ["burial", "concession", "refusal", "exposure"]) {
     const earned = openingFixture(branch).closed;
-    const arrival = playCard(earned, "wait");
+    // The Bard may still be at sea; a voyage takes a world round.
+    let arrival = playCard(earned, "wait");
+    for (
+      let turn = 0;
+      turn < 8 &&
+      arrival.actors["greek-rhapsode"].place !== arrival.actors.vale.place;
+      turn++
+    )
+      arrival = playCard(arrival, "wait");
     worlds.push([`${branch} bard arrival`, arrival]);
     worlds.push([
       `${branch} bard conversation`,

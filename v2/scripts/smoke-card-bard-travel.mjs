@@ -143,7 +143,14 @@ try {
       await selectCard(page, "greek-antigone");
       await page.locator('[data-choice="greek-decline-burial"]').click();
       await reachTurn(2);
+      // The Bard walks up the Theban Harbor Road, then into the city.
       let state = await saved();
+      assert.equal(state.actors[singer].place, "greek-road-thebes");
+      assert.equal(state.roamingQuests[singer].target.locationId, "greek-gate");
+      await selectCard(page, "vale");
+      await page.locator('#card-actions [data-action="wait"]').click();
+      await reachTurn(3);
+      state = await saved();
       assert.equal(state.actors[singer].place, "greek-courtyard");
       assert.equal(state.roamingQuests[singer].target.locationId, "greek-gate");
       assert.equal(
@@ -152,16 +159,16 @@ try {
       );
       await selectCard(page, "vale");
       await page.locator('#card-actions [data-action="wait"]').click();
-      await reachTurn(3);
+      await reachTurn(4);
       state = await saved();
       assert.equal(state.actors[singer].place, "greek-gate");
       assert.equal(
         state.packs["greek-drama"].recitals["greek-decline-burial"].visit,
-        3,
+        4,
       );
       await selectCard(page, singer);
       await page.locator('#card-actions [data-action="talk"]').click();
-      await reachTurn(4);
+      await reachTurn(5);
       assert.equal(await page.locator("#story-retry").isVisible(), false);
       const poem = requests.at(-1).entities.find((e) => e.id === singer)?.poem;
       assert.equal(poem.stanzas.length, 1);

@@ -109,6 +109,12 @@ function move(world, target) {
     )
       world = act(world, "wait");
     world = act(world, "move", { target: "greek-ship" });
+    // The destination card sets the course; the voyage takes a round at sea.
+    const course = cardPlay(world, [target]).action;
+    expect(course).toMatchObject({ kind: "course", target });
+    world = play(world, course).state;
+    for (let turn = 0; turn < 4 && !exits(world, "greek-ship", "vale").includes(target); turn++)
+      world = act(world, "wait");
   }
   expect(exits(world, world.actors.vale.place, "vale")).toContain(target);
   expect(availableCards(world)).toContain(target);
@@ -225,9 +231,12 @@ describe("the Wine-Dark Sea crossing", () => {
     expect(world.memories.moth.landmarks).toContainEqual(remembered);
     expect(rootHolder(world, "lamp")).toBe("vale");
     expect(world.items.cloth.holder).toBe("bell");
+    // Everyone is ashore. The fixture's harbor call, made while the Bard was
+    // aboard, brings the empty ship back to the harbor.
     expect(world.transports["greek-ship"]).toMatchObject({
-      dock: "pond",
+      phase: "docked",
       destination: null,
+      riders: [],
     });
   });
 

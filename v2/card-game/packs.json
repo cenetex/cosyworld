@@ -409,9 +409,9 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 7,
+      "revision": 8,
       "name": "The Wine-Dark Sea",
-      "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. Fixed roads lead through the Attic places where welcome becomes a growing poem.",
+      "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
       "entry": "greek-harbor",
       "continuity": {
@@ -453,7 +453,6 @@
           "name": "The Wine-Dark Harbor",
           "text": "Worn steps climb from the stone landing toward the town.",
           "exits": [
-            "greek-courtyard",
             "greek-road-thebes",
             "greek-argolid-road"
           ],
@@ -464,7 +463,6 @@
           "name": "Theban Courtyard",
           "text": "Bread cools beneath a cloth. An empty place remains at the common table.",
           "exits": [
-            "greek-harbor",
             "greek-road-thebes",
             "greek-well",
             "greek-gate",
@@ -537,8 +535,7 @@
           "name": "Aulis Anchorage",
           "text": "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
           "exits": [
-            "greek-gate",
-            "greek-greek-camp"
+            "greek-gate"
           ],
           "backdrop": "assets/greek-drama/harbor.svg",
           "persona": "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
@@ -556,23 +553,19 @@
             "greek-jury-house",
             "greek-festival",
             "greek-attic-farm",
-            "greek-road-athens-colonus",
-            "greek-road-athens-eleusis",
-            "greek-road-athens-marathon",
-            "greek-delphi",
+            "greek-colonus",
+            "greek-road-sacred-way",
             "greek-road-athens-harbor"
           ],
           "backdrop": "assets/greek-drama/athens-grand-agora.webp",
-          "persona": "The Agora is the great civic heart of Athens. Colonnades, public monuments and the high Acropolis give the city its scale. Theseus receives the mothers’ petition at the herald’s table. Roads lead toward the harbor, the quays, Eleusis, Colonus and Marathon."
+          "persona": "The Agora is the great civic heart of Athens. Colonnades, public monuments and the high Acropolis give the city its scale. Theseus receives the mothers’ petition at the herald’s table. A road leads to the Piraeus quays. Streets lead to the harbor and the grove at Colonus."
         },
         "greek-piraeus": {
           "name": "Piraeus Quays",
-          "text": "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. Roads lead inland to Athens and along the coast to Eleusis.",
+          "text": "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. A road leads inland to Athens. A shore path leads to Eleusis.",
           "exits": [
             "greek-road-athens-piraeus",
-            "greek-tauris",
-            "greek-sicily",
-            "greek-road-piraeus-eleusis"
+            "greek-eleusis"
           ],
           "backdrop": "assets/greek-drama/piraeus-open-berth.webp",
           "persona": "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler’s chosen terms."
@@ -654,33 +647,29 @@
         },
         "greek-colonus": {
           "name": "Colonus Grove",
-          "text": "A cup and a small pot of honey stand at the grove’s edge. A keeper rests beside a smooth stone. Local roads lead toward Eleusis and the Marathon altar.",
+          "text": "A cup and a small pot of honey stand at the grove’s edge. A keeper rests beside a smooth stone. Paths lead back to the Agora and on to the Marathon altar.",
           "exits": [
-            "greek-road-athens-colonus",
+            "greek-athens",
             "greek-underworld",
-            "greek-road-colonus-eleusis",
-            "greek-road-colonus-marathon"
+            "greek-marathon"
           ],
           "backdrop": "assets/greek-drama/open-door-colonus.webp",
           "persona": "The keeper tells Sophocles’s Oedipus at Colonus as an earlier tale, before the brothers died at Thebes. Oedipus and his daughters belong to that named tale. The traveler’s offerings and refuge tablet belong to the present grove."
         },
         "greek-eleusis": {
           "name": "Eleusinian Sanctuary",
-          "text": "Mothers hold olive branches on Demeter’s steps. Aethra keeps a clear space beside the altar for their request. A coast road leads to Piraeus; a local road returns through Colonus.",
+          "text": "Mothers hold olive branches on Demeter’s steps. Aethra keeps a clear space beside the altar for their request. A shore path leads back to the Piraeus quays.",
           "exits": [
-            "greek-road-athens-eleusis",
-            "greek-road-piraeus-eleusis",
-            "greek-road-colonus-eleusis"
+            "greek-piraeus"
           ],
           "backdrop": "assets/greek-drama/open-door-eleusis.webp",
           "persona": "This episode follows the attack on Thebes. The Argive mothers seek their sons’ remains. The traveler’s own Theban deed stays true. The city’s recovery, the funeral and the later care each need their own recorded action or report."
         },
         "greek-marathon": {
           "name": "Marathon Altar",
-          "text": "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. A local road runs back through Colonus.",
+          "text": "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. A path runs back to the Colonus grove.",
           "exits": [
-            "greek-road-athens-marathon",
-            "greek-road-colonus-marathon"
+            "greek-colonus"
           ],
           "backdrop": "assets/greek-drama/open-door-marathon.webp",
           "persona": "The keeper tells Euripides’s Children of Heracles as a separate tale under Demophon, son of Theseus, after Heracles’s death. The daughter, battle and captive king belong to that tale. The traveler’s blanket stays at the present altar for guests."
@@ -766,7 +755,8 @@
           "text": "A rented household opens onto the harbor road. Bundles stand ready beside the door.",
           "exits": [
             "greek-argolid-road",
-            "greek-troezen"
+            "greek-troezen",
+            "greek-road-colonists"
           ],
           "backdrop": "assets/greek-drama/courtyard.svg",
           "persona": "A rented household opens onto the harbor road. Bundles stand ready beside the door."
@@ -784,8 +774,8 @@
           "name": "Delphic Temple",
           "text": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps.",
           "exits": [
-            "greek-athens",
-            "greek-trachis"
+            "greek-road-sacred-way",
+            "greek-oeta"
           ],
           "backdrop": "assets/greek-drama/palace.svg",
           "persona": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps."
@@ -794,7 +784,6 @@
           "name": "House at Trachis",
           "text": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
           "exits": [
-            "greek-delphi",
             "greek-oeta",
             "greek-pherae"
           ],
@@ -803,12 +792,17 @@
         },
         "greek-oeta": {
           "name": "The Oeta Road",
-          "text": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone.",
+          "text": "A steep road climbs above the trees on Mount Oeta. One end leads to Delphic Temple; the other leads to House at Trachis. Bearers have set a litter beside a level patch of stone.",
           "exits": [
+            "greek-delphi",
             "greek-trachis"
           ],
-          "backdrop": "assets/greek-drama/grove.svg",
-          "persona": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone."
+          "backdrop": "assets/greek-drama/oeta-road.svg",
+          "persona": "A shared road between Delphic Temple and House at Trachis. The left end always leads to Delphic Temple. The right end always leads to House at Trachis. Bearers have set a litter beside a level patch of stone. Travelers can meet, talk, rest and carry their belongings here.",
+          "road": [
+            "greek-delphi",
+            "greek-trachis"
+          ]
         },
         "greek-pherae": {
           "name": "Palace of Pherae",
@@ -836,7 +830,7 @@
             "greek-greek-camp",
             "greek-trojan-camp",
             "greek-thrace",
-            "greek-susa"
+            "greek-road-royal"
           ],
           "backdrop": "assets/greek-drama/palace.svg",
           "persona": "The city road runs between battered walls. Soldiers and displaced households share the remaining wells."
@@ -845,7 +839,6 @@
           "name": "The Greek Camp at Troy",
           "text": "A speaker names the Trojan account after Ajax’s death. Tents stand above the ships. Teucer carries a burial plea to the commanders.",
           "exits": [
-            "greek-aulis",
             "greek-troy",
             "greek-lemnos",
             "greek-ajax-landing",
@@ -891,7 +884,8 @@
           "name": "The Thracian Shore",
           "text": "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
           "exits": [
-            "greek-troy"
+            "greek-troy",
+            "greek-road-black-sea"
           ],
           "backdrop": "assets/greek-drama/sea.svg",
           "persona": "A fleet waits beyond the breakers. Captive households search among the new arrivals."
@@ -914,7 +908,8 @@
           "name": "The Taurian Temple",
           "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
           "exits": [
-            "greek-piraeus"
+            "greek-road-black-sea",
+            "greek-scythian-crag"
           ],
           "backdrop": "assets/greek-drama/palace.svg",
           "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
@@ -923,7 +918,7 @@
           "name": "The Sicilian Cave",
           "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
           "exits": [
-            "greek-piraeus"
+            "greek-road-colonists"
           ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
@@ -932,8 +927,7 @@
           "name": "The Court at Susa",
           "text": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
           "exits": [
-            "greek-troy",
-            "greek-scythian-crag"
+            "greek-road-royal"
           ],
           "backdrop": "assets/greek-drama/palace.svg",
           "persona": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
@@ -942,7 +936,7 @@
           "name": "The Scythian Crag",
           "text": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
           "exits": [
-            "greek-susa"
+            "greek-tauris"
           ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach."
@@ -1065,6 +1059,7 @@
             "greek-athens",
             "greek-colonus"
           ],
+          "retired": true,
           "backdrop": "assets/greek-drama/attic-road.webp"
         },
         "greek-road-athens-eleusis": {
@@ -1079,6 +1074,7 @@
             "greek-athens",
             "greek-eleusis"
           ],
+          "retired": true,
           "backdrop": "assets/greek-drama/attic-road.webp"
         },
         "greek-road-athens-marathon": {
@@ -1093,6 +1089,7 @@
             "greek-athens",
             "greek-marathon"
           ],
+          "retired": true,
           "backdrop": "assets/greek-drama/attic-road.webp"
         },
         "greek-road-piraeus-eleusis": {
@@ -1107,6 +1104,7 @@
             "greek-piraeus",
             "greek-eleusis"
           ],
+          "retired": true,
           "backdrop": "assets/greek-drama/attic-road.webp"
         },
         "greek-road-colonus-eleusis": {
@@ -1121,6 +1119,7 @@
             "greek-colonus",
             "greek-eleusis"
           ],
+          "retired": true,
           "backdrop": "assets/greek-drama/attic-road.webp"
         },
         "greek-road-colonus-marathon": {
@@ -1135,7 +1134,64 @@
             "greek-colonus",
             "greek-marathon"
           ],
+          "retired": true,
           "backdrop": "assets/greek-drama/attic-road.webp"
+        },
+        "greek-road-sacred-way": {
+          "name": "The Sacred Way",
+          "text": "A paved pilgrim road climbs through the hills toward Mount Parnassus. One end leads to Athenian Agora; the other leads to Delphic Temple. Small shrines stand along the verge.",
+          "persona": "A shared road between Athenian Agora and Delphic Temple. The left end always leads to Athenian Agora. The right end always leads to Delphic Temple. Pilgrims carry questions and gifts for Apollo along this road. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-athens",
+            "greek-delphi"
+          ],
+          "road": [
+            "greek-athens",
+            "greek-delphi"
+          ],
+          "backdrop": "assets/greek-drama/sacred-way.svg"
+        },
+        "greek-road-royal": {
+          "name": "The Royal Road",
+          "text": "A long royal road runs east across dry plains. One end leads to The Trojan Walls; the other leads to The Court at Susa. A post station keeps fresh horses by the road.",
+          "persona": "A shared road between The Trojan Walls and The Court at Susa. The left end always leads to The Trojan Walls. The right end always leads to The Court at Susa. Royal messengers ride this road between the sea and the Persian court. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-troy",
+            "greek-susa"
+          ],
+          "road": [
+            "greek-troy",
+            "greek-susa"
+          ],
+          "backdrop": "assets/greek-drama/royal-road.svg"
+        },
+        "greek-road-black-sea": {
+          "name": "The Black Sea Road",
+          "text": "A windy coast road follows the cliffs above the Black Sea. One end leads to The Thracian Shore; the other leads to The Taurian Temple. Fishing boats lie pulled up on the stones below.",
+          "persona": "A shared road between The Thracian Shore and The Taurian Temple. The left end always leads to The Thracian Shore. The right end always leads to The Taurian Temple. The road follows the cold northern coast. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-thrace",
+            "greek-tauris"
+          ],
+          "road": [
+            "greek-thrace",
+            "greek-tauris"
+          ],
+          "backdrop": "assets/greek-drama/black-sea-road.svg"
+        },
+        "greek-road-colonists": {
+          "name": "The Colonists' Road",
+          "text": "A long road runs west with the settlers of Corinth. One end leads to Corinthian Courtyard; the other leads to The Sicilian Cave. Carts carry seed, tools and household pots.",
+          "persona": "A shared road between Corinthian Courtyard and The Sicilian Cave. The left end always leads to Corinthian Courtyard. The right end always leads to The Sicilian Cave. Corinthian settlers took this way west when they founded Syracuse. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-corinth",
+            "greek-sicily"
+          ],
+          "road": [
+            "greek-corinth",
+            "greek-sicily"
+          ],
+          "backdrop": "assets/greek-drama/colonists-road.svg"
         },
         "greek-ajax-landing": {
           "name": "The Trojan Camp Landing",
@@ -1876,7 +1932,6 @@
             "after": "greek-homecoming-agree-journey",
             "path": [
               "greek-eleusis",
-              "greek-road-piraeus-eleusis",
               "greek-piraeus"
             ]
           },
@@ -5964,8 +6019,8 @@
           "subject": "greek-household-witness",
           "at": "greek-eleusis",
           "label": "Agree to walk with Myrine to the quay",
-          "text": "Myrine names the household she represents. She agrees to walk from Eleusis to Piraeus along the coast road with a traveler from Vale’s company. She will wait for company before setting out. At the quay she will claim the care prepared for her household.",
-          "textTemplate": "Myrine names the household she represents. She agrees to walk from Eleusis to Piraeus along the coast road with a traveler from {actor}’s company. She will wait for company before setting out. At the quay she will claim the care prepared for her household.",
+          "text": "Myrine names the household she represents. She agrees to walk from Eleusis to Piraeus along the shore path with a traveler from Vale’s company. She will wait for company before setting out. At the quay she will claim the care prepared for her household.",
+          "textTemplate": "Myrine names the household she represents. She agrees to walk from Eleusis to Piraeus along the shore path with a traveler from {actor}’s company. She will wait for company before setting out. At the quay she will claim the care prepared for her household.",
           "requires": [
             {
               "kind": "flag",
@@ -5985,7 +6040,7 @@
               "value": true
             }
           ],
-          "summary": "Myrine agreed at Eleusis to walk along the coast road to Piraeus with a traveler from this company. Her departure needs their company."
+          "summary": "Myrine agreed at Eleusis to walk along the shore path to Piraeus with a traveler from this company. Her departure needs their company."
         },
         {
           "id": "greek-homecoming-receive-family",
@@ -8984,12 +9039,6 @@
             "greek-marathon",
             "greek-road-athens-harbor",
             "greek-road-athens-piraeus",
-            "greek-road-athens-colonus",
-            "greek-road-athens-eleusis",
-            "greek-road-athens-marathon",
-            "greek-road-piraeus-eleusis",
-            "greek-road-colonus-eleusis",
-            "greek-road-colonus-marathon",
             "greek-athens-harbor"
           ],
           "requires": [
@@ -10638,7 +10687,7 @@
       ],
       "bridge": {
         "id": "shore-greek-drama",
-        "description": "A shared ship serves Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. The lamp signal calls it to the pond."
+        "description": "A shared ship sails authored lanes between Black Pond, the Wine-Dark Harbor, Athens Harbor, Piraeus Quays and the Trojan camp landing. The lamp signal calls it to the pond."
       },
       "crossings": [
         {
@@ -10784,7 +10833,30 @@
             "greek-piraeus",
             "greek-ajax-landing"
           ],
-          "at": "greek-harbor"
+          "lanes": [
+            {
+              "from": "pond",
+              "to": "greek-harbor"
+            },
+            {
+              "from": "pond",
+              "to": "greek-athens-harbor"
+            },
+            {
+              "from": "greek-harbor",
+              "to": "greek-piraeus"
+            },
+            {
+              "from": "greek-harbor",
+              "to": "greek-ajax-landing"
+            },
+            {
+              "from": "greek-athens-harbor",
+              "to": "greek-piraeus"
+            }
+          ],
+          "at": "greek-harbor",
+          "shipmaster": "greek-shipmaster"
         }
       }
     },

@@ -33,14 +33,11 @@ fn greek_ports_roads_and_waiting_replay_after_the_version_eighteen_upgrade() {
 
 #[test]
 fn local_road_visitors_and_belongings_continue_inside_the_town_after_replay() {
-    for (road, port, town) in [
-        ("greek-road-thebes", "greek-harbor", "greek-courtyard"),
-        (
-            "greek-road-athens-harbor",
-            "greek-athens-harbor",
-            "greek-athens",
-        ),
-    ] {
+    for (road, port, town) in [(
+        "greek-road-athens-harbor",
+        "greek-athens-harbor",
+        "greek-athens",
+    )] {
         let path =
             std::env::temp_dir().join(format!("town-travel-{}.sqlite", crate::random_hex(12)));
         let c = store::open(&path).unwrap();
@@ -115,7 +112,10 @@ fn replay_journey(version: &str) {
     for (id, item) in old.game["items"].as_object().unwrap() {
         assert_eq!(&w.game["items"][id], item);
     }
-    assert_eq!(w.game["packs"]["greek-drama"]["revision"], 7);
+    assert_eq!(
+        w.game["packs"]["greek-drama"]["revision"],
+        super::full_tests::greek_revision()
+    );
     for target in [
         "greek-ship",
         "greek-athens-harbor",
@@ -124,40 +124,26 @@ fn replay_journey(version: &str) {
         "greek-piraeus",
         "greek-ship",
         "greek-harbor",
+        "greek-road-thebes",
         "greek-courtyard",
     ] {
+        // Waiting brings the ship; aboard, a port is a voyage of course cards
+        // and rounds at sea along the lanes.
         for _ in 0..32 {
-            let view = w.project(0).unwrap();
-            let action = view["actions"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|a| a["kind"] == "move" && a["target"] == target)
-                .cloned();
-            if let Some(action) = action {
-                full_store::commit(
-                    &c,
-                    &id,
-                    &mut w,
-                    json!({"op":"play","actor":"vale","action":action}),
-                    now(),
-                )
-                .unwrap();
+            if w.game["actors"]["vale"]["place"] == target {
                 break;
             }
-            assert_eq!(target, "greek-ship");
-            let wait = view["actions"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|a| a["kind"] == "wait")
-                .unwrap()
-                .clone();
+            let action = super::sea_steps::toward(&w.project(0).unwrap()["actions"], target);
+            if action["kind"] == "wait" || action["kind"] == "course" {
+                assert!(
+                    target == "greek-ship" || w.game["actors"]["vale"]["place"] == "greek-ship"
+                );
+            }
             full_store::commit(
                 &c,
                 &id,
                 &mut w,
-                json!({"op":"play","actor":"vale","action":wait}),
+                json!({"op":"play","actor":"vale","action":action}),
                 now(),
             )
             .unwrap();

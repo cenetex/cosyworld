@@ -34,6 +34,7 @@ import {
   placeText,
   places,
   publishKnowledgeSpeech,
+  laneTalkFacts,
 } from "./world.mjs";
 import { desireFor, knownActors } from "./quests.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
@@ -360,6 +361,7 @@ export function narrativeContext(world, action = null) {
         ...(id === BOARDY ? boardyFacts(world, nameOf) : []),
         ...recitalFacts(world, packDefinitions, id),
         ...questFacts,
+        ...(kind === "avatar" ? laneTalkFacts(world, id) : []),
         ...learningFacts(world, id, nameOf),
         ...[...packFacts(world, id), ...continuity]
           .filter((fact, index, all) => all.indexOf(fact) === index)

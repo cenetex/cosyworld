@@ -178,6 +178,11 @@ try {
       await use("greek-ship");
       assert.equal((await state()).actors.vale.place, "greek-ship");
       await shot("aboard-ship");
+      // The harbor card sets the course; a round at sea, then Disembark.
+      await use("greek-harbor");
+      assert.equal((await state()).transports["greek-ship"].phase, "sea");
+      await shot("at-sea");
+      await use("vale");
       await use("greek-harbor");
       assert.equal((await state()).packs["greek-drama"].scope, "opening");
       await use("lamp");
@@ -266,6 +271,8 @@ try {
       await page.reload();
       await card("greek-ship").waitFor({ state: "attached" });
       await use("greek-ship");
+      await use("pond");
+      await use("vale");
       await use("pond");
       assert.equal((await state()).actors.vale.place, "pond");
       assert.equal(await card("greek-harbor").count(), 0);

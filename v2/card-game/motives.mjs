@@ -435,6 +435,13 @@ export function socialPlan(s, actor, actions, api) {
       n = path?.[1] === a.target ? (want.items.length ? 19 : 36)
         : space ? (want.items.length ? 18 : 35) : -15;
     }
+    if (a.kind === "course") {
+      const path = api.routeBetween(s, here, want.location, actor);
+      n =
+        path?.[1] && api.courseToward?.(s, here, path[1], actor) === a.target
+          ? want.items.length ? 19 : 36
+          : -15;
+    }
     if (a.kind === "light" && actor === "moth") n = 45;
     if (a.kind === "refill" && actor !== "keeper" && s.items.lamp.fuel <= 2)
       n = 40;

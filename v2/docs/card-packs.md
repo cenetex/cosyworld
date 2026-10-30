@@ -341,15 +341,27 @@ item and avatar examples of the same path.
 ### Transport and lamp signals
 
 A bridge can declare `transports`. Each named transport supplies `place` (a
-pack place with an empty static exit list), two `docks`, and `at` (its first
-dock). A crossing in each direction names it with `transport`. `travelers`
-controls who can board. `any` lets hub avatars and residents of that pack
-travel between both shores.
+pack place with an empty static exit list), its `docks`, `lanes`, and `at`
+(its first dock). A crossing from each dock names it with `transport`.
+`travelers` controls who can board. `any` lets hub avatars and residents of
+that pack travel between the shores.
+
+`lanes` is the sea: a list of `{ "from", "to" }` pairs between docks. A lane is
+two-way unless it has `"oneWay": true`. Each dock has at most four lanes and at
+least one lane out; the pack check rejects more. The order of the list decides
+each dock's first lane. A new world's dock should join a port that still has a
+free lane, so the sea grows outward.
 
 The ship place uses the existing place cards. At a dock, the ship card offers
-Board. Aboard, the hand contains the ship and the destination. The destination
-card offers Disembark. Boarding saves the destination; disembarking the last
-passenger parks the ship there. The same saved ship serves every actor.
+Board. Boarding keeps the ship at its harbour. Aboard a docked ship, the other
+place cards are course cards: that dock's open lanes, never the dock itself.
+The first person to play one sets the course for everyone aboard. The ship
+spends the next world round at sea, with no course or Disembark cards. On
+arrival the only Disembark card is that port, and only for people who sailed
+in. Anyone still aboard can stay for the next course. A ship left docked with
+passengers and no course for three world rounds sails its first lane. An empty
+ship stays where it was left; a traveller waiting to board at a port brings it
+one lane closer each round. The same saved ship serves every actor.
 An optional place `art` supplies its card face separately from its backdrop.
 
 An optional place `music` supplies an ordered playlist of `{file, title}`
@@ -373,10 +385,12 @@ cover → uncover → cover → uncover. The lamp needs enough oil for all four
 plays. Each completed signal recalls the ship to Black pond. The ship keeps
 waiting after the lamp goes out.
 
-Saves include `transports`, keyed by transport id, with `dock`, `destination`,
-and `recall`. A parked ship has one dock. An occupied ship has one destination
-and may have a pending recall. Save validation checks these against the pack
-and its passengers. Greek revision 1 saves retain partial signals and gain
+Saves include `transports`, keyed by transport id, at version 3: `phase`
+(`docked`, `course`, `sea` or `arrived`), `dock`, `destination`, `riders` (the
+people who may step ashore after an arrival), `since` (the round the current
+wait began) and `recall`. Save validation checks these against the lanes and
+the passengers. Version 2 ships upgrade on load: an occupied ship that had not
+landed waits docked for a course, and one that had landed has arrived. Greek revision 1 saves retain partial signals and gain
 a ship at the pond when their old sequence includes the second uncover.
 
 ## The Willows

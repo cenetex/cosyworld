@@ -52,7 +52,8 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     assert!(routes.contains(&json!(["attic", "pond"])));
     assert!(routes.contains(&json!(["pond", "station"])));
     assert!(!routes.contains(&json!(["attic", "station"])));
-    for field in ["turn", "eventSeq", "log", "transports"] {
+    super::sea_steps::assert_upgraded_ship(&world.game, &saved.game);
+    for field in ["turn", "eventSeq", "log"] {
         assert_eq!(world.game[field], saved.game[field], "saved {field}");
     }
     for (key, item) in saved.game["items"].as_object().unwrap() {
@@ -86,7 +87,10 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
             false
         });
     assert_eq!(quests, saved.game["quests"]);
-    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 7);
+    assert_eq!(
+        world.game["packs"]["greek-drama"]["revision"],
+        super::full_tests::greek_revision()
+    );
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(
         world.project(0).unwrap()["scene"]["weather"]["condition"],
@@ -177,7 +181,7 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
     saved.game["packs"]["greek-drama"]["scope"] = json!("full");
     for (actor, place) in [
         ("vale", "greek-athens-harbor"),
-        ("mara", "greek-piraeus"),
+        ("mara", "pond"),
         ("ash", "greek-road-thebes"),
         ("greek-rhapsode", "attic"),
     ] {
@@ -200,27 +204,40 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
     full_store::seed(&c, &id, &saved, "before-harbor-nights", now()).unwrap();
     let mut world = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(world.game["revision"], json!(24));
-    for field in ["turn", "eventSeq", "log", "transports"] {
+    for field in ["turn", "eventSeq", "log"] {
         assert_eq!(world.game[field], saved.game[field], "saved {field}");
     }
+    super::sea_steps::assert_upgraded_ship(&world.game, &saved.game);
+    assert_eq!(world.game["transports"]["greek-ship"]["phase"], "docked");
     for (id, item) in saved.game["items"].as_object().unwrap() {
         assert_eq!(&world.game["items"][id], item, "saved item {id}");
     }
-    let mut actors = saved.game["actors"].clone();
-    actors["ash"]["place"] = json!("greek-harbor");
-    super::full_tests::assert_saved_actors(&world.game["actors"], &actors);
+    // The Theban Harbor Road is a real road again, so Ash stays on it.
+    assert_eq!(world.game["actors"]["ash"]["place"], "greek-road-thebes");
+    super::full_tests::assert_saved_actors(&world.game["actors"], &saved.game["actors"]);
     super::full_tests::assert_saved_memories(&world.game["memories"], &saved.game["memories"]);
-    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 7);
+    assert_eq!(
+        world.game["packs"]["greek-drama"]["revision"],
+        super::full_tests::greek_revision()
+    );
     assert_eq!(world.game["packs"]["hoppycat-archive"]["revision"], 1);
     assert_eq!(world.game["packs"]["willows"]["revision"], 1);
     assert!(world.game["knowledge"].is_object());
     assert_eq!(world.version, engine::VERSION);
 
-    for (kind, target) in [
+    // Mara knows the Black Pond lanes. Her wait at the pond brings the empty
+    // ship one lane to her. She boards, sets the course for Athens Harbor,
+    // spends a round at sea and steps ashore.
+    for (step, (kind, target)) in [
         ("wait", None),
         ("move", Some("greek-ship")),
+        ("course", Some("greek-athens-harbor")),
+        ("wait", None),
         ("move", Some("greek-athens-harbor")),
-    ] {
+    ]
+    .into_iter()
+    .enumerate()
+    {
         let action = world.project(1).unwrap()["actions"]
             .as_array()
             .unwrap()
@@ -244,24 +261,22 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         assert_eq!(views[0]["scene"]["daylight"]["phase"], "night");
         assert_eq!(
             views[2]["scene"]["background"],
-            "./assets/greek-drama/harbor-open-berth-night.webp"
+            "./assets/greek-drama/theban-harbor-road-night.webp"
         );
-        if kind == "wait" {
-            assert_eq!(
-                world.game["transports"]["greek-ship"]["dock"],
-                "greek-piraeus"
-            );
+        if step == 2 {
             assert_eq!(
                 views[0]["scene"]["background"],
                 "./assets/greek-drama/athens-harbor-open-berth-night.webp"
             );
-            assert_eq!(
-                views[1]["scene"]["background"],
-                "./assets/greek-drama/piraeus-ship-at-berth-night.webp"
-            );
-            assert_eq!(views[0]["scene"]["weather"], views[1]["scene"]["weather"]);
         }
-        if target == Some("greek-athens-harbor") {
+        if step == 0 {
+            assert_eq!(world.game["transports"]["greek-ship"]["dock"], "pond");
+            assert_eq!(
+                views[0]["scene"]["background"],
+                "./assets/greek-drama/athens-harbor-open-berth-night.webp"
+            );
+        }
+        if step == 4 {
             assert_eq!(
                 world.game["transports"]["greek-ship"]["dock"],
                 "greek-athens-harbor"

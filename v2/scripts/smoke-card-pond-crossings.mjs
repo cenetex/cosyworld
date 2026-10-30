@@ -246,11 +246,20 @@ try {
     await page.reload();
     await ready();
     assert.equal((await state()).actors.vale.place, "greek-ship");
+    // The harbor card sets the course; a round at sea, then Disembark.
+    await use("greek-harbor");
+    assert.equal((await state()).transports["greek-ship"].phase, "sea");
+    assert.equal(await card("greek-harbor").count(), 0);
+    await shot("at-sea");
+    await use("vale");
+    assert.equal((await state()).transports["greek-ship"].phase, "arrived");
     await use("greek-harbor");
     assert.equal((await state()).actors.vale.place, "greek-harbor");
     for (let i = 0; i < 12; i++) await use("greek-harbor");
     assert.equal((await state()).items.lamp.lit, false);
     await use("greek-ship");
+    await use("pond");
+    await use("vale");
     await use("pond");
     assert.equal((await state()).actors.vale.place, "pond");
     // Another passenger can leave on the same world turn as Vale disembarks.
