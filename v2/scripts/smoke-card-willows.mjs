@@ -12,6 +12,14 @@ import { enableMotives } from "../card-game/motives.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import { summonTransport } from "../card-game/pack-transport.mjs";
 import { profiles } from "../card-game/memory.mjs";
+import { darkMist } from "../card-game/daylight.mjs";
+
+// The Willows mist rises beside the ship's rail only on a misty night.
+const untilDarkMist = (world) => {
+  while (!darkMist(world)) world.turn += 1;
+  world.revision = Math.max(world.revision, world.turn);
+  return world;
+};
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -36,6 +44,7 @@ try {
       seed = result.state;
     }
     seed.crossings["pond-greek-harbor"].discovered = true;
+    untilDarkMist(seed);
     summonTransport(seed, "greek-ship", "pond");
     const table = `willows-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
@@ -106,6 +115,10 @@ try {
     const choose = (place, id) => click(place, `[data-choice="willows-${id}"]`);
     await move("greek-ship");
     await move("willows-landing");
+    assert.match(
+      await page.locator("#backdrop").getAttribute("src"),
+      /landing-ship-night\.webp/,
+    );
     await choose("willows-landing", "examine-hull");
     await move("willows-camp");
     await choose("willows-camp", "count-stores");
@@ -139,6 +152,20 @@ try {
     await page.locator('#hand [data-card="willows-camp"]').waitFor();
     assert.deepEqual((await saved()).packs.willows, beforeReload);
     await move("willows-landing");
+    // The mist has lifted by now: no way back to the deck until the next
+    // misty night. The save waits out the days.
+    const stranded = await saved();
+    assert.equal(darkMist(stranded), false);
+    assert.equal(
+      await page.locator('#hand [data-card="greek-ship"]').count(),
+      0,
+    );
+    await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
+      key,
+      save: JSON.stringify(untilDarkMist(stranded)),
+    });
+    await page.reload();
+    await page.locator('#hand [data-card="greek-ship"]').waitFor();
     await move("greek-ship");
     assert.equal((await saved()).actors.vale.place, "greek-ship");
     assert.equal(

@@ -12692,7 +12692,7 @@
       ],
       "bridge": {
         "id": "greek-ship-willows",
-        "description": "River mist beside the Greek ship's rail opens onto a small Danube island. The same mist keeps a path back to the deck."
+        "description": "On a misty night, river mist beside the Greek ship's rail opens onto a small Danube island. The same dark mist keeps a path back to the deck; when it lifts, the island and the deck lose each other until the next misty night."
       },
       "values": {
         "willows-swede": {
@@ -12709,7 +12709,16 @@
           "to": "willows-landing",
           "travelers": "player",
           "travel": "through the river mist beside the rail",
-          "requires": [],
+          "requires": [
+            {
+              "kind": "night"
+            },
+            {
+              "kind": "weather",
+              "place": "greek-ship",
+              "condition": "mist"
+            }
+          ],
           "scenery": {
             "open": "River mist gathers beside the rail. Beyond it, a canoe rests on a sandy willow island.",
             "cardArt": "assets/willows/landing.webp"
@@ -12722,7 +12731,16 @@
           "to": "greek-ship",
           "travelers": "player",
           "travel": "through the river mist to the ship",
-          "requires": [],
+          "requires": [
+            {
+              "kind": "night"
+            },
+            {
+              "kind": "weather",
+              "place": "greek-ship",
+              "condition": "mist"
+            }
+          ],
           "scenery": {
             "open": "Beyond the quiet backwater, river mist parts onto the Greek ship's deck."
           },

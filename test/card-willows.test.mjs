@@ -18,6 +18,8 @@ import {
   packFacts,
 } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { darkMist, isNight } from "../v2/card-game/daylight.mjs";
+import { locationWeather } from "../v2/card-game/weather.mjs";
 import { cardChoices, availableCards } from "../v2/card-game/cards.mjs";
 
 const pack = packDefinitions.find((p) => p.id === "willows");
@@ -40,6 +42,12 @@ const move = (world, target) => act(world, { kind: "move", target });
 const choose = (world, id) => act(world, { choiceId: `willows-${id}` });
 const take = (world, item) =>
   act(world, { kind: "take", item: `willows-${item}` });
+// Wait out the saved world clock until night and mist beside the ship's rail.
+function mist(world) {
+  while (!darkMist(world)) world.turn += 1;
+  world.revision = Math.max(world.revision, world.turn);
+  return world;
+}
 function island() {
   let world = enableMotives(createWorld({ opening: true }), {
     questPrograms: true,
@@ -51,7 +59,7 @@ function island() {
   world.crossings["pond-greek-harbor"].discovered = true;
   summonTransport(world, "greek-ship", "pond");
   world = move(world, "greek-ship");
-  world = move(world, "willows-landing");
+  world = move(mist(world), "willows-landing");
   return world;
 }
 function discoveries() {
@@ -130,6 +138,7 @@ describe("The Willows", () => {
       expect(result.ok, result.error).toBe(true);
       world = decodeSave(encodeSave(result.world));
     };
+    mist(world);
     go("vale", "greek-ship");
     go("mara", "greek-ship");
     const voyage = structuredClone(world.transports["greek-ship"]);
@@ -142,6 +151,7 @@ describe("The Willows", () => {
     expect(world.transports["greek-ship"].dock).toBe("greek-harbor");
     go("vale", "greek-ship");
     expect(world.transports["greek-ship"].dock).toBe("greek-harbor");
+    mist(world);
     summonTransport(world, "greek-ship", "pond");
     go("vale", "willows-landing");
     expect(world.transports["greek-ship"]).toMatchObject({
@@ -173,6 +183,48 @@ describe("The Willows", () => {
     expect(move(world, "greek-ship").actors.vale.place).toBe("greek-ship");
   });
 
+  it("rises beside the rail only on a misty night, and keeps a traveller there until the next", () => {
+    let world = enableMotives(createWorld({ opening: true }), {
+      questPrograms: true,
+      personalQuests: true,
+    });
+    world = move(act(world, { kind: "light", item: "lamp" }), "pond");
+    world.crossings["pond-greek-harbor"].discovered = true;
+    summonTransport(world, "greek-ship", "pond");
+    world = move(world, "greek-ship");
+    const at = (turn) => Object.assign(structuredClone(world), { turn, revision: turn });
+    const deck = (w) => exits(w, "greek-ship", "vale");
+    // Night is every other block of 24 turns; the deck's mist is Boeotian.
+    const day = at(0);
+    expect(isNight(day)).toBe(false);
+    expect(deck(day)).not.toContain("willows-landing");
+    expect(availableCards(day)).not.toContain("willows-landing");
+    let clearNight = at(24);
+    while (locationWeather(clearNight, "greek-ship").condition === "mist")
+      clearNight.turn = clearNight.revision += 1;
+    expect(isNight(clearNight)).toBe(true);
+    expect(deck(clearNight)).not.toContain("willows-landing");
+    expect(availableCards(clearNight)).not.toContain("willows-landing");
+    const mistyDay = at(48);
+    expect(locationWeather(mistyDay, "greek-ship").condition).toBe("mist");
+    expect(isNight(mistyDay)).toBe(false);
+    expect(deck(mistyDay)).not.toContain("willows-landing");
+    const night = mist(at(0));
+    expect(night.turn).toBe(120);
+    expect(deck(night)).toContain("willows-landing");
+    expect(availableCards(night)).toContain("willows-landing");
+    // The same clock decides it after a reload and in a shared view.
+    expect(deck(decodeSave(encodeSave(night)))).toContain("willows-landing");
+    // Ashore when the mist lifts: no way back until the next misty night.
+    let ashore = move(night, "willows-landing");
+    ashore.turn = ashore.revision = 132;
+    expect(exits(ashore, "willows-landing", "vale")).not.toContain(
+      "greek-ship",
+    );
+    expect(mist(ashore).turn).toBe(264);
+    expect(exits(ashore, "willows-landing", "vale")).toContain("greek-ship");
+  });
+
   it("records each discovery before it becomes a fact for the landscape or Swede", () => {
     let world = island();
     expect(packFacts(world, "willows-landing")).toEqual([]);
@@ -193,7 +245,9 @@ describe("The Willows", () => {
     expect(world.packs.willows.choices["willows-response"]).toBe("watch");
     expect(world.actors["willows-swede"].place).toBe("willows-camp");
     world = move(world, "willows-landing");
-    expect(exits(world, "willows-landing", "vale")).toContain("greek-ship");
+    expect(exits(mist(world), "willows-landing", "vale")).toContain(
+      "greek-ship",
+    );
     expect(
       decodeSave(encodeSave(world)).packs.willows.choices["willows-response"],
     ).toBe("watch");
@@ -219,8 +273,8 @@ describe("The Willows", () => {
     ).toBeUndefined();
     world = choose(ready, "choose-departure");
     expect(world.packs.willows.choices["willows-response"]).toBe("depart");
-    world = move(world, "greek-ship");
-    world = move(move(world, "willows-landing"), "willows-camp");
+    world = move(mist(world), "greek-ship");
+    world = move(move(mist(world), "willows-landing"), "willows-camp");
     expect(find(world, { choiceId: "willows-choose-watch" })).toBeUndefined();
     expect(decodeSave(encodeSave(world)).packs.willows).toEqual(
       world.packs.willows,
