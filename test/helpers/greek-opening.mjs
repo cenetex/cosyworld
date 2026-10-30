@@ -1,4 +1,7 @@
-import { moveTransport } from "../../v2/card-game/pack-transport.mjs";
+import {
+  learnLane,
+  moveTransport,
+} from "../../v2/card-game/pack-transport.mjs";
 import { atticOpening } from "../fixtures/card-attic-opening.mjs";
 import {
   createWorld,
@@ -56,6 +59,10 @@ export function openingFixture(
     take("cloth");
   }
   walk("ship", "harbor");
+  // Black Pond sails only to the Wine-Dark Harbor. Myrto has told the
+  // traveller the lanes on to Piraeus and Athens Harbor.
+  learnLane(world, "vale", "greek-harbor", "greek-piraeus");
+  learnLane(world, "vale", "greek-piraeus", "greek-athens-harbor");
   act("snuff", { item: "lamp" });
   act("drop", { item: "cloth", target: "greek-harbor" });
   const bardFrom = world.actors["greek-rhapsode"].place;

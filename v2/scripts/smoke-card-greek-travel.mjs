@@ -5,6 +5,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { encodeSave, legalActions } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
+import { learnLane } from "../card-game/pack-transport.mjs";
 import {
   openDoorStart,
   openDoorAction,
@@ -29,6 +30,10 @@ try {
     fixture.controlledActors = ["vale", "mara"];
     fixture.presentActors = ["mara"];
     fixture.actors.mara.place = "greek-athens-harbor";
+    // Black Pond sails only to the Wine-Dark Harbor. Mara has heard the
+    // lanes home from Athens Harbor: by Piraeus to the Wine-Dark Harbor.
+    learnLane(fixture, "mara", "greek-athens-harbor", "greek-piraeus");
+    learnLane(fixture, "mara", "greek-piraeus", "greek-harbor");
     const page = await browser.newPage({
       viewport: { width, height: width === 390 ? 844 : 900 },
       reducedMotion: "reduce",
@@ -134,8 +139,8 @@ try {
       path: new URL(`athens-empty-${width}.png`, output).pathname,
       fullPage: true,
     });
-    // Mara knows the Black Pond lanes, not the Athens Harbor lane to
-    // Piraeus, so she walks to Piraeus and comes back by the town road.
+    // Mara walks to Piraeus and comes back by the town road, then the ship
+    // takes her from Athens Harbor home by Piraeus to the Wine-Dark Harbor.
     for (const target of [
       "greek-athens",
       "greek-road-athens-piraeus",

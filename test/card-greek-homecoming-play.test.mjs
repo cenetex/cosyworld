@@ -5,6 +5,7 @@ import {
   legalActions,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { learnLane } from "../v2/card-game/pack-transport.mjs";
 import { openDoorAction, playOpenDoor } from "./helpers/open-door.mjs";
 import { homecomingJourney } from "./helpers/greek-homecoming.mjs";
 
@@ -144,14 +145,18 @@ describe("the household reaches its berth", () => {
     const prior = homecomingJourney().after["greek-homecoming-receive-family"];
     let world = dispatchShared({ op: "create", save: encodeSave(prior) }).world;
     world.actors.mara.place = "greek-piraeus";
+    // Black Pond sails only to the Wine-Dark Harbor. Mara has heard the
+    // lanes home from Athens Harbor by Piraeus.
+    learnLane(world, "mara", "greek-athens-harbor", "greek-piraeus");
+    learnLane(world, "mara", "greek-piraeus", "greek-harbor");
     for (const [kind, fields] of [
       ["take", { item: "greek-return-list" }],
       ["move", { target: "greek-road-athens-piraeus" }],
       ["move", { target: "greek-athens" }],
       ["move", { target: "greek-athens-harbor" }],
       ["board", {}],
-      // Athens Harbor has no lane to the Wine-Dark Harbor: sail by the pond.
-      ["course", { target: "pond" }],
+      // Athens Harbor has no lane to the Wine-Dark Harbor: sail by Piraeus.
+      ["course", { target: "greek-piraeus" }],
       ["wait", {}],
       ["course", { target: "greek-harbor" }],
       ["wait", {}],

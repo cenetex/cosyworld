@@ -71,12 +71,9 @@ describe("sea lanes", () => {
     expect(laneProblems(bridge.transports["greek-ship"])).toEqual([]);
     for (const dock of ship().docks)
       expect(lanesFrom(ship(), dock).length).toBeLessThanOrEqual(MAX_LANES);
-    expect(lanesFrom(ship(), "pond")).toEqual([
-      "greek-harbor",
-      "greek-athens-harbor",
-    ]);
+    // From Black Pond the ship sails only to the Wine-Dark Harbor.
+    expect(lanesFrom(ship(), "pond")).toEqual(["greek-harbor"]);
     expect(lanesFrom(ship(), "greek-athens-harbor")).toEqual([
-      "pond",
       "greek-piraeus",
     ]);
   });
@@ -209,15 +206,18 @@ describe("a real voyage", () => {
     s = act(s, "vale", "move", "greek-ship");
     expect(transportExits(s, "greek-ship", null, "vale")).toEqual([
       "greek-harbor",
-      "greek-athens-harbor",
     ]);
-    // Vale knows the Black Pond lanes; Piraeus needs the lanes she has not
-    // heard of yet.
+    // Vale knows the Black Pond lane; Piraeus and Athens Harbor need the
+    // lanes she has not heard of yet.
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
-      "greek-athens-harbor",
       "greek-harbor",
     ]);
-    learnLane(s, "vale", "greek-athens-harbor", "greek-piraeus");
+    learnLane(s, "vale", "greek-harbor", "greek-piraeus");
+    expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
+      "greek-harbor",
+      "greek-piraeus",
+    ]);
+    learnLane(s, "vale", "greek-piraeus", "greek-athens-harbor");
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-athens-harbor",
       "greek-harbor",
