@@ -300,6 +300,44 @@ try {
         await tap("lamp");
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
         assert.deepEqual(await selected(), ["lamp", "vale"]);
+        // That click folds the row; the lit lamp stays raised with Put out.
+        const handExpanded = () =>
+          page.evaluate(() => document.body.dataset.handExpanded);
+        assert.equal(await handExpanded(), "false", "the row folds");
+        assert.equal(await card("vale").getAttribute("aria-expanded"), "false");
+        assert.equal(await frame("cloth").getAttribute("hidden"), "");
+        assert.equal(await action("snuff").count(), 1);
+        await page.screenshot({
+          path: new URL(`${table}-held-folded.png`, output).pathname,
+        });
+        await page.locator("#stage").click({ position: { x: 20, y: 200 } });
+        assert.deepEqual(await selected(), ["lamp", "vale"]);
+        // Tapping the folded row opens it with the lamp still held.
+        await tap("vale");
+        assert.equal(await handExpanded(), "true", "the row opens again");
+        assert.deepEqual(await selected(), ["lamp"]);
+        assert.equal(await frame("lamp").getAttribute("hidden"), null);
+        assert.equal(await action("snuff").count(), 1, "Put out is offered");
+        await page.screenshot({
+          path: new URL(`${table}-held-opened.png`, output).pathname,
+        });
+        await page.locator("#stage").click({ position: { x: 20, y: 200 } });
+        assert.equal(await handExpanded(), "false");
+        await page.locator(".play-dock").dispatchEvent("click");
+        assert.equal(await handExpanded(), "true");
+        assert.deepEqual(await selected(), ["lamp"]);
+        // A second tap still lowers the lamp, and Escape still clears.
+        await page.locator("#stage").click({ position: { x: 20, y: 200 } });
+        await tap("lamp");
+        assert.deepEqual(await selected(), []);
+        await tap("vale");
+        await tap("lamp");
+        await page.locator("#stage").click({ position: { x: 20, y: 200 } });
+        await page.keyboard.press("Escape");
+        assert.deepEqual(await selected(), []);
+        await tap("vale");
+        await tap("lamp");
+        await page.locator("#stage").click({ position: { x: 20, y: 200 } });
         await page.keyboard.press("Escape");
         await tap("moth");
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
