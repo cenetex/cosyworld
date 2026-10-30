@@ -84,6 +84,7 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
         (engine::ELEVENTH_VERSION, false),
     ] {
         for scope in ["opening", "full"] {
+            let mut checkpointed = None;
             for keep_checkpoint in [true, false] {
                 let (c, id, mut old) = old_fixture(version, scope);
                 play(&c, &id, &mut old, 0, "choiceId", "greek-return-water-jar");
@@ -96,6 +97,13 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
                 }
                 let upgraded = full_store::world(&c, &id, now()).unwrap();
+                // The checkpoint path must reach the same upgraded world; the rest of
+                // the case runs once, from the journal.
+                if keep_checkpoint {
+                    checkpointed = Some(upgraded.clone());
+                    continue;
+                }
+                assert_eq!(Some(&upgraded), checkpointed.as_ref());
                 assert_eq!(upgraded.version, engine::VERSION);
                 assert_eq!(
                     upgraded.game["packs"]["greek-drama"]["revision"],

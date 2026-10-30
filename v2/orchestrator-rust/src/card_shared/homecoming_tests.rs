@@ -162,6 +162,9 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
     let (history, history_id) = fixture();
     let prepared = released_berth(&history, &history_id);
     for policy in ["family", "open"] {
+        // The checkpoint path must upgrade to the same world as the journal
+        // path; the journey then runs once, from the journal path.
+        let mut checkpointed = None;
         for keep_checkpoint in [true, false] {
             let (c, id) = fixture();
             let mut old = prepared.clone();
@@ -178,6 +181,11 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             }
             let mut world = full_store::world(&c, &id, now()).unwrap();
             assert_eq!(world.version, engine::VERSION);
+            if keep_checkpoint {
+                checkpointed = Some(world);
+                continue;
+            }
+            assert_eq!(Some(&world), checkpointed.as_ref());
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-eleusis");
             super::sea_steps::assert_upgraded_ship(&world.game, &old.game);
             for key in ["turn", "eventSeq", "log"] {
