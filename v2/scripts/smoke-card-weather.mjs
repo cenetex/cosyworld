@@ -236,13 +236,14 @@ try {
       { key },
     );
     await check("greek-courtyard", 24, "night-after-play");
+    // From the courtyard the way to the harbor is the Theban Harbor Road.
     assert(
       new URL(
         await page
-          .locator('#hand [data-card="greek-harbor"] img')
+          .locator('#hand [data-card="greek-road-thebes"] img')
           .getAttribute("src"),
         origin,
-      ).pathname.endsWith("harbor-open-berth-night.webp"),
+      ).pathname.endsWith("theban-harbor-road-night.webp"),
     );
     await load("greek-harbor", 24, true);
     await check("greek-harbor", 24, "night-harbor-ship");

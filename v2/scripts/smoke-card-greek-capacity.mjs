@@ -193,7 +193,13 @@ try {
   }
   async function move(to) {
     const from = (await view(vale)).world.actors.vale.place;
-    for (const target of greekTravelTargets(from, to)) {
+    // Vale learned the Piraeus lane by sailing it to the harbor, so the way
+    // back is the same lane and does not pass the full Agora.
+    const targets =
+      from === "greek-harbor" && to === "greek-piraeus"
+        ? ["greek-ship", to]
+        : greekTravelTargets(from, to);
+    for (const target of targets) {
       if (target === "greek-ship")
         for (let n = 0; n < 32; n++) {
           if (

@@ -20,6 +20,7 @@ function steps(route) {
   const take = (item) => ({ kind: "take", item: `greek-ajax-${item}` });
   const choose = (id) => ({ kind: "choose", choiceId: `greek-ajax-${id}` });
   return [
+    move("greek-road-thebes"),
     move("greek-harbor"),
     choose("invitation"),
     move("greek-ship"),
@@ -49,6 +50,7 @@ function steps(route) {
     move("greek-ajax-landing"),
     move("greek-ship"),
     move("greek-harbor"),
+    move("greek-road-thebes"),
     move("greek-courtyard"),
     choose(`return-${route}`),
   ];
