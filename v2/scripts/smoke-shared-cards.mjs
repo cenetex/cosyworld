@@ -700,7 +700,15 @@ try {
   await perform(mara, "take", undefined, "mask");
   await perform(mara, "move", "pond");
   await ownAvatarFirst(mara);
-  await perform(vale, "light", undefined, "lamp");
+  // Anyone at the pond may light the lamp Vale carries. On a slow run the
+  // keeper can arrive and light it first, so light it only while it is dark.
+  await until(async () => {
+    const light = await actionFor(vale, "light", undefined, "lamp");
+    if (light)
+      await api(vale, { op: "play", key: crypto.randomUUID(), action: light });
+    await idle(vale);
+    return (await snapshot(vale)).world.items.lamp.lit;
+  }, "the lamp is lit for the mirror route");
   await perform(mara, "move", "attic");
   assert.equal(
     (await snapshot(mara)).world.actors.mara.place,
