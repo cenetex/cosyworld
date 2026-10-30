@@ -37,7 +37,9 @@ The source map distinguishes the card pack compiler from the classic compiler.
 6. Commit and push the branch. Keep at most one open PR in the repository;
    wait for any open PR to merge or close before opening yours. Merge once
    local targeted tests pass, without waiting for CI, and fix a red main forward
-   in the next PR. Lonely Forest production releases stay a manual trigger.
+   in the next PR. Main deploys `.dev` without gates as soon as its image is
+   built, and the pre-push hook runs only `npm run check:version`. Lonely
+   Forest production releases stay a manual trigger.
 
 ## Commands
 

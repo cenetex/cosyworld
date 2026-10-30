@@ -92,9 +92,12 @@ jobs:
   production-node-gate:
     name: Production Node and content gate
     needs: [deployment-impact, release-owner]
+    # A main push deploys .dev without this gate; CI still checks main. Tags
+    # and manual dispatches keep it.
     if: >-
       needs.deployment-impact.outputs.deploy == 'true' &&
-      needs.release-owner.outputs.owns == 'true'
+      needs.release-owner.outputs.owns == 'true' &&
+      (github.event_name != 'push' || startsWith(github.ref, 'refs/tags/'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -130,9 +133,12 @@ jobs:
   production-rust-gate:
     name: Production Rust gate
     needs: [deployment-impact, release-owner]
+    # A main push deploys .dev without this gate; CI still checks main. Tags
+    # and manual dispatches keep it.
     if: >-
       needs.deployment-impact.outputs.deploy == 'true' &&
-      needs.release-owner.outputs.owns == 'true'
+      needs.release-owner.outputs.owns == 'true' &&
+      (github.event_name != 'push' || startsWith(github.ref, 'refs/tags/'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -197,6 +203,7 @@ jobs:
           OWNS_RELEASE: ${{ needs.release-owner.outputs.owns }}
           NODE_RESULT: ${{ needs.production-node-gate.result }}
           RUST_RESULT: ${{ needs.production-rust-gate.result }}
+          FULL_RELEASE: ${{ (github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')) }}
         run: |
           if [ "$DEPLOY" != true ]; then
             echo "No production inputs changed; deployment is not needed."
@@ -207,11 +214,16 @@ jobs:
             echo "This commit was superseded before its production gates; nothing will deploy."
             exit 0
           fi
+          if [ "$FULL_RELEASE" != true ]; then
+            echo "Main push: .dev deploys without the production gates; CI checks main."
+            exit 0
+          fi
           test "$NODE_RESULT" = success
           test "$RUST_RESULT" = success
 
   # The image builds while the gates run. Building does not touch the running
-  # app; only primary-fly replaces it, and only after the gates pass.
+  # app; only primary-fly replaces it. A main push rolls it out as soon as it
+  # is built; tags and dispatches wait for the gates and backup.
   primary-image:
     name: Prepare primary image
     outputs:
@@ -243,16 +255,16 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   # Run the guards and rollback snapshot beside the checks and image build.
-  # The rollout waits for all three paths to pass.
+  # Tags and dispatches wait for all three paths; a main push skips this job.
   primary-backup:
     name: Guard and back up primary
     needs: [deployment-impact, release-owner]
     if: >-
       needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
-      (github.event_name == 'push' ||
-       inputs.target == 'both' ||
-       inputs.target == 'primary')
+      (startsWith(github.ref, 'refs/tags/') ||
+       (github.event_name == 'workflow_dispatch' &&
+        (inputs.target == 'both' || inputs.target == 'primary')))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -295,12 +307,20 @@ jobs:
   primary-fly:
     name: Deploy primary to Fly
     needs: [deployment-impact, release-owner, production-gate, primary-image, primary-backup]
+    # A main push deploys .dev as soon as the image is built: primary-backup
+    # is skipped and production-gate passes without the Node and Rust gates.
+    # Tags and dispatches require both to succeed.
     if: >-
+      !cancelled() &&
       needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
+      needs.primary-image.result == 'success' &&
       (github.event_name == 'push' ||
        inputs.target == 'both' ||
-       inputs.target == 'primary')
+       inputs.target == 'primary') &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (needs.production-gate.result == 'success' &&
+        needs.primary-backup.result == 'success'))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
