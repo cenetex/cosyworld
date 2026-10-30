@@ -6,7 +6,7 @@ pub(super) fn legacy_scenery() -> bool {
 }
 
 pub(super) fn voice() -> String {
-    "A brief atmospheric caption describes the visible place in the third person. One short, complete sentence gives a concrete sensory detail: light, an established sound, weather already present, or the texture of a surface. Every detail comes from the current setting and visible facts. The place is scenery; characters own their speech, choices and actions. The caption stays with the physical moment. Its words are fresh and specific.".into()
+    "An atmospheric caption: one sentence.".into()
 }
 
 pub(super) fn transcript(context: &Context, entity: &Entity) -> String {

@@ -26,7 +26,8 @@ describe("regional Greece weather", () => {
       const regions = new Map();
       for (const id of ids) {
         const weather = locationWeather({ turn }, id);
-        expect(weather.description, id).toBeTruthy();
+        expect(weather.condition, id).toBeTruthy();
+        expect(weather.description, id).toBeUndefined();
         const previous = regions.get(weather.region);
         if (previous) expect(weather.condition, id).toBe(previous.condition);
         regions.set(weather.region, weather);
@@ -67,7 +68,7 @@ describe("regional Greece weather", () => {
     const weather = currentScene(world).weather;
     expect(
       context.entities.find((e) => e.id === "greek-courtyard").facts,
-    ).toContain(weather.description);
+    ).toContain(`Weather: ${weather.condition}.`);
     const script = sceneScript(world);
     expect(script.current.weather).toEqual(weather);
     const beat = script.beats.findLast(
