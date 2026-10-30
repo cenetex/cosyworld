@@ -544,8 +544,10 @@ Hover over the CosyWorld title to reveal the video camera. Keyboard focus also
 reveals it. Phones show the camera beside the title. Click it to film the last
 two displayed dialogue lines. The video uses the current place, character
 appearances, visible items, their holders, light, and other visible states.
+The default model is TBC Mischief 1 (`tbc/mischief-1`); Settings can choose another.
 The current stage supplies a reference frame where the model supports one.
-The clip aims for ten seconds and uses the nearest supported model duration.
+The clip aims for ten seconds and uses the nearest supported model duration
+(five seconds for Mischief 1).
 The camera uses the player's OpenRouter credits. Its window shows progress,
 playback, and a download link. Stop waiting ends the browser wait.
 

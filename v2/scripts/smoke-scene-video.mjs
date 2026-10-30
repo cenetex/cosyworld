@@ -143,8 +143,8 @@ try {
           json: {
             data: [
               {
-                id: "x-ai/grok-imagine-video-1.5-lite",
-                supported_durations: [5, 10, 15],
+                id: "tbc/mischief-1",
+                supported_durations: [3, 5],
                 supported_resolutions: ["720p"],
                 supported_aspect_ratios: ["16:9"],
                 supported_frame_images: ["first_frame"],
@@ -247,7 +247,8 @@ try {
       .getByText("Your scene video is ready.", { exact: true })
       .waitFor();
     assert.equal(videoRequests.length, 1);
-    assert.equal(videoRequests[0].duration, 10);
+    assert.equal(videoRequests[0].model, "tbc/mischief-1");
+    assert.equal(videoRequests[0].duration, 5);
     assert(videoRequests[0].prompt.includes("The light is under this cloth."));
     assert(
       videoRequests[0].prompt.includes("I can still see the shape of it."),
