@@ -56,6 +56,7 @@
       "values": {
         "forest-story-button": 8
       },
+      "want": { "kind": "item", "target": "forest-story-button" },
       "desire": {
         "items": ["forest-story-button"],
         "location": "forest-cottage",
