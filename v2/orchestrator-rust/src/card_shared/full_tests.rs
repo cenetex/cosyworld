@@ -46,7 +46,7 @@ fn assert_saved_items(current: &Value, old: &Value) {
 
 fn assert_saved_packs(current: &Value, old: &Value) {
     let mut expected = old.clone();
-    expected["greek-drama"]["revision"] = json!(7);
+    expected["greek-drama"]["revision"] = json!(8);
     expected["boardyai"] = current["boardyai"].clone();
     expected["hoppycat-archive"] = current["hoppycat-archive"].clone();
     expected["willows"] = current["willows"].clone();
@@ -2663,7 +2663,7 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
             for (key, saved) in old.game[field].as_object().unwrap() {
                 let mut expected = saved.clone();
                 if field == "packs" && key == "greek-drama" {
-                    expected["revision"] = json!(7);
+                    expected["revision"] = json!(8);
                 }
                 if field == "packs" && key == "boardyai" {
                     expected["revision"] = json!(2);

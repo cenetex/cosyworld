@@ -82,7 +82,7 @@ describe("local town visits and road history", () => {
       ]);
       expect(current.log).toEqual(before.log);
       expect(current.memories[road]).toMatchObject(before.memories[road]);
-      expect(current.packs["greek-drama"].revision).toBe(7);
+      expect(current.packs["greek-drama"].revision).toBe(8);
       expect(exits(current, port, "vale")).toContain(town);
       expect(
         legalActions(current, "vale").some(
@@ -135,12 +135,12 @@ describe("local town visits and road history", () => {
     );
   });
 
-  it("offers seven roads between towns and direct visits inside each town", () => {
+  it("offers twelve roads between towns and direct visits inside each town", () => {
     const w = createWorld({ packScopes: { "greek-drama": "full" } });
     const roads = Object.entries(packDefinition("greek-drama").places).filter(
       ([id, p]) => p.road && entityActive(w, id),
     );
-    expect(roads).toHaveLength(7);
+    expect(roads).toHaveLength(12);
     expect(exits(w, "greek-athens-harbor", "vale")).toContain("greek-athens");
     expect(exits(w, "greek-harbor", "vale")).toContain("greek-courtyard");
   });

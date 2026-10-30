@@ -206,7 +206,8 @@ Grove, Eleusinian Sanctuary, and Marathon Altar. The invitation opens the
 roads for every traveler in the shared world. Athens Harbor and Piraeus join
 the ship’s stops. Athens Harbor connects directly to the grand Agora through city streets.
 
-Seven shared road scenes connect the towns. Each road has two fixed ends,
+Shared road scenes connect the towns. Between two towns there is exactly one
+road or a sea lane, and every road has its own painting. Each road has two fixed ends,
 shown by destination cards in a fixed order. Avatars come first in the hand,
 followed by the first end, the road, and the other end. Its entry card names the place ahead.
 Travelers can meet, wait and carry objects on the road. Myrine’s coast walk

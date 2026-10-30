@@ -63,7 +63,7 @@ describe("the household save upgrade", () => {
       const after = decodeSave(JSON.stringify(before));
       expect(after.packs["greek-drama"]).toEqual({
         ...before.packs["greek-drama"],
-        revision: 7,
+        revision: 8,
       });
       expect(Object.keys(after.actors).length).toBe(
         Object.keys(before.actors).length +

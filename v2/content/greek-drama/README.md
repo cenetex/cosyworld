@@ -68,14 +68,18 @@ to Dione. Three story beats and a return card follow the journey. Four
 earned couplets grow from eight possible verses. Read the [chapter and
 source guide](AJAX.md) for the choices, objects and saved account.
 
-The camp's landing, household and grave have direct local paths. Longer
-journeys between towns use roads. The Greek ship serves Athens Harbor,
+The camp's landing, household and grave have direct local paths. Places inside
+a town link directly. Between towns there is exactly one road or a sea lane:
+the Sacred Way joins the Agora and Delphi, the Oeta Road joins Delphi and
+Trachis, the Royal Road joins Troy and Susa, the Black Sea Road joins Thrace and
+Tauris, and the Colonists' Road joins Corinth and Sicily. Troy is reached by
+ship at the Trojan landing. The Greek ship serves Athens Harbor,
 Piraeus, the Wine-Dark Harbor, Black Pond and the invited Trojan landing.
 Athens Harbor has an empty-water painting while the shared ship is away.
 
 ## Sources and runtime
 
-`card-world.json` is canonical author data: 63 places including the ship,
+`card-world.json` is canonical author data: 67 places including the ship,
 33 residents, 26 objects, 149 typed choices and 44 work records. Nine works
 have developed scenes; 35 retain situated hooks for later releases.
 

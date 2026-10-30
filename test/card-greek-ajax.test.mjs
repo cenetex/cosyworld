@@ -206,7 +206,7 @@ describe("Earth Beside the Ships", () => {
 
 describe("Ajax save continuity", () => {
   it.each([17, 18, 19])(
-    "adds the new cast to a version-%s full-access camp visit",
+    "adds the new cast and brings a version-%s uninvited camp visitor home",
     (version) => {
       const context = vm.createContext({});
       vm.runInContext(
@@ -227,15 +227,17 @@ describe("Ajax save continuity", () => {
       before.actors.vale.place = "greek-greek-camp";
       before.items.lamp.holder = "vale";
       const after = decodeSave(JSON.stringify(before));
-      expect(after.packs["greek-drama"].revision).toBe(7);
-      expect(after.actors.vale.place).toBe("greek-greek-camp");
+      expect(after.packs["greek-drama"].revision).toBe(8);
+      // Without the Trojan invitation the ship does not call at the camp, so the
+      // visitor goes back to Aulis, the way they came.
+      expect(after.actors.vale.place).toBe("greek-aulis");
       expect(after.items.lamp).toEqual(before.items.lamp);
       expect(after.log).toEqual(before.log);
       expect(after.packs["greek-drama"].receipts).toEqual(
         before.packs["greek-drama"].receipts,
       );
       expect(entityActive(after, "greek-ajax-teucer")).toBe(false);
-      expect(exits(after, "greek-greek-camp").length).toBeGreaterThan(0);
+      expect(exits(after, "greek-aulis")).toContain("greek-gate");
       expect(reload(after)).toEqual(after);
     },
   );

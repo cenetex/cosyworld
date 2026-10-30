@@ -201,7 +201,7 @@ describe("the side roads in earlier saved worlds", () => {
       }
       expect(world.packs["greek-drama"].revision).toBe(3);
       const restored = decodeSave(JSON.stringify(world));
-      expect(restored.packs["greek-drama"].revision).toBe(7);
+      expect(restored.packs["greek-drama"].revision).toBe(8);
       for (const key of ["choices", "flags", "receipts", "recitals"])
         expect(restored.packs["greek-drama"][key]).toEqual(
           world.packs["greek-drama"][key],

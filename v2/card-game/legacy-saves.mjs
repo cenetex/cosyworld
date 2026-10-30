@@ -96,6 +96,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekPurposefulRoadSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -111,6 +112,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekPurposefulRoadSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -327,6 +329,74 @@ export function upgradeGreekAjaxSave(s) {
   ])
     s.memories[id] ??= fresh[id];
   saved.revision = 7;
+}
+
+// Revision 8 joins distant towns by one road each. Agora and Delphi meet on
+// the Sacred Way, Delphi and Trachis on the Oeta Road, Troy and Susa on the
+// Royal Road, Thrace and Tauris on the Black Sea Road, and Corinth and Sicily
+// on the Colonists' Road. Piraeus no longer reaches Tauris or Sicily, Aulis no
+// longer reaches the Greek camp, and the Scythian Crag now joins Tauris.
+const GREEK_ROAD_LINKS = {
+  "greek-athens|greek-delphi": "greek-road-sacred-way",
+  "greek-delphi|greek-trachis": "greek-oeta",
+  "greek-susa|greek-troy": "greek-road-royal",
+};
+const GREEK_CUT_LINKS = new Set([
+  "greek-piraeus|greek-tauris",
+  "greek-piraeus|greek-sicily",
+  "greek-aulis|greek-greek-camp",
+  "greek-scythian-crag|greek-susa",
+]);
+// Without the Trojan invitation the ship does not call at the camp landing.
+// A traveler left on that side goes back through the link they came by.
+const GREEK_TROJAN_SIDE = {
+  "greek-greek-camp": "greek-aulis",
+  "greek-troy": "greek-aulis",
+  "greek-trojan-camp": "greek-aulis",
+  "greek-lemnos": "greek-aulis",
+  "greek-thrace": "greek-aulis",
+  "greek-susa": "greek-aulis",
+  "greek-scythian-crag": "greek-aulis",
+  "greek-tauris": "greek-piraeus",
+};
+export function upgradeGreekPurposefulRoadSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+  const fresh = newMemories();
+  for (const id of [
+    "greek-road-sacred-way",
+    "greek-road-royal",
+    "greek-road-black-sea",
+    "greek-road-colonists",
+  ])
+    if (s.memories) s.memories[id] ??= fresh[id];
+  for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+    if (!Array.isArray(known)) continue;
+    const paths = known.flatMap((edge) => {
+      if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+      const [from, to] = edge;
+      const key = [from, to].sort().join("|");
+      if (GREEK_CUT_LINKS.has(key)) return [];
+      const road = GREEK_ROAD_LINKS[key];
+      return road
+        ? [
+            [from, road],
+            [road, to],
+          ]
+        : [edge];
+    });
+    s.routeKnowledge[actor] = [
+      ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values(),
+    ];
+  }
+  if (!saved.flags?.["greek-ajax-open"])
+    for (const [id, actor] of Object.entries(s.actors || {})) {
+      const home = GREEK_TROJAN_SIDE[actor.place];
+      if (home && !GREEK_TROJAN_SIDE[pack.avatars[id]?.place])
+        actor.place = home;
+    }
+  saved.revision = 8;
 }
 
 // Revision 3 adds these residents and objects. Earlier records keep their

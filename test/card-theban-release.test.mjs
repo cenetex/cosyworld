@@ -157,7 +157,7 @@ describe("the Theban release and its ship", () => {
       ).toBe(false);
     }
     expect(pack.works).toHaveLength(44);
-    expect(Object.keys(pack.places)).toHaveLength(63);
+    expect(Object.keys(pack.places)).toHaveLength(67);
   });
   it("preserves opening scope through reloads", () => {
     let s = createWorld();

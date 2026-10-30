@@ -264,7 +264,7 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
 }
 
 #[test]
-fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
+fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() {
     let released = engine::NINETEENTH_VERSION;
     for keep_checkpoint in [true, false] {
         let seed = engine::reduce_version(released, json!({"op":"create"})).unwrap();
@@ -293,7 +293,7 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         }
         let mut current = full_store::world(&c, &id, now()).unwrap();
         assert_eq!(current.version, engine::VERSION);
-        assert_eq!(current.game["packs"]["greek-drama"]["revision"], 7);
+        assert_eq!(current.game["packs"]["greek-drama"]["revision"], 8);
         assert_eq!(current.claimed, old.claimed);
         assert_eq!(current.present, old.present);
         for field in [
@@ -301,11 +301,17 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
             "eventSeq",
             "log",
             "transports",
-            "routeKnowledge",
             "knowledge",
         ] {
             assert_eq!(current.game[field], old.game[field], "Preserve {field}");
         }
+        // Greek revision 8 walks known town links along their new roads.
+        let known = current.game["routeKnowledge"]["greek-rhapsode"]
+            .as_array()
+            .unwrap();
+        assert!(known.contains(&json!(["greek-athens", "greek-road-sacred-way"])));
+        assert!(!known.contains(&json!(["greek-aulis", "greek-greek-camp"])));
+        assert!(!known.contains(&json!(["greek-piraeus", "greek-tauris"])));
         // BoardyAI revision 2 carries his card from the pond to the station door.
         let mut saved = old.game.clone();
         saved["items"]["boardyai-calling-card"]["holder"] = json!("station");
@@ -323,6 +329,9 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         }
         for (id, saved) in old.game["actors"].as_object().unwrap() {
             let mut retained = current.game["actors"][id].clone();
+            if id == "vale" {
+                retained["place"] = saved["place"].clone();
+            }
             retained["trust"]
                 .as_object_mut()
                 .unwrap()
@@ -343,13 +352,15 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         ] {
             assert!(current.game["actors"].get(id).is_some());
         }
-        assert_eq!(current.game["actors"]["vale"]["place"], "greek-greek-camp");
+        // Without the Trojan invitation the ship does not call at the camp,
+        // so the visitor goes back to Aulis, the way they came.
+        assert_eq!(current.game["actors"]["vale"]["place"], "greek-aulis");
         play(
             &c,
             &id,
             &mut current,
             0,
-            &[("kind", "move"), ("target", "greek-troy")],
+            &[("kind", "move"), ("target", "greek-gate")],
         );
         let expected = current.clone();
         drop(c);
