@@ -1,6 +1,5 @@
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
 import { selectCard, topicForChoice } from "./card-browser-helpers.mjs";
-import { checkOpeningPoem } from "./smoke-card-opening-poem.mjs";
 // Exercise the public card UI and its one saved history, at desktop and phone
 // widths. Text is a bounded fixture; the deterministic model owns every result.
 import assert from "node:assert/strict";
@@ -31,10 +30,6 @@ function commit(world, kind, target) {
 
 let fixture = enableMotives(
   createWorld({ opening: true, packScopes: { "greek-drama": "full" } }),
-  {
-    questPrograms: true,
-    personalQuests: true,
-  },
 );
 // Keep the first ship signal part of this story fixture's legal journey.
 fixture.actors["greek-rhapsode"].place = "attic";
@@ -398,7 +393,6 @@ try {
     );
     await page.close();
   }
-  await checkOpeningPoem(browser, `http://127.0.0.1:${server.address().port}`);
 } finally {
   await browser?.close();
   await new Promise((resolve) => server.close(resolve));

@@ -1,5 +1,10 @@
 # Authored story quests
 
+> Retired. The rules no longer read `storyQuests`: each avatar now has one
+> quest, described in the [card guide](../card-game/README.md#one-quest-per-avatar).
+> Stories are told through pack choices. This page records the earlier format
+> until the data is removed.
+
 A card pack can declare its story cards in `card-world.json` under
 `storyQuests`. The shared story engine reads these definitions for every
 mounted pack. The pack's choices supply the deeds, branches and object rules.
@@ -179,9 +184,7 @@ Each avatar's learned topics stay separate from the world's choice receipts.
 
 Build the compiled catalog with
 `node v2/scripts/build-card-worldpacks.mjs`. Run
-`npx vitest run test/card-pack-story-quests.test.mjs` for the generic pack,
-branch, requirement and topic validation checks. The Greek story suites cover
-the existing journeys, authors, saved outcomes and poem.
+the Greek story suites for the existing journeys, choices and poem.
 
 ## Knowledge and ordered steps
 

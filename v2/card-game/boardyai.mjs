@@ -12,7 +12,7 @@ export const boardyActive = (world) => connectedHumans(world).length >= 2;
 export function boardyFacts(world, nameOf) {
   const here = world.actors[BOARDY].place;
   return [
-    "I favour introducing two human players. I also take ordinary quests and rest between quests.",
+    "I like meeting the people who travel here, and I rest at home between journeys.",
     "My home is BoardyAI's Parlour. My calling card opens its door at Empty station, held or left there.",
     ...connectedHumans(world).map((id) =>
       world.actors[id].place === here

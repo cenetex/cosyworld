@@ -438,11 +438,6 @@
     "actors": {
       "vale": {
         "place": "station",
-        "progress": {
-          "program": 0,
-          "step": 0,
-          "marks": []
-        },
         "crossed": 0,
         "lastTalk": -9,
         "trust": {
@@ -452,11 +447,6 @@
       },
       "moth": {
         "place": "pond",
-        "progress": {
-          "program": 0,
-          "step": 0,
-          "marks": []
-        },
         "crossed": 0,
         "lastTalk": -9,
         "trust": {
@@ -466,11 +456,6 @@
       },
       "keeper": {
         "place": "pond",
-        "progress": {
-          "program": 0,
-          "step": 0,
-          "marks": []
-        },
         "crossed": 0,
         "lastTalk": -9,
         "trust": {

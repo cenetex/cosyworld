@@ -12,11 +12,8 @@ import {
   entityActive,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
-import { questCards, questHistoryCards } from "../v2/card-game/quest-cards.mjs";
-import { storyGroupDefinitions } from "./helpers/story-groups.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { recitalPoem, recitalContext } from "../v2/card-game/pack-recital.mjs";
-import { questRecord } from "../v2/card-game/shared-quests.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 import {
   OPEN_DOOR_PLACES,
@@ -32,7 +29,6 @@ const accessible = (world) =>
   OPEN_DOOR_PLACES.filter((id) => entityActive(world, id));
 const reload = (world) => decodeSave(encodeSave(world));
 const pack = packDefinition("greek-drama");
-const storyKey = (id) => `greek-drama:story-quest-greek-open-door-${id}`;
 
 describe("the Open Door", () => {
   it.each([
@@ -66,30 +62,9 @@ describe("the Open Door", () => {
         "greek-open-door-colonus": options.colonus,
         "greek-open-door-marathon": options.marathon,
       });
-      const cards = questHistoryCards(world).filter((card) =>
-        card.id?.startsWith("story-quest-greek-open-door-"),
-      );
-      expect(cards).toHaveLength(6);
-      expect(cards.every((card) => card.resolved && card.singleLine)).toBe(
-        true,
-      );
-      expect(questCards(world).length).toBeLessThanOrEqual(2);
-      for (const id of [
-        "eleusis",
-        "agora",
-        "piraeus",
-        "colonus",
-        "marathon",
-        "return",
-      ])
-        expect(questRecord(world, storyKey(id)).completion).toMatchObject({
-          actorId: "vale",
-          participants: ["vale"],
-        });
-      expect(questRecord(world, storyKey("return")).completion).toMatchObject({
-        outcome: "shared",
-        locationId: "greek-courtyard",
-      });
+      // Choices and receipts are the record of the stories; no quest
+      // records remain.
+      expect(world.quests).toBeUndefined();
       for (const [item, place] of Object.entries({
         "greek-burial-petition": "greek-athens",
         "greek-return-cloths": "greek-eleusis",
@@ -114,11 +89,9 @@ describe("the Open Door", () => {
         ),
       ).toBe(true);
       const restored = reload(reload(world));
-      expect(restored.quests).toEqual(world.quests);
-      expect(restored.questCompletions).toEqual(world.questCompletions);
+      expect(restored.packs).toEqual(world.packs);
       expect(recitalPoem(restored, pack)).toEqual(poem);
       for (const [id, prior] of Object.entries(before)) {
-        expect(questCards(prior).length).toBeLessThanOrEqual(2);
         const stale = legalActions(prior).find(
           (action) => action.choiceId === id,
         );
@@ -178,7 +151,7 @@ describe("the Open Door", () => {
     expect(world.actors["greek-creon"].place).toBe("greek-palace");
   });
 
-  it("credits a joined player's final deed through save and poem context", () => {
+  it("credits a second player's final deed through save and poem context", () => {
     const prior = openDoorJourney().before["greek-open-door-eleusis-care"];
     const created = dispatchShared({ op: "create", save: encodeSave(prior) });
     expect(created.ok).toBe(true);
@@ -195,18 +168,6 @@ describe("the Open Door", () => {
       });
     let view = request("view");
     expect(view.ok).toBe(true);
-    expect(
-      questHistoryCards(view.world, "mara").filter((card) => card.story),
-    ).toEqual([]);
-    const join = view.actions.find(
-      (action) =>
-        action.kind === "join-quest" && action.questKey === storyKey("eleusis"),
-    );
-    expect(join).toBeTruthy();
-    const joined = request("play", { action: join });
-    expect(joined.ok).toBe(true);
-    world = joined.world;
-    view = request("view");
     const choice = view.actions.find(
       (action) => action.choiceId === "greek-open-door-eleusis-care",
     );
@@ -214,11 +175,9 @@ describe("the Open Door", () => {
     const completed = request("play", { action: choice });
     expect(completed.ok).toBe(true);
     world = reload(completed.world);
-    expect(questRecord(world, storyKey("eleusis")).completion).toMatchObject({
-      actorId: "mara",
-      participants: ["mara", "vale"],
-      locationId: "greek-eleusis",
-    });
+    expect(
+      world.log.find((e) => e.choiceId === "greek-open-door-eleusis-care"),
+    ).toMatchObject({ actorId: "mara", locationId: "greek-eleusis" });
     expect(state(world).recitals["greek-open-door-eleusis-care"].actor).toBe(
       "mara",
     );
@@ -227,7 +186,6 @@ describe("the Open Door", () => {
         (stanza) => stanza.id === "greek-open-door-eleusis-care",
       ).authorId,
     ).toBe("mara");
-    expect(questCards(world, "mara").length).toBeLessThanOrEqual(2);
   });
   it.each(["burial", "concession", "refusal", "exposure"])(
     "opens five places after Dione hears the %s account",
@@ -246,7 +204,6 @@ describe("the Open Door", () => {
       });
       expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
       expect(state(world).choices["greek-theban-response"]).toBe(branch);
-      expect(storyGroupDefinitions(world, "open-door")).toEqual([]);
       expect(play(world, invitation).ok).toBe(false);
       world = openDoorWalk(reload(world), "harbor", "athens");
       expect(exits(world, "greek-athens", "vale")).toEqual(
@@ -289,7 +246,6 @@ describe("the Open Door", () => {
     );
     expect(world.actors.vale.place).toBe("greek-courtyard");
     expect(accessible(reload(world))).toEqual(OPEN_DOOR_PLACES);
-    expect(questCards(world).length).toBeLessThanOrEqual(2);
   });
 
   it("opens the next journey after a public concession while its burial stays available", () => {
@@ -320,11 +276,6 @@ describe("the Open Door", () => {
     let world = openDoorJourney().after["greek-open-door-eleusis-care"];
     world = openDoorWalk(world, "athens", "harbor", "courtyard");
     expect(
-      storyGroupDefinitions(world, "open-door").find(
-        (card) => card.key === storyKey("return"),
-      ),
-    ).toMatchObject({ resolved: false, completion: "Shared" });
-    expect(
       legalActions(world).some(
         (action) => action.choiceId === "greek-open-door-return-dione",
       ),
@@ -350,18 +301,20 @@ describe("the Open Door", () => {
     expect(entityActive(world, "greek-thinkery")).toBe(true);
     expect(entityActive(world, "greek-helen-troy")).toBe(false);
     expect(world.actors.vale.place).toBe(earlier.actors.vale.place);
-    expect(world.log).toEqual(earlier.log);
+    expect(world.log).toEqual(
+      earlier.log
+        .filter((e) => e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""))
+        .map(({ questPlan, consequence, questKey, ...e }) => e),
+    );
     for (const key of ["choices", "flags", "receipts", "met"])
       expect(state(world)[key]).toEqual(earlier.packs["greek-drama"][key]);
     for (const [id, item] of Object.entries(earlier.items))
       expect(world.items[id]).toEqual(item);
-    expect(
-      questHistoryCards(world, "mara").filter((card) => card.story),
-    ).toEqual([]);
+    expect(world.quests).toBeUndefined();
     expect(reload(world)).toEqual(world);
   });
 
-  it("shares the open roads while each player keeps their own deeds", () => {
+  it("shares the open roads with a second player", () => {
     const hosted = dispatchShared({
       op: "create",
       save: encodeSave(openDoorStart()),
@@ -377,12 +330,6 @@ describe("the Open Door", () => {
     expect(viewed.ok).toBe(true);
     expect(accessible(viewed.world)).toEqual(OPEN_DOOR_PLACES);
     expect(viewed.world.actors.mara.place).not.toMatch(/^greek-/);
-    expect(
-      questHistoryCards(viewed.world, "mara").filter((card) => card.story),
-    ).toEqual([]);
-    expect(
-      questHistoryCards(viewed.world, "vale").filter((card) => card.story),
-    ).toHaveLength(3);
   });
 
   it("keeps later places and choices behind the first invitation", () => {

@@ -73,9 +73,8 @@ import {
   cardActions,
   cardObservation,
 } from "./cards.mjs";
-import { knownActors } from "./quests.mjs";
-// Quests stay in the saved world; a person's want reaches the cast through
-// Talk context (want-talk.mjs). The hand holds only people, items and places.
+// A person's want reaches the player through Talk context (want-talk.mjs).
+// The hand holds only people, items and places.
 const $ = (id) => document.getElementById(id);
 const tableName = new URLSearchParams(window.location.search).get("table");
 const startingPack = landingPack(window.location.href);
@@ -95,10 +94,7 @@ const SAVE_KEY =
         : "");
 let world = sharedSession
     ? { ...sharedSession.state.world, playerActorId: sharedSession.state.actor }
-    : enableMotives(createLandingWorld(startingPack), {
-        questPrograms: true,
-        personalQuests: true,
-      }),
+    : enableMotives(createLandingWorld(startingPack)),
   selected = [],
   expandedHolders = new Set(),
   saveBlocked = false,
@@ -164,10 +160,7 @@ try {
   await localBackups?.restore();
   const saved = sharedSession ? null : localStorage.getItem(SAVE_KEY);
   if (saved)
-    world = enableMotives(decodeSave(saved), {
-      questPrograms: true,
-      personalQuests: true,
-    });
+    world = enableMotives(decodeSave(saved));
 } catch (error) {
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
@@ -2461,10 +2454,7 @@ $("confirm-reset").onclick = () => {
   exchange.cancel();
   reveal.cancel();
   speechSounds.stop();
-  world = enableMotives(createLandingWorld(startingPack), {
-    questPrograms: true,
-    personalQuests: true,
-  });
+  world = enableMotives(createLandingWorld(startingPack));
   loadSeen(true);
   completedSpeech.clear();
   reviewing = false;
@@ -2490,10 +2480,7 @@ window.addEventListener("storage", (event) => {
   speechKey = null;
   speechSounds.stop();
   try {
-    world = enableMotives(decodeSave(event.newValue), {
-      questPrograms: true,
-      personalQuests: true,
-    });
+    world = enableMotives(decodeSave(event.newValue));
     loadSeen();
     renderedHand = "";
     lineSeq = null;

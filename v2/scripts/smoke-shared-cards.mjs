@@ -197,10 +197,7 @@ async function expectStage(page, recent) {
   }
 }
 const names = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
-let seed = enableMotives(createWorld({ opening: true }), {
-  questPrograms: true,
-  personalQuests: true,
-});
+let seed = enableMotives(createWorld({ opening: true }));
 for (const kind of ["light", "move"]) {
   const action = legalActions(seed).find(
     (a) => a.kind === kind && (kind !== "move" || a.target === "pond"),
@@ -496,10 +493,8 @@ try {
   assert.equal(shared.world.turn, seed.turn);
   assert.equal(shared.world.actors.vale.place, "pond");
   assert.deepEqual(shared.world.items.lamp, seed.items.lamp);
-  assert.deepEqual(
-    shared.world.actors.vale.progress,
-    seed.actors.vale.progress,
-  );
+  assert.deepEqual(shared.world.actors.vale.want, seed.actors.vale.want);
+  assert.equal(shared.world.actors.vale.xp, seed.actors.vale.xp);
   assert.deepEqual(shared.world.life.actors.vale, seed.life.actors.vale);
   assert.deepEqual(shared.world.memories.vale, seed.memories.vale);
   assert.deepEqual(shared.world.opening, seed.opening);
@@ -1021,14 +1016,13 @@ try {
   const restored = await snapshot(vale);
   assert.equal(restored.actor, "vale");
   assert.deepEqual(restored.world.items, saved.world.items);
-  assert.deepEqual(
-    restored.world.actors.vale.progress,
-    saved.world.actors.vale.progress,
-  );
-  assert.deepEqual(
-    restored.world.actors.mara.progress,
-    saved.world.actors.mara.progress,
-  );
+  for (const id of ["vale", "mara"]) {
+    assert.deepEqual(
+      restored.world.actors[id].want,
+      saved.world.actors[id].want,
+    );
+    assert.equal(restored.world.actors[id].xp, saved.world.actors[id].xp);
+  }
   assert.deepEqual(restored.history, saved.history);
   assert.equal(
     await vale.evaluate(() =>
@@ -1128,7 +1122,6 @@ try {
     );
     assert.deepEqual(after.items, before.items);
     assert.deepEqual(after.actors, before.actors);
-    assert.deepEqual(after.quests, before.quests);
     await until(async () => !(await retry.isVisible()), "retry icon clears");
   }
   assert.deepEqual(errors, []);
@@ -1160,7 +1153,7 @@ try {
     );
   }
   console.log(
-    "Shared original world: progressed save, eight passkeys, original pond/station/attic, NPCs, packs, quests, room capacity, shared speech, item handoff, nudge, restart, desktop and phone passed.",
+    "Shared original world: progressed save, eight passkeys, original pond/station/attic, NPCs, packs, quests (wants), room capacity, shared speech, item handoff, nudge, restart, desktop and phone passed.",
   );
 } catch (error) {
   console.error(

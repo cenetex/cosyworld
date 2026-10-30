@@ -1,7 +1,7 @@
 import { installInnerLife } from "./inner-life.mjs";
 import { imageUrl } from "./images.mjs";
 import { humanAvatars } from "./human-cast.mjs";
-import { levelOf } from "./quests.mjs";
+import { levelOf } from "./want.mjs";
 
 const icons = {
   worlds:

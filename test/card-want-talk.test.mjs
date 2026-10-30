@@ -24,10 +24,7 @@ function talkTo(world, target) {
 const factsOf = (context, id) =>
   context.entities.find((e) => e.id === id)?.facts || [];
 const atStation = () => {
-  const world = enableMotives(createWorld(), {
-    questPrograms: true,
-    personalQuests: true,
-  });
+  const world = enableMotives(createWorld());
   for (const id of ["vale", "moth", "keeper"])
     world.actors[id].place = "station";
   world.items.lamp.holder = "station";
@@ -37,7 +34,7 @@ const atStation = () => {
 describe("a want in Talk context", () => {
   it("says the speaker's want in the first person", () => {
     const world = atStation();
-    expect(wantOf(world, "moth")).toEqual({ kind: "item", target: "lamp" });
+    expect(wantOf(world, "moth")).toMatchObject({ kind: "item", target: "lamp" });
     expect(wantFact(world, "moth", nameOf)).toBe("I want the Lamp.");
     world.items.bell.holder = "keeper";
     expect(wantFact(world, "keeper", nameOf)).toBe(null);
@@ -59,13 +56,16 @@ describe("a want in Talk context", () => {
   });
 
   it("replaces the quest facts with one want fact for the Talk partner", () => {
-    const context = talkTo(atStation(), "moth");
+    // Vale holds the lamp and keeps it, so Pip still wants it after Talk.
+    const world = atStation();
+    world.items.lamp.holder = "vale";
+    world.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
+    const context = talkTo(world, "moth");
     const pip = factsOf(context, "moth");
-    expect(pip[0]).toBe("I want the Lamp.");
     expect(pip.filter((f) => f === "I want the Lamp.")).toHaveLength(1);
     for (const entity of context.entities)
       expect(entity.facts.some((f) => QUEST_LINES.test(f))).toBe(false);
-    expect(factsOf(context, "vale")).toContain("I want the Lamp.");
+    expect(factsOf(context, "vale")).toContain(`I want to be at ${nameOf("pond")}.`);
     expect(pip.length).toBeLessThanOrEqual(16);
   });
 

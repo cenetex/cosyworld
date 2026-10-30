@@ -39,6 +39,17 @@ const response = (context) => ({
   })),
 });
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+const wantPlace = (target) => ({ kind: "place", target, since: 0, refusals: 0 });
+// Vale, Pip and the keeper at the station. Each named resident wants to be
+// at the pond, so it leaves on the next play; the others stay put.
+function leavingStation(...leavers) {
+  const world = createWorld();
+  for (const id of ["moth", "keeper"]) {
+    world.actors[id].place = "station";
+    world.actors[id].want = leavers.includes(id) ? wantPlace("pond") : null;
+  }
+  return world;
+}
 
 describe("entity memories and model text", () => {
   it("keeps the final Bell recipient and its later movement in the speech request", () => {
@@ -58,13 +69,14 @@ describe("entity memories and model text", () => {
     expect(outcome.items.find((item) => item.id === "bell")).toEqual({
       id: "bell",
       holder: "keeper",
-      location: "attic",
+      location: "station",
     });
+    // The bell was the keeper's want; met away from home, it heads home.
     expect(
       outcome.avatars.find((actor) => actor.id === "keeper"),
     ).toMatchObject({
       holding: ["oil", "bell"],
-      travel: { from: "pond", to: "attic", companions: [] },
+      travel: { from: "pond", to: "station", companions: [] },
     });
     expect(narrativeContext(decodeSave(encodeSave(next))).outcome).toEqual(
       outcome,
@@ -152,18 +164,26 @@ describe("entity memories and model text", () => {
     const context = narrativeContext(world, { item: "lamp" });
     expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
     expect(context.action).toBe("Vale takes the Lamp.");
-    expect(
-      context.entities.find((e) => e.id === "moth").desire.items,
-    ).toContain("lamp");
+    // Taking the lamp met Vale's want; the card carries that outcome.
+    expect(context.outcome.card.wantMet).toEqual({ kind: "item", target: "lamp" });
+    // Another person's want reaches the scene only through Talk.
+    expect(context.entities.find((e) => e.id === "moth").desire).toEqual({
+      items: [],
+      location: null,
+      avatars: [],
+    });
     expect(
       context.entities
         .find((e) => e.id === "lamp")
         .memories.some((e) => e.text.includes("Vale takes")),
     ).toBe(true);
     const vale = context.entities.find((e) => e.id === "vale");
-    expect(vale.facts.join(" ")).toContain(
-      "Wants Oil flask, currently with The keeper",
-    );
+    const want = world.actors.vale.want;
+    expect(vale.desire).toEqual({
+      items: want.kind === "item" ? [want.target] : [],
+      location: want.kind === "place" ? want.target : null,
+      avatars: want.kind === "person" ? [want.target] : [],
+    });
     expect(context.entities.every((e) => e.facts.length <= 16)).toBe(true);
     context.scenery = true;
     const next = applyGeneratedText(world, context, response(context));
@@ -250,13 +270,13 @@ describe("entity memories and model text", () => {
     ).toBe(true);
   });
 
-  it("migrates old saves and retains quest progress and item histories", () => {
+  it("starts the earliest saves fresh and keeps item histories on reload", () => {
     const world = act(createWorld(), "take", "lamp");
     const old = structuredClone(world);
     old.schema = 3;
     delete old.memories;
-    const restored = decodeSave(JSON.stringify(old));
-    expect(restored.schema).toBe(7);
+    expect(() => decodeSave(JSON.stringify(old))).toThrow(/fresh start/);
+    const restored = decodeSave(encodeSave(world));
     expect(restored.actors).toEqual(world.actors);
     expect(restored.items).toEqual(world.items);
     expect(
@@ -708,8 +728,9 @@ describe("witnessed departures and conversation continuity", () => {
   });
 
   it("places a departed avatar's words at the destination, not the origin", () => {
-    let world = createWorld();
-    for (let i = 0; i < 4; i++) world = act(world, "wait");
+    const start = leavingStation("moth");
+    start.actors.keeper.place = "attic";
+    let world = act(start, "wait");
     expect(world.actors.moth.place).toBe("pond");
     const context = narrativeContext(world);
     expect(context.speakers).toEqual(["vale", "moth"]);
@@ -720,7 +741,7 @@ describe("witnessed departures and conversation continuity", () => {
     expect(pip.facts.join(" ")).toContain(
       "Leaving Empty station for Black pond",
     );
-    expect(pip.facts.join(" ")).toContain("currently at Black pond");
+    expect(pip.facts.join(" ")).toContain("Location now: Black pond");
     const next = applyGeneratedText(world, context, response(context));
     const lines = next.log.filter(
       (e) => e.turn === next.turn && e.generated && e.kind === "dialogue",
@@ -810,7 +831,10 @@ describe("witnessed departures and conversation continuity", () => {
   });
 
   it("gives both arrivals a voice, with one ordered exchange for the next turn", () => {
-    let world = act(createWorld(), "wait");
+    const start = createWorld();
+    start.actors.moth.want = wantPlace("station");
+    start.actors.keeper.want = wantPlace("station");
+    let world = act(start, "wait");
     let context = narrativeContext(world);
     expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
     world = applyGeneratedText(world, context, response(context));
@@ -838,8 +862,7 @@ describe("witnessed departures and conversation continuity", () => {
     ).toBe(true);
   });
   it("lets Vale lead Stay and keeps the chosen partner before departures", () => {
-    let world = createWorld();
-    for (let i = 0; i < 3; i++) world = act(world, "wait");
+    const world = act(leavingStation("keeper"), "wait");
     expect(world.actors.moth.place).toBe("station");
     expect(world.actors.keeper.place).toBe("pond");
     expect(narrativeContext(world).speakers).toEqual(["vale", "keeper"]);
@@ -850,11 +873,7 @@ describe("witnessed departures and conversation continuity", () => {
     ]);
   });
   it("handles two departures and removes each speaker from later casts", () => {
-    let world = act(createWorld(), "wait");
-    world.items.lamp.holder = "moth";
-    world.items.lamp.lit = true;
-    world.items.bell.holder = "keeper";
-    world = act(world, "wait");
+    const world = act(leavingStation("moth", "keeper"), "wait");
     const context = narrativeContext(world);
     expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
     // A partner who left after another avatar speaks after that departure,
@@ -920,16 +939,19 @@ describe("speech grounding in resolved card plays", () => {
     expect(result.ok).toBe(true);
     return result.state;
   };
+  // Pip wants to be at the pond, so a trip there is on Pip's way.
   const together = () => {
     const world = createWorld();
     world.actors.moth.place = "station";
+    world.actors.moth.want = wantPlace("pond");
     world.items.lamp.holder = "vale";
     return world;
   };
 
   it("keeps a solo departure separate from a wish and an earlier spoken promise", () => {
-    let world = createWorld();
-    for (let i = 0; i < 3; i++) world = act(world, "wait");
+    let world = leavingStation();
+    world.actors.keeper.place = "attic";
+    world = act(world, "wait");
     const context = narrativeContext(world),
       generated = response(context);
     generated.entries.find((e) => e.id === "moth").text =
@@ -939,6 +961,7 @@ describe("speech grounding in resolved card plays", () => {
       { ...context, speakers: ["vale", "moth"] },
       generated,
     );
+    world.actors.moth.want = wantPlace("pond");
     world = act(world, "wait");
     const next = narrativeContext(world),
       outcome = next.outcome;
@@ -954,8 +977,9 @@ describe("speech grounding in resolved card plays", () => {
       location: "pond",
       travel: { from: "station", to: "pond", companions: [] },
     });
-    expect(next.entities.find((e) => e.id === "moth").desire.avatars).toContain(
-      "vale",
+    // Pip's want stays unsaid: nobody talked with Pip this turn.
+    expect(next.entities.find((e) => e.id === "moth").desire.location).toBe(
+      null,
     );
     expect(
       next.entities.find((e) => e.id === "moth").facts.join(" "),

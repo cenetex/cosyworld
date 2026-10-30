@@ -32,14 +32,6 @@ import {
 } from "../v2/card-game/world.mjs";
 import { availableCards, cardChoices } from "../v2/card-game/cards.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-import {
-  storyGroupDefinitions,
-  storyGroupIds,
-} from "./helpers/story-groups.mjs";
-
-const FOREST_QUEST_CARDS = storyGroupIds("forest");
-const forestDefinitions = (world) => storyGroupDefinitions(world, "forest");
-import { questHistoryCards } from "../v2/card-game/quest-cards.mjs";
 import { hub, packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
@@ -75,10 +67,7 @@ const move = (world, target) => act(world, "move", { target });
 const take = (world, item) => act(world, "take", { item });
 const choose = (world, choiceId) => act(world, "choose", { choiceId });
 function attic() {
-  const world = enableMotives(createWorld(), {
-    questPrograms: true,
-    personalQuests: true,
-  });
+  const world = enableMotives(createWorld());
   world.actors.vale.place = "attic";
   world.items.cloth.holder = "vale";
   world.items.lamp.holder = "station";
@@ -90,8 +79,11 @@ function welcome() {
   let world = move(attic(), COTTAGE);
   world = act(world, "talk", { target: "rati" });
   world = choose(world, "forest-stay-for-tea");
-  world = take(world, "forest-story-button");
-  world = act(world, "give", { item: "forest-story-button", target: "rati" });
+  // RATi wants the story button and may already have fetched it herself.
+  if (world.items["forest-story-button"].holder !== "rati") {
+    world = take(world, "forest-story-button");
+    world = act(world, "give", { item: "forest-story-button", target: "rati" });
+  }
   return choose(world, "forest-mend-scarf");
 }
 function chapter({
@@ -273,27 +265,9 @@ describe("Tea beneath the oak", () => {
       expect(world.items["forest-wolfprint-charm"].holder).toBe(
         homecoming === "hearth" ? COTTAGE : "vale",
       );
-      expect(forestDefinitions(world).map((q) => q.id)).toEqual(
-        FOREST_QUEST_CARDS,
-      );
-      expect(forestDefinitions(world).every((q) => q.resolved)).toBe(true);
-      const chapterCard = (q) =>
-        FOREST_QUEST_CARDS.some((id) => q.key === `${PACK}:${id}`);
-      const history = questHistoryCards(world).filter(chapterCard);
-      expect(history).toHaveLength(3);
-      expect(
-        history.every(
-          (q) => q.status === "fulfilled" && q.participants.includes("vale"),
-        ),
-      ).toBe(true);
       world.log = [];
       world = reload(world);
       expect(state(world).choices["forest-homecoming"]).toBe(homecoming);
-      expect(
-        questHistoryCards(world)
-          .filter(chapterCard)
-          .map((q) => q.status),
-      ).toEqual(["fulfilled", "fulfilled", "fulfilled"]);
       expect(legalActions(world).some((a) => a.choiceId === ending)).toBe(
         false,
       );
@@ -330,9 +304,6 @@ describe("Tea beneath the oak", () => {
     expect(response.ok, response.error).toBe(true);
     world = reload(response.world);
     expect(state(world).choices["forest-garden-care"]).toBe("stones");
-    const record =
-      world.quests.records[`lonely-forest:${FOREST_QUEST_CARDS[1]}`];
-    expect(record.participants).toContain("mara");
     expect(
       world.log.find((e) => e.choiceId === "forest-set-stones")?.actorId,
     ).toBe("mara");
@@ -364,8 +335,6 @@ function hear(world, speaker, fact) {
     })),
   });
 }
-const walkers = (world) =>
-  world.quests.records["lonely-forest:story-quest-forest-walkers"];
 
 describe("Three walkers, one old root", () => {
   it.each([
@@ -375,7 +344,7 @@ describe("Three walkers, one old root", () => {
     "learns the walkers from %s before the watch with Skull",
     (speaker, fact, road, trail) => {
       let world = chapter();
-      expect(walkers(world).completedTurn).toBeNull();
+      expect(state(world).receipts["forest-sit-watch"]).toBeUndefined();
       for (const target of road) world = move(world, target);
       world = hear(world, speaker, fact);
       expect(state(world).flags["forest-walkers-heard"]).toBe(true);
@@ -386,10 +355,7 @@ describe("Three walkers, one old root", () => {
       );
       world = choose(world, "forest-sit-watch");
       expect(state(world).choices["forest-evening-watch"]).toBe("kept");
-      expect(walkers(world).completedTurn).toBe(
-        state(world).receipts["forest-sit-watch"],
-      );
-      expect(walkers(world).participants).toContain("vale");
+      expect(state(world).receipts["forest-sit-watch"]).toBe(world.turn);
     },
   );
 

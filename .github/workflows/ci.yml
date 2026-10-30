@@ -325,15 +325,13 @@ jobs:
           node v2/scripts/smoke-shared-play-status.mjs
           node v2/scripts/smoke-card-actions.mjs
 
-      - name: Check Greek drama, Thebes, the Open Door, and Ajax
+      - name: Check Greek drama, Thebes, travel, and Ajax
         if: matrix.mode == 'cards-drama'
         run: |
           node v2/scripts/smoke-card-greek-drama.mjs
           node v2/scripts/smoke-card-theban-scenery.mjs
           node v2/scripts/smoke-card-weather.mjs
-          node v2/scripts/smoke-card-open-door.mjs
           node v2/scripts/smoke-card-greek-travel.mjs
-          node v2/scripts/smoke-card-greek-homecoming.mjs
           node v2/scripts/smoke-card-ajax.mjs
 
       - name: Check dialogue and movement
@@ -343,14 +341,10 @@ jobs:
           node v2/scripts/smoke-card-dialogue-timing.mjs
           node v2/scripts/smoke-card-movement.mjs
 
-      - name: Check quests, shared discovery, and voice
+      - name: Check shared discovery and voice
         if: matrix.mode == 'cards-quests'
         run: |
-          node v2/scripts/smoke-card-quests.mjs
-          node v2/scripts/smoke-card-quest-collection.mjs
           node v2/scripts/smoke-card-shared-discovery.mjs
-          node v2/scripts/smoke-card-bard-travel.mjs
-          node v2/scripts/smoke-card-shared-quests.mjs
           node v2/scripts/smoke-card-voice.mjs
 
       - name: Upload browser images

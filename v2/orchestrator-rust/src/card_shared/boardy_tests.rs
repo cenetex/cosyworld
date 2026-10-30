@@ -109,7 +109,7 @@ fn assert_boardy_upgrade(version: &str) {
         world.game["items"]["boardyai-calling-card"]["holder"],
         "station"
     );
-    assert_eq!(world.game["log"], old.game["log"]);
+    assert_eq!(world.game["log"], super::full_tests::quest_free_log(&old.game["log"]));
     assert!(world.game["actors"]["boardyai"].is_object());
     let action = world.project(0).unwrap()["actions"]
         .as_array()
@@ -240,7 +240,7 @@ fn boardy_version_sixteen_upgrade_preserves_sightings_and_replays() {
     for (key, item) in old.game["items"].as_object().unwrap() {
         assert_eq!(&world.game["items"][key], item, "saved item {key}");
     }
-    assert_eq!(world.game["log"], old.game["log"]);
+    assert_eq!(world.game["log"], super::full_tests::quest_free_log(&old.game["log"]));
     for _ in 0..4 {
         let view = world.project(0).unwrap();
         let wait = view["actions"]

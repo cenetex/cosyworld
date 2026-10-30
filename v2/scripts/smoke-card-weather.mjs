@@ -13,7 +13,6 @@ import { locationWeather } from "../card-game/weather.mjs";
 import { locationDaylight } from "../card-game/daylight.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
-import { questCards } from "../card-game/quest-cards.mjs";
 
 const output = new URL("../../output/card-weather/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -67,15 +66,11 @@ try {
         world.crossings["pond-greek-harbor"].discovered = true;
         world.transports["greek-ship"].dock = place;
       }
-      enableMotives(world, { questPrograms: true, personalQuests: true });
+      enableMotives(world);
       await page.evaluate(
-        ({ key, save, seen, quests }) => {
+        ({ key, save, seen }) => {
           localStorage.setItem(key, save);
           localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
-          localStorage.setItem(
-            `${key}.quests`,
-            JSON.stringify({ seen: quests, read: quests }),
-          );
         },
         {
           key,
@@ -85,9 +80,6 @@ try {
             ...Object.keys(people),
             ...Object.keys(things),
           ],
-          quests: Object.keys(people).flatMap((id) =>
-            questCards(world, id).map((quest) => quest.key),
-          ),
         },
       );
       await page.reload();

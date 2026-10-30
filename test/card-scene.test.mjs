@@ -21,6 +21,7 @@ import {
   currentScene,
   sceneScript,
 } from "../v2/card-game/scene.mjs";
+const wantPlace = (target) => ({ kind: "place", target, since: 0, refusals: 0 });
 function gathered() {
   const s = createWorld();
   for (const id of ["vale", "moth", "keeper"]) s.actors[id].place = "station";
@@ -146,6 +147,8 @@ describe("JRPG scenes", () => {
   it("distinguishes a follower, agreed company, and a waiting resident", () => {
     const s = gathered();
     s.actors.vale.place = s.actors.moth.place = "attic";
+    // Pip wants the pond, so it follows Vale there or agrees to come along.
+    s.actors.moth.want = wantPlace("pond");
     s.items.lamp.holder = "vale";
     s.items.lamp.lit = true;
     const followed = act(s, "move", null, "pond");
@@ -173,8 +176,8 @@ describe("JRPG scenes", () => {
 
   it("explains a quiet departure and clears it on the following turn", () => {
     const s = gathered();
-    s.items.lamp.holder = "moth";
-    s.items.lamp.lit = true;
+    s.actors.moth.want = wantPlace("pond");
+    s.actors.keeper.want = null;
     const left = act(s, "wait");
     expect(movementCaption(left)).toContain("Pip leaves for Black pond.");
     expect(movementCaption(act(left, "wait"))).not.toContain(
@@ -253,17 +256,23 @@ describe("JRPG scenes", () => {
     expect(currentScene(s, reply.index, { hold: true }).line).toEqual(reply);
   });
   it("exports light at the current location", () => {
-    let s = createWorld();
-    for (let i = 0; i < 4; i++) s = act(s, "wait");
-    expect(s.items.lamp.lit).toBe(true);
+    const s = createWorld();
+    s.items.lamp.holder = "moth";
+    s.items.lamp.lit = true;
     expect(sceneScript(s).current).toMatchObject({
       locationId: "station",
       light: false,
     });
+    s.actors.vale.place = "pond";
+    expect(sceneScript(s).current).toMatchObject({
+      locationId: "pond",
+      light: true,
+    });
   });
 
   it("shows the recorded cast when reading an earlier line", () => {
-    let s = act(createWorld(), "wait");
+    let s = gathered();
+    s.actors.moth.want = s.actors.keeper.want = null;
     s = act(s, "talk", null, "moth");
     const context = narrativeContext(s, { target: "moth" });
     s = applyGeneratedText(s, context, {
@@ -277,24 +286,13 @@ describe("JRPG scenes", () => {
     const spoken = s.log.findIndex(
       (e) => e.kind === "dialogue" && e.actorId === "moth",
     );
+    s.actors.moth.want = wantPlace("pond");
+    s.actors.keeper.place = "pond";
     s = act(act(s, "wait"), "wait");
     expect(s.actors.moth.place).toBe("pond");
     expect(currentScene(s, spoken).slots).toEqual(["vale", "moth", "keeper"]);
     expect(currentScene(s).slots).toEqual(["vale", null]);
   });
-  it("lets an avatar refill its target lamp with reachable oil", () => {
-    let s = createWorld();
-    s.items.lamp.holder = "moth";
-    s.items.lamp.fuel = 0;
-    s.items.oil.holder = "moth";
-    s = act(s, "wait");
-    expect(s.items.oil.doses).toBeLessThan(3);
-    expect(s.items.lamp.fuel).toBeGreaterThan(0);
-    expect(s.log.some((e) => e.actorId === "moth" && e.verb === "refill")).toBe(
-      true,
-    );
-  });
-
   it("keeps all three characters in stable seats through each reply", () => {
     const s = gathered();
     dialogue(s, "vale");
@@ -598,19 +596,6 @@ describe("JRPG scenes", () => {
     expect(script.beats).toHaveLength(100);
     expect(script.beats.at(-1).id).toBe(s.eventSeq);
     expect(new Set(script.beats.map((e) => e.id)).size).toBe(100);
-  });
-  it("restores earlier saves and assigns event order on the next action", () => {
-    const s = createWorld();
-    s.schema = 3;
-    delete s.memories;
-    delete s.eventSeq;
-    s.log = s.log.map(({ turn, speaker, text }) => ({ turn, speaker, text }));
-    const restored = decodeSave(JSON.stringify(s));
-    expect(currentScene(restored).line).toBeNull();
-    expect(sceneScript(restored).beats[0].locationId).toBe(null);
-    const next = act(restored, "take", "lamp");
-    expect(next.log.map((e) => e.seq)).toEqual(next.log.map((_, i) => i + 1));
-    expect(decodeSave(encodeSave(next))).toEqual(next);
   });
   it("validates scene metadata in saved games", () => {
     for (const patch of [

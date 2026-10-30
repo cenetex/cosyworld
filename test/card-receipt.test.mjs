@@ -12,30 +12,27 @@ function act(s, kind, target) {
   expect(action, `${kind} ${target ?? ""}`).toBeTruthy();
   return play(s, action).state;
 }
-// Vale gives Pip the lamp, they meet the keeper at the station, and Pip
-// trades the cloth for the keeper's oil on a cast turn.
+// At the station Pip wants the keeper's oil and the keeper wants Pip's
+// cloth. Pip asks, then trades on a cast turn, then sets off for the pond.
 function stationTrade() {
-  let s = enableMotives(atticOpening(), {
-    questPrograms: true,
-  });
-  for (const [kind, target] of [
-    ["light"],
-    ["move", "pond"],
-    ["give", "lamp"],
-    ["wait"],
-    ["move", "station"],
-    ["wait"],
-    ["wait"],
-  ])
-    s = act(s, kind, target);
-  return s;
+  let s = enableMotives(createWorld());
+  for (const id of ["vale", "moth", "keeper"]) s.actors[id].place = "station";
+  s.items.cloth.holder = "moth";
+  s.items.oil.holder = "keeper";
+  s.items.lamp.holder = "attic";
+  s.actors.moth.want = { kind: "item", target: "oil", since: 0, refusals: 0 };
+  s.actors.keeper.want = { kind: "item", target: "cloth", since: 0, refusals: 0 };
+  for (let i = 0; i < 4; i++) {
+    s = act(s, "wait");
+    if (s.log.some((e) => e.verb === "trade")) break;
+  }
+  // Then Pip sets off for the pond.
+  s.actors.moth.want = { kind: "place", target: "pond", since: s.turn, refusals: 0 };
+  return act(s, "wait");
 }
-
 describe("witnessed History events", () => {
   it("keeps a visible event for every turn before generated words arrive", () => {
-    let s = enableMotives(atticOpening(), {
-      questPrograms: true,
-    });
+    let s = enableMotives(atticOpening());
     for (let turn = 0; turn < 6; turn++) {
       const action = legalActions(s).find((a) => a.kind === "wait");
       s = play(s, action).state;
@@ -49,31 +46,31 @@ describe("witnessed History events", () => {
 
   it("includes a cast trade and departure Vale watched", () => {
     const s = stationTrade();
-    const trade = s.log.findLast((entry) => entry.verb === "trade");
+    const trade = s.log.find((entry) => entry.verb === "trade");
     expect(trade.text).toMatch(
       /^Pip trades the Black cloth for .*Oil flask\.$/,
     );
     expect(witnessed(trade)).toBe(true);
-    // The keeper's departure is seen from where it started.
+    // Pip's departure is seen from where it started.
     const departure = s.log.findLast(
-      (entry) => entry.actorId === "keeper" && entry.verb === "move",
+      (entry) => entry.actorId === "moth" && entry.verb === "move",
     );
-    expect(departure.text).toBe("The keeper goes to Black pond.");
+    expect(departure.text).toBe("Pip goes to Black pond.");
     expect(departure.cast).not.toContain("vale");
     expect(witnessed(departure)).toBe(true);
   });
 
   it("hides offscreen events from History while preserving the world log", () => {
-    let s = stationTrade();
-    s = act(s, "wait");
+    const s = stationTrade();
     const savedLog = structuredClone(s.log);
     const elsewhere = s.log.filter(
       (entry) =>
         entry.turn === s.turn &&
         entry.locationId !== s.actors.vale.place &&
-        ["narration", "quest"].includes(entry.kind),
+        entry.kind === "narration",
     );
-    expect(elsewhere.map((entry) => entry.kind)).toEqual(["narration", "quest"]);
+    // Pip reaching the pond is a want met out of Vale's sight.
+    expect(elsewhere.map((entry) => entry.verb)).toContain("want_met");
     const visible = s.log.filter(witnessed);
     for (const entry of elsewhere) {
       expect(entry.cast).not.toContain("vale");

@@ -68,18 +68,14 @@ export function recitalFacts(world, packs, actor) {
     packs.find((p) => p.avatars?.[id])?.avatars[id].name ||
     packs.find((p) => p.places?.[id])?.places[id].name ||
     "an earlier traveler";
-  const journey = world.roamingQuests?.[actor];
-  const travel = journey?.target
+  const want = world.actors[actor]?.want;
+  return want?.kind === "place"
     ? [
-        `Your journey follows the recorded quest site at ${name(journey.target.locationId)}. Its author was ${name(journey.target.actorId)}.`,
-        journey.blocked
-          ? `You need ${journey.blocked.kind === "directions" ? "directions" : "passage"} from ${name(journey.blocked.from)} to ${name(journey.blocked.to)}.`
-          : world.actors[actor].place === journey.target.locationId
-            ? "You have arrived. Stay here until another quest is completed."
-            : "Take an ordinary open route toward that place.",
+        world.actors[actor].place === want.target
+          ? `You have reached ${name(want.target)}.`
+          : `Your road leads to ${name(want.target)}. Take an ordinary open route toward it.`,
       ]
     : [];
-  return travel;
 }
 
 export function validRecitals(world, pack) {

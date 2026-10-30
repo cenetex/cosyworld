@@ -402,6 +402,13 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             if id == "vale" {
                 retained["place"] = saved["place"].clone();
             }
+            let mut saved = saved.clone();
+            saved.as_object_mut().unwrap().remove("progress");
+            for field in ["want", "xp", "visited", "talked", "metTurn", "gaveUp"] {
+                retained.as_object_mut().unwrap().remove(field);
+                saved.as_object_mut().unwrap().remove(field);
+            }
+            let saved = &saved;
             retained["trust"]
                 .as_object_mut()
                 .unwrap()
@@ -495,14 +502,8 @@ fn ajax_shield_delivered_under_rules_twenty_one_stays_complete_after_upgrade() {
         current.game["packs"]["greek-drama"]["receipts"],
         old.game["packs"]["greek-drama"]["receipts"]
     );
-    assert_eq!(
-        current.game["quests"]["records"][key]["completedTurn"],
-        completed
-    );
-    assert_eq!(
-        current.game["quests"]["records"][key]["completion"],
-        old.game["quests"]["records"][key]["completion"]
-    );
+    // The delivered shield stays a receipt; story quest records are dropped.
+    assert!(current.game.get("quests").is_none());
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), current);
     drop(c);

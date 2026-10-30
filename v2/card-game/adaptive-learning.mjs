@@ -26,16 +26,8 @@ const compactAction = (a) => ({
   destination: a.destination || null,
 });
 export function learningIntent(world, actor) {
-  const progress = world.actors[actor]?.progress;
-  const focused = world.quests?.focus?.[actor] || null;
-  return JSON.stringify([
-    progress?.program || 0,
-    progress?.step || 0,
-    progress?.current?.id || null,
-    world.life?.actors?.[actor]?.phase || null,
-    focused,
-    world.quests?.records?.[focused]?.step ?? null,
-  ]);
+  const want = world.actors[actor]?.want;
+  return JSON.stringify([want?.kind ?? null, want?.target ?? null]);
 }
 function holder(world, item) {
   let id = item;

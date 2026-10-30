@@ -166,7 +166,6 @@ follow the same visible facts as the scene.
 ```sh
 npm test
 npm run check:local
-node v2/scripts/smoke-card-open-door.mjs
 node v2/scripts/smoke-card-ajax.mjs
 node v2/scripts/smoke-card-theban-scenery.mjs
 node v2/scripts/smoke-card-greek-drama.mjs

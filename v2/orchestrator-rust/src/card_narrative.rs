@@ -360,21 +360,15 @@ struct CardOutcome {
     receive: Option<String>,
     destination: Option<String>,
     accepted: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    quest: Option<QuestOutcome>,
+    /// The player's want met by this play: an item, a place or a person.
+    #[serde(default, rename = "wantMet", skip_serializing_if = "Option::is_none")]
+    want_met: Option<WantMet>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct QuestOutcome {
-    key: String,
-    title: String,
-    holder: QuestHolder,
-}
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct QuestHolder {
+struct WantMet {
     kind: String,
-    id: String,
+    target: String,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -554,10 +548,6 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
             | "guard"
             | "attack"
             | "choose"
-            | "pursue"
-            | "join-quest"
-            | "share-quest"
-            | "drop-quest"
     ) && card
         .target
         .as_ref()
@@ -585,23 +575,12 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
         } else {
             card.accepted.is_none() && card.destination.is_none()
         }
-        && match &card.quest {
-            Some(quest) => {
-                ["pursue", "join-quest", "share-quest", "drop-quest"].contains(&card.kind.as_str())
-                    && bounded(&quest.key, 160)
-                    && bounded(&quest.title, 240)
-                    && match quest.holder.kind.as_str() {
-                        "avatar" => kind(&quest.holder.id, "avatar"),
-                        "item" => kind(&quest.holder.id, "item"),
-                        "place" => kind(&quest.holder.id, "location"),
-                        _ => false,
-                    }
-                    && card.target.as_deref() == Some(quest.holder.id.as_str())
-                    && card.item.is_none()
-                    && card.receive.is_none()
-            }
-            None => !["join-quest", "share-quest", "drop-quest"].contains(&card.kind.as_str()),
-        }
+        && card.want_met.as_ref().is_none_or(|want| match want.kind.as_str() {
+            "item" => kind(&want.target, "item"),
+            "place" => kind(&want.target, "location"),
+            "person" => kind(&want.target, "avatar"),
+            _ => false,
+        })
         && avatars.contains("vale")
         && (1..=8).contains(&outcome.avatars.len())
         && avatars.len() == outcome.avatars.len()
@@ -3768,15 +3747,6 @@ mod tests {
     }
 
     #[test]
-    fn accepts_a_player_choosing_a_collected_quest() {
-        let mut outcome = solo_departure();
-        outcome.card.kind = "pursue".into();
-        outcome.card.target = None;
-        outcome.card.destination = None;
-        assert!(valid_outcome(&outcome));
-    }
-
-    #[test]
     fn accepts_resolved_answers_from_personal_interests() {
         let mut o = solo_departure();
         o.card.kind = "ask".into();
@@ -3854,7 +3824,7 @@ mod tests {
         assert!(!valid(&c));
     }
     #[tokio::test]
-    async fn route_accepts_shared_quest_plays_and_checks_holder_facts() {
+    async fn route_accepts_a_met_want_and_checks_its_target() {
         let provider = plain_provider(Arc::new(Mutex::new(Vec::new())), |_, stem| stem_reply(stem));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
@@ -3862,38 +3832,18 @@ mod tests {
             axum::serve(listener, provider).await.unwrap();
         });
         let app = router::<()>(Arc::new(Some(test_config(address))));
-        for action in ["join-quest", "share-quest", "drop-quest"] {
-            let mut c = context();
-            let mut outcome = serde_json::to_value(solo_departure()).unwrap();
-            outcome["card"] = json!({"kind":action,"target":"station","item":null,"receive":null,"destination":null,"accepted":null,
-                "quest":{"key":"world:quest:0","title":"Meet by the water","holder":{"kind":"place","id":"station"}}});
-            c.outcome = Some(serde_json::from_value(outcome).unwrap());
-            c.action = Some("Vale offers help with a wish held by the station.".into());
-            assert!(valid(&c));
-            let response = app.clone().oneshot(request(&c)).await.unwrap();
-            assert_eq!(response.status(), StatusCode::OK, "{action}");
-            let bytes = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
-            let body: Value = serde_json::from_slice(&bytes).unwrap();
-            assert_eq!(body["entries"].as_array().unwrap().len(), 4);
-            c.outcome
-                .as_mut()
-                .unwrap()
-                .card
-                .quest
-                .as_mut()
-                .unwrap()
-                .holder
-                .kind = "item".into();
-            assert_eq!(
-                app.clone().oneshot(request(&c)).await.unwrap().status(),
-                StatusCode::BAD_REQUEST
-            );
-            c.outcome.as_mut().unwrap().card.quest = None;
-            assert_eq!(
-                app.clone().oneshot(request(&c)).await.unwrap().status(),
-                StatusCode::BAD_REQUEST
-            );
-        }
+        let mut c = context();
+        let mut outcome = serde_json::to_value(solo_departure()).unwrap();
+        outcome["card"]["wantMet"] = json!({"kind":"place","target":"station"});
+        c.outcome = Some(serde_json::from_value(outcome).unwrap());
+        assert!(valid(&c));
+        let response = app.clone().oneshot(request(&c)).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        c.outcome.as_mut().unwrap().card.want_met.as_mut().unwrap().kind = "item".into();
+        assert_eq!(
+            app.clone().oneshot(request(&c)).await.unwrap().status(),
+            StatusCode::BAD_REQUEST
+        );
         server.abort();
     }
 

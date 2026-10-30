@@ -36,13 +36,37 @@ pub(super) fn assert_saved_actors(current: &Value, old: &Value) {
                     false
                 }
             });
-        if id == "boardyai" && saved["progress"].get("current").is_none() {
-            if let Some(program) = actor["progress"].as_object_mut().unwrap().remove("current") {
-                assert!(program["generated"].is_object());
-            }
+        // The upgrade drops quest progress and gives every actor one want.
+        let mut saved = saved.clone();
+        saved.as_object_mut().unwrap().remove("progress");
+        for field in ["want", "xp", "visited", "talked", "metTurn", "gaveUp"] {
+            actor.as_object_mut().unwrap().remove(field);
+            saved.as_object_mut().unwrap().remove(field);
         }
-        assert_eq!(&actor, saved, "saved actor {id}");
+        assert_eq!(actor, saved, "saved actor {id}");
     }
+}
+
+// The upgrade drops quest records from history, the way forgetQuests does.
+pub(super) fn quest_free_log(log: &Value) -> Value {
+    Value::Array(
+        log.as_array()
+            .unwrap()
+            .iter()
+            .filter(|e| {
+                e["kind"] != "quest"
+                    && !["drop-quest", "join-quest", "share-quest", "pursue"]
+                        .contains(&e["verb"].as_str().unwrap_or(""))
+            })
+            .map(|e| {
+                let mut e = e.clone();
+                for key in ["questPlan", "consequence", "questKey"] {
+                    e.as_object_mut().unwrap().remove(key);
+                }
+                e
+            })
+            .collect(),
+    )
 }
 
 pub(super) fn assert_saved_memories(current: &Value, old: &Value) {
@@ -396,7 +420,7 @@ fn occupied_ship_upgrade_preserves_shared_boarding_return_riders_and_replay() {
         let old_log = w.game["log"].clone();
         w = full_store::world(&c, &id, now()).unwrap();
         assert_eq!(w.version, engine::VERSION);
-        assert_eq!(w.game["log"], old_log);
+        assert_eq!(w.game["log"], quest_free_log(&old_log));
         assert_eq!(w.game["transports"]["greek-ship"]["dock"], "pond");
         sail(&mut w, 1, "greek-ship");
         sail(&mut w, 0, "greek-harbor");
@@ -556,7 +580,7 @@ fn earlier_home_travel_replays_before_one_recorded_rules_upgrade() {
         old.game["revision"].as_u64().map(|n| n + 1)
     );
     assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
-    assert_eq!(upgraded.game["log"], old.game["log"]);
+    assert_eq!(upgraded.game["log"], quest_free_log(&old.game["log"]));
     assert_eq!(upgraded.game["items"]["mask"], old.game["items"]["mask"]);
     assert_eq!(upgraded.claimed, old.claimed);
     assert_eq!(upgraded.present, old.present);
@@ -730,7 +754,7 @@ fn earlier_completed_quests_gain_a_pending_bard_visit_after_recorded_upgrade() {
         let mut upgraded = full_store::world(&c, &id, now()).unwrap();
         assert_eq!(upgraded.version, engine::VERSION);
         assert_saved_actors(&upgraded.game["actors"], &previous["actors"]);
-        assert_eq!(upgraded.game["log"], previous["log"]);
+        assert_eq!(upgraded.game["log"], quest_free_log(&previous["log"]));
         assert_eq!(
             upgraded.game["packs"]["greek-drama"]["receipts"],
             previous["packs"]["greek-drama"]["receipts"]
@@ -1521,7 +1545,7 @@ fn old_rule_history_upgrades_once_and_replays_with_either_checkpoint_path() {
             assert_eq!(upgraded.present, old.present);
             assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
             assert_saved_items(&upgraded.game["items"], &old.game["items"]);
-            assert_eq!(upgraded.game["log"], old.game["log"]);
+            assert_eq!(upgraded.game["log"], quest_free_log(&old.game["log"]));
             assert_eq!(upgraded.game["life"]["version"], 2);
             assert_eq!(
                 upgraded.game["life"]["actors"]["vale"]["experiences"][0],
@@ -1667,7 +1691,7 @@ fn released_pickup_journal_replays_through_both_recorded_upgrades() {
         assert_eq!(upgraded.version, engine::VERSION);
         assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
         assert_saved_items(&upgraded.game["items"], &old.game["items"]);
-        assert_eq!(upgraded.game["log"], old.game["log"]);
+        assert_eq!(upgraded.game["log"], quest_free_log(&old.game["log"]));
         assert_eq!(upgraded.claimed, old.claimed);
         assert_eq!(upgraded.present, old.present);
         assert_eq!(
@@ -2057,7 +2081,7 @@ fn released_carriage_route_replays_before_the_station_connection_upgrade() {
         assert_eq!(Some(&w), checkpointed.as_ref());
         assert_saved_actors(&w.game["actors"], &earlier.game["actors"]);
         assert_saved_items(&w.game["items"], &earlier.game["items"]);
-        assert_eq!(w.game["log"], earlier.game["log"]);
+        assert_eq!(w.game["log"], quest_free_log(&earlier.game["log"]));
         for (key, value) in earlier.game["crossings"].as_object().unwrap() {
             assert_eq!(&w.game["crossings"][key], value);
         }
@@ -2790,7 +2814,7 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
                 assert_eq!(world.game[field][key], expected, "saved {field}/{key}");
             }
         }
-        assert_eq!(world.game["log"], old.game["log"]);
+        assert_eq!(world.game["log"], quest_free_log(&old.game["log"]));
         assert_eq!(
             world.game["packs"]["hoppycat-archive"]["revision"],
             pack_revision("hoppycat-archive")

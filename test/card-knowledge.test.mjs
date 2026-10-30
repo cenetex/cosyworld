@@ -22,16 +22,12 @@ import {
   legalActions,
   play,
   publishKnowledgeSpeech,
-  handStatus,
 } from "../v2/card-game/world.mjs";
 import {
   narrativeContext,
   applyGeneratedText,
 } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { addQuestRecord } from "../v2/card-game/shared-quests.mjs";
-import { conditionMet, requiredItems } from "../v2/card-game/situations.mjs";
-import { conditionMet as packConditionMet } from "../v2/card-game/pack-rules.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { openDoorStart, openDoorWalk } from "./helpers/open-door.mjs";
 
@@ -203,7 +199,7 @@ describe("saved public knowledge", () => {
   it("keeps only complete short rule facts and skips generated speech and private thoughts", () => {
     const w = bare();
     expect(source(w, { generated: true })).toBeNull();
-    expect(source(w, { kind: "quest", questPlan: {} })).toBeNull();
+    expect(source(w, { kind: "narration" })).toBeNull();
     expect(source(w, { text: "A sentence. A second sentence." })).toBeNull();
     expect(source(w, { text: `${"long ".repeat(40)}news.` })).toBeNull();
     expect(Object.keys(w.knowledge.facts)).toEqual([]);
@@ -218,7 +214,7 @@ describe("saved public knowledge", () => {
     ).toBe(true);
   });
 
-  it("keeps authored knowledge and live learned requirements through bounded news churn", () => {
+  it("keeps authored knowledge through bounded news churn", () => {
     const w = bare();
     w.turn = 1;
     const topic = {
@@ -229,22 +225,11 @@ describe("saved public knowledge", () => {
       packId: "sample",
     };
     speech(w, talk(w, "moth", "vale", [topic]));
-    const event = source(w);
-    w.quests = {
-      records: {
-        protected: {
-          completedTurn: null,
-          program: {
-            steps: [{ conditions: [{ kind: "knows", topic: event.id }] }],
-          },
-        },
-      },
-    };
+    source(w);
     for (let i = 0; i < KNOWLEDGE_FACT_LIMIT + 5; i++)
       source(w, { text: `Pip carried shell number ${i} to the pond.` });
     expect(Object.keys(w.knowledge.facts)).toHaveLength(KNOWLEDGE_FACT_LIMIT);
     expect(knowsFact(w, "vale", topic.id)).toBe(true);
-    expect(knowsFact(w, "moth", event.id)).toBe(true);
     expect(validKnowledge(w, Object.keys(w.actors), ["station"], [topic])).toBe(
       true,
     );
@@ -338,7 +323,7 @@ describe("saved public knowledge", () => {
   });
 });
 
-describe("Talk publication and learned quests", () => {
+describe("Talk publication and learned facts", () => {
   it("adds one saved learned fact after accepted local speech and reuses it after reload", () => {
     let { world, context } = localTalk(worldWithNews());
     const id = context.disclosures[0].factId;
@@ -354,7 +339,12 @@ describe("Talk publication and learned quests", () => {
     expect(knowsFact(world, "vale", id)).toBe(true);
     const restored = decodeSave(encodeSave(world));
     expect(restored.knowledge).toEqual(world.knowledge);
-    expect(localTalk(restored).context.disclosures || []).toEqual([]);
+    // Vale already knows it; the cast may still pass it on among themselves.
+    expect(
+      (localTalk(restored).context.disclosures || []).filter(
+        (d) => d.listener === "vale",
+      ),
+    ).toEqual([]);
   });
 
   it("migrates retained source events once and preserves later publication provenance", () => {
@@ -373,52 +363,6 @@ describe("Talk publication and learned quests", () => {
       accepted.knowledge,
     );
     expect(installKnowledge(accepted)).toBe(accepted.knowledge);
-  });
-
-  it("distinguishes learning from a deed and completes its quest once on publication", () => {
-    let world = worldWithNews();
-    const condition = { kind: "knows", topic: "event:2", role: "actor" };
-    const program = {
-      id: "learn-news",
-      name: "Hear the news",
-      steps: [
-        {
-          items: [],
-          avatars: [],
-          location: "station",
-          conditions: [condition],
-        },
-      ],
-    };
-    const quest = addQuestRecord(world, {
-      holder: { kind: "place", id: "station" },
-      participants: ["vale"],
-      program,
-    });
-    expect(requiredItems(world, "vale", program.steps[0])).toEqual([]);
-    ({ world } = localTalk(world));
-    const context = narrativeContext(world);
-    expect(world.quests.records[quest.key].step).toBe(0);
-    expect(conditionMet(world, condition, "moth")).toBe(true);
-    expect(conditionMet(world, condition, "vale")).toBe(false);
-    expect(packConditionMet(world, condition, null, null, "vale")).toBe(false);
-    world = applyGeneratedText(world, context, response(context, clause));
-    expect(handStatus(world, "vale", program.steps[0]).met).toBe(true);
-    expect(world.quests.records[quest.key].step).toBe(1);
-    expect(world.quests.records[quest.key].completion.actorId).toBe("vale");
-    const receipt = structuredClone(world.quests.records[quest.key].completion);
-    const seq = world.questCompletions.next;
-    addLog(world, "Pip", clause, {
-      generated: true,
-      kind: "dialogue",
-      actorId: "moth",
-      cast: ["moth", "vale"],
-    });
-    publishKnowledgeSpeech(world, world.log.at(-1), context.disclosures);
-    expect(world.questCompletions.next).toBe(seq);
-    expect(
-      decodeSave(encodeSave(world)).quests.records[quest.key].completion,
-    ).toEqual(receipt);
   });
 
   it("uses the same saved disclosure on shared publication", () => {
@@ -488,10 +432,6 @@ describe("authored topics keep their saved deed identity", () => {
     world = applyGeneratedText(world, context, response(context, text));
     expect(knowsFact(world, "vale", choice.id)).toBe(true);
     expect(world.packs[pack.id].receipts[choice.id]).toBe(world.turn);
-    const story =
-      world.quests.records["greek-drama:story-quest-greek-open-door-eleusis"];
-    expect(story.participants).toContain("vale");
-    expect(story.participants).not.toContain("greek-aethra");
     const restored = decodeSave(encodeSave(world));
     expect(restored.packs[pack.id].receipts[choice.id]).toBe(world.turn);
     expect(restored.knowledge.known.vale[choice.id].teller).toBe(

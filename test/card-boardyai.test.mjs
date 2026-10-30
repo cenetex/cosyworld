@@ -12,7 +12,6 @@ import {
   validatePackDefinition,
 } from "../v2/card-game/pack-registry.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-import { questCards } from "../v2/card-game/quest-cards.mjs";
 import { boardyPack, boardyFacts } from "../v2/card-game/boardyai.mjs";
 import { upgradeBoardyStationSave } from "../v2/card-game/legacy-saves.mjs";
 import { sceneStaging } from "../v2/card-game/scene.mjs";
@@ -28,10 +27,10 @@ const view = (world, present = ["vale", "mara"], actor = "vale") =>
 const fresh = () =>
   dispatchShared({
     op: "create",
-    save: encodeSave(enableMotives(createWorld(), { personalQuests: true })),
+    save: encodeSave(enableMotives(createWorld())),
   }).world;
 
-describe("BoardyAI's quests and home", () => {
+describe("BoardyAI's presence and home", () => {
   it("appears for two connected humans and keeps his physical place", () => {
     const world = fresh();
     for (const present of [[], ["vale"]])
