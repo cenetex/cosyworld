@@ -15,6 +15,17 @@ pub(super) struct Completed {
     context: Context,
     answers: Vec<Answer>,
 }
+/// Dreams send only the raw transcript, without a system voice.
+fn messages(context: &Context, id: &str, part: Part) -> Value {
+    let own = entity(context, id);
+    let user = json!({"role":"user","content":attempt_transcript(context, own, part, 0)});
+    let system = idiolect(own, part);
+    if system.is_empty() {
+        json!([user])
+    } else {
+        json!([{"role":"system","content":system}, user])
+    }
+}
 fn parts(context: &Context, id: &str, shared: bool) -> Vec<(&'static str, Part)> {
     let mut parts = vec![("line", Part::Line)];
     let (reflect, dream) = reflection_due(context, entity(context, id));
@@ -100,9 +111,8 @@ pub(crate) fn prepare(
                 .is_some_and(|s| s.candidate().supported_parameters().reasoning);
             let mut request = json!({
                 "model":model,
-                "messages":[{"role":"system","content":idiolect(entity(&context, &id), part)},
-                    {"role":"user","content":attempt_transcript(&context, entity(&context, &id), part, 0)}],
-                "temperature":1.0,"max_tokens":if part==Part::Persona{160}else{96},
+                "messages":messages(&context, &id, part),
+                "temperature":if part==Part::Dream{1.2}else{1.0},"max_tokens":if part==Part::Persona{160}else{96},
                 "stream":false
             });
             if raw {

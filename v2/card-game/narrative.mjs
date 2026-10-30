@@ -35,8 +35,10 @@ import {
   places,
   publishKnowledgeSpeech,
   laneTalkFacts,
+  waitNarration,
 } from "./world.mjs";
 import { desireFor, knownActors } from "./quests.mjs";
+import { lifeFacts, lifeOf } from "./life.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import {
   conditionMet,
@@ -185,6 +187,17 @@ export function sceneryDue(turn) {
   return turn % 4 === offset;
 }
 
+// The log is long; a Wait is recorded among this turn's newest entries.
+function waitedThisTurn(world) {
+  const text = waitNarration(currentActor(world));
+  for (let i = world.log.length - 1; i >= 0; i--) {
+    const entry = world.log[i];
+    if (entry.turn !== world.turn) return false;
+    if (entry.speaker === "World" && entry.text === text) return true;
+  }
+  return false;
+}
+
 export function narrativeContext(world, action = null) {
   const location = world.actors[currentActor(world)].place;
   // Earlier opening text could include the authored solution. Keep those lines
@@ -331,6 +344,12 @@ export function narrativeContext(world, action = null) {
     scenery: sceneryDue(world.turn),
     focus,
     speakers,
+    // Only the avatar who chose to wait turns inward this turn.
+    resting:
+      speakers[0] === currentActor(world) &&
+      (played ? played.verb === "wait" : waitedThisTurn(world))
+        ? currentActor(world)
+        : null,
     ...(disclosures.length ? { disclosures } : {}),
     action:
       played?.text ||
@@ -533,10 +552,52 @@ export function narrativeContext(world, action = null) {
         }),
         previous: beforeFirstLight ? null : world.memories[id].text,
         ...(kind === "avatar"
-          ? { inner_life: world.memories[id].innerLife || null }
+          ? {
+              inner_life: world.memories[id].innerLife || null,
+              hope: lifeOf(world, id)
+                ? (([wish, next]) => ({
+                    wish: wish.slice(0, 240),
+                    next: next.slice(0, 240),
+                  }))(lifeFacts(world, id))
+                : null,
+            }
           : {}),
       };
     }),
+  };
+}
+
+// Thoughts come only to the avatar who waited, after something new happened
+// to them. Dreams are rarer: two thoughts must settle since the last one.
+// The server's reflection_due applies the same gate.
+export const THOUGHT_GAP = 6;
+export const DREAM_GAP = 24;
+export const THOUGHTS_PER_DREAM = 2;
+export function reflectionDue(context, id, life) {
+  const thoughts = life?.thoughts || [];
+  const dreams = life?.dreams || [];
+  const last = thoughts.at(-1)?.turn;
+  const changed = context.entities
+    .find((e) => e.id === id)
+    ?.memories.some(
+      (m) => m.kind === "event" && (last === undefined || m.turn > last),
+    );
+  const thought = Boolean(
+    context.resting === id &&
+      context.turn > 0 &&
+      changed &&
+      (last === undefined || context.turn >= last + THOUGHT_GAP),
+  );
+  const dreamt = dreams.at(-1)?.turn;
+  const settled = thoughts.filter(
+    (m) => dreamt === undefined || m.turn > dreamt,
+  ).length;
+  return {
+    thought,
+    dream:
+      thought &&
+      settled >= THOUGHTS_PER_DREAM &&
+      (dreamt === undefined || context.turn >= dreamt + DREAM_GAP),
   };
 }
 
@@ -548,18 +609,8 @@ function validReflection(entry, world, context) {
     thoughts: [],
     dreams: [],
   };
-  const last = previous.thoughts.at(-1)?.turn;
-  const changed = context.entities
-    .find((e) => e.id === entry.id)
-    ?.memories.some(
-      (m) => m.kind === "event" && (last === undefined || m.turn > last),
-    );
-  if (
-    !changed ||
-    world.turn === 0 ||
-    (last !== undefined && world.turn < last + 6)
-  )
-    return false;
+  const due = reflectionDue(context, entry.id, previous);
+  if (!due.thought) return false;
   const r = entry.reflection;
   if (
     !r ||
@@ -569,12 +620,7 @@ function validReflection(entry, world, context) {
     )
   )
     return false;
-  if (
-    r.dream !== undefined &&
-    previous.dreams.length &&
-    world.turn < previous.dreams.at(-1).turn + 12
-  )
-    return false;
+  if (r.dream !== undefined && !due.dream) return false;
   const sources = reflectionSources(world, context, entry.id);
   if (
     r.evidence !== undefined &&
