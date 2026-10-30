@@ -124,6 +124,13 @@ try {
       }
       throw Error(`The exchange stayed busy at ${width}px (${motion})`);
     };
+    const backdrop = () => page.locator("#backdrop").getAttribute("src");
+    const stage = (source) =>
+      page.evaluate(
+        async (source) =>
+          (await import("/card-game/images.mjs")).imageUrl(source),
+        source,
+      );
     try {
       await page.goto(
         `http://127.0.0.1:${server.address().port}/?table=${table}`,
@@ -132,6 +139,8 @@ try {
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal((await state()).items.lamp.lit, false);
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
+      // The unlit attic is dark, with no shore in the mirror.
+      assert.equal(await backdrop(), await stage("./assets/attic-dark.png"));
       await page.screenshot({
         path: new URL(`attic-start-${width}.png`, output).pathname,
       });
@@ -139,6 +148,7 @@ try {
       await page.locator("#card-actions .card-primary").click();
       await unveil("pond");
       assert.equal((await state()).actors.vale.place, "attic");
+      assert.equal(await backdrop(), await stage("./assets/attic.png"));
       assert.equal(
         await page.locator('#hand [data-card="vale"]').isDisabled(),
         true,

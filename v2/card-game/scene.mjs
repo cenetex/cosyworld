@@ -9,6 +9,7 @@ import {
   itemPlace,
   shining,
   senses,
+  reflectionOpen,
 } from "./world.mjs";
 import { entityActive, crossings, transports } from "./pack-registry.mjs";
 
@@ -23,7 +24,13 @@ import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 export function backdrop(id, world = null) {
   const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
   const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
-  return file ? `./${file}` : `./assets/${id}.png`;
+  if (file) return `./${file}`;
+  // The painted lamplight and open mirror show only while the rules keep the
+  // reflected path open; otherwise the attic is dark and the glass is dull.
+  // TODO(#1422): commit assets/attic-dark.png and its optimized variants.
+  if (id === "attic" && world?.items?.lamp && !reflectionOpen(world, id))
+    return "./assets/attic-dark.png";
+  return `./assets/${id}.png`;
 }
 export function portrait(id, facing = null, world = null) {
   const human = humanAvatar(id);
