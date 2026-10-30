@@ -149,6 +149,8 @@ describe("return journeys and fixed meetings", () => {
     world.items.lamp.lit = false;
     world.items.oil.doses = 1;
     world.items.cloth.holder = "hoppycat-meraki-atelier";
+    // An earlier save that found the red thread keeps the walk to the garden.
+    world.crossings["hoppycat-pond-garden"].discovered = true;
     expect(plan(world, "moth").action).toMatchObject({
       kind: "move", target: "hoppycat-halfway-tea-garden",
     });

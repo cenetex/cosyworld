@@ -130,6 +130,22 @@
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
       }
+    },
+    {
+      "id": "hoppycat-signal-jetty-ship",
+      "from": "hoppycat-signal-jetty",
+      "to": "greek-piraeus",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The Greek ship waits at the end of the jetty.",
+        "closed": "The shared ship is sailing elsewhere. The jetty points out over open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
     }
   ],
   "transports": {
@@ -140,14 +156,26 @@
         "greek-harbor",
         "greek-athens-harbor",
         "greek-piraeus",
-        "greek-ajax-landing"
+        "greek-ajax-landing",
+        "hoppycat-signal-jetty"
       ],
       "lanes": [
         { "from": "pond", "to": "greek-harbor" },
         { "from": "pond", "to": "greek-athens-harbor" },
         { "from": "greek-harbor", "to": "greek-piraeus" },
         { "from": "greek-harbor", "to": "greek-ajax-landing" },
-        { "from": "greek-athens-harbor", "to": "greek-piraeus" }
+        { "from": "greek-athens-harbor", "to": "greek-piraeus" },
+        {
+          "from": "greek-piraeus",
+          "to": "hoppycat-signal-jetty",
+          "opensWith": [
+            {
+              "kind": "pack_item_present",
+              "pack": "hoppycat-archive",
+              "place": "greek-ship"
+            }
+          ]
+        }
       ],
       "at": "greek-harbor",
       "shipmaster": "greek-shipmaster"

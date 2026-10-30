@@ -185,6 +185,7 @@ import {
   setCourse,
   sailTransports,
   courseToward,
+  berthOpen,
   canDisembark,
   transportPlace,
   transportScenery,
@@ -2059,6 +2060,7 @@ function roamingAPI(s) {
     route: (from, to, actor) => routeBetween(s, from, to, actor),
     initialEdges: initialRouteEdges,
     active: (place) => entityActive(s, place),
+    berthOpen: (place) => berthOpen(s, place),
     visibleEdges: visibleRouteEdges,
     witnessedEdges: (actor) => witnessedRouteEdges(s, actor),
     exits: (from, actor, previous = null) =>

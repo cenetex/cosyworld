@@ -12,8 +12,9 @@ export function createLandingWorld(pack = null) {
   const world = createWorld({ opening: !pack });
   if (!pack) return world;
   world.actors.vale.place = pack.entry;
+  // A retired crossing stays closed in a new game.
   for (const crossing of pack.crossings)
-    world.crossings[crossing.id].discovered = true;
+    if (!crossing.retired) world.crossings[crossing.id].discovered = true;
   addLog(
     world,
     "World",

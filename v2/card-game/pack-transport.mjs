@@ -5,6 +5,7 @@ import {
   entityActive,
   packPlaces,
   packPeople,
+  conditionsMet,
 } from "./pack-registry.mjs";
 
 // A ship is docked, has a course set, is at sea, or has arrived. It sails
@@ -106,10 +107,34 @@ export function learnLane(s, actor, from, to) {
   );
   return true;
 }
+// A gated lane also opens from its first port, for everyone aboard, while its
+// authored conditions hold (a thing from that world on deck).
+const laneOpened = (s, t, from, to) =>
+  (t.lanes || []).some(
+    (lane) =>
+      lane.from === from &&
+      lane.to === to &&
+      lane.opensWith &&
+      conditionsMet(s, t.packId, lane.opensWith),
+  );
 const openLanes = (s, t, dock, actor = null) =>
   lanesFrom(t, dock).filter(
-    (to) => entityActive(s, to) && knowsLane(s, actor, dock, to),
+    (to) =>
+      entityActive(s, to) &&
+      (knowsLane(s, actor, dock, to) || laneOpened(s, t, dock, to)),
   );
+
+// A ship's berth is reachable while some active port shares a lane with it.
+// Any place that is not a berth answers true.
+export function berthOpen(s, place) {
+  const ships = Object.values(transports).filter((t) =>
+    t.docks.includes(place),
+  );
+  return (
+    !ships.length ||
+    ships.some((t) => lanesFrom(t, place).some((to) => entityActive(s, to)))
+  );
+}
 
 // Shortest open lane path between two docks, or null.
 export function lanePath(s, id, from, to, actor = null) {

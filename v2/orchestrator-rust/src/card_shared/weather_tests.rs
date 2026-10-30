@@ -59,7 +59,10 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     for (key, item) in saved.game["items"].as_object().unwrap() {
         assert_eq!(&world.game["items"][key], item, "saved item {key}");
     }
-    assert_eq!(world.game["packs"]["hoppycat-archive"]["revision"], 1);
+    assert_eq!(
+        world.game["packs"]["hoppycat-archive"]["revision"],
+        super::full_tests::pack_revision("hoppycat-archive")
+    );
     super::full_tests::assert_saved_actors(&world.game["actors"], &saved.game["actors"]);
     super::full_tests::assert_saved_memories(&world.game["memories"], &saved.game["memories"]);
     let mut quests = world.game["quests"].clone();
@@ -220,7 +223,10 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         world.game["packs"]["greek-drama"]["revision"],
         super::full_tests::greek_revision()
     );
-    assert_eq!(world.game["packs"]["hoppycat-archive"]["revision"], 1);
+    assert_eq!(
+        world.game["packs"]["hoppycat-archive"]["revision"],
+        super::full_tests::pack_revision("hoppycat-archive")
+    );
     assert_eq!(world.game["packs"]["willows"]["revision"], 1);
     assert!(world.game["knowledge"].is_object());
     assert_eq!(world.version, engine::VERSION);

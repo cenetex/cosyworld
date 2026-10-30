@@ -74,6 +74,7 @@ describe("Greek section save upgrade", () => {
         "greek-athens-harbor-ship": { discovered: false },
         "greek-piraeus-ship": { discovered: false },
         "greek-ajax-landing-ship": { discovered: false },
+        "hoppycat-signal-jetty-ship": { discovered: false },
         "hoppycat-pond-garden": { discovered: false },
         "hoppycat-garden-pond": { discovered: false },
         "attic-forest-cottage": { discovered: false },
