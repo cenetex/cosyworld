@@ -307,8 +307,35 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         assert_eq!(current.game["packs"]["greek-drama"]["revision"], super::full_tests::greek_revision());
         assert_eq!(current.claimed, old.claimed);
         assert_eq!(current.present, old.present);
-        for field in ["turn", "eventSeq", "log", "routeKnowledge", "knowledge"] {
+        for field in ["turn", "eventSeq", "log", "knowledge"] {
             assert_eq!(current.game[field], old.game[field], "Preserve {field}");
+        }
+        // Known steps onto a retired road become walkable paths; every other
+        // known step stays.
+        let walked = |edges: &Value| -> Vec<Value> {
+            edges.as_array().unwrap().iter().cloned().collect()
+        };
+        for (who, edges) in old.game["routeKnowledge"].as_object().unwrap() {
+            let now_known = walked(&current.game["routeKnowledge"][who]);
+            for edge in walked(edges) {
+                let onto_road = edge
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|end| end.as_str().unwrap().starts_with("greek-road-"));
+                if !onto_road {
+                    assert!(now_known.contains(&edge), "{who} still knows {edge}");
+                }
+            }
+            for edge in &now_known {
+                for end in edge.as_array().unwrap() {
+                    let end = end.as_str().unwrap();
+                    assert!(
+                        !end.starts_with("greek-road-") || end == "greek-road-athens-piraeus",
+                        "{who} knows a step onto retired {end}"
+                    );
+                }
+            }
         }
         // BoardyAI revision 2 carries his card from the pond to the station door.
         let mut saved = old.game.clone();

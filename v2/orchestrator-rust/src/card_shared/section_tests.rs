@@ -148,6 +148,15 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     "version":3, "phase":"docked", "dock":"greek-harbor", "destination":null,
                     "riders":[], "since":voyage.game["turn"], "recall":null
                 });
+                // Mara has heard of the harbor-to-Piraeus lane.
+                let known = &mut voyage.game["routeKnowledge"]["mara"];
+                if !known.is_array() {
+                    *known = json!([]);
+                }
+                known
+                    .as_array_mut()
+                    .unwrap()
+                    .push(json!(["sea:greek-harbor", "sea:greek-piraeus"]));
                 // Piraeus is a course card from the harbor once the full Greece opens.
                 assert_eq!(
                     voyage.project(1).unwrap()["exits"]
