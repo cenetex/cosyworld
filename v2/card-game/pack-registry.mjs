@@ -630,9 +630,10 @@ export function validatePackStates(world) {
           owns(state.met, id))
       )
         return false;
+    // Presence-gated things keep their saved place while their humans are away.
     for (const [id, item] of Object.entries(pack.items || {}))
       if (
-        !entityEnabled(world, id) &&
+        !entityEnabled(world, id, true) &&
         (world.items[id]?.holder !== item.holder ||
           world.items[id]?.history?.length !== 0)
       )

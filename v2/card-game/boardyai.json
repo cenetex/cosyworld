@@ -63,7 +63,8 @@
       "persona": "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
       "requires": [
         {
-          "kind": "shared_world"
+          "kind": "connected_humans",
+          "minimum": 2
         }
       ],
       "holder": "station",
@@ -78,7 +79,8 @@
       "travelers": "player",
       "requires": [
         {
-          "kind": "shared_world"
+          "kind": "connected_humans",
+          "minimum": 2
         },
         {
           "kind": "item_near",
