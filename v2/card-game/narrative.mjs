@@ -517,7 +517,7 @@ export function narrativeContext(world, action = null) {
       } else {
         if (places[id]) facts.push(placeText(world, id));
         const weather = locationWeather(world, id);
-        if (weather) facts.push(weather.description);
+        if (weather) facts.push(`Weather: ${weather.condition}.`);
         const daylight = locationDaylight(world, id);
         if (daylight) facts.push(daylight.description);
 

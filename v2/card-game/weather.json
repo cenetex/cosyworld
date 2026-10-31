@@ -1,0 +1,187 @@
+{
+  "turns": 12,
+  "cycles": {
+    "boeotia": ["clear", "cloud", "rain", "cloud", "mist", "clear"],
+    "attica": ["clear", "clear", "cloud", "rain", "cloud", "mist"],
+    "argolid": ["cloud", "clear", "clear", "mist", "cloud", "rain"],
+    "phocis": ["mist", "cloud", "rain", "cloud", "clear", "clear"],
+    "thessaly": ["cloud", "rain", "mist", "clear", "clear", "cloud"],
+    "troad": ["mist", "cloud", "rain", "rain", "cloud", "clear"],
+    "thrace": ["cloud", "mist", "rain", "cloud", "clear", "cloud"],
+    "lemnos": ["clear", "mist", "cloud", "rain", "cloud", "clear"],
+    "egypt": ["clear", "clear", "cloud", "clear", "mist", "clear"],
+    "tauris": ["mist", "rain", "cloud", "clear", "cloud", "rain"],
+    "sicily": ["clear", "cloud", "clear", "mist", "rain", "cloud"],
+    "susa": ["clear", "clear", "cloud", "clear", "cloud", "rain"],
+    "scythia": ["cloud", "rain", "mist", "cloud", "rain", "clear"],
+    "heights": ["mist", "clear", "cloud", "mist", "clear", "cloud"],
+    "underworld": ["mist"]
+  },
+  "places": {
+    "boeotia": {
+      "coast": [
+        "greek-harbor",
+        "greek-aulis",
+        "greek-ship"
+      ],
+      "court": [
+        "greek-courtyard",
+        "greek-well",
+        "greek-palace"
+      ],
+      "open": [
+        "greek-gate",
+        "greek-battlefield",
+        "greek-road-thebes"
+      ],
+      "grove": [
+        "greek-sanctuary",
+        "greek-cithaeron"
+      ]
+    },
+    "attica": {
+      "court": [
+        "greek-athens",
+        "greek-acropolis",
+        "greek-acharnae"
+      ],
+      "coast": [
+        "greek-piraeus",
+        "greek-athens-harbor",
+        "greek-road-athens-harbor",
+        "greek-road-piraeus-eleusis"
+      ],
+      "open": [
+        "greek-road-athens-piraeus",
+        "greek-road-athens-colonus",
+        "greek-road-athens-eleusis",
+        "greek-road-athens-marathon",
+        "greek-road-colonus-eleusis",
+        "greek-road-colonus-marathon",
+        "greek-assembly",
+        "greek-attic-farm",
+        "greek-marathon"
+      ],
+      "shelter": [
+        "greek-demos-house",
+        "greek-thinkery",
+        "greek-jury-house"
+      ],
+      "grove": [
+        "greek-festival",
+        "greek-colonus",
+        "greek-eleusis",
+        "greek-bird-wilderness"
+      ]
+    },
+    "argolid": {
+      "open": [
+        "greek-argolid-road",
+        "greek-argos-tomb"
+      ],
+      "coast": [
+        "greek-argos-sanctuary"
+      ],
+      "court": [
+        "greek-argos-palace",
+        "greek-mycenae-palace",
+        "greek-corinth",
+        "greek-troezen"
+      ],
+      "shelter": [
+        "greek-argive-farm"
+      ]
+    },
+    "phocis": {
+      "court": [
+        "greek-delphi"
+      ],
+      "open": [
+        "greek-road-sacred-way"
+      ]
+    },
+    "thessaly": {
+      "shelter": [
+        "greek-trachis"
+      ],
+      "open": [
+        "greek-oeta"
+      ],
+      "court": [
+        "greek-pherae"
+      ],
+      "grove": [
+        "greek-thetis"
+      ]
+    },
+    "troad": {
+      "open": [
+        "greek-troy",
+        "greek-trojan-camp",
+        "greek-ajax-grave"
+      ],
+      "coast": [
+        "greek-greek-camp",
+        "greek-troy-beach",
+        "greek-ajax-landing"
+      ],
+      "shelter": [
+        "greek-ajax-household"
+      ]
+    },
+    "thrace": {
+      "coast": [
+        "greek-thrace"
+      ]
+    },
+    "lemnos": {
+      "shelter": [
+        "greek-lemnos"
+      ]
+    },
+    "egypt": {
+      "court": [
+        "greek-egypt-tomb"
+      ]
+    },
+    "tauris": {
+      "court": [
+        "greek-tauris"
+      ],
+      "coast": [
+        "greek-road-black-sea"
+      ]
+    },
+    "sicily": {
+      "shelter": [
+        "greek-sicily"
+      ],
+      "open": [
+        "greek-road-colonists"
+      ]
+    },
+    "susa": {
+      "court": [
+        "greek-susa"
+      ],
+      "open": [
+        "greek-road-royal"
+      ]
+    },
+    "scythia": {
+      "open": [
+        "greek-scythian-crag"
+      ]
+    },
+    "heights": {
+      "open": [
+        "greek-divine-heights"
+      ]
+    },
+    "underworld": {
+      "underground": [
+        "greek-underworld"
+      ]
+    }
+  }
+}

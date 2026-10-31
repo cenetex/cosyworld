@@ -204,8 +204,9 @@ over.
 
 The server records the action before requesting speech. Each play receives a shared
 exchange. A conversation can include the resident who was addressed. A saved
-turn-based choice occasionally adds a short atmospheric location line. Light,
-weather, sound, and texture guide those lines. Repeated reads and retries keep
+turn-based choice occasionally adds a short atmospheric location line. Its
+prompt is a one-line cue plus the place's visible facts, including the weather
+word. Repeated reads and retries keep
 the same choice. The server records the lines
 and their reading times so people in the room see the same exchange. The
 conversation panel shows the current room's history.

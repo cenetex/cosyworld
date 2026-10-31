@@ -123,10 +123,10 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
         .iter()
         .find(|entity| entity["id"] == "greek-harbor")
         .unwrap();
-    assert!(place["facts"]
-        .as_array()
-        .unwrap()
-        .contains(&weather["description"]));
+    assert!(place["facts"].as_array().unwrap().contains(&json!(format!(
+        "Weather: {}.",
+        weather["condition"].as_str().unwrap()
+    ))));
     assert!(place["facts"]
         .as_array()
         .unwrap()

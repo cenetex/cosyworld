@@ -1753,7 +1753,7 @@ function renderScene() {
   const background = imageUrl(scene.background);
   if (img.getAttribute("src") !== background) img.src = background;
   img.alt = placeText(world, scene.locationId);
-  if (scene.weather) img.alt += ` ${scene.weather.description}`;
+  if (scene.weather) img.alt += ` Weather: ${scene.weather.condition}.`;
   if (scene.daylight) img.alt += ` ${scene.daylight.description}`;
   img.dataset.locationVariant = scene.variant;
   $("stage").dataset.timeOfDay = scene.daylight?.phase || "day";
