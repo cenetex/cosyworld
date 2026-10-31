@@ -1,0 +1,79 @@
+{
+  "generator": "Built-in image_gen tool",
+  "date": "2026-10-28",
+  "base_commit": "85508726eda7592430949595f3512fb5799ef654",
+  "assets": [
+    {
+      "color": "white",
+      "owner": "Vale",
+      "prompt": "Use case: illustration-story. Asset type: final CosyWorld inventory and quest illustration, square 1024 by 1024 transparent PNG cutout. Primary request: one soft WHITE knitted wool scarf that RATi the cottage host has sewn for Vale. The reference image is a STYLE reference only: use the warm painterly storybook fantasy finish and tactile knitted stitches of RATi's blue scarf, while making the entire requested scarf clean white wool. Show the scarf by itself as a loose open loop with two short overlapping hanging ends and neat fringes. A single small warm brown wooden four-hole button fastens the overlapping ends near the upper right. The scarf is the large readable main subject; button is a small detail. Warm ivory highlights, soft cool gray fold shadows, rich hand-painted wool fibers and clear silhouette, gentle honey light. Three-quarter front view, entire loop and both fringed ends visible, centered, around 12 percent transparent margin on all sides, ready to appear on a dark charcoal game card. Illustration only, clean alpha background, unlettered, one object, no person, no card frame.",
+      "reference": "assets/lonely-forest/rati.png",
+      "file": "scarf-white.png",
+      "sha256": "e9e4e2993c998e23d05af9ccc3f16eda8ae93c6b9c1253ee84ad1958bb55e364",
+      "transparent": true
+    },
+    {
+      "color": "green",
+      "owner": "Mara",
+      "reference": "assets/lonely-forest/scarf-white.png",
+      "prompt": "Use case: precise-object-edit. Asset type: matching CosyWorld inventory scarf illustration. Edit target: the supplied white scarf cutout. Change only the knitted wool color to rich forest green wool, clearly green with moss highlights. This is Mara's green scarf. Preserve the exact scarf silhouette, loop, drape, two fringed ends, intricate knitted stitches, lighting, warm painterly texture, position and size. Preserve the small brown wooden four-hole button and its cream sewing thread. Keep the entire object and transparent alpha background. The final scarf should have the same clean cutout style and framing as the input. One scarf, unlettered.",
+      "file": "scarf-green.png",
+      "sha256": "f2db17d7617fe65c3a7e6780385765e13ee0c37577e230edf1e84e1d832f0002",
+      "transparent": true
+    },
+    {
+      "color": "blue",
+      "owner": "Ash",
+      "reference": "assets/lonely-forest/scarf-white.png",
+      "prompt": "Use case: precise-object-edit. Asset type: matching CosyWorld inventory scarf illustration. Edit target: the supplied white scarf cutout. Change only the knitted wool color to deep clear cobalt blue wool, with soft blue highlights. This is Ash's blue scarf. Preserve the exact scarf silhouette, loop, drape, two fringed ends, intricate knitted stitches, lighting, warm painterly texture, position and size. Preserve the small brown wooden four-hole button and its cream sewing thread. Keep the entire object and transparent alpha background. The final scarf should have the same clean cutout style and framing as the input. One scarf, unlettered.",
+      "file": "scarf-blue.png",
+      "sha256": "4920252a9ea5706b1d90c8fa2efab11fa4f1784e98418d811039de63b8ae744a",
+      "transparent": true
+    },
+    {
+      "color": "violet",
+      "owner": "Nell",
+      "reference": "assets/lonely-forest/scarf-white.png",
+      "prompt": "Use case: precise-object-edit. Asset type: matching CosyWorld inventory scarf illustration. Edit target: the supplied white scarf cutout. Change only the knitted wool color to rich violet purple wool, clearly purple with lavender highlights. This is Nell's violet scarf. Preserve the exact scarf silhouette, loop, drape, two fringed ends, intricate knitted stitches, lighting, warm painterly texture, position and size. Preserve the small brown wooden four-hole button and its cream sewing thread. Keep the entire object and transparent alpha background. The final scarf should have the same clean cutout style and framing as the input. One scarf, unlettered.",
+      "file": "scarf-violet.png",
+      "sha256": "7ba3d797d2acb4c7597692afefdd1305a2ab3ce3f659e3bc38e027e8f24877fc",
+      "transparent": true
+    },
+    {
+      "color": "red",
+      "owner": "Tavi",
+      "reference": "assets/lonely-forest/scarf-white.png",
+      "prompt": "Use case: precise-object-edit. Asset type: matching CosyWorld inventory scarf illustration. Edit target: the supplied white scarf cutout. Change only the knitted wool color to warm crimson red wool, clearly red with soft scarlet highlights. This is Tavi's red scarf. Preserve the exact scarf silhouette, loop, drape, two fringed ends, intricate knitted stitches, lighting, warm painterly texture, position and size. Preserve the small brown wooden four-hole button and its cream sewing thread. Keep the entire object and transparent alpha background. The final scarf should have the same clean cutout style and framing as the input. One scarf, unlettered.",
+      "file": "scarf-red.png",
+      "sha256": "c1b8faa4c745688cdfac52287de44695ccc7a097cb140da0299b44cafaf591b7",
+      "transparent": true
+    },
+    {
+      "color": "orange",
+      "owner": "Rue",
+      "reference": "assets/lonely-forest/scarf-white.png",
+      "prompt": "Use case: precise-object-edit. Asset type: matching CosyWorld inventory scarf illustration. Edit target: the supplied white scarf cutout. Change only the knitted wool color to clear warm burnt orange wool, distinctly orange with peach highlights. This is Rue's orange scarf. Preserve the exact scarf silhouette, loop, drape, two fringed ends, intricate knitted stitches, lighting, warm painterly texture, position and size. Preserve the small brown wooden four-hole button and its cream sewing thread. Keep the entire object and transparent alpha background. The final scarf should have the same clean cutout style and framing as the input. One scarf, unlettered.",
+      "file": "scarf-orange.png",
+      "sha256": "5fec862fe89a828f46fa2a1698ac1c417107631cfe6942de742188affa8ffb18",
+      "transparent": true
+    },
+    {
+      "color": "amber",
+      "owner": "Orin",
+      "reference": "assets/lonely-forest/scarf-white.png",
+      "prompt": "Use case: precise-object-edit. Asset type: matching CosyWorld inventory scarf illustration. Edit target: the supplied white scarf cutout. Change only the knitted wool color to rich golden amber wool, honey gold with warm ochre shadows, visibly golden rather than orange. This is Orin's amber scarf. Preserve the exact scarf silhouette, loop, drape, two fringed ends, intricate knitted stitches, lighting, warm painterly texture, position and size. Preserve the small brown wooden four-hole button and its cream sewing thread. Keep the entire object and transparent alpha background. The final scarf should have the same clean cutout style and framing as the input. One scarf, unlettered.",
+      "file": "scarf-amber.png",
+      "sha256": "4edc4fc9e20044fbb46f37ed4c6db8c5bf59c24d369ccdcfd2dd12e9823ff68d",
+      "transparent": true
+    },
+    {
+      "color": "yellow",
+      "owner": "Ada",
+      "reference": "assets/lonely-forest/scarf-white.png",
+      "prompt": "Use case: precise-object-edit. Asset type: matching CosyWorld inventory scarf illustration. Edit target: the supplied white scarf cutout. Change only the knitted wool color to bright soft lemon yellow wool, clean yellow with pale buttery highlights, visibly lighter and yellower than amber. This is Ada's yellow scarf. Preserve the exact scarf silhouette, loop, drape, two fringed ends, intricate knitted stitches, lighting, warm painterly texture, position and size. Preserve the small brown wooden four-hole button and its cream sewing thread. Keep the entire object and transparent alpha background. The final scarf should have the same clean cutout style and framing as the input. One scarf, unlettered.",
+      "file": "scarf-yellow.png",
+      "sha256": "6f1b516aefb26d949f8173599127db983e63449de426961ea5aecdd6fcd17d00",
+      "transparent": true
+    }
+  ]
+}
