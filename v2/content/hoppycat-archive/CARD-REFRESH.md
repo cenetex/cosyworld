@@ -1,8 +1,12 @@
 # Hoppy Cat: February Third, card refresh
 
 The current card game mounts this world's `card-world.json` through
-`v2/worlds/hoppycat-archive/card-bridge.json`. A red thread at Black pond leads
-to the Halfway Tea Garden. The same path leads home.
+`v2/worlds/hoppycat-archive/card-bridge.json`. The red thread from Black pond
+into the Halfway Tea Garden is retired. Ships for the Signal Jetty leave
+Piraeus only with a Hoppy Cat thing aboard. The Red-Thread Spool starts washed
+up at Black pond, so a player can carry it aboard. Every other object starts
+inside the archive. The thread from the garden still leads home to the pond.
+A pack landing starts with the spool on the garden table.
 
 Open `/?pack=hoppycat-archive` to start a fresh garden game. The host
 `hoppy.lonelyforest.com` selects that same opening through
