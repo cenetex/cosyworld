@@ -815,6 +815,8 @@ export function createNarrator({
   preview = () => {},
   early = false,
   reflect = null,
+  // Narrows a request to what the player's avatar knows (speech-knowledge.mjs).
+  limit = (context) => context,
   budget = Number(
     globalThis.document?.querySelector('meta[name="cosy-story-budget-ms"]')
       ?.content,
@@ -923,7 +925,7 @@ export function createNarrator({
         status("pending");
         const revision = getWorld().revision;
         try {
-          const context = narrativeContext(getWorld(), action);
+          const context = limit(narrativeContext(getWorld(), action));
           started(context);
           await write(context, version, controller.signal);
         } catch (error) {
