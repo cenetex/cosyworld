@@ -1225,6 +1225,10 @@ export function createNarrator({
       changed(failed.action);
       return true;
     },
+    // A reloaded page restores a failed turn, so Retry can ask again.
+    resume(action = null) {
+      failed = { action, revision: getWorld().revision };
+    },
     invalidate() {
       reflectionController?.abort();
       ticket += 1;

@@ -20,6 +20,27 @@ describe("browser dialogue history contract", () => {
     },
   );
 
+  it("sends each Give and Trade with its recorded answer", () => {
+    const cards = Object.fromEntries(
+      narrativeContractCases()
+        .filter(({ name }) => /give|trade/.test(name))
+        .map(({ name, context }) => [name, context.outcome.card]),
+    );
+    expect(cards["accepted give"]).toMatchObject({
+      kind: "give",
+      accepted: true,
+    });
+    expect(cards["refused give"]).toMatchObject({
+      kind: "give",
+      accepted: false,
+    });
+    expect(cards["refused trade"]).toMatchObject({
+      kind: "trade",
+      receive: "oil",
+      accepted: false,
+    });
+  });
+
   it("keeps the authored echo in the save, without treating it as an avatar", () => {
     for (const { name, world, context } of narrativeContractCases().filter(
       ({ name }) => name.includes("echo") || name === "reload covered bell",

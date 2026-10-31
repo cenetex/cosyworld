@@ -110,6 +110,19 @@ export function narrativeContractCases() {
     ["Helen in Egypt", helen],
     ["reload Greek history", decodeSave(encodeSave(helen))],
   ];
+  // Give and Trade always record their answer, accepted or refused.
+  const gifts = enableMotives(createWorld());
+  gifts.actors.moth.place = "station";
+  gifts.actors.keeper.place = "station";
+  gifts.items.lamp.holder = "vale";
+  gifts.items.cloth.holder = "vale";
+  gifts.items.bell.holder = "vale";
+  gifts.items.oil.holder = "keeper";
+  worlds.push(
+    ["accepted give", playCard(gifts, "give", "lamp", "moth")],
+    ["refused give", playCard(gifts, "give", "bell", "moth")],
+    ["refused trade", playCard(gifts, "trade", "cloth", "keeper")],
+  );
   for (const branch of ["burial", "concession", "refusal", "exposure"]) {
     const earned = openingFixture(branch).closed;
     // The Bard follows its own want; the case meets it where Vale stands.

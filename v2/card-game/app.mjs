@@ -179,6 +179,25 @@ try {
   notice(error.message + " Use New game to start again.");
 }
 const SEEN_KEY = `${SAVE_KEY}.seen`;
+// The revision whose words failed, so a reload keeps Retry instead of a blank
+// or hidden dialogue panel.
+const WORDS_FAILED_KEY = `${SAVE_KEY}.words-failed`;
+function rememberWordsFailed(revision) {
+  if (sharedSession) return;
+  try {
+    if (revision === null) localStorage.removeItem(WORDS_FAILED_KEY);
+    else localStorage.setItem(WORDS_FAILED_KEY, String(revision));
+  } catch {
+    /* Retry still works in this tab. */
+  }
+}
+function wordsFailedOnLoad() {
+  try {
+    return localStorage.getItem(WORDS_FAILED_KEY) === String(world.revision);
+  } catch {
+    return false;
+  }
+}
 let encountered = new Set(),
   discoveryDone = Promise.resolve(),
   discoveryPending = false;
@@ -757,6 +776,7 @@ const narrator = createNarrator({
       return;
     }
     storyStatus = pending ? "pending" : "ready";
+    if (!pending) rememberWordsFailed(null);
     const lines = world.log.filter(
       (entry) =>
         entry.generated &&
@@ -776,6 +796,7 @@ const narrator = createNarrator({
     storyStatus = value;
     if (value === "pending" && !exchange.active) exchange.begin();
     if (value === "retry") {
+      rememberWordsFailed(world.revision);
       exchange.cancel();
       showOpeningFallback();
     }
@@ -2281,6 +2302,16 @@ function renderScene() {
   }
 }
 let renderedLog = [];
+// A declined offer stays in the record as the World's line, even when no
+// words follow it.
+function isRefusalLine(entry, viewer) {
+  return (
+    entry.kind === "action" &&
+    entry.accepted === false &&
+    ["give", "trade", "ask"].includes(entry.verb) &&
+    Boolean(entry.witnesses?.includes(viewer))
+  );
+}
 function renderLog() {
   const box = $("messages");
   const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
@@ -2290,6 +2321,7 @@ function renderLog() {
     (entry) =>
       (isCombatLine(entry, currentActor(world)) &&
         !combatHeld.has(entry.seq)) ||
+      isRefusalLine(entry, currentActor(world)) ||
       (isSceneText(entry, Boolean(sharedSession)) &&
         entry.generated === true &&
         (!sharedSession ||
@@ -2766,6 +2798,22 @@ function resumeScene() {
     exchange.begin();
     render();
     narrator.changed();
+    return;
+  }
+  if (!saveBlocked && !hasCurrentWords() && wordsFailedOnLoad()) {
+    // This turn's words failed before the reload: offer Retry again.
+    const played = world.log.findLast(
+      (entry) =>
+        entry.turn === world.turn &&
+        entry.kind === "action" &&
+        entry.actorId === currentActor(world),
+    );
+    narrator.resume(
+      played ? { item: played.itemId, target: played.targetId } : null,
+    );
+    lineSeq = null;
+    storyStatus = "retry";
+    render();
     return;
   }
   if (!saveBlocked && hasCurrentWords()) {
