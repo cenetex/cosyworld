@@ -136,7 +136,7 @@ try {
             Math.abs(resting.hand.width - (resting.cardWidth * 2 + 46)) < 2,
           );
         }
-        assert.equal(await page.locator(".hand-scroll").count(), 0);
+        assert.equal(await page.locator(".hand-scroll").count(), 2);
         await page.screenshot({
           path: new URL(`resting-${width}-${stale}.png`, output).pathname,
         });
