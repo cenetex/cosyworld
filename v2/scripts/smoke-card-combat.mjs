@@ -7,15 +7,17 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { encodeSave, legalActions, nameOf, play } from "../card-game/world.mjs";
+import {
+  encodeSave,
+  legalActions,
+  nameOf,
+  play,
+} from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 
 function fixture() {
   let s = enableMotives(atticOpening());
-  s = play(
-    s,
-    legalActions(s).find((a) => a.kind === "light"),
-  ).state;
+  s = play(s, legalActions(s).find((a) => a.kind === "light")).state;
   s.actors.moth.place = "pond";
   s = play(
     s,
@@ -113,9 +115,7 @@ try {
       .textContent();
     await page.locator("#defeat-dialog[open]").waitFor();
     assert.equal(
-      await page
-        .locator('#cast [data-avatar="vale"]')
-        .getAttribute("data-pose"),
+      await page.locator('#cast [data-avatar="vale"]').getAttribute("data-pose"),
       "beaten",
     );
     assert.equal(
@@ -140,7 +140,9 @@ try {
     await page.locator("#defeat-dialog [data-combat-continue]").click();
     if (motion === "reduce") {
       await page.waitForFunction(() =>
-        /You come to at /.test(document.querySelector(".dialogue").textContent),
+        /^You come to at /.test(
+          document.querySelector("#movement-caption").textContent,
+        ),
       );
     } else {
       await page.locator("#travel.travelling").waitFor();
@@ -161,16 +163,12 @@ try {
     await page.waitForFunction(
       () => !document.querySelector("#travel.travelling"),
     );
-    // Each fighter's step and the defeat join Memory as beats.
+    // The rules lines join the conversation record.
     const log = await page.locator("#messages").textContent();
-    assert.match(log, /Pip lunges at Vale/);
-    assert.match(log, /Vale (is sent home|falls back to )/);
-    assert.match(log, /You come to at /);
+    assert.match(log, /Pip attacks Vale/);
+    assert.match(log, /arrives at .* after yielding to Pip/);
     assert.equal(await page.locator(".combat-dim").count(), 0);
-    assert.equal(
-      await page.locator("#combat-caption:not([hidden])").count(),
-      0,
-    );
+    assert.equal(await page.locator("#combat-caption:not([hidden])").count(), 0);
     // One voice answers the defeat.
     await page.waitForFunction(() => Boolean(window.document.body));
     assert.ok(request, "The arrival asked for words");

@@ -79,7 +79,6 @@ const files = [
   "scene-video-context.mjs",
   "scene-video.css",
   "combat.css",
-  "beats.mjs",
   "combat-beats.mjs",
   "combat-view.mjs",
   "app.mjs",
