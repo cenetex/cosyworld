@@ -294,6 +294,7 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             game: seed["world"].clone(),
             claimed: [1, 1, 0, 0, 0, 0, 0, 0],
             present: [1, 1, 0, 0, 0, 0, 0, 0],
+            pack: None,
         };
         old.game.as_object_mut().unwrap().remove("opening");
         old.game["packs"]["greek-drama"]["scope"] = json!("full");
@@ -493,6 +494,7 @@ fn ajax_shield_delivered_under_rules_twenty_one_stays_complete_after_upgrade() {
             .clone(),
         claimed: [0; 8],
         present: [0; 8],
+        pack: None,
     };
     old.claimed = [1, 0, 0, 0, 0, 0, 0, 0];
     old.present = old.claimed;

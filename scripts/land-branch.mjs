@@ -43,6 +43,7 @@ export const RULES_WIRING = [
 export const GENERATED = [
   'v2/orchestrator-rust/src/card_assets.rs',
   `${rulesDir}/narrator.js`,
+  `${rulesDir}/content.json`,
 ];
 export const isRulesBundle = (file) => /^v2\/orchestrator-rust\/src\/card_shared\/engine-v\d+\.js$/u.test(file);
 
@@ -186,6 +187,7 @@ function land({ base, branch, name }) {
 
   run(process.execPath, ['v2/scripts/next-shared-rules.mjs', base]);
   run(process.execPath, ['v2/scripts/build-card-shared-narrator.mjs']);
+  run(process.execPath, ['v2/scripts/build-card-shared-content.mjs']);
   run(process.execPath, ['v2/scripts/build-card-assets.mjs']);
 
   const subjects = git(['log', '--reverse', '--format=%s', `${mergeBase}..${tip}`])

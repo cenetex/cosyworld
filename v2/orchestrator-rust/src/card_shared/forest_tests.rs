@@ -29,6 +29,7 @@ fn forest_crossing_upgrade_replays_with_two_humans(version: &str) {
         game: released["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
+        pack: None,
     };
     w.game.as_object_mut().unwrap().remove("opening");
     for actor in ["vale", "mara"] {

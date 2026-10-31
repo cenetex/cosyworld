@@ -104,6 +104,15 @@ output goes only to the story service and is never a journal input, so it is
 rebuilt from current sources and never versioned. `npm run v2:card:shared:next`
 and the land script rebuild it.
 
+`card_shared/content.json` holds the pack content the shared rules read: every
+JSON module the rules bundle imports, built by `npm run v2:card:content:build`.
+Rules that take content as input (none yet; see the design note) receive it per
+request. A world records the SHA-256 of that content as `pack`. The server
+stores each revision in `card_full_packs` before a journal row names it and
+replays only from verified stored bytes. A `repack` command moves a world to
+new content under the same rules. Released rules v2 to v57 carry their own
+packs and never use the store.
+
 ## Event sync
 
 Each browser keeps a sequence number and SHA-256 hash for its shared view.
