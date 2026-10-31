@@ -10880,6 +10880,11 @@
               "to": "greek-piraeus",
               "opensWith": [
                 {
+                  "kind": "flag",
+                  "key": "greek-open-door-open",
+                  "value": true
+                },
+                {
                   "kind": "item_present",
                   "item": "greek-provisions",
                   "place": "greek-ship"
@@ -10892,7 +10897,14 @@
             },
             {
               "from": "greek-athens-harbor",
-              "to": "greek-piraeus"
+              "to": "greek-piraeus",
+              "opensWith": [
+                {
+                  "kind": "flag",
+                  "key": "greek-open-door-plea-registered",
+                  "value": true
+                }
+              ]
             },
             {
               "from": "greek-piraeus",
