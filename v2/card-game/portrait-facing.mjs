@@ -17,7 +17,9 @@ const groups = {
     ),
   ],
   left: [
-    "assets/willows/swede.webp",
+    ...["swede", "swede-listening", "swede-worried", "swede-seated"].map(
+      (name) => `assets/willows/${name}.webp`,
+    ),
     "assets/moth.png",
     "assets/keeper.png",
     "assets/greek-drama/myrine.webp",
