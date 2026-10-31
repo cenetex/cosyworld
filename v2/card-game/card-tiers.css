@@ -66,3 +66,40 @@ body .hand .card-frame:has(> .card[data-unrevealed="true"]) {
   flex-basis: min(var(--card-width), calc(var(--card-height) * 2 / 3));
   width: min(var(--card-width), calc(var(--card-height) * 2 / 3));
 }
+/* The lid of a card opening on its first tap; see card-reveal.mjs. */
+.reveal-lid,
+.reveal-sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.reveal-lid {
+  object-fit: contain;
+  background: radial-gradient(ellipse at 50% 40%, #3b2616, #1c120b 70%, #120c08);
+  transform-origin: 50% 0;
+}
+.reveal-sheen {
+  background: linear-gradient(105deg, transparent 35%, #fff4d640 50%, transparent 65%);
+}
+body .card.new[data-unrevealed="false"]::after {
+  content: "New card";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 3;
+  translate: -50% 0;
+  padding: 3px 9px;
+  border: 1px solid color-mix(in srgb, var(--tier-color) 70%, transparent);
+  border-radius: 999px;
+  background: #0b0e14d9;
+  color: var(--tier-color);
+  font: 10px/1.2 Georgia, serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
