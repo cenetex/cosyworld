@@ -252,7 +252,7 @@ Athens Harbor shows the ship at its berth when it is docked there, and open
 water while the ship travels elsewhere.
 
 The ship sails authored sea lanes, at most four from each port. Black Pond
-has lanes to the Wine-Dark Harbor and Athens Harbor. The Wine-Dark Harbor has
+has one lane, to the Wine-Dark Harbor. The Wine-Dark Harbor has
 lanes to Piraeus and the Trojan camp landing. Athens Harbor and Piraeus share
 a lane. Aboard a docked ship, the other place cards are course cards. The
 first course played sets the voyage for everyone aboard; the ship then spends

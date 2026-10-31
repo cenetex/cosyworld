@@ -154,6 +154,11 @@ try {
         path: new URL(`boarding-${width}.png`, output).pathname,
       });
       await move(mara, "mara", "greek-ship");
+      // From Black Pond the only course is the Wine-Dark Harbor.
+      assert.equal(
+        await vale.locator('#hand [data-card="greek-athens-harbor"]').count(),
+        0,
+      );
       await playCard(vale, "greek-harbor", "Set course");
       // At sea the ship has left the pond.
       await ash

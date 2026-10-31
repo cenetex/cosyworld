@@ -129,9 +129,9 @@ fueled lamp at the pond and quiet at both the pond and clearing.
 
 Completing the signal summons a shared ship. Its saved discovery keeps the
 boarding shores open through lamp changes, reloads and later voyages.
-The ship sails authored lanes: Black Pond to the Wine-Dark Harbor and Athens
-Harbor; the Wine-Dark Harbor to Piraeus and the Trojan camp landing; Athens
-Harbor to Piraeus. Boarding keeps the ship at its harbour. The first course
+The ship sails authored lanes: Black Pond only to the Wine-Dark Harbor; the
+Wine-Dark Harbor to Piraeus and the Trojan camp landing; Athens Harbor to
+Piraeus. Boarding keeps the ship at its harbour. The first course
 card played aboard sets the voyage for everyone, and the ship spends one world
 round at sea. On arrival the only Disembark card is that port. The ship stays
 where the first passenger lands; others can step off there or stay for the
