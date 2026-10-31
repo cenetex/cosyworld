@@ -552,6 +552,47 @@ Talk and item trades stay available during a standoff. Travel ends it; releasing
 
 The cast guards, responds to attacks, or leaves. Threats, hits, releases, and retreats enter witnessed memories. A threat also leaves a personal grievance. Earlier saves gain an empty standoff state.
 
+### Repeated defeats
+
+Each avatar counts its defeats in a row in `defeats`. A win or a rest at home clears the count. The same rule covers players and residents.
+
+- Defeats one and two: the loser drops the disputed item and retreats, as above.
+- Defeat three: the loser drops everything they carry where they fell, their own belonging included. Then they go home. Nothing goes home with them, and the count clears. An avatar without a reachable home retreats instead.
+
+Going home this way crosses nothing. It does not discover a crossing, move a crossing's signal, or anchor the attic during the opening.
+
+Every home has a way out for its own avatar. The attic and each visitor's home open a narrow path to Black pond when the lamp or belonging is out of reach. Getting back in still needs the lamp or the belonging. A test checks every active home with empty hands.
+
+### Fight events
+
+The attack action (`kind: "action"`, `verb: "attack"`) records the hit:
+
+```js
+{
+  kind: "action", verb: "attack", actorId, targetId, locationId,
+  damage: 2,               // resolve removed
+  guarded: false,          // the defender's guard softened the hit
+  resolveBefore: 1, resolveAfter: 0,   // the defender's resolve
+  outcome: "hit" | "guarded" | "yield" | "sent-home",
+  lossCount: 1,            // the defender's defeats in a row after this hit
+  droppedItemIds: ["lamp"], // only when outcome is "yield" or "sent-home"
+}
+```
+
+A defeat that moves the loser adds one more entry. It is not dialogue, and it is not the player's chosen play:
+
+```js
+{
+  kind: "narration", verb: "retreat" | "sent-home",
+  actorId,                 // the loser
+  targetId,                // the winner
+  fromLocationId, locationId,
+  droppedItemIds, lossCount, witnesses,
+}
+```
+
+When the loser is the current player, the entry also sets `world.arrival`. A loser with nowhere to go stays put, and only the attack records the outcome. Both entries keep their English `text`.
+
 Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand and action row open together over 220 milliseconds; held items slide out from their owner. A play in the same place refreshes the cards as the hand lowers, with each name moving into its resting position. Travel changes the hand under the scene veil. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Conversation keep the selected cards and open items, and Escape closes the active panel before lowering the hand. A click outside the hand folds it to its resting row; a held item stays raised with its plays, and any tap on the hand opens it again. Short landscape screens keep the hand inside the viewport.
 
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.

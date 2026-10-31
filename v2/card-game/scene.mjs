@@ -341,7 +341,8 @@ export function sceneStaging(
         e.fromLocationId &&
         e.fromLocationId !== e.locationId &&
         e.locationId === locationId &&
-        (e.verb === "move" || (e.verb === "accompany" && e.accepted)),
+        (["move", "retreat", "sent-home"].includes(e.verb) ||
+          (e.verb === "accompany" && e.accepted)),
     ) ||
     (kept?.locationId === locationId &&
     kept.seq < (world.log[0]?.seq ?? 1) &&
@@ -719,7 +720,8 @@ export function sceneScript(world) {
           line: e,
         }),
         pose:
-          e.verb === "move" || (e.verb === "accompany" && e.accepted)
+          ["move", "retreat", "sent-home"].includes(e.verb) ||
+          (e.verb === "accompany" && e.accepted)
             ? "walk"
             : e.verb
               ? "act"
