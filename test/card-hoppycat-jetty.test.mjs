@@ -167,6 +167,37 @@ describe("the Signal Jetty lane", () => {
   });
 });
 
+describe("the way in", () => {
+  // Every other Hoppy Cat thing starts inside the archive, behind the jetty
+  // lane it would open. The spool waits at Black pond so a new game can sail.
+  const SPOOL = "hoppycat-red-thread-spool";
+  it("starts the spool at Black pond, where a player takes it aboard", () => {
+    const fresh = createWorld();
+    const outside = Object.keys(pack.items).filter(
+      (id) => !pack.places[fresh.items[id].holder],
+    );
+    expect(outside).toEqual([SPOOL]);
+    expect(fresh.items[SPOOL].holder).toBe("pond");
+    let s = setup("pond");
+    const take = ask(s, "vale").actions.find(
+      (a) => a.kind === "take" && a.item === SPOOL,
+    );
+    expect(take).toBeDefined();
+    s = reload(ask(s, "vale", "play", { action: take }).world);
+    expect(s.items[SPOOL].holder).toBe("vale");
+    // Carried to Piraeus, it opens the jetty lane from the deck.
+    for (const who of players) s.actors[who].place = "greek-piraeus";
+    summonTransport(s, "greek-ship", "greek-piraeus");
+    s = act(reload(s), "vale", "move", "greek-ship");
+    expect(courses(s, "vale")).toContain(JETTY);
+  });
+
+  it("puts the spool on the garden table in a Hoppy Cat landing", () => {
+    const landing = reload(createLandingWorld(pack));
+    expect(landing.items[SPOOL].holder).toBe(pack.entry);
+  });
+});
+
 describe("gate data", () => {
   const mounted = packDefinitions.flatMap((p) => Object.keys(p.places));
   const problems = (edit) => {

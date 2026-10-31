@@ -147,6 +147,17 @@ describe("the map rule", () => {
     }
   });
 
+  it("gives every live exit a way back", () => {
+    // Exits are one-way in the data. A retired road keeps its exits for saved
+    // history only. One-way paths such as the ship's return to Black pond
+    // and the Tea Garden thread are crossings, not exits.
+    const back = new Set(steps.map(([from, to]) => `${from}>${to}`));
+    for (const [id, place] of Object.entries(packPlaces))
+      for (const to of localRoadEnds(id) ? [] : place.exits || [])
+        if (!localRoadEnds(to))
+          expect(back.has(`${to}>${id}`), `${id} -> ${to}`).toBe(true);
+  });
+
   it("gives every walkable road its own painting", () => {
     const paintings = roads.map((id) => packPlaces[id].backdrop);
     expect(paintings.every(Boolean)).toBe(true);
