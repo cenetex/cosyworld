@@ -399,6 +399,20 @@
       "card": "assets/optimized/card/png/greek-drama/chthonic-singer.webp",
       "cardHash": "06e4692217bcc371266d0da09e6fb8142b94202a5fff0a644db1af92710808ce"
     },
+    "assets/greek-drama/city-gate-closed-day.webp": {
+      "sourceHash": "f8a9e1cbaf02a869a641937de6e547f2b4253f41037a21cfe79f466994604eef",
+      "stage": "assets/greek-drama/city-gate-closed-day.webp",
+      "stageHash": "f8a9e1cbaf02a869a641937de6e547f2b4253f41037a21cfe79f466994604eef",
+      "card": "assets/optimized/card/webp/greek-drama/city-gate-closed-day.webp",
+      "cardHash": "57b2b7f6608a6dc74a50deaaa8f02dc585f34fe9a38f97bd0c32053eb75e3011"
+    },
+    "assets/greek-drama/city-gate-closed-night.webp": {
+      "sourceHash": "b4fae4c077c430ef567ee31987e3e073c9a3082cc0a08e9aa0bd4f36ad72c095",
+      "stage": "assets/greek-drama/city-gate-closed-night.webp",
+      "stageHash": "b4fae4c077c430ef567ee31987e3e073c9a3082cc0a08e9aa0bd4f36ad72c095",
+      "card": "assets/optimized/card/webp/greek-drama/city-gate-closed-night.webp",
+      "cardHash": "c10b772d0be8ce57735adbc877bdb032e279332a92dc2e55ec10b1b759b26754"
+    },
     "assets/greek-drama/city-gate-day.webp": {
       "sourceHash": "6b40cfeb3a5b3ee0bd08ad2f3d815f07aaa4b08d6a208b1f8ca483024c2d1c33",
       "stage": "assets/greek-drama/city-gate-day.webp",

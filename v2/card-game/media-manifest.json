@@ -1,6 +1,8 @@
 {
   "assets/card-back.webp": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
   "assets/greek-drama/harbor-day.webp": "b535244774382afc8a6440e292f1c51698375717d4473f3c70b5c16fff3e4425",
+  "assets/greek-drama/city-gate-closed-day.webp": "f8a9e1cbaf02a869a641937de6e547f2b4253f41037a21cfe79f466994604eef",
+  "assets/greek-drama/city-gate-closed-night.webp": "b4fae4c077c430ef567ee31987e3e073c9a3082cc0a08e9aa0bd4f36ad72c095",
   "assets/greek-drama/book-three-lemnos-day.webp": "e258ce08d483b2dd5d8f163e93b2891d0255baea3939d2854df4e5087a2af961",
   "assets/greek-drama/book-three-thrace-day.webp": "d8413d1c3b7d59ea353612c71a0cf1b66f11118d6c9ff4edf5aa035b2068a2e7",
   "assets/shared/places/pond.png": "7c7cb3bfa8e2bfb24ee92b8665e06a2ff104d82e565700ed28568b3eeb8988b6",
@@ -399,6 +401,8 @@
   "assets/optimized/card/png/greek-drama/chthonic-shipmaster.webp": "4bec92c162db21f8c16d887a35eadcd9ed4efb000f4c4772d2ce984cc5ac5458",
   "assets/optimized/stage/png/greek-drama/chthonic-singer.webp": "37d1bf3e8d59d1336639e6c2cf075afa9bf062eb0803ec9787e9381916d40fe3",
   "assets/optimized/card/png/greek-drama/chthonic-singer.webp": "06e4692217bcc371266d0da09e6fb8142b94202a5fff0a644db1af92710808ce",
+  "assets/optimized/card/webp/greek-drama/city-gate-closed-day.webp": "57b2b7f6608a6dc74a50deaaa8f02dc585f34fe9a38f97bd0c32053eb75e3011",
+  "assets/optimized/card/webp/greek-drama/city-gate-closed-night.webp": "c10b772d0be8ce57735adbc877bdb032e279332a92dc2e55ec10b1b759b26754",
   "assets/optimized/card/webp/greek-drama/city-gate-day.webp": "b90cba292440c7568c550d47111ca4cecdaab4cd9424f923551876304a3a82bd",
   "assets/optimized/card/webp/greek-drama/city-gate-night.webp": "d40ad19a310c3ec21c8311fca594a89879db99932c32787744529268b718c4d3",
   "assets/optimized/card/webp/greek-drama/courtyard-day.webp": "fc5d303a29e6a342132a6bae7fd99ae420f6445d92d03de15f7e629795c43cc0",
