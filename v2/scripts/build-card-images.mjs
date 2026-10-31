@@ -4,8 +4,12 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { publicAssets } from "../card-game/public-assets.mjs";
+import { reuseVariants } from "./card-image-cache.mjs";
 
 const check = process.argv.includes("--check");
+const reencode = process.argv.includes("--reencode");
+if (check && reencode)
+  throw new Error("Use either --check or --reencode, not both.");
 const root = new URL("../card-game/", import.meta.url);
 const manifestFile = new URL("image-variants.json", root);
 const settings = Object.freeze({
@@ -67,44 +71,36 @@ if (
     "Image sources or settings changed. Run npm run v2:card:images:build.",
   );
 
-// Keep published derivatives when both source and encoded bytes are current.
-// Adding a painting must not re-encode unrelated art with a different codec.
-async function reusable(file, sourceHash) {
-  const saved = old?.images?.[file];
-  if (
-    old?.version !== 1 ||
-    JSON.stringify(old.settings) !== JSON.stringify(settings) ||
-    saved?.sourceHash !== sourceHash ||
-    saved.stage !== (file.endsWith(".png") ? pathFor(file, "stage") : file) ||
-    ![saved.stage, pathFor(file, "card")].includes(saved.card)
-  )
-    return false;
-  try {
-    const stage = await readFile(new URL(saved.stage, root));
-    const card =
-      saved.card === saved.stage
-        ? stage
-        : await readFile(new URL(saved.card, root));
-    return hash(stage) === saved.stageHash && hash(card) === saved.cardHash;
-  } catch {
-    return false;
-  }
-}
-
-let next = 0;
+const settingsMatch =
+  old?.version === 1 &&
+  JSON.stringify(old.settings) === JSON.stringify(settings);
+let next = 0,
+  encoded = 0,
+  reusedCount = 0;
 async function build() {
   while (next < files.length) {
     const file = files[next++];
     const source = await readFile(new URL(file, root));
     const sourceHash = hash(source);
-    const verify = check || (await reusable(file, sourceHash));
     const metadata = await sharp(source).metadata();
     const png = file.endsWith(".png");
-    let stage = file,
-      stageBody = source;
+    const stage = png ? pathFor(file, "stage") : file;
+    let stageBody = source;
+    const reused = check
+      ? null
+      : await reuseVariants({
+          saved: old?.images?.[file],
+          sourceHash,
+          stage,
+          cardPath: pathFor(file, "card"),
+          settingsMatch,
+          reencode,
+          read: (path) => readFile(new URL(path, root)),
+          hash,
+        });
+    if (!check) reused ? reusedCount++ : encoded++;
     if (png) {
-      stage = pathFor(file, "stage");
-      if (verify) {
+      if (check) {
         if (
           old.images[file].sourceHash !== sourceHash ||
           old.images[file].stage !== stage
@@ -113,18 +109,19 @@ async function build() {
         stageBody = await readFile(new URL(stage, root));
         if (hash(stageBody) !== old.images[file].stageHash)
           throw new Error(`Image output changed: ${stage}`);
-      } else stageBody = await sharp(source).webp(settings).toBuffer();
+      } else if (reused) stageBody = reused.stageBody;
+      else stageBody = await sharp(source).webp(settings).toBuffer();
       const result = await sharp(stageBody).metadata();
       if (result.width !== metadata.width || result.height !== metadata.height)
         throw new Error(`Image dimensions changed: ${file}`);
       if (metadata.hasAlpha) await sameAlpha(source, stageBody);
-      if (!check) await writeChanged(stage, stageBody);
+      if (!check && !reused) await writeChanged(stage, stageBody);
       pngBytes += source.length;
       stagePngBytes += stageBody.length;
     }
     let card = stage,
       cardBody = stageBody;
-    if (verify) {
+    if (check) {
       const saved = old.images[file];
       if (
         saved.sourceHash !== sourceHash ||
@@ -143,6 +140,9 @@ async function build() {
         )
           throw new Error(`Image card output changed: ${card}`);
       }
+    } else if (reused) {
+      card = reused.card;
+      cardBody = reused.cardBody;
     } else if (metadata.width > settings.cardWidth) {
       const candidate = await sharp(source)
         .resize({ width: settings.cardWidth, withoutEnlargement: true })
@@ -216,5 +216,5 @@ if (check && index !== updated)
   );
 if (!check && index !== updated) await writeFile(indexFile, updated);
 console.log(
-  `Card image variants ${check ? "current" : "built"}: ${files.length} sources; PNG stage bytes ${pngBytes} -> ${stagePngBytes}; card bytes ${cardBytes}.`,
+  `Card image variants ${check ? "current" : "built"}: ${files.length} sources${check ? "" : ` (${reusedCount} reused, ${encoded} encoded)`}; PNG stage bytes ${pngBytes} -> ${stagePngBytes}; card bytes ${cardBytes}.`,
 );
