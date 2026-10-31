@@ -28,7 +28,15 @@ const files = [
   "boardyai.json",
   "assets/card-back.webp",
   // Combat pose art is ready for client-side presentation integration.
-  ...["vale", "keeper", "moth"].flatMap((id) =>
+  ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].flatMap(
+    (id) =>
+      ["", "-scarf"].flatMap((wardrobe) =>
+        ["attack", "hit"].map(
+          (pose) => `assets/combat/${id}${wardrobe}-${pose}.webp`,
+        ),
+      ),
+  ),
+  ...["keeper", "moth"].flatMap((id) =>
     ["attack", "hit"].map((pose) => `assets/combat/${id}-${pose}.webp`),
   ),
   "rarity.mjs",

@@ -3,6 +3,130 @@
   "generator": "OpenAI built-in image generation",
   "assets": [
     {
+      "id": "ada-attack",
+      "file": "ada-attack.webp",
+      "character": "Ada",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ada.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-fa515d41-f12f-4278-a72f-1fd6355ab02f",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserving combat sprite from a canonical character reference.\nCreate ONE full seated-character ATTACK sprite for ADA from Cosyworld using the attached canonical image as the authoritative identity, clothing, wheelchair, proportions, camera and painted-style reference. Output a 1024x1536 portrait PNG with genuine transparent RGBA background.\n\nADA MUST REMAIN THE SAME WOMAN AND A WHEELCHAIR USER: preserve her adult age, warm lightly freckled skin, distinctive friendly face, expressive dark eyes, short tousled white/silver bob with delicate loose strands, body proportions and exact costume. Keep the lavender/purple rolled-sleeve blouse, dark brown suspenders and brass buckles, high-waisted purple trousers, grey knitted socks, dark worn lace-up boots, and her existing PURPLE NECKERCHIEF with its tied knot/bow and pointed ends. This plain variant retains that canonical purple neckerchief; do not add the separate chartreuse scarf or button.\n\nPRESERVE HER COMPLETE WOOD-AND-BRASS WHEELCHAIR: same large rear spoked wheels and push rims, smaller front wheels, worn brown upholstered seat/back, wood frame, brass joints, curved armrests and footplate. Show the whole chair at the same three-quarter angle facing RIGHT. Both feet remain supported on the footplate, hips remain seated, all wheels remain stable and grounded. Keep the chair geometry coherent and its visible wheel spokes intact. No standing, jumping, tipping, falling, swapped mobility aid or wheelchair redesign.\n\nPOSE: a compact, believable seated unarmed strike directed to the RIGHT. Turn her upper torso slightly right and lean a little forward from the waist while remaining securely seated. Extend the rightward forearm into a clean compact punch toward an unseen opponent to the right; make the fist and wrist anatomically clear. Her other empty hand guards near the chest or braces lightly on the near armrest, with natural fingers. A focused determined expression still recognizably Ada, eyes looking toward the right-hand target, no rage. Keep the strike close enough that the entire fist and all hair, hands, chair wheels, boots and footplate fit comfortably in frame. No held props or weapons; both hands are empty.\n\nSTYLE: precisely match the source's fine dark hand-inked contours, warm soft lighting, richly textured gouache/watercolour pigment, illustrated storybook realism, lived-in fabrics and polished wood/brass details. Preserve the source palette and level of detail; not anime, 3D, photorealism or a different rendering style.\n\nCOMPOSITION: single full seated figure with complete chair, centered, native facing RIGHT. Keep the figure and chair at a consistent game-sprite scale, wheel/footplate baseline near 94% of the canvas height, and at least 5% clear margin around every extremity, wheel, boot, hair and fist. The whole character/chair must fit; no cropping. Genuine transparent alpha around the silhouette AND through every open gap between arms, body, wheels, spokes and frame. No background, backdrop, vignette, glow, floor, ground shadow, debris, impact particles, motion trails, opponent, text, frame, watermark, blood, injury or damage."
+    },
+    {
+      "id": "ada-hit",
+      "file": "ada-hit.webp",
+      "character": "Ada",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ada.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-fc074023-9a74-44a7-b37f-b25d929ac51f",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserving combat sprite from a canonical character reference.\nCreate ONE full seated-character HIT-REACTION sprite for ADA from Cosyworld using the attached canonical image as the authoritative identity, clothing, wheelchair, proportions, camera and painted-style reference. Output a 1024x1536 portrait PNG with genuine transparent RGBA background.\n\nADA MUST REMAIN THE SAME WOMAN AND A WHEELCHAIR USER: preserve her adult age, warm lightly freckled skin, distinctive face, expressive dark eyes, short tousled white/silver bob with delicate loose strands, body proportions and exact costume. Keep the lavender/purple rolled-sleeve blouse, dark brown suspenders and brass buckles, high-waisted purple trousers, grey knitted socks, dark worn lace-up boots, and her existing PURPLE NECKERCHIEF with its tied knot/bow and pointed ends. This plain variant retains that canonical purple neckerchief; do not add the separate chartreuse scarf or button.\n\nPRESERVE HER COMPLETE WOOD-AND-BRASS WHEELCHAIR: same large rear spoked wheels and push rims, smaller front wheels, worn brown upholstered seat/back, wood frame, brass joints, curved armrests and footplate. Show the whole chair at the same three-quarter angle facing RIGHT. Both feet remain supported on the footplate, hips remain seated, all wheels remain stable and grounded. Keep the chair geometry coherent and its visible wheel spokes intact. The chair itself does not tip, recoil through the air, break or change orientation. No standing, jumping, falling, swapped mobility aid or wheelchair redesign.\n\nPOSE: a clear, small seated flinch from a non-graphic impact arriving from the RIGHT. Her upper torso and head recoil toward the LEFT, shoulders drawn back slightly, while her hips stay planted in the seat and the chair remains stable. Keep a recoverable upright posture rather than slumping or falling. Let her short white hair shift subtly with the motion. Her face winces, eyes narrowed or squeezed shut, mouth slightly tense; still clearly the same Ada. One empty hand draws toward the upper chest and the other opens slightly toward the right as a natural balancing/protective gesture, with relaxed anatomically clear fingers. No hand touching the face and no melodrama. Both hands empty; no held objects.\n\nSTYLE: precisely match the source's fine dark hand-inked contours, warm soft lighting, richly textured gouache/watercolour pigment, illustrated storybook realism, lived-in fabrics and polished wood/brass details. Preserve the source palette and level of detail; not anime, 3D, photorealism or a different rendering style.\n\nCOMPOSITION: single full seated figure with complete chair, centered, native facing RIGHT. Keep the figure and chair at a consistent game-sprite scale, wheel/footplate baseline near 94% of the canvas height, and at least 5% clear margin around every extremity, wheel, boot, hair and hand. The whole character/chair must fit; no cropping. Genuine transparent alpha around the silhouette AND through every open gap between arms, body, wheels, spokes and frame. No background, backdrop, vignette, glow, floor, ground shadow, debris, impact particles, motion trails, opponent, weapon, text, frame, watermark, blood, injury or visible damage."
+    },
+    {
+      "id": "ada-scarf-attack",
+      "file": "ada-scarf-attack.webp",
+      "character": "Ada",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ada-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-8ebbdacf-0e83-46f4-af46-34d840276380",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve wardrobe edit.\nCreate ADA'S SCARF ATTACK variant by editing IMAGE1, the finished plain seated attack sprite. IMAGE2 is only the canonical scarf/costume reference. Output ONE seated character and her complete wheelchair on the exact same 1024x1536 portrait canvas with genuine transparent RGBA background.\n\nCHANGE ONLY THE NECKWEAR: replace the purple neckerchief in IMAGE1 with the same pale chartreuse/yellow-green scarf shown in IMAGE2. Preserve the canonical scarf's cloth material, muted light yellow-green colour, loose neck wrap, two shorter pointed side folds and longer pointed central hanging end, and the same large round PURPLE FOUR-HOLE BUTTON fastening it at the front of her chest. Match its exact fastening design and size relative to her face and torso. Adapt only the scarf's folds to the neck and torso position in IMAGE1. Cover or reveal the immediate blouse neckline only where necessary. Do not layer this over the old purple bow; the chartreuse scarf replaces that neckerchief.\n\nLOCK ALL OTHER PARTS TO IMAGE1: keep the exact rightward punch pose, guarded opposite hand, fist and finger positions, friendly focused face, eyes, white/silver hair, upper-body twist, hips seated in the chair, feet resting on the footplate, camera, framing, character scale and lighting. Do not alter any part of the chair: preserve every visible wheel, spoke, rim, armrest, brass fitting, wooden frame piece, cushion and footplate at its existing location. Preserve the purple blouse and trousers, brown suspenders, brass buckles, grey socks, dark boots, body proportions and exact painted ink/gouache surfaces. Both hands remain empty. No new gesture or pose, no chair redesign, no standing or tipping.\n\nKeep the full seated figure and chair with all extremities visible at exactly the locations in IMAGE1. Genuine transparent alpha around the silhouette and through all open arm and wheel/spoke gaps; no backdrop, vignette, floor, shadow, glow, scenery, opponent, weapon, particles, text, label, frame or watermark. This is a tightly controlled scarf-on variant of the finished seated attack sprite, not a new combat illustration.",
+      "edit_target_asset": {
+        "id": "ada-attack",
+        "generation_id": "exec-fa515d41-f12f-4278-a72f-1fd6355ab02f",
+        "original_png_sha256": "a8c97d22953117c2ca238fe7ae5ceee30d1c3111496d411fcec9c259257ca420"
+      }
+    },
+    {
+      "id": "ada-scarf-hit",
+      "file": "ada-scarf-hit.webp",
+      "character": "Ada",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ada-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-ef6fc486-4a5a-46fb-ab8e-0dcd17585924",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve wardrobe edit.\nCreate ADA'S SCARF HIT variant by editing IMAGE1, the finished plain seated hit-reaction sprite. IMAGE2 is only the canonical scarf/costume reference. Output ONE seated character and her complete wheelchair on the exact same 1024x1536 portrait canvas with genuine transparent RGBA background.\n\nCHANGE ONLY THE NECKWEAR: replace the purple neckerchief in IMAGE1 with the same pale chartreuse/yellow-green scarf shown in IMAGE2. Preserve the canonical scarf's cloth material, muted light yellow-green colour, loose neck wrap, two shorter pointed side folds and longer pointed central hanging end, and the same large round PURPLE FOUR-HOLE BUTTON fastening it at the front of her chest. Match its exact fastening design and size relative to her face and torso. Adapt only the scarf's folds to the neck and torso position in IMAGE1, respecting the hand overlapping the collar. Cover or reveal the immediate blouse neckline only where necessary. Do not layer this over the old purple bow; the chartreuse scarf replaces that neckerchief.\n\nLOCK ALL OTHER PARTS TO IMAGE1: keep the exact seated leftward recoil pose from a blow arriving on the right, protective hands, finger placement, wince and closed eyes, white/silver hair, upper-body tilt, hips seated in the chair, feet resting on the footplate, camera, framing, character scale and lighting. Do not alter any part of the chair: preserve every visible wheel, spoke, rim, armrest, brass fitting, wooden frame piece, cushion and footplate at its existing location. Preserve the purple blouse and trousers, brown suspenders, brass buckles, grey socks, dark boots, body proportions and exact painted ink/gouache surfaces. Both hands remain empty. No new gesture or pose, no chair redesign, no standing, tipping or falling. No blood or injury.\n\nKeep the full seated figure and chair with all extremities visible at exactly the locations in IMAGE1. Genuine transparent alpha around the silhouette and through all open arm and wheel/spoke gaps; no backdrop, vignette, floor, shadow, glow, scenery, opponent, weapon, particles, text, label, frame or watermark. This is a tightly controlled scarf-on variant of the finished seated hit sprite, not a new combat illustration.",
+      "edit_target_asset": {
+        "id": "ada-hit",
+        "generation_id": "exec-fc074023-9a74-44a7-b37f-b25d929ac51f",
+        "original_png_sha256": "4765f1b808a53f6cc60785fe75c8fda1a4fb52db7df55f62044a45ef42d8c279"
+      }
+    },
+    {
+      "id": "ash-attack",
+      "file": "ash-attack.webp",
+      "character": "Ash",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ash.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-e71ea1e9-738f-454c-a6c1-0b3ae1dc8376",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve character pose edit for a painted 2D game sprite.\nEdit the supplied canonical ASH portrait into ONE ATTACK pose. One full-body character only, 1024x1536 portrait canvas, genuine transparent RGBA background.\nIdentity lock: the same older stocky, broad-shouldered man with warm brown skin, dense short grey-and-black curls, full grey beard, kind recognizable face, substantial workman's build and strong forearms. Preserve his vivid rust-orange cable-knit sweater with rolled sleeves, weathered ochre-orange work overalls with broad straps and brass buckles, patched knees and cargo pockets, brown leather work belt with brass buckle and hanging loops, and heavy dark lace-up work boots. No scarf in this plain version. Preserve the exact palette, aged fabric texture, proportions and refined gouache-and-ink style of the reference. Do not make him slimmer, younger, clean-shaven or a superhero.\nATTACK: Native facing SCREEN RIGHT in readable three-quarter view. A compact, powerful unarmed straight punch to the right at shoulder/chest height, with the leading elbow still a little bent so the whole fist fits comfortably. Other fist guards close to his ribs. Torso rotates into the strike; broad hips and knees flex slightly; front rightward boot plants while rear boot braces. His expression is focused and stern but recognizable. Both hands empty; belt hardware stays attached, no tool or weapon. Natural sweater and overall folds follow the twist.\nKeep source eye-level camera and full-body scale, character centered, supporting soles around95% canvas height. Show complete head, beard, BOTH fists, overalls and BOTH boots, with at least50px clear left/right margin and40px top/bottom margin. Avoid extreme lunges or reaching out of the frame. Truly transparent alpha around figure and between limbs; remove the original dark vignette/glow. No floor, cast shadow, scenery, opponent, impact effects, smoke, blood, motion streaks, words, frame or watermark. Change only pose and facial expression, preserve character and costume."
+    },
+    {
+      "id": "ash-hit",
+      "file": "ash-hit.webp",
+      "character": "Ash",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ash.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-d67e70e1-edbb-40da-81e3-fa8d52cf8fe0",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve character pose edit for a painted 2D game sprite.\nEdit the supplied canonical ASH portrait into ONE HIT REACTION pose. One full-body figure only, 1024x1536 portrait, genuine transparent RGBA background.\nPreserve the exact older stocky broad-shouldered man: brown skin, dense grey-and-black curls, full grey beard, recognizable face, substantial workman's build and strong forearms. Exact rust-orange cable-knit sweater with rolled sleeves, ochre-orange worn work overalls and brass strap buckles, cargo pockets, patched knees, brown leather belt and attached loops, heavy worn dark lace-up work boots. This is the PLAIN version: no scarf. Retain the same tactile painted gouache, fine dark ink outlines, clothing wear, colors and proportions; do not redesign or add equipment.\nHIT REACTION: native facing toward SCREEN RIGHT, recoiling from a blow delivered by an unseen opponent on the RIGHT. Capture the involuntary impact moment: head and upper torso knocked back toward SCREEN LEFT, eyes squeezed shut in a wince, mouth parted, shoulders raised and torso twisting away. One empty hand draws toward his upper ribs while the other opens outward for balance. Knees bend under his weight; one boot catches his weight firmly while the front boot lifts a little. Show an obvious receiving-hit recoil, still upright and recoverable, not an attack, fighting-ready stance, fall or defeat. Sweater and overall folds react naturally. No blood, wounds or costume damage.\nMaintain the source full-body camera and approximately same body size, centered torso and supporting sole around95% height. Both complete boots, hands, head and hair must stay inside frame with at least50px side and40px vertical clear margin. Transparent alpha around and between all silhouette parts; REMOVE original dark vignette/glow. No ground, floor, cast shadow, scenery, weapons, objects, opponents, particles, impacts, motion lines, text, frame or watermark."
+    },
+    {
+      "id": "ash-scarf-attack",
+      "file": "ash-scarf-attack.webp",
+      "character": "Ash",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ash-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-c855214b-4a42-4f6b-adbb-a6daf4e5222e",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve precise wardrobe edit.\nIMAGE1 is the finished ASH ATTACK sprite and is the exact edit target. IMAGE2 is his canonical neutral SCARF portrait and supplies ONLY the scarf and its button. Make ONE full-body1024x1536 transparent RGBA sprite.\nChange ONLY this: add Ash's own slate-blue woven wool scarf from IMAGE2, wrapped around his neck in the same way, with the warm orange round four-hole button fastening it at his left collar area and a short blue fringed end descending across the upper chest. Preserve its exact muted slate-blue hue, knit texture, wrapping, orange button color and personal design. Allow only the necessary neckline occlusion and tiny natural scarf movement appropriate to the attacking body.\nEverything else must remain IDENTICAL to IMAGE1: exact attack pose, rightward punch, guarding fist, face and expression, grey curls and beard, body build, skin tone, camera, scale, placement, orange sweater and overalls, straps, hardware, belt, pants, patched knees, boots, linework and painted texture. Do not change hand positions, face, feet, gesture, stance, framing, body dimensions or lighting. Do not borrow the neutral pose from IMAGE2. Retain the nativeSCREEN RIGHT direction.\nBoth hands stay empty. Full figure stays complete, and preserve transparent margins. Genuine clean alpha background and limb gaps; no background vignette, floor, shadow, particles, props, text, labels, frame or watermark. Output only the scarf version of the exact first attack sprite, not a collage or comparison sheet.",
+      "edit_target_asset": {
+        "id": "ash-attack",
+        "generation_id": "exec-e71ea1e9-738f-454c-a6c1-0b3ae1dc8376",
+        "original_png_sha256": "80aacd40746564feffccd1da597c2c9fbc73280e7f65219873b3a452ad76a4ea"
+      }
+    },
+    {
+      "id": "ash-scarf-hit",
+      "file": "ash-scarf-hit.webp",
+      "character": "Ash",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ash-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-c856db14-fa94-4fd1-bad9-29237c47b045",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve precise wardrobe edit.\nIMAGE1 is the finished ASH HIT REACTION sprite and is the exact edit target. IMAGE2 is the canonical neutral SCARF portrait, supplying ONLY the scarf and orange fastening button. Output ONE full-body1024x1536 genuinely transparent RGBA sprite.\nChange ONLY the neckwear: add Ash's slate-blue woven wool scarf exactly as in IMAGE2, looped warmly around the neck with a short fringed end across the upper chest and the same large orange round four-hole button at the side. Keep its specific blue color, woven texture, wrapping and orange button identity. The fringe may follow the existing recoil slightly. Allow only necessary occlusion at the neckline; retain every other pixel's subject and pose as closely as possible.\nEverything else stays IDENTICAL to IMAGE1: involuntary leftward recoil from a hit on the right, exact head tilt and wince, grey curls and beard, brown skin, older stocky body shape, empty hands and finger positions, broad overalls, orange sweater, belt and brass hardware, knee patches, boots, leg stance, camera, framing, scale, character placement, ink contours, painting and neutral warm lighting. Do not return to the neutral pose of IMAGE2. Maintain nativeSCREEN RIGHT orientation and distinct receiving-hit expression.\nNo new equipment, weapons, effects, damage or objects. Full figure with complete head, hands and boots, same transparent margin. Preserve true clear alpha outside silhouette and between limbs; remove any dark background or vignette. No floor, shadow, scenery, particles, text, labels, frame or watermark. Only the exact first hit sprite with the canonical scarf added, not a collage.",
+      "edit_target_asset": {
+        "id": "ash-hit",
+        "generation_id": "exec-d67e70e1-edbb-40da-81e3-fa8d52cf8fe0",
+        "original_png_sha256": "c20bb054901b0ddb88380d28a31c9b6df6e01f68ef3f3afe377dd92901394747"
+      }
+    },
+    {
       "id": "keeper-attack",
       "file": "keeper-attack.webp",
       "character": "Keeper",
@@ -27,6 +151,68 @@
       "generation_id": "exec-57abc275-218a-463a-8128-64b40532ed8b",
       "transparent_background": true,
       "prompt": "Use case: identity-preserve character pose edit.\nEdit the supplied canonical portrait of THE KEEPER into the HIT REACTION / recoil pose for a painted 2D game sprite. ONE full-body character, ONE readable pose, portrait canvas1024x1536, genuinely transparent RGBA background.\n\nStrict identity lock: same very tall slim railway attendant whose head IS an antique round brass clock, with aged ivory dial, upright readable Roman numerals and original clock hands, stern eyes integrated into the dial. Same plum railway cap, weathered burgundy-plum long uniform coat with brass buttons, gold piping and station badge, ivory collar, dark cravat and waistcoat, striped trousers, pocket chain, long black gloves and worn buckled shoes. NO human head, hair, extra faces, cracks in the clock, broken numerals or damage to uniform. Do not reverse or mirror the dial. Preserve the original hand-painted ink-and-gouache rendering, fabric texture, brass finish, proportions and palette.\n\nHIT REACTION: the Keeper still faces SCREEN LEFT, reacting immediately to a blow arriving from an unseen opponent on the LEFT. His clock head and upper chest jolt backward toward SCREEN RIGHT, head tilted about12degrees, cap slightly askew but still firmly on. His long torso bends backward, one black-gloved hand opens reflexively near the chest and the other reaches slightly out to recover balance. Both hands are empty. The rear right foot plants firmly, the forward left heel lifts, knees flex; burgundy coat tails swing toward the left from the sudden movement. The clock eyes narrow in a startled pained wince. This must clearly read as receiving a hit, not a punch, voluntary bow, ready stance or defeat. Maintain a complete unbroken body and wardrobe.\n\nMatch source eye-level camera and overall figure size. Body remains near the canvas center, supporting foot at roughly95% height; the entire hat, clock rim, hands, flying coat, and BOTH shoes remain visible with 5% transparent breathing room. Real alpha around all edges and in limb gaps, no retained vignette or glow. No floor, ground shadow, scene, opponent, blood, particles, lightning, impact star, motion lines, extra objects, text, borders or watermark."
+    },
+    {
+      "id": "mara-attack",
+      "file": "mara-attack.webp",
+      "character": "Mara",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/mara.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-6c7f3ca9-db92-4e7e-972d-0a16c7fa5b12",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve.\nAsset type: final full-body transparent character combat sprite for the Cosyworld card game, 1024 x 1536 portrait PNG.\nInput image 1 is the authoritative identity, costume, proportions, rendering and native facing reference: Mara's plain portrait.\nPrimary request: depict this exact same Mara in ONE clear compact unarmed ATTACK pose, facing screen RIGHT in the reference's three-quarter view. She delivers a short decisive rightward fist strike with one empty hand, elbow not fully stretched; the other empty hand stays close to her chest as a guard. Her torso rotates naturally into the strike, knees softly bent, weight anchored through a believable staggered stance. Focused determined expression. Preserve her recognizable face, warm tan skin, black curly updo, red braid/ribbon and small gold hair bells, gold hoop earrings, lean build and height.\nKeep the EXACT plain wardrobe: the weathered richly painted red-and-gold cropped coat with brass hardware and layered long red coat tails, cream blouse with big loose ivory cuffs, red waist sash with brass ring and hanging fittings, voluminous wide red trousers, dark brown tall laced boots with buckles. Her hands are empty. No neck scarf in this version. Keep all existing costume details and colors; cloth follows the small twisting action, without exaggerated flying ribbons.\nStyle/medium: match image 1's intricately textured hand-painted gouache and fine dark ink, warm soft lighting, detailed cloth wear, natural proportions, rich restrained red/gold palette. Do not redesign or simplify.\nComposition: a single entire full-body figure on a genuine transparent alpha background. Native facing is RIGHT. Center the complete silhouette in a 1024 x 1536 canvas with feet resting near 94% height. Frame slightly wider than the reference: every curl, hair bell, fingertip, elbow, cloth tail and entire boot must fit inside a clear 5% safety margin on ALL four sides. Keep the strike compact to preserve the margin. No cropping.\nAvoid: other people, weapons, held items, invented props, scarf, blood, injury, sparks, action lines, particles, glow, graphic icons, floor, floor shadow, vignette, backdrop, checkerboard pattern, text, watermark. Preserve true alpha outside the character."
+    },
+    {
+      "id": "mara-hit",
+      "file": "mara-hit.webp",
+      "character": "Mara",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/mara.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-9b208835-1549-44dd-a0b5-c8b6144fdbb2",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve.\nAsset type: final full-body transparent character combat sprite for the Cosyworld card game, 1024 x 1536 portrait PNG.\nInput image 1 is the authoritative identity, costume, proportions, rendering and native facing reference: Mara's plain portrait.\nPrimary request: depict this exact same Mara in ONE clear HIT-REACTION pose. The unseen incoming impact is from screen RIGHT; her shoulders and upper body recoil involuntarily toward screen LEFT, head still oriented toward the right in the same three-quarter view. Her eyes squeeze in a brief wince, mouth catches a breath, one empty hand opens instinctively near her chest and the other extends a short distance as a balance hand. Knees bend softly and boots remain braced in an upright recoverable stance. Clearly receiving a blow, not attacking, falling, defeated or injured. No visible attacker or impact effect.\nPreserve her recognizable face, warm tan skin, black curly updo, red braid/ribbon and small gold hair bells, gold hoop earrings, lean build and height. Keep the EXACT plain wardrobe: the weathered richly painted red-and-gold cropped coat with brass hardware and layered long red coat tails, cream blouse with big loose ivory cuffs, red waist sash with brass ring and hanging fittings, voluminous wide red trousers, dark brown tall laced boots with buckles. Her hands are empty. No neck scarf in this version. Keep all existing costume details and colors; cloth responds naturally to the recoil without exaggerated flying ribbons.\nStyle/medium: match image 1's intricately textured hand-painted gouache and fine dark ink, warm soft lighting, detailed cloth wear, natural proportions, rich restrained red/gold palette. Do not redesign or simplify.\nComposition: a single entire full-body figure on a genuine transparent alpha background. Native facing is RIGHT. Center the complete silhouette in a 1024 x 1536 canvas with feet resting near 94% height. Frame slightly wider than the reference: every curl, hair bell, fingertip, elbow, cloth tail and entire boot must fit inside a clear 5% safety margin on ALL four sides. Keep the reaction compact to preserve the margin. No cropping.\nAvoid: other people, weapons, held items, invented props, scarf, blood, wounds, bruises, sparks, action lines, particles, glow, graphic icons, floor, floor shadow, vignette, backdrop, checkerboard pattern, text, watermark. Preserve true alpha outside the character."
+    },
+    {
+      "id": "mara-scarf-attack",
+      "file": "mara-scarf-attack.webp",
+      "character": "Mara",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/mara-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-a1d3888b-4a88-47be-8fd8-64757eefd4a4",
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit.\nAsset type: final 1024 x 1536 transparent character combat sprite for the Cosyworld card game.\nInput image 1 is the EDIT TARGET: Mara's finished plain ATTACK combat sprite. Input image 2 is ONLY the authoritative reference for Mara's own scarf, button, weave, drape and neckline.\nPrimary request: change ONLY the neck/upper-chest wardrobe in image 1 by adding the exact moss-green woven scarf from image 2. Copy its substantial wrapped folds, muted moss/olive color, subtle pale woven geometric pattern, two short fringed hanging ends, and round red four-hole button with gold rim and gold stitch. Adapt its drape naturally to the existing attack body posture while keeping it close to her torso. Make only the minimal necessary local collar/neckline occlusion to put on the scarf.\nStrict invariants: preserve image 1's EXACT combat pose, hand positions, fingers, facial identity and expression, hairstyle, red braid/ribbon and hair bells, hoop earrings, warm tan skin, camera, native RIGHT-facing three-quarter view, body proportions, framing, full-body scale, feet baseline and entire outer silhouette except for the local scarf addition. Preserve all red-and-gold coat details, cream blouse and wide cuffs, red sash and brass fittings, wide red trousers, long layered coat tails, boots and cloth motion. Do not borrow image 2's neutral pose, open hand or facial expression.\nStyle and lighting: retain image 1's textured hand-painted gouache, fine dark ink lines, warm soft lighting, and exact color treatment. The scarf should use the same detailed painted texture as its reference and look naturally worn by the same character.\nCanvas/backdrop: preserve 1024 x 1536 portrait composition and genuine transparent alpha outside the entire character. All hair, hands, clothing and boots remain fully in frame with clear transparent margin. No background, floor, shadow or vignette.\nAvoid: changing the action or stance, redesigning clothes, altering face or skin tone, new weapons or held objects, extra characters, motion effects, blood or injuries, particles, text, logos, checkerboard pattern, any opaque backdrop. This is the exact matching scarf version of image 1.",
+      "edit_target_asset": {
+        "id": "mara-attack",
+        "generation_id": "exec-6c7f3ca9-db92-4e7e-972d-0a16c7fa5b12",
+        "original_png_sha256": "36bdfc85571ba5edfce75c424976c681529dc48d87cc0d99bdb26d3f07215235"
+      }
+    },
+    {
+      "id": "mara-scarf-hit",
+      "file": "mara-scarf-hit.webp",
+      "character": "Mara",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/mara-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-d0d81de0-f440-4506-a9a4-bb01bbf6c02d",
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit.\nAsset type: final 1024 x 1536 transparent character combat sprite for the Cosyworld card game.\nInput image 1 is the EDIT TARGET: Mara's finished plain HIT-REACTION combat sprite. Input image 2 is ONLY the authoritative reference for Mara's own scarf, button, weave, drape and neckline.\nPrimary request: change ONLY the neck/upper-chest wardrobe in image 1 by adding the exact moss-green woven scarf from image 2. Copy its substantial wrapped folds, muted moss/olive color, subtle pale woven geometric pattern, two short fringed hanging ends, and round red four-hole button with gold rim and gold stitch. Adapt its drape naturally to the existing hit-reaction body posture while keeping it close to her torso. Make only the minimal necessary local collar/neckline occlusion to put on the scarf.\nStrict invariants: preserve image 1's EXACT combat pose, hand positions, fingers, facial identity and expression, hairstyle, red braid/ribbon and hair bells, hoop earrings, warm tan skin, camera, native RIGHT-facing three-quarter view, body proportions, framing, full-body scale, feet baseline and entire outer silhouette except for the local scarf addition. Preserve all red-and-gold coat details, cream blouse and wide cuffs, red sash and brass fittings, wide red trousers, long layered coat tails, boots and cloth motion. Do not borrow image 2's neutral pose, open hand or facial expression.\nStyle and lighting: retain image 1's textured hand-painted gouache, fine dark ink lines, warm soft lighting, and exact color treatment. The scarf should use the same detailed painted texture as its reference and look naturally worn by the same character.\nCanvas/backdrop: preserve 1024 x 1536 portrait composition and genuine transparent alpha outside the entire character. All hair, hands, clothing and boots remain fully in frame with clear transparent margin. No background, floor, shadow or vignette.\nAvoid: changing the action or stance, redesigning clothes, altering face or skin tone, new weapons or held objects, extra characters, motion effects, blood or injuries, particles, text, logos, checkerboard pattern, any opaque backdrop. This is the exact matching scarf version of image 1.",
+      "edit_target_asset": {
+        "id": "mara-hit",
+        "generation_id": "exec-9b208835-1549-44dd-a0b5-c8b6144fdbb2",
+        "original_png_sha256": "55aef979ead8716f821db7f219648e06dd384b5d57e91213c1b878a899c9e6cd"
+      }
     },
     {
       "id": "moth-attack",
@@ -55,6 +241,261 @@
       "prompt": "Use case: identity-preserve character pose edit.\nEdit the supplied canonical portrait of PIP, the moth person, into the HIT REACTION / recoil pose for a painted2D game sprite. Exactly ONE full-body character, ONE pose, portrait1024x1536, genuine transparent RGBA background.\n\nPreserve his exact recognizable identity and design: cream moth fur and ruff, little expressive face, huge glossy amber-brown eyes, TWO long feathery gold antennae, ochre weathered waistcoat with brass buttons, dark blue spotted neckerchief, cream loose-sleeved shirt, little gold pocket watch/chain, brown crossbody satchel, charcoal trousers, worn brown wrapped/buckled boots, two large grey-gold patterned moth wings with distinctive circular eye markings. Same mature earnest moth-person, proportions and body scale; no chibi redesign, new limbs, changed costume or weapons. Preserve the original fine ink edges and rich gouache-painted fur, cloth and wings, restrained warm lighting and muted palette.\n\nHIT REACTION: still oriented toward SCREEN LEFT, Pip reacts to a sudden hit from an unseen opponent on the LEFT. Shoulders and head recoil toward SCREEN RIGHT, chin draws back, one enormous eye squeezed almost shut and the other narrowed in a startled wince, mouth slightly open. One empty hand opens reflexively near his upper chest and the other spreads outward for balance; this is a receiving-impact pose, NOT an outward attack or ready guard. Knees bend and weight catches on the rear right boot, forward boot momentarily lifts a little. His two antennae bow backward to the right and his patterned wings flare only slightly as a balancing reflex, remaining partly folded close enough to fit. Satchel and cloth swing naturally. Convey a brief surprised flinch with recovery possible, not a fall or defeat. No injury, blood, tears, damaged wings or broken antennae.\n\nIMPORTANT FRAMING: show every millimeter of both antennae, fingertips, every wing edge, satchel and BOTH boots; reserve an ample TRANSPARENT margin of at least50pixels at left and right and40pixels at top/bottom. Never let wings or fingers touch the canvas. Character body stays centered with supporting sole around94% height, same eye-level camera and near-full-body scale as the reference. Two arms and two legs only. True transparent background and internal silhouette gaps, clean antialiased edges. Remove original dark vignette/glow. No scenery, floor, ground shadow, opponent, impact particles, motion streaks, text, borders or watermark."
     },
     {
+      "id": "nell-attack",
+      "file": "nell-attack.webp",
+      "character": "Nell",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/nell.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-e04926fe-3e47-4f03-acc6-317533982323",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve character pose edit for a painted2D game sprite.\nEdit the supplied canonical NELL portrait into ONE ATTACK pose. ONE complete full-body figure,1024x1536 portrait canvas, genuine transparent RGBA background.\nStrict character identity: the same mature silver-haired gardener with her recognizable lively face, pale warm skin, long thick silver braid over her shoulder, wisps of hair, broad weathered straw sunhat, cream loose-collared rolled-sleeve blouse, weathered bright golden-yellow apron with asymmetric long panels, wide beige patched linen trouser/skirt layers, brown leather belt and attached garden pockets, brown work gloves, worn brown lace-up ankle boots. Preserve the braid length, straw weave and hat outline, clothing patches, pouch detail and existing small tucked cloth/greens. This is the PLAIN wardrobe: no scarf. Do not make her younger, armored, muscular, glamour-styled, or a different person. Match exact original painted gouache cloth and hair with fine expressive ink outlines and same muted warm palette.\nATTACK: Native facing SCREEN RIGHT, still three-quarter readable. Nell delivers a compact, determined unarmed straight punch toward an OFFSCREEN opponent on the RIGHT at chest/shoulder height. Leading brown-gloved hand closes naturally into a fist, elbow slightly bent so whole glove stays inside frame. Opposite glove guards close to the ribs. Her shoulders and torso rotate forward, hips turn, front boot plants and rear boot braces, knees lightly flex. The long braid and apron move naturally with the turn, hat remains on. Her brows focus and mouth firms, retaining her identity. Both hands empty; no trowel, staff or weapon. The pose conveys effort and forward commitment without a huge airborne lunge.\nKeep original full-body camera and near-original scale, body centered, supporting soles near95% canvas height. Fit entire wide strawhat, silver braid, both gloves, all apron/skirt edges and BOTH full boots, with at least50px side margin and40px top/bottom. Real transparent alpha around body and between limbs; remove source vignette/glow. No floor, shadow, scene, opponent, particles, impacts, motion lines, blood, text, frame or watermark."
+    },
+    {
+      "id": "nell-hit",
+      "file": "nell-hit.webp",
+      "character": "Nell",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/nell.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-9fa8f4a4-79c8-49b8-a993-caa656d55484",
+      "transparent_background": true,
+      "prompt": "Precise identity-preserving correction of the supplied NELL HIT sprite. Preserve the exact full-body recoil pose, face, wince, strawhat, hands, boots, apron, clothing, camera,1024x1536 canvas, painted style and transparent alpha.\nFix ONE mistake: the current picture has TWO silver braids. Nell must have exactly ONE long silver braid.\nKEEP the long braid sweeping from behind her head toward SCREEN RIGHT with the red tie and loose end. REMOVE the extra separate braid descending vertically over the SCREEN LEFT side of her chest. Repaint that small removed-braid area as the cream blouse and yellow apron which lie beneath it, with natural matching cloth folds. Keep ordinary loose silver wisps near her face, but do not create another braid, ponytail, loose hair rope or duplicate strand. Preserve the retained right-sweeping braid intact.\nThis is the plain, no-scarf version. Do not add neckwear. Everything outside removal of that extra chest braid stays unchanged. No new background, glow, shadow, objects, text or effects. Real transparent RGBA background. Only ONE image of ONE character.",
+      "revisions": [
+        {
+          "generation_id": "exec-61b4dedc-1381-44ae-a8c9-4d8095cfbca8",
+          "prompt": "Use case: identity-preserve character pose edit for a painted2D game sprite.\nEdit the supplied canonical NELL portrait into ONE HIT REACTION. ONE full-body1024x1536 portrait character sprite with genuine transparent RGBA background.\nIdentity must remain exact: same mature silver-haired gardener and recognizable expressive face, pale warm skin, long silver braid and loose wisps, broad battered straw sunhat, cream collared loose blouse with rolled sleeves, yellow weathered apron with asymmetric panels, wide beige patched linen trouser/skirt layers, brown work gloves, leather belt and attached garden pouches with the original tucked cloth/greens, brown lace-up ankle boots. This is the PLAIN version: NO scarf. Preserve her age, build and original palette, fine ink contours, tactile painted gouache clothing, detailed straw and braid. No new items or changes to outfit.\nHIT REACTION: Nell remains oriented toward SCREEN RIGHT, taking an unseen blow from the RIGHT. Her head and shoulders jolt backward toward SCREEN LEFT, her eyes squeeze shut in a clear involuntary wince, mouth parts, torso twists away. One brown-gloved hand pulls toward the upper ribs; the other spreads out for balance. Knees bend, rear boot catches her weight, front boot lifts a little. Her silver braid and apron panels swing rightward with the recoil, strawhat tilts slightly but stays on. Show momentary surprise and recoil with recovery possible, not attacking, guarding, falling or defeated. Both hands empty. Keep her intact with no wounds or blood.\nSource camera and roughly same full-body scale, torso centered and planted sole around95% height. Fit ALL strawhat edges, braid, gloves, skirt/apron tails and BOTH full boots with at least50px side and40px vertical breathing room. All background and silhouette gaps genuinely transparent; REMOVE dark vignette/glow. No floor, shadow, scene, weapon, opponent, particle, impact mark, speed streak, lettering, frame or watermark.",
+          "reason": "First hit render duplicated the braid; corrected before delivery."
+        }
+      ]
+    },
+    {
+      "id": "nell-scarf-attack",
+      "file": "nell-scarf-attack.webp",
+      "character": "Nell",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/nell-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-9ee2c055-72c0-4a79-a665-34a5f39b1a6c",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve precise wardrobe edit.\nIMAGE1 is the finished NELL ATTACK sprite and the exact edit target. IMAGE2 is Nell's canonical neutral SCARF portrait and is ONLY the wardrobe reference for her scarf and fastening button. Output ONE full-body1024x1536 genuinely transparent RGBA sprite.\nChange ONLY this: add Nell's own lavender-purple woven scarf from IMAGE2, loosely wrapped around her neck/shoulders, with the same sunny yellow round four-hole button at the upper chest and the same short fringed purple end. Match exact lavender hue, knitted/woven texture, wrapping, yellow button shape and color. Allow only neckline occlusion and slight natural scarf movement.\nEverything else is locked to IMAGE1: exact rightward punch, guarding glove, leg stance and boots, face/expression, age and silver hair, single long braid sweeping left, strawhat, blouse, yellow apron, pouches, skirt/trouser layers, belt, all textures, camera, scale and position. Do not borrow the neutral pose from IMAGE2. Preserve exactly ONE braid; do not add a second braid from the scarf reference. Native facing stays SCREEN RIGHT. The original complete figure and its empty hands remain unchanged.\nClean real alpha background and all silhouette gaps, with same framing and complete strawhat, braid, gloves, apron and boots. No retained vignette/glow, no floor, cast shadow, props, weapons, particles, text, labels, frame or watermark. Only the exact attack sprite with the canonical purple scarf and yellow button added, no collage.",
+      "edit_target_asset": {
+        "id": "nell-attack",
+        "generation_id": "exec-e04926fe-3e47-4f03-acc6-317533982323",
+        "original_png_sha256": "0ffdeff4babc5a8228effe9c0ee367ab27efcf79a4e83e0e19edcf032653c974"
+      }
+    },
+    {
+      "id": "nell-scarf-hit",
+      "file": "nell-scarf-hit.webp",
+      "character": "Nell",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/nell-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-9ef87132-2e94-4c66-a98f-0bc348fbdbdf",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve precise wardrobe edit.\nIMAGE1 is the finished corrected NELL HIT sprite and is the exact edit target. IMAGE2 is her canonical neutral SCARF portrait and supplies ONLY the lavender scarf and yellow fastening button. Output ONE complete full-body1024x1536 transparent RGBA image.\nAdd ONLY Nell's own lavender-purple woven scarf from IMAGE2, loosely wrapped around her neck and shoulders, with its sunny yellow round four-hole button at the upper chest and short purple fringed end. Match that exact lavender color, woven texture, wrapping style and button design. It may drape across the neckline and react subtly to the existing recoil.\nEverything else stays IDENTICAL to IMAGE1: exact leftward recoil, wince and head tilt, hat position, hand and glove positions, boots and legs, body scale and placement, costume, apron, pouches, belt, camera, lighting and painted ink/gouache treatment. Do not borrow IMAGE2's neutral pose. IMPORTANT: preserve the ONE long silver braid sweeping from behind the head toward SCREEN RIGHT in IMAGE1. Do NOT add another braid descending over the front chest; do not copy the neutral portrait's front braid. Only one braid and the same loose wisps as IMAGE1.\nKeep nativeSCREEN RIGHT facing, empty hands, complete strawhat/hair/gloves/apron/boots and existing transparent margins. Real clear alpha outside body and between parts. No background vignette, floor, shadow, scene, weapons, extra objects, damage, impact effects, text, border or watermark. Just the exact first hit sprite with the canonical scarf added.",
+      "edit_target_asset": {
+        "id": "nell-hit",
+        "generation_id": "exec-9fa8f4a4-79c8-49b8-a993-caa656d55484",
+        "original_png_sha256": "e257a4619fa7fe702b2d8b63271ca1cc986a9143c82e81515ab6930321f2377a"
+      }
+    },
+    {
+      "id": "orin-attack",
+      "file": "orin-attack.webp",
+      "character": "Orin",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/orin.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-f8a360d8-8b1e-4ecb-a71c-2b9b2fdb83ec",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve character pose edit.\nEdit the supplied canonical ORIN portrait into the ATTACK pose for a painted 2D game sprite. Exactly ONE full-body character, ONE pose, 1024x1536 portrait canvas, genuine transparent RGBA background.\n\nIDENTITY: Preserve this precise slender adult man: long expressive face, light freckled complexion, auburn wavy hair loosely gathered into a low ponytail, thin round wire spectacles, greenish eyes and fine brows, tall slim build. Preserve the weathered long sleeveless indigo-blue vest with brass buttons and large pockets, rolled cream shirt sleeves, open cream collar with NO scarf, charcoal patched trousers, brown belt and gold pocket-watch chain, brown lace-up ankle boots. Preserve the original ink contours, gouache-painted fabric, restrained warm lighting, age and proportions. Do not replace him with a muscular fighter, chibi, younger child or different face. Glasses stay on; no new objects.\n\nPOSE: Orin faces and attacks toward SCREEN RIGHT in clear three-quarter view. A compact unarmed straight punch at shoulder height toward an OFFSCREEN opponent, leading fist extended right with believable curled fingers, other hand guarding close to his ribs. He twists forward from the waist, knees flex slightly, front rightward foot plants and rear foot braces. Blue vest tails follow the twist slightly behind him toward the left. Eyes focus through his glasses toward the target, brows determined, mouth tense. This is a quick practiced forward strike, not a pointing gesture or a wild leap. Both hands empty.\n\nFRAMING: maintain the source's eye-level camera, body proportions and nearly full-canvas scale. Keep torso around the center, boots near95% canvas height. Entire ponytail, both hands, vest tails and BOTH full boots must remain inside the canvas, with a real5% transparent margin around all extremes. Fit the compact pose rather than cropping a fist. True transparent alpha around figure and between all limbs. Remove the original backdrop/vignette/glow. No floor, cast shadow, scenery, opponent, weapon, particles, speed streaks, impact effect, blood, text, labels, frame or watermark. Only pose, facial expression and natural cloth movement change."
+    },
+    {
+      "id": "orin-hit",
+      "file": "orin-hit.webp",
+      "character": "Orin",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/orin.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-860a5b06-1450-4699-95b7-acd3c6db01b0",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve character pose edit.\nEdit the supplied canonical ORIN portrait into a HIT REACTION pose for a painted2D game sprite. Exactly ONE full-body character, ONE pose,1024x1536 portrait canvas, real transparent RGBA background.\n\nPreserve the exact adult man's identity: long freckled light-skinned face, expressive fine brows and greenish eyes behind thin round wire spectacles, auburn wavy hair tied loosely in a low ponytail, tall very slim body. Preserve the long weathered sleeveless indigo-blue vest with brass buttons/pockets, rolled cream shirt sleeves and open cream collar with NO scarf, charcoal trousers with two stitched knee patches, leather belt, gold pocket-watch chain and brown lace-up ankle boots. Same ink outlines, painted gouache fabric texture, warm restrained lighting and mature proportions. Glasses stay on and intact. No added accessories, equipment or changed face.\n\nPOSE: Orin remains oriented toward SCREEN RIGHT, struck by an unseen opponent on the RIGHT. His shoulders and head jolt backward toward SCREEN LEFT in an immediate involuntary recoil, torso bending back slightly, eyes pinched closed in a wince behind his glasses, mouth parted. One hand opens near the struck upper ribs while the other extends a little outward for balance. His knees bend, rear supporting foot is grounded, front heel lifts briefly. Ponytail and vest tails follow the jolt. This must clearly read as receiving a hit, not attacking or ready guard; he remains upright and capable of recovering. Empty hands, no wound or blood, no damage to clothing or glasses.\n\nFRAMING: original eye-level camera and near-full-height scale, body centered, supporting sole around95% image height. Whole ponytail, both hands, all vest edges and both full boots fit with5% transparent safe margins. Keep the pose compact; never clip the hands or boots. True alpha outside the character and in limb gaps; remove original vignette/glow. No floor, cast shadow, background, opponent, particles, impact symbol, speed streaks, weapon, text, borders or watermark. Change only pose, expression and natural cloth movement."
+    },
+    {
+      "id": "orin-scarf-attack",
+      "file": "orin-scarf-attack.webp",
+      "character": "Orin",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/orin-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-07897423-5adb-4cb6-9246-b8229741dab4",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve wardrobe edit.\nCreate ORIN'S SCARF ATTACK variant by editing IMAGE1, the finished plain attack sprite. IMAGE2 is only the canonical scarf/costume reference. Output ONE character on the exact same1024x1536 portrait canvas with genuine transparent RGBA background.\n\nCHANGE ONLY THE NECKWEAR: add the same warm mustard-gold wool scarf shown in IMAGE2, wrapped in the same layered soft folds, the same short fringed hanging ends, and the same round indigo-blue four-hole fastening button at the front/right of the wrap. Preserve the scarf's exact material, colour, wrap/fastening design and relative size; adapt its folds very slightly to the neck position in IMAGE1. It naturally covers the open cream collar where necessary. No other accessory or wardrobe change.\n\nLOCK ALL OTHER PARTS TO IMAGE1: keep the exact rightward punch pose, both arms and hands, fist placement, guarded hand, facial expression, glasses, auburn ponytail, body proportions, every boot and vest tail, stance, camera, framing, character scale and lighting. Preserve the mature slim bespectacled Orin identity and painterly ink/gouache surfaces. Do not regenerate a different pose, move limbs, alter face, change the blue vest, remove trouser patches or shift the gold pocket-watch chain. Both hands stay empty. Keep the full figure and all extremities visible, at the same locations as IMAGE1.\n\nGenuine transparent alpha around character and through all gaps; no backdrop, vignette, floor, shadow, glow, scenery, opponent, weapon, particles, text, label, frame or watermark. This is a tightly controlled scarf-on variant of the already finished attack pose, not a new combat illustration.",
+      "edit_target_asset": {
+        "id": "orin-attack",
+        "generation_id": "exec-f8a360d8-8b1e-4ecb-a71c-2b9b2fdb83ec",
+        "original_png_sha256": "5cca575a1300a02dd1292fd22f7a2f4aa1d1d9915a2812b2bb1b35f0ac914ab0"
+      }
+    },
+    {
+      "id": "orin-scarf-hit",
+      "file": "orin-scarf-hit.webp",
+      "character": "Orin",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/orin-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-ff7d434d-b692-4e45-8dc9-10da7ccb03b2",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve wardrobe edit.\nCreate ORIN'S SCARF HIT variant by editing IMAGE1, the finished plain hit-reaction sprite. IMAGE2 is only the canonical scarf/costume reference. Output ONE character on the exact same 1024x1536 portrait canvas with genuine transparent RGBA background.\n\nCHANGE ONLY THE NECKWEAR: add the same warm mustard-gold wool scarf shown in IMAGE2, wrapped in the same layered soft folds, the same short fringed hanging ends, and the same round indigo-blue four-hole fastening button at the front/right of the wrap. Preserve the scarf's exact material, colour, wrap/fastening design and relative size; adapt its folds very slightly to the neck position in IMAGE1. It naturally covers the open cream collar where necessary. No other accessory or wardrobe change.\n\nLOCK ALL OTHER PARTS TO IMAGE1: keep the exact leftward recoil pose caused by a blow from the right, both arms and hands, the open balance hand, wincing facial expression, glasses, auburn ponytail, body proportions, every boot and vest tail, stance, camera, framing, character scale and lighting. Preserve the mature slim bespectacled Orin identity and painterly ink/gouache surfaces. Do not regenerate a different pose, move limbs, alter face, change the blue vest, remove trouser patches or shift the gold pocket-watch chain. Both hands stay empty. Keep the full figure and all extremities visible, at the same locations as IMAGE1.\n\nGenuine transparent alpha around character and through all gaps; no backdrop, vignette, floor, shadow, glow, scenery, opponent, weapon, particles, text, label, frame or watermark. This is a tightly controlled scarf-on variant of the already finished hit pose, not a new combat illustration.",
+      "edit_target_asset": {
+        "id": "orin-hit",
+        "generation_id": "exec-860a5b06-1450-4699-95b7-acd3c6db01b0",
+        "original_png_sha256": "e1343f38e331518308f83210c7e1114166f91bd93f847b80643a79dbb6bce46a"
+      }
+    },
+    {
+      "id": "rue-attack",
+      "file": "rue-attack.webp",
+      "character": "Rue",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/rue.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-2f1cf22f-b296-4361-a0b5-93eaaab87e2a",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve character pose edit.\nEdit the supplied canonical portrait of RUE into an ATTACK pose for a painted2D game sprite. ONE character in ONE pose, full body,1024x1536 portrait, genuine transparent RGBA background.\n\nPreserve Rue's exact recognizable face, deep warm brown complexion, close-cropped tightly curly black hair, arched brows, poised mature expression, slim long-limbed build and source proportions. Keep the complete BASE costume exactly: weathered deep royal-blue railway/travel coat with broad lapels, brass double-breasted fastenings and epaulettes, cream open collar and cuffs, dark waistcoat, brown leather belt with brass buckle, blue trousers, tall worn dark buckle boots, and the blue/gold cap hanging at the hip as in the source. This is the plain version: NO orange scarf, no new accessories. Both hands are empty. Preserve the original detailed gouache-painted cloth and skin, fine ink contours, anime-influenced facial drawing, muted blue/brass/cream palette and warm neutral lighting.\n\nATTACK pose: Rue faces SCREEN RIGHT in three-quarter view, delivering a compact decisive straight punch to an unseen opponent on the right. Leading fist extends right at shoulder height, opposite hand guards the ribs. She plants the forward rightward boot and braces the other foot, knees slightly flexed; torso twists with a restrained confident movement. Blue coat tails trail a little to the left; the belt and hanging cap remain attached naturally. Focused determined eyes toward the offscreen target, jaw set, still unmistakably Rue. No opponent, weapon, projectile, action effect or dramatic acrobatics.\n\nKeep eye-level camera and source full-body scale. Center torso, soles around94-95% canvas height. Entire head, extended fist, coat tails, hip cap and both boots must fit with50px transparent side margins and40px top/bottom. Exactly two arms and two legs with anatomically credible hands. Transparent alpha background and silhouette gaps, clean antialiased edges; remove the source vignette/glow. No scenery, floor, cast shadow, particles, motion streaks, blood, text, labels, border or watermark."
+    },
+    {
+      "id": "rue-hit",
+      "file": "rue-hit.webp",
+      "character": "Rue",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/rue.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-03f57aa7-f8ea-4e68-82ea-a878a2339345",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve character pose edit.\nEdit the supplied canonical portrait of RUE into the HIT REACTION / recoil pose for a painted2D game sprite. Exactly ONE full-body character in ONE pose,1024x1536 portrait, genuinely transparent RGBA background.\n\nPreserve Rue's exact recognizable face, deep warm brown complexion, close-cropped tightly curly black hair, arched brows, slim long-limbed build, mature poise and source proportions. Preserve every BASE costume feature: weathered deep royal-blue long coat with large lapels, brass double-breasted fasteners and epaulettes, ivory shirt collar and cuffs, dark waistcoat, leather belt and buckle, blue trousers, tall dark buckle boots, blue/gold cap attached at the hip. Plain version: NO orange scarf. No new equipment or hand-held props. Keep the source's refined ink outlines, textured gouache painting, anime-influenced expressive face and muted blue/brass/cream palette.\n\nHIT REACTION: Rue remains oriented toward SCREEN RIGHT but receives a sudden blow from an unseen opponent on the RIGHT. Capture an involuntary recoil toward SCREEN LEFT: head and shoulders snap back left, eyes briefly wince closed, jaw and mouth tense, torso bends back a little, one hand opens reflexively close to upper ribs while the other reaches slightly out for balance. Knees flex; rear leftward boot catches her weight and the front boot lifts a little. Coat skirts and the attached hip cap follow the motion naturally. Distinct receiving-hit gesture, still standing and able to recover, not a voluntary ready stance, attack, dance, collapse or defeat. No bruising, blood, wounds, damaged costume or impact effects.\n\nMatch original eye-level camera and overall full-body scale. Center torso, support foot at94-95% canvas height. Show ALL hair, fingers, coat tails, cap and BOTH boots with50px transparent side margins and40px above/below. Two arms and two legs, natural hands. Clean true transparent RGBA around figure and through silhouette gaps; remove original vignette/glow. No scenery, floor, cast shadow, opponent, weapon, sparks, particles, motion lines, text, labels, border or watermark."
+    },
+    {
+      "id": "rue-scarf-attack",
+      "file": "rue-scarf-attack.webp",
+      "character": "Rue",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/rue-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-0365f3f3-98e4-45c8-bd8e-a6b676389cd1",
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit, identity-preserve.\nCreate RUE'S OWN-SCARF ATTACK VARIANT from the two supplied images.\nIMAGE1 is the finished ATTACK sprite and is the exact edit target. IMAGE2 is Rue's canonical neutral SCARF portrait, supplied only as wardrobe reference.\n\nAdd ONLY the canonical warm orange knitted/woven scarf from IMAGE2 around Rue's neck in IMAGE1, including the matching folds, two short fringed ends and the BLUE round four-hole button fastening it. Fit it naturally over the existing collar for the current rightward punching pose. Preserve its precise orange colour and soft textured material from IMAGE2.\n\nKeep EVERYTHING ELSE in IMAGE1 unchanged: exact face/expression, complexion, hair, eye direction, head angle, rightward extended fist, guard hand, arms, fingers, torso, knee angles, feet, body placement, camera, canvas and figure scale. Preserve the blue railway coat with brass details, ivory shirt/cuffs, belt, hanging blue cap, trousers and dark boots. No costume redesign, new items, weapon or change in pose. The scarf is the only change apart from the minimum covered collar area. Preserve the same gouache textures and ink contours, source lighting and palette.\n\nOutput ONE full-body1024x1536 character, native facing SCREEN RIGHT, same framing and complete anatomy. Keep genuine transparent RGBA background and all internal transparent gaps. No vignette/glow, background, scenery, floor, cast shadow, impact graphics, motion lines, opponent, text, frame, label or watermark.",
+      "edit_target_asset": {
+        "id": "rue-attack",
+        "generation_id": "exec-2f1cf22f-b296-4361-a0b5-93eaaab87e2a",
+        "original_png_sha256": "206a518ba917dad397c085ab3bc4bf49154cbd659a9816a031e50d9174d2726a"
+      }
+    },
+    {
+      "id": "rue-scarf-hit",
+      "file": "rue-scarf-hit.webp",
+      "character": "Rue",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/rue-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-ed0978fd-ae18-4cce-90aa-1471efed67e4",
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit, identity-preserve.\nCreate RUE'S OWN-SCARF HIT REACTION VARIANT using these two supplied images.\nIMAGE1 is Rue's finished HIT/RECOIL sprite and is the exact edit target. IMAGE2 is the canonical neutral SCARF portrait, supplied only for the scarf's design.\n\nAdd ONLY the warm orange soft knitted/woven scarf from IMAGE2 around the neck in IMAGE1, with the exact characteristic folds, two short fringed ends and BLUE round four-hole button. The scarf should sit naturally on the existing coat collar in the current tilted recoil pose. Match its canonical orange colour and texture. Cover only the minimal necessary neckline.\n\nPreserve everything else in IMAGE1 EXACTLY: face identity, wince and closed eyes, skin tone, cropped curly hair, head tilt, posture, hand/finger positions, leftward receiving-hit recoil while oriented right, shoulders, bent knees, all boots, body placement, camera, framing and scale. Keep the blue coat, brass fasteners, ivory cuffs, belt, hanging hip cap, trousers and boots unchanged. No new objects, damage or costume changes beyond this one scarf. Preserve source gouache/ink rendering and lighting.\n\nOutput ONE full-body1024x1536 transparent RGBA sprite in the SAME pose. Native facingSCREEN RIGHT. Keep all anatomy and coat edges inside frame and preserve real transparency outside and between the figure's parts. No retained vignette or glow, background, scenery, ground/shadow, opponent, weapon, particles, impact symbol, motion streaks, blood, text, label, frame or watermark.",
+      "edit_target_asset": {
+        "id": "rue-hit",
+        "generation_id": "exec-03f57aa7-f8ea-4e68-82ea-a878a2339345",
+        "original_png_sha256": "4d8559888c71621d9c4604792c7e64bd2fcebc3845f76261a68f53bc1c0d07dd"
+      }
+    },
+    {
+      "id": "tavi-attack",
+      "file": "tavi-attack.webp",
+      "character": "Tavi",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/tavi.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-913cabbc-ca4b-42ee-b9a4-06a3975315b6",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve character pose edit.\nEdit the supplied canonical portrait of TAVI into the ATTACK pose for a painted 2D game sprite. Exactly ONE character in ONE pose, full body,1024x1536 portrait canvas, genuinely transparent RGBA background.\n\nPreserve the exact recognizable face, warm tan complexion, freckles, short exuberant tightly curly dark brown hair, lean youthful build and all costume details: moss/lime green patched cropped jacket, its ORIGINAL DARK GREEN hooded shoulder wrap/cloak with brass fastener, loose ivory open-collar shirt and rolled sleeves, charcoal knee-length patched shorts, brown leather belt and hip pouch, cream knitted socks, worn dark lace-up buckle boots. This is the BASE wardrobe: retain its green shoulder cloth; do NOT add the separate red scarf variant. Keep the same fine ink outlines, gouache-painted cloth and skin, expressive anime-influenced face, source palette and lighting. No new props, equipment or accessories.\n\nATTACK pose: Tavi faces SCREEN RIGHT in readable three-quarter view. A compact quick unarmed straight punch toward an offscreen opponent at shoulder height, fist clearly directed right, other empty hand guarding by the ribs. Weight moves onto the rightward front foot, knees flex and rear foot braces. Torso twists energetically, curly hair and the green shoulder cloth follow the turn, without excessively spreading the silhouette. Focused determined eyes toward the opponent, tense mouth, recognizable face. The action should read as a practical short strike rather than posing or pointing. No weapon, opponent, impact graphic or magical effect.\n\nMaintain the source camera, full-body proportions and approximately the same figure scale. Center body axis, both soles around94-95% of canvas height. The complete extended fist, curls, wrap tails, knees and BOTH full boots must fit within the frame, leaving at least50px transparent margin on left/right and40px top/bottom. Two hands, two arms, two legs; natural anatomy. Clean real transparent alpha around the body and within gaps. REMOVE the original vignette/glow completely. No scenery, floor, cast shadow, particles, dust, speed lines, text, labels, frame or watermark."
+    },
+    {
+      "id": "tavi-hit",
+      "file": "tavi-hit.webp",
+      "character": "Tavi",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/tavi.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-025aaa12-b9d2-4249-b22f-14dc8291ef82",
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve character pose edit.\nEdit the supplied canonical portrait of TAVI into a HIT REACTION / recoil pose for a painted 2D game sprite. Exactly ONE full-body character, ONE pose,1024x1536 portrait canvas, real transparent RGBA background.\n\nStrictly preserve Tavi's recognizable warm tan face, freckles, short abundant curly dark brown hair, lean youthful build and exact BASE wardrobe: moss/lime green patched cropped jacket, original DARK GREEN hooded shoulder wrap/cloak and brass fastener, loose ivory shirt with rolled cuffs, charcoal knee-length shorts with hand-stitched patches, leather belt and hip pouch, cream knitted socks and worn dark lace-up buckle boots. Keep the green base shoulder cloth. Do not add the separate rust-red scarf variant or new props. Preserve source ink contours, textured gouache, expressive anime-influenced face and muted natural colours.\n\nHIT REACTION: Tavi is oriented toward SCREEN RIGHT and receives a blow from an offscreen opponent on the RIGHT. Show the immediate involuntary recoil to SCREEN LEFT: head and shoulders jolt backward left, eyes wince shut, mouth parts in surprise, torso twists back, one hand opens near the struck upper ribs and the other flies a little outward for balance. Knees bend, weight catches on the rear left boot and the front right boot lifts slightly. Curls and green wrap move with recoil. Clear receiving-impact silhouette, still upright and recoverable, not attacking, preparing to attack, pointing, dancing or defeated. Both hands remain empty. No wound, blood, injury marks, torn clothing or particles.\n\nKeep source eye-level camera, full body scale, torso near center, support sole at94-95% canvas height. Include entire curls, fingers, green wrap tails, knees and BOTH boots, with at least50px transparent margin at the sides and40px top/bottom. Exactly two arms and two legs with natural anatomy. Truly transparent background and internal gaps, clean alpha edges; remove all source vignette/glow. No scenery, ground, cast shadow, impact graphics, motion streaks, text, labels, frame or watermark."
+    },
+    {
+      "id": "tavi-scarf-attack",
+      "file": "tavi-scarf-attack.webp",
+      "character": "Tavi",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/tavi-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-4fca1388-c6d8-4be1-abaf-9e7a632f3fef",
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit, identity-preserve.\nCreate TAVI'S OWN-SCARF ATTACK VARIANT from the two supplied images.\nIMAGE1 is the finished full-body ATTACK sprite and is the edit target. IMAGE2 is Tavi's canonical neutral OWN-SCARF portrait and is only a wardrobe reference.\n\nChange ONLY the conditional shoulder wrap and fastener in IMAGE1: replace its dark green hooded wrap/cloak with the exact rust-red / burnt-red wrap from IMAGE2, including its mottled woven painted texture, folds and GREEN round four-hole button. Adapt the red wrap naturally to the EXISTING combat pose and cloth flow. It replaces the green wrap; do not put one scarf on top of another.\n\nPreserve IMAGE1 EXACTLY everywhere else: same Tavi face and expression, curly hair, head angle, arm and finger positions, rightward punch, guard hand, torso twist, feet, pose, scale, framing, green patched jacket, ivory shirt, charcoal patched shorts, brown belt/pouch, cream socks and worn boots. Do not repaint or redesign the character, change anatomy, add equipment, change the camera, move the figure or invent new clothes. Keep its distinct skin tone, proportions, gouache textures, fine ink edges and light.\n\nOutput ONE full-body character in the SAME1024x1536 canvas. Native facingSCREEN RIGHT. Full hands, curls, wrap tails and both boots must remain present. True transparent RGBA background and gaps, preserve existing transparency. No scenery, background/vignette/glow, ground shadow, new props, weapon, impact effect, particles, text, label, frame or watermark.",
+      "edit_target_asset": {
+        "id": "tavi-attack",
+        "generation_id": "exec-913cabbc-ca4b-42ee-b9a4-06a3975315b6",
+        "original_png_sha256": "21b9bcb6dbc6bb5f85237424cccfde7d4ae3915defce37232ba7742dbc5771b9"
+      }
+    },
+    {
+      "id": "tavi-scarf-hit",
+      "file": "tavi-scarf-hit.webp",
+      "character": "Tavi",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/tavi-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-d44b4b21-7fd4-4b98-89d3-8383261f5547",
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit, identity-preserve.\nCreate TAVI'S OWN-SCARF HIT REACTION VARIANT from these two images.\nIMAGE1 is the finished full-body HIT/RECOIL sprite and is the edit target. IMAGE2 is Tavi's canonical neutral OWN-SCARF portrait, supplied only for wardrobe.\n\nChange ONLY the conditional shoulder wrap and fastener of IMAGE1: replace its dark green hooded shoulder wrap with the exact mottled rust-red / burnt-red wrap and GREEN round four-hole button from IMAGE2. The red cloth follows the exact folds and flowing recoil silhouette of the existing green wrap. This replaces the base green cloth; no double scarves.\n\nEverything else in IMAGE1 stays EXACTLY unchanged: same face, pained expression and closed eyes, curly hair, head tilt, both hand/finger positions, receiving-hit recoil to the left while facing right, torso, bent knees, boots, framing, figure scale and camera. Preserve the green patched jacket, ivory shirt, charcoal patched shorts, belt/pouch, cream socks and brown boots unchanged. Preserve complexion, body proportions, painted gouache texture and fine ink linework. No new items or damage.\n\nOutput ONE full-body1024x1536 sprite in the same pose with a real transparent RGBA background. Preserve transparency around body and internal gaps. Entire hair, fingers, red cloth tails and both boots remain inside the frame. No background or retained vignette/glow, scenery, ground shadow, text, label, opponent, weapon, blood, particles, impact symbols, border or watermark.",
+      "edit_target_asset": {
+        "id": "tavi-hit",
+        "generation_id": "exec-025aaa12-b9d2-4249-b22f-14dc8291ef82",
+        "original_png_sha256": "b0496aa72d38361593848ba016fc4a47223a401c4be3a3089d82f8b7ec86dab5"
+      }
+    },
+    {
       "id": "vale-attack",
       "file": "vale-attack.webp",
       "character": "Vale",
@@ -79,6 +520,42 @@
       "generation_id": "exec-8ffa71c4-cc38-4132-ac00-4188fbca34b1",
       "transparent_background": true,
       "prompt": "Use case: identity-preserve character pose edit.\nEdit the supplied canonical portrait of VALE into a HIT REACTION / recoil pose for a painted 2D game sprite. Output exactly ONE character and ONE pose, full body, 1024x1536 portrait canvas, genuine transparent RGBA background.\n\nPreserve this exact youthful androgynous face, light warm complexion, short tousled wavy black hair, slim build and proportions, charcoal long coat with brass fastenings and oversized pockets, cream open-collar shirt, dark high-waisted trousers, leather belt and straps, tall worn dark boots. No scarf or new equipment. Match the original gouache-painted cloth and fine ink contours, anime-influenced expressive face, muted charcoal/cream/brown palette and restrained warm light.\n\nHIT pose, clearly different from attacking or simply guarding: Vale is oriented toward SCREEN RIGHT, reacting to a blow from an unseen opponent on the RIGHT. Capture the immediate involuntary recoil: shoulders and head knocked back toward SCREEN LEFT, eyes squeezed shut in a short wince, mouth parted, torso bending back and twisting a little, leading right-side shoulder raised, one hand half open drawn toward the struck upper ribs while the other arm flies slightly outward to regain balance. Knees buckle lightly, front boot lifts just a little while the rear foot braces. Coat hem and hair follow the recoil. A believable brief loss of balance, still upright and ready to recover, not a falling or defeated pose. Both hands empty. No opponent, visible wound, blood or permanent damage.\n\nFraming: maintain the source's eye-level view, near-full canvas body scale and character identity. Both full boots and the whole head, hands, coat tails must fit, with 5% clear margin around all extreme points. Body remains near the center, grounded rear sole around95% canvas height. Real transparent alpha outside the character and between limbs. REMOVE original vignette or any painted background/glow. No scenery, floor, cast shadow, impact star, sparks, smoke, speed lines, extra copies, lettering, label, frame or watermark. Preserve costume and anatomy; change only expression, pose and cloth movement."
+    },
+    {
+      "id": "vale-scarf-attack",
+      "file": "vale-scarf-attack.webp",
+      "character": "Vale",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/vale-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-49f1bf42-07ac-43bd-9b06-64d680675766",
+      "transparent_background": true,
+      "prompt": "Use case: precise wardrobe edit, identity-preserve game sprite.\nCreate VALE'S SCARF ATTACK VARIANT from two supplied images.\nIMAGE1 is the completed plain attack sprite. This is the edit target: retain its EXACT pose, face, expression, hair, proportions, camera, character position, outstretched punching arm, other fist, coat movement, trousers, boots, framing and transparent alpha silhouette.\nIMAGE2 is Vale's canonical neutral scarf portrait. Use it ONLY as the scarf/fastening wardrobe reference, not for pose.\n\nCHANGE ONLY the neckline: add the exact warm IVORY knitted wool scarf from image2, with its same generous loop around the neck, visible knit texture, hanging fringed ends at upper chest, and round CHARCOAL four-hole button securing the crossing near the shoulder. Match the scarf's scale, cream tone, wrap direction and button placement from image2. Allow just a slight natural lift of fringe consistent with the rightward attack. Adapt neckline layers where the scarf overlaps the shirt, while preserving every visible part of the existing clothes and body elsewhere. Do not add a hood, different scarf color, extra fabric, weapon or carried item. The white scarf and dark button must remain readily distinguishable.\n\nThis is still the SAME rightward unarmed attack. Do not redraw the body into a new pose, change the face, shift the hands or resize the figure. Keep the original gouache-and-ink painted texture and muted warm lighting. Output ONE full-body1024x1536 PNG-style sprite with real transparent background. All hands, hair, scarf, coat tails and boots remain inside the same frame. No backdrop/vignette/floor/shadow, lettering, effects, extra copies or watermark.",
+      "edit_target_asset": {
+        "id": "vale-attack",
+        "generation_id": "exec-74335f6e-7b0e-4e4c-922b-758d78a3bbc9",
+        "original_png_sha256": "4c719c7e36dfc19521f2d91527f5b72220cc82d565d578c4ad94a32fd85c1cb6"
+      }
+    },
+    {
+      "id": "vale-scarf-hit",
+      "file": "vale-scarf-hit.webp",
+      "character": "Vale",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/vale-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-87c2fd7a-c419-4581-955f-68c9d9080baf",
+      "transparent_background": true,
+      "prompt": "Use case: precise wardrobe edit, identity-preserve game sprite.\nCreate VALE'S SCARF HIT VARIANT from the two supplied images.\nIMAGE1 is the finished plain HIT/RECOIL pose. It is the edit target. Preserve its EXACT leftward recoil, eyes-shut wince, facial identity, hair, hand positions, bent legs, coat movement, full-body scale, framing, boots, empty hands and native orientation toward screenRIGHT.\nIMAGE2 is Vale's canonical neutral scarf portrait. It is ONLY a reference for his particular scarf and fastening.\n\nCHANGE ONLY the neck and upper-chest wardrobe: add the same warm IVORY knitted scarf, generous neck loop, fringed hanging ends, and round dark CHARCOAL four-hole button from image2. Keep the scarf's recognizable cream tone, knit, wrap direction, volume and button scale. Its fringe may follow the existing recoil slightly. Where it overlaps the collar, cover the necessary shirt areas naturally; preserve every other part of the completed hit sprite exactly. No new accessories, hood, weapon or carried prop. This is still the identical receiving-hit reaction, not a new pose.\n\nMatch the source's gouache fabric and fine ink outline, muted warm lighting, charcoal coat and cream shirt. Output exactly ONE transparent full-body1024x1536 sprite, same camera and same silhouette apart from the added scarf. Do not crop head, hands, coat or boots. Real transparent alpha outside the figure and in limb gaps; no retained vignette, scenery, floor, cast shadow, effects, text, border or watermark.",
+      "edit_target_asset": {
+        "id": "vale-hit",
+        "generation_id": "exec-8ffa71c4-cc38-4132-ac00-4188fbca34b1",
+        "original_png_sha256": "e7c6e32791b3ac12cfea34d86fce6103f4e6a7db0fb0e7442509663bda8c3ef9"
+      }
     }
   ]
 }
