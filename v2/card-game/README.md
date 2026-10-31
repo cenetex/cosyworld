@@ -773,6 +773,10 @@ server. The served page receives the matching wait budget. Operators can set
 All released Greek places share day and night. Each light setting lasts
 twenty-four accepted world turns. The Theban places, Athens, Colonus, Eleusis,
 Marathon, the ship's deck and the Trojan camp have matching night paintings.
+The deck shows its pack backdrop `assets/greek-drama/ship-deck.webp` by day and
+`ship-deck-night.webp` at night (`daylight.mjs`), at port or at sea. New day art
+replaces `ship-deck.webp` under the same name; then run
+`npm run v2:card:images:build` and `npm run v2:card:assets:build`.
 The eight Attic roads share an olive-road painting in both light settings.
 The Theban Harbor Road has its own coast and town painting in both settings.
 Road approach cards use the same light as the road scene. All three harbors
@@ -784,6 +788,8 @@ Greek weather follows one cycle per region. Each period lasts twelve accepted
 world turns. Clear skies, cloud, rain, and mist appear in the scene and on place
 cards. Coasts, courtyards, open ground, groves, and shelters each have their own
 view of the regional weather. The Underworld has low mist above its water.
+The Greek ship has its own `sea` region wherever it lies: mist, rain, mist,
+rain, mist, then a clear spell, so a crossing feels like weather.
 The cycles and each place's region and exposure are data in `weather.json`.
 The rules commit only the weather word: dialogue facts read `Weather: rain.`,
 and the narrator's own words describe it.
@@ -809,17 +815,18 @@ six seconds, so a storm gathers and mist lifts instead of snapping. Travel cuts
 under its veil, and reduced motion cuts everywhere. These are presentation only:
 they read the committed scene, so local and shared play look the same.
 
-On Halloween (31 October, browser local date; `HALLOWEEN_DAYS` in
-`transitions.mjs`) some entries to a place briefly show one image as something
+In the Willows all year (`UNCANNY_PLACES` in `transitions.mjs`, client data the
+rules never read), and elsewhere on Halloween (31 October, browser local date;
+`HALLOWEEN_DAYS`), some entries to a place briefly show one image as something
 else for 140 milliseconds: either a figure or the painting, never both. The
 copy is the image's own name with `-uncanny.webp`, such as
 `assets/willows/swede-seated-uncanny.webp` beside `swede-seated.webp`. Images
 without a copy registered in `image-variants.json` never flicker, so new art
 needs no code. The copy is preloaded and stacked on its image with the same box
 and light filter, so nothing moves or brightens. There is at most one cut per
-entry and none within 30 seconds. Reduced motion and Settings → Flashes and
-scares: off disable it. `?halloween=1` or `?halloween=0` forces the date for
-testing.
+entry, a 40% chance, and none within 30 seconds. Reduced motion and Settings → Flashes and
+scares: off disable it. `?halloween=1` or `?halloween=0` forces the flicker on
+or off everywhere for testing.
 
 New Greek games expose the harbor and six Theban places, each with a distinct
 painting. The Open Door adds five paintings and eight resident portraits.

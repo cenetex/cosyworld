@@ -16,13 +16,20 @@ import { darkMist, isNight } from "../card-game/daylight.mjs";
 import { locationWeather } from "../card-game/weather.mjs";
 
 // The Willows mist rises beside the ship's rail only on a misty night while
-// the ship lies at Black Pond. Saves skip ahead on the world clock; the ship
-// is called home and counts its idle rounds from the new turn.
+// the ship lies at Black Pond or sails between ports. Saves skip ahead on the
+// world clock; the ship is brought home and counts its idle rounds from the
+// new turn. The sea mist returns every 48 turns, so a resident is often still
+// aboard and would hold back a lamp call; the save sets the dock directly.
 const until = (world, ok) => {
   while (!ok(world)) world.turn += 1;
   world.revision = Math.max(world.revision, world.turn);
   if (world.transports["greek-ship"].dock !== "pond")
-    summonTransport(world, "greek-ship", "pond");
+    Object.assign(world.transports["greek-ship"], {
+      phase: "docked",
+      dock: "pond",
+      destination: null,
+      recall: null,
+    });
   world.transports["greek-ship"].since = world.turn;
   return world;
 };

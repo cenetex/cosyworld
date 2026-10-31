@@ -53,6 +53,14 @@ export function crossfadeImage(img, source, { duration = CROSSFADE_MS } = {}) {
 // Halloween: on some entries to a place, one figure or the painting itself is
 // briefly something else. Change the window here; months count from 1.
 export const HALLOWEEN_DAYS = ["10-31"];
+// Places that stay uncanny all year. Presentation data only; the rules,
+// saves and the shared engine never read it.
+export const UNCANNY_PLACES = [
+  "willows-landing",
+  "willows-camp",
+  "willows-thicket",
+  "willows-bank",
+];
 // Each image has its own uncanny copy beside it: swede-seated.webp shows
 // swede-seated-uncanny.webp, riverbank.webp shows riverbank-uncanny.webp. An
 // image without a published copy never flickers, so art can arrive later
@@ -80,6 +88,18 @@ export function isHalloween(
   const forced = new URLSearchParams(search || "").get("halloween");
   if (forced === "1" || forced === "0") return forced === "1";
   return HALLOWEEN_DAYS.includes(`${date.getMonth() + 1}-${date.getDate()}`);
+}
+
+// The flicker may run at this place now: always at an uncanny place, else on
+// Halloween. `?halloween=1` or `?halloween=0` forces it everywhere.
+export function uncannyAt(
+  place,
+  date = new Date(),
+  search = globalThis.location?.search,
+) {
+  const forced = new URLSearchParams(search || "").get("halloween");
+  if (forced === "1" || forced === "0") return forced === "1";
+  return UNCANNY_PLACES.includes(place) || isHalloween(date, search);
 }
 
 export function scaresEnabled() {
@@ -161,7 +181,7 @@ export function hauntScene(stage, place, { reduced, url = (s) => s }) {
   const choice = apparitionFor({
     sources: images.map((img) => img.dataset.source),
     entered,
-    halloween: isHalloween(),
+    halloween: uncannyAt(place),
     reduced,
     scares: scaresEnabled(),
     now: performance.now(),
