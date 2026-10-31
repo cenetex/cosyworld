@@ -5,6 +5,8 @@ on:
     branches: ["**"]
   push:
     branches: [main, develop]
+  # Runs the full suite on a pushed branch without a pull request.
+  workflow_dispatch:
 
 # A newer push cancels a pull request's run. On main a running check finishes,
 # so main gets complete results and saves its caches; GitHub keeps only the
