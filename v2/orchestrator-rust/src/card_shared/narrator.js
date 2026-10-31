@@ -20045,6 +20045,116 @@
     return validateWorld(s);
   }
 
+  // v2/card-game/scene-cast.mjs
+  function sceneChanges(world) {
+    const here = world.actors[currentActor(world)].place;
+    return world.log.filter(
+      (entry) => entry.turn === world.turn && !entry.generated && entry.actorId && entry.actorId !== currentActor(world) && entityActive(world, entry.actorId) && entry.fromLocationId && entry.locationId !== entry.fromLocationId && (entry.locationId === here || entry.fromLocationId === here) && world.actors[entry.actorId].place === entry.locationId
+    ).map((entry) => ({
+      actorId: entry.actorId,
+      from: entry.fromLocationId,
+      to: entry.locationId,
+      leaving: entry.fromLocationId === here
+    }));
+  }
+  function speechMemories(memory, { expressions = true } = {}) {
+    const concrete = (e) => e.kind === "event" && !/completes hand|finds a new purpose:| Level \d/u.test(e.text);
+    const recent = memory.events.filter(concrete).slice(-4);
+    const lasting = (memory.landmarks || []).filter(concrete).filter((e) => !recent.some((r) => r.seq === e.seq)).slice(-2);
+    const said = expressions ? memory.events.filter((e) => e.kind === "expression").slice(-2) : [];
+    return [...lasting, ...recent, ...said].sort((a, b) => a.seq - b.seq).map(({ seq, turn, kind, text: text2 }) => ({ seq, turn, kind, text: text2 }));
+  }
+  function defeatedBy(world, location) {
+    const actor = currentActor(world);
+    const moved = world.log.findLast(
+      (e) => e.turn === world.turn && !e.generated && e.actorId === actor && e.locationId === location && e.fromLocationId && e.fromLocationId !== location && (["retreat", "sent-home"].includes(e.verb) || !e.verb && /after yielding to/u.test(e.text || ""))
+    );
+    const blow = moved && world.log.findLast(
+      (e) => e.turn === world.turn && e.verb === "attack" && e.targetId === actor && e.seq < moved.seq
+    );
+    return blow ? blow.actorId : null;
+  }
+  function waitedThisTurn(world) {
+    const actor = currentActor(world);
+    for (let i = world.log.length - 1; i >= 0; i--) {
+      const entry = world.log[i];
+      if (entry.turn !== world.turn) return false;
+      if (entry.verb === "wait" && entry.actorId === actor) return true;
+    }
+    return false;
+  }
+  function dialogueCast(world, action = null) {
+    const location = world.actors[currentActor(world)].place;
+    const beforeFirstLight = Boolean(
+      world.opening?.version === 1 && !world.locations.attic.anchored
+    );
+    const known = knownActors(world);
+    const present = Object.keys(world.actors).filter(
+      (id) => known.includes(id) && entityActive(world, id) && world.actors[id].place === location && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
+    );
+    const localItems = Object.keys(world.items).filter(
+      (id) => entityActive(world, id) && itemPlace2(world, id) === location
+    );
+    const changes = sceneChanges(world);
+    const departing = changes.filter((change) => change.leaving).map((change) => change.actorId);
+    const awake = (id) => !hasTemperament(id) || world.actors[id].awake;
+    const introductions = present.filter(
+      (id) => id !== currentActor(world) && awake(id) && world.opening?.met[id] === world.turn
+    );
+    const audience = [.../* @__PURE__ */ new Set([...present, ...departing])];
+    const focus = localItems.includes(action?.item) ? action.item : null;
+    const played = world.log.findLast(
+      (entry) => entry.turn === world.turn && entry.kind === "action" && entry.actorId === currentActor(world)
+    );
+    const target = action?.target || played?.targetId;
+    const directPartner = audience.includes(target) && target !== currentActor(world) && awake(target);
+    const partner = directPartner ? target : introductions[0] || departing[0] || present.find((id) => id !== currentActor(world) && awake(id));
+    const movers = changes.map((change) => change.actorId);
+    const chosen = new Set(
+      [currentActor(world), partner, ...introductions, ...movers].filter(
+        (id) => id && awake(id)
+      )
+    );
+    const defeat = defeatedBy(world, location);
+    const host = defeat && present.find((id) => id !== currentActor(world) && awake(id));
+    const speakers = defeat ? [host || currentActor(world)] : [
+      currentActor(world),
+      ...[...chosen].filter(
+        (id) => id !== currentActor(world) && !movers.includes(id)
+      ),
+      ...movers.filter((id) => id !== currentActor(world) && chosen.has(id))
+    ].slice(0, 3);
+    const ids3 = [
+      .../* @__PURE__ */ new Set([
+        location,
+        ...speakers,
+        focus,
+        target,
+        ...audience,
+        ...localItems
+      ])
+    ].filter(
+      (id) => id && (id === location || audience.includes(id) || localItems.includes(id))
+    ).slice(0, 8);
+    const resting2 = speakers[0] === currentActor(world) && (played ? played.verb === "wait" : waitedThisTurn(world)) ? currentActor(world) : null;
+    return {
+      location,
+      beforeFirstLight,
+      known,
+      present,
+      localItems,
+      changes,
+      audience,
+      focus,
+      played,
+      target,
+      defeat,
+      speakers,
+      ids: ids3,
+      resting: resting2
+    };
+  }
+
   // v2/card-game/shared-world.mjs
   function ids2(value, fallback = []) {
     const result = value === void 0 ? fallback : value;
@@ -20168,130 +20278,10 @@
     return dockedNightBackdrops[file] || nightBackdrops[id];
   }
 
-  // v2/card-game/scene.mjs
-  var lampLitHere = (world, place) => shining(world) && itemPlace2(world, "lamp") === place;
-  var darkAttic = (world, id) => id === "attic" && world?.actors && !lampLitHere(world, id);
-  function backdrop(id, world = null) {
-    if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
-    const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-    const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
-    return file ? `./${file}` : `./assets/${id}.png`;
-  }
-  var visibleCrossing = (world, place) => crossings.find(
-    (c) => c.from === place && (c.scenery?.overlay || c.scenery?.backdrop) && crossingOpen(world, c, senses)
-  );
-  function locationVariant(world, id) {
-    if (darkAttic(world, id)) return "dark";
-    const crossing = visibleCrossing(world, id)?.id || "base";
-    const weather = locationWeather(world, id);
-    const variant = weather ? `${crossing}:${weather.variant}` : crossing;
-    return locationDaylight(world, id)?.phase === "night" ? `${variant}:night` : variant;
-  }
-  var locationOverlay = (world, id) => {
-    const f = visibleCrossing(world, id)?.scenery.overlay;
-    return f ? `./${f}` : null;
-  };
-  var personIds = Object.keys(people);
-  var speakerId = (entry) => entry.actorId || personIds.find((id) => nameOf(id) === entry.speaker) || null;
-  var entryKind = (entry) => entry.kind || (speakerId(entry) ? "dialogue" : entry.speaker === "You" ? "input" : "narration");
-  function sceneChanges(world) {
-    const here = world.actors[currentActor(world)].place;
-    return world.log.filter(
-      (entry) => entry.turn === world.turn && !entry.generated && entry.actorId && entry.actorId !== currentActor(world) && entityActive(world, entry.actorId) && entry.fromLocationId && entry.locationId !== entry.fromLocationId && (entry.locationId === here || entry.fromLocationId === here) && world.actors[entry.actorId].place === entry.locationId
-    ).map((entry) => ({
-      actorId: entry.actorId,
-      from: entry.fromLocationId,
-      to: entry.locationId,
-      leaving: entry.fromLocationId === here
-    }));
-  }
-  function sceneCast(world, through = world.log.length - 1, recordedCast = null) {
-    const here = world.actors[currentActor(world)].place;
-    const known = recordedCast ? null : new Set(knownActors(world));
-    const present = recordedCast || personIds.filter(
-      (id) => known.has(id) && world.actors[id].place === here && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
-    );
-    const target = world.log.slice(0, through + 1).findLast(
-      (entry) => entry.turn === world.turn && entry.actorId === currentActor(world) && entry.kind === "action"
-    )?.targetId;
-    const priority = [.../* @__PURE__ */ new Set([currentActor(world), target, ...present])].filter((id) => present.includes(id) && people[id]).slice(0, world.controlledActors ? 6 : 3);
-    const slots = personIds.filter((id) => priority.includes(id));
-    while (slots.length < 2) slots.push(null);
-    return slots;
-  }
-  function exchangeCast(world, line) {
-    return [
-      ...new Set(
-        world.log.filter(
-          (e) => e.generated && e.turn === line.turn && e.locationId === line.locationId
-        ).flatMap((e) => e.cast || [])
-      )
-    ];
-  }
-  function sceneLines(world) {
-    const here = world.actors[currentActor(world)].place;
-    return world.log.map((entry, index) => ({ ...entry, index })).filter(
-      (e) => e.generated === true && (!e.locationId || e.locationId === here)
-    );
-  }
-  function visitStart(world, through = world.log.length - 1) {
-    const here = world.actors[currentActor(world)].place;
-    return Math.max(
-      0,
-      world.log.findLastIndex(
-        (entry, index) => index <= through && !entry.generated && entry.actorId === currentActor(world) && entry.fromLocationId && entry.fromLocationId !== here && entry.locationId === here
-      )
-    );
-  }
-  function currentScene(world, lineIndex = null, { hold = false, seq = null, review = false } = {}) {
-    const lines = sceneLines(world);
-    const chosen = lines.find(
-      (e) => seq === null ? e.index === lineIndex : e.seq === seq
-    );
-    const start = visitStart(world, chosen?.index);
-    const line = chosen || !hold && lines.findLast((e) => e.index >= start) || null;
-    const previous = line ? lines.findLast((e) => e.index < line.index && e.index >= start) || null : null;
-    return {
-      locationId: world.actors[currentActor(world)].place,
-      background: backdrop(world.actors[currentActor(world)].place, world),
-      variant: locationVariant(world, world.actors[currentActor(world)].place),
-      overlay: locationOverlay(world, world.actors[currentActor(world)].place),
-      weather: locationWeather(world, world.actors[currentActor(world)].place),
-      daylight: locationDaylight(world, world.actors[currentActor(world)].place),
-      visitStart: start,
-      slots: sceneCast(
-        world,
-        line?.index,
-        review || lineIndex === null && seq === null || !line ? null : exchangeCast(world, line)
-      ),
-      activeSpeaker: line && entryKind(line) === "dialogue" ? speakerId(line) : null,
-      line,
-      previous,
-      lines
-    };
-  }
-
   // v2/card-game/narrative.mjs
   function refusalFact(played) {
     const asked = played.verb === "ask" ? `request for ${nameOf(played.itemId)}` : played.verb === "accompany" ? `invitation to ${nameOf(played.destinationId)}` : `offer of ${nameOf(played.itemId)}`;
     return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed. Say why in your own words.`;
-  }
-  function defeatArrival(world, location) {
-    const actor = currentActor(world);
-    const moved = world.log.findLast(
-      (e) => e.turn === world.turn && !e.generated && e.actorId === actor && e.locationId === location && e.fromLocationId && e.fromLocationId !== location && (["retreat", "sent-home"].includes(e.verb) || !e.verb && /after yielding to/u.test(e.text || ""))
-    );
-    const blow = moved && world.log.findLast(
-      (e) => e.turn === world.turn && e.verb === "attack" && e.targetId === actor && e.seq < moved.seq
-    );
-    return blow ? `${nameOf(actor)} was beaten by ${nameOf(blow.actorId)} and came to at ${nameOf(location)}. Say one line.` : null;
-  }
-  function speechMemories2(memory, { expressions = true } = {}) {
-    const concrete = (e) => e.kind === "event" && !/completes hand|finds a new purpose:| Level \d/u.test(e.text);
-    const recent = memory.events.filter(concrete).slice(-4);
-    const lasting = (memory.landmarks || []).filter(concrete).filter((e) => !recent.some((r) => r.seq === e.seq)).slice(-2);
-    const said = expressions ? memory.events.filter((e) => e.kind === "expression").slice(-2) : [];
-    return [...lasting, ...recent, ...said].sort((a, b) => a.seq - b.seq).map(({ seq, turn, kind, text: text2 }) => ({ seq, turn, kind, text: text2 }));
   }
   function turnOutcome(world) {
     const events = world.log.filter(
@@ -20373,68 +20363,23 @@
     const offset = (seed ^ seed >>> 16) & 1;
     return turn % 4 === offset;
   }
-  function waitedThisTurn(world) {
-    const actor = currentActor(world);
-    for (let i = world.log.length - 1; i >= 0; i--) {
-      const entry = world.log[i];
-      if (entry.turn !== world.turn) return false;
-      if (entry.verb === "wait" && entry.actorId === actor) return true;
-    }
-    return false;
-  }
   function narrativeContext(world, action = null) {
-    const location = world.actors[currentActor(world)].place;
-    const beforeFirstLight = Boolean(
-      world.opening?.version === 1 && !world.locations.attic.anchored
-    );
-    const known = knownActors(world);
-    const present = Object.keys(world.actors).filter(
-      (id) => known.includes(id) && entityActive(world, id) && world.actors[id].place === location && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
-    );
-    const localItems = Object.keys(world.items).filter(
-      (id) => entityActive(world, id) && itemPlace2(world, id) === location
-    );
-    const changes = sceneChanges(world);
-    const departing = changes.filter((change) => change.leaving).map((change) => change.actorId);
-    const awake = (id) => !hasTemperament(id) || world.actors[id].awake;
-    const introductions = present.filter(
-      (id) => id !== currentActor(world) && awake(id) && world.opening?.met[id] === world.turn
-    );
-    const audience = [.../* @__PURE__ */ new Set([...present, ...departing])];
-    const focus = localItems.includes(action?.item) ? action.item : null;
-    const played = world.log.findLast(
-      (entry) => entry.turn === world.turn && entry.kind === "action" && entry.actorId === currentActor(world)
-    );
-    const target = action?.target || played?.targetId;
-    const directPartner = audience.includes(target) && target !== currentActor(world) && awake(target);
-    const partner = directPartner ? target : introductions[0] || departing[0] || present.find((id) => id !== currentActor(world) && awake(id));
-    const movers = changes.map((change) => change.actorId);
-    const chosen = new Set(
-      [currentActor(world), partner, ...introductions, ...movers].filter(
-        (id) => id && awake(id)
-      )
-    );
-    const defeated = defeatArrival(world, location);
-    const host = defeated && present.find((id) => id !== currentActor(world) && awake(id));
-    const speakers = defeated ? [host || currentActor(world)] : [
-      currentActor(world),
-      ...[...chosen].filter(
-        (id) => id !== currentActor(world) && !movers.includes(id)
-      ),
-      ...movers.filter((id) => id !== currentActor(world) && chosen.has(id))
-    ].slice(0, 3);
-    const ids3 = [
-      .../* @__PURE__ */ new Set([
-        location,
-        ...speakers,
-        focus,
-        target,
-        ...audience,
-        ...localItems
-      ])
-    ].filter(
-      (id) => id && (id === location || audience.includes(id) || localItems.includes(id))
-    ).slice(0, 8);
+    const cast = dialogueCast(world, action);
+    const {
+      location,
+      beforeFirstLight,
+      known,
+      present,
+      localItems,
+      changes,
+      focus,
+      played,
+      target,
+      speakers,
+      ids: ids3,
+      resting: resting2
+    } = cast;
+    const defeated = cast.defeat && `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}. Say one line.`;
     const disclosures = knowledgeDisclosures(
       world,
       speakers,
@@ -20453,11 +20398,11 @@
     const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
     const conversation = beforeFirstLight ? [] : world.log.filter(
       (entry) => entry.generated && entry.kind === "dialogue" && profiles[entry.actorId]?.kind === "avatar" && entry.locationId === location && entry.turn < world.turn
-    ).slice(-4).map(({ actorId, text: text2, cast, witnesses }) => ({
+    ).slice(-4).map(({ actorId, text: text2, cast: cast2, witnesses }) => ({
       actorId,
       text: text2,
       witnesses: [
-        .../* @__PURE__ */ new Set([actorId, ...witnesses || [], ...cast || []])
+        .../* @__PURE__ */ new Set([actorId, ...witnesses || [], ...cast2 || []])
       ]
     }));
     return {
@@ -20468,8 +20413,7 @@
       scenery: sceneryDue(world.turn),
       focus,
       speakers,
-      // Only the avatar who chose to wait turns inward this turn.
-      resting: speakers[0] === currentActor(world) && (played ? played.verb === "wait" : waitedThisTurn(world)) ? currentActor(world) : null,
+      resting: resting2,
       ...disclosures.length ? { disclosures } : {},
       action: played?.text || (world.turn ? `${nameOf(currentActor(world))} waits and watches the cast.` : null),
       events,
@@ -20608,7 +20552,7 @@
           poem: recitalContext(world, packDefinitions, id),
           facts: facts.slice(0, 16).map((text2) => text2.slice(0, 240)),
           desire,
-          memories: speechMemories2(world.memories[id], {
+          memories: speechMemories(world.memories[id], {
             expressions: !beforeFirstLight
           }),
           previous: beforeFirstLight ? null : world.memories[id].text,
@@ -20618,6 +20562,98 @@
           } : {}
         };
       })
+    };
+  }
+
+  // v2/card-game/scene.mjs
+  var lampLitHere = (world, place) => shining(world) && itemPlace2(world, "lamp") === place;
+  var darkAttic = (world, id) => id === "attic" && world?.actors && !lampLitHere(world, id);
+  function backdrop(id, world = null) {
+    if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
+    const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
+    const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
+    return file ? `./${file}` : `./assets/${id}.png`;
+  }
+  var visibleCrossing = (world, place) => crossings.find(
+    (c) => c.from === place && (c.scenery?.overlay || c.scenery?.backdrop) && crossingOpen(world, c, senses)
+  );
+  function locationVariant(world, id) {
+    if (darkAttic(world, id)) return "dark";
+    const crossing = visibleCrossing(world, id)?.id || "base";
+    const weather = locationWeather(world, id);
+    const variant = weather ? `${crossing}:${weather.variant}` : crossing;
+    return locationDaylight(world, id)?.phase === "night" ? `${variant}:night` : variant;
+  }
+  var locationOverlay = (world, id) => {
+    const f = visibleCrossing(world, id)?.scenery.overlay;
+    return f ? `./${f}` : null;
+  };
+  var personIds = Object.keys(people);
+  var speakerId = (entry) => entry.actorId || personIds.find((id) => nameOf(id) === entry.speaker) || null;
+  var entryKind = (entry) => entry.kind || (speakerId(entry) ? "dialogue" : entry.speaker === "You" ? "input" : "narration");
+  function sceneCast(world, through = world.log.length - 1, recordedCast = null) {
+    const here = world.actors[currentActor(world)].place;
+    const known = recordedCast ? null : new Set(knownActors(world));
+    const present = recordedCast || personIds.filter(
+      (id) => known.has(id) && world.actors[id].place === here && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
+    );
+    const target = world.log.slice(0, through + 1).findLast(
+      (entry) => entry.turn === world.turn && entry.actorId === currentActor(world) && entry.kind === "action"
+    )?.targetId;
+    const priority = [.../* @__PURE__ */ new Set([currentActor(world), target, ...present])].filter((id) => present.includes(id) && people[id]).slice(0, world.controlledActors ? 6 : 3);
+    const slots = personIds.filter((id) => priority.includes(id));
+    while (slots.length < 2) slots.push(null);
+    return slots;
+  }
+  function exchangeCast(world, line) {
+    return [
+      ...new Set(
+        world.log.filter(
+          (e) => e.generated && e.turn === line.turn && e.locationId === line.locationId
+        ).flatMap((e) => e.cast || [])
+      )
+    ];
+  }
+  function sceneLines(world) {
+    const here = world.actors[currentActor(world)].place;
+    return world.log.map((entry, index) => ({ ...entry, index })).filter(
+      (e) => e.generated === true && (!e.locationId || e.locationId === here)
+    );
+  }
+  function visitStart(world, through = world.log.length - 1) {
+    const here = world.actors[currentActor(world)].place;
+    return Math.max(
+      0,
+      world.log.findLastIndex(
+        (entry, index) => index <= through && !entry.generated && entry.actorId === currentActor(world) && entry.fromLocationId && entry.fromLocationId !== here && entry.locationId === here
+      )
+    );
+  }
+  function currentScene(world, lineIndex = null, { hold = false, seq = null, review = false } = {}) {
+    const lines = sceneLines(world);
+    const chosen = lines.find(
+      (e) => seq === null ? e.index === lineIndex : e.seq === seq
+    );
+    const start = visitStart(world, chosen?.index);
+    const line = chosen || !hold && lines.findLast((e) => e.index >= start) || null;
+    const previous = line ? lines.findLast((e) => e.index < line.index && e.index >= start) || null : null;
+    return {
+      locationId: world.actors[currentActor(world)].place,
+      background: backdrop(world.actors[currentActor(world)].place, world),
+      variant: locationVariant(world, world.actors[currentActor(world)].place),
+      overlay: locationOverlay(world, world.actors[currentActor(world)].place),
+      weather: locationWeather(world, world.actors[currentActor(world)].place),
+      daylight: locationDaylight(world, world.actors[currentActor(world)].place),
+      visitStart: start,
+      slots: sceneCast(
+        world,
+        line?.index,
+        review || lineIndex === null && seq === null || !line ? null : exchangeCast(world, line)
+      ),
+      activeSpeaker: line && entryKind(line) === "dialogue" ? speakerId(line) : null,
+      line,
+      previous,
+      lines
     };
   }
 

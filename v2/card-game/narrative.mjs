@@ -5,7 +5,8 @@ import { wantFact, wantHeard } from "./want-talk.mjs";
 import { BOARDY, boardyFacts } from "./boardyai.mjs";
 import { recitalContext, recitalFacts } from "./pack-recital.mjs";
 import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
-import { sceneChanges } from "./scene.mjs";
+import { dialogueCast, sceneChanges, speechMemories } from "./scene-cast.mjs";
+import { validReflection, saveReflection } from "./reflections.mjs";
 import { locationWeather } from "./weather.mjs";
 import { locationDaylight } from "./daylight.mjs";
 import { profiles, validInnerLife } from "./memory.mjs";
@@ -51,54 +52,6 @@ function refusalFact(played) {
         ? `invitation to ${nameOf(played.destinationId)}`
         : `offer of ${nameOf(played.itemId)}`;
   return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed. Say why in your own words.`;
-}
-
-// A player driven off in a standoff this turn came to here. One short line
-// keeps tiny models on the committed result.
-function defeatArrival(world, location) {
-  const actor = currentActor(world);
-  const moved = world.log.findLast(
-    (e) =>
-      e.turn === world.turn &&
-      !e.generated &&
-      e.actorId === actor &&
-      e.locationId === location &&
-      e.fromLocationId &&
-      e.fromLocationId !== location &&
-      (["retreat", "sent-home"].includes(e.verb) ||
-        (!e.verb && /after yielding to/u.test(e.text || ""))),
-  );
-  const blow =
-    moved &&
-    world.log.findLast(
-      (e) =>
-        e.turn === world.turn &&
-        e.verb === "attack" &&
-        e.targetId === actor &&
-        e.seq < moved.seq,
-    );
-  return blow
-    ? `${nameOf(actor)} was beaten by ${nameOf(blow.actorId)} and came to at ${nameOf(location)}. Say one line.`
-    : null;
-}
-
-// Keep a few lasting encounters beside fresh facts. Speech stays secondary to
-// witnessed events. Hidden puzzle bookkeeping is not dialogue material.
-export function speechMemories(memory, { expressions = true } = {}) {
-  const concrete = (e) =>
-    e.kind === "event" &&
-    !/completes hand|finds a new purpose:| Level \d/u.test(e.text);
-  const recent = memory.events.filter(concrete).slice(-4);
-  const lasting = (memory.landmarks || [])
-    .filter(concrete)
-    .filter((e) => !recent.some((r) => r.seq === e.seq))
-    .slice(-2);
-  const said = expressions
-    ? memory.events.filter((e) => e.kind === "expression").slice(-2)
-    : [];
-  return [...lasting, ...recent, ...said]
-    .sort((a, b) => a.seq - b.seq)
-    .map(({ seq, turn, kind, text }) => ({ seq, turn, kind, text }));
 }
 
 // Capture the resolved turn separately from wishes and remembered speech.
@@ -213,104 +166,25 @@ export function sceneryDue(turn) {
   return turn % 4 === offset;
 }
 
-// The log is long; a Wait is recorded among this turn's newest entries.
-function waitedThisTurn(world) {
-  const actor = currentActor(world);
-  for (let i = world.log.length - 1; i >= 0; i--) {
-    const entry = world.log[i];
-    if (entry.turn !== world.turn) return false;
-    if (entry.verb === "wait" && entry.actorId === actor) return true;
-  }
-  return false;
-}
-
 export function narrativeContext(world, action = null) {
-  const location = world.actors[currentActor(world)].place;
-  // Earlier opening text could include the authored solution. Keep those lines
-  // in the save while grounding this unrevealed scene in observations.
-  const beforeFirstLight = Boolean(
-    world.opening?.version === 1 && !world.locations.attic.anchored,
-  );
-  const known = knownActors(world);
-  const present = Object.keys(world.actors).filter(
-    (id) =>
-      known.includes(id) &&
-      entityActive(world, id) &&
-      world.actors[id].place === location &&
-      (!world.controlledActors?.includes(id) ||
-        world.presentActors?.includes(id)),
-  );
-  const localItems = Object.keys(world.items).filter(
-    (id) => entityActive(world, id) && itemPlace(world, id) === location,
-  );
-  const changes = sceneChanges(world);
-  const departing = changes
-    .filter((change) => change.leaving)
-    .map((change) => change.actorId);
-  const awake = (id) => !hasTemperament(id) || world.actors[id].awake;
-  const introductions = present.filter(
-    (id) =>
-      id !== currentActor(world) &&
-      awake(id) &&
-      world.opening?.met[id] === world.turn,
-  );
-  const audience = [...new Set([...present, ...departing])];
-  const focus = localItems.includes(action?.item) ? action.item : null;
-  const played = world.log.findLast(
-    (entry) =>
-      entry.turn === world.turn &&
-      entry.kind === "action" &&
-      entry.actorId === currentActor(world),
-  );
-  const target = action?.target || played?.targetId;
-  const directPartner =
-    audience.includes(target) &&
-    target !== currentActor(world) &&
-    awake(target);
-  const partner = directPartner
-    ? target
-    : introductions[0] ||
-      departing[0] ||
-      present.find((id) => id !== currentActor(world) && awake(id));
-  const movers = changes.map((change) => change.actorId);
-  const chosen = new Set(
-    [currentActor(world), partner, ...introductions, ...movers].filter(
-      (id) => id && awake(id),
-    ),
-  );
-  // After a defeat only one voice speaks: a resident here, or else the avatar.
-  const defeated = defeatArrival(world, location);
-  const host =
-    defeated &&
-    present.find((id) => id !== currentActor(world) && awake(id));
-  // Vale responds to every play. Other travellers keep their movement order.
-  const speakers = defeated
-    ? [host || currentActor(world)]
-    : [
-        currentActor(world),
-        ...[...chosen].filter(
-          (id) => id !== currentActor(world) && !movers.includes(id),
-        ),
-        ...movers.filter((id) => id !== currentActor(world) && chosen.has(id)),
-      ].slice(0, 3);
-  // Model requests stay bounded as the pack catalog grows. The actual chosen
-  // card and every speaker take priority over incidental objects in a room.
-  const ids = [
-    ...new Set([
-      location,
-      ...speakers,
-      focus,
-      target,
-      ...audience,
-      ...localItems,
-    ]),
-  ]
-    .filter(
-      (id) =>
-        id &&
-        (id === location || audience.includes(id) || localItems.includes(id)),
-    )
-    .slice(0, 8);
+  const cast = dialogueCast(world, action);
+  const {
+    location,
+    beforeFirstLight,
+    known,
+    present,
+    localItems,
+    changes,
+    focus,
+    played,
+    target,
+    speakers,
+    ids,
+    resting,
+  } = cast;
+  const defeated =
+    cast.defeat &&
+    `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}. Say one line.`;
   const disclosures = knowledgeDisclosures(
     world,
     speakers,
@@ -375,12 +249,7 @@ export function narrativeContext(world, action = null) {
     scenery: sceneryDue(world.turn),
     focus,
     speakers,
-    // Only the avatar who chose to wait turns inward this turn.
-    resting:
-      speakers[0] === currentActor(world) &&
-      (played ? played.verb === "wait" : waitedThisTurn(world))
-        ? currentActor(world)
-        : null,
+    resting,
     ...(disclosures.length ? { disclosures } : {}),
     action:
       played?.text ||
@@ -523,8 +392,8 @@ export function narrativeContext(world, action = null) {
             carried(world, id).includes(item)
               ? `Already holds the wanted ${nameOf(item)}.`
               : itemPlace(world, item) === world.actors[id].place
-                  ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.`
-                  : `Wants ${nameOf(item)}.`,
+                ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.`
+                : `Wants ${nameOf(item)}.`,
           );
         if (desire.location)
           facts.push(
@@ -594,98 +463,6 @@ export function narrativeContext(world, action = null) {
   };
 }
 
-// Thoughts come only to the avatar who waited, after something new happened
-// to them. Dreams are rarer: two thoughts must settle since the last one.
-// The server's reflection_due applies the same gate.
-export const THOUGHT_GAP = 6;
-export const DREAM_GAP = 24;
-export const THOUGHTS_PER_DREAM = 2;
-export function reflectionDue(context, id, life) {
-  const thoughts = life?.thoughts || [];
-  const dreams = life?.dreams || [];
-  const last = thoughts.at(-1)?.turn;
-  const changed = context.entities
-    .find((e) => e.id === id)
-    ?.memories.some(
-      (m) => m.kind === "event" && (last === undefined || m.turn > last),
-    );
-  const thought = Boolean(
-    context.resting === id &&
-      context.turn > 0 &&
-      changed &&
-      (last === undefined || context.turn >= last + THOUGHT_GAP),
-  );
-  const dreamt = dreams.at(-1)?.turn;
-  const settled = thoughts.filter(
-    (m) => dreamt === undefined || m.turn > dreamt,
-  ).length;
-  return {
-    thought,
-    dream:
-      thought &&
-      settled >= THOUGHTS_PER_DREAM &&
-      (dreamt === undefined || context.turn >= dreamt + DREAM_GAP),
-  };
-}
-
-function validReflection(entry, world, context) {
-  if (entry.reflection === undefined || entry.reflection === null) return true;
-  if (profiles[entry.id]?.kind !== "avatar") return false;
-  const previous = world.memories[entry.id].innerLife || {
-    persona: null,
-    thoughts: [],
-    dreams: [],
-  };
-  const due = reflectionDue(context, entry.id, previous);
-  if (!due.thought) return false;
-  const r = entry.reflection;
-  if (
-    !r ||
-    Object.keys(r).some(
-      (key) =>
-        !["thought", "persona", "dream", "models", "evidence"].includes(key),
-    )
-  )
-    return false;
-  if (r.dream !== undefined && !due.dream) return false;
-  const sources = reflectionSources(world, context, entry.id);
-  if (
-    r.evidence !== undefined &&
-    (!Array.isArray(r.evidence) ||
-      r.evidence.join() !== sources.map((e) => e.seq).join())
-  )
-    return false;
-  if (
-    r.models !== undefined &&
-    (!r.models ||
-      typeof r.models !== "object" ||
-      Array.isArray(r.models) ||
-      !["thought", "persona"].every(
-        (k) =>
-          typeof r.models[k] === "string" &&
-          r.models[k].trim() &&
-          r.models[k].length <= 160,
-      ) ||
-      Object.entries(r.models).some(
-        ([k, v]) =>
-          !["thought", "persona", "dream"].includes(k) ||
-          typeof v !== "string" ||
-          !v.trim() ||
-          v.length > 160,
-      ))
-  )
-    return false;
-  return validInnerLife(
-    {
-      persona: r.persona,
-      thoughts: [{ turn: world.turn, text: r.thought }],
-      dreams:
-        r.dream === undefined ? [] : [{ turn: world.turn, text: r.dream }],
-    },
-    world.turn,
-  );
-}
-
 export function applyGeneratedReflections(world, context, response) {
   if (
     world.revision !== context.revision ||
@@ -710,89 +487,6 @@ export function applyGeneratedReflections(world, context, response) {
   for (const entry of entries)
     saveReflection(next, context, entry, entry.model || "local-reflection");
   return validateWorld(next);
-}
-
-function reflectionSources(world, context, id) {
-  const selected = context.entities.find((e) => e.id === id)?.memories || [];
-  return selected
-    .filter((e) => e.kind === "event")
-    .map((e) => {
-      const saved = [
-        ...world.memories[id].events,
-        ...(world.memories[id].landmarks || []),
-      ].find((m) =>
-        e.seq ? m.seq === e.seq : m.turn === e.turn && m.text === e.text,
-      );
-      return saved && { seq: saved.seq, turn: saved.turn, text: saved.text };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.seq - b.seq);
-}
-
-function saveReflection(world, context, entry, fallbackModel) {
-  const memory = world.memories[entry.id];
-  const previous = memory.innerLife || {
-    persona: null,
-    thoughts: [],
-    dreams: [],
-  };
-  const r = entry.reflection;
-  memory.reflections = [
-    ...(memory.reflections || []),
-    {
-      turn: world.turn,
-      previousPersona: previous.persona,
-      persona: r.persona,
-      thought: r.thought,
-      dream: r.dream || null,
-      sources: reflectionSources(world, context, entry.id),
-      models: r.models || {
-        thought: fallbackModel,
-        persona: fallbackModel,
-        ...(r.dream ? { dream: fallbackModel } : {}),
-      },
-    },
-  ].slice(-4);
-  memory.innerLife = {
-    persona: r.persona,
-    thoughts: [
-      ...previous.thoughts,
-      { turn: world.turn, text: r.thought },
-    ].slice(-4),
-    dreams: r.dream
-      ? [...previous.dreams, { turn: world.turn, text: r.dream }].slice(-4)
-      : previous.dreams,
-  };
-}
-
-// Shared publication checks against the saved world before committing its text.
-export function applySharedReflections(world, entries) {
-  const context = narrativeContext(world);
-  for (const entry of entries || [])
-    if (
-      world.actors[entry.id] &&
-      !context.entities.some((e) => e.id === entry.id)
-    )
-      context.entities.push({
-        id: entry.id,
-        memories: speechMemories(world.memories[entry.id]),
-      });
-  if (
-    !Array.isArray(entries) ||
-    entries.length > 2 ||
-    new Set(entries.map((e) => e.id)).size !== entries.length
-  )
-    throw new Error("Use the saved scene's character reflections.");
-  for (const entry of entries) {
-    if (
-      !context.entities.some((e) => e.id === entry.id) ||
-      !validReflection(entry, world, context)
-    )
-      throw new Error("Use a reflection grounded in the saved scene.");
-  }
-  for (const entry of entries)
-    if (entry.reflection)
-      saveReflection(world, context, entry, entry.model || "card-voices-v1");
 }
 
 export function applyGeneratedText(
@@ -1274,3 +968,13 @@ export function createNarrator({
     },
   };
 }
+
+// Rules halves kept under their earlier names for browser callers.
+export { speechMemories } from "./scene-cast.mjs";
+export {
+  THOUGHT_GAP,
+  DREAM_GAP,
+  THOUGHTS_PER_DREAM,
+  reflectionDue,
+  applySharedReflections,
+} from "./reflections.mjs";
