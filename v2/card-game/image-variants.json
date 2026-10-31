@@ -819,6 +819,20 @@
       "card": "assets/optimized/card/webp/greek-drama/ship-card.webp",
       "cardHash": "46fcdc6b13261f34f960a31e3a1fd9bddd6d84ee48a1139b1f5b3ce1472207bf"
     },
+    "assets/greek-drama/ship-deck-at-sea-day.webp": {
+      "sourceHash": "5ea48a067039870345b06e12c000d2b22793b98a5338e93aa1213b1e77c41470",
+      "stage": "assets/greek-drama/ship-deck-at-sea-day.webp",
+      "stageHash": "5ea48a067039870345b06e12c000d2b22793b98a5338e93aa1213b1e77c41470",
+      "card": "assets/optimized/card/webp/greek-drama/ship-deck-at-sea-day.webp",
+      "cardHash": "aff9b7f257ca25ca44ea06643e50050e8b6c0ac603ef79073652f4f60c0fa4b6"
+    },
+    "assets/greek-drama/ship-deck-at-sea-night.webp": {
+      "sourceHash": "1e9c0c4695796525682a87b1d41a79d2d8368843785f73595808f6f0f2589599",
+      "stage": "assets/greek-drama/ship-deck-at-sea-night.webp",
+      "stageHash": "1e9c0c4695796525682a87b1d41a79d2d8368843785f73595808f6f0f2589599",
+      "card": "assets/optimized/card/webp/greek-drama/ship-deck-at-sea-night.webp",
+      "cardHash": "eddc0eb6b27d739c63fddcc23b6843f53e2f4de3192fb632fd31efcfaf688adf"
+    },
     "assets/greek-drama/ship-deck-night.webp": {
       "sourceHash": "b942c80b09b6b52e7eb36b43706bfba2f23c6058d549f68725e9244527888d9c",
       "stage": "assets/greek-drama/ship-deck-night.webp",
@@ -826,12 +840,19 @@
       "card": "assets/optimized/card/webp/greek-drama/ship-deck-night.webp",
       "cardHash": "0cccbd69a2a00177bf1a84295d18663e7b67e611041030eb71f877cbf02e59a1"
     },
-    "assets/greek-drama/ship-deck.webp": {
+    "assets/greek-drama/ship-deck-twilight.webp": {
       "sourceHash": "e09145506d279ba279abb94f716d93366b4a3584852e2ddc6f52584798425dbd",
-      "stage": "assets/greek-drama/ship-deck.webp",
+      "stage": "assets/greek-drama/ship-deck-twilight.webp",
       "stageHash": "e09145506d279ba279abb94f716d93366b4a3584852e2ddc6f52584798425dbd",
-      "card": "assets/optimized/card/webp/greek-drama/ship-deck.webp",
+      "card": "assets/optimized/card/webp/greek-drama/ship-deck-twilight.webp",
       "cardHash": "b4e8ce3183d1517e5d213700d0b8b5813ba48c4b1a866e7531da755ff239cc29"
+    },
+    "assets/greek-drama/ship-deck.webp": {
+      "sourceHash": "3356fc6209ee05ae7c988c93682a831c1026c5b1cd7da4078b84f0acb0d28422",
+      "stage": "assets/greek-drama/ship-deck.webp",
+      "stageHash": "3356fc6209ee05ae7c988c93682a831c1026c5b1cd7da4078b84f0acb0d28422",
+      "card": "assets/optimized/card/webp/greek-drama/ship-deck.webp",
+      "cardHash": "415d5d02e461d074af5afc3190bfc5b7b155f028d5c65c557c3db86b294afc68"
     },
     "assets/greek-drama/shovel.png": {
       "sourceHash": "090528f43290b6dd85cff02a538499aeb3d8af54f52bedb9bdb8c462addcfdc3",

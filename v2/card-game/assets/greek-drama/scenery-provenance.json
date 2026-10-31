@@ -224,16 +224,33 @@
     {
       "place": "greek-ship",
       "file": "ship-deck.webp",
-      "generated": "2026-10-26",
-      "sourceName": "exec-285f24d7-822f-4b4c-83bc-52eee36de8ba.png",
-      "generationId": "exec-285f24d7-822f-4b4c-83bc-52eee36de8ba",
-      "sourceSha256": "c9ca4f5d3e0d77194338826f78905ad61308d6a489a6d2d5243629183a30a2a1",
-      "sha256": "e09145506d279ba279abb94f716d93366b4a3584852e2ddc6f52584798425dbd",
+      "generated": "2026-10-31",
+      "sourceName": "ship-deck-daylight-raw.png",
+      "generationId": "exec-d0eb5f55-3503-4627-91f1-48b530f2c175",
+      "sourceSha256": "eb7ae4f60e5db06a11bb06350f1fe5657fdffbdc8ff8c4bbba44c9a6adb0e296",
+      "sha256": "3356fc6209ee05ae7c988c93682a831c1026c5b1cd7da4078b84f0acb0d28422",
       "size": [
         1672,
         941
       ],
-      "processing": "Generated with built-in image_gen; encoded as WebP at quality 94."
+      "processing": "Identity-preserving rainy daylight edit with built-in image_gen; full native canvas encoded as WebP at quality 88, without resizing or cropping.",
+      "provenance": "ship-deck-daylight-provenance.json",
+      "previousRevision": {
+        "place": "greek-ship",
+        "file": "ship-deck.webp",
+        "generated": "2026-10-26",
+        "sourceName": "exec-285f24d7-822f-4b4c-83bc-52eee36de8ba.png",
+        "generationId": "exec-285f24d7-822f-4b4c-83bc-52eee36de8ba",
+        "sourceSha256": "c9ca4f5d3e0d77194338826f78905ad61308d6a489a6d2d5243629183a30a2a1",
+        "sha256": "e09145506d279ba279abb94f716d93366b4a3584852e2ddc6f52584798425dbd",
+        "size": [
+          1672,
+          941
+        ],
+        "processing": "Generated with built-in image_gen; encoded as WebP at quality 94.",
+        "source_commit": "48dd0b84e0c85d6278c23785c8dc3977b4fef09b",
+        "preserved_as": "ship-deck-twilight.webp"
+      }
     },
     {
       "place": "greek-harbor",
