@@ -41,8 +41,6 @@ import {
   nameOf,
   addLog,
   covered,
-  shining,
-  itemPlace,
   rootHolder,
   play,
   encodeSave,
@@ -64,6 +62,7 @@ import {
   locationOverlay,
   locationVariant,
   travelCard,
+  lampLitHere,
 } from "./scene.mjs";
 import {
   availableCards,
@@ -1569,9 +1568,7 @@ function renderStage(locationId) {
   const stage = packPlaces[locationId]?.stage;
   document.body.dataset.world = pack?.id || "shore";
   document.body.dataset.place = locationId;
-  document.body.dataset.lamplit = String(
-    shining(world) && itemPlace(world, "lamp") === locationId,
-  );
+  document.body.dataset.lamplit = String(lampLitHere(world, locationId));
   document.body.dataset.stage = stage ? "resident" : "cast";
   document.querySelector(".brand span").textContent =
     pack?.name || "The reflected shore";

@@ -7,7 +7,6 @@ import {
   rootHolder,
   itemPlace,
   shining,
-  reflectionOpen,
   senses,
 } from "./world.mjs";
 import { entityActive, crossings, transports } from "./pack-registry.mjs";
@@ -20,9 +19,14 @@ import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 import { avatarImage } from "./scarves.mjs";
 
+// The lamp lights a place only while it shines there: held by someone in that
+// place or put down in it (#1422). This is display only; the mirror's path
+// rule stays in reflectionOpen.
+export const lampLitHere = (world, place) =>
+  shining(world) && itemPlace(world, "lamp") === place;
 // Pack art lives in the pack's own asset folder and is named by its data.
 const darkAttic = (world, id) =>
-  id === "attic" && world?.actors && !reflectionOpen(world, id);
+  id === "attic" && world?.actors && !lampLitHere(world, id);
 export function backdrop(id, world = null) {
   if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
   const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
@@ -738,9 +742,7 @@ export function sceneScript(world) {
         ...item,
         locationId: itemPlace(world, id),
       })),
-      light:
-        shining(world) &&
-        itemPlace(world, "lamp") === world.actors[currentActor(world)].place,
+      light: lampLitHere(world, world.actors[currentActor(world)].place),
     },
   };
 }
