@@ -177,11 +177,18 @@ const localBackups =
         onError: notice,
       })
     : null;
+// A table with no saved world, or a new visitor to a shared world, starts with
+// its opening cards covered.
+let openingTable = true;
 try {
   await localBackups?.restore();
   const saved = sharedSession ? null : localStorage.getItem(SAVE_KEY);
-  if (saved) world = enableMotives(decodeSave(saved));
+  if (saved) {
+    openingTable = false;
+    world = enableMotives(decodeSave(saved));
+  }
 } catch (error) {
+  openingTable = false;
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
 }
@@ -218,10 +225,13 @@ function rememberCards() {
   } catch {}
 }
 function loadSeen(reset = false) {
-  let saved = [];
+  let saved = [],
+    opening = reset;
   coveredCards.clear();
   try {
-    saved = reset ? [] : JSON.parse(localStorage.getItem(SEEN_KEY) || "[]");
+    const stored = reset ? null : localStorage.getItem(SEEN_KEY);
+    opening ||= openingTable && stored === null;
+    saved = JSON.parse(stored || "[]");
     const covered = reset ? [] : JSON.parse(localStorage.getItem(`${SEEN_KEY}.covered`) || "[]");
     for (const id of Array.isArray(covered) ? covered : [])
       if (people[id] || things[id] || places[id]) coveredCards.add(id);
@@ -232,6 +242,9 @@ function loadSeen(reset = false) {
       : []),
     ...availableCards(world),
   ]);
+  // The opening hand starts covered, like any newly met card; a known table
+  // keeps the cards its player has already uncovered.
+  if (opening) for (const id of availableCards(world)) coveredCards.add(id);
   fresh.clear();
   rememberCards();
 }

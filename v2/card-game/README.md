@@ -198,10 +198,13 @@ item is raised replaces the other card and keeps the item. Giving, dropping or
 trading the item clears it as soon as custody changes. For half a second after
 a play, the redrawn row ignores taps, so a double tap cannot reach the new slot.
 
-New cards arrive in their normal stacks with a carved wooden-box cover. The first
-tap uncovers a card without selecting it or spending a turn; subsequent taps
-select it normally. Covered cards cannot be dragged or paired. Each browser
-remembers which cards are still covered, including after a reload.
+New cards arrive in their normal stacks with a carved wooden-box cover. A new
+game's opening cards, such as Vale, the lamp and the attic, start covered too, as
+do a new visitor's first cards in a shared world; a table this browser already
+knows keeps the cards its player has uncovered. The first tap uncovers a card
+without selecting it or spending a turn; subsequent taps select it normally.
+Covered cards cannot be dragged or paired. Each browser remembers which cards
+are still covered, including after a reload.
 Borders use Signal's level-tier colours: Common 0–9, Uncommon 10–19, Rare 20–29,
 Epic 30–49 and Legendary 50+. Selected cards show their exact level in faint,
 matching Roman numerals at both ends. These fixed bands use existing avatar
