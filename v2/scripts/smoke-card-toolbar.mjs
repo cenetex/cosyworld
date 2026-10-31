@@ -109,7 +109,7 @@ try {
     assert.deepEqual(await menu.locator("button").allTextContents(), [
       "Worlds",
       "Share",
-      "Memory",
+      "Conversation",
       "Settings",
       "Inner life",
     ]);

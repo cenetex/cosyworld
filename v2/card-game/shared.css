@@ -72,10 +72,24 @@ body .dialogue:has(.shared-portraits) {
   grid-template-columns: minmax(0, 1fr) 28px;
   column-gap: 12px;
 }
-body .dialogue > .speech-row {
+body .dialogue > .speech-row,
+body .dialogue > .movement-caption {
   grid-column: 1;
-  grid-row: 1;
-  align-self: end;
+}
+body
+  .dialogue:has(.shared-portraits):has(#movement-caption[hidden])
+  > .speech-row {
+  grid-row: 1 / span 2;
+  align-self: start;
+}
+body
+  .dialogue:has(.shared-portraits):has(#speech-row[hidden]):has(
+    #movement-caption[hidden]
+  ) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 .shared-play-avatar {
   display: block;
@@ -100,6 +114,15 @@ body .dialogue > .speech-row {
 }
 .shared-play-avatar[data-status="reading"] {
   border-color: #d8cbb3;
+}
+body #live-line {
+  min-width: 28px;
+  padding: 0;
+  border-color: #dfc38d;
+  background: #252832;
+}
+body #live-line[data-live="false"] {
+  box-shadow: 0 0 0 2px #dfc38d40;
 }
 button.shared-play-avatar:hover,
 button.shared-play-avatar:focus-visible {
