@@ -2120,7 +2120,7 @@ function renderScene() {
     if (scene.overlay && overlay.getAttribute("src") !== overlaySource)
       overlay.src = overlaySource;
     fadeLayer(overlay, Boolean(scene.overlay), {
-      duration: !stayed ? 0 : reducedMotion.matches ? 200 : CHANGE_FADE_MS,
+      duration: !stayed || reducedMotion.matches ? 0 : CHANGE_FADE_MS,
     });
     overlay.alt = scene.overlay ? placeText(world, scene.locationId) : "";
   }
