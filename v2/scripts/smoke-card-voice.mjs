@@ -250,8 +250,13 @@ try {
         assert(
           await page
             .locator("#dialogue-text")
-            .evaluate((text) => text.scrollTop > 0),
-          "A long reply still scrolls inside the dialogue",
+            .evaluate(
+              (text) =>
+                text.scrollHeight <= text.clientHeight + 1 ||
+                text.scrollTop > 0,
+            ),
+          // The card grows to about seven lines (#1599); longer still scrolls.
+          "A long reply is shown whole or scrolls inside the dialogue",
         );
         assert.equal(
           await page.locator("#stage").evaluate((stage) => stage.scrollLeft),
