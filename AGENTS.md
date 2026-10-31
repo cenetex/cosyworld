@@ -3,9 +3,8 @@
 Use simple English. Keep the original project folder on `main` and make changes
 in a separate worktree on a `codex/` branch. Commit, push, and open a PR for each
 code change. Preserve other contributors' files and local settings.
-Push early: open a draft PR from your first commit (push the branch alone while
-another PR is open) and keep pushing work in progress, so stopped work is never
-stranded on a local branch.
+Push early: open a draft PR from your first commit and keep pushing work in
+progress, so stopped work is never stranded on a local branch.
 
 Before feature work:
 
