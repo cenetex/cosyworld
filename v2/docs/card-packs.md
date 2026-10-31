@@ -56,7 +56,9 @@ holds while any thing from that pack is in the place: resting there, or
 carried by someone present there.
 
 The vocabulary also includes `light`, bounded `not`, and persistent pack
-`choice`, `choice_unset`, `flag`, `holding`, `item_at` and `met`. Environmental
+`choice`, `choice_unset`, `flag`, `holding`, `item_at` and `met`, and
+`{ "kind": "daylight", "phase": "night" }`, which reads the saved world clock
+(day and night swap every 24 turns). Environmental
 senses belong on crossings; entity/choice requirements use persistent kinds.
 To add another kind, update all three places together:
 `CONDITION_KINDS` and its shape check in `pack-schema.mjs`, its evaluation in
@@ -311,7 +313,12 @@ a ship at the pond when their old sequence includes the second uncover.
 
 The Willows is a four-place horror pack based on Algernon Blackwood's 1907
 story. River mist beside the Greek ship's rail opens onto the island. Its places
-speak as the landscape; the Swede is its one resident. The landing keeps a
+speak as the landscape; the Swede is its one resident. A place may carry an
+optional `voice` (short text) that replaces the one-sentence caption: it then
+speaks in its own first person, in up to three sentences, and its scene facts
+add `Discoveries recorded so far: N`, the count of plain discoveries (choices
+that only set flags) its pack has seen. The rules supply the count; the voice
+says how the reasons wear thin as it grows. The landing keeps a
 path back to the ship. See [the pack guide](../content/willows/README.md) for the story
 choices, source text and art.
 
@@ -320,7 +327,8 @@ choices, source text and art.
 An optional `readings` list gives a resident exact source passages as the story
 unfolds. Each record has `id`, `actor`, `after`, `title` and `text`. `after`
 names a choice receipt; `null` reveals a passage on first entry. A pack can
-hold eight passages of up to 3,000 characters each. The browser sends the
+hold sixteen passages of up to 3,000 characters each; a resident carries its
+eight newest revealed passages into a scene. The browser sends the
 revealed ids and their turns. The server reads the exact text from its own
 catalog and gives those passages to that resident's dialogue. Saved receipts
 preserve the same knowledge after a reload and shared journal replay.

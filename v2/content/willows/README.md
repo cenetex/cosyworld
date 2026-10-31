@@ -10,8 +10,11 @@ The exact source is in `source-text.txt`; `card-world.json` names each
 passage and its reveal. Later passages become available as play reaches them.
 The location and action descriptions connect the story to the game.
 
-The locations tell the landscape's side of the story in first person.
-The Swede is the one resident. The player joins him as a visiting companion.
+The landing, camp and bank speak in the narrator's voice: each notices a
+change and gives it an ordinary reason, and the reasons shorten and stop as
+recorded discoveries pile up. The thicket speaks as the willows, a plural
+"we" that counts and gives no reasons. The Swede is the one resident; as in
+the book he knows early, says little and hushes anyone who names them. The player joins him as a visiting companion.
 The drowned man is a discovery in the bank scene.
 
 ## Play
@@ -25,7 +28,16 @@ Examine the canoe and count the food. Study the sand hollows, listen at the
 bank, and look beneath the roots. Greet the Swede, then compare the signs.
 Choose to keep watch with him, or take the rope and sheet to the landing,
 lay out the gear, set down the paddle, and choose the quiet way home.
-The decisions and discoveries stay in the save.
+Other discoveries stand alone: watch the otter (landing, by day), watch the
+boatman (landing), pace out the willows (camp, by day) and pace it again
+(camp, by night, once paced), lie still in the tent (camp, by night) and look
+up at the willow tops (thicket, by night). A sign can be out of reach on a
+given visit. The decisions and discoveries stay in the save.
+
+On the island the browser plays a quiet drone, the hum: two low detuned sine
+waves with a faint harmonic and a slow swell, louder deeper in and at night.
+It waits for a gesture, follows the music switch and volume, and falls silent
+for a moment before a discovery (`v2/card-game/hum.mjs`).
 
 The canoe, tent and fire are scenery. Carried objects use the normal custody
 rules. Laying out gear records preparation for work on the canoe.
@@ -50,7 +62,7 @@ keep their single painting.
 
 ## Checks
 
-`test/card-willows.test.mjs` covers discovery, custody, old saves, the two
+`test/card-hum.test.mjs` covers the drone. `test/card-willows.test.mjs` covers discovery, custody, old saves, the two
 responses and shared play. The Rust Willows tests cover upgrades from released
 rules versions 16 and 17 and journal replay. `v2/scripts/smoke-card-willows.mjs` checks the
 play path at desktop and phone sizes.

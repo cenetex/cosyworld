@@ -1195,7 +1195,7 @@ fn names(ids: &[String]) -> String {
 /// The entity's own first-person words, with the persona its reflections grew.
 fn idiolect(entity: &Entity, part: Part) -> String {
     if kind(&entity.id, "location") {
-        return atmosphere::voice();
+        return atmosphere::voice(&entity.id);
     }
     if part == Part::Dream {
         return String::new();
@@ -1686,7 +1686,8 @@ async fn speak(
         check.limit = settings.line_limit;
         if kind(id, "location") {
             check.limit = check.limit.min(180);
-            check.sentences = 1;
+            // A narrator place may notice, reason and break off.
+            check.sentences = if atmosphere::narrator(id) { 3 } else { 1 };
         }
     }
     voice_attempts(
@@ -2008,7 +2009,7 @@ impl<'a> Check<'a> {
         {
             kept = text.trim_matches(quotes).to_string();
         }
-        if kind(&self.entity.id, "location") && !atmosphere::consistent(&kept) {
+        if kind(&self.entity.id, "location") && !atmosphere::consistent(&kept, &self.entity.id) {
             return Err("atmosphere");
         }
         if !bounded(&kept, self.limit) {
