@@ -321,6 +321,8 @@ that only set flags) its pack has seen. The rules supply the count; the voice
 says how the reasons wear thin as it grows. The landing keeps a
 path back to the ship. See [the pack guide](../content/willows/README.md) for the story
 choices, source text and art.
+[Making the Willows creepier](card-table/willows-horror.md) is the design for
+its next horror pass.
 
 ### Source readings
 

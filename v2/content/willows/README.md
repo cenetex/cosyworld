@@ -60,6 +60,12 @@ its lit fire under a dark sky. These two night paintings came from closed
 PR #1293; their prompts are in `art-prompts.json`. The thicket and the bank
 keep their single painting.
 
+## Design
+
+[Making the Willows creepier](../../docs/card-table/willows-horror.md) holds the
+planned horror pass: missing book motifs, a rewritten Swede, the hum and
+accessibility rules.
+
 ## Checks
 
 `test/card-hum.test.mjs` covers the drone. `test/card-willows.test.mjs` covers discovery, custody, old saves, the two
