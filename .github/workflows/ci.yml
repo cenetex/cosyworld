@@ -24,7 +24,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          # The version check fetches only its base branch when it needs it.
           fetch-depth: 1
 
       - name: Checkout pinned SRD 5.1 source
@@ -41,7 +40,9 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
 
-      - name: Ensure version bumped
+      # Pull requests do not bump the version; only its files' agreement is
+      # checked. A release bumps it once (docs/release.md).
+      - name: Check version alignment
         run: npm run check:version
 
       - name: Install dependencies

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Land a ready branch on top of main without hand-resolving generated files.
 //
-// Every prepared branch bumps the release version, and most change the
-// embedded card asset manifest or claim the next shared rules version. Those
-// lines always conflict once main moves. This applies only the branch's own
-// work onto main, folds dependency changes in the version files, then
-// regenerates the outputs and takes the next version once:
+// Most prepared branches change the embedded card asset manifest or claim the
+// next shared rules version, and those lines conflict once main moves. This
+// applies only the branch's own work onto main, keeps dependency changes in
+// the version files at main's release version (branches never bump it; a
+// release does, see docs/release.md), then regenerates the outputs:
 //
 //   node scripts/land-branch.mjs claude/prep-dark-attic
 //   npm run land -- claude/prep-dark-attic [--base origin/main] [--name claude/land-dark-attic]
@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 const rulesDir = 'v2/orchestrator-rust/src/card_shared';
 
-// Files whose release version line every branch edits.
+// Files carrying the release version. A branch keeps main's version in them.
 export const VERSION_FILES = [
   'package.json',
   'package-lock.json',
@@ -148,7 +148,7 @@ function land({ base, branch, name }) {
         stdio: 'inherit',
       });
       if (applied.status !== 0) {
-        throw new Error(`The branch's own work conflicts with ${base}. Resolve the files above, then rerun the rules and asset builds and npm run version:bump.`);
+        throw new Error(`The branch's own work conflicts with ${base}. Resolve the files above, then rerun the rules and asset builds.`);
       }
     } finally {
       rmSync(patchDir, { recursive: true, force: true });
@@ -183,7 +183,6 @@ function land({ base, branch, name }) {
 
   run(process.execPath, ['v2/scripts/next-shared-rules.mjs', base]);
   run(process.execPath, ['v2/scripts/build-card-assets.mjs']);
-  run(process.execPath, ['scripts/bump-version.mjs']);
 
   const subjects = git(['log', '--reverse', '--format=%s', `${mergeBase}..${tip}`])
     .split('\n')

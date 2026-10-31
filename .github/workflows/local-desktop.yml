@@ -87,8 +87,6 @@ jobs:
             if [ -f "$log" ]; then tail -80 "$log"; fi
           done
       - name: Check local services and desktop source
-        env:
-          VERSION_CHECK_ALIGNMENT_ONLY: "1"
         run: |
           npm run check:version
           npm run v2:card:assets:check

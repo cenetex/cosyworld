@@ -289,6 +289,21 @@ describe("deploy workflow", () => {
     expect(forestFly).toContain("needs.lonelyforest-image.result == 'success'");
   });
 
+  it("checks version alignment without requiring a bump per change", () => {
+    expect(ciWorkflow).toContain("name: Check version alignment");
+    expect(ciWorkflow).not.toContain("Ensure version bumped");
+    const check = readFileSync(
+      new URL("../../scripts/check-version-bump.mjs", import.meta.url),
+      "utf8",
+    );
+    expect(check).not.toContain("Please bump the version");
+    const deploys = workflow.match(/flyctl deploy --config [^\n]+/g);
+    expect(deploys).toHaveLength(3);
+    for (const deploy of deploys) {
+      expect(deploy).toContain('--env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"');
+    }
+  });
+
   it("keeps the pre-push hook to fast checks", () => {
     const hook = readFileSync(
       new URL("../../git-hooks/pre-push", import.meta.url),
