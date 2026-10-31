@@ -68,3 +68,17 @@ export function forgetCovered(world, context, isCovered) {
       })),
   };
 }
+
+// A new game's first line is raw (#1600): the server frames the waking avatar
+// with only its uncovered name, place and holdings, and no voice until its
+// own card is uncovered. A covered place is not voiced either.
+export function markWaking(world, context, isCovered) {
+  if (!world.opening || context.turn !== 0 || context.action) return context;
+  const covered = [...context.speakers, context.location].filter(isCovered);
+  return {
+    ...context,
+    waking: true,
+    scenery: context.scenery && !isCovered(context.location),
+    ...(covered.length ? { covered } : {}),
+  };
+}

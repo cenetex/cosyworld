@@ -42,7 +42,7 @@ import {
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
-import { forgetCovered } from "./speech-knowledge.mjs";
+import { forgetCovered, markWaking } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic } from "./music.mjs";
 import { createHum } from "./hum.mjs";
@@ -828,7 +828,10 @@ window.addEventListener("pageshow", () => {
 const narrator = createNarrator({
   getWorld: () => world,
   early: Boolean(localRuntime()),
-  limit: (context) => forgetCovered(world, context, (id) => coveredCards.has(id)),
+  limit: (context) => {
+    const covered = (id) => coveredCards.has(id);
+    return markWaking(world, forgetCovered(world, context, covered), covered);
+  },
   request: localRuntime()
     ? (context, signal, progress) =>
         requestNarrative(context, signal, progress, "/card-game/text", true)
@@ -838,7 +841,6 @@ const narrator = createNarrator({
         requestNarrative(context, signal, () => {}, "/card-game/reflections")
     : null,
   started: (context) => {
-    if (context.turn === 0) dropOpeningFallback();
     if (localRuntime()) characterSpeech.clear();
     // A speaker who left this turn speaks at the destination, not here.
     sceneSpeakers = context.speakers.filter(
@@ -885,7 +887,7 @@ const narrator = createNarrator({
     if (value === "retry") {
       rememberWordsFailed(world.revision);
       exchange.cancel();
-      showOpeningFallback();
+      showOpeningSilence();
     }
     renderScene();
   },
@@ -3306,37 +3308,18 @@ function openingWordsDue() {
       !hasCurrentWords(),
   );
 }
-// The authored opening line is shown only when the model gives no first line.
-// It is marked as a fallback, so a retry or reload still asks the model.
-function dropOpeningFallback() {
-  if (!world.log.some((entry) => entry.fallback && entry.turn === world.turn))
-    return;
-  world.log = world.log.filter(
-    (entry) => !(entry.fallback && entry.turn === world.turn),
-  );
-  save();
-}
-function showOpeningFallback() {
+// No line is scripted for a waking avatar (#1600): when the model gives no
+// first words, the silent beat "…" shows, and Retry or a reload asks again.
+function showOpeningSilence() {
   if (!openingWordsDue()) return;
-  dropOpeningFallback();
-  addLog(
-    world,
-    "Vale",
-    // Vale wakes knowing nothing; the line names no card and hints no play.
-    "Where am I? I don't remember how I got here.",
-    {
-      actorId: currentActor(world),
-      entityId: currentActor(world),
-      kind: "dialogue",
-      generated: true,
-      fallback: true,
-    },
-  );
-  save();
+  silence = {
+    turn: world.turn,
+    lines: silentLines(world, [currentActor(world)]),
+  };
   lineSeq = null;
   exchange.begin();
   render();
-  exchange.load([world.log.at(-1)]);
+  exchange.load(silence.lines);
 }
 function resumeScene() {
   if (sharedSession) {
@@ -3354,7 +3337,6 @@ function resumeScene() {
   }
   if (openingWordsDue()) {
     // A new game asks the dialogue model for Vale's first line.
-    dropOpeningFallback();
     lineSeq = null;
     storyStatus = "pending";
     exchange.begin();
