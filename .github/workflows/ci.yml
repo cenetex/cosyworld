@@ -83,12 +83,13 @@ jobs:
 
       # Only main saves the Cargo cache; pull requests restore it. Saving a
       # new commit-keyed cache on every run cost about 45 seconds each.
-      # The key names the dependency set, not the commit: every merge bumps
-      # the crate version, and a per-commit key wrote a new 2 GB entry each
-      # time until the cache limit evicted it before the next run could use it.
-      - name: Key the Cargo cache by dependencies
-        id: cargo-key
-        run: echo "deps=$(bash scripts/cargo-cache-key.sh v2/orchestrator-rust/Cargo.lock)" >> "$GITHUB_OUTPUT"
+      # Main saves one Cargo cache per UTC day. Every commit changes
+      # Cargo.lock, and the repository keeps only 10 GB of caches, so a 2 GB
+      # save per commit evicted the other caches before a run could use them.
+      # The prefix finds the newest day's copy.
+      - name: Choose Cargo cache day
+        id: cargo-cache-day
+        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
       - name: Restore Cargo build cache
         id: cargo-cache
@@ -99,7 +100,7 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-compact-v1-deps-${{ steps.cargo-key.outputs.deps }}
+          key: ${{ runner.os }}-cargo-compact-v1-day-${{ steps.cargo-cache-day.outputs.day }}
           restore-keys: |
             ${{ runner.os }}-cargo-compact-v1-
 
@@ -110,8 +111,8 @@ jobs:
         working-directory: v2/orchestrator-rust
         run: cargo test --no-run
 
-      # Main saves the cache once per dependency set, right after compiling,
-      # so the entry exists even if the tests fail. The debug build adds the
+      # Main saves today's cache right after compiling, before the tests, so
+      # the entry exists even if the tests fail. The debug build adds the
       # crates the smoke-test binary needs.
       - name: Compile the smoke-test binary's crates for the cache
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
@@ -148,12 +149,13 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # The key names the dependency set, not the commit: every merge bumps
-      # the crate version, and a per-commit key wrote a new 2 GB entry each
-      # time until the cache limit evicted it before the next run could use it.
-      - name: Key the Cargo cache by dependencies
-        id: cargo-key
-        run: echo "deps=$(bash scripts/cargo-cache-key.sh v2/orchestrator-rust/Cargo.lock)" >> "$GITHUB_OUTPUT"
+      # Main saves one Cargo cache per UTC day. Every commit changes
+      # Cargo.lock, and the repository keeps only 10 GB of caches, so a 2 GB
+      # save per commit evicted the other caches before a run could use them.
+      # The prefix finds the newest day's copy.
+      - name: Choose Cargo cache day
+        id: cargo-cache-day
+        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
       - name: Restore Cargo build cache
         id: cargo-cache
@@ -164,7 +166,7 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-compact-v1-deps-${{ steps.cargo-key.outputs.deps }}
+          key: ${{ runner.os }}-cargo-compact-v1-day-${{ steps.cargo-cache-day.outputs.day }}
           restore-keys: |
             ${{ runner.os }}-cargo-compact-v1-
 

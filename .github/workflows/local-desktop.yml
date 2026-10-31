@@ -57,21 +57,15 @@ jobs:
         run: |
           echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-      # This cache is about 6 GB. Keyed by commit, every main run saved a new
-      # entry and evicted the Linux CI caches; keyed by the dependency set,
-      # main saves it only when a dependency changes.
-      - name: Key the Cargo cache by dependencies
-        id: cargo-key
-        run: echo "deps=$(bash scripts/cargo-cache-key.sh v2/orchestrator-rust/Cargo.lock v2/desktop/src-tauri/Cargo.lock)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v6
         id: cargo-cache
         with:
           path: |
             ~/.cargo/registry
             .runtime/desktop-target
-          key: macos-arm64-local-v2-deps-${{ steps.cargo-key.outputs.deps }}
+          key: macos-arm64-local-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock', 'v2/desktop/src-tauri/Cargo.lock') }}-${{ github.sha }}
           restore-keys: |
-            macos-arm64-local-v2-
+            macos-arm64-local-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock', 'v2/desktop/src-tauri/Cargo.lock') }}-
             macos-arm64-local-v1-
       - name: Install Node build tools
         timeout-minutes: 8
@@ -199,11 +193,11 @@ jobs:
             echo "The package version, rules, voice references, and every public game file match this web source."
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/cache/save@v6
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
+        if: always() && steps.cargo-cache.outputs.cache-hit != 'true'
         timeout-minutes: 5
         continue-on-error: true
         with:
           path: |
             ~/.cargo/registry
             .runtime/desktop-target
-          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
+          key: macos-arm64-local-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock', 'v2/desktop/src-tauri/Cargo.lock') }}-${{ github.sha }}

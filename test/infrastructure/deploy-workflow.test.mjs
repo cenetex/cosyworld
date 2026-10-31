@@ -357,8 +357,8 @@ describe("deploy workflow", () => {
     expect(runtime).toContain("actions/cache/restore@v6");
     expect(runtime).toContain("actions/cache/save@v6");
     expect(runtime).toContain("github.ref == 'refs/heads/main'");
-    // One entry per dependency set, saved before the tests run.
-    expect(runtime).toContain("scripts/cargo-cache-key.sh");
+    // One entry per UTC day, saved before the tests run.
+    expect(runtime).toContain("-cargo-compact-v1-day-");
     expect(runtime).toContain("steps.cargo-cache.outputs.cache-hit != 'true'");
     expect(runtime.indexOf("actions/cache/save@v6")).toBeLessThan(
       runtime.indexOf("check-rust.sh test"),
