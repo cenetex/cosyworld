@@ -156,9 +156,27 @@ try {
         await backdrop(),
         await stage("./assets/shared/places/attic-dark.webp"),
       );
+      // The opening hand starts covered; a first tap uncovers without selecting.
+      const covered = () =>
+        page.evaluate(() =>
+          [...document.querySelectorAll('#hand [data-unrevealed="true"]')]
+            .map((card) => card.dataset.card)
+            .sort(),
+        );
+      const opening = ["attic", "lamp", "vale"];
+      assert.deepEqual(await covered(), opening);
       await page.screenshot({
         path: new URL(`attic-start-${width}.png`, output).pathname,
       });
+      const vale = page.locator('#hand [data-card="vale"]');
+      await vale.click();
+      assert.equal(await vale.getAttribute("data-unrevealed"), "false");
+      assert.equal(await vale.getAttribute("aria-pressed"), "false");
+      assert.deepEqual(await covered(), ["attic", "lamp"]);
+      // A reload keeps the table known: nothing is covered again.
+      await page.reload();
+      await ready();
+      assert.deepEqual(await covered(), ["attic", "lamp"]);
       await selectCard(page, "lamp");
       await page.locator("#card-actions .card-primary").click();
       await unveil("pond");
@@ -300,6 +318,7 @@ try {
       await ready();
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal((await state()).items.lamp.lit, false);
+      assert.deepEqual(await covered(), opening);
       await selectCard(page, "lamp");
       await page.locator("#card-actions .card-primary").click();
       await unveil("pond");
