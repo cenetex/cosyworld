@@ -189,15 +189,9 @@ if (check) {
     );
 } else await writeChanged("image-variants.json", text);
 
-const keeper = records["assets/keeper-right.png"];
+// The opening scene shows no fixed portrait, so nothing is preloaded: a
+// preload the first paint does not use only draws a browser warning.
 const preload = `    <!-- card-image-preload:start -->
-    <link
-      rel="preload"
-      as="image"
-      href="./${keeper.stage}?v=${keeper.stageHash}"
-      fetchpriority="high"
-      data-card-preload="keeper"
-    />
     <!-- card-image-preload:end -->`;
 const indexFile = new URL("index.html", root);
 const index = await readFile(indexFile, "utf8");
