@@ -6,6 +6,7 @@ import {
   sceneryDue,
 } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
 
 describe("occasional location atmosphere", () => {
   it("chooses one varied turn per block with space between captions", () => {
@@ -37,15 +38,13 @@ describe("occasional location atmosphere", () => {
         choice,
       );
       const request = {
-        op: "context",
         world,
         actor: "vale",
         claimed: ["vale"],
         present: ["vale"],
       };
       // The authenticated host obtains the same context for the committed turn.
-      const shared = dispatchShared(request);
-      expect(shared.context.scenery).toBe(choice);
+      expect(sharedContext(request).scenery).toBe(choice);
     }
   });
 

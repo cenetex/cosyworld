@@ -4,8 +4,8 @@
 // See docs/design/pack-content-outside-the-engine.md.
 import { relative, resolve } from "node:path";
 
-// Off until the v58 rules take content as input.
-export const CONTENT_INPUT = false;
+// On from the v58 rules.
+export const CONTENT_INPUT = true;
 
 export function sharedContentInput(root) {
   return {
