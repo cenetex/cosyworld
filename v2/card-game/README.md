@@ -343,7 +343,7 @@ conversation holds the earned poem in order, and his verses follow the saved
 choice receipts. The [exact copy list](../content/greek-drama/OPENING-POEM.md),
 the [Open Door guide](../content/greek-drama/OPEN-DOOR.md) and the
 [Ajax chapter guide](../content/greek-drama/AJAX.md) record the scenes.
-Pack `storyQuests` and situation data are no longer read. A story choice is
+Packs no longer carry `storyQuests` or `situations`. A story choice is
 the listener's own deed: only their Talk commits it. A resident who seeks Vale
 out for its own quest can tell the same account, and Vale's later Talk with
 that resident still commits the choice, one choice per turn.

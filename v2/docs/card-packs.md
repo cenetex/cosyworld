@@ -37,8 +37,8 @@ Each resident can name its starter quest as `want`: `{"kind": "item" |
 "place" | "person", "target": id}`, with a target in the pack or the hub. The
 pack schema checks it. After the starter quest is met, the world rules draw the
 resident's next quest from what it can reach, so a pack authors no quest
-chains. `storyQuests` and `situations` are no longer read; they stay in the data
-until they are removed.
+chains. The mounted packs no longer carry `storyQuests` or `situations`; the
+schema still accepts them so older pack files load.
 
 ### Conditions
 
