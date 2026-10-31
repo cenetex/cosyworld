@@ -90,6 +90,16 @@ that opens ephemeral HTTP listeners may fail inside a restricted sandbox with
 `listen EPERM`; rerun it where loopback binding is permitted rather than
 changing application behavior.
 
+Rust build output grows fast. Each orchestrator debug build is about 5 GB
+(the binary embeds the card assets), Cargo keeps every old build, and each
+worktree has its own `target/`. Share one target
+dir across worktrees and prune it now and then:
+
+```sh
+export CARGO_TARGET_DIR=~/.cache/cargo-target/cosyworld
+cargo install cargo-sweep && cargo sweep --time 3   # drop builds older than 3 days
+```
+
 ## Shared rules engine changes
 
 Engine changes are deliberate and batched; build features as pack data when
