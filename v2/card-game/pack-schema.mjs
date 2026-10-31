@@ -951,6 +951,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
               "met",
               "knows",
               "daylight",
+              "drawn",
             ].includes(c.kind),
           `${what} must use saved state or human presence conditions`,
         );

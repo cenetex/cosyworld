@@ -14281,7 +14281,8 @@
               "connected_humans",
               "met",
               "knows",
-              "daylight"
+              "daylight",
+              "drawn"
             ].includes(c.kind),
             `${what} must use saved state or human presence conditions`
           );
@@ -15276,7 +15277,6 @@
         return Object.keys(s.items).some(
           (id) => packThings[id]?.packId === c.pack && entityActive(s, id) && objectPlace(s, id) === c.place
         );
-      // The run drew this special.
       case "drawn":
         return !!state?.specials?.includes(c.id);
       case "met":

@@ -152,7 +152,6 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
           entityActive(s, id) &&
           objectPlace(s, id) === c.place,
       );
-    // The run drew this special.
     case "drawn":
       return !!state?.specials?.includes(c.id);
     case "met":
