@@ -56,3 +56,16 @@ When integrating, preserve outfit choice and native facing: players face right; 
 `guard-art-prompts.json` records complete prompts and pinned identity/wardrobe references. `guard-provenance.json` records generation identifiers, original PNG hashes, output hashes, exact alpha checks, encoder settings and measured silhouette bounds. The official image builder supplies smaller card variants and their hashes.
 
 The generated character interiors are near-opaque (maximum alpha 254), with zero-alpha backgrounds and antialiased edges. A few very faint background residues and tighter-than-requested margins are recorded per image; the figures remain fully inside their canvases. Generated textures and small details are visually matched, not pixel-identical to the canonical portraits. No alpha cleanup, reframing, resizing or creative postprocessing was applied to the source images.
+
+## Stage preview and phone framing
+
+All 18 source/card pairs passed delivery, dimensions, hashes and native-facing checks in the actual stage at 1440 × 900 and 390 × 844. Browser-only image-response substitutions supplied the new poses; production pose selection was not changed. Light and dark comparison galleries showed no material backing rectangle or vignette.
+
+All desktop portraits and all 16 player phone portraits fit the viewport. The existing two-character resident layout clips the right side of Pip and the Keeper on the 390-pixel phone preview. Their canonical portraits also clip in the same setup:
+
+| Resident | Guard beyond right edge | Canonical beyond right edge |
+| -------- | ----------------------: | --------------------------: |
+| Pip      |                 91.0 px |                    102.0 px |
+| Keeper   |                 78.5 px |                     28.2 px |
+
+The source images and card variants contain the complete figures. The Keeper's wider guard increases the existing phone crop, so the pose integration should account for resident framing. Ordinary card-tray overlap is separate from viewport clipping.
