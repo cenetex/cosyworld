@@ -119,25 +119,22 @@ deletes the originals.
 
 1. This note and a bundle-module allowlist test. A new import into the shared
    engine fails CI until the allowlist is changed on purpose. No engine change.
-2. Narrator bundle and Rust call path, with the engine still returning
-   `context`. Rust uses the narrator's context. No engine change.
-3. `scene-cast.mjs` (speaker selection, `sceneChanges`, `speechMemories`) and
-   `reflections.mjs` (reflection checks), with tests showing they agree with
-   `narrativeContext`. Nothing in the engine imports them yet. No engine
-   change.
+2. Narrator bundle. `full_store::commit` asks it for each committed play's
+   dialogue context; the engine still returns its own. No engine change.
+3. `scene-cast.mjs` (3a: speaker selection, `sceneChanges`,
+   `speechMemories`) and `reflections.mjs` with the content input plugin,
+   switched off (3b). Tests show they agree with `narrative.mjs` and
+   `scene.mjs`. Nothing in the engine imports them yet. No engine change.
 4. Content store, the `content.json` builder, the `World.pack` field, the
-   `repack` command and the content-aware `reduce_version`. They stay inert
-   until an engine declares content input. No engine change.
-5. **The one engine bump (v58, `engine` label).** It switches
-   `shared-world.mjs`, `narrative.mjs` and `scene.mjs` to the new modules and
-   deletes the originals. It moves `DAYLIGHT_TURNS`, drops `scene.mjs`,
-   `narrative.mjs` and `daylight.mjs` from the entry, builds with injected
-   content, and records `packHash` on upgrade. It must pass client/server
-   agreement and the v2 to v57 replay tests, and it runs `next-shared-rules`.
-   If the budget forces a split, rules modules go first as v58 and injected
-   content follows as v59.
-6. Shrink the allowlist to rules modules. Add a test that edits a pack's art
-   in a scratch copy and shows the engine bytes do not change.
+   `repack` command and the content-aware `reduce_pack`. They stay inert
+   until an engine reads `globalThis.cardContent`. No engine change.
+5. **The one engine bump (v58, `engine` label).** `shared-world.mjs`
+   imports the new modules, `DAYLIGHT_TURNS` moves to `pack-rules.mjs`, the
+   plugin is switched on, and `next-shared-rules` mints v58. Views drop the
+   drawn scene and plays drop dialogue context; the narrator supplies both.
+   The bundle drops from 957 KB to 290 KB and holds no pack text.
+6. `narrative.mjs` and `scene.mjs` build on the rules modules and lose their
+   copies. They are outside the engine by then, so v58 is unchanged.
 
 After step 5, an art, pose, dialogue or pack PR changes `content.json` or
 `narrator.js` (both generated) and never `engine-v*.js`.
