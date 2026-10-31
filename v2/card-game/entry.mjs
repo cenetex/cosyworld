@@ -1,5 +1,6 @@
 import { setupOpenRouter } from "./openrouter-settings.mjs";
 import { setupLocalService } from "./local-service.mjs";
+import { showBuildInfo } from "./build-info.mjs";
 const local = await setupLocalService();
 if (!local) await setupOpenRouter();
 const params = new URLSearchParams(location.search);
@@ -15,3 +16,4 @@ if (params.get("shared") === "1" && !params.has("world")) {
   await import("./app.mjs");
 }
 document.body.inert = false;
+showBuildInfo();

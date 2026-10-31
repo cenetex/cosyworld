@@ -7,6 +7,7 @@ import { daylightAssets } from "./daylight.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
+  "build-info.mjs",
   "media.mjs",
   "images.mjs",
   "image-variants.json",
