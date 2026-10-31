@@ -36,14 +36,73 @@ export const validFactText = (v) =>
   /[.!?。！？]["'’”]?$/u.test(v.trim()) &&
   sentences(v).length === 1 &&
   sentences(v)[0].split(" ").length >= 3;
-export const factDelivered = (line, fact) =>
-  typeof line === "string" &&
-  validFactText(fact) &&
-  line
+// A told fact keeps its words and their order. The speaker may say I or my
+// for their own name and you for the listener's, change simple tense or
+// person (takes/took, has/had, is/was), and drop articles. Every other
+// word, so every item, place and other avatar, must still be there.
+// Keep this in step with the speech check in card_narrative/knowledge.rs.
+const ARTICLES = new Set(["a", "an", "the", "s"]);
+export const FACT_FORMS = Object.fromEntries(
+  [
+    "me:i my:i mine:i myself:i your:you yours:you yourself:you is:be was:be ",
+    "am:be are:be were:be been:be m:be re:be has:have had:have ve:have ",
+    "does:do did:do goes:go went:go took:take gave:give chose:choose ",
+    "brought:bring threw:throw made:make saw:see found:find held:hold ",
+    "kept:keep told:tell sold:sell bought:buy caught:catch led:lead ",
+    "fought:fight rang:ring ran:run came:come said:say stole:steal hid:hide ",
+    "wrote:write drew:draw knew:know fell:fall sat:sit stood:stand ",
+    "sent:send lost:lose met:meet paid:pay struck:strike won:win woke:wake ",
+    "broke:break spoke:speak ate:eat drank:drink sang:sing swore:swear ",
+    "wore:wear tore:tear left:leave",
+  ]
+    .join("")
+    .split(" ")
+    .map((pair) => pair.split(":")),
+);
+const VOWELS = new Set([..."aeiou"]);
+export function stem(word) {
+  let w = Object.hasOwn(FACT_FORMS, word) ? FACT_FORMS[word] : word;
+  if ([...w].length <= 3) return w;
+  if (/(ies|ied)$/u.test(w)) w = `${w.slice(0, -3)}i`;
+  else if (/(es|ed)$/u.test(w)) w = w.slice(0, -2);
+  else if (/[^s]s$/u.test(w)) w = w.slice(0, -1);
+  else if (w.endsWith("y")) w = `${w.slice(0, -1)}i`;
+  if (w.endsWith("e")) w = w.slice(0, -1);
+  const chars = [...w];
+  const [a, b] = chars.slice(-2);
+  return a && a === b && !VOWELS.has(a) ? chars.slice(0, -1).join("") : w;
+}
+const nameWords = (name) =>
+  typeof name === "string" ? tokens(name).split(" ").filter(Boolean) : [];
+export function factWords(sentence, speaker, listener) {
+  const words = tokens(sentence).split(" ").filter(Boolean);
+  const people = [
+    [nameWords(speaker), "i"],
+    [nameWords(listener), "you"],
+  ].filter(([name]) => name.length);
+  const out = [];
+  for (let i = 0; i < words.length;) {
+    const person = people.find(([name]) =>
+      name.every((w, j) => words[i + j] === w),
+    );
+    if (person) {
+      out.push(person[1]);
+      i += person[0].length;
+      continue;
+    }
+    if (!ARTICLES.has(words[i])) out.push(stem(words[i]));
+    i += 1;
+  }
+  return out.join(" ");
+}
+export const factDelivered = (line, fact, speaker, listener) => {
+  if (typeof line !== "string" || !validFactText(fact)) return false;
+  const told = factWords(fact, speaker, listener);
+  return line
     .split(/[.!?。！？]+/u)
     .slice(0, -1)
-    .map(tokens)
-    .includes(sentences(fact)[0]);
+    .some((sentence) => factWords(sentence, speaker, listener) === told);
+};
 
 export const newKnowledge = () => ({
   version: KNOWLEDGE_VERSION,
@@ -295,7 +354,10 @@ export function reserveLaneKnowledge(world, speaker, listener, entry, lane) {
   }
   if (
     world.knowledge.pending.some(
-      (p) => p.eventSeq === entry.seq && p.speaker === speaker && p.listener === listener,
+      (p) =>
+        p.eventSeq === entry.seq &&
+        p.speaker === speaker &&
+        p.listener === listener,
     )
   )
     return null;
@@ -345,7 +407,12 @@ export function knowledgeDisclosures(
   }));
 }
 
-export function acceptKnowledgeSpeech(world, entry, disclosures = []) {
+export function acceptKnowledgeSpeech(
+  world,
+  entry,
+  disclosures = [],
+  nameOf = () => null,
+) {
   if (
     !entry.generated ||
     entry.kind !== "dialogue" ||
@@ -374,7 +441,12 @@ export function acceptKnowledgeSpeech(world, entry, disclosures = []) {
       entry.actorId !== pending.speaker ||
       entry.locationId !== pending.locationId ||
       !entry.cast?.includes(pending.listener) ||
-      !factDelivered(entry.text, fact.text)
+      !factDelivered(
+        entry.text,
+        fact.text,
+        nameOf(pending.speaker),
+        nameOf(pending.listener),
+      )
     )
       continue;
     const added = remember(

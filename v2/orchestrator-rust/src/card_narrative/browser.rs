@@ -175,10 +175,16 @@ pub(crate) fn complete(
                     check.sentences = 1;
                 }
             }
-            if let Ok(text) = check.clean(
-                &answer.text,
-                matches!(answer.finish.as_str(), "stop" | "end_turn"),
-            ) {
+            // The player's model answers once. A line that only missed its
+            // fact is still spoken; the game teaches the fact on another Talk.
+            let finished = matches!(answer.finish.as_str(), "stop" | "end_turn");
+            if let Ok(text) = check.clean(&answer.text, finished).or_else(|reason| {
+                if reason == "knowledge_fact" {
+                    check.untold(&answer.text, finished)
+                } else {
+                    Err(reason)
+                }
+            }) {
                 cleaned.insert(part, text);
             }
         }

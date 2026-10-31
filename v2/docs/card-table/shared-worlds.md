@@ -403,7 +403,14 @@ this common evaluator, including its earlier choices, grave return, Open Door
 and Homecoming. Existing cards retain their keys, holders and completion turns.
 
 Talk may share one fact from an authored topic or the speaker's saved knowledge.
-The accepted line must contain the complete fact sentence. Publication records
+The accepted line must contain the complete fact sentence. From rules version
+56 the teller may say it in their own voice: their name may become I, me or
+my, the listener's may become you, articles may drop and simple tense or person
+may change, but every other word, so every item, place and other avatar, stays
+in order. The prompt gives the fact in that voice ("I take the Lamp.") when the
+teller is its actor. A line that passes every other check but misses the fact
+is still spoken after the last attempt; it teaches nothing, so the fact stays
+queued for a later Talk instead of silencing the teller. Publication records
 the listener, teller and original Talk event, then checks quest progress. A retry
 uses that saved exchange. The speech command carries its disclosure through the
 world journal, so checkpoint recovery and journal replay produce the same facts.

@@ -13,7 +13,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/55";
+pub(super) const VERSION: &str = "full-card-world/56";
+pub(super) const FIFTY_FIFTH_VERSION: &str = "full-card-world/55";
 pub(super) const FIFTY_FOURTH_VERSION: &str = "full-card-world/54";
 pub(super) const FIFTY_THIRD_VERSION: &str = "full-card-world/53";
 pub(super) const FIFTY_SECOND_VERSION: &str = "full-card-world/52";
@@ -67,7 +68,8 @@ pub(super) const FIFTH_VERSION: &str = "full-card-world/5";
 pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
 pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
 pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
-const SOURCE: &str = include_str!("engine-v55.js");
+const SOURCE: &str = include_str!("engine-v56.js");
+const FIFTY_FIFTH_SOURCE: &str = include_str!("engine-v55.js");
 const FIFTY_FOURTH_SOURCE: &str = include_str!("engine-v54.js");
 const FIFTY_THIRD_SOURCE: &str = include_str!("engine-v53.js");
 const FIFTY_SECOND_SOURCE: &str = include_str!("engine-v52.js");
@@ -178,6 +180,7 @@ pub(super) fn historical(version: &str) -> bool {
             | FIFTY_SECOND_VERSION
             | FIFTY_THIRD_VERSION
             | FIFTY_FOURTH_VERSION
+            | FIFTY_FIFTH_VERSION
     )
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
@@ -230,6 +233,7 @@ pub(super) fn reduce(request: Value) -> Result<Value> {
 pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
     let source = match version {
         VERSION => SOURCE,
+        FIFTY_FIFTH_VERSION => FIFTY_FIFTH_SOURCE,
         FIFTY_FOURTH_VERSION => FIFTY_FOURTH_SOURCE,
         FIFTY_THIRD_VERSION => FIFTY_THIRD_SOURCE,
         FIFTY_SECOND_VERSION => FIFTY_SECOND_SOURCE,

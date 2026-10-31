@@ -1693,7 +1693,10 @@ async fn speak(
             check.sentences = if atmosphere::narrator(id) { 3 } else { 1 };
         }
     }
-    voice_attempts(
+    // A reply that only missed its fact is kept. If no later attempt tells
+    // the fact, the speaker still speaks and the fact stays for another Talk.
+    let untold = std::sync::Mutex::new(None);
+    let spoken = voice_attempts(
         settings,
         deadline,
         escalation.is_some(),
@@ -1706,6 +1709,7 @@ async fn speak(
             let system = &system;
             let user = attempt_transcript(context, entity, part, attempt);
             let check = &check;
+            let untold = &untold;
             async move {
                 let request = ChatCompletionRequest {
                     feature: "card_voice",
@@ -1732,29 +1736,69 @@ async fn speak(
                             tracing::info!(
                                 feature = "card_voice",
                                 entity = id,
+                                attempt = attempt + 1,
+                                escalated,
                                 reason = "provider",
                                 failure = error.code(),
                                 "card voice rejected"
                             );
                         })?;
+                let finished = matches!(completion.finish_reason.as_str(), "stop" | "end_turn");
                 check
-                    .clean(
-                        &completion.text,
-                        matches!(completion.finish_reason.as_str(), "stop" | "end_turn"),
-                    )
-                    .map(|text| (text, completion.resolved_model_id))
+                    .clean(&completion.text, finished)
+                    .map(|text| (text.clone(), completion.resolved_model_id.clone()))
                     .map_err(|reason| {
                         tracing::info!(
                             feature = "card_voice",
                             entity = id,
+                            attempt = attempt + 1,
+                            escalated,
                             reason,
+                            excerpt = %excerpt(&completion.text),
                             "card voice rejected"
                         );
+                        if reason == "knowledge_fact" {
+                            if let Ok(text) = check.untold(&completion.text, finished) {
+                                let mut kept = untold.lock().expect("untold reply");
+                                kept.get_or_insert((text, completion.resolved_model_id));
+                            }
+                        }
                     })
             }
         },
     )
-    .await
+    .await;
+    spoken.or_else(|()| {
+        let kept = untold.into_inner().expect("untold reply").ok_or(())?;
+        tracing::info!(
+            feature = "card_voice",
+            entity = id,
+            reason = "knowledge_fact",
+            "card voice spoke without its fact"
+        );
+        Ok(kept)
+    })
+}
+
+/// A bounded, single-line excerpt of a rejected reply for the log. Long
+/// unbroken runs, which could be keys or encoded data, are not copied.
+fn excerpt(text: &str) -> String {
+    let words: Vec<_> = text
+        .split_whitespace()
+        .map(|word| {
+            if word.chars().count() > 24 {
+                "[…]"
+            } else {
+                word
+            }
+        })
+        .collect();
+    let line = words.join(" ");
+    let mut short: String = line.chars().filter(|c| !c.is_control()).take(80).collect();
+    if line.chars().count() > 80 {
+        short.push('…');
+    }
+    short
 }
 
 /// Phrases that belong to an assistant, not to anyone at this table. The
@@ -1889,6 +1933,17 @@ impl<'a> Check<'a> {
     /// breaks shape, speaks as an assistant, names someone the scene does not
     /// know, copies an example, or repeats the play or a recent line.
     fn clean(&self, raw: &str, finished: bool) -> Result<String, &'static str> {
+        self.checked(raw, finished, true)
+    }
+
+    /// The same checks without the fact. A reply that passes them may still
+    /// be spoken, but it teaches nothing: the game counts a fact only when
+    /// its own check finds the sentence in the published line.
+    fn untold(&self, raw: &str, finished: bool) -> Result<String, &'static str> {
+        self.checked(raw, finished, false)
+    }
+
+    fn checked(&self, raw: &str, finished: bool, tell: bool) -> Result<String, &'static str> {
         let own = name(&self.entity.id);
         if self.expression != expression::Mode::Speech {
             let text = expression::clean(self.expression, raw, &own, self.limit, finished)?;
@@ -2018,7 +2073,10 @@ impl<'a> Check<'a> {
         if !bounded(&kept, self.limit) {
             return Err("shape");
         }
-        if self.part == Part::Line && !knowledge::delivered(self.context, &self.entity.id, &kept) {
+        if tell
+            && self.part == Part::Line
+            && !knowledge::delivered(self.context, &self.entity.id, &kept)
+        {
             return Err("knowledge_fact");
         }
         if !observations::consistent(&kept, self.context) {
@@ -2888,6 +2946,54 @@ mod tests {
             .as_str()
             .unwrap()
             .contains(EARNED_VERSE)));
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn a_speaker_who_never_says_the_fact_still_speaks_untold() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let tries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let count = tries.clone();
+        let provider = plain_provider(seen.clone(), move |_, stem| {
+            if stem == "Vale:" {
+                count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                "I want to sit by the pond.".into()
+            } else {
+                "I hear you.".into()
+            }
+        });
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, provider).await.unwrap();
+        });
+        let mut c = context();
+        c.disclosures = serde_json::from_value(json!([{"factId":"event:3","speaker":"vale",
+            "listener":"moth","text":"Vale takes the Lamp.","eventSeq":4}]))
+        .unwrap();
+        assert!(valid(&c));
+        let ids = vec!["vale".to_string()];
+        let result = complete_selected(
+            &test_config(address),
+            &c,
+            &BTreeMap::new(),
+            &VoiceSettings::hosted(),
+            &ids,
+            false,
+            None,
+        )
+        .await
+        .unwrap();
+        // Every attempt missed the fact; the last kept reply is spoken and
+        // the game, which finds no fact in it, keeps the fact for later.
+        assert!(tries.load(std::sync::atomic::Ordering::SeqCst) > 1);
+        assert_eq!(result["entries"][0]["id"], "vale");
+        assert_eq!(result["entries"][0]["text"], "I want to sit by the pond.");
+        let prompt = seen.lock().unwrap()[0]["messages"][1]["content"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(prompt.contains("I take the Lamp."), "{prompt}");
         server.abort();
     }
 
