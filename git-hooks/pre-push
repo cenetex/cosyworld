@@ -2,6 +2,20 @@
 # cosyworld-version-hook
 set -eu
 
+# Change budget: every pushed branch except main stays small (see
+# scripts/change-budget.json). Tags are releases and are not measured. This
+# runs before the skip below; COSYWORLD_LARGE_CHANGE=<reason> overrides it.
+zero=0000000000000000000000000000000000000000
+while read -r _local_ref local_sha remote_ref _remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main|refs/tags/*) continue ;;
+  esac
+  [ "$local_sha" = "$zero" ] && continue
+  # Branches cut before the budget existed have no script to run.
+  [ -f scripts/check-change-budget.mjs ] || continue
+  node scripts/check-change-budget.mjs --head "$local_sha"
+done
+
 if [ "${COSYWORLD_SKIP_PREPUSH:-}" = "1" ]; then
   echo "[pre-push] skipped by COSYWORLD_SKIP_PREPUSH=1." >&2
   exit 0

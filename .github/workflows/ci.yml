@@ -66,6 +66,29 @@ jobs:
           npm run v2:kernel
           npm run v2:syntax
 
+  # Small branches land continuously. Same script as the pre-push hook, so
+  # skipping hooks cannot skip the budget. No install or build.
+  change-budget:
+    name: Change budget
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # HEAD is the PR merge commit; HEAD^1 is the base branch tip.
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Check hand-written lines against the budget
+        env:
+          COSYWORLD_PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/check-change-budget.mjs --base HEAD^1 --head HEAD
+
   runtime:
     name: Rust build and tests
     runs-on: ubuntu-latest
