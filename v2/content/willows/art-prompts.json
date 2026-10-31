@@ -125,6 +125,125 @@
       "processing": "Built-in image_gen; WebP quality 94 with original alpha.",
       "generated": "2026-10-28",
       "from": "closed PR #1293 (codex/willows-atmosphere); its referenced day painting stayed on that branch"
+    },
+    {
+      "asset": "swede-listening",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied Swede character cutout. Make a new full-body pose of this exact man for The Willows game. Preserve his face, short moustache, light brown hair, age about forty, rolled cream linen sleeves, dark brown waistcoat, brown wool trousers and worn lace-up boots. He stands with his body in three-quarter view toward the left, head turned slightly farther left toward the river, one hand raised loosely near his chest as he listens, the other arm resting at his side. Alert and thoughtful. Complete figure including both boots and both hands, centered on a portrait canvas, clear margin around every edge. Same detailed realistic painted illustration, neutral soft daylight suitable for game lighting. Genuinely transparent alpha background. The man is the sole subject; text, scenery and ground shadow are absent.",
+      "file": "assets/willows/swede-listening.webp",
+      "references": [
+        "assets/willows/swede.webp"
+      ],
+      "sourceName": "exec-28e30b85-cbb2-49c3-b3f9-27b3e645b2e6.png",
+      "sourceSha256": "9d9664560379327d8420d18bdb4afdca8cd3c30996e70785ac50e8fa000693b0",
+      "sha256": "766e6b2cedabd2d735689ae3063dbab8180e9fabc2d372ad3b84236bcdf35a4f",
+      "size": [
+        1024,
+        1536
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha.",
+      "from": "closed PR #1293 (codex/willows-atmosphere), commit 3110ff644392f57bfa875d9ba8e6d944c58c01e2; restored byte-for-byte"
+    },
+    {
+      "asset": "swede-worried",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied Swede character cutout. Make a new full-body pose of this exact man for The Willows game. Preserve his face, short moustache, light brown hair, age about forty, rolled cream linen sleeves, dark brown waistcoat, brown wool trousers and worn lace-up boots. He stands in three-quarter view toward the left with folded arms, shoulders drawn slightly inward, brow gently furrowed, looking toward his companion with restrained grave concern. Complete figure including both boots and hands, centered on a portrait canvas, clear margin around every edge. Same detailed realistic painted illustration, neutral soft daylight suitable for game lighting. Genuinely transparent alpha background. The man is the sole subject; text, scenery and ground shadow are absent.",
+      "file": "assets/willows/swede-worried.webp",
+      "references": [
+        "assets/willows/swede.webp"
+      ],
+      "sourceName": "exec-cd54ce0a-73ea-41fe-a328-d465371141ab.png",
+      "sourceSha256": "a699a8e566e61ba1760f9ba7f0f1b8f3123730e8c22a1e2884cf5992576c3338",
+      "sha256": "5c379121ab909a82d9710b20b8d0d8e82f5dde18e62d85621cca33be8036c6a0",
+      "size": [
+        1024,
+        1536
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha.",
+      "from": "closed PR #1293 (codex/willows-atmosphere), commit 3110ff644392f57bfa875d9ba8e6d944c58c01e2; restored byte-for-byte"
+    },
+    {
+      "asset": "swede-seated",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied Swede character cutout. Make a new full-body pose of this exact man for The Willows game. Preserve his face, short moustache, light brown hair, age about forty, rolled cream linen sleeves, dark brown waistcoat, brown wool trousers and worn lace-up boots. He sits in a relaxed low camping crouch on his heels beside an implied fire, forearms resting on his bent knees, body in three-quarter view toward the left, hands loosely joined, looking thoughtfully up toward his companion. Keep a natural practical posture. Complete figure including both boots and hands, centered on a portrait canvas, clear margin around every edge. Same detailed realistic painted illustration, neutral soft daylight suitable for game lighting. Genuinely transparent alpha background. The man is the sole subject; text, scenery, seats and ground shadow are absent.",
+      "file": "assets/willows/swede-seated.webp",
+      "references": [
+        "assets/willows/swede.webp"
+      ],
+      "sourceName": "exec-4196a0d8-f335-48c6-bd9a-e68bcf019dfc.png",
+      "sourceSha256": "0b61bde3296d2704c36ca7fae2c7bf542a73c0ebb8db6dc22a1fbdd46511d7dd",
+      "sha256": "edc20cb2636b6e340f71591d334beb3b548dfee54294bb446db6ddc34f6ea7f6",
+      "size": [
+        1024,
+        1536
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha.",
+      "from": "closed PR #1293 (codex/willows-atmosphere), commit 3110ff644392f57bfa875d9ba8e6d944c58c01e2; restored byte-for-byte"
+    },
+    {
+      "asset": "swede-uncanny",
+      "prompt": "Use case: identity-preserve. Edit target: supplied original swede-reference.png, decoded from v2/card-game/assets/willows/swede.webp. Create its uncanny facial-expression variant. EXACT 1024 x 1536 transparent canvas, same man and identity, same head angle, same standing pose and position, unchanged framing and scale. Do not repaint anything except the tiny eye interiors and closed mouth corners. Preserve original clothes, hands, hair, moustache, boots, silhouette and the richly textured gouache-and-ink finish. ESSENTIAL EYE EDIT: despite the unchanged left-facing head, both eyes look directly OUT OF THE IMAGE AT THE VIEWER. Shift his gaze to the viewer's right within the eye openings, away from the original leftward glance. Both irises are unnaturally PALE FLAT STRAW YELLOW like the uncanny otter in Blackwood's The Willows, nearly flat dull yellow discs, with tiny still round dark pupils. NOT natural olive-green, brown or amber eyes; not luminous gold; no sparkling catchlights or emitted light. Keep original natural-sized eyes, eye shape and eyelids, do not widen them or make him a monster. Tiny fixed symmetrical CLOSED-MOUTH SMILE under the moustache, calm and impersonal, mouth corners barely raised but no cheek lift, no squint and no friendly warmth. The face should feel like an unchanging mask while remaining exactly this man. Preserve original face skin colour, exposure, shadows and rough paint texture. Original whole-image brightness and natural colour balance MUST stay unchanged: no extra fill light, relighting, smoothing, brightening, darkening, desaturation or red tint. Only tiny facial changes, so a 150-millisecond flicker reads the same man slightly wrong. Real RGBA transparency around the figure and between limbs; black in input is transparent space, not a black backdrop. No backdrop, halo, ground plane, stripes, checkerboard, text or gore.",
+      "file": "assets/willows/swede-uncanny.webp",
+      "references": [
+        "assets/willows/swede.webp"
+      ],
+      "sourceName": "exec-b25e8a74-77ea-435e-a7e6-8185ac83b781.png",
+      "sourceSha256": "995a1a801b4a23e6fa2ca963143d1d41c527beab061ca130c5e5ee5c4642e155",
+      "sha256": "ec32e505c9514aabaf1d04426556343019dc2a23b7e170651f5649358c731e45",
+      "size": [
+        1024,
+        1536
+      ],
+      "processing": "Built-in image_gen identity edit; imagegen-authored eyes and mouth feathered into the exact base in three small ellipses (centres/radii: 429,127/19,14; 477,129/27,17; 449,186/37,21; 28% smooth edge feather). Original full alpha and all visible pixels outside the facial masks preserved exactly. Lossless WebP; invisible RGB under alpha zero may be canonicalized by the encoder.",
+      "generated": "2026-10-30"
+    },
+    {
+      "asset": "swede-listening-uncanny",
+      "prompt": "Use case: identity-preserve. Edit target: supplied source-visible.png, a lossless visible-pixel copy of swede-listening.webp. Make a surgical facial-expression edit to this existing 1024 x 1536 transparent illustration. This is a one-frame 150 millisecond flicker: the image must read as the exact same man, in the exact same position, with only his face slightly wrong. Keep the original pixels and painted gouache-and-ink details everywhere outside the face as closely as possible: same hair and moustache, ear, neck, shirt, waistcoat, trouser fabric, boots, folds, silhouette, hand positions, body posture, scale, margins and canvas. Keep the head angle exactly unchanged. ONLY edit the eyes and a very small mouth area: pale flat yellow, subtly otter-like irises fix a fraction higher into the sky as if he is entranced by an unheard sound; the closed mouth makes a very faint calm fixed smile. Keep eyelids small and realistic, no bulging eyes and no glowing eyes. Preserve the exact original colour values and lightness over the entire body, especially the darker brown trousers, waistcoat and warm skin; no lift to exposure, no deepening of shadows, no new lighting, no warmer or cooler colour grading. Background must remain genuinely transparent, with alpha zero outside the silhouette and in all gaps. No blur, aura, halo, backdrop, gradient, shadow, stripes, checkers, added objects, text, gore or red tint. Do not redesign, reframe or re-pose the character.",
+      "file": "assets/willows/swede-listening-uncanny.webp",
+      "references": [
+        "assets/willows/swede-listening.webp"
+      ],
+      "sourceName": "exec-fa6a3b24-2279-4236-92e2-e1f19030133e.png",
+      "sourceSha256": "7d8e3ff9c90b0beb9f6cfdedc469e235a3d9ddd473a333a7cbdd85736813d327",
+      "sha256": "1a4438993356470e6ca0d1ff9199ceeae3d0ecc9ea9091c689993ab132763cba",
+      "size": [
+        1024,
+        1536
+      ],
+      "processing": "Built-in image_gen identity edit; the imagegen-authored eyes and mouth were feathered into the exact original base in three small ellipses (centres/radii: 428,127/19,14; 476,129/27,17; 448,186/37,21; 28% edge feather), preserving the original body, hair, clothing and alpha byte-for-byte. Lossless WebP. RGB beneath fully transparent pixels normalized by WebP encoder.",
+      "generated": "2026-10-30"
+    },
+    {
+      "asset": "swede-seated-uncanny",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied swede-seated.webp (the attached losslessly decoded PNG is the exact base image). Asset type: alternate character sprite for a 150 ms uncanny flicker in CosyWorld's The Willows, inspired by Algernon Blackwood. Keep the EXACT 1024 by 1536 canvas, the same man's identity, every part of his existing seated/crouched pose, head angle, framing, scale, location, hands, sleeves, waistcoat, trousers, boots, hair silhouette and detailed painted gouache-and-ink finish. This is a very small facial edit of this exact picture, not a repaint. Change only his eyes and mouth: his eyes now look straight at the viewer despite the unchanged turned head, with pale flat yellow otter-like irises and an unnaturally still gaze; a very small calm fixed closed-mouth smile replaces his concern. Keep his human eye size, lids, eyebrows, moustache, facial anatomy and familiar likeness. Do not glow the eyes. All clothing, body, pose and non-face details must remain visually unchanged. Preserve the original warm natural brightness and overall colour balance exactly; no global grade, no change in exposure, no red cast, no darkening or brightening. The background must be genuinely transparent alpha zero around the whole figure and in the physical gaps, with fine natural cutout edges. Invisible RGB remnants under the source's transparent alpha are not scenery and must not become visible. The man is the only visible subject. No floor, ground shadow, scenery, props, rectangle, border, stripes, checker patterns, text, gore or grotesque additions. Output portrait 1024 by 1536 with genuine transparency.",
+      "file": "assets/willows/swede-seated-uncanny.webp",
+      "references": [
+        "assets/willows/swede-seated.webp"
+      ],
+      "sourceName": "exec-59baa281-0c87-4316-a16c-4c678069e783.png",
+      "sourceSha256": "43d9139f665980d42b0d6e16a2c203b0511f4f5b1ffb7ade9b026924880bec6b",
+      "sha256": "1ce241999e673dd6c8698a117bddcdc3623204cb566bb0a9ed7c8eead6ab3b0a",
+      "size": [
+        1024,
+        1536
+      ],
+      "processing": "Built-in image_gen identity-preserving facial edit. Generated facial detail registered by integer translation (-6, 30) px, then feathered inside small facial masks onto the exact base using Sharp. The original full alpha channel and all visible pixels outside those masks are preserved. Lossless WebP encoding; invisible RGB under alpha zero may be canonicalized by the encoder. Facial masks (centre x, y, radius x, y, opacity): [[485,218,24,16,1],[552,234,27,19,1],[499,315,43,23,1]]; feather begins at normalized radius 0.68.",
+      "generated": "2026-10-30"
+    },
+    {
+      "asset": "swede-worried-uncanny",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied swede-worried.webp (the attached losslessly decoded PNG is the exact base image). Asset type: alternate character sprite for a 150 ms uncanny flicker in CosyWorld's The Willows, inspired by Algernon Blackwood. Keep the EXACT 1024 by 1536 canvas, the same man's identity, every part of the existing standing arms-folded pose, head angle, framing, scale, location, hands, sleeves, waistcoat, trousers, boots, hair silhouette and detailed painted gouache-and-ink finish. This is a tiny face-only edit of this exact picture, not a repaint or a change of pose. Change the face and very small details within the head: he seems faintly water-soaked and entranced, with just a very faint cool grey-green undertone confined to the cheeks and shallow smooth sand-like hollows beneath the cheekbones. A few existing locks of hair look slightly damp but stay in their original silhouette. His mouth is uncannily serene, a very slight calm fixed closed-mouth smile, while his existing worried stance stays identical. Keep all facial anatomy and familiar likeness; no skull, no wounds, no new marks or holes. Keep his eyes and gaze at the same angle. Preserve the original warm natural brightness and colour balance across the sprite exactly; the faint cheek detail must not tint the whole head, skin, clothing or sprite. No global grade, no exposure change, no red cast, no darkening or brightening. All clothing, body, pose, silhouettes and non-face details must remain visually unchanged. The background must be genuinely transparent alpha zero around the whole figure and in the physical gaps, with fine natural cutout edges. Invisible RGB remnants under the source's transparent alpha are not scenery and must not become visible. The man is the only visible subject. No floor, ground shadow, scenery, props, rectangle, border, stripes, checker patterns, text, gore or grotesque additions. Output portrait 1024 by 1536 with genuine transparency.",
+      "file": "assets/willows/swede-worried-uncanny.webp",
+      "references": [
+        "assets/willows/swede-worried.webp"
+      ],
+      "sourceName": "exec-fad7bfeb-1601-49aa-ae9a-0314cb49e5f9.png",
+      "sourceSha256": "d32d41c24888efe51a10c2b34796be91b1649a05715c4039c742031168b92083",
+      "sha256": "999fe670456c88787a25f33f76c7107ff74de36010f30f031f1dca360e7704ef",
+      "size": [
+        1024,
+        1536
+      ],
+      "processing": "Built-in image_gen identity-preserving facial edit. Generated facial detail registered by integer translation (-1, 1) px, then feathered inside small facial masks onto the exact base using Sharp. The original full alpha channel and all visible pixels outside those masks are preserved. Lossless WebP encoding; invisible RGB under alpha zero may be canonicalized by the encoder. Facial masks (centre x, y, radius x, y, opacity): [[533,177,35,38,0.9],[450,152,12,25,0.55],[476,180,34,19,0.85]]; feather begins at normalized radius 0.68.",
+      "generated": "2026-10-30"
     }
   ]
 }
