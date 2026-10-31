@@ -210,6 +210,12 @@ try {
       }));
       assert.equal(lid.fit, "contain");
       assert.equal(lid.motion === "fade", motion === "reduce", JSON.stringify(lid));
+      // Once the lid has opened it stays gone for the rest of the reveal.
+      const lateLid = await pond.locator(".reveal-lid").evaluate((lid) => {
+        for (const a of lid.getAnimations()) a.currentTime = a.effect.getComputedTiming().endTime + 1;
+        return getComputedStyle(lid).opacity;
+      });
+      assert.equal(lateLid, "0");
       // A tap during the reveal skips it without selecting, then the card,
       // with no layers or animations left, takes the next click itself.
       await pond.click();

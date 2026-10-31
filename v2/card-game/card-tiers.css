@@ -76,6 +76,8 @@ body .hand .card-frame:has(> .card[data-unrevealed="true"]) {
   height: 100%;
   border-radius: inherit;
   pointer-events: none;
+  /* Hidden between keyframes, so neither layer lingers after its own run. */
+  opacity: 0;
 }
 .reveal-lid {
   object-fit: contain;

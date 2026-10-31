@@ -104,7 +104,7 @@ export function revealCard(button, options = {}) {
     button.append(sheen);
     layers.push(sheen);
     animations.push(
-      sheen.animate([{ translate: "-120% 0" }, { translate: "120% 0" }], {
+      sheen.animate([{ translate: "-120% 0", opacity: 1 }, { translate: "120% 0", opacity: 1 }], {
         duration: Math.round(plan.ms * 0.55),
         delay: Math.round(plan.ms * 0.35),
         easing: "ease-in-out",
