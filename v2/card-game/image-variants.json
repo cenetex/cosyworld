@@ -1827,12 +1827,40 @@
       "card": "assets/optimized/card/png/vale.webp",
       "cardHash": "62ba8b48ac3a2bb0ce5872670282551e1666053f69da62305b03d5156c7e5f9e"
     },
+    "assets/willows/bank-night.webp": {
+      "sourceHash": "427b7e1e3c12c3c095f9d78a0ac9727f7ae224a1cd70cd45f93d7463924525ae",
+      "stage": "assets/willows/bank-night.webp",
+      "stageHash": "427b7e1e3c12c3c095f9d78a0ac9727f7ae224a1cd70cd45f93d7463924525ae",
+      "card": "assets/optimized/card/webp/willows/bank-night.webp",
+      "cardHash": "becdafaf526737eb6ab157581d64ebab0e55626e56680ebadb43d0b9a7741d1f"
+    },
+    "assets/willows/bank-uncanny.webp": {
+      "sourceHash": "83dc4e3c118c6348448e54b6043ad5f74c469c6f73857fbcdc355bd0737f9843",
+      "stage": "assets/willows/bank-uncanny.webp",
+      "stageHash": "83dc4e3c118c6348448e54b6043ad5f74c469c6f73857fbcdc355bd0737f9843",
+      "card": "assets/optimized/card/webp/willows/bank-uncanny.webp",
+      "cardHash": "b23160a16b7f350176bad91fedc12414dc91c8a8cb8c8be6cbf56f5672d888a3"
+    },
     "assets/willows/bank.webp": {
       "sourceHash": "1b7d169860245febcaccad142b6ee7ecba37d8d302ff75e8128e6584bc07ca19",
       "stage": "assets/willows/bank.webp",
       "stageHash": "1b7d169860245febcaccad142b6ee7ecba37d8d302ff75e8128e6584bc07ca19",
       "card": "assets/optimized/card/webp/willows/bank.webp",
       "cardHash": "abdc2d0d01a27a4cc0892cf9dd890fd3f0606194b175f2ab69929bd8cd59add8"
+    },
+    "assets/willows/camp-dark-night.webp": {
+      "sourceHash": "cd5e5ea072c79a0a1ea6b7645d6950126db124ebf646d04cf0af2a08408689dd",
+      "stage": "assets/willows/camp-dark-night.webp",
+      "stageHash": "cd5e5ea072c79a0a1ea6b7645d6950126db124ebf646d04cf0af2a08408689dd",
+      "card": "assets/optimized/card/webp/willows/camp-dark-night.webp",
+      "cardHash": "32c579072505221598c719e4c90f760742b48c57066423f86dac36aac53a2bca"
+    },
+    "assets/willows/camp-lit-night-uncanny.webp": {
+      "sourceHash": "93e0e8c7cda55b629a25950662b6f725e817a26268958eb916f0a5b405bc7b12",
+      "stage": "assets/willows/camp-lit-night-uncanny.webp",
+      "stageHash": "93e0e8c7cda55b629a25950662b6f725e817a26268958eb916f0a5b405bc7b12",
+      "card": "assets/optimized/card/webp/willows/camp-lit-night-uncanny.webp",
+      "cardHash": "3fe1b1d97fc169f96cb9bec43dd5918a8ae41c25d3b6a6df98d5308c7421d0db"
     },
     "assets/willows/camp-lit-night.webp": {
       "sourceHash": "3aeac8f45d6c1422f1ffb410a01a7709d607c25a4f9a4781e6fcef1ed41e2aef",
@@ -1841,6 +1869,13 @@
       "card": "assets/optimized/card/webp/willows/camp-lit-night.webp",
       "cardHash": "d842740114832e55dd76b6eb965aa9f8b882e7cffb6855ceea1902e7f8b92654"
     },
+    "assets/willows/camp-uncanny.webp": {
+      "sourceHash": "2322acd0f14dee3fe4034a297ddad18ee5fbf376bc5c42e66894d6fd0179ea68",
+      "stage": "assets/willows/camp-uncanny.webp",
+      "stageHash": "2322acd0f14dee3fe4034a297ddad18ee5fbf376bc5c42e66894d6fd0179ea68",
+      "card": "assets/optimized/card/webp/willows/camp-uncanny.webp",
+      "cardHash": "15a3e617c6052274587d67e858ceffea492fa6b1273641c6d095716f13854cb5"
+    },
     "assets/willows/camp.webp": {
       "sourceHash": "b45b2f36bca38d187e277b57704bbb9a7600a087d9cb4dcb6406049c74e10314",
       "stage": "assets/willows/camp.webp",
@@ -1848,12 +1883,26 @@
       "card": "assets/optimized/card/webp/willows/camp.webp",
       "cardHash": "e889169ffbcfe684c0cfbb21e662e05040296a99a2810c2af574072057a9f13d"
     },
+    "assets/willows/landing-night.webp": {
+      "sourceHash": "b6f8aa5cab224eac85b54e677810487c1be6a202df8d9869ab3176a3a444d4e4",
+      "stage": "assets/willows/landing-night.webp",
+      "stageHash": "b6f8aa5cab224eac85b54e677810487c1be6a202df8d9869ab3176a3a444d4e4",
+      "card": "assets/optimized/card/webp/willows/landing-night.webp",
+      "cardHash": "af780ff32dfd6e9293101828d75ca422e40c31d3749921cad7ed153f5023108c"
+    },
     "assets/willows/landing-ship-night.webp": {
       "sourceHash": "eccc07e492fe00237e93746026c69d88e515a91553cdc766cbdf97e0e102a887",
       "stage": "assets/willows/landing-ship-night.webp",
       "stageHash": "eccc07e492fe00237e93746026c69d88e515a91553cdc766cbdf97e0e102a887",
       "card": "assets/optimized/card/webp/willows/landing-ship-night.webp",
       "cardHash": "bd6b83f10cea6848879426b1d81f36e79ddd71cde59b75e9fc53245f5cf9e1bb"
+    },
+    "assets/willows/landing-uncanny.webp": {
+      "sourceHash": "fc10feeaa45b6bd2e6e653dcd8f360ff0dd8ef9894b89a78896c84bd2ca3f15c",
+      "stage": "assets/willows/landing-uncanny.webp",
+      "stageHash": "fc10feeaa45b6bd2e6e653dcd8f360ff0dd8ef9894b89a78896c84bd2ca3f15c",
+      "card": "assets/optimized/card/webp/willows/landing-uncanny.webp",
+      "cardHash": "32d1cdbeb34fdd16e733500fc24a68bf0b4a02307d39146293c7dd83da4b41e5"
     },
     "assets/willows/landing.webp": {
       "sourceHash": "589d52b6c0d24168c7f57952f2fae3aa6550726c7e1897eef7616979fff55804",
@@ -1973,6 +2022,20 @@
       "stageHash": "b29d85b8a68d2c15ff68033b5b1bc244875b05adfda3aa3ab2ec96f387f44c4f",
       "card": "assets/optimized/card/webp/willows/swede.webp",
       "cardHash": "f10b982e4be3e9a819d5e909350d7d0df8369e5323e3cc800c255039e097da43"
+    },
+    "assets/willows/thicket-night.webp": {
+      "sourceHash": "d91e0177754a1b9a7ab728d59ce574bfa50068de8e44f0b11672239ce108406d",
+      "stage": "assets/willows/thicket-night.webp",
+      "stageHash": "d91e0177754a1b9a7ab728d59ce574bfa50068de8e44f0b11672239ce108406d",
+      "card": "assets/optimized/card/webp/willows/thicket-night.webp",
+      "cardHash": "f73f2a55e555665e42a1b40542843c3a9fbeffb8071a4a7aa451065ffc4ca0d0"
+    },
+    "assets/willows/thicket-uncanny.webp": {
+      "sourceHash": "555a3fcf3d51185f2777dbd4b0a73293479dec7d399abec387053ffc073fddaa",
+      "stage": "assets/willows/thicket-uncanny.webp",
+      "stageHash": "555a3fcf3d51185f2777dbd4b0a73293479dec7d399abec387053ffc073fddaa",
+      "card": "assets/optimized/card/webp/willows/thicket-uncanny.webp",
+      "cardHash": "8169ba1f0c3504d5f16958759011e8c0c65d9bc985c906e97f7fc33969c8eb50"
     },
     "assets/willows/thicket.webp": {
       "sourceHash": "ac2324c2edd0d98f8d7ecf11f3b30ccdd891261ba0b5514896305b41064cd95c",
