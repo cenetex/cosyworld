@@ -6,9 +6,12 @@ on:
   push:
     branches: [main, develop]
 
+# A newer push cancels a pull request's run. On main a running check finishes,
+# so main gets complete results and saves its caches; GitHub keeps only the
+# newest waiting run behind it.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Test builds keep assertions and overflow checks, with compact symbols.
 env:
@@ -78,7 +81,15 @@ jobs:
 
       # Only main saves the Cargo cache; pull requests restore it. Saving a
       # new commit-keyed cache on every run cost about 45 seconds each.
+      # The key names the dependency set, not the commit: every merge bumps
+      # the crate version, and a per-commit key wrote a new 2 GB entry each
+      # time until the cache limit evicted it before the next run could use it.
+      - name: Key the Cargo cache by dependencies
+        id: cargo-key
+        run: echo "deps=$(bash scripts/cargo-cache-key.sh v2/orchestrator-rust/Cargo.lock)" >> "$GITHUB_OUTPUT"
+
       - name: Restore Cargo build cache
+        id: cargo-cache
         uses: actions/cache/restore@v6
         with:
           path: |
@@ -86,16 +97,27 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-cargo-compact-v1-deps-${{ steps.cargo-key.outputs.deps }}
           restore-keys: |
-            ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
             ${{ runner.os }}-cargo-compact-v1-
 
-      - name: Test Rust orchestrator
-        run: bash v2/scripts/check-rust.sh test
+      - name: Check Rust formatting
+        run: bash v2/scripts/check-rust.sh fmt
+
+      - name: Compile Rust tests
+        working-directory: v2/orchestrator-rust
+        run: cargo test --no-run
+
+      # Main saves the cache once per dependency set, right after compiling,
+      # so the entry exists even if the tests fail. The debug build adds the
+      # crates the smoke-test binary needs.
+      - name: Compile the smoke-test binary's crates for the cache
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
+        working-directory: v2/orchestrator-rust
+        run: cargo build
 
       - name: Save Cargo build cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: |
@@ -103,7 +125,10 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
+
+      - name: Test Rust orchestrator
+        run: bash v2/scripts/check-rust.sh test
 
   # The browser and composition checks need only the debug binary, so it is
   # built beside the Rust tests instead of after them.
@@ -121,7 +146,15 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # The key names the dependency set, not the commit: every merge bumps
+      # the crate version, and a per-commit key wrote a new 2 GB entry each
+      # time until the cache limit evicted it before the next run could use it.
+      - name: Key the Cargo cache by dependencies
+        id: cargo-key
+        run: echo "deps=$(bash scripts/cargo-cache-key.sh v2/orchestrator-rust/Cargo.lock)" >> "$GITHUB_OUTPUT"
+
       - name: Restore Cargo build cache
+        id: cargo-cache
         uses: actions/cache/restore@v6
         with:
           path: |
@@ -129,9 +162,8 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-cargo-compact-v1-deps-${{ steps.cargo-key.outputs.deps }}
           restore-keys: |
-            ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
             ${{ runner.os }}-cargo-compact-v1-
 
       - name: Build V2 binary
@@ -217,16 +249,36 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Each group has its own runner, ports, and files, and all of them feed
+      # the required build check. Scripts within a group run in order. The
+      # Greek journeys, which once ran 25 to 45 minutes on one runner, are
+      # split so no group runs much past ten minutes.
       matrix:
-        mode:
-          - baseline
-          - living-world
-          - cards-shared
-          - cards-ui
-          - cards-routes
-          - cards-drama
-          - cards-dialogue
-          - cards-quests
+        include:
+          - mode: baseline
+            scripts: ""
+          - mode: living-world
+            scripts: ""
+          - mode: cards-shared
+            scripts: smoke-shared-cards smoke-card-greek-capacity
+          - mode: cards-ui
+            scripts: check-card-awakening smoke-card-unveil smoke-card-hand smoke-card-boardyai smoke-card-music smoke-card-music-network smoke-card-media-cache smoke-scene-video
+          - mode: cards-routes
+            scripts: smoke-card-narrative-contract smoke-card-home-rescue smoke-card-pond-access smoke-card-clearing-access smoke-card-pond-crossings smoke-shared-ship smoke-card-facing smoke-card-image-first smoke-card-toolbar smoke-card-learning smoke-shared-snapshot-order smoke-shared-play-status smoke-card-actions
+          - mode: cards-drama
+            scripts: smoke-card-greek-drama smoke-card-theban-scenery
+          - mode: cards-weather
+            scripts: smoke-card-weather smoke-card-greek-travel
+          - mode: cards-open-door
+            scripts: smoke-card-open-door
+          - mode: cards-homecoming
+            scripts: smoke-card-greek-homecoming
+          - mode: cards-ajax
+            scripts: smoke-card-ajax
+          - mode: cards-dialogue
+            scripts: smoke-card-dialogue-recovery smoke-card-dialogue-timing smoke-card-movement
+          - mode: cards-quests
+            scripts: smoke-card-shared-discovery smoke-card-bard-travel smoke-card-voice
     env:
       CI: true
       COSYWORLD_BROWSER_CHECK_MODE: ${{ matrix.mode }}
@@ -288,67 +340,16 @@ jobs:
         if: matrix.mode == 'baseline' || matrix.mode == 'living-world'
         run: npm run v2:browser:check
 
-      # Each group has its own runner, ports, and files. All groups feed the
-      # required build check. Commands within a group run in order.
-      - name: Check shared card worlds with real passkeys
-        if: matrix.mode == 'cards-shared'
+      - name: Run card browser journeys
+        if: matrix.scripts != ''
+        env:
+          SCRIPTS: ${{ matrix.scripts }}
         run: |
-          node v2/scripts/smoke-shared-cards.mjs
-          node v2/scripts/smoke-card-greek-capacity.mjs
-
-      - name: Check card opening, hand, and music
-        if: matrix.mode == 'cards-ui'
-        run: |
-          node v2/scripts/check-card-awakening.mjs
-          node v2/scripts/smoke-card-unveil.mjs
-          node v2/scripts/smoke-card-hand.mjs
-          node v2/scripts/smoke-card-boardyai.mjs
-          node v2/scripts/smoke-card-music.mjs
-          node v2/scripts/smoke-card-music-network.mjs
-          node v2/scripts/smoke-card-media-cache.mjs
-          node v2/scripts/smoke-scene-video.mjs
-
-      - name: Check card routes and actions
-        if: matrix.mode == 'cards-routes'
-        run: |
-          node v2/scripts/smoke-card-narrative-contract.mjs
-          node v2/scripts/smoke-card-home-rescue.mjs
-          node v2/scripts/smoke-card-pond-access.mjs
-          node v2/scripts/smoke-card-clearing-access.mjs
-          node v2/scripts/smoke-card-pond-crossings.mjs
-          node v2/scripts/smoke-shared-ship.mjs
-          node v2/scripts/smoke-card-facing.mjs
-          node v2/scripts/smoke-card-image-first.mjs
-          node v2/scripts/smoke-card-toolbar.mjs
-          node v2/scripts/smoke-card-learning.mjs
-          node v2/scripts/smoke-shared-snapshot-order.mjs
-          node v2/scripts/smoke-shared-play-status.mjs
-          node v2/scripts/smoke-card-actions.mjs
-
-      - name: Check Greek drama, Thebes, the Open Door, and Ajax
-        if: matrix.mode == 'cards-drama'
-        run: |
-          node v2/scripts/smoke-card-greek-drama.mjs
-          node v2/scripts/smoke-card-theban-scenery.mjs
-          node v2/scripts/smoke-card-weather.mjs
-          node v2/scripts/smoke-card-open-door.mjs
-          node v2/scripts/smoke-card-greek-travel.mjs
-          node v2/scripts/smoke-card-greek-homecoming.mjs
-          node v2/scripts/smoke-card-ajax.mjs
-
-      - name: Check dialogue and movement
-        if: matrix.mode == 'cards-dialogue'
-        run: |
-          node v2/scripts/smoke-card-dialogue-recovery.mjs
-          node v2/scripts/smoke-card-dialogue-timing.mjs
-          node v2/scripts/smoke-card-movement.mjs
-
-      - name: Check shared discovery, the Bard's travel, and voice
-        if: matrix.mode == 'cards-quests'
-        run: |
-          node v2/scripts/smoke-card-shared-discovery.mjs
-          node v2/scripts/smoke-card-bard-travel.mjs
-          node v2/scripts/smoke-card-voice.mjs
+          for script in $SCRIPTS; do
+            echo "::group::$script"
+            node "v2/scripts/$script.mjs"
+            echo "::endgroup::"
+          done
 
       - name: Upload browser images
         if: always()

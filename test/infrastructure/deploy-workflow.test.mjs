@@ -331,14 +331,25 @@ describe("deploy workflow", () => {
       "cards-ui",
       "cards-routes",
       "cards-drama",
+      "cards-weather",
+      "cards-open-door",
+      "cards-homecoming",
+      "cards-ajax",
       "cards-dialogue",
       "cards-quests",
     ])
-      expect(browser).toContain(`- ${mode}`);
+      expect(browser).toContain(`- mode: ${mode}\n`);
+    expect(browser).toContain('node "v2/scripts/$script.mjs"');
     expect(browser).toContain("actions/download-artifact@v8");
     for (const job of ["node", "runtime", "smoke-binary", "rust-quality"])
       expect(build).toContain(job);
     expect(build).toContain('test "$SMOKE_BINARY_RESULT" = success');
+  });
+
+  it("lets a running main CI finish while newer pull request pushes cancel", () => {
+    expect(ciWorkflow).toContain(
+      "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+    );
   });
 
   it("saves the Cargo cache only from main", () => {
@@ -346,6 +357,12 @@ describe("deploy workflow", () => {
     expect(runtime).toContain("actions/cache/restore@v6");
     expect(runtime).toContain("actions/cache/save@v6");
     expect(runtime).toContain("github.ref == 'refs/heads/main'");
+    // One entry per dependency set, saved before the tests run.
+    expect(runtime).toContain("scripts/cargo-cache-key.sh");
+    expect(runtime).toContain("steps.cargo-cache.outputs.cache-hit != 'true'");
+    expect(runtime.indexOf("actions/cache/save@v6")).toBeLessThan(
+      runtime.indexOf("check-rust.sh test"),
+    );
     expect(ciJob("smoke-binary", "rust-quality")).not.toContain(
       "actions/cache/save",
     );

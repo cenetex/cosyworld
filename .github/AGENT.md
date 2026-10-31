@@ -53,7 +53,11 @@ Then run every row that matches the change:
 
 CI is the final cross-platform authority. It uses Node 24 and stable Rust
 for lint, tests, content, kernel, Rust builds, browser and composition smokes,
-and guide checks. A local suite
+and guide checks. Browser journeys run in parallel groups from one shared
+debug binary; keep each group near ten minutes and add a new journey script to
+a group in `ci.yml`. A newer push cancels a pull request's run, but a running
+main run finishes. Main saves the Cargo cache once per dependency set, keyed by
+`scripts/cargo-cache-key.sh`. A local suite
 that opens ephemeral HTTP listeners may fail inside a restricted sandbox with
 `listen EPERM`; rerun it where loopback binding is permitted rather than
 changing application behavior.
