@@ -1,0 +1,55 @@
+{
+  "created": "2026-10-31",
+  "generator": "OpenAI built-in image generation",
+  "brief": "The attic is the last safe place. Lamplight is warm and protective, and the mirror reflects only the room. Dousing the lamp reveals the cold moonlit Black Pond: escape is the dark.",
+  "art_direction_feedback": [
+    "Preserve the original attic camera, perspective, rafters, stair opening/balustrade, shrouded furniture, trunks and city windows.",
+    "Replace the warm state's giant-moon seascape with an ordinary warm reflection of the attic.",
+    "Replace the dark state's empty glass with the still moonlit Black Pond, the brightest focus.",
+    "Add one stationary floor lamp beside the mirror, and retain it exactly between the two states."
+  ],
+  "assets": [
+    {
+      "id": "attic-lit",
+      "file": "attic-lit.webp",
+      "state": "Lamp lit; safe room; attic reflection only",
+      "generation_id": "exec-08f7dc1e-6b64-4188-92cb-d2b54022e698",
+      "references": [
+        {
+          "role": "edit target",
+          "repository_path": "v2/card-game/assets/attic.png",
+          "commit": "02348c737be70db61979c32ca450bdb0cdee00f5",
+          "url": "https://github.com/cenetex/cosyworld/blob/02348c737be70db61979c32ca450bdb0cdee00f5/v2/card-game/assets/attic.png",
+          "sha256": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e"
+        }
+      ],
+      "dimensions": [1672, 941],
+      "transparent_background": false,
+      "prompt": "Use case: identity-preserve environment edit.\nAsset: Cosyworld attic-lit, a finished painted gouache-and-ink game background.\nInput image 1 is the EXACT composition master and edit target. Preserve its full 1672×941 landscape canvas (approximately16:9), camera position, lens/perspective, framing, all roof rafters and crossbeams, wall timbers and chimney, worn floorboards, shrouded furniture, stacked trunks/books/leaning frames, left foreground stair opening and wooden balustrade, small back-left city window, large right night-city window, and especially the tall ornate oval mirror centre-back. Do not crop, zoom, enlarge the mirror, move furniture, alter stairs, or redesign the room.\n\nMake the attic the last safe place. Add ONE modest, visible brass oil lamp with a glass chimney standing on the floor immediately to the LEFT of the mirror's base, tucked beside it and clear of the mirror opening. It is not held. This lamp is LIT and is the only interior light source. A small real flame casts a soft amber pool across the nearby floor, reaching the nearest beams, dust sheets and worn carved mirror frame. Deep warm shadows beyond the pool, with restrained indigo in the far corners. Remove the old unexplained warm light coming up the left stairs: the warmth now visibly comes from this one lamp beside the mirror. Keep the room readable and richly textured, warm, close, protective, slightly enclosing, somewhere one could stay forever.\n\nCRITICAL MIRROR EDIT: completely remove the existing alien moon, coast, water, sky and landscape from inside the glass. The mirror now reflects ONLY the lamp-lit ATTIC: plausible reflected roof timbers, warm indoor floorboards and softly shrouded furniture, in believable reflected perspective. It is recognizably an ordinary closed mirror, warm and domestic. No vista, portal, outdoors, pond, horizon, moon, stars, doorway, people or silhouette in the reflection. Keep the exact original ornate frame silhouette and scale.\n\nThe same right window still shows the distant night city, cool blue, small details far away, visually subordinate to the safe amber interior. Keep all original architectural/city landmarks in place. Same tactile painted gouache-and-ink style as the supplied original, subtle ink contours, worn surfaces, soft amber bounce, no photorealism, no glossy3D, no new decor. No people, hands, text, symbols, watermark, montage or border. ONE full landscape image, 1672×941."
+    },
+    {
+      "id": "attic-doused",
+      "file": "attic-doused.webp",
+      "state": "Lamp just doused; cold room; moonlit pond opening",
+      "generation_id": "exec-55029ea1-a4a0-4391-8463-b8bda90fcbae",
+      "references": [
+        {
+          "role": "edit target",
+          "asset_id": "attic-lit",
+          "generation_id": "exec-08f7dc1e-6b64-4188-92cb-d2b54022e698",
+          "original_png_sha256": "d765bfca74e0d27d79ac90350e7eee224a20fbf509312ac7895b6eeb2abd8e81"
+        },
+        {
+          "role": "canonical composition reference (through edit target)",
+          "repository_path": "v2/card-game/assets/attic.png",
+          "commit": "02348c737be70db61979c32ca450bdb0cdee00f5",
+          "url": "https://github.com/cenetex/cosyworld/blob/02348c737be70db61979c32ca450bdb0cdee00f5/v2/card-game/assets/attic.png",
+          "sha256": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e"
+        }
+      ],
+      "dimensions": [1672, 941],
+      "transparent_background": false,
+      "prompt": "Use case: identity-preserve lighting and mirror-content edit.\nAsset: Cosyworld attic-doused, the exact matching alternate state of the supplied attic-lit painting.\nInput image1 is the APPROVED EDIT TARGET. Preserve its entire 1672×941 landscape canvas, approximately16:9, pixel-matched composition, camera, perspective, every rafter and wall timber, brick chimney, floorboard pattern, left stair opening and balustrade, shrouded furniture, trunks, books, leaning frames, both city windows, and centre-back tall ornate mirror. Keep the standing brass-and-glass oil lamp EXACTLY where it is on the floor immediately left of the mirror base, with the same size, design and orientation. No new objects, no moving objects, no camera/geometry changes, no cropping, no zoom.\n\nChange only the lamp flame, the lighting, and what appears within the mirror:\n1. The oil lamp has just been put out. Its bright flame and all amber glow are gone. One extremely faint warm ember remains on the wick inside the dark glass chimney, with ONE delicate thin curl of pale smoke rising from the chimney. It is clearly an extinguished lamp, not a candle or an active flame. No warm pools remain on the floor, stairs, furniture or beams.\n2. The attic falls into deep cool blue-black darkness. Furniture is readable mainly by restrained silver/indigo edges and faint dust-sheet glimmers. It is the SAME room, now quiet and receding, with large soft near-black shapes. Keep enough tonal separation to recognize the original architecture. The window retains the identical distant night-city geometry, dim and cold; make its tiny lights subordinate to the mirror.\n3. CRITICAL: The mirror is no longer reflecting the attic. Within the EXACT original oval glass boundary it becomes a clear opening onto the BLACK POND AT NIGHT. A tranquil small pond, NOT an ocean or rocky seascape. Still ink-black water, a small pale ordinary moon in the night sky, a long slender silver moon-reflection on the water, reeds along the edge, a low dark tree-lined far shore, and faint mist lying on the surface. Natural distant scale. No giant planet, looming celestial body, huge mountains, waves, starscape spectacle, extra mirror, house, people, fish or creature. No room or reflected beams inside the opening.\nThe moonlit pond opening must be the BRIGHTEST focal area of the whole painting, brighter than the city window. Its softly silver light grazes the mirror's inner carved rim and the floor immediately before its base. The room recedes; the cool, quiet, inviting way out appears in the mirror. Hush, stillness, release. Darkness means escape.\n\nMatch the original tactile painted gouache-and-ink handling, subtle contours and worn surfaces. Restrained cool indigo and silver; only the tiny wick ember is warm. No people, held lamp, text, symbols, particles, watermark, border or collage. ONE finished full-width landscape image, EXACTLY1672×941."
+    }
+  ]
+}
