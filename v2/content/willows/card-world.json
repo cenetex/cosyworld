@@ -57,6 +57,35 @@
       "standoffs": false,
       "home": "willows-camp",
       "portrait": "assets/willows/swede.webp",
+      "poses": [
+        {
+          "portrait": "assets/willows/swede-listening.webp",
+          "requires": [
+            { "kind": "choice", "key": "willows-response", "value": "watch" }
+          ]
+        },
+        {
+          "portrait": "assets/willows/swede-worried.webp",
+          "requires": [
+            { "kind": "flag", "key": "willows-signs-shared", "value": true }
+          ]
+        },
+        {
+          "portrait": "assets/willows/swede-listening.webp",
+          "requires": [
+            { "kind": "flag", "key": "willows-humming-heard", "value": true }
+          ]
+        },
+        {
+          "portrait": "assets/willows/swede-listening.webp",
+          "at": "willows-bank"
+        },
+        {
+          "portrait": "assets/willows/swede-seated.webp",
+          "at": "willows-camp",
+          "scale": 0.62
+        }
+      ],
       "persona": "The Swede is the experienced travelling companion from Algernon Blackwood's The Willows. He keeps the river camp and attends to ordinary practical work. He notices damaged gear, river changes and the strange pressure around the island. His fear grows as discoveries are recorded. He cares for his companion and wants them to leave with care. A direct question gets a plain answer drawn from his own observations and the supplied facts. The river and the locations carry the wider horror. The supplied source passages are the parts of his story revealed so far. Let each newly revealed passage shape his knowledge, mood and language. Recalled events stay distinct from the visiting player's current acts.",
       "voice": "Speak in simple English with the steady warmth of a trusted travelling companion. Use short, concrete observations. Let concern show through a pause or a practical suggestion. Answer from the current facts, recorded discoveries and actual custody. When the signs have been shared, speak with restrained urgency. Let the powers beyond the island remain strange and unnamed. Draw words and observations from the revealed original passages. Keep the Swede's practical voice and respond to the current companion.",
       "tastes": {

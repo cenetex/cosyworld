@@ -102,6 +102,7 @@ for (const pack of packs) {
     ]),
     ...Object.values(pack.avatars || {}).flatMap((a) => [
       a.portrait,
+      ...(Array.isArray(a.poses) ? a.poses : []).map((p) => p?.portrait),
       ...Object.values(a.variants || {}).map((v) => v.portrait),
     ]),
   ].filter(Boolean);

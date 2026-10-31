@@ -1806,6 +1806,27 @@
       "card": "assets/optimized/card/png/willows/spoon.webp",
       "cardHash": "fa3a8ce300298ff67fdd112138f6def84171e8aed7d4eb8c5f70fd788efe86b3"
     },
+    "assets/willows/swede-listening.webp": {
+      "sourceHash": "766e6b2cedabd2d735689ae3063dbab8180e9fabc2d372ad3b84236bcdf35a4f",
+      "stage": "assets/willows/swede-listening.webp",
+      "stageHash": "766e6b2cedabd2d735689ae3063dbab8180e9fabc2d372ad3b84236bcdf35a4f",
+      "card": "assets/optimized/card/webp/willows/swede-listening.webp",
+      "cardHash": "dc819d7a76d4d8865478e18107a987598040453c0c5275776c703f84bbb27ecf"
+    },
+    "assets/willows/swede-seated.webp": {
+      "sourceHash": "edc20cb2636b6e340f71591d334beb3b548dfee54294bb446db6ddc34f6ea7f6",
+      "stage": "assets/willows/swede-seated.webp",
+      "stageHash": "edc20cb2636b6e340f71591d334beb3b548dfee54294bb446db6ddc34f6ea7f6",
+      "card": "assets/optimized/card/webp/willows/swede-seated.webp",
+      "cardHash": "f065cbe3979aefd796a48a633dc724bdb761b9f061cc05d455165b47474041d9"
+    },
+    "assets/willows/swede-worried.webp": {
+      "sourceHash": "5c379121ab909a82d9710b20b8d0d8e82f5dde18e62d85621cca33be8036c6a0",
+      "stage": "assets/willows/swede-worried.webp",
+      "stageHash": "5c379121ab909a82d9710b20b8d0d8e82f5dde18e62d85621cca33be8036c6a0",
+      "card": "assets/optimized/card/webp/willows/swede-worried.webp",
+      "cardHash": "86ff5345de8574aa59820145044e6d04a14d9e4857c12cf22d41fb06b0ac22aa"
+    },
     "assets/willows/swede.webp": {
       "sourceHash": "b29d85b8a68d2c15ff68033b5b1bc244875b05adfda3aa3ab2ec96f387f44c4f",
       "stage": "assets/willows/swede.webp",

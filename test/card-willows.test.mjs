@@ -16,7 +16,14 @@ import {
   packProfiles,
   packReadings,
   packFacts,
+  hub,
 } from "../v2/card-game/pack-registry.mjs";
+import { packProblems } from "../v2/card-game/pack-schema.mjs";
+import {
+  portrait,
+  residentPose,
+  sceneStaging,
+} from "../v2/card-game/scene.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { cardChoices, availableCards } from "../v2/card-game/cards.mjs";
 
@@ -197,6 +204,47 @@ describe("The Willows", () => {
     expect(
       decodeSave(encodeSave(world)).packs.willows.choices["willows-response"],
     ).toBe("watch");
+  });
+
+  it("poses the Swede from saved discoveries in local and shared play", () => {
+    const sprite = (world) => portrait("willows-swede", null, world);
+    const swedeScale = (world) =>
+      sceneStaging(world, { locationId: "willows-camp" }).actors.find(
+        (a) => a.id === "willows-swede",
+      )?.scale;
+    let world = move(island(), "willows-camp");
+    expect(sprite(world)).toBe("./assets/willows/swede-seated.webp");
+    const seated = swedeScale(world);
+    const away = structuredClone(world);
+    away.actors["willows-swede"].place = "willows-landing";
+    expect(sprite(away)).toBe("./assets/willows/swede.webp");
+    away.actors["willows-swede"].place = "willows-bank";
+    expect(sprite(away)).toBe("./assets/willows/swede-listening.webp");
+    world = choose(move(world, "willows-thicket"), "examine-hollows");
+    world = choose(move(world, "willows-bank"), "hear-humming");
+    expect(sprite(world)).toBe("./assets/willows/swede-listening.webp");
+    world = discoveries();
+    expect(sprite(world)).toBe("./assets/willows/swede-worried.webp");
+    expect(swedeScale(world)).toBeCloseTo(seated / 0.62);
+    const shared = dispatchShared({
+      op: "view",
+      world: dispatchShared({ op: "create", save: encodeSave(world) }).world,
+      actor: "vale",
+      claimed: ["vale"],
+      present: ["vale"],
+    }).world;
+    expect(sprite(shared)).toBe(sprite(world));
+    expect(sprite(decodeSave(encodeSave(world)))).toBe(sprite(world));
+    world = choose(world, "choose-watch");
+    expect(sprite(world)).toBe("./assets/willows/swede-listening.webp");
+    expect(residentPose(world, "vale")).toBeNull();
+    expect(portrait("willows-swede")).toBe("./assets/willows/swede.webp");
+
+    const bad = structuredClone(pack);
+    bad.avatars["willows-swede"].poses = [
+      { portrait: "assets/willows/swede-seated.webp", at: "pond", scale: 2 },
+    ];
+    expect(packProblems(bad, hub).join(" ")).toContain("poses need");
   });
 
   it("requires carried gear for preparation and saves a choice to return", () => {

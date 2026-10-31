@@ -10,7 +10,12 @@ import {
   reflectionOpen,
   senses,
 } from "./world.mjs";
-import { entityActive, crossings, transports } from "./pack-registry.mjs";
+import {
+  entityActive,
+  crossings,
+  transports,
+  conditionsMet,
+} from "./pack-registry.mjs";
 
 import { levelOf, knownActors } from "./want.mjs";
 import { packPlaces, packPeople } from "./pack-registry.mjs";
@@ -35,10 +40,27 @@ export function portrait(id, facing = null, world = null) {
   const resident = packPeople[id];
   if (resident)
     return `./${
+      residentPose(world, id)?.portrait ||
       resident.portrait ||
       (world ? variantOf(world, id) : resident.variants.awake).portrait
     }`;
   return `./assets/${id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
+}
+
+// A resident's pose is the first authored pose whose place and saved
+// conditions hold. It reads committed state only, so local and shared tables
+// show the same sprite; portrait() returns that sprite's path.
+export function residentPose(world, id) {
+  const resident = packPeople[id];
+  const place = world?.actors?.[id]?.place;
+  if (!resident?.poses || !place) return null;
+  return (
+    resident.poses.find(
+      (pose) =>
+        (!pose.at || pose.at === place) &&
+        conditionsMet(world, resident.packId, pose.requires),
+    ) || null
+  );
 }
 
 // Resolve selection against current custody, including items on a carried
@@ -531,7 +553,7 @@ export function sceneStaging(
             : "back"
           : ["foreground", "middle", "back"][Math.min(index, 2)],
         x: at.get(id),
-        scale: positions[index][1],
+        scale: positions[index][1] * (residentPose(world, id)?.scale ?? 1),
         floor: positions[index][2],
         facing,
         gazeTargetId,
