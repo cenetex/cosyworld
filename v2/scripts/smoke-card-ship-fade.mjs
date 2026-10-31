@@ -65,10 +65,11 @@ try {
         ];
         return { dock: t.phase === "sea" ? null : t.dock };
       }, key);
-    // Samples every frame after a play: the lowest opacity each layer showed.
+    // Samples every frame after a play: the opacity each layer showed. Slow CI
+    // renderers draw few frames, so check for a mid-fade sample, not a count.
     const watch = () =>
       page.evaluate(() => {
-        const seen = (window.__fade = { overlay: [], card: [], ghost: 0 });
+        const seen = (window.__fade = { overlay: [], card: [], ghost: [] });
         const t0 = performance.now();
         const tick = () => {
           const overlay = document.querySelector("#location-overlay");
@@ -78,7 +79,8 @@ try {
             .querySelector('#hand [data-card="greek-ship"]')
             ?.closest(".card-frame");
           if (card) seen.card.push(+getComputedStyle(card).opacity);
-          if (document.querySelector(".backdrop-fading")) seen.ghost++;
+          const ghost = document.querySelector(".backdrop-fading");
+          if (ghost) seen.ghost.push(+getComputedStyle(ghost).opacity);
           if (performance.now() - t0 < 2500) requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
@@ -101,7 +103,7 @@ try {
     const mid = (values) => values.some((v) => v > 0.05 && v < 0.95);
     assert.ok(mid(fade.card), `the ship card fades in at ${place}`);
     if (place === "pond") assert.ok(mid(fade.overlay), "the ship fades in");
-    else assert.ok(fade.ghost > 10, "the berth crossfades to the ship");
+    else assert.ok(mid(fade.ghost), "the berth crossfades to the ship");
     await page.screenshot({
       path: new URL(`${place}-docked.png`, output).pathname,
     });
@@ -142,7 +144,7 @@ try {
     if (place === "pond") {
       assert.ok(mid(fade.overlay), "the ship fades out");
       assert.equal(await page.locator("#location-overlay").isHidden(), true);
-    } else assert.ok(fade.ghost > 10, "the ship crossfades to the berth");
+    } else assert.ok(mid(fade.ghost), "the ship crossfades to the berth");
     assert.deepEqual(errors, []);
     console.log(`Ship fade: arrival and departure at ${place} passed.`);
     await page.close();
