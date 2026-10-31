@@ -212,6 +212,7 @@ export function transportUnlocked(s, id) {
 // The dock where the ship lies now. A ship at sea has none.
 export const shipDock = (s, id) =>
   read(s, id)?.phase === "sea" ? null : (read(s, id)?.dock ?? null);
+export const shipAtSea = (s, id) => read(s, id)?.phase === "sea";
 
 // Called after save validation: a human already aboard keeps their voyage.
 export function preserveTransportAccess(s) {
