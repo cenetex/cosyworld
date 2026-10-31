@@ -39,11 +39,7 @@ import {
   humanAvatars,
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
-import {
-  createNarrator,
-  requestNarrative,
-  silentLines,
-} from "./narrative.mjs";
+import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic } from "./music.mjs";
 import { createHum } from "./hum.mjs";
@@ -797,10 +793,7 @@ const narrator = createNarrator({
     pendingSpeaker = nextSpeaker(world, { speakers: sceneSpeakers });
     renderScene();
   },
-  apply: (
-    next,
-    { pending = false, reflection = false, silent = [] } = {},
-  ) => {
+  apply: (next, { pending = false, reflection = false, silent = [] } = {}) => {
     world = next;
     save();
     if (reflection) {
@@ -995,7 +988,8 @@ function performAction(action, revision) {
   world = result.state;
   music.setRoom(
     world.actors[currentActor(world)].place,
-    locationDaylight(world, world.actors[currentActor(world)].place)?.phase || "day",
+    locationDaylight(world, world.actors[currentActor(world)].place)?.phase ||
+      "day",
   );
   music.setStarted(musicHasStarted());
   music.unlock();
@@ -1049,8 +1043,9 @@ function restoreHandFocus() {
   )
     return;
   const card =
-    $("hand").querySelector(`.card-frame:not([hidden]) [data-card="${selected.at(-1)}"]`) ||
-    $("hand").querySelector(".card-frame:not([hidden]) .card");
+    $("hand").querySelector(
+      `.card-frame:not([hidden]) [data-card="${selected.at(-1)}"]`,
+    ) || $("hand").querySelector(".card-frame:not([hidden]) .card");
   card?.focus({ preventScroll: true });
 }
 
@@ -1091,7 +1086,9 @@ async function presentCombat(beats, land) {
   updateCardCooldown();
   await view.play(beats);
   if (mine !== combatRun) return;
-  const defeat = beats.find((beat) => beat.kind === "defeat" && beat.viewerLost);
+  const defeat = beats.find(
+    (beat) => beat.kind === "defeat" && beat.viewerLost,
+  );
   if (defeat) await view.defeat(defeat);
   if (mine !== combatRun) return;
   await view.release();
@@ -2183,7 +2180,11 @@ function renderScene() {
   const wordsFailed = storyStatus === "retry";
   const waiting = sharedSession
     ? sharedSpeech.status === "pending" &&
-      !(scene.line && scene.line.turn === world.turn && scene.line.seq <= liveThrough)
+      !(
+        scene.line &&
+        scene.line.turn === world.turn &&
+        scene.line.seq <= liveThrough
+      )
     : Boolean(
         exchange.preparing ||
           awaitingNext ||
@@ -2203,7 +2204,13 @@ function renderScene() {
   const pendingCard =
     stack.pending ||
     (waiting
-      ? { key: `p:${world.turn}:`, speakerId: null, line: null, actions: [], pending: true }
+      ? {
+          key: `p:${world.turn}:`,
+          speakerId: null,
+          line: null,
+          actions: [],
+          pending: true,
+        }
       : null);
   const liveIndex = pendingCard ? beats.length : beats.length - 1;
   let frontIndex = -1;
@@ -2225,8 +2232,7 @@ function renderScene() {
     ? line?.speaker || (front.speakerId ? nameOf(front.speakerId) : "")
     : "";
   // Phones set the name on the caption line to keep the card short.
-  document.querySelector(".beat-name").textContent =
-    $("speaker").textContent;
+  document.querySelector(".beat-name").textContent = $("speaker").textContent;
   const canRetryWords = !sharedSession || Boolean(sharedSpeech.retryKey);
   $("story-status").hidden =
     behindLive ||
@@ -2355,7 +2361,11 @@ function renderScene() {
   behindButton.hidden = !behind;
   if (behind) {
     const summary = beatSummary(behind);
-    const behindKey = JSON.stringify([behind.key, summary.text, behind.speakerId]);
+    const behindKey = JSON.stringify([
+      behind.key,
+      summary.text,
+      behind.speakerId,
+    ]);
     if (behindButton.dataset.key !== behindKey) {
       behindButton.dataset.key = behindKey;
       const face = behindButton.querySelector(".beat-behind-portrait");
@@ -2373,7 +2383,9 @@ function renderScene() {
       const words = behindButton.querySelector(".beat-behind-text");
       words.replaceChildren(
         node("strong", summary.speaker),
-        ...(summary.speech ? [node("span", summary.speech, "beat-behind-speech")] : []),
+        ...(summary.speech
+          ? [node("span", summary.speech, "beat-behind-speech")]
+          : []),
         ...(summary.caption
           ? [node("span", summary.caption, "beat-behind-caption")]
           : []),
@@ -2448,7 +2460,11 @@ function animateStack(direction, ghost) {
   if (!direction || front.hidden) return finish();
   const timing = { duration: STACK_MS, easing: "cubic-bezier(.2,.7,.25,1)" };
   const showBehind = !behind.hidden;
-  if (reducedMotion.matches || direction === "arrive" || direction === "settle") {
+  if (
+    reducedMotion.matches ||
+    direction === "arrive" ||
+    direction === "settle"
+  ) {
     if (direction !== "settle" || reducedMotion.matches)
       front.animate([{ opacity: 0 }, { opacity: 1 }], timing);
     if (showBehind && direction !== "settle")
@@ -2459,7 +2475,14 @@ function animateStack(direction, ghost) {
         .finished.then(finish, finish);
     return;
   }
-  const lift = front.getBoundingClientRect().height;
+  // The behind slot is the front card raised by the peek and scaled down;
+  // the card before it waits one step deeper.
+  const stack = getComputedStyle(front.closest(".beat-stack"));
+  const peek = parseFloat(stack.getPropertyValue("--beat-peek")) || 30;
+  const scale =
+    parseFloat(stack.getPropertyValue("--beat-behind-scale")) || 0.94;
+  const slot = `translateY(-${peek}px) scale(${scale})`;
+  const deeper = `translateY(-${peek * 2}px) scale(${scale * scale})`;
   if (direction === "forward") {
     // The new beat comes in front; the old front recedes into the slot.
     front.animate(
@@ -2470,22 +2493,10 @@ function animateStack(direction, ghost) {
       timing,
     );
     if (showBehind)
-      behind.animate(
-        [
-          {
-            transform: `translateY(${lift * 0.75}px) scale(1.03)`,
-            opacity: 1,
-          },
-          {},
-        ],
-        timing,
-      );
+      behind.animate([{ transform: "none", opacity: 1 }, {}], timing);
     if (ghost)
       ghost
-        .animate(
-          [{}, { transform: "translateY(-14px) scale(0.86)", opacity: 0 }],
-          timing,
-        )
+        .animate([{}, { transform: deeper, opacity: 0 }], timing)
         .finished.then(finish, finish);
     else finish();
     return;
@@ -2493,16 +2504,13 @@ function animateStack(direction, ghost) {
   // Back in time: the card behind comes forward; an older one appears behind.
   front.animate(
     [
-      { transform: `translateY(-${lift * 0.6}px) scale(0.94)`, opacity: 0.5 },
+      { transform: slot, opacity: 0.6 },
       { transform: "none", opacity: 1 },
     ],
     timing,
   );
   if (showBehind)
-    behind.animate(
-      [{ transform: "translateY(-12px) scale(0.86)", opacity: 0 }, {}],
-      timing,
-    );
+    behind.animate([{ transform: deeper, opacity: 0 }, {}], timing);
   finish();
 }
 function stepBack() {
@@ -2572,11 +2580,7 @@ document.addEventListener("keydown", (event) => {
   )
     return;
   const target = event.target;
-  if (
-    target !== document.body &&
-    !target.closest?.(".dialogue")
-  )
-    return;
+  if (target !== document.body && !target.closest?.(".dialogue")) return;
   // A long line scrolls first, then the arrows step through the beats.
   const words = $("dialogue-text");
   if (target === $("dialogue-advance") && !words.hidden) {
@@ -2685,11 +2689,7 @@ function renderLog() {
         }
         const body = node("div", undefined, "memory-body");
         body.append(
-          node(
-            "div",
-            beat.line?.speaker || nameOf(beat.speakerId),
-            "speaker",
-          ),
+          node("div", beat.line?.speaker || nameOf(beat.speakerId), "speaker"),
         );
         if (beat.line) body.append(node("p", beat.line.text));
         for (const action of beat.actions) {
@@ -2718,7 +2718,8 @@ function render() {
   if (covering) return;
   music.setRoom(
     world.actors[currentActor(world)].place,
-    locationDaylight(world, world.actors[currentActor(world)].place)?.phase || "day",
+    locationDaylight(world, world.actors[currentActor(world)].place)?.phase ||
+      "day",
   );
   humRoom();
   const focused = document.activeElement?.dataset.card,

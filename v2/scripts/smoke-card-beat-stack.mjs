@@ -130,33 +130,51 @@ try {
       await page.waitForFunction(
         () => document.querySelector("#hand").dataset.cooling === "false",
       );
-      // The earlier beat peeks behind, with the speech on one line.
+      // The earlier beat is a card behind, with the speech on one line
+      // peeking above the front card. The action sits under the speech.
       const behind = page.locator("#beat-behind");
       assert(await behind.isVisible(), "An earlier beat waits behind.");
       assert.match(await behind.textContent(), /Vale\s*Pip, wait\./u);
       assert.equal(await page.locator("#live-line").isVisible(), false);
+      const layout = await page.evaluate(() => {
+        const box = (selector) =>
+          document.querySelector(selector).getBoundingClientRect();
+        const back = box("#beat-behind"),
+          card = box("#speech-row"),
+          text = box("#dialogue-text"),
+          caption = box("#beat-captions");
+        return {
+          peek: card.top - back.top,
+          narrower: back.width < card.width,
+          stack: card.bottom - back.top,
+          captionBelow: caption.top >= text.bottom - 1,
+          captionLines: Math.round(
+            caption.height /
+              parseFloat(
+                getComputedStyle(document.querySelector(".beat-caption"))
+                  .lineHeight,
+              ),
+          ),
+        };
+      });
+      assert(layout.narrower, "The card behind is smaller than the front.");
+      assert(
+        layout.peek > 12 && layout.peek <= 32,
+        `One line of the card behind peeks out: ${layout.peek}`,
+      );
+      assert(layout.captionBelow, "The action caption sits under the speech.");
       if (width < 700) {
-        const box = await behind.boundingBox();
-        assert(
-          box.height <= 32,
-          `The phone behind card is one line: ${box.height}`,
-        );
-        const stack = await page.evaluate(() => {
-          const a = document
-            .querySelector("#beat-behind")
-            .getBoundingClientRect();
-          const b = document
-            .querySelector("#speech-row")
-            .getBoundingClientRect();
-          return b.bottom - a.top;
-        });
+        assert.equal(layout.captionLines, 1, "The phone caption is one line.");
         // No taller than the old dialogue box with the same two-line reply.
-        assert(stack <= 90, `The phone stack stays compact: ${stack}`);
+        assert(
+          layout.stack <= 90,
+          `The phone stack stays compact: ${layout.stack}`,
+        );
       }
       await page.waitForTimeout(400);
       await page.screenshot({ path: `${output}/live-${width}-${motion}.png` });
       // Tap behind: back in time. Vale comes forward; the live count shows.
-      await behind.click();
+      await behind.click({ position: { x: 80, y: 8 } });
       await page.waitForFunction(
         () => document.querySelector("#speaker").textContent === "Vale",
       );
@@ -187,7 +205,7 @@ try {
       );
       assert.equal(await page.locator("#live-line").isVisible(), false);
       // ● live returns from any depth.
-      await behind.click();
+      await behind.click({ position: { x: 80, y: 8 } });
       await page.locator("#live-line").click();
       await page.waitForFunction(
         () => document.querySelector("#speaker").textContent === "Pip",

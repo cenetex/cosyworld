@@ -41,8 +41,13 @@ beat folds into it.
 Beats are cards in depth, not rows in a scroll:
 
 - The current beat is the front card, at full size.
-- Exactly one earlier beat peeks behind it, smaller, dimmer and raised. On a
-  phone it is one truncated line: the speech and its first action.
+- Exactly one earlier beat is a card behind it in depth: the same card,
+  scaled to about 94%, dimmer and raised so one line of its top edge peeks
+  out above the front card, which casts a soft shadow on it. That line is the
+  speaker, the speech and its first action, truncated.
+- Action captions sit under the speech at every size. On a phone the name
+  hangs beside at most two lines of speech and the first action is one
+  truncated line below, so the stack stays as short as the old dialogue box.
 - A new beat arrives in front. The front card recedes into the behind slot and
   the old behind card fades away deeper.
 - Going back is going back in time. Tap the card behind to step back; it comes
