@@ -50,10 +50,6 @@ export function recitalPoem(world, pack, through = Infinity) {
       id: v.choice,
       turn: receipts[v.choice],
       questId: v.quest,
-      lines:
-        v.after && receipts[v.after.choice] < receipts[v.choice]
-          ? v.after.lines
-          : v.lines,
     }));
   return { title: pack.recital?.title, stanzas };
 }
@@ -144,7 +140,8 @@ export function arriveRoamingRecitals(world, packs, actor) {
   }
 }
 
-// The complete earned poem is separate from the short scene facts.
+// The earned poem as world facts: its title and whose deeds it holds. The
+// couplet text is lore in content/<pack>/lore, never prompt text.
 export function recitalContext(world, packs, actor) {
   const pack = packs.find((p) => p.recital?.actor === actor);
   if (!pack) return null;
@@ -160,15 +157,7 @@ export function recitalContext(world, packs, actor) {
         forest.people[authorId]?.name ||
         packs.find((p) => p.avatars?.[authorId])?.avatars[authorId].name ||
         "an earlier traveler",
-      lines: [...stanza.lines],
     };
   });
-  const latest = Math.max(0, ...stanzas.map((stanza) => stanza.turn));
-  return {
-    title: poem.title,
-    stanzas,
-    newLines: stanzas
-      .filter((stanza) => stanza.turn === latest)
-      .flatMap((stanza) => stanza.lines),
-  };
+  return { title: poem.title, stanzas };
 }

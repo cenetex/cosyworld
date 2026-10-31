@@ -887,8 +887,7 @@
     const stanzas = (pack.recital?.verses || []).filter((v) => receipts[v.choice] && receipts[v.choice] <= through).sort((a, b) => receipts[a.choice] - receipts[b.choice]).map((v) => ({
       id: v.choice,
       turn: receipts[v.choice],
-      questId: v.quest,
-      lines: v.after && receipts[v.after.choice] < receipts[v.choice] ? v.after.lines : v.lines
+      questId: v.quest
     }));
     return { title: pack.recital?.title, stanzas };
   }
@@ -942,16 +941,10 @@
         id: stanza.id,
         turn: stanza.turn,
         authorId,
-        authorName: humanAvatar(authorId)?.name || forest_default.people[authorId]?.name || packs.find((p) => p.avatars?.[authorId])?.avatars[authorId].name || "an earlier traveler",
-        lines: [...stanza.lines]
+        authorName: humanAvatar(authorId)?.name || forest_default.people[authorId]?.name || packs.find((p) => p.avatars?.[authorId])?.avatars[authorId].name || "an earlier traveler"
       };
     });
-    const latest = Math.max(0, ...stanzas.map((stanza) => stanza.turn));
-    return {
-      title: poem.title,
-      stanzas,
-      newLines: stanzas.filter((stanza) => stanza.turn === latest).flatMap((stanza) => stanza.lines)
-    };
+    return { title: poem.title, stanzas };
   }
 
   // v2/card-game/boardyai.json
@@ -8678,512 +8671,281 @@
             {
               choice: "greek-return-water-jar",
               quest: "story-quest-greek-table",
-              lines: [
-                "I set the water by her hands.",
-                "She kept a loaf of bread for me."
-              ],
               summons: true
             },
             {
               choice: "greek-petition-burial",
               quest: "story-quest-greek-burial",
-              lines: [
-                "Creon has granted this one grave.",
-                "Her brother waits for earth."
-              ],
               summons: false
             },
             {
               choice: "greek-perform-burial",
               quest: "story-quest-greek-burial",
-              lines: [
-                "I laid her brother in the earth.",
-                "The king's words crossed the wind."
-              ],
               summons: true
             },
             {
               choice: "greek-perform-permitted-burial",
               quest: "story-quest-greek-burial",
-              lines: [
-                "Creon gave leave for this one grave.",
-                "I laid her brother in the earth."
-              ],
               summons: true
             },
             {
               choice: "greek-decline-burial",
               quest: "story-quest-greek-burial",
-              lines: [
-                "I told her I would turn away.",
-                "Her brother waited by the wall."
-              ],
               summons: true
             },
             {
               choice: "greek-report-plan",
               quest: "story-quest-greek-burial",
-              lines: [
-                "I gave the guard the hidden plan.",
-                "He held it with the king's command."
-              ],
               summons: true
             },
             {
               choice: "greek-courtyard-burial",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "I spoke of earth beside her table.",
-                "Dione heard me through."
-              ],
               summons: true
             },
             {
               choice: "greek-courtyard-concession",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "I spoke the promise of a grave.",
-                "His body waited in the sun."
-              ],
-              summons: true,
-              after: {
-                choice: "greek-perform-permitted-burial",
-                lines: [
-                  "I told her of the king's consent.",
-                  "She heard the leave that he had given."
-                ]
-              }
+              summons: true
             },
             {
               choice: "greek-courtyard-refusal",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "I told her how I turned away.",
-                "She kept a place beside her table."
-              ],
               summons: true
             },
             {
               choice: "greek-courtyard-exposure",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "I told her what the guard had heard.",
-                "My words lay open on the table."
-              ],
               summons: true
             },
             {
               choice: "greek-courtyard-permitted-burial",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "The grave I promised holds him now.",
-                "I brought that word to Dione."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-hear-mothers",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "Their branches rested on my knees.",
-                "I heard the names beneath them."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-register-plea",
               quest: "story-quest-greek-open-door-agora",
-              lines: [
-                "I laid their plea before the town.",
-                "The crowded square grew quiet."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-hear-truce-report",
               quest: "story-quest-greek-open-door-agora",
-              lines: [
-                "The herald named a road of peace.",
-                "The dead came home beneath it."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-hear-recovery-report",
               quest: "story-quest-greek-open-door-agora",
-              lines: [
-                "The messenger spoke over dust.",
-                "The dead came home behind the shields."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-set-provisions",
               quest: "story-quest-greek-open-door-piraeus",
-              lines: [
-                "I set the basket by the ropes.",
-                "The waiting cups stood ready."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-lay-cloths",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "The cloth lay clean upon the stone.",
-                "Their children gathered near it."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-lay-ashes",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I set the ashes by their hands.",
-                "Each name was heavier than clay."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-hear-pyre",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I heard the father\u2019s second loss.",
-                "One chair stood empty by the stone."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-eleusis-pledge",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I set a pledge beside the ashes.",
-                "Both banners cast a human shadow."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-eleusis-care",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I stayed beside the living grief.",
-                "We wrote their needs beneath the names."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-family-berth",
               quest: "story-quest-greek-open-door-piraeus",
-              lines: [
-                "I laid their names beside the rope.",
-                "A place was kept for each of them."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-open-berth",
               quest: "story-quest-greek-open-door-piraeus",
-              lines: [
-                "I laid their names beside the rope.",
-                "We kept a space beyond the list."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-colonus-water",
               quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "I set sweet water by the grove.",
-                "The keeper named an older road."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-colonus-farewell",
               quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "The keeper sang of daughters walking.",
-                "The final place stayed with the king."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-colonus-custom",
               quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "I wrote a welcome by the trees.",
-                "A stranger\u2019s need could find a name."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-colonus-family",
               quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "I set the daughters in the song.",
-                "Their hands had carried all those miles."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-marathon-blanket",
               quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "I laid a blanket by the altar.",
-                "The old tale found a living task."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-marathon-daughter",
               quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "The keeper gave the daughter voice.",
-                "Her empty place remained among them."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-marathon-alcmene",
               quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "I heard old grief demand a death.",
-                "The altar held its troubling echo."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-marathon-hearing",
               quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "I asked the tale to hold a hearing.",
-                "Her grief still waited at its gate."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-return-dione",
               quest: "story-quest-greek-open-door-return",
-              lines: [
-                "I brought those names beside her bread.",
-                "We made room for the words they carried."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-agora-truce",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I told her how the herald spoke.",
-                "A road for the dead lay in his words."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-agora-force",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I told her what the shields brought home.",
-                "She heard the mothers through the noise."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-eleusis-pledge",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I spoke the pledge beside her bread.",
-                "The names of loss stayed in the room."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-eleusis-care",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I brought their needs beside her bread.",
-                "She heard the living with the dead."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-piraeus-family",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I told her where their names were kept.",
-                "The quay\u2019s first promise reached the table."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-piraeus-open",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I told her of the wider place.",
-                "Its welcome carried work within it."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-colonus-custom",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I brought the grove\u2019s old tale to her.",
-                "Its tablet spoke of guests to come."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-colonus-family",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I spoke the daughters\u2019 patient work.",
-                "Their road reached Dione through the song."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-marathon-alcmene",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I brought the keeper\u2019s ending home.",
-                "Its saved lives cast a troubled shadow."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-marathon-hearing",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I named the change within the tale.",
-                "Her empty place remained beside it."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-receive-family",
               quest: "story-quest-greek-homecoming-household",
-              lines: [
-                "Her feet had reached the waiting quay.",
-                "Her household\u2019s basket passed to her."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-receive-open",
               quest: "story-quest-greek-homecoming-household",
-              lines: [
-                "She found her place beside the rope.",
-                "The basket stayed for other hands."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-read-basket-family",
               quest: "story-quest-greek-homecoming-witness",
-              lines: [
-                "I laid her words beside the bread.",
-                "Her hands had met the waiting basket."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-read-berth-family",
               quest: "story-quest-greek-homecoming-witness",
-              lines: [
-                "I chose the verse about her place.",
-                "Her written answer crossed the table."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-read-basket-open",
               quest: "story-quest-greek-homecoming-witness",
-              lines: [
-                "I laid her words beside the bread.",
-                "She offered hands to keep the welcome."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-read-berth-open",
               quest: "story-quest-greek-homecoming-witness",
-              lines: [
-                "I chose the verse about more guests.",
-                "Her answer named the work to come."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-deliver-shield",
               quest: "story-quest-greek-ajax-shield",
-              lines: [
-                "I set his shield beside the tent.",
-                "Tecmessa kept it for her child."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-deliver-plea",
               quest: "story-quest-greek-ajax-plea",
-              lines: [
-                "I brought his brother\u2019s written plea.",
-                "A rival heard it by the ships."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-bury-public",
               quest: "story-quest-greek-ajax-burial",
-              lines: [
-                "His rival spoke; I broke the ground.",
-                "The camp laid down its quarrel."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-bury-household",
               quest: "story-quest-greek-ajax-burial",
-              lines: [
-                "I gave him earth beside the ships.",
-                "The household kept his shield."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-bury-appeal",
               quest: "story-quest-greek-ajax-burial",
-              lines: [
-                "I kept the vigil with their plea.",
-                "The witnessed rite gave Ajax earth."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-return-public",
               quest: "story-quest-greek-ajax-return",
-              lines: [
-                "I laid his words beside the bread.",
-                "She held the rival\u2019s plea with care."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-return-household",
               quest: "story-quest-greek-ajax-return",
-              lines: [
-                "I laid his words beside the bread.",
-                "She named the household in the song."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-return-appeal",
               quest: "story-quest-greek-ajax-return",
-              lines: [
-                "I laid his words beside the bread.",
-                "She heard how witnesses brought earth."
-              ],
               summons: true
             }
           ]
@@ -14016,11 +13778,10 @@
         "recital needs a singer, a title and up to 64 verses"
       );
       const seen = /* @__PURE__ */ new Set();
-      const linesOk = (lines) => Array.isArray(lines) && lines.length === 2 && lines.every((line) => textOk(line, 90));
       for (const v of Array.isArray(r?.verses) ? r.verses : []) {
         check(
-          keysOk(v, ["choice", "quest", "lines", "summons", "after"]) && choiceIds.has(v?.choice) && !seen.has(v.choice) && idOk(v.quest) && linesOk(v.lines) && typeof v.summons === "boolean" && (v.after === void 0 || keysOk(v.after, ["choice", "lines"]) && choiceIds.has(v.after.choice) && v.after.choice !== v.choice && linesOk(v.after.lines)),
-          "recital verse needs a unique choice, quest, couplet and summons flag; after may select an earlier deed"
+          keysOk(v, ["choice", "quest", "summons"]) && choiceIds.has(v?.choice) && !seen.has(v.choice) && idOk(v.quest) && typeof v.summons === "boolean",
+          "recital verse needs a unique choice, quest and summons flag"
         );
         seen.add(v?.choice);
       }

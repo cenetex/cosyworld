@@ -1223,24 +1223,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "recital needs a singer, a title and up to 64 verses",
     );
     const seen = new Set();
-    const linesOk = (lines) =>
-      Array.isArray(lines) &&
-      lines.length === 2 &&
-      lines.every((line) => textOk(line, 90));
+    // Couplet text is lore (content/<pack>/lore), never part of the rules.
     for (const v of Array.isArray(r?.verses) ? r.verses : []) {
       check(
-        keysOk(v, ["choice", "quest", "lines", "summons", "after"]) &&
+        keysOk(v, ["choice", "quest", "summons"]) &&
           choiceIds.has(v?.choice) &&
           !seen.has(v.choice) &&
           idOk(v.quest) &&
-          linesOk(v.lines) &&
-          typeof v.summons === "boolean" &&
-          (v.after === undefined ||
-            (keysOk(v.after, ["choice", "lines"]) &&
-              choiceIds.has(v.after.choice) &&
-              v.after.choice !== v.choice &&
-              linesOk(v.after.lines))),
-        "recital verse needs a unique choice, quest, couplet and summons flag; after may select an earlier deed",
+          typeof v.summons === "boolean",
+        "recital verse needs a unique choice, quest and summons flag",
       );
       seen.add(v?.choice);
     }
