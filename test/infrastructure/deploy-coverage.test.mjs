@@ -14,7 +14,7 @@ const vitestConfig = readFileSync(
   "utf8",
 );
 
-describe("deployment-only contracts run in pull-request CI", () => {
+describe("deployment-only contracts run in manual CI", () => {
   it("the CI Node job runs the full vitest suite, which includes every infrastructure contract", () => {
     expect(ciWorkflow).toContain("npm test");
     expect(vitestConfig).toMatch(/include:\s*\[\s*'test\/\*\*\/\*\.test\.\{js,mjs\}'/);
@@ -27,6 +27,25 @@ describe("deployment-only contracts run in pull-request CI", () => {
     expect(gate).toBeTruthy();
     expect(gate).toContain("npm run v2:syntax");
     expect(gate).toMatch(/vitest run test\/infrastructure\/deploy-workflow\.test\.mjs/);
+  });
+});
+
+describe("check workflows run only by manual dispatch", () => {
+  const checkWorkflows = ["ci", "image-build", "local-desktop", "pages"];
+
+  it.each(checkWorkflows)("%s.yml has only a workflow_dispatch trigger", (name) => {
+    const workflow = readFileSync(
+      new URL(`../../.github/workflows/${name}.yml`, import.meta.url),
+      "utf8",
+    );
+    const triggers = workflow.match(/^on:\n((?: {2}.*\n|\n)*)/m)?.[1] ?? "";
+    expect(triggers).toMatch(/^ {2}workflow_dispatch:/m);
+    expect(triggers).not.toMatch(/^ {2}(pull_request|push|pull_request_target):/m);
+    expect(workflow).not.toMatch(/cancel-in-progress: (?!false\b)/);
+  });
+
+  it("main pushes and tags still deploy", () => {
+    expect(deployWorkflow).toMatch(/on:\n {2}push:\n {4}branches: \[main\]\n {4}tags: \["v\*"\]/);
   });
 });
 

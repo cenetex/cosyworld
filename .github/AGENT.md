@@ -29,8 +29,8 @@ Always run:
 ```sh
 git diff --check
 npm run version:bump   # bumps package.json, package-lock.json, and the
-                       # orchestrator Cargo.toml/Cargo.lock together; CI's
-                       # check:version then accepts the PR
+                       # orchestrator Cargo.toml/Cargo.lock together; then
+                       # check:version accepts the branch
 ```
 
 `npm run check:version` also fails early when the Rust crate version drifts
@@ -42,9 +42,9 @@ for the full local gate.
 
 A branch may change at most 400 hand-written lines (added plus deleted) against
 its merge base with `main`. `scripts/check-change-budget.mjs` prints the count on
-every push and fails above the budget. The `Change budget` CI job runs the same
-script on every pull request, so skipping hooks does not skip it. Pushes to
-`main` and tags are not measured.
+every push and fails above the budget. CI no longer runs on pull requests, so
+the pre-push hook is the only enforcement; do not skip it. Pushes to `main` and
+tags are not measured.
 
 Binary files, images, audio, video, fonts, pack content (`v2/content/`,
 `v2/card-game/assets/`, `test/fixtures/`), lockfiles, and outputs rebuilt by
@@ -70,13 +70,18 @@ Then run every row that matches the change:
 | Browser, HTTP, persistence, or multiplayer | `npm run v2:check` |
 | Broad V2 or release change | `npm run check:local` and the relevant build |
 
+CI runs only by manual dispatch. `ci.yml`, `image-build.yml`,
+`local-desktop.yml`, and `pages.yml` have no pull request or push triggers.
+After a batch of merges, or when .dev looks broken, run
+`gh workflow run ci.yml --ref main`. A release tag requires the latest main CI
+run to be green. `deploy.yml` still deploys .dev on every main push and runs
+the production gates on tags.
+
 CI is the final cross-platform authority. It uses Node 24 and stable Rust
 for lint, tests, content, kernel, Rust builds, browser and composition smokes,
 and guide checks. Browser journeys run in parallel groups from one shared
 debug binary; keep each group near ten minutes and add a new journey script to
-a group in `ci.yml`. A newer push cancels a pull request's run. Main runs are
-never cancelled or replaced while waiting, so every merge gets a complete
-result. Known flaky tests listed in `QUARANTINED_TESTS` in
+a group in `ci.yml`. No CI run is cancelled. Known flaky tests listed in `QUARANTINED_TESTS` in
 `v2/scripts/check-rust.sh` run in the non-blocking `Quarantined Rust tests`
 job; each has an issue and a fix-by date. Main saves one Cargo cache per UTC day, right after
 compiling. A local suite
@@ -104,11 +109,12 @@ changing application behavior.
   - `## Validation` listing exact commands and observed results;
   - migration, generated-file, deployment, or compatibility notes when relevant;
   - a short review checklist confirming tests and generated artifacts.
-- Merge as soon as local targeted tests pass; don't wait for CI. The deploy
+- Merge as soon as local targeted tests pass and the change is reviewed; PRs
+  get no CI. The deploy
   workflow runs its own gates, so a red main keeps .dev on the last good build.
   If main goes red, the next PR fixes it forward before anything else.
-- Bump `package.json` and the root versions in `package-lock.json`; CI rejects a
-  PR whose version matches the base branch.
+- Bump `package.json` and the root versions in `package-lock.json`;
+  `npm run check:version` rejects a branch whose version matches `main`.
 
 ## Known traps
 
@@ -174,4 +180,4 @@ Treat these as review-sensitive rather than forbidden:
 - Generated artifacts match their source and contain no unrelated churn.
 - Public copy passes the writing-register checks.
 - No secret or local runtime file appears in the diff.
-- The PR is versioned, validated, linked to its issue, and ready for CI.
+- The PR is versioned, validated, linked to its issue, and ready to merge.

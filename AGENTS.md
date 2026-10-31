@@ -25,6 +25,10 @@ shared human avatars, character profiles, and mounted packs all contribute to
 its cast. Their source paths are listed in `docs/current-game.md`.
 
 Keep each branch small: at most 400 hand-written lines changed against main.
-The pre-push hook and CI enforce this budget; see `.github/AGENT.md`.
+The pre-push hook enforces this budget; see `.github/AGENT.md`.
+
+CI runs only by hand. PRs merge on fast local checks and review. After a
+batch of merges, or when .dev looks broken, run `gh workflow run ci.yml --ref
+main`. A release tag requires the latest main CI run to be green.
 
 Validation and release follow `.github/AGENT.md` and `docs/release.md`.

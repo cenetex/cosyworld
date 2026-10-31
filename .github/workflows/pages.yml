@@ -1,34 +1,13 @@
 name: Documentation
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/pages.yml"
-      - "docs/**"
-      - "*.md"
-      - "v2/**/*.md"
-      - ".github/AGENT.md"
-      - "scripts/build-docs.mjs"
-      - "package.json"
-      - "package-lock.json"
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/pages.yml"
-      - "docs/**"
-      - "*.md"
-      - "v2/**/*.md"
-      - ".github/AGENT.md"
-      - "scripts/build-docs.mjs"
-      - "package.json"
-      - "package-lock.json"
   workflow_dispatch:
 
-# A newer push cancels a pull request's run. Main runs each get their own
-# group, so every merge's documentation build finishes.
+# CI runs only by manual dispatch. Each run gets its own group and always
+# finishes; nothing cancels a run.
 concurrency:
-  group: documentation-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: documentation-${{ github.run_id }}
+  cancel-in-progress: false
 
 permissions:
   contents: read

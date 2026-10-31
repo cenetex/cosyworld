@@ -5,8 +5,10 @@ Deployments are handled by `.github/workflows/deploy.yml`.
 ## Continuous deploys
 
 Pushes to `main` deploy only the primary `cosyworld` Fly app, as soon as its
-image is built, without the production gate or a primary backup; CI still
-checks the commit, and bugs on `.dev` are fixed forward. Tags matching `v*` rerun the production gate, deploy both
+image is built, without the production gate or a primary backup; bugs on `.dev` are fixed
+forward. CI does not run on its own: run `gh workflow run ci.yml --ref main`
+after a batch of merges or when .dev looks broken. Tag a release only when the
+latest main CI run is green. Tags matching `v*` rerun the production gate, deploy both
 the primary app and `cosyworld-lonelyforest` from the tagged commit, and create
 a GitHub release only after both deployments succeed.
 

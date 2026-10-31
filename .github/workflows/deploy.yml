@@ -301,9 +301,9 @@ jobs:
         with:
           fetch-depth: 1
 
-      # CI runs the same Rust tests and lint on every main commit. Reuse its
-      # result for this exact commit; run the checks here only when CI did not
-      # run them, was cancelled, or failed.
+      # A manual main CI run, required before a tag, runs the same Rust tests
+      # and lint. Reuse its result for this exact commit; run the checks here
+      # only when CI did not run them, was cancelled, or failed.
       - name: Reuse CI Rust checks for this commit
         id: ci
         env:
