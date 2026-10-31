@@ -1,5 +1,38 @@
 # Scene art
 
+## Personal buttons (2026-10-30)
+
+The eight `lonely-forest/button-<traveler>.png` sprites supply the artwork for
+[the personal button and scarf quest](https://github.com/cenetex/cosyworld/issues/1441).
+Each is one centered wooden sewing button, with four visible thread holes,
+worn paint in the traveler's own colour, and a cross stitch in the complementary
+scarf colour. Vale's black button is the reference for the seven colour edits.
+
+| Traveler | Button | Thread |
+| --- | --- | --- |
+| Vale | Charcoal black | Warm ivory |
+| Mara | Crimson red | Sage green |
+| Ash | Burnt orange | Dusty blue |
+| Nell | Mustard yellow | Lavender violet |
+| Tavi | Moss green | Brick red |
+| Rue | Cobalt blue | Apricot orange |
+| Orin | Indigo blue-violet | Amber gold |
+| Ada | Violet | Pale warm yellow |
+
+The built-in image tool generated each sprite with transparent surroundings
+and open holes. Runtime PNGs are deterministically resized to the specification's
+1024 × 1024 canvas with Sharp's Lanczos3 filter. The image pipeline produces
+1024px stage and 512px card WebPs with matching alpha at each size.
+`public-assets.mjs` publishes the canonical item paths, which the prepared
+quest items can reference directly.
+
+[The button manifest](lonely-forest/button-provenance.json) records generation
+IDs, available prompts and prompt summaries, source and runtime hashes,
+dimensions, normalization settings and alpha checks. The selected generated
+originals are represented by their hashes; the normalized PNGs are the runtime
+sources. [The gallery](../../../docs/art/button-gallery.png) shows the full set
+against light and dark surfaces at card scale.
+
 ## Player scarves and attic variants (2026-10-30)
 
 The eight `shared/characters/*-scarf.png` images are individual edits made with

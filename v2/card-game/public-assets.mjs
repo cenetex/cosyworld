@@ -35,6 +35,10 @@ const files = [
   ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].map(
     (id) => `assets/shared/characters/${id}-scarf.png`,
   ),
+  // Personal button art is ready for the authored items in issue #1441.
+  ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].map(
+    (id) => `assets/lonely-forest/button-${id}.png`,
+  ),
   "assets/shared/characters/vale.png",
   "assets/shared/places/station.png",
   "assets/shared/items/lamp.png",
