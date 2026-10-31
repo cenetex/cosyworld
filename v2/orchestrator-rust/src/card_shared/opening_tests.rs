@@ -62,7 +62,11 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
     // Lonely Forest revision 2 retires three things and adds the buttons
     // and scarves, all unseen at the cottage.
     let items = expected["items"].as_object_mut().unwrap();
-    for id in ["forest-story-button", "forest-dewbright-button", "forest-watch-bell"] {
+    for id in [
+        "forest-story-button",
+        "forest-dewbright-button",
+        "forest-watch-bell",
+    ] {
         items.remove(id);
     }
     for who in ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"] {
