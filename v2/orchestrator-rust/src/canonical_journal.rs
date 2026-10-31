@@ -2858,6 +2858,23 @@ mod tests {
     }
 
     #[test]
+    fn command_receipt_storage_reads_receipts_written_by_zstd_0_13() {
+        // Stored by `encode_command_response_for_storage` while the crate used
+        // zstd 0.13. Live shared worlds hold receipts in this form, so every
+        // later zstd binding must keep decoding them byte for byte.
+        let plain = include_str!("../tests/fixtures/zstd-0.13-command-receipt/receipt.json");
+        let stored = include_str!("../tests/fixtures/zstd-0.13-command-receipt/receipt.stored.txt");
+        assert!(stored.starts_with(COMMAND_RECEIPT_ZSTD_PREFIX));
+        assert_eq!(decode_command_response_from_storage(stored).unwrap(), plain);
+        let reencoded = encode_command_response_for_storage(plain).unwrap();
+        assert!(reencoded.starts_with(COMMAND_RECEIPT_ZSTD_PREFIX));
+        assert_eq!(
+            decode_command_response_from_storage(&reencoded).unwrap(),
+            plain
+        );
+    }
+
+    #[test]
     fn command_receipt_storage_compresses_and_reads_legacy_plaintext() {
         let response = format!(
             r#"{{"ok":true,"state":"{}","events":[]}}"#,

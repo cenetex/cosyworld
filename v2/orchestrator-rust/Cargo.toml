@@ -1,6 +1,6 @@
 [package]
 name = "cosyworld-orchestrator"
-version = "1.2.69"
+version = "1.2.70"
 edition = "2021"
 publish = false
 
@@ -31,7 +31,7 @@ tower-http = { version = "0.6", features = ["compression-full", "cors"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 webauthn-rs = { version = "0.5.5", features = ["conditional-ui"] }
-zstd = "0.13"
+zstd = "0.14"
 rquickjs = { version = "0.14.0", default-features = false }
 llama-cpp-2 = { version = "=0.1.160", optional = true, default-features = false }
 
