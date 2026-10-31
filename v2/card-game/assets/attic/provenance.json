@@ -1,0 +1,70 @@
+{
+  "created": "2026-10-31",
+  "generator": "OpenAI built-in image generation",
+  "brief": "The attic is the last safe place. Lamplight is warm and protective, and the mirror reflects only the room. Dousing the lamp reveals the cold moonlit Black Pond: escape is the dark.",
+  "art_direction_feedback": [
+    "Preserve the original attic camera, perspective, rafters, stair opening/balustrade, shrouded furniture, trunks and city windows.",
+    "Replace the warm state's giant-moon seascape with an ordinary warm reflection of the attic.",
+    "Replace the dark state's empty glass with the still moonlit Black Pond, the brightest focus.",
+    "Add one stationary floor lamp beside the mirror, and retain it exactly between the two states."
+  ],
+  "max_source_bytes": 300000,
+  "encoding": {
+    "format": "webp",
+    "alphaQuality": 100,
+    "effort": 6,
+    "smartSubsample": true
+  },
+  "assets": [
+    {
+      "id": "attic-lit",
+      "file": "attic-lit.webp",
+      "state": "Lamp lit; safe room; attic reflection only",
+      "generation_id": "exec-08f7dc1e-6b64-4188-92cb-d2b54022e698",
+      "references": [
+        {
+          "role": "edit target",
+          "repository_path": "v2/card-game/assets/attic.png",
+          "commit": "02348c737be70db61979c32ca450bdb0cdee00f5",
+          "url": "https://github.com/cenetex/cosyworld/blob/02348c737be70db61979c32ca450bdb0cdee00f5/v2/card-game/assets/attic.png",
+          "sha256": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e"
+        }
+      ],
+      "dimensions": [1672, 941],
+      "transparent_background": false,
+      "quality": 88,
+      "bytes": 282564,
+      "sha256": "7e13716c980e4044028c421d2e2406c5e0312addf534c70a828d4ea45e172ee7",
+      "original_png_sha256": "d765bfca74e0d27d79ac90350e7eee224a20fbf509312ac7895b6eeb2abd8e81",
+      "original_png_bytes": 2380332
+    },
+    {
+      "id": "attic-doused",
+      "file": "attic-doused.webp",
+      "state": "Lamp just doused; cold room; moonlit pond opening",
+      "generation_id": "exec-55029ea1-a4a0-4391-8463-b8bda90fcbae",
+      "references": [
+        {
+          "role": "edit target",
+          "asset_id": "attic-lit",
+          "generation_id": "exec-08f7dc1e-6b64-4188-92cb-d2b54022e698",
+          "original_png_sha256": "d765bfca74e0d27d79ac90350e7eee224a20fbf509312ac7895b6eeb2abd8e81"
+        },
+        {
+          "role": "canonical composition reference (through edit target)",
+          "repository_path": "v2/card-game/assets/attic.png",
+          "commit": "02348c737be70db61979c32ca450bdb0cdee00f5",
+          "url": "https://github.com/cenetex/cosyworld/blob/02348c737be70db61979c32ca450bdb0cdee00f5/v2/card-game/assets/attic.png",
+          "sha256": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e"
+        }
+      ],
+      "dimensions": [1672, 941],
+      "transparent_background": false,
+      "quality": 88,
+      "bytes": 177838,
+      "sha256": "04465bdd3c4650c02edea08971aba379adabdb89845d296bb78bfb6135d7ecc7",
+      "original_png_sha256": "e86a20146820c37bc165e529f5e68fdc057601c0f2e3f633e46c06716483893b",
+      "original_png_bytes": 2127212
+    }
+  ]
+}

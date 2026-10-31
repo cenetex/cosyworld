@@ -14390,7 +14390,7 @@
         ],
         bridge: {
           id: "greek-ship-willows",
-          description: "On a misty night, while the Greek ship lies at Black Pond, river mist beside its rail opens onto a small Danube island. The same dark mist keeps a path back to the deck; when it lifts or the ship leaves the pond, the island and the deck lose each other until the ship lies there again on a misty night."
+          description: "On a misty night, while the Greek ship lies at Black Pond or sails between ports, river mist beside its rail opens onto a small Danube island. The same dark mist keeps a path back to the deck; when it lifts or the ship docks at another port, the island and the deck lose each other until the ship lies at the pond or sails again on a misty night."
         },
         values: {
           "willows-swede": {
@@ -14418,9 +14418,19 @@
                 condition: "mist"
               },
               {
-                kind: "ship_at",
-                transport: "greek-ship",
-                dock: "pond"
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "pond"
+                  },
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "@sea"
+                  }
+                ]
               }
             ],
             scenery: {
@@ -14446,9 +14456,19 @@
                 condition: "mist"
               },
               {
-                kind: "ship_at",
-                transport: "greek-ship",
-                dock: "pond"
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "pond"
+                  },
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "@sea"
+                  }
+                ]
               }
             ],
             scenery: {
@@ -16414,6 +16434,7 @@
     "sound",
     "light",
     "not",
+    "any",
     "choice",
     "choice_unset",
     "flag",
@@ -16430,6 +16451,7 @@
     "weather",
     "ship_at"
   ];
+  var AT_SEA = "@sea";
   var WEATHER_CONDITIONS = ["clear", "cloud", "rain", "mist"];
   var TRAVELERS = ["player", "any"];
   var VARIANTS = ["asleep", "awake", "irritated"];
@@ -16880,6 +16902,10 @@
           case "not":
             ok = keysOk(c, ["kind", "condition"]) && depth < 2 && condition(c.condition, what, depth + 1);
             break;
+          // Holds while one of two to four conditions holds.
+          case "any":
+            ok = keysOk(c, ["kind", "conditions"]) && depth < 2 && Array.isArray(c.conditions) && c.conditions.length >= 2 && c.conditions.length <= 4 && c.conditions.every((r) => condition(r, what, depth + 1));
+            break;
           case "choice":
             ok = keysOk(c, ["kind", "key", "value"]) && idOk(c.key) && idOk(c.value);
             break;
@@ -16920,7 +16946,7 @@
             ok = keysOk(c, ["kind", "place", "condition"]) && anyPlace(c.place) && WEATHER_CONDITIONS.includes(c.condition);
             break;
           case "ship_at":
-            ok = keysOk(c, ["kind", "transport", "dock"]) && idOk(c.transport) && anyPlace(c.dock);
+            ok = keysOk(c, ["kind", "transport", "dock"]) && idOk(c.transport) && (c.dock === AT_SEA || anyPlace(c.dock));
             break;
           case "knows": {
             const named = Array.isArray(c.topics) ? c.topics : [c.topic];
@@ -17468,14 +17494,14 @@
       susa: ["clear", "clear", "cloud", "clear", "cloud", "rain"],
       scythia: ["cloud", "rain", "mist", "cloud", "rain", "clear"],
       heights: ["mist", "clear", "cloud", "mist", "clear", "cloud"],
-      underworld: ["mist"]
+      underworld: ["mist"],
+      sea: ["mist", "rain", "mist", "rain", "mist", "clear"]
     },
     places: {
       boeotia: {
         coast: [
           "greek-harbor",
-          "greek-aulis",
-          "greek-ship"
+          "greek-aulis"
         ],
         court: [
           "greek-courtyard",
@@ -17635,6 +17661,11 @@
         underground: [
           "greek-underworld"
         ]
+      },
+      sea: {
+        coast: [
+          "greek-ship"
+        ]
       }
     }
   };
@@ -17775,6 +17806,7 @@
     return !signals.length || signals.some((c) => s.crossings[c.id].discovered);
   }
   var shipDock = (s, id) => read(s, id)?.phase === "sea" ? null : read(s, id)?.dock ?? null;
+  var shipAtSea = (s, id) => read(s, id)?.phase === "sea";
   function preserveTransportAccess(s) {
     for (const id of Object.keys(transports)) {
       if (transportUnlocked(s, id)) continue;
@@ -17910,6 +17942,10 @@
         );
       case "not":
         return !conditionMet(s, c.condition, senses2, packId, actor);
+      case "any":
+        return c.conditions.some(
+          (r) => conditionMet(s, r, senses2, packId, actor)
+        );
       case "choice":
         return state?.choices?.[c.key] === c.value;
       case "choice_unset":
@@ -17952,9 +17988,9 @@
       // The saved regional weather where c.place is.
       case "weather":
         return locationWeather(s, c.place)?.condition === c.condition;
-      // A transport docked (or just arrived) at a port, not at sea.
+      // A transport docked (or just arrived) at a port, or "@sea" between ports.
       case "ship_at":
-        return shipDock(s, c.transport) === c.dock;
+        return c.dock === "@sea" ? shipAtSea(s, c.transport) : shipDock(s, c.transport) === c.dock;
       default:
         return false;
     }
@@ -20187,7 +20223,7 @@
   var darkMist = (world) => isNight(world) && locationWeather(world, "greek-ship")?.condition === "mist";
   var willowsMist = (world) => {
     const ship = world?.transports?.["greek-ship"];
-    return darkMist(world) && ship?.phase !== "sea" && ship?.dock === "pond";
+    return darkMist(world) && (ship?.phase === "sea" || ship?.dock === "pond");
   };
   var art = (file) => `assets/greek-drama/${file}.webp`;
   var willows = (file) => `assets/willows/${file}.webp`;

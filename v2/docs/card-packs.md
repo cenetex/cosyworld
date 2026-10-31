@@ -63,8 +63,11 @@ while that place's regional weather (`weather.mjs`) is the named condition:
 `clear`, `cloud`, `rain` or `mist`.
 `{ "kind": "ship_at", "transport": "greek-ship", "dock": "pond" }` holds
 while that transport is docked at, or has just arrived at, that dock (not at
-sea). The Willows crossings use all three, so the island appears from the
-ship's rail only on a misty night while the ship lies at Black Pond.
+sea). `"dock": "@sea"` holds while it sails between ports.
+`{ "kind": "any", "conditions": [ ... ] }` holds while any of two to four
+conditions holds (nested at most two deep, like `not`). The Willows
+crossings use all of these, so the island appears from the ship's rail only
+on a misty night while the ship lies at Black Pond or is at sea.
 
 The vocabulary also includes `light`, bounded `not`, and persistent pack
 `choice`, `choice_unset`, `flag`, `holding`, `item_at` and `met`, and
