@@ -288,15 +288,21 @@ describe("the reflected shore card game", () => {
       for (const { file } of Object.values(roomTracks).flat()) {
         const path = `${url}/card-game/assets/music/${file}`;
         const song = await fetch(path);
-        expect(song.headers.get("content-type")).toBe("audio/mpeg");
+        const m4a = file.endsWith(".m4a");
+        expect(song.headers.get("content-type")).toBe(
+          m4a ? "audio/mp4" : "audio/mpeg",
+        );
         const bytes = Buffer.from(await song.arrayBuffer());
-        expect(bytes.subarray(0, 3).toString()).toBe("ID3");
+        if (m4a) expect(bytes.subarray(4, 8).toString()).toBe("ftyp");
+        else expect(bytes.subarray(0, 3).toString()).toBe("ID3");
         const range = await fetch(path, { headers: { Range: "bytes=0-2" } });
         expect(range.status).toBe(206);
         expect(range.headers.get("content-range")).toBe(
           `bytes 0-2/${bytes.length}`,
         );
-        expect(await range.text()).toBe("ID3");
+        expect(Buffer.from(await range.arrayBuffer())).toEqual(
+          bytes.subarray(0, 3),
+        );
         const tail = await fetch(path, { headers: { Range: "bytes=-32" } });
         expect(Buffer.from(await tail.arrayBuffer())).toEqual(
           bytes.subarray(-32),

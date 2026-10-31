@@ -195,6 +195,10 @@ mod tests {
             "assets/music/ship-2.mp3",
             "assets/music/ship-3.mp3",
             "assets/music/ship-4.mp3",
+            "assets/music/willows-keep-to-bank-1.m4a",
+            "assets/music/willows-keep-to-bank-2.m4a",
+            "assets/music/willows-dont-answer-trees.m4a",
+            "assets/music/willows-keep-to-bank-3.m4a",
             "entity-profiles.json",
             "assets/lamp-card.png",
             "assets/oil-card.png",
@@ -233,6 +237,9 @@ mod tests {
             } else if path.ends_with(".mp3") {
                 assert_eq!(content_type, "audio/mpeg");
                 assert_eq!(&body[..3], b"ID3");
+            } else if path.ends_with(".m4a") {
+                assert_eq!(content_type, "audio/mp4");
+                assert_eq!(&body[4..8], b"ftyp");
             } else if path.ends_with(".mjs") {
                 assert_eq!(content_type, "text/javascript; charset=utf-8");
             }

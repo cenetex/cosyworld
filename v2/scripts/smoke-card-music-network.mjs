@@ -196,7 +196,7 @@ try {
   await page.waitForFunction(() => playingAt.length === 2, null, {
     timeout: 60000,
   });
-  assert.equal(requests.at(-1).file, "ship-2.mp3");
+  assert.equal(requests.at(-1).file, "pond-1.mp3");
   await delay(1200);
   const source = await page.evaluate(() => audio.src);
   const beforeReplay = requests.length;
@@ -204,9 +204,6 @@ try {
   await page.evaluate(() => music.setRoom("greek-harbor"));
   await delay(200);
   await page.evaluate(() => music.setRoom("greek-ship"));
-  await page.waitForFunction(() => playingAt.length === 3, null, {
-    timeout: 60000,
-  });
   await delay(1200);
   assert.equal(await page.evaluate(() => audio.src), source);
   assert.equal(await page.evaluate(() => window.loads), loads);

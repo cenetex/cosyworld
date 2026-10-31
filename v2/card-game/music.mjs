@@ -3,6 +3,12 @@ import { mediaUrl } from "./media.mjs";
 import streams from "./music-streams.json" with { type: "json" };
 
 export const roomTracks = {
+  "willows-camp": [
+    { file: "willows-keep-to-bank-1.m4a", title: "Keep to the Bank" },
+    { file: "willows-keep-to-bank-2.m4a", title: "Keep to the Bank II" },
+    { file: "willows-dont-answer-trees.m4a", title: "Don't Answer the Trees" },
+    { file: "willows-keep-to-bank-3.m4a", title: "Keep to the Bank III" },
+  ],
   "greek-harbor": [
     { file: "greek-harbor.mp3", title: "Wine Dark Sea — Wine-Dark Harbor" },
   ],
@@ -65,8 +71,8 @@ export const roomTracks = {
   ),
 };
 
-// Keep the outgoing source until its gain reaches silence, then fade in the
-// selected song. The audio clock keeps fades smooth while a tab is hidden.
+// A room starts a song when music is idle. The song follows every journey
+// until its end. The audio clock keeps volume and pause fades smooth.
 export function createRoomMusic({
   audio,
   changed = () => {},
@@ -77,6 +83,8 @@ export function createRoomMusic({
 }) {
   const fadeSeconds = 1;
   let room = null,
+    phase = "day",
+    sourceRoom = null,
     loadedFile = null,
     restartOnVisit = false,
     unlocked = false,
@@ -141,11 +149,15 @@ export function createRoomMusic({
     }
     if (context?.state === "suspended") void context.resume().catch(() => {});
   }
+  const trackRoom = () => sourceRoom || room;
   function track() {
-    return roomTracks[room]?.[positions.get(room) || 0];
+    if (!sourceRoom && room === "willows-camp" && phase !== "day") return null;
+    const id = trackRoom();
+    return roomTracks[id]?.[positions.get(id) || 0];
   }
   const randomPerVisit = () =>
-    packPlaces[room]?.musicMode === "random-per-visit";
+    trackRoom() === "willows-camp" ||
+    packPlaces[trackRoom()]?.musicMode === "random-per-visit";
   function wanted() {
     return (
       started &&
@@ -153,7 +165,7 @@ export function createRoomMusic({
       enabled &&
       !hidden &&
       track() &&
-      failures < roomTracks[room].length
+      failures < roomTracks[trackRoom()].length
     );
   }
   function report() {
@@ -162,7 +174,7 @@ export function createRoomMusic({
       started,
       title: track()?.title || "",
       playing: !audio.paused,
-      failed: failures >= (roomTracks[room]?.length || 1),
+      failed: failures >= (roomTracks[trackRoom()]?.length || 1),
     });
   }
   function pause() {
@@ -191,6 +203,14 @@ export function createRoomMusic({
   }
   function load() {
     pause();
+    if (!sourceRoom) {
+      sourceRoom = room;
+      if (randomPerVisit())
+        positions.set(
+          sourceRoom,
+          Math.floor(random() * roomTracks[sourceRoom].length),
+        );
+    }
     const next = track();
     const buffered = next && loadedFile === next.file && !audio.error;
     loadedFile = next?.file || null;
@@ -247,10 +267,8 @@ export function createRoomMusic({
     else if (!ending) fadeTo(volume, fadeSeconds);
   }
   function advance() {
-    positions.set(
-      room,
-      ((positions.get(room) || 0) + 1) % roomTracks[room].length,
-    );
+    const id = trackRoom();
+    positions.set(id, ((positions.get(id) || 0) + 1) % roomTracks[id].length);
   }
   audio.addEventListener("timeupdate", () => {
     const remaining = audio.duration - audio.currentTime;
@@ -269,10 +287,10 @@ export function createRoomMusic({
   audio.addEventListener("ended", () => {
     if (loadedFile === track()?.file) {
       failures = 0;
-      if (randomPerVisit()) audio.currentTime = 0;
-      else advance();
+      if (!randomPerVisit()) advance();
+      sourceRoom = null;
+      restartOnVisit = true;
     }
-    // A track can end while travel is waiting for its fade to finish.
     sync();
   });
   audio.addEventListener("playing", () => {
@@ -282,7 +300,7 @@ export function createRoomMusic({
   audio.addEventListener("error", () => {
     if (loadedFile === track()?.file) {
       failures++;
-      if (failures < roomTracks[room].length) advance();
+      if (failures < roomTracks[trackRoom()].length) advance();
     }
     pause();
     sync();
@@ -292,6 +310,9 @@ export function createRoomMusic({
       if (started === Boolean(value)) return;
       started = Boolean(value);
       if (!started) {
+        sourceRoom = null;
+        restartOnVisit = true;
+        failures = 0;
         unlocked = false;
         clearTimeout(transitionTimer);
         transitionTimer = null;
@@ -299,14 +320,15 @@ export function createRoomMusic({
       } else sync();
       report();
     },
-    setRoom(value) {
-      if (room === value) return;
+    setRoom(value, daylight = "day") {
+      if (room === value && phase === daylight) return;
       room = value;
-      failures = 0;
-      restartOnVisit = randomPerVisit();
-      if (restartOnVisit)
-        positions.set(room, Math.floor(random() * roomTracks[room].length));
-      // Each visit starts its chosen song afresh. A buffered repeat can seek.
+      phase = daylight;
+      if (failures >= (roomTracks[trackRoom()]?.length || 1)) {
+        sourceRoom = null;
+        failures = 0;
+        restartOnVisit = true;
+      }
       sync();
     },
     unlock() {
