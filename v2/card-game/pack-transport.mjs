@@ -118,6 +118,11 @@ const laneGate = (t, from, to) =>
   )?.opensWith ?? null;
 export const laneGated = (from, to) =>
   Object.values(transports).some((t) => laneGate(t, from, to));
+// The authored conditions that open a gated lane, or null.
+export const laneConditions = (from, to) =>
+  Object.values(transports)
+    .map((t) => laneGate(t, from, to))
+    .find(Boolean) ?? null;
 const openLanes = (s, t, dock, actor = null) =>
   lanesFrom(t, dock).filter((to) => {
     if (!entityActive(s, to)) return false;

@@ -9054,7 +9054,6 @@
           "name": "The Open Door",
           "places": [
             "greek-athens",
-            "greek-piraeus",
             "greek-colonus",
             "greek-eleusis",
             "greek-marathon",
@@ -10878,7 +10877,14 @@
             },
             {
               "from": "greek-harbor",
-              "to": "greek-piraeus"
+              "to": "greek-piraeus",
+              "opensWith": [
+                {
+                  "kind": "item_present",
+                  "item": "greek-provisions",
+                  "place": "greek-ship"
+                }
+              ]
             },
             {
               "from": "greek-harbor",

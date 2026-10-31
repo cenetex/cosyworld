@@ -47,6 +47,9 @@ function shared(dock) {
   for (const id of players)
     for (const from of ship.docks)
       for (const to of lanesFrom(ship, from)) learnLane(world, id, from, to);
+  // The Travel Provisions ride on deck, which opens the Wine-Dark Harbor's
+  // lane to Piraeus.
+  world.items["greek-provisions"].holder = "greek-ship";
   return world;
 }
 const ask = (world, actor, extra = {}) =>
@@ -85,9 +88,12 @@ describe("Greek ports and fixed roads", () => {
       // Course cards are the boarding port's lanes, never the port itself.
       // By day the Willows mist does not rise beside the rail.
       expect(ask(w, "vale").exits).toEqual([
-        // A gated lane (the Signal Jetty) waits for a thing from its world.
+        // The Signal Jetty waits for a Hoppy Cat thing aboard; the
+        // provisions on deck open the Wine-Dark Harbor to Piraeus lane.
         ...lanesFrom(transports["greek-ship"], from).filter(
-          (d) => entityActive(w, d) && !laneGated(from, d),
+          (d) =>
+            entityActive(w, d) &&
+            (!laneGated(from, d) || d !== "hoppycat-signal-jetty"),
         ),
       ]);
       const path = lanePath(w, "greek-ship", from, to);

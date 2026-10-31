@@ -7,7 +7,8 @@ import {
 export function greekTravelTargets(from, to) {
   if (packPlaces[from]?.exits.includes(to)) return [to];
   // Black Pond sails only to the Wine-Dark Harbor. The opening fixture's
-  // traveller has heard the harbour's lanes on to Piraeus and Athens Harbor.
+  // traveller carries the Travel Provisions aboard, which open the lane to
+  // Piraeus, and has heard the lane from Piraeus to Athens Harbor.
   if (from === "greek-harbor" && to === "greek-piraeus")
     return ["greek-ship", to];
   // From Piraeus an idle ship sails its first lane, to the Wine-Dark Harbor.

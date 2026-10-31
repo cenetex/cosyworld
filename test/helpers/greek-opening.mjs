@@ -59,9 +59,10 @@ export function openingFixture(
     take("cloth");
   }
   walk("ship", "harbor");
-  // Black Pond sails only to the Wine-Dark Harbor. Myrto has told the
-  // traveller the lanes on to Piraeus and Athens Harbor.
-  learnLane(world, "vale", "greek-harbor", "greek-piraeus");
+  // Black Pond sails only to the Wine-Dark Harbor. The Travel Provisions
+  // ride on deck, which opens the lane on to Piraeus, and Myrto has told the
+  // traveller the lane from Piraeus to Athens Harbor.
+  world.items["greek-provisions"].holder = "greek-ship";
   learnLane(world, "vale", "greek-piraeus", "greek-athens-harbor");
   act("snuff", { item: "lamp" });
   act("drop", { item: "cloth", target: "greek-harbor" });

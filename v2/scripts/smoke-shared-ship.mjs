@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
-import { learnLane, summonTransport } from "../card-game/pack-transport.mjs";
+import { summonTransport } from "../card-game/pack-transport.mjs";
 
 // Each browser has its own claimed avatar. The fixture replaces account and
 // queue IO; every move runs through the shipping shared-world reducer.
@@ -24,8 +24,9 @@ try {
     for (const id of players) world.actors[id].place = "pond";
     summonTransport(world, "greek-ship", "pond");
     world.crossings["pond-greek-harbor"].discovered = true;
-    // Knowing a lane is personal: only Mara has heard of the Piraeus lane.
-    learnLane(world, "mara", "greek-harbor", "greek-piraeus");
+    // Mara carries the Travel Provisions, which open the Piraeus lane for
+    // everyone aboard with her.
+    world.items["greek-provisions"].holder = "mara";
     const pages = [];
     const contexts = [];
     const errors = [];
@@ -179,12 +180,10 @@ try {
       await move(vale, "vale", "greek-ship");
       assert.equal(world.actors.mara.place, "greek-ship");
       await mara.locator('#hand [data-card="pond"]').waitFor();
-      // One deck, two charts: Mara sees the Piraeus course and Vale does not.
+      // The provisions Mara carries aboard open the Piraeus course for
+      // everyone on deck, though neither has heard the lane.
       await mara.locator('#hand [data-card="greek-piraeus"]').waitFor();
-      assert.equal(
-        await vale.locator('#hand [data-card="greek-piraeus"]').count(),
-        0,
-      );
+      await vale.locator('#hand [data-card="greek-piraeus"]').waitFor();
       await mara.screenshot({
         path: new URL(`known-lanes-${width}.png`, output).pathname,
       });
@@ -205,7 +204,7 @@ try {
     }
   }
   console.log(
-    "Shared ship: three players, both shores, a returning rider, personal lanes, desktop and phone passed.",
+    "Shared ship: three players, both shores, a returning rider, the provisions lane, desktop and phone passed.",
   );
 } finally {
   await browser.close();

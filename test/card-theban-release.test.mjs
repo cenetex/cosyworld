@@ -116,6 +116,9 @@ describe("the Theban release and its ship", () => {
     ).toEqual(
       [
         ...openingPlaces,
+        // Piraeus Quays lies outside every section; a ship with the Travel
+        // Provisions aboard reaches it.
+        "greek-piraeus",
         ...sectionPlaces.filter((id) => id !== "greek-road-athens-harbor"),
       ].sort(),
     );
@@ -133,10 +136,12 @@ describe("the Theban release and its ship", () => {
     s = act(s, "choose", { choiceId: "greek-courtyard-refusal" });
     expect(reachable(s)).toHaveLength(9);
     s = act(s, "choose", { choiceId: "greek-open-door-invite-refusal" });
-    // Black Pond sails only to the Wine-Dark Harbor: the way on to Athens
-    // stays unknown until someone tells Vale the harbour's lanes.
+    // Black Pond sails only to the Wine-Dark Harbor. The way on to Athens
+    // needs the Travel Provisions aboard, which open the lane to Piraeus;
+    // the Athens-Piraeus road walks on from the quay. Myrto has told Vale
+    // the lane from Athens Harbor back to Piraeus.
     expect(reachable(s)).toHaveLength(9);
-    learnLane(s, "vale", "greek-harbor", "greek-piraeus");
+    s.items["greek-provisions"].holder = "greek-ship";
     learnLane(s, "vale", "greek-piraeus", "greek-athens-harbor");
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     expect(reachable(s)).toHaveLength(16);

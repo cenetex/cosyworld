@@ -31,9 +31,11 @@ try {
     fixture.presentActors = ["mara"];
     fixture.actors.mara.place = "greek-athens-harbor";
     // Black Pond sails only to the Wine-Dark Harbor. Mara has heard the
-    // lanes home from Athens Harbor: by Piraeus to the Wine-Dark Harbor.
+    // lane from Athens Harbor to Piraeus; the Travel Provisions on deck open
+    // the lane on to the Wine-Dark Harbor.
     learnLane(fixture, "mara", "greek-athens-harbor", "greek-piraeus");
-    learnLane(fixture, "mara", "greek-piraeus", "greek-harbor");
+    if (fixture.items["greek-provisions"].holder !== "greek-ship")
+      throw new Error("The opening fixture keeps the provisions aboard.");
     const page = await browser.newPage({
       viewport: { width, height: width === 390 ? 844 : 900 },
       reducedMotion: "reduce",

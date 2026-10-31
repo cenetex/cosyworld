@@ -161,7 +161,17 @@
       ],
       "lanes": [
         { "from": "pond", "to": "greek-harbor" },
-        { "from": "greek-harbor", "to": "greek-piraeus" },
+        {
+          "from": "greek-harbor",
+          "to": "greek-piraeus",
+          "opensWith": [
+            {
+              "kind": "item_present",
+              "item": "greek-provisions",
+              "place": "greek-ship"
+            }
+          ]
+        },
         { "from": "greek-harbor", "to": "greek-ajax-landing" },
         { "from": "greek-athens-harbor", "to": "greek-piraeus" },
         {
