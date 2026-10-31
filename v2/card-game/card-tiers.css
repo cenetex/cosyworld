@@ -2,10 +2,54 @@
 body .card-frame .card[data-tier] {
   border-color: var(--tier-color);
 }
+/* An uncovered card keeps its tier border but no glow; the covered glow
+   fades out during the reveal. */
 body .card[data-tier].new {
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--tier-color) 65%, transparent),
-    0 0 14px color-mix(in srgb, var(--tier-color) 35%, transparent);
+  box-shadow: 0 6px 20px #0006;
+}
+/* A covered card breathes softly in its tier colour until its first tap:
+   one slow 3.6 s swell, far below WCAG 2.3.1's three flashes a second.
+   Rarer tiers glow a little wider. Reduced motion and "Flashes and scares"
+   off hold the glow still. card-reveal.mjs fades it from this rest value. */
+body .card.covered-glow {
+  --glow-alpha: 30%;
+  --glow-blur: 8px;
+  --glow-ring: color-mix(in srgb, var(--tier-color) 45%, transparent);
+  --glow-dim: 0 0 0 1px var(--glow-ring),
+    0 0 calc(var(--glow-blur) * 0.6) color-mix(in srgb, var(--tier-color) calc(var(--glow-alpha) * 0.5), transparent),
+    0 6px 20px #0006;
+  --glow-full: 0 0 0 1px var(--glow-ring),
+    0 0 var(--glow-blur) color-mix(in srgb, var(--tier-color) var(--glow-alpha), transparent),
+    0 6px 20px #0006;
+  box-shadow: var(--glow-full);
+  animation: covered-breathe 1.8s ease-in-out infinite alternate;
+}
+body .card.covered-glow[data-tier="uncommon"] {
+  --glow-alpha: 34%;
+  --glow-blur: 10px;
+}
+body .card.covered-glow[data-tier="rare"] {
+  --glow-alpha: 38%;
+  --glow-blur: 12px;
+}
+body .card.covered-glow[data-tier="epic"] {
+  --glow-alpha: 42%;
+  --glow-blur: 14px;
+}
+body .card.covered-glow[data-tier="legendary"] {
+  --glow-alpha: 46%;
+  --glow-blur: 16px;
+}
+body .card.covered-glow[data-glow="still"] {
+  animation: none;
+}
+@keyframes covered-breathe {
+  from {
+    box-shadow: var(--glow-dim);
+  }
+  to {
+    box-shadow: var(--glow-full);
+  }
 }
 .card-level {
   position: absolute;
@@ -42,6 +86,9 @@ body .card[data-tier].new {
 @media (prefers-reduced-motion: reduce) {
   .card-level {
     transition: none;
+  }
+  body .card.covered-glow {
+    animation: none;
   }
 }
 .card-back {
@@ -86,22 +133,4 @@ body .hand .card-frame:has(> .card[data-unrevealed="true"]) {
 }
 .reveal-sheen {
   background: linear-gradient(105deg, transparent 35%, #fff4d640 50%, transparent 65%);
-}
-body .card.new[data-unrevealed="false"]::after {
-  content: "New card";
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  z-index: 3;
-  translate: -50% 0;
-  padding: 3px 9px;
-  border: 1px solid color-mix(in srgb, var(--tier-color) 70%, transparent);
-  border-radius: 999px;
-  background: #0b0e14d9;
-  color: var(--tier-color);
-  font: 10px/1.2 Georgia, serif;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  pointer-events: none;
 }

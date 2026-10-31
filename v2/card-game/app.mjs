@@ -13,6 +13,7 @@ import {
   crossfadeImage,
   hauntScene,
   installScaresToggle,
+  scaresEnabled,
 } from "./transitions.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import { combatBeats, lastSeq } from "./combat-beats.mjs";
@@ -966,13 +967,16 @@ function selectCards(cards) {
 function choose(id) {
   if (finishReveal(id) || selectionBlocked()) return;
   if (cardIsCovered(id)) {
+    const cover = $("hand").querySelector(`.card[data-card="${id}"]`);
+    // The reveal fades the covered glow out from wherever its breath is.
+    const glowFrom = cover && getComputedStyle(cover).boxShadow;
     encountered.add(id);
     coveredCards.delete(id);
     rememberCards();
     render();
     const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
-    if (shown) void revealCard(shown);
-    $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
+    if (shown) void revealCard(shown, { glowFrom });
+    $("discovery-announcement").textContent = `Uncovered ${nameOf(id)}.`;
     if (openingHeld && openingWordsDue() && selfKnown()) resumeScene();
     if (sharedSession) syncSharedLine();
     return;
@@ -1866,7 +1870,9 @@ function card(id) {
   back.draggable = false;
   el.append(back);
   if (cardIsCovered(id)) {
-    el.setAttribute("aria-label", `Uncover new ${type} card, ${tier.label}`);
+    el.classList.add("covered-glow");
+    if (!scaresEnabled()) el.dataset.glow = "still";
+    el.setAttribute("aria-label", `Covered ${type} card, ${tier.label}. Select to uncover.`);
     el.removeAttribute("aria-describedby");
   }
   return frame;

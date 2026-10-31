@@ -199,11 +199,29 @@ try {
       const levelVisibility = () => pond.locator(".card-level").evaluateAll((marks) => marks.map((mark) => getComputedStyle(mark).visibility));
       assert.deepEqual(await levelVisibility(), ["hidden", "hidden"]);
       assert(await page.evaluate(() => window.arrivals.includes("pond")), "pond settles into the hand");
+      // A covered card glows softly in its tier colour: a slow breath, or
+      // held still under reduced motion.
+      const glow = await pond.evaluate((el) => ({
+        covered: el.classList.contains("covered-glow"),
+        name: getComputedStyle(el).animationName,
+        period: parseFloat(getComputedStyle(el).animationDuration) * 2,
+        shadow: getComputedStyle(el).boxShadow !== "none",
+        label: el.getAttribute("aria-label"),
+      }));
+      assert.equal(glow.covered, true);
+      assert.equal(glow.shadow, true);
+      assert.equal(glow.name, motion === "reduce" ? "none" : "covered-breathe");
+      if (motion !== "reduce") assert(glow.period >= 3, JSON.stringify(glow));
+      assert(!/new|pond/i.test(glow.label), glow.label);
+      if (process.env.GLOW_SHOTS)
+        await page.screenshot({ path: `${process.env.GLOW_SHOTS}/glow-covered-${width}-${motion}.png` });
       await pond.click();
+      assert.equal(await pond.evaluate((el) => el.classList.contains("covered-glow")), false);
+      assert.doesNotMatch(await page.locator("#discovery-announcement").textContent(), /new card/i);
       assert.equal(await pond.getAttribute("aria-pressed"), "false");
       assert.equal(await pond.getAttribute("data-unrevealed"), "false");
       assert.equal(await pond.getAttribute("data-revealing"), "common");
-      assert.equal(await pond.evaluate((el) => getComputedStyle(el, "::after").content), '"New card"');
+      assert.equal(await pond.evaluate((el) => getComputedStyle(el, "::after").content), "none");
       const lid = await pond.locator(".reveal-lid").evaluate((el) => ({
         motion: el.getAnimations()[0].effect.getKeyframes()[0].transform ?? "fade",
         fit: getComputedStyle(el).objectFit,
@@ -244,6 +262,8 @@ try {
       await page.screenshot({
         path: new URL(`reveal-${width}.png`, output).pathname,
       });
+      if (process.env.GLOW_SHOTS)
+        await page.screenshot({ path: `${process.env.GLOW_SHOTS}/glow-uncovered-${width}-${motion}.png` });
       // A hidden tab keeps the discovery ready for the player's return.
       if (width === 1440) {
         await page.evaluate(() => {

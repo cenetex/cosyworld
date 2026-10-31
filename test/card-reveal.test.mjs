@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { REVEAL_TIERS, flashRate, revealPlan } from "../v2/card-game/card-reveal.mjs";
 
@@ -36,5 +37,17 @@ describe("covered card reveal", () => {
 
   it("treats an unknown tier as common", () => {
     expect(revealPlan("mythic")).toEqual({ ...revealPlan("common"), tier: "mythic" });
+  });
+
+  it("glows a covered card with a slow breath and no label", () => {
+    const css = readFileSync(new URL("../v2/card-game/card-tiers.css", import.meta.url), "utf8");
+    expect(css).not.toMatch(/New card/);
+    const [, half] = css.match(/animation: covered-breathe ([\d.]+)s ease-in-out infinite alternate/);
+    expect(Number(half) * 2).toBeGreaterThanOrEqual(3);
+    expect(css).toMatch(/prefers-reduced-motion: reduce\)[^@]*\.covered-glow \{\s*animation: none/);
+    expect(css).toMatch(/\.covered-glow\[data-glow="still"\] \{\s*animation: none/);
+    const alphas = [...css.matchAll(/--glow-alpha: (\d+)%/g)].map(([, a]) => Number(a));
+    expect(alphas).toEqual([...alphas].sort((a, b) => a - b));
+    expect(Math.max(...alphas)).toBeLessThanOrEqual(50);
   });
 });

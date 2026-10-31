@@ -1,7 +1,8 @@
 import { scaresEnabled } from "./transitions.mjs";
 
-// A covered card opens when the player first taps it. Richer level tiers
-// get a longer, warmer reveal; every reveal stays under a second, glows at
+// A covered card breathes in its tier colour (card-tiers.css) until the
+// player first taps it, then opens. Richer level tiers get a longer, warmer
+// reveal, and the covered glow fades out across it; every reveal stays under a second, glows at
 // most twice (under three flashes a second) and leaves no lasting animation
 // or 3D context behind, so the card and the dialogue keep taking clicks.
 const tiers = {
@@ -13,7 +14,7 @@ const tiers = {
 };
 export const REVEAL_TIERS = Object.keys(tiers);
 
-// Reduced motion crossfades the lid and shows the label without movement.
+// Reduced motion crossfades the lid and fades the glow without movement.
 // With flashes off, the glow stays soft and steady and the sheen is skipped.
 export function revealPlan(tier, { reduced = false, scares = true } = {}) {
   const base = tiers[tier] || tiers.common;
@@ -35,11 +36,11 @@ const reduceMotion = () =>
   globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 const running = new Map();
 
-function glowFrames(color, { pulses, glow }) {
-  const rest = "0 6px 20px #0006";
+const rest = "0 6px 20px #0006";
+function glowFrames(color, { pulses, glow }, from) {
   const lit = `0 0 0 1px ${color}cc, 0 0 ${glow}px ${color}88, 0 6px 20px #0006`;
-  if (!pulses) return [{ boxShadow: rest }, { boxShadow: lit, offset: 0.5 }, { boxShadow: rest }];
-  const frames = [{ boxShadow: rest }];
+  if (!pulses) return [{ boxShadow: from }, { boxShadow: lit, offset: 0.5 }, { boxShadow: rest }];
+  const frames = [{ boxShadow: from }];
   for (let i = 0; i < pulses; i++)
     frames.push(
       { boxShadow: lit, offset: (i + 0.5) / (pulses + 0.5) },
@@ -57,6 +58,7 @@ export function revealCard(button, options = {}) {
     scares: options.scares ?? scaresEnabled(),
   });
   const color = getComputedStyle(button).getPropertyValue("--tier-color").trim() || "#c8dce6";
+  const from = options.glowFrom && options.glowFrom !== "none" ? options.glowFrom : rest;
   const back = button.querySelector(".card-back");
   const lid = document.createElement("img");
   lid.className = "reveal-lid";
@@ -78,14 +80,11 @@ export function revealCard(button, options = {}) {
           { duration: Math.round(plan.ms * 0.6), easing: ease },
         ),
     button.animate(
-      [{ opacity: 0 }, { opacity: 1, offset: plan.crossfade ? 0.4 : 0.3 }, { opacity: 1 }],
-      { duration: plan.ms, pseudoElement: "::after" },
+      plan.crossfade ? [{ boxShadow: from }, { boxShadow: rest }] : glowFrames(color, plan, from),
+      { duration: plan.ms, easing: plan.crossfade ? "ease-out" : "ease-in-out" },
     ),
   ];
   if (!plan.crossfade) {
-    animations.push(
-      button.animate(glowFrames(color, plan), { duration: plan.ms, easing: "ease-in-out" }),
-    );
     if (plan.lift)
       animations.push(
         button.animate(
