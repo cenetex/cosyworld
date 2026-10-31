@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "1.2.97",
+  "version": "1.2.98",
   "description": "A persistent card world with local and shared play",
   "type": "module",
   "private": true,
@@ -44,6 +44,7 @@
     "v2:ai-model:test": "cargo test --manifest-path v2/ai-model-rust/Cargo.toml",
     "v2:ai-model:wasm": "cargo build --manifest-path v2/ai-model-rust/Cargo.toml --target wasm32-unknown-unknown --release",
     "v2:rust:test": "bash ./v2/scripts/check-rust.sh test",
+    "v2:voice:eval": "cd v2/orchestrator-rust && cargo test --bin cosyworld-orchestrator narrative::voice_eval -- --nocapture",
     "v2:rust:build": "bash ./v2/scripts/check-rust.sh build",
     "v2:architecture": "bash ./v2/scripts/check-main-size.sh && bash ./v2/scripts/check-rust-lint.sh",
     "v2:worldpack:inspect": "node v2/scripts/import-srd-5.1.mjs --check && node v2/scripts/import-srd-5.2.1.mjs --check && node v2/scripts/compile-worldpack.mjs --check && node v2/scripts/check-worldpack.mjs --report",

@@ -41,6 +41,12 @@ pub(crate) mod recital;
 mod reflection;
 #[path = "card_narrative/reflections.rs"]
 mod reflections;
+#[cfg(test)]
+#[path = "card_narrative/voice_eval.rs"]
+mod voice_eval;
+#[path = "card_narrative/voice_metrics.rs"]
+pub(crate) mod voice_metrics;
+use voice_metrics::{tagged, Section};
 
 const PER_MINUTE: RateLimit = RateLimit {
     max_hits: 30,
@@ -1346,17 +1352,27 @@ fn known(context: &Context) -> BTreeSet<String> {
 /// first-person awareness, lines in its voice, recent table talk, and its
 /// name as the cue. Other characters' private memories never appear here.
 fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
+    transcript_sections(context, entity, part)
+        .iter()
+        .map(|(_, line)| line.as_str())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The transcript's lines, each tagged with the prompt section it belongs to
+/// so voice metrics can measure where a prompt's tokens go.
+fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(Section, String)> {
     if kind(&entity.id, "location") {
-        return atmosphere::transcript(context, entity);
+        return vec![(Section::Now, atmosphere::transcript(context, entity))];
     }
     if part == Part::Dream {
-        return dream::transcript(context, entity);
+        return vec![(Section::Now, dream::transcript(context, entity))];
     }
     let id = entity.id.as_str();
     let own = name(id);
     let avatar = kind(id, "avatar");
     let mut scene = name(&context.location);
-    let mut lines = Vec::new();
+    let mut lines: Vec<(Section, String)> = Vec::new();
     let company = |companions: &[String]| {
         if companions.is_empty() {
             " on my own".to_string()
@@ -1393,37 +1409,44 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
         for other in &outcome.avatars {
             let trip = other.travel.as_ref();
             if other.id == id {
-                lines.push(match trip {
-                    Some(t) if t.from == context.location => format!(
-                        "I'm leaving {} for {}{}.",
-                        name(&t.from),
-                        name(&t.to),
-                        company(&t.companions)
-                    ),
-                    Some(t) => format!(
-                        "I've just come to {} from {}{}.",
-                        name(&t.to),
-                        name(&t.from),
-                        company(&t.companions)
-                    ),
-                    None => format!("I'm at {}.", name(&other.location)),
-                });
+                lines.push((
+                    Section::Now,
+                    match trip {
+                        Some(t) if t.from == context.location => format!(
+                            "I'm leaving {} for {}{}.",
+                            name(&t.from),
+                            name(&t.to),
+                            company(&t.companions)
+                        ),
+                        Some(t) => format!(
+                            "I've just come to {} from {}{}.",
+                            name(&t.to),
+                            name(&t.from),
+                            company(&t.companions)
+                        ),
+                        None => format!("I'm at {}.", name(&other.location)),
+                    },
+                ));
                 continue;
             }
             match trip {
-                Some(t) if t.from == context.location && t.to != context.location => {
-                    lines.push(format!(
+                Some(t) if t.from == context.location && t.to != context.location => lines.push((
+                    Section::Now,
+                    format!(
                         "{} is leaving for {}{}.",
                         name(&other.id),
                         name(&t.to),
                         theirs(&t.companions)
-                    ))
-                }
-                Some(t) if t.to == context.location => lines.push(format!(
-                    "{} has just come from {}{}.",
-                    name(&other.id),
-                    name(&t.from),
-                    theirs(&t.companions)
+                    ),
+                )),
+                Some(t) if t.to == context.location => lines.push((
+                    Section::Now,
+                    format!(
+                        "{} has just come from {}{}.",
+                        name(&other.id),
+                        name(&t.from),
+                        theirs(&t.companions)
+                    ),
                 )),
                 _ => {}
             }
@@ -1438,33 +1461,43 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
         if let (Some(stance), Some(target)) = (stance, card.target.as_deref()) {
             let actor = context.acting_avatar.as_deref().unwrap_or("vale");
             if id == actor {
-                lines.push(format!("I'm {stance} {}.", name(target)));
+                lines.push((Section::Now, format!("I'm {stance} {}.", name(target))));
             } else if id == target {
-                lines.push(format!("{} is {stance} me.", name(actor)));
+                lines.push((Section::Now, format!("{} is {stance} me.", name(actor))));
             }
         }
     }
-    lines.extend(custody::facts(context, id));
+    lines.extend(tagged(Section::Directions, custody::facts(context, id)));
     scene.push('.');
     if let Some(action) = &context.action {
-        lines.push(format!("Just now: {action}"));
+        lines.push((Section::Now, format!("Just now: {action}")));
     }
-    lines.extend(
+    lines.extend(tagged(
+        Section::Now,
         context
             .events
             .iter()
             .filter(|event| context.action.as_ref() != Some(event))
             .cloned(),
-    );
+    ));
     // The resolved turn above already covers this entity's own trip.
     let restated = |fact: &String| {
         context.outcome.is_some()
             && (fact.starts_with("Just arrived from ") || fact.starts_with("Leaving "))
     };
-    lines.extend(entity.facts.iter().filter(|f| !restated(f)).cloned());
-    lines.extend(readings::facts(&entity.id, &entity.readings));
+    lines.extend(tagged(
+        Section::Facts,
+        entity.facts.iter().filter(|f| !restated(f)).cloned(),
+    ));
+    lines.extend(tagged(
+        Section::Facts,
+        readings::facts(&entity.id, &entity.readings),
+    ));
     if part == Part::Line {
-        lines.extend(knowledge::directions(context, id));
+        lines.extend(tagged(
+            Section::Directions,
+            knowledge::directions(context, id),
+        ));
     }
     for fact in observations::facts(context)
         .as_array()
@@ -1472,14 +1505,14 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
         .flatten()
     {
         if let Some(text) = fact["fact"].as_str() {
-            lines.push(text.to_string());
+            lines.push((Section::Directions, text.to_string()));
         }
     }
     for memory in &entity.memories {
         let text = memory.text.strip_prefix("World: ").unwrap_or(&memory.text);
         lines.push(match memory.kind.as_str() {
-            "expression" => format!("Earlier: {text}"),
-            _ => format!("I remember: {text}"),
+            "expression" => (Section::Earlier, format!("Earlier: {text}")),
+            _ => (Section::Memories, format!("I remember: {text}")),
         });
     }
     // A thought colours speech for a few turns; a dream only on waking.
@@ -1489,39 +1522,51 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
             part != Part::Line || context.turn <= m.turn.saturating_add(turns)
         };
         if let Some(thought) = life.thoughts.last().filter(|m| fresh(m, THOUGHT_GAP)) {
-            lines.push(format!("On my mind: {}", thought.text));
+            lines.push((Section::Inner, format!("On my mind: {}", thought.text)));
         }
         if let Some(dream) = life.dreams.last().filter(|m| fresh(m, 2)) {
-            lines.push(format!("I dreamed: {}", dream.text));
+            lines.push((Section::Inner, format!("I dreamed: {}", dream.text)));
         }
     }
     if part != Part::Line {
         if let Some(hope) = &entity.hope {
-            lines.push(format!("What I hope for: {} {}", hope.wish, hope.next));
+            lines.push((
+                Section::Inner,
+                format!("What I hope for: {} {}", hope.wish, hope.next),
+            ));
         }
     }
     if avatar && part == Part::Line {
         if let Some(listener) = listener(context, id) {
-            lines.push(format!("I'm talking with {}.", name(&listener)));
+            lines.push((
+                Section::Now,
+                format!("I'm talking with {}.", name(&listener)),
+            ));
         } else if leaving(context, id) {
-            lines.push("I'm saying goodbye to those staying.".into());
+            lines.push((Section::Now, "I'm saying goodbye to those staying.".into()));
         }
     }
     if let Some(poem) = &entity.poem {
-        lines.extend(recital::prompt_lines(poem));
+        lines.extend(tagged(Section::Facts, recital::prompt_lines(poem)));
     }
-    let mut out = vec!["My voice samples:".to_string()];
+    let mut out = vec![(Section::Samples, "My voice samples:".to_string())];
     for line in voice_lines(context, id) {
-        out.push(format!("{own}: {line}"));
+        out.push((Section::Samples, format!("{own}: {line}")));
     }
-    out.extend([
-        String::new(),
-        "Current scene:".to_string(),
-        scene,
-        String::new(),
-        lines.join("\n"),
-        String::new(),
-    ]);
+    out.extend(tagged(
+        Section::Now,
+        [
+            String::new(),
+            "Current scene:".to_string(),
+            scene,
+            String::new(),
+        ],
+    ));
+    if lines.is_empty() {
+        out.push((Section::Now, String::new()));
+    }
+    out.extend(lines);
+    out.push((Section::Now, String::new()));
     for line in &context.conversation {
         let witnessed = line.witnesses.as_ref().map_or_else(
             || {
@@ -1535,10 +1580,13 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
         if !witnessed {
             continue;
         }
-        out.push(format!("{}: {}", name(&line.actor_id), line.text));
+        out.push((
+            Section::Conversation,
+            format!("{}: {}", name(&line.actor_id), line.text),
+        ));
     }
-    out.push(cue(&own, part));
-    out.join("\n")
+    out.push((Section::Now, cue(&own, part)));
+    out
 }
 
 /// A rejected reply gets fresh wording grounded in the scene. Removing the
@@ -1701,6 +1749,11 @@ async fn speak(
     // A reply that only missed its fact is kept. If no later attempt tells
     // the fact, the speaker still speaks and the fact stays for another Talk.
     let untold = std::sync::Mutex::new(None);
+    let call = voice_metrics::Call::new(
+        id,
+        part,
+        voice_metrics::Budget::measure(&system, context, entity, part),
+    );
     let spoken = voice_attempts(
         settings,
         deadline,
@@ -1715,6 +1768,8 @@ async fn speak(
             let user = attempt_transcript(context, entity, part, attempt);
             let check = &check;
             let untold = &untold;
+            let call = &call;
+            call.attempt();
             async move {
                 let request = ChatCompletionRequest {
                     feature: "card_voice",
@@ -1738,6 +1793,7 @@ async fn speak(
                     request_chat_completion(config, request)
                         .await
                         .map_err(|error| {
+                            call.reject("provider");
                             tracing::info!(
                                 feature = "card_voice",
                                 entity = id,
@@ -1753,6 +1809,7 @@ async fn speak(
                     .clean(&completion.text, finished)
                     .map(|text| (text.clone(), completion.resolved_model_id.clone()))
                     .map_err(|reason| {
+                        call.reject(reason);
                         tracing::info!(
                             feature = "card_voice",
                             entity = id,
@@ -1773,8 +1830,15 @@ async fn speak(
         },
     )
     .await;
+    if spoken.is_ok() {
+        call.finish(voice_metrics::Outcome::Spoken);
+    }
     spoken.or_else(|()| {
-        let kept = untold.into_inner().expect("untold reply").ok_or(())?;
+        let Some(kept) = untold.into_inner().expect("untold reply") else {
+            call.finish(voice_metrics::Outcome::Silent);
+            return Err(());
+        };
+        call.finish(voice_metrics::Outcome::Untold);
         tracing::info!(
             feature = "card_voice",
             entity = id,

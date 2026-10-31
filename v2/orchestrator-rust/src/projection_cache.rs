@@ -37,6 +37,8 @@ pub(super) struct MetaResponse {
     pub(super) combat: MetaCombat,
     pub(super) worldpack: MetaWorldpack,
     pub(super) world: MetaWorldCounters,
+    /// Text-free counters for card voice calls since this process started.
+    pub(super) card_voice: serde_json::Value,
 }
 
 #[derive(Debug, serde::Serialize)]
