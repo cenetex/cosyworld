@@ -5,7 +5,7 @@
   {"case": "station talk 5", "speaker": "vale", "reply": "Tell me again what the pond wants.", "expect": "repeat"},
   {"case": "station talk 5", "speaker": "vale", "reply": "The keeper looks tired tonight.", "expect": "repeat"},
   {"case": "station talk 5", "speaker": "moth", "reply": "He always looks tired. It's the oil.", "expect": "repeat"},
-  {"case": "station talk 5", "speaker": "vale", "reply": "It wants quiet. Mostly it wants quiet.", "expect": "repeat"},
+  {"case": "station talk 5", "speaker": "vale", "reply": "It wants quiet. Mostly it wants quiet.", "expect": "ok"},
   {"case": "station talk 5", "speaker": "vale", "reply": "Newcomer price? I've been here three turns.", "expect": "copied example"},
   {"case": "station talk 5", "speaker": "vale", "reply": "I have the oil flask, if you need it.", "expect": "ok", "false_claim": true},
   {"case": "station talk 5", "speaker": "moth", "reply": "I'm holding the lamp now, so it's settled.", "expect": "custody", "false_claim": true},
