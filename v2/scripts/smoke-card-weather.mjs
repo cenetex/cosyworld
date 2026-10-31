@@ -232,7 +232,7 @@ try {
     assert(
       new URL(
         await page
-          .locator('#hand [data-card="greek-road-thebes"] img')
+          .locator('#hand [data-card="greek-road-thebes"] .art img')
           .getAttribute("src"),
         origin,
       ).pathname.endsWith("theban-harbor-road-night.webp"),

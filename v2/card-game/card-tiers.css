@@ -28,16 +28,16 @@ body .card[data-tier].new {
   top: 7px;
   transform: translateX(-50%);
 }
+/* The bottom numeral sits in the name's own bottom padding, so selecting or
+   playing a card never moves its name. */
 .card-level-bottom {
-  bottom: 7px;
+  bottom: 2px;
+  font-size: 10px;
   transform: translateX(-50%) rotate(180deg);
 }
 .card[data-selected="true"] .card-level {
   visibility: visible;
   opacity: 0.6;
-}
-body .card[data-selected="true"] .name {
-  padding-bottom: 28px;
 }
 @media (prefers-reduced-motion: reduce) {
   .card-level {

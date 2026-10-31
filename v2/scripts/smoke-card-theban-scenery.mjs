@@ -1,5 +1,5 @@
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { revealCard, selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -167,6 +167,8 @@ try {
       );
       await use("cloth", "lamp");
       await use("cloth");
+      // A newly docked ship arrives covered; uncover it before reading it.
+      await revealCard(page, "greek-ship");
       assert.equal(
         await card("greek-ship").locator(".name").innerText(),
         "Greek ship",
