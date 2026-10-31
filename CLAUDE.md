@@ -36,9 +36,9 @@ The source map distinguishes the card pack compiler from the classic compiler.
    the package and Rust crate versions once with `npm run version:bump`
    ([release operations](docs/release.md)).
 6. Commit and push the branch and open a draft PR. Many PRs may be open at
-   once; rebase yours when main moves. Merge once local targeted tests pass and
-   the change is reviewed, without waiting for CI, and fix a red main forward
-   in the next PR. Main deploys `.dev` without gates as soon as its image is
+   once; rebase yours when main moves. Merge once local targeted tests and the
+   PR's fast check pass and the change is reviewed, in batches of 2-3 (see
+   `.github/AGENT.md`). Main deploys `.dev` without gates as soon as its image is
    built, and the pre-push hook runs only the change budget and
    `npm run check:version`. Lonely
    Forest production releases stay a manual trigger.

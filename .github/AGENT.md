@@ -43,8 +43,8 @@ for the full local gate.
 
 A branch may change at most 400 hand-written lines (added plus deleted) against
 its merge base with `main`. `scripts/check-change-budget.mjs` prints the count on
-every push and fails above the budget. CI no longer runs on pull requests, so
-the pre-push hook is the only enforcement; do not skip it. Pushes to `main` and
+every push and fails above the budget. The pre-push hook and the fast check
+both enforce it. Pushes to `main` and
 tags are not measured.
 
 Binary files, images, audio, video, fonts, pack content (`v2/content/`,
@@ -71,18 +71,40 @@ Then run every row that matches the change:
 | Browser, HTTP, persistence, or multiplayer | `npm run v2:check` |
 | Broad V2 or release change | `npm run check:local` and the relevant build |
 
-CI runs only by manual dispatch. `ci.yml`, `image-build.yml`,
-`local-desktop.yml`, and `pages.yml` have no pull request or push triggers.
-After a batch of merges, or when .dev looks broken, run
-`gh workflow run ci.yml --ref main`. A release tag requires the latest main CI
-run to be green. `deploy.yml` still deploys .dev on every main push and runs
-the production gates on tags.
+### Fast check
 
-CI is the final cross-platform authority. It uses Node 24 and stable Rust
+`fast-check.yml` runs on every pull request and every push to main, in about
+five minutes (eight at most). It runs the change budget, version alignment,
+the engine-gate warning, eslint, a prettier warning on changed files,
+`docs:check`, `npm test`, and two or three browser smokes chosen by changed
+paths (`scripts/fast-smokes.json`; a changed smoke script runs itself). Each
+smoke serves the static card game; smokes that start the Rust server run only
+in the full suite. A new PR run cancels the PR's older run; main runs are
+never cancelled. Each job reads its runner label from the `FAST_CHECK_RUNNER`
+repository variable (default `ubuntu-latest`), so moving to the Fly runner
+(#1565) needs no workflow edit.
+
+### Landing
+
+- Merge in batches of 2-3 PRs. Wait for the fast check on main to go green
+  before merging the next batch.
+- If main stays red for more than 20 minutes after diagnosis starts, revert
+  the most likely PR and fix it forward on a branch.
+
+### Full suite
+
+The full suite (`ci.yml`, about 40 minutes) runs only by hand, and only before
+a production release: the latest main commit to be tagged needs a green full
+run (`gh workflow run ci.yml --ref main`). Do not run it after batches.
+`image-build.yml`, `local-desktop.yml`, and `pages.yml` also run only by
+dispatch. `deploy.yml` deploys .dev on every main push and runs the production
+gates on tags.
+
+The full suite is the final cross-platform authority. It uses Node 24 and stable Rust
 for lint, tests, content, kernel, Rust builds, browser and composition smokes,
 and guide checks. Browser journeys run in parallel groups from one shared
 debug binary; keep each group near ten minutes and add a new journey script to
-a group in `ci.yml`. No CI run is cancelled. Known flaky tests listed in `QUARANTINED_TESTS` in
+a group in `ci.yml`. No full-suite run is cancelled. Known flaky tests listed in `QUARANTINED_TESTS` in
 `v2/scripts/check-rust.sh` run in the non-blocking `Quarantined Rust tests`
 job; each has an issue and a fix-by date. Main saves one Cargo cache per UTC day, right after
 compiling. A local suite
@@ -105,8 +127,8 @@ cargo install cargo-sweep && cargo sweep --time 3   # drop builds older than 3 d
 Engine changes are deliberate and batched; build features as pack data when
 possible. A PR that touches a module in the shared bundle's import graph, a
 `card_shared/engine-v*.js` bundle, or the released-rules wiring needs the
-`engine` label and a design note under `docs/design/`. The `Engine gate`
-workflow (`v2/scripts/engine-gate.mjs`) lists the bundle's modules and warns
+`engine` label and a design note under `docs/design/`. The fast check's
+engine-gate step (`v2/scripts/engine-gate.mjs`) lists the bundle's modules and warns
 when either is missing; it will block once content versioning lands.
 
 ## PR contract
@@ -127,10 +149,9 @@ when either is missing; it will block once content versioning lands.
   - `## Validation` listing exact commands and observed results;
   - migration, generated-file, deployment, or compatibility notes when relevant;
   - a short review checklist confirming tests and generated artifacts.
-- Merge as soon as local targeted tests pass and the change is reviewed; PRs
-  get no CI. The deploy
-  workflow runs its own gates, so a red main keeps .dev on the last good build.
-  If main goes red, the next PR fixes it forward before anything else.
+- Merge when local targeted tests and the PR's fast check pass and the change
+  is reviewed, following the landing rules above. The deploy workflow runs its
+  own gates, so a red main keeps .dev on the last good build.
 - Leave the release version alone; only a release PR runs `npm run version:bump`.
 
 ## Known traps
