@@ -102,29 +102,71 @@ try {
       await card("attic").locator(".name").innerText(),
       "Mirror attic",
     );
-    await selectCard(page, "pond");
-    await page.locator("#card-actions .card-primary").click();
-    await ready();
-    const departed = await state();
-    assert.equal(departed.actors.moth.place, "station");
-    assert.equal(departed.items.lamp.holder, "moth");
-    assert.equal(departed.items.lamp.lit, true);
-    assert.equal(await card("attic").count(), 0);
+    // Pip wants the lamp and keeps it at home on the pond. A lit lamp on the
+    // shore keeps the pond side of the mirror open.
+    const waitHere = async () => {
+      await selectCard(page, "pond");
+      await page.locator("#card-actions .card-primary").click();
+      await ready();
+    };
+    await waitHere();
+    const kept = await state();
+    assert.equal(kept.actors.moth.place, "pond");
+    assert.equal(kept.items.lamp.holder, "moth");
+    assert.equal(kept.items.lamp.lit, true);
+    assert.equal(
+      await card("attic").locator(".name").innerText(),
+      "Mirror attic",
+    );
     assert.equal(await card("pond").locator(".name").innerText(), "Black pond");
     assert.equal(requests.length, 1);
-    assert.equal(requests[0].speakers[0], "vale");
     assert.deepEqual(
-      departed.log
+      kept.log
         .filter(
-          (e) =>
-            e.turn === departed.turn && e.generated && e.kind === "dialogue",
+          (e) => e.turn === kept.turn && e.generated && e.kind === "dialogue",
         )
         .map((e) => e.actorId),
       requests[0].speakers,
     );
     await page.reload();
     await ready();
+    assert.equal(
+      await card("attic").locator(".name").innerText(),
+      "Mirror attic",
+    );
+    // The lamp burns down in Pip's hands; once it goes out the mirror closes.
+    for (let i = 0; i < 12 && (await state()).items.lamp.lit; i++)
+      await waitHere();
+    const spent = await state();
+    assert.equal(spent.items.lamp.lit, false);
+    assert.equal(spent.items.lamp.holder, "moth");
+    assert.equal(spent.actors.moth.place, "pond");
     assert.equal(await card("attic").count(), 0);
+    await page.reload();
+    await ready();
+    assert.equal(await card("attic").count(), 0);
+    // A lit lamp carried away from both shores leaves the mirror closed.
+    const away = structuredClone(spent);
+    away.items.lamp.lit = true;
+    away.items.lamp.fuel = 8;
+    away.actors.moth.place = "station";
+    await page.evaluate(
+      ({ key, value }) => {
+        localStorage.setItem(key, value);
+        window.dispatchEvent(
+          new StorageEvent("storage", { key, newValue: value }),
+        );
+      },
+      { key, value: encodeSave(away) },
+    );
+    await page.waitForFunction(
+      (key) =>
+        JSON.parse(localStorage.getItem(key)).actors.moth.place === "station",
+      key,
+    );
+    await ready();
+    assert.equal(await card("attic").count(), 0);
+    const departed = away;
     // A save arriving from another tab also rebuilds availability and selection.
     departed.items.lamp.holder = "vale";
     await page.evaluate(
@@ -164,7 +206,7 @@ try {
     assert.equal((await state()).actors.vale.place, "pond");
     assert.deepEqual(errors, []);
     console.log(
-      `Mirror access in both directions, spoken departure, reload and relighting passed at ${width}px.`,
+      `Mirror access in both directions, Pip keeping the lamp at the pond, burn-out and carried-away closing, reload and relighting passed at ${width}px.`,
     );
     await page.close();
   }
