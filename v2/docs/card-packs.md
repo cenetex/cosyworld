@@ -200,7 +200,10 @@ reachability test. The hidden item becomes the traveler's want, so finding
 it is their quest. A choice with `"on": "give"` is also never a card. It is the effect
 of the actor giving its subject the item the choice needs them to hold. The
 Give is accepted, the choice text is the outcome, and nothing else moves.
-The Lonely Forest buttons use both rules (see
+A choice with `"on": "talk"` is the effect of a human traveler's Talk with its
+subject, a person, where the choice's requirements hold. The choice text is
+the Talk's outcome. RATi's welcome, `forest-stay-for-tea`, works this way.
+The Lonely Forest buttons and welcome use these rules (see
 `v2/content/lonely-forest/OPENING.md`).
 
 A choice with `"on": "wait"` is a sign a place shows to a human who

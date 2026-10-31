@@ -91,6 +91,7 @@ import {
   packWaitChoice,
   applyDeparture,
   departureWaits,
+  packTalkChoice,
   choiceText,
   conditionsMet,
   validatePackLinks,
@@ -1895,6 +1896,10 @@ function performPlay(s, a, round = null, settle = []) {
       if (a.target === "bell") s.items.bell.ringing = 0;
       break;
     case "talk": {
+      // A pack can make a Talk the trigger of one authored choice.
+      const told = packTalkChoice(s, a);
+      if (told)
+        text = choiceText(applyPackChoice(s, told, { mode: "talk" }), a.actor);
       const woken = wakeByVoice(s, a.target);
       if (woken) text += ` ${woken}`;
       s.actors[a.actor].lastTalk = s.turn;
