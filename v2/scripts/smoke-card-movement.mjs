@@ -271,16 +271,17 @@ try {
       // did nothing, so has no caption.
       const caption = await page.locator(".dialogue").innerText();
       if (kind === "resident")
-        assert.doesNotMatch(caption, /Pip (arrived|followed|travels)/);
+        assert.doesNotMatch(caption, /Pip (arrived|followed|travelled)/);
       else
         assert.match(
           caption,
           kind === "shared"
-            ? /Pip travels with Vale/
+            ? /Pip travelled with Vale/
             : /Pip followed from Mirror attic/,
         );
       report.caption = caption;
-      assert.equal(await card("vale").isDisabled(), true);
+      // New cards arrive covered in the hand (#1566), so discovery no longer
+      // holds the hand while the arrival speaks.
       assert.deepEqual(
         request.outcome.avatars.find((a) => a.id === "moth").travel
           ?.companions ?? [],

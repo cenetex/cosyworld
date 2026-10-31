@@ -523,7 +523,7 @@ try {
   );
   await dismissDiscoveries(vale);
   const requestStart = requests.length;
-  await vale.locator('#hand [data-card="moth"]').click();
+  await selectCard(vale, "moth");
   await vale.getByRole("button", { name: "Talk", exact: true }).click();
   await expectSharedReveal(vale, requestStart);
   await vale.screenshot({
@@ -652,7 +652,7 @@ try {
   await mara.locator('#hand [data-card="pond"]').waitFor();
   const earlierTravel = await actionFor(mara, "move", "pond");
   await selectCard(mara, "mask");
-  await mara.locator('#hand [data-card="theatre"]').click();
+  await selectCard(mara, "theatre");
   await mara.getByRole("button", { name: "Put down", exact: true }).click();
   await until(
     async () => (await snapshot(mara)).world.items.mask.holder === "theatre",
