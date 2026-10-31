@@ -739,8 +739,8 @@ Dreams and thoughts are marked as private impressions. They are separate from
 witnessed events and public conversation.
 
 Each voice receives a short first-person transcript and completes one plain-text
-line. Optional `idiolect` and `lines` profile fields supply style and examples;
-existing pack `persona` and `voice` fields remain supported. The server checks
+line. An optional `idiolect` profile field describes the voice in prose;
+profiles carry no example utterances ([#1537](https://github.com/cenetex/cosyworld/issues/1537)). Existing pack `persona` and `voice` fields remain supported. The server checks
 visible state, including lamp state, before accepting each line. Supplied quest
 facts remain part of the transcript. A bard receives the complete earned poem
 as structured context, with the newest lines marked separately. The poem data
