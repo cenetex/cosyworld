@@ -81,10 +81,12 @@ describe("the household save upgrade", () => {
             { holder: item.holder, history: [] },
           ]),
         ),
-        "forest-story-button": { holder: "forest-cottage", history: [] },
-        "forest-dewbright-button": { holder: "forest-garden", history: [] },
-        "forest-watch-bell": { holder: "forest-garden", history: [] },
-        "forest-wolfprint-charm": { holder: "forest-trail", history: [] },
+        ...Object.fromEntries(
+          Object.entries(currentPackDefinition("lonely-forest").items).map(([id, item]) => [
+            id,
+            { holder: item.holder, history: [] },
+          ]),
+        ),
       });
       // The version 2 ship keeps its dock as a version 3 record.
       expect(after.transports["greek-ship"]).toMatchObject({

@@ -133,7 +133,9 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     old.game["items"].as_object().unwrap().len()
                         + 10
                         + 4
-                        + 4
+                        // The Lonely Forest: the Wolfprint Charm and eight
+                        // buttons and scarves.
+                        + 17
                         + if version == engine::ELEVENTH_VERSION {
                             9
                         } else {
