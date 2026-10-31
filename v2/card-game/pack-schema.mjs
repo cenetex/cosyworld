@@ -260,7 +260,6 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "observations",
       "transports",
       "recital",
-      "readings",
       "storyQuests",
       "topics",
       "situations",
@@ -1382,27 +1381,6 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
   }
   const crossings = Array.isArray(pack.crossings) ? pack.crossings : [];
-  if (pack.readings !== undefined) {
-    const ids = new Set();
-    check(
-      Array.isArray(pack.readings) &&
-        pack.readings.length <= 16 &&
-        pack.readings.every((r) => {
-          if (!record(r)) return false;
-          const valid =
-            keysOk(r, ["id", "actor", "after", "title", "text"]) &&
-            idOk(r.id) &&
-            !ids.has(r.id) &&
-            owns(avatars, r.actor) &&
-            (r.after === null || choiceIds.has(r.after)) &&
-            textOk(r.title, 120) &&
-            textOk(r.text, 3000);
-          ids.add(r.id);
-          return valid;
-        }),
-      "readings need distinct ids, a resident, a recorded choice or arrival, and bounded source text",
-    );
-  }
   check(
     Array.isArray(pack.crossings) && crossings.length > 0,
     "bridge needs crossings",

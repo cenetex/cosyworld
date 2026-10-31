@@ -48,7 +48,7 @@ Quotes are from `v2/content/willows/source-text.txt`.
 | Supper as reason against knowing | `willows-supper` topic and situation |
 | Sand hollows | `willows-examine-hollows` in the thicket |
 | Humming, drowned man with matching hollows | `willows-hear-humming`, `willows-look-beneath-roots` at the bank |
-| "It's _their_ sound" | `willows-understanding-text` reading |
+| "It's _their_ sound" | `willows-understanding-text` passage in `lore/readings.json` |
 | The Swede with his map | `willows-map`, `willows-channels` |
 | No careless noise | `willows-muffled-bell` situation |
 

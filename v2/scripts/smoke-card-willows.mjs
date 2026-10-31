@@ -67,7 +67,7 @@ try {
       viewport: { width, height },
       reducedMotion: "reduce",
     });
-    const readingCounts = [];
+    const loreRequests = [];
     const errors = [],
       mediaFailures = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -89,8 +89,7 @@ try {
     // The browser smoke checks controls and layout. Server tests check the rules.
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
-      const swede = input.entities.find((e) => e.id === "willows-swede");
-      if (swede) readingCounts.push(swede.readings?.length || 0);
+      loreRequests.push(input.entities.some((e) => "readings" in e));
       return route.fulfill({
         json: {
           revision: input.revision,
@@ -232,8 +231,9 @@ try {
     );
     assert.deepEqual(errors, []);
     assert.deepEqual(mediaFailures, []);
-    assert(readingCounts[0] < 7);
-    assert.equal(Math.max(...readingCounts), 7);
+    // Source passages are lore, never part of a speech request.
+    assert(loreRequests.length > 0);
+    assert(!loreRequests.includes(true));
     await page.close();
     console.log(`Willows browser play passed at ${width} × ${height}.`);
   }

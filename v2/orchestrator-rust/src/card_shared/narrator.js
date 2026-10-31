@@ -11319,104 +11319,11 @@
             ]
           }
         ],
-        readings: [
-          {
-            id: "willows-arrival-text",
-            actor: "willows-swede",
-            after: null,
-            title: "Algernon Blackwood, The Willows (1907), I \u2014 The river island",
-            text: "The change came suddenly, as when a series of bioscope pictures snaps down on the streets of a town and shifts without warning into the scenery of lake and forest. We entered the land of desolation on wings, and in less than half an hour there was neither boat nor fishing-hut nor red roof, nor any single sign of human habitation and civilization within sight. The sense of remoteness from the world of humankind, the utter isolation, the fascination of this singular world of willows, winds, and waters, instantly laid its spell upon us both, so that we allowed laughingly to one another that we ought by rights to have held some special kind of passport to admit us, and that we had, somewhat audaciously, come without asking leave into a separate little kingdom of wonder and magic\u2014a kingdom that was reserved for the use of others who had a right to it, with everywhere unwritten warnings to trespassers for those who had the imagination to discover them."
-          },
-          {
-            id: "willows-hull-text",
-            actor: "willows-swede",
-            after: "willows-examine-hull",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 The damaged canoe",
-            text: "There was a long, finely made tear in the bottom of the canoe where a little slither of wood had been neatly taken clean out; it looked as if the tooth of a sharp rock or snag had eaten down her length, and investigation showed that the hole went through. Had we launched out in her without observing it we must inevitably have foundered. At first the water would have made the wood swell so as to close the hole, but once out in mid-stream the water must have poured in, and the canoe, never more than two inches above the surface, would have filled and sunk very rapidly."
-          },
-          {
-            id: "willows-stores-text",
-            actor: "willows-swede",
-            after: "willows-count-stores",
-            title: "Algernon Blackwood, The Willows (1907), IV \u2014 The missing bread",
-            text: "\u201CIt\u2019s gone. There is no bread. They\u2019ve taken it!\u201D"
-          },
-          {
-            id: "willows-hollows-text",
-            actor: "willows-swede",
-            after: "willows-examine-hollows",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 The sand hollows",
-            text: "I made a hurried examination of the tent and its surroundings, but the measurements of the night remained the same. There were deep hollows formed in the sand I now noticed for the first time, basin-shaped and of various depths and sizes, varying from that of a tea-cup to a large bowl. The wind, no doubt, was responsible for these miniature craters, just as it was for lifting the paddle and tossing it towards the water. The rent in the canoe was the only thing that seemed quite inexplicable; and, after all, it _was_ conceivable that a sharp point had caught it when we landed. The examination I made of the shore did not assist this theory, but all the same I clung to it with that diminishing portion of my intelligence which I called my \u201Creason.\u201D An explanation of some kind was an absolute necessity, just as some working explanation of the universe is necessary\u2014however absurd\u2014to the happiness of every individual who seeks to do his duty in the world and face the problems of life. The simile seemed to me at the time an exact parallel."
-          },
-          {
-            id: "willows-humming-text",
-            actor: "willows-swede",
-            after: "willows-hear-humming",
-            title: "Algernon Blackwood, The Willows (1907), IV \u2014 The humming",
-            text: "We stood there, listening attentively together. At first I heard only the deep note of the water and the hissings rising from its turbulent surface. The willows, for once, were motionless and silent. Then a sound began to reach my ears faintly, a peculiar sound\u2014something like the humming of a distant gong. It seemed to come across to us in the darkness from the waste of swamps and willows opposite. It was repeated at regular intervals, but it was certainly neither the sound of a bell nor the hooting of a distant steamer. I can liken it to nothing so much as to the sound of an immense gong, suspended far up in the sky, repeating incessantly its muffled metallic note, soft and musical, as it was repeatedly struck. My heart quickened as I listened."
-          },
-          {
-            id: "willows-roots-text",
-            actor: "willows-swede",
-            after: "willows-look-beneath-roots",
-            title: "Algernon Blackwood, The Willows (1907), V \u2014 The mark",
-            text: "For just as the body swung round to the current the face and the exposed chest turned full towards us, and showed plainly how the skin and flesh were indented with small hollows, beautifully formed, and exactly similar in shape and kind to the sand-funnels that we had found all over the island."
-          },
-          {
-            id: "willows-otter-text",
-            actor: "willows-swede",
-            after: "willows-watch-otter",
-            title: "Algernon Blackwood, The Willows (1907), II \u2014 The otter",
-            text: "A black thing, turning over and over in the foaming waves, swept rapidly past. It kept disappearing and coming up to the surface again. It was about twenty feet from the shore, and just as it was opposite to where we stood it lurched round and looked straight at us. We saw its eyes reflecting the sunset, and gleaming an odd yellow as the body turned over. Then it gave a swift, gulping plunge, and dived out of sight in a flash. \u201CAn otter, by gad!\u201D we exclaimed in the same breath, laughing. It was an otter, alive, and out on the hunt; yet it had looked exactly like the body of a drowned man turning helplessly in the current. Far below it came to the surface once again, and we saw its black skin, wet and shining in the sunlight."
-          },
-          {
-            id: "willows-boatman-text",
-            actor: "willows-swede",
-            after: "willows-watch-boatman",
-            title: "Algernon Blackwood, The Willows (1907), II \u2014 The boatman",
-            text: "\u201CHe\u2019s crossing himself!\u201D I cried. \u201CLook, he\u2019s making the sign of the Cross!\u201D \u201CI believe you\u2019re right,\u201D the Swede said, shading his eyes with his hand and watching the man out of sight. He seemed to be gone in a moment, melting away down there into the sea of willows where the sun caught them in the bend of the river and turned them into a great crimson wall of beauty. Mist, too, had begun to rise, so that the air was hazy."
-          },
-          {
-            id: "willows-paced-text",
-            actor: "willows-swede",
-            after: "willows-pace-willows",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 The paced distance",
-            text: "I returned quietly, creepily, to the tent, first taking another exhaustive look round and\u2014yes, I confess it\u2014making a few measurements. I paced out on the warm sand the distances between the willows and the tent, making a note of the shortest distance particularly."
-          },
-          {
-            id: "willows-nearer-text",
-            actor: "willows-swede",
-            after: "willows-pace-again",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 Nearer",
-            text: "For a change, I thought, had somehow come about in the arrangement of the landscape. It was not that my point of vantage gave me a different view, but that an alteration had apparently been effected in the relation of the tent to the willows, and of the willows to the tent. Surely the bushes now crowded much closer\u2014unnecessarily, unpleasantly close. _They had moved nearer._"
-          },
-          {
-            id: "willows-patterings-text",
-            actor: "willows-swede",
-            after: "willows-listen-tent",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 The patterings",
-            text: "Outside there was a sound of multitudinous little patterings. They had been coming, I was aware, for a long time, and in my sleep they had first become audible. I sat there nervously wide awake as though I had not slept at all. It seemed to me that my breathing came with difficulty, and that there was a great weight upon the surface of my body. In spite of the hot night, I felt clammy with cold and shivered. Something surely was pressing steadily against the sides of the tent and weighing down upon it from above. Was it the body of the wind? Was this the pattering rain, the dripping of the leaves? The spray blown from the river by the wind and gathering in big drops? I thought quickly of a dozen things."
-          },
-          {
-            id: "willows-shapes-text",
-            actor: "willows-swede",
-            after: "willows-look-up-willows",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 Over the willows",
-            text: "They were nude, fluid shapes, passing up the bushes, _within_ the leaves almost\u2014rising up in a living column into the heavens. Their faces I never could see. Unceasingly they poured upwards, swaying in great bending curves, with a hue of dull bronze upon their skins."
-          },
-          {
-            id: "willows-understanding-text",
-            actor: "willows-swede",
-            after: "willows-compare-signs",
-            title: "Algernon Blackwood, The Willows (1907), IV \u2014 The Swede understands",
-            text: "\u201CIt\u2019s _their_ sound,\u201D he whispered gravely. \u201CIt\u2019s the sound of their world, the humming in their region. The division here is so thin that it leaks through somehow. But, if you listen carefully, you\u2019ll find it\u2019s not above so much as around us. It\u2019s in the willows. It\u2019s the willows themselves humming, because here the willows have been made symbols of the forces that are against us.\u201D"
-          }
-        ],
         sources: [
           {
             url: "https://www.gutenberg.org/ebooks/11438",
             name: "Algernon Blackwood, The Willows (1907)",
-            use: "Original English passages, gradually revealed through arrival and recorded discoveries. The exact downloaded source is kept in source-text.txt."
+            use: "Original English passages, kept as world lore in lore/readings.json for readable books and inscriptions. The exact downloaded source is kept in source-text.txt."
           }
         ],
         topics: [
@@ -13383,7 +13290,6 @@
         "observations",
         "transports",
         "recital",
-        "readings",
         "storyQuests",
         "topics",
         "situations"
@@ -14128,18 +14034,6 @@
       );
     }
     const crossings2 = Array.isArray(pack.crossings) ? pack.crossings : [];
-    if (pack.readings !== void 0) {
-      const ids3 = /* @__PURE__ */ new Set();
-      check(
-        Array.isArray(pack.readings) && pack.readings.length <= 16 && pack.readings.every((r) => {
-          if (!record2(r)) return false;
-          const valid = keysOk(r, ["id", "actor", "after", "title", "text"]) && idOk(r.id) && !ids3.has(r.id) && owns2(avatars, r.actor) && (r.after === null || choiceIds.has(r.after)) && textOk(r.title, 120) && textOk(r.text, 3e3);
-          ids3.add(r.id);
-          return valid;
-        }),
-        "readings need distinct ids, a resident, a recorded choice or arrival, and bounded source text"
-      );
-    }
     check(
       Array.isArray(pack.crossings) && crossings2.length > 0,
       "bridge needs crossings"
@@ -15174,20 +15068,6 @@
     ).length;
     return [`Discoveries recorded so far: ${count}.`];
   }
-  function packReadings(world, actor) {
-    const pack = packOf(actor);
-    const state = pack && world.packs?.[pack.id];
-    if (!state) return [];
-    return (pack.readings || []).filter(
-      (r) => r.actor === actor && (r.after === null ? pack.crossings.some(
-        (c) => pack.places[c.to] && world.crossings[c.id]?.discovered
-      ) : Object.hasOwn(state.receipts || {}, r.after))
-    ).map((r) => ({
-      id: r.id,
-      turn: r.after === null ? 0 : state.receipts[r.after]
-    })).filter((r, _, all) => newestReadings(all).includes(r));
-  }
-  var newestReadings = (all) => [...all].sort((a, b) => a.turn - b.turn).slice(-8);
   function packSceneFacts(world, location) {
     const e = packEntity(location);
     if (!e) return [];
@@ -17410,7 +17290,6 @@
         );
         return {
           id,
-          ...packReadings(world, id).length ? { readings: packReadings(world, id) } : {},
           poem: recitalContext(world, packDefinitions, id),
           facts: facts.slice(0, 16).map((text2) => text2.slice(0, 240)),
           desire,
