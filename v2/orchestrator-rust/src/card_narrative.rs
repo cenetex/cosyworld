@@ -1508,9 +1508,13 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             lines.push((Section::Directions, text.to_string()));
         }
     }
+    // Spoken lines are not replayed to a speaker (#1537): the voice comes
+    // from the authored idiolect and samples, and `repeat` reads the
+    // speaker's own recent lines server-side. Reflection still sees them.
     for memory in &entity.memories {
         let text = memory.text.strip_prefix("World: ").unwrap_or(&memory.text);
         lines.push(match memory.kind.as_str() {
+            "expression" if part == Part::Line => continue,
             "expression" => (Section::Earlier, format!("Earlier: {text}")),
             _ => (Section::Memories, format!("I remember: {text}")),
         });
@@ -1567,26 +1571,81 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     }
     out.extend(lines);
     out.push((Section::Now, String::new()));
-    for line in &context.conversation {
-        let witnessed = line.witnesses.as_ref().map_or_else(
-            || {
-                entity.memories.iter().any(|m| {
-                    m.kind == "expression"
-                        && m.text == format!("{}: {}", name(&line.actor_id), line.text)
-                })
-            },
-            |ids| ids.contains(&entity.id),
-        );
-        if !witnessed {
-            continue;
+    if part == Part::Line {
+        if let Some(line) = answered(context, entity) {
+            out.push((
+                Section::Conversation,
+                format!("{}: {}", name(&line.actor_id), line.text),
+            ));
         }
-        out.push((
-            Section::Conversation,
-            format!("{}: {}", name(&line.actor_id), line.text),
-        ));
+    } else {
+        for line in context
+            .conversation
+            .iter()
+            .filter(|line| witnessed(entity, line))
+        {
+            out.push((
+                Section::Conversation,
+                format!("{}: {}", name(&line.actor_id), line.text),
+            ));
+        }
     }
     out.push((Section::Now, cue(&own, part)));
     out
+}
+
+/// Whether the entity heard a table line.
+fn witnessed(entity: &Entity, line: &SpokenLine) -> bool {
+    line.witnesses.as_ref().map_or_else(
+        || {
+            entity.memories.iter().any(|m| {
+                m.kind == "expression"
+                    && m.text == format!("{}: {}", name(&line.actor_id), line.text)
+            })
+        },
+        |ids| ids.contains(&entity.id),
+    )
+}
+
+/// The one past line a speaker answers: the acting avatar's latest line
+/// it heard, when this turn's Talk is aimed at it.
+fn answered<'a>(context: &'a Context, entity: &Entity) -> Option<&'a SpokenLine> {
+    let actor = context.acting_avatar.as_deref().unwrap_or("vale");
+    let card = &context.outcome.as_ref()?.card;
+    if card.kind != "talk" || card.target.as_deref() != Some(&entity.id) || entity.id == actor {
+        return None;
+    }
+    context
+        .conversation
+        .iter()
+        .rev()
+        .find(|line| line.actor_id == actor && witnessed(entity, line))
+}
+
+/// The speaker's last three spoken lines, read from its memories, its
+/// previous reply and the table lines it spoke. None of them is sent.
+fn recent_own_lines(context: &Context, entity: &Entity) -> Vec<String> {
+    let own = format!("{}: ", name(&entity.id));
+    let mut lines: Vec<String> = Vec::new();
+    let spoken = entity
+        .memories
+        .iter()
+        .filter(|m| m.kind == "expression")
+        .filter_map(|m| m.text.strip_prefix(&own).map(str::to_string))
+        .chain(
+            context
+                .conversation
+                .iter()
+                .filter(|line| line.actor_id == entity.id)
+                .map(|line| line.text.clone()),
+        )
+        .chain(entity.previous.clone());
+    for line in spoken {
+        lines.retain(|kept| *kept != line);
+        lines.push(line);
+    }
+    let start = lines.len().saturating_sub(3);
+    lines.split_off(start)
 }
 
 /// A rejected reply gets fresh wording grounded in the scene. Removing the
@@ -1949,6 +2008,10 @@ struct Check<'a> {
     /// the brief, not speech.
     brief: Vec<String>,
     labels: Vec<String>,
+    /// The speaker's last three lines, from memory; never in the prompt.
+    recent: Vec<String>,
+    /// The line this reply answers, when there is one.
+    answered: Option<String>,
 }
 
 impl<'a> Check<'a> {
@@ -1995,6 +2058,10 @@ impl<'a> Check<'a> {
             examples: profile_lines(&entity.id),
             brief,
             labels,
+            recent: recent_own_lines(context, entity),
+            answered: (part == Part::Line)
+                .then(|| answered(context, entity).map(|line| line.text.clone()))
+                .flatten(),
         }
     }
 
@@ -2210,10 +2277,10 @@ impl<'a> Check<'a> {
                 .as_deref()
                 .is_some_and(|p| words(p).concat() == key)
             || self
-                .context
-                .conversation
+                .recent
                 .iter()
-                .any(|line| words(&line.text).concat() == key);
+                .chain(self.answered.iter())
+                .any(|line| words(line).concat() == key);
         if repeats && !earned_quote && !sharing {
             return Err("repeat");
         }
@@ -3870,12 +3937,13 @@ mod tests {
             let card = &mut c.outcome.as_mut().unwrap().card;
             card.kind = verb.into();
             card.target = Some("moth".into());
+            // The earlier apology is not replayed; the chosen stance stands.
             let vale = transcript(&c, &c.entities[0], Part::Line);
             assert!(vale.contains(mine));
-            assert!(vale.contains("\nVale: I am sorry. I will ask gently.\nVale:"));
+            assert!(!vale.contains("I am sorry"));
             let pip = transcript(&c, &c.entities[3], Part::Line);
             assert!(pip.contains(theirs));
-            assert!(pip.contains("\nVale: I am sorry. I will ask gently.\nPip:"));
+            assert!(!pip.contains("I am sorry"));
         }
     }
 
@@ -4002,8 +4070,11 @@ mod tests {
         assert!(
             transcript(&c, &c.entities[2], Part::Line).contains("I remember: Vale lit the lamp.")
         );
+        // Spoken lines stay out of speech; reflection still reads them.
         let pip = transcript(&c, &c.entities[3], Part::Line);
-        assert!(pip.contains("Earlier: Pip: I offered my cloth."));
+        assert!(!pip.contains("I offered my cloth."));
+        assert!(transcript(&c, &c.entities[3], Part::Thought)
+            .contains("Earlier: Pip: I offered my cloth."));
         assert!(idiolect(&c.entities[3], Part::Line).contains("borrowed"));
         c.action = Some("x".repeat(651));
         assert!(!valid(&c));
@@ -4033,7 +4104,7 @@ mod tests {
         assert!(valid(&c));
         let keeper = transcript(&c, &c.entities[4], Part::Line);
         assert!(keeper.contains("Pip leaves for Black pond.\n"));
-        assert!(keeper.contains("\nVale: Where are you going?\nThe keeper:"));
+        assert!(!keeper.contains("Where are you going?"));
         assert!(keeper.contains("I'm talking with Vale."));
         c.conversation[0].actor_id = "pond".into();
         assert!(!valid(&c));
@@ -5086,16 +5157,101 @@ mod tests {
     #[test]
     fn later_arrivals_only_hear_lines_they_witnessed() {
         let mut c = context();
+        c.outcome = Some(solo_departure());
+        let card = &mut c.outcome.as_mut().unwrap().card;
+        card.kind = "talk".into();
+        card.target = Some("moth".into());
         c.conversation = vec![SpokenLine {
             actor_id: "vale".into(),
             text: "A secret between us.".into(),
             witnesses: Some(vec!["vale".into()]),
         }];
-        assert!(transcript(&c, &c.entities[0], Part::Line).contains("A secret between us."));
         let moth = c.entities.iter().find(|e| e.id == "moth").unwrap();
         assert!(!transcript(&c, moth, Part::Line).contains("A secret between us."));
+        c.conversation[0].witnesses = Some(vec!["vale".into(), "moth".into()]);
+        let moth = c.entities.iter().find(|e| e.id == "moth").unwrap();
+        assert!(transcript(&c, moth, Part::Line).contains("\nVale: A secret between us.\nPip:"));
         c.conversation[0].witnesses = None;
-        assert!(!transcript(&c, &c.entities[0], Part::Line).contains("A secret between us."));
+        let moth = c.entities.iter().find(|e| e.id == "moth").unwrap();
+        assert!(!transcript(&c, moth, Part::Line).contains("A secret between us."));
+    }
+
+    /// #1537: speech prompts show the present, not a transcript. Only the
+    /// line a Talk answers is kept, and repeats are caught from memory.
+    #[test]
+    fn speech_prompts_keep_only_the_answered_line_and_repeats_come_from_memory() {
+        let mut c = context();
+        c.outcome = Some(solo_departure());
+        let card = &mut c.outcome.as_mut().unwrap().card;
+        card.kind = "talk".into();
+        card.target = Some("moth".into());
+        let all = vec!["vale".to_string(), "moth".into(), "keeper".into()];
+        let said = |actor: &str, text: &str| SpokenLine {
+            witnesses: Some(all.clone()),
+            actor_id: actor.into(),
+            text: text.into(),
+        };
+        c.conversation = vec![
+            said("vale", "Where does the pond lead?"),
+            said("moth", "Somewhere with better light."),
+            said("vale", "Will you show me the far shore?"),
+            said("moth", "Only if you bring the lamp."),
+        ];
+        c.entities[0].memories.push(Memory {
+            seq: None,
+            turn: 3,
+            kind: "expression".into(),
+            text: "Vale: I keep my own counsel.".into(),
+        });
+        c.entities[0].previous = Some("Will you show me the far shore?".into());
+        let vale = transcript(&c, &c.entities[0], Part::Line);
+        for gone in [
+            "Where does the pond lead?",
+            "Somewhere with better light.",
+            "Will you show me the far shore?",
+            "Only if you bring the lamp.",
+            "I keep my own counsel.",
+            "Earlier:",
+        ] {
+            assert!(!vale.contains(gone), "{gone}");
+        }
+        // Pip answers the line Vale's Talk put to them, and nothing older.
+        let pip = transcript(&c, &c.entities[3], Part::Line);
+        assert!(pip.contains("\nVale: Will you show me the far shore?\nPip:"));
+        assert!(!pip.contains("Where does the pond lead?"));
+        assert!(!pip.contains("Somewhere with better light."));
+        assert!(!pip.contains("Earlier:"));
+        // Repeats are still caught from what the speaker said before.
+        let check = Check::new(&c, &c.entities[0], Part::Line);
+        assert_eq!(
+            recent_own_lines(&c, &c.entities[0]),
+            vec![
+                "I keep my own counsel.".to_string(),
+                "Where does the pond lead?".into(),
+                "Will you show me the far shore?".into(),
+            ]
+        );
+        for line in [
+            "I keep my own counsel.",
+            "Where does the pond lead?",
+            "Will you show me the far shore?",
+        ] {
+            assert_eq!(check.clean(line, true), Err("repeat"), "{line}");
+        }
+        assert_eq!(
+            check.clean("I'll bring the lamp, then.", true),
+            Ok("I'll bring the lamp, then.".into())
+        );
+        let check = Check::new(&c, &c.entities[3], Part::Line);
+        assert_eq!(
+            check.clean("Somewhere with better light.", true),
+            Err("repeat")
+        );
+        // Parroting the answered line is a repeat too.
+        assert_eq!(
+            check.clean("Will you show me the far shore?", true),
+            Err("repeat")
+        );
     }
 
     #[tokio::test]
