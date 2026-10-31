@@ -123,27 +123,27 @@ async function check(width) {
     // Queued for the round, then playing, then committed.
     await chooseWait();
     await wait.click();
-    await waitFor("Sent: Wait. Waiting for the round.");
+    await waitFor("Sent: Observe. Waiting for the round.");
     assert.equal((await status()).state, "sent");
     assert.equal(await cancel.isVisible(), true);
     await chooseWait();
-    assert.equal(await wait.innerText(), "Sent: Wait");
+    assert.equal(await wait.innerText(), "Sent: Observe");
     // A second choice waits for the first; it cancels with its own control.
     await wait.click();
-    await waitFor("Queued: Wait. Waiting for your earlier play.");
-    assert.equal(await wait.innerText(), "Queued: Wait");
+    await waitFor("Queued: Observe. Waiting for your earlier play.");
+    assert.equal(await wait.innerText(), "Queued: Observe");
     await page.waitForTimeout(400);
     assert.equal(keys.length, 1);
     await cancel.click();
-    await waitFor("Sent: Wait. Waiting for the round.");
-    assert.equal(await wait.innerText(), "Sent: Wait");
+    await waitFor("Sent: Observe. Waiting for the round.");
+    assert.equal(await wait.innerText(), "Sent: Observe");
     assert.deepEqual(cancels, []);
     assert.equal(queue.length, 1);
     await page.screenshot({
       path: resolve(output, `sent-${width}.png`),
     });
     queue[0].status = "working";
-    await waitFor("Playing: Wait.");
+    await waitFor("Playing: Observe.");
     commit();
     await waitFor("Played: Wait.");
     assert.equal((await status()).state, "played");
@@ -153,19 +153,19 @@ async function check(width) {
     // A refused play names its reason and stays until the next play.
     await chooseWait();
     await wait.click();
-    await waitFor("Sent: Wait. Waiting for the round.");
+    await waitFor("Sent: Observe. Waiting for the round.");
     queue = [];
     notice = refusal;
-    await waitFor(`Not played: Wait. ${refusal}`);
+    await waitFor(`Not played: Observe. ${refusal}`);
     assert.equal((await status()).state, "rejected");
     await page.waitForTimeout(2200);
-    assert.equal((await status()).text, `Not played: Wait. ${refusal}`);
+    assert.equal((await status()).text, `Not played: Observe. ${refusal}`);
     await page.screenshot({
       path: resolve(output, `refused-${width}.png`),
     });
     await chooseWait();
     await wait.click();
-    await waitFor("Sent: Wait. Waiting for the round.");
+    await waitFor("Sent: Observe. Waiting for the round.");
 
     // The visible control withdraws the queued play.
     await cancel.click();

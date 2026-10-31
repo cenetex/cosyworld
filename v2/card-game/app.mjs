@@ -1,4 +1,5 @@
 import { imageUrl } from "./images.mjs";
+import { observeText } from "./observe-words.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { arriveCard, finishReveal, revealCard } from "./card-reveal.mjs";
 import { landingPack, createLandingWorld } from "./pack-landing.mjs";
@@ -1592,7 +1593,9 @@ function renderActions(animate = false) {
       button.dataset.queued = String(queued);
       if (sent && !queued) button.dataset.sent = sharedPlay.state;
       button.title =
-        queued && !sharedSession ? "Cancel this queued play" : action.text;
+        queued && !sharedSession
+          ? "Cancel this queued play"
+          : observeText(action.text);
       button.disabled = selectionBlocked();
       button.setAttribute("aria-pressed", String(queued));
       if (action.choiceId) {

@@ -227,7 +227,7 @@ try {
             await page.locator("#card-actions .card-primary").click();
             assert.equal(
               await page.locator("#card-actions .card-primary").innerText(),
-              "Queued: Wait",
+              "Queued: Observe",
             );
             assert.equal((await state()).turn, queuedTurn);
           }
