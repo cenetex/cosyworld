@@ -13,6 +13,7 @@ fn old_fixture(version: &str, scope: &str) -> (rusqlite::Connection, String, Wor
         game: result["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
+        pack: None,
     };
     old.game.as_object_mut().unwrap().remove("opening");
     old.game["packs"]["greek-drama"]["scope"] = json!(scope);

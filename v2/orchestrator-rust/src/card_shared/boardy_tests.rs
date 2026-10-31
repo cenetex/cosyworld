@@ -96,6 +96,7 @@ fn assert_boardy_upgrade(version: &str) {
         game: seed["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
+        pack: None,
     };
     assert!(old.game["actors"].get("boardyai").is_none());
     full_store::seed(&c, &id, &old, "before-boardy", now()).unwrap();
@@ -211,6 +212,7 @@ fn released_boardy_searches_with_the_original_station_door() {
         game: seed["world"].clone(),
         claimed: [0; 8],
         present: [0; 8],
+        pack: None,
     };
     assert_boardy_search_visits(
         world,
@@ -289,6 +291,7 @@ fn boardy_version_sixteen_upgrade_preserves_sightings_and_replays() {
         game: seed["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
+        pack: None,
     };
     full_store::seed(&c, &id, &old, "before-introductions", now()).unwrap();
     let mut world = full_store::world(&c, &id, now()).unwrap();

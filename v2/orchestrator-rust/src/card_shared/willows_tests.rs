@@ -144,6 +144,7 @@ fn upgraded_willows(version: &str) -> (std::path::PathBuf, rusqlite::Connection,
         game: released["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
+        pack: None,
     };
     assert!(old.game["packs"].get("willows").is_none());
     old.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);

@@ -14,6 +14,7 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
         game: old["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
+        pack: None,
     };
     saved.game.as_object_mut().unwrap().remove("opening");
     saved.game["packs"]["greek-drama"]["scope"] = json!("full");
@@ -163,6 +164,7 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         game: seed["world"].clone(),
         claimed: [1, 1, 1, 0, 0, 0, 0, 0],
         present: [1, 1, 1, 0, 0, 0, 0, 0],
+        pack: None,
     };
     saved.game.as_object_mut().unwrap().remove("opening");
     saved.game["packs"]["greek-drama"]["scope"] = json!("full");
