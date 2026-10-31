@@ -197,7 +197,9 @@ describe("the Open Door", () => {
           ? fixture.permission
           : fixture.choice || fixture.buried;
       expect(openDoorInvitation(before)).toBeUndefined();
-      expect(accessible(fixture.closed)).toEqual([]);
+      // Piraeus Quays lies outside the Open Door: a ship with provisions
+      // aboard reaches it. Its stories still wait for the invitation.
+      expect(accessible(fixture.closed)).toEqual(["greek-piraeus"]);
       const invitation = openDoorInvitation(fixture.closed);
       expect(invitation).toBeTruthy();
       let world = playOpenDoor(fixture.closed, "choose", {
@@ -335,7 +337,7 @@ describe("the Open Door", () => {
 
   it("keeps later places and choices behind the first invitation", () => {
     const world = createWorld();
-    expect(accessible(world)).toEqual([]);
+    expect(accessible(world)).toEqual(["greek-piraeus"]);
     for (const place of OPEN_DOOR_PLACES) {
       world.actors.vale.place = place;
       expect(

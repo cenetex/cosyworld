@@ -1,8 +1,10 @@
 # The Open Door
 
-Dione's table opens five places: the Athenian Agora, Piraeus Quays,
-Colonus Grove, Eleusinian Sanctuary and Marathon Altar. The ship reaches
-Athens Harbor and Piraeus Quays. City streets lead straight from Athens
+Dione's table opens the stories of five places: the Athenian Agora, Piraeus
+Quays, Colonus Grove, Eleusinian Sanctuary and Marathon Altar. Piraeus Quays
+lies outside the section: a ship with the Travel Provisions aboard reaches it
+from the Wine-Dark Harbor in any save, but its roads inland and Thaleia's
+work wait for the invitation. The ship reaches Athens Harbor from Piraeus. City streets lead straight from Athens
 Harbor into the grand Athenian Agora. Roads join towns, not the places
 inside a town. One road, the Athens–Piraeus Road, joins the two Attic towns.
 It is a shared scene with two fixed ends. Colonus and Marathon are direct

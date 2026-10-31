@@ -71,12 +71,9 @@ describe("sea lanes", () => {
     expect(laneProblems(bridge.transports["greek-ship"])).toEqual([]);
     for (const dock of ship().docks)
       expect(lanesFrom(ship(), dock).length).toBeLessThanOrEqual(MAX_LANES);
-    expect(lanesFrom(ship(), "pond")).toEqual([
-      "greek-harbor",
-      "greek-athens-harbor",
-    ]);
+    // From Black Pond the ship sails only to the Wine-Dark Harbor.
+    expect(lanesFrom(ship(), "pond")).toEqual(["greek-harbor"]);
     expect(lanesFrom(ship(), "greek-athens-harbor")).toEqual([
-      "pond",
       "greek-piraeus",
     ]);
   });
@@ -155,21 +152,24 @@ describe("a real voyage", () => {
     s = act(s, "vale", "wait");
     s.actors.ash.place = "greek-harbor";
     s = reload(s);
+    expect(targets(s, "vale", "course")).toEqual(["pond"]);
+    // Ash carries the Travel Provisions aboard, which opens the Piraeus lane
+    // for everyone on deck. The Trojan camp landing stays closed until
+    // Myrto's invitation.
+    s = act(s, "ash", "take", undefined);
+    expect(s.items["greek-provisions"].holder).toBe("ash");
     s = act(s, "ash", "move", "greek-ship");
     expect(targets(s, "ash", "move")).toEqual([]);
     expect(targets(s, "vale", "move")).toEqual(["greek-harbor"]);
-    // Ash has heard of the Piraeus lane. The Trojan camp landing stays
-    // closed until Myrto's invitation.
-    learnLane(s, "ash", "greek-harbor", "greek-piraeus");
-    s = reload(s);
     expect(targets(s, "ash", "course")).toEqual(["greek-piraeus", "pond"]);
-    expect(targets(s, "vale", "course")).toEqual(["pond"]);
+    expect(targets(s, "vale", "course")).toEqual(["greek-piraeus", "pond"]);
     s = act(s, "ash", "course", "greek-piraeus");
     expect(targets(s, "vale", "move")).toEqual([]);
     s = act(s, "vale", "wait");
     expect(state(s)).toMatchObject({ phase: "arrived", dock: "greek-piraeus" });
     expect(targets(s, "vale", "move")).toEqual(["greek-piraeus"]);
-    expect(targets(s, "ash", "move")).toEqual(["greek-piraeus"]);
+    // Ash can step off with the provisions or leave them on deck.
+    expect(targets(s, "ash", "move")).toEqual(["greek-piraeus", "greek-piraeus"]);
   });
 
   it("an idle passenger cannot hold the ship: it sails its first lane after three rounds", () => {
@@ -189,6 +189,8 @@ describe("a real voyage", () => {
   it("an empty ship stays put, and a human waiting at a port brings it one lane closer", () => {
     let s = setup("greek-piraeus");
     for (const id of players) s.actors[id].place = "pond";
+    // The Travel Provisions on deck keep the Piraeus lane open.
+    s.items["greek-provisions"].holder = "greek-ship";
     s = reload(s);
     // Piraeus to Black Pond is two lanes, through the Wine-Dark Harbor.
     s = act(s, "mara", "wait");
@@ -209,15 +211,18 @@ describe("a real voyage", () => {
     s = act(s, "vale", "move", "greek-ship");
     expect(transportExits(s, "greek-ship", null, "vale")).toEqual([
       "greek-harbor",
-      "greek-athens-harbor",
     ]);
-    // Vale knows the Black Pond lanes; Piraeus needs the lanes she has not
-    // heard of yet.
+    // Vale knows the Black Pond lane. Piraeus waits for the Travel
+    // Provisions aboard; Athens Harbor for a lane she has not heard of yet.
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
-      "greek-athens-harbor",
       "greek-harbor",
     ]);
-    learnLane(s, "vale", "greek-athens-harbor", "greek-piraeus");
+    s.items["greek-provisions"].holder = "greek-ship";
+    expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
+      "greek-harbor",
+      "greek-piraeus",
+    ]);
+    learnLane(s, "vale", "greek-piraeus", "greek-athens-harbor");
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-athens-harbor",
       "greek-harbor",

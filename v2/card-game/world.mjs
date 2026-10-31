@@ -132,7 +132,7 @@ import {
   sailTransports,
   courseToward,
   berthOpen,
-  laneGated,
+  laneConditions,
   canDisembark,
   transportPlace,
   transportScenery,
@@ -779,13 +779,23 @@ export function laneTalkFacts(s, actor) {
     ? [`I know ships sail from ${nameOf(near)} to ${known.join(" and ")}.`]
     : [`I know of no ship lane from ${nameOf(near)}.`];
 }
-// A gated lane is told with its condition; telling it never opens it.
-export const laneFact = (from, to) => ({
-  id: `lane:${from}>${to}`,
-  text: laneGated(from, to)
-    ? `Ships for ${nameOf(to)} leave from ${nameOf(from)} only with something from there aboard.`
-    : `Ships for ${nameOf(to)} leave from ${nameOf(from)}.`,
-});
+// A gated lane is told with its condition; telling it never opens it. A
+// named thing is told by name; a world's things as "something from there".
+const laneNeed = (gate) =>
+  [
+    ...new Set(
+      gate.map((c) => (c.item ? nameOf(c.item) : "something from there")),
+    ),
+  ].join(" and ");
+export const laneFact = (from, to) => {
+  const gate = laneConditions(from, to);
+  return {
+    id: `lane:${from}>${to}`,
+    text: gate
+      ? `Ships for ${nameOf(to)} leave from ${nameOf(from)} only with ${laneNeed(gate)} aboard.`
+      : `Ships for ${nameOf(to)} leave from ${nameOf(from)}.`,
+  };
+};
 const laneFactText = (id) => {
   const [from, to] = id.startsWith("lane:") ? id.slice(5).split(">") : [];
   return from &&

@@ -155,23 +155,22 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     "version":3, "phase":"docked", "dock":"greek-harbor", "destination":null,
                     "riders":[], "since":voyage.game["turn"], "recall":null
                 });
-                // Mara has heard of the harbor-to-Piraeus lane.
-                let known = &mut voyage.game["routeKnowledge"]["mara"];
-                if !known.is_array() {
-                    *known = json!([]);
-                }
-                known
-                    .as_array_mut()
-                    .unwrap()
-                    .push(json!(["sea:greek-harbor", "sea:greek-piraeus"]));
-                // Piraeus is a course card from the harbor once the full Greece opens.
-                assert_eq!(
-                    voyage.project(1).unwrap()["exits"]
+                // Black Pond sails only to the Wine-Dark Harbor. From there
+                // Piraeus is a course card while the Travel Provisions are
+                // aboard, whichever scope the save keeps.
+                let piraeus = |w: &World| {
+                    w.project(1).unwrap()["exits"]
                         .as_array()
                         .unwrap()
-                        .contains(&json!("greek-piraeus")),
-                    scope == "full"
+                        .contains(&json!("greek-piraeus"))
+                };
+                assert_eq!(
+                    voyage.game["items"]["greek-provisions"]["holder"],
+                    "greek-harbor"
                 );
+                assert!(!piraeus(&voyage));
+                voyage.game["items"]["greek-provisions"]["holder"] = json!("greek-ship");
+                assert!(piraeus(&voyage));
                 assert!(!upgraded.project(1).unwrap()["exits"]
                     .as_array()
                     .unwrap()
@@ -229,12 +228,28 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
         world.game["packs"]["greek-drama"]["flags"]["greek-open-door-open"],
         true
     );
+    // Mara loads the Travel Provisions at the harbor, which opens the lane
+    // to Piraeus. Dione's invitation opens the road on to Athens.
+    let take = world.project(1).unwrap()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == "take" && a["item"] == "greek-provisions")
+        .expect("Mara can take the provisions at the harbor")
+        .clone();
+    full_store::commit(
+        &c,
+        &id,
+        &mut world,
+        json!({"op":"play","actor":"mara","action":take}),
+        now(),
+    )
+    .unwrap();
     for target in [
         "greek-ship",
-        "greek-athens-harbor",
-        "greek-athens",
-        "greek-road-athens-piraeus",
         "greek-piraeus",
+        "greek-road-athens-piraeus",
+        "greek-athens",
     ] {
         if target == "greek-ship" {
             for _ in 0..32 {
@@ -248,8 +263,8 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
                 play(&c, &id, &mut world, 1, "kind", "wait");
             }
         }
-        // Aboard, Athens Harbor is a voyage of course cards and rounds at sea.
-        if target == "greek-athens-harbor" {
+        // Aboard, Piraeus is a voyage of course cards and rounds at sea.
+        if target == "greek-piraeus" {
             for _ in 0..8 {
                 if world.game["actors"]["mara"]["place"] == target {
                     break;
@@ -272,6 +287,6 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     let recovered = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(recovered, world);
-    assert_eq!(recovered.project(1).unwrap()["room"], "greek-piraeus");
+    assert_eq!(recovered.project(1).unwrap()["room"], "greek-athens");
     assert_eq!(recovered.project(0).unwrap()["room"], "greek-courtyard");
 }

@@ -9054,7 +9054,6 @@
           "name": "The Open Door",
           "places": [
             "greek-athens",
-            "greek-piraeus",
             "greek-colonus",
             "greek-eleusis",
             "greek-marathon",
@@ -10708,7 +10707,7 @@
       ],
       "bridge": {
         "id": "shore-greek-drama",
-        "description": "A shared ship sails authored lanes between Black Pond, the Wine-Dark Harbor, Athens Harbor, Piraeus Quays and the Trojan camp landing. The lamp signal calls it to the pond."
+        "description": "A shared ship sails authored lanes from Black Pond only to the Wine-Dark Harbor, and from there to Piraeus Quays, Athens Harbor and the Trojan camp landing. The lamp signal calls it to the pond."
       },
       "crossings": [
         {
@@ -10877,12 +10876,15 @@
               "to": "greek-harbor"
             },
             {
-              "from": "pond",
-              "to": "greek-athens-harbor"
-            },
-            {
               "from": "greek-harbor",
-              "to": "greek-piraeus"
+              "to": "greek-piraeus",
+              "opensWith": [
+                {
+                  "kind": "item_present",
+                  "item": "greek-provisions",
+                  "place": "greek-ship"
+                }
+              ]
             },
             {
               "from": "greek-harbor",

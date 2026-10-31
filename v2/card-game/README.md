@@ -221,10 +221,12 @@ leads to Thebes and **Before the Burial**. The ship keeps its dock and passenger
 saved world. Once summoned, it remains available for later crossings.
 
 After a public Theban response, Dione offers the next journey at her table.
-Accepting opens **The Open Door**: the Athenian Agora, Piraeus Quays, Colonus
-Grove, Eleusinian Sanctuary, and Marathon Altar. The invitation opens the
-roads for every traveler in the shared world. Athens Harbor and Piraeus join
-the ship’s stops. Athens Harbor connects directly to the grand Agora through city streets.
+Accepting opens **The Open Door**: the Athenian Agora, Colonus Grove,
+Eleusinian Sanctuary, Marathon Altar and Athens Harbor, and the stories at
+Piraeus Quays. The invitation opens the roads for every traveler in the
+shared world. Piraeus Quays itself lies outside the Open Door: a ship with the
+Travel Provisions aboard reaches it, and its roads inland open with the
+invitation. Athens Harbor connects directly to the grand Agora through city streets.
 
 Roads separate towns, and places inside a town link directly. Between two
 towns there is exactly one road or a sea lane, and every walkable road has its
@@ -252,9 +254,10 @@ Athens Harbor shows the ship at its berth when it is docked there, and open
 water while the ship travels elsewhere.
 
 The ship sails authored sea lanes, at most four from each port. Black Pond
-has lanes to the Wine-Dark Harbor and Athens Harbor. The Wine-Dark Harbor has
-lanes to Piraeus and the Trojan camp landing. Athens Harbor and Piraeus share
-a lane. Aboard a docked ship, the other place cards are course cards. The
+has one lane, to the Wine-Dark Harbor. The Wine-Dark Harbor has
+lanes to Piraeus and the Trojan camp landing. The Piraeus lane opens only
+while the Travel Provisions are aboard, carried by anyone on deck or resting
+there. Athens Harbor and Piraeus share a lane. Aboard a docked ship, the other place cards are course cards. The
 first course played sets the voyage for everyone aboard; the ship then spends
 one world round at sea. On arrival the only Disembark card is that port, and
 someone who boarded there cannot step straight back. Passengers who stay
@@ -820,10 +823,13 @@ actions replay with their original rules.
 The same rules make knowing a lane personal. Course cards show only
 the lanes the person knows from that port. People from a world with a port
 know its lanes; people from the forest know the Black Pond lanes; Myrto the
-shipmaster knows every lane. Everyone aboard learns the lane they sail. At a
-port or aboard, Talk can tell a lane as a fact ("Ships for Piraeus Quays leave
-from The Wine-Dark Harbor."), and the listener learns it only when the published
-speech says it. A story choice that is ready at the port is told first, so a
+shipmaster knows every lane. Everyone aboard learns the lane they sail. A
+lane that a thing aboard opens (`opensWith` in the pack bridge) is a course
+card for everyone on deck while the thing is there, whoever knows it. At a
+port or aboard, Talk can tell a lane as a fact ("Ships for Athens Harbor leave
+from Piraeus Quays."), and the listener learns it only when the published
+speech says it. A gated lane is told with what opens it ("…only with Travel
+Provisions aboard."). A story choice that is ready at the port is told first, so a
 new lane never holds up an authored scene. Lanes are saved as `sea:` edges in route knowledge.
 
 See the Greek pack README and `test/card-theban-release.test.mjs`; the scene

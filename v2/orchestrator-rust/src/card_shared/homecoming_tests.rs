@@ -110,6 +110,10 @@ fn released_berth(c: &rusqlite::Connection, id: &str) -> World {
     world.game["actors"]["vale"]["place"] = json!("greek-courtyard");
     world.game["actors"]["mara"]["place"] = json!("greek-eleusis");
     world.game["items"]["greek-water-jar"]["holder"] = json!("vale");
+    // The Travel Provisions ride on deck. Under the current rules they open
+    // the lane between Piraeus and the Wine-Dark Harbor, so Mara can call the
+    // ship to the quay and sail home.
+    world.game["items"]["greek-provisions"]["holder"] = json!("greek-ship");
     world.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
     full_store::seed(c, id, &world, "released-open-door", now()).unwrap();
     let steps = [

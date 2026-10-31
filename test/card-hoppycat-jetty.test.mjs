@@ -82,7 +82,9 @@ describe("the Signal Jetty lane", () => {
 
   it("opens only while a Hoppy Cat thing is aboard; knowing it is not enough", () => {
     let s = setup("greek-piraeus");
-    learnLane(s, "mara", "greek-piraeus", "greek-harbor");
+    // Mara knows the open lane to Athens Harbor. The lane to the
+    // Wine-Dark Harbor waits for the Travel Provisions, which stay ashore.
+    learnLane(s, "mara", "greek-piraeus", "greek-athens-harbor");
     // Mara knows the jetty lane too; knowledge alone leaves it closed.
     learnLane(s, "mara", "greek-piraeus", JETTY);
     // Vale waits ashore with a Hoppy Cat thing in hand.
@@ -96,13 +98,13 @@ describe("the Signal Jetty lane", () => {
     };
     expect(knowsLane(s, "mara", "greek-piraeus", JETTY)).toBe(true);
     expect(conditionMet(s, gate)).toBe(false);
-    expect(courses(s, "mara")).toEqual(["greek-harbor"]);
+    expect(courses(s, "mara")).toEqual(["greek-athens-harbor"]);
 
     // Carried aboard, it opens the lane for everyone on deck.
     s = act(s, "vale", "move", "greek-ship");
     expect(conditionMet(s, gate)).toBe(true);
     expect(courses(s, "vale")).toEqual([JETTY]);
-    expect(courses(s, "mara")).toEqual(["greek-harbor", JETTY]);
+    expect(courses(s, "mara")).toEqual(["greek-athens-harbor", JETTY]);
 
     // Resting on deck counts too.
     s.items[CUP].holder = "greek-ship";
@@ -114,7 +116,7 @@ describe("the Signal Jetty lane", () => {
     s = reload(s);
     expect(conditionMet(s, gate)).toBe(false);
     expect(courses(s, "vale")).toEqual([]);
-    expect(courses(s, "mara")).toEqual(["greek-harbor"]);
+    expect(courses(s, "mara")).toEqual(["greek-athens-harbor"]);
 
     // With the cup aboard again, the voyage sails and Vale lands at the jetty.
     s.items[CUP].holder = "vale";
