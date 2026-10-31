@@ -96,14 +96,12 @@ changing application behavior.
   `Preserve room state across journal replay`.
 - Keep one coherent behavior or extraction per PR. Split unrelated deployment,
   content, and feature changes.
-- Push early. Push a draft PR from your first commit, or just the branch while
-  another PR is open, and keep pushing work in progress, so an agent that
-  stops never strands work on a local branch. Do not keep long-lived local
-  branches.
-- Keep at most one open PR in the repository. Before opening a PR, run
-  `gh pr list --state open`. If one is open, finish your work on a pushed branch
-  and wait until that PR merges or closes. Do not stack PRs on other PR
-  branches. Put dependent changes in the same PR, or open them one after another.
+- Push early. Push a draft PR from your first commit and keep pushing work in
+  progress, so an agent that stops never strands work on a local branch. Do
+  not keep long-lived local branches.
+- Many PRs may be open at once; they merge one at a time, and each rebases
+  when main moves. Do not stack PRs on other PR branches. Put dependent changes
+  in the same PR, or open the second after the first merges.
 - The body must contain:
   - `## Summary` with the user-visible or architectural outcome;
   - `Closes #<issue>` for work that fully satisfies an issue;
