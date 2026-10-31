@@ -233,8 +233,10 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
 
     // Her wait at the pond brings the empty ship one lane to her. She
     // boards and sails by the Wine-Dark Harbor to Piraeus, opened by the
-    // provisions aboard, a round at sea each, and steps ashore. Vale's wait
-    // at Athens Harbor brings the empty ship to her berth, and Mara walks on.
+    // provisions aboard, a round at sea each, and steps ashore beside it.
+    // The lane on to Athens Harbor opens only with the Suppliant's Olive
+    // Branch aboard, so Vale's wait there leaves the ship at Piraeus and
+    // Mara walks to her berth.
     let plays = [
         ("mara", "wait", None),
         ("mara", "move", Some("greek-ship")),
@@ -273,19 +275,18 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         if step == 0 {
             assert_eq!(world.game["transports"]["greek-ship"]["dock"], "pond");
         }
-        if step < 7 {
-            assert_eq!(
-                views[0]["background"],
-                "./assets/greek-drama/athens-harbor-open-berth-night.webp"
-            );
-        } else {
+        assert_eq!(
+            views[0]["background"],
+            "./assets/greek-drama/athens-harbor-open-berth-night.webp"
+        );
+        if (6..=7).contains(&step) {
             assert_eq!(
                 world.game["transports"]["greek-ship"]["dock"],
-                "greek-athens-harbor"
+                "greek-piraeus"
             );
             assert_eq!(
-                views[0]["background"],
-                "./assets/greek-drama/athens-harbor-ship-at-berth-night.webp"
+                views[1]["background"],
+                "./assets/greek-drama/piraeus-ship-at-berth-night.webp"
             );
         }
         if step == plays.len() - 1 {
