@@ -17177,12 +17177,17 @@
       ...Object.values(dockedNightBackdrops)
     ])
   ];
+  var mentionsDaylight = (conditions = []) => conditions.some(
+    (condition) => condition.kind === "daylight" || condition.kind === "any" && mentionsDaylight(condition.conditions)
+  );
   function locationDaylight(world, id) {
-    if (!world || !(Object.hasOwn(nightBackdrops, id) || Object.hasOwn(darkMistBackdrops, id)))
-      return null;
+    const mapped = Object.hasOwn(nightBackdrops, id) || Object.hasOwn(darkMistBackdrops, id);
+    const place = packPlaces[id];
+    const authored = place?.backdrops?.some((b) => mentionsDaylight(b.requires));
+    if (!world || !mapped && !authored) return null;
     const period = Math.floor(world.turn / DAYLIGHT_TURNS);
     const phase = isNight(world) ? "night" : "day";
-    const where = placeDescriptions[id] || (id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : id.startsWith("greek-road-") && id !== "greek-road-thebes" ? "on the Attic roads" : "in Thebes");
+    const where = placeDescriptions[id] || (!mapped && authored ? `at ${place.name}` : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : id.startsWith("greek-road-") && id !== "greek-road-thebes" ? "on the Attic roads" : "in Thebes");
     return {
       phase,
       period,
@@ -17193,7 +17198,7 @@
     if (Object.hasOwn(darkMistBackdrops, id))
       return willowsMist(world) ? darkMistBackdrops[id] : file;
     if (locationDaylight(world, id)?.phase !== "night") return file;
-    return dockedNightBackdrops[file] || nightBackdrops[id];
+    return dockedNightBackdrops[file] || nightBackdrops[id] || file;
   }
 
   // v2/card-game/narrative.mjs

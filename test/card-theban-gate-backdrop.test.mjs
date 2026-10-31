@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
+import { DAYLIGHT_TURNS, locationDaylight } from "../v2/card-game/daylight.mjs";
 import { backdrop } from "../v2/card-game/scene.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
@@ -79,6 +79,40 @@ describe("the Theban City Gate backdrop", () => {
       );
       expect(backdrop("willows-camp", { ...s, turn: 0 })).toBe(
         "./assets/willows/camp.webp",
+      );
+    } finally {
+      if (previous === undefined) delete place.backdrops;
+      else place.backdrops = previous;
+    }
+  });
+
+  it("recognizes authored lighting without revealing an unseen night sign", () => {
+    const place = packPlaces["willows-thicket"];
+    const previous = place.backdrops;
+    try {
+      place.backdrops = [
+        {
+          backdrop: "assets/willows/thicket-night.webp",
+          requires: [
+            { kind: "any", conditions: [{ kind: "daylight", phase: "night" }] },
+            { kind: "flag", key: "willows-shapes-seen", value: true },
+          ],
+        },
+      ];
+      const s = night(openingFixture("burial").decree);
+      expect(locationDaylight(s, "willows-thicket")).toMatchObject({
+        phase: "night",
+        description: "It is night at Willow Thicket.",
+      });
+      expect(backdrop("willows-thicket", s)).toBe(
+        "./assets/willows/thicket.webp",
+      );
+      s.packs.willows.flags["willows-shapes-seen"] = true;
+      expect(backdrop("willows-thicket", s)).toBe(
+        "./assets/willows/thicket-night.webp",
+      );
+      expect(locationDaylight({ ...s, turn: 0 }, "willows-thicket").phase).toBe(
+        "day",
       );
     } finally {
       if (previous === undefined) delete place.backdrops;
