@@ -19,6 +19,7 @@ fn upgraded(found: bool) -> (rusqlite::Connection, String, World) {
         game: released["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
+        pack: None,
     };
     old.game.as_object_mut().unwrap().remove("opening");
     assert_eq!(old.game["packs"]["hoppycat-archive"]["revision"], 1);

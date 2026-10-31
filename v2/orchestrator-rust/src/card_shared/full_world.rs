@@ -1,4 +1,4 @@
-use super::{cast, engine, store::Result};
+use super::{cast, content, engine, store::Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -9,6 +9,10 @@ pub(super) struct World {
     pub game: Value,
     pub claimed: [i32; 8],
     pub present: [i32; 8],
+    // The pack content revision read by rules that take content as input.
+    // Absent for older rules, so their saved bytes stay the same.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pack: Option<String>,
 }
 #[repr(C)]
 struct Session {
@@ -36,6 +40,7 @@ impl World {
             game: result["world"].clone(),
             claimed: [0; 8],
             present: [0; 8],
+            pack: engine::takes_content(engine::VERSION).then(|| content::current().into()),
         })
     }
     pub fn room(&self, a: usize) -> Result<&str> {
@@ -76,6 +81,9 @@ impl World {
     // Every journal command is reduced through the same C guard and C-hosted
     // authored rules. AI text is appended by the authored speech reducer.
     pub fn apply(&mut self, command: &Value) -> Result<Value> {
+        if command["op"] == "repack" {
+            return self.repack(command);
+        }
         if command["op"] == "upgrade" {
             let target = command["to"]
                 .as_str()
@@ -149,10 +157,19 @@ impl World {
             let mut request = self.request("upgrade", 0);
             request["from"] = json!(self.version);
             request["to"] = json!(target);
+            // Rules that take content record the revision they upgraded onto.
+            let pack = engine::takes_content(target)
+                .then(|| {
+                    command["pack"]
+                        .as_str()
+                        .ok_or("Choose the upgrade's pack content.")
+                })
+                .transpose()?;
             // Recorded upgrades retain their released target transformation.
-            let result = engine::reduce_version(target, request)?;
+            let result = engine::reduce_pack(target, pack, request)?;
             self.game = result["world"].clone();
             self.version = target.into();
+            self.pack = pack.map(String::from);
             return Ok(result);
         }
         if ![
@@ -222,7 +239,11 @@ impl World {
         let mut next = self.clone();
         let (kind, result) = match op {
             "claim" => {
-                let result = engine::reduce_version(&self.version, self.request("join", a))?;
+                let result = engine::reduce_pack(
+                    &self.version,
+                    self.pack.as_deref(),
+                    self.request("join", a),
+                )?;
                 next.game = result["world"].clone();
                 next.claimed[a] = 1;
                 (1, result)
@@ -243,7 +264,7 @@ impl World {
             "play" => {
                 let mut request = self.request("play", a);
                 request["action"] = command["action"].clone();
-                let result = engine::reduce_version(&self.version, request)?;
+                let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
                 next.game = result["world"].clone();
                 (11, result)
             }
@@ -253,7 +274,7 @@ impl World {
                 request["room"] = command["room"].clone();
                 request["entries"] = command["entries"].clone();
                 request["disclosures"] = command["disclosures"].clone();
-                let result = engine::reduce_version(&self.version, request)?;
+                let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
                 next.game = result["world"].clone();
                 // Committed text can finish after its speaker disconnects.
                 self.guard(&next, 12, a)?;
@@ -266,8 +287,28 @@ impl World {
         *self = next;
         Ok(result)
     }
+    // Move the world onto another pack content revision under the same rules.
+    fn repack(&mut self, command: &Value) -> Result<Value> {
+        let to = command["to"]
+            .as_str()
+            .ok_or("Choose a pack content revision.")?;
+        if !engine::takes_content(&self.version)
+            || command["from"].as_str() != self.pack.as_deref()
+            || self.pack.as_deref() == Some(to)
+        {
+            return Err("This world's pack change needs its original revision.".into());
+        }
+        let mut request = self.request("upgrade", 0);
+        request["from"] = json!(self.version);
+        request["to"] = json!(self.version);
+        let result = engine::reduce_pack(&self.version, Some(to), request)?;
+        self.game = result["world"].clone();
+        self.pack = Some(to.into());
+        Ok(result)
+    }
     pub fn project(&self, a: usize) -> Result<Value> {
-        let mut view = engine::reduce_version(&self.version, self.request("view", a))?;
+        let mut view =
+            engine::reduce_pack(&self.version, self.pack.as_deref(), self.request("view", a))?;
         // Apply privacy to every released interpreter, including older saves.
         if let Some(memories) = view["world"]["memories"].as_object_mut() {
             for (id, memory) in memories {
