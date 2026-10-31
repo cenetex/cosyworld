@@ -265,7 +265,9 @@ try {
       void window.discoveryProbe.sync();
     });
     await page.waitForTimeout(250);
-    await page.locator("#live-line").click();
+    // The reader follows the room clock; ● live shows only when behind it.
+    if (await page.locator("#live-line").isVisible())
+      await page.locator("#live-line").click();
     await page.waitForFunction(
       (second) =>
         document.querySelector("#dialogue-text").textContent === second,
