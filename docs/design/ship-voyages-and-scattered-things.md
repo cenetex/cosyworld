@@ -60,9 +60,9 @@ marked one-way.
 | Port | Dock id | Lanes |
 | --- | --- | --- |
 | Black Pond | `pond` | Wine-Dark Harbor |
-| Wine-Dark Harbor | `greek-harbor` | Black Pond, Piraeus (Travel Provisions aboard), Trojan camp landing, Willows landing |
-| Athens Harbor | `greek-athens-harbor` | Piraeus |
-| Piraeus Quays | `greek-piraeus` | Wine-Dark Harbor (Travel Provisions aboard), Athens Harbor, Signal Jetty (Hoppy Cat thing aboard) |
+| Wine-Dark Harbor | `greek-harbor` | Black Pond, Piraeus (Open Door and Travel Provisions aboard), Trojan camp landing, Willows landing |
+| Athens Harbor | `greek-athens-harbor` | Piraeus (plea registered at the Agora) |
+| Piraeus Quays | `greek-piraeus` | Wine-Dark Harbor (Open Door and Travel Provisions aboard), Athens Harbor (plea registered at the Agora), Signal Jetty (Hoppy Cat thing aboard) |
 | Signal Jetty (Hoppy Cat) | `hoppycat-signal-jetty` | Piraeus |
 | Trojan camp landing | `greek-ajax-landing` | Wine-Dark Harbor |
 | Willows landing | `willows-landing` | Wine-Dark Harbor |
@@ -80,14 +80,26 @@ marked one-way.
 From Black Pond the only lane is the Wine-Dark Harbor (owner decision,
 2026-10-30, #1483). A traveller from the shore knows that lane alone.
 
-The Wine-Dark Harbor to Piraeus lane opens while the Travel Provisions
-(`greek-provisions`, first held at the harbour) are aboard. It uses the same
-`opensWith` gate as the Signal Jetty, here with an `item_present` condition on
-the ship. Piraeus Quays is outside the Open Door section, so the lane reaches
-it in a default save; the quay's roads inland and its stories still need
-Dione's invitation. Athens Harbor and Athens keep their Open Door gate. The
-lane on from Piraeus to Athens Harbor is learned by sailing it or through
-Talk.
+The Wine-Dark Harbor to Piraeus lane opens once the Open Door is open
+(`greek-open-door-open`, set by Dione's `greek-open-door-invite-*` choices
+after the Theban outcome) and while the Travel Provisions
+(`greek-provisions`, first held at the harbour) are aboard (owner decision,
+2026-10-31). It uses the same `opensWith` gate as the Signal Jetty, with a
+`flag` and an `item_present` condition. The same flag opens the Open Door
+section, so every land road around Piraeus and Athens opens with it: the
+quay's choices, the Athens–Piraeus Road, Eleusis by the coast, Athens and
+its roads to Colonus, Marathon and Athens Harbor. Piraeus Quays itself stays
+outside the section, so a ship from the Signal Jetty can still put in there.
+
+The sea lane between Piraeus and Athens Harbor stays closed both ways until
+the plea is registered at the Agora (`greek-open-door-plea-registered`, from
+the `greek-open-door-register-plea` choice). Until then Athens Harbor is
+reached on foot from Athens.
+
+Myrto tells a gated lane with the things that must be aboard. A `flag`
+condition is a story gate, not something aboard, and goes untold, so a lane
+she told before its story gate was added keeps the same words in saved
+knowledge.
 
 Distant worlds are several lanes away. A player needs the thing **and** must
 find which port sails there.

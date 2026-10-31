@@ -157,8 +157,8 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     "riders":[], "since":voyage.game["turn"], "recall":null
                 });
                 // Black Pond sails only to the Wine-Dark Harbor. From there
-                // Piraeus is a course card while the Travel Provisions are
-                // aboard, whichever scope the save keeps.
+                // Piraeus waits for the Open Door as well as the Travel
+                // Provisions aboard, whichever scope the save keeps.
                 let piraeus = |w: &World| {
                     w.project(1).unwrap()["exits"]
                         .as_array()
@@ -171,7 +171,7 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 );
                 assert!(!piraeus(&voyage));
                 voyage.game["items"]["greek-provisions"]["holder"] = json!("greek-ship");
-                assert!(piraeus(&voyage));
+                assert!(!piraeus(&voyage));
                 assert!(!upgraded.project(1).unwrap()["exits"]
                     .as_array()
                     .unwrap()

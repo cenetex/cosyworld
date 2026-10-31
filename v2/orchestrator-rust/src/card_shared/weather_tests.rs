@@ -171,7 +171,7 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
     saved.game.as_object_mut().unwrap().remove("opening");
     saved.game["packs"]["greek-drama"]["scope"] = json!("full");
     for (actor, place) in [
-        ("vale", "greek-athens-harbor"),
+        ("vale", "greek-harbor"),
         ("mara", "pond"),
         ("ash", "greek-road-thebes"),
         ("greek-rhapsode", "attic"),
@@ -181,10 +181,8 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
     saved.game["turn"] = json!(22);
     saved.game["revision"] = json!(22);
     saved.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
-    // Black Pond sails only to the Wine-Dark Harbor, where the ship waits
-    // with the Travel Provisions on deck. They open the lane to Piraeus.
+    // Black Pond sails only to the Wine-Dark Harbor, where the ship waits.
     saved.game["transports"]["greek-ship"]["dock"] = json!("greek-harbor");
-    saved.game["items"]["greek-provisions"]["holder"] = json!("greek-ship");
     // Ash waits on the road under the released rules. A wait away from any
     // port leaves the empty ship at the Wine-Dark Harbor.
     let old_wait = saved.project(2).unwrap()["actions"]
@@ -231,22 +229,16 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
     assert!(world.game["knowledge"].is_object());
     assert_eq!(world.version, engine::VERSION);
 
-    // Her wait at the pond brings the empty ship one lane to her. She
-    // boards and sails by the Wine-Dark Harbor to Piraeus, opened by the
-    // provisions aboard, a round at sea each, and steps ashore. Vale's wait
-    // at Athens Harbor brings the empty ship to her berth, and Mara walks on.
+    // Her wait at the pond brings the empty ship one lane to her, leaving
+    // Vale's berth at the Wine-Dark Harbor open. She boards, sails back after
+    // a round at sea and steps ashore beside Vale. (The Piraeus lane waits
+    // for the Open Door, and Athens Harbor's for the plea.)
     let plays = [
         ("mara", "wait", None),
         ("mara", "move", Some("greek-ship")),
         ("mara", "course", Some("greek-harbor")),
         ("mara", "wait", None),
-        ("mara", "course", Some("greek-piraeus")),
-        ("mara", "wait", None),
-        ("mara", "move", Some("greek-piraeus")),
-        ("vale", "wait", None),
-        ("mara", "move", Some("greek-road-athens-piraeus")),
-        ("mara", "move", Some("greek-athens")),
-        ("mara", "move", Some("greek-athens-harbor")),
+        ("mara", "move", Some("greek-harbor")),
     ];
     for (step, (actor, kind, target)) in plays.into_iter().enumerate() {
         let action = world.project(usize::from(actor == "mara")).unwrap()["actions"]
@@ -273,19 +265,19 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         if step == 0 {
             assert_eq!(world.game["transports"]["greek-ship"]["dock"], "pond");
         }
-        if step < 7 {
+        if step < 3 {
             assert_eq!(
                 views[0]["background"],
-                "./assets/greek-drama/athens-harbor-open-berth-night.webp"
+                "./assets/greek-drama/harbor-open-berth-night.webp"
             );
         } else {
             assert_eq!(
                 world.game["transports"]["greek-ship"]["dock"],
-                "greek-athens-harbor"
+                "greek-harbor"
             );
             assert_eq!(
                 views[0]["background"],
-                "./assets/greek-drama/athens-harbor-ship-at-berth-night.webp"
+                "./assets/greek-drama/harbor-ship-at-berth-night.webp"
             );
         }
         if step == plays.len() - 1 {

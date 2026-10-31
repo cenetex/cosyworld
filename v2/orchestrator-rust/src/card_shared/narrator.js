@@ -12364,6 +12364,11 @@
                 to: "greek-piraeus",
                 opensWith: [
                   {
+                    kind: "flag",
+                    key: "greek-open-door-open",
+                    value: true
+                  },
+                  {
                     kind: "item_present",
                     item: "greek-provisions",
                     place: "greek-ship"
@@ -12376,7 +12381,14 @@
               },
               {
                 from: "greek-athens-harbor",
-                to: "greek-piraeus"
+                to: "greek-piraeus",
+                opensWith: [
+                  {
+                    kind: "flag",
+                    key: "greek-open-door-plea-registered",
+                    value: true
+                  }
+                ]
               },
               {
                 from: "greek-piraeus",
@@ -19804,14 +19816,14 @@
   }
   var laneNeed = (gate) => [
     ...new Set(
-      gate.map((c) => c.item ? nameOf(c.item) : "something from there")
+      (gate || []).filter((c) => c.place).map((c) => c.item ? nameOf(c.item) : "something from there")
     )
   ].join(" and ");
   var laneFact = (from, to) => {
-    const gate = laneConditions(from, to);
+    const need = laneNeed(laneConditions(from, to));
     return {
       id: `lane:${from}>${to}`,
-      text: gate ? `Ships for ${nameOf(to)} leave from ${nameOf(from)} only with ${laneNeed(gate)} aboard.` : `Ships for ${nameOf(to)} leave from ${nameOf(from)}.`
+      text: need ? `Ships for ${nameOf(to)} leave from ${nameOf(from)} only with ${need} aboard.` : `Ships for ${nameOf(to)} leave from ${nameOf(from)}.`
     };
   };
   var laneFactText = (id) => {

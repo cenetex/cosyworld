@@ -139,6 +139,16 @@ deletes the originals.
 After step 5, an art, pose, dialogue or pack PR changes `content.json` or
 `narrator.js` (both generated) and never `engine-v*.js`.
 
+## Content that saved state repeats
+
+Saved knowledge keeps the words of a told sea lane (`lane:a>b`), and the
+rules check them against `laneFact`, which reads the lane's `opensWith`. A
+pack revision that changed those words would make saved knowledge invalid
+after a `repack`. From rules v59 a lane is told only with the conditions that
+sit aboard (they name a `place`); a story `flag` goes untold. So adding a
+story gate to a lane, as the Open Door did, is a pack change that keeps the
+words.
+
 ## Later
 
 - Hash only the fields the rules read, so an image path change does not even

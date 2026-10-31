@@ -5,7 +5,6 @@ import { createServer } from "../card-game/serve.mjs";
 import { encodeSave, legalActions } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
-import { learnLane } from "../card-game/pack-transport.mjs";
 import {
   openDoorStart,
   openDoorAction,
@@ -30,10 +29,9 @@ try {
     fixture.controlledActors = ["vale", "mara"];
     fixture.presentActors = ["mara"];
     fixture.actors.mara.place = "greek-athens-harbor";
-    // Black Pond sails only to the Wine-Dark Harbor. Mara has heard the
-    // lane from Athens Harbor to Piraeus; the Travel Provisions on deck open
-    // the lane on to the Wine-Dark Harbor.
-    learnLane(fixture, "mara", "greek-athens-harbor", "greek-piraeus");
+    // Black Pond sails only to the Wine-Dark Harbor. With the Open Door the
+    // Travel Provisions on deck open the lane between it and Piraeus; the
+    // Athens Harbor lane waits for the plea at the Agora.
     if (fixture.items["greek-provisions"].holder !== "greek-ship")
       throw new Error("The opening fixture keeps the provisions aboard.");
     const page = await browser.newPage({
@@ -141,8 +139,8 @@ try {
       path: new URL(`athens-empty-${width}.png`, output).pathname,
       fullPage: true,
     });
-    // Mara walks to Piraeus and comes back by the town road, then the ship
-    // takes her from Athens Harbor home by Piraeus to the Wine-Dark Harbor.
+    // Mara walks to Piraeus and comes back by the town road, visits Athens
+    // Harbor, then walks to Piraeus and the ship takes her home.
     for (const target of [
       "greek-athens",
       "greek-road-athens-piraeus",
@@ -154,6 +152,9 @@ try {
       "greek-colonus",
       "greek-athens",
       "greek-athens-harbor",
+      "greek-athens",
+      "greek-road-athens-piraeus",
+      "greek-piraeus",
       "greek-ship",
       "greek-harbor",
       "greek-road-thebes",

@@ -24,8 +24,8 @@ try {
     for (const id of players) world.actors[id].place = "pond";
     summonTransport(world, "greek-ship", "pond");
     world.crossings["pond-greek-harbor"].discovered = true;
-    // Mara carries the Travel Provisions, which open the Piraeus lane for
-    // everyone aboard with her.
+    // Mara carries the Travel Provisions. Before the Open Door they leave
+    // the Piraeus lane closed.
     world.items["greek-provisions"].holder = "mara";
     const pages = [];
     const contexts = [];
@@ -180,10 +180,13 @@ try {
       await move(vale, "vale", "greek-ship");
       assert.equal(world.actors.mara.place, "greek-ship");
       await mara.locator('#hand [data-card="pond"]').waitFor();
-      // The provisions Mara carries aboard open the Piraeus course for
-      // everyone on deck, though neither has heard the lane.
-      await mara.locator('#hand [data-card="greek-piraeus"]').waitFor();
-      await vale.locator('#hand [data-card="greek-piraeus"]').waitFor();
+      // The Piraeus course waits for the Open Door as well as the
+      // provisions Mara carries aboard.
+      for (const page of [mara, vale])
+        assert.equal(
+          await page.locator('#hand [data-card="greek-piraeus"]').count(),
+          0,
+        );
       await mara.screenshot({
         path: new URL(`known-lanes-${width}.png`, output).pathname,
       });
@@ -204,7 +207,7 @@ try {
     }
   }
   console.log(
-    "Shared ship: three players, both shores, a returning rider, the provisions lane, desktop and phone passed.",
+    "Shared ship: three players, both shores, a returning rider, the closed Piraeus lane, desktop and phone passed.",
   );
 } finally {
   await browser.close();
