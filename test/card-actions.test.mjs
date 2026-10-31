@@ -63,12 +63,13 @@ describe("named card actions", () => {
     expect(primary(world, ["vale", "pond"]).kind).toBe("move");
     expect(primary(world, ["lamp", "station"]).kind).toBe("drop");
   });
-  it("supports use, refill, cover and uncover in either order", () => {
+  it("supports use, cover and uncover in either order", () => {
     const world = meeting();
     world.items.oil.holder = "vale";
     world.items.cloth.holder = "vale";
     expect(primary(world, ["vale", "lamp"]).kind).toBe("light");
-    expect(primary(world, ["oil", "lamp"]).kind).toBe("refill");
+    // The flask refuels an empty lamp on its own; the pair has no play.
+    expect(kinds(world, ["oil", "lamp"])).toEqual([]);
     expect(primary(world, ["cloth", "lamp"]).kind).toBe("cover");
     world.items.cloth.holder = "lamp";
     expect(playLabel(primary(world, ["cloth", "lamp"]))).toBe("Uncover");

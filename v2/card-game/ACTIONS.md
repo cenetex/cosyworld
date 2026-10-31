@@ -25,11 +25,13 @@ holder's group. Transfers move the cards into the new holder's group.
 | Own item + person                         | Give to that person                          |
 | Their item + person                       | Ask them for it                              |
 | Own item + their item                     | Trade the named items                        |
-| Oil + lamp                                | Pour oil                                     |
 | Cloth + lamp or bell                      | Cover or Uncover                             |
 | Carried item + current place              | Put down                                     |
 | Carried item + destination                | Carry there                                  |
 | Lamp or bell resting here + current place | Light, Put out, or Ring in place             |
+
+Oil and the lamp have no pair play. When one avatar holds both while the lamp
+is empty, the flask fills the lamp to twelve and returns full to the station.
 
 The world rules decide which plays are available. Give is offered whenever
 the person here has room for the item, and Trade whenever both sides have room.

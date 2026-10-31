@@ -83,11 +83,11 @@ describe("entity memories and model text", () => {
     );
   });
 
-  it("sends the final lamp state after refilling, lighting, covering and running dry", () => {
+  it("sends the final lamp state after refueling, lighting, covering and running dry", () => {
     let world = createWorld();
     world.actors.vale.place = "pond";
     world.items.lamp.holder = "vale";
-    world.items.oil.holder = "vale";
+    world.items.oil.holder = "pond";
     world.items.cloth.holder = "vale";
     world.items.lamp.fuel = 0;
     const lamp = (state) =>
@@ -97,7 +97,8 @@ describe("entity memories and model text", () => {
           value,
         ]),
       );
-    world = act(world, "refill", "oil");
+    world = act(world, "take", "oil");
+    expect(world.items.lamp.fuel).toBe(12);
     expect(lamp(world)).toMatchObject({
       "lamp-flame": false,
       "lamp-cover": false,
@@ -708,7 +709,6 @@ describe("witnessed departures and conversation continuity", () => {
       "take",
       "drop",
       "cover",
-      "refill",
       "ring",
       "talk",
       "move",

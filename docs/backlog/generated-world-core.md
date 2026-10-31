@@ -50,7 +50,7 @@ The prototype (`v2/card-game/`, surveyed 2026-10-18 at 1.0.226):
   levels, and stall refresh.
 - **Scripted site, about 500 lines.** The three places, three avatars, and four
   items, the opening, the authored `questPrograms` and `restingHands`, and the
-  powers: lamp fuel, oil refills, the bell, the cloth cover, and the light-gated
+  powers: lamp fuel, automatic oil refuels, the bell, the cloth cover, and the light-gated
   attic–pond path. Planner branches, card hints, the validator, and most tests
   name these entities.
 - **Fixed entity sets.** `ids` and `actorIds` are computed when the module

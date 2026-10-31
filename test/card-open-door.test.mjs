@@ -23,6 +23,7 @@ import {
   openDoorWalk,
   playOpenDoor,
 } from "./helpers/open-door.mjs";
+import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
 const state = (world) => world.packs["greek-drama"];
 const accessible = (world) =>
@@ -308,7 +309,7 @@ describe("the Open Door", () => {
     );
     for (const key of ["choices", "flags", "receipts", "met"])
       expect(state(world)[key]).toEqual(earlier.packs["greek-drama"][key]);
-    for (const [id, item] of Object.entries(earlier.items))
+    for (const [id, item] of Object.entries(upgradedItems(earlier.items)))
       expect(world.items[id]).toEqual(item);
     expect(world.quests).toBeUndefined();
     expect(reload(world)).toEqual(world);

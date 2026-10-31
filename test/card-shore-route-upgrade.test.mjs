@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { upgradeShoreRouteSave } from "../v2/card-game/legacy-saves.mjs";
+import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 const releasedSource = readFileSync(new URL(
   "../v2/orchestrator-rust/src/card_shared/engine-v14.js", import.meta.url,
 ), "utf8");
@@ -41,7 +42,7 @@ describe("earlier station route knowledge", () => {
       }
       expect(next.log).toEqual(world.log);
       expect(next.turn).toBe(world.turn);
-      for (const [id, item] of Object.entries(world.items)) expect(next.items[id], id).toEqual(item);
+      for (const [id, item] of Object.entries(upgradedItems(world.items))) expect(next.items[id], id).toEqual(item);
       const before = structuredClone(next);
       upgradeShoreRouteSave(next);
       expect(next).toEqual(before);

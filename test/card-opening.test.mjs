@@ -312,7 +312,6 @@ describe("the first light in the attic", () => {
               "accompany",
               "talk",
               "light",
-              "refill",
             ].includes(a.kind),
           ),
           a = i % 3 ? plan(s).action : acts[seed % acts.length];

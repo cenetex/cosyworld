@@ -159,7 +159,7 @@ export function cardPlay(world, selected) {
       packThings[id]
         ? "Pair with a person to give it, or this place to put it down."
         : id === "oil"
-          ? "Pair with the Lamp to pour oil."
+          ? "Hold it with an empty Lamp to fill the Lamp."
           : "Pair with the Lamp or Bell to cover it.",
     );
   }
@@ -221,7 +221,7 @@ export function cardPlay(world, selected) {
   if (trade) return result(trade);
   const action = actions.find(
     (a) =>
-      ["cover", "refill"].includes(a.kind) &&
+      a.kind === "cover" &&
       a.cards.length === cards.length &&
       cards.every((id) => a.cards.includes(id)),
   );
@@ -310,7 +310,6 @@ export function playLabel(action) {
     light: "Light",
     snuff: "Put out",
     ring: "Ring",
-    refill: "Pour oil",
     cover: "Cover",
     move: "Travel",
     talk: "Talk",

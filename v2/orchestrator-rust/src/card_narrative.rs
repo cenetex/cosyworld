@@ -542,7 +542,6 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
             | "light"
             | "snuff"
             | "ring"
-            | "refill"
             | "cover"
             | "threaten"
             | "guard"

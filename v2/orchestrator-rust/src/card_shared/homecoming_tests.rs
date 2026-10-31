@@ -192,7 +192,10 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
                 assert_eq!(world.game[key], old.game[key]);
             }
             for field in ["items", "crossings"] {
-                for (key, value) in old.game[field].as_object().unwrap() {
+                for (key, value) in super::saved_items::upgraded_field(&old.game, field)
+                    .as_object()
+                    .unwrap()
+                {
                     assert_eq!(&world.game[field][key], value);
                 }
             }
