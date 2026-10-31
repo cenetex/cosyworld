@@ -7,6 +7,7 @@ import {
 } from "./human-cast.mjs";
 import { knowsFact } from "./knowledge.mjs";
 import { DAYLIGHT_TURNS } from "./daylight.mjs";
+import { locationWeather } from "./weather.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
 // that sound, and residents with a temperament. No rule here names a pack,
 // place, resident or hub object; the compiled packs supply every name.
@@ -152,6 +153,12 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
         (Math.floor((s.turn || 0) / DAYLIGHT_TURNS) % 2 ? "night" : "day") ===
         c.phase
       );
+    // The saved regional weather where c.place is.
+    case "weather":
+      return locationWeather(s, c.place)?.condition === c.condition;
+    // A transport docked (or just arrived) at a port, not at sea.
+    case "ship_at":
+      return shipDock(s, c.transport) === c.dock;
     default:
       return false;
   }
@@ -169,8 +176,7 @@ export const crossingOpen = (s, c, senses) =>
   entityActive(s, c.from) &&
   entityActive(s, c.to) &&
   (c.transport
-    ? transportUnlocked(s, c.transport) &&
-      shipDock(s, c.transport) === c.from
+    ? transportUnlocked(s, c.transport) && shipDock(s, c.transport) === c.from
     : windowOpen(s, c) && signalReady(s, c, senses)) &&
   c.requires.every((r) => conditionMet(s, r, senses, c.packId));
 export const crossingBetween = (from, to, s = null) =>

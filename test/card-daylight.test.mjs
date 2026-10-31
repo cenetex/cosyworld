@@ -269,13 +269,31 @@ describe("day and night in Greece", () => {
 });
 
 describe("Willows night paintings", () => {
-  it("shows the ship-lit landing and the lit camp at night only", () => {
-    const night = { turn: DAYLIGHT_TURNS };
-    const day = { turn: 0 };
+  it("shows the ship at the landing only in dark mist at Black Pond, and the lit camp at night", () => {
+    const at = (turn, dock = "pond", phase = "docked") => ({
+      turn,
+      transports: { "greek-ship": { dock, phase } },
+    });
+    const night = at(DAYLIGHT_TURNS);
+    const day = at(0);
+    // Night and Boeotian mist at the ship's rail: turns 120-131 of every 144,
+    // and only while the ship lies at Black Pond.
+    const darkMist = at(120);
+    const mistyDay = at(48);
     expect(backdrop("willows-landing", day)).toBe(
       "./assets/willows/landing.webp",
     );
-    expect(backdrop("willows-landing", night)).toBe(
+    for (const clock of [
+      night,
+      mistyDay,
+      at(132),
+      at(120, "greek-harbor"),
+      at(120, "pond", "sea"),
+    ])
+      expect(backdrop("willows-landing", clock)).toBe(
+        "./assets/willows/landing.webp",
+      );
+    expect(backdrop("willows-landing", darkMist)).toBe(
       "./assets/willows/landing-ship-night.webp",
     );
     expect(backdrop("willows-camp", night)).toBe(

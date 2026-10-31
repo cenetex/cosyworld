@@ -179,10 +179,7 @@ describe("the Theban release and its ship", () => {
     expect(exits(s, pack.entry, "vale")).toContain("greek-ship");
     s.actors.vale.place = pack.entry;
     const aboard = act(s, "move", { target: "greek-ship" });
-    expect(exits(aboard, "greek-ship", "vale")).toEqual([
-      "willows-landing",
-      "pond",
-    ]);
+    expect(exits(aboard, "greek-ship", "vale")).toEqual(["pond"]);
   });
   it("retains genuine schema-6 branches, evidence, memories and wider geography", () => {
     const before = legacy("egypt"),
