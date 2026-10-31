@@ -705,6 +705,27 @@ one extra WebGL context. Reduced motion holds a single frame. Clear skies and
 hidden tabs stop the animation loop. Without WebGL, `weather.css` supplies the
 earlier gradient view.
 
+`transitions.mjs` softens changes that happen while the player stays in one
+place. When night falls or lifts, the old painting fades over the new one for
+four seconds and the light filter eases with it. Other painting changes in the
+same place, such as a lamp or an opened crossing, fade in under a second. When
+the weather turns, the shader eases its rain, cloud, mist and night values over
+six seconds, so a storm gathers and mist lifts instead of snapping. Travel cuts
+under its veil, and reduced motion cuts everywhere. These are presentation only:
+they read the committed scene, so local and shared play look the same.
+
+On Halloween (31 October, browser local date; `HALLOWEEN_DAYS` in
+`transitions.mjs`) some entries to a place briefly show one image as something
+else for 140 milliseconds: either a figure or the painting, never both. The
+copy is the image's own name with `-uncanny.webp`, such as
+`assets/willows/swede-seated-uncanny.webp` beside `swede-seated.webp`. Images
+without a copy registered in `image-variants.json` never flicker, so new art
+needs no code. The copy is preloaded and stacked on its image with the same box
+and light filter, so nothing moves or brightens. There is at most one cut per
+entry and none within 30 seconds. Reduced motion and Settings → Flashes and
+scares: off disable it. `?halloween=1` or `?halloween=0` forces the date for
+testing.
+
 New Greek games expose the harbor and six Theban places, each with a distinct
 painting. The Open Door adds five paintings and eight resident portraits.
 Old Greek saves retain later routes and histories. The ship uses

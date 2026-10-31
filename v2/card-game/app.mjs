@@ -5,6 +5,13 @@ import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
 import { locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
+import {
+  CHANGE_FADE_MS,
+  CROSSFADE_MS,
+  crossfadeImage,
+  hauntScene,
+  installScaresToggle,
+} from "./transitions.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import { expressionLabel, expressionOf } from "./expression.mjs";
 import {
@@ -159,8 +166,7 @@ const localBackups =
 try {
   await localBackups?.restore();
   const saved = sharedSession ? null : localStorage.getItem(SAVE_KEY);
-  if (saved)
-    world = enableMotives(decodeSave(saved));
+  if (saved) world = enableMotives(decodeSave(saved));
 } catch (error) {
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
@@ -606,6 +612,7 @@ function updateSoundButton() {
   $("speech-sound").textContent = `Voices: ${soundEnabled ? "on" : "off"}`;
   $("speech-sound").setAttribute("aria-pressed", String(soundEnabled));
 }
+installScaresToggle($("scares-toggle"));
 $("speech-sound").onclick = () => {
   soundEnabled = !soundEnabled;
   speechSounds.setEnabled(soundEnabled);
@@ -1598,12 +1605,20 @@ function renderStage(locationId) {
   if (picture) picture.hidden = !stage;
   $("backdrop").hidden = Boolean(stage);
   if (stage) {
+    const painting = picture.querySelector(".backdrop");
+    painting.dataset.source = backdrop(locationId, world);
+    crossfadeImage(painting, imageUrl(painting.dataset.source), {
+      duration: reducedMotion.matches ? 0 : CROSSFADE_MS,
+    });
+  }
+  if (stage) {
     const sprite = $("resident-sprite");
     const mood = variantOf(world, stage.resident);
     const source = imageUrl(portrait(stage.resident, null, world));
     sprite.decoding = "async";
     sprite.fetchPriority = "high";
     if (sprite.getAttribute("src") !== source) sprite.src = source;
+    sprite.dataset.source = portrait(stage.resident, null, world);
     sprite.dataset.state = mood?.name || "present";
     sprite.alt = mood?.alt || nameOf(stage.resident);
   }
@@ -1751,13 +1766,28 @@ function renderScene() {
   shownSceneLine = scene.line;
   const img = $("backdrop");
   const background = imageUrl(scene.background);
-  if (img.getAttribute("src") !== background) img.src = background;
+  // Night falling or weather turning where the player stays fades in.
+  const stayed = img.dataset.place === scene.locationId;
+  const phase = scene.daylight?.phase || "day";
+  const nightfall = stayed && img.dataset.phase !== phase;
+  img.dataset.place = scene.locationId;
+  img.dataset.phase = phase;
+  img.dataset.source = scene.background;
+  $("stage").dataset.settled = String(stayed);
+  crossfadeImage(img, background, {
+    duration:
+      !stayed || reducedMotion.matches
+        ? 0
+        : nightfall
+          ? CROSSFADE_MS
+          : CHANGE_FADE_MS,
+  });
   img.alt = placeText(world, scene.locationId);
   if (scene.weather) img.alt += ` Weather: ${scene.weather.condition}.`;
   if (scene.daylight) img.alt += ` ${scene.daylight.description}`;
   img.dataset.locationVariant = scene.variant;
   $("stage").dataset.timeOfDay = scene.daylight?.phase || "day";
-  renderWeather($("stage"), scene.weather);
+  renderWeather($("stage"), scene.weather, { ease: stayed });
   let overlay = $("location-overlay");
   if (scene.overlay && !overlay) {
     overlay = node("img", undefined, "backdrop location-overlay");
@@ -1845,6 +1875,7 @@ function renderScene() {
     image.decoding = "async";
     image.fetchPriority = "high";
     if (image.getAttribute("src") !== source) image.src = source;
+    image.dataset.source = actor.cutout;
     image.dataset.flip = String(flipStagePortrait(actor.cutout, actor.facing));
     figure.dataset.flip = image.dataset.flip;
     renderHeldItem(figure, actor, id === currentActor(world) ? handItem : null);
@@ -1908,6 +1939,10 @@ function renderScene() {
         if (entrances.get(figure) === task) entrances.delete(figure);
       });
     }
+  });
+  hauntScene($("stage"), scene.locationId, {
+    reduced: reducedMotion.matches,
+    url: (source) => imageUrl(source),
   });
   const sharedSpeech = sharedSession
     ? sharedSpeechState(sharedSession.state, scene.locationId)
