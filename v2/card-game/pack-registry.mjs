@@ -247,6 +247,7 @@ export const packMediaFiles = [
       ]),
       ...Object.values(pack.avatars).flatMap((a) => [
         a.portrait,
+        ...(a.poses || []).map((p) => p.portrait),
         ...Object.values(a.variants || {}).map((v) => v.portrait),
       ]),
     ]),

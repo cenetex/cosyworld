@@ -532,6 +532,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "presentation",
         "tastes",
         "portrait",
+        "poses",
         "temperament",
         "variants",
         "home",
@@ -613,10 +614,30 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         `avatar ${id} variants need a temperament`,
       );
       media(a.portrait, `avatar ${id} portrait`);
+      // Poses: the first entry whose place and saved conditions hold replaces
+      // the portrait on stage. They change presentation only.
+      if (a.poses !== undefined)
+        check(
+          Array.isArray(a.poses) &&
+            a.poses.length > 0 &&
+            a.poses.length <= 8 &&
+            a.poses.every(
+              (p) =>
+                keysOk(p, ["portrait", "at", "requires", "scale"]) &&
+                mediaPathOk(pack.id, p.portrait) &&
+                (p.at !== undefined || p.requires !== undefined) &&
+                (p.at === undefined || owns(places, p.at)) &&
+                (p.scale === undefined ||
+                  (typeof p.scale === "number" &&
+                    p.scale >= 0.3 &&
+                    p.scale <= 1)),
+            ),
+          `avatar ${id} poses need a portrait in this pack, a place or saved conditions, and a scale from 0.3 to 1`,
+        );
       continue;
     }
     check(
-      a.portrait === undefined,
+      a.portrait === undefined && a.poses === undefined,
       `avatar ${id} with a temperament takes portraits from its variants`,
     );
     check(
@@ -847,6 +868,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     requirements(p.requires, `place ${id} requires`);
   for (const [id, a] of Object.entries(avatars)) {
     requirements(a.requires, `avatar ${id} requires`);
+    for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
+      requirements(p?.requires, `avatar ${id} pose ${n + 1} requires`);
     if (a.canonicalPerson !== undefined)
       check(
         idOk(a.canonicalPerson),

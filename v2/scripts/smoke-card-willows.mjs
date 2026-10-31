@@ -118,6 +118,20 @@ try {
       await portrait.evaluate((img) => img.complete && img.naturalWidth > 0),
     );
     await page.keyboard.press("Escape");
+    // The Swede's pose follows saved discoveries and his place.
+    const pose = (name) =>
+      page.waitForFunction(
+        (name) =>
+          [
+            ...document.querySelectorAll(
+              '#cast [data-avatar="willows-swede"] img',
+            ),
+          ].some((img) =>
+            img.src.split("?")[0].endsWith(`/willows/${name}.webp`),
+          ),
+        name,
+      );
+    await pose("swede-seated");
     await page.screenshot({
       path: new URL(`camp-${width}.png`, output).pathname,
     });
@@ -132,8 +146,11 @@ try {
     });
     await move("willows-thicket");
     await move("willows-camp");
+    await pose("swede-listening");
     await choose("willows-swede", "compare-signs");
+    await pose("swede-worried");
     await choose("willows-swede", "choose-watch");
+    await pose("swede-listening");
     const beforeReload = (await saved()).packs.willows;
     await page.reload();
     await page.locator('#hand [data-card="willows-camp"]').waitFor();
