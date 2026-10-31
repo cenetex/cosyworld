@@ -17,6 +17,7 @@ import {
   packReadings,
   packFacts,
   hub,
+  validatePackDefinition,
 } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
@@ -182,9 +183,11 @@ describe("The Willows", () => {
     go("vale", "greek-ship");
     expect(world.transports["greek-ship"].dock).toBe("pond");
     go("vale", "willows-landing");
+    // The call is spent. Residents left aboard may set the next course once
+    // the last human steps off (the sea mist now comes round every 48 turns,
+    // so the moth and the keeper are on deck at this hour).
     expect(world.transports["greek-ship"]).toMatchObject({
       dock: "pond",
-      destination: null,
       recall: null,
     });
     expect(packReadings(world, "willows-swede").map((r) => r.id)).toEqual([
@@ -211,6 +214,19 @@ describe("The Willows", () => {
     expect(move(world, "greek-ship").actors.vale.place).toBe("greek-ship");
   });
 
+  it("accepts a bounded any of two to four conditions and the @sea dock", () => {
+    expect(validatePackDefinition(structuredClone(pack))).toBeTruthy();
+    const requires = (bad) => {
+      const copy = structuredClone(pack);
+      copy.crossings[0].requires = [bad];
+      return () => validatePackDefinition(copy);
+    };
+    const sea = { kind: "ship_at", transport: "greek-ship", dock: "@sea" };
+    expect(requires({ kind: "any", conditions: [sea] })).toThrow();
+    expect(requires({ ...sea, dock: "@land" })).toThrow();
+    expect(requires({ kind: "any", conditions: [sea, sea] })).not.toThrow();
+  });
+
   it("rises beside the rail only on a misty night, and keeps a traveller there until the next", () => {
     let world = enableMotives(createWorld({ opening: true }), {
       questPrograms: true,
@@ -223,7 +239,8 @@ describe("The Willows", () => {
     const at = (turn) =>
       Object.assign(structuredClone(world), { turn, revision: turn });
     const deck = (w) => exits(w, "greek-ship", "vale");
-    // Night is every other block of 24 turns; the deck's mist is Boeotian.
+    // Night is every other block of 24 turns; the deck has its own sea
+    // weather (weather.json "sea": mist, rain, mist, rain, mist, clear).
     const day = at(0);
     expect(isNight(day)).toBe(false);
     expect(deck(day)).not.toContain("willows-landing");
@@ -239,29 +256,55 @@ describe("The Willows", () => {
     expect(isNight(mistyDay)).toBe(false);
     expect(deck(mistyDay)).not.toContain("willows-landing");
     const night = mist(at(0));
-    expect(night.turn).toBe(120);
+    expect(night.turn).toBe(24);
     expect(deck(night)).toContain("willows-landing");
     expect(availableCards(night)).toContain("willows-landing");
-    // Only at Black Pond: the same dark mist at the Wine-Dark Harbor, or at
-    // sea, raises nothing.
-    for (const ship of [
-      { dock: "greek-harbor", phase: "docked" },
-      { dock: "pond", phase: "sea" },
-    ]) {
-      const elsewhere = structuredClone(night);
-      Object.assign(elsewhere.transports["greek-ship"], ship);
-      expect(deck(elsewhere)).not.toContain("willows-landing");
-      expect(availableCards(elsewhere)).not.toContain("willows-landing");
+    // At Black Pond or at sea between ports (#1589); the same dark mist at
+    // the Wine-Dark Harbor raises nothing.
+    const harbor = structuredClone(night);
+    Object.assign(harbor.transports["greek-ship"], {
+      dock: "greek-harbor",
+      phase: "docked",
+    });
+    expect(deck(harbor)).not.toContain("willows-landing");
+    expect(availableCards(harbor)).not.toContain("willows-landing");
+    const sea = structuredClone(night);
+    Object.assign(sea.transports["greek-ship"], {
+      dock: "greek-harbor",
+      destination: "pond",
+      phase: "sea",
+    });
+    expect(deck(sea)).toContain("willows-landing");
+    expect(availableCards(sea)).toContain("willows-landing");
+    // At sea by day, or on a rainy night at sea, the card stays away.
+    for (const turn of [0, 36]) {
+      const off = Object.assign(structuredClone(sea), { turn, revision: turn });
+      expect(deck(off)).not.toContain("willows-landing");
     }
+    // Stepping off at sea leaves the empty ship to finish its voyage; the
+    // island keeps a way back only while it sails or lies at the pond.
+    const fromSea = move(sea, "willows-landing");
+    expect(fromSea.actors.vale.place).toBe("willows-landing");
+    expect(exits(fromSea, "willows-landing", "vale")).toContain("greek-ship");
+    Object.assign(fromSea.transports["greek-ship"], {
+      dock: "pond",
+      destination: null,
+      phase: "docked",
+    });
+    expect(exits(fromSea, "willows-landing", "vale")).toContain("greek-ship");
+    fromSea.transports["greek-ship"].dock = "greek-harbor";
+    expect(exits(fromSea, "willows-landing", "vale")).not.toContain(
+      "greek-ship",
+    );
     // The same clock decides it after a reload and in a shared view.
     expect(deck(decodeSave(encodeSave(night)))).toContain("willows-landing");
     // Ashore when the mist lifts: no way back until the next misty night.
     let ashore = move(night, "willows-landing");
-    ashore.turn = ashore.revision = 132;
+    ashore.turn = ashore.revision = 36;
     expect(exits(ashore, "willows-landing", "vale")).not.toContain(
       "greek-ship",
     );
-    expect(mist(ashore).turn).toBe(264);
+    expect(mist(ashore).turn).toBe(72);
     expect(exits(ashore, "willows-landing", "vale")).toContain("greek-ship");
   });
 
@@ -286,6 +329,8 @@ describe("The Willows", () => {
     expect(world.packs.willows.choices["willows-response"]).toBe("watch");
     expect(world.actors["willows-swede"].place).toBe("willows-camp");
     world = move(world, "willows-landing");
+    // Residents aboard may have sailed the ship on; the lamp calls it home.
+    summonTransport(world, "greek-ship", "pond");
     expect(exits(mist(world), "willows-landing", "vale")).toContain(
       "greek-ship",
     );
@@ -356,8 +401,15 @@ describe("The Willows", () => {
     world = choose(ready, "choose-departure");
     expect(world.packs.willows.choices["willows-response"]).toBe("depart");
     // A resident who boarded at the pond may have sailed the ship off while
-    // Vale was ashore; the lamp calls it home before the next dark mist.
-    summonTransport(world, "greek-ship", "pond");
+    // Vale was ashore, and with the rhapsode still on deck the lamp's call
+    // waits. The sea mist now returns every 48 turns, so the test brings the
+    // ship back to the pond itself before the next dark mist.
+    Object.assign(world.transports["greek-ship"], {
+      phase: "docked",
+      dock: "pond",
+      destination: null,
+      recall: null,
+    });
     world = move(mist(world), "greek-ship");
     world = move(move(mist(world), "willows-landing"), "willows-camp");
     expect(find(world, { choiceId: "willows-choose-watch" })).toBeUndefined();

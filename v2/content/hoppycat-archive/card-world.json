@@ -9,8 +9,8 @@
   "places": {
     "hoppycat-halfway-tea-garden": {
       "name": "Halfway Tea Garden",
-      "text": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup and spool rest on the table.",
-      "persona": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup and spool rest on the table. Describe this as a playful living place. Use the current story facts for progress.",
+      "text": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table.",
+      "persona": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table. Describe this as a playful living place. Use the current story facts for progress.",
       "exits": [
         "hoppycat-open-record-cathedral",
         "hoppycat-prism-foundry",
@@ -339,9 +339,9 @@
   "items": {
     "hoppycat-red-thread-spool": {
       "name": "Red-Thread Spool",
-      "text": "A warm spool that catches only on relationships someone has chosen to carry forward.",
-      "persona": "A warm spool that catches only on relationships someone has chosen to carry forward.",
-      "holder": "hoppycat-halfway-tea-garden",
+      "text": "A warm spool washed up at Black pond, its loose thread trailing over the water. It catches only on relationships someone has chosen to carry forward.",
+      "persona": "A warm spool washed up at Black pond, its loose thread trailing over the water toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
+      "holder": "pond",
       "art": "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png"
     },
     "hoppycat-provenance-card": {
@@ -835,196 +835,6 @@
       "at": "hoppycat-halfway-tea-garden",
       "text": "Tapi still needs one real ally before the broadcast ends.",
       "requires": []
-    }
-  ],
-  "situations": [
-    {
-      "id": "hoppycat-sourced-line",
-      "kind": "delivery",
-      "name": "A sourced line on air",
-      "purpose": "Learn from Penny which card still lacks its source, then bring a provenance card to Hoppy Cat and say one true thing on air.",
-      "takers": [
-        "visitors"
-      ],
-      "roles": {
-        "partner": {
-          "avatar": [
-            "hoppycat-hoppy-cat"
-          ]
-        }
-      },
-      "steps": [
-        {
-          "at": "hoppycat-open-record-cathedral",
-          "with": [
-            "hoppycat-penny-vellum"
-          ],
-          "conditions": [
-            {
-              "kind": "knows",
-              "topic": "hoppycat-missing-source"
-            }
-          ]
-        },
-        {
-          "hold": [
-            "hoppycat-provenance-card"
-          ],
-          "at": "hoppycat-halfway-tea-garden",
-          "with": [
-            "$partner"
-          ],
-          "conditions": [
-            {
-              "kind": "knows",
-              "topic": "hoppycat-missing-source"
-            }
-          ]
-        }
-      ],
-      "consequence": {
-        "kind": "trust",
-        "avatar": "$partner"
-      }
-    },
-    {
-      "id": "hoppycat-thanked-by-name",
-      "kind": "delivery",
-      "name": "Thanked by name",
-      "purpose": "Hear from the short Ledger what the long Ledger is missing, then bring a Context Seed to the Cathedral and thank Ledger by name.",
-      "takers": [
-        "visitors"
-      ],
-      "roles": {
-        "partner": {
-          "avatar": [
-            "hoppycat-ledger-opus"
-          ]
-        }
-      },
-      "steps": [
-        {
-          "at": "hoppycat-context-greenhouse",
-          "with": [
-            "hoppycat-ledger-sonnet"
-          ],
-          "conditions": [
-            {
-              "kind": "knows",
-              "topic": "hoppycat-unthanked-ledger"
-            }
-          ]
-        },
-        {
-          "hold": [
-            "hoppycat-context-seed"
-          ],
-          "at": "hoppycat-open-record-cathedral",
-          "with": [
-            "$partner"
-          ]
-        }
-      ],
-      "consequence": {
-        "kind": "trust",
-        "avatar": "$partner"
-      }
-    },
-    {
-      "id": "hoppycat-held-clapper",
-      "kind": "answer",
-      "name": "One more quiet day",
-      "purpose": "Let Nix explain the quiet bell, fetch the Fermata Clapper from Sol's stage, and keep it silent in the belfry beside Nix.",
-      "takers": [
-        "visitors"
-      ],
-      "roles": {
-        "partner": {
-          "avatar": [
-            "hoppycat-nix-fermata"
-          ]
-        }
-      },
-      "steps": [
-        {
-          "at": "hoppycat-red-thread-belfry",
-          "with": [
-            "$partner"
-          ],
-          "conditions": [
-            {
-              "kind": "knows",
-              "topic": "hoppycat-quiet-bell"
-            }
-          ]
-        },
-        {
-          "hold": [
-            "hoppycat-fermata-clapper"
-          ],
-          "at": "hoppycat-settled-light-theatre",
-          "with": [
-            "hoppycat-solwashere"
-          ]
-        },
-        {
-          "hold": [
-            "hoppycat-fermata-clapper"
-          ],
-          "at": "hoppycat-red-thread-belfry",
-          "with": [
-            "$partner"
-          ]
-        }
-      ],
-      "consequence": {
-        "kind": "trust",
-        "avatar": "$partner"
-      }
-    },
-    {
-      "id": "hoppycat-halfway-cup",
-      "kind": "gathering",
-      "name": "A cup for two hands",
-      "purpose": "Hear what Tapi still needs, then hold the Halfway Cup at the tea table with Tapi and Hoppy Cat together.",
-      "takers": [
-        "visitors"
-      ],
-      "roles": {
-        "partner": {
-          "avatar": [
-            "hoppycat-tapi-lilt"
-          ]
-        }
-      },
-      "steps": [
-        {
-          "at": "hoppycat-halfway-tea-garden",
-          "with": [
-            "$partner"
-          ],
-          "conditions": [
-            {
-              "kind": "knows",
-              "topic": "hoppycat-one-ally"
-            }
-          ]
-        },
-        {
-          "hold": [
-            "hoppycat-halfway-cup"
-          ],
-          "at": "hoppycat-halfway-tea-garden",
-          "with": [
-            "$partner",
-            "hoppycat-hoppy-cat"
-          ]
-        }
-      ],
-      "consequence": {
-        "kind": "trust",
-        "avatar": "$partner"
-      }
     }
   ]
 }
