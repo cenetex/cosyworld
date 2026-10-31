@@ -402,6 +402,7 @@ function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
   actor ||= currentActor(s);
   return gate &&
     (controlledByHuman(s, actor) ||
+      homeOf(actor) === place ||
       (gate.opening && knownActors(s).includes(actor))) &&
     s.actors[actor]?.place === place &&
     !ordinaryRouteHome(s, place, gate.rescue, actor, previous) &&
@@ -681,7 +682,8 @@ export function addLog(s, speaker, text, detail = {}) {
     entry.actorId === currentActor(s) &&
     entry.fromLocationId &&
     entry.fromLocationId !== entry.locationId &&
-    (entry.verb === "move" || (entry.verb === "accompany" && entry.accepted))
+    (["move", "retreat", "sent-home"].includes(entry.verb) ||
+      (entry.verb === "accompany" && entry.accepted))
   )
     s.arrival = {
       seq: entry.seq,
@@ -897,6 +899,69 @@ function closeStandoff(s, c) {
   s.standoffs = s.standoffs.filter((entry) => entry !== c);
   for (const id of [c.challenger, c.defender]) s.peaceUntil[id] = s.turn + 3;
 }
+// Consecutive defeats per avatar. A win or a rest at home clears the count;
+// the third defeat sends the loser home with empty hands.
+export const DEFEATS_TO_SEND_HOME = 3;
+// A loss at zero resolve. The first two drop the disputed item and fall back
+// along an open path. The third drops everything the loser carries where they
+// fell and puts them at home. Being sent home is not a crossing.
+function defeatInStandoff(s, c, winner, loser, here) {
+  const defeats = (s.defeats ??= {});
+  delete defeats[winner];
+  const lossCount = (defeats[loser] || 0) + 1;
+  const home = homeOf(loser);
+  const sentHome =
+    lossCount >= DEFEATS_TO_SEND_HOME &&
+    Boolean(home) &&
+    entityActive(s, home) &&
+    actorCanVisit(loser, home, s);
+  const dropped = sentHome
+    ? ids.filter((id) => s.items[id].holder === loser)
+    : [
+        c.item && rootHolder(s, c.item) === loser
+          ? c.item
+          : ids.find(
+              (id) => s.items[id].holder === loser && needed(s, winner, id),
+            ),
+      ].filter(Boolean);
+  let text = "";
+  for (const id of dropped)
+    transfer(s, id, here, `${nameOf(loser)} yields the ${nameOf(id)}.`);
+  if (dropped.length)
+    text += ` ${nameOf(loser)} drops the ${dropped.map(nameOf).join(", the ")}.`;
+  if (lossCount >= DEFEATS_TO_SEND_HOME) delete defeats[loser];
+  else defeats[loser] = lossCount;
+  const outcome = sentHome ? "sent-home" : "yield";
+  const to = sentHome
+    ? home
+    : exits(s, here, loser).find((next) => !isCourse(s, here, next));
+  closeStandoff(s, c);
+  if (!to || to === here) {
+    text += sentHome
+      ? ` ${nameOf(loser)} is already home. The standoff ends.`
+      : ` ${nameOf(loser)} yields here. The standoff ends.`;
+    return { text, outcome, lossCount, droppedItemIds: dropped, to: null };
+  }
+  // A retreat walks an open path; being sent home crosses nothing.
+  if (!sentHome) markCrossed(s, here, to);
+  s.actors[loser].place = to;
+  moveTransport(s, here, to);
+  for (const id of carried(s, loser))
+    remember(s, id, `${nameOf(loser)} retreated to ${nameOf(to)} with it.`);
+  text += sentHome
+    ? ` ${nameOf(loser)} is beaten a third time and sent home to ${nameOf(to)}. The standoff ends.`
+    : ` ${nameOf(loser)} retreats to ${nameOf(to)}. The standoff ends.`;
+  return {
+    text,
+    outcome,
+    lossCount,
+    droppedItemIds: dropped,
+    to,
+    arrivalText: sentHome
+      ? `${nameOf(loser)} arrives home at ${nameOf(to)} with empty hands after a third defeat by ${nameOf(winner)}.`
+      : `${nameOf(loser)} arrives at ${nameOf(to)} after yielding to ${nameOf(winner)}.`,
+  };
+}
 function settleStandoffs(s) {
   for (const c of [...s.standoffs]) {
     const separated = [c.challenger, c.defender].some(
@@ -912,6 +977,7 @@ function settleStandoffs(s) {
           ? `${nameOf(c.challenger)} and ${nameOf(c.defender)} part. The standoff ends.`
           : `The ${nameOf(c.item)} changes hands. The standoff ends.`,
         {
+          kind: "narration",
           actorId: c.challenger,
           targetId: c.defender,
           itemId: c.item,
@@ -1405,6 +1471,7 @@ function perform(s, a, round = null, settle = []) {
   let refusal = null;
   let affected = null,
     arrival = null,
+    combat = null,
     invitation = null;
   switch (a.kind) {
     case "use":
@@ -1463,54 +1530,40 @@ function perform(s, a, round = null, settle = []) {
         1,
         strikePower(s, a.actor, a.target) - Number(guarded),
       );
+      const resolveBefore = conflict.resolve[a.target];
       conflict.guarding[a.target] = false;
       conflict.struck[a.actor] = true;
-      conflict.resolve[a.target] = Math.max(
-        0,
-        conflict.resolve[a.target] - damage,
-      );
+      conflict.resolve[a.target] = Math.max(0, resolveBefore - damage);
       text += ` ${guarded ? "The guard softens the blow. " : ""}${nameOf(a.target)} loses ${damage} resolve.`;
+      combat = {
+        damage,
+        guarded,
+        resolveBefore,
+        resolveAfter: conflict.resolve[a.target],
+        outcome: guarded ? "guarded" : "hit",
+        lossCount: s.defeats?.[a.target] || 0,
+      };
       if (conflict.resolve[a.target] === 0) {
-        const dropped =
-          conflict.item && rootHolder(s, conflict.item) === a.target
-            ? conflict.item
-            : ids.find(
-                (id) =>
-                  s.items[id].holder === a.target && needed(s, a.actor, id),
-              );
-        if (dropped) {
-          transfer(
-            s,
-            dropped,
-            here,
-            `${nameOf(a.target)} yields the ${nameOf(dropped)}.`,
-          );
-          text += ` ${nameOf(a.target)} drops the ${nameOf(dropped)}.`;
-        }
-        const retreat = exits(s, here, a.target).find(
-          (to) => !isCourse(s, here, to),
-        );
-        if (retreat) {
-          markCrossed(s, here, retreat);
-          s.actors[a.target].place = retreat;
-          moveTransport(s, here, retreat);
-          for (const id of carried(s, a.target))
-            remember(
-              s,
-              id,
-              `${nameOf(a.target)} retreated to ${nameOf(retreat)} with it.`,
-            );
-          text += ` ${nameOf(a.target)} retreats to ${nameOf(retreat)}. The standoff ends.`;
+        const defeat = defeatInStandoff(s, conflict, a.actor, a.target, here);
+        text += defeat.text;
+        Object.assign(combat, {
+          outcome: defeat.outcome,
+          lossCount: defeat.lossCount,
+          droppedItemIds: defeat.droppedItemIds,
+        });
+        if (defeat.to)
           arrival = {
-            text: `${nameOf(a.target)} arrives at ${nameOf(retreat)} after yielding to ${who}.`,
+            text: defeat.arrivalText,
+            kind: "narration",
+            verb: defeat.outcome === "sent-home" ? "sent-home" : "retreat",
             actorId: a.target,
-            locationId: retreat,
+            targetId: a.actor,
+            locationId: defeat.to,
             fromLocationId: here,
+            droppedItemIds: defeat.droppedItemIds,
+            lossCount: defeat.lossCount,
+            witnesses,
           };
-        } else {
-          text += ` ${nameOf(a.target)} yields here. The standoff ends.`;
-        }
-        closeStandoff(s, conflict);
       }
       break;
     }
@@ -1660,7 +1713,7 @@ function perform(s, a, round = null, settle = []) {
     ...(invitation
       ? { destinationId: a.destination, accepted: invitation.accepted }
       : {}),
-    ...(a.kind === "attack" ? { locationId: here } : {}),
+    ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
   });
   if (a.kind === "talk") talkKnowledge(s, a, s.log.at(-1));
   recordLearning(s, a, learningStart, s.log.at(-1));
@@ -2082,6 +2135,9 @@ export function play(
     if (next.actors[id].place !== from)
       arriveRoamingRecitals(next, packDefinitions, id);
   }
+  // Resting at home clears a run of defeats.
+  for (const id of Object.keys(next.defeats || {}))
+    if (resting(next, id, homeOf(id))) delete next.defeats[id];
   if (exact.kind === "wait")
     waitForTransport(next, next.actors[actor].place, actor);
   for (const voyage of sailTransports(next)) {
@@ -2262,6 +2318,20 @@ export function validateWorld(s) {
     s.standoffs.length > Math.floor(actorIds.length / 2)
   )
     fail();
+  if (
+    s.defeats !== undefined &&
+    (!s.defeats ||
+      typeof s.defeats !== "object" ||
+      Array.isArray(s.defeats) ||
+      Object.entries(s.defeats).some(
+        ([id, count]) =>
+          !actorIds.includes(id) ||
+          !Number.isInteger(count) ||
+          count < 1 ||
+          count >= DEFEATS_TO_SEND_HOME,
+      ))
+  )
+    fail();
   const fighting = new Set();
   for (const c of s.standoffs) {
     if (
@@ -2423,6 +2493,8 @@ export function validateWorld(s) {
     "threaten",
     "guard",
     "attack",
+    "retreat",
+    "sent-home",
     "move",
     "course",
     "take",
@@ -2482,6 +2554,14 @@ export function validateWorld(s) {
     if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
     if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
     if (e.verb != null && !verbs.includes(e.verb)) fail();
+    if (
+      (e.outcome !== undefined &&
+        !["hit", "guarded", "yield", "sent-home"].includes(e.outcome)) ||
+      (e.droppedItemIds !== undefined &&
+        (!Array.isArray(e.droppedItemIds) ||
+          e.droppedItemIds.some((id) => !ids.includes(id))))
+    )
+      fail();
     if (e.verb === "choose") {
       const pack = packDefinition(e.packId),
         choice = pack?.choices.find((c) => c.id === e.choiceId);
