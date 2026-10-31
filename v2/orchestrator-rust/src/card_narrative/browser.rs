@@ -115,8 +115,13 @@ pub(crate) fn prepare(
                 "temperature":if part==Part::Dream{1.2}else{1.0},"max_tokens":if part==Part::Persona{160}else{96},
                 "stream":false
             });
-            if raw {
+            let temperature = selection
+                .as_ref()
+                .is_none_or(|s| s.candidate().supported_parameters().accepts_temperature());
+            if raw || !temperature {
                 request.as_object_mut().unwrap().remove("temperature");
+            }
+            if raw {
                 if reasoning {
                     request.as_object_mut().unwrap().remove("max_tokens");
                     request["reasoning"] = json!({"enabled":true});

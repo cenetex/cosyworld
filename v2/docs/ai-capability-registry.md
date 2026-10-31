@@ -104,6 +104,13 @@ capabilities, family/size hints, and observations, but remain ineligible until
 a matching declaration exists. A matching declaration and discovery entry are
 normalized into one candidate.
 
+`supported_parameters.temperature` is optional. Leave it out and the gateway
+sends a request temperature as before. Set it to `false` for endpoints whose
+provider catalog omits `temperature`, such as `openai/gpt-6-luna` and
+`anthropic/claude-haiku-5.5`; the gateway and the browser card-call plan then
+omit temperature for that model, including a registry `sampling.temperature`.
+Discovered catalog entries record it from the provider's parameter list.
+
 `data_policy` is truthful route metadata, not a production eligibility gate.
 CosyWorld does not accept player-authored speech, prompts, microphone input, or
 audio uploads; the global text pools receive only server-authored world input.
