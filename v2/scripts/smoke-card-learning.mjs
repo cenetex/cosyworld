@@ -132,7 +132,8 @@ try {
         const before = JSON.stringify(world);
         const actions = legalActions(world);
         const action = actions.find(
-          (a) => a.kind === "trade" && a.item === "bell" && a.receive === "lamp",
+          (a) =>
+            a.kind === "trade" && a.item === "bell" && a.receive === "lamp",
         );
         const choice = reconsiderPlan(
           world,
@@ -160,10 +161,11 @@ try {
       const dialog = page.getByRole("dialog", { name: "Vale's inner life" });
       await dialog.waitFor();
       const text = await dialog.innerText();
+      assert(text.includes("I'm Vale. The Lamplighter."));
       assert(text.includes("learning to listen"));
-      assert(text.includes("My goal is still open"));
-      assert(text.includes("1 measured attempt"));
       assert(text.includes("little boat"));
+      // Measured attempts guide the planner; the panel never shows them.
+      assert(!text.includes("measured attempt"));
       assert(!text.includes("Keeper private sentinel"));
       const box = await dialog.boundingBox();
       assert(box.x >= 0 && box.x + box.width <= width + 1);
