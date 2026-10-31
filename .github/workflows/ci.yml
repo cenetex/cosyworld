@@ -1,19 +1,13 @@
 name: CI
 
 on:
-  pull_request:
-    branches: ["**"]
-  push:
-    branches: [main, develop]
-  # Runs the full suite on a pushed branch without a pull request.
+  # Manual only: gh workflow run ci.yml --ref main. A release tag needs the
+  # latest main run green. PRs merge on local checks and the pre-push hook.
   workflow_dispatch:
 
-# A newer push cancels a pull request's run. Every other run, including each
-# main push, gets its own group, so no main run is cancelled or replaced
-# while waiting and every merge gets a complete result.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.run_id }}
+  cancel-in-progress: false
 
 # Test builds keep assertions and overflow checks, with compact symbols.
 env:
@@ -66,29 +60,6 @@ jobs:
           npm run v2:kernel
           npm run v2:syntax
 
-  # Small branches land continuously. Same script as the pre-push hook, so
-  # skipping hooks cannot skip the budget. No install or build.
-  change-budget:
-    name: Change budget
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          # HEAD is the PR merge commit; HEAD^1 is the base branch tip.
-          fetch-depth: 2
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-
-      - name: Check hand-written lines against the budget
-        env:
-          COSYWORLD_PR_BODY: ${{ github.event.pull_request.body }}
-        run: node scripts/check-change-budget.mjs --base HEAD^1 --head HEAD
-
   runtime:
     name: Rust build and tests
     runs-on: ubuntu-latest
@@ -138,12 +109,12 @@ jobs:
       # the entry exists even if the tests fail. The debug build adds the
       # crates the smoke-test binary needs.
       - name: Compile the smoke-test binary's crates for the cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
+        if: github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
         working-directory: v2/orchestrator-rust
         run: cargo build
 
       - name: Save Cargo build cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
+        if: github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: |

@@ -383,22 +383,18 @@ describe("deploy workflow", () => {
     expect(build).toContain('test "$SMOKE_BINARY_RESULT" = success');
   });
 
-  it("never cancels or replaces a main run; only pull request pushes cancel", () => {
-    // Push- and pull-request-triggered workflows. Deploy serializes on its
-    // own group and never cancels (see deploy-coverage.test.mjs); Fly health
-    // runs only on a schedule or by hand.
+  it("never cancels a check workflow run", () => {
+    // Check workflows run only by hand. Deploy serializes on its own group
+    // and never cancels (see deploy-coverage.test.mjs); Fly health runs only
+    // on a schedule or by hand.
     for (const name of ["ci", "image-build", "local-desktop", "pages"]) {
       const source = readFileSync(
         new URL(`../../.github/workflows/${name}.yml`, import.meta.url),
         "utf8",
       );
       const concurrency = source.match(/\nconcurrency:\n((?: {2}.*\n)+)/)[1];
-      expect(concurrency, name).toContain(
-        "${{ github.head_ref || github.run_id }}",
-      );
-      expect(concurrency, name).toContain(
-        "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
-      );
+      expect(concurrency, name).toContain("${{ github.run_id }}");
+      expect(concurrency, name).toContain("cancel-in-progress: false");
     }
   });
 
@@ -537,9 +533,7 @@ describe("deploy workflow", () => {
       "utf8",
     );
     const desktopSave = desktop.slice(desktop.indexOf("actions/cache/save@v6"));
-    expect(desktopSave).toContain(
-      "github.event_name == 'push' && github.ref == 'refs/heads/main'",
-    );
+    expect(desktopSave).toContain("github.ref == 'refs/heads/main'");
     expect(desktop).toContain(
       "key: macos-arm64-local-v1-day-${{ steps.release.outputs.day }}",
     );
