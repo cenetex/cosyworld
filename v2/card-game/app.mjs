@@ -32,7 +32,11 @@ import {
   humanAvatars,
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
-import { createNarrator, requestNarrative } from "./narrative.mjs";
+import {
+  createNarrator,
+  requestNarrative,
+  silentLines,
+} from "./narrative.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic } from "./music.mjs";
 import { createHum } from "./hum.mjs";
@@ -293,6 +297,15 @@ const completedSpeech = new Set();
 const entrances = new Map();
 const exits = new Map();
 let shownSceneLine = null;
+// Speakers whose words did not come this turn show "…"; never saved or voiced.
+let silence = { turn: -1, lines: [] };
+function shownWorld() {
+  return !sharedSession &&
+    silence.turn === world.turn &&
+    silence.lines.length
+    ? { ...world, log: [...world.log, ...silence.lines] }
+    : world;
+}
 async function prepareStage() {
   await travelShown;
   await waitForScene(
@@ -526,6 +539,7 @@ const reveal = createTextReveal({
   sound: (...args) => {
     if (
       !document.hidden &&
+      !shownSceneLine?.silent &&
       expressionOf(people[args[0]]) === "speech" &&
       !characterSpeech.speaks(args[0])
     )
@@ -540,7 +554,8 @@ const reveal = createTextReveal({
       speechComplete = null;
       text.scrollTop = 0;
       speechSounds.stop();
-      characterSpeech.show(value.key, value.speaker, value.text);
+      if (shownSceneLine?.silent) characterSpeech.clear();
+      else characterSpeech.show(value.key, value.speaker, value.text);
       speechGlyphs = value.letters.map((letter) =>
         node("span", letter, "speech-letter"),
       );
@@ -764,11 +779,15 @@ const narrator = createNarrator({
       (id) => world.actors[id]?.place === context.location,
     );
     shownSpeakers = [];
+    silence = { turn: -1, lines: [] };
     awaitingNext = false;
     pendingSpeaker = nextSpeaker(world, { speakers: sceneSpeakers });
     renderScene();
   },
-  apply: (next, { pending = false, reflection = false } = {}) => {
+  apply: (
+    next,
+    { pending = false, reflection = false, silent = [] } = {},
+  ) => {
     world = next;
     save();
     if (reflection) {
@@ -776,17 +795,22 @@ const narrator = createNarrator({
       return;
     }
     storyStatus = pending ? "pending" : "ready";
-    if (!pending) rememberWordsFailed(null);
-    const lines = world.log.filter(
+    if (!pending) {
+      rememberWordsFailed(null);
+      silence = { turn: world.turn, lines: silentLines(world, silent) };
+    }
+    const lines = shownWorld().log.filter(
       (entry) =>
         entry.generated &&
         entry.kind === "dialogue" &&
         entry.turn === world.turn &&
         entry.locationId === world.actors[currentActor(world)].place,
     );
-    if (localRuntime() && lines.length) {
+    const voiced = lines.filter((entry) => !entry.silent);
+    if (localRuntime() && voiced.length) {
       const line =
-        lines.find((entry) => entry.seq !== exchange.current?.seq) || lines[0];
+        voiced.find((entry) => entry.seq !== exchange.current?.seq) ||
+        voiced[0];
       characterSpeech.prefetch(line.actorId, line.text);
     }
     exchange.load(lines, { pending });
@@ -1887,7 +1911,8 @@ function renderFloorItems(items) {
 function renderScene() {
   // Every path to this renderer keeps the source visible until the veil covers it.
   if (covering) return;
-  const scene = currentScene(world, null, {
+  const view = shownWorld();
+  const scene = currentScene(view, null, {
     seq: lineSeq,
     hold: exchange.preparing,
     review: reviewing || Boolean(sharedSession),
@@ -1939,8 +1964,8 @@ function renderScene() {
       overlay.src = overlaySource;
     overlay.alt = scene.overlay ? placeText(world, scene.locationId) : "";
   }
-  const staging = sceneStaging(world, {
-    through: world.log.length - 1,
+  const staging = sceneStaging(view, {
+    through: view.log.length - 1,
     cast: scene.slots,
     line: resolvedBeat ? null : scene.line,
     activeSpeaker: resolvedBeat ? null : scene.activeSpeaker,
@@ -2317,7 +2342,7 @@ function renderLog() {
   const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
   // Shared rooms include generated room details in their conversation record.
   // Standoff lines join as each beat lands, so the words come before the effect.
-  const conversation = world.log.filter(
+  const conversation = shownWorld().log.filter(
     (entry) =>
       (isCombatLine(entry, currentActor(world)) &&
         !combatHeld.has(entry.seq)) ||
