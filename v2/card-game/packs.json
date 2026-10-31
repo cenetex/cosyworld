@@ -12711,7 +12711,8 @@
           "travel": "through the river mist beside the rail",
           "requires": [
             {
-              "kind": "night"
+              "kind": "daylight",
+              "phase": "night"
             },
             {
               "kind": "weather",
@@ -12738,7 +12739,8 @@
           "travel": "through the river mist to the ship",
           "requires": [
             {
-              "kind": "night"
+              "kind": "daylight",
+              "phase": "night"
             },
             {
               "kind": "weather",

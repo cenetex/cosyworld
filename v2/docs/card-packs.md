@@ -55,8 +55,9 @@ floor and an item held by someone in that room satisfy the same condition.
 holds while any thing from that pack is in the place: resting there, or
 carried by someone present there.
 
-`{ "kind": "night" }` holds during the night blocks of the saved world clock
-(`daylight.mjs`: every other block of 24 turns).
+`{ "kind": "daylight", "phase": "night" }` holds during the night blocks of
+the saved world clock (`daylight.mjs`: every other block of 24 turns), and
+`"phase": "day"` during the others.
 `{ "kind": "weather", "place": "greek-ship", "condition": "mist" }` holds
 while that place's regional weather (`weather.mjs`) is the named condition:
 `clear`, `cloud`, `rain` or `mist`.

@@ -12,14 +12,23 @@ import { enableMotives } from "../card-game/motives.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import { summonTransport } from "../card-game/pack-transport.mjs";
 import { profiles } from "../card-game/memory.mjs";
-import { darkMist } from "../card-game/daylight.mjs";
+import { darkMist, isNight } from "../card-game/daylight.mjs";
+import { locationWeather } from "../card-game/weather.mjs";
 
-// The Willows mist rises beside the ship's rail only on a misty night.
-const untilDarkMist = (world) => {
-  while (!darkMist(world)) world.turn += 1;
+// The Willows mist rises beside the ship's rail only on a misty night while
+// the ship lies at Black Pond. Saves skip ahead on the world clock; the ship
+// is called home and counts its idle rounds from the new turn.
+const until = (world, ok) => {
+  while (!ok(world)) world.turn += 1;
   world.revision = Math.max(world.revision, world.turn);
+  if (world.transports["greek-ship"].dock !== "pond")
+    summonTransport(world, "greek-ship", "pond");
+  world.transports["greek-ship"].since = world.turn;
   return world;
 };
+const untilDarkMist = (world) => until(world, darkMist);
+const clearNight = (world) =>
+  isNight(world) && locationWeather(world, "greek-ship")?.condition !== "mist";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -44,7 +53,6 @@ try {
       seed = result.state;
     }
     seed.crossings["pond-greek-harbor"].discovered = true;
-    untilDarkMist(seed);
     summonTransport(seed, "greek-ship", "pond");
     const table = `willows-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
@@ -113,7 +121,33 @@ try {
     };
     const move = (target) => click(target, '[data-action="move"]');
     const choose = (place, id) => click(place, `[data-choice="willows-${id}"]`);
+    const willowsCards = () =>
+      page.locator('#hand [data-card="willows-landing"]').count();
+    const resave = async (world, card = null) => {
+      await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
+        key,
+        save: JSON.stringify(world),
+      });
+      await page.reload();
+      await page
+        .locator(card ? `#hand [data-card="${card}"]` : "#hand [data-card]")
+        .first()
+        .waitFor();
+    };
     await move("greek-ship");
+    // By day the deck shows no Willows card.
+    assert.equal(isNight(await saved()), false);
+    assert.equal(await willowsCards(), 0);
+    // On a clear night, still none.
+    await resave(until(await saved(), clearNight));
+    assert.equal((await saved()).actors.vale.place, "greek-ship");
+    assert.equal(await willowsCards(), 0);
+    // On a misty night the mist rises beside the rail.
+    await resave(untilDarkMist(await saved()), "willows-landing");
+    assert.equal(await willowsCards(), 1);
+    await page.screenshot({
+      path: new URL(`deck-mist-${width}.png`, output).pathname,
+    });
     await move("willows-landing");
     assert.match(
       await page.locator("#backdrop").getAttribute("src"),
@@ -160,12 +194,7 @@ try {
       await page.locator('#hand [data-card="greek-ship"]').count(),
       0,
     );
-    await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
-      key,
-      save: JSON.stringify(untilDarkMist(stranded)),
-    });
-    await page.reload();
-    await page.locator('#hand [data-card="greek-ship"]').waitFor();
+    await resave(untilDarkMist(stranded), "greek-ship");
     await move("greek-ship");
     assert.equal((await saved()).actors.vale.place, "greek-ship");
     assert.equal(

@@ -19,7 +19,7 @@
       "travelers": "player",
       "travel": "through the river mist beside the rail",
       "requires": [
-        { "kind": "night" },
+        { "kind": "daylight", "phase": "night" },
         { "kind": "weather", "place": "greek-ship", "condition": "mist" },
         { "kind": "ship_at", "transport": "greek-ship", "dock": "pond" }
       ],
@@ -36,7 +36,7 @@
       "travelers": "player",
       "travel": "through the river mist to the ship",
       "requires": [
-        { "kind": "night" },
+        { "kind": "daylight", "phase": "night" },
         { "kind": "weather", "place": "greek-ship", "condition": "mist" },
         { "kind": "ship_at", "transport": "greek-ship", "dock": "pond" }
       ],

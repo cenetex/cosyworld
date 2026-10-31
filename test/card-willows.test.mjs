@@ -43,9 +43,12 @@ const choose = (world, id) => act(world, { choiceId: `willows-${id}` });
 const take = (world, item) =>
   act(world, { kind: "take", item: `willows-${item}` });
 // Wait out the saved world clock until night and mist beside the ship's rail.
+// The jump skips the rounds between, so the ship counts its idle rounds from
+// here (a resident aboard would otherwise sail it off on the next round).
 function mist(world) {
   while (!darkMist(world)) world.turn += 1;
   world.revision = Math.max(world.revision, world.turn);
+  world.transports["greek-ship"].since = world.turn;
   return world;
 }
 function island() {
@@ -141,9 +144,11 @@ describe("The Willows", () => {
     mist(world);
     go("vale", "greek-ship");
     go("mara", "greek-ship");
-    const voyage = structuredClone(world.transports["greek-ship"]);
+    const { since: _since, ...voyage } = structuredClone(
+      world.transports["greek-ship"],
+    );
     go("vale", "willows-landing");
-    expect(world.transports["greek-ship"]).toEqual(voyage);
+    expect(world.transports["greek-ship"]).toMatchObject(voyage);
     expect(world.actors.mara.place).toBe("greek-ship");
     go("mara", "greek-harbor", "course");
     go("mara", null, "wait");
@@ -295,6 +300,9 @@ describe("The Willows", () => {
     ).toBeUndefined();
     world = choose(ready, "choose-departure");
     expect(world.packs.willows.choices["willows-response"]).toBe("depart");
+    // A resident who boarded at the pond may have sailed the ship off while
+    // Vale was ashore; the lamp calls it home before the next dark mist.
+    summonTransport(world, "greek-ship", "pond");
     world = move(mist(world), "greek-ship");
     world = move(move(mist(world), "willows-landing"), "willows-camp");
     expect(find(world, { choiceId: "willows-choose-watch" })).toBeUndefined();

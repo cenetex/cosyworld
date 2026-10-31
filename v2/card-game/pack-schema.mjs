@@ -74,7 +74,7 @@ export const CONDITION_KINDS = [
   "met",
   "knows",
   "pack_item_present",
-  "night",
+  "daylight",
   "weather",
   "ship_at",
 ];
@@ -740,6 +740,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "choice_unset":
           ok = keysOk(c, ["kind", "key"]) && idOk(c.key);
           break;
+        case "daylight":
+          ok =
+            keysOk(c, ["kind", "phase"]) && ["day", "night"].includes(c.phase);
+          break;
         case "flag":
           ok =
             keysOk(c, ["kind", "key", "value"]) &&
@@ -786,9 +790,6 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             keysOk(c, ["kind", "pack", "place"]) &&
             idOk(c.pack) &&
             anyPlace(c.place);
-          break;
-        case "night":
-          ok = keysOk(c, ["kind"]);
           break;
         case "weather":
           ok =
