@@ -1,0 +1,171 @@
+name: Fast check
+
+# Runs on every pull request and every push to main, in about five minutes.
+# The full suite (ci.yml) runs only by hand before a production release.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel a superseded pull request run; never cancel a main run.
+concurrency:
+  group: fast-check-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+# Every job reads its runner label from the FAST_CHECK_RUNNER repository
+# variable, so switching to the Fly runner (#1565) needs no workflow edit.
+jobs:
+  plan:
+    name: Change budget, version, engine gate, and smoke plan
+    runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    outputs:
+      smokes: ${{ steps.smokes.outputs.smokes }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: List changed files
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            range="$PR_BASE...$PR_HEAD"
+          elif git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            range="$BEFORE..$GITHUB_SHA"
+          else
+            range="$GITHUB_SHA~1..$GITHUB_SHA"
+          fi
+          git diff --name-only "$range" > "$RUNNER_TEMP/changed.txt"
+          cat "$RUNNER_TEMP/changed.txt"
+      - name: Check change budget
+        if: github.event_name == 'pull_request'
+        env:
+          COSYWORLD_PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/check-change-budget.mjs --base "$PR_BASE" --head "$PR_HEAD"
+      - name: Check version alignment
+        run: npm run check:version
+      - name: Check shared rules engine policy (warning only)
+        if: github.event_name == 'pull_request'
+        env:
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: node v2/scripts/engine-gate.mjs "$RUNNER_TEMP/changed.txt"
+      - name: Choose browser smokes
+        id: smokes
+        run: |
+          smokes="$(node scripts/select-fast-smokes.mjs "$RUNNER_TEMP/changed.txt")"
+          echo "smokes=$smokes" >> "$GITHUB_OUTPUT"
+          echo "Browser smokes: $smokes" >> "$GITHUB_STEP_SUMMARY"
+      - name: Check formatting of changed files (warning only)
+        run: |
+          mapfile -t files < <(grep -E '\.(m?js|json|css|html|ya?ml)$' "$RUNNER_TEMP/changed.txt" | while read -r f; do [ -f "$f" ] && echo "$f"; done)
+          if [ "${#files[@]}" -gt 0 ] && ! npx --yes prettier@3.5.3 --check --ignore-unknown "${files[@]}"; then
+            echo "::warning title=Formatting::Run npx prettier --write on the files above."
+          fi
+
+  lint:
+    name: Lint and guides
+    runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run docs:check
+
+  unit:
+    name: JavaScript unit tests
+    runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 8
+    env:
+      CI: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - run: npm test
+
+  # Each smoke serves the static card game; none needs a Rust build.
+  smoke:
+    name: Browser smoke (${{ matrix.smoke }})
+    needs: plan
+    runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        smoke: ${{ fromJSON(needs.plan.outputs.smokes) }}
+    env:
+      CI: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Restore Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('node_modules/playwright-core/package.json') }}
+      - name: Install Chromium system dependencies
+        run: npx playwright install-deps chromium
+      - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+      - name: Run ${{ matrix.smoke }}
+        env:
+          SMOKE: ${{ matrix.smoke }}
+        run: node "v2/scripts/$SMOKE.mjs"
+      - name: Upload browser images
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fast-check-${{ matrix.smoke }}
+          path: output/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # One stable context for branch protection.
+  fast:
+    name: fast
+    if: ${{ always() }}
+    needs: [plan, lint, unit, smoke]
+    runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - name: Verify all fast-check jobs passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          for result in $RESULTS; do test "$result" = success; done
