@@ -57,7 +57,13 @@ const provider = createServer(async (req, res) => {
   assert.match(transcript, /Current scene:/u);
   assert.match(transcript.trim(), /:$/u);
   timing.replied = Date.now();
-  const content = `I pause for ${requests.length} quiet breaths.`;
+  // A recorded fact the speaker owes (for example, telling a resident what
+  // it wants) must be voiced in its own words; the validator checks it.
+  const fact = input.messages
+    .map((message) => message.content)
+    .join("\n")
+    .match(/using these words: (.+?) I may add one short sentence/su)?.[1];
+  const content = `${fact ? `${fact} ` : ""}I pause for ${requests.length} quiet breaths.`;
   replies.set(input, content);
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
@@ -772,8 +778,10 @@ try {
   }
   await until(() => waitingReplies.length > 0, "first queued speech starts");
   assert.equal((await snapshot(vale)).queue.length, 4);
+  // Vale's Wait is committed before its speech, so Vale holds the front of
+  // the stage while the later Waits are still queued.
   for (const page of [vale, mara]) {
-    await expectStage(page, ["nell", "ash", "mara", "vale"]);
+    await expectStage(page, ["vale", "nell", "ash", "mara"]);
     await page.waitForFunction(
       () => document.getElementById("live-line").dataset.actor === "mara",
     );
@@ -851,7 +859,7 @@ try {
     });
     if (page === mara) {
       await page.setViewportSize({ width: 390, height: 640 });
-      await expectStage(page, ["nell", "ash", "mara", "vale"]);
+      await expectStage(page, ["vale", "nell", "ash", "mara"]);
       await page.waitForFunction(() => {
         const dialogueTop = document
           .querySelector(".dialogue")
