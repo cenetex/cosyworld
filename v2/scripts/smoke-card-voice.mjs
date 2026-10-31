@@ -275,8 +275,8 @@ try {
       await page.close();
     }
   }
-  // When the model gives no opening line, the authored line is shown. It is
-  // marked as a fallback, so Retry still asks the model for Vale's words.
+  // When the model gives no opening line, Vale is silent ("…") and Retry
+  // still asks the model for his words.
   const page = await browser.newPage({
     viewport: { width: 1440, height: 900 },
   });
@@ -329,27 +329,25 @@ try {
     await page.waitForFunction(
       () => document.querySelector("#dialogue-text")?.textContent.length > 0,
     );
-    await page.waitForFunction(() =>
-      /I don't remember how I got here/.test(
-        document.querySelector("#dialogue-text").textContent,
-      ),
+    // No scripted line (#1600): a failed first line is the silent "…".
+    await page.waitForFunction(
+      () => document.querySelector("#dialogue-text").textContent.trim() === "…",
     );
     assert.ok(requests.length >= 1);
     assert.ok(await page.locator("#story-retry").isVisible());
     let lines = await valeLines();
-    assert.equal(lines.length, 1);
-    assert.equal(lines[0].fallback, true);
+    assert.equal(lines.length, 0, "The silent beat is never saved");
     failing = false;
     await page.locator("#story-retry").click();
     await page.waitForFunction(() =>
       /Hello\?/.test(document.querySelector("#dialogue-text").textContent),
     );
     lines = await valeLines();
-    assert.equal(lines.length, 1, "The model line replaces the fallback");
+    assert.equal(lines.length, 1, "The model line follows the silence");
     assert.equal(lines[0].text, "Dust and a dark mirror. Hello?");
     assert.equal(lines[0].fallback, undefined);
     assert.deepEqual(errors, []);
-    console.log(`Opening fallback and retry passed in ${type}.`);
+    console.log(`Opening silence and retry passed in ${type}.`);
   } finally {
     await page.close();
   }

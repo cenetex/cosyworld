@@ -15,11 +15,12 @@ pub(super) struct Completed {
     context: Context,
     answers: Vec<Answer>,
 }
-/// Dreams send only the raw transcript, without a system voice.
+/// Dreams and an avatar still waking unnamed send only the raw transcript,
+/// without a system voice.
 fn messages(context: &Context, id: &str, part: Part) -> Value {
     let own = entity(context, id);
     let user = json!({"role":"user","content":attempt_transcript(context, own, part, 0)});
-    let system = idiolect(own, part);
+    let system = waking::system(context, own, part);
     if system.is_empty() {
         json!([user])
     } else {
