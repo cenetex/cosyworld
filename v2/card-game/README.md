@@ -404,7 +404,8 @@ painting. The cloth can lie in the room or travel with someone or something
 there; covering the lamp blocks both ordinary attic routes. The cottage's
 stairs back up stay open after either item leaves or the light goes out.
 A stranded traveler in the attic still finds a narrow rescue path to the pond
-when reachable lamp remedies have run out. That escape is separate from the
+when reachable lamp remedies have run out. An empty lamp needs the Oil flask in
+the attic; after use the flask waits at the station, so the path opens. That escape is separate from the
 mirror and cottage gates.
 
 Each newly met card joins the hand through its discovery reveal. Travel loads
@@ -424,6 +425,19 @@ remain internal; the player encounters people and their observable actions,
 not task dashboards.
 
 Pip values warm light and fine clothes. The Keeper values quiet, the bell, and returned belongings. Vale likes interesting routes and a decent bargain; the player chooses Vale’s actions. Fuel, oil, ownership, and recent slights change what matters now. A cast member scores legal actions to seek an object, trade, ask, tend a lamp, or travel. Its preferred place becomes attractive once its main interest is met.
+
+### Fuel and oil
+
+The lamp burns one fuel each lit turn and holds twelve. There is no pour play.
+Whenever one avatar holds both the Oil flask and the Lamp while the lamp is
+empty, the oil fills the lamp to twelve at that point in the play. The flask
+then leaves that avatar's hands and stands full again on the ground at Empty
+station, the keeper's home. A flask has no dose count: one flask fills one lamp.
+The rule is data in `forest.json`: `things.oil.refuels` names the lamp and
+`things.oil.returnsTo` names the station. A `refuel` narration event records
+`actorId`, `itemId`, `targetId`, `itemIds`, the `locationId` where it happened
+and the `returnLocationId` where the flask waits. The Bell rings as before but
+no longer makes oil at the pond.
 
 Trades compare each character’s value for both objects, including attached cloth. A grievance raises the requested price. A favour can lower it. Ringing beside the Keeper, spoiling Pip’s light, threats, and repeated requests can create grievances. Only witnesses remember a slight. A useful gift softens the receiver’s grievances toward its giver and earns a bounded favour. Grievances retain the other avatar, incident, turn, and strength across reloads.
 
@@ -446,7 +460,7 @@ At the station, Vale can take the bell. The Keeper values the bell more than the
 
 The hub cast's tastes, home and item values live in `forest.json` under `people`, beside the pack residents' `tastes` and `values` in their card worlds. Each named avatar also has one authored `want`, `{ "kind": "item" | "place" | "person", "target": id }`, which names what it seeks first: Vale and Pip want the lamp, the keeper wants the bell. Pack residents with a `desire` carry a matching `want`, which the pack schema checks against the pack's and hub's items, places and avatars. The rules don't read `want` yet.
 
-Situational worth is data too. A hub thing in `forest.json` may carry `valueRules`, and a person may carry `valueRules` keyed by item: each rule lists facts (`{ "item", "field", "min" | "max" }` or `{ "holds": item }`) and adds to the value or `set`s it. The empty lamp, the oil a dim lamp's holder needs, the bell once the light is gone, and the cloth the keeper wants while the bell rings are four such rules. A person's `grievances` list names the plays that offend them (`on`, partial action patterns) and the remembered `reason`; the keeper's ringing and Pip's spoiled light are two. A pack resident's `tastes.noise` is the same rule for a rung bell. The planner has no lamp special case: a resident in the dark attic waits until a play lights the lamp.
+Situational worth is data too. A hub thing in `forest.json` may carry `valueRules`, and a person may carry `valueRules` keyed by item: each rule lists facts (`{ "item", "field", "min" | "max" }` or `{ "holds": item }`) and adds to the value or `set`s it. The empty lamp, the oil a dim lamp's holder needs, and the cloth the keeper wants while the bell rings are three such rules. A person's `grievances` list names the plays that offend them (`on`, partial action patterns) and the remembered `reason`; the keeper's ringing and Pip's spoiled light are two. A pack resident's `tastes.noise` is the same rule for a rung bell. The planner has no lamp special case: a resident in the dark attic waits until a play lights the lamp.
 
 ## Local play
 
@@ -607,7 +621,7 @@ Card selection keeps the current card elements in place and leaves keyboard focu
 
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
 
-When the lamp or oil is trapped beyond the attic, a narrow path can open from Black pond. It appears after reachable lamp remedies are exhausted. A traveler inside can still tend the lamp through the usual item plays. Every object keeps its holder until a play changes it. The Black cloth and local lamplight reveal the cottage stairs from the attic.
+When the lamp, or the flask an empty lamp needs, is trapped beyond the attic, a narrow path can open from Black pond. It appears after reachable lamp remedies are exhausted. A traveler inside can still fill the empty lamp by holding it with the flask. Every object keeps its holder until a play changes it. The Black cloth and local lamplight reveal the cottage stairs from the attic.
 
 ## Accompany requests
 

@@ -58,6 +58,7 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
     .unwrap();
     // BoardyAI revision 2 carries his card from the pond to the station door.
     let mut expected = old.clone();
+    expected["items"] = super::saved_items::upgraded(&expected["items"]);
     expected["items"]["boardyai-calling-card"]["holder"] = json!("station");
     // Lonely Forest revision 2 retires three things and adds the buttons
     // and scarves, all unseen at the cottage.

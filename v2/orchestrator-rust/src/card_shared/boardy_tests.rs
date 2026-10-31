@@ -102,7 +102,10 @@ fn assert_boardy_upgrade(version: &str) {
     let mut world = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(world.game["turn"], old.game["turn"]);
-    for (key, value) in old.game["items"].as_object().unwrap() {
+    for (key, value) in super::saved_items::upgraded(&old.game["items"])
+        .as_object()
+        .unwrap()
+    {
         assert_eq!(&world.game["items"][key], value);
     }
     assert_eq!(
@@ -295,7 +298,10 @@ fn boardy_version_sixteen_upgrade_preserves_sightings_and_replays() {
         world.game["actors"]["boardyai"]["place"],
         old.game["actors"]["boardyai"]["place"]
     );
-    for (key, item) in old.game["items"].as_object().unwrap() {
+    for (key, item) in super::saved_items::upgraded(&old.game["items"])
+        .as_object()
+        .unwrap()
+    {
         assert_eq!(&world.game["items"][key], item, "saved item {key}");
     }
     assert_eq!(

@@ -6,6 +6,7 @@ import {
   entityActive,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
+import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
 const context = vm.createContext({});
 vm.runInContext(
@@ -90,7 +91,9 @@ describe("Greek section save upgrade", () => {
           expect(after.actors[id].trust[other]).toBe(0);
       }
       for (const field of ["items", "peaceUntil"])
-        for (const [id, value] of Object.entries(before[field]))
+        for (const [id, value] of Object.entries(
+          field === "items" ? upgradedItems(before.items) : before[field],
+        ))
           expect(after[field][id]).toEqual(value);
       for (const [id, memory] of Object.entries(before.memories)) {
         const { seen, ...retained } = after.memories[id];

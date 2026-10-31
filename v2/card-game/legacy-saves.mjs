@@ -78,6 +78,12 @@ export function upgradeSave(s, { installPacks }) {
     installPacks(s);
   }
   if (s?.schema === 7) {
+    // One flask now fills one empty lamp and returns full; the pond no longer
+    // answers the bell with oil.
+    if (s.items?.oil) delete s.items.oil.doses;
+    if (s.locations?.pond?.answer === "call") s.locations.pond.answer = null;
+    for (const entry of Array.isArray(s.log) ? s.log : [])
+      if (entry?.verb === "refill") entry.verb = "refuel";
     upgradeShoreRouteSave(s);
     upgradeBoardyStationSave(s);
     upgradeHoppyCatSeaSave(s);

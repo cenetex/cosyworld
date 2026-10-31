@@ -277,7 +277,8 @@ wooden wheelchair; Ash has a broad build and a grey beard.
 A narrow path to Black pond appears when a player in a home has no ordinary
 route and the room lacks the resources to reopen its gate. A belonging on the
 floor or carried by a present helper keeps its usual role. A fueled lamp can be
-lit or uncovered; a dry lamp can use oil available in the room. A belonging
+lit or uncovered; a dry lamp fills itself when someone holds it with an Oil
+flask available in the room. A belonging
 carried away or held by an absent player leaves the pond path available.
 Room capacity still applies to the destination.
 

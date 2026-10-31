@@ -106,19 +106,77 @@ describe("the reflected shore card game", () => {
     );
   });
 
-  it("spends oil and caps fuel at twelve", () => {
-    let s = createWorld();
+  it("offers no pour play while the lamp still burns", () => {
+    const s = createWorld();
     s.actors.vale.place = "attic";
     s.items.lamp.holder = "vale";
     s.items.lamp.fuel = 10;
-    s.items.oil.holder = "attic";
-    expect(matchingActions(s, ["oil", "lamp"]).map((a) => a.kind)).toEqual([
-      "refill",
-    ]);
-    s = act(s, "refill", "oil");
+    s.items.oil.holder = "vale";
+    expect(matchingActions(s, ["oil", "lamp"])).toEqual([]);
+    const next = act(s, "wait");
+    expect(next.items.oil.holder).toBe("vale");
+    expect(next.items.lamp.fuel).toBe(10);
+    expect(next.log.some((e) => e.verb === "refuel")).toBe(false);
+  });
+
+  it("refuels a lamp that runs dry in a hand holding the flask, then returns the flask to the station", () => {
+    let s = createWorld();
+    s.actors.vale.place = "attic";
+    s.items.lamp.holder = "vale";
+    s.items.lamp.fuel = 1;
+    s.items.lamp.lit = true;
+    s.items.oil.holder = "vale";
+    s = act(s, "wait");
+    expect(s.items.lamp).toMatchObject({ fuel: 12, lit: false, holder: "vale" });
+    expect(s.items.oil.holder).toBe("station");
+    expect(s.items.oil).not.toHaveProperty("doses");
+    const dry = s.log.findIndex((e) => e.text.includes("runs dry"));
+    const refuel = s.log.findIndex((e) => e.verb === "refuel");
+    expect(dry).toBeGreaterThanOrEqual(0);
+    expect(refuel).toBeGreaterThan(dry);
+    expect(s.log[refuel]).toMatchObject({
+      kind: "narration",
+      verb: "refuel",
+      actorId: "vale",
+      itemId: "oil",
+      targetId: "lamp",
+      itemIds: ["oil", "lamp"],
+      locationId: "attic",
+      returnLocationId: "station",
+      turn: s.turn,
+    });
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+  });
+
+  it("refuels during the play that puts the flask and the empty lamp in one hand", () => {
+    let s = createWorld();
+    s.actors.vale.place = "station";
+    s.items.lamp.holder = "vale";
+    s.items.lamp.fuel = 0;
+    s.items.oil.holder = "station";
+    s = act(s, "take", "oil");
     expect(s.items.lamp.fuel).toBe(12);
-    expect(s.items.oil.doses).toBe(2);
-    expect(legalActions(s).some((a) => a.kind === "refill")).toBe(false);
+    expect(s.items.oil.holder).toBe("station");
+    const take = s.log.findIndex((e) => e.verb === "take" && e.itemId === "oil");
+    const refuel = s.log.findIndex((e) => e.verb === "refuel");
+    expect(refuel).toBeGreaterThan(take);
+    expect(s.log[refuel]).toMatchObject({ turn: s.turn, actorId: "vale", locationId: "station" });
+  });
+
+  it("refuels a resident's lamp by the same rule", () => {
+    let s = createWorld();
+    s.actors.keeper.place = "station";
+    s.items.lamp.holder = "keeper";
+    s.items.lamp.fuel = 1;
+    s.items.lamp.lit = true;
+    s.items.oil.holder = "keeper";
+    s = act(s, "wait");
+    expect(s.items.lamp.fuel).toBe(12);
+    expect(s.items.oil.holder).toBe("station");
+    expect(s.log.find((e) => e.verb === "refuel")).toMatchObject({
+      actorId: "keeper",
+      locationId: "station",
+    });
   });
 
   it("lets the keeper go for its wanted bell and carry it", () => {

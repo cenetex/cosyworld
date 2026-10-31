@@ -155,7 +155,10 @@ fn upgraded_willows(version: &str) -> (std::path::PathBuf, rusqlite::Connection,
     let world = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(world.game["turn"], old.game["turn"]);
-    for (key, item) in old.game["items"].as_object().unwrap() {
+    for (key, item) in super::saved_items::upgraded(&old.game["items"])
+        .as_object()
+        .unwrap()
+    {
         assert_eq!(&world.game["items"][key], item);
     }
     assert_eq!(world.game["packs"]["willows"]["revision"], 1);

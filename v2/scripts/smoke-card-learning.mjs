@@ -24,23 +24,28 @@ function practiceWorld() {
   w.items.cloth.holder = "keeper";
   return w;
 }
-const spare = practiceWorld();
-spare.items.oil.doses = 0;
+// A flask is always full, so the keeper's spare item is the lamp it values
+// least; the flask rests on the station floor.
+function spareWorld() {
+  const w = practiceWorld();
+  w.items.lamp.holder = "keeper";
+  w.items.oil.holder = "station";
+  return w;
+}
+const spare = spareWorld();
 const requested = play(
   spare,
-  legalActions(spare).find((a) => a.kind === "ask" && a.item === "oil"),
+  legalActions(spare).find((a) => a.kind === "ask" && a.item === "lamp"),
 ).state;
-const tradeStart = practiceWorld();
-tradeStart.items.oil.doses = 0;
+const tradeStart = spareWorld();
 const traded = play(
   tradeStart,
   legalActions(tradeStart).find(
-    (a) => a.kind === "trade" && a.item === "bell" && a.receive === "oil",
+    (a) => a.kind === "trade" && a.item === "bell" && a.receive === "lamp",
   ),
 ).state;
 const probes = [requested, traded].map((practised) => {
-  const w = practiceWorld();
-  w.items.oil.doses = 0;
+  const w = spareWorld();
   w.turn = 2;
   w.revision = 2;
   w.eventSeq = 100;
@@ -127,12 +132,12 @@ try {
         const before = JSON.stringify(world);
         const actions = legalActions(world);
         const action = actions.find(
-          (a) => a.kind === "trade" && a.item === "bell" && a.receive === "oil",
+          (a) => a.kind === "trade" && a.item === "bell" && a.receive === "lamp",
         );
         const choice = reconsiderPlan(
           world,
           "vale",
-          { action, reason: "Seek the oil flask." },
+          { action, reason: "Seek the lamp." },
           actions,
         );
         if (JSON.stringify(world) !== before)

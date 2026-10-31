@@ -25,6 +25,7 @@ import {
   learnLane,
 } from "../v2/card-game/pack-transport.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
+import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
 const docks = ["pond", "greek-harbor", "greek-athens-harbor", "greek-piraeus"];
 const players = ["vale", "mara"];
@@ -235,7 +236,7 @@ describe("Greek ports and fixed roads", () => {
             ),
           },
         });
-      expect(current.items).toMatchObject(old.items);
+      expect(current.items).toMatchObject(upgradedItems(old.items));
       // The version 2 leg becomes a docked ship waiting for its course.
       expect(current.transports["greek-ship"]).toEqual({
         version: 3,

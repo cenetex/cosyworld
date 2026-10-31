@@ -69,7 +69,10 @@ fn forest_crossing_upgrade_replays_with_two_humans(version: &str) {
         "forest-dewbright-button",
         "forest-watch-bell",
     ];
-    for (key, value) in old.game["items"].as_object().unwrap() {
+    for (key, value) in super::saved_items::upgraded(&old.game["items"])
+        .as_object()
+        .unwrap()
+    {
         if retired.contains(&key.as_str()) {
             assert!(w.game["items"].get(key).is_none(), "{key}");
         } else {

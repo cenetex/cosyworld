@@ -59,16 +59,20 @@ describe("a path out of a stranded home", () => {
     expect(continued.state.actors.vale.place).toBe("station");
     expect(() => decodeSave(encodeSave(continued.state))).not.toThrow();
   });
-  it("keeps local usable oil as recovery and spends it through the ordinary action", () => {
+  it("keeps a local flask as recovery and refuels when it joins the empty lamp", () => {
     const s = opening();
     s.items.lamp.fuel = 0;
     s.items.oil.holder = "attic";
     expect(exits(s, "attic", "vale")).toEqual([]);
-    const refill = legalActions(s, "vale").find((a) => a.kind === "refill");
-    expect(refill).toBeDefined();
-    expect(play(s, refill).state.items.lamp.fuel).toBeGreaterThan(0);
-    s.items.oil.doses = 0;
-    expect(exits(s, "attic", "vale")).toEqual(["pond"]);
+    const take = legalActions(s, "vale").find((a) => a.kind === "take" && a.item === "oil");
+    expect(take).toBeDefined();
+    const filled = play(s, take).state;
+    expect(filled.items.lamp.fuel).toBe(12);
+    // The used flask waits at the station, so the full lamp is the recovery.
+    expect(filled.items.oil.holder).toBe("station");
+    expect(exits(filled, "attic", "vale")).toEqual([]);
+    filled.items.lamp.fuel = 0;
+    expect(exits(filled, "attic", "vale")).toEqual(["pond"]);
   });
   it("uses local floor and nested resources while distant resources leave a path", () => {
     const s = opening();

@@ -27,6 +27,7 @@ import {
   travelCard,
 } from "../v2/card-game/scene.mjs";
 import { createServer } from "../v2/card-game/serve.mjs";
+import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 const pack = packDefinition("greek-drama");
 const openingPlaces = [
   "greek-harbor",
@@ -192,7 +193,7 @@ describe("the Theban release and its ship", () => {
       Object.fromEntries(
         Object.keys(before.items).map((id) => [id, after.items[id]]),
       ),
-    ).toEqual(before.items);
+    ).toEqual(upgradedItems(before.items));
     expect(
       Object.keys(after.items)
         .filter((id) => !Object.hasOwn(before.items, id))

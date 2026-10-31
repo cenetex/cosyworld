@@ -132,7 +132,11 @@ fn quest_history_upgrade(version: &str, speeches: usize) {
     // The want model drops quest records and progress on upgrade; every other
     // saved field and the rest of the history survive.
     for field in ["items", "memories", "turn", "eventSeq"] {
-        assert_saved_values(&old.game[field], &upgraded.game[field], field);
+        assert_saved_values(
+            &super::saved_items::upgraded_field(&old.game, field),
+            &upgraded.game[field],
+            field,
+        );
     }
     super::full_tests::assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
     assert_saved_values(

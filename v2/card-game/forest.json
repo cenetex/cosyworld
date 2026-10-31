@@ -3,7 +3,7 @@
     "attic": {
       "item": "lamp",
       "light": true,
-      "refill": "oil",
+      "fuel": "oil",
       "rescue": "pond",
       "opening": true
     }
@@ -104,18 +104,16 @@
     },
     "oil": {
       "name": "Oil flask",
-      "text": "Each dose adds four fuel to the lamp, up to twelve.",
+      "text": "Fills an empty lamp to twelve on its own when one hand holds both. Then it waits full again at the station.",
+      "refuels": "lamp",
+      "returnsTo": "station",
       "valueRules": [
-        { "when": [{ "item": "oil", "field": "doses", "max": 0 }], "set": 1 },
         { "when": [{ "holds": "lamp" }, { "item": "lamp", "field": "fuel", "max": 2 }], "add": 9 }
       ]
     },
     "bell": {
       "name": "Bell",
-      "text": "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound.",
-      "valueRules": [
-        { "when": [{ "item": "oil", "field": "doses", "max": 0 }, { "item": "lamp", "field": "fuel", "max": 0 }], "add": 12 }
-      ]
+      "text": "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound."
     },
     "cloth": {
       "name": "Black cloth",
@@ -501,7 +499,6 @@
       },
       "oil": {
         "holder": "keeper",
-        "doses": 3,
         "history": []
       },
       "bell": {
@@ -539,7 +536,7 @@
         ],
         "light": false,
         "speaker": "World",
-        "text": "Vale arrives at the empty station. Pip carries a black cloth. The keeper holds the oil. Each wants something ... different. Under the pond, a presence is listening."
+        "text": "Vale arrives at the empty station. Pip carries a black cloth. The keeper holds the oil for an empty lamp. Each wants something ... different. Under the pond, a presence is listening."
       }
     ]
   },

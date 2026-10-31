@@ -65,9 +65,9 @@ describe("playing the world through cards", () => {
     s = cards(s, "pond");
     s = cards(s, "lamp", "attic");
     expect(reflectionOpen(s)).toBe(true);
-    s = cards(s, "oil", "lamp");
-    expect(s.items.oil.doses).toBe(2);
-    expect(s.items.lamp.fuel).toBe(8);
+    // The flask has no pour play; it waits until the lamp runs dry.
+    expect(cardPlay(s, ["oil", "lamp"]).action).toBeFalsy();
+    expect(s.items.oil.holder).toBe("vale");
     s = cards(s, "pond");
     expect(s.actors.vale.crossed).toBe(2);
     s = cards(s, "cloth", "lamp");
