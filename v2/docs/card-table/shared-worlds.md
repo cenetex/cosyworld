@@ -420,9 +420,8 @@ Shared rules version 19 uses common step capture and advancement for personal
 and shared quests. Each saved step keeps its evidence, source turn and card key.
 Repeated checks in one turn preserve the single-step and single-effect rules.
 
-Packs supply story cards and ordered endings through `storyQuests`. Greece uses
-this common evaluator, including its earlier choices, grave return, Open Door
-and Homecoming. Existing cards retain their keys, holders and completion turns.
+Earlier rules read story cards and ordered endings from pack
+`storyQuests`. Current packs carry none; stories are told through pack choices.
 
 Talk may share one fact from an authored topic or the speaker's saved knowledge.
 The accepted line must contain the complete fact sentence. From rules version
