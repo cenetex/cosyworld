@@ -53,10 +53,17 @@ if [ -n "$target_cache" ]; then
     --build-context "orchestrator-prebuilt=$prebuilt")
 fi
 
+# With a prebuilt binary the only expensive layer is that binary, which the
+# image push already uploads. Exporting it to the registry cache as well sent
+# the same 600 MB twice, in parallel. Tags and dispatches still export the
+# compile stages their in-image build reuses.
+cache_args=(--cache-from "type=registry,ref=$cache")
+if [ -z "$prebuilt" ]; then
+  cache_args+=(--cache-to "type=registry,ref=$cache,mode=max,image-manifest=true,oci-mediatypes=true")
+fi
+
 docker buildx create --name "$builder" --driver docker-container
 
 docker buildx build --builder "$builder" --platform linux/amd64 \
   --build-arg "CARGO_BUILD_JOBS=$jobs" ${binary_args[@]+"${binary_args[@]}"} \
-  --cache-from "type=registry,ref=$cache" \
-  --cache-to "type=registry,ref=$cache,mode=max,image-manifest=true,oci-mediatypes=true" \
-  --provenance=false --tag "$image" --push .
+  "${cache_args[@]}" --provenance=false --tag "$image" --push .
