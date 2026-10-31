@@ -6,7 +6,7 @@
 // own. Beats are read from committed events and published speech only, so
 // local and shared play group the same events the same way, and nothing here
 // is ever saved. See v2/docs/card-table/dialogue-beats.md.
-import { currentActor, nameOf } from "./world.mjs";
+import { currentActor, nameOf as fullName } from "./world.mjs";
 import { isSceneText } from "./scene.mjs";
 
 const QUIET_VERBS = new Set(["talk", "wait"]);
@@ -14,8 +14,20 @@ const DAMAGE = /loses (\d+) resolve/u;
 const YIELDED = /after yielding to/u;
 const STANDOFF_ENDS = /standoff ends/u;
 
+// A name inside a sentence: "the keeper", not "The keeper". The sentence
+// itself is capitalised by sentence().
+const nameOf = (id) => fullName(id).replace(/^The /u, "the ");
 const the = (id) => (id ? `the ${nameOf(id)}` : "something");
 
+// How a blow landed, in words: the number stays in the resolve pips. The
+// word is picked from the event's seq, so replay always shows the same one.
+const HIT_WORDS = [
+  ["stumbled", "staggered back"],
+  ["fell", "took a hard knock"],
+  ["took a big hit", "went down hard"],
+];
+
+// "Pip lunged at Vale. Vale stumbled."
 function attackResult(entry) {
   const damage = Number.isFinite(entry.damage)
     ? entry.damage
@@ -27,10 +39,21 @@ function attackResult(entry) {
       : /guard softens/u.test(entry.text || "")
         ? "guarded"
         : "hit");
-  if (outcome === "sent-home" || outcome === "yield")
-    return `${nameOf(entry.targetId)} yields`;
-  if (outcome === "guarded") return `guarded −${damage}`;
-  return `−${damage} resolve`;
+  const t = nameOf(entry.targetId);
+  if (outcome === "sent-home" || outcome === "yield") return `${t} gave way.`;
+  if (outcome === "guarded")
+    return `${t} braced and took only a glancing blow.`;
+  if (damage <= 0) return `${t} held firm.`;
+  const words = HIT_WORDS[Math.min(damage, HIT_WORDS.length) - 1];
+  return `${t} ${words[Math.abs(Number(entry.seq) || 0) % words.length]}.`;
+}
+
+// Every caption reads as one sentence: capital first, closing punctuation.
+function sentence(text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) return trimmed;
+  const capital = trimmed[0].toUpperCase() + trimmed.slice(1);
+  return /[.!?…”"]$/u.test(capital) ? capital : `${capital}.`;
 }
 
 // The caption for one committed event, from the place `here` and the
@@ -57,7 +80,7 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
   const caption = (icon, text, kind = verb) => ({
     seq: entry.seq,
     icon,
-    text,
+    text: sentence(text),
     kind,
     actorId: entry.actorId,
   });
@@ -71,7 +94,7 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
     case "move":
     case "course":
       if (leaving)
-        return caption("➜", `${a} left for ${nameOf(entry.locationId)}`);
+        return caption("➜", `${a} left for ${nameOf(entry.locationId)}.`);
       if (arriving) {
         if (entry.actorId === viewer) return null;
         // Someone who came the same way on the viewer's arrival followed.
@@ -80,24 +103,24 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
           arrival.fromLocationId === entry.fromLocationId;
         return caption(
           "➜",
-          `${a} ${followed ? "followed" : "arrived"} from ${nameOf(entry.fromLocationId)}`,
+          `${a} ${followed ? "followed" : "arrived"} from ${nameOf(entry.fromLocationId)}.`,
         );
       }
       return entry.kind === "narration" ? caption("➜", entry.text) : null;
     case "accompany":
       if (entry.accepted === false)
-        return caption("⇄", `${t} wouldn't go with ${a}`);
+        return caption("⇄", `${t} wouldn't go with ${a}.`);
       if (leaving)
         return caption(
           "➜",
-          `${a} left with ${t} for ${nameOf(entry.locationId)}`,
+          `${a} left with ${t} for ${nameOf(entry.locationId)}.`,
         );
       if (arriving)
         return caption(
           "➜",
           entry.actorId === viewer
-            ? `${t} travels with ${a}`
-            : `${a} arrived with ${t}`,
+            ? `${t} travelled with ${a}.`
+            : `${a} arrived with ${t}.`,
         );
       return null;
     case "retreat":
@@ -106,61 +129,72 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
         return caption(
           "↳",
           verb === "sent-home"
-            ? `${a} is sent home`
-            : `${a} falls back to ${nameOf(entry.locationId)}`,
+            ? `${a} was beaten and sent home.`
+            : `${a} was beaten and fell back to ${nameOf(entry.locationId)}.`,
         );
       if (arriving)
         return caption(
           "↳",
           entry.actorId === viewer
-            ? `You come to at ${nameOf(here)}`
-            : `${a} staggers in from ${nameOf(entry.fromLocationId)}`,
+            ? `You came to at ${nameOf(here)}.`
+            : `${a} staggered in from ${nameOf(entry.fromLocationId)}.`,
         );
       return null;
     case "threaten":
       return caption(
         "⚔",
         entry.itemId
-          ? `${a} squares up to ${t} over ${the(entry.itemId)}`
-          : `${a} squares up to ${t}`,
+          ? `${a} squared up to ${t} over ${the(entry.itemId)}.`
+          : `${a} squared up to ${t}.`,
       );
     case "guard":
-      return caption("⚔", `${a} braces against ${t}`);
+      return caption("⚔", `${a} braced against ${t}.`);
     case "attack":
-      return caption("⚔", `${a} lunges at ${t} · ${attackResult(entry)}`);
+      return caption("⚔", `${a} lunged at ${t}. ${attackResult(entry)}`);
     case "give":
       return entry.accepted === false
-        ? caption("⇄", `${a} offered ${the(entry.itemId)} to ${t} · refused`)
-        : caption("⇄", `${a} gave ${the(entry.itemId)} to ${t}`);
+        ? caption(
+            "⇄",
+            `${a} offered ${the(entry.itemId)} to ${t}, but ${t} refused.`,
+          )
+        : caption("⇄", `${a} gave ${the(entry.itemId)} to ${t}.`);
     case "trade":
       return entry.accepted === false
-        ? caption("⇄", `${a} offered ${t} a trade · refused`)
+        ? caption(
+            "⇄",
+            entry.itemId && entry.receiveId
+              ? `${a} offered ${the(entry.itemId)} for ${the(entry.receiveId)}, but ${t} refused.`
+              : `${a} offered ${t} a trade, but ${t} refused.`,
+          )
         : caption(
             "⇄",
-            `${a} traded ${the(entry.itemId)} for ${the(entry.receiveId)}`,
+            `${a} traded ${the(entry.itemId)} for ${the(entry.receiveId)}.`,
           );
     case "ask":
       return entry.accepted === false
-        ? caption("⇄", `${a} asked ${t} for ${the(entry.itemId)} · refused`)
-        : caption("⇄", `${a} got ${the(entry.itemId)} from ${t}`);
+        ? caption(
+            "⇄",
+            `${a} asked ${t} for ${the(entry.itemId)}, but was refused.`,
+          )
+        : caption("⇄", `${a} got ${the(entry.itemId)} from ${t}.`);
     case "take":
-      return caption("✋", `${a} took ${the(entry.itemId)}`);
+      return caption("✋", `${a} took ${the(entry.itemId)}.`);
     case "drop":
-      return caption("✋", `${a} put down ${the(entry.itemId)}`);
+      return caption("✋", `${a} put down ${the(entry.itemId)}.`);
     case "light":
-      return caption("✦", `${a} lit ${the(entry.itemId)}`);
+      return caption("✦", `${a} lit ${the(entry.itemId)}.`);
     case "snuff":
-      return caption("◌", `${a} snuffed ${the(entry.itemId)}`);
+      return caption("◌", `${a} snuffed ${the(entry.itemId)}.`);
     case "ring":
-      return caption("♪", `${a} rang ${the(entry.itemId)}`);
+      return caption("♪", `${a} rang ${the(entry.itemId)}.`);
     case "refuel":
       return caption(
         "⛽",
-        `${a} filled ${the(entry.targetId && entry.targetId !== entry.actorId ? entry.targetId : entry.itemId)}`,
+        `${a} filled ${the(entry.targetId && entry.targetId !== entry.actorId ? entry.targetId : entry.itemId)}.`,
       );
     case "cover":
       return entry.targetId && entry.itemId
-        ? caption("✋", `${a} covered ${the(entry.targetId)}`)
+        ? caption("✋", `${a} covered ${the(entry.targetId)}.`)
         : caption("✋", entry.text);
     case "want_met":
     case "choose":
@@ -312,7 +346,7 @@ export function beatSummary(beat) {
   const speech = beat.line ? (beat.silent ? "…" : beat.line.text) : "";
   const first = beat.actions[0];
   return {
-    speaker: beat.line?.speaker || nameOf(beat.speakerId),
+    speaker: beat.line?.speaker || fullName(beat.speakerId),
     speech,
     caption: first ? `${first.icon} ${first.text}` : "",
     text: [speech && `“${speech}”`, first && `${first.icon} ${first.text}`]

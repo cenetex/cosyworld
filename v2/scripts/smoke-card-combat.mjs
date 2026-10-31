@@ -163,9 +163,9 @@ try {
     );
     // Each fighter's step and the defeat join Memory as beats.
     const log = await page.locator("#messages").textContent();
-    assert.match(log, /Pip lunges at Vale/);
-    assert.match(log, /Vale (is sent home|falls back to )/);
-    assert.match(log, /You come to at /);
+    assert.match(log, /Pip lunged at Vale\./);
+    assert.match(log, /Vale was beaten and (sent home|fell back to )/);
+    assert.match(log, /You came to at /);
     assert.equal(await page.locator(".combat-dim").count(), 0);
     assert.equal(
       await page.locator("#combat-caption:not([hidden])").count(),

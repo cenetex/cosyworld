@@ -11,15 +11,27 @@ A beat is one character's moment in the scene:
 - their spoken line for that turn, or "…" when their voice did not come;
 - their own committed actions that turn, as short italic captions with an icon.
 
-| Icon   | Captions                                                                     |
-| ------ | ---------------------------------------------------------------------------- |
-| ➜      | arrivals, departures, travelling with someone                                |
-| ⚔     | threaten, guard, attack with the resolve change, a standoff ending           |
-| ↳      | a defeat result on the loser's beat: "Vale is sent home", "You come to at …" |
-| ⇄      | give, trade and ask, including refusals                                      |
-| ✦      | discoveries, a want met, a pack choice                                       |
-| ⛽     | refuelling                                                                   |
-| ✋ ◌ ♪ | take or put down, light or snuff, ring                                       |
+Each caption is one plain sentence, worded from the committed event's fields
+with no AI: sentence case, closing punctuation, short enough for one phone
+line (it truncates with an ellipsis). For example "Pip asked Vale for the Lamp,
+but was refused.", "Vale offered the Black cloth for the Oil flask, but the
+keeper refused.", "The keeper left for the station." and "Vale found the
+Lamp." A blow is described, never counted: "Pip lunged at Vale. Vale
+stumbled." The number stays in the resolve pips. Each severity has a small
+fixed word set (1: stumbled, staggered back; 2: fell, took a hard knock; 3 or
+more: took a big hit, went down hard), picked by the event's seq so replay
+shows the same words. A guarded blow is "braced and took only a glancing
+blow", a yield is "gave way", and the defeat is "was beaten and sent home".
+
+| Icon   | Captions                                                                           |
+| ------ | ---------------------------------------------------------------------------------- |
+| ➜      | arrivals, departures, travelling with someone                                      |
+| ⚔     | threaten, guard, attack and how the blow landed, a standoff ending                 |
+| ↳      | a defeat on the loser's beat: "Vale was beaten and sent home.", "You came to at …" |
+| ⇄      | give, trade and ask, including refusals                                            |
+| ✦      | discoveries, a want met, a pack choice                                             |
+| ⛽     | refuelling                                                                         |
+| ✋ ◌ ♪ | take or put down, light or snuff, ring                                             |
 
 An action with no speech is a beat with only the portrait and its caption.
 A character's actions join their first spoken beat of that turn.
@@ -65,7 +77,7 @@ Beats are cards in depth, not rows in a scroll:
   copy, which never takes pointer hits, uses Web Animations.
 
 Combat keeps its stage animations. Each fighter's step also becomes a beat as
-it lands, for example "⚔ lunges at Vale · −1 resolve", and the defeat lands on
+it lands, for example "⚔ Pip lunged at Vale. Vale stumbled.", and the defeat lands on
 the loser's beat.
 
 ## Memory
