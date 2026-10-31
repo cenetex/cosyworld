@@ -159,8 +159,11 @@ pub(super) fn commit(
     checkpoint(c, id, w, c.last_insert_rowid())?;
     // A committed play's dialogue context comes from the narrator, never the
     // rules. Replay applies commands directly and never asks for it.
+    // The play is already journaled, so nothing here may return an error.
     if command["op"] == "play" {
-        let a = actor_index(command["actor"].as_str().unwrap_or_default())?;
+        let Ok(a) = actor_index(command["actor"].as_str().unwrap_or_default()) else {
+            return Ok(result);
+        };
         let mut scene = w.request("context", a);
         scene["action"] = command["action"].clone();
         match super::narrator::context(&scene) {
