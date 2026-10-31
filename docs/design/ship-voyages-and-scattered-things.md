@@ -59,23 +59,35 @@ marked one-way.
 
 | Port | Dock id | Lanes |
 | --- | --- | --- |
-| Black Pond | `pond` | Wine-Dark Harbor, Athens Harbor |
-| Wine-Dark Harbor | `greek-harbor` | Black Pond, Piraeus, Trojan camp landing, Willows landing |
-| Athens Harbor | `greek-athens-harbor` | Black Pond, Piraeus |
-| Piraeus Quays | `greek-piraeus` | Wine-Dark Harbor, Athens Harbor, Signal Jetty |
+| Black Pond | `pond` | Wine-Dark Harbor |
+| Wine-Dark Harbor | `greek-harbor` | Black Pond, Piraeus (Travel Provisions aboard), Trojan camp landing, Willows landing |
+| Athens Harbor | `greek-athens-harbor` | Piraeus |
+| Piraeus Quays | `greek-piraeus` | Wine-Dark Harbor (Travel Provisions aboard), Athens Harbor, Signal Jetty (Hoppy Cat thing aboard) |
 | Signal Jetty (Hoppy Cat) | `hoppycat-signal-jetty` | Piraeus |
 | Trojan camp landing | `greek-ajax-landing` | Wine-Dark Harbor |
 | Willows landing | `willows-landing` | Wine-Dark Harbor |
 
 ```text
                      Black Pond
-                    /          \
-       Wine-Dark Harbor      Athens Harbor
-        /      |      \          /
-   Trojan   Willows    Piraeus Quays
-   camp     landing         |
-   landing              Signal Jetty
+                         |
+                  Wine-Dark Harbor
+                 /       |        \
+           Trojan    Willows    Piraeus Quays
+           camp      landing     /         \
+           landing        Athens Harbor  Signal Jetty
 ```
+
+From Black Pond the only lane is the Wine-Dark Harbor (owner decision,
+2026-10-30, #1483). A traveller from the shore knows that lane alone.
+
+The Wine-Dark Harbor to Piraeus lane opens while the Travel Provisions
+(`greek-provisions`, first held at the harbour) are aboard. It uses the same
+`opensWith` gate as the Signal Jetty, here with an `item_present` condition on
+the ship. Piraeus Quays is outside the Open Door section, so the lane reaches
+it in a default save; the quay's roads inland and its stories still need
+Dione's invitation. Athens Harbor and Athens keep their Open Door gate. The
+lane on from Piraeus to Athens Harbor is learned by sailing it or through
+Talk.
 
 Distant worlds are several lanes away. A player needs the thing **and** must
 find which port sails there.

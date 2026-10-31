@@ -11,7 +11,6 @@ const ajaxItems = Object.fromEntries(
     .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
 );
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
-import { learnLane } from "../v2/card-game/pack-transport.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
 import { readFileSync } from "node:fs";
@@ -168,8 +167,8 @@ describe("roads around a full Agora", () => {
     ).not.toContain("greek-piraeus");
     const open = crowdedAgoraWorld();
     open.actors.vale.place = "greek-ship";
-    // Vale has heard of the Piraeus lane, which needs The Open Door.
-    learnLane(open, "vale", "greek-harbor", "greek-piraeus");
+    // The Travel Provisions ride on deck, which opens the Piraeus lane.
+    expect(open.items["greek-provisions"].holder).toBe("greek-ship");
     open.transports["greek-ship"] = {
       version: 3,
       phase: "docked",
@@ -264,7 +263,9 @@ describe("the side roads in earlier saved worlds", () => {
         "greek-eleusis",
       );
       const view = agoraView(restored, ["vale"]);
-      expect(entityActive(restored, "greek-piraeus")).toBe(open);
+      // Piraeus Quays lies outside the Open Door; Athens waits for it.
+      expect(entityActive(restored, "greek-piraeus")).toBe(true);
+      expect(entityActive(restored, "greek-athens")).toBe(open);
       expect(decodeSave(encodeSave(restored))).toEqual(restored);
     },
   );

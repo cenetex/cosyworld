@@ -19,9 +19,28 @@ fn greek_ports_and_roads_upgrade_from_each_released_version() {
 #[test]
 fn greek_ports_roads_and_waiting_replay_after_the_version_eighteen_upgrade() {
     let (path, c, id, mut w) = upgraded_ports(engine::EIGHTEENTH_VERSION);
+    // Black Pond sails only to the Wine-Dark Harbor. Vale loads the Travel
+    // Provisions, which open the lane to Piraeus, sails there, walks the
+    // road to Athens and back, and sails home with them.
+    let take = w.project(0).unwrap()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == "take" && a["item"] == "greek-provisions")
+        .expect("Vale can take the provisions at the harbor")
+        .clone();
+    full_store::commit(
+        &c,
+        &id,
+        &mut w,
+        json!({"op":"play","actor":"vale","action":take}),
+        now(),
+    )
+    .unwrap();
     for target in [
         "greek-ship",
-        "greek-athens-harbor",
+        "greek-piraeus",
+        "greek-road-athens-piraeus",
         "greek-athens",
         "greek-road-athens-piraeus",
         "greek-piraeus",

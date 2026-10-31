@@ -177,8 +177,13 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
     saved.game["turn"] = json!(22);
     saved.game["revision"] = json!(22);
     saved.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
-    saved.game["transports"]["greek-ship"]["dock"] = json!("greek-athens-harbor");
-    let old_wait = saved.project(0).unwrap()["actions"]
+    // Black Pond sails only to the Wine-Dark Harbor, where the ship waits
+    // with the Travel Provisions on deck. They open the lane to Piraeus.
+    saved.game["transports"]["greek-ship"]["dock"] = json!("greek-harbor");
+    saved.game["items"]["greek-provisions"]["holder"] = json!("greek-ship");
+    // Ash waits on the road under the released rules. A wait away from any
+    // port leaves the empty ship at the Wine-Dark Harbor.
+    let old_wait = saved.project(2).unwrap()["actions"]
         .as_array()
         .unwrap()
         .iter()
@@ -186,8 +191,12 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         .unwrap()
         .clone();
     saved
-        .apply(&json!({"op":"play","actor":"vale","action":old_wait}))
+        .apply(&json!({"op":"play","actor":"ash","action":old_wait}))
         .unwrap();
+    assert_eq!(
+        saved.game["transports"]["greek-ship"]["dock"],
+        "greek-harbor"
+    );
     full_store::seed(&c, &id, &saved, "before-harbor-nights", now()).unwrap();
     let mut world = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(world.game["revision"], json!(24));
@@ -218,31 +227,36 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
     assert!(world.game["knowledge"].is_object());
     assert_eq!(world.version, engine::VERSION);
 
-    // Mara knows the Black Pond lanes. Her wait at the pond brings the empty
-    // ship one lane to her. She boards, sets the course for Athens Harbor,
-    // spends a round at sea and steps ashore.
-    for (step, (kind, target)) in [
-        ("wait", None),
-        ("move", Some("greek-ship")),
-        ("course", Some("greek-athens-harbor")),
-        ("wait", None),
-        ("move", Some("greek-athens-harbor")),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let action = world.project(1).unwrap()["actions"]
+    // Her wait at the pond brings the empty ship one lane to her. She
+    // boards and sails by the Wine-Dark Harbor to Piraeus, opened by the
+    // provisions aboard, a round at sea each, and steps ashore. Vale's wait
+    // at Athens Harbor brings the empty ship to her berth, and Mara walks on.
+    let plays = [
+        ("mara", "wait", None),
+        ("mara", "move", Some("greek-ship")),
+        ("mara", "course", Some("greek-harbor")),
+        ("mara", "wait", None),
+        ("mara", "course", Some("greek-piraeus")),
+        ("mara", "wait", None),
+        ("mara", "move", Some("greek-piraeus")),
+        ("vale", "wait", None),
+        ("mara", "move", Some("greek-road-athens-piraeus")),
+        ("mara", "move", Some("greek-athens")),
+        ("mara", "move", Some("greek-athens-harbor")),
+    ];
+    for (step, (actor, kind, target)) in plays.into_iter().enumerate() {
+        let action = world.project(usize::from(actor == "mara")).unwrap()["actions"]
             .as_array()
             .unwrap()
             .iter()
             .find(|a| a["kind"] == kind && target.is_none_or(|to| a["target"] == to))
-            .unwrap()
+            .unwrap_or_else(|| panic!("{actor} {kind} {target:?}"))
             .clone();
         full_store::commit(
             &c,
             &id,
             &mut world,
-            json!({"op":"play","actor":"mara","action":action}),
+            json!({"op":"play","actor":actor,"action":action}),
             now(),
         )
         .unwrap();
@@ -256,20 +270,15 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
             views[2]["scene"]["background"],
             "./assets/greek-drama/theban-harbor-road-night.webp"
         );
-        if step == 2 {
-            assert_eq!(
-                views[0]["scene"]["background"],
-                "./assets/greek-drama/athens-harbor-open-berth-night.webp"
-            );
-        }
         if step == 0 {
             assert_eq!(world.game["transports"]["greek-ship"]["dock"], "pond");
+        }
+        if step < 7 {
             assert_eq!(
                 views[0]["scene"]["background"],
                 "./assets/greek-drama/athens-harbor-open-berth-night.webp"
             );
-        }
-        if step == 4 {
+        } else {
             assert_eq!(
                 world.game["transports"]["greek-ship"]["dock"],
                 "greek-athens-harbor"
@@ -278,6 +287,8 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
                 views[0]["scene"]["background"],
                 "./assets/greek-drama/athens-harbor-ship-at-berth-night.webp"
             );
+        }
+        if step == plays.len() - 1 {
             assert_eq!(
                 views[1]["scene"]["background"],
                 views[0]["scene"]["background"]
