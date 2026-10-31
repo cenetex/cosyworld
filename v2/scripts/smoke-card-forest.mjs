@@ -201,17 +201,29 @@ try {
       await shot("cottage-arrival");
       await step("talk", { target: "rati" });
       await step("choose", { choiceId: "forest-stay-for-tea" });
-      await step("take", { item: "forest-story-button" });
-      await step("give", { item: "forest-story-button", target: "rati" });
-      await step("choose", { choiceId: "forest-mend-scarf" });
+      assert.notEqual(
+        (await state()).items["forest-button-vale"].holder,
+        "forest-cottage",
+        "Meeting RATi hides Vale's button somewhere else",
+      );
+      await shot("cottage-welcome");
+      // Bring the button home as if Vale had found it, then give it to RATi.
+      await page.evaluate((key) => {
+        const saved = JSON.parse(localStorage.getItem(key));
+        saved.items["forest-button-vale"].holder = "vale";
+        localStorage.setItem(key, JSON.stringify(saved));
+      }, key);
+      await page.reload();
+      await step("give", { item: "forest-button-vale", target: "rati" });
+      const sewn = await state();
+      assert.equal(sewn.items["forest-scarf-vale"].holder, "vale");
+      assert.equal(sewn.packs["lonely-forest"].flags["forest-scarf-vale-sewn"], true);
       await shot("cottage-scarf");
       await step("move", { target: "forest-garden" });
       await step("choose", {
         choiceId: width === 1440 ? "forest-clear-drain" : "forest-set-stones",
       });
-      await step("take", { item: "forest-dewbright-button" });
-      await step("choose", { choiceId: "forest-share-symbols" });
-      await shot("garden-symbols");
+      await shot("garden-path");
       if (width === 390) {
         const box = await page
           .locator("#cast [data-avatar=whiskerwind]")
@@ -221,13 +233,9 @@ try {
           "Whiskerwind fits the phone frame",
         );
       }
-      if (width === 1440) await step("take", { item: "forest-watch-bell" });
       await step("move", { target: "forest-trail" });
       await step("talk", { target: "skull" });
-      await step("choose", {
-        choiceId:
-          width === 1440 ? "forest-set-watch-bell" : "forest-mark-pawprints",
-      });
+      await step("choose", { choiceId: "forest-mark-pawprints" });
       await step("take", { item: "forest-wolfprint-charm" });
       await shot("trail-watch");
       if (width === 390) {

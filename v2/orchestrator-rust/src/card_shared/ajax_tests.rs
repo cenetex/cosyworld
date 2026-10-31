@@ -395,6 +395,13 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
         super::sea_steps::assert_upgraded_ship(&current.game, &old.game);
         for field in ["items", "peaceUntil"] {
             for (key, value) in saved[field].as_object().unwrap() {
+                // Lonely Forest revision 2 retires these three things.
+                if ["forest-story-button", "forest-dewbright-button", "forest-watch-bell"]
+                    .contains(&key.as_str())
+                {
+                    assert!(current.game[field].get(key).is_none(), "{key}");
+                    continue;
+                }
                 assert_eq!(&current.game[field][key], value);
             }
         }

@@ -1,0 +1,273 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+
+import {
+  createWorld,
+  decodeSave,
+  encodeSave,
+  legalActions,
+  play,
+  places,
+  validateWorld,
+} from "../v2/card-game/world.mjs";
+import { enableMotives } from "../v2/card-game/motives.mjs";
+import {
+  entityActive,
+  packDefinition,
+} from "../v2/card-game/pack-registry.mjs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+
+const PACK = "lonely-forest";
+const COTTAGE = "forest-cottage";
+const BUTTON = "forest-button-vale",
+  SCARF = "forest-scarf-vale";
+const RETIRED = [
+  "forest-story-button",
+  "forest-dewbright-button",
+  "forest-watch-bell",
+];
+const reload = (world) => decodeSave(encodeSave(world));
+function act(world, kind, fields = {}) {
+  const action = legalActions(world).find(
+    (a) =>
+      a.kind === kind &&
+      Object.entries(fields).every(([key, value]) => a[key] === value),
+  );
+  expect(action, `${kind} ${JSON.stringify(fields)}`).toBeTruthy();
+  const result = play(world, action);
+  expect(result.ok, result.error).toBe(true);
+  return result.state;
+}
+function attic() {
+  const world = enableMotives(createWorld());
+  world.actors.vale.place = "attic";
+  world.items.cloth.holder = "vale";
+  world.items.lamp.holder = "attic";
+  world.items.lamp.lit = true;
+  world.items.lamp.fuel = 12;
+  return world;
+}
+const meetRati = () => act(attic(), "move", { target: COTTAGE });
+const fixture = (name) =>
+  readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
+
+describe("a button in each traveler's own colour", () => {
+  it("authors eight buttons and their complementary scarves", () => {
+    const pack = packDefinition(PACK);
+    expect(pack.revision).toBe(2);
+    const cast = JSON.parse(
+      readFileSync(
+        new URL("../v2/card-game/shared-cast.json", import.meta.url),
+        "utf8",
+      ),
+    ).avatars.map((a) => a.id);
+    for (const id of cast) {
+      expect(pack.items[`forest-button-${id}`]).toBeTruthy();
+      expect(pack.items[`forest-scarf-${id}`]).toBeTruthy();
+    }
+    expect(pack.items["forest-button-mara"].name).toBe("Mara's Red Button");
+    expect(pack.items["forest-scarf-mara"].name).toBe("Mara's Green Scarf");
+    for (const id of RETIRED) expect(pack.items[id]).toBeUndefined();
+    const choices = pack.choices.map((c) => c.id);
+    for (const id of [
+      "forest-mend-scarf",
+      "forest-share-symbols",
+      "forest-set-watch-bell",
+    ])
+      expect(choices).not.toContain(id);
+    expect(pack.storyQuests.map((q) => q.id)).not.toContain(
+      "story-quest-forest-hearth",
+    );
+    expect(JSON.stringify(pack)).not.toMatch(
+      /forest-(story|dewbright)-button|forest-watch-bell/,
+    );
+  });
+
+  it("hides the button somewhere else in the world when the traveler meets RATi", () => {
+    const before = attic();
+    expect(entityActive(before, BUTTON)).toBe(false);
+    const world = meetRati();
+    const state = world.packs[PACK];
+    expect(state.flags["forest-button-vale-hidden"]).toBe(true);
+    expect(state.receipts["forest-hide-button-vale"]).toBe(world.turn);
+    const spot = world.items[BUTTON].holder;
+    expect(Object.hasOwn(places, spot)).toBe(true);
+    expect(spot).not.toBe(COTTAGE);
+    expect(entityActive(world, BUTTON)).toBe(true);
+    expect(entityActive(world, SCARF)).toBe(false);
+    // The meeting is never a card, and replay picks the same spot.
+    expect(
+      legalActions(world).some((a) => a.choiceId?.startsWith("forest-hide-")),
+    ).toBe(false);
+    expect(meetRati().items[BUTTON].holder).toBe(spot);
+    expect(reload(world).items[BUTTON].holder).toBe(spot);
+    // Only Vale is here, so only Vale's button is hidden.
+    expect(world.items["forest-button-mara"].holder).toBe(COTTAGE);
+    expect(entityActive(world, "forest-button-mara")).toBe(false);
+  });
+
+  it("makes finding the hidden button the traveler's quest", () => {
+    let world = meetRati();
+    const spot = world.items[BUTTON].holder;
+    expect(world.actors.vale.want).toEqual({
+      kind: "item",
+      target: BUTTON,
+      since: world.turn,
+      refusals: 0,
+    });
+    validateWorld(reload(world));
+    const xp = world.actors.vale.xp;
+    // The button is an ordinary thing where it rests: anyone there can take it.
+    world.actors.vale.place = spot;
+    world = act(world, "take", { item: BUTTON });
+    expect(world.actors.vale.xp).toBe(xp + 1);
+    expect(world.log.some((e) => e.verb === "want_met" && e.itemId === BUTTON)).toBe(
+      true,
+    );
+    expect(world.actors.vale.want?.target).not.toBe(BUTTON);
+  });
+
+  it("lets RATi say she would sew it into a scarf", () => {
+    let world = meetRati();
+    world = act(world, "talk", { target: "rati" });
+    const text = JSON.stringify(narrativeContext(world));
+    expect(text).toContain(
+      "RATi says she would sew Vale's black button into a white scarf",
+    );
+  });
+
+  it("sews the found button into Vale's white scarf", () => {
+    let world = meetRati();
+    const spot = world.items[BUTTON].holder;
+    expect(
+      legalActions(world).some((a) => a.choiceId === "forest-sew-scarf-vale"),
+    ).toBe(false);
+    // Bring the button home from wherever it rests.
+    world.actors.vale.place = spot;
+    world = act(world, "take", { item: BUTTON });
+    world.actors.vale.place = COTTAGE;
+    validateWorld(world);
+    expect(
+      legalActions(world).some((a) => a.choiceId === "forest-sew-scarf-mara"),
+    ).toBe(false);
+    // The sewing is never a card. It is what giving RATi the button does.
+    expect(
+      legalActions(world).some((a) => a.choiceId?.startsWith("forest-sew-")),
+    ).toBe(false);
+    world = act(world, "give", { item: BUTTON, target: "rati" });
+    const gift = world.log.findLast((e) => e.verb === "give");
+    expect(gift).toMatchObject({ accepted: true, itemId: BUTTON });
+    expect(gift.text).toContain("white scarf");
+    expect(world.packs[PACK].receipts["forest-sew-scarf-vale"]).toBe(
+      world.turn,
+    );
+    expect(world.items[SCARF].holder).toBe("vale");
+    expect(entityActive(world, SCARF)).toBe(true);
+    expect(entityActive(world, BUTTON)).toBe(false);
+    expect(world.items[BUTTON]).toEqual({ holder: COTTAGE, history: [] });
+    expect(world.packs[PACK].flags["forest-scarf-vale-sewn"]).toBe(true);
+    world = reload(world);
+    expect(world.items[SCARF].holder).toBe("vale");
+    // Meeting RATi again hides nothing more.
+    world = act(world, "talk", { target: "rati" });
+    expect(world.items[BUTTON].holder).toBe(COTTAGE);
+  });
+
+  it("hides each shared traveler's own button when they meet RATi", () => {
+    const people = { claimed: ["vale", "mara"], present: ["vale", "mara"] };
+    let world = dispatchShared({
+      op: "create",
+      save: encodeSave(attic()),
+    }).world;
+    world.actors.vale.place = "forest-garden";
+    world.actors.mara.place = "forest-garden";
+    const walk = (world, actor) => {
+      const view = dispatchShared({ op: "view", world, actor, ...people });
+      const action = view.actions.find(
+        (a) => a.kind === "move" && a.target === COTTAGE,
+      );
+      expect(action, actor).toBeTruthy();
+      const response = dispatchShared({
+        op: "play",
+        world: view.world,
+        actor,
+        action,
+        ...people,
+      });
+      expect(response.ok, response.error).toBe(true);
+      return response.world;
+    };
+    world = walk(world, "mara");
+    const state = () => world.packs[PACK];
+    expect(state().receipts["forest-hide-button-mara"]).toBe(world.turn);
+    expect(state().receipts["forest-hide-button-vale"]).toBeUndefined();
+    world = walk(world, "vale");
+    expect(state().receipts["forest-hide-button-vale"]).toBe(world.turn);
+    for (const id of ["vale", "mara"]) {
+      const spot = world.items[`forest-button-${id}`].holder;
+      expect(spot).not.toBe(COTTAGE);
+      expect(entityActive(world, `forest-button-${id}`)).toBe(true);
+    }
+    // RATi sews only a traveler's own button.
+    world.items["forest-button-mara"].holder = "vale";
+    const view = dispatchShared({
+      op: "view",
+      world,
+      actor: "vale",
+      ...people,
+    });
+    const give = view.actions.find(
+      (a) =>
+        a.kind === "give" &&
+        a.item === "forest-button-mara" &&
+        a.target === "rati",
+    );
+    expect(give).toBeTruthy();
+    const refused = dispatchShared({
+      op: "play",
+      world: view.world,
+      actor: "vale",
+      action: give,
+      ...people,
+    });
+    expect(refused.ok, refused.error).toBe(true);
+    world = reload(refused.world);
+    expect(world.log.findLast((e) => e.verb === "give")).toMatchObject({
+      accepted: false,
+      itemId: "forest-button-mara",
+    });
+    expect(world.items["forest-button-mara"].holder).toBe("vale");
+    expect(world.packs[PACK].receipts["forest-sew-scarf-mara"]).toBeUndefined();
+  });
+
+  it("upgrades a finished revision 1 chapter", () => {
+    const world = decodeSave(fixture("forest-revision-1-chapter.json"));
+    const state = world.packs[PACK];
+    expect(state.revision).toBe(2);
+    for (const id of RETIRED) expect(world.items[id]).toBeUndefined();
+    expect(state.receipts["forest-set-watch-bell"]).toBeUndefined();
+    expect(state.receipts["forest-mark-pawprints"]).toBeGreaterThan(0);
+    expect(state.choices["forest-watch-style"]).toBe("tracks");
+    expect(state.receipts["forest-mend-scarf"]).toBeUndefined();
+    expect(state.flags["forest-scarf-mended"]).toBeUndefined();
+    expect(state.flags["forest-homecoming-shared"]).toBe(true);
+    expect(JSON.stringify(world.log)).not.toMatch(
+      /forest-(story|dewbright)-button|forest-watch-bell/,
+    );
+    // Vale met RATi before buttons existed; the next visit hides one.
+    expect(world.items[BUTTON].holder).toBe(COTTAGE);
+    let next = act(world, "move", { target: COTTAGE });
+    expect(next.items[BUTTON].holder).not.toBe(COTTAGE);
+    expect(entityActive(next, BUTTON)).toBe(true);
+    next = reload(next);
+    expect(next.packs[PACK].revision).toBe(2);
+  });
+
+  it("upgrades a revision 1 save with the old things in hand", () => {
+    const world = decodeSave(fixture("forest-revision-1-garden.json"));
+    for (const id of RETIRED) expect(world.items[id]).toBeUndefined();
+    expect(world.packs[PACK].receipts["forest-clear-drain"]).toBeGreaterThan(0);
+    expect(reload(world).packs[PACK].revision).toBe(2);
+  });
+});
