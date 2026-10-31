@@ -3528,7 +3528,15 @@ async fn request_completion(
         }
         let temperature = selection
             .and_then(|selection| selection.candidate().sampling().temperature)
-            .or(temperature);
+            .or(temperature)
+            .filter(|_| {
+                selection.is_none_or(|selection| {
+                    selection
+                        .candidate()
+                        .supported_parameters()
+                        .accepts_temperature()
+                })
+            });
         if let Some(temperature) = temperature {
             payload["temperature"] = json!(temperature);
         }
@@ -6676,6 +6684,80 @@ mod tests {
         );
         assert_eq!(attribution.catalog_snapshot_version, "gateway-alias-1");
         assert_eq!(attribution.prompt_adapter_version, "3");
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn gateway_omits_temperature_the_registry_marks_unsupported() {
+        let seen = Arc::new(std::sync::Mutex::new(Vec::<Value>::new()));
+        let app = Router::new().route(
+            "/chat/completions",
+            post({
+                let seen = seen.clone();
+                move |Json(body): Json<Value>| {
+                    let seen = seen.clone();
+                    async move {
+                        seen.lock().unwrap().push(body);
+                        Json(json!({ "choices": [{ "message": { "content": "Hello." } }] }))
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let addr = listener.local_addr().expect("address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let entry = |model: &str, temperature: &str| {
+            format!(
+                r#"{{"requested_model_id":"{model}","provider":"openrouter","input_modalities":["text"],"output_modalities":["text"],"supported_parameters":{{"structured_output":true,"json_mode":true,"reasoning":true{temperature}}},"data_policy":{{"retention":"none","training":"prohibited"}},"capabilities":["world_content"],"sampling":{{"temperature":0.4,"hard_output_cap":64}}}}"#
+            )
+        };
+        let registry = CapabilityRegistrySnapshot::from_json(&format!(
+            r#"{{"schema_version":1,"snapshot_version":"temperature-1","declared":[{},{}]}}"#,
+            entry("test/no-temperature", r#","temperature":false"#),
+            entry("test/legacy", ""),
+        ))
+        .expect("valid registry");
+        for model in ["test/no-temperature", "test/legacy"] {
+            let config = AiConfig {
+                api_key: "test".to_string(),
+                base_url: format!("http://{addr}"),
+                model: model.to_string(),
+                vision_model: "test-vision-model".to_string(),
+                registry: Some(Arc::new(registry.clone())),
+                capability_models: BTreeMap::from([(
+                    ModelCapability::WorldContent,
+                    model.to_string(),
+                )]),
+                reasoning_effort: Some("none".to_string()),
+                data_policy_mode: DataPolicyMode::Production,
+                ..AiConfig::default()
+            };
+            request_chat_completion(
+                &config,
+                ChatCompletionRequest {
+                    feature: "temperature_test",
+                    prompt_version: "temperature-test-v1",
+                    capability: ModelCapability::WorldContent,
+                    system: "system",
+                    user: "user",
+                    temperature: 0.9,
+                    max_tokens: 32,
+                    timeout: Duration::from_secs(2),
+                    max_attempts: 1,
+                    referer: "http://127.0.0.1",
+                    response_format: None,
+                    room_id: None,
+                },
+            )
+            .await
+            .expect("completion");
+        }
+        let seen = seen.lock().unwrap();
+        assert!(seen[0].get("temperature").is_none());
+        assert_eq!(seen[0].pointer("/reasoning/effort"), Some(&json!("none")));
+        assert_eq!(seen[1]["temperature"], json!(0.4));
         server.abort();
     }
 

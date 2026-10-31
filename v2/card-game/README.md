@@ -657,9 +657,9 @@ Both Fly configurations set `COSYWORLD_CARD_CHARACTER_MODELS_JSON`:
 
 | Character     | Stable OpenRouter model                    |
 | ------------- | ------------------------------------------ |
-| Vale          | `openai/gpt-4.1-mini`                      |
-| Pip           | `google/gemini-2.5-flash`                  |
-| The keeper    | `anthropic/claude-haiku-4.5`               |
+| Vale          | `openai/gpt-6-luna`                        |
+| Pip           | `openai/gpt-6-luna`                        |
+| The keeper    | `anthropic/claude-haiku-5.5`               |
 | Grumpy Badger | `mistralai/mistral-small-3.2-24b-instruct` |
 
 The map covers the authored cast. Each model also has an explicit world-content
@@ -669,6 +669,11 @@ restarts and changes in who is present. Operators can change an assignment by
 editing the map and its registry entry together. Hosts with the character map
 unset use the default world-content model for each voice. Mounted pack avatars
 inherit that default unless their ID has an explicit model assignment.
+
+Character calls send reasoning effort `none` when the registry entry declares
+`reasoning`, so GPT-6 Luna and Claude Haiku 5.5 answer without thinking inside
+the call and scene deadlines. A registry entry with `"temperature": false` makes
+the gateway omit sampling temperature for endpoints that reject it.
 
 Each avatar call receives the public scene plus that avatar's own witnessed
 memories, current persona, thoughts and dreams. Other avatars' inner lives stay

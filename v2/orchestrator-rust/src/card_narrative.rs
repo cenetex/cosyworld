@@ -3513,6 +3513,13 @@ mod tests {
                     )
                     .unwrap();
                 assert_eq!(pinned.requested_model_id(), model);
+                // Reasoning-first endpoints answer with effort none and
+                // never receive a temperature they would reject.
+                if ["openai/gpt-6-luna", "anthropic/claude-haiku-5.5"].contains(&model.as_str()) {
+                    let parameters = pinned.candidate().supported_parameters();
+                    assert!(parameters.reasoning, "{model}");
+                    assert!(!parameters.accepts_temperature(), "{model}");
+                }
             }
             maps.push(models);
         }
