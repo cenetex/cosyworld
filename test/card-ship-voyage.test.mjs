@@ -9,7 +9,6 @@ import {
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   IDLE_ROUNDS,
-  learnLane,
   callTransport,
   lanesFrom,
   summonTransport,
@@ -18,15 +17,19 @@ import {
 import { laneProblems, MAX_LANES } from "../v2/card-game/pack-schema.mjs";
 import { transports } from "../v2/card-game/pack-registry.mjs";
 import { availableCards, cardPlay, playLabel } from "../v2/card-game/cards.mjs";
+import { openSeas } from "./helpers/open-door.mjs";
 import bridge from "../v2/worlds/greek-drama/card-bridge.json" with { type: "json" };
 
 const players = ["vale", "mara", "ash"];
 const ship = () => transports["greek-ship"];
 function setup(dock, full = false) {
+  // A full Greek world has reached the plea at the Agora, so the Open Door
+  // and the plea have opened every lane; the provisions wait at the harbor.
   const s = dispatchShared({
     op: "create",
-    save: encodeSave(createWorld()),
+    save: encodeSave(full ? openSeas() : createWorld()),
   }).world;
+  if (full) s.items["greek-provisions"].holder = "greek-harbor";
   for (const id of players) s.actors[id].place = dock;
   s.actors.moth.place = "station";
   s.actors.keeper.place = "attic";
@@ -34,8 +37,6 @@ function setup(dock, full = false) {
   s.actors.boardyai.want = null;
   summonTransport(s, "greek-ship", dock);
   s.crossings["pond-greek-harbor"].discovered = true;
-  // A full Greek world has The Open Door: Athens Harbor and Piraeus.
-  if (full) s.packs["greek-drama"].scope = "full";
   return s;
 }
 const ask = (world, actor, op = "view", extra = {}) =>
@@ -187,7 +188,7 @@ describe("a real voyage", () => {
   });
 
   it("an empty ship stays put, and a human waiting at a port brings it one lane closer", () => {
-    let s = setup("greek-piraeus");
+    let s = setup("greek-piraeus", true);
     for (const id of players) s.actors[id].place = "pond";
     // The Travel Provisions on deck keep the Piraeus lane open.
     s.items["greek-provisions"].holder = "greek-ship";
@@ -213,16 +214,11 @@ describe("a real voyage", () => {
       "greek-harbor",
     ]);
     // Vale knows the Black Pond lane. Piraeus waits for the Travel
-    // Provisions aboard; Athens Harbor for a lane she has not heard of yet.
+    // Provisions aboard, and Athens Harbor lies beyond it.
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-harbor",
     ]);
     s.items["greek-provisions"].holder = "greek-ship";
-    expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
-      "greek-harbor",
-      "greek-piraeus",
-    ]);
-    learnLane(s, "vale", "greek-piraeus", "greek-athens-harbor");
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-athens-harbor",
       "greek-harbor",

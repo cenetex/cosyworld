@@ -171,3 +171,18 @@ export function openDoorJourney(options) {
   }
   return { world, before, after };
 }
+
+// The world just after the plea at the Agora. The Open Door has opened the
+// Piraeus lane and the Attic roads; the plea opens the Athens Harbor lane.
+let plea;
+export function openSeas() {
+  if (!plea) {
+    let world = openDoorStart();
+    for (const { kind, ...fields } of openDoorSteps()) {
+      world = playOpenDoor(world, kind, fields);
+      if (fields.choiceId === "greek-open-door-register-plea") break;
+    }
+    plea = world;
+  }
+  return structuredClone(plea);
+}

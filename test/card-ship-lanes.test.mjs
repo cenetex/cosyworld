@@ -16,6 +16,7 @@ import {
   summonTransport,
 } from "../v2/card-game/pack-transport.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
+import { openSeas } from "./helpers/open-door.mjs";
 
 const players = ["vale", "mara"];
 const reload = (s) => decodeSave(encodeSave(s));
@@ -69,42 +70,32 @@ describe("knowing a lane is personal", () => {
       expect(knowsLane(s, "greek-shipmaster", from, to)).toBe(true);
   });
 
-  it("two people on one deck see different course cards", () => {
-    let s = setup("greek-athens-harbor");
-    learnLane(s, "mara", "greek-athens-harbor", "greek-piraeus");
-    s = reload(s);
-    s = act(s, "vale", "move", "greek-ship");
-    s = act(s, "mara", "move", "greek-ship");
-    expect(courses(s, "vale")).toEqual([]);
-    expect(courses(s, "mara")).toEqual(["greek-piraeus"]);
-    expect(s.routeKnowledge.mara).toEqual([
-      ["sea:greek-athens-harbor", "sea:greek-piraeus"],
-      ["sea:greek-piraeus", "sea:greek-athens-harbor"],
-    ]);
-  });
-
+  // Every lane past the Wine-Dark Harbor now opens with a condition or a
+  // story dock, so knowing one changes what Myrto tells, not the course cards.
   it("everyone who sails a lane learns it, both ways", () => {
-    let s = setup("greek-athens-harbor");
-    learnLane(s, "mara", "greek-athens-harbor", "greek-piraeus");
+    let s = dispatchShared({ op: "create", save: encodeSave(openSeas()) })
+      .world;
+    for (const id of players) s.actors[id].place = "greek-athens-harbor";
+    summonTransport(s, "greek-ship", "greek-athens-harbor");
     s = reload(s);
     s = act(s, "vale", "move", "greek-ship");
     s = act(s, "mara", "move", "greek-ship");
-    s = act(s, "mara", "course", "greek-piraeus");
-    expect(knowsLane(s, "vale", "greek-athens-harbor", "greek-piraeus")).toBe(
+    // The plea at the Agora opens the lane for both, known or not.
+    expect(courses(s, "vale")).toEqual(["greek-piraeus"]);
+    expect(knowsLane(s, "mara", "greek-athens-harbor", "greek-piraeus")).toBe(
       false,
     );
-    s = act(s, "vale", "wait");
-    expect(knowsLane(s, "vale", "greek-athens-harbor", "greek-piraeus")).toBe(
+    s = act(s, "vale", "course", "greek-piraeus");
+    s = act(s, "mara", "wait");
+    expect(knowsLane(s, "mara", "greek-athens-harbor", "greek-piraeus")).toBe(
       true,
     );
-    expect(knowsLane(s, "vale", "greek-piraeus", "greek-athens-harbor")).toBe(
+    expect(knowsLane(s, "mara", "greek-piraeus", "greek-athens-harbor")).toBe(
       true,
     );
-    // The lane on to the Wine-Dark Harbor waits for the Travel Provisions.
-    expect(courses(s, "vale")).toEqual(["greek-athens-harbor"]);
   });
 
-  it("the Travel Provisions aboard open the Wine-Dark Harbor to Piraeus lane for everyone on deck", () => {
+  it("before the Open Door the Travel Provisions aboard leave the Piraeus lane closed", () => {
     const fresh = (dock) => {
       const s = dispatchShared({
         op: "create",
@@ -128,22 +119,9 @@ describe("knowing a lane is personal", () => {
     s = act(reload(s), "vale", "move", "greek-ship");
     expect(courses(s, "vale")).toEqual(["pond"]);
     s = act(s, "mara", "move", "greek-ship");
-    expect(courses(s, "vale")).toEqual(["greek-piraeus", "pond"]);
-    expect(courses(s, "mara")).toEqual(["greek-piraeus", "pond"]);
-    expect(knowsLane(s, "vale", "greek-harbor", "greek-piraeus")).toBe(false);
-    s = act(s, "vale", "course", "greek-piraeus");
-    s = act(s, "mara", "wait");
-    s = act(s, "vale", "move", "greek-piraeus");
-    expect(s.actors.vale.place).toBe("greek-piraeus");
-    expect(knowsLane(s, "vale", "greek-harbor", "greek-piraeus")).toBe(true);
-    // The quay lies outside the Open Door; its road inland stays closed.
-    expect(ask(s, "vale").exits).not.toContain("greek-road-athens-piraeus");
-    // While Mara holds them aboard the lane home stays open; left on the
-    // quay, they close it.
-    expect(courses(s, "mara")).toEqual(["greek-harbor"]);
-    s.items["greek-provisions"].holder = "greek-piraeus";
-    s = reload(s);
-    expect(courses(s, "mara")).toEqual([]);
+    // The lane also waits for the Open Door (test/card-open-door-lanes).
+    expect(courses(s, "vale")).toEqual(["pond"]);
+    expect(courses(s, "mara")).toEqual(["pond"]);
   });
 
   it("Myrto tells a lane through Talk; only published speech puts it on the chart", () => {

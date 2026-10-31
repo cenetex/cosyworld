@@ -33,6 +33,11 @@ const original = structuredClone({
   release: pack.release,
   routes: pack.routes,
 });
+// The Piraeus lane waits for the Open Door; here it follows the test section.
+const piraeusLane = pack.transports["greek-ship"].lanes.find(
+  (lane) => lane.from === "greek-harbor" && lane.to === "greek-piraeus",
+);
+const piraeusGate = structuredClone(piraeusLane.opensWith);
 const act = (world, kind, fields = {}) => {
   if (kind === "move") {
     const steps = greekTravelTargets(world.actors.vale.place, fields.target);
@@ -71,12 +76,17 @@ describe("permanent pack sections", () => {
       ]),
     );
     pack.release.choices = pack.choices.map((choice) => choice.id);
+    piraeusLane.opensWith = [
+      ...section().requires,
+      ...piraeusGate.filter((c) => c.kind !== "flag"),
+    ];
   });
   afterEach(() => {
     if (original.sections === undefined) delete pack.sections;
     else pack.sections = structuredClone(original.sections);
     pack.release = structuredClone(original.release);
     pack.routes = structuredClone(original.routes);
+    piraeusLane.opensWith = structuredClone(piraeusGate);
   });
 
   it("checks static roads and conditional routes for every traveler", () => {

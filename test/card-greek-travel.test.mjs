@@ -24,16 +24,21 @@ import {
   laneGated,
   learnLane,
 } from "../v2/card-game/pack-transport.mjs";
-import { openDoorStart } from "./helpers/open-door.mjs";
+import { openDoorStart, openSeas } from "./helpers/open-door.mjs";
 import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
 const docks = ["pond", "greek-harbor", "greek-athens-harbor", "greek-piraeus"];
 const players = ["vale", "mara"];
 const pack = packDefinition("greek-drama");
-function shared(dock) {
+function shared(dock, seas = false) {
+  // After the plea at the Agora every Greek lane is open.
   const world = dispatchShared({
     op: "create",
-    save: encodeSave(createWorld({ packScopes: { "greek-drama": "full" } })),
+    save: encodeSave(
+      seas
+        ? openSeas()
+        : createWorld({ packScopes: { "greek-drama": "full" } }),
+    ),
   }).world;
   world.crossings["pond-greek-harbor"].discovered = true;
   world.transports["greek-ship"].dock = docks.includes(dock)
@@ -81,7 +86,7 @@ describe("Greek ports and fixed roads", () => {
   )(
     "carries two travelers from %s to %s through the shared ship",
     (from, to) => {
-      let w = shared(from);
+      let w = shared(from, true);
       w.items.lamp.holder = "vale";
       w = move(w, "vale", "greek-ship");
       w = move(w, "mara", "greek-ship");
@@ -169,12 +174,15 @@ describe("Greek ports and fixed roads", () => {
     },
   );
 
-  it.each(docks)("brings an empty ship to a traveler waiting at %s", (port) => {
-    let w = shared(docks.find((p) => p !== port));
+  // Before the Open Door the ship's one open lane joins Black Pond and the
+  // Wine-Dark Harbor; the voyages above cover the other ports.
+  const near = ["pond", "greek-harbor"];
+  it.each(near)("brings an empty ship to a traveler waiting at %s", (port) => {
+    let w = shared(near.find((p) => p !== port));
     w.actors.vale.place = port;
     for (
       let n = 0;
-      n < docks.length && w.transports["greek-ship"].dock !== port;
+      n < near.length && w.transports["greek-ship"].dock !== port;
       n++
     )
       w = play(w, "vale", "wait", {});
@@ -194,10 +202,10 @@ describe("Greek ports and fixed roads", () => {
           ["move", "course"].includes(a.kind) && a.target !== "willows-landing",
       ),
     ).toEqual([]);
-    w = play(w, "vale", "course", { target: "greek-piraeus" });
+    w = play(w, "vale", "course", { target: "pond" });
     w = play(w, "vale", "wait", {});
-    w = move(w, "vale", "greek-piraeus");
-    expect(w.actors.moth.place).toBe("greek-piraeus");
+    w = move(w, "vale", "pond");
+    expect(w.actors.moth.place).toBe("pond");
     expect(w.actors.boardyai.place).toBe("boardyai-parlour");
     expect(w.transports["greek-ship"].destination).toBe(null);
   });

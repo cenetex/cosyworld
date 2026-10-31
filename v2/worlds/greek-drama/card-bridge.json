@@ -165,6 +165,7 @@
           "from": "greek-harbor",
           "to": "greek-piraeus",
           "opensWith": [
+            { "kind": "flag", "key": "greek-open-door-open", "value": true },
             {
               "kind": "item_present",
               "item": "greek-provisions",
@@ -173,7 +174,17 @@
           ]
         },
         { "from": "greek-harbor", "to": "greek-ajax-landing" },
-        { "from": "greek-athens-harbor", "to": "greek-piraeus" },
+        {
+          "from": "greek-athens-harbor",
+          "to": "greek-piraeus",
+          "opensWith": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-plea-registered",
+              "value": true
+            }
+          ]
+        },
         {
           "from": "greek-piraeus",
           "to": "hoppycat-signal-jetty",
