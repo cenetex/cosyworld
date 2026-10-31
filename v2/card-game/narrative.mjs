@@ -14,6 +14,7 @@ import {
   packEntity,
   packDefinitions,
   packFacts,
+  packNarration,
   packReadings,
   packSceneFacts,
   observableStates,
@@ -380,6 +381,7 @@ export function narrativeContext(world, action = null) {
         ...[...packFacts(world, id), ...continuity]
           .filter((fact, index, all) => all.indexOf(fact) === index)
           .slice(-4),
+        ...(kind === "location" ? packNarration(world, id) : []),
       ];
       let desire = null;
       if (kind === "avatar") {

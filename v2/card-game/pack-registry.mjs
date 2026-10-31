@@ -554,6 +554,22 @@ export function packFacts(world, id) {
     .slice(-3)
     .map((c) => committedChoiceText(world, pack, c).slice(0, 240));
 }
+// A place with its own narrator voice hears how many plain discoveries (a
+// choice that only records a flag) its pack has seen, so the rules, not the
+// model, decide how far its reasons have worn.
+export function packNarration(world, id) {
+  const e = packEntity(id);
+  if (!e) return [];
+  const pack = packDefinition(e.packId),
+    state = packState(world, e.packId);
+  if (!state || pack.places?.[id]?.voice === undefined) return [];
+  const count = (pack.choices || []).filter(
+    (c) =>
+      owns(state.receipts, c.id) &&
+      c.effects.every((effect) => effect.kind === "set_flag"),
+  ).length;
+  return [`Discoveries recorded so far: ${count}.`];
+}
 // Source text enters a resident's knowledge through saved story receipts.
 export function packReadings(world, actor) {
   const pack = packOf(actor);
@@ -572,8 +588,12 @@ export function packReadings(world, actor) {
     .map((r) => ({
       id: r.id,
       turn: r.after === null ? 0 : state.receipts[r.after],
-    }));
+    }))
+    .filter((r, _, all) => newestReadings(all).includes(r));
 }
+// A resident remembers at most its eight newest passages, in story order.
+const newestReadings = (all) =>
+  [...all].sort((a, b) => a.turn - b.turn).slice(-8);
 export function packSceneFacts(world, location) {
   const e = packEntity(location);
   if (!e) return [];

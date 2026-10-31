@@ -5,8 +5,16 @@ pub(super) fn legacy_scenery() -> bool {
     true
 }
 
-pub(super) fn voice() -> String {
-    "An atmospheric caption: one sentence.".into()
+/// A place whose pack gives it a `voice` narrates in its own first person.
+pub(super) fn narrator(id: &str) -> bool {
+    profiles()[id]["voice"].is_string()
+}
+
+pub(super) fn voice(id: &str) -> String {
+    profiles()[id]["voice"]
+        .as_str()
+        .unwrap_or("An atmospheric caption: one sentence.")
+        .into()
 }
 
 pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
@@ -41,16 +49,19 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
     lines.join("\n")
 }
 
-pub(super) fn consistent(text: &str) -> bool {
+pub(super) fn consistent(text: &str, id: &str) -> bool {
+    // A narrator keeps its own "I" or "we" but never addresses anyone.
+    let banned: &[&str] = if narrator(id) {
+        &["you", "your", "yours"]
+    } else {
+        &[
+            "i", "my", "mine", "me", "we", "our", "ours", "you", "your", "yours",
+        ]
+    };
     let personal = text
         .split(|c: char| !c.is_alphabetic())
         .map(str::to_lowercase)
-        .any(|word| {
-            [
-                "i", "my", "mine", "me", "we", "our", "ours", "you", "your", "yours",
-            ]
-            .contains(&word.as_str())
-        });
+        .any(|word| banned.contains(&word.as_str()));
     let character = profiles()
         .as_object()
         .into_iter()
@@ -70,8 +81,8 @@ mod tests {
 
     #[test]
     fn captions_stay_with_physical_details() {
-        assert!(consistent("A faint shimmer rests on the water."));
-        assert!(consistent("Old boards creak beneath the dust."));
+        assert!(consistent("A faint shimmer rests on the water.", "attic"));
+        assert!(consistent("Old boards creak beneath the dust.", "attic"));
         for text in [
             "My boards creak.",
             "I remember your journey.",
@@ -79,7 +90,22 @@ mod tests {
             "Vale gives the keeper a bell.",
             "I’ll remember that.",
         ] {
-            assert!(!consistent(text), "{text}");
+            assert!(!consistent(text, "attic"), "{text}");
+        }
+    }
+
+    #[test]
+    fn narrator_places_keep_their_own_voice() {
+        assert!(narrator("willows-thicket"));
+        assert!(!narrator("attic"));
+        assert!(voice("willows-camp").contains("first person"));
+        assert!(consistent(
+            "I paced it at supper. Nine now.",
+            "willows-camp"
+        ));
+        assert!(consistent("We lean to count again.", "willows-thicket"));
+        for text in ["You should leave.", "The Swede is frightened."] {
+            assert!(!consistent(text, "willows-camp"), "{text}");
         }
     }
 }

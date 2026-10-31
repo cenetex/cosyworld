@@ -4,7 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const output = new URL(
-  "../orchestrator-rust/src/card_shared/engine-v48.js",
+  "../orchestrator-rust/src/card_shared/engine-v49.js",
   import.meta.url,
 );
 const result = await build({

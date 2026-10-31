@@ -75,6 +75,7 @@ export const CONDITION_KINDS = [
   "met",
   "knows",
   "pack_item_present",
+  "daylight",
 ];
 export const TRAVELERS = ["player", "any"];
 export const VARIANTS = ["asleep", "awake", "irritated"];
@@ -414,6 +415,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "name",
         "text",
         "persona",
+        "voice",
         "exits",
         "backdrop",
         "art",
@@ -429,6 +431,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     check(
       textOk(p.name, 120) && textOk(p.text) && textOk(p.persona),
       `place ${id} needs a name, text and persona`,
+    );
+    check(
+      p.voice === undefined || textOk(p.voice, 900),
+      `place ${id} voice must be short text`,
     );
     check(
       Array.isArray(p.exits) &&
@@ -758,6 +764,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "choice_unset":
           ok = keysOk(c, ["kind", "key"]) && idOk(c.key);
           break;
+        case "daylight":
+          ok =
+            keysOk(c, ["kind", "phase"]) && ["day", "night"].includes(c.phase);
+          break;
         case "flag":
           ok =
             keysOk(c, ["kind", "key", "value"]) &&
@@ -859,6 +869,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
               "connected_humans",
               "met",
               "knows",
+              "daylight",
             ].includes(c.kind),
           `${what} must use saved state or human presence conditions`,
         );
@@ -1329,7 +1340,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     const ids = new Set();
     check(
       Array.isArray(pack.readings) &&
-        pack.readings.length <= 8 &&
+        pack.readings.length <= 16 &&
         pack.readings.every((r) => {
           if (!record(r)) return false;
           const valid =
