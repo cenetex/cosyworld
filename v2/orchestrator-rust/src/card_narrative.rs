@@ -44,10 +44,10 @@ mod reflections;
 #[cfg(test)]
 #[path = "card_narrative/voice_eval.rs"]
 mod voice_eval;
-#[path = "card_narrative/waking.rs"]
-mod waking;
 #[path = "card_narrative/voice_metrics.rs"]
 pub(crate) mod voice_metrics;
+#[path = "card_narrative/waking.rs"]
+mod waking;
 use voice_metrics::{tagged, Section};
 
 const PER_MINUTE: RateLimit = RateLimit {
