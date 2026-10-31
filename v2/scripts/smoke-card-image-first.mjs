@@ -353,12 +353,9 @@ try {
         (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
       );
       await cards("cloth");
+      // One cover and one uncover of the lit lamp call the ship.
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
-      // A travelling bard can bring the ship here before the lamp signal ends.
-      assert.equal(
-        await card("greek-ship").count(),
-        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
-      );
+      assert.equal(await card("greek-ship").count(), 1);
       assert.doesNotMatch(
         await page.locator("body").innerText(),
         /inspiration|[12] of two|first flash|once more|ritual|fuel|turns left|ring again/i,
@@ -379,12 +376,8 @@ try {
       assert.equal(
         (await state()).crossings["pond-greek-harbor"].phase,
         2,
-        "halfway save restored",
+        "summoned save restored",
       );
-      await cards("cloth", "lamp");
-      await page.keyboard.press("Escape");
-      await cards("cloth");
-      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 4);
       await card("greek-ship").waitFor({ state: "attached" });
       await art();
       assert.equal(

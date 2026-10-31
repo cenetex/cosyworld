@@ -123,9 +123,13 @@ npm run v2:card:pack:check
 
 ## The crossing
 
-At quiet Black Pond, cover and uncover the fueled, lit Lamp with Black cloth
-twice. The signal counts each resolved action. Its conditions require a lit,
-fueled lamp at the pond and quiet at both the pond and clearing.
+At quiet Black Pond, cover the fueled, lit Lamp with Black cloth, then uncover
+it. The signal counts each resolved action. Its conditions require a lit,
+fueled lamp at the pond and quiet at both the pond and clearing. Covering hides
+the flame without putting it out, so it is never a douse. Residents who cover
+or uncover the lamp break a partial signal and never complete one. Pack
+revision 9 shortened the signal from two cycles to one; an older save keeps a
+single saved cover and starts any longer partial signal again.
 
 Completing the signal summons a shared ship. Its saved discovery keeps the
 boarding shores open through lamp changes, reloads and later voyages.

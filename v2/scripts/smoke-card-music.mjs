@@ -288,12 +288,8 @@ try {
   ship.items.lamp.holder = ship.items.cloth.holder = "vale";
   ship.items.lamp.lit = true;
   ship.items.lamp.fuel = 12;
-  for (const cards of [
-    ["cloth", "lamp"],
-    ["cloth"],
-    ["cloth", "lamp"],
-    ["cloth"],
-  ]) {
+  // Cover, then uncover, the lit lamp: the whole ship signal.
+  for (const cards of [["cloth", "lamp"], ["cloth"]]) {
     const result = play(ship, cardPlay(ship, cards).action);
     assert(result.ok, result.error);
     ship = result.state;

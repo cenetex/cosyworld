@@ -157,16 +157,11 @@ try {
         await card("greek-ship").count(),
         (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
       );
+      // Cover, then uncover, the lit lamp; the call survives a reload.
       await use("cloth", "lamp");
       await use("cloth");
       await page.reload();
       await card("cloth").waitFor({ state: "attached" });
-      assert.equal(
-        await card("greek-ship").count(),
-        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
-      );
-      await use("cloth", "lamp");
-      await use("cloth");
       // A newly docked ship arrives covered; uncover it before reading it.
       await revealCard(page, "greek-ship");
       assert.equal(

@@ -148,7 +148,7 @@ adapted edition and record each intentional difference.
 
 The reviewed card table mounts `badger-forest` and `greek-drama`. Two bell rings
 at the pond reveal the Steam Clock clearing. Covering and uncovering the lit
-lamp twice calls the Greek ship under its authored conditions. The shared cast
+lamp once calls the Greek ship under its authored conditions. The shared cast
 adds seven home entrances at the pond, tied to each person's signature item.
 
 The bridge validator already accepts a connection between a hub place and a

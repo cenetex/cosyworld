@@ -54,10 +54,9 @@ export function openingFixture(
   world.items.cloth.holder = "vale";
   world.items.oil.holder = "greek-harbor";
   world.items.lamp.fuel = 12;
-  for (let i = 0; i < 2; i++) {
-    act("cover", { item: "cloth", target: "lamp" });
-    take("cloth");
-  }
+  // Cover, then uncover, the lit lamp: the whole ship signal.
+  act("cover", { item: "cloth", target: "lamp" });
+  take("cloth");
   walk("ship", "harbor");
   // Black Pond sails only to the Wine-Dark Harbor. The Travel Provisions
   // ride on deck, which opens the lane on to Piraeus, and Myrto has told the

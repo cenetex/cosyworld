@@ -329,8 +329,7 @@ travels to the requested dock.
 
 `signal.while` contains conditions maintained through the sequence. The
 Greek bridge requires a burning lamp and quiet throughout
-cover → uncover → cover → uncover. The lamp needs enough oil for all four
-plays. Each completed signal recalls the ship to Black pond. The ship keeps
+cover → uncover. The lamp needs enough oil for both plays. Each completed signal recalls the ship to Black pond. The ship keeps
 waiting after the lamp goes out.
 
 Saves include `transports`, keyed by transport id, at version 3: `phase`

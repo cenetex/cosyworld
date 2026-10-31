@@ -60,10 +60,9 @@ function move(world, target) {
     if (["lamp", "bell"].includes(world.items.cloth.holder))
       world = act(world, "take", { item: "cloth" });
     if (!world.items.lamp.lit) world = act(world, "light", { item: "lamp" });
-    for (let i = 0; i < 2; i++) {
-      world = act(world, "cover", { item: "cloth", target: "lamp" });
-      world = act(world, "take", { item: "cloth" });
-    }
+    // Cover, then uncover, the lit lamp: the whole ship signal.
+    world = act(world, "cover", { item: "cloth", target: "lamp" });
+    world = act(world, "take", { item: "cloth" });
   }
   if (
     (world.actors.vale.place === "pond" && target === HARBOR) ||

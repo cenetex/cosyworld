@@ -1798,7 +1798,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 8,
+        revision: 9,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -10008,16 +10008,6 @@
                   verb: "take",
                   item: "cloth",
                   from: "lamp"
-                },
-                {
-                  verb: "cover",
-                  item: "cloth",
-                  target: "lamp"
-                },
-                {
-                  verb: "take",
-                  item: "cloth",
-                  from: "lamp"
                 }
               ],
               consecutive: false,
@@ -16255,6 +16245,7 @@
       upgradeGreekTownSave(s);
       upgradeGreekAjaxSave(s);
       upgradeGreekOneRoadSave(s);
+      upgradeGreekShipSignalSave(s);
       s.schema = 7;
       installPacks2(s);
     } else if (s?.schema === 7 && s.packs && typeof s.packs === "object" && s.crossings && typeof s.crossings === "object") {
@@ -16265,6 +16256,7 @@
       upgradeGreekTownSave(s);
       upgradeGreekAjaxSave(s);
       upgradeGreekOneRoadSave(s);
+      upgradeGreekShipSignalSave(s);
       installPacks2(s);
     }
     if (s?.schema === 7) {
@@ -16419,6 +16411,15 @@
     joinDistantTowns(s, pack, saved);
     foldRetiredRoads(s);
     saved.revision = 8;
+  }
+  function upgradeGreekShipSignalSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 9 || saved?.revision !== 8) return;
+    const state = s.crossings?.["pond-greek-harbor"];
+    if (state && (state.phase > 2 || state.phase === 2 && !state.discovered))
+      state.phase = 0;
+    saved.revision = 9;
   }
   function restoreThebanRoad(s, pack) {
     const road = "greek-road-thebes";
