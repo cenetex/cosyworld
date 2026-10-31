@@ -488,8 +488,12 @@ The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and
 
 ## Learning and inner life
 
-Open **Menu → Inner life** to read your avatar's persona, thoughts, dreams and
-measured attempts. Each avatar keeps up to 32 completed plays for item and
+Open **Menu → Inner life** to read your avatar's inner life as a short chain:
+**I'm** (the authored name and title, "I'm Vale. The Lamplighter."), **I'm
+becoming** (the newest reflection and thoughts) and **I dream** (recent
+dreams), closed by the avatar's name. Lines that read as an assistant talking
+about the scene are hidden. Measured attempts guide the planner and stay in
+the save; the panel does not show them. Each avatar keeps up to 32 completed plays for item and
 companionship goals. The record includes the goal, the chosen action, the
 estimate before the play, the observed result, and the exact event as evidence.
 The first estimate is unknown. Later estimates come from that avatar's results.
@@ -508,8 +512,7 @@ two points per step; each carried item is worth four points; each play costs
 one point. Exploratory gifts preserve the item the current quest needs. Up to four linked plays share a
 later result with a 0.7 discount per step. A changed recorded situation or a
 completed goal ends that link. Human choices and resident choices use the same
-measurement path. The panel shows measured attempts and how often an approach
-helped reach the goal. Earlier lessons remain readable in existing saves.
+measurement path. Earlier lessons remain readable in existing saves.
 
 Solo and shared avatars reflect when they choose **Wait** after something new
 has happened to them. Other plays never start a reflection. A new thought
