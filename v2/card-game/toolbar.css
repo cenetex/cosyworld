@@ -238,3 +238,11 @@ body.local-app #scene-video-button {
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
+.inner-life-dialog .inner-life-im {
+  font-size: 1.1rem;
+}
+.inner-life-dialog .inner-life-name {
+  margin-top: 1.2rem;
+  font-style: italic;
+  text-align: right;
+}
