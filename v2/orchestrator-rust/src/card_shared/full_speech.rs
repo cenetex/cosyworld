@@ -66,8 +66,12 @@ pub(super) fn parse(text: &str, finish: &str, work: &Value, ids: &[String]) -> R
     }
     let mut seen = BTreeSet::new();
     let mut lines = Vec::new();
-    for id in ids {
+    for (index, id) in ids.iter().enumerate() {
         let Some(entry) = entries.iter().find(|e| e["id"] == *id) else {
+            // The acting avatar must speak. A reply may stay silent.
+            if index > 0 && work["profiles"][id]["kind"] == "avatar" {
+                continue;
+            }
             if work["context"].get("scenery").is_some()
                 && work["profiles"][id]["kind"] == "location"
             {
@@ -87,6 +91,22 @@ pub(super) fn parse(text: &str, finish: &str, work: &Value, ids: &[String]) -> R
         lines.push(json!({"reflection":entry["reflection"],"model":entry["model"],"speaker":name,"text":text,"entityId":id,"actorId":if profile["kind"]=="avatar"{Some(id)}else{None}}));
     }
     Ok(json!(lines))
+}
+/// Requested avatars with no published line. The scene record keeps them so
+/// the table can show "…"; the journal speech op stays as it was.
+pub(super) fn silent(work: &Value, actor: usize, lines: &Value) -> Vec<String> {
+    let Ok((_, ids)) = prepared(actor, work) else {
+        return Vec::new();
+    };
+    ids.into_iter()
+        .skip(1)
+        .filter(|id| work["profiles"][id]["kind"] == "avatar")
+        .filter(|id| {
+            !lines
+                .as_array()
+                .is_some_and(|lines| lines.iter().any(|l| l["entityId"] == *id))
+        })
+        .collect()
 }
 pub(super) async fn generate(state: &crate::AppState, actor: usize, work: &Value) -> Result<Value> {
     let mut config = state
@@ -152,6 +172,24 @@ mod tests {
         assert_eq!(ids, vec!["vale", "pip"]);
         let result=parse(r#"{"entries":[{"id":"vale","text":"What caught your eye?"},{"id":"pip","text":"That shine belongs in my collection."}]}"#,"stop",&work,&ids).unwrap();
         assert_eq!(result[1]["actorId"], "pip");
+        assert!(silent(&work, 0, &result).is_empty());
+        // A reply that does not come stays silent; the actor's line is required.
+        let quiet = parse(
+            r#"{"entries":[{"id":"vale","text":"What caught your eye?"}]}"#,
+            "stop",
+            &work,
+            &ids,
+        )
+        .unwrap();
+        assert_eq!(quiet.as_array().unwrap().len(), 1);
+        assert_eq!(silent(&work, 0, &quiet), vec!["pip"]);
+        assert!(parse(
+            r#"{"entries":[{"id":"pip","text":"Mine."}]}"#,
+            "stop",
+            &work,
+            &ids
+        )
+        .is_err());
         work["context"]["scenery"] = json!(false);
         assert_eq!(prepared(0, &work).unwrap().1, vec!["vale", "pip"]);
         work["context"]["outcome"]["card"]["target"] = Value::Null;

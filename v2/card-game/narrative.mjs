@@ -913,6 +913,47 @@ export function applyGeneratedText(
   return validateWorld(next);
 }
 
+// A speaker whose words did not come stays visibly quiet with "…". These
+// lines are shown, never voiced or saved. A crossing echo replaces the scene.
+export const SILENT_TEXT = "…";
+export function silentSpeakers(context, response, world) {
+  if (
+    context.outcome?.card &&
+    signalEcho(world, context.location, context.outcome.card)
+  )
+    return [];
+  const entries = response?.entries ?? [];
+  return context.speakers.filter(
+    (id) =>
+      profiles[id]?.kind === "avatar" &&
+      !entries.some((entry) => entry?.id === id),
+  );
+}
+export function silentLines(world, ids) {
+  const base = world.eventSeq ?? world.log.length;
+  return ids
+    .filter((id) => world.actors[id] && entityActive(world, id))
+    .map((id, index) => {
+      const place = world.actors[id].place;
+      return {
+        seq: base + (index + 1) / 10,
+        turn: world.turn,
+        speaker: profiles[id].name,
+        text: SILENT_TEXT,
+        kind: "dialogue",
+        actorId: id,
+        entityId: id,
+        generated: true,
+        silent: true,
+        locationId: place,
+        cast: Object.keys(world.actors).filter(
+          (other) =>
+            entityActive(world, other) && world.actors[other].place === place,
+        ),
+      };
+    });
+}
+
 // Read complete JSON string units while the model is still writing an entry.
 export function partialEntries(source) {
   const entries = [];
@@ -1141,7 +1182,7 @@ export function createNarrator({
         if (!next)
           throw new Error("The story response did not match this scene.");
         preview(null);
-        apply(next);
+        apply(next, { silent: silentSpeakers(context, response, next) });
         status("ready");
         if (reflect) {
           reflectionController = new AbortController();

@@ -5,6 +5,8 @@ import {
   sharedNextActor,
   sharedSpeechState,
   hasSharedPlace,
+  sharedSilentLines,
+  SHARED_SILENT_TEXT,
 } from "../v2/card-game/shared.mjs";
 import { createWorld, currentActor } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
@@ -87,6 +89,36 @@ describe("shared room dialogue clock", () => {
     expect(sharedLiveLine(state, 1100, "pond")).toEqual(first);
     expect(sharedLiveLine(state, 4600, "pond")).toEqual(second);
     expect(sharedLiveLine(state, 90000, "pond")).toEqual(second);
+  });
+  it("shows a silent reply speaker as … after the spoken line", () => {
+    const spoken = {
+      seq: 20,
+      turn: 4,
+      speaker: "Vale",
+      text: "Is anyone there?",
+      actorId: "vale",
+      locationId: "pond",
+    };
+    const quiet = {
+      history: [
+        { room: "pond", starts_at: 1000, lines: [spoken], silent: ["pip"] },
+      ],
+    };
+    const [silent] = sharedSilentLines(quiet, "pond");
+    expect(silent).toMatchObject({
+      seq: 20.1,
+      text: SHARED_SILENT_TEXT,
+      actorId: "pip",
+      silent: true,
+      locationId: "pond",
+    });
+    expect(isSceneText({ ...silent, speaker: "Pip" }, true)).toBe(true);
+    expect(sharedLiveLine(quiet, 1100, "pond")).toEqual(spoken);
+    expect(sharedLiveLine(quiet, 5000, "pond")).toEqual(silent);
+    // A speaker with words, or a record without a list, adds nothing.
+    quiet.history[0].silent = ["vale"];
+    expect(sharedSilentLines(quiet, "pond")).toEqual([]);
+    expect(sharedSilentLines(state, "pond")).toEqual([]);
   });
   it("keeps a viewer's line while a card pauses their reading clock", () => {
     const clock = createSharedPlaybackClock();
