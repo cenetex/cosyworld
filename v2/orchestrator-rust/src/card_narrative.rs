@@ -46,6 +46,8 @@ mod reflections;
 mod voice_eval;
 #[path = "card_narrative/voice_metrics.rs"]
 pub(crate) mod voice_metrics;
+#[path = "card_narrative/waking.rs"]
+mod waking;
 use voice_metrics::{tagged, Section};
 
 const PER_MINUTE: RateLimit = RateLimit {
@@ -433,6 +435,13 @@ struct Context {
     outcome: Option<TurnOutcome>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     disclosures: Vec<knowledge::Disclosure>,
+    /// A new game's first line: the player's avatar wakes knowing only what
+    /// its player has uncovered (waking.rs).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    waking: bool,
+    /// The speaker's own card or place, while its player has not uncovered it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    covered: Vec<String>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -456,6 +465,7 @@ fn valid(context: &Context) -> bool {
         && ids.contains(context.location.as_str())
         && (1..=8).contains(&context.entities.len())
         && ids.len() == context.entities.len()
+        && context.covered.iter().all(|id| ids.contains(id.as_str()))
         && context.outcome.as_ref().is_none_or(valid_outcome)
         && observations::valid(context)
         && knowledge::valid(context)
@@ -1368,6 +1378,9 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     if part == Part::Dream {
         return vec![(Section::Now, dream::transcript(context, entity))];
     }
+    if waking::applies(context, &entity.id, part) {
+        return vec![(Section::Now, waking::transcript(context, entity))];
+    }
     let id = entity.id.as_str();
     let own = name(id);
     let avatar = kind(id, "avatar");
@@ -1652,7 +1665,11 @@ fn recent_own_lines(context: &Context, entity: &Entity) -> Vec<String> {
 /// style examples on retry helps small models leave copied examples behind.
 fn attempt_transcript(context: &Context, entity: &Entity, part: Part, attempt: u8) -> String {
     let prompt = transcript(context, entity, part);
-    if attempt == 0 || kind(&entity.id, "location") || part == Part::Dream {
+    if attempt == 0
+        || kind(&entity.id, "location")
+        || part == Part::Dream
+        || waking::applies(context, &entity.id, part)
+    {
         return prompt;
     }
     let current = prompt
@@ -1795,7 +1812,7 @@ async fn speak(
                         }
                 })
         });
-    let system = idiolect(entity, part);
+    let system = waking::system(context, entity, part);
     let mut check = Check::new(context, entity, part);
     if part == Part::Line {
         check.limit = settings.line_limit;
