@@ -689,6 +689,9 @@ Greek weather follows one cycle per region. Each period lasts twelve accepted
 world turns. Clear skies, cloud, rain, and mist appear in the scene and on place
 cards. Coasts, courtyards, open ground, groves, and shelters each have their own
 view of the regional weather. The Underworld has low mist above its water.
+The cycles and each place's region and exposure are data in `weather.json`.
+The rules commit only the weather word: dialogue facts read `Weather: rain.`,
+and the narrator's own words describe it.
 The shared game, local saves, dialogue facts, and scene exports all read the same
 turn. Reloading keeps the current weather. Shared rules version 18 adds the
 harbor and road views. Each earlier rule bundle keeps its contents for replay.

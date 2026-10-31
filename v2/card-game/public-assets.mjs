@@ -81,6 +81,7 @@ const files = [
   "world.mjs",
   "scene.mjs",
   "weather.mjs",
+  "weather.json",
   "daylight.mjs",
   ...daylightAssets,
   "weather-view.mjs",
