@@ -1,0 +1,192 @@
+/* Standoff beats: poses, telegraphs, resolve pips, outcome words, the
+   defeat card. Motion runs through element.animate in combat-view.mjs. */
+.portrait[data-pose="threaten"] .portrait-body {
+  transform: translateY(-3px) scale(1.03);
+}
+.portrait[data-pose="guard"] .portrait-body {
+  transform: translateY(2px) scale(0.97) rotate(var(--lean, 0deg));
+  filter: brightness(0.95);
+}
+.portrait[data-pose="attack"] .portrait-body {
+  transform: translateY(-2px) rotate(calc(var(--lean, 0deg) * 6));
+}
+.portrait[data-pose="beaten"] .portrait-body {
+  transform: translateY(6%) rotate(5deg) scaleY(0.94);
+  filter: grayscale(0.85) brightness(0.65);
+}
+
+.combat-dim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 55%, #0000 30%, #06070cb3);
+  opacity: 0;
+}
+.stage[data-combat="true"] .backdrop,
+.stage[data-combat="true"] .cast {
+  transform-origin: 50% 62%;
+}
+
+.combat-caption {
+  position: absolute;
+  z-index: 5;
+  top: 14px;
+  left: 50%;
+  translate: -50% 0;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 7px 14px;
+  border: 1px solid #a38b64;
+  border-radius: 6px;
+  background: #181925e6;
+  color: var(--ink);
+  font:
+    15px/1.4 Georgia,
+    serif;
+  text-align: center;
+}
+
+.combat-telegraph {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  top: -6%;
+  width: clamp(26px, 18%, 42px);
+  aspect-ratio: 1;
+  translate: -50% 0;
+  color: var(--gold);
+  filter: drop-shadow(0 2px 6px #000a);
+}
+.combat-telegraph svg {
+  width: 100%;
+  height: 100%;
+  fill: #181925cc;
+  stroke: currentColor;
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+.combat-telegraph[data-verb="guard"] {
+  color: #b8d2e8;
+}
+.combat-reticle::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  width: 46%;
+  aspect-ratio: 1;
+  translate: -50% 0;
+  border: 2px dashed var(--gold);
+  border-radius: 50%;
+  opacity: 0.85;
+  pointer-events: none;
+}
+/* Reduced motion swaps the lunge and recoil for an outline. */
+.combat-outline .portrait-body {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+.combat-pips {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: -4px;
+  width: clamp(48px, 46%, 96px);
+  height: 7px;
+  translate: -50% 0;
+  border: 1px solid #0009;
+  border-radius: 4px;
+  background: #0b0c14cc;
+  overflow: hidden;
+}
+/* Four resolve pips: gaps cut the bar into quarters. */
+.combat-pips::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    #0000 calc(25% - 1px),
+    #0b0c14 0 25%,
+    #0000 0 calc(50% - 1px),
+    #0b0c14 0 50%,
+    #0000 0 calc(75% - 1px),
+    #0b0c14 0 75%,
+    #0000 0
+  );
+}
+.combat-pips-ghost,
+.combat-pips-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+}
+.combat-pips-ghost {
+  background: #f1e8d5a8;
+}
+.combat-pips-fill {
+  background: linear-gradient(180deg, #f0d79e, #c49a52);
+}
+
+.combat-word {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 18%;
+  translate: -50% 0;
+  white-space: nowrap;
+  padding: 2px 9px;
+  border-radius: 5px;
+  background: #10111bd9;
+  color: var(--ink);
+  font:
+    bold 16px/1.3 Georgia,
+    serif;
+  pointer-events: none;
+}
+.combat-word[data-tone="hit"],
+.combat-word[data-tone="yield"],
+.combat-word[data-tone="sent-home"],
+.combat-word[data-tone="beaten"] {
+  color: var(--gold);
+}
+.combat-word[data-tone="guard"],
+.combat-word[data-tone="guarded"] {
+  color: #b8d2e8;
+}
+
+.defeat-card {
+  width: min(380px, calc(100% - 32px));
+  text-align: center;
+}
+.defeat-card h2 {
+  margin: 6px 0 12px;
+}
+.defeat-card ul {
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.defeat-card button {
+  min-width: 140px;
+  min-height: 44px;
+  font-size: 16px;
+}
+
+@media (max-width: 640px) {
+  .combat-caption {
+    top: 8px;
+    font-size: 14px;
+  }
+  .combat-word {
+    font-size: 14px;
+  }
+}

@@ -552,6 +552,16 @@ Talk and item trades stay available during a standoff. Travel ends it; releasing
 
 The cast guards, responds to attacks, or leaves. Threats, hits, releases, and retreats enter witnessed memories. A threat also leaves a personal grievance. Earlier saves gain an empty standoff state.
 
+### Seeing a fight
+
+A standoff play is shown beat by beat before the new world is drawn. Each beat opens with a telegraph above the actor (a warning sign for Threaten, a shield for Guard, crossed blades for Attack) and a stage caption such as "Pip lunges at Vale…". The stage pushes in and dims. An attacker lunges, the target holds for a short hit-stop, recoils, shakes once and brightens once (no red). Resolve pips under each fighter drain with a lagging ghost, an outcome word ("−2 resolve", "Guarded −1", "Yields") rises over the target, and the rules line appears in the caption and the Conversation record at the same moment. Fighters in an open standoff keep their pips between plays.
+
+When the player loses, their figure slumps and greys and a defeat card ("Pip drove you off") lists what changed: dropped items, standoffs lost and "Sent home" on the third loss. The card is announced and waits for Continue. The scene then fades to "You come to at <place>", and the movement caption repeats it. The arrival line comes from one voice: a resident at the new place, or the player's avatar when nobody else is there. Its brief is one short fact: "Vale was beaten by Pip and came to at Empty station. Say one line."
+
+Tapping the stage finishes the current beat; its outcome text still shows. Settings › Fight speed switches between 1× and 2×. A full fight stays under three seconds at 1×. Reduced motion replaces the cut, lunge and shake with outlines and fades and keeps all text. The flash follows "Flashes and scares". Local and shared tables play the same beats from the committed log (`combat-beats.mjs` reads the rules' structured attack and retreat fields, falling back to standoff state and the rules' lines; `combat-view.mjs` draws them).
+
+Run `node v2/scripts/smoke-card-combat.mjs` for a lost standoff at desktop, phone and reduced motion.
+
 Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand and action row open together over 220 milliseconds; held items slide out from their owner. A play in the same place refreshes the cards as the hand lowers, with each name moving into its resting position. Travel changes the hand under the scene veil. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Conversation keep the selected cards and open items, and Escape closes the active panel before lowering the hand. A click outside the hand folds it to its resting row; a held item stays raised with its plays, and any tap on the hand opens it again. Short landscape screens keep the hand inside the viewport.
 
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
