@@ -26,9 +26,10 @@ its cast. Their source paths are listed in `docs/current-game.md`.
 Keep each branch small: at most 400 hand-written lines changed against main.
 The pre-push hook enforces this budget; see `.github/AGENT.md`.
 
-CI runs only by hand. PRs merge on fast local checks and review. After a
-batch of merges, or when .dev looks broken, run `gh workflow run ci.yml --ref
-main`. A release tag requires the latest main CI run to be green.
+The fast check (`fast-check.yml`, about five minutes) runs on every PR and
+every main push. Merge in batches of 2-3 PRs and wait for main's fast check to
+go green before the next batch. The full suite (`ci.yml`) runs only by hand,
+before a production release; see `.github/AGENT.md`.
 
 Pull requests do not bump the version. Between releases, main and `.dev` carry
 the last released version; `/meta.commit` names the deployed commit.

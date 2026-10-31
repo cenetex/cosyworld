@@ -6,9 +6,10 @@ Deployments are handled by `.github/workflows/deploy.yml`.
 
 Pushes to `main` deploy only the primary `cosyworld` Fly app, as soon as its
 image is built, without the production gate or a primary backup; bugs on `.dev` are fixed
-forward. CI does not run on its own: run `gh workflow run ci.yml --ref main`
-after a batch of merges or when .dev looks broken. Tag a release only when the
-latest main CI run is green. Tags matching `v*` rerun the production gate, deploy both
+forward. Every main push also runs the fast check (`fast-check.yml`). The
+full suite (`ci.yml`) runs only by hand before a release: run
+`gh workflow run ci.yml --ref main` on the commit to be tagged, and tag it
+only when that run is green. Tags matching `v*` rerun the production gate, deploy both
 the primary app and `cosyworld-lonelyforest` from the tagged commit, and create
 a GitHub release only after both deployments succeed.
 
@@ -111,7 +112,9 @@ npm run check:version
 git commit -am "Release X.Y.Z"
 ```
 
-Merge it after CI passes, then tag that merge commit with `vX.Y.Z` as below.
+Merge it after its fast check passes, run the full suite on the merge commit
+(`gh workflow run ci.yml --ref main`), and tag that commit with `vX.Y.Z` as
+below only after the full run is green.
 The tag run's `/meta` check requires the deployed version to equal
 `package.json` at the tag, which holds because the release PR bumped it.
 

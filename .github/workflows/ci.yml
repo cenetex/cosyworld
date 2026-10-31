@@ -1,8 +1,9 @@
 name: CI
 
 on:
-  # Manual only: gh workflow run ci.yml --ref main. A release tag needs the
-  # latest main run green. PRs merge on local checks and the pre-push hook.
+  # Manual only, before a production release: gh workflow run ci.yml --ref main.
+  # The commit to be tagged needs a green run. PRs and main pushes run the
+  # fast check (fast-check.yml) instead.
   workflow_dispatch:
 
 concurrency:
