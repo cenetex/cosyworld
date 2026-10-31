@@ -1075,7 +1075,6 @@
   function boardyFacts(world, nameOf2) {
     const here = world.actors[BOARDY].place;
     return [
-      "I like meeting the people who travel here, and I rest at home between journeys.",
       "My home is BoardyAI's Parlour. My calling card opens its door at Empty station, held or left there.",
       ...connectedHumans(world).map(
         (id) => world.actors[id].place === here ? `${nameOf2(id)} is here with me.` : world.memories[BOARDY].seen?.[id] ? `I last saw ${nameOf2(id)} at ${nameOf2(world.memories[BOARDY].seen[id].place)}. They may have moved since then.` : `I have yet to find ${nameOf2(id)}.`
