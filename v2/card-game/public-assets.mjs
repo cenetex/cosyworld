@@ -31,12 +31,16 @@ const files = [
   "card-tiers.css",
   "card-reveal.mjs",
   "assets/greek-drama/harbor-day.webp",
+  "assets/greek-drama/city-gate-closed-day.webp",
+  "assets/greek-drama/city-gate-closed-night.webp",
   // Keep alternate scenery referenced by released shared rules available.
   "assets/greek-drama/book-three-lemnos-day.webp",
   "assets/greek-drama/book-three-thrace-day.webp",
   "assets/shared/places/pond.png",
   "assets/shared/places/attic-dark.webp",
   "assets/shared/places/attic-stairs.webp",
+  "assets/attic/attic-lit.webp",
+  "assets/attic/attic-doused.webp",
   ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].map(
     (id) => `assets/shared/characters/${id}-scarf.png`,
   ),

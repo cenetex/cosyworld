@@ -1,0 +1,153 @@
+{
+  "created": "2026-10-31",
+  "generator": "OpenAI built-in image generation",
+  "brief": "Closed and barred Theban City Gate day and night backdrops, preserving the canonical composition for the greek-gate place. The user will wire the state selection in separate gate work.",
+  "art_direction_feedback": [
+    "Keep both tall bronze-studded leaves fully closed with a dark timber crossbar, lion-head ring handles and one sealed papyrus decree.",
+    "At night preserve all courtyard brazier objects but extinguish their flames; use one bracket torch beside the gate with blue moonlight elsewhere.",
+    "Lower the decree below the right ring handle to adult eye height, keeping the day and night positions matched.",
+    "Final corrections were visually reviewed and approved; Imagegen texture differences outside the notice regions are recorded."
+  ],
+  "max_source_bytes": 300000,
+  "encoding": {
+    "format": "webp",
+    "alphaQuality": 100,
+    "effort": 6,
+    "smartSubsample": true
+  },
+  "assets": [
+    {
+      "id": "city-gate-closed-day",
+      "file": "city-gate-closed-day.webp",
+      "place": "greek-gate",
+      "state": "closed",
+      "period": "day",
+      "generation_id": "exec-8e8f4b5d-fdd2-4b2f-a38f-aab571d20393",
+      "prompt": "Use case: precise-object-edit.\nInput image 1 is the EDIT TARGET: the completed CLOSED DAY Theban City Gate painting.\nMake exactly ONE local correction: move the existing small sealed papyrus decree straight down the RIGHT door leaf to believable adult eye height in the LOWER QUARTER of this monumental door. In the full 1672 x 941 image, place the CENTRE of the papyrus at approximately x=635, y=500 (coordinates measured from the top-left). This is BELOW the right lion-head ring handle, with a clear gap below its hanging ring. The papyrus must not touch or obscure the handle or the crossbar.\nPreserve the exact existing decree size, proportions, aged papyrus appearance, nail at the top, faint abstract ink strokes and small red wax seal. Only relocate it; do not enlarge it. Remove the former notice from above the crossbar and carefully restore the tiny vacated bronze door-panel patch with the matching panel texture and studs. There must be exactly ONE decree, only in the new lower position. No readable writing.\nSTRICTLY LOCK EVERYTHING ELSE: every other door panel, stud, handle, the timber crossbar and brackets, seam, frame, columns, walls, banners, trees, plants, braziers, courtyard, mosaic, sky, mountains, camera, perspective, framing, scene colors, illumination and shadows remain unchanged. Doors remain completely shut and barred without any gaps to the landscape.\nKeep the original opaque RGB-style painting and exact 1672 x 941 canvas. No crop, reframe, zoom, repainting elsewhere, new objects, text, people or lighting changes. This is a small notice relocation only.",
+      "references": [
+        {
+          "role": "edit target",
+          "asset_id": "city-gate-closed-day",
+          "revision": "initial",
+          "generation_id": "exec-f567b540-52f2-462b-91ba-1c8b2f4a28ed",
+          "original_png_sha256": "36e83f6dd74e6315ae01a5830b2e6f75ffcd8f93f4abd8b50366b486d63bb282",
+          "original_png_bytes": 3102506
+        },
+        {
+          "role": "canonical composition reference (through edit target)",
+          "repository_path": "v2/card-game/assets/greek-drama/city-gate-day.webp",
+          "commit": "57d80ce85823868329e79851c685553b12ba7bfc",
+          "url": "https://github.com/cenetex/cosyworld/blob/57d80ce85823868329e79851c685553b12ba7bfc/v2/card-game/assets/greek-drama/city-gate-day.webp",
+          "sha256": "6b40cfeb3a5b3ee0bd08ad2f3d815f07aaa4b08d6a208b1f8ca483024c2d1c33"
+        }
+      ],
+      "revisions": [
+        {
+          "asset_id": "city-gate-closed-day",
+          "revision": "initial",
+          "generation_id": "exec-f567b540-52f2-462b-91ba-1c8b2f4a28ed",
+          "original_png_sha256": "36e83f6dd74e6315ae01a5830b2e6f75ffcd8f93f4abd8b50366b486d63bb282",
+          "original_png_bytes": 3102506,
+          "label": "initial: decree above crossbar",
+          "prompt": "Use case: precise-object-edit.\nAsset type: final opaque environmental painting for a Cosyworld scene, exact 1672 x 941 pixel canvas.\nInput image 1 is the authoritative EDIT TARGET: the existing Theban City Gate DAY painting. Keep its exact camera, perspective, frame, architectural geometry and composition. This is a local doorway edit, not a new interpretation of the scene.\nPrimary request: close and bar the city's main gateway. Change ONLY what is inside the existing large gateway and the immediately adjoining threshold shadow. Both tall bronze-studded door leaves are fully SHUT, meeting flush along a single tight central seam. They completely fill the original doorway from lintel to threshold and from jamb to jamb. Absolutely no road, hills, sky, landscape or daylight can be seen THROUGH the doorway, around the doors or through their central seam. Keep the distant city and mountains already visible ABOVE and to the RIGHT of the wall unchanged.\nDoors: retain the established ancient Theban bronze-and-dark-timber door style, rectangular reinforced panels, aged bronze studs and ornate lion-head ring handles, now with matching left and right leaves closed in correct perspective. A heavy dark timber crossbar spans BOTH door leaves horizontally, secured in dark iron brackets. The two lion-head ring handles remain visible. Add one small aged papyrus decree, pinned securely to a door leaf at plausible standing eye height, with a small wax seal; it contains only faint abstract ink strokes and NO readable text or recognizable writing. It must read as a small notice, not a large poster. Maintain a deep dark threshold shadow beneath the shut doors, not a slit showing the outside landscape.\nStrict invariants outside the doorway: preserve the exact stone gate frame and columns, carved lintel, wall blocks and crenellations, red banners with gold plant emblems, cypress trees and olive branches, vines and bushes, unlit bronze braziers and their pedestals, amphorae, right-side guard shelter and red awning, wooden racks, bench, courtyard stones, red borders and circular compass mosaic. Do not shift, crop, repaint or redesign these objects. No new structures or objects elsewhere.\nLighting/style: preserve the reference's bright warm Mediterranean daylight, brilliant blue sky, white clouds, golden limestone, warm red-and-ochre palette, detailed painted realism and exact direction of shadows. Only the formerly open gateway becomes filled by the shaded closed door surfaces.\nOutput framing: keep the FULL ORIGINAL 1672 x 941 canvas, same aspect ratio and boundaries, opaque RGB-style painting. Do not crop, zoom, expand or reframe.\nAvoid: any open gap in the gateway, any visible road or hills through the doors, people or guards, animals, readable words, letters or numbers, modern objects, extra flames, smoke, dramatic new lighting, blur, watermark, borders, transparency.",
+          "references": [
+            {
+              "role": "edit target",
+              "repository_path": "v2/card-game/assets/greek-drama/city-gate-day.webp",
+              "commit": "57d80ce85823868329e79851c685553b12ba7bfc",
+              "url": "https://github.com/cenetex/cosyworld/blob/57d80ce85823868329e79851c685553b12ba7bfc/v2/card-game/assets/greek-drama/city-gate-day.webp",
+              "sha256": "6b40cfeb3a5b3ee0bd08ad2f3d815f07aaa4b08d6a208b1f8ca483024c2d1c33"
+            }
+          ],
+          "dimensions": [1672, 941],
+          "transparent_background": false
+        }
+      ],
+      "dimensions": [1672, 941],
+      "transparent_background": false,
+      "original_png_sha256": "efa89d11c0746e348efa411c4532ef8ffc7b4d04be6a12526216139f7e234941",
+      "original_png_bytes": 2990865,
+      "revision_reason": "Move only the sealed papyrus decree to adult eye height below the right ring handle; requested approximate centre [635,500].",
+      "visual_review": "passed: single decree relocated below right ring handle with clear separation, matching day/night position; size, nail and seal retained; no readable text; closed gate, scene geometry and lighting visually preserved",
+      "pixel_identity_note": "Imagegen edit preserves scene geometry visually but is not pixel-identical outside the two notice regions.",
+      "outside_notice_regions_mean_channel_delta_255": 6.273,
+      "quality": 76,
+      "bytes": 298308,
+      "sha256": "f8a9e1cbaf02a869a641937de6e547f2b4253f41037a21cfe79f466994604eef"
+    },
+    {
+      "id": "city-gate-closed-night",
+      "file": "city-gate-closed-night.webp",
+      "place": "greek-gate",
+      "state": "closed",
+      "period": "night",
+      "generation_id": "exec-a9a95c7b-da83-4863-bc8e-426da2d5def4",
+      "prompt": "Use case: precise-object-edit.\nInput image 1 is the PRIMARY EDIT TARGET: the completed CLOSED NIGHT Theban City Gate painting with its existing single bracket torch.\nInput image 2 is ONLY a placement reference: the corrected CLOSED DAY painting, where the small sealed papyrus decree has been lowered beneath the right lion-head ring handle.\nMake exactly ONE local correction to image 1: relocate its existing small sealed papyrus decree from ABOVE the crossbar to the SAME LOWER position shown in image 2, on the right door leaf in its lower quarter, around centre x=635, y=500 in the 1672 x 941 canvas. This is believable adult eye height on this monumental gateway, below the right lion-head handle with a clear gap below its hanging ring. Match image 2's new decree position, size and alignment precisely.\nPreserve the existing small decree's aged papyrus proportions, nail, faint abstract ink strokes and small red wax seal; do not enlarge it. Keep it naturally illuminated by the EXISTING night torch. Remove the former upper decree and restore only the small vacated bronze-panel patch with its matching panel texture and studs. Exactly ONE decree, in the new lower position. No readable text.\nSTRICTLY LOCK EVERYTHING ELSE FROM IMAGE 1: unchanged night lighting, the single bracket torch and flame, blue moonlight, distant city lights, moon, sky, all existing reflections, architecture, exact doors and studs, handles, bar and brackets, closed seam and dark threshold, trees, plants, banners, unlit braziers, courtyard and mosaic, camera, perspective, framing and colors. Do not introduce day lighting or any other detail from image 2; it supplies only decree-placement guidance. Both doors remain completely shut and barred, with no landscape visible through them.\nKeep the exact 1672 x 941 opaque RGB-style painting. No crop, zoom, reframe, repainting elsewhere, people, new objects or lighting changes. This is a small notice relocation only.",
+      "references": [
+        {
+          "role": "edit target",
+          "asset_id": "city-gate-closed-night",
+          "revision": "initial",
+          "generation_id": "exec-51fcd71b-85c0-4f59-a6c5-0278089f269b",
+          "original_png_sha256": "626da5f05b461ee47f3d25b4e06a2b7c9cb8d76e6564d6e73c2bbf517d6e32f5",
+          "original_png_bytes": 2724965
+        },
+        {
+          "role": "canonical composition reference (through edit target)",
+          "repository_path": "v2/card-game/assets/greek-drama/city-gate-night.webp",
+          "commit": "57d80ce85823868329e79851c685553b12ba7bfc",
+          "url": "https://github.com/cenetex/cosyworld/blob/57d80ce85823868329e79851c685553b12ba7bfc/v2/card-game/assets/greek-drama/city-gate-night.webp",
+          "sha256": "7d9d444b4ea67db08df655e85199ee6b771dbd01f11f6e72ade4e8b000d990c6"
+        },
+        {
+          "role": "matching corrected lower decree placement and size only",
+          "asset_id": "city-gate-closed-day",
+          "generation_id": "exec-8e8f4b5d-fdd2-4b2f-a38f-aab571d20393",
+          "original_png_sha256": "efa89d11c0746e348efa411c4532ef8ffc7b4d04be6a12526216139f7e234941",
+          "original_png_bytes": 2990865
+        }
+      ],
+      "revisions": [
+        {
+          "asset_id": "city-gate-closed-night",
+          "revision": "initial",
+          "generation_id": "exec-51fcd71b-85c0-4f59-a6c5-0278089f269b",
+          "original_png_sha256": "626da5f05b461ee47f3d25b4e06a2b7c9cb8d76e6564d6e73c2bbf517d6e32f5",
+          "original_png_bytes": 2724965,
+          "label": "initial: decree above crossbar",
+          "prompt": "Use case: precise-object-edit.\nAsset type: final opaque environmental painting for a Cosyworld scene, exact 1672 x 941 pixel canvas.\nInput image 1 is the authoritative PRIMARY EDIT TARGET: the ORIGINAL Theban City Gate NIGHT painting. Keep its exact camera, perspective, frame, architectural geometry, composition, night sky, moon, stars, clouds and distant city lights.\nInput image 2 is a SECONDARY DESIGN REFERENCE ONLY for the already-approved CLOSED DAY GATE: copy its exact paired door design, rectangular reinforced panels and aged bronze studs, central seam, dark timber crossbar in iron brackets, two lion-head ring handles below the bar, and small pinned papyrus decree with wax seal on the upper-right leaf. Do not borrow image 2's daylight, sky, palette or courtyard lighting.\nPrimary request: make the night gate the closed-and-barred version of this same scene. Both tall doors completely SHUT and meet flush, filling the original gateway precisely from lintel to threshold and jamb to jamb. Match image 2's door/bar/handles/decree geometry and positions in the same perspective. NO road, hills, sky, distant buildings or landscape is visible THROUGH the doorway or central seam. Preserve the distant city and mountains above and to the right of the wall from the ORIGINAL NIGHT image.\nNight lighting request: add exactly ONE lit wall-bracket torch immediately beside the gate on the right stone jamb. Its warm amber light illuminates the adjacent bronze studs, timber bar, lion-head rings and sealed papyrus decree. The local torchlight falls off quickly, so the rest of the courtyard, paving and circular compass mosaic read predominantly cool moonlit BLUE. Preserve ALL existing bronze BRAZIER OBJECTS, pedestals and positions, but extinguish their flames completely, including the foreground-left, left-of-gate, right-of-gate and shelter-side bowls: they are now unlit bowls, with no embers or orange glow. Keep the original moon, stars, blue night sky, pale moonlit stone edges and DISTANT CITY LIGHTS unchanged. Only this single bracket torch is burning in the courtyard. Keep a narrow line of pure darkness beneath the closed doors, not a bright gap or a view outside.\nStrict invariants: preserve the original night painting's exact stone gate frame and columns, carved lintel, wall blocks and crenellations, red banners with gold plant emblems, cypress trees and olive branches, vines and bushes, every brazier and pedestal, amphorae, right-side shelter and red awning, wooden racks, bench, paving layout, red borders and circular compass mosaic. Do not move, crop, rebuild or redesign any of these. Only the gate closure, small new bracket torch and the necessary local lighting/reflection changes are allowed.\nStyle: retain the original scene's richly detailed painted realism, natural stone and metal textures, restrained warm/cool night contrast, and quiet nocturnal atmosphere. The papyrus has faint abstract ink strokes only, with NO readable text or recognizable letters.\nOutput framing: keep the FULL ORIGINAL 1672 x 941 canvas and exact boundaries, opaque RGB-style painting. No crop, zoom, expansion, or reframe.\nAvoid: open doors or gaps, landscape seen through the gateway, people or guards, animals, extra torches or fires, burning braziers, smoke, daytime light, readable words or numbers, modern objects, watermark, borders, transparency.",
+          "references": [
+            {
+              "role": "edit target",
+              "repository_path": "v2/card-game/assets/greek-drama/city-gate-night.webp",
+              "commit": "57d80ce85823868329e79851c685553b12ba7bfc",
+              "url": "https://github.com/cenetex/cosyworld/blob/57d80ce85823868329e79851c685553b12ba7bfc/v2/card-game/assets/greek-drama/city-gate-night.webp",
+              "sha256": "7d9d444b4ea67db08df655e85199ee6b771dbd01f11f6e72ade4e8b000d990c6"
+            },
+            {
+              "role": "matching closed door, crossbar, lion-head handles and sealed papyrus decree design only",
+              "asset_id": "city-gate-closed-day",
+              "revision": "initial",
+              "generation_id": "exec-f567b540-52f2-462b-91ba-1c8b2f4a28ed",
+              "original_png_sha256": "36e83f6dd74e6315ae01a5830b2e6f75ffcd8f93f4abd8b50366b486d63bb282",
+              "original_png_bytes": 3102506
+            }
+          ],
+          "dimensions": [1672, 941],
+          "transparent_background": false
+        }
+      ],
+      "dimensions": [1672, 941],
+      "transparent_background": false,
+      "original_png_sha256": "f48898bbdce7d393f305fd62f0be0f9a5cc719b1e37edf5b21d3e664ef1c8b9e",
+      "original_png_bytes": 2616673,
+      "revision_reason": "Move only the sealed papyrus decree to adult eye height below the right ring handle; requested approximate centre [635,500].",
+      "visual_review": "passed: single decree relocated below right ring handle with clear separation, matching day/night position; size, nail and seal retained; no readable text; closed gate, scene geometry and lighting visually preserved",
+      "pixel_identity_note": "Imagegen edit preserves scene geometry visually but is not pixel-identical outside the two notice regions.",
+      "outside_notice_regions_mean_channel_delta_255": 4.763,
+      "quality": 85,
+      "bytes": 292862,
+      "sha256": "b4fae4c077c430ef567ee31987e3e073c9a3082cc0a08e9aa0bd4f36ad72c095"
+    }
+  ]
+}
