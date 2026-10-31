@@ -180,7 +180,7 @@ single-player saves continue through the normal save upgrader.
 ## Run seeds and specials
 
 A world has one run seed, `world.run.seed`. Each pack's `specials` pool
-(#1622) is drawn from it once and saved as `packs[id].specials`; replay never
+([design](../../../docs/design/small-worlds-alternates-specials.md)) is drawn from it once and saved as `packs[id].specials`; replay never
 draws again. Rust derives a shared world's seed from its ID (the first four
 bytes of SHA-256); a local New game makes one in the browser. A local save
 from before run seeds starts a new game.
