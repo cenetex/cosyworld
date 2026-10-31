@@ -91,7 +91,7 @@ pub(super) fn assert_saved_memories(current: &Value, old: &Value) {
 }
 
 fn assert_saved_items(current: &Value, old: &Value) {
-    for (id, saved) in old.as_object().unwrap() {
+    for (id, saved) in super::saved_items::upgraded(old).as_object().unwrap() {
         assert_eq!(&current[id], saved, "saved item {id}");
     }
 }
@@ -2547,7 +2547,10 @@ fn stranded_home_rescue_replays_after_version_nine_upgrade() {
         assert_eq!(upgraded.version, engine::VERSION);
         assert_eq!(upgraded.project(0).unwrap()["exits"], json!(["pond"]));
         assert_eq!(upgraded.game["turn"], old.game["turn"]);
-        for (item, state) in old.game["items"].as_object().unwrap() {
+        for (item, state) in super::saved_items::upgraded(&old.game["items"])
+            .as_object()
+            .unwrap()
+        {
             assert_eq!(&upgraded.game["items"][item], state);
         }
         let action = home_action(&upgraded, 0, "move");

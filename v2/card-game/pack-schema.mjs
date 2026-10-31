@@ -53,7 +53,6 @@ export const SIGNAL_VERBS = [
   "give",
   "light",
   "snuff",
-  "refill",
   "talk",
   "move",
 ];

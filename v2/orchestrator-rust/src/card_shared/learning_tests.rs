@@ -82,7 +82,10 @@ fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
     assert_eq!(upgraded.version, engine::VERSION);
     assert_eq!(upgraded.game["turn"], old.game["turn"]);
     for field in ["items"] {
-        for (key, value) in old.game[field].as_object().unwrap() {
+        for (key, value) in super::saved_items::upgraded_field(&old.game, field)
+            .as_object()
+            .unwrap()
+        {
             assert_eq!(&upgraded.game[field][key], value);
         }
     }

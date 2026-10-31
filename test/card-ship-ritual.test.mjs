@@ -404,11 +404,13 @@ test("filling the lamp supplies enough oil for lighting and the whole ritual", (
   let s = pond({ lit: false, fuel: 0 });
   s.items.oil.holder = "vale";
   s.items.bell.holder = "pond";
-  s = act(s, "refill", "oil");
-  s = act(s, "refill", "oil");
+  // Holding the flask with the empty lamp fills it on the next play.
+  s = act(s, "wait");
+  assert.equal(s.items.lamp.fuel, 12);
+  assert.equal(s.items.oil.holder, "station");
   s = act(s, "light", "lamp");
   s = summon(s);
-  assert.equal(s.items.lamp.fuel, 3);
+  assert.equal(s.items.lamp.fuel, 7);
   visible(s, true);
 });
 
@@ -661,6 +663,8 @@ test("older completed signals become a waiting ship and retain their history", (
     assert.equal(shipSignalPhase(s), phase);
     visible(s, phase === 4);
     assert.deepEqual(s.log, old.log);
+    // The save upgrade drops the old flask's dose count; one flask fills one lamp.
+    delete old.items.oil.doses;
     for (const [id, item] of Object.entries(old.items))
       assert.deepEqual(s.items[id], item);
     assert.deepEqual(reload(s), s);

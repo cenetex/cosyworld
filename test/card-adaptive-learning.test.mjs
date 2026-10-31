@@ -30,6 +30,19 @@ function setup() {
   w.actors.moth.want = null;
   return w;
 }
+// A flask is always full, so the keeper's spare item is the lamp it values
+// least; the flask rests on the station floor.
+function spareWorld() {
+  const w = setup();
+  w.items.lamp.holder = "keeper";
+  w.items.oil.holder = "station";
+  return w;
+}
+// Ringing beside the keeper leaves a grudge: it refuses the spare lamp as a
+// gift but still accepts the bell in trade, under different conditions.
+function grudgeWorld() {
+  return act(spareWorld(), "ring", "bell");
+}
 function act(w, kind, item, target) {
   const a = legalActions(w).find(
     (a) =>
@@ -55,9 +68,8 @@ function choice(w, item = "oil", kind = "ask") {
 }
 // A controlled evaluation holds the present state and legal choices fixed.
 // Only the retained records from real completed plays change between probes.
-function probe(records, oilDoses = 3) {
-  const w = setup();
-  w.items.oil.doses = oilDoses;
+function probe(records, start = setup) {
+  const w = start();
   w.log = [];
   w.turn = records.length * 5 + 1;
   w.revision = w.turn;
@@ -74,16 +86,12 @@ function estimate(w, trial) {
 }
 describe("adaptive action learning", () => {
   it("chooses different actions in the same situation from different measured histories", () => {
-    const spare = setup();
-    spare.items.oil.doses = 0;
-    const asked = act(spare, "ask", "oil");
-    const tradeStart = setup();
-    tradeStart.items.oil.doses = 0;
-    const traded = act(tradeStart, "trade", "bell");
+    const asked = act(spareWorld(), "ask", "lamp");
+    const traded = act(spareWorld(), "trade", "bell");
     expect(history(asked)[0].reward).toBe(23);
     expect(history(traded)[0].reward).toBe(19);
-    const byRequest = choice(probe(history(asked), 0));
-    const byTrade = choice(probe(history(traded), 0));
+    const byRequest = choice(probe(history(asked), spareWorld), "lamp");
+    const byTrade = choice(probe(history(traded), spareWorld), "lamp");
     expect(byRequest.action.kind).toBe("ask");
     expect(byTrade.action.kind).toBe("trade");
     expect(byTrade.action.item).toBe("bell");
@@ -93,19 +101,17 @@ describe("adaptive action learning", () => {
   it.each([false, true])(
     "keeps a ready trade above an old request success after a fresh refusal: %s",
     (withRefusal) => {
-      const spare = setup();
-      spare.items.oil.doses = 0;
-      const success = history(act(spare, "ask", "oil"));
-      const refusal = withRefusal ? history(act(setup(), "ask", "oil")) : [];
-      const w = probe([...success, ...refusal]);
+      const success = history(act(spareWorld(), "ask", "lamp"));
+      const refusal = withRefusal ? history(act(grudgeWorld(), "ask", "lamp")) : [];
+      const w = probe([...success, ...refusal], grudgeWorld);
       const before = structuredClone(w);
-      const next = choice(w, "oil", "trade");
+      const next = choice(w, "lamp", "trade");
       expect(next.action.kind).toBe("trade");
       expect(next.learning).toBeUndefined();
       expect(w).toEqual(before);
       const result = play(w, next.action);
       expect(result.ok).toBe(true);
-      expect(result.state.items.oil.holder).toBe("vale");
+      expect(result.state.items.lamp.holder).toBe("vale");
       expect(history(result.state).at(-1)).toMatchObject({
         action: { kind: "trade" },
         reward: 19,
@@ -115,28 +121,24 @@ describe("adaptive action learning", () => {
     },
   );
   it("chooses a higher learned request value over a ready trade in matched conditions", () => {
-    const spare = setup();
-    spare.items.oil.doses = 0;
-    const w = probe(history(act(spare, "ask", "oil")), 0);
-    const next = choice(w, "oil", "trade");
+    const w = probe(history(act(spareWorld(), "ask", "lamp")), spareWorld);
+    const next = choice(w, "lamp", "trade");
     expect(next.action.kind).toBe("ask");
     expect(next.learning.expected).toEqual({ value: 23, samples: 1, local: 1 });
     const result = play(w, next.action);
     expect(result.ok).toBe(true);
-    expect(result.state.items.oil.holder).toBe("vale");
+    expect(result.state.items.lamp.holder).toBe("vale");
     expect(history(result.state).at(-1).reward).toBe(23);
   });
   it("revises a successful approach after recent failures", () => {
-    const spare = setup();
-    spare.items.oil.doses = 0;
-    const success = history(act(spare, "ask", "oil"));
-    expect(choice(probe(success)).action.kind).toBe("ask");
+    const success = history(act(spareWorld(), "ask", "lamp"));
+    expect(choice(probe(success, grudgeWorld), "lamp").action.kind).toBe("ask");
     const failures = Array.from(
       { length: 6 },
-      () => history(act(setup(), "ask", "oil"))[0],
+      () => history(act(grudgeWorld(), "ask", "lamp")).at(-1),
     );
-    const learned = probe([...success, ...failures]);
-    const next = choice(learned);
+    const learned = probe([...success, ...failures], grudgeWorld);
+    const next = choice(learned, "lamp");
     expect(next.action.kind).not.toBe("ask");
     expect(next.learning.exploring).toBe(true);
     const ask = next.learning.alternatives.find((a) => a.action.kind === "ask");

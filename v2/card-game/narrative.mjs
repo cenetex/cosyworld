@@ -33,6 +33,7 @@ import {
   opponentOf,
   placeText,
   places,
+  things,
   publishKnowledgeSpeech,
   laneTalkFacts,
   REFUSED_VERBS,
@@ -540,13 +541,9 @@ export function narrativeContext(world, action = null) {
           facts.push(
             `${item.fuel === 0 ? "Empty" : item.fuel <= 3 ? "Running low on oil" : "Has oil"}; ${item.lit ? "lit" : "unlit"}; ${covered(world, id) ? "covered" : "uncovered"}.`,
           );
-        if (id === "oil")
+        if (things[id]?.refuels)
           facts.push(
-            item.doses === 0
-              ? "The flask is empty."
-              : item.doses === 1
-                ? "A little oil remains."
-                : "The flask holds oil.",
+            `Full. Held with an empty ${nameOf(things[id].refuels)}, it fills it and returns to ${nameOf(things[id].returnsTo)}.`,
           );
         if (id === "bell")
           facts.push(
@@ -570,10 +567,6 @@ export function narrativeContext(world, action = null) {
           facts.push("An open passage is visible in the reflection.");
         if (id === "pond" && world.locations.pond.answer === "hush")
           facts.push("The wrapped bell rests beside the quiet water.");
-        if (id === "pond" && world.locations.pond.answer === "call")
-          facts.push(
-            "The pond answered the bell with oil. Its shore carries every sound again.",
-          );
       }
       facts.push(
         `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,

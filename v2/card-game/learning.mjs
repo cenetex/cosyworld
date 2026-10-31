@@ -37,7 +37,7 @@ export function requestConditions(world, action) {
       )
       .map((id) => {
         const item = world.items[id];
-        return [id, item.holder, item.fuel ?? null, item.doses ?? null];
+        return [id, item.holder, item.fuel ?? null];
       }),
     world.actors[action.actor]?.place,
     learningIntent(world, action.actor),

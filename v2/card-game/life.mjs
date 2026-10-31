@@ -158,7 +158,6 @@ export function recordLifeAction(s, a, accepted, usefulGift = false) {
     if (a.kind === "trade" && accepted) return "trade";
     if (a.kind === "talk") return "talk";
     if (a.kind === "accompany" && accepted) return "journey";
-    if (a.kind === "refill") return "care";
     return null;
   };
   const participants = [

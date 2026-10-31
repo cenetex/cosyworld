@@ -360,11 +360,8 @@ function localGateResource(s, place, item, actor) {
 function homeGateRecoverable(s, place, gate, actor) {
   if (!localGateResource(s, place, gate.item, actor)) return false;
   if (!gate.light || s.items[gate.item].fuel > 0) return true;
-  return Boolean(
-    gate.refill &&
-      localGateResource(s, place, gate.refill, actor) &&
-      s.items[gate.refill].doses > 0,
-  );
+  // Holding a full flask with the empty lamp refuels it, so a flask here is enough.
+  return Boolean(gate.fuel && localGateResource(s, place, gate.fuel, actor));
 }
 function ordinaryExits(s, place, actor, previous) {
   return [
@@ -417,30 +414,24 @@ function insideLampRemedy(s, actor) {
   const at = (place) => ({ ...s, actors: { ...s.actors,
     [actor]: { ...s.actors[actor], place } } });
   if (!localGateResource(at(lamp), lamp, "lamp", actor)) return false;
-  return s.items.lamp.fuel > 0 || (s.items.oil.doses > 0 &&
-    ordinaryRouteHome(s, here, oil, actor) && ordinaryRouteHome(s, oil, lamp, actor) &&
-    localGateResource(at(oil), oil, "oil", actor));
+  return s.items.lamp.fuel > 0 || (ordinaryRouteHome(s, here, oil, actor) &&
+    ordinaryRouteHome(s, oil, lamp, actor) && localGateResource(at(oil), oil, "oil", actor));
 }
 // Recover a gate resource left beyond the mirror after reachable remedies are gone.
 function pondRescueExit(s, place, actor, previous) {
   actor ||= currentActor(s);
   const lamp = itemPlace(s, "lamp"), oil = itemPlace(s, "oil");
-  // An empty lamp and flask need the bell to call fresh oil at the pond.
-  const refillBell = !s.items.lamp.fuel && !s.items.oil.doses
-    ? itemPlace(s, "bell") : null;
+  // The flask is always full; it matters while it is shut inside with the lamp empty.
   if (place !== "pond" || s.actors[actor]?.place !== place ||
     (!controlledByHuman(s, actor) && !knownActors(s).includes(actor)) ||
-    !(atticInterior.has(lamp) || (s.items.oil.doses > 0 && atticInterior.has(oil)) ||
-      (atticInterior.has(refillBell) && !ordinaryRouteHome(s, place, refillBell, actor, previous))) ||
+    !(atticInterior.has(lamp) || atticInterior.has(oil)) ||
     ordinaryRouteHome(s, place, "attic", actor, previous)) return null;
   if (ordinaryRouteHome(s, place, lamp, actor, previous) &&
-    (s.items.lamp.fuel > 0 || (s.items.oil.doses > 0 &&
-      ordinaryRouteHome(s, place, oil, actor, previous)))) return null;
+    (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous))) return null;
   if (knownActors(s).some((id) =>
     (!controlledByHuman(s, id) || humanPresent(s, id)) &&
     (insideLampRemedy(s, id) || (!atticInterior.has(lamp) && s.actors[id].place === "attic" &&
-      homeRescueExit(s, "attic", id) && (localGateResource(s, "attic", "oil", id) ||
-        (refillBell && localGateResource(s, "attic", "bell", id))))))) return null;
+      homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id))))) return null;
   return "attic";
 }
 export function exits(s, place, actor = null, previous = null) {
@@ -840,6 +831,7 @@ export function publishKnowledgeSpeech(s, entry, disclosures) {
 // Rules read recent history, so generated words never shorten the authoritative
 // window. Each kind keeps its own limit; the same plays leave the same events.
 export const LOG_LIMIT = 100;
+const LAMP_FUEL = 12;
 export const GENERATED_LOG_LIMIT = 100;
 function trimLog(s) {
   const authoritative = () => s.log.filter((entry) => !entry.generated).length;
@@ -874,6 +866,33 @@ function remember(s, item, text) {
 function transfer(s, item, holder, text) {
   s.items[item].holder = holder;
   remember(s, item, text);
+}
+// A fuel item fills its empty target when one avatar holds both, then returns
+// full to its authored place. Forest data names the pair (oil refuels lamp).
+const fuelItems = Object.keys(forest.things).filter((id) => forest.things[id].refuels);
+function refuelCarried(s) {
+  for (const id of fuelItems) {
+    const { refuels: target, returnsTo } = things[id];
+    const actor = rootHolder(s, id);
+    if (!s.actors[actor] || rootHolder(s, target) !== actor ||
+      s.items[target].fuel !== 0 || !entityActive(s, id) || !entityActive(s, target))
+      continue;
+    const here = s.actors[actor].place;
+    const text = `${nameOf(actor)} empties the ${nameOf(id)} into the dry ${nameOf(target)}. The ${nameOf(target)} is full. Back at ${nameOf(returnsTo)}, the ${nameOf(id)} stands full again.`;
+    s.items[target].fuel = LAMP_FUEL;
+    remember(s, target, text);
+    transfer(s, id, returnsTo, text);
+    addLog(s, "World", text, {
+      kind: "narration",
+      verb: "refuel",
+      actorId: actor,
+      itemId: id,
+      targetId: target,
+      itemIds: [id, target],
+      locationId: here,
+      returnLocationId: returnsTo,
+    });
+  }
 }
 function offer(kind, actor, item, target, text, cards) {
   return {
@@ -1306,24 +1325,6 @@ export function legalActions(s, actor = currentActor(s)) {
         ),
       );
     if (
-      id === "oil" &&
-      item.doses > 0 &&
-      s.items.lamp.fuel < 12 &&
-      canUse(s, actor, "lamp") &&
-      itemPlace(s, "lamp") === here
-    ) {
-      out.push(
-        offer(
-          "refill",
-          actor,
-          id,
-          "lamp",
-          `${nameOf(actor)} pours one dose of oil into the Lamp.`,
-          [id, "lamp"],
-        ),
-      );
-    }
-    if (
       id === "cloth" &&
       canReach(s, actor, id) &&
       item.holder !== "lamp" &&
@@ -1635,24 +1636,6 @@ function perform(s, a, round = null, settle = []) {
         s.locations.pond.answer === "hush" ? null : s.locations.pond.answer;
       s.items.bell.ringing = 3;
       remember(s, "bell", a.text);
-      if (here === "pond" && s.items.oil.doses === 0) {
-        s.items.oil.doses = 1;
-        s.locations.pond.answer = "call";
-        affected = "oil";
-        text +=
-          " The pond answers. One measure of oil gathers in the empty flask.";
-        remember(
-          s,
-          "oil",
-          "The pond answers the bell with one measure of oil.",
-        );
-      }
-      break;
-    case "refill":
-      s.items.oil.doses -= 1;
-      s.items.lamp.fuel = Math.min(12, s.items.lamp.fuel + 4);
-      remember(s, "oil", a.text);
-      remember(s, "lamp", a.text);
       break;
     case "cover":
       transfer(s, "cloth", a.target, a.text);
@@ -1746,6 +1729,8 @@ function perform(s, a, round = null, settle = []) {
     noteAct(s, a, here, holder, round, sensesFor(s), (line, locationId) =>
       addLog(s, "World", line, { locationId }),
     );
+  // A flask and an empty lamp in one avatar's hands refuel after the play.
+  refuelCarried(s);
   // Answering the request is the invited avatar's action for this round.
   return invitation ? a.target : null;
 }
@@ -2094,6 +2079,8 @@ export function play(
       );
     }
   }
+  // A lamp that just ran dry in a hand that also holds the flask fills again.
+  refuelCarried(next);
   const rings = next.log.filter(
     (entry) =>
       entry.turn === next.turn &&
@@ -2304,7 +2291,7 @@ export function validateWorld(s) {
   if (
     !s.locations ||
     typeof s.locations.attic?.anchored !== "boolean" ||
-    ![null, "call", "hush"].includes(s.locations.pond?.answer)
+    ![null, "hush"].includes(s.locations.pond?.answer)
   )
     fail();
   if (
@@ -2433,15 +2420,13 @@ export function validateWorld(s) {
   if (
     !Number.isInteger(lamp.fuel) ||
     lamp.fuel < 0 ||
-    lamp.fuel > 12 ||
+    lamp.fuel > LAMP_FUEL ||
     typeof lamp.lit !== "boolean" ||
     (lamp.lit && lamp.fuel === 0)
   )
     fail();
   if (
-    !Number.isInteger(oil.doses) ||
-    oil.doses < 0 ||
-    oil.doses > 3 ||
+    Object.hasOwn(oil, "doses") ||
     !Number.isInteger(bell.ringing) ||
     bell.ringing < 0 ||
     bell.ringing > 3 ||
@@ -2504,7 +2489,7 @@ export function validateWorld(s) {
     "light",
     "snuff",
     "ring",
-    "refill",
+    "refuel",
     "cover",
     "talk",
     "wait",
