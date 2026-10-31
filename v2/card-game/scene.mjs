@@ -23,6 +23,8 @@ import { locationWeather } from "./weather.mjs";
 import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 import { avatarImage } from "./scarves.mjs";
+import { sceneChanges } from "./scene-cast.mjs";
+export { sceneChanges };
 
 // The lamp lights a place only while it shines there: held by someone in that
 // place or put down in it (#1422). This is display only; the mirror's path
@@ -142,28 +144,6 @@ const entryKind = (entry) =>
       : "narration");
 
 // Movement witnessed from Vale's current scene, including a forced retreat.
-export function sceneChanges(world) {
-  const here = world.actors[currentActor(world)].place;
-  return world.log
-    .filter(
-      (entry) =>
-        entry.turn === world.turn &&
-        !entry.generated &&
-        entry.actorId &&
-        entry.actorId !== currentActor(world) &&
-        entityActive(world, entry.actorId) &&
-        entry.fromLocationId &&
-        entry.locationId !== entry.fromLocationId &&
-        (entry.locationId === here || entry.fromLocationId === here) &&
-        world.actors[entry.actorId].place === entry.locationId,
-    )
-    .map((entry) => ({
-      actorId: entry.actorId,
-      from: entry.fromLocationId,
-      to: entry.locationId,
-      leaving: entry.fromLocationId === here,
-    }));
-}
 
 // Show physical movement as soon as the scene appears, while words are prepared.
 export function movementCaption(world) {
