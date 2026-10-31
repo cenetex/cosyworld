@@ -76,6 +76,7 @@ appear as narration. Emoji replies use two to five symbols from
 `emoji-symbols.json`; their English names supply the accessible reading.
 The server reads the expression type from the authored character profile.
 Spoken audio and letter sounds follow speech replies.
+A committed ring at your place strikes a synthesized bell (`sfx.mjs`), softer from next door; it follows the music switch and volume.
 
 Spoken character voices use the player's OpenRouter credits and account routing
 settings. Written dialogue uses the game's account. Provider retention follows
