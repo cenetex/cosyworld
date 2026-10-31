@@ -384,7 +384,7 @@ test("the ship crossing preserves a want met beside a resident Vale has not met"
   // Pip takes the oil beside the keeper, out of sight of Vale's signal.
   s.actors.moth.place = "station";
   s.items.oil.holder = "station";
-  s.actors.moth.want = newWant("item", "oil", s.turn);
+  s.actors.moth.want = newWant("have", "oil", s.turn);
   s.items.lamp.fuel = 12;
   assert.equal(s.opening.met.keeper, undefined);
   s = summon(s);
@@ -395,7 +395,7 @@ test("the ship crossing preserves a want met beside a resident Vale has not met"
   s = act(s, "snuff", "lamp");
   const met = s.log.find((e) => e.verb === "want_met" && e.actorId === "moth");
   assert(met);
-  assert.deepEqual(met.wantMet, { kind: "item", target: "oil" });
+  assert.deepEqual(met.wantMet, { verb: "have", target: "oil" });
   assert.equal(s.opening.met.keeper, undefined);
   assert.deepEqual(reload(s), s);
 });
@@ -418,7 +418,7 @@ test("Pip brings the signaled ship from Greece to a waiting player", () => {
   s.items.lamp.lit = false;
   s.actors.moth.place = "greek-harbor";
   // Pip wants to go home to the pond.
-  s.actors.moth.want = newWant("place", "pond", s.turn);
+  s.actors.moth.want = newWant("visit", "pond", s.turn);
   s.items.lamp.holder = "pond";
   assert.equal(plan(s, "moth").action.target, "greek-ship");
   s = act(s, "wait");
@@ -436,7 +436,9 @@ test("Pip brings the signaled ship from Greece to a waiting player", () => {
   visible(s, true);
   s = act(s, "move", null, "greek-ship");
   assert.deepEqual(
-    legalActions(s).filter((a) => a.kind === "course").map((a) => a.target),
+    legalActions(s)
+      .filter((a) => a.kind === "course")
+      .map((a) => a.target),
     ["greek-harbor"],
   );
 });
@@ -556,7 +558,9 @@ test("older occupied ship saves regain the departure dock and wait there for a c
       recall: "pond",
     });
     assert.deepEqual(
-      legalActions(upgraded).filter((a) => a.kind === "course").map((a) => a.target),
+      legalActions(upgraded)
+        .filter((a) => a.kind === "course")
+        .map((a) => a.target),
       [destination],
     );
     assert.deepEqual(upgraded.actors, old.actors);

@@ -124,6 +124,17 @@ export function laneProblems(t) {
   }
   return out;
 }
+// Authored starter quests may use the first-generation shape, which named
+// a kind of target: an item to have, a place to visit, a person to find.
+const LEGACY_QUESTS = { item: "have", place: "visit", person: "find" };
+export const questFromData = (w) =>
+  !w
+    ? null
+    : w.verb
+      ? { verb: w.verb, target: w.target, ...(w.with ? { with: w.with } : {}) }
+      : LEGACY_QUESTS[w.kind]
+        ? { verb: LEGACY_QUESTS[w.kind], target: w.target }
+        : null;
 const keysOk = (o, allowed) =>
   record(o) && Object.keys(o).every((k) => allowed.includes(k));
 // Placeholders are {name} from a fixed list; any other brace is an error.
@@ -587,21 +598,31 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           templateOk(a.tastes.noise, 240, ["actor"])),
       `avatar ${id} tastes need likes, sore and reason`,
     );
-    // One want per resident: an item, a place or a person it seeks first.
-    check(
-      a.want === undefined ||
-        (keysOk(a.want, ["kind", "target"]) &&
-          (a.want.kind === "item"
-            ? owns(items, a.want.target) || hub.items.includes(a.want.target)
-            : a.want.kind === "place"
-              ? owns(places, a.want.target) ||
-                hub.places.includes(a.want.target)
-              : a.want.kind === "person" &&
-                a.want.target !== id &&
-                (owns(avatars, a.want.target) ||
-                  hub.avatars.includes(a.want.target)))),
-      `avatar ${id} want needs an item, place or person target`,
-    );
+    // One starter quest per resident, composed from a verb and its targets.
+    // Sources may still name a kind of target; the compiler maps it.
+    {
+      const w = questFromData(a.want);
+      const item = (x) => owns(items, x) || hub.items.includes(x);
+      const place = (x) => owns(places, x) || hub.places.includes(x);
+      const avatar = (x) =>
+        x !== id && (owns(avatars, x) || hub.avatars.includes(x));
+      const parts = {
+        have: () => item(w.target),
+        visit: () => place(w.target),
+        find: () => avatar(w.target),
+        talk: () => avatar(w.target),
+        give: () => item(w.target) && avatar(w.with),
+        travel_with: () => avatar(w.target) && place(w.with),
+      };
+      check(
+        a.want === undefined ||
+          ((keysOk(a.want, ["kind", "target"]) ||
+            keysOk(a.want, ["verb", "target"]) ||
+            keysOk(a.want, ["verb", "target", "with"])) &&
+            Boolean(w && parts[w.verb]?.())),
+        `avatar ${id} want needs a quest verb and its targets`,
+      );
+    }
     const t = a.temperament;
     if (t === undefined) {
       check(

@@ -60,7 +60,12 @@ describe("shore wants and grievances", () => {
     s.actors.keeper.place = s.actors.vale.place;
     // One slight leaves the bell just enough; a second raises the price.
     expect(canTrade(s, "vale", "bell", "oil")).toBe(true);
-    recordReaction(s, { kind: "ring", actor: "vale", item: "bell" }, ["keeper"], false);
+    recordReaction(
+      s,
+      { kind: "ring", actor: "vale", item: "bell" },
+      ["keeper"],
+      false,
+    );
     expect(canTrade(s, "vale", "bell", "oil")).toBe(false);
     expect(decodeSave(encodeSave(s)).motives).toEqual(s.motives);
   });
@@ -98,7 +103,12 @@ describe("shore wants and grievances", () => {
     let s = together(fresh());
     s.items.lamp.holder = "vale";
     s.items.lamp.lit = true;
-    s.actors.moth.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
+    s.actors.moth.want = {
+      verb: "visit",
+      target: "pond",
+      since: 0,
+      refusals: 0,
+    };
     expect(accompanyDecision(s, "vale", "moth", "pond").accepted).toBe(true);
     s = act(s, "snuff", { item: "lamp" });
     expect(resentment(s, "moth", "vale")).toBe(1);
@@ -163,7 +173,10 @@ describe("shore wants and grievances", () => {
       false,
     );
     const before = structuredClone(s);
-    expect(plan(s, "moth").action).toMatchObject({ kind: "move", target: "pond" });
+    expect(plan(s, "moth").action).toMatchObject({
+      kind: "move",
+      target: "pond",
+    });
     expect(s).toEqual(before);
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });

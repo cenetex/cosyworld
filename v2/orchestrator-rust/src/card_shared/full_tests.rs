@@ -2315,7 +2315,7 @@ fn lighting_the_lamp_meets_vales_want_once_and_replays() {
     };
     let first = met(&w);
     assert_eq!(first.len(), 1);
-    assert_eq!(first[0]["wantMet"], json!({"kind":"item","target":"lamp"}));
+    assert_eq!(first[0]["wantMet"], json!({"verb":"have","target":"lamp"}));
     assert_eq!(first[0]["turn"], w.game["turn"]);
     assert_eq!(w.game["actors"]["vale"]["xp"], 1);
     assert_ne!(w.game["actors"]["vale"]["want"]["target"], "lamp");
@@ -2357,7 +2357,7 @@ fn bard_passage_help_uses_authoritative_home_and_ship_actions_and_replays() {
         w.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
         // The Bard's own want sends it to the shore; no quest record does.
         w.game["actors"]["greek-rhapsode"]["want"] =
-            json!({"kind":"place","target":"pond","since":0,"refusals":0});
+            json!({"verb":"visit","target":"pond","since":0,"refusals":0});
         full_store::seed(&c, &id, &w, "blocked-bard-passage", now()).unwrap();
         for op in ["claim", "enter"] {
             full_store::commit(&c, &id, &mut w, json!({"op":op,"actor":"vale"}), now()).unwrap();

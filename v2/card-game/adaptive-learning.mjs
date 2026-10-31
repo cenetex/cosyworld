@@ -27,7 +27,7 @@ const compactAction = (a) => ({
 });
 export function learningIntent(world, actor) {
   const want = world.actors[actor]?.want;
-  return JSON.stringify([want?.kind ?? null, want?.target ?? null]);
+  return JSON.stringify([want?.verb ?? null, want?.target ?? null]);
 }
 function holder(world, item) {
   let id = item;

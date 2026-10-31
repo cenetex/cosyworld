@@ -360,15 +360,17 @@ struct CardOutcome {
     receive: Option<String>,
     destination: Option<String>,
     accepted: Option<bool>,
-    /// The player's want met by this play: an item, a place or a person.
+    /// The player's quest met by this play: a verb and the entities it names.
     #[serde(default, rename = "wantMet", skip_serializing_if = "Option::is_none")]
     want_met: Option<WantMet>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct WantMet {
-    kind: String,
+    verb: String,
     target: String,
+    #[serde(default, rename = "with", skip_serializing_if = "Option::is_none")]
+    with: Option<String>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -578,11 +580,22 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
         && card
             .want_met
             .as_ref()
-            .is_none_or(|want| match want.kind.as_str() {
-                "item" => kind(&want.target, "item"),
-                "place" => kind(&want.target, "location"),
-                "person" => kind(&want.target, "avatar"),
-                _ => false,
+            .is_none_or(|want| {
+                let second = want.with.as_deref();
+                match want.verb.as_str() {
+                    "have" => kind(&want.target, "item") && second.is_none(),
+                    "visit" => kind(&want.target, "location") && second.is_none(),
+                    "find" | "talk" => kind(&want.target, "avatar") && second.is_none(),
+                    "give" => {
+                        kind(&want.target, "item")
+                            && second.is_some_and(|id| kind(id, "avatar"))
+                    }
+                    "travel_with" => {
+                        kind(&want.target, "avatar")
+                            && second.is_some_and(|id| kind(id, "location"))
+                    }
+                    _ => false,
+                }
             })
         && avatars.contains("vale")
         && (1..=8).contains(&outcome.avatars.len())
@@ -3837,7 +3850,7 @@ mod tests {
         let app = router::<()>(Arc::new(Some(test_config(address))));
         let mut c = context();
         let mut outcome = serde_json::to_value(solo_departure()).unwrap();
-        outcome["card"]["wantMet"] = json!({"kind":"place","target":"station"});
+        outcome["card"]["wantMet"] = json!({"verb":"visit","target":"station"});
         c.outcome = Some(serde_json::from_value(outcome).unwrap());
         assert!(valid(&c));
         let response = app.clone().oneshot(request(&c)).await.unwrap();
@@ -3849,7 +3862,7 @@ mod tests {
             .want_met
             .as_mut()
             .unwrap()
-            .kind = "item".into();
+            .verb = "have".into();
         assert_eq!(
             app.clone().oneshot(request(&c)).await.unwrap().status(),
             StatusCode::BAD_REQUEST

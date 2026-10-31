@@ -25,7 +25,7 @@ function untilSinger(s, place, limit = 8) {
 }
 // The Bard wants to be somewhere; its own want, not a quest record, sends it.
 function wants(s, place) {
-  s.actors[singer].want = newWant("place", place, s.turn);
+  s.actors[singer].want = newWant("visit", place, s.turn);
   delete s.actors[singer].metTurn;
   return s;
 }
@@ -76,7 +76,10 @@ describe("ordinary bard travel", () => {
     expect(s.actors[singer].place).toBe("greek-argolid-road");
     s = act(s);
     expect(s.actors[singer].place).toBe("greek-harbor");
-    expect(s.actors[singer].want).toMatchObject({ kind: "place", target: "station" });
+    expect(s.actors[singer].want).toMatchObject({
+      verb: "visit",
+      target: "station",
+    });
   });
   it("takes one legal offscreen step each turn and stays at the place it wants", () => {
     let s = createWorld();
@@ -105,8 +108,13 @@ describe("ordinary bard travel", () => {
       "greek-courtyard",
       "greek-well",
     ]);
-    const met = s.log.find((e) => e.verb === "want_met" && e.actorId === singer);
-    expect(met).toMatchObject({ turn: 4, wantMet: { kind: "place", target: "greek-well" } });
+    const met = s.log.find(
+      (e) => e.verb === "want_met" && e.actorId === singer,
+    );
+    expect(met).toMatchObject({
+      turn: 4,
+      wantMet: { verb: "visit", target: "greek-well" },
+    });
   });
   it("calls the actual ship, sails it, and preserves destination through reload", () => {
     let s = createWorld();

@@ -19,9 +19,7 @@ import { availableCards } from "../v2/card-game/cards.mjs";
 const shared = () =>
   dispatchShared({
     op: "create",
-    save: encodeSave(
-      enableMotives(createWorld()),
-    ),
+    save: encodeSave(enableMotives(createWorld())),
   }).world;
 const ask = (world, op, actor = "vale", extra = {}) =>
   dispatchShared({
@@ -289,7 +287,7 @@ describe("the full world shared by human avatars", () => {
     };
     const pool = wantCandidates(view.world, "vale", api);
     expect(pool.length).toBeGreaterThan(0);
-    expect(pool).not.toContain("item:mask");
+    expect(pool).not.toContain("have:mask");
     const all = ask(world, "view").world;
     for (const npc of ["moth", "keeper"]) {
       const actions = legalActions(all, npc);

@@ -294,7 +294,7 @@ try {
     );
     assert.deepEqual(
       met.map((e) => e.wantMet),
-      [{ kind: "place", target: "pond" }],
+      [{ verb: "visit", target: "pond" }],
     );
     await page.reload();
     await page.waitForSelector('#hand [data-card="vale"]');

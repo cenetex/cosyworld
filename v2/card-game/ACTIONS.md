@@ -38,10 +38,12 @@ nothing changes hands, and they say why. Invitations can be accepted or
 declined. Threats name the item chosen by the world rules.
 Story choices use supplies already in the inventory.
 
-Each avatar pursues one quest: an item, a place or a person. Holding the item,
-reaching the place, or talking with the person meets it and earns one point of
-experience. The residents use these same plays for their own quests, so they
-also ask, trade, threaten and get refused. There are no quest cards or quest
+Each avatar pursues one quest, composed from a verb and the people, items and
+places it names: have an item, visit a place, find someone, talk with them,
+give them something, or travel with them somewhere. Meeting it earns one point
+of experience. The residents use these same plays for their own quests, so
+they also ask, trade, give, invite each other along, threaten and get
+refused. There are no quest cards or quest
 buttons; Talk is how you learn what someone is after.
 
 Pairs work in either order. Arrow keys move between visible cards. Enter

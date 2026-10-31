@@ -40,7 +40,12 @@ const bard = "greek-rhapsode";
 // The Bard follows its own want: give it this place and let it travel there.
 const untilBard = (world, place) => {
   world = structuredClone(world);
-  world.actors[bard].want = { kind: "place", target: place, since: world.turn, refusals: 0 };
+  world.actors[bard].want = {
+    verb: "visit",
+    target: place,
+    since: world.turn,
+    refusals: 0,
+  };
   for (let turn = 0; turn < 24 && world.actors[bard].place !== place; turn++)
     world = act(reload(world), "wait");
   return world;

@@ -163,10 +163,10 @@ try {
       assert.equal(opening.items.lamp.lit, false);
       assert.deepEqual(
         {
-          kind: opening.actors.vale.want?.kind,
+          kind: opening.actors.vale.want?.verb,
           target: opening.actors.vale.want?.target,
         },
-        { kind: "item", target: "lamp" },
+        { verb: "have", target: "lamp" },
         "The opening gives Vale a quest for the lamp",
       );
       await selectCard(page, "lamp");

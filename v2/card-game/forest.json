@@ -51,7 +51,7 @@
       },
       "home": "attic",
       "values": { "lamp": 8, "oil": 5, "bell": 5, "cloth": 4 },
-      "want": { "kind": "item", "target": "lamp" }
+      "want": { "verb": "have", "target": "lamp" }
     },
     "moth": {
       "name": "Pip",
@@ -62,7 +62,7 @@
       },
       "home": "pond",
       "values": { "lamp": 12, "oil": 3, "bell": 1, "cloth": 6 },
-      "want": { "kind": "item", "target": "lamp" }
+      "want": { "verb": "have", "target": "lamp" }
     },
     "keeper": {
       "name": "The keeper",
@@ -73,7 +73,7 @@
       },
       "home": "station",
       "values": { "lamp": 3, "oil": 8, "bell": 10, "cloth": 6 },
-      "want": { "kind": "item", "target": "bell" }
+      "want": { "verb": "have", "target": "bell" }
     }
   },
   "things": {

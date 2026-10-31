@@ -35,8 +35,9 @@ import {
   publishKnowledgeSpeech,
   laneTalkFacts,
   waitNarration,
+  stranded,
 } from "./world.mjs";
-import { knownActors, wantOf } from "./want.mjs";
+import { knownActors, questParts, wantOf } from "./want.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 const REFUSAL_WORDS = {
   grudge: "a grudge",
@@ -356,7 +357,10 @@ export function narrativeContext(world, action = null) {
       // the player and for whoever is in this Talk. Narration only.
       const want =
         kind === "avatar" && wantHeard(world, played, id, currentActor(world))
-          ? wantFact(world, id, nameOf)
+          ? wantFact(world, id, nameOf, {
+              // Only a resident says it is stuck; the player finds out.
+              stuck: id !== currentActor(world) && stranded(world, id),
+            })
           : null;
       const facts = [
         ...(want ? [want] : []),
@@ -447,12 +451,14 @@ export function narrativeContext(world, action = null) {
           ? wantOf(world, id)
           : null;
         desire = {
-          items: want?.kind === "item" ? [want.target] : [],
-          location: want?.kind === "place" ? want.target : null,
-          avatars:
-            want?.kind === "person" && known.includes(want.target)
-              ? [want.target]
-              : [],
+          items: want?.verb === "have" ? [want.target] : [],
+          location:
+            want?.verb === "visit"
+              ? want.target
+              : want?.verb === "travel_with"
+                ? want.with
+                : null,
+          avatars: questParts(want).avatars.filter((a) => known.includes(a)),
         };
         if (hasMotives(world)) {
           const personal = motiveFacts(world, id, 2);
@@ -478,8 +484,8 @@ export function narrativeContext(world, action = null) {
             carried(world, id).includes(item)
               ? `Already holds the wanted ${nameOf(item)}.`
               : itemPlace(world, item) === world.actors[id].place
-                  ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.`
-                  : `Wants ${nameOf(item)}.`,
+                ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.`
+                : `Wants ${nameOf(item)}.`,
           );
         if (desire.location)
           facts.push(

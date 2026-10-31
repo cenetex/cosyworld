@@ -103,22 +103,37 @@ and generated audio are checked through `test/card-character-speech.test.mjs`.
 
 ## One quest per avatar
 
-Each avatar has one quest: an item to hold, a place to reach or a person to
-talk with. A world pack defines each resident's starter quest as its `want`
-(`{kind, target}`); `forest.json` does the same for Vale, Pip and the keeper.
+Each avatar has one quest, composed from a fixed verb and the avatars, items
+and places it names (`{verb, target, with?}`):
+
+| Verb          | Targets       | Met when                                                     |
+| ------------- | ------------- | ------------------------------------------------------------ |
+| `have`        | item          | the avatar is the item's root holder                         |
+| `visit`       | place         | the avatar stands there                                      |
+| `find`        | avatar        | the two share a place                                        |
+| `talk`        | avatar        | the two share a place and a Talk between them is committed   |
+| `give`        | item, avatar  | the avatar's Give (or Trade) of the item to them is accepted |
+| `travel_with` | avatar, place | an accepted Invite along between them arrives at the place   |
+
+A world pack defines each resident's starter quest as its `want`;
+`forest.json` does the same for Vale, Pip and the keeper. Sources may still
+write the first-generation `{kind, target}`; the pack compiler maps an item to
+`have`, a place to `visit` and a person to `find`.
 What happens next comes from the world rules in `want.mjs`, not from authored
 quest chains. The internal field stays `actor.want` so saves and the Talk
 facts from earlier releases keep their names; player-facing text says quest.
 
-- **Met.** An item quest is met when the avatar is the item's root holder, a
-  place quest when it stands there, and a person quest when the two share a
-  place and Talk. Meeting a quest records a `want_met` history event and one
-  experience point. Level is a rising curve of experience: 1, 3, 6, 10 points
+- **Met.** Each check reads a world fact or the play just committed (table
+  above). Meeting a quest records a `want_met` history event with its verb
+  and targets, and one experience point. Level is a rising curve of experience: 1, 3, 6, 10 points
   reach levels 2 to 5. Standoff strength and the scene read that level.
-- **Next.** The next quest is drawn deterministically from the world, seeded
-  by the avatar and turn: items others hold nearby that the avatar values
-  above what it carries, reachable places it has not visited, and known people
-  it has not talked with. A quest met away from home is followed by the way
+- **Next.** The next quest is composed deterministically from what the avatar
+  knows, seeded by the avatar and turn: items others hold nearby that it
+  values above what it carries, reachable places it has not visited, known
+  people to find (where it can go or has been), to talk with, to give a spare
+  they value more, or to travel with somewhere reachable. The draw first picks
+  a verb fairly among those with candidates, then a target, so fetching is one
+  verb among six and residents quest for each other's items and company. A quest met away from home is followed by the way
   home; at home the avatar rests a few turns before the next one. With nothing
   left to want it stays content for a while, then its curiosity starts over.
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
@@ -131,10 +146,16 @@ facts from earlier releases keep their names; player-facing text says quest.
   there, so its quest can stall only after a first refused attempt, and the
   stall clock starts at that attempt.
 - **Trust** has one source: someone gave me the item my quest wanted.
+- **Stranded.** A traveller with no open way out of where it stands (the
+  attic with an empty lamp, say) is stranded (`stranded()` in `world.mjs`).
+  Nothing special follows: its own next quest is still composed from what it
+  knows, and in Talk it says it is stuck. Someone whose quest is to find or
+  travel with it may come; sometimes nobody does for a long while.
 
 The hand holds only people, items and places; quests have no cards or
 buttons. A person's quest reaches the player only through Talk:
-`want-talk.mjs` adds one first-person fact ("I want the Lamp.") for the player
+`want-talk.mjs` adds one first-person fact ("I want the Lamp.", "I want to
+find Pip.", "I want to travel with the keeper to Black pond.") for the player
 and the person on the other side of a Talk play. Bystanders' quests stay
 unsaid, and a met quest is not said.
 
@@ -145,8 +166,11 @@ move to the new rules through the normal upgrade; released journals still
 replay on their frozen rule bundles.
 
 `test/card-want.test.mjs` covers the rules, `test/card-liveness.test.mjs`
-checks that every resident meets a quest in each 80-turn window of loose play,
-and `test/card-want-talk.test.mjs` checks the Talk fact.
+checks that every resident meets a quest in each 120-turn window of loose
+play, that no one is stranded for the whole soak, that fetching stays a small
+share of the quests met and that residents deal with each other.
+`test/card-composed-quests.test.mjs` covers the verbs, the fair draw and a
+stranded traveller, and `test/card-want-talk.test.mjs` checks the Talk fact.
 
 ## Image-first presentation
 
@@ -435,7 +459,7 @@ Tastes shape prices; a remembered grievance raises a price, refuses company, or 
 
 At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 
-The hub cast's tastes, home and item values live in `forest.json` under `people`, beside the pack residents' `tastes` and `values` in their card worlds. Each named avatar also has one authored `want`, `{ "kind": "item" | "place" | "person", "target": id }`, which names what it seeks first: Vale and Pip want the lamp, the keeper wants the bell. Pack residents with a `desire` carry a matching `want`, which the pack schema checks against the pack's and hub's items, places and avatars. The rules don't read `want` yet.
+The hub cast's tastes, home and item values live in `forest.json` under `people`, beside the pack residents' `tastes` and `values` in their card worlds. Each named avatar also has one authored starter quest, `want: { "verb", "target", "with"? }` (see [One quest per avatar](#one-quest-per-avatar)): Vale and Pip want to have the lamp, the keeper the bell. Pack residents with a `desire` carry a matching `want`, which the pack schema checks against the pack's and hub's items, places and avatars.
 
 ## Local play
 

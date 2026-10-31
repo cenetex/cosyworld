@@ -18,7 +18,12 @@ function keepsake() {
   world.items.lamp.holder = "moth";
   world.actors.moth.want = null;
   world.actors.moth.metTurn = 20;
-  world.actors.keeper.want = { kind: "item", target: "lamp", since: 20, refusals: 0 };
+  world.actors.keeper.want = {
+    verb: "have",
+    target: "lamp",
+    since: 20,
+    refusals: 0,
+  };
   world.life.actors.moth.attachments.lamp = { from: "vale", turn: 1 };
   return decodeSave(encodeSave(world));
 }
@@ -28,10 +33,16 @@ describe("a keepsake stays with its owner", () => {
     const world = keepsake();
     expect(keepReason(world, "moth", "lamp")).toContain("A gift from");
     expect(willingToGive(world, "moth", "lamp", "keeper")).toBe(false);
-    expect(plan(world, "moth").action).not.toMatchObject({ kind: "give", item: "lamp" });
+    expect(plan(world, "moth").action).not.toMatchObject({
+      kind: "give",
+      item: "lamp",
+    });
     let next = world;
     for (let i = 0; i < 3; i++)
-      next = play(next, legalActions(next).find((a) => a.kind === "wait")).state;
+      next = play(
+        next,
+        legalActions(next).find((a) => a.kind === "wait"),
+      ).state;
     expect(next.items.lamp.holder).toBe("moth");
     expect(decodeSave(encodeSave(next))).toEqual(next);
   });

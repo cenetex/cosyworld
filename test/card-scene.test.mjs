@@ -21,7 +21,12 @@ import {
   currentScene,
   sceneScript,
 } from "../v2/card-game/scene.mjs";
-const wantPlace = (target) => ({ kind: "place", target, since: 0, refusals: 0 });
+const wantPlace = (target) => ({
+  verb: "visit",
+  target,
+  since: 0,
+  refusals: 0,
+});
 function gathered() {
   const s = createWorld();
   for (const id of ["vale", "moth", "keeper"]) s.actors[id].place = "station";
@@ -646,7 +651,14 @@ describe("JRPG scenes", () => {
     );
     const arrived = sceneStaging(s);
     expect(arrived.layout).toBe("foreground-right");
-    for (let turn = 0; turn < 120; turn++) s = act(s, "wait");
+    // Vale sets down anything she is handed, so no one has cause to drive
+    // her off the station while the history rolls on.
+    for (let turn = 0; turn < 120; turn++)
+      s = act(
+        s,
+        legalActions(s).some((a) => a.kind === "drop") ? "drop" : "wait",
+      );
+    expect(s.actors.vale.place).toBe("station");
     expect(s.log.some((e) => e.actorId === "vale" && e.verb === "move")).toBe(
       false,
     );

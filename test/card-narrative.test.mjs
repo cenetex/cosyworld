@@ -17,6 +17,7 @@ import {
   createNarrator,
 } from "../v2/card-game/narrative.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
+import { questParts } from "../v2/card-game/want.mjs";
 import { profiles } from "../v2/card-game/memory.mjs";
 import { sceneScript, currentScene } from "../v2/card-game/scene.mjs";
 
@@ -39,7 +40,12 @@ const response = (context) => ({
   })),
 });
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
-const wantPlace = (target) => ({ kind: "place", target, since: 0, refusals: 0 });
+const wantPlace = (target) => ({
+  verb: "visit",
+  target,
+  since: 0,
+  refusals: 0,
+});
 // Vale, Pip and the keeper at the station. Each named resident wants to be
 // at the pond, so it leaves on the next play; the others stay put.
 function leavingStation(...leavers) {
@@ -165,7 +171,10 @@ describe("entity memories and model text", () => {
     expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
     expect(context.action).toBe("Vale takes the Lamp.");
     // Taking the lamp met Vale's want; the card carries that outcome.
-    expect(context.outcome.card.wantMet).toEqual({ kind: "item", target: "lamp" });
+    expect(context.outcome.card.wantMet).toEqual({
+      verb: "have",
+      target: "lamp",
+    });
     // Another person's want reaches the scene only through Talk.
     expect(context.entities.find((e) => e.id === "moth").desire).toEqual({
       items: [],
@@ -180,9 +189,14 @@ describe("entity memories and model text", () => {
     const vale = context.entities.find((e) => e.id === "vale");
     const want = world.actors.vale.want;
     expect(vale.desire).toEqual({
-      items: want.kind === "item" ? [want.target] : [],
-      location: want.kind === "place" ? want.target : null,
-      avatars: want.kind === "person" ? [want.target] : [],
+      items: want.verb === "have" ? [want.target] : [],
+      location:
+        want.verb === "visit"
+          ? want.target
+          : want.verb === "travel_with"
+            ? want.with
+            : null,
+      avatars: questParts(want).avatars,
     });
     expect(context.entities.every((e) => e.facts.length <= 16)).toBe(true);
     context.scenery = true;
@@ -892,9 +906,12 @@ describe("witnessed departures and conversation continuity", () => {
     for (const line of departed)
       expect(line.cast).toEqual(expect.arrayContaining(["moth", "keeper"]));
     expect(
-      next.log.filter(
-        (e) => e.generated && e.turn === next.turn && e.locationId === "station",
-      ).every((e) => !e.cast.includes("moth") && !e.cast.includes("keeper")),
+      next.log
+        .filter(
+          (e) =>
+            e.generated && e.turn === next.turn && e.locationId === "station",
+        )
+        .every((e) => !e.cast.includes("moth") && !e.cast.includes("keeper")),
     ).toBe(true);
   });
   it("includes a retreating opponent's answer with the witnessed result", () => {

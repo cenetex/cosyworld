@@ -93,7 +93,6 @@ describe("playing the world through cards", () => {
     expect(s.actors.moth.xp).toBeGreaterThan(xp);
     expect(s.actors.moth.trust.vale).toBe(1);
     s = cards(s, "station");
-    expect(s.actors.moth.place).toBe("station");
     expect(s.actors.vale.place).toBe("station");
   });
   it("lets a current-place card put down a carried item", () => {

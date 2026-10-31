@@ -51,7 +51,7 @@ describe("the first light in the attic", () => {
     expect(exits(s, "attic")).toEqual([]);
     expect(exits(s, "station")).toEqual(["pond"]);
     expect(cardPlay(s, ["lamp"]).action.kind).toBe("light");
-    expect(s.actors.vale.want).toMatchObject({ kind: "item", target: "lamp" });
+    expect(s.actors.vale.want).toMatchObject({ verb: "have", target: "lamp" });
     expect(placeText(s, "attic")).toContain("Dust gathers");
     expect(JSON.stringify(narrativeContext(s))).not.toMatch(
       /keeper|moth|Pip|Oil flask|bell|cloth/,
@@ -106,7 +106,7 @@ describe("the first light in the attic", () => {
     const met = lit.log.find(
       (e) => e.verb === "want_met" && e.actorId === "vale",
     );
-    expect(met.wantMet).toEqual({ kind: "item", target: "lamp" });
+    expect(met.wantMet).toEqual({ verb: "have", target: "lamp" });
     expect(turnOutcome(lit)).toMatchObject({
       card: { kind: "light" },
       avatars: [{ id: "vale", location: "attic", travel: null }],
@@ -273,7 +273,7 @@ describe("the first light in the attic", () => {
     expect(restored.opening).toBeUndefined();
     expect(exits(restored, "attic")).toEqual([]);
     expect(restored.actors.keeper.want).toMatchObject({
-      kind: "item",
+      verb: "have",
       target: "bell",
     });
     for (const s of [fresh(), act(fresh(), "light"), meetEveryone()])
@@ -295,11 +295,11 @@ describe("the first light in the attic", () => {
     }
   });
 
-  it("keeps meeting wants and trading through cooperative play after the opening", () => {
+  it("keeps meeting quests and dealing with one another through cooperative play after the opening", () => {
     for (const seedStart of [7, 42, 1729]) {
       let s = meetEveryone(),
         seed = seedStart,
-        trades = 0;
+        deals = 0;
       for (let i = 0; i < 240; i++) {
         seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
         const acts = legalActions(s).filter((a) =>
@@ -321,14 +321,17 @@ describe("the first light in the attic", () => {
           expect(play(decodeSave(encodeSave(s)), a)).toEqual(result);
         expect(result.ok).toBe(true);
         s = result.state;
-        trades += s.log.filter(
-          (e) => e.turn === s.turn && e.verb === "trade",
+        deals += s.log.filter(
+          (e) =>
+            e.turn === s.turn &&
+            ["give", "trade", "ask"].includes(e.verb) &&
+            e.accepted,
         ).length;
       }
       expect(levelOf(s, "moth")).toBeGreaterThan(3);
       expect(levelOf(s, "keeper")).toBeGreaterThan(3);
-      // Trades are one escalation among several; most wants end sooner.
-      expect(trades).toBeGreaterThan(0);
+      // Gifts, asks and trades are some of the ways quests end.
+      expect(deals).toBeGreaterThan(0);
       expect(decodeSave(encodeSave(s))).toEqual(s);
     }
   }, 60_000);

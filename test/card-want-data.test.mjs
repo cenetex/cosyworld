@@ -41,9 +41,9 @@ describe("want data", () => {
     expect(
       Object.fromEntries(hub.map((id) => [id, forest.people[id].want])),
     ).toEqual({
-      vale: { kind: "item", target: "lamp" },
-      moth: { kind: "item", target: "lamp" },
-      keeper: { kind: "item", target: "bell" },
+      vale: { verb: "have", target: "lamp" },
+      moth: { verb: "have", target: "lamp" },
+      keeper: { verb: "have", target: "bell" },
     });
     expect(
       Object.fromEntries(
@@ -52,21 +52,21 @@ describe("want data", () => {
           .map(([id, a]) => [id, a.want]),
       ),
     ).toEqual({
-      "greek-antigone": { kind: "item", target: "greek-funeral-cloth" },
-      "greek-ismene": { kind: "place", target: "greek-sanctuary" },
-      "greek-creon": { kind: "place", target: "greek-palace" },
-      "greek-baker": { kind: "place", target: "greek-courtyard" },
-      "willows-swede": { kind: "place", target: "willows-landing" },
-      rati: { kind: "item", target: "forest-story-button" },
+      "greek-antigone": { verb: "have", target: "greek-funeral-cloth" },
+      "greek-ismene": { verb: "visit", target: "greek-sanctuary" },
+      "greek-creon": { verb: "visit", target: "greek-palace" },
+      "greek-baker": { verb: "visit", target: "greek-courtyard" },
+      "willows-swede": { verb: "visit", target: "willows-landing" },
+      rati: { verb: "have", target: "forest-story-button" },
     });
   });
 
   it("validates a pack resident's want", () => {
     const pack = structuredClone(packDefinitions[0]);
     const ok = [
-      { kind: "item", target: hubIds.items[0] },
-      { kind: "place", target: pack.avatars.badger.place },
-      { kind: "person", target: hubIds.player },
+      { verb: "have", target: hubIds.items[0] },
+      { verb: "visit", target: pack.avatars.badger.place },
+      { verb: "talk", target: hubIds.player },
     ];
     for (const want of ok) {
       pack.avatars.badger.want = want;
@@ -74,10 +74,10 @@ describe("want data", () => {
     }
     for (const want of [
       { kind: "feeling", target: "lamp" },
-      { kind: "item", target: "nowhere" },
-      { kind: "person", target: "badger" },
-      { kind: "place", target: "lamp" },
-      { kind: "item", target: "lamp", since: 3 },
+      { verb: "have", target: "nowhere" },
+      { verb: "talk", target: "badger" },
+      { verb: "visit", target: "lamp" },
+      { verb: "have", target: "lamp", since: 3 },
     ]) {
       pack.avatars.badger.want = want;
       expect(packProblems(pack, hubIds).join(" ")).toContain("want needs");

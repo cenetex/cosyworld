@@ -25,7 +25,7 @@ function setup() {
   w.items.bell.holder = "vale";
   w.items.cloth.holder = "keeper";
   // Vale's own want stays open through each measured exchange.
-  w.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
+  w.actors.vale.want = { verb: "visit", target: "pond", since: 0, refusals: 0 };
   // Pip wants nothing for now, so it does not contest Vale's lamp.
   w.actors.moth.want = null;
   return w;
@@ -51,7 +51,12 @@ function choice(w, item = "oil", kind = "ask") {
     (a) => a.kind === kind && (kind === "trade" ? a.receive : a.item) === item,
   );
   expect(action).toBeDefined();
-  return reconsiderPlan(w, "vale", { action, reason: "Seek the item." }, offers);
+  return reconsiderPlan(
+    w,
+    "vale",
+    { action, reason: "Seek the item." },
+    offers,
+  );
 }
 // A controlled evaluation holds the present state and legal choices fixed.
 // Only the retained records from real completed plays change between probes.
@@ -143,7 +148,7 @@ describe("adaptive action learning", () => {
     expect(ask.samples).toBe(7);
     expect(ask.value).toBeLessThan(0);
   });
-it("gives an earlier helpful gift credit when the later request reaches the goal", () => {
+  it("gives an earlier helpful gift credit when the later request reaches the goal", () => {
     let w = act(setup(), "ask", "cloth");
     w = act(w, "give", "bell", "keeper");
     const gift = history(w).at(-1);
@@ -278,7 +283,12 @@ it("gives an earlier helpful gift credit when the later request reaches the goal
     expect(
       reconsiderPlan(w, "vale", selected, legalActions(w)).learning,
     ).toBeDefined();
-    w.actors.vale.want = { kind: "place", target: "attic", since: w.turn, refusals: 0 };
+    w.actors.vale.want = {
+      verb: "visit",
+      target: "attic",
+      since: w.turn,
+      refusals: 0,
+    };
     expect(reconsiderPlan(w, "vale", selected, legalActions(w))).toEqual(
       selected,
     );

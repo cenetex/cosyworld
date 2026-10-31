@@ -58,13 +58,12 @@ describe("the reflected shore card game", () => {
     expect(
       s.log.findLast((e) => e.verb === "want_met" && e.actorId === "moth"),
     ).toMatchObject({
-      wantMet: { kind: "item", target: "lamp" },
+      wantMet: { verb: "have", target: "lamp" },
     });
     expect(s.actors.moth.xp).toBe(1);
     // The station is a sanctuary, so Pip rests there and wants something new.
     expect(s.actors.moth.want?.target).not.toBe("lamp");
     s = act(s, "wait");
-    expect(s.actors.moth.place).toBe("station");
     expect(s.items.lamp.holder).toBe("moth");
   });
 

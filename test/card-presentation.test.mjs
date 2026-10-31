@@ -40,7 +40,12 @@ describe("observable card descriptions", () => {
     const world = createWorld();
     const before = cardObservation(world, "vale");
     world.actors.vale.xp = 99;
-    world.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
+    world.actors.vale.want = {
+      verb: "visit",
+      target: "pond",
+      since: 0,
+      refusals: 0,
+    };
     expect(cardObservation(world, "vale")).toBe(before);
     expect(before).not.toMatch(/quest|level|want|inspiration|hope|\d/i);
   });

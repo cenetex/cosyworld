@@ -14,6 +14,7 @@ import {
   packProblems,
   observationProblems,
   packCompositionProblems,
+  questFromData,
 } from "../card-game/pack-schema.mjs";
 
 const v2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -49,6 +50,10 @@ const packs = (table.packs || []).map((id) => {
   );
   if (unknown.length)
     problems.push(`${id}: bridge has unknown fields ${unknown.join(", ")}`);
+  // Starter quests compile to the composed shape: a verb and its targets.
+  for (const avatar of Object.values(source.avatars || {}))
+    if (avatar.want?.kind !== undefined)
+      avatar.want = questFromData(avatar.want);
   return {
     ...source,
     bridge: { id: bridgeId, description },

@@ -219,9 +219,9 @@ fn measured_approaches_and_later_success_survive_journal_only_replay() {
     // Vale wants the keeper's cloth; the keeper wants Vale's bell, so the
     // gift earns trust and a later request succeeds.
     w.game["actors"]["vale"]["want"] =
-        json!({"kind":"item","target":"cloth","since":0,"refusals":0});
+        json!({"verb":"have","target":"cloth","since":0,"refusals":0});
     w.game["actors"]["keeper"]["want"] =
-        json!({"kind":"item","target":"bell","since":0,"refusals":0});
+        json!({"verb":"have","target":"bell","since":0,"refusals":0});
     w.apply(&json!({"op":"claim","actor":"vale"})).unwrap();
     w.apply(&json!({"op":"enter","actor":"vale"})).unwrap();
     full_store::seed(&c, &id, &w, "measured-learning", now()).unwrap();

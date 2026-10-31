@@ -34,19 +34,24 @@ const atStation = () => {
 describe("a want in Talk context", () => {
   it("says the speaker's want in the first person", () => {
     const world = atStation();
-    expect(wantOf(world, "moth")).toMatchObject({ kind: "item", target: "lamp" });
+    expect(wantOf(world, "moth")).toMatchObject({
+      verb: "have",
+      target: "lamp",
+    });
     expect(wantFact(world, "moth", nameOf)).toBe("I want the Lamp.");
     world.items.bell.holder = "keeper";
     expect(wantFact(world, "keeper", nameOf)).toBe(null);
     world.items.bell.holder = "vale";
     expect(wantFact(world, "keeper", nameOf)).toBe("I want the Bell.");
-    world.actors.moth.want = { kind: "place", target: "pond" };
+    world.actors.moth.want = { verb: "visit", target: "pond" };
     expect(wantFact(world, "moth", nameOf)).toBe(
       `I want to be at ${nameOf("pond")}.`,
     );
-    world.actors.moth.want = { kind: "person", target: "keeper" };
+    world.actors.moth.want = { verb: "talk", target: "keeper" };
     world.actors.keeper.place = "pond";
-    expect(wantFact(world, "moth", nameOf)).toBe("I want to see The keeper.");
+    expect(wantFact(world, "moth", nameOf)).toBe(
+      "I want to talk with The keeper.",
+    );
   });
 
   it("stays quiet once the want is met", () => {
@@ -59,13 +64,20 @@ describe("a want in Talk context", () => {
     // Vale holds the lamp and keeps it, so Pip still wants it after Talk.
     const world = atStation();
     world.items.lamp.holder = "vale";
-    world.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
+    world.actors.vale.want = {
+      verb: "visit",
+      target: "pond",
+      since: 0,
+      refusals: 0,
+    };
     const context = talkTo(world, "moth");
     const pip = factsOf(context, "moth");
     expect(pip.filter((f) => f === "I want the Lamp.")).toHaveLength(1);
     for (const entity of context.entities)
       expect(entity.facts.some((f) => QUEST_LINES.test(f))).toBe(false);
-    expect(factsOf(context, "vale")).toContain(`I want to be at ${nameOf("pond")}.`);
+    expect(factsOf(context, "vale")).toContain(
+      `I want to be at ${nameOf("pond")}.`,
+    );
     expect(pip.length).toBeLessThanOrEqual(16);
   });
 

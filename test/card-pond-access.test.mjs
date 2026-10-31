@@ -201,7 +201,9 @@ describe.each([true, false])(
         const restored = decodeSave(encodeSave(s));
         expect(reflectionOpen(restored, "attic")).toBe(false);
         expect(reflectionOpen(restored, "pond")).toBe(true);
-        expect(placeText(restored, "attic")).toContain("mirror stands dark and empty");
+        expect(placeText(restored, "attic")).toContain(
+          "mirror stands dark and empty",
+        );
         // Losing the local lamp keeps the existing emergency escape, not a mirror gate.
         const rescue = cardPlay(restored, ["pond"]).action;
         expect(rescue?.text).toContain("along a narrow path");
@@ -220,7 +222,7 @@ it("removes entry after an autonomous carrier departure in the same completed tu
     start,
     legalActions(start).find((a) => a.kind === "wait"),
   ).state;
-  s.actors.moth.want = newWant("place", "station", s.turn);
+  s.actors.moth.want = newWant("visit", "station", s.turn);
   delete s.actors.moth.metTurn;
   const stale = cardPlay(s, ["attic"]).action;
   const result = play(

@@ -20,14 +20,24 @@ function stationTrade() {
   s.items.cloth.holder = "moth";
   s.items.oil.holder = "keeper";
   s.items.lamp.holder = "attic";
-  s.actors.moth.want = { kind: "item", target: "oil", since: 0, refusals: 0 };
-  s.actors.keeper.want = { kind: "item", target: "cloth", since: 0, refusals: 0 };
+  s.actors.moth.want = { verb: "have", target: "oil", since: 0, refusals: 0 };
+  s.actors.keeper.want = {
+    verb: "have",
+    target: "cloth",
+    since: 0,
+    refusals: 0,
+  };
   for (let i = 0; i < 4; i++) {
     s = act(s, "wait");
     if (s.log.some((e) => e.verb === "trade")) break;
   }
   // Then Pip sets off for the pond.
-  s.actors.moth.want = { kind: "place", target: "pond", since: s.turn, refusals: 0 };
+  s.actors.moth.want = {
+    verb: "visit",
+    target: "pond",
+    since: s.turn,
+    refusals: 0,
+  };
   return act(s, "wait");
 }
 describe("witnessed History events", () => {

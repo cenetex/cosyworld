@@ -193,8 +193,10 @@ describe("the household reaches its berth", () => {
     const recital = world.packs["greek-drama"].recitals;
     expect(recital["greek-homecoming-read-berth-family"].actor).toBe("mara");
     expect(recital["greek-homecoming-receive-family"].actor).toBe("vale");
-    expect(recital["greek-open-door-family-berth"]).toEqual(
-      prior.packs["greek-drama"].recitals["greek-open-door-family-berth"],
+    // The earlier verse keeps its author; the rhapsode may have come by to
+    // sing it while Mara travelled.
+    expect(recital["greek-open-door-family-berth"].actor).toBe(
+      prior.packs["greek-drama"].recitals["greek-open-door-family-berth"].actor,
     );
     expect(world.items["greek-return-list"].holder).toBe("greek-courtyard");
     expect(

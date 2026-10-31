@@ -146,7 +146,7 @@ fn boardy_follows_a_want_to_meet_a_human_in_the_c_host() {
     world.game["actors"]["vale"]["place"] = json!("station");
     world.game["actors"]["mara"]["place"] = json!("pond");
     world.game["actors"]["boardyai"]["want"] =
-        json!({"kind":"person","target":"mara","since":0,"refusals":0});
+        json!({"verb":"talk","target":"mara","since":0,"refusals":0});
     for actor in ["vale", "mara"] {
         world.apply(&json!({"op":"claim", "actor":actor})).unwrap();
         world.apply(&json!({"op":"enter", "actor":actor})).unwrap();

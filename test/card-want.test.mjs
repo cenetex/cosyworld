@@ -34,8 +34,8 @@ const metEvents = (s, actor) =>
 describe("one want per avatar", () => {
   it("installs the authored want on every hub avatar", () => {
     const s = createWorld();
-    expect(s.actors.moth.want).toEqual(newWant("item", "lamp", 0));
-    expect(s.actors.keeper.want).toEqual(newWant("item", "bell", 0));
+    expect(s.actors.moth.want).toEqual(newWant("have", "lamp", 0));
+    expect(s.actors.keeper.want).toEqual(newWant("have", "bell", 0));
     expect(s.actors.vale.xp).toBe(0);
     expect(validateWorld(s)).toBe(s);
   });
@@ -56,25 +56,29 @@ describe("one want per avatar", () => {
 
   it("meets a person want only through Talk in a shared place", () => {
     const s = createWorld();
-    s.actors.vale.want = newWant("person", "keeper", 0);
+    s.actors.vale.want = newWant("talk", "keeper", 0);
     s.actors.vale.place = s.actors.keeper.place;
     expect(wantMet(s, "vale")).toBe(false);
-    expect(wantMet(s, "vale", { actor: "keeper", target: "vale" })).toBe(true);
+    expect(
+      wantMet(s, "vale", { kind: "talk", actor: "keeper", target: "vale" }),
+    ).toBe(true);
     s.actors.vale.place = "attic";
-    expect(wantMet(s, "vale", { actor: "vale", target: "keeper" })).toBe(false);
+    expect(
+      wantMet(s, "vale", { kind: "talk", actor: "vale", target: "keeper" }),
+    ).toBe(false);
   });
 
   it("commits want_met, adds experience and sends the avatar home", () => {
     let s = createWorld();
-    s.actors.vale.want = newWant("place", "pond", 0);
+    s.actors.vale.want = newWant("visit", "pond", 0);
     s = play(s, act(s, "move", { target: "pond" })).state;
     const [event] = metEvents(s, "vale");
-    expect(event.wantMet).toEqual({ kind: "place", target: "pond" });
+    expect(event.wantMet).toEqual({ verb: "visit", target: "pond" });
     expect(s.actors.vale.xp).toBe(1);
     expect(levelOf(s, "vale")).toBe(2);
     // Vale's home is the attic, so the want after a trip is the way home.
     expect(s.actors.vale.want).toMatchObject({
-      kind: "place",
+      verb: "visit",
       target: "attic",
     });
     expect(decodeSave(encodeSave(s)).actors.vale.want).toEqual(
@@ -85,7 +89,7 @@ describe("one want per avatar", () => {
   it("rests at home after a want met there, then draws a real want", () => {
     let s = createWorld();
     s.actors.keeper.place = "station";
-    s.actors.keeper.want = newWant("place", "station", 0);
+    s.actors.keeper.want = newWant("visit", "station", 0);
     s.actors.keeper.place = "pond";
     s.actors.vale.place = "pond";
     s = play(s, act(s, "wait")).state;
@@ -111,10 +115,10 @@ describe("one want per avatar", () => {
       reachable: () => ["attic", "pond"],
     };
     const pool = wantCandidates(s, "moth", api);
-    expect(pool).toContain("place:pond");
-    expect(pool).toContain("person:keeper");
+    expect(pool).toContain("visit:pond");
+    expect(pool).toContain("talk:keeper");
     // Pip values the bell at the minimum, so it never wants it.
-    expect(pool).not.toContain("item:bell");
+    expect(pool).not.toContain("have:bell");
     expect(wantCandidates(s, "moth", api)).toEqual(pool);
   });
 
@@ -122,7 +126,7 @@ describe("one want per avatar", () => {
     const s = createWorld();
     const id = "greek-antigone";
     const start = s.actors[id].want;
-    expect(start).toMatchObject({ kind: "item", refusals: 0 });
+    expect(start).toMatchObject({ verb: "have", refusals: 0 });
     const api = {
       carried: () => [],
       rootHolder: (item) => s.items[item].holder,
@@ -144,8 +148,8 @@ describe("one want per avatar", () => {
     s.actors.vale.place = "station";
     s.items.oil.holder = "keeper";
     s.actors.keeper.place = "station";
-    s.actors.keeper.want = newWant("place", "station", 0);
-    s.actors.vale.want = newWant("item", "oil", 0);
+    s.actors.keeper.want = newWant("visit", "station", 0);
+    s.actors.vale.want = newWant("have", "oil", 0);
     for (let i = 0; i < REFUSAL_LIMIT; i++) {
       const ask = legalActions(s).find(
         (a) => a.kind === "ask" && a.item === "oil",
@@ -177,7 +181,7 @@ describe("one want per avatar", () => {
 
   it("sets aside a cast want with no way forward", () => {
     const s = createWorld();
-    s.actors.moth.want = newWant("item", "bell", 0);
+    s.actors.moth.want = newWant("have", "bell", 0);
     s.turn = STALL_TURNS + 1;
     s.revision = s.turn;
     const next = play(s, act(s, "wait")).state;
@@ -200,7 +204,7 @@ describe("one want per avatar", () => {
     expect(loaded.quests).toBeUndefined();
     expect(loaded.actors.moth.progress).toBeUndefined();
     expect(loaded.actors.moth.want).toMatchObject({
-      kind: "item",
+      verb: "have",
       target: "lamp",
     });
   });

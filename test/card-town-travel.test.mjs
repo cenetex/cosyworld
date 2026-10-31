@@ -79,7 +79,10 @@ describe("local town visits and road history", () => {
       // Quest records leave the history; every other event stays.
       expect(current.log).toEqual(
         before.log
-          .filter((e) => e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""))
+          .filter(
+            (e) =>
+              e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""),
+          )
           .map(({ questPlan, consequence, questKey, ...e }) => e),
       );
       expect(current.memories[road]).toMatchObject(before.memories[road]);
@@ -158,14 +161,14 @@ describe("local town visits and road history", () => {
   it("moves a want for the former road to the road's town", () => {
     const before = releasedRoad("greek-road-athens-harbor");
     before.actors.mara.want = {
-      kind: "place",
+      verb: "visit",
       target: "greek-road-athens-harbor",
       since: 0,
       refusals: 0,
     };
     const current = decodeSave(JSON.stringify(before));
     expect(current.actors.mara.want).toMatchObject({
-      kind: "place",
+      verb: "visit",
       target: "greek-athens-harbor",
     });
     expect(current.quests).toBeUndefined();

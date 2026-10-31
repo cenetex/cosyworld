@@ -10,7 +10,12 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-const wantPlace = (target) => ({ kind: "place", target, since: 0, refusals: 0 });
+const wantPlace = (target) => ({
+  verb: "visit",
+  target,
+  since: 0,
+  refusals: 0,
+});
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatars, humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
@@ -46,7 +51,7 @@ describe("the attic opening and saved pond journeys", () => {
       expect(sceneCast(world)).toEqual(["vale", null]);
       expect(world.actors.moth.place).toBe("pond");
       expect(world.actors.vale.want).toMatchObject({
-        kind: "item",
+        verb: "have",
         target: "lamp",
       });
       expect(world.log[0]).toMatchObject({
@@ -70,7 +75,10 @@ describe("the attic opening and saved pond journeys", () => {
       crossed: true,
       met: { vale: 0, moth: 0 },
     });
-    expect(world.actors.vale.want).toMatchObject({ kind: "item", target: "lamp" });
+    expect(world.actors.vale.want).toMatchObject({
+      verb: "have",
+      target: "lamp",
+    });
   });
 
   it("meets Vale's lamp want and then the keeper through the pond and station", () => {
@@ -175,7 +183,10 @@ describe("the attic opening and saved pond journeys", () => {
     }
     expect(neighbors).toEqual(["pond", "boardyai-parlour"]);
     world.items["boardyai-calling-card"].holder = "station";
-    expect(exits(world, "station", "vale").sort()).toEqual(["boardyai-parlour", "pond"]);
+    expect(exits(world, "station", "vale").sort()).toEqual([
+      "boardyai-parlour",
+      "pond",
+    ]);
   });
 
   it("preserves saved attic purposes, positions, possessions and history", () => {
@@ -184,7 +195,10 @@ describe("the attic opening and saved pond journeys", () => {
     before.locations.attic.anchored = true;
     const restored = decodeSave(encodeSave(before));
     expect(restored).toEqual(before);
-    expect(restored.actors.vale.want).toMatchObject({ kind: "item", target: "lamp" });
+    expect(restored.actors.vale.want).toMatchObject({
+      verb: "have",
+      target: "lamp",
+    });
     expect(exits(restored, "station")).toEqual(["pond"]);
     const lit = act(restored, "light");
     const shore = act(lit, "move", "pond");

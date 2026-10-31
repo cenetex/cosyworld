@@ -155,7 +155,7 @@ describe("the temporary ringing path to Forest Clearing", () => {
     s.items.lamp.lit = true;
     s.items.cloth.holder = "pond";
     // Pip wants the station and carries the ringing bell there.
-    s.actors.moth.want = newWant("place", "station", s.turn);
+    s.actors.moth.want = newWant("visit", "station", s.turn);
     delete s.actors.moth.metTurn;
     const stale = cardPlay(s, ["clearing"]).action;
     s = act(s, "wait");

@@ -23,7 +23,12 @@ function together() {
   const world = createWorld();
   world.actors.moth.place = "station";
   world.items.lamp.holder = "vale";
-  world.actors.moth.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
+  world.actors.moth.want = {
+    verb: "visit",
+    target: "pond",
+    since: 0,
+    refusals: 0,
+  };
   return world;
 }
 // Pip's quest is the cloth the keeper holds at the pond, not anything Vale carries.
@@ -31,11 +36,21 @@ const wantsCloth = (world) => {
   world.items.cloth.holder = "keeper";
   world.actors.keeper.place = "pond";
   world.actors.keeper.want = null;
-  world.actors.moth.want = { kind: "item", target: "cloth", since: 0, refusals: 0 };
+  world.actors.moth.want = {
+    verb: "have",
+    target: "cloth",
+    since: 0,
+    refusals: 0,
+  };
   return world;
 };
 const wantsLamp = (world) => {
-  world.actors.moth.want = { kind: "item", target: "lamp", since: 0, refusals: 0 };
+  world.actors.moth.want = {
+    verb: "have",
+    target: "lamp",
+    since: 0,
+    refusals: 0,
+  };
   return world;
 };
 function request(world, avatar, destination) {
@@ -224,7 +239,11 @@ describe("accompany card requests", () => {
         text: `${profiles[id].name} recalls the joint trip.`,
       })),
     });
-    expect(next.log.slice(-3).map((e) => e.actorId)).toEqual(["vale", "moth", "keeper"]);
+    expect(next.log.slice(-3).map((e) => e.actorId)).toEqual([
+      "vale",
+      "moth",
+      "keeper",
+    ]);
     expect(
       sceneScript(next).beats.find((e) => e.verb === "accompany"),
     ).toMatchObject({

@@ -69,7 +69,7 @@ export function recitalFacts(world, packs, actor) {
     packs.find((p) => p.places?.[id])?.places[id].name ||
     "an earlier traveler";
   const want = world.actors[actor]?.want;
-  return want?.kind === "place"
+  return want?.verb === "visit"
     ? [
         world.actors[actor].place === want.target
           ? `You have reached ${name(want.target)}.`

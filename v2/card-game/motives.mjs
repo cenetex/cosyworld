@@ -65,7 +65,7 @@ export function valueOf(s, actor, item) {
     value += 9;
   // The wanted item is worth more than anything spare.
   const want = s.actors[actor]?.want;
-  if (want?.kind === "item" && want.target === item) value += 6;
+  if (["have", "give"].includes(want?.verb) && want.target === item) value += 6;
   return Math.max(1, value) + attachmentValue(s, actor, item);
 }
 function bundleValue(s, actor, item) {

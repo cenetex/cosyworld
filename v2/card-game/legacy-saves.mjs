@@ -28,14 +28,25 @@ const QUEST_FIELDS = [
   "storyQuests",
 ];
 const QUEST_VERBS = ["drop-quest", "join-quest", "share-quest", "pursue"];
+// First-generation wants named a kind of target; quests name a verb.
+const FIRST_VERBS = { item: "have", place: "visit", person: "talk" };
+const composed = ({ kind, ...want }) =>
+  FIRST_VERBS[kind] ? { verb: FIRST_VERBS[kind], ...want } : null;
 export function forgetQuests(s) {
   for (const field of QUEST_FIELDS) delete s[field];
-  for (const actor of Object.values(s.actors || {})) delete actor.progress;
+  for (const actor of Object.values(s.actors || {})) {
+    delete actor.progress;
+    if (actor.want?.kind !== undefined) actor.want = composed(actor.want);
+  }
   if (s.motives) delete s.motives.questPrograms;
   if (Array.isArray(s.log))
     s.log = s.log
       .filter((e) => e?.kind !== "quest" && !QUEST_VERBS.includes(e?.verb))
-      .map(({ questPlan, consequence, questKey, ...e }) => e);
+      .map(({ questPlan, consequence, questKey, ...e }) =>
+        e.wantMet?.kind !== undefined
+          ? { ...e, wantMet: composed(e.wantMet) }
+          : e,
+      );
   migrateLife(s);
 }
 
@@ -343,8 +354,10 @@ export function foldRetiredRoads(s) {
     ];
   }
   for (const actor of Object.values(s.actors || {})) {
-    if (actor.want?.kind === "place")
+    if (actor.want?.verb === "visit")
       actor.want.target = canonicalPlace(actor.want.target);
+    if (actor.want?.verb === "travel_with")
+      actor.want.with = canonicalPlace(actor.want.with);
     if (Array.isArray(actor.visited))
       actor.visited = [...new Set(actor.visited.map(canonicalPlace))];
   }

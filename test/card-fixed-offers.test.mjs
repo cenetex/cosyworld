@@ -145,11 +145,16 @@ describe("Give and Trade are always offered", () => {
     s.items.oil.holder = "keeper";
     s.items.bell.holder = "moth";
     s.items.cloth.holder = "moth";
-    s.actors.moth.want = { kind: "item", target: "oil", since: 0, refusals: 0 };
+    s.actors.moth.want = { verb: "have", target: "oil", since: 0, refusals: 0 };
     s.actors.keeper.want = null;
     for (let turn = 0; turn < 12; turn++)
-      s = play(s, legalActions(s).find((a) => a.kind === "wait")).state;
-    const offers = s.log.filter((e) => e.verb === "trade" && e.actorId === "moth");
+      s = play(
+        s,
+        legalActions(s).find((a) => a.kind === "wait"),
+      ).state;
+    const offers = s.log.filter(
+      (e) => e.verb === "trade" && e.actorId === "moth",
+    );
     expect(offers.length).toBeGreaterThan(0);
     // An offer the keeper would refuse still costs Pip's turn and counts
     // against its want.

@@ -209,7 +209,7 @@ describe("card standoffs", () => {
     s.turn = s.revision = 8;
     for (const id of ["vale", "moth", "keeper"]) s.actors[id].place = "station";
     s.items.oil.holder = "keeper";
-    s.actors.moth.want = { kind: "item", target: "oil", since: 8, refusals: 0 };
+    s.actors.moth.want = { verb: "have", target: "oil", since: 8, refusals: 0 };
     expect(plan(s, "moth").action.kind).toBe("ask");
     let seenThreat = false,
       seenAttack = false,
@@ -248,7 +248,12 @@ describe("card standoffs", () => {
     const start = meeting();
     start.items.bell.holder = "station";
     // The keeper comes from the pond for the bell lying at the station.
-    start.actors.keeper.want = { kind: "item", target: "bell", since: 0, refusals: 0 };
+    start.actors.keeper.want = {
+      verb: "have",
+      target: "bell",
+      since: 0,
+      refusals: 0,
+    };
     const s = act(start, "threaten", "moth");
     const context = narrativeContext(s, { target: "moth" });
     expect(context.speakers).toEqual(["vale", "moth", "keeper"]);

@@ -458,7 +458,7 @@ describe("authored topics keep their saved deed identity", () => {
     let world = openDoorWalk(openDoorStart(), "harbor", "athens", "eleusis");
     // Aethra's own quest is to talk with Vale, so she speaks first.
     world.actors[choice.subject].want = {
-      kind: "person",
+      verb: "talk",
       target: "vale",
       since: world.turn,
       refusals: 0,

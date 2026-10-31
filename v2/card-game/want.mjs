@@ -11,9 +11,48 @@ import {
   packPeople,
 } from "./pack-registry.mjs";
 import { packDiscovered } from "./pack-rules.mjs";
-import { authoredWant } from "./want-talk.mjs";
+import { authoredWant, questFromData } from "./want-talk.mjs";
+export { questFromData };
 
-export const WANT_KINDS = ["item", "place", "person"];
+// A quest is composed from the fixed verbs and the world's entities:
+//   have(item)               hold it
+//   visit(place)             be there
+//   find(avatar)             share a place with them
+//   talk(avatar)             commit a Talk with them
+//   give(item, avatar)       a gift of it that they accept
+//   travel_with(avatar, place) an Invite along to that place that is accepted
+export const QUEST_VERBS = [
+  "have",
+  "visit",
+  "find",
+  "talk",
+  "give",
+  "travel_with",
+];
+// The second entity a verb names, when it names two.
+const SECOND = { give: "avatar", travel_with: "place" };
+const FIRST = {
+  have: "item",
+  visit: "place",
+  find: "avatar",
+  talk: "avatar",
+  give: "item",
+  travel_with: "avatar",
+};
+// The item, place and avatar a quest names, for cards and context.
+export function questParts(want) {
+  const parts = { items: [], place: null, avatars: [] };
+  if (!want) return parts;
+  for (const [kind, id] of [
+    [FIRST[want.verb], want.target],
+    [SECOND[want.verb], want.with],
+  ])
+    if (id === undefined) continue;
+    else if (kind === "item") parts.items.push(id);
+    else if (kind === "place") parts.place = id;
+    else if (kind === "avatar") parts.avatars.push(id);
+  return parts;
+}
 // A want is set aside after this many refusals, or after a long spell with
 // no way forward. Resting at home lasts a few turns after a want is met.
 export const REFUSAL_LIMIT = 3;
@@ -49,18 +88,24 @@ export const levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
 export const levelOf = (s, id) => levelFor(s.actors[id]?.xp || 0);
 
 export const wantOf = (s, id) => s.actors[id]?.want ?? null;
-export const newWant = (kind, target, turn) => ({
-  kind,
+export const newWant = (verb, target, turn, second) => ({
+  verb,
   target,
+  ...(second === undefined ? {} : { with: second }),
   since: turn,
   refusals: 0,
 });
-const validTarget = (s, kind, target) =>
-  kind === "item"
-    ? Object.hasOwn(s.items, target)
-    : kind === "person"
-      ? Object.hasOwn(s.actors, target)
-      : true;
+const isKind = (s, kind, id) =>
+  typeof id === "string" &&
+  (kind === "item"
+    ? Object.hasOwn(s.items, id)
+    : kind === "avatar"
+      ? Object.hasOwn(s.actors, id)
+      : true);
+const validParts = (s, verb, target, second) =>
+  QUEST_VERBS.includes(verb) &&
+  isKind(s, FIRST[verb], target) &&
+  (SECOND[verb] ? isKind(s, SECOND[verb], second) : second === undefined);
 
 // Every actor carries a want record, experience and what it has seen.
 export function installWants(s) {
@@ -68,8 +113,8 @@ export function installWants(s) {
     if (!("want" in a)) {
       const w = authoredWant(id);
       a.want =
-        w && validTarget(s, w.kind, w.target)
-          ? newWant(w.kind, w.target, s.turn)
+        w && validParts(s, w.verb, w.target, w.with) && w.target !== id
+          ? newWant(w.verb, w.target, s.turn, w.with)
           : null;
     }
     a.xp ??= 0;
@@ -84,78 +129,150 @@ function hash(text) {
   return h;
 }
 
-// Candidates: items held by others that the actor values above the least
-// valued thing it carries, known places it has not visited, and known people
-// it has not talked with. `api` supplies world reads owned by world.mjs.
+// Candidates are compositions of a verb with what the actor knows: items
+// others hold that it values above the least valued thing it carries, known
+// places it has not visited, known people to find, talk with, give to or
+// travel with. `api` supplies world reads owned by world.mjs.
 export function wantCandidates(s, actor, api, previous = null) {
   const a = s.actors[actor];
   const held = api.carried(actor);
+  const value = (who, id) => api.valueOf(who, id);
   // Something valued at the minimum is never wanted.
   const floor = Math.max(
     1,
-    ...(held.length
-      ? [Math.min(...held.map((id) => api.valueOf(actor, id)))]
-      : []),
+    ...(held.length ? [Math.min(...held.map((id) => value(actor, id)))] : []),
   );
   // Only what can be reached from here: the open routes, or this place for
   // a resident who keeps to its scene.
   const reach = travels(actor) ? api.reachable(actor) : [];
   const near = new Set([a.place, ...reach]);
-  const items = Object.keys(s.items).filter((id) => {
+  const known = knownActors(s).filter(
+    (id) => id !== actor && entityActive(s, id) && s.actors[id],
+  );
+  const wantsItem = (who, id) =>
+    s.actors[who].want?.verb === "have" && s.actors[who].want.target === id;
+  const have = Object.keys(s.items).filter((id) => {
     const owner = api.rootHolder(id);
     return (
       entityActive(s, id) &&
       owner !== actor &&
       Object.hasOwn(s.actors, owner) &&
       near.has(s.actors[owner].place) &&
-      !(
-        s.actors[owner].want?.kind === "item" &&
-        s.actors[owner].want.target === id
-      ) &&
-      api.valueOf(actor, id) > floor
+      !wantsItem(owner, id) &&
+      value(actor, id) > floor
     );
   });
-  const places = reach.filter((id) => !a.visited.includes(id));
-  const people = knownActors(s).filter(
+  const visit = reach.filter((id) => !a.visited.includes(id));
+  // Someone elsewhere is found where the actor can go or has been.
+  const find = known.filter(
     (id) =>
-      id !== actor && !a.talked.includes(id) && near.has(s.actors[id].place),
+      s.actors[id].place !== a.place &&
+      (near.has(s.actors[id].place) || a.visited.includes(s.actors[id].place)),
   );
-  return [
-    ...items.map((target) => ["item", target]),
-    ...places.map((target) => ["place", target]),
-    ...people.map((target) => ["person", target]),
-  ]
-    .filter(
-      ([kind, target]) =>
-        (kind !== previous?.kind || target !== previous.target) &&
-        !(
-          a.gaveUp?.target === target && s.turn - a.gaveUp.turn < CONTENT_TURNS
-        ),
-    )
-    .map(([kind, target]) => `${kind}:${target}`)
-    .sort();
+  const nearby = known.filter((id) => near.has(s.actors[id].place));
+  const talk = nearby.filter((id) => !a.talked.includes(id));
+  // A gift goes to someone who values it more than the giver does.
+  const give = held
+    .filter((item) => !wantsItem(actor, item) && entityActive(s, item))
+    .flatMap((item) =>
+      nearby
+        .filter(
+          (id) =>
+            wantsItem(id, item) ||
+            (value(id, item) >= 2 && value(id, item) > value(actor, item)),
+        )
+        .map((id) => [item, id]),
+    );
+  // A trip together, to somewhere the actor can go.
+  const travelWith = travels(actor)
+    ? nearby
+        .filter((id) => travels(id) && !api.human?.(id))
+        .flatMap((id) =>
+          reach
+            .filter(
+              (place) => place !== s.actors[id].place && place !== a.place,
+            )
+            .map((place) => [id, place]),
+        )
+    : [];
+  const pool = [
+    ...have.map((t) => ["have", t]),
+    ...visit.map((t) => ["visit", t]),
+    ...find.map((t) => ["find", t]),
+    ...talk.map((t) => ["talk", t]),
+    ...give.map(([t, w]) => ["give", t, w]),
+    ...travelWith.map(([t, w]) => ["travel_with", t, w]),
+  ].filter(
+    ([verb, target, second]) =>
+      !(
+        verb === previous?.verb &&
+        target === previous.target &&
+        second === previous.with
+      ) &&
+      !(a.gaveUp?.target === target && s.turn - a.gaveUp.turn < CONTENT_TURNS),
+  );
+  return pool.map((parts) => parts.join(":")).sort();
 }
+// Each verb gets a fair share of the draw, so a gift, a trip or a search is
+// as likely as a fetch, however many items lie about.
 export function nextWant(s, actor, api, previous = null) {
   const pool = wantCandidates(s, actor, api, previous);
   if (!pool.length) return null;
-  const [kind, target] =
-    pool[hash(`${actor}:${s.turn}`) % pool.length].split(":");
-  return newWant(kind, target, s.turn);
+  const verbs = QUEST_VERBS.filter((v) =>
+    pool.some((c) => c.startsWith(`${v}:`)),
+  );
+  const h = hash(`${actor}:${s.turn}`);
+  const choices = pool.filter((c) =>
+    c.startsWith(`${verbs[h % verbs.length]}:`),
+  );
+  const [verb, target, second] =
+    choices[Math.floor(h / verbs.length) % choices.length].split(":");
+  return newWant(verb, target, s.turn, second);
 }
 
-// A person want needs a Talk between the two; the other kinds read custody
-// and place.
-export function wantMet(s, actor, talk = null) {
+// Each verb is met by a world fact or by the play just committed.
+// `played` is {kind, actor, target, item, destination, accepted}.
+export function wantMet(s, actor, played = null) {
   const want = wantOf(s, actor);
   if (!want) return false;
-  if (want.kind === "item") return rootOf(s, want.target) === actor;
-  if (want.kind === "place") return s.actors[actor].place === want.target;
-  return Boolean(
-    talk &&
-      s.actors[want.target]?.place === s.actors[actor].place &&
-      ((talk.actor === actor && talk.target === want.target) ||
-        (talk.actor === want.target && talk.target === actor)),
-  );
+  const here = s.actors[actor].place;
+  const between = (other) =>
+    played &&
+    ((played.actor === actor && played.target === other) ||
+      (played.actor === other && played.target === actor));
+  switch (want.verb) {
+    case "have":
+      return rootOf(s, want.target) === actor;
+    case "visit":
+      return here === want.target;
+    case "find":
+      return s.actors[want.target]?.place === here;
+    case "talk":
+      return Boolean(
+        played?.kind === "talk" &&
+          s.actors[want.target]?.place === here &&
+          between(want.target),
+      );
+    case "give":
+      return Boolean(
+        played &&
+          ["give", "trade"].includes(played.kind) &&
+          played.accepted &&
+          played.actor === actor &&
+          played.target === want.with &&
+          played.item === want.target,
+      );
+    case "travel_with":
+      return Boolean(
+        played?.kind === "accompany" &&
+          played.accepted &&
+          between(want.target) &&
+          played.destination === want.with &&
+          here === want.with,
+      );
+    default:
+      return false;
+  }
 }
 function rootOf(s, id) {
   let holder = s.items[id].holder;
@@ -181,11 +298,8 @@ export const resting = (s, actor, home) => {
 // Record what each participant saw and said, then commit met wants. A want
 // met away from home is followed by the way home; at home the next real want
 // is drawn while the avatar rests.
-export function settleWants(s, actors, api, action = null) {
-  const talk =
-    action?.kind === "talk"
-      ? { actor: action.actor, target: action.target }
-      : null;
+export function settleWants(s, actors, api, played = null) {
+  const talk = played?.kind === "talk" ? played : null;
   const met = [];
   for (const id of actors) {
     const a = s.actors[id];
@@ -197,7 +311,7 @@ export function settleWants(s, actors, api, action = null) {
       if (s.actors[other] && !a.talked.includes(other))
         a.talked = [...a.talked, other].slice(-64);
     }
-    if (!wantMet(s, id, talk)) continue;
+    if (!wantMet(s, id, played)) continue;
     const want = a.want;
     a.xp += 1;
     a.metTurn = s.turn;
@@ -207,17 +321,25 @@ export function settleWants(s, actors, api, action = null) {
     const atRest =
       !home || a.place === home || api.sanctuaries.includes(a.place);
     a.want =
-      !atRest && travels(id) && !(want.kind === "place" && want.target === home)
-        ? newWant("place", home, s.turn)
+      !atRest && travels(id) && !(want.verb === "visit" && want.target === home)
+        ? newWant("visit", home, s.turn)
         : nextWant(s, id, api, want);
   }
   return met;
 }
 
-// A refusal of the actor's own want counts; enough of them set it aside.
-export function refuseWant(s, actor, item, api) {
+// A refusal of the actor's own quest counts; enough of them set it aside.
+// `about` is the item asked for or offered, or the avatar invited along.
+export function refuseWant(s, actor, about, api) {
   const want = wantOf(s, actor);
-  if (want?.kind !== "item" || want.target !== item) return;
+  if (
+    !want ||
+    !(
+      (["have", "give"].includes(want.verb) && want.target === about) ||
+      (want.verb === "travel_with" && want.target === about)
+    )
+  )
+    return;
   // A resident that keeps to its scene only tries while someone is there, so
   // its stall clock starts at the first real attempt, not when it was given.
   if (want.refusals === 0 && !travels(actor)) want.since = s.turn;
@@ -280,16 +402,35 @@ export function validWant(s, id) {
     list(a.talked, s.actors) &&
     !a.talked.includes(id) &&
     Array.isArray(a.visited) &&
-    (w === null ||
-      (w &&
-        Object.keys(w).length === 4 &&
-        WANT_KINDS.includes(w.kind) &&
-        typeof w.target === "string" &&
-        validTarget(s, w.kind, w.target) &&
-        !(w.kind === "person" && w.target === id) &&
-        whole(w.since) &&
-        Number.isInteger(w.refusals) &&
-        w.refusals >= 0 &&
-        w.refusals < REFUSAL_LIMIT))
+    (w === null || (w && validQuest(s, id, w)))
+  );
+}
+function validQuest(s, id, w) {
+  const keys = Object.keys(w).sort().join();
+  return (
+    keys ===
+      (SECOND[w.verb]
+        ? "refusals,since,target,verb,with"
+        : "refusals,since,target,verb") &&
+    validParts(s, w.verb, w.target, w.with) &&
+    w.target !== id &&
+    w.with !== id &&
+    Number.isSafeInteger(w.since) &&
+    w.since >= 0 &&
+    w.since <= s.turn &&
+    Number.isInteger(w.refusals) &&
+    w.refusals >= 0 &&
+    w.refusals < REFUSAL_LIMIT
+  );
+}
+// The verb, target and second entity a want_met event records.
+export function validMet(m, ids) {
+  if (!m || typeof m !== "object") return false;
+  const keys = Object.keys(m).sort().join();
+  return (
+    QUEST_VERBS.includes(m.verb) &&
+    keys === (SECOND[m.verb] ? "target,verb,with" : "target,verb") &&
+    ids.includes(m.target) &&
+    (!SECOND[m.verb] || ids.includes(m.with))
   );
 }
