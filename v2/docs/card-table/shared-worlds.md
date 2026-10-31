@@ -92,6 +92,12 @@ when the bytes differ from main's. It pins the live bundle's hash in
 gives the same result. Then rebuild the card assets and bump the release
 version. Do not resolve bundle conflicts by hand.
 
+`test/card-shared-bundle-modules.test.mjs` lists the modules the bundle may
+contain. A new import into the shared rules fails it. Pack content and
+presentation modules are moving out of the bundle so that content changes stop
+minting rules versions; see
+[the design note](../../../docs/design/pack-content-outside-the-engine.md).
+
 ## Event sync
 
 Each browser keeps a sequence number and SHA-256 hash for its shared view.
