@@ -16,6 +16,7 @@ import {
   people,
   carried,
   publishKnowledgeSpeech,
+  seedRun,
 } from "./world.mjs";
 import {
   humanAvatars,
@@ -119,6 +120,8 @@ export function dispatchShared(request) {
       request.save == null
         ? enableMotives(createWorld({ opening: true }))
         : importClientSave(request.save);
+    // The host derives one seed from the world ID; an imported run keeps its own.
+    seedRun(world, request.seed);
     if (!world.sharedVersion) settleHomeItems(world);
     enableShared(world);
     delete world.playerActorId;
@@ -141,6 +144,7 @@ export function dispatchShared(request) {
     // are dropped and each avatar holds one want.
     if (request.from === "full-card-world/2")
       settleHomeItems(world, world.controlledActors);
+    seedRun(world, request.seed);
     world.revision += 1;
     validateWorld(world);
     return response(world);
@@ -255,7 +259,9 @@ function migrate(request) {
     )
   )
     throw new Error("This older shared world has an invalid save.");
-  const world = enableShared(enableMotives(createWorld()));
+  const world = enableShared(
+    enableMotives(seedRun(createWorld(), request.seed)),
+  );
   const rooms = ["pond", ...humanAvatars.map((a) => a.home.id)];
   for (const [index, avatar] of humanAvatars.entries()) {
     const p = legacy.places[index],
