@@ -194,7 +194,7 @@ export function createCombatView({
     dim.className = "combat-dim";
     const scene = [
       stage.querySelector("#backdrop:not([hidden])"),
-      stage.querySelector("#stage-picture:not([hidden])"),
+      stage.querySelector("#stage-figures"),
       stage.querySelector("#cast"),
       stage.querySelector("#floor-items"),
     ].filter(Boolean);

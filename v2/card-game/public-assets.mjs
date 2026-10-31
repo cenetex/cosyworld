@@ -78,7 +78,6 @@ const files = [
   "scene-video.mjs",
   "scene-video-context.mjs",
   "scene-video.css",
-  "awakening.css",
   "combat.css",
   "combat-beats.mjs",
   "combat-view.mjs",
