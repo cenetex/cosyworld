@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // Choose the browser smokes for the fast check from the changed paths, using
 // scripts/fast-smokes.json. Prints a JSON array of script names.
-//
-//   node scripts/select-fast-smokes.mjs changed-files.txt
+// Usage: node scripts/select-fast-smokes.mjs changed-files.txt
 import { readFileSync } from "node:fs";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";

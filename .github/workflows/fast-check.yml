@@ -66,8 +66,7 @@ jobs:
         id: smokes
         run: |
           smokes="$(node scripts/select-fast-smokes.mjs "$RUNNER_TEMP/changed.txt")"
-          echo "smokes=$smokes" >> "$GITHUB_OUTPUT"
-          echo "Browser smokes: $smokes" >> "$GITHUB_STEP_SUMMARY"
+          echo "smokes=$smokes" | tee -a "$GITHUB_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
       - name: Check formatting of changed files (warning only)
         run: |
           mapfile -t files < <(grep -E '\.(m?js|json|css|html|ya?ml)$' "$RUNNER_TEMP/changed.txt" | while read -r f; do [ -f "$f" ] && echo "$f"; done)
