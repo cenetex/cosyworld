@@ -81,8 +81,6 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -100,8 +98,6 @@ jobs:
       CI: true
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -110,7 +106,6 @@ jobs:
       - run: npm ci --prefer-offline --no-audit --no-fund
       - run: npm test
 
-  # Each smoke serves the static card game; none needs a Rust build.
   smoke:
     name: Browser smoke (${{ matrix.smoke }})
     needs: plan
@@ -124,8 +119,6 @@ jobs:
       CI: true
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -167,5 +160,4 @@ jobs:
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          echo "$RESULTS"
           for result in $RESULTS; do test "$result" = success; done
