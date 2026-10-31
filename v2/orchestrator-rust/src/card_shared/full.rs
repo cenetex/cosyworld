@@ -553,6 +553,10 @@ fn finish_work_attempt(
                     time,
                 )?;
                 scene["lines"] = result["lines"].clone();
+                let silent = super::full_speech::silent(&work.context, work.actor, lines);
+                if !silent.is_empty() {
+                    scene["silent"] = json!(silent);
+                }
             }
             Err(error) => scene["error"] = json!(error),
         }
@@ -573,6 +577,7 @@ fn finish_work_attempt(
                         .clamp(3500, 9000)
                 })
                 .sum::<i64>()
+                + 3500 * scene["silent"].as_array().map_or(0, Vec::len) as i64
         } else {
             2000
         };

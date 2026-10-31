@@ -972,12 +972,17 @@ pub(crate) async fn shared_lines(
     let value = complete_selected(config, &context, models, &settings, ids, true, None)
         .await
         .map_err(|_| "The play is saved. Its words need another moment.")?;
-    // Shared scenes require the selected actors; atmosphere may stay quiet.
-    if ids.iter().filter(|id| kind(id, "avatar")).any(|id| {
-        !value["entries"]
-            .as_array()
-            .is_some_and(|entries| entries.iter().any(|e| e["id"] == *id))
-    }) {
+    // Shared scenes require the acting avatar's line. A replying avatar whose
+    // words do not come stays silent ("…" on the table), as atmosphere may.
+    if ids
+        .first()
+        .filter(|id| kind(id, "avatar"))
+        .is_some_and(|id| {
+            !value["entries"]
+                .as_array()
+                .is_some_and(|entries| entries.iter().any(|e| e["id"] == *id))
+        })
+    {
         return Err("The play is saved. Its words need another moment.".into());
     }
     Ok(value)

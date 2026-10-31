@@ -15,6 +15,9 @@ import {
   turnOutcome,
   applyGeneratedText,
   createNarrator,
+  silentSpeakers,
+  silentLines,
+  SILENT_TEXT,
 } from "../v2/card-game/narrative.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { profiles } from "../v2/card-game/memory.mjs";
@@ -315,6 +318,18 @@ describe("entity memories and model text", () => {
         .slice(world.log.length)
         .some((e) => e.generated && e.entityId === silent),
     ).toBe(false);
+    // The quiet speaker is shown as "…" without saving or a memory change.
+    const quiet = silentSpeakers(context, reply, next);
+    expect(quiet).toEqual(
+      profiles[silent].kind === "avatar" ? [silent] : [],
+    );
+    const shown = silentLines(next, quiet);
+    expect(shown.every((line) => line.silent && line.text === SILENT_TEXT)).toBe(
+      true,
+    );
+    expect(shown.every((line) => line.seq > next.eventSeq)).toBe(true);
+    expect(next.log.some((entry) => entry.silent)).toBe(false);
+    expect(silentSpeakers(context, response(context), next)).toEqual([]);
     const empty = response(context);
     empty.omitted = [...context.speakers];
     empty.entries = empty.entries.filter(
