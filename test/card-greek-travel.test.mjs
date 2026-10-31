@@ -24,24 +24,31 @@ import {
   laneGated,
   learnLane,
 } from "../v2/card-game/pack-transport.mjs";
-import { openDoorStart } from "./helpers/open-door.mjs";
+import { openDoorStart, openSeas } from "./helpers/open-door.mjs";
 import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
 const docks = ["pond", "greek-harbor", "greek-athens-harbor", "greek-piraeus"];
 const players = ["vale", "mara"];
 const pack = packDefinition("greek-drama");
-function shared(dock) {
+function shared(dock, seas = false) {
+  // After the plea at the Agora the olive branch rides on deck.
   const world = dispatchShared({
     op: "create",
-    save: encodeSave(createWorld({ packScopes: { "greek-drama": "full" } })),
+    save: encodeSave(
+      seas
+        ? openSeas()
+        : createWorld({ packScopes: { "greek-drama": "full" } }),
+    ),
   }).world;
   world.crossings["pond-greek-harbor"].discovered = true;
   world.transports["greek-ship"].dock = docks.includes(dock)
     ? dock
     : "greek-harbor";
   for (const id of players) world.actors[id].place = dock;
-  // BoardyAI's introductions are tested on their own; here he stays home.
-  world.actors.boardyai.want = null;
+  // Residents' errands (BoardyAI's introductions, a rhapsode bound for
+  // Athens Harbor) are tested on their own; here nobody calls the ship.
+  for (const [id, actor] of Object.entries(world.actors))
+    if (!players.includes(id)) actor.want = null;
   // These travellers have heard every lane from Myrto.
   const ship = transports["greek-ship"];
   for (const id of players)
@@ -81,7 +88,7 @@ describe("Greek ports and fixed roads", () => {
   )(
     "carries two travelers from %s to %s through the shared ship",
     (from, to) => {
-      let w = shared(from);
+      let w = shared(from, true);
       w.items.lamp.holder = "vale";
       w = move(w, "vale", "greek-ship");
       w = move(w, "mara", "greek-ship");
@@ -169,12 +176,15 @@ describe("Greek ports and fixed roads", () => {
     },
   );
 
-  it.each(docks)("brings an empty ship to a traveler waiting at %s", (port) => {
-    let w = shared(docks.find((p) => p !== port));
+  // The Athens Harbor lane waits for the olive branch aboard; the voyages
+  // above cover that port.
+  const near = docks.filter((p) => p !== "greek-athens-harbor");
+  it.each(near)("brings an empty ship to a traveler waiting at %s", (port) => {
+    let w = shared(near.find((p) => p !== port));
     w.actors.vale.place = port;
     for (
       let n = 0;
-      n < docks.length && w.transports["greek-ship"].dock !== port;
+      n < near.length && w.transports["greek-ship"].dock !== port;
       n++
     )
       w = play(w, "vale", "wait", {});

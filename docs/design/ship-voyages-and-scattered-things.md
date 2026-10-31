@@ -64,8 +64,8 @@ marked one-way.
 | --- | --- | --- |
 | Black Pond | `pond` | Wine-Dark Harbor |
 | Wine-Dark Harbor | `greek-harbor` | Black Pond, Piraeus (Travel Provisions aboard), Trojan camp landing, Willows landing |
-| Athens Harbor | `greek-athens-harbor` | Piraeus |
-| Piraeus Quays | `greek-piraeus` | Wine-Dark Harbor (Travel Provisions aboard), Athens Harbor, Signal Jetty (Hoppy Cat thing aboard) |
+| Athens Harbor | `greek-athens-harbor` | Piraeus (Suppliant's Olive Branch aboard) |
+| Piraeus Quays | `greek-piraeus` | Wine-Dark Harbor (Travel Provisions aboard), Athens Harbor (Suppliant's Olive Branch aboard), Signal Jetty (Hoppy Cat thing aboard) |
 | Signal Jetty (Hoppy Cat) | `hoppycat-signal-jetty` | Piraeus |
 | Trojan camp landing | `greek-ajax-landing` | Wine-Dark Harbor |
 | Willows landing | `willows-landing` | Wine-Dark Harbor |
@@ -88,9 +88,15 @@ The Wine-Dark Harbor to Piraeus lane opens while the Travel Provisions
 `opensWith` gate as the Signal Jetty, here with an `item_present` condition on
 the ship. Piraeus Quays is outside the Open Door section, so the lane reaches
 it in a default save; the quay's roads inland and its stories still need
-Dione's invitation. Athens Harbor and Athens keep their Open Door gate. The
-lane on from Piraeus to Athens Harbor is learned by sailing it or through
-Talk.
+Dione's invitation. Athens Harbor and Athens keep their Open Door gate.
+
+The lane on from Piraeus to Athens Harbor opens while the Suppliant's Olive
+Branch (`greek-olive-branch`) is aboard (owner decision, 2026-10-31, #1603).
+The herald hands it over at the Agora when the mothers' plea is registered
+(`greek-open-door-register-plea`); until then it is out of play. These lane
+things are ordinary unique items: they can be traded, carried ashore or left
+aboard, and the lane is open only while one rides on deck. No flag or pass
+unlocks a lane permanently. Land roads within a landmass stay open.
 
 Distant worlds are several lanes away. A player needs the thing **and** must
 find which port sails there.
