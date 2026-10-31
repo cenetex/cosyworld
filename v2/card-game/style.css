@@ -1358,10 +1358,12 @@ body .line-controls button {
   min-width: 32px;
   padding: 0 6px;
 }
-.play-dock[data-selected="true"] .hand {
+.play-dock[data-selected="true"] .hand,
+body[data-hand-expanded="true"] .hand {
   height: calc(var(--card-height) + 16px);
 }
-.play-dock[data-selected="true"] .card .name {
+.play-dock[data-selected="true"] .card .name,
+body[data-hand-expanded="true"] .card .name {
   bottom: 0;
 }
 /* A resting hand shares the bottom edge with the dialogue on wide screens. */
