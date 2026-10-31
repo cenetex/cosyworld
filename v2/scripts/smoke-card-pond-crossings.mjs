@@ -18,6 +18,10 @@ function fixture(place, lit = false) {
   s.actors.vale.place = place;
   s.actors.moth.place = "station";
   s.actors.keeper.place = "station";
+  // Pip wants the lamp and the keeper the bell; content station residents
+  // keep their wants from walking into the crossing puzzle.
+  s.actors.moth.want = null;
+  s.actors.keeper.want = null;
   s.items.lamp.holder = "vale";
   s.items.lamp.lit = lit;
   s.items.lamp.fuel = 12;

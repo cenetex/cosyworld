@@ -239,10 +239,14 @@ try {
           const cast = await page
             .locator('#cast [data-avatar][aria-hidden="false"]')
             .evaluateAll((nodes) => nodes.map((node) => node.dataset.avatar));
-          assert.deepEqual(cast, ["vale"]);
-          assert.equal(await card("moth").count(), 0);
+          // Pip wants the lamp, so Pip stays to ask Vale for it; the keeper
+          // leaves for the bell at the station.
+          assert.deepEqual(cast.sort(), ["moth", "vale"]);
+          assert.equal(await card("moth").count(), 1);
           assert.equal(await card("keeper").count(), 0);
-          assert.equal(world.actors.moth.place, "station");
+          assert.equal(world.actors.moth.place, "pond");
+          assert.equal(world.actors.moth.want?.target, "lamp");
+          assert.equal(world.items.lamp.holder, "vale");
           assert.equal(world.actors.keeper.place, "station");
         }
         assert.deepEqual(errors, []);
