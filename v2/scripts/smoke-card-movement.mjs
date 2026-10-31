@@ -1,5 +1,5 @@
 import { atticOpening } from "../../test/fixtures/card-attic-opening.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { revealCard, selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -171,6 +171,9 @@ try {
         await page.waitForFunction(
           () => document.querySelector("#hand").dataset.cooling === "false",
         );
+        // Vale speaks once his player uncovers him and the attic (#1575).
+        await revealCard(page, "vale");
+        await revealCard(page, "attic");
         await page.waitForTimeout(2000);
         await page.evaluate(() => {
           window.movementCheck.active = false;

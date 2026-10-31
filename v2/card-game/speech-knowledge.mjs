@@ -1,0 +1,70 @@
+// What the player's avatar can say follows the cards its player has uncovered
+// (#1575). A covered item never reaches the speech request: its entity, its
+// custody and its name in facts are removed, so the server's validator also
+// rejects a line that names it. The rules still hold the full truth; this
+// narrows only the browser's request. Later, rules-owned knowledge replaces it.
+import { observableStates } from "./pack-registry.mjs";
+import { nameOf } from "./world.mjs";
+
+export const UNKNOWN_THING = "something still covered";
+
+const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export function forgetCovered(world, context, isCovered) {
+  const speakers = new Set(context.speakers);
+  const hidden = context.entities
+    .map(({ id }) => id)
+    .concat(context.outcome?.items.map(({ id }) => id) || [])
+    .filter(
+      (id) =>
+        world.items[id] &&
+        !speakers.has(id) &&
+        id !== context.location &&
+        isCovered(id),
+    );
+  if (!hidden.length) return context;
+  const gone = new Set(hidden);
+  const names = [...new Set(hidden.map(nameOf))]
+    .sort((a, b) => b.length - a.length)
+    .map(escape);
+  const pattern = new RegExp(`\\b(?:the )?(?:${names.join("|")})\\b`, "gi");
+  const blur = (text) => text?.replace(pattern, UNKNOWN_THING) ?? text;
+  const outcome = context.outcome && {
+    ...context.outcome,
+    card: Object.fromEntries(
+      Object.entries(context.outcome.card).map(([key, value]) => [
+        key,
+        gone.has(value) ? null : value,
+      ]),
+    ),
+    avatars: context.outcome.avatars.map((avatar) => ({
+      ...avatar,
+      holding: avatar.holding.filter((id) => !gone.has(id)),
+    })),
+    items: context.outcome.items.filter(({ id }) => !gone.has(id)),
+  };
+  if (outcome)
+    outcome.observations = observableStates(world, [
+      ...outcome.avatars.map(({ id }) => id),
+      ...outcome.items.map(({ id }) => id),
+    ]);
+  return {
+    ...context,
+    ...(outcome ? { outcome } : {}),
+    focus: gone.has(context.focus) ? null : context.focus,
+    action: blur(context.action),
+    events: context.events.map(blur),
+    entities: context.entities
+      .filter(({ id }) => !gone.has(id))
+      .map((entity) => ({
+        ...entity,
+        facts: entity.facts.map(blur),
+        memories: entity.memories.map((m) => ({ ...m, text: blur(m.text) })),
+        previous: blur(entity.previous),
+        desire: entity.desire && {
+          ...entity.desire,
+          items: entity.desire.items.filter((id) => !gone.has(id)),
+        },
+      })),
+  };
+}

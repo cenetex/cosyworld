@@ -329,7 +329,7 @@ jobs:
           - mode: cards-shared
             scripts: smoke-shared-cards smoke-card-greek-capacity
           - mode: cards-ui
-            scripts: check-card-awakening smoke-card-unveil smoke-card-hand smoke-card-boardyai smoke-card-music smoke-card-music-network smoke-card-media-cache smoke-scene-video
+            scripts: check-card-awakening smoke-card-unveil smoke-card-amnesia smoke-card-hand smoke-card-boardyai smoke-card-music smoke-card-music-network smoke-card-media-cache smoke-scene-video
           - mode: cards-routes
             scripts: smoke-card-narrative-contract smoke-card-home-rescue smoke-card-oil-return smoke-card-pond-access smoke-card-clearing-access smoke-card-pond-crossings smoke-shared-ship smoke-card-facing smoke-card-image-first smoke-card-toolbar smoke-card-learning smoke-shared-snapshot-order smoke-shared-play-status smoke-card-actions
           - mode: cards-drama

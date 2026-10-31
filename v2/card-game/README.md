@@ -205,6 +205,17 @@ knows keeps the cards its player has uncovered. The first tap uncovers a card
 without selecting it or spending a turn; subsequent taps select it normally.
 Covered cards cannot be dragged or paired. Each browser remembers which cards
 are still covered, including after a reload.
+
+The player's avatar knows only what its player has uncovered (#1575). Until a
+card is uncovered, the screen never names it: the place heading, world name
+and page title show "…", and card labels, screen-reader text and stage alt text
+leave it out. A new game's first line waits until its player uncovers both the
+avatar and its place; in shared play the room's lines wait the same way for
+each viewer. `speech-knowledge.mjs` removes covered items from every local
+speech request, so the dialogue service cannot name them. If the model gives no
+first line, the fallback names no card. This filter lives in the browser
+because it uses that browser's covered set. Rules-owned knowledge will replace
+it.
 Borders use Signal's level-tier colours: Common 0–9, Uncommon 10–19, Rare 20–29,
 Epic 30–49 and Legendary 50+. Selected cards show their exact level in faint,
 matching Roman numerals at both ends. These fixed bands use existing avatar

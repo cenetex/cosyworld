@@ -2,7 +2,16 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import {
+  clearSelection,
+  revealCard,
+  selectCard,
+} from "./card-browser-helpers.mjs";
+// Vale wakes knowing only the cards his player has uncovered (#1575).
+const wake = async (page) => {
+  for (const id of ["vale", "lamp", "attic"]) await revealCard(page, id);
+  await clearSelection(page);
+};
 
 const type = process.env.CARD_BROWSER || "chromium";
 const browser = await { chromium, webkit }[type].launch({ headless: true });
@@ -133,6 +142,7 @@ try {
       await page.goto(
         `http://127.0.0.1:${server.address().port}/?table=voice-${width}`,
       );
+      await wake(page);
       await page.waitForSelector("#dialogue-text .speech-letter");
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
       // A new game asks the model for Vale's first line: no action, Vale alone.
@@ -240,8 +250,13 @@ try {
         assert(
           await page
             .locator("#dialogue-text")
-            .evaluate((text) => text.scrollTop > 0),
-          "A long reply still scrolls inside the dialogue",
+            .evaluate(
+              (text) =>
+                text.scrollHeight <= text.clientHeight + 1 ||
+                text.scrollTop > 0,
+            ),
+          // The card grows to about seven lines (#1599); longer still scrolls.
+          "A long reply is shown whole or scrolls inside the dialogue",
         );
         assert.equal(
           await page.locator("#stage").evaluate((stage) => stage.scrollLeft),
@@ -310,11 +325,12 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=voice-fallback`,
     );
+    await wake(page);
     await page.waitForFunction(
       () => document.querySelector("#dialogue-text")?.textContent.length > 0,
     );
     await page.waitForFunction(() =>
-      /It's cold up here/.test(
+      /I don't remember how I got here/.test(
         document.querySelector("#dialogue-text").textContent,
       ),
     );
