@@ -174,8 +174,16 @@ export function movementCaption(world) {
         : []),
     ]),
   ].filter((id) => entityActive(world, id));
-  return ids
-    .map((id) => {
+  // Coming to after a lost standoff is named, never a silent cut.
+  const cameTo =
+    arrival &&
+    (["retreat", "sent-home"].includes(arrival.verb) ||
+      (!arrival.verb && /after yielding to/u.test(arrival.text || "")))
+      ? [`You come to at ${nameOf(here)}.`]
+      : [];
+  return [
+    ...cameTo,
+    ...ids.map((id) => {
       const who = nameOf(id);
       const change = changes.find((change) => change.actorId === id);
       if (
@@ -190,8 +198,8 @@ export function movementCaption(world) {
           ? `${who} follows from ${nameOf(change.from)}.`
           : `${who} arrives from ${nameOf(change.from)}.`;
       return `${who} is waiting here.`;
-    })
-    .join(" ");
+    }),
+  ].join(" ");
 }
 
 // Seats follow the cast, so a reply never pushes another character off stage.

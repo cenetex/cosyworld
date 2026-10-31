@@ -13,6 +13,12 @@ import {
   installScaresToggle,
 } from "./transitions.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
+import { combatBeats, isCombatLine, lastSeq } from "./combat-beats.mjs";
+import {
+  createCombatView,
+  installCombatSpeed,
+  renderStandingResolve,
+} from "./combat-view.mjs";
 import { expressionLabel, expressionOf } from "./expression.mjs";
 import {
   connectSharedWorld,
@@ -614,6 +620,7 @@ function updateSoundButton() {
   $("speech-sound").setAttribute("aria-pressed", String(soundEnabled));
 }
 installScaresToggle($("scares-toggle"));
+installCombatSpeed($("combat-speed"));
 $("speech-sound").onclick = () => {
   soundEnabled = !soundEnabled;
   speechSounds.setEnabled(soundEnabled);
@@ -922,6 +929,10 @@ function performAction(action, revision) {
   storyStatus = "pending";
   const from = world.actors[currentActor(world)].place;
   const heldBefore = heldSelection();
+  const beats = combatBeats(world, result.state, {
+    viewer: currentActor(world),
+    place: from,
+  });
   world = result.state;
   music.setRoom(
     world.actors[currentActor(world)].place,
@@ -942,13 +953,80 @@ function performAction(action, revision) {
   lineSeq = null;
   notice("");
   save();
-  if (world.actors[currentActor(world)].place !== from)
-    travel(world.actors[currentActor(world)].place, render, render);
-  else {
-    render();
-  }
-  discoveryDone = unveilNew();
+  const land = (done = () => {}) => {
+    const place = world.actors[currentActor(world)].place;
+    if (place !== from)
+      travel(
+        place,
+        render,
+        () => {
+          render();
+          done();
+        },
+        beats.some((beat) => beat.kind === "defeat" && beat.viewerLost)
+          ? "You come to at"
+          : undefined,
+      );
+    else {
+      render();
+      done();
+    }
+    discoveryDone = unveilNew();
+  };
+  if (beats.length) presentCombat(beats, land);
+  else land();
   narrator.changed(action);
+}
+
+// Standoff beats play over the scene the player saw before the play. The new
+// world is drawn only after the last beat (and any defeat card) is done.
+let combatView = null,
+  combatRun = 0,
+  combatRelease = null;
+const combatHeld = new Set();
+function combatStage() {
+  return (combatView ??= createCombatView({
+    stage: $("stage"),
+    caption: $("combat-caption"),
+    announce: $("combat-announcement"),
+    dialog: $("defeat-dialog"),
+    reducedMotion,
+    revealLine: (seq) => {
+      if (combatHeld.delete(seq)) renderLog();
+    },
+  }));
+}
+function endCombat() {
+  combatRun++;
+  combatView?.cleanup();
+  combatHeld.clear();
+  const release = combatRelease;
+  combatRelease = null;
+  release?.();
+}
+async function presentCombat(beats, land) {
+  const mine = ++combatRun;
+  const view = combatStage();
+  for (const beat of beats) combatHeld.add(beat.seq);
+  covering = true;
+  travelShown = new Promise((resolve) => {
+    combatRelease = resolve;
+  });
+  updateCardCooldown();
+  await view.play(beats);
+  if (mine !== combatRun) return;
+  const defeat = beats.find((beat) => beat.kind === "defeat" && beat.viewerLost);
+  if (defeat) await view.defeat(defeat);
+  if (mine !== combatRun) return;
+  await view.release();
+  if (mine !== combatRun) return;
+  const release = combatRelease;
+  combatRelease = null;
+  combatView.cleanup();
+  combatHeld.clear();
+  covering = false;
+  renderLog();
+  land(release);
 }
 
 // Moving between places dips the scene to dark with the destination's name,
@@ -962,6 +1040,7 @@ let covering = false,
   travelShown = Promise.resolve(),
   revealTravel = () => {};
 function cancelTravel() {
+  endCombat();
   trip++;
   cancelDiscovery();
   covering = false;
@@ -985,8 +1064,9 @@ function cancelTravel() {
   for (const animation of $("speech-row").getAnimations()) animation.cancel();
 }
 // Cards met at the new place are unveiled once the veil has fully lifted.
-async function travel(place, arrive, landed) {
+async function travel(place, arrive, landed, kicker = "Travelling to") {
   const veil = $("travel");
+  $("travel-kicker").textContent = kicker;
   $("travel-name").textContent = nameOf(place);
   if (reducedMotion.matches) {
     arrive();
@@ -1977,6 +2057,7 @@ function renderScene() {
     reduced: reducedMotion.matches,
     url: (source) => imageUrl(source),
   });
+  renderStandingResolve($("cast"), world, scene.locationId);
   const sharedSpeech = sharedSession
     ? sharedSpeechState(sharedSession.state, scene.locationId)
     : null;
@@ -2201,12 +2282,15 @@ function renderLog() {
   const box = $("messages");
   const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
   // Shared rooms include generated room details in their conversation record.
+  // Standoff lines join as each beat lands, so the words come before the effect.
   const conversation = world.log.filter(
     (entry) =>
-      isSceneText(entry, Boolean(sharedSession)) &&
-      entry.generated === true &&
-      (!sharedSession ||
-        entry.locationId === world.actors[currentActor(world)].place),
+      (isCombatLine(entry, currentActor(world)) &&
+        !combatHeld.has(entry.seq)) ||
+      (isSceneText(entry, Boolean(sharedSession)) &&
+        entry.generated === true &&
+        (!sharedSession ||
+          entry.locationId === world.actors[currentActor(world)].place)),
   );
   let common = 0;
   while (
@@ -2828,6 +2912,15 @@ function adoptShared(value) {
     const from = world.actors[currentActor(world)].place;
     const next = sharedWorld(value);
     const alreadyOpen = Boolean(sharedWorldKey);
+    // A table that is already open shows the standoff beats it receives.
+    const beats =
+      alreadyOpen && !combatRelease && next.turn > world.turn
+        ? combatBeats(world, next, {
+            viewer: currentActor(world),
+            place: from,
+            sinceSeq: lastSeq(world),
+          })
+        : [];
     world = next;
     sharedWorldKey = key;
     selectCards(selected.filter((id) => availableCards(world).includes(id)));
@@ -2838,16 +2931,34 @@ function adoptShared(value) {
     storyStatus = value.queue?.some((entry) => entry.status === "working")
       ? "pending"
       : "ready";
-    if (world.actors[currentActor(world)].place !== from) {
+    const moved = world.actors[currentActor(world)].place !== from;
+    if (moved) {
       cancelTravel();
       reviewing = false;
       sharedLineKey = "";
       lineSeq = null;
-      travel(world.actors[currentActor(world)].place, render, () => {
+    }
+    const land = (done = () => {}) => {
+      if (moved)
+        travel(
+          world.actors[currentActor(world)].place,
+          render,
+          () => {
+            render();
+            syncSharedLine();
+            done();
+          },
+          beats.some((beat) => beat.kind === "defeat" && beat.viewerLost)
+            ? "You come to at"
+            : undefined,
+        );
+      else {
         render();
-        syncSharedLine();
-      });
-    } else render();
+        done();
+      }
+    };
+    if (beats.length) presentCombat(beats, land);
+    else if (!combatRelease) land();
     if (alreadyOpen) {
       queueDiscoveries();
     }
