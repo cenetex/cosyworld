@@ -23,6 +23,8 @@ const article = (name) => (/^(the|a|an) /iu.test(name) ? name : `the ${name}`);
 
 // The want already met is not a current want, so it stays unsaid.
 function met(world, id, want) {
+  // An introduction is met only by a Talk, so it is always still to come.
+  if (want.kind === "connect") return false;
   const here = world.actors[id].place;
   if (want.kind === "item") return rootOf(world, want.target) === id;
   if (want.kind === "place") return here === want.target;
@@ -31,6 +33,8 @@ function met(world, id, want) {
 
 export function wantFact(world, id, nameOf) {
   const want = wantOf(world, id);
+  if (want?.kind === "connect" && world.actors?.[id])
+    return "I want to introduce you to someone.";
   if (!want || !world.actors?.[id] || !entityActive(world, want.target))
     return null;
   if (want.kind === "item" && !world.items[want.target]) return null;

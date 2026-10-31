@@ -30,6 +30,8 @@ function setup(dock, full = false) {
   for (const id of players) s.actors[id].place = dock;
   s.actors.moth.place = "station";
   s.actors.keeper.place = "attic";
+  // BoardyAI's introductions are tested on their own; here he stays home.
+  s.actors.boardyai.want = null;
   summonTransport(s, "greek-ship", dock);
   s.crossings["pond-greek-harbor"].discovered = true;
   // A full Greek world has The Open Door: Athens Harbor and Piraeus.

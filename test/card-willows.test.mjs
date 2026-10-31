@@ -109,6 +109,8 @@ describe("The Willows", () => {
       save: encodeSave(createWorld()),
     }).world;
     world.actors.vale.place = world.actors.mara.place = "pond";
+    // BoardyAI's introductions are tested on their own; here he stays home.
+    world.actors.boardyai.want = null;
     world.crossings["pond-greek-harbor"].discovered = true;
     summonTransport(world, "greek-ship", "pond");
     const request = { claimed: ["vale", "mara"], present: ["vale", "mara"] };

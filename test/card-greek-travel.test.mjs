@@ -39,6 +39,8 @@ function shared(dock) {
     ? dock
     : "greek-harbor";
   for (const id of players) world.actors[id].place = dock;
+  // BoardyAI's introductions are tested on their own; here he stays home.
+  world.actors.boardyai.want = null;
   // These travellers have heard every lane from Myrto.
   const ship = transports["greek-ship"];
   for (const id of players)

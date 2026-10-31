@@ -2,7 +2,7 @@
 // when it is met; meeting it is a recorded world fact worth one experience
 // point. The next want is drawn from the world, deterministically, so a
 // replayed journal makes the same choices.
-import { BOARDY } from "./boardyai.mjs";
+import { BOARDY, connectedHumans } from "./boardyai.mjs";
 import { humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
 import {
   entityActive,
@@ -13,7 +13,9 @@ import {
 import { packDiscovered } from "./pack-rules.mjs";
 import { authoredWant } from "./want-talk.mjs";
 
-export const WANT_KINDS = ["item", "place", "person"];
+export const WANT_KINDS = ["item", "place", "person", "connect"];
+// A connect want introduces people: its one target is the connected humans.
+export const CONNECT_TARGET = "humans";
 // A want is set aside after this many refusals, or after a long spell with
 // no way forward. Resting at home lasts a few turns after a want is met.
 export const REFUSAL_LIMIT = 3;
@@ -60,7 +62,9 @@ const validTarget = (s, kind, target) =>
     ? Object.hasOwn(s.items, target)
     : kind === "person"
       ? Object.hasOwn(s.actors, target)
-      : true;
+      : kind === "connect"
+        ? target === CONNECT_TARGET
+        : true;
 
 // Every actor carries a want record, experience and what it has seen.
 export function installWants(s) {
@@ -143,11 +147,25 @@ export function nextWant(s, actor, api, previous = null) {
   return newWant(kind, target, s.turn);
 }
 
-// A person want needs a Talk between the two; the other kinds read custody
-// and place.
+// Two connected humans in the room where a Talk happens, with the connector.
+export const introduced = (s, actor, talk) => {
+  const here = s.actors[actor]?.place;
+  return Boolean(
+    talk &&
+      here &&
+      s.actors[talk.actor]?.place === here &&
+      connectedHumans(s).filter((id) => s.actors[id].place === here).length >=
+        2,
+  );
+};
+
+// A person want needs a Talk between the two; a connect want needs any Talk
+// in the connector's room while two connected humans are there with them.
+// The other kinds read custody and place.
 export function wantMet(s, actor, talk = null) {
   const want = wantOf(s, actor);
   if (!want) return false;
+  if (want.kind === "connect") return introduced(s, actor, talk);
   if (want.kind === "item") return rootOf(s, want.target) === actor;
   if (want.kind === "place") return s.actors[actor].place === want.target;
   return Boolean(

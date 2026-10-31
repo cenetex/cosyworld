@@ -587,7 +587,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           templateOk(a.tastes.noise, 240, ["actor"])),
       `avatar ${id} tastes need likes, sore and reason`,
     );
-    // One want per resident: an item, a place or a person it seeks first.
+    // One want per resident: an item, a place or a person it seeks first, or
+    // (BoardyAI) connecting humans.
     check(
       a.want === undefined ||
         (keysOk(a.want, ["kind", "target"]) &&
@@ -596,11 +597,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             : a.want.kind === "place"
               ? owns(places, a.want.target) ||
                 hub.places.includes(a.want.target)
-              : a.want.kind === "person" &&
-                a.want.target !== id &&
-                (owns(avatars, a.want.target) ||
-                  hub.avatars.includes(a.want.target)))),
-      `avatar ${id} want needs an item, place or person target`,
+              : a.want.kind === "connect"
+                ? a.want.target === "humans"
+                : a.want.kind === "person" &&
+                  a.want.target !== id &&
+                  (owns(avatars, a.want.target) ||
+                    hub.avatars.includes(a.want.target)))),
+      `avatar ${id} want needs an item, place or person target, or connects humans`,
     );
     const t = a.temperament;
     if (t === undefined) {

@@ -5,7 +5,13 @@ import {
   decodeSave,
   encodeSave,
   nameOf,
+  plan,
+  validateWorld,
+  wantText,
 } from "../v2/card-game/world.mjs";
+import { CONNECT_TARGET, newWant, wantMet } from "../v2/card-game/want.mjs";
+import { wantFact } from "../v2/card-game/want-talk.mjs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import {
   entityActive,
@@ -181,5 +187,108 @@ describe("BoardyAI's presence and home", () => {
     const invalid = structuredClone(boardyPack);
     invalid.avatars.boardyai.place = "missing-home";
     expect(() => validatePackDefinition(invalid)).toThrow();
+  });
+});
+
+describe("BoardyAI's starter quest: connect people", () => {
+  const atParlour = (...ids) => {
+    const world = fresh();
+    for (const id of ids) world.actors[id].place = "boardyai-parlour";
+    return world;
+  };
+  const play = (world, actor, present, fields) => {
+    const action = view(world, present, actor).actions.find((a) =>
+      Object.entries(fields).every(([k, v]) => a[k] === v),
+    );
+    expect(action, JSON.stringify(fields)).toBeDefined();
+    const result = dispatchShared({
+      op: "play",
+      world,
+      actor,
+      claimed: ["vale", "mara", "ash", "nell"],
+      present,
+      action,
+    });
+    expect(result.ok, result.error).toBe(true);
+    return result.world;
+  };
+  const introductions = (world) =>
+    world.log.filter((e) => e.verb === "want_met" && e.actorId === "boardyai");
+
+  it("starts with the authored connect quest and says it in one line", () => {
+    const world = fresh();
+    expect(world.actors.boardyai.want).toEqual(
+      newWant("connect", CONNECT_TARGET, 0),
+    );
+    expect(wantFact(world, "boardyai", nameOf)).toBe(
+      "I want to introduce you to someone.",
+    );
+    expect(wantText(world.actors.boardyai.want)).toBe("introduce two people");
+    expect(validateWorld(decodeSave(encodeSave(world)))).toBeTruthy();
+  });
+
+  it("tells a guest in Talk while the other human is elsewhere", () => {
+    let world = atParlour("vale");
+    world.actors.mara.place = "station";
+    const action = view(world).actions.find(
+      (a) => a.kind === "talk" && a.target === "boardyai",
+    );
+    world = play(world, "vale", ["vale", "mara"], {
+      kind: "talk",
+      target: "boardyai",
+    });
+    expect(introductions(world)).toEqual([]);
+    const facts = narrativeContext(view(world).world, action).entities.find(
+      (e) => e.id === "boardyai",
+    ).facts;
+    expect(facts).toContain("I want to introduce you to someone.");
+  });
+
+  it("is met by a Talk in his room while two connected humans are there", () => {
+    const world = view(atParlour("vale", "mara")).world;
+    const talk = { actor: "vale", target: "boardyai" };
+    expect(wantMet(world, "boardyai", talk)).toBe(true);
+    // Humans talking with each other in his room introduces them too.
+    expect(wantMet(world, "boardyai", { actor: "mara", target: "vale" })).toBe(
+      true,
+    );
+    expect(wantMet(world, "boardyai")).toBe(false);
+    // One connected human with him is not an introduction.
+    const alone = view(atParlour("vale", "mara"), ["vale", "mara"]).world;
+    alone.actors.mara.place = "station";
+    expect(wantMet(alone, "boardyai", talk)).toBe(false);
+    // Two humans in his room who are not both connected are not either.
+    const away = view(atParlour("vale", "mara", "ash"), ["vale", "ash"]).world;
+    away.actors.ash.place = "station";
+    expect(wantMet(away, "boardyai", talk)).toBe(false);
+  });
+
+  it("commits the introduction as a world fact with experience, then moves on", () => {
+    let world = atParlour("vale", "mara");
+    world = play(world, "vale", ["vale", "mara"], {
+      kind: "talk",
+      target: "boardyai",
+    });
+    const [event] = introductions(world);
+    expect(event.wantMet).toEqual({ kind: "connect", target: "humans" });
+    expect(event.text).toBe("BoardyAI makes an introduction at last.");
+    expect(world.actors.boardyai.xp).toBe(1);
+    expect(world.actors.boardyai.want?.kind).not.toBe("connect");
+    const saved = decodeSave(encodeSave(world));
+    expect(saved.actors.boardyai).toEqual(world.actors.boardyai);
+  });
+
+  it("Talks once two humans share his room, and otherwise goes to one", () => {
+    const world = view(atParlour("vale", "mara")).world;
+    world.actors.boardyai.lastTalk = -1;
+    const both = plan(world, "boardyai");
+    expect(both.action).toMatchObject({ kind: "talk" });
+    expect(["vale", "mara"]).toContain(both.action.target);
+    expect(both.reason).toBe("I want to introduce two people.");
+    const apart = view(atParlour("vale")).world;
+    apart.actors.mara.place = "station";
+    const step = plan(apart, "boardyai");
+    expect(step.reason).toBe("I want to introduce two people.");
+    expect(step.action?.kind ?? "wait").not.toBe("talk");
   });
 });

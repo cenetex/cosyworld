@@ -66,6 +66,7 @@ import {
   reviseStalledWants,
   validWant,
   WANT_KINDS,
+  CONNECT_TARGET,
 } from "./want.mjs";
 import {
   keepReason,
@@ -141,7 +142,7 @@ import {
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
 import forest from "./forest.json" with { type: "json" };
-import { BOARDY } from "./boardyai.mjs";
+import { BOARDY, connectedHumans } from "./boardyai.mjs";
 
 // Authored forest data and mounted packs share the same rule path.
 export const places = { ...forest.places, ...packPlaces };
@@ -490,6 +491,7 @@ export function wantText(want) {
   if (!want) return "nothing in particular";
   if (want.kind === "item") return `hold ${nameOf(want.target)}`;
   if (want.kind === "place") return `be at ${nameOf(want.target)}`;
+  if (want.kind === "connect") return "introduce two people";
   return `talk with ${nameOf(want.target)}`;
 }
 const bundle = (s, item) => [
@@ -605,7 +607,9 @@ function wantAPI(s) {
           ? `${nameOf(actor)} has the ${nameOf(want.target)} at last.`
           : want.kind === "place"
             ? `${nameOf(actor)} reaches ${nameOf(want.target)}.`
-            : `${nameOf(actor)} and ${nameOf(want.target)} talk at last.`,
+            : want.kind === "connect"
+              ? `${nameOf(actor)} makes an introduction at last.`
+              : `${nameOf(actor)} and ${nameOf(want.target)} talk at last.`,
         {
           kind: "narration",
           actorId: actor,
@@ -1928,6 +1932,20 @@ function wantPlan(s, actor) {
       : { ...idle(reason), ...(step.callShip ? { callShip: true } : {}) };
   };
   if (want.kind === "place") return here === want.target ? idle(reason) : go(want.target);
+  // A connector Talks once two connected humans share the room, and
+  // otherwise visits one who is elsewhere.
+  if (want.kind === "connect") {
+    const humans = connectedHumans(s);
+    const withMe = humans.filter((id) => s.actors[id].place === here);
+    if (withMe.length >= 2) {
+      const talk = find("talk", (a) => withMe.includes(a.target));
+      return talk && s.turn - s.actors[actor].lastTalk >= 1
+        ? { action: talk, reason }
+        : idle(reason);
+    }
+    const away = humans.find((id) => s.actors[id].place !== here);
+    return away ? go(s.actors[away].place) : idle(reason);
+  }
   if (want.kind === "person") {
     const there = s.actors[want.target]?.place;
     if (there !== here) return go(there);
@@ -2546,9 +2564,11 @@ export function validateWorld(s) {
           Object.keys(e.wantMet).length !== 2 ||
           !WANT_KINDS.includes(e.wantMet.kind) ||
           !actorIds.includes(e.actorId) ||
-          ![...actorIds, ...ids, ...Object.keys(places)].includes(
-            e.wantMet.target,
-          )))
+          (e.wantMet.kind === "connect"
+            ? e.wantMet.target !== CONNECT_TARGET
+            : ![...actorIds, ...ids, ...Object.keys(places)].includes(
+                e.wantMet.target,
+              ))))
     )
       fail();
     if (
