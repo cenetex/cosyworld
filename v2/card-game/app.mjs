@@ -243,6 +243,10 @@ let encountered = new Set(),
 const fresh = new Set();
 const coveredCards = new Set();
 let openingHeld = false;
+// Card art: a pack's own art, a hub item's authored art, or the forest card.
+const cardArt = (id) =>
+  packMedia(id, "art") ||
+  (things[id]?.art ? `./${things[id].art}` : `./assets/${id}-card.png`);
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
 // The screen names a card only once its player has uncovered it (#1575).
 const knownName = (id, unknown = "…") =>
@@ -1361,6 +1365,28 @@ async function takeDiscovered() {
   discoveryFlying = false;
   done();
 }
+function showItemView(id) {
+  const dialog = $("item-view"),
+    image = $("item-view-image");
+  dialog.dataset.zoomed = "false";
+  dialog.setAttribute("aria-label", nameOf(id));
+  image.src = `./${things[id].view}`;
+  image.alt = nameOf(id);
+  dialog.showModal();
+}
+$("item-view").addEventListener("click", (event) => {
+  const dialog = $("item-view");
+  if (event.target !== $("item-view-image")) return dialog.close();
+  const zoomed = dialog.dataset.zoomed !== "true",
+    { offsetX, offsetY } = event,
+    { width, height } = event.target.getBoundingClientRect();
+  dialog.dataset.zoomed = String(zoomed);
+  if (zoomed)
+    dialog.scrollTo(
+      (offsetX / width) * event.target.offsetWidth - dialog.clientWidth / 2,
+      (offsetY / height) * event.target.offsetHeight - dialog.clientHeight / 2,
+    );
+});
 $("unveil-take").onclick = takeDiscovered;
 $("unveil-dialog").addEventListener("click", (event) => {
   if (event.target === $("unveil-dialog")) void takeDiscovered();
@@ -1631,6 +1657,17 @@ function renderActions(animate = false) {
     row.append(nudge);
     panel.hidden = false;
   }
+  // An item with its own view offers a client-only Look; it plays nothing.
+  const viewed = selected.length === 1 && selected[0];
+  if (viewed && things[viewed]?.view && !cardIsCovered(viewed)) {
+    const look = node("button", "Look", "card-action");
+    look.type = "button";
+    look.dataset.look = viewed;
+    look.title = `Look at the ${nameOf(viewed)} up close`;
+    look.onclick = () => showItemView(viewed);
+    row.append(look);
+    panel.hidden = false;
+  }
   if (animate) {
     const toHeight = panel.getBoundingClientRect().height;
     if (Math.abs(fromHeight - toHeight) > 1) {
@@ -1721,7 +1758,7 @@ function card(id) {
   img.fetchPriority = "low";
   img.src = imageUrl(
     type === "item"
-      ? packMedia(id, "art") || `./assets/${id}-card.png`
+      ? cardArt(id)
       : type === "avatar"
         ? portrait(id, null, world)
         : crossingFace?.art ||
@@ -1758,7 +1795,7 @@ function card(id) {
       const cloth = node("img", undefined, "object-cover");
       cloth.decoding = "async";
       cloth.src = imageUrl(
-        packMedia(covering, "art") || `./assets/${covering}-card.png`,
+        cardArt(covering),
         "card",
       );
       cloth.alt = "";
@@ -1852,7 +1889,7 @@ function card(id) {
         const preview = node("img", undefined, "held-preview");
         preview.decoding = "async";
         preview.src = imageUrl(
-          cardIsCovered(item) ? "./assets/card-back.webp" : packMedia(item, "art") || `./assets/${item}-card.png`,
+          cardIsCovered(item) ? "./assets/card-back.webp" : cardArt(item),
           "card",
         );
         preview.alt = "";
@@ -2001,7 +2038,7 @@ function renderHeldItem(figure, actor, itemId) {
       const image = node("img", undefined, index ? "object-cover" : "");
       image.decoding = "async";
       image.src = imageUrl(
-        packMedia(id, "art") || `./assets/${id}-card.png`,
+        cardArt(id),
         "card",
       );
       image.alt = "";
@@ -2041,7 +2078,7 @@ function renderFloorItems(items) {
             const image = node("img", undefined, index ? "object-cover" : "");
             image.decoding = "async";
             image.src = imageUrl(
-              packMedia(art, "art") || `./assets/${art}-card.png`,
+              cardArt(art),
               "card",
             );
             image.alt = "";
@@ -2571,7 +2608,7 @@ function beatPortrait(id) {
       ? portrait(id, null, world)
       : places[id]
         ? backdrop(id, world)
-        : packMedia(id, "art") || `./assets/${id}-card.png`,
+        : cardArt(id),
     "card",
   );
 }

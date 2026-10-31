@@ -1404,6 +1404,43 @@ body[data-hand-expanded="true"] .card .name {
   }
 }
 
+/* An item with its own view, such as the map, opens over the table.
+   Tap the image to zoom; tap outside it or press Escape to close. */
+.item-view[open] {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+}
+.item-view img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100dvh - 32px);
+  border-radius: 4px;
+  box-shadow: 0 20px 90px #000a;
+  cursor: zoom-in;
+}
+.item-view[data-zoomed="true"] {
+  place-items: start;
+}
+.item-view[data-zoomed="true"] img {
+  max-width: none;
+  max-height: none;
+  width: max(200%, 1600px);
+  cursor: zoom-out;
+}
+
 /* A discovery uses the scene for a moment, then joins the hand. */
 .unveil[open] {
   position: fixed;

@@ -243,6 +243,12 @@ function installPacks(s) {
   s.crossings ??= {};
   s.packs ??= {};
   const fresh = newMemories();
+  // A hub item added after this save was written joins it where it starts.
+  for (const [id, item] of Object.entries(forest.initialState.items))
+    if (!s.items[id]) {
+      s.items[id] = structuredClone(item);
+      s.memories[id] ??= fresh[id];
+    }
   for (const pack of packDefinitions) {
     for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
     if (s.packs[pack.id]) continue;

@@ -27,6 +27,7 @@ images/*
 !v2/card-game/assets/hoppycat-archive/*.webp
 !v2/card-game/assets/willows/*.webp
 !v2/card-game/assets/shared/places/*.webp
+!v2/card-game/assets/shared/items/*.webp
 !v2/card-game/assets/optimized/**/*.webp
 !v2/content/core/assets/generated/cards/*.webp
 !v2/content/the-holy-land/assets/cards/*.webp
