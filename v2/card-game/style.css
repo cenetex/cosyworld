@@ -144,6 +144,44 @@ main {
   background: #232330;
   container-type: size;
 }
+/* One stage frames every painting. A place's data sets the point kept in
+   view when the painting is cropped, and may anchor a resident to the
+   painting. The painting then moves only as far as keeps that resident whole
+   and standing above the hand, and it always fills the stage. */
+.stage {
+  --art-ratio: 1.5;
+  --focus-x: 0.5;
+  --focus-y: 0.5;
+  --figure-left: 0;
+  --figure-right: 1;
+  --figure-top: 0;
+  --figure-width: 0;
+  --floor-line: calc(var(--dock-height) + 6px);
+  --figure-floor: calc(var(--dock-height) + 6px);
+  --art-w: max(100cqw, calc(100cqh * var(--art-ratio)));
+  --art-h: calc(var(--art-w) / var(--art-ratio));
+  /* A cutout's feet sit 8% of its square height below its anchor. */
+  --figure-foot: calc(
+    var(--figure-top) + var(--figure-width) * var(--art-ratio) * 0.08
+  );
+  --art-left: clamp(
+    calc(100cqw - var(--art-w)),
+    clamp(
+      calc(100cqw - var(--figure-right) * var(--art-w)),
+      calc((100cqw - var(--art-w)) * var(--focus-x)),
+      calc(var(--figure-left) * var(--art-w) * -1)
+    ),
+    0px
+  );
+  --art-top: clamp(
+    calc(100cqh - var(--art-h)),
+    min(
+      calc((100cqh - var(--art-h)) * var(--focus-y)),
+      calc(100cqh - var(--figure-floor) - var(--figure-foot) * var(--art-h))
+    ),
+    0px
+  );
+}
 .backdrop,
 .scene-shade {
   position: absolute;
@@ -151,7 +189,25 @@ main {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: var(--art-left) var(--art-top);
   z-index: -2;
+}
+.stage-figures {
+  position: absolute;
+  left: var(--art-left);
+  top: var(--art-top);
+  width: var(--art-w);
+  height: var(--art-h);
+  pointer-events: none;
+}
+.stage-figure {
+  position: absolute;
+  width: var(--sprite-width);
+  height: auto;
+  left: var(--sprite-left);
+  top: var(--sprite-top);
+  transform: translate(-50%, -92%);
+  filter: drop-shadow(0 5px 4px #17201570);
 }
 .scene-shade {
   z-index: -1;
@@ -300,7 +356,6 @@ main {
   --x: var(--wide-x);
   --lift: var(--wide-lift);
   --prop-size: clamp(56px, 10cqh, 104px);
-  --floor-line: calc(var(--dock-height) + 6px);
   position: absolute;
   left: clamp(
     calc(var(--prop-size) / 2 + 4px),
@@ -314,21 +369,25 @@ main {
   pointer-events: none;
 }
 @media (max-width: 1299px) {
+  .stage {
+    --floor-line: calc(var(--dock-height) + var(--dialogue-reserve, 140px));
+  }
   .floor-item {
     --x: var(--narrow-x);
     --lift: var(--narrow-lift);
     --prop-size: clamp(34px, 8cqh, 72px);
-    --floor-line: calc(var(--dock-height) + var(--dialogue-reserve, 140px));
   }
   .floor-item[data-narrow="false"] {
     display: none;
   }
 }
 @media (max-width: 1299px) and (max-height: 640px) {
+  .stage {
+    --floor-line: 10px;
+  }
   .floor-item {
     --x: var(--short-x);
     --lift: var(--short-lift);
-    --floor-line: 10px;
   }
   .floor-item[data-narrow] {
     display: block;
@@ -1159,7 +1218,9 @@ body .cast[data-count] {
     z-index: 4;
   }
   /* A solo human's 2:3 frame fits the phone, including outstretched hands. */
-  body .cast[data-count="1"] .portrait:is(
+  body
+    .cast[data-count="1"]
+    .portrait:is(
       [data-avatar="vale"],
       [data-avatar="mara"],
       [data-avatar="ash"],
@@ -1366,40 +1427,38 @@ body .card.new {
     0 0 14px #e7ca8655;
 }
 
-/* The attic keeps its mirror in view as the room warms. */
-body[data-place="attic"] #backdrop {
-  object-position: 64% center;
+/* A dim place (one with lamp data) warms where its lamp's light pools. */
+body[data-dim="true"] #backdrop {
   filter: brightness(0.55) saturate(0.65);
   transition: filter 650ms ease;
 }
-body[data-place="attic"][data-lamplit="true"] #backdrop {
+body[data-dim="true"][data-lamplit="true"] #backdrop {
   filter: brightness(0.77) saturate(0.8);
 }
-body[data-place="attic"] .scene-shade::after {
+body[data-dim="true"] .scene-shade::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 65% 60%, #ce903d26, transparent 65%);
+  background: radial-gradient(
+    ellipse at var(--lamp-x) var(--lamp-y),
+    #ce903d26,
+    transparent 65%
+  );
   opacity: 0;
   transition: opacity 650ms ease;
 }
-body[data-place="attic"][data-lamplit="true"] .scene-shade::after {
+body[data-dim="true"][data-lamplit="true"] .scene-shade::after {
   opacity: 1;
 }
-body[data-place="attic"] .cast[data-count="1"] .portrait[data-avatar="vale"] {
-  left: 75%;
-}
-@media (max-width: 700px) {
-  body[data-place="attic"] #backdrop[data-location-variant^="attic-forest-cottage"] {
-    object-position: left center;
-  }
-  body[data-place="attic"] .cast[data-count="1"] .portrait[data-avatar="vale"] {
-    left: 50%;
-  }
-}
-body[data-place="attic"] .card {
+body[data-dim="true"] .card {
   background-color: #0d131c;
   border-color: #847961;
+}
+/* Phones stand a lone figure in the middle, whatever the place's mark. */
+@media (max-width: 700px) {
+  .cast[data-count="1"] .portrait {
+    left: 50%;
+  }
 }
 @media (max-width: 380px) {
   .topbar {
@@ -1414,8 +1473,40 @@ body[data-place="attic"] .card {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  body[data-place="attic"] #backdrop,
-  body[data-place="attic"] .scene-shade::after {
+  body[data-dim="true"] #backdrop,
+  body[data-dim="true"] .scene-shade::after {
     transition: none;
+  }
+}
+/* Short wide screens keep the hand and the scene within one view. */
+@media (max-height: 640px) and (min-width: 701px) {
+  :root {
+    --card-height: clamp(126px, 37dvh, 176px);
+    --card-width: clamp(100px, 28dvh, 128px);
+    --dock-height: calc(var(--card-height) + 82px);
+  }
+  body {
+    min-height: 0;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  main,
+  body .stage {
+    min-height: 0;
+  }
+  .topbar {
+    min-height: 44px;
+    padding-block: 2px;
+  }
+  body .card .name {
+    font-size: 14px;
+    padding-bottom: 8px;
+  }
+  body .cast {
+    top: 46px;
+  }
+  body .dialogue {
+    bottom: calc(var(--dock-height) + 4px);
+    padding: 4px 10px;
   }
 }

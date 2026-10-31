@@ -81,10 +81,23 @@ not change saved quests.
 ```
 
 **Places** have `name`, `text` (card text), `persona` (for generated
-description), `exits` (other places in this pack only) and `backdrop`. An
-optional `stage` shows one resident as a sprite on the backdrop in place of
-the shore's cast row. `sprite` gives left/top/width percentages of the
-backdrop. Only a resident that never travels can be staged.
+description), `exits` (other places in this pack only) and `backdrop`. Every
+place uses the same stage layout, and no CSS is written for a single place.
+An optional `stage` object holds the per-place differences as data. All of
+its values are whole percentages of the painting:
+
+- `focus: {x, y}` is the point of the painting kept in view when the screen
+  crops it.
+- `mark` is where a lone figure stands on wide screens.
+- `lamp: {x, y}` marks a dim place. A lamp lit there warms the place, with the
+  light pooling at that point.
+- `player: false` leaves the player's own avatar off the stage.
+- `resident` with `alt` and `sprite` (`left`/`top`/`width`) anchors one
+  resident that never travels to the painting itself. The painting moves only
+  as far as keeps that resident whole and standing above the hand. Other
+  visitors still stand on the floor.
+
+The hub's places in `forest.json` use the same `stage` data.
 
 **Fixtures** are things fixed in a place that the player can use from the
 place card. Today a fixture can sound:
@@ -255,7 +268,8 @@ schema 6 `steamClock` record and the Greek ship in pack revision 2.
 windows retain Forest behavior. Only the player can advance a signal.
 Neither phase nor hint/progress text is exposed by the normal interface.
 
-Crossing scenery may name `overlay`, `cardArt`, and `cardName`; an optional
+Crossing scenery may name `overlay`, `cardArt`, `cardName`, and a `focus` for
+its replacement backdrop; an optional
 `travelLabel` names the immediate action. These use the same open predicate.
 Media can be PNG, SVG or WebP under the owning pack folder and is checked
 against actual file signatures and both server allowlists.

@@ -69,6 +69,17 @@ export function locationVariant(world, id) {
     ? `${variant}:night`
     : variant;
 }
+// Every place uses the same stage. Its optional data (focus, mark, lamp,
+// player, and a resident painted into the backdrop) is all that differs; an
+// open crossing's backdrop brings its own focus.
+export function stageOf(world, id) {
+  const stage = places[id]?.stage || {};
+  const scenery = world?.actors ? visibleCrossing(world, id)?.scenery : null;
+  return {
+    ...stage,
+    focus: (scenery?.backdrop && scenery.focus) || stage.focus || null,
+  };
+}
 export const locationOverlay = (world, id) => {
   const f = visibleCrossing(world, id)?.scenery.overlay;
   return f ? `./${f}` : null;
@@ -298,12 +309,17 @@ export function sceneStaging(
     currentState = false,
   } = {},
 ) {
+  // Residents painted into the backdrop, and a player the place leaves off
+  // stage, are not floor figures.
+  const stage = stageOf(world, locationId);
   const selected = [...new Set([currentActor(world), activeSpeaker, ...cast])]
     .filter(
       (id) =>
         cast.includes(id) &&
         people[id] &&
-        packPeople[id]?.presentation !== "backdrop",
+        packPeople[id]?.presentation !== "backdrop" &&
+        id !== stage.resident &&
+        !(stage.player === false && id === currentActor(world)),
     )
     .slice(0, world.controlledActors ? 6 : 3);
   const ids = cast.filter(
@@ -398,10 +414,16 @@ export function sceneStaging(
               [76, 0.9, 0],
             ]
           : [[50, 1, 0]];
+  // A lone figure stands on the place's mark, which belongs to the painting
+  // and so is not mirrored by the direction of arrival.
   const at = new Map(
     order.map((id, i) => [
       id,
-      mirror ? 100 - positions[i][0] : positions[i][0],
+      order.length === 1 && stage.mark !== undefined
+        ? stage.mark
+        : mirror
+          ? 100 - positions[i][0]
+          : positions[i][0],
     ]),
   );
   const events = history.filter(

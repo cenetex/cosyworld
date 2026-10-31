@@ -128,6 +128,9 @@ export function laneProblems(t) {
 }
 const keysOk = (o, allowed) =>
   record(o) && Object.keys(o).every((k) => allowed.includes(k));
+// A point on a painting, as whole percentages of its width and height.
+const pointOk = (o) =>
+  keysOk(o, ["x", "y"]) && intOk(o.x, 0, 100) && intOk(o.y, 0, 100);
 // Placeholders are {name} from a fixed list; any other brace is an error.
 const templateOk = (v, max, names) =>
   textOk(v, max) &&
@@ -484,18 +487,34 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           ["sequence", "random-per-visit"].includes(p.musicMode),
         `place ${id} musicMode needs a playlist and sequence or random-per-visit`,
       );
+    // Every place shares one stage; this data is all that tells them apart.
     if (p.stage !== undefined)
       check(
-        keysOk(p.stage, ["alt", "resident", "sprite"]) &&
-          textOk(p.stage.alt, 240) &&
-          owns(avatars, p.stage.resident) &&
-          avatars[p.stage.resident].place === id &&
-          avatars[p.stage.resident].travels === false &&
-          keysOk(p.stage.sprite, ["left", "top", "width"]) &&
-          ["left", "top", "width"].every((k) =>
-            intOk(p.stage.sprite?.[k], 0, 100),
-          ),
-        `place ${id} stage needs alt text, a resident that stays here, and sprite left/top/width percentages`,
+        keysOk(p.stage, [
+          "alt",
+          "resident",
+          "sprite",
+          "focus",
+          "mark",
+          "lamp",
+          "player",
+        ]) &&
+          [p.stage.focus, p.stage.lamp].every(
+            (point) => point === undefined || pointOk(point),
+          ) &&
+          (p.stage.mark === undefined || intOk(p.stage.mark, 0, 100)) &&
+          (p.stage.player === undefined || p.stage.player === false) &&
+          (p.stage.resident === undefined
+            ? p.stage.alt === undefined && p.stage.sprite === undefined
+            : textOk(p.stage.alt, 240) &&
+              owns(avatars, p.stage.resident) &&
+              avatars[p.stage.resident].place === id &&
+              avatars[p.stage.resident].travels === false &&
+              keysOk(p.stage.sprite, ["left", "top", "width"]) &&
+              ["left", "top", "width"].every((k) =>
+                intOk(p.stage.sprite?.[k], 0, 100),
+              )),
+        `place ${id} stage needs focus, lamp and mark percentages, player false, and a resident with alt text and sprite left/top/width percentages`,
       );
   }
 
@@ -1425,7 +1444,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           "backdrop",
           "cardArt",
           "cardName",
+          "focus",
         ]) &&
+          (c.scenery.focus === undefined || pointOk(c.scenery.focus)) &&
           [c.scenery.open, c.scenery.closed, c.scenery.cardName].every(
             (t) => t === undefined || textOk(t, 400),
           ) &&

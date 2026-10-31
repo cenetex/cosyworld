@@ -14,6 +14,11 @@
       "exits": [],
       "backdrop": "assets/badger-forest/steam-clock-background.png",
       "stage": {
+        "focus": {
+          "x": 45,
+          "y": 25
+        },
+        "player": false,
         "alt": "The old Steam Clock stands on mossy stones in a sunlit clearing.",
         "resident": "badger",
         "sprite": {

@@ -75,7 +75,6 @@ const files = [
   "scene-video.mjs",
   "scene-video-context.mjs",
   "scene-video.css",
-  "awakening.css",
   "app.mjs",
   "pack-landing.mjs",
   "pack-landings.json",
