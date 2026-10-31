@@ -205,6 +205,7 @@ export function groupBeats(
     shared = false,
     held = new Set(),
     hiddenSpeech = () => false,
+    hiddenAction = () => false,
   } = {},
 ) {
   const beats = [];
@@ -229,7 +230,11 @@ export function groupBeats(
     beats.push(beat);
   }
   for (const entry of entries) {
-    if (held.has(entry.seq) || !witnessedHere(entry, { viewer, here }))
+    if (
+      held.has(entry.seq) ||
+      hiddenAction(entry) ||
+      !witnessedHere(entry, { viewer, here })
+    )
       continue;
     const caption = actionCaption(entry, { viewer, here, arrival });
     if (!caption) continue;

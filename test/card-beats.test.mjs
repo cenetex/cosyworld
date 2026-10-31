@@ -188,6 +188,25 @@ describe("beat grouping", () => {
   });
 });
 
+describe("shared reading clock", () => {
+  it("keeps a queued later turn's actions back until its scene is read", () => {
+    seq = 0;
+    const log = [
+      said("vale", "First."),
+      did("moth", "take", { itemId: "bell", turn: 2 }),
+      said("moth", "Second.", { turn: 2 }),
+    ];
+    const beats = groupBeats(log, {
+      viewer: "vale",
+      here: "pond",
+      shared: true,
+      hiddenSpeech: (line) => line.seq > 1,
+      hiddenAction: (entry) => entry.turn > 1,
+    });
+    expect(beats.map((b) => b.key)).toEqual(["s:1"]);
+  });
+});
+
 describe("combat beats from the rules", () => {
   const act = (s, kind, target) => {
     const action = legalActions(s).find(

@@ -2166,6 +2166,20 @@ function renderScene() {
       : Infinity;
   const hiddenSpeech = (line) =>
     line.seq > liveThrough && (shared || line.turn === world.turn);
+  // Queued shared plays commit before their words. While the room clock still
+  // has lines to read, later turns' actions wait for their own scene.
+  const shownTurn = sharedSession
+    ? view.log.find((entry) => entry.seq === liveThrough)?.turn
+    : undefined;
+  const moreToRead =
+    shownTurn !== undefined &&
+    view.log.some(
+      (entry) =>
+        entry.generated &&
+        entry.seq > liveThrough &&
+        entry.locationId === scene.locationId,
+    );
+  const hiddenAction = (entry) => moreToRead && entry.turn > shownTurn;
   const wordsFailed = storyStatus === "retry";
   const waiting = sharedSession
     ? sharedSpeech.status === "pending" &&
@@ -2176,7 +2190,13 @@ function renderScene() {
           (storyStatus === "pending" && !exchange.current),
       );
   const stack = withPending(
-    sceneBeats(view, { viewer, shared, held: combatHeld, hiddenSpeech }),
+    sceneBeats(view, {
+      viewer,
+      shared,
+      held: combatHeld,
+      hiddenSpeech,
+      hiddenAction,
+    }),
     { speakerId: waiting ? waitingSpeaker || "" : null, turn: world.turn },
   );
   const beats = stack.beats;
