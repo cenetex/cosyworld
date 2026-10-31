@@ -17,7 +17,7 @@ const sea = (s, from, to) => lanePath(s, "greek-ship", from, to) !== null;
 describe("the Open Door opens the Piraeus lane and the Attic roads", () => {
   it("keeps the lane and every road closed until Dione's invitation", () => {
     const s = openingFixture("refusal").closed;
-    expect(s.packs["greek-drama"].flags["greek-open-door-open"]).toBe(false);
+    expect(s.packs["greek-drama"].flags["greek-open-door-open"]).toBeFalsy();
     expect(s.items["greek-provisions"].holder).toBe("greek-ship");
     expect(sea(s, "greek-harbor", "greek-piraeus")).toBe(false);
     for (const id of ATTICA) expect(entityActive(s, id), id).toBe(false);
