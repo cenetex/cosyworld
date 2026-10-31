@@ -1,0 +1,20 @@
+[
+  {"case": "station talk 5", "speaker": "vale", "reply": "Then I'll keep the lamp close and listen.", "expect": "ok"},
+  {"case": "station talk 5", "speaker": "moth", "reply": "I'd still like the lamp, if you'll part with it.", "expect": "ok"},
+  {"case": "accepted give", "speaker": "moth", "reply": "Thank you. It's warm in my hands.", "expect": "ok"},
+  {"case": "station talk 5", "speaker": "vale", "reply": "Tell me again what the pond wants.", "expect": "repeat"},
+  {"case": "station talk 5", "speaker": "vale", "reply": "The keeper looks tired tonight.", "expect": "repeat"},
+  {"case": "station talk 5", "speaker": "moth", "reply": "He always looks tired. It's the oil.", "expect": "repeat"},
+  {"case": "station talk 5", "speaker": "vale", "reply": "It wants quiet. Mostly it wants quiet.", "expect": "repeat"},
+  {"case": "station talk 5", "speaker": "vale", "reply": "Newcomer price? I've been here three turns.", "expect": "copied example"},
+  {"case": "station talk 5", "speaker": "vale", "reply": "I have the oil flask, if you need it.", "expect": "ok", "false_claim": true},
+  {"case": "station talk 5", "speaker": "moth", "reply": "I'm holding the lamp now, so it's settled.", "expect": "custody", "false_claim": true},
+  {"case": "refused give", "speaker": "vale", "reply": "I gave you the bell, so ring it kindly.", "expect": "ok", "false_claim": true},
+  {"case": "station talk 5", "speaker": "vale", "reply": "The lamp is with Pip now.", "expect": "ok"},
+  {"case": "first lamp covering", "speaker": "vale", "reply": "The lamp is out now.", "expect": "observable_state"},
+  {"case": "station talk 5", "speaker": "vale", "reply": "Certainly! Here is the next line.", "expect": "assistant"},
+  {"case": "station talk 5", "speaker": "vale", "reply": "Antigone would know what to do.", "expect": "unknown entity"},
+  {"case": "station talk 5", "speaker": "vale", "reply": "I wonder whether,", "expect": "shape"},
+  {"case": "Theban decree through Talk", "speaker": "greek-guard", "reply": "Move along, traveller.", "expect": "knowledge_fact"},
+  {"case": "Theban decree through Talk", "speaker": "greek-guard", "reply": "Creon's order forbids burial for Polyneices.", "expect": "ok"}
+]

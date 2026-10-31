@@ -17072,6 +17072,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             actor_session_count,
             wallet_session_count,
         },
+        card_voice: routes::card_game::narrative::voice_metrics::snapshot(),
     })
 }
 
