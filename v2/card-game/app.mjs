@@ -122,8 +122,10 @@ let world = sharedSession
   lineSeq = null,
   selectionRevision = 0,
   dragging = [],
-  // A scene click folds the row away while the held item stays raised.
-  rowCollapsed = false;
+  // The hand rests folded until a card is touched. Only a click outside
+  // the card area, Escape, or a play folds it again; changing the
+  // selection, deselecting included, never does. A held item stays raised.
+  rowCollapsed = true;
 // Name the save slot: table saves are keyed off the URL param, so a player
 // landing through a different link silently lands in a different slot.
 {
@@ -993,7 +995,11 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   if (playQueue.pending?.action.key === action.key) {
     // Shared plays cancel through their own visible control.
     if (!sharedSession) playQueue.clear();
-  } else playQueue.submit(action, revision);
+  } else {
+    // Playing is one of the two things that fold the hand.
+    rowCollapsed = true;
+    playQueue.submit(action, revision);
+  }
 }
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
@@ -1514,8 +1520,7 @@ function renderActions(animate = false) {
     selected.length > 0,
   );
   document.body.dataset.handExpanded = String(
-    dragging.length > 0 ||
-      (!rowCollapsed && (selected.length > 0 || expandedHolders.size > 0)),
+    dragging.length > 0 || !rowCollapsed,
   );
   const revision = world.revision;
   const nudgeTarget =
@@ -1757,8 +1762,14 @@ function card(id) {
   el.addEventListener("drop", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!selectionBlocked() && !cardIsCovered(id) && dragging.length && !dragging.includes(id)) {
+    if (
+      !selectionBlocked() &&
+      !cardIsCovered(id) &&
+      dragging.length &&
+      !dragging.includes(id)
+    ) {
       playQueue.clear();
+      rowCollapsed = false;
       selectCards([dragging[0], id]);
       selectionRevision = world.revision;
       render();
@@ -3071,43 +3082,43 @@ document.addEventListener("keydown", (e) => {
   if (
     e.key === "Escape" &&
     !document.querySelector("dialog[open], .world-menu:popover-open") &&
-    (selected.length || expandedHolders.size)
+    (selected.length || expandedHolders.size || !rowCollapsed)
   ) {
     playQueue.clear();
     selected = [];
     expandedHolders.clear();
-    rowCollapsed = false;
+    rowCollapsed = true;
     render();
   }
 });
-// A click outside the row folds it. A held item stays raised and is still
-// held when the row opens again; Escape or a second tap lowers it.
+// A click outside the card area folds the row. A held item stays raised and
+// is still held when the row opens again; Escape or a second tap lowers it.
+// Clicks on the dialogue, toolbar, dialogs and action buttons leave it be.
 document.addEventListener("click", (e) => {
+  const path = e.composedPath(),
+    within = (selector) =>
+      path.some(
+        (element) => element instanceof Element && element.matches(selector),
+      );
   if (rowCollapsed) {
-    if (e.target instanceof Element && e.target.closest(".play-dock")) {
+    // A folded row with a held item opens from any dock click; a resting
+    // hand opens from a card. A play folds the row from its own button, so
+    // that click must not reopen it.
+    if (selected.length && within(".play-dock") && !within("#card-actions")) {
       rowCollapsed = false;
       render();
     }
     return;
   }
   if (
-    (selected.length || expandedHolders.size) &&
-    !e
-      .composedPath()
-      .some(
-        (element) =>
-          element instanceof Element &&
-          element.matches(
-            ".play-dock, .card-frame, dialog, .topbar, .dialogue, .world-menu",
-          ),
-      )
-  ) {
-    playQueue.clear();
-    if (selectedHandItem(world, selected)) rowCollapsed = true;
-    else selected = [];
-    expandedHolders.clear();
-    render();
-  }
+    within(".play-dock, .card-frame, dialog, .topbar, .dialogue, .world-menu")
+  )
+    return;
+  playQueue.clear();
+  if (!selectedHandItem(world, selected)) selected = [];
+  rowCollapsed = true;
+  expandedHolders.clear();
+  render();
 });
 $("history-button").onclick = () => {
   renderLog();
@@ -3187,7 +3198,7 @@ $("confirm-reset").onclick = () => {
   lineSeq = null;
   selected = [];
   expandedHolders.clear();
-  rowCollapsed = false;
+  rowCollapsed = true;
   saveBlocked = false;
   notice("");
   save();
@@ -3210,7 +3221,7 @@ window.addEventListener("storage", (event) => {
     lineSeq = null;
     selected = [];
     expandedHolders.clear();
-    rowCollapsed = false;
+    rowCollapsed = true;
     saveBlocked = false;
     notice("The world was updated in another tab.");
     resumeScene();

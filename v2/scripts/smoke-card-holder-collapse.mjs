@@ -255,6 +255,39 @@ try {
           "browsing preserves the saved world",
         );
         assert.deepEqual(requests, []);
+        // Only an outside click, Escape or a play folds the hand. Choosing,
+        // changing the pair and deselecting all keep it open.
+        const open = () =>
+          page.evaluate(() => document.body.dataset.handExpanded);
+        assert.equal(await open(), "false", "an outside click folds the hand");
+        await tap("vale");
+        assert.equal(await open(), "true", "a tap opens the hand");
+        await tap("vale");
+        assert.deepEqual(await selected(), []);
+        assert.equal(await open(), "true", "deselecting keeps the hand open");
+        await tap("moth");
+        await tap("pond");
+        await tap("moth");
+        assert.deepEqual(await selected(), ["pond"]);
+        assert.equal(await open(), "true", "changing the pair keeps it open");
+        await card("pond").focus();
+        await page.keyboard.press("Enter");
+        assert.deepEqual(await selected(), []);
+        assert.equal(await open(), "true", "a keyboard deselect keeps it open");
+        if (width === 390)
+          await page.locator("#hand").tap({ position: { x: 4, y: 4 } });
+        else await page.locator("#hand").click({ position: { x: 4, y: 4 } });
+        assert.equal(await open(), "true", "empty hand space keeps it open");
+        // The scroll arrows hide as the hand reaches an end, so dispatch the click.
+        for (const arrow of ["#hand-next", "#hand-previous"]) {
+          await page.locator(arrow).dispatchEvent("click");
+          assert.equal(await open(), "true", "the hand arrows keep it open");
+        }
+        await page.locator("#stage").click({ position: { x: 20, y: 200 } });
+        assert.equal(await open(), "false", "an outside click folds it");
+        await tap("vale");
+        await page.keyboard.press("Escape");
+        assert.equal(await open(), "false", "Escape folds it");
         // A held item stays raised until the player lowers it or it leaves
         // their hands.
         const action = (kind) =>
@@ -273,6 +306,7 @@ try {
         await action("light").click();
         await settled();
         await action("snuff").waitFor();
+        assert.equal(await open(), "false", "a play folds the hand");
         assert.deepEqual(
           await selected(),
           ["lamp", "vale"],
