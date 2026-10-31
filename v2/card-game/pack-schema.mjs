@@ -838,7 +838,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
             owns(items, c.item) &&
-            owns(places, c.place);
+            anyPlace(c.place);
           break;
         case "met":
           ok = keysOk(c, ["kind", "actor"]) && owns(avatars, c.actor);
@@ -893,6 +893,25 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `${what} must use the closed condition vocabulary with valid references`,
     );
   };
+  // Saved state, or `any`/`not` over saved state, such as a thing that
+  // shows only while no other thing is in the same place.
+  const savedCondition = (c) =>
+    ["any", "not"].includes(c?.kind)
+      ? (c.conditions || [c.condition]).every(savedCondition)
+      : [
+          "choice",
+          "choice_unset",
+          "flag",
+          "holding",
+          "item_at",
+          "item_near",
+          "item_present",
+          "shared_world",
+          "connected_humans",
+          "met",
+          "knows",
+          "daylight",
+        ].includes(c?.kind);
   const requirements = (cs, what, persistent = true) => {
     if (cs === undefined) return;
     check(
@@ -903,20 +922,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       cs.forEach((c) => {
         condition(c, what);
         check(
-          !persistent ||
-            [
-              "choice",
-              "choice_unset",
-              "flag",
-              "holding",
-              "item_at",
-              "item_near",
-              "shared_world",
-              "connected_humans",
-              "met",
-              "knows",
-              "daylight",
-            ].includes(c.kind),
+          !persistent || savedCondition(c),
           `${what} must use saved state or human presence conditions`,
         );
       });

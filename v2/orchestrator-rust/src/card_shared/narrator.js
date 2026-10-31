@@ -10177,10 +10177,33 @@
         items: {
           "hoppycat-red-thread-spool": {
             name: "Red-Thread Spool",
-            text: "A warm spool washed up at Black pond, its loose thread trailing over the water. It catches only on relationships someone has chosen to carry forward.",
-            persona: "A warm spool washed up at Black pond, its loose thread trailing over the water toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
-            holder: "pond",
-            art: "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png"
+            text: "A warm spool left on the empty station's bench, its loose thread trailing toward the pond. It catches only on relationships someone has chosen to carry forward.",
+            persona: "A warm spool left on the empty station's bench, its loose thread trailing past the pond toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
+            holder: "station",
+            art: "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png",
+            requires: [
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "not",
+                    condition: {
+                      kind: "item_present",
+                      item: "oil",
+                      place: "station"
+                    }
+                  },
+                  {
+                    kind: "not",
+                    condition: {
+                      kind: "item_at",
+                      item: "hoppycat-red-thread-spool",
+                      place: "station"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "hoppycat-provenance-card": {
             name: "Blank Provenance Card",
@@ -13760,7 +13783,7 @@
             ok = keysOk(c, ["kind", "item", "place"]) && (owns2(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
             break;
           case "item_at":
-            ok = keysOk(c, ["kind", "item", "place"]) && owns2(items2, c.item) && owns2(places2, c.place);
+            ok = keysOk(c, ["kind", "item", "place"]) && owns2(items2, c.item) && anyPlace(c.place);
             break;
           case "met":
             ok = keysOk(c, ["kind", "actor"]) && owns2(avatars, c.actor);
@@ -13791,6 +13814,20 @@
         `${what} must use the closed condition vocabulary with valid references`
       );
     };
+    const savedCondition = (c) => ["any", "not"].includes(c?.kind) ? (c.conditions || [c.condition]).every(savedCondition) : [
+      "choice",
+      "choice_unset",
+      "flag",
+      "holding",
+      "item_at",
+      "item_near",
+      "item_present",
+      "shared_world",
+      "connected_humans",
+      "met",
+      "knows",
+      "daylight"
+    ].includes(c?.kind);
     const requirements = (cs, what, persistent = true) => {
       if (cs === void 0) return;
       check(
@@ -13801,19 +13838,7 @@
         cs.forEach((c) => {
           condition(c, what);
           check(
-            !persistent || [
-              "choice",
-              "choice_unset",
-              "flag",
-              "holding",
-              "item_at",
-              "item_near",
-              "shared_world",
-              "connected_humans",
-              "met",
-              "knows",
-              "daylight"
-            ].includes(c.kind),
+            !persistent || savedCondition(c),
             `${what} must use saved state or human presence conditions`
           );
         });
@@ -15212,6 +15237,9 @@
       ...local.map((c) => committedChoiceText(world, pack, c))
     ].map((text2) => text2.slice(0, 240));
   }
+  var restGated = (requires = [], id) => requires.some(
+    (c) => c.kind === "item_at" ? c.item === id : restGated(c.conditions || (c.condition ? [c.condition] : []), id)
+  );
   function validatePackStates(world) {
     if (!record3(world.packs) || Object.keys(world.packs).sort().join() !== packDefinitions.map((p) => p.id).sort().join())
       return false;
@@ -15276,7 +15304,7 @@
         if (!entityEnabled(world, id, true) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns3(state.met, id)))
           return false;
       for (const [id, item] of Object.entries(pack.items || {}))
-        if (!entityEnabled(world, id, true) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0))
+        if (!entityEnabled(world, id, true) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)))
           return false;
     }
     return true;

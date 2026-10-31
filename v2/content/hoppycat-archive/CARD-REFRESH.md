@@ -3,9 +3,14 @@
 The current card game mounts this world's `card-world.json` through
 `v2/worlds/hoppycat-archive/card-bridge.json`. The red thread from Black pond
 into the Halfway Tea Garden is retired. Ships for the Signal Jetty leave
-Piraeus only with a Hoppy Cat thing aboard. The Red-Thread Spool starts washed
-up at Black pond, so a player can carry it aboard. Every other object starts
-inside the archive. The thread from the garden still leads home to the pond.
+Piraeus only with a Hoppy Cat thing aboard. The Red-Thread Spool starts lying
+at the empty station, so a player can carry it aboard. It shows there only
+while the station holds no oil (the flask resting there or carried by someone
+present). If oil arrives while the spool lies there, the spool is hidden until
+the oil leaves. A held spool never vanishes: once picked up it is a normal
+thing everywhere, and it is gated again only when set down at the station. The
+archive may stay out of reach while the oil sits at the station; there is no
+fallback. Every other object starts inside the archive. The thread from the garden still leads home to the pond.
 A pack landing starts with the spool on the garden table.
 
 Open `/?pack=hoppycat-archive` to start a fresh garden game. The host

@@ -624,6 +624,13 @@ export function packSceneFacts(world, location) {
     ...local.map((c) => committedChoiceText(world, pack, c)),
   ].map((text) => text.slice(0, 240));
 }
+// True when a thing's own conditions name where it rests.
+const restGated = (requires = [], id) =>
+  requires.some((c) =>
+    c.kind === "item_at"
+      ? c.item === id
+      : restGated(c.conditions || (c.condition ? [c.condition] : []), id),
+  );
 export function validatePackStates(world) {
   if (
     !record(world.packs) ||
@@ -751,11 +758,14 @@ export function validatePackStates(world) {
       )
         return false;
     // Presence-gated things keep their saved place while their humans are away.
+    // A thing gated on where it rests may have travelled and come back to
+    // that place.
     for (const [id, item] of Object.entries(pack.items || {}))
       if (
         !entityEnabled(world, id, true) &&
         (world.items[id]?.holder !== item.holder ||
-          world.items[id]?.history?.length !== 0)
+          (world.items[id]?.history?.length !== 0 &&
+            !restGated(item.requires, id)))
       )
         return false;
   }

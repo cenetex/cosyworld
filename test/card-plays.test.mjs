@@ -22,6 +22,8 @@ describe("playing the world through cards", () => {
     expect(availableCards(s)).toEqual([
       "vale",
       "station",
+      // The Hoppy Cat spool lies here while the keeper's oil is at the pond.
+      "hoppycat-red-thread-spool",
       "lamp",
       "bell",
       "pond",
