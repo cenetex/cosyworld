@@ -122,3 +122,25 @@
   width: 100%;
   height: 100%;
 }
+/* Where the player stays, the light eases with night and weather; travel and
+   reduced motion cut. transitions.mjs fades the painting itself. */
+.stage[data-settled="true"] > .backdrop {
+  transition: filter 4s ease-in-out;
+}
+/* A Halloween apparition is stacked on its resident and only shown for one
+   brief cut. */
+.apparition {
+  visibility: hidden;
+  pointer-events: none;
+}
+.apparition[data-showing="true"] {
+  visibility: visible;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage[data-settled="true"] > .backdrop {
+    transition: none;
+  }
+  .apparition {
+    display: none;
+  }
+}
