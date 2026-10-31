@@ -1,5 +1,6 @@
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
+import { arriveCard, finishReveal, revealCard } from "./card-reveal.mjs";
 import { landingPack, createLandingWorld } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
@@ -952,13 +953,15 @@ function selectCards(cards) {
   selected = cards;
 }
 function choose(id) {
-  if (selectionBlocked()) return;
+  if (finishReveal(id) || selectionBlocked()) return;
   if (cardIsCovered(id)) {
     encountered.add(id);
     coveredCards.delete(id);
-    fresh.delete(id);
     rememberCards();
     render();
+    const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
+    if (shown) void revealCard(shown);
+    $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
     return;
   }
   playQueue.clear();
@@ -1416,6 +1419,10 @@ function queueDiscoveries() {
       }
       rememberCards();
       render();
+      for (const id of found) {
+        const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
+        if (shown && !shown.closest(".card-frame").hidden) void arriveCard(shown);
+      }
     });
 }
 

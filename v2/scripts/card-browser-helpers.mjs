@@ -16,8 +16,14 @@ export async function revealCard(page, id) {
     await owner.click();
   }
   await card.scrollIntoViewIfNeeded();
-  if ((await card.getAttribute("data-unrevealed")) === "true")
+  // The first tap uncovers; a tap during the reveal only skips it.
+  if ((await card.getAttribute("data-unrevealed")) === "true") {
     await card.click();
+    await page.waitForFunction(
+      (id) => !document.querySelector(`#hand [data-card="${id}"]`)?.dataset.revealing,
+      id,
+    );
+  }
   return card;
 }
 // A held item stays raised through plays and new targets (#1417, #1435), so
