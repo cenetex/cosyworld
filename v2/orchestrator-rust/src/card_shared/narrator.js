@@ -1989,7 +1989,24 @@
               "greek-battlefield",
               "greek-aulis"
             ],
-            backdrop: "assets/greek-drama/city-gate-day.webp",
+            backdrop: "assets/greek-drama/city-gate-closed-day.webp",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/city-gate-day.webp",
+                requires: [
+                  {
+                    kind: "holding",
+                    item: "greek-decree",
+                    actor: "greek-guard"
+                  },
+                  {
+                    kind: "item_near",
+                    item: "greek-decree",
+                    place: "greek-gate"
+                  }
+                ]
+              }
+            ],
             persona: "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers clear."
           },
           "greek-battlefield": {
@@ -16684,6 +16701,7 @@
           "voice",
           "exits",
           "backdrop",
+          "backdrops",
           "art",
           "music",
           "musicMode",
@@ -16707,6 +16725,13 @@
         `place ${id} exits must name other places in this pack`
       );
       media(p.backdrop, `place ${id} backdrop`);
+      if (p.backdrops !== void 0)
+        check(
+          Array.isArray(p.backdrops) && p.backdrops.length > 0 && p.backdrops.length <= 8 && p.backdrops.every(
+            (b) => keysOk(b, ["backdrop", "requires"]) && mediaPathOk(pack.id, b.backdrop) && Array.isArray(b.requires) && b.requires.length > 0
+          ),
+          `place ${id} backdrops need a backdrop in this pack and saved conditions`
+        );
       if (p.road !== void 0)
         check(
           Array.isArray(p.road) && p.road.length === 2 && new Set(p.road).size === 2 && p.road.every(
@@ -16992,8 +17017,11 @@
           );
         });
     };
-    for (const [id, p] of Object.entries(places2))
+    for (const [id, p] of Object.entries(places2)) {
       requirements(p.requires, `place ${id} requires`);
+      for (const b of Array.isArray(p.backdrops) ? p.backdrops : [])
+        requirements(b?.requires, `place ${id} backdrop requires`);
+    }
     for (const [id, a] of Object.entries(avatars)) {
       requirements(a.requires, `avatar ${id} requires`);
       for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
@@ -18236,7 +18264,11 @@
   var packMediaFiles = [
     ...new Set(
       packDefinitions.flatMap((pack) => [
-        ...Object.values(pack.places).flatMap((p) => [p.backdrop, p.art]),
+        ...Object.values(pack.places).flatMap((p) => [
+          p.backdrop,
+          p.art,
+          ...(p.backdrops || []).map((b) => b.backdrop)
+        ]),
         ...Object.values(pack.items || {}).map((i) => i.art),
         ...pack.crossings.flatMap((c) => [
           c.scenery?.overlay,
@@ -20267,6 +20299,7 @@
     "greek-ajax-grave": art("ajax-camp-night")
   };
   var dockedNightBackdrops = {
+    [art("city-gate-closed-day")]: art("city-gate-closed-night"),
     [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
     [art("athens-harbor")]: art("athens-harbor-ship-at-berth-night"),
     [art("open-door-piraeus")]: art("piraeus-ship-at-berth-night")
@@ -20607,8 +20640,15 @@
   function backdrop(id, world = null) {
     if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
     const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-    const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
+    const file = daylightBackdrop(world, id, variant || placeBackdrop(world, id));
     return file ? `./${file}` : `./assets/${id}.png`;
+  }
+  function placeBackdrop(world, id) {
+    const place = packPlaces[id];
+    const state = world?.packs && place?.backdrops?.find(
+      (b) => conditionsMet(world, place.packId, b.requires)
+    );
+    return state?.backdrop || place?.backdrop;
   }
   var visibleCrossing = (world, place) => crossings.find(
     (c) => c.from === place && (c.scenery?.overlay || c.scenery?.backdrop) && crossingOpen(world, c, senses)

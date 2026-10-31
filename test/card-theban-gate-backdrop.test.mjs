@@ -1,0 +1,51 @@
+import { describe, expect, it } from "vitest";
+import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
+import { backdrop } from "../v2/card-game/scene.mjs";
+import { packProblems } from "../v2/card-game/pack-schema.mjs";
+import { hub, packDefinitions } from "../v2/card-game/pack-registry.mjs";
+import { openingFixture } from "./helpers/greek-opening.mjs";
+
+// The Theban City Gate shows its closed painting unless the Gate Guard holds
+// the Burial Decree at the gate, the same state that opens the battlefield
+// road. Night keeps the matching closed or open night painting.
+const art = (file) => `./assets/greek-drama/${file}.webp`;
+const gate = (s) => backdrop("greek-gate", s);
+const night = (s) => ({ ...s, turn: DAYLIGHT_TURNS });
+
+describe("the Theban City Gate backdrop", () => {
+  it("is closed until the guard holds the decree at the gate", () => {
+    const s = openingFixture("burial").decree;
+    expect(s.items["greek-decree"].holder).toBe("greek-palace");
+    s.turn = 0;
+    expect(gate(s)).toBe(art("city-gate-closed-day"));
+    expect(gate(night(s))).toBe(art("city-gate-closed-night"));
+    // Vale carrying the decree to the gate is not enough.
+    s.items["greek-decree"].holder = "vale";
+    s.actors.vale.place = "greek-gate";
+    expect(gate(s)).toBe(art("city-gate-closed-day"));
+    // The guard holds it at his post: the gate stands open, day and night.
+    s.items["greek-decree"].holder = "greek-guard";
+    expect(s.actors["greek-guard"].place).toBe("greek-gate");
+    expect(gate(s)).toBe(art("city-gate-day"));
+    expect(gate(night(s))).toBe(art("city-gate-night"));
+    // He leaves his post with it: closed again.
+    const away = structuredClone(s);
+    away.actors["greek-guard"].place = "greek-well";
+    expect(gate(away)).toBe(art("city-gate-closed-day"));
+    // He gives it away: closed again.
+    s.items["greek-decree"].holder = "greek-elder";
+    expect(gate(s)).toBe(art("city-gate-closed-day"));
+  });
+
+  it("validates state backdrops like poses", () => {
+    const mounted = packDefinitions.flatMap((p) => Object.keys(p.places));
+    const pack = structuredClone(
+      packDefinitions.find((p) => p.id === "greek-drama"),
+    );
+    expect(packProblems(pack, hub, mounted)).toEqual([]);
+    pack.places["greek-gate"].backdrops = [{ backdrop: "elsewhere.webp" }];
+    expect(packProblems(pack, hub, mounted).join(" ")).toMatch(
+      /greek-gate backdrops need/,
+    );
+  });
+});
