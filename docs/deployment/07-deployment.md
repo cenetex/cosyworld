@@ -68,9 +68,12 @@ secret values through Fly's secret store for the selected app.
 - `OPENROUTER_API_KEY` supplies the configured text provider. Image generation
   uses the configured Replicate credentials. See the
   [runtime guide](../../v2/README.md) for provider settings.
-- The optional linked-avatar adapter uses
-  `COSYWORLD_AVATAR_OWNERSHIP_FEED_URL` and
-  `COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER`.
+- Linked-avatar discovery reads wallet assets on chain through a Solana DAS
+  endpoint: `COSYWORLD_HELIUS_RPC_URL`, or `HELIUS_API_KEY` for Helius
+  mainnet. Without one, no new wallet-linked avatars join; ordinary play is
+  unaffected. No other domain supplies ownership. The retired
+  `COSYWORLD_AVATAR_OWNERSHIP_FEED_URL`/`_BEARER` settings are ignored
+  ([#1502](https://github.com/cenetex/cosyworld/issues/1502)).
 
 The Rust service opens and upgrades its journal during startup. Keep each
 world's journal, snapshots, and generated assets together on its assigned

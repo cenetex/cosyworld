@@ -452,12 +452,16 @@ describe("deploy workflow", () => {
     ["primary-fly", "lonelyforest-image", "https://cosyworld.fly.dev"],
     ["lonelyforest-fly", "deploy-outcome", "https://lonelyforest.com"],
   ])(
-    "checks readiness and persistence for %s after one feed refresh",
+    "checks readiness and persistence for %s without an external avatar feed",
     (name, next, url) => {
       const deploy = job(name, next);
       expect(deploy).toContain("for attempt in {1..13}");
       expect(deploy).toContain(
-        `node v2/scripts/smoke-deployed-ruby-high.mjs ${url}`,
+        `node v2/scripts/smoke-deployed-readiness.mjs ${url}`,
+      );
+      expect(deploy).not.toContain("ruby-high");
+      expect(deploy).not.toContain(
+        "ownership feed",
       );
       expect(deploy).toContain("sleep 10");
       expect(deploy).toContain("remained degraded after 120 seconds");

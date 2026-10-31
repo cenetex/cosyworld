@@ -74,7 +74,6 @@ The data migration and cutover runbook lives in
 
 3. Production secrets in AWS Secrets Manager:
 
-   - `COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER`
    - `COSYWORLD_MODERATION_TOKEN`
    - `OPENROUTER_API_KEY`
 
@@ -90,7 +89,6 @@ From the repo root:
 
 ```sh
 AWS_PROFILE=default \
-TF_VAR_ruby_high_wallet_cards_bearer_secret_arn=arn:aws:secretsmanager:us-east-1:ACCOUNT:secret:... \
 TF_VAR_moderation_token_secret_arn=arn:aws:secretsmanager:us-east-1:ACCOUNT:secret:... \
 TF_VAR_openrouter_api_key_secret_arn=arn:aws:secretsmanager:us-east-1:ACCOUNT:secret:... \
 TF_VAR_replicate_api_token_secret_arn=arn:aws:secretsmanager:us-east-1:ACCOUNT:secret:... \

@@ -342,11 +342,10 @@ jobs:
 
       - name: Verify primary readiness and persistence
         run: |
-          # A fresh process refreshes the remote ownership feed every 60 seconds.
-          # Allow one full refresh interval, its bounded 15-second request, and
-          # a small scheduling margin before declaring the release unhealthy.
+          # A fresh process may take a moment to report healthy persistence
+          # after a rolling deploy; retry for two minutes before failing.
           for attempt in {1..13}; do
-            if node v2/scripts/smoke-deployed-ruby-high.mjs https://cosyworld.fly.dev; then
+            if node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev; then
               exit 0
             fi
             if [ "$attempt" -eq 13 ]; then
@@ -499,7 +498,7 @@ jobs:
       - name: Verify Lonely Forest readiness and persistence
         run: |
           for attempt in {1..13}; do
-            if node v2/scripts/smoke-deployed-ruby-high.mjs https://lonelyforest.com; then
+            if node v2/scripts/smoke-deployed-readiness.mjs https://lonelyforest.com; then
               exit 0
             fi
             if [ "$attempt" -eq 13 ]; then

@@ -43,23 +43,15 @@ async function inspectTarget(value) {
     meta.features?.card_policy_model_hash === "829992bfa57d67fe",
     `${baseUrl.origin} has the wrong card-policy model`,
   );
-  assert(meta.linked_avatar_adapter?.remote_configured === true, `${baseUrl.origin} has no remote linked-avatar feed`);
-  assert(meta.linked_avatar_adapter?.bearer_configured === true, `${baseUrl.origin} has no linked-avatar feed bearer`);
+  // Wallet-linked avatars are discovered on chain; no other domain feeds
+  // ownership, so a release never waits on one.
   assert(
-    Number.isInteger(meta.linked_avatar_adapter?.timeout_secs)
-      && meta.linked_avatar_adapter.timeout_secs >= 1
-      && meta.linked_avatar_adapter.timeout_secs <= 60,
-    `${baseUrl.origin} has no bounded linked-avatar feed timeout`,
+    ["on_chain", "fixture", "not_configured"].includes(meta.linked_avatar_adapter?.source),
+    `${baseUrl.origin} reports no linked-avatar source`,
   );
   assert(
-    meta.linked_avatar_adapter?.status === "healthy",
-    `${baseUrl.origin} linked-avatar feed is ${meta.linked_avatar_adapter?.status ?? "unobservable"}`
-      + ` (failures=${meta.linked_avatar_adapter?.consecutive_failures ?? "unknown"},`
-      + ` error=${meta.linked_avatar_adapter?.last_error_code ?? "unknown"})`,
-  );
-  assert(
-    Number.isInteger(meta.linked_avatar_adapter?.last_success_at_unix),
-    `${baseUrl.origin} has no recorded successful linked-avatar feed fetch`,
+    meta.linked_avatar_adapter?.remote_configured === undefined,
+    `${baseUrl.origin} still reports a remote linked-avatar feed`,
   );
 
   return {
@@ -68,10 +60,7 @@ async function inspectTarget(value) {
     card_policy_mode: meta.features.card_policy_mode,
     card_policy_top_k: meta.features.card_policy_top_k,
     card_policy_model_hash: meta.features.card_policy_model_hash,
-    linked_avatar_adapter_status: meta.linked_avatar_adapter.status,
-    wallet_count: meta.linked_avatar_adapter.wallet_count,
-    last_success_at_unix: meta.linked_avatar_adapter.last_success_at_unix,
-    consecutive_failures: meta.linked_avatar_adapter.consecutive_failures,
+    linked_avatar_source: meta.linked_avatar_adapter.source,
   };
 }
 
