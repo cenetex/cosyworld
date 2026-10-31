@@ -77,6 +77,8 @@ part of `daylight.mjs` the rules use, moves next to the clock rules in
   the bundle. Module initialisers that derive tables from packs run after the
   content is set. Engines v2 to v57 get exactly the source they get today and
   no content global.
+- **View cache.** The projection cache key adds `packHash` to the engine
+  version, so two content revisions never share a cached view.
 - **World.** `full_world::World` gains `pack: Option<String>`, with
   `#[serde(default, skip_serializing_if = "Option::is_none")]`. Old snapshots
   and seed records then deserialize and re-serialize to the same bytes.
@@ -110,26 +112,34 @@ part of `daylight.mjs` the rules use, moves next to the clock rules in
 
 ## Migration, one PR at a time
 
-Each PR stays under the 400-line budget and lands on green CI.
+Each PR stays under the 400-line budget and lands on green CI. Moving code
+between modules changes the bundle bytes, so new rules modules land first as
+unused, tested copies. The single engine PR then only switches imports and
+deletes the originals.
 
 1. This note and a bundle-module allowlist test. A new import into the shared
    engine fails CI until the allowlist is changed on purpose. No engine change.
 2. Narrator bundle and Rust call path, with the engine still returning
-   `context`. Rust prefers the narrator's context. No engine change.
-3. Content store, the `content.json` builder, the `World.pack` field and the
-   content-aware `reduce_version`. They stay inert until an engine declares
-   content input. No engine change.
-4. **The one engine bump (v58, `engine` label).** It moves `sceneChanges`,
-   the reflection context and `DAYLIGHT_TURNS` into rules modules. It drops
-   `scene.mjs`, `narrative.mjs` and `daylight.mjs` from the entry, switches
-   the build to injected content and records `packHash` on upgrade. It must
-   pass client/server agreement and the v2 to v57 replay tests. It runs
-   `next-shared-rules`.
-5. Shrink the allowlist to rules modules plus content paths. Add a test that
-   edits a pack's art in a scratch copy and shows the engine bytes do not
+   `context`. Rust uses the narrator's context. No engine change.
+3. `scene-cast.mjs` (speaker selection, `sceneChanges`, `speechMemories`) and
+   `reflections.mjs` (reflection checks), with tests showing they agree with
+   `narrativeContext`. Nothing in the engine imports them yet. No engine
    change.
+4. Content store, the `content.json` builder, the `World.pack` field, the
+   `repack` command and the content-aware `reduce_version`. They stay inert
+   until an engine declares content input. No engine change.
+5. **The one engine bump (v58, `engine` label).** It switches
+   `shared-world.mjs`, `narrative.mjs` and `scene.mjs` to the new modules and
+   deletes the originals. It moves `DAYLIGHT_TURNS`, drops `scene.mjs`,
+   `narrative.mjs` and `daylight.mjs` from the entry, builds with injected
+   content, and records `packHash` on upgrade. It must pass client/server
+   agreement and the v2 to v57 replay tests, and it runs `next-shared-rules`.
+   If the budget forces a split, rules modules go first as v58 and injected
+   content follows as v59.
+6. Shrink the allowlist to rules modules. Add a test that edits a pack's art
+   in a scratch copy and shows the engine bytes do not change.
 
-After step 4, an art, pose, dialogue or pack PR changes `content.json` or
+After step 5, an art, pose, dialogue or pack PR changes `content.json` or
 `narrator.js` (both generated) and never `engine-v*.js`.
 
 ## Later
@@ -143,5 +153,5 @@ After step 4, an art, pose, dialogue or pack PR changes `content.json` or
 Split `packs.json` into compiled files per pack if that helps merges. The
 engine still receives one logical object, `{schemaVersion, hub, packs}`, with
 packs in sorted ID order. The content builder assembles it, and the hash
-covers the assembled bytes. Until step 4 lands, keep `pack-registry.mjs`
+covers the assembled bytes. Until step 5 lands, keep `pack-registry.mjs`
 importing the single `packs.json`. Changing that import changes the engine.
