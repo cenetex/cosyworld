@@ -194,13 +194,16 @@ item is raised replaces the other card and keeps the item. Giving, dropping or
 trading the item clears it as soon as custody changes. For half a second after
 a play, the redrawn row ignores taps, so a double tap cannot reach the new slot.
 
-No card face or hover text exposes quest checklists, levels, hope fractions,
-Inspiration, fuel arithmetic, ringing deadlines, or ritual phases. Each newly
-met card appears briefly over the scene, then flies into the hand. Held items
-fly toward their owner's stack. A glow marks the new card until selected.
-A tap or Escape advances the reveal; reduced motion uses a brief still reveal.
-Travel and arrivals finish first, and dialogue follows the discoveries.
-Saved discovery records keep each reveal to the first encounter. Observable changes
+New cards arrive in their normal stacks with a carved wooden-box cover. The first
+tap uncovers a card without selecting it or spending a turn; subsequent taps
+select it normally. Covered cards cannot be dragged or paired. Each browser
+remembers which cards are still covered, including after a reload.
+Borders use Signal's level-tier colours: Common 0–9, Uncommon 10–19, Rare 20–29,
+Epic 30–49 and Legendary 50+. Selected cards show their exact level in faint,
+matching Roman numerals at both ends. These fixed bands use existing avatar
+levels; items and places currently have level 1. They do not change progression.
+No card face or hover text exposes quest checklists, hope fractions, Inspiration,
+fuel arithmetic, ringing deadlines, or ritual phases. Observable changes
 belong in the scene and art; hidden conditions never become a progress indicator.
 Accessible descriptions report the same observable facts, not extra puzzle clues.
 
@@ -417,9 +420,8 @@ when reachable lamp remedies have run out. An empty lamp needs the Oil flask in
 the attic; after use the flask waits at the station, so the path opens. That escape is separate from the
 mirror and cottage gates.
 
-Each newly met card joins the hand through its discovery reveal. Travel loads
-the destination scene before its discoveries and dialogue. Reduced motion uses
-a brief still reveal.
+Each newly met card joins its stack covered until the first tap. Travel loads
+the destination scene before its cards and dialogue; uncovering never delays speech.
 
 New attic openings carry version 1. Saved pond openings carry version 2 and
 retain their original purposes and discovery records. Saved positions, belongings, meetings

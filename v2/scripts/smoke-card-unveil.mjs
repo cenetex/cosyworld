@@ -105,9 +105,7 @@ try {
     const unveil = (id) =>
       page.waitForFunction(
         (id) =>
-          document.querySelector("#unveil-dialog").open &&
-          document.querySelector("#unveil-dialog").dataset.phase === "reveal" &&
-          document.querySelector("#unveil-take").dataset.card === id,
+          document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "true",
         id,
       );
     const finish = async () => {
@@ -164,21 +162,29 @@ try {
       await selectCard(page, "lamp");
       await page.locator("#card-actions .card-primary").click();
       await unveil("pond");
+      await finish();
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal(await backdrop(), await stage("./assets/attic.png"));
       assert.equal(
         await page.locator('#hand [data-card="vale"]').isDisabled(),
-        true,
+        false,
       );
       const before = await state();
-      await page.locator('#hand [data-card="vale"]').dispatchEvent("click");
+      const pond = page.locator('#hand [data-card="pond"]');
+      assert.equal(await pond.locator(".card-back").isVisible(), true);
+      assert(await pond.locator(".card-back").evaluate((img) => img.complete && img.naturalWidth > 0));
+      const levelVisibility = () => pond.locator(".card-level").evaluateAll((marks) => marks.map((mark) => getComputedStyle(mark).visibility));
+      assert.deepEqual(await levelVisibility(), ["hidden", "hidden"]);
+      await pond.click();
+      assert.equal(await pond.getAttribute("aria-pressed"), "false");
+      assert.equal(await pond.getAttribute("data-unrevealed"), "false");
       assert.deepEqual(await state(), before);
-      const bounds = await page.locator("#unveil-take").boundingBox();
+      const bounds = await pond.boundingBox();
       assert(
         bounds.width > 100 &&
           bounds.x >= 0 &&
           bounds.y >= 0 &&
-          bounds.y + bounds.height <= height,
+          bounds.x + bounds.width <= width,
       );
       await page.screenshot({
         path: new URL(`reveal-${width}.png`, output).pathname,
@@ -194,8 +200,8 @@ try {
         });
         await page.waitForTimeout(1800);
         assert.equal(
-          await page.locator("#unveil-dialog").getAttribute("data-phase"),
-          "reveal",
+          await page.locator("#unveil-dialog[open]").count(),
+          0,
         );
         await page.evaluate(() => {
           Object.defineProperty(document, "hidden", {
@@ -205,13 +211,13 @@ try {
           document.dispatchEvent(new Event("visibilitychange"));
         });
       }
-      // The first reveal finishes itself; the player can also tap or press Escape.
+      // The first tap uncovers without playing or changing the held selection.
       await ready();
       assert.equal(
         await page
           .locator('#hand [data-card="pond"]')
-          .evaluate((el) => el.classList.contains("new")),
-        true,
+          .getAttribute("data-unrevealed"),
+        "false",
       );
       // The lit lamp stays in hand and offers Put out until it is lowered.
       assert.equal(
@@ -224,9 +230,12 @@ try {
       assert.equal(
         await page
           .locator('#hand [data-card="pond"]')
-          .evaluate((el) => el.classList.contains("new")),
-        false,
+          .getAttribute("aria-pressed"),
+        "true",
       );
+      assert.deepEqual(await levelVisibility(), ["visible", "visible"]);
+      assert.match(await pond.locator(".card-level").first().textContent(), /^[IVXLCDM]+$/);
+      assert(await pond.evaluate((el) => getComputedStyle(el).borderTopColor === getComputedStyle(el.querySelector(".card-level")).color));
       await page.keyboard.press("Escape");
       await selectCard(page, "pond");
       await page.locator("#card-actions .card-primary").click();
@@ -248,14 +257,15 @@ try {
           .evaluate((el) => Number(getComputedStyle(el).opacity)),
         0,
       );
-      assert.equal(await page.locator("#dialogue-text .revealed").count(), 0);
+      assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       await page.keyboard.press("Escape");
       await unveil("oil");
       assert.equal(
         await page.locator('#hand [data-card="oil"]').isVisible(),
         false,
       );
-      await page.locator("#unveil-take").click();
+      await selectCard(page, "keeper");
+      await page.locator('#hand [data-card="oil"]').click();
       await finish();
       if (motion === "reduce")
         assert.equal(await page.locator("#story-retry").isVisible(), true);
@@ -272,38 +282,13 @@ try {
         discoveries: window.discoveries,
         flights: window.flights,
       }));
-      // Only people, items and places are unveiled; quests reach Talk instead.
-      assert(events.discoveries.every((event) => !event.isQuest));
-      assert.equal(
-        events.discoveries.filter((event) => !event.isQuest)[0].id,
-        "pond",
-      );
-      assert(
-        events.discoveries.findIndex((e) => e.id === "keeper") <
-          events.discoveries.findIndex((e) => e.id === "oil"),
-      );
-      assert(
-        events.discoveries.every(
-          (e) =>
-            e.cooling === "true" &&
-            e.travel <= 0.01 &&
-            (e.isQuest || e.speech === 0),
-        ),
-        `Reveal state at ${width}px (${motion}): ${JSON.stringify(events.discoveries)}`,
-      );
-      if (motion === "reduce") assert.equal(events.flights.length, 0);
-      else {
-        assert(events.flights.some((f) => f.id === "pond"));
-        assert(events.flights.some((f) => f.id === "oil"));
-        assert(
-          events.flights
-            .filter((f) => f.direction !== "fulfill")
-            .every((f) => f.frames[1].transform !== "translate(0, 0) scale(1)"),
-        );
-      }
+      assert.deepEqual(events.discoveries, [], "discoveries open no modal");
+      assert.deepEqual(events.flights, [], "cards stay in their hand stacks");
       const saved = await state();
       await page.reload();
       await finish();
+      assert.equal(await page.locator('#hand [data-card="keeper"]').getAttribute("data-unrevealed"), "false");
+      assert.equal(await page.locator('#hand [data-card="oil"]').getAttribute("data-unrevealed"), "false");
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       assert.deepEqual(await page.evaluate(() => window.discoveries), []);
       assert.deepEqual(await state(), saved);
@@ -339,7 +324,7 @@ try {
       assert.deepEqual(errors, []);
       reports.push({ width, height, motion, ...events, passed: true });
       console.log(
-        `Discovery reveal, flight, glow, travel order, held items, reload and cancellation passed at ${width}px (${motion}).`,
+        `In-hand card backs, first-click reveal, second-click selection, reload and reset passed at ${width}px (${motion}).`,
       );
     } finally {
       await page.close();

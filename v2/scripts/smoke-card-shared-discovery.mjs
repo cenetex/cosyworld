@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, addLog } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
+import { revealCard } from "./card-browser-helpers.mjs";
 
 // UI lifecycle test. Mocked snapshots exercise the shipping shared client;
 // authority and journal replay are covered by the real shared-server smoke.
@@ -68,18 +69,18 @@ try {
         window.addEventListener("DOMContentLoaded", () => {
           new MutationObserver(() => {
             const dialog = document.querySelector("#unveil-dialog");
-            const id = document.querySelector("#unveil-take")?.dataset.card;
+            const id = ["oil", "bell", "cloth"].find((id) => document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "false" && !window.discoveryReveals.includes(id));
             if (
-              dialog?.open &&
-              dialog.dataset.phase === "reveal" &&
+              !dialog?.open &&
               id &&
               window.discoveryReveals.at(-1) !== id
             )
               window.discoveryReveals.push(id);
           }).observe(document.body, {
             subtree: true,
+            childList: true,
             attributes: true,
-            attributeFilter: ["open", "data-card", "data-phase"],
+            attributeFilter: ["open", "data-card", "data-unrevealed"],
           });
         });
       },
@@ -117,13 +118,12 @@ try {
       page.waitForFunction((id) => {
         const dialog = document.querySelector("#unveil-dialog");
         return (
-          dialog.open &&
-          dialog.dataset.phase === "reveal" &&
-          document.querySelector("#unveil-take").dataset.card === id
+          !dialog.open &&
+          document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "true"
         );
       }, id);
-    const dismiss = async () => {
-      await page.locator("#unveil-take").click();
+    const dismiss = async (id) => {
+      await revealCard(page, id);
     };
 
     await publish((state) => {
@@ -140,20 +140,20 @@ try {
     await publish((state) => {
       state.items.cloth.holder = "station";
     });
-    await publish(() => {}); // A poll with no new card must retain the active promise.
+    await publish(() => {}); // Covered cards must not hold up scene playback.
     await page.evaluate(() => window.discoveryProbe.wait("queued"));
-    await page.waitForTimeout(80);
+    await page.waitForFunction(() => window.discoverySettled.queued);
     assert.equal(
       await page.evaluate(() => window.discoverySettled.queued),
-      false,
-      "the latest scene promise includes the active reveal",
+      true,
+      "covered cards leave the latest scene promise free to settle",
     );
     await page.evaluate(() =>
       document.querySelector("#history-dialog").close(),
     );
     for (const id of ["oil", "bell", "cloth"]) {
       await reveal(id);
-      await dismiss();
+      await dismiss(id);
     }
     await page.waitForFunction(() => window.discoverySettled.queued);
     assert.deepEqual(await page.evaluate(() => window.discoveryReveals), [
@@ -167,7 +167,7 @@ try {
       false,
     );
 
-    // A new trip cancels an active reveal and every queued scan behind it.
+    // A new trip leaves covered cards at their actual place without a modal.
     await page.evaluate(() => {
       const key =
         "cosyworld.reflected-shore.v1.shared.discovery-fixture.vale.seen";
@@ -218,7 +218,7 @@ try {
     });
     await reveal("cloth");
     await page.evaluate(() => window.discoveryProbe.wait("newTrip"));
-    await dismiss();
+    await dismiss("cloth");
     await page.waitForFunction(() => window.discoverySettled.newTrip);
     assert.equal(
       await page.evaluate(() => window.discoveryProbe.state().pending),
@@ -275,7 +275,7 @@ try {
     );
     assert.deepEqual(errors, []);
     console.log(
-      `Shared discovery: three same-room updates, awaited queue, cancellation and new trip passed at ${width}px.`,
+      `Shared card backs: same-room updates, unblocked playback and new trips passed at ${width}px.`,
     );
     await page.close();
   }

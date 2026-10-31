@@ -1,5 +1,17 @@
 # Scene art
 
+## Wooden-box card back (2026-10-31)
+
+`card-back.webp` is the approved closed wooden-box lid, made with the built-in
+image tool. Oak branches, roots, moths and bells surround a dark central inset.
+The 1024 × 1536 opaque WebP preserves the generated composition without cropping
+and stays below 300 KB. The image pipeline supplies its 512 × 768 phone copy.
+
+[The art prompts](card-back-art-prompts.json) preserve the full generation prompt
+and its sources. [The provenance manifest](card-back-provenance.json) records
+the generation ID, original PNG hash, runtime hashes and encoding settings.
+The original generated PNG is represented by its hash.
+
 ## Personal buttons (2026-10-30)
 
 The eight `lonely-forest/button-<traveler>.png` sprites supply the artwork for

@@ -1,0 +1,55 @@
+{
+  "asset": "assets/card-back.webp",
+  "created": "2026-10-31",
+  "generation": {
+    "tool": "built-in image_gen",
+    "id": "exec-2c9fd4bb-4177-436b-97a3-37a049ec0136",
+    "transparent_background": false,
+    "prompt_summary": "One full-bleed portrait 2:3 Cosyworld card back, the closed lid of an intricately carved heirloom wooden box seen straight down. A rounded fitted wooden frame and small old-brass fastenings surround intertwined oak boughs, roots, leaves, acorns and willow leaves. Opposed moth forms and small bell forms are carved into the same wood. Concentric tree rings enclose a small dark glass inset suggesting a hidden, star-filled depth. Worn amber highlights, indigo-charcoal recesses, tactile hand-painted ink and gouache, fine chisel cuts and accumulated wear. No lettering, external scenery, perspective tilt, open lid or characters.",
+    "prompt_file": "card-back-art-prompts.json"
+  },
+  "source": {
+    "generated_file": "exec-2c9fd4bb-4177-436b-97a3-37a049ec0136.png",
+    "sha256": "7dfc94f74a100ea613ee41fb5bafcb7d679a940d661ed9c64d6f61df81c3d039",
+    "bytes": 3840487,
+    "width": 1024,
+    "height": 1536,
+    "has_alpha": false
+  },
+  "runtime": {
+    "file": "assets/card-back.webp",
+    "sha256": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
+    "bytes": 295282,
+    "width": 1024,
+    "height": 1536,
+    "has_alpha": false,
+    "encoding": {
+      "format": "webp",
+      "quality": 57,
+      "alphaQuality": 100,
+      "effort": 6,
+      "smartSubsample": true
+    }
+  },
+  "card": {
+    "file": "assets/optimized/card/webp/card-back.webp",
+    "sha256": "65552d4b584ba4c017fc13011f26add7f0fe2d8afa92f26f79a19d11be663ebc",
+    "bytes": 177212,
+    "width": 512,
+    "height": 768,
+    "has_alpha": false,
+    "encoding": {
+      "format": "webp",
+      "quality": 88,
+      "alphaQuality": 100,
+      "effort": 6,
+      "cardWidth": 512
+    }
+  },
+  "derivation": "The full-resolution WebP preserves the approved composition without cropping or other creative changes. The card WebP is resized from that runtime source using the image pipeline settings. The original generated PNG is represented by its hash.",
+  "references": [
+    "https://github.com/cenetex/ratimics.com/blob/main/world/index.html",
+    "https://github.com/elizaOS/knowledge/blob/main/archive/elizaos/the_arena/the-arena/chat_2024-11-21.md",
+    "https://github.com/cenetex/cosyworld/blob/main/docs/art-direction/style-guide.md"
+  ]
+}

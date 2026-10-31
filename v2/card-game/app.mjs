@@ -1,4 +1,5 @@
 import { imageUrl } from "./images.mjs";
+import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { landingPack, createLandingWorld } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
@@ -208,15 +209,22 @@ let encountered = new Set(),
   discoveryDone = Promise.resolve(),
   discoveryPending = false;
 const fresh = new Set();
+const coveredCards = new Set();
+const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
 function rememberCards() {
   try {
     localStorage.setItem(SEEN_KEY, JSON.stringify([...encountered]));
+    localStorage.setItem(`${SEEN_KEY}.covered`, JSON.stringify([...coveredCards]));
   } catch {}
 }
 function loadSeen(reset = false) {
   let saved = [];
+  coveredCards.clear();
   try {
     saved = reset ? [] : JSON.parse(localStorage.getItem(SEEN_KEY) || "[]");
+    const covered = reset ? [] : JSON.parse(localStorage.getItem(`${SEEN_KEY}.covered`) || "[]");
+    for (const id of Array.isArray(covered) ? covered : [])
+      if (people[id] || things[id] || places[id]) coveredCards.add(id);
   } catch {}
   encountered = new Set([
     ...(Array.isArray(saved)
@@ -413,7 +421,8 @@ function updateCardCooldown() {
     "#hand button, #card-actions button",
   )) {
     button.disabled = selectionBlocked();
-    if (button.dataset.card) button.draggable = !button.disabled;
+    if (button.dataset.card)
+      button.draggable = !button.disabled && !cardIsCovered(button.dataset.card);
   }
   if (playQueue.pending)
     queueMicrotask(() => playQueue.flush() || showQueuedPlay());
@@ -908,6 +917,14 @@ function selectCards(cards) {
 }
 function choose(id) {
   if (selectionBlocked()) return;
+  if (cardIsCovered(id)) {
+    encountered.add(id);
+    coveredCards.delete(id);
+    fresh.delete(id);
+    rememberCards();
+    render();
+    return;
+  }
   playQueue.clear();
   lastPlayAt = -Infinity;
   fresh.delete(id);
@@ -1024,7 +1041,7 @@ function performAction(action, revision) {
       render();
       done();
     }
-    discoveryDone = unveilNew();
+    queueDiscoveries();
   };
   if (beats.length) presentCombat(beats, land);
   else land();
@@ -1348,7 +1365,18 @@ function queueDiscoveries() {
   const version = trip;
   discoveryDone = discoveryDone
     .catch(() => {})
-    .then(() => (version === trip ? unveilNew() : undefined));
+    .then(() => {
+      if (version !== trip || saveBlocked) return;
+      const found = availableCards(world).filter((id) => !encountered.has(id));
+      if (!found.length) return;
+      for (const id of found) {
+        encountered.add(id);
+        coveredCards.add(id);
+        fresh.add(id);
+      }
+      rememberCards();
+      render();
+    });
 }
 
 async function unveilNew() {
@@ -1578,6 +1606,7 @@ function updateCardSelection(frame) {
         : [];
   frame.dataset.raised = String(raised);
   button.setAttribute("aria-pressed", String(raised));
+  button.dataset.selected = String(selected.includes(id));
   button.classList.toggle("new", fresh.has(id));
   if (frame.dataset.holder)
     frame.hidden = places[frame.dataset.holder]
@@ -1613,12 +1642,17 @@ function card(id) {
     selected.includes(id) || Boolean(places[id] && expandedHolders.has(id));
   const chosen = raised ? cardPlay(world, selected) : null;
   const el = node("button", undefined, `card ${type}`);
+  const level = cardLevel(world, id), tier = levelTier(level);
+  el.dataset.level = String(level);
+  el.dataset.tier = tier.id;
+  el.dataset.selected = String(selected.includes(id));
+  el.style.setProperty("--tier-color", tier.color);
   el.type = "button";
   el.classList.toggle("new", fresh.has(id));
   el.dataset.card = id;
   el.disabled = selectionBlocked();
   el.setAttribute("aria-pressed", String(raised));
-  el.setAttribute("aria-label", `${def.name}, ${type}`);
+  el.setAttribute("aria-label", `${def.name}, ${type}, ${tier.label}, level ${level}`);
   el.setAttribute("aria-describedby", `card-detail-${id}`);
   const graphic = node("span", undefined, "art");
   const img = node("img");
@@ -1675,10 +1709,15 @@ function card(id) {
   observation.id = `card-detail-${id}`;
   if (raised && label) observation.textContent += ` ${label}.`;
   el.append(graphic, node("span", def.name, "name"), observation);
+  for (const end of ["top", "bottom"]) {
+    const numeral = node("span", romanLevel(level), `card-level card-level-${end}`);
+    numeral.setAttribute("aria-hidden", "true");
+    el.append(numeral);
+  }
   el.addEventListener("click", () => choose(id));
-  el.draggable = !el.disabled;
+  el.draggable = !el.disabled && !cardIsCovered(id);
   el.addEventListener("dragstart", (e) => {
-    if (selectionBlocked()) {
+    if (selectionBlocked() || cardIsCovered(id)) {
       e.preventDefault();
       return;
     }
@@ -1705,7 +1744,7 @@ function card(id) {
   el.addEventListener("drop", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!selectionBlocked() && dragging.length && !dragging.includes(id)) {
+    if (!selectionBlocked() && !cardIsCovered(id) && dragging.length && !dragging.includes(id)) {
       playQueue.clear();
       selectCards([dragging[0], id]);
       selectionRevision = world.revision;
@@ -1725,7 +1764,7 @@ function card(id) {
       : !raised && !expandedHolders.has(holder);
     el.setAttribute(
       "aria-label",
-      `${def.name}, ${places[holder] ? "at" : "carried by"} ${nameOf(holder)}`,
+      `${def.name}, ${places[holder] ? "at" : "carried by"} ${nameOf(holder)}, ${tier.label}, level ${level}`,
     );
   }
   if (people[id] || places[id]) {
@@ -1742,7 +1781,7 @@ function card(id) {
         const preview = node("img", undefined, "held-preview");
         preview.decoding = "async";
         preview.src = imageUrl(
-          packMedia(item, "art") || `./assets/${item}-card.png`,
+          cardIsCovered(item) ? "./assets/card-back.webp" : packMedia(item, "art") || `./assets/${item}-card.png`,
           "card",
         );
         preview.alt = "";
@@ -1750,6 +1789,16 @@ function card(id) {
         frame.prepend(preview);
       }
     }
+  }
+  el.dataset.unrevealed = String(cardIsCovered(id));
+  const back = node("img", undefined, "card-back");
+  back.src = imageUrl("./assets/card-back.webp", "card");
+  back.alt = "";
+  back.draggable = false;
+  el.append(back);
+  if (cardIsCovered(id)) {
+    el.setAttribute("aria-label", `Uncover new ${type} card, ${tier.label}`);
+    el.removeAttribute("aria-describedby");
   }
   return frame;
 }
@@ -2740,6 +2789,7 @@ function render() {
   // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
     handCards,
+    [...coveredCards],
     legalActions(world).map((action) => action.key),
   ]);
   const handKey = JSON.stringify([
