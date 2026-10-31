@@ -25,6 +25,9 @@ const files = [
   "scarves.mjs",
   "boardyai.mjs",
   "boardyai.json",
+  "assets/card-back.webp",
+  "rarity.mjs",
+  "card-tiers.css",
   "assets/greek-drama/harbor-day.webp",
   // Keep alternate scenery referenced by released shared rules available.
   "assets/greek-drama/book-three-lemnos-day.webp",

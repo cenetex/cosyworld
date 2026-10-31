@@ -1,0 +1,63 @@
+/* Signal's palette follows level tiers; the exact level appears on selection. */
+body .card-frame .card[data-tier] {
+  border-color: var(--tier-color);
+}
+body .card[data-tier].new {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--tier-color) 65%, transparent),
+    0 0 14px color-mix(in srgb, var(--tier-color) 35%, transparent);
+}
+.card-level {
+  position: absolute;
+  left: 50%;
+  z-index: 3;
+  color: var(--tier-color);
+  font:
+    12px/1 Georgia,
+    serif;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  text-shadow:
+    0 0 5px var(--tier-color),
+    0 0 12px var(--tier-color);
+  transition: opacity 160ms;
+}
+.card-level-top {
+  top: 7px;
+  transform: translateX(-50%);
+}
+.card-level-bottom {
+  bottom: 7px;
+  transform: translateX(-50%) rotate(180deg);
+}
+.card[data-selected="true"] .card-level {
+  visibility: visible;
+  opacity: 0.6;
+}
+body .card[data-selected="true"] .name {
+  padding-bottom: 28px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-level {
+    transition: none;
+  }
+}
+.card-back {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: fill;
+  pointer-events: none;
+  display: none;
+}
+body .card[data-unrevealed="true"] > :not(.card-back) {
+  visibility: hidden;
+}
+body .card[data-unrevealed="true"] .card-back {
+  display: block;
+}

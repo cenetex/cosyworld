@@ -63,6 +63,13 @@
       "card": "assets/optimized/card/png/boardyai/parlour.webp",
       "cardHash": "f55c7200578115e2428db703a0b467fc3e599c41dc00990797a22dfd63b1679c"
     },
+    "assets/card-back.webp": {
+      "sourceHash": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
+      "stage": "assets/card-back.webp",
+      "stageHash": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
+      "card": "assets/optimized/card/webp/card-back.webp",
+      "cardHash": "65552d4b584ba4c017fc13011f26add7f0fe2d8afa92f26f79a19d11be663ebc"
+    },
     "assets/cloth-card.png": {
       "sourceHash": "9c4a2c383eeac4abeeed6d91f13ede9d0a82576e12a421fa8a4bb5d382e1adaf",
       "stage": "assets/optimized/stage/png/cloth-card.webp",

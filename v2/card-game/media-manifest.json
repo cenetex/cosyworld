@@ -1,4 +1,5 @@
 {
+  "assets/card-back.webp": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
   "assets/greek-drama/harbor-day.webp": "b535244774382afc8a6440e292f1c51698375717d4473f3c70b5c16fff3e4425",
   "assets/greek-drama/book-three-lemnos-day.webp": "e258ce08d483b2dd5d8f163e93b2891d0255baea3939d2854df4e5087a2af961",
   "assets/greek-drama/book-three-thrace-day.webp": "d8413d1c3b7d59ea353612c71a0cf1b66f11118d6c9ff4edf5aa035b2068a2e7",
@@ -323,6 +324,7 @@
   "assets/optimized/card/png/boardyai/calling-card.webp": "3b3e13b4f2dbe97a3b435f328cd956ec0cc111b613087f7b934fcf15f7b97fce",
   "assets/optimized/stage/png/boardyai/parlour.webp": "37121c817bfcc5df66db8bb39791ce1e5f84d7e3dada075e15a7efa483352d91",
   "assets/optimized/card/png/boardyai/parlour.webp": "f55c7200578115e2428db703a0b467fc3e599c41dc00990797a22dfd63b1679c",
+  "assets/optimized/card/webp/card-back.webp": "65552d4b584ba4c017fc13011f26add7f0fe2d8afa92f26f79a19d11be663ebc",
   "assets/optimized/stage/png/cloth-card.webp": "358e4584c7aa6cafa68f6d776ff8343b41168db9ff2477c2752114061b8a862c",
   "assets/optimized/card/png/cloth-card.webp": "04c5b7bc38b5f7b9c98eb452b61fe22c0c29944efecc0535f0fc2c83c8f96b59",
   "assets/optimized/card/webp/greek-drama/ajax-camp-day.webp": "622d2a539c65aa7888eb992970a3c010254e3072d1e45ef9d8ccc4ae72b0e13b",
