@@ -209,17 +209,16 @@ prompt is a one-line cue plus the place's visible facts, including the weather
 word. Repeated reads and retries keep
 the same choice. The server records the lines
 and their reading times so people in the room see the same exchange. The
-conversation panel shows the current room's history.
+Memory panel shows the beats this player witnessed, newest visit first.
 
 Shared lines reveal letter by letter with the same voice sounds as solo play.
-The line arrows review the conversation. Reaching its latest line resumes live
-playback. Readers who advance early keep their place while the shared clock
-catches up. The voice setting and reduced-motion setting apply to shared play.
-A thinking animation marks speech preparation. The hand, avatars, and held props
-use the same presented world while speech is pending. A circular portrait follows
-the two line arrows. It shows the next queued player
-or upcoming speaker, and keeps the latest speaker's portrait while the room is
-quiet. Tapping it returns straight to the live dialogue.
+Each line arrives in front of the [beat stack](dialogue-beats.md) on the room's
+reading clock. Tapping the card behind steps back; ● live, which shows only
+while behind, counts the newer beats and returns. The voice setting and
+reduced-motion setting apply to shared play. A thinking animation marks speech
+preparation. The hand, avatars, and held props use the same presented world
+while speech is pending. A column of circular portraits beside the stack shows
+the queued players, whoever plays next first.
 Figures shrink in order of their most recent completed play in the room. Their
 areas follow the Fibonacci steps 13, 8, 5, 3, 2, 1, so their heights change gently.
 The two most recent players stand in front. On phones, they move lower into a
