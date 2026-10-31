@@ -22,6 +22,8 @@ function prepare({
   buildFails = false,
   imageBuilder = "fly",
   manifestDelays = 0,
+  targetCache = false,
+  runFailures = 0,
 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "cosyworld-image-test-"));
   const log = join(dir, "calls.jsonl");
@@ -40,6 +42,13 @@ if (command === 'flyctl' && args[0] === 'auth') {
 } else if (command === 'flyctl' && args[0] === 'deploy') {
   if (env.TEST_BUILD_FAIL === 'true') process.exit(1);
   writeFileSync(env.TEST_STATE, 'built');
+} else if (command === 'docker' && args[0] === 'run') {
+  const counter = env.TEST_STATE + '.runs';
+  const runs = existsSync(counter) ? Number(readFileSync(counter, 'utf8')) : 0;
+  writeFileSync(counter, String(runs + 1));
+  if (runs < Number(env.TEST_RUN_FAILURES)) process.exit(1);
+  const out = args.find((arg) => arg.endsWith(',dst=/out')).split(',')[1].slice(4);
+  writeFileSync(join(out, 'cosyworld-orchestrator'), 'binary');
 } else if (command === 'docker' && args[0] === 'buildx' && args[1] === 'build') {
   if (env.TEST_BUILD_FAIL === 'true') process.exit(1);
   writeFileSync(env.TEST_STATE, 'built');
@@ -91,6 +100,10 @@ if (command === 'flyctl' && args[0] === 'auth') {
           TEST_COPY_FAIL: String(copyFails),
           TEST_BUILD_FAIL: String(buildFails),
           TEST_MANIFEST_DELAYS: String(manifestDelays),
+          TEST_RUN_FAILURES: String(runFailures),
+          COSYWORLD_RELEASE_TARGET_CACHE: targetCache
+            ? join(dir, "release-target")
+            : "",
         },
       },
     );
@@ -152,6 +165,77 @@ describe("Fly commit image preparation", () => {
     );
     expect(operations(result, "flyctl", "deploy")).toHaveLength(0);
     expect(result.output).toBe(`image=${source}\n`);
+  });
+  it("builds without a prebuilt binary when no target cache is given", () => {
+    const result = prepare({ imageBuilder: "runner" });
+    expect(operations(result, "docker", "run")).toHaveLength(0);
+    const args = operations(result, "docker", "buildx")[1].args;
+    expect(args.join(" ")).not.toContain("ORCHESTRATOR_BINARY");
+    expect(args.join(" ")).not.toContain("--build-context");
+  });
+  it("compiles in the Dockerfile toolchain with the saved target, then packages it", () => {
+    const result = prepare({ imageBuilder: "runner", targetCache: true });
+    expect(result.status).toBe(0);
+    const runs = operations(result, "docker", "run");
+    expect(runs).toHaveLength(1);
+    const run = runs[0].args;
+    const toolchain = readFileSync("Dockerfile", "utf8").match(
+      /^FROM (\S+) AS chef$/m,
+    )[1];
+    expect(run).toContain(toolchain);
+    expect(run).toContain("linux/amd64");
+    expect(run).toContain("CARGO_BUILD_JOBS=4");
+    for (const path of [
+      "v2/core-c",
+      "v2/content",
+      "v2/content-engine-version.txt",
+      "v2/card-game",
+      "v2/media",
+      "v2/ai-model-rust",
+    ])
+      expect(run).toContain(
+        `type=bind,src=${resolve(path)},dst=/app/${path},readonly`,
+      );
+    expect(run).toContain(
+      `type=bind,src=${resolve("v2/orchestrator-rust")},dst=/src,readonly`,
+    );
+    expect(run).toContain(
+      `type=bind,src=${resolve("scripts/release-rustc-wrapper.sh")},dst=/usr/local/bin/release-rustc-wrapper,readonly`,
+    );
+    expect(run.slice(-2)).toEqual([
+      "sh",
+      "/usr/local/bin/compile-release-binary",
+    ]);
+    const calls = operations(result, "docker", "buildx");
+    expect(calls.map(({ args }) => args[1])).toEqual(["create", "build", "rm"]);
+    const args = calls[1].args;
+    expect(args).toContain("ORCHESTRATOR_BINARY=orchestrator-prebuilt");
+    expect(args.some((arg) => arg.startsWith("orchestrator-prebuilt=/"))).toBe(
+      true,
+    );
+    expect(args).toContain(
+      "type=registry,ref=registry.fly.io/cosyworld:build-cache-v1",
+    );
+    expect(result.output).toBe(`image=${source}\n`);
+  });
+  it("retries a failed warm build once from an empty target", () => {
+    const retried = prepare({
+      imageBuilder: "runner",
+      targetCache: true,
+      runFailures: 1,
+    });
+    expect(retried.status).toBe(0);
+    expect(operations(retried, "docker", "run")).toHaveLength(2);
+    const failed = prepare({
+      imageBuilder: "runner",
+      targetCache: true,
+      runFailures: 2,
+    });
+    expect(failed.status).not.toBe(0);
+    expect(failed.output).toBe("");
+    expect(
+      operations(failed, "docker", "buildx").map(({ args }) => args[1]),
+    ).toEqual(["rm"]);
   });
   it("reuses a runner image before starting a builder", () => {
     const result = prepare({ imageBuilder: "runner", existing: digest });
@@ -221,5 +305,39 @@ describe("Fly commit image preparation", () => {
     const result = prepare(options);
     expect(result.status).not.toBe(0);
     expect(result.output).toBe("");
+  });
+});
+
+describe("release rustc wrapper", () => {
+  const wrap = (crate, version) =>
+    spawnSync(
+      "sh",
+      [
+        resolve("scripts/release-rustc-wrapper.sh"),
+        "sh",
+        "-c",
+        'printf "%s|%s|%s|%s|%s" "$CARGO_PKG_VERSION" "$CARGO_PKG_VERSION_MAJOR" "$CARGO_PKG_VERSION_MINOR" "$CARGO_PKG_VERSION_PATCH" "$CARGO_PKG_VERSION_PRE"',
+        "--crate-name",
+        crate,
+      ],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          CARGO_PKG_VERSION: "0.0.0",
+          CARGO_PKG_VERSION_MAJOR: "0",
+          CARGO_PKG_VERSION_MINOR: "0",
+          CARGO_PKG_VERSION_PATCH: "0",
+          CARGO_PKG_VERSION_PRE: "",
+          COSYWORLD_RELEASE_VERSION: version,
+        },
+      },
+    ).stdout;
+  it("gives the orchestrator crates their real release version", () => {
+    expect(wrap("cosyworld_orchestrator", "1.2.65")).toBe("1.2.65|1|2|65|");
+    expect(wrap("card_policy_lab", "2.0.1-rc.1")).toBe("2.0.1-rc.1|2|0|1|rc.1");
+  });
+  it("leaves dependency crates alone", () => {
+    expect(wrap("serde", "1.2.65")).toBe("0.0.0|0|0|0|");
   });
 });

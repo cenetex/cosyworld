@@ -209,8 +209,12 @@ describe("deploy workflow", () => {
     const primaryFly = job("primary-fly", "lonelyforest-image");
 
     // Main pushes skip the Node and Rust gates; tags and dispatches run them.
-    expect(nodeGate).toContain(`needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`);
-    expect(rustGate).toContain(`needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`);
+    expect(nodeGate).toContain(
+      `needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`,
+    );
+    expect(rustGate).toContain(
+      `needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`,
+    );
     expect(gate).toContain(`FULL_RELEASE: \${{ ${fullRelease} }}`);
     expect(gate.indexOf('if [ "$FULL_RELEASE" != true ]')).toBeLessThan(
       gate.indexOf('test "$NODE_RESULT" = success'),
@@ -242,7 +246,9 @@ describe("deploy workflow", () => {
       expect(forestJob).not.toContain("refs/heads/main");
     }
     expect(forestFly).toContain("needs.production-gate.result == 'success'");
-    expect(forestFly).toContain("needs.lonelyforest-backup.result == 'success'");
+    expect(forestFly).toContain(
+      "needs.lonelyforest-backup.result == 'success'",
+    );
     expect(forestFly).toContain("needs.lonelyforest-image.result == 'success'");
   });
 
@@ -363,12 +369,64 @@ describe("deploy workflow", () => {
       "cp target/release/cosyworld-orchestrator /app/bin/cosyworld-orchestrator",
     );
     expect(dockerfile).toContain(
-      "COPY --from=build /app/bin/cosyworld-orchestrator /app/cosyworld-orchestrator",
+      "COPY --from=orchestrator-binary /app/bin/cosyworld-orchestrator /app/cosyworld-orchestrator",
     );
     expect(dockerfile).toContain("ARG CARGO_BUILD_JOBS=1");
     expect(dockerfile).toContain(
       "CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}",
     );
+  });
+
+  it("builds the binary in the Dockerfile unless a main push supplies one", () => {
+    // The default stays the in-image build used by tags, dispatches, the
+    // Fly builder, and the release-image check.
+    const [preamble] = dockerfile.split(/^FROM /m);
+    expect(preamble).toContain("ARG ORCHESTRATOR_BINARY=build");
+    expect(dockerfile).toContain(
+      "FROM ${ORCHESTRATOR_BINARY} AS orchestrator-binary",
+    );
+    expect(dockerfile.indexOf("AS build")).toBeLessThan(
+      dockerfile.indexOf("AS orchestrator-binary"),
+    );
+    expect(dockerfile).toContain("COPY v2/content /app/v2/content");
+    expect(dockerfile).not.toContain("COPY --from=build");
+  });
+
+  it("keeps the release target between main-push deploys only", () => {
+    const primary = job("primary-image", "primary-backup");
+    const mainPush =
+      "github.event_name == 'push' && github.ref == 'refs/heads/main'";
+    expect(primary).toContain("actions/cache/restore@v6");
+    expect(primary).toContain("actions/cache/save@v6");
+    expect(primary).toContain("path: ${{ runner.temp }}/release-target");
+    expect(primary).toContain(
+      "key: release-target-v1-${{ hashFiles('Dockerfile') }}-${{ steps.release-cache-key.outputs.day }}",
+    );
+    expect(primary).toContain(
+      `COSYWORLD_RELEASE_TARGET_CACHE: \${{ (${mainPush}) && format('{0}/release-target', runner.temp) || '' }}`,
+    );
+    expect(
+      primary.match(
+        new RegExp(
+          `if: ${mainPush.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+          "gm",
+        ),
+      ),
+    ).toHaveLength(2);
+    expect(primary).toContain(
+      "steps.release-cache.outputs.cache-hit != 'true'",
+    );
+    expect(primary).toContain(
+      "key: ${{ steps.release-cache.outputs.cache-primary-key }}",
+    );
+    for (const name of ["lonelyforest-image", "lonelyforest-fly"]) {
+      const next =
+        name === "lonelyforest-image"
+          ? "lonelyforest-backup"
+          : "deploy-outcome";
+      expect(job(name, next)).not.toContain("release-target");
+      expect(job(name, next)).not.toContain("actions/cache");
+    }
   });
 
   it("runs Lonely Forest as one process behind the same bundle guard as primary", () => {

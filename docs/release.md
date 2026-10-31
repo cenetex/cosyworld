@@ -10,6 +10,19 @@ checks the commit, and bugs on `.dev` are fixed forward. Tags matching `v*` reru
 the primary app and `cosyworld-lonelyforest` from the tagged commit, and create
 a GitHub release only after both deployments succeed.
 
+A main push compiles the release binary on the runner, in the Dockerfile's own
+`cargo-chef` toolchain image, with a release target restored from the GitHub
+Actions cache. The image takes that binary through the `orchestrator-prebuilt`
+build context, so a UI or art change recompiles the crate incrementally rather
+than from scratch. Cargo folds the crate version into the crate's identity and
+every commit bumps it, so this build fixes the manifest version at `0.0.0` and
+passes the real version to the compiler through
+`scripts/release-rustc-wrapper.sh`; `/meta` still reports the real version.
+The first deploy of each UTC day saves the target again. A failed warm build
+retries once from an empty target. Tags and dispatches skip this cache and
+compile inside the Dockerfile as before, unless an image for that commit
+already exists.
+
 The workflow requires these app-scoped GitHub secrets:
 
 - `FLY_API_TOKEN` for the primary app

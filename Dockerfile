@@ -1,4 +1,9 @@
 # syntax=docker/dockerfile:1
+# Main-push deploys compile the binary on the runner with a saved target and
+# pass it as the orchestrator-prebuilt build context. Every other build
+# compiles it in the build stage below.
+ARG ORCHESTRATOR_BINARY=build
+
 FROM lukemathwalker/cargo-chef:0.1.77-rust-1-bookworm AS chef
 
 WORKDIR /app/v2/orchestrator-rust
@@ -44,6 +49,8 @@ RUN --mount=type=cache,id=cosyworld-release-target-v1,target=/app/v2/orchestrato
   && mkdir -p /app/bin \
   && cp target/release/cosyworld-orchestrator /app/bin/cosyworld-orchestrator
 
+FROM ${ORCHESTRATOR_BINARY} AS orchestrator-binary
+
 FROM debian:bookworm-slim AS runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -64,8 +71,8 @@ RUN apt-get update \
   && chown cosyworld:cosyworld /data \
   && chmod 0770 /data
 
-COPY --from=build /app/bin/cosyworld-orchestrator /app/cosyworld-orchestrator
-COPY --from=build /app/v2/content /app/v2/content
+COPY --from=orchestrator-binary /app/bin/cosyworld-orchestrator /app/cosyworld-orchestrator
+COPY v2/content /app/v2/content
 COPY models/card-policy /app/models/card-policy
 COPY deploy/entrypoint.sh /app/entrypoint.sh
 
