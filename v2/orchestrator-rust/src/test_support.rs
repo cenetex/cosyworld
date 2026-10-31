@@ -110,7 +110,6 @@ pub(super) fn test_app_state(runtime: RuntimeWorld, event_store_path: Option<Pat
         avatar_art_config: Arc::new(None),
         generated_asset_dir: Arc::new(std::env::temp_dir().join("cosyworld-test-generated")),
         ownership_feed: Arc::new(OwnershipFeedConfig::default()),
-        ownership_feed_health: Arc::new(StdMutex::new(OwnershipFeedHealth::default())),
         rendezvous_party_config: Arc::new(RendezvousPartyConfig::default()),
         wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
         qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),

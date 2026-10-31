@@ -82,7 +82,7 @@ except Exception as error:
 
 features = meta.get("features", {})
 world = meta.get("world", {})
-ownership = meta.get("ownership_feed", {})
+ownership = meta.get("linked_avatar_adapter", {})
 deployment = meta.get("deployment", {})
 print(
     "meta: "

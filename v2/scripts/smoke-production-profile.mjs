@@ -12,7 +12,6 @@ import nacl from "tweetnacl";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const orchestratorDir = resolve(__dirname, "../orchestrator-rust");
 const binaryPath = resolve(orchestratorDir, "target/debug/cosyworld-orchestrator");
-const feedToken = "cosyworld-production-profile-smoke-token";
 const productionAiRegistry = JSON.stringify({
   schema_version: 1,
   snapshot_version: "production-profile-smoke-v1",
@@ -69,43 +68,16 @@ async function closeServer(server) {
   await new Promise((resolveClose) => server.close(() => resolveClose()));
 }
 
-async function productionFeedServer(walletAddress) {
-  const stats = { requests: 0, authorized: 0 };
-  const body = JSON.stringify({
-    wallets: [
-      {
-        walletAddress,
-        collectionAssets: [{
-          assetId: "8GwrpeSH4TpAGEJsmoF35J8DY6RNCdyjCBZsEnTySEKd",
-          collectionAddress: "2diR5VnnHR5L7xwwsyKYTe4qhCAQSLaajgfkxJBfsfJh",
-          collectionVerified: true,
-        }],
-      },
-    ],
-  });
-  const server = createServer((request, response) => {
-    if (request.url !== "/ownership") {
-      response.writeHead(404).end();
-      return;
-    }
+// The retired remote ownership feed. Production must ignore it: linked
+// avatars are discovered on chain, never from another domain.
+async function retiredFeedTripwire() {
+  const stats = { requests: 0 };
+  const server = createServer((_request, response) => {
     stats.requests += 1;
-    if (request.headers.authorization !== `Bearer ${feedToken}`) {
-      response.writeHead(403).end();
-      return;
-    }
-    stats.authorized += 1;
-    response.writeHead(200, {
-      "content-type": "application/json",
-      "content-length": Buffer.byteLength(body),
-    });
-    response.end(body);
+    response.writeHead(410).end();
   });
   const port = await listen(server);
-  return {
-    server,
-    stats,
-    url: `http://127.0.0.1:${port}/ownership`,
-  };
+  return { server, stats, url: `http://127.0.0.1:${port}/ownership` };
 }
 
 async function fetchJson(url, init) {
@@ -215,7 +187,7 @@ async function main() {
   const tempDir = await mkdtemp(resolve(tmpdir(), "cosyworld-production-profile-"));
   const wallet = nacl.sign.keyPair();
   const walletAddress = bs58.encode(wallet.publicKey);
-  const feed = await productionFeedServer(walletAddress);
+  const retiredFeed = await retiredFeedTripwire();
   const port = await freePort();
   const baseUrl = `http://127.0.0.1:${port}`;
   const outputLines = [];
@@ -226,8 +198,8 @@ async function main() {
     "COSYWORLD_ENTITLEMENT_FEED_PATH",
     "COSYWORLD_AVATAR_OWNERSHIP_FEED",
     "COSYWORLD_AVATAR_OWNERSHIP_FEED_PATH",
-    "COSYWORLD_RUBY_HIGH_WALLET_CARDS",
-    "COSYWORLD_RUBY_HIGH_WALLET_CARDS_PATH",
+    "COSYWORLD_HELIUS_RPC_URL",
+    "HELIUS_API_KEY",
     "COSYWORLD_DEV_TRUST_CLIENT_CARD_IDS",
     "COSYWORLD_ENABLE_DEV_RESET",
     "COSYWORLD_DEV_ALLOW_UNSIGNED_WALLET",
@@ -239,9 +211,8 @@ async function main() {
     COSYWORLD_DEPLOY_PROFILE: "production",
     COSYWORLD_V2_ADDR: `127.0.0.1:${port}`,
     COSYWORLD_DISABLE_CTRL_C_SHUTDOWN: "1",
-    COSYWORLD_AVATAR_OWNERSHIP_FEED_URL: feed.url,
-    COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER: feedToken,
-    COSYWORLD_AVATAR_OWNERSHIP_FEED_REFRESH_SECS: "0",
+    COSYWORLD_AVATAR_OWNERSHIP_FEED_URL: retiredFeed.url,
+    COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER: "retired-feed-bearer",
     COSYWORLD_MODERATION_TOKEN: "production-profile-smoke-moderator",
     COSYWORLD_WEBAUTHN_RP_ID: "localhost",
     COSYWORLD_WEBAUTHN_ORIGIN: `http://localhost:${port}`,
@@ -269,19 +240,18 @@ async function main() {
     assert(meta.deployment?.world_epoch === 1, `expected canonical world epoch: ${JSON.stringify(meta.deployment)}`);
     assert(meta.deployment?.process_id === "public-1", `expected production process id: ${JSON.stringify(meta.deployment)}`);
     assert(meta.deployment?.shard_id === meta.deployment?.process_id, `expected matching shard compatibility alias: ${JSON.stringify(meta.deployment)}`);
-    assert(meta.linked_avatar_adapter?.remote_configured === true, `expected remote linked-avatar feed: ${JSON.stringify(meta.linked_avatar_adapter)}`);
-    assert(meta.linked_avatar_adapter?.bearer_configured === true, `expected linked-avatar feed bearer: ${JSON.stringify(meta.linked_avatar_adapter)}`);
-    assert(meta.linked_avatar_adapter?.timeout_secs === 15, `expected bounded remote timeout: ${JSON.stringify(meta.linked_avatar_adapter)}`);
-    assert(meta.linked_avatar_adapter?.wallet_count === 1, `expected remote wallet count: ${JSON.stringify(meta.linked_avatar_adapter)}`);
-    assert(meta.linked_avatar_adapter?.status === "healthy", `expected healthy remote feed: ${JSON.stringify(meta.linked_avatar_adapter)}`);
-    assert(Number.isInteger(meta.linked_avatar_adapter?.last_success_at_unix), `expected remote feed success timestamp: ${JSON.stringify(meta.linked_avatar_adapter)}`);
-    assert(meta.linked_avatar_adapter?.consecutive_failures === 0, `expected no remote feed failures: ${JSON.stringify(meta.linked_avatar_adapter)}`);
-    assert(meta.linked_avatar_adapter?.last_error_code == null, `expected no remote feed error: ${JSON.stringify(meta.linked_avatar_adapter)}`);
+    assert(meta.linked_avatar_adapter?.source === "not_configured", `expected no linked-avatar source without on-chain discovery: ${JSON.stringify(meta.linked_avatar_adapter)}`);
+    assert(meta.linked_avatar_adapter?.on_chain_configured === false, `expected on-chain discovery off: ${JSON.stringify(meta.linked_avatar_adapter)}`);
+    assert(meta.linked_avatar_adapter?.remote_configured === undefined, `expected no remote feed report: ${JSON.stringify(meta.linked_avatar_adapter)}`);
+    assert(meta.linked_avatar_adapter?.wallet_count === 0, `expected no fixture wallets: ${JSON.stringify(meta.linked_avatar_adapter)}`);
     assert(meta.features?.dev_reset_enabled === false, `dev reset must be off: ${JSON.stringify(meta.features)}`);
     assert(meta.features?.moderation_audit_enabled === true, `moderation must be configured: ${JSON.stringify(meta.features)}`);
     assert(meta.persistence?.event_store_enabled === true, `event store must be enabled: ${JSON.stringify(meta.persistence)}`);
-    assert(feed.stats.requests >= 1, "production profile should fetch the remote ownership feed");
-    assert(feed.stats.authorized >= 1, "production profile should use the feed bearer token");
+    assert(retiredFeed.stats.requests === 0, "production profile must not call the retired ownership feed");
+    assert(
+      outputLines.join("").includes("COSYWORLD_AVATAR_OWNERSHIP_FEED_URL is retired and ignored"),
+      "production profile should warn about the retired ownership feed setting",
+    );
     const challenge = await fetchJson(
       `${baseUrl}/wallet/challenge?wallet_address=${encodeURIComponent(walletAddress)}`,
     );
@@ -296,14 +266,12 @@ async function main() {
     console.log(JSON.stringify({
       ok: true,
       profile: meta.deployment.profile,
-      wallet_count: meta.linked_avatar_adapter.wallet_count,
-      ownership_feed_status: meta.linked_avatar_adapter.status,
-      feed_requests: feed.stats.requests,
-      authorized_feed_requests: feed.stats.authorized,
+      linked_avatar_source: meta.linked_avatar_adapter.source,
+      retired_feed_requests: retiredFeed.stats.requests,
     }, null, 2));
   } finally {
     await terminate(proc);
-    await closeServer(feed.server);
+    await closeServer(retiredFeed.server);
     await rm(tempDir, { recursive: true, force: true });
   }
 }

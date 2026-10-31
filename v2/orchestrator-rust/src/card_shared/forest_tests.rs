@@ -64,7 +64,11 @@ fn forest_crossing_upgrade_replays_with_two_humans(version: &str) {
     assert_eq!(w.claimed, old.claimed);
     assert_eq!(w.present, old.present);
     // Lonely Forest revision 2 retires the shared buttons and the bell.
-    let retired = ["forest-story-button", "forest-dewbright-button", "forest-watch-bell"];
+    let retired = [
+        "forest-story-button",
+        "forest-dewbright-button",
+        "forest-watch-bell",
+    ];
     for (key, value) in old.game["items"].as_object().unwrap() {
         if retired.contains(&key.as_str()) {
             assert!(w.game["items"].get(key).is_none(), "{key}");

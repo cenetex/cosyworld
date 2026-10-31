@@ -303,7 +303,6 @@ struct AppState {
     avatar_art_config: Arc<Option<ReplicateAvatarArtConfig>>,
     generated_asset_dir: Arc<PathBuf>,
     ownership_feed: Arc<OwnershipFeedConfig>,
-    ownership_feed_health: Arc<StdMutex<OwnershipFeedHealth>>,
     rendezvous_party_config: Arc<RendezvousPartyConfig>,
     wallet_sessions: Arc<StdMutex<WalletSessions>>,
     qr_wallet_logins: Arc<StdMutex<QrWalletLogins>>,
@@ -2466,18 +2465,14 @@ struct PersistenceCompactionReport {
 
 #[derive(Debug, Serialize)]
 struct MetaLinkedAvatarAdapter {
+    /// `on_chain` (Solana DAS), `fixture` (local inline/path feed), or
+    /// `not_configured`. No other domain supplies avatar ownership.
+    source: &'static str,
+    on_chain_configured: bool,
     inline_configured: bool,
     path_configured: bool,
-    remote_configured: bool,
-    bearer_configured: bool,
-    timeout_secs: u64,
     refresh_secs: Option<u64>,
     wallet_count: usize,
-    status: &'static str,
-    last_attempt_at_unix: Option<u64>,
-    last_success_at_unix: Option<u64>,
-    consecutive_failures: u32,
-    last_error_code: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -4583,7 +4578,6 @@ impl AppState {
         let generated_asset_dir = generated_asset_dir_from_env();
         fs::create_dir_all(generated_avatar_dir(&generated_asset_dir))?;
         deployment.validate_runtime_options(
-            &ownership_feed,
             trust_client_card_ids,
             dev_reset_enabled,
             allow_unsigned_wallet_claims,
@@ -4591,17 +4585,9 @@ impl AppState {
             event_store_path.is_some(),
             moderation_token.is_some(),
         )?;
-        let (ownership_index, ownership_feed_health) =
-            ownership_feed.load_best_effort_with_health().await;
+        let ownership_index = ownership_feed.load_best_effort();
         if let Some(path) = event_store_path.as_deref() {
-            let external_snapshot_loaded = ownership_feed.remote_url.is_none()
-                || (ownership_feed_health.last_success_at_unix.is_some()
-                    && ownership_feed_health.consecutive_failures == 0);
-            if external_snapshot_loaded
-                && (ownership_feed.inline_feed.is_some()
-                    || ownership_feed.path_feed.is_some()
-                    || ownership_feed.remote_url.is_some())
-            {
+            if ownership_feed.is_configured() {
                 match record_economy_reconciliation(path, &ownership_index, "startup") {
                     Ok(run) if run.anomaly_count > 0 => warn!(
                         "economy reconciliation found {} anomal{} at startup",
@@ -4869,7 +4855,6 @@ impl AppState {
             avatar_art_config,
             generated_asset_dir: Arc::new(generated_asset_dir),
             ownership_feed: Arc::new(ownership_feed),
-            ownership_feed_health: Arc::new(StdMutex::new(ownership_feed_health)),
             rendezvous_party_config,
             wallet_sessions: Arc::new(StdMutex::new(WalletSessions::default())),
             qr_wallet_logins: Arc::new(StdMutex::new(QrWalletLogins::default())),
@@ -16881,19 +16866,13 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
         .map(|sessions| sessions.sessions.len())
         .unwrap_or_default();
     let ownership_feed = state.ownership_feed.as_ref();
-    let ownership_feed_health = state
-        .ownership_feed_health
-        .lock()
-        .map(|health| health.clone())
-        .unwrap_or_default();
-    let ownership_feed_status = if ownership_feed.remote_url.is_none() {
-        "not_configured"
-    } else if ownership_feed_health.consecutive_failures > 0 {
-        "degraded"
-    } else if ownership_feed_health.last_success_at_unix.is_some() {
-        "healthy"
+    let on_chain_configured = proxim8::helius::helius_rpc_url().is_some();
+    let linked_avatar_source = if on_chain_configured {
+        "on_chain"
+    } else if ownership_feed.is_configured() {
+        "fixture"
     } else {
-        "pending"
+        "not_configured"
     };
     let event_store_health = state
         .event_store_health
@@ -17018,20 +16997,14 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
             last_checkpoint_rejection: state.last_checkpoint_rejection.clone(),
         },
         linked_avatar_adapter: MetaLinkedAvatarAdapter {
+            source: linked_avatar_source,
+            on_chain_configured,
             inline_configured: ownership_feed.inline_feed.is_some(),
             path_configured: ownership_feed.path_feed.is_some(),
-            remote_configured: ownership_feed.remote_url.is_some(),
-            bearer_configured: ownership_feed.remote_bearer.is_some(),
-            timeout_secs: ownership_feed.remote_timeout.as_secs(),
             refresh_secs: ownership_feed
                 .refresh_every
                 .map(|duration| duration.as_secs()),
             wallet_count,
-            status: ownership_feed_status,
-            last_attempt_at_unix: ownership_feed_health.last_attempt_at_unix,
-            last_success_at_unix: ownership_feed_health.last_success_at_unix,
-            consecutive_failures: ownership_feed_health.consecutive_failures,
-            last_error_code: ownership_feed_health.last_error_code,
         },
         migration_archive: MetaMigrationArchive {
             item_materialization: MetaItemMaterialization {
@@ -30431,16 +30404,6 @@ mod tests {
         unhealthy_server.abort();
     }
 
-    fn production_feed_config() -> OwnershipFeedConfig {
-        OwnershipFeedConfig {
-            remote_url: Some(
-                "https://ruby-high.example/internal/cosyworld/wallet-cards".to_string(),
-            ),
-            remote_bearer: Some("secret-token".to_string()),
-            ..OwnershipFeedConfig::default()
-        }
-    }
-
     #[test]
     fn homeward_is_a_canonical_outbound_direction_alias() {
         assert_eq!(canonical_direction("homeward"), Some("out"));
@@ -34682,41 +34645,15 @@ mod tests {
     }
 
     #[test]
-    fn production_deployment_allows_an_optional_linked_avatar_adapter() {
+    fn production_deployment_boots_without_an_ownership_adapter() {
         let deployment = DeploymentConfig {
             profile: DeploymentProfile::Production,
             world_id: OFFICIAL_WORLD_ID.to_string(),
             process_id: "prod-test".to_string(),
         };
         deployment
-            .validate_runtime_options(
-                &OwnershipFeedConfig::default(),
-                false,
-                false,
-                false,
-                Duration::ZERO,
-                true,
-                true,
-            )
+            .validate_runtime_options(false, false, false, Duration::ZERO, true, true)
             .expect("production should boot without an ownership adapter");
-
-        let error = deployment
-            .validate_runtime_options(
-                &OwnershipFeedConfig {
-                    remote_url: Some("https://avatars.example/feed".to_string()),
-                    ..OwnershipFeedConfig::default()
-                },
-                false,
-                false,
-                false,
-                Duration::ZERO,
-                true,
-                true,
-            )
-            .expect_err("a configured adapter should require its bearer");
-        assert!(error
-            .to_string()
-            .contains("COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER"));
     }
 
     #[test]
@@ -34726,7 +34663,6 @@ mod tests {
             world_id: OFFICIAL_WORLD_ID.to_string(),
             process_id: "prod-test".to_string(),
         };
-        let feed = production_feed_config();
         for (trust_client_cards, dev_reset, unsigned_wallets, delay, expected) in [
             (
                 true,
@@ -34759,7 +34695,6 @@ mod tests {
         ] {
             let error = deployment
                 .validate_runtime_options(
-                    &feed,
                     trust_client_cards,
                     dev_reset,
                     unsigned_wallets,
@@ -34782,22 +34717,21 @@ mod tests {
             world_id: OFFICIAL_WORLD_ID.to_string(),
             process_id: "prod-test".to_string(),
         };
-        let feed = production_feed_config();
         let no_store = deployment
-            .validate_runtime_options(&feed, false, false, false, Duration::ZERO, false, true)
+            .validate_runtime_options(false, false, false, Duration::ZERO, false, true)
             .expect_err("production should require event store");
         assert!(no_store.to_string().contains("event store"));
 
         let no_moderation = deployment
-            .validate_runtime_options(&feed, false, false, false, Duration::ZERO, true, false)
+            .validate_runtime_options(false, false, false, Duration::ZERO, true, false)
             .expect_err("production should require moderation token");
         assert!(no_moderation
             .to_string()
             .contains("COSYWORLD_MODERATION_TOKEN"));
 
         deployment
-            .validate_runtime_options(&feed, false, false, false, Duration::ZERO, true, true)
-            .expect("production config should accept remote feed plus guardrails");
+            .validate_runtime_options(false, false, false, Duration::ZERO, true, true)
+            .expect("production config should accept its guardrails");
     }
 
     /// Issue #360: an arriving avatar is handed a starting calling it never
@@ -58921,75 +58855,8 @@ mod tests {
         let _ = fs::remove_file(path);
     }
 
-    #[tokio::test]
-    async fn ownership_index_fetches_trusted_remote_json_exports() {
-        let app = Router::new().route(
-            "/ownership",
-            get(|| async {
-                Json(serde_json::json!([
-                    {
-                        "walletAddress": "remote-wallet",
-                        "cardIds": ["rati", "location-courtyard"]
-                    }
-                ]))
-            }),
-        );
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind ownership test server");
-        let addr = listener
-            .local_addr()
-            .expect("ownership test server address");
-        let server = tokio::spawn(async move {
-            let _ = axum::serve(listener, app).await;
-        });
-
-        let feed = OwnershipFeedConfig {
-            remote_url: Some(format!("http://{addr}/ownership")),
-            ..OwnershipFeedConfig::default()
-        };
-        let (index, health) = feed.load_best_effort_with_health().await;
-        assert!(index.cards_for_wallet("remote-wallet").contains("rati"));
-        assert!(index
-            .cards_for_wallet("remote-wallet")
-            .contains("location-courtyard"));
-        assert_eq!(health.consecutive_failures, 0);
-        assert!(health.last_attempt_at_unix.is_some());
-        assert!(health.last_success_at_unix.is_some());
-        assert!(health.last_error_code.is_none());
-
-        server.abort();
-    }
-
-    #[tokio::test]
-    async fn ownership_feed_best_effort_tolerates_remote_http_errors() {
-        let app = Router::new().route(
-            "/ownership",
-            get(|| async { (StatusCode::BAD_GATEWAY, "feed unavailable") }),
-        );
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind failing ownership test server");
-        let addr = listener
-            .local_addr()
-            .expect("failing ownership test server address");
-        let server = tokio::spawn(async move {
-            let _ = axum::serve(listener, app).await;
-        });
-
-        let feed = OwnershipFeedConfig {
-            remote_url: Some(format!("http://{addr}/ownership")),
-            remote_bearer: Some("secret-token".to_string()),
-            ..OwnershipFeedConfig::default()
-        };
-        assert!(feed.load_strict().await.is_err());
-        let (index, health) = feed.load_best_effort_with_health().await;
-        assert!(index.cards_for_wallet("remote-wallet").is_empty());
-        assert_eq!(health.consecutive_failures, 1);
-        assert!(health.last_attempt_at_unix.is_some());
-        assert!(health.last_success_at_unix.is_none());
-        assert_eq!(health.last_error_code.as_deref(), Some("http_502"));
-
+    #[test]
+    fn ownership_refresh_backs_off_with_jitter() {
         assert_eq!(
             ownership_refresh_delay(Duration::from_secs(60), 0),
             Duration::from_secs(60)
@@ -59009,134 +58876,25 @@ mod tests {
         assert!(high_jitter >= Duration::from_secs(54));
         assert!(high_jitter <= Duration::from_secs(66));
         assert_ne!(low_jitter, high_jitter);
-
-        server.abort();
-    }
-
-    #[tokio::test]
-    async fn ownership_feed_classifies_transport_timeouts() {
-        let app = Router::new().route(
-            "/ownership",
-            get(|| async {
-                tokio::time::sleep(Duration::from_millis(100)).await;
-                Json(serde_json::json!({"wallets": []}))
-            }),
-        );
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind slow ownership test server");
-        let addr = listener
-            .local_addr()
-            .expect("slow ownership test server address");
-        let server = tokio::spawn(async move {
-            let _ = axum::serve(listener, app).await;
-        });
-
-        let feed = OwnershipFeedConfig {
-            remote_url: Some(format!("http://{addr}/ownership")),
-            remote_timeout: Duration::from_millis(10),
-            ..OwnershipFeedConfig::default()
-        };
-        let (_, health) = feed.load_best_effort_with_health().await;
-        assert_eq!(health.last_error_code.as_deref(), Some("timeout"));
-
-        server.abort();
-    }
-
-    #[tokio::test]
-    async fn ownership_feed_rejects_non_json_remote_responses() {
-        let app = Router::new().route(
-            "/ownership",
-            get(|| async { (StatusCode::OK, "upstream returned an HTML error page") }),
-        );
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind invalid ownership test server");
-        let addr = listener
-            .local_addr()
-            .expect("invalid ownership test server address");
-        let server = tokio::spawn(async move {
-            let _ = axum::serve(listener, app).await;
-        });
-
-        let feed = OwnershipFeedConfig {
-            remote_url: Some(format!("http://{addr}/ownership")),
-            ..OwnershipFeedConfig::default()
-        };
-        let (_, health) = feed.load_best_effort_with_health().await;
-        assert_eq!(health.last_error_code.as_deref(), Some("invalid_response"));
-
-        server.abort();
-    }
-
-    #[test]
-    fn ownership_feed_timeout_is_bounded_for_slow_authenticated_providers() {
-        assert_eq!(
-            ownership_feed_timeout(None),
-            Duration::from_secs(DEFAULT_OWNERSHIP_FEED_TIMEOUT_SECS)
-        );
-        assert_eq!(ownership_feed_timeout(Some("9")), Duration::from_secs(9));
-        assert_eq!(ownership_feed_timeout(Some("0")), Duration::from_secs(1));
-        assert_eq!(
-            ownership_feed_timeout(Some("600")),
-            Duration::from_secs(MAX_OWNERSHIP_FEED_TIMEOUT_SECS)
-        );
-        assert_eq!(
-            ownership_feed_timeout(Some("invalid")),
-            Duration::from_secs(DEFAULT_OWNERSHIP_FEED_TIMEOUT_SECS)
-        );
-    }
-
-    #[test]
-    fn ownership_feed_error_codes_preserve_transport_stage() {
-        for (message, expected) in [
-            ("ownership feed request timed out", "timeout"),
-            ("ownership feed DNS resolution failed", "dns"),
-            ("ownership feed TLS negotiation failed", "tls"),
-            ("ownership feed connection failed", "connect"),
-            ("ownership feed response decode failed", "invalid_response"),
-            ("ownership feed returned HTTP 502 Bad Gateway", "http_502"),
-            ("ownership feed request failed", "request_failed"),
-        ] {
-            assert_eq!(
-                ownership_feed_error_code(&io::Error::other(message)),
-                expected
-            );
-        }
     }
 
     #[tokio::test]
     async fn ownership_refresh_updates_adapter_without_mutating_world() {
-        let feed_body = Arc::new(StdMutex::new(
-            r#"{"wallets":[{"walletAddress":"wallet-1","cardIds":["rati"]}]}"#.to_string(),
+        let fixture = std::env::temp_dir().join(format!(
+            "cosyworld-v2-ownership-refresh-{}-{}.json",
+            std::process::id(),
+            now_seed()
         ));
-        let app = Router::new().route(
-            "/ownership",
-            get({
-                let feed_body = feed_body.clone();
-                move || {
-                    let feed_body = feed_body.clone();
-                    async move {
-                        let body = feed_body.lock().expect("feed lock").clone();
-                        ([(header::CONTENT_TYPE, "application/json")], body)
-                    }
-                }
-            }),
-        );
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind ownership refresh test server");
-        let addr = listener
-            .local_addr()
-            .expect("ownership refresh test server address");
-        let server = tokio::spawn(async move {
-            let _ = axum::serve(listener, app).await;
-        });
+        fs::write(
+            &fixture,
+            r#"{"wallets":[{"walletAddress":"wallet-1","cardIds":["rati"]}]}"#,
+        )
+        .expect("write ownership fixture");
         let feed = OwnershipFeedConfig {
-            remote_url: Some(format!("http://{addr}/ownership")),
+            path_feed: Some(fixture.clone()),
             ..OwnershipFeedConfig::default()
         };
-        let initial = feed.load_strict().await.expect("initial ownership feed");
+        let initial = feed.load_strict().expect("initial ownership fixture");
         let mut runtime = RuntimeWorld::seeded();
         runtime.force_actor_location(1001, 10);
         let event_count = runtime.event_log.len();
@@ -59145,21 +58903,15 @@ mod tests {
         *state.ownership_index.write().await = initial;
         let mut rx = state.tx.subscribe();
 
-        *feed_body.lock().expect("feed lock") =
-            r#"{"wallets":[{"walletAddress":"wallet-1","cardIds":["rati","location-science-lab"]}]}"#
-                .to_string();
+        fs::write(
+            &fixture,
+            r#"{"wallets":[{"walletAddress":"wallet-1","cardIds":["rati","location-science-lab"]}]}"#,
+        )
+        .expect("rewrite ownership fixture");
 
         assert!(refresh_ownership_index_once(&state)
             .await
-            .expect("refresh ownership feed"));
-        let health = state
-            .ownership_feed_health
-            .lock()
-            .expect("ownership health lock")
-            .clone();
-        assert_eq!(health.consecutive_failures, 0);
-        assert!(health.last_success_at_unix.is_some());
-        assert!(health.last_error_code.is_none());
+            .expect("refresh ownership fixture"));
         let ownership = state.ownership_snapshot().await;
         assert!(ownership
             .cards_for_wallet("wallet-1")
@@ -59171,8 +58923,8 @@ mod tests {
             rx.try_recv(),
             Err(broadcast::error::TryRecvError::Empty)
         ));
-
-        server.abort();
+        drop(runtime);
+        let _ = fs::remove_file(fixture);
     }
 
     #[test]

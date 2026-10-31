@@ -19,7 +19,6 @@ primary_region = "sjc"
   COSYWORLD_GENERATED_ASSET_DIR = "/data/generated"
   COSYWORLD_WEBAUTHN_RP_ID = "cosyworld.fly.dev"
   COSYWORLD_WEBAUTHN_ORIGIN = "https://cosyworld.fly.dev"
-  COSYWORLD_AVATAR_OWNERSHIP_FEED_URL = "https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards"
   COSYWORLD_RENDEZVOUS_PARTY_MAX_GUESTS = "4"
   COSYWORLD_RENDEZVOUS_PARTY_MAX_ACTIVE_PER_GUEST = "4"
   COSYWORLD_RENDEZVOUS_PARTY_TTL_SECS = "7200"
@@ -54,7 +53,6 @@ primary_region = "sjc"
   RUST_LOG = "cosyworld_orchestrator=info,tower_http=warn"
 
 # Required production secrets:
-# fly secrets set COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER=...
 # fly secrets set COSYWORLD_MODERATION_TOKEN=...
 
 [[mounts]]

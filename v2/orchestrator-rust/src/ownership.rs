@@ -26,102 +26,52 @@ pub(super) struct WalletCardSet {
     pub(super) pack_ids: BTreeSet<String>,
 }
 
-pub(super) const DEFAULT_OWNERSHIP_FEED_TIMEOUT_SECS: u64 = 15;
-pub(super) const MAX_OWNERSHIP_FEED_TIMEOUT_SECS: u64 = 60;
-
-#[derive(Clone, Debug)]
+/// Local fixture ownership for development and tests. Production discovers
+/// wallet-linked avatars on chain (see `proxim8::helius`); no remote feed
+/// or other domain supplies ownership.
+#[derive(Clone, Debug, Default)]
 pub(super) struct OwnershipFeedConfig {
     pub(super) inline_feed: Option<String>,
     pub(super) path_feed: Option<PathBuf>,
-    pub(super) remote_url: Option<String>,
-    pub(super) remote_bearer: Option<String>,
-    pub(super) remote_timeout: Duration,
     pub(super) refresh_every: Option<Duration>,
-    pub(super) remote_client: reqwest::Client,
 }
 
-impl Default for OwnershipFeedConfig {
-    fn default() -> Self {
-        Self {
-            inline_feed: None,
-            path_feed: None,
-            remote_url: None,
-            remote_bearer: None,
-            remote_timeout: Duration::from_secs(DEFAULT_OWNERSHIP_FEED_TIMEOUT_SECS),
-            refresh_every: None,
-            remote_client: reqwest::Client::new(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub(super) struct OwnershipFeedHealth {
-    pub(super) last_attempt_at_unix: Option<u64>,
-    pub(super) last_success_at_unix: Option<u64>,
-    pub(super) consecutive_failures: u32,
-    pub(super) last_error_code: Option<String>,
-}
-
-impl OwnershipFeedHealth {
-    pub(super) fn record_success(&mut self) {
-        let now = now_unix_secs();
-        self.last_attempt_at_unix = Some(now);
-        self.last_success_at_unix = Some(now);
-        self.consecutive_failures = 0;
-        self.last_error_code = None;
-    }
-
-    pub(super) fn record_failure(&mut self, error: &io::Error) {
-        self.last_attempt_at_unix = Some(now_unix_secs());
-        self.consecutive_failures = self.consecutive_failures.saturating_add(1);
-        self.last_error_code = Some(ownership_feed_error_code(error));
-    }
-}
+/// Retired remote-feed settings. They are ignored; boot warns once so a
+/// stale deployment setting is visible.
+const RETIRED_REMOTE_FEED_ENV: [&str; 6] = [
+    "COSYWORLD_AVATAR_OWNERSHIP_FEED_URL",
+    "COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER",
+    "COSYWORLD_ENTITLEMENT_FEED_URL",
+    "COSYWORLD_ENTITLEMENT_FEED_BEARER",
+    "COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL",
+    "COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER",
+];
 
 impl OwnershipFeedConfig {
     pub(super) fn from_env() -> Self {
         let inline_feed = std::env::var("COSYWORLD_AVATAR_OWNERSHIP_FEED")
             .ok()
             .or_else(|| std::env::var("COSYWORLD_ENTITLEMENT_FEED").ok())
-            .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS").ok())
             .filter(|value| !value.trim().is_empty());
         let path_feed = std::env::var("COSYWORLD_AVATAR_OWNERSHIP_FEED_PATH")
             .ok()
             .or_else(|| std::env::var("COSYWORLD_ENTITLEMENT_FEED_PATH").ok())
-            .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_PATH").ok())
+            .filter(|value| !value.trim().is_empty())
             .map(PathBuf::from);
-        let remote_url = std::env::var("COSYWORLD_AVATAR_OWNERSHIP_FEED_URL")
-            .ok()
-            .or_else(|| std::env::var("COSYWORLD_ENTITLEMENT_FEED_URL").ok())
-            .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL").ok())
-            .filter(|value| !value.trim().is_empty());
-        let remote_bearer = std::env::var("COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER")
-            .ok()
-            .or_else(|| std::env::var("COSYWORLD_ENTITLEMENT_FEED_BEARER").ok())
-            .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER").ok())
-            .filter(|value| !value.trim().is_empty());
-        let remote_timeout = std::env::var("COSYWORLD_AVATAR_OWNERSHIP_FEED_TIMEOUT_SECS")
-            .ok()
-            .or_else(|| std::env::var("COSYWORLD_ENTITLEMENT_FEED_TIMEOUT_SECS").ok())
-            .or_else(|| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_TIMEOUT_SECS").ok());
-        let remote_timeout = ownership_feed_timeout(remote_timeout.as_deref());
-        let refresh_every = ownership_refresh_interval(remote_url.is_some(), path_feed.is_some());
+        for name in RETIRED_REMOTE_FEED_ENV {
+            if std::env::var(name).is_ok_and(|value| !value.trim().is_empty()) {
+                warn!("{name} is retired and ignored; linked avatars are discovered on chain");
+            }
+        }
         Self {
             inline_feed,
             path_feed,
-            remote_url,
-            remote_bearer,
-            remote_timeout,
-            refresh_every,
-            remote_client: reqwest::Client::new(),
+            refresh_every: ownership_refresh_interval(),
         }
     }
 
-    pub(super) async fn load_best_effort_with_health(
-        &self,
-    ) -> (OwnershipIndex, OwnershipFeedHealth) {
+    pub(super) fn load_best_effort(&self) -> OwnershipIndex {
         let mut index = OwnershipIndex::default();
-        let mut health = OwnershipFeedHealth::default();
         if let Some(value) = self.inline_feed.as_deref() {
             index.merge(OwnershipIndex::parse(value));
         }
@@ -129,39 +79,16 @@ impl OwnershipFeedConfig {
             match fs::read_to_string(path) {
                 Ok(value) => index.merge(OwnershipIndex::parse(&value)),
                 Err(error) => warn!(
-                    "failed to read entitlement provider feed {}: {}",
+                    "failed to read ownership fixture {}: {}",
                     path.display(),
                     error
                 ),
             }
         }
-        if let Some(url) = self.remote_url.as_deref() {
-            match OwnershipIndex::fetch_remote(
-                &self.remote_client,
-                url,
-                self.remote_bearer.as_deref(),
-                self.remote_timeout,
-            )
-            .await
-            {
-                Ok(remote) => {
-                    index.merge(remote);
-                    health.record_success();
-                }
-                Err(error) => {
-                    health.record_failure(&error);
-                    warn!("failed to fetch entitlement provider feed {url}: {error}");
-                }
-            }
-        }
-        (index, health)
+        index
     }
 
-    pub(super) async fn load_best_effort(&self) -> OwnershipIndex {
-        self.load_best_effort_with_health().await.0
-    }
-
-    pub(super) async fn load_strict(&self) -> io::Result<OwnershipIndex> {
+    pub(super) fn load_strict(&self) -> io::Result<OwnershipIndex> {
         let mut index = OwnershipIndex::default();
         if let Some(value) = self.inline_feed.as_deref() {
             index.merge(OwnershipIndex::parse(value));
@@ -169,49 +96,12 @@ impl OwnershipFeedConfig {
         if let Some(path) = self.path_feed.as_deref() {
             index.merge(OwnershipIndex::parse(&fs::read_to_string(path)?));
         }
-        if let Some(url) = self.remote_url.as_deref() {
-            index.merge(
-                OwnershipIndex::fetch_remote(
-                    &self.remote_client,
-                    url,
-                    self.remote_bearer.as_deref(),
-                    self.remote_timeout,
-                )
-                .await?,
-            );
-        }
         Ok(index)
     }
-}
 
-pub(super) fn ownership_feed_error_code(error: &io::Error) -> String {
-    let message = error.to_string().to_ascii_lowercase();
-    for status in [401, 403, 404, 408, 429, 500, 502, 503, 504] {
-        if message.contains(&format!("http {status}")) {
-            return format!("http_{status}");
-        }
+    pub(super) fn is_configured(&self) -> bool {
+        self.inline_feed.is_some() || self.path_feed.is_some()
     }
-    if message.contains("timed out") || message.contains("timeout") {
-        "timeout".to_string()
-    } else if message.contains("dns") || message.contains("name resolution") {
-        "dns".to_string()
-    } else if message.contains("tls") || message.contains("certificate") {
-        "tls".to_string()
-    } else if message.contains("connect") {
-        "connect".to_string()
-    } else if message.contains("json") || message.contains("decode") {
-        "invalid_response".to_string()
-    } else {
-        "request_failed".to_string()
-    }
-}
-
-pub(super) fn ownership_feed_timeout(value: Option<&str>) -> Duration {
-    let seconds = value
-        .and_then(|value| value.trim().parse::<u64>().ok())
-        .unwrap_or(DEFAULT_OWNERSHIP_FEED_TIMEOUT_SECS)
-        .clamp(1, MAX_OWNERSHIP_FEED_TIMEOUT_SECS);
-    Duration::from_secs(seconds)
 }
 
 pub(super) fn verified_collection_asset_key(collection_address: &str, asset_id: &str) -> String {
@@ -265,69 +155,18 @@ fn verified_collection_asset_card_ids(
         .collect()
 }
 
-fn ownership_reqwest_error(error: reqwest::Error) -> io::Error {
-    let detail = if error.is_timeout() {
-        "request timed out"
-    } else if error.is_connect() {
-        let causes = reqwest_error_causes(&error);
-        if [
-            "dns error",
-            "failed to lookup address",
-            "name or service not known",
-            "nodename nor servname",
-            "name resolution",
-        ]
-        .iter()
-        .any(|marker| causes.contains(marker))
-        {
-            "DNS resolution failed"
-        } else if [
-            "tls",
-            "certificate",
-            "handshake",
-            "invalid peer",
-            "unknown issuer",
-            "rustls",
-        ]
-        .iter()
-        .any(|marker| causes.contains(marker))
-        {
-            "TLS negotiation failed"
-        } else {
-            "connection failed"
-        }
-    } else if error.is_decode() || error.is_body() {
-        "response decode failed"
-    } else if let Some(status) = error.status() {
-        return io::Error::other(format!("ownership feed returned HTTP {status}"));
-    } else {
-        "request failed"
-    };
-    io::Error::other(format!("ownership feed {detail}"))
-}
-
-fn reqwest_error_causes(error: &reqwest::Error) -> String {
-    let mut messages = Vec::new();
-    let mut source = std::error::Error::source(error);
-    while let Some(cause) = source {
-        messages.push(cause.to_string().to_ascii_lowercase());
-        source = cause.source();
-    }
-    messages.join(" ")
-}
-
 pub(super) async fn load_base_ownership_index(state: &AppState) -> io::Result<OwnershipIndex> {
     if state.deployment.profile.is_production() {
-        state.ownership_feed.load_strict().await
+        state.ownership_feed.load_strict()
     } else {
-        Ok(state.ownership_feed.load_best_effort().await)
+        Ok(state.ownership_feed.load_best_effort())
     }
 }
 
 pub(super) async fn load_effective_ownership_index_strict(
     state: &AppState,
 ) -> io::Result<OwnershipIndex> {
-    let ownership = state.ownership_feed.load_strict().await?;
+    let ownership = state.ownership_feed.load_strict()?;
     if let Some(path) = state.event_store_path.as_deref() {
         let reconciliation = record_economy_reconciliation(path, &ownership, "refresh")?;
         if reconciliation.anomaly_count > 0 {
@@ -349,39 +188,6 @@ pub(super) async fn load_effective_ownership_index_strict(
 }
 
 impl OwnershipIndex {
-    pub(super) async fn fetch_remote(
-        client: &reqwest::Client,
-        url: &str,
-        bearer: Option<&str>,
-        timeout: Duration,
-    ) -> io::Result<Self> {
-        let mut request = client.get(url).timeout(timeout);
-        if let Some(token) = bearer.map(str::trim).filter(|value| !value.is_empty()) {
-            request = request.bearer_auth(token);
-        }
-
-        let response = request.send().await.map_err(ownership_reqwest_error)?;
-        let status = response.status();
-        if !status.is_success() {
-            return Err(io::Error::other(format!(
-                "ownership feed returned HTTP {status}"
-            )));
-        }
-        let body = response.text().await.map_err(ownership_reqwest_error)?;
-        Self::parse_remote(&body)
-    }
-
-    fn parse_remote(value: &str) -> io::Result<Self> {
-        let trimmed = value.trim();
-        if !matches!(trimmed.as_bytes().first(), Some(b'[' | b'{')) {
-            return Err(io::Error::other(
-                "ownership feed response decode failed: expected JSON",
-            ));
-        }
-        Self::parse_json(trimmed)
-            .ok_or_else(|| io::Error::other("ownership feed response decode failed: invalid JSON"))
-    }
-
     pub(super) fn parse(value: &str) -> Self {
         let trimmed = value.trim();
         if matches!(trimmed.as_bytes().first(), Some(b'[' | b'{')) {
@@ -1167,18 +973,14 @@ impl AppState {
     }
 }
 
-pub(super) fn ownership_refresh_interval(
-    has_remote_feed: bool,
-    _has_path_feed: bool,
-) -> Option<Duration> {
-    if let Ok(value) = std::env::var("COSYWORLD_AVATAR_OWNERSHIP_FEED_REFRESH_SECS")
+/// Re-read a fixture file every `COSYWORLD_AVATAR_OWNERSHIP_FEED_REFRESH_SECS`
+/// seconds (minimum 5). Unset or 0 leaves the fixture as loaded at boot.
+pub(super) fn ownership_refresh_interval() -> Option<Duration> {
+    let value = std::env::var("COSYWORLD_AVATAR_OWNERSHIP_FEED_REFRESH_SECS")
         .or_else(|_| std::env::var("COSYWORLD_ENTITLEMENT_FEED_REFRESH_SECS"))
-        .or_else(|_| std::env::var("COSYWORLD_RUBY_HIGH_WALLET_CARDS_REFRESH_SECS"))
-    {
-        let secs = value.trim().parse::<u64>().unwrap_or(0);
-        return (secs > 0).then(|| Duration::from_secs(secs.max(5)));
-    }
-    has_remote_feed.then_some(Duration::from_secs(60))
+        .ok()?;
+    let secs = value.trim().parse::<u64>().unwrap_or(0);
+    (secs > 0).then(|| Duration::from_secs(secs.max(5)))
 }
 
 pub(super) fn start_ownership_refresh_scheduler(state: AppState) {
@@ -1186,49 +988,27 @@ pub(super) fn start_ownership_refresh_scheduler(state: AppState) {
         return;
     };
     tokio::spawn(async move {
-        let mut next_refresh =
-            ownership_refresh_delay_with_jitter(refresh_every, 0, rand::random::<u64>());
+        let mut failures = 0_u32;
         loop {
+            let next_refresh =
+                ownership_refresh_delay_with_jitter(refresh_every, failures, rand::random::<u64>());
             tokio::time::sleep(next_refresh).await;
-            let failures = match refresh_ownership_index_once(&state).await {
+            failures = match refresh_ownership_index_once(&state).await {
                 Ok(_) => 0,
                 Err(error) => {
                     warn!(
-                        "linked-avatar ownership refresh failed; keeping last good feed: {}",
+                        "linked-avatar ownership refresh failed; keeping last good fixture: {}",
                         error
                     );
-                    state
-                        .ownership_feed_health
-                        .lock()
-                        .map(|health| health.consecutive_failures)
-                        .unwrap_or(1)
+                    failures.saturating_add(1)
                 }
             };
-            next_refresh =
-                ownership_refresh_delay_with_jitter(refresh_every, failures, rand::random::<u64>());
         }
     });
 }
 
 pub(super) async fn refresh_ownership_index_once(state: &AppState) -> io::Result<bool> {
-    let refreshed = match load_effective_ownership_index_strict(state).await {
-        Ok(refreshed) => {
-            if state.ownership_feed.remote_url.is_some() {
-                if let Ok(mut health) = state.ownership_feed_health.lock() {
-                    health.record_success();
-                }
-            }
-            refreshed
-        }
-        Err(error) => {
-            if state.ownership_feed.remote_url.is_some() {
-                if let Ok(mut health) = state.ownership_feed_health.lock() {
-                    health.record_failure(&error);
-                }
-            }
-            return Err(error);
-        }
-    };
+    let refreshed = load_effective_ownership_index_strict(state).await?;
     let changed = {
         let mut ownership = state.ownership_index.write().await;
         if *ownership == refreshed {
@@ -1241,7 +1021,7 @@ pub(super) async fn refresh_ownership_index_once(state: &AppState) -> io::Result
 
     if changed {
         info!(
-            "refreshed linked-avatar ownership feed: {} wallet(s)",
+            "refreshed linked-avatar ownership fixture: {} wallet(s)",
             refreshed.wallet_count()
         );
     }

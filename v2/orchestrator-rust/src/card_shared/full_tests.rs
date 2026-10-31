@@ -72,8 +72,12 @@ pub(super) fn quest_free_log(log: &Value) -> Value {
 pub(super) fn assert_saved_memories(current: &Value, old: &Value) {
     for (id, saved) in old.as_object().unwrap() {
         // Lonely Forest revision 2 retires these things with their memories.
-        if ["forest-story-button", "forest-dewbright-button", "forest-watch-bell"]
-            .contains(&id.as_str())
+        if [
+            "forest-story-button",
+            "forest-dewbright-button",
+            "forest-watch-bell",
+        ]
+        .contains(&id.as_str())
         {
             assert!(current.get(id).is_none(), "retired memory {id}");
             continue;

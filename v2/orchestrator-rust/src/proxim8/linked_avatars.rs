@@ -14,10 +14,14 @@
 //! }
 //! ```
 //!
-//! When a wallet is linked, the server reads the wallet's assets (Helius, or
-//! the trusted ownership feed), keeps those a source admits, and gives each
-//! asset exactly one durable actor. The standard is whatever DAS reports;
+//! When a wallet is linked, the server reads the wallet's assets on chain
+//! (Solana DAS through `COSYWORLD_HELIUS_RPC_URL` or `HELIUS_API_KEY`), keeps
+//! those a source admits, and gives each asset exactly one durable actor. No
+//! other domain supplies ownership. The standard is whatever DAS reports;
 //! admission checks only the verified collection or the asset id.
+//!
+//! An avatar is self-contained: its name and description come from the NFT's
+//! own metadata unless the world authors a shared character for it.
 //!
 //! Records reuse the Proxim8 materialization mutation with receipts named
 //! `linked-avatar:<asset>`. Their replay preconditions read only the record,
@@ -63,7 +67,7 @@ pub(crate) struct LinkedAvatarCharacter {
     /// Where this character lives; defaults to the source's arrival.
     #[serde(default)]
     pub(crate) home_location: Option<String>,
-    /// Authored bio; NFT metadata never authors the actor's description.
+    /// Authored bio; when present it takes priority over NFT metadata.
     #[serde(default)]
     pub(crate) description: Option<String>,
     #[serde(default)]
@@ -317,14 +321,32 @@ pub(crate) fn linked_avatar_receipt_id(asset_id: &str) -> String {
     format!("{LINKED_AVATAR_RECEIPT_PREFIX}{asset_id}")
 }
 
-/// A display name from metadata, if it is plain enough to use; metadata is
-/// cosmetic and never reaches prompts beyond the actor's name.
+/// A display name from metadata, if it is plain enough to use.
 fn cosmetic_name(name: Option<&str>) -> Option<String> {
     let name = name?.split_whitespace().collect::<Vec<_>>().join(" ");
     let ok = !name.is_empty()
         && name.chars().count() <= MAX_NAME_CHARS
         && name.chars().all(|c| !c.is_control());
     ok.then_some(name)
+}
+
+/// The NFT's own description, whitespace-collapsed, control-free and bounded
+/// to the authored-bio limit. Metadata describes the avatar; it never grants
+/// stats, actions, access, items or rewards.
+fn metadata_description(description: Option<&str>) -> Option<String> {
+    let text = description?
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if text.is_empty() || text.chars().any(char::is_control) {
+        return None;
+    }
+    Some(if text.chars().count() > MAX_BIO_CHARS {
+        let cut: String = text.chars().take(MAX_BIO_CHARS - 1).collect();
+        format!("{}…", cut.trim_end())
+    } else {
+        text
+    })
 }
 
 fn fallback_name(source: &LinkedAvatarSource, asset_id: &str) -> String {
@@ -471,6 +493,7 @@ pub(crate) fn linked_avatar_record(
     };
     let description = character
         .and_then(LinkedAvatarCharacter::actor_description)
+        .or_else(|| metadata_description(asset.description.as_deref()))
         .unwrap_or_else(|| {
             format!(
                 "{name} arrived after its holder linked a verified wallet. The same NFT, or any copy of this character, always returns as this same actor."
@@ -618,8 +641,8 @@ pub(crate) fn is_linked_avatar_receipt(
             })
 }
 
-/// Assets the trusted ownership feed lists for `wallet`, for worlds without
-/// Helius configured.
+/// Assets a local development fixture lists for `wallet`, for servers
+/// without on-chain discovery configured.
 fn feed_assets(ownership: &OwnershipIndex, wallet: &str) -> Vec<helius::OwnedAsset> {
     ownership
         .cards_for_wallet(wallet)
@@ -632,6 +655,7 @@ fn feed_assets(ownership: &OwnershipIndex, wallet: &str) -> Vec<helius::OwnedAss
                 collection: Some(collection.to_string()),
                 interface: "feed".to_string(),
                 name: None,
+                description: None,
             })
         })
         .collect()
@@ -814,6 +838,7 @@ mod tests {
             collection: collection.map(str::to_string),
             interface: "MplCoreAsset".to_string(),
             name: name.map(str::to_string),
+            description: None,
         }
     }
 
@@ -953,6 +978,40 @@ mod tests {
         assert_eq!(cosmetic_name(Some("bad\u{7}bell")), None);
         let source = &config(1).sources[0];
         assert_eq!(fallback_name(source, "CoreAsset111"), "Proxim8 CoreAs");
+    }
+
+    #[test]
+    fn an_avatar_describes_itself_from_its_own_metadata() {
+        let runtime = RuntimeWorld::seeded();
+        let source = &config(1).sources[0];
+        let mut held = asset(
+            "CoreAsset11111111111111111111111111111111111",
+            Some(PROXIM8),
+            Some("Proxim8 #12"),
+        );
+        held.description = Some("  A courier\nwho remembers   tomorrow. ".to_string());
+        let record = record_for(&runtime, WALLET, &held, source).expect("record");
+        let meta = record
+            .actor_meta_upserts
+            .values()
+            .next()
+            .expect("actor meta");
+        assert_eq!(meta.name, "Proxim8 #12");
+        assert_eq!(meta.description, "A courier who remembers tomorrow.");
+
+        held.description = None;
+        let record = record_for(&runtime, WALLET, &held, source).expect("record");
+        let meta = record
+            .actor_meta_upserts
+            .values()
+            .next()
+            .expect("actor meta");
+        assert!(meta.description.contains("linked a verified wallet"));
+
+        assert_eq!(metadata_description(Some("bad\u{7}bell")), None);
+        let long = metadata_description(Some(&"word ".repeat(200))).expect("bounded");
+        assert_eq!(long.chars().count(), MAX_BIO_CHARS);
+        assert!(long.ends_with('…'));
     }
 
     #[test]

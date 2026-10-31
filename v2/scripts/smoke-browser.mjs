@@ -222,7 +222,7 @@ async function assertRuntimeMeta() {
     `runtime meta should expose default report retention: ${JSON.stringify(meta.persistence)}`,
   );
   assert(typeof meta.linked_avatar_adapter?.wallet_count === "number", `runtime meta should expose linked-avatar wallet count: ${JSON.stringify(meta.linked_avatar_adapter)}`);
-  assert(Number.isInteger(meta.linked_avatar_adapter?.timeout_secs), `runtime meta should expose linked-avatar timeout: ${JSON.stringify(meta.linked_avatar_adapter)}`);
+  assert(typeof meta.linked_avatar_adapter?.source === "string", `runtime meta should expose the linked-avatar source: ${JSON.stringify(meta.linked_avatar_adapter)}`);
   assert((meta.world?.actor_count || 0) >= 4, `runtime meta should expose seeded world counters: ${JSON.stringify(meta.world)}`);
   assert((meta.world?.location_count || 0) >= 3, `runtime meta should expose location counters: ${JSON.stringify(meta.world)}`);
   assert(

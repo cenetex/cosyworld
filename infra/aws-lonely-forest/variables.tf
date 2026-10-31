@@ -178,18 +178,6 @@ variable "process_id" {
   }
 }
 
-variable "ruby_high_wallet_cards_url" {
-  type        = string
-  default     = "https://ruby-high.ai/api/apps/ruby-high/nft/internal/cosyworld/wallet-cards"
-  description = "Trusted ownership feed URL used by the production orchestrator."
-}
-
-variable "ruby_high_wallet_cards_bearer_secret_arn" {
-  type        = string
-  default     = ""
-  description = "Secrets Manager ARN containing COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER."
-}
-
 variable "rendezvous_party_max_guests" {
   type        = number
   default     = 4
