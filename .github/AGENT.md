@@ -90,6 +90,15 @@ that opens ephemeral HTTP listeners may fail inside a restricted sandbox with
 `listen EPERM`; rerun it where loopback binding is permitted rather than
 changing application behavior.
 
+## Shared rules engine changes
+
+Engine changes are deliberate and batched; build features as pack data when
+possible. A PR that touches a module in the shared bundle's import graph, a
+`card_shared/engine-v*.js` bundle, or the released-rules wiring needs the
+`engine` label and a design note under `docs/design/`. The `Engine gate`
+workflow (`v2/scripts/engine-gate.mjs`) lists the bundle's modules and warns
+when either is missing; it will block once content versioning lands.
+
 ## PR contract
 
 - Use an imperative, outcome-oriented title, for example

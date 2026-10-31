@@ -33,4 +33,8 @@ main`. A release tag requires the latest main CI run to be green.
 Pull requests do not bump the version. Between releases, main and `.dev` carry
 the last released version; `/meta.commit` names the deployed commit.
 
+Prefer pack data to engine changes. A PR that changes the shared rules bundle
+(its imported modules, `engine-v*.js`, or the released-rules wiring) needs the
+`engine` label and a design note under `docs/design/`; see `.github/AGENT.md`.
+
 Validation and release follow `.github/AGENT.md` and `docs/release.md`.
