@@ -65,19 +65,31 @@
         {
           "portrait": "assets/willows/swede-listening.webp",
           "requires": [
-            { "kind": "choice", "key": "willows-response", "value": "watch" }
+            {
+              "kind": "choice",
+              "key": "willows-response",
+              "value": "watch"
+            }
           ]
         },
         {
           "portrait": "assets/willows/swede-worried.webp",
           "requires": [
-            { "kind": "flag", "key": "willows-signs-shared", "value": true }
+            {
+              "kind": "flag",
+              "key": "willows-signs-shared",
+              "value": true
+            }
           ]
         },
         {
           "portrait": "assets/willows/swede-listening.webp",
           "requires": [
-            { "kind": "flag", "key": "willows-humming-heard", "value": true }
+            {
+              "kind": "flag",
+              "key": "willows-humming-heard",
+              "value": true
+            }
           ]
         },
         {
@@ -178,9 +190,9 @@
       "id": "willows-examine-hull",
       "subject": "willows-landing",
       "at": "willows-landing",
+      "on": "wait",
       "label": "Examine the canoe",
-      "text": "The traveller runs a hand along the upturned canoe. A fine slit crosses the hull. The remaining paddle has been scraped thin; the steering paddle is gone.",
-      "textTemplate": "{actor} runs a hand along the upturned canoe. A fine slit crosses the hull. The remaining paddle has been scraped thin; the steering paddle is gone.",
+      "text": "A fine slit runs the length of the canoe, as though a snag had eaten down her. The steering paddle is gone; the other is scraped thin. A snag. It must have been a snag.",
       "summary": "The canoe has a fine slit in its hull. The steering paddle is missing, and the remaining paddle is scraped thin.",
       "requires": [],
       "effects": [
@@ -195,9 +207,9 @@
       "id": "willows-count-stores",
       "subject": "willows-camp",
       "at": "willows-camp",
+      "on": "wait",
       "label": "Count the camp supplies",
-      "text": "The traveller checks the camp stores. There is oatmeal and tea for another morning. The bread has vanished. The empty space in the sack is strangely clean.",
-      "textTemplate": "{actor} checks the camp stores. There is oatmeal and tea for another morning. The bread has vanished. The empty space in the sack is strangely clean.",
+      "text": "The food sack is lighter than it was. Oatmeal and tea for another morning. The bread is gone, and the space where it lay is strangely clean.",
       "summary": "The camp stores were counted. Oatmeal and tea remain; the bread is missing.",
       "requires": [
         {
@@ -218,9 +230,9 @@
       "id": "willows-examine-hollows",
       "subject": "willows-thicket",
       "at": "willows-thicket",
+      "on": "wait",
       "label": "Examine the sand hollows",
-      "text": "The traveller kneels beside the willows. Each hollow is smooth and round, as though something pressed into the sand from above. Fine roots cross their edges.",
-      "textTemplate": "{actor} kneels beside the willows. Each hollow is smooth and round, as though something pressed into the sand from above. Fine roots cross their edges.",
+      "text": "Hollows in the sand between our roots, smooth and round, cup to bowl. Pressed from above. We count them. We count them again.",
       "summary": "Smooth round hollows were found in the sand between the willow roots.",
       "requires": [],
       "effects": [
@@ -235,9 +247,9 @@
       "id": "willows-hear-humming",
       "subject": "willows-bank",
       "at": "willows-bank",
+      "on": "wait",
       "label": "Listen across the river",
-      "text": "The traveller listens at the bank. A low metallic humming rises through the willows across the water. For a moment it seems to come from the sand underfoot.",
-      "textTemplate": "{actor} listens at the bank. A low metallic humming rises through the willows across the water. For a moment it seems to come from the sand underfoot.",
+      "text": "A humming across the water, like a gong hung far up in the sky. A steamer, far off. There are no steamers here.",
       "summary": "A metallic humming was heard across the river and through the sand beneath the bank.",
       "requires": [],
       "effects": [
@@ -252,9 +264,9 @@
       "id": "willows-look-beneath-roots",
       "subject": "willows-bank",
       "at": "willows-bank",
+      "on": "wait",
       "label": "Look beneath the roots",
-      "text": "The traveller peers beneath the exposed roots. A drowned man lies caught in them. Small smooth hollows mark his skin, the same shape as those in the sand. The current turns him slowly.",
-      "textTemplate": "{actor} peers beneath the exposed roots. A drowned man lies caught in them. Small smooth hollows mark his skin, the same shape as those in the sand. The current turns him slowly.",
+      "text": "Something turns below my roots. A drowned man. The current swings him round, and his skin is marked with small smooth hollows, like the sand.",
       "summary": "A drowned man caught below the roots bears hollows like those found in the sand.",
       "requires": [],
       "effects": [
@@ -269,9 +281,9 @@
       "id": "willows-watch-otter",
       "subject": "willows-landing",
       "at": "willows-landing",
+      "on": "wait",
       "label": "Watch the thing in the current",
-      "text": "The traveller watches something black roll in the current twenty feet out, turning like a drowned man. It looks straight at the landing with odd yellow eyes, then plunges. An otter.",
-      "textTemplate": "{actor} watches something black roll in the current twenty feet out, turning like a drowned man. It looks straight at the landing with odd yellow eyes, then plunges. An otter.",
+      "text": "Something black rolls in the current twenty feet out, turning like a drowned man. It looks straight at me with odd yellow eyes, then plunges. An otter.",
       "summary": "Something rolled in the current like a drowned man, looked across with yellow eyes and dived: an otter.",
       "requires": [
         {
@@ -291,11 +303,16 @@
       "id": "willows-watch-boatman",
       "subject": "willows-landing",
       "at": "willows-landing",
+      "on": "wait",
       "label": "Watch the far shore",
-      "text": "The traveller sees a man standing in a flat boat, swept down the far shore at a tremendous pace. He shouts something the wind takes, makes the sign of the Cross toward the island, and is gone among the willows.",
-      "textTemplate": "{actor} sees a man standing in a flat boat, swept down the far shore at a tremendous pace. He shouts something the wind takes, makes the sign of the Cross toward the island, and is gone among the willows.",
+      "text": "A man in a flat boat sweeps down the far shore. He shouts something the wind takes, crosses himself toward the island, and is gone among the willows.",
       "summary": "A boatman swept down the far shore, shouted into the wind and made the sign of the Cross toward the island.",
-      "requires": [],
+      "requires": [
+        {
+          "kind": "daylight",
+          "phase": "day"
+        }
+      ],
       "effects": [
         {
           "kind": "set_flag",
@@ -308,9 +325,9 @@
       "id": "willows-pace-willows",
       "subject": "willows-camp",
       "at": "willows-camp",
+      "on": "wait",
       "label": "Pace out the willows",
-      "text": "The traveller paces over the warm sand from the tent door to the nearest willow and counts aloud. Eleven paces.",
-      "textTemplate": "{actor} paces over the warm sand from the tent door to the nearest willow and counts aloud. Eleven paces.",
+      "text": "Eleven paces over the warm sand, from the tent door to the nearest willow. I count them aloud.",
       "summary": "Paced by day: eleven paces from the tent door to the nearest willow.",
       "requires": [
         {
@@ -330,9 +347,9 @@
       "id": "willows-pace-again",
       "subject": "willows-camp",
       "at": "willows-camp",
+      "on": "wait",
       "label": "Pace it again",
-      "text": "The traveller paces again from the tent door to the nearest willow, slowly, counting twice. Nine paces. The sand between is smooth and unmarked.",
-      "textTemplate": "{actor} paces again from the tent door to the nearest willow, slowly, counting twice. Nine paces. The sand between is smooth and unmarked.",
+      "text": "Nine paces from the tent door to the nearest willow. I counted twice. The sand between is smooth.",
       "summary": "Paced again at night: nine paces from the tent door to the nearest willow, where by day there were eleven.",
       "requires": [
         {
@@ -357,9 +374,9 @@
       "id": "willows-listen-tent",
       "subject": "willows-camp",
       "at": "willows-camp",
+      "on": "wait",
       "label": "Lie still in the tent",
-      "text": "The traveller lies still inside the tent. Outside, multitudinous little patterings come and go around the canvas. The canvas sags inward, as if a great weight pressed on it from above.",
-      "textTemplate": "{actor} lies still inside the tent. Outside, multitudinous little patterings come and go around the canvas. The canvas sags inward, as if a great weight pressed on it from above.",
+      "text": "Little patterings come and go around the tent, multitudinous. The canvas sags inward, as if a weight pressed on it from above. Rain. The leaves dripping.",
       "summary": "At night, little patterings circled the tent and a weight pressed the canvas from above.",
       "requires": [
         {
@@ -379,9 +396,9 @@
       "id": "willows-look-up-willows",
       "subject": "willows-thicket",
       "at": "willows-thicket",
+      "on": "wait",
       "label": "Look up at the willow tops",
-      "text": "The traveller looks up through the willow tops. Within the leaves, shapes pour upward in a slow bending column, dull bronze, rising into the dark. Their faces never show.",
-      "textTemplate": "{actor} looks up through the willow tops. Within the leaves, shapes pour upward in a slow bending column, dull bronze, rising into the dark. Their faces never show.",
+      "text": "Shapes pour upward through our tops in a slow bending column, dull bronze, into the dark. Their faces never show. We lean. We count.",
       "summary": "At night, shapes poured upward through the willow tops in a bronze column; no faces showed.",
       "requires": [
         {
@@ -401,9 +418,9 @@
       "id": "willows-compare-signs",
       "subject": "willows-swede",
       "at": "willows-camp",
+      "on": "wait",
       "label": "Compare the strange signs",
-      "text": "The traveller and the Swede compare the damaged canoe, the missing bread and the marks beneath the roots. He lays his hands flat on his knees. The fire crackles between them.",
-      "textTemplate": "{actor} and the Swede compare the damaged canoe, the missing bread and the marks beneath the roots. He lays his hands flat on his knees. The fire crackles between them.",
+      "text": "The Swede hears out the slit hull, the missing bread and the marks beneath the roots. He lays his hands flat on his knees. The fire crackles between us.",
       "summary": "The Swede and the traveller compared the canoe damage, the missing bread and the marks beneath the roots.",
       "requires": [
         {

@@ -85,6 +85,7 @@ import {
   applyPackChoice,
   applyMeetingChoices,
   packGiveChoice,
+  packWaitChoice,
   choiceText,
   conditionsMet,
   validatePackLinks,
@@ -1462,9 +1463,14 @@ function perform(s, a, round = null, settle = []) {
   if (a.kind === "wait") {
     const learningStart = beginLearning(s, a);
     if (a.actor === currentActor(s)) calm(s, here, a.actor);
+    // Observing here may notice one of the place's signs.
+    const sign = packWaitChoice(s, a.actor);
+    const text = sign
+      ? choiceText(applyPackChoice(s, sign, { mode: "wait" }), a.actor)
+      : a.text;
     // The player's wait is a committed play like any other.
-    if (learningStart || a.actor === currentActor(s)) {
-      addLog(s, "World", a.text, {
+    if (learningStart || sign || a.actor === currentActor(s)) {
+      addLog(s, "World", text, {
         kind: "action",
         actorId: a.actor,
         verb: "wait",

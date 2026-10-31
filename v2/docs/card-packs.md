@@ -181,6 +181,12 @@ Give is accepted, the choice text is the outcome, and nothing else moves.
 The Lonely Forest buttons use both rules (see
 `v2/content/lonely-forest/OPENING.md`).
 
+A choice with `"on": "wait"` is a sign a place shows to a human who
+Observes there (the Wait play). Each Observe commits at most one feasible
+sign at the observer's place; its text is the World line. A FNV-1a hash of
+the run seed, the place and the pack's receipt count picks among the
+feasible signs, so each run notices them in its own order.
+
 Canonical
 person identities prevent incompatible embodiments being active together.
 Ordered receipts recompute saved choices/flags on loading.

@@ -1011,6 +1011,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         idOk(c.id) &&
         (c.on === undefined ||
           c.on === "meet" ||
+          c.on === "wait" ||
           (c.on === "give" &&
             (c.requires || []).some(
               (r) => r.kind === "holding" && r.role === "actor",

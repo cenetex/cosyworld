@@ -469,6 +469,24 @@ export function packGiveChoice(world, action) {
         return { packId: pack.id, choiceId: c.id, actor: action.actor };
   return null;
 }
+// Choices marked "on": "wait" are what a human traveler notices by Observing
+// (the Wait play) at their place. One feasible sign commits per Observe; the
+// run seed and the signs already seen pick which, so each run has its order.
+export function packWaitChoice(world, actor) {
+  if (!controlledByHuman(world, actor)) return null;
+  const signs = packDefinitions.flatMap((pack) =>
+    (pack.choices || [])
+      .filter((c) => choiceFeasible(world, pack, c, actor, "wait"))
+      .map((c) => ({ packId: pack.id, choiceId: c.id, actor })),
+  );
+  if (!signs.length) return null;
+  const place = world.actors[actor].place,
+    seen = Object.keys(packState(world, signs[0].packId).receipts).length;
+  let hash = 2166136261;
+  for (const ch of `${world.run?.seed ?? 0}:${place}:${seen}`)
+    hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return signs[hash % signs.length];
+}
 export function applyPackChoice(
   world,
   action,
