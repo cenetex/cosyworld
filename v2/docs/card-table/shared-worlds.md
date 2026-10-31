@@ -98,11 +98,22 @@ presentation modules are moving out of the bundle so that content changes stop
 minting rules versions; see
 [the design note](../../../docs/design/pack-content-outside-the-engine.md).
 
-The dialogue context for a committed play comes from a second bundle,
+The dialogue context for a committed play, and the scene the browser draws,
+come from a second bundle,
 `card_shared/narrator.js`, built by `npm run v2:card:narrator:build`. Its
 output goes only to the story service and is never a journal input, so it is
 rebuilt from current sources and never versioned. `npm run v2:card:shared:next`
 and the land script rebuild it.
+
+`card_shared/content.json` holds the pack content the shared rules read: every
+JSON module the rules bundle imports, built by `npm run v2:card:content:build`.
+Rules from v58 on take content as input and receive it per request, so the
+bundle holds rules only and an art, pose or pack change leaves `engine-v*.js`
+unchanged. A world records the SHA-256 of that content as `pack`. The server
+stores each revision in `card_full_packs` before a journal row names it and
+replays only from verified stored bytes. A `repack` command moves a world to
+new content under the same rules. Released rules v2 to v57 carry their own
+packs and never use the store.
 
 ## Event sync
 
@@ -409,9 +420,8 @@ Shared rules version 19 uses common step capture and advancement for personal
 and shared quests. Each saved step keeps its evidence, source turn and card key.
 Repeated checks in one turn preserve the single-step and single-effect rules.
 
-Packs supply story cards and ordered endings through `storyQuests`. Greece uses
-this common evaluator, including its earlier choices, grave return, Open Door
-and Homecoming. Existing cards retain their keys, holders and completion turns.
+Earlier rules read story cards and ordered endings from pack
+`storyQuests`. Current packs carry none; stories are told through pack choices.
 
 Talk may share one fact from an authored topic or the speaker's saved knowledge.
 The accepted line must contain the complete fact sentence. From rules version

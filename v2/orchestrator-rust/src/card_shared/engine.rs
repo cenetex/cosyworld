@@ -1,6 +1,6 @@
 //! The shipping card rules run in QuickJS, a C interpreter. Rust supplies JSON
 //! and owns IO; the interpreter has no filesystem, network, clocks or randomness.
-use super::store::Result;
+use super::{content, store::Result};
 use rquickjs::{Context, Function, Runtime};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -13,7 +13,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/57";
+pub(super) const VERSION: &str = "full-card-world/59";
+pub(super) const FIFTY_EIGHTH_VERSION: &str = "full-card-world/58";
+pub(super) const FIFTY_SEVENTH_VERSION: &str = "full-card-world/57";
 pub(super) const FIFTY_SIXTH_VERSION: &str = "full-card-world/56";
 pub(super) const FIFTY_FIFTH_VERSION: &str = "full-card-world/55";
 pub(super) const FIFTY_FOURTH_VERSION: &str = "full-card-world/54";
@@ -69,7 +71,9 @@ pub(super) const FIFTH_VERSION: &str = "full-card-world/5";
 pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
 pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
 pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
-const SOURCE: &str = include_str!("engine-v57.js");
+const SOURCE: &str = include_str!("engine-v59.js");
+const FIFTY_EIGHTH_SOURCE: &str = include_str!("engine-v58.js");
+const FIFTY_SEVENTH_SOURCE: &str = include_str!("engine-v57.js");
 const FIFTY_SIXTH_SOURCE: &str = include_str!("engine-v56.js");
 const FIFTY_FIFTH_SOURCE: &str = include_str!("engine-v55.js");
 const FIFTY_FOURTH_SOURCE: &str = include_str!("engine-v54.js");
@@ -184,6 +188,8 @@ pub(super) fn historical(version: &str) -> bool {
             | FIFTY_FOURTH_VERSION
             | FIFTY_FIFTH_VERSION
             | FIFTY_SIXTH_VERSION
+            | FIFTY_SEVENTH_VERSION
+            | FIFTY_EIGHTH_VERSION
     )
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
@@ -231,11 +237,34 @@ fn view_cache_key(version: &str, input: &str) -> String {
 }
 
 pub(super) fn reduce(request: Value) -> Result<Value> {
-    reduce_version(VERSION, request)
+    reduce_pack(VERSION, Some(content::current()), request)
 }
+// Tests reduce released rules directly; content-taking rules get this binary's.
+#[cfg(test)]
 pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
-    let source = match version {
+    reduce_pack(version, Some(content::current()), request)
+}
+/// Whether `version` reads pack content from the host instead of carrying it.
+pub(super) fn takes_content(version: &str) -> bool {
+    source(version).is_some_and(content::takes_content)
+}
+// Rules from v58 on receive the world's pack content; older rules carry theirs.
+pub(super) fn reduce_pack(version: &str, pack: Option<&str>, request: Value) -> Result<Value> {
+    let source = source(version).ok_or("This world needs a supported rules version.")?;
+    let content = if content::takes_content(source) {
+        Some(content::text(
+            pack.ok_or("This world's pack content needs recovery.")?,
+        )?)
+    } else {
+        None
+    };
+    reduce_source(version, source, content.as_deref().zip(pack), request)
+}
+fn source(version: &str) -> Option<&'static str> {
+    Some(match version {
         VERSION => SOURCE,
+        FIFTY_EIGHTH_VERSION => FIFTY_EIGHTH_SOURCE,
+        FIFTY_SEVENTH_VERSION => FIFTY_SEVENTH_SOURCE,
         FIFTY_SIXTH_VERSION => FIFTY_SIXTH_SOURCE,
         FIFTY_FIFTH_VERSION => FIFTY_FIFTH_SOURCE,
         FIFTY_FOURTH_VERSION => FIFTY_FOURTH_SOURCE,
@@ -291,14 +320,25 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
         SIXTEENTH_VERSION => SIXTEENTH_SOURCE,
         SEVENTEENTH_VERSION => SEVENTEENTH_SOURCE,
         LEGACY_VERSION => LEGACY_SOURCE,
-        _ => return Err("This world needs a supported rules version.".into()),
-    };
+        _ => return None,
+    })
+}
+fn reduce_source(
+    version: &str,
+    source: &str,
+    content: Option<(&str, &str)>,
+    request: Value,
+) -> Result<Value> {
     let view = request["op"] == "view";
     let input = serde_json::to_string(&request).map_err(|_| "Choose a saved world.".to_string())?;
     if input.len() > MAX_BYTES {
         return Err("This saved world is too large to share.".into());
     }
-    let cache_key = view.then(|| view_cache_key(version, &input));
+    // Two content revisions under one engine never share a cached view.
+    let cache_key = view.then(|| match content {
+        Some((_, pack)) => view_cache_key(&format!("{version}+{pack}"), &input),
+        None => view_cache_key(version, &input),
+    });
     // A projection is pure for its exact world, actor, claims and presence.
     // Keep only successful serialized projections. Commands always run in C.
     if let Some(cache_key) = cache_key.as_deref() {
@@ -331,6 +371,10 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
     let output = context.with(|ctx| -> Result<String> {
         ctx.eval::<(), _>("globalThis.structuredClone = value => JSON.parse(JSON.stringify(value)); globalThis.Date = undefined; Math.random = () => { throw new Error('Randomness must come from the saved world.'); };")
             .map_err(engine_error)?;
+        if let Some((content, _)) = content {
+            let content = ctx.json_parse(content).map_err(engine_error)?;
+            ctx.globals().set("cardContent", content).map_err(engine_error)?;
+        }
         ctx.eval::<(), _>(source).map_err(|error| {
             if interrupted.load(Ordering::Relaxed) {
                 return deadline_error(version);

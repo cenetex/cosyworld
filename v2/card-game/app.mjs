@@ -1,5 +1,6 @@
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
+import { arriveCard, finishReveal, revealCard } from "./card-reveal.mjs";
 import { landingPack, createLandingWorld } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
@@ -41,6 +42,7 @@ import {
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
+import { forgetCovered, markWaking } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic } from "./music.mjs";
 import { createHum } from "./hum.mjs";
@@ -122,8 +124,10 @@ let world = sharedSession
   lineSeq = null,
   selectionRevision = 0,
   dragging = [],
-  // A scene click folds the row away while the held item stays raised.
-  rowCollapsed = false;
+  // The hand rests folded until a card is touched. Only a click outside
+  // the card area, Escape, or a play folds it again; changing the
+  // selection, deselecting included, never does. A held item stays raised.
+  rowCollapsed = true;
 // Name the save slot: table saves are keyed off the URL param, so a player
 // landing through a different link silently lands in a different slot.
 {
@@ -155,6 +159,27 @@ function art(id) {
   return media
     ? `<img src="${imageUrl(media, "card")}" alt="" decoding="async">`
     : `<svg viewBox="0 0 64 64" aria-hidden="true">${paths[id] || '<path d="M20 12h24v40H20zM25 22h14M25 30h14M25 38h10"/>'}</svg>`;
+}
+// Beat captions keep their glyph as data; the table draws each one as line
+// art in the toolbar's style so no glyph falls back to a colour emoji.
+const beatIcons = {
+  "➜": '<path d="M4 12h15M13 6l6 6-6 6"/>',
+  "⚔": '<path d="M4 4l11 11M13 17l4-4M15 15l4 4M20 4 9 15M11 17l-4-4M9 15l-4 4"/>',
+  "↳": '<path d="M7 4v8a3 3 0 0 0 3 3h9M15 11l4 4-4 4"/>',
+  "⇄": '<path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/>',
+  "✦": '<path d="M12 3c.8 5 2 6.2 7 9-5 2.8-6.2 4-7 9-.8-5-2-6.2-7-9 5-2.8 6.2-4 7-9Z"/>',
+  "✋": '<path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V11M11 10.5V4.5a1.5 1.5 0 0 1 3 0v6M14 10.5V6a1.5 1.5 0 0 1 3 0v5M17 11V9a1.5 1.5 0 0 1 3 0v5a7 7 0 0 1-7 7h-.8a6 6 0 0 1-4.7-2.3l-3-3.9a1.6 1.6 0 0 1 2.4-2L8 15"/>',
+  "◌": '<path d="M9 21v-9h6v9M7 21h10M12 12V9M12 7c-1.5-1.3 1.5-2.4 0-4"/>',
+  "♪": '<path d="M5 17h14l-2-3v-4a5 5 0 0 0-10 0v4zM10 19.5a2 2 0 0 0 4 0"/>',
+  "⛽": '<path d="M12 3c-1.6 2.2-2.5 3.5-2.5 4.7a2.5 2.5 0 0 0 5 0C14.5 6.5 13.6 5.2 12 3ZM4 14h16l-2.5 6h-11ZM9 14a3 3 0 0 1 6 0"/>',
+};
+function beatIcon(glyph) {
+  const holder = node("span", undefined, "beat-icon");
+  holder.setAttribute("aria-hidden", "true");
+  if (beatIcons[glyph])
+    holder.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${beatIcons[glyph]}</svg>`;
+  else holder.textContent = glyph;
+  return holder;
 }
 function node(tag, text, className) {
   const el = document.createElement(tag);
@@ -217,7 +242,16 @@ let encountered = new Set(),
   discoveryPending = false;
 const fresh = new Set();
 const coveredCards = new Set();
+let openingHeld = false;
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
+// The screen names a card only once its player has uncovered it (#1575).
+const knownName = (id, unknown = "…") =>
+  coveredCards.has(id) ? unknown : nameOf(id);
+// An avatar wakes knowing nothing: it speaks once its player has uncovered
+// both its own card and the place it stands in.
+const selfKnown = () =>
+  !coveredCards.has(currentActor(world)) &&
+  !coveredCards.has(world.actors[currentActor(world)].place);
 function rememberCards() {
   try {
     localStorage.setItem(SEEN_KEY, JSON.stringify([...encountered]));
@@ -794,6 +828,10 @@ window.addEventListener("pageshow", () => {
 const narrator = createNarrator({
   getWorld: () => world,
   early: Boolean(localRuntime()),
+  limit: (context) => {
+    const covered = (id) => coveredCards.has(id);
+    return markWaking(world, forgetCovered(world, context, covered), covered);
+  },
   request: localRuntime()
     ? (context, signal, progress) =>
         requestNarrative(context, signal, progress, "/card-game/text", true)
@@ -803,7 +841,6 @@ const narrator = createNarrator({
         requestNarrative(context, signal, () => {}, "/card-game/reflections")
     : null,
   started: (context) => {
-    if (context.turn === 0) dropOpeningFallback();
     if (localRuntime()) characterSpeech.clear();
     // A speaker who left this turn speaks at the destination, not here.
     sceneSpeakers = context.speakers.filter(
@@ -850,7 +887,7 @@ const narrator = createNarrator({
     if (value === "retry") {
       rememberWordsFailed(world.revision);
       exchange.cancel();
-      showOpeningFallback();
+      showOpeningSilence();
     }
     renderScene();
   },
@@ -929,13 +966,17 @@ function selectCards(cards) {
   selected = cards;
 }
 function choose(id) {
-  if (selectionBlocked()) return;
+  if (finishReveal(id) || selectionBlocked()) return;
   if (cardIsCovered(id)) {
     encountered.add(id);
     coveredCards.delete(id);
-    fresh.delete(id);
     rememberCards();
     render();
+    const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
+    if (shown) void revealCard(shown);
+    $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
+    if (openingHeld && openingWordsDue() && selfKnown()) resumeScene();
+    if (sharedSession) syncSharedLine();
     return;
   }
   playQueue.clear();
@@ -993,7 +1034,11 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   if (playQueue.pending?.action.key === action.key) {
     // Shared plays cancel through their own visible control.
     if (!sharedSession) playQueue.clear();
-  } else playQueue.submit(action, revision);
+  } else {
+    // Playing is one of the two things that fold the hand.
+    rowCollapsed = true;
+    playQueue.submit(action, revision);
+  }
 }
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
@@ -1389,6 +1434,10 @@ function queueDiscoveries() {
       }
       rememberCards();
       render();
+      for (const id of found) {
+        const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
+        if (shown && !shown.closest(".card-frame").hidden) void arriveCard(shown);
+      }
     });
 }
 
@@ -1514,8 +1563,7 @@ function renderActions(animate = false) {
     selected.length > 0,
   );
   document.body.dataset.handExpanded = String(
-    dragging.length > 0 ||
-      (!rowCollapsed && (selected.length > 0 || expandedHolders.size > 0)),
+    dragging.length > 0 || !rowCollapsed,
   );
   const revision = world.revision;
   const nudgeTarget =
@@ -1721,7 +1769,9 @@ function card(id) {
   const observation = node("span", cardObservation(world, id), "sr-only");
   observation.id = `card-detail-${id}`;
   if (raised && label) observation.textContent += ` ${label}.`;
-  el.append(graphic, node("span", def.name, "name"), observation);
+  const hidden = cardIsCovered(id);
+  if (hidden) observation.textContent = "";
+  el.append(graphic, node("span", hidden ? "" : def.name, "name"), observation);
   for (const end of ["top", "bottom"]) {
     const numeral = node("span", romanLevel(level), `card-level card-level-${end}`);
     numeral.setAttribute("aria-hidden", "true");
@@ -1757,8 +1807,14 @@ function card(id) {
   el.addEventListener("drop", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!selectionBlocked() && !cardIsCovered(id) && dragging.length && !dragging.includes(id)) {
+    if (
+      !selectionBlocked() &&
+      !cardIsCovered(id) &&
+      dragging.length &&
+      !dragging.includes(id)
+    ) {
       playQueue.clear();
+      rowCollapsed = false;
       selectCards([dragging[0], id]);
       selectionRevision = world.revision;
       render();
@@ -1777,7 +1833,7 @@ function card(id) {
       : !raised && !expandedHolders.has(holder);
     el.setAttribute(
       "aria-label",
-      `${def.name}, ${places[holder] ? "at" : "carried by"} ${nameOf(holder)}, ${tier.label}, level ${level}`,
+      `${def.name}, ${places[holder] ? "at" : "carried by"} ${knownName(holder, "someone")}, ${tier.label}, level ${level}`,
     );
   }
   if (people[id] || places[id]) {
@@ -1788,8 +1844,10 @@ function card(id) {
       frame.dataset.inventory = String(held.length);
       frame.dataset.expanded = String(expandedHolders.has(id));
       el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
-      if (held.length)
-        observation.textContent += ` ${places[id] ? "Contains" : "Carries"} ${held.map(nameOf).join(", ")}. Select to show these cards.`;
+      const named = held.filter((item) => !cardIsCovered(item)).map(nameOf);
+      if (named.length < held.length) named.push(`${held.length - named.length} covered`);
+      if (!hidden)
+        observation.textContent += ` ${places[id] ? "Contains" : "Carries"} ${named.join(", ")}. Select to show these cards.`;
       for (const item of held.slice(0, 2)) {
         const preview = node("img", undefined, "held-preview");
         preview.decoding = "async";
@@ -1833,8 +1891,12 @@ function renderStage(locationId) {
   document.body.dataset.place = locationId;
   document.body.dataset.dim = String(Boolean(lamp));
   document.body.dataset.lamplit = String(lampLitHere(world, locationId));
-  document.querySelector(".brand span").textContent =
-    pack?.name || "The reflected shore";
+  // A world's name waits, like the place's, for its card to be uncovered.
+  const worldName = coveredCards.has(locationId)
+    ? null
+    : pack?.name || "The reflected shore";
+  document.querySelector(".brand span").textContent = worldName || "…";
+  document.title = worldName ? `CosyWorld · ${worldName}` : "CosyWorld";
   const fraction = (value, fallback) => String((value ?? fallback) / 100);
   view.style.setProperty("--focus-x", fraction(stage.focus?.x, 50));
   view.style.setProperty("--focus-y", fraction(stage.focus?.y, 50));
@@ -1870,7 +1932,9 @@ function renderStage(locationId) {
   const source = imageUrl(portrait(stage.resident, null, world));
   if (figure.getAttribute("src") !== source) figure.src = source;
   figure.dataset.state = mood?.name || "present";
-  figure.alt = mood?.alt || nameOf(stage.resident);
+  figure.alt = coveredCards.has(stage.resident)
+    ? "Someone"
+    : mood?.alt || nameOf(stage.resident);
 }
 function leaveFigure(figure, remove = false) {
   if (exits.has(figure)) return;
@@ -1914,7 +1978,9 @@ function renderHeldItem(figure, actor, itemId) {
   let preview = figure.querySelector(".portrait-held-item");
   figure.setAttribute(
     "aria-label",
-    itemId ? `${nameOf(actor.id)} holds ${nameOf(itemId)}` : nameOf(actor.id),
+    itemId
+      ? `${knownName(actor.id, "Someone")} holds ${knownName(itemId, "a covered card")}`
+      : knownName(actor.id, "Someone"),
   );
   if (!itemId) {
     preview?.remove();
@@ -2033,8 +2099,9 @@ function renderScene() {
           ? CROSSFADE_MS
           : CHANGE_FADE_MS,
   });
-  img.alt =
-    stageOf(world, scene.locationId).alt || placeText(world, scene.locationId);
+  img.alt = coveredCards.has(scene.locationId)
+    ? ""
+    : stageOf(world, scene.locationId).alt || placeText(world, scene.locationId);
   if (scene.weather) img.alt += ` Weather: ${scene.weather.condition}.`;
   if (scene.daylight) img.alt += ` ${scene.daylight.description}`;
   img.dataset.locationVariant = scene.variant;
@@ -2327,8 +2394,6 @@ function renderScene() {
   $("speaker").textContent = front
     ? line?.speaker || (front.speakerId ? nameOf(front.speakerId) : "")
     : "";
-  // Phones set the name on the caption line to keep the card short.
-  document.querySelector(".beat-name").textContent = $("speaker").textContent;
   const canRetryWords = !sharedSession || Boolean(sharedSpeech.retryKey);
   $("story-status").hidden =
     behindLive ||
@@ -2372,7 +2437,7 @@ function renderScene() {
         const item = node("span", undefined, "beat-caption");
         item.dataset.kind = action.kind;
         item.append(
-          node("span", action.icon, "beat-icon"),
+          beatIcon(action.icon),
           node("span", action.text),
         );
         return item;
@@ -2450,20 +2515,21 @@ function renderScene() {
         face.append(image);
       }
       const words = behindButton.querySelector(".beat-behind-text");
+      const first = behind.actions[0];
+      const caption = node("span", undefined, "beat-behind-caption");
+      if (first) caption.append(beatIcon(first.icon), first.text);
       words.replaceChildren(
         node("strong", summary.speaker),
         ...(summary.speech
           ? [node("span", summary.speech, "beat-behind-speech")]
           : []),
-        ...(summary.caption
-          ? [node("span", summary.caption, "beat-behind-caption")]
-          : []),
+        ...(first ? [caption] : []),
       );
       behindButton.dataset.beat = behind.line ? "speech" : "action";
     }
     behindButton.setAttribute(
       "aria-label",
-      `Step back to ${summary.speaker}: ${summary.speech || summary.caption}`,
+      `Step back to ${summary.speaker}: ${summary.speech || behind.actions[0]?.text || ""}`,
     );
   }
   // One live control, only while behind live, counting the newer beats.
@@ -2824,7 +2890,7 @@ function renderLog() {
           const caption = node("p", undefined, "beat-caption");
           caption.dataset.kind = action.kind;
           caption.append(
-            node("span", action.icon, "beat-icon"),
+            beatIcon(action.icon),
             node("span", action.text),
           );
           body.append(caption);
@@ -2853,7 +2919,7 @@ function render() {
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;
   $("hand").dataset.presentedRevision = String(world.revision);
-  $("place-title").textContent = nameOf(
+  $("place-title").textContent = knownName(
     world.actors[currentActor(world)].place,
   );
   if (rowCollapsed) expandedHolders.clear();
@@ -3071,43 +3137,43 @@ document.addEventListener("keydown", (e) => {
   if (
     e.key === "Escape" &&
     !document.querySelector("dialog[open], .world-menu:popover-open") &&
-    (selected.length || expandedHolders.size)
+    (selected.length || expandedHolders.size || !rowCollapsed)
   ) {
     playQueue.clear();
     selected = [];
     expandedHolders.clear();
-    rowCollapsed = false;
+    rowCollapsed = true;
     render();
   }
 });
-// A click outside the row folds it. A held item stays raised and is still
-// held when the row opens again; Escape or a second tap lowers it.
+// A click outside the card area folds the row. A held item stays raised and
+// is still held when the row opens again; Escape or a second tap lowers it.
+// Clicks on the dialogue, toolbar, dialogs and action buttons leave it be.
 document.addEventListener("click", (e) => {
+  const path = e.composedPath(),
+    within = (selector) =>
+      path.some(
+        (element) => element instanceof Element && element.matches(selector),
+      );
   if (rowCollapsed) {
-    if (e.target instanceof Element && e.target.closest(".play-dock")) {
+    // A folded row with a held item opens from any dock click; a resting
+    // hand opens from a card. A play folds the row from its own button, so
+    // that click must not reopen it.
+    if (selected.length && within(".play-dock") && !within("#card-actions")) {
       rowCollapsed = false;
       render();
     }
     return;
   }
   if (
-    (selected.length || expandedHolders.size) &&
-    !e
-      .composedPath()
-      .some(
-        (element) =>
-          element instanceof Element &&
-          element.matches(
-            ".play-dock, .card-frame, dialog, .topbar, .dialogue, .world-menu",
-          ),
-      )
-  ) {
-    playQueue.clear();
-    if (selectedHandItem(world, selected)) rowCollapsed = true;
-    else selected = [];
-    expandedHolders.clear();
-    render();
-  }
+    within(".play-dock, .card-frame, dialog, .topbar, .dialogue, .world-menu")
+  )
+    return;
+  playQueue.clear();
+  if (!selectedHandItem(world, selected)) selected = [];
+  rowCollapsed = true;
+  expandedHolders.clear();
+  render();
 });
 $("history-button").onclick = () => {
   renderLog();
@@ -3187,7 +3253,7 @@ $("confirm-reset").onclick = () => {
   lineSeq = null;
   selected = [];
   expandedHolders.clear();
-  rowCollapsed = false;
+  rowCollapsed = true;
   saveBlocked = false;
   notice("");
   save();
@@ -3210,7 +3276,7 @@ window.addEventListener("storage", (event) => {
     lineSeq = null;
     selected = [];
     expandedHolders.clear();
-    rowCollapsed = false;
+    rowCollapsed = true;
     saveBlocked = false;
     notice("The world was updated in another tab.");
     resumeScene();
@@ -3242,38 +3308,18 @@ function openingWordsDue() {
       !hasCurrentWords(),
   );
 }
-// The authored opening line is shown only when the model gives no first line.
-// It is marked as a fallback, so a retry or reload still asks the model.
-function dropOpeningFallback() {
-  if (!world.log.some((entry) => entry.fallback && entry.turn === world.turn))
-    return;
-  world.log = world.log.filter(
-    (entry) => !(entry.fallback && entry.turn === world.turn),
-  );
-  save();
-}
-function showOpeningFallback() {
+// No line is scripted for a waking avatar (#1600): when the model gives no
+// first words, the silent beat "…" shows, and Retry or a reload asks again.
+function showOpeningSilence() {
   if (!openingWordsDue()) return;
-  dropOpeningFallback();
-  addLog(
-    world,
-    "Vale",
-    world.opening.version === 2
-      ? "The water is dark. I'll light the lamp."
-      : "It's cold up here. I'll light the lamp.",
-    {
-      actorId: currentActor(world),
-      entityId: currentActor(world),
-      kind: "dialogue",
-      generated: true,
-      fallback: true,
-    },
-  );
-  save();
+  silence = {
+    turn: world.turn,
+    lines: silentLines(world, [currentActor(world)]),
+  };
   lineSeq = null;
   exchange.begin();
   render();
-  exchange.load([world.log.at(-1)]);
+  exchange.load(silence.lines);
 }
 function resumeScene() {
   if (sharedSession) {
@@ -3281,9 +3327,16 @@ function resumeScene() {
     syncSharedLine();
     return;
   }
+  openingHeld = openingWordsDue() && !selfKnown();
+  if (openingHeld) {
+    // Vale's first line waits until his player uncovers him and his place.
+    storyStatus = "ready";
+    save();
+    render();
+    return;
+  }
   if (openingWordsDue()) {
     // A new game asks the dialogue model for Vale's first line.
-    dropOpeningFallback();
     lineSeq = null;
     storyStatus = "pending";
     exchange.begin();
@@ -3436,6 +3489,8 @@ async function submitSharedPlay(action) {
 function syncSharedLine() {
   renderPlayers();
   if (!sharedSession || reviewing || covering) return;
+  // A viewer hears the room once they have uncovered themselves and it.
+  if (!selfKnown()) return;
   const room = world.actors[currentActor(world)].place;
   const playbackTime = sharedPlayback.now(
     sharedSession.state,

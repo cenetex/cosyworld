@@ -236,8 +236,13 @@ try {
         const back = box("#beat-behind"),
           card = box("#speech-row"),
           text = box("#dialogue-text"),
-          caption = box("#beat-captions");
+          name = box("#speaker"),
+          caption = box("#beat-captions"),
+          words = document.querySelector("#dialogue-text");
         return {
+          nameOnTop: name.height > 0 && name.bottom <= text.top + 1,
+          fullWidth: text.left - card.left < 24 && card.right - text.right < 24,
+          wholeLine: words.scrollHeight <= words.clientHeight + 1,
           peek: card.top - back.top,
           narrower: back.width < card.width,
           stack: card.bottom - back.top,
@@ -257,11 +262,14 @@ try {
         `One line of the card behind peeks out: ${layout.peek}`,
       );
       assert(layout.captionBelow, "The action caption sits under the speech.");
+      assert(layout.nameOnTop, "The speaker's name sits above the speech.");
+      assert(layout.fullWidth, "The speech runs the card's full width.");
+      assert(layout.wholeLine, "The front card shows the whole line.");
       if (width < 700) {
         assert.equal(layout.captionLines, 1, "The phone caption is one line.");
-        // No taller than the old dialogue box with the same two-line reply.
+        // Name row, a two-line reply and one caption line, and the peek.
         assert(
-          layout.stack <= 90,
+          layout.stack <= 120,
           `The phone stack stays compact: ${layout.stack}`,
         );
       }

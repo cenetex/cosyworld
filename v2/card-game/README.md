@@ -205,6 +205,21 @@ knows keeps the cards its player has uncovered. The first tap uncovers a card
 without selecting it or spending a turn; subsequent taps select it normally.
 Covered cards cannot be dragged or paired. Each browser remembers which cards
 are still covered, including after a reload.
+
+The player's avatar knows only what its player has uncovered (#1575). Until a
+card is uncovered, the screen never names it: the place heading, world name
+and page title show "…", and card labels, screen-reader text and stage alt text
+leave it out. A new game's first line waits until its player uncovers both the
+avatar and its place; in shared play the room's lines wait the same way for
+each viewer. `speech-knowledge.mjs` removes covered items from every local
+speech request, so the dialogue service cannot name them. The first line is
+raw (#1600): the request is marked `waking`, and the service frames it with
+"I'm waking up." and only what is uncovered (the place, the holdings and,
+once the avatar's own card is uncovered, its name and idiolect). Until then
+it sends no system voice and cues "Me:". No line is scripted: if the model
+gives no first line, the avatar shows the silent "…". This filter lives in the browser
+because it uses that browser's covered set. Rules-owned knowledge will replace
+it.
 Borders use Signal's level-tier colours: Common 0–9, Uncommon 10–19, Rare 20–29,
 Epic 30–49 and Legendary 50+. Selected cards show their exact level in faint,
 matching Roman numerals at both ends. These fixed bands use existing avatar
@@ -328,7 +343,7 @@ conversation holds the earned poem in order, and his verses follow the saved
 choice receipts. The [exact copy list](../content/greek-drama/OPENING-POEM.md),
 the [Open Door guide](../content/greek-drama/OPEN-DOOR.md) and the
 [Ajax chapter guide](../content/greek-drama/AJAX.md) record the scenes.
-Pack `storyQuests` and situation data are no longer read. A story choice is
+Packs no longer carry `storyQuests` or `situations`. A story choice is
 the listener's own deed: only their Talk commits it. A resident who seeks Vale
 out for its own quest can tell the same account, and Vale's later Talk with
 that resident still commits the choice, one choice per turn.
@@ -396,7 +411,7 @@ When a play calls for speech, the browser sends the current local entities and d
 
 Each server voice call writes one `card voice call` log record with the entity, part, attempt count, outcome (`spoken`, `untold`, `silent` or `cancelled`), each attempt's rejection reason, and approximate prompt tokens (characters / 4) for every section: `system`, `samples`, `now`, `facts`, `directions`, `memories`, `earlier`, `conversation` and `inner`. It never records prompt or reply text. `GET /meta` reports the same counters since the process started under `card_voice`. `npm run v2:voice:eval` builds every prompt for the narrative-contract scenes and a scripted station conversation, prints token and section statistics, and replays the recorded replies in `test/fixtures/card-voice-replies.json` through the validator. The eval also counts first-person possession and deed claims that the resolved turn does not support (`false_claim`); the live validator does not check those yet ([#1537](https://github.com/cenetex/cosyworld/issues/1537)).
 
-The dialogue is a depth stack of beats, not a chat log: the current beat in front and one earlier beat behind it ([dialogue beats](../docs/card-table/dialogue-beats.md)). Earlier visits are in the optional Memory panel. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the front card to finish a line, then tap again to bring the next speaker's beat in front. The hand pauses for up to 2.5 seconds while words are generated. A slow request can be replaced by another play. Once a complete reply arrives, the hand locks through scene preparation and every speaker, then becomes ready after the last reply. A blinking cursor marks the end. Tap the card behind, press ↑, scroll or swipe down to step back in time; tap the front card, press ↓ or swipe up to step forward, or use ● live. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Vale, Mara, Pip, the Keeper, Badger, and Dione speak with their original cloned voices when OpenRouter is connected. Settings toggles voices. Other speakers keep their soft, pitched voice sounds. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A spoken card play immediately shows its first speaker with a loading mark. The waiting portrait names whoever speaks next, in speaking order: after Talk or Ask, the player's avatar thinks first, then the reply partner thinks while a streamed reply is still being written. Shared play waits on the acting avatar. The browser saves complete text before playback begins. Fresh tables request an opening exchange: at turn 0 the browser asks `/card-game/text` for Vale's first line, with no action and Vale as the only speaker. The World narration from `forest.json` stays as the authored scene-setting event. If that request fails or times out, the browser shows the authored opening line, saved with `fallback: true`. Retry dialogue or a reload removes it and asks the model again. Shared worlds have no browser opening line; their server publishes speech. Reloading resumes saved dialogue from the current turn. If the current turn's words failed before the reload, the dialogue panel keeps its Retry dialogue control. Action records remain in the saved world and scene export. A declined Give, Trade or Ask appears as a caption on the giver's beat and in Memory. Every Give and Trade sends its recorded answer as `accepted` in the resolved-turn record, so the cast can voice a refusal.
+The dialogue is a depth stack of beats, not a chat log: the current beat in front and one earlier beat behind it ([dialogue beats](../docs/card-table/dialogue-beats.md)). Earlier visits are in the optional Memory panel. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the front card to finish a line, then tap again to bring the next speaker's beat in front. The hand pauses for up to 2.5 seconds while words are generated. A slow request can be replaced by another play. Once a complete reply arrives, the hand locks through scene preparation and every speaker, then becomes ready after the last reply. A blinking cursor marks the end. Tap the card behind, press ↑, scroll or swipe down to step back in time; tap the front card, press ↓ or swipe up to step forward, or use ● live. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Vale, Mara, Pip, the Keeper, Badger, and Dione speak with their original cloned voices when OpenRouter is connected. Settings toggles voices. Other speakers keep their soft, pitched voice sounds. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A spoken card play immediately shows its first speaker with a loading mark. The waiting portrait names whoever speaks next, in speaking order: after Talk or Ask, the player's avatar thinks first, then the reply partner thinks while a streamed reply is still being written. Shared play waits on the acting avatar. The browser saves complete text before playback begins. Fresh tables request an opening exchange: at turn 0 the browser asks `/card-game/text` for Vale's first line, with no action and Vale as the only speaker. The World narration from `forest.json` stays as the authored scene-setting event. If that request fails or times out, Vale shows the unsaved silent "…"; Retry dialogue or a reload asks the model again. Shared worlds have no browser opening line; their server publishes speech. Reloading resumes saved dialogue from the current turn. If the current turn's words failed before the reload, the dialogue panel keeps its Retry dialogue control. Action records remain in the saved world and scene export. A declined Give, Trade or Ask appears as a caption on the giver's beat and in Memory. Every Give and Trade sends its recorded answer as `accepted` in the resolved-turn record, so the cast can voice a refusal.
 
 The stage holds up to three avatars. Vale stands in the foreground, with the other two farther back. The composition mirrors when Vale returns from the other side of a route. Seats and sizes stay fixed throughout an exchange. The speaker and listener face each other; another witness looks toward the speaker. The keeper has a separate right-facing cutout, so the clock face keeps its painted detail. A soft lean and light change mark the speaker. Carried item symbols follow recorded custody, including covered items. Things lying in the current place, whether put down or there from the start, stand on the painted floor as untappable props: the bare item cutout from the hand card, hand-sized beside the cast, behind the avatars and clear of the dialogue. Each keeps a stable spot from its id and the place. Wide screens show up to six; narrow and short ones show up to three. Every such thing keeps its hand card, and a prop leaves the stage as soon as someone takes it. Actual arrivals fade in together for an accepted accompany play. Quiet actions update the stage cast immediately to match the hand and current locations. Reduced motion uses still poses. The scene script exports each actor's position, depth, scale, facing, gaze, pose, travel companions, and carried items for each beat, plus the floor items and their spots. The browser uses `portrait-facing.mjs` to match each painted portrait to that gaze. This presentation-only map covers the human cast, pack portraits and Keeper variants; add new portrait files here with their native direction. Hand thumbnails keep their native artwork. A pack resident may list `poses`: each names a portrait in the pack, a place (`at`), saved conditions (`requires`), or both, and an optional stage `scale` from 0.3 to 1. The first pose that holds replaces the standing portrait on stage. Poses read committed state only, so local and shared tables show the same sprite; `portrait(id, null, world)` in `scene.mjs` returns its path, and `residentPose(world, id)` returns the chosen entry. The Swede sits by the fire at camp, listens at the bank and once the humming has been heard or the watch is chosen, and looks worried after the signs are shared.
 
@@ -488,8 +503,12 @@ The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and
 
 ## Learning and inner life
 
-Open **Menu → Inner life** to read your avatar's persona, thoughts, dreams and
-measured attempts. Each avatar keeps up to 32 completed plays for item and
+Open **Menu → Inner life** to read your avatar's inner life as a short chain:
+**I'm** (the authored name and title, "I'm Vale. The Lamplighter."), **I'm
+becoming** (the newest reflection and thoughts) and **I dream** (recent
+dreams), closed by the avatar's name. Lines that read as an assistant talking
+about the scene are hidden. Measured attempts guide the planner and stay in
+the save; the panel does not show them. Each avatar keeps up to 32 completed plays for item and
 companionship goals. The record includes the goal, the chosen action, the
 estimate before the play, the observed result, and the exact event as evidence.
 The first estimate is unknown. Later estimates come from that avatar's results.
@@ -508,8 +527,7 @@ two points per step; each carried item is worth four points; each play costs
 one point. Exploratory gifts preserve the item the current quest needs. Up to four linked plays share a
 later result with a 0.7 discount per step. A changed recorded situation or a
 completed goal ends that link. Human choices and resident choices use the same
-measurement path. The panel shows measured attempts and how often an approach
-helped reach the goal. Earlier lessons remain readable in existing saves.
+measurement path. Earlier lessons remain readable in existing saves.
 
 Solo and shared avatars reflect when they choose **Wait** after something new
 has happened to them. Other plays never start a reflection. A new thought
@@ -635,7 +653,7 @@ Tapping the stage finishes the current beat; its outcome text still shows. Setti
 
 Run `node v2/scripts/smoke-card-combat.mjs` for a lost standoff at desktop, phone and reduced motion.
 
-Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand and action row open together over 220 milliseconds; held items slide out from their owner. A play in the same place refreshes the cards as the hand lowers, with each name moving into its resting position. Travel changes the hand under the scene veil. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Memory keep the selected cards and open items, and Escape closes the active panel before lowering the hand. A click outside the hand folds it to its resting row; a held item stays raised with its plays, and any tap on the hand opens it again. Short landscape screens keep the hand inside the viewport.
+Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand and action row open together over 220 milliseconds; held items slide out from their owner. A play in the same place refreshes the cards as the hand lowers, with each name moving into its resting position. Travel changes the hand under the scene veil. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Memory keep the selected cards and open items, and Escape closes the active panel before lowering the hand. Only a click outside the card area (the stage, not the dialogue, toolbar or action row), Escape, or a play folds the hand to its resting row. Selecting, changing the pair and deselecting keep it open, as do the scroll arrows and empty hand space. A held item stays raised with its plays, and any tap on the folded hand opens it again. Short landscape screens keep the hand inside the viewport.
 
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
 
@@ -770,6 +788,10 @@ server. The served page receives the matching wait budget. Operators can set
 All released Greek places share day and night. Each light setting lasts
 twenty-four accepted world turns. The Theban places, Athens, Colonus, Eleusis,
 Marathon, the ship's deck and the Trojan camp have matching night paintings.
+The deck shows its pack backdrop `assets/greek-drama/ship-deck.webp` by day and
+`ship-deck-night.webp` at night (`daylight.mjs`), at port or at sea. New day art
+replaces `ship-deck.webp` under the same name; then run
+`npm run v2:card:images:build` and `npm run v2:card:assets:build`.
 The eight Attic roads share an olive-road painting in both light settings.
 The Theban Harbor Road has its own coast and town painting in both settings.
 Road approach cards use the same light as the road scene. All three harbors
@@ -781,6 +803,8 @@ Greek weather follows one cycle per region. Each period lasts twelve accepted
 world turns. Clear skies, cloud, rain, and mist appear in the scene and on place
 cards. Coasts, courtyards, open ground, groves, and shelters each have their own
 view of the regional weather. The Underworld has low mist above its water.
+The Greek ship has its own `sea` region wherever it lies: mist, rain, mist,
+rain, mist, then a clear spell, so a crossing feels like weather.
 The cycles and each place's region and exposure are data in `weather.json`.
 The rules commit only the weather word: dialogue facts read `Weather: rain.`,
 and the narrator's own words describe it.
@@ -806,17 +830,18 @@ six seconds, so a storm gathers and mist lifts instead of snapping. Travel cuts
 under its veil, and reduced motion cuts everywhere. These are presentation only:
 they read the committed scene, so local and shared play look the same.
 
-On Halloween (31 October, browser local date; `HALLOWEEN_DAYS` in
-`transitions.mjs`) some entries to a place briefly show one image as something
+In the Willows all year (`UNCANNY_PLACES` in `transitions.mjs`, client data the
+rules never read), and elsewhere on Halloween (31 October, browser local date;
+`HALLOWEEN_DAYS`), some entries to a place briefly show one image as something
 else for 140 milliseconds: either a figure or the painting, never both. The
 copy is the image's own name with `-uncanny.webp`, such as
 `assets/willows/swede-seated-uncanny.webp` beside `swede-seated.webp`. Images
 without a copy registered in `image-variants.json` never flicker, so new art
 needs no code. The copy is preloaded and stacked on its image with the same box
 and light filter, so nothing moves or brightens. There is at most one cut per
-entry and none within 30 seconds. Reduced motion and Settings → Flashes and
-scares: off disable it. `?halloween=1` or `?halloween=0` forces the date for
-testing.
+entry, a 40% chance, and none within 30 seconds. Reduced motion and Settings → Flashes and
+scares: off disable it. `?halloween=1` or `?halloween=0` forces the flicker on
+or off everywhere for testing.
 
 New Greek games expose the harbor and six Theban places, each with a distinct
 painting. The Open Door adds five paintings and eight resident portraits.

@@ -33,6 +33,10 @@ blow", a yield is "gave way", and the defeat is "was beaten and sent home".
 | ⛽     | refuelling                                                                         |
 | ✋ ◌ ♪ | take or put down, light or snuff, ring                                             |
 
+Each glyph is the caption's data key. The table draws it as a line-art SVG in
+the toolbar's style (`beatIcons` in `app.mjs`): a hand for take, a smoking
+candle for snuff, a bell for ring, a drop over a lamp for refuelling.
+
 An action with no speech is a beat with only the portrait and its caption.
 A character's actions join their first spoken beat of that turn.
 
@@ -57,9 +61,11 @@ Beats are cards in depth, not rows in a scroll:
   scaled to about 94%, dimmer and raised so one line of its top edge peeks
   out above the front card, which casts a soft shadow on it. That line is the
   speaker, the speech and its first action, truncated.
-- Action captions sit under the speech at every size. On a phone the name
-  hangs beside at most two lines of speech and the first action is one
-  truncated line below, so the stack stays as short as the old dialogue box.
+- The front card puts the name on top at every size: portrait and name share
+  the header row, the speech runs the full width below, and the action
+  captions sit under the speech. The card grows to show the whole line, up to
+  about seven lines (fewer on a short phone screen), with no scrollbar. On a
+  phone only the first action shows, as one truncated line.
 - A new beat arrives in front. The front card recedes into the behind slot and
   the old behind card fades away deeper.
 - Going back is going back in time. Tap the card behind to step back; it comes

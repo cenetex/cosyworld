@@ -26,7 +26,10 @@ It never teleports a passenger. Its saved state has four phases.
    course for everyone aboard. The other course cards leave every hand.
 3. **At sea.** The voyage takes **one world round**, however far the lane.
    Aboard, the only place card is the deck itself; people can Talk, Wait, give
-   and trade. Nobody disembarks at sea. The deck is a good place for
+   and trade. Nobody disembarks at sea, but on a misty night the Willows
+   crossing rises beside the rail (see
+   [the Willows at sea](willows-at-sea.md)). The deck has its own rainy,
+   misty `sea` weather. The deck is a good place for
    conversation: the shipmaster, the Bard and passengers from several worlds
    share one room.
 4. **Arrived.** The ship docks at its destination. The only Disembark card is

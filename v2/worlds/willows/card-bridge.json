@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-ship-willows",
   "pack": "willows",
-  "description": "On a misty night, while the Greek ship lies at Black Pond, river mist beside its rail opens onto a small Danube island. The same dark mist keeps a path back to the deck; when it lifts or the ship leaves the pond, the island and the deck lose each other until the ship lies there again on a misty night.",
+  "description": "On a misty night, while the Greek ship lies at Black Pond or sails between ports, river mist beside its rail opens onto a small Danube island. The same dark mist keeps a path back to the deck; when it lifts or the ship docks at another port, the island and the deck lose each other until the ship lies at the pond or sails again on a misty night.",
   "values": {
     "willows-swede": {
       "lamp": 5,
@@ -21,7 +21,13 @@
       "requires": [
         { "kind": "daylight", "phase": "night" },
         { "kind": "weather", "place": "greek-ship", "condition": "mist" },
-        { "kind": "ship_at", "transport": "greek-ship", "dock": "pond" }
+        {
+          "kind": "any",
+          "conditions": [
+            { "kind": "ship_at", "transport": "greek-ship", "dock": "pond" },
+            { "kind": "ship_at", "transport": "greek-ship", "dock": "@sea" }
+          ]
+        }
       ],
       "scenery": {
         "open": "River mist gathers beside the rail. Beyond it, a canoe rests on a sandy willow island.",
@@ -38,7 +44,13 @@
       "requires": [
         { "kind": "daylight", "phase": "night" },
         { "kind": "weather", "place": "greek-ship", "condition": "mist" },
-        { "kind": "ship_at", "transport": "greek-ship", "dock": "pond" }
+        {
+          "kind": "any",
+          "conditions": [
+            { "kind": "ship_at", "transport": "greek-ship", "dock": "pond" },
+            { "kind": "ship_at", "transport": "greek-ship", "dock": "@sea" }
+          ]
+        }
       ],
       "scenery": {
         "open": "Beyond the quiet backwater, river mist parts onto the Greek ship's deck."

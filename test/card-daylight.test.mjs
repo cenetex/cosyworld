@@ -269,33 +269,34 @@ describe("day and night in Greece", () => {
 });
 
 describe("Willows night paintings", () => {
-  it("shows the ship at the landing only in dark mist at Black Pond, and the lit camp at night", () => {
+  it("shows the ship at the landing only in dark mist at Black Pond or at sea, and the lit camp at night", () => {
     const at = (turn, dock = "pond", phase = "docked") => ({
       turn,
       transports: { "greek-ship": { dock, phase } },
     });
     const night = at(DAYLIGHT_TURNS);
     const day = at(0);
-    // Night and Boeotian mist at the ship's rail: turns 120-131 of every 144,
-    // and only while the ship lies at Black Pond.
+    // Night and sea mist at the ship's rail: turns 24-35, 72-83 and 120-131
+    // of every 144, while the ship lies at Black Pond or sails (#1589).
     const darkMist = at(120);
     const mistyDay = at(48);
     expect(backdrop("willows-landing", day)).toBe(
       "./assets/willows/landing.webp",
     );
+    // Turn 24 is now a misty night at sea; turn 36 is a rainy night.
     for (const clock of [
-      night,
       mistyDay,
+      at(36),
       at(132),
       at(120, "greek-harbor"),
-      at(120, "pond", "sea"),
     ])
       expect(backdrop("willows-landing", clock)).toBe(
         "./assets/willows/landing.webp",
       );
-    expect(backdrop("willows-landing", darkMist)).toBe(
-      "./assets/willows/landing-ship-night.webp",
-    );
+    for (const clock of [darkMist, at(24), at(72), at(120, "pond", "sea")])
+      expect(backdrop("willows-landing", clock)).toBe(
+        "./assets/willows/landing-ship-night.webp",
+      );
     expect(backdrop("willows-camp", night)).toBe(
       "./assets/willows/camp-lit-night.webp",
     );

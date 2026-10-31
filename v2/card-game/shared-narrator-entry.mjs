@@ -2,7 +2,7 @@
 // story service; it is never a journal input, so this bundle is rebuilt from
 // current sources and never versioned. See
 // docs/design/pack-content-outside-the-engine.md.
-import { dispatchShared } from "./shared-world.mjs";
+import { sharedScene } from "./shared-narrator.mjs";
 if (typeof globalThis.structuredClone !== "function")
   globalThis.structuredClone = (value) => JSON.parse(JSON.stringify(value));
 if (typeof Array.prototype.findLast !== "function")
@@ -14,8 +14,7 @@ if (typeof Array.prototype.findLast !== "function")
   });
 globalThis.cardNarrator = (json) => {
   try {
-    const result = dispatchShared({ ...JSON.parse(json), op: "context" });
-    return JSON.stringify({ ok: true, context: result.context });
+    return JSON.stringify({ ok: true, ...sharedScene(JSON.parse(json)) });
   } catch (error) {
     return JSON.stringify({
       ok: false,

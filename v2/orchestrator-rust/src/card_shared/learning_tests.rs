@@ -72,6 +72,7 @@ fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
         game: seed["world"].clone(),
         claimed: [0; 8],
         present: [0; 8],
+        pack: None,
     };
     c.execute("DELETE FROM card_full_log WHERE world=?", [&id])
         .unwrap();
@@ -274,6 +275,7 @@ fn version_sixteen_lessons_upgrade_before_new_measured_plays() {
         game: seed["world"].clone(),
         claimed: [0; 8],
         present: [0; 8],
+        pack: None,
     };
     old.game.as_object_mut().unwrap().remove("opening");
     old.game.as_object_mut().unwrap().remove("life");

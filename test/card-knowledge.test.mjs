@@ -29,6 +29,7 @@ import {
   applyGeneratedText,
 } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { openDoorStart, openDoorWalk } from "./helpers/open-door.mjs";
 
@@ -441,7 +442,13 @@ describe("Talk publication and learned facts", () => {
     );
     const played = request("play", { action });
     world = played.world;
-    const ds = played.context.disclosures;
+    const ds = sharedContext({
+      world,
+      actor: "vale",
+      claimed: ["vale"],
+      present: ["vale"],
+      action,
+    }).disclosures;
     expect(knowsFact(world, "vale", ds[0].factId)).toBe(false);
     const spoken = request("speech", {
       room: "station",

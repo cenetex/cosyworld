@@ -6,7 +6,6 @@ import {
   sharedEnabled,
 } from "./human-cast.mjs";
 import { knowsFact } from "./knowledge.mjs";
-import { DAYLIGHT_TURNS } from "./daylight.mjs";
 import { locationWeather } from "./weather.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
 // that sound, and residents with a temperament. No rule here names a pack,
@@ -37,7 +36,11 @@ import {
   validTransports,
   transportCrossing,
   shipDock,
+  shipAtSea,
 } from "./pack-transport.mjs";
+
+// Day and night each last this many turns on the saved world clock.
+export const DAYLIGHT_TURNS = 24;
 
 const fill = (template, values) =>
   template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
@@ -102,6 +105,10 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       );
     case "not":
       return !conditionMet(s, c.condition, senses, packId, actor);
+    case "any":
+      return c.conditions.some((r) =>
+        conditionMet(s, r, senses, packId, actor),
+      );
     case "choice":
       return state?.choices?.[c.key] === c.value;
     case "choice_unset":
@@ -156,9 +163,11 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
     // The saved regional weather where c.place is.
     case "weather":
       return locationWeather(s, c.place)?.condition === c.condition;
-    // A transport docked (or just arrived) at a port, not at sea.
+    // A transport docked (or just arrived) at a port, or "@sea" between ports.
     case "ship_at":
-      return shipDock(s, c.transport) === c.dock;
+      return c.dock === "@sea"
+        ? shipAtSea(s, c.transport)
+        : shipDock(s, c.transport) === c.dock;
     default:
       return false;
   }

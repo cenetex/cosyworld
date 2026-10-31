@@ -37,8 +37,8 @@ Each resident can name its starter quest as `want`: `{"kind": "item" |
 "place" | "person", "target": id}`, with a target in the pack or the hub. The
 pack schema checks it. After the starter quest is met, the world rules draw the
 resident's next quest from what it can reach, so a pack authors no quest
-chains. `storyQuests` and `situations` are no longer read; they stay in the data
-until they are removed.
+chains. The mounted packs no longer carry `storyQuests` or `situations`; the
+schema still accepts them so older pack files load.
 
 ### Conditions
 
@@ -63,8 +63,11 @@ while that place's regional weather (`weather.mjs`) is the named condition:
 `clear`, `cloud`, `rain` or `mist`.
 `{ "kind": "ship_at", "transport": "greek-ship", "dock": "pond" }` holds
 while that transport is docked at, or has just arrived at, that dock (not at
-sea). The Willows crossings use all three, so the island appears from the
-ship's rail only on a misty night while the ship lies at Black Pond.
+sea). `"dock": "@sea"` holds while it sails between ports.
+`{ "kind": "any", "conditions": [ ... ] }` holds while any of two to four
+conditions holds (nested at most two deep, like `not`). The Willows
+crossings use all of these, so the island appears from the ship's rail only
+on a misty night while the ship lies at Black Pond or is at sea.
 
 The vocabulary also includes `light`, bounded `not`, and persistent pack
 `choice`, `choice_unset`, `flag`, `holding`, `item_at` and `met`, and

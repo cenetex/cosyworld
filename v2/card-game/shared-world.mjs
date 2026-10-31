@@ -25,8 +25,7 @@ import {
 } from "./human-cast.mjs";
 import { profiles } from "./memory.mjs";
 import { enableMotives } from "./motives.mjs";
-import { narrativeContext, applySharedReflections } from "./narrative.mjs";
-import { currentScene } from "./scene.mjs";
+import { applySharedReflections } from "./reflections.mjs";
 
 function ids(value, fallback = []) {
   const result = value === undefined ? fallback : value;
@@ -59,7 +58,8 @@ function stored(world) {
   delete result.presentActors;
   return result;
 }
-function load(request) {
+// The saved world with this request's actor, claims and presence.
+export function load(request) {
   if (!request.world || typeof request.world !== "object")
     throw new Error("Load a saved world first.");
   const world = contextual(structuredClone(request.world), request);
@@ -91,7 +91,6 @@ function view(world, actor) {
     room: world.actors[actor].place,
     actions: legalActions(world, actor),
     exits: exits(world, world.actors[actor].place, actor),
-    scene: currentScene(world),
     profiles,
   };
 }
@@ -159,10 +158,6 @@ export function dispatchShared(request) {
       ...response(world, view(world, actor)),
       world: privateView(world, actor),
     };
-  if (request.op === "context")
-    return response(world, {
-      context: narrativeContext(world, request.action || null),
-    });
   if (request.op === "play") {
     if (
       !world.controlledActors.includes(actor) ||
@@ -191,7 +186,6 @@ export function dispatchShared(request) {
       return { ok: false, world: stored(world), error: result.error };
     return response(result.state, {
       events: result.state.log.filter((entry) => entry.seq > before),
-      context: narrativeContext(result.state, action),
       ...view(result.state, actor),
     });
   }
@@ -261,9 +255,7 @@ function migrate(request) {
     )
   )
     throw new Error("This older shared world has an invalid save.");
-  const world = enableShared(
-    enableMotives(createWorld()),
-  );
+  const world = enableShared(enableMotives(createWorld()));
   const rooms = ["pond", ...humanAvatars.map((a) => a.home.id)];
   for (const [index, avatar] of humanAvatars.entries()) {
     const p = legacy.places[index],

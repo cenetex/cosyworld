@@ -1,7 +1,8 @@
 import { locationWeather } from "./weather.mjs";
+import { DAYLIGHT_TURNS } from "./pack-rules.mjs";
+export { DAYLIGHT_TURNS };
 
 // Painted Greek and Willows places share the saved world clock.
-export const DAYLIGHT_TURNS = 24;
 // Night is every other block of DAYLIGHT_TURNS on the saved world clock.
 export const isNight = (world) =>
   Math.floor((world?.turn ?? 0) / DAYLIGHT_TURNS) % 2 === 1;
@@ -9,10 +10,10 @@ export const isNight = (world) =>
 export const darkMist = (world) =>
   isNight(world) && locationWeather(world, "greek-ship")?.condition === "mist";
 // The Willows mist rises beside the ship's rail only in dark mist while the
-// ship lies at Black Pond.
+// ship lies at Black Pond or sails between ports.
 export const willowsMist = (world) => {
   const ship = world?.transports?.["greek-ship"];
-  return darkMist(world) && ship?.phase !== "sea" && ship?.dock === "pond";
+  return darkMist(world) && (ship?.phase === "sea" || ship?.dock === "pond");
 };
 const art = (file) => `assets/greek-drama/${file}.webp`;
 const willows = (file) => `assets/willows/${file}.webp`;

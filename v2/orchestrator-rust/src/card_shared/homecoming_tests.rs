@@ -104,6 +104,7 @@ fn released_berth(c: &rusqlite::Connection, id: &str) -> World {
         game: result["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
+        pack: None,
     };
     world.game.as_object_mut().unwrap().remove("opening");
     world.game["packs"]["greek-drama"]["scope"] = json!("full");

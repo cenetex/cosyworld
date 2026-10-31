@@ -15,14 +15,14 @@
     "susa": ["clear", "clear", "cloud", "clear", "cloud", "rain"],
     "scythia": ["cloud", "rain", "mist", "cloud", "rain", "clear"],
     "heights": ["mist", "clear", "cloud", "mist", "clear", "cloud"],
-    "underworld": ["mist"]
+    "underworld": ["mist"],
+    "sea": ["mist", "rain", "mist", "rain", "mist", "clear"]
   },
   "places": {
     "boeotia": {
       "coast": [
         "greek-harbor",
-        "greek-aulis",
-        "greek-ship"
+        "greek-aulis"
       ],
       "court": [
         "greek-courtyard",
@@ -181,6 +181,11 @@
     "underworld": {
       "underground": [
         "greek-underworld"
+      ]
+    },
+    "sea": {
+      "coast": [
+        "greek-ship"
       ]
     }
   }

@@ -16,56 +16,8 @@
   })[kind];
   var goalKey = (g) => [g.kind, g.target, g.item, g.destination].join(":");
   var actionKey = (a) => [a.kind, a.target, a.item, a.receive, a.destination].join(":");
-  var compactAction = (a) => ({
-    kind: a.kind,
-    target: a.target || null,
-    item: a.item || null,
-    receive: a.receive || null,
-    destination: a.destination || null
-  });
-  function learningIntent(world, actor) {
-    const want = world.actors[actor]?.want;
-    return JSON.stringify([want?.kind ?? null, want?.target ?? null]);
-  }
-  function holder(world, item) {
-    let id = item;
-    const visited = /* @__PURE__ */ new Set();
-    while (world.items[id] && !visited.has(id)) {
-      visited.add(id);
-      id = world.items[id].holder;
-    }
-    return id;
-  }
-  function observation(world, actor, goal) {
-    return {
-      met: goal.kind === "ask" ? holder(world, goal.item) === actor : [actor, goal.target].every(
-        (id) => world.actors[id]?.place === goal.destination
-      ),
-      trust: world.actors[goal.target]?.trust?.[actor] || 0,
-      held: Object.values(world.items).filter((item) => item.holder === actor).length,
-      strain: Math.min(
-        3,
-        (world.motives?.grievances[goal.target] || []).filter((g) => g.other === actor).reduce((n, g) => n + g.weight, 0)
-      )
-    };
-  }
   function outcomeReward(before, after) {
     return 20 * (Number(after.met) - Number(before.met)) + 2 * (after.trust - before.trust + before.strain - after.strain) - 4 * (before.held - after.held) - 1;
-  }
-  function goalFor(world, actor, action) {
-    if (["ask", "accompany", "trade"].includes(action.kind))
-      return {
-        kind: action.kind === "trade" ? "ask" : action.kind,
-        target: action.target,
-        item: action.kind === "trade" ? action.receive : action.item || null,
-        destination: action.destination || null
-      };
-    const last = world.memories[actor]?.learning?.findLast(
-      (l) => l.version === 2
-    );
-    if (last && !last.after.met && last.intent === learningIntent(world, actor) && world.turn - last.turn <= horizon && world.actors[actor].place === world.actors[last.goal.target]?.place && related(action, last.goal))
-      return last.goal;
-    return null;
   }
   function related(action, goal) {
     if (action.kind === "wait") return true;
@@ -113,86 +65,6 @@
       value: samples ? round(sum / (weight + (local ? 0 : 1))) : null,
       samples,
       local
-    };
-  }
-  function beginLearning(world, action, conditionsFor) {
-    const goal = goalFor(world, action.actor, action);
-    if (!goal || observation(world, action.actor, goal).met) return null;
-    const conditions = conditionsFor(world, { ...goal, actor: action.actor });
-    return {
-      goal,
-      intent: learningIntent(world, action.actor),
-      conditions,
-      before: observation(world, action.actor, goal),
-      expected: actionEstimate(world, action.actor, goal, conditions, action)
-    };
-  }
-  function finishLearning(world, action, prepared, event, conditionsFor) {
-    if (!prepared) return;
-    const after = observation(world, action.actor, prepared.goal);
-    const trial = {
-      version: 2,
-      seq: event.seq,
-      turn: event.turn,
-      ...prepared,
-      action: compactAction(action),
-      after,
-      afterConditions: conditionsFor(world, {
-        ...prepared.goal,
-        actor: action.actor
-      }),
-      reward: outcomeReward(prepared.before, after),
-      evidence: event.text.slice(0, 650)
-    };
-    const memory = world.memories[action.actor];
-    memory.learning = [...memory.learning || [], trial].slice(-TRIAL_LIMIT);
-  }
-  function tieBreak(text2) {
-    let hash2 = 2166136261;
-    for (const c of text2) hash2 = Math.imul(hash2 ^ c.charCodeAt(0), 16777619);
-    return hash2 >>> 0;
-  }
-  function learnedPlan(world, actor, selected, actions, conditionsFor) {
-    const goal = goalFor(world, actor, selected.action);
-    if (!goal) return selected;
-    const before = observation(world, actor, goal);
-    if (before.met) return selected;
-    const trials = trialsFor(world, actor, goal);
-    if (!trials.length) return selected;
-    const conditions = conditionsFor(world, { ...goal, actor });
-    const total = trials.filter((l) => l.conditions === conditions).length;
-    const choices = actions.filter((a) => related(a, goal)).map((action) => {
-      const estimate = actionEstimate(world, actor, goal, conditions, action);
-      return {
-        action,
-        ...estimate,
-        score: (estimate.local ? estimate.value : Math.max(0, estimate.value ?? 0)) + 3 * Math.sqrt(Math.log(total + 2) / (estimate.local + 1)),
-        tie: action.key === selected.action.key && !estimate.local ? -1 : tieBreak(`${actor}:${goalKey(goal)}:${actionKey(action)}`)
-      };
-    });
-    choices.sort((a, b) => b.score - a.score || a.tie - b.tie);
-    const chosen = choices[0];
-    if (!chosen) return selected;
-    if (selected.action.kind === "trade" && actions.some((action) => action.key === selected.action.key) && chosen.action.key !== selected.action.key && (chosen.value ?? -Infinity) <= outcomeReward(before, { ...before, met: true }))
-      return selected;
-    return {
-      action: chosen.action,
-      lessonSeq: trials.at(-1).seq,
-      learning: {
-        goal,
-        expected: {
-          value: chosen.value,
-          samples: chosen.samples,
-          local: chosen.local
-        },
-        exploring: chosen.local === 0,
-        alternatives: choices.map(({ action, value, samples, local }) => ({
-          action: compactAction(action),
-          value,
-          samples,
-          local
-        }))
-      }
     };
   }
   function trialFacts(world, actor, nameOf2) {
@@ -299,40 +171,6 @@
   // v2/card-game/learning.mjs
   var kinds = ["ask", "accompany"];
   var keyOf = (a) => [a.kind, a.target, a.item || "", a.destination || ""].join(":");
-  function requestConditions(world, action) {
-    const target = world.actors[action.target];
-    return JSON.stringify([
-      target?.place,
-      target?.trust?.[action.actor] || 0,
-      (world.motives?.grievances[action.target] || []).map((g) => [
-        g.other,
-        g.kind,
-        g.weight
-      ]),
-      // The other side's quest changes when a gift meets it, so it stays out of
-      // the conditions; these slots keep the layout adaptive learning reads.
-      [null, null],
-      null,
-      Object.keys(world.items).sort().filter(
-        (id) => id === action.item || [action.actor, action.target].includes(world.items[id].holder)
-      ).map((id) => {
-        const item = world.items[id];
-        return [id, item.holder, item.fuel ?? null];
-      }),
-      world.actors[action.actor]?.place,
-      learningIntent(world, action.actor)
-    ]);
-  }
-  function beginLearning2(world, action) {
-    if (world.motives?.version !== 1) return null;
-    return beginLearning(world, action, requestConditions);
-  }
-  function recordLearning(world, action, prepared, event) {
-    finishLearning(world, action, prepared, event, requestConditions);
-  }
-  function reconsiderPlan(world, actor, selected, actions) {
-    return learnedPlan(world, actor, selected, actions, requestConditions);
-  }
   function learningFacts(world, actor, nameOf2) {
     const facts = trialFacts(world, actor, nameOf2);
     if (facts) return facts;
@@ -360,16 +198,6 @@
       return (!l.followup || Number.isSafeInteger(l.followup.seq) && l.followup.seq > l.seq && l.followup.seq <= world.eventSeq && Number.isSafeInteger(l.followup.turn) && l.followup.turn >= l.turn && l.followup.turn <= world.turn && ["talk", "trade", "wait"].includes(l.followup.kind)) && Number.isSafeInteger(l.seq) && l.seq > 0 && l.seq <= world.eventSeq && (!i || lessons[i - 1].seq < l.seq) && Number.isSafeInteger(l.turn) && l.turn >= 0 && l.turn <= world.turn && kinds.includes(l.kind) && Boolean(world.actors[l.target]) && l.target !== actor && (l.item === null || Boolean(world.items[l.item])) && (l.destination === null || profiles2[l.destination]?.kind === "location") && (l.kind === "ask" ? l.item !== null && l.destination === null : l.destination !== null && l.item === null) && l.key === keyOf(action) && typeof l.expected === "boolean" && typeof l.observed === "boolean" && l.strategy === (l.observed ? "continue" : l.kind === "ask" ? "offer_trade" : "give_space") && typeof l.conditions === "string" && l.conditions.length <= 16e3 && typeof l.evidence === "string" && l.evidence.length > 0 && l.evidence.length <= 650 && (!source || !source.generated && source.actorId === actor && source.verb === l.kind && source.targetId === l.target && source.accepted === l.observed && source.text.slice(0, 650) === l.evidence);
     });
     return valid;
-  }
-  function privateView(world, actor) {
-    const view2 = structuredClone(world);
-    for (const [id, memory] of Object.entries(view2.memories)) {
-      if (id === actor) continue;
-      delete memory.innerLife;
-      delete memory.reflections;
-      delete memory.learning;
-    }
-    return view2;
   }
 
   // v2/card-game/emoji-symbols.json
@@ -433,30 +261,7 @@
 
   // v2/card-game/expression.mjs
   var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
-  var expressionOf = (profile) => profile?.expression || "speech";
   var orderedSymbols = Object.keys(emoji_symbols_default).sort((a, b) => b.length - a.length);
-  function emojiParts(text2) {
-    if (typeof text2 !== "string" || text2.length > 160) return null;
-    let rest = text2.trim();
-    const parts = [];
-    while (rest) {
-      const symbol = orderedSymbols.find((value) => rest.startsWith(value));
-      if (!symbol || parts.length === 5) return null;
-      parts.push(symbol);
-      rest = rest.slice(symbol.length).trimStart();
-    }
-    return parts.length >= 2 ? parts : null;
-  }
-  var expressionKind = (profile) => expressionOf(profile) === "movement" ? "narration" : "dialogue";
-  function validExpression(profile, text2) {
-    if (expressionOf(profile) === "emoji") return Boolean(emojiParts(text2));
-    if (expressionOf(profile) !== "movement") return true;
-    return text2.startsWith(`${profile.name} `) && !/["“”\n]/u.test(text2) && !/\b(?:says?|speaks?|asks?|replies?|whispers?|shouts?|tells?|I|me|my)\b/iu.test(
-      text2
-    ) && /^(?:lowers|raises|tilts|blinks|flicks|cocks|inclines|pricks|twitches|wags|dips|shifts|turns|rests|settles|leans|curls|stretches|tucks|sniffs|yawns|watches|looks)\b/u.test(
-      text2.slice(profile.name.length + 1)
-    );
-  }
 
   // v2/card-game/forest.json
   var forest_default = {
@@ -579,332 +384,6 @@
       cloth: {
         name: "Black cloth",
         text: "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object."
-      }
-    },
-    questPrograms: {
-      vale: [
-        {
-          id: "borrowed-light",
-          name: "Borrowed light",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "station",
-              avatars: [
-                "moth"
-              ]
-            },
-            {
-              items: [
-                "oil"
-              ],
-              location: "attic",
-              avatars: [
-                "keeper"
-              ]
-            },
-            {
-              items: [
-                "cloth"
-              ],
-              location: "pond",
-              avatars: [
-                "moth"
-              ]
-            }
-          ]
-        },
-        {
-          id: "the-bell-below",
-          name: "The bell below",
-          steps: [
-            {
-              items: [
-                "bell"
-              ],
-              location: "pond",
-              avatars: [
-                "keeper"
-              ]
-            },
-            {
-              items: [
-                "lamp",
-                "bell"
-              ],
-              location: "station",
-              avatars: [
-                "moth"
-              ]
-            }
-          ]
-        }
-      ],
-      moth: [
-        {
-          id: "a-light-and-a-witness",
-          name: "A light and a witness",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "pond",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "oil"
-              ],
-              location: "attic",
-              avatars: [
-                "keeper"
-              ]
-            }
-          ]
-        },
-        {
-          id: "a-veil-for-the-eye",
-          name: "A veil for the eye",
-          steps: [
-            {
-              items: [
-                "cloth"
-              ],
-              location: "pond",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "lamp"
-              ],
-              location: "station",
-              avatars: [
-                "keeper"
-              ]
-            }
-          ]
-        }
-      ],
-      keeper: [
-        {
-          id: "the-quiet-hour",
-          name: "The quiet hour",
-          steps: [
-            {
-              items: [
-                "bell"
-              ],
-              location: "attic",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "cloth"
-              ],
-              location: "attic",
-              avatars: [
-                "moth"
-              ]
-            }
-          ]
-        },
-        {
-          id: "the-hour-below",
-          name: "The hour below",
-          steps: [
-            {
-              items: [
-                "bell"
-              ],
-              location: "pond",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "oil"
-              ],
-              location: "station",
-              avatars: [
-                "moth"
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    openingPrograms: {
-      vale: [
-        {
-          id: "first-light",
-          name: "Light the lamp",
-          purpose: "Bring light to the attic.",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "attic",
-              avatars: [],
-              conditions: [
-                {
-                  kind: "lit",
-                  item: "lamp"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          id: "along-the-shore",
-          name: "Along the shore",
-          purpose: "Meet the moth by the water, then carry the lamp along the path to the station.",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "pond",
-              avatars: [
-                "moth"
-              ]
-            },
-            {
-              items: [
-                "lamp"
-              ],
-              location: "station",
-              avatars: []
-            }
-          ]
-        }
-      ],
-      moth: [
-        {
-          id: "a-light-and-a-witness",
-          name: "A light and a witness",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "pond",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "oil"
-              ],
-              location: "station",
-              avatars: [
-                "keeper"
-              ]
-            }
-          ]
-        },
-        {
-          id: "a-veil-for-the-eye",
-          name: "A veil for the eye",
-          steps: [
-            {
-              items: [
-                "cloth"
-              ],
-              location: "pond",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "lamp"
-              ],
-              location: "station",
-              avatars: [
-                "keeper"
-              ]
-            }
-          ]
-        }
-      ],
-      keeper: [
-        {
-          id: "the-quiet-hour",
-          name: "The quiet hour",
-          steps: [
-            {
-              items: [
-                "bell"
-              ],
-              location: "station",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "cloth"
-              ],
-              location: "pond",
-              avatars: [
-                "moth"
-              ]
-            }
-          ]
-        },
-        {
-          id: "the-hour-below",
-          name: "The hour below",
-          steps: [
-            {
-              items: [
-                "bell"
-              ],
-              location: "pond",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "oil"
-              ],
-              location: "station",
-              avatars: [
-                "moth"
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    restingHands: {
-      vale: {
-        items: [],
-        location: null,
-        avatars: []
-      },
-      moth: {
-        items: [],
-        location: "pond",
-        avatars: []
-      },
-      keeper: {
-        items: [],
-        location: "attic",
-        avatars: []
       }
     },
     initialState: {
@@ -1043,53 +522,6 @@
           light: false,
           speaker: "World",
           text: "Vale stands alone in Mirror attic, holding an unlit lamp. The tall mirror stands dark and empty."
-        }
-      ]
-    },
-    pondOpeningPrograms: {
-      vale: [
-        {
-          id: "shore-light",
-          name: "Light by the water",
-          purpose: "Bring a little light to the black shore.",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "pond",
-              avatars: [],
-              conditions: [
-                {
-                  kind: "lit",
-                  item: "lamp"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          id: "along-the-shore",
-          name: "Along the shore",
-          purpose: "Meet the moth by the water, then carry the lamp along the path to the station.",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "pond",
-              avatars: [
-                "moth"
-              ]
-            },
-            {
-              items: [
-                "lamp"
-              ],
-              location: "station",
-              avatars: []
-            }
-          ]
         }
       ]
     }
@@ -1442,30 +874,6 @@
   };
 
   // v2/card-game/pack-recital.mjs
-  function recordRecital(world, pack, choice, actor) {
-    if (pack.recital?.verses.some((v) => v.choice === choice))
-      world.packs[pack.id].recitals[choice] = { actor, visit: null };
-  }
-  function arriveRecitals(world, packs, actor) {
-    if (!controlledByHuman(world, actor)) return [];
-    const arrivals = [];
-    for (const pack of packs) {
-      if (!pack.recital || pack.avatars[pack.recital.actor]?.roamingQuest)
-        continue;
-      const records = world.packs[pack.id].recitals;
-      const pending = pack.recital.verses.filter(
-        (v) => v.summons && records[v.choice]?.actor === actor && records[v.choice].visit === null
-      );
-      if (!pending.length) continue;
-      const singer = pack.recital.actor;
-      const from = world.actors[singer].place;
-      const to = world.actors[actor].place;
-      for (const verse of pending) records[verse.choice].visit = world.turn;
-      world.actors[singer].place = to;
-      arrivals.push({ actorId: singer, fromLocationId: from, locationId: to });
-    }
-    return arrivals;
-  }
   function recitalVisit(world, pack) {
     return Math.max(
       0,
@@ -1521,16 +929,6 @@
           actor: Object.hasOwn(world.actors, event?.actorId) ? event.actorId : null,
           visit: null
         };
-      }
-    }
-  }
-  function arriveRoamingRecitals(world, packs, actor) {
-    for (const pack of packs.filter((p) => p.recital?.actor === actor)) {
-      const state = world.packs[pack.id];
-      for (const verse of pack.recital.verses) {
-        const record4 = state.recitals[verse.choice];
-        if (verse.summons && record4 && record4.visit === null)
-          record4.visit = world.turn;
       }
     }
   }
@@ -1690,8 +1088,8 @@
     if (pack.places[id]) return id;
     if (pack.avatars[id]) return pack.avatars[id].place;
     if (pack.fixtures?.[id]) return pack.fixtures[id].at;
-    const holder2 = pack.items?.[id]?.holder;
-    return holder2 && (pack.places[holder2] ? holder2 : pack.avatars[holder2]?.place);
+    const holder = pack.items?.[id]?.holder;
+    return holder && (pack.places[holder] ? holder : pack.avatars[holder]?.place);
   }
   function sectionAllows(world, pack, id, conditionsMet2) {
     if (world.packs?.[pack.id]?.scope === "full") return true;
@@ -1701,13 +1099,6 @@
   }
 
   // v2/card-game/pack-journeys.mjs
-  function journeyNextPlace(world, pack, id) {
-    const journey = pack?.avatars[id]?.journey;
-    if (!journey || !world.packs?.[pack.id]?.receipts?.[journey.after])
-      return null;
-    const step = journey.path.indexOf(world.actors[id]?.place);
-    return step < 0 ? null : journey.path[step + 1] || null;
-  }
   function validJourneyPlaces(world, pack) {
     return Object.entries(pack.avatars).every(([id, avatar]) => {
       const journey = avatar.journey;
@@ -1952,106 +1343,6 @@
             at: "clearing",
             text: "Badger says the moss goes cold when the clock stops steaming.",
             requires: []
-          }
-        ],
-        situations: [
-          {
-            id: "badger-muffled-bell",
-            kind: "answer",
-            name: "Moss without bells",
-            purpose: "Let Badger grumble about the bells, then show him the bell wrapped silent in its cloth beside his moss.",
-            takers: [
-              "visitors"
-            ],
-            roles: {
-              partner: {
-                avatar: [
-                  "badger"
-                ]
-              }
-            },
-            steps: [
-              {
-                at: "clearing",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "knows",
-                    topic: "badger-no-bells"
-                  }
-                ]
-              },
-              {
-                hold: [
-                  "bell"
-                ],
-                at: "clearing",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "covered",
-                    item: "bell"
-                  }
-                ]
-              }
-            ],
-            consequence: {
-              kind: "trust",
-              avatar: "$partner"
-            }
-          },
-          {
-            id: "badger-warm-light",
-            kind: "gathering",
-            name: "A warm light on the moss",
-            purpose: "Find out why Badger's moss has gone cold, then keep a lit lamp beside him while he naps.",
-            takers: [
-              "visitors"
-            ],
-            roles: {
-              partner: {
-                avatar: [
-                  "badger"
-                ]
-              }
-            },
-            steps: [
-              {
-                at: "clearing",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "knows",
-                    topic: "badger-cold-moss"
-                  }
-                ]
-              },
-              {
-                hold: [
-                  "lamp"
-                ],
-                at: "clearing",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "lit",
-                    item: "lamp"
-                  }
-                ]
-              }
-            ],
-            consequence: {
-              kind: "trust",
-              avatar: "$partner"
-            }
           }
         ],
         bridge: {
@@ -5369,796 +4660,6 @@
             textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer."
           },
           {
-            id: "greek-inquire-aeschylus-persians",
-            subject: "greek-susa",
-            at: "greek-susa",
-            label: "Ask who brought the fleet report",
-            text: "Vale opens an inquiry into the account told in Persians. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aeschylus-persians",
-                value: true
-              }
-            ],
-            workId: "aeschylus-persians",
-            textTemplate: "{actor} opens an inquiry into the account told in Persians. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aeschylus-seven-against-thebes",
-            subject: "greek-gate",
-            at: "greek-gate",
-            label: "Ask which gate needs help",
-            text: "Vale opens an inquiry into the account told in Seven Against Thebes. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aeschylus-seven-against-thebes",
-                value: true
-              }
-            ],
-            workId: "aeschylus-seven-against-thebes",
-            textTemplate: "{actor} opens an inquiry into the account told in Seven Against Thebes. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aeschylus-suppliant-women",
-            subject: "greek-argos-sanctuary",
-            at: "greek-argos-sanctuary",
-            label: "Hear the Danaids' petition",
-            text: "Vale opens an inquiry into the account told in Suppliant Women. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aeschylus-suppliant-women",
-                value: true
-              }
-            ],
-            workId: "aeschylus-suppliant-women",
-            textTemplate: "{actor} opens an inquiry into the account told in Suppliant Women. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aeschylus-prometheus-bound",
-            subject: "greek-scythian-crag",
-            at: "greek-scythian-crag",
-            label: "Carry a question to the bound figure",
-            text: "Vale opens an inquiry into the account told in Prometheus Bound. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aeschylus-prometheus-bound",
-                value: true
-              }
-            ],
-            workId: "aeschylus-prometheus-bound",
-            textTemplate: "{actor} opens an inquiry into the account told in Prometheus Bound. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aeschylus-agamemnon",
-            subject: "greek-argos-palace",
-            at: "greek-argos-palace",
-            label: "Ask about the returning household",
-            text: "Vale opens an inquiry into the account told in Agamemnon. The question is recorded; its reported events have not been enacted.",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "aeschylus"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aeschylus-agamemnon",
-                value: true
-              }
-            ],
-            workId: "aeschylus-agamemnon",
-            textTemplate: "{actor} opens an inquiry into the account told in Agamemnon. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aeschylus-libation-bearers",
-            subject: "greek-argos-tomb",
-            at: "greek-argos-tomb",
-            label: "Ask about the offerings",
-            text: "Vale opens an inquiry into the account told in Libation Bearers. The question is recorded; its reported events have not been enacted.",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "aeschylus"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aeschylus-libation-bearers",
-                value: true
-              }
-            ],
-            workId: "aeschylus-libation-bearers",
-            textTemplate: "{actor} opens an inquiry into the account told in Libation Bearers. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aeschylus-eumenides",
-            subject: "greek-delphi",
-            at: "greek-delphi",
-            label: "Ask where a blood dispute can be heard",
-            text: "Vale opens an inquiry into the account told in Eumenides. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aeschylus-eumenides",
-                value: true
-              }
-            ],
-            workId: "aeschylus-eumenides",
-            textTemplate: "{actor} opens an inquiry into the account told in Eumenides. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-sophocles-ajax",
-            subject: "greek-greek-camp",
-            at: "greek-greek-camp",
-            label: "Ask who will speak for the isolated soldier",
-            text: "Vale opens an inquiry into the account told in Ajax. The question is recorded; its reported events have not been enacted.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-ajax-open",
-                value: false
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-sophocles-ajax",
-                value: true
-              }
-            ],
-            workId: "sophocles-ajax",
-            textTemplate: "{actor} opens an inquiry into the account told in Ajax. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-sophocles-antigone",
-            subject: "greek-gate",
-            at: "greek-gate",
-            label: "Hear the family's burial request",
-            text: "Vale opens an inquiry into the account told in Antigone. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-sophocles-antigone",
-                value: true
-              }
-            ],
-            workId: "sophocles-antigone",
-            textTemplate: "{actor} opens an inquiry into the account told in Antigone. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-sophocles-women-of-trachis",
-            subject: "greek-trachis",
-            at: "greek-trachis",
-            label: "Ask what is known about the garment",
-            text: "Vale opens an inquiry into the account told in Women of Trachis. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-sophocles-women-of-trachis",
-                value: true
-              }
-            ],
-            workId: "sophocles-women-of-trachis",
-            textTemplate: "{actor} opens an inquiry into the account told in Women of Trachis. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-sophocles-oedipus-tyrannus",
-            subject: "greek-palace",
-            at: "greek-palace",
-            label: "Ask which witness has not been heard",
-            text: "Vale opens an inquiry into the account told in Oedipus Tyrannus. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-sophocles-oedipus-tyrannus",
-                value: true
-              }
-            ],
-            workId: "sophocles-oedipus-tyrannus",
-            textTemplate: "{actor} opens an inquiry into the account told in Oedipus Tyrannus. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-sophocles-electra",
-            subject: "greek-mycenae-palace",
-            at: "greek-mycenae-palace",
-            label: "Hear Electra at the palace",
-            text: "Vale opens an inquiry into the account told in Electra. The question is recorded; its reported events have not been enacted.",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "sophocles"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-sophocles-electra",
-                value: true
-              }
-            ],
-            workId: "sophocles-electra",
-            textTemplate: "{actor} opens an inquiry into the account told in Electra. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-sophocles-philoctetes",
-            subject: "greek-lemnos",
-            at: "greek-lemnos",
-            label: "Ask what the abandoned man wants",
-            text: "Vale opens an inquiry into the account told in Philoctetes. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-sophocles-philoctetes",
-                value: true
-              }
-            ],
-            workId: "sophocles-philoctetes",
-            textTemplate: "{actor} opens an inquiry into the account told in Philoctetes. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-sophocles-oedipus-at-colonus",
-            subject: "greek-colonus",
-            at: "greek-colonus",
-            label: "Hear the exile's request for refuge",
-            text: "Vale opens an inquiry into the account told in Oedipus at Colonus. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-sophocles-oedipus-at-colonus",
-                value: true
-              }
-            ],
-            workId: "sophocles-oedipus-at-colonus",
-            textTemplate: "{actor} opens an inquiry into the account told in Oedipus at Colonus. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-alcestis",
-            subject: "greek-pherae",
-            at: "greek-pherae",
-            label: "Ask who accepted the death bargain",
-            text: "Vale opens an inquiry into the account told in Alcestis. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-alcestis",
-                value: true
-              }
-            ],
-            workId: "euripides-alcestis",
-            textTemplate: "{actor} opens an inquiry into the account told in Alcestis. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-medea",
-            subject: "greek-corinth",
-            at: "greek-corinth",
-            label: "Ask what protection the household needs",
-            text: "Vale opens an inquiry into the account told in Medea. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-medea",
-                value: true
-              }
-            ],
-            workId: "euripides-medea",
-            textTemplate: "{actor} opens an inquiry into the account told in Medea. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-children-of-heracles",
-            subject: "greek-marathon",
-            at: "greek-marathon",
-            label: "Hear the children's claim to sanctuary",
-            text: "Vale opens an inquiry into the account told in Children of Heracles. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-children-of-heracles",
-                value: true
-              }
-            ],
-            workId: "euripides-children-of-heracles",
-            textTemplate: "{actor} opens an inquiry into the account told in Children of Heracles. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-hippolytus",
-            subject: "greek-troezen",
-            at: "greek-troezen",
-            label: "Ask how the accusation was learned",
-            text: "Vale opens an inquiry into the account told in Hippolytus. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-hippolytus",
-                value: true
-              }
-            ],
-            workId: "euripides-hippolytus",
-            textTemplate: "{actor} opens an inquiry into the account told in Hippolytus. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-andromache",
-            subject: "greek-thetis",
-            at: "greek-thetis",
-            label: "Ask whether the mother and child are safe",
-            text: "Vale opens an inquiry into the account told in Andromache. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-andromache",
-                value: true
-              }
-            ],
-            workId: "euripides-andromache",
-            textTemplate: "{actor} opens an inquiry into the account told in Andromache. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-hecuba",
-            subject: "greek-thrace",
-            at: "greek-thrace",
-            label: "Ask which guest broke protection",
-            text: "Vale opens an inquiry into the account told in Hecuba. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-hecuba",
-                value: true
-              }
-            ],
-            workId: "euripides-hecuba",
-            textTemplate: "{actor} opens an inquiry into the account told in Hecuba. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-suppliant-women",
-            subject: "greek-eleusis",
-            at: "greek-eleusis",
-            label: "Hear the mothers' burial petition",
-            text: "Vale opens an inquiry into the account told in Suppliant Women. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-suppliant-women",
-                value: true
-              }
-            ],
-            workId: "euripides-suppliant-women",
-            textTemplate: "{actor} opens an inquiry into the account told in Suppliant Women. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-electra",
-            subject: "greek-argive-farm",
-            at: "greek-argive-farm",
-            label: "Hear Electra at the farmhouse",
-            text: "Vale opens an inquiry into the account told in Electra. The question is recorded; its reported events have not been enacted.",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "euripides"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-electra",
-                value: true
-              }
-            ],
-            workId: "euripides-electra",
-            textTemplate: "{actor} opens an inquiry into the account told in Electra. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-heracles",
-            subject: "greek-courtyard",
-            at: "greek-courtyard",
-            label: "Ask what the threatened household needs",
-            text: "Vale opens an inquiry into the account told in Heracles. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-heracles",
-                value: true
-              }
-            ],
-            workId: "euripides-heracles",
-            textTemplate: "{actor} opens an inquiry into the account told in Heracles. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-trojan-women",
-            subject: "greek-troy",
-            at: "greek-troy",
-            label: "Ask which families face separation",
-            text: "Vale opens an inquiry into the account told in Trojan Women. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-trojan-women",
-                value: true
-              }
-            ],
-            workId: "euripides-trojan-women",
-            textTemplate: "{actor} opens an inquiry into the account told in Trojan Women. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-iphigenia-in-tauris",
-            subject: "greek-tauris",
-            at: "greek-tauris",
-            label: "Ask how strangers are identified",
-            text: "Vale opens an inquiry into the account told in Iphigenia in Tauris. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-iphigenia-in-tauris",
-                value: true
-              }
-            ],
-            workId: "euripides-iphigenia-in-tauris",
-            textTemplate: "{actor} opens an inquiry into the account told in Iphigenia in Tauris. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-ion",
-            subject: "greek-delphi",
-            at: "greek-delphi",
-            label: "Ask who can identify the foundling's token",
-            text: "Vale opens an inquiry into the account told in Ion. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-ion",
-                value: true
-              }
-            ],
-            workId: "euripides-ion",
-            textTemplate: "{actor} opens an inquiry into the account told in Ion. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-helen",
-            subject: "greek-egypt-tomb",
-            at: "greek-egypt-tomb",
-            label: "Hear Helen in Egypt",
-            text: "Vale opens an inquiry into the account told in Helen. The question is recorded; its reported events have not been enacted.",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-helen-account",
-                value: "egypt"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-helen",
-                value: true
-              }
-            ],
-            workId: "euripides-helen",
-            textTemplate: "{actor} opens an inquiry into the account told in Helen. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-phoenician-women",
-            subject: "greek-palace",
-            at: "greek-palace",
-            label: "Hear the household before the siege",
-            text: "Vale opens an inquiry into the account told in Phoenician Women. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-phoenician-women",
-                value: true
-              }
-            ],
-            workId: "euripides-phoenician-women",
-            textTemplate: "{actor} opens an inquiry into the account told in Phoenician Women. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-orestes",
-            subject: "greek-argos-palace",
-            at: "greek-argos-palace",
-            label: "Ask what the civic hearing can decide",
-            text: "Vale opens an inquiry into the account told in Orestes. The question is recorded; its reported events have not been enacted.",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "aeschylus"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-orestes",
-                value: true
-              }
-            ],
-            workId: "euripides-orestes",
-            textTemplate: "{actor} opens an inquiry into the account told in Orestes. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-bacchae",
-            subject: "greek-cithaeron",
-            at: "greek-cithaeron",
-            label: "Ask what the worshippers claim",
-            text: "Vale opens an inquiry into the account told in Bacchae. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-bacchae",
-                value: true
-              }
-            ],
-            workId: "euripides-bacchae",
-            textTemplate: "{actor} opens an inquiry into the account told in Bacchae. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-iphigenia-at-aulis",
-            subject: "greek-aulis",
-            at: "greek-aulis",
-            label: "Ask why the fleet cannot sail",
-            text: "Vale opens an inquiry into the account told in Iphigenia at Aulis. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-iphigenia-at-aulis",
-                value: true
-              }
-            ],
-            workId: "euripides-iphigenia-at-aulis",
-            textTemplate: "{actor} opens an inquiry into the account told in Iphigenia at Aulis. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-rhesus",
-            subject: "greek-trojan-camp",
-            at: "greek-trojan-camp",
-            label: "Check the arriving ally's identity",
-            text: "Vale opens an inquiry into the account told in Rhesus. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-rhesus",
-                value: true
-              }
-            ],
-            workId: "euripides-rhesus",
-            textTemplate: "{actor} opens an inquiry into the account told in Rhesus. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-euripides-cyclops",
-            subject: "greek-sicily",
-            at: "greek-sicily",
-            label: "Ask the captive shepherds about a way out",
-            text: "Vale opens an inquiry into the account told in Cyclops. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-euripides-cyclops",
-                value: true
-              }
-            ],
-            workId: "euripides-cyclops",
-            textTemplate: "{actor} opens an inquiry into the account told in Cyclops. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aristophanes-acharnians",
-            subject: "greek-acharnae",
-            at: "greek-acharnae",
-            label: "Ask what a private peace permits",
-            text: "Vale opens an inquiry into the account told in Acharnians. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aristophanes-acharnians",
-                value: true
-              }
-            ],
-            workId: "aristophanes-acharnians",
-            textTemplate: "{actor} opens an inquiry into the account told in Acharnians. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aristophanes-knights",
-            subject: "greek-demos-house",
-            at: "greek-demos-house",
-            label: "Ask who speaks for Demos",
-            text: "Vale opens an inquiry into the account told in Knights. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aristophanes-knights",
-                value: true
-              }
-            ],
-            workId: "aristophanes-knights",
-            textTemplate: "{actor} opens an inquiry into the account told in Knights. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aristophanes-clouds",
-            subject: "greek-thinkery",
-            at: "greek-thinkery",
-            label: "Ask what the school promises a debtor",
-            text: "Vale opens an inquiry into the account told in Clouds. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aristophanes-clouds",
-                value: true
-              }
-            ],
-            workId: "aristophanes-clouds",
-            textTemplate: "{actor} opens an inquiry into the account told in Clouds. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aristophanes-wasps",
-            subject: "greek-jury-house",
-            at: "greek-jury-house",
-            label: "Ask why the juror cannot stay home",
-            text: "Vale opens an inquiry into the account told in Wasps. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aristophanes-wasps",
-                value: true
-              }
-            ],
-            workId: "aristophanes-wasps",
-            textTemplate: "{actor} opens an inquiry into the account told in Wasps. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aristophanes-peace",
-            subject: "greek-divine-heights",
-            at: "greek-divine-heights",
-            label: "Ask who will help recover peace",
-            text: "Vale opens an inquiry into the account told in Peace. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aristophanes-peace",
-                value: true
-              }
-            ],
-            workId: "aristophanes-peace",
-            textTemplate: "{actor} opens an inquiry into the account told in Peace. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aristophanes-birds",
-            subject: "greek-bird-wilderness",
-            at: "greek-bird-wilderness",
-            label: "Ask what the proposed city would control",
-            text: "Vale opens an inquiry into the account told in Birds. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aristophanes-birds",
-                value: true
-              }
-            ],
-            workId: "aristophanes-birds",
-            textTemplate: "{actor} opens an inquiry into the account told in Birds. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aristophanes-lysistrata",
-            subject: "greek-acropolis",
-            at: "greek-acropolis",
-            label: "Ask how the coalition holds the treasury",
-            text: "Vale opens an inquiry into the account told in Lysistrata. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aristophanes-lysistrata",
-                value: true
-              }
-            ],
-            workId: "aristophanes-lysistrata",
-            textTemplate: "{actor} opens an inquiry into the account told in Lysistrata. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aristophanes-women-at-the-thesmophoria",
-            subject: "greek-festival",
-            at: "greek-festival",
-            label: "Ask who has entered the festival",
-            text: "Vale opens an inquiry into the account told in Women at the Thesmophoria. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aristophanes-women-at-the-thesmophoria",
-                value: true
-              }
-            ],
-            workId: "aristophanes-women-at-the-thesmophoria",
-            textTemplate: "{actor} opens an inquiry into the account told in Women at the Thesmophoria. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aristophanes-frogs",
-            subject: "greek-underworld",
-            at: "greek-underworld",
-            label: "Ask what the city needs from a poet",
-            text: "Vale opens an inquiry into the account told in Frogs. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aristophanes-frogs",
-                value: true
-              }
-            ],
-            workId: "aristophanes-frogs",
-            textTemplate: "{actor} opens an inquiry into the account told in Frogs. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aristophanes-assemblywomen",
-            subject: "greek-assembly",
-            at: "greek-assembly",
-            label: "Ask what the proposed common ownership changes",
-            text: "Vale opens an inquiry into the account told in Assemblywomen. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aristophanes-assemblywomen",
-                value: true
-              }
-            ],
-            workId: "aristophanes-assemblywomen",
-            textTemplate: "{actor} opens an inquiry into the account told in Assemblywomen. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-inquire-aristophanes-wealth",
-            subject: "greek-attic-farm",
-            at: "greek-attic-farm",
-            label: "Ask who would lose from fair prosperity",
-            text: "Vale opens an inquiry into the account told in Wealth. The question is recorded; its reported events have not been enacted.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-inquiry-aristophanes-wealth",
-                value: true
-              }
-            ],
-            workId: "aristophanes-wealth",
-            textTemplate: "{actor} opens an inquiry into the account told in Wealth. The question is recorded; its reported events have not been enacted."
-          },
-          {
             id: "greek-open-door-invite-burial",
             subject: "greek-baker",
             at: "greek-courtyard",
@@ -9039,9 +7540,7 @@
             ],
             premise: "A messenger's account of defeat must reach the grieving court without losing its source.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-persians"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -9059,9 +7558,7 @@
             ],
             premise: "The city's defenders must answer rival claims to command while households seek protection.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-seven-against-thebes"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -9079,9 +7576,7 @@
             ],
             premise: "The Danaids seek protection against forced marriage, and the receiving city must decide what protection entails.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-suppliant-women"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -9099,9 +7594,7 @@
             ],
             premise: "A punished benefactor can be approached, but neither prophecy nor release follows from a visitor's words alone.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-prometheus-bound"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -9119,9 +7612,7 @@
             ],
             premise: "A returning commander enters a household divided by the costs of the expedition.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-agamemnon"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -9143,9 +7634,7 @@
             ],
             premise: "A meeting at a tomb raises claims of kinship and a demand for revenge.",
             status: "branching-episode",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-libation-bearers"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -9167,9 +7656,7 @@
             ],
             premise: "Sanctuary and public judgment offer different answers to a pursuing claim of vengeance.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-eumenides"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -9190,7 +7677,6 @@
             premise: "Military honor, isolation, and the treatment of the dead divide the camp.",
             status: "branching-episode",
             hookChoiceIds: [
-              "greek-inquire-sophocles-ajax",
               "greek-ajax-invitation",
               "greek-ajax-learn-shield-teucer",
               "greek-ajax-learn-shield-odysseus",
@@ -9231,9 +7717,7 @@
             ],
             premise: "A sister seeks burial for the brother whom a public decree leaves exposed.",
             status: "opening-episode",
-            hookChoiceIds: [
-              "greek-inquire-sophocles-antigone"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Sophocles",
@@ -9251,9 +7735,7 @@
             ],
             premise: "A household prepares a gift without agreeing about its history or effects.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-sophocles-women-of-trachis"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Sophocles",
@@ -9271,9 +7753,7 @@
             ],
             premise: "An inquiry into a public disaster turns toward the ruler's own origins.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-sophocles-oedipus-tyrannus"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Sophocles",
@@ -9291,9 +7771,7 @@
             ],
             premise: "An excluded daughter demands an answer to her father's murder from the palace approach.",
             status: "branching-episode",
-            hookChoiceIds: [
-              "greek-inquire-sophocles-electra"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Sophocles",
@@ -9315,9 +7793,7 @@
             ],
             premise: "An army needs the help of a man it abandoned, and the request need not be honest.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-sophocles-philoctetes"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Sophocles",
@@ -9360,9 +7836,7 @@
             ],
             premise: "Hospitality continues in a household mourning the person who paid for another's life.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-alcestis"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9380,9 +7854,7 @@
             ],
             premise: "A betrayed foreign household faces expulsion while its members seek time, refuge, and a response.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-medea"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9426,9 +7898,7 @@
             ],
             premise: "A household confronts desire, shame, an accusation, and a father's power to punish.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-hippolytus"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9446,9 +7916,7 @@
             ],
             premise: "A captive mother and her child seek protection inside a hostile dynastic household.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-andromache"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9466,9 +7934,7 @@
             ],
             premise: "A captive queen searches for reliable news of her children and a betrayed trust.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-hecuba"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9517,9 +7983,7 @@
             ],
             premise: "The revenge claim is heard in a poor household beyond the royal city.",
             status: "branching-episode",
-            hookChoiceIds: [
-              "greek-inquire-euripides-electra"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9541,9 +8005,7 @@
             ],
             premise: "A household needs protection from tyranny and support after destructive divine interference.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-heracles"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9561,9 +8023,7 @@
             ],
             premise: "The conquered community struggles to preserve lives and relationships before dispersal.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-trojan-women"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9581,9 +8041,7 @@
             ],
             premise: "A ritual killing rule threatens travelers whose identities may change the priestess's obligations.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-iphigenia-in-tauris"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9601,9 +8059,7 @@
             ],
             premise: "Competing claims to a young attendant's parentage meet inside Apollo's sanctuary.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-ion"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9621,9 +8077,7 @@
             ],
             premise: "Helen's testimony distinguishes her own life from the phantom blamed for the war.",
             status: "branching-episode",
-            hookChoiceIds: [
-              "greek-inquire-euripides-helen"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9645,9 +8099,7 @@
             ],
             premise: "A divided family tries to act while rival brothers bring armed claims to the city.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-phoenician-women"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9665,9 +8117,7 @@
             ],
             premise: "A household facing judgment after matricide considers further desperate action.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-orestes"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9689,9 +8139,7 @@
             ],
             premise: "Suppressed worship and a ruler's surveillance bring human authority against a disguised god.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-bacchae"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9709,9 +8157,7 @@
             ],
             premise: "Commanders and soldiers press for a sacrifice that a father has the power to resist.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-iphigenia-at-aulis"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9729,9 +8175,7 @@
             ],
             premise: "An ally arrives at night while infiltrators and uncertain reports cross the camp.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-rhesus"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9749,9 +8193,7 @@
             ],
             premise: "Captive satyrs and stranded travelers seek a way past a predatory host.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-cyclops"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -9769,9 +8211,7 @@
             ],
             premise: "A farmer's separate peace creates a market inside a community still at war.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-acharnians"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -9789,9 +8229,7 @@
             ],
             premise: "Rival household servants compete to flatter and exploit the person who holds political power.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-knights"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -9809,9 +8247,7 @@
             ],
             premise: "A debtor seeks an education that may overturn the balance of authority in his own family.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-clouds"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -9829,9 +8265,7 @@
             ],
             premise: "A juror's pleasure and income collide with his household's attempt to restrain him.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-wasps"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -9849,9 +8283,7 @@
             ],
             premise: "A farmer seeks peace while trades built on war face losing their customers.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-peace"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -9869,9 +8301,7 @@
             ],
             premise: "A refuge from civic life could become a new power controlling passage between gods and mortals.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-birds"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -9889,9 +8319,7 @@
             ],
             premise: "A coalition uses control of the treasury and intimacy to put pressure on the war.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-lysistrata"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -9909,9 +8337,7 @@
             ],
             premise: "Women contest a playwright's portrayal while a disguised visitor risks exposure.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-women-at-the-thesmophoria"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -9929,9 +8355,7 @@
             ],
             premise: "A divine visitor seeks a poet whose art can answer the city's troubles.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-frogs"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -9949,9 +8373,7 @@
             ],
             premise: "A political takeover promises shared property and leaves households to work through its consequences.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-assemblywomen"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -9969,9 +8391,7 @@
             ],
             premise: "Restoring Wealth's sight would change who receives prosperity and who benefits from the old distribution.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-wealth"
-            ],
+            hookChoiceIds: [],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -10807,1239 +9227,6 @@
             ]
           }
         ],
-        storyQuests: [
-          {
-            id: "story-quest-greek-table",
-            group: "opening",
-            line: "A place beside the bread.",
-            holder: {
-              kind: "avatar",
-              id: "greek-baker"
-            },
-            art: "greek-water-jar",
-            start: {
-              any: [
-                {
-                  kind: "met",
-                  actor: "greek-baker"
-                },
-                {
-                  kind: "flag",
-                  key: "greek-water-returned",
-                  value: true
-                }
-              ]
-            },
-            endings: [
-              {
-                choice: "greek-return-water-jar"
-              }
-            ],
-            created: {
-              first: [
-                {
-                  kind: "met",
-                  actor: "greek-baker"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-return-water-jar"
-                }
-              ]
-            },
-            related: [
-              "greek-return-water-jar"
-            ]
-          },
-          {
-            id: "story-quest-greek-burial",
-            group: "opening",
-            line: "Her brother waits for earth.",
-            holder: {
-              kind: "avatar",
-              id: "greek-antigone"
-            },
-            art: "greek-funeral-cloth",
-            start: {
-              any: [
-                {
-                  kind: "met",
-                  actor: "greek-antigone"
-                },
-                {
-                  kind: "flag",
-                  key: "greek-decree-known",
-                  value: true
-                },
-                {
-                  kind: "choice_set",
-                  key: "greek-theban-response"
-                },
-                {
-                  kind: "flag",
-                  key: "greek-burial-performed",
-                  value: true
-                }
-              ]
-            },
-            defaultEnding: "greek-perform-burial",
-            progress: [
-              "greek-hear-decree",
-              "greek-petition-burial",
-              "greek-prepare-burial-ground",
-              "greek-prepare-permitted-burial"
-            ],
-            endings: [
-              {
-                choice: "greek-perform-permitted-burial",
-                when: {
-                  kind: "receipt",
-                  choice: "greek-perform-permitted-burial"
-                }
-              },
-              {
-                choice: "greek-perform-burial"
-              },
-              {
-                choice: "greek-decline-burial",
-                when: {
-                  kind: "choice",
-                  key: "greek-theban-response",
-                  value: "refusal"
-                },
-                outcome: "Declined"
-              },
-              {
-                choice: "greek-report-plan",
-                when: {
-                  kind: "choice",
-                  key: "greek-theban-response",
-                  value: "exposure"
-                },
-                outcome: "Reported"
-              }
-            ],
-            created: {
-              first: [
-                {
-                  kind: "met",
-                  actor: "greek-antigone"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-hear-decree"
-                },
-                {
-                  first: [
-                    {
-                      kind: "receipt",
-                      choice: "greek-perform-permitted-burial"
-                    },
-                    {
-                      kind: "receipt",
-                      choice: "greek-perform-burial"
-                    },
-                    {
-                      kind: "receipt",
-                      choice: "greek-decline-burial"
-                    },
-                    {
-                      kind: "receipt",
-                      choice: "greek-report-plan"
-                    }
-                  ]
-                }
-              ]
-            },
-            related: [
-              "greek-hear-decree",
-              "greek-decline-burial",
-              "greek-report-plan",
-              "greek-prepare-burial-ground",
-              "greek-prepare-permitted-burial",
-              "greek-perform-burial",
-              "greek-perform-permitted-burial",
-              "greek-petition-burial"
-            ]
-          },
-          {
-            id: "story-quest-greek-courtyard",
-            group: "opening",
-            line: "What words will you bring home?",
-            holder: {
-              kind: "place",
-              id: "greek-courtyard"
-            },
-            art: "greek-bread",
-            start: {
-              all: [
-                {
-                  kind: "choice",
-                  key: "greek-theban-response",
-                  value: "concession"
-                },
-                {
-                  kind: "flag",
-                  key: "greek-burial-performed",
-                  value: true
-                },
-                {
-                  kind: "flag",
-                  key: "greek-concession-public",
-                  value: true
-                }
-              ]
-            },
-            endings: [
-              {
-                choice: "greek-courtyard-permitted-burial"
-              }
-            ],
-            outcome: "Shared",
-            created: {
-              latest: [
-                {
-                  first: [
-                    {
-                      kind: "receipt",
-                      choice: "greek-perform-permitted-burial"
-                    },
-                    {
-                      kind: "receipt",
-                      choice: "greek-perform-burial"
-                    }
-                  ]
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-courtyard-concession"
-                }
-              ]
-            },
-            related: "ending",
-            key: "story-quest-greek-courtyard:grave",
-            return: {
-              from: [
-                "story-quest-greek-burial"
-              ],
-              carries: [
-                {
-                  kind: "flag",
-                  key: "greek-burial-performed"
-                }
-              ]
-            }
-          },
-          {
-            id: "story-quest-greek-courtyard",
-            group: "opening",
-            line: "What words will you bring home?",
-            holder: {
-              kind: "place",
-              id: "greek-courtyard"
-            },
-            art: "greek-bread",
-            start: {
-              kind: "choice_set",
-              key: "greek-theban-response"
-            },
-            endings: [
-              {
-                choice: "greek-courtyard-burial",
-                when: {
-                  kind: "choice",
-                  key: "greek-theban-response",
-                  value: "burial"
-                }
-              },
-              {
-                choice: "greek-courtyard-concession",
-                when: {
-                  kind: "choice",
-                  key: "greek-theban-response",
-                  value: "concession"
-                }
-              },
-              {
-                choice: "greek-courtyard-refusal",
-                when: {
-                  kind: "choice",
-                  key: "greek-theban-response",
-                  value: "refusal"
-                }
-              },
-              {
-                choice: "greek-courtyard-exposure",
-                when: {
-                  kind: "choice",
-                  key: "greek-theban-response",
-                  value: "exposure"
-                }
-              }
-            ],
-            outcome: "Shared",
-            created: {
-              kind: "choice",
-              key: "greek-theban-response"
-            },
-            related: "ending",
-            historicalWhen: {
-              all: [
-                {
-                  kind: "choice",
-                  key: "greek-theban-response",
-                  value: "concession"
-                },
-                {
-                  kind: "flag",
-                  key: "greek-burial-performed",
-                  value: true
-                },
-                {
-                  kind: "flag",
-                  key: "greek-concession-public",
-                  value: true
-                }
-              ]
-            },
-            return: {
-              from: [
-                "story-quest-greek-burial"
-              ],
-              carries: [
-                {
-                  kind: "choice",
-                  key: "greek-theban-response"
-                }
-              ]
-            }
-          },
-          {
-            id: "story-quest-greek-open-door-eleusis",
-            group: "open-door",
-            line: "Their sons need a road home.",
-            holder: {
-              kind: "avatar",
-              id: "greek-aethra"
-            },
-            art: "greek-burial-petition",
-            start: {
-              any: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-mothers"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-adrastus"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-lay-cloths"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-lay-ashes"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-pyre"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-eleusis-pledge"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-eleusis-care"
-                }
-              ]
-            },
-            progress: [
-              "greek-open-door-hear-adrastus",
-              "greek-open-door-lay-cloths",
-              "greek-open-door-lay-ashes",
-              "greek-open-door-hear-pyre"
-            ],
-            endings: [
-              {
-                choice: "greek-open-door-eleusis-pledge"
-              },
-              {
-                choice: "greek-open-door-eleusis-care"
-              }
-            ]
-          },
-          {
-            id: "story-quest-greek-open-door-agora",
-            group: "open-door",
-            line: "A city must answer.",
-            holder: {
-              kind: "avatar",
-              id: "greek-theseus"
-            },
-            art: "greek-burial-petition",
-            start: {
-              any: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-register-plea"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-request-truce"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-request-recovery"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-truce-report"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-recovery-report"
-                }
-              ]
-            },
-            progress: [
-              "greek-open-door-request-truce",
-              "greek-open-door-request-recovery"
-            ],
-            endings: [
-              {
-                choice: "greek-open-door-hear-truce-report"
-              },
-              {
-                choice: "greek-open-door-hear-recovery-report"
-              }
-            ]
-          },
-          {
-            id: "story-quest-greek-open-door-piraeus",
-            group: "open-door",
-            line: "A berth beside the water.",
-            holder: {
-              kind: "avatar",
-              id: "greek-quay-host"
-            },
-            art: "greek-return-list",
-            start: {
-              any: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-quay"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-set-provisions"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-family-berth"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-open-berth"
-                }
-              ]
-            },
-            progress: [
-              "greek-open-door-set-provisions"
-            ],
-            endings: [
-              {
-                choice: "greek-open-door-family-berth"
-              },
-              {
-                choice: "greek-open-door-open-berth"
-              }
-            ]
-          },
-          {
-            id: "story-quest-greek-open-door-colonus",
-            group: "open-door",
-            line: "A stranger waits by the grove.",
-            holder: {
-              kind: "avatar",
-              id: "greek-colonus-keeper"
-            },
-            art: "greek-grove-cup",
-            start: {
-              any: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-enter"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-water"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-daughters"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-farewell"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-custom"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-family"
-                }
-              ]
-            },
-            progress: [
-              "greek-open-door-colonus-water",
-              "greek-open-door-colonus-daughters",
-              "greek-open-door-colonus-farewell"
-            ],
-            endings: [
-              {
-                choice: "greek-open-door-colonus-custom"
-              },
-              {
-                choice: "greek-open-door-colonus-family"
-              }
-            ]
-          },
-          {
-            id: "story-quest-greek-open-door-marathon",
-            group: "open-door",
-            line: "The children need a place to rest.",
-            holder: {
-              kind: "avatar",
-              id: "greek-marathon-keeper"
-            },
-            art: "greek-shelter-blanket",
-            start: {
-              any: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-enter"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-blanket"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-daughter"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-battle"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-captive"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-hearing"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-alcmene"
-                }
-              ]
-            },
-            progress: [
-              "greek-open-door-marathon-blanket",
-              "greek-open-door-marathon-daughter",
-              "greek-open-door-marathon-battle",
-              "greek-open-door-marathon-captive"
-            ],
-            endings: [
-              {
-                choice: "greek-open-door-marathon-hearing"
-              },
-              {
-                choice: "greek-open-door-marathon-alcmene"
-              }
-            ]
-          },
-          {
-            id: "story-quest-greek-open-door-return",
-            group: "open-door",
-            line: "What welcome will you bring home?",
-            holder: {
-              kind: "avatar",
-              id: "greek-baker"
-            },
-            art: "greek-bread",
-            start: {
-              any: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-eleusis-pledge"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-eleusis-care"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-truce-report"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-recovery-report"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-family-berth"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-open-berth"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-custom"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-family"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-hearing"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-alcmene"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-return-dione"
-                }
-              ]
-            },
-            endings: [
-              {
-                choice: "greek-open-door-return-dione"
-              }
-            ],
-            created: {
-              earliest: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-eleusis-pledge"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-eleusis-care"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-truce-report"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-recovery-report"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-family-berth"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-open-berth"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-custom"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-family"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-hearing"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-alcmene"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-return-dione"
-                }
-              ]
-            },
-            related: "ending",
-            outcome: "Shared",
-            return: {
-              from: [
-                "story-quest-greek-open-door-eleusis",
-                "story-quest-greek-open-door-piraeus",
-                "story-quest-greek-open-door-colonus",
-                "story-quest-greek-open-door-marathon"
-              ],
-              carries: [
-                {
-                  kind: "flag",
-                  key: "greek-open-door-eleusis-done"
-                },
-                {
-                  kind: "flag",
-                  key: "greek-open-door-piraeus-done"
-                },
-                {
-                  kind: "flag",
-                  key: "greek-open-door-colonus-done"
-                },
-                {
-                  kind: "flag",
-                  key: "greek-open-door-marathon-done"
-                }
-              ]
-            }
-          },
-          {
-            id: "story-quest-greek-homecoming-return",
-            key: "story-quest-greek-homecoming-return:agora",
-            group: "homecoming",
-            keyedCard: true,
-            line: "Bring the city's answer to Dione.",
-            holder: {
-              kind: "avatar",
-              id: "greek-baker"
-            },
-            art: "greek-bread",
-            start: {
-              any: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-truce-report"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-recovery-report"
-                }
-              ]
-            },
-            endings: [
-              {
-                choice: "greek-homecoming-report-agora-truce"
-              },
-              {
-                choice: "greek-homecoming-report-agora-force"
-              },
-              {
-                choice: "greek-open-door-return-dione"
-              }
-            ],
-            endingOrder: "earliest",
-            outcome: "Shared",
-            created: {
-              earliest: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-truce-report"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-hear-recovery-report"
-                }
-              ]
-            },
-            related: "start-and-ending",
-            return: {
-              from: [
-                "story-quest-greek-open-door-agora"
-              ],
-              carries: [
-                {
-                  kind: "choice",
-                  key: "greek-open-door-recovery"
-                }
-              ]
-            }
-          },
-          {
-            id: "story-quest-greek-homecoming-return",
-            key: "story-quest-greek-homecoming-return:eleusis",
-            group: "homecoming",
-            keyedCard: true,
-            line: "Bring the mothers' answer to Dione.",
-            holder: {
-              kind: "avatar",
-              id: "greek-baker"
-            },
-            art: "greek-bread",
-            start: {
-              any: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-eleusis-pledge"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-eleusis-care"
-                }
-              ]
-            },
-            endings: [
-              {
-                choice: "greek-homecoming-report-eleusis-pledge"
-              },
-              {
-                choice: "greek-homecoming-report-eleusis-care"
-              },
-              {
-                choice: "greek-open-door-return-dione"
-              }
-            ],
-            endingOrder: "earliest",
-            outcome: "Shared",
-            created: {
-              earliest: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-eleusis-pledge"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-eleusis-care"
-                }
-              ]
-            },
-            related: "start-and-ending",
-            return: {
-              from: [
-                "story-quest-greek-open-door-eleusis"
-              ],
-              carries: [
-                {
-                  kind: "choice",
-                  key: "greek-open-door-eleusis"
-                },
-                {
-                  kind: "flag",
-                  key: "greek-open-door-eleusis-done"
-                }
-              ]
-            }
-          },
-          {
-            id: "story-quest-greek-homecoming-return",
-            key: "story-quest-greek-homecoming-return:piraeus",
-            group: "homecoming",
-            keyedCard: true,
-            line: "Tell Dione who the berth will welcome.",
-            holder: {
-              kind: "avatar",
-              id: "greek-baker"
-            },
-            art: "greek-bread",
-            start: {
-              any: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-family-berth"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-open-berth"
-                }
-              ]
-            },
-            endings: [
-              {
-                choice: "greek-homecoming-report-piraeus-family"
-              },
-              {
-                choice: "greek-homecoming-report-piraeus-open"
-              },
-              {
-                choice: "greek-open-door-return-dione"
-              }
-            ],
-            endingOrder: "earliest",
-            outcome: "Shared",
-            created: {
-              earliest: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-family-berth"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-open-berth"
-                }
-              ]
-            },
-            related: "start-and-ending",
-            return: {
-              from: [
-                "story-quest-greek-open-door-piraeus"
-              ],
-              carries: [
-                {
-                  kind: "choice",
-                  key: "greek-open-door-berth"
-                },
-                {
-                  kind: "flag",
-                  key: "greek-open-door-piraeus-done"
-                }
-              ]
-            }
-          },
-          {
-            id: "story-quest-greek-homecoming-return",
-            key: "story-quest-greek-homecoming-return:colonus",
-            group: "homecoming",
-            keyedCard: true,
-            line: "Bring the grove's story to Dione.",
-            holder: {
-              kind: "avatar",
-              id: "greek-baker"
-            },
-            art: "greek-bread",
-            start: {
-              any: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-custom"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-family"
-                }
-              ]
-            },
-            endings: [
-              {
-                choice: "greek-homecoming-report-colonus-custom"
-              },
-              {
-                choice: "greek-homecoming-report-colonus-family"
-              },
-              {
-                choice: "greek-open-door-return-dione"
-              }
-            ],
-            endingOrder: "earliest",
-            outcome: "Shared",
-            created: {
-              earliest: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-custom"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-colonus-family"
-                }
-              ]
-            },
-            related: "start-and-ending",
-            return: {
-              from: [
-                "story-quest-greek-open-door-colonus"
-              ],
-              carries: [
-                {
-                  kind: "choice",
-                  key: "greek-open-door-colonus"
-                },
-                {
-                  kind: "flag",
-                  key: "greek-open-door-colonus-done"
-                }
-              ]
-            }
-          },
-          {
-            id: "story-quest-greek-homecoming-return",
-            key: "story-quest-greek-homecoming-return:marathon",
-            group: "homecoming",
-            keyedCard: true,
-            line: "Bring the children's story to Dione.",
-            holder: {
-              kind: "avatar",
-              id: "greek-baker"
-            },
-            art: "greek-bread",
-            start: {
-              any: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-alcmene"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-hearing"
-                }
-              ]
-            },
-            endings: [
-              {
-                choice: "greek-homecoming-report-marathon-alcmene"
-              },
-              {
-                choice: "greek-homecoming-report-marathon-hearing"
-              },
-              {
-                choice: "greek-open-door-return-dione"
-              }
-            ],
-            endingOrder: "earliest",
-            outcome: "Shared",
-            created: {
-              earliest: [
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-alcmene"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-open-door-marathon-hearing"
-                }
-              ]
-            },
-            related: "start-and-ending",
-            return: {
-              from: [
-                "story-quest-greek-open-door-marathon"
-              ],
-              carries: [
-                {
-                  kind: "choice",
-                  key: "greek-open-door-marathon"
-                },
-                {
-                  kind: "flag",
-                  key: "greek-open-door-marathon-done"
-                }
-              ]
-            }
-          },
-          {
-            id: "story-quest-greek-homecoming-household",
-            group: "homecoming",
-            keyedCard: false,
-            line: "Bring Myrine to the waiting berth.",
-            holder: {
-              kind: "avatar",
-              id: "greek-household-witness"
-            },
-            art: "greek-return-list",
-            start: {
-              kind: "receipt",
-              choice: "greek-homecoming-agree-journey"
-            },
-            endings: [
-              {
-                choice: "greek-homecoming-receive-family"
-              },
-              {
-                choice: "greek-homecoming-receive-open"
-              }
-            ],
-            endingOrder: "earliest",
-            created: {
-              kind: "receipt",
-              choice: "greek-homecoming-agree-journey"
-            },
-            related: "start-and-ending"
-          },
-          {
-            id: "story-quest-greek-homecoming-witness",
-            group: "homecoming",
-            keyedCard: false,
-            line: "Read Myrine's account beside your song.",
-            holder: {
-              kind: "avatar",
-              id: "greek-baker"
-            },
-            art: "greek-return-list",
-            start: {
-              any: [
-                {
-                  kind: "receipt",
-                  choice: "greek-homecoming-receive-family"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-homecoming-receive-open"
-                }
-              ]
-            },
-            endings: [
-              {
-                choice: "greek-homecoming-read-basket-family"
-              },
-              {
-                choice: "greek-homecoming-read-basket-open"
-              },
-              {
-                choice: "greek-homecoming-read-berth-family"
-              },
-              {
-                choice: "greek-homecoming-read-berth-open"
-              }
-            ],
-            endingOrder: "earliest",
-            outcome: "Shared",
-            created: {
-              earliest: [
-                {
-                  kind: "receipt",
-                  choice: "greek-homecoming-receive-family"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-homecoming-receive-open"
-                }
-              ]
-            },
-            related: "start-and-ending",
-            return: {
-              from: [
-                "story-quest-greek-homecoming-household"
-              ],
-              carries: [
-                {
-                  kind: "choice",
-                  key: "greek-homecoming-care"
-                }
-              ]
-            }
-          },
-          {
-            id: "story-quest-greek-ajax-shield",
-            group: "ajax",
-            line: "His child should keep the shield.",
-            holder: {
-              kind: "avatar",
-              id: "greek-ajax-tecmessa"
-            },
-            art: "greek-ajax-shield",
-            start: {
-              kind: "flag",
-              key: "greek-ajax-open",
-              value: true
-            },
-            progress: [
-              "greek-ajax-learn-shield-teucer",
-              "greek-ajax-learn-shield-odysseus",
-              "greek-ajax-learn-shield-tecmessa"
-            ],
-            endings: [
-              {
-                choice: "greek-ajax-deliver-shield"
-              }
-            ],
-            outcome: "Fulfilled"
-          },
-          {
-            id: "story-quest-greek-ajax-plea",
-            group: "ajax",
-            line: "A rival should hear his brother\u2019s plea.",
-            holder: {
-              kind: "avatar",
-              id: "greek-ajax-teucer"
-            },
-            art: "greek-ajax-plea",
-            start: {
-              kind: "receipt",
-              choice: "greek-ajax-deliver-shield"
-            },
-            endings: [
-              {
-                choice: "greek-ajax-deliver-plea"
-              }
-            ],
-            outcome: "Fulfilled",
-            progress: [
-              "greek-ajax-hear-plea"
-            ]
-          },
-          {
-            id: "story-quest-greek-ajax-burial",
-            group: "ajax",
-            line: "Give Ajax earth beside the ships.",
-            holder: {
-              kind: "place",
-              id: "greek-ajax-grave"
-            },
-            art: "greek-ajax-cloth",
-            start: {
-              kind: "receipt",
-              choice: "greek-ajax-deliver-plea"
-            },
-            endings: [
-              {
-                choice: "greek-ajax-bury-public"
-              },
-              {
-                choice: "greek-ajax-bury-household"
-              },
-              {
-                choice: "greek-ajax-bury-appeal"
-              }
-            ],
-            outcome: "Fulfilled",
-            progress: [
-              "greek-ajax-prepare-grave",
-              "greek-ajax-lay-cloth",
-              "greek-ajax-witness-appeal"
-            ]
-          },
-          {
-            id: "story-quest-greek-ajax-return",
-            group: "ajax",
-            line: "Carry Teucer\u2019s account home to Dione.",
-            holder: {
-              kind: "avatar",
-              id: "greek-ajax-teucer"
-            },
-            art: "greek-ajax-plea",
-            start: {
-              any: [
-                {
-                  kind: "receipt",
-                  choice: "greek-ajax-bury-public"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-ajax-bury-household"
-                },
-                {
-                  kind: "receipt",
-                  choice: "greek-ajax-bury-appeal"
-                }
-              ]
-            },
-            endings: [
-              {
-                choice: "greek-ajax-return-public"
-              },
-              {
-                choice: "greek-ajax-return-household"
-              },
-              {
-                choice: "greek-ajax-return-appeal"
-              }
-            ],
-            outcome: "Shared",
-            progress: [
-              "greek-ajax-record-public",
-              "greek-ajax-record-household",
-              "greek-ajax-record-appeal"
-            ]
-          }
-        ],
         topics: [
           {
             id: "greek-hear-decree",
@@ -12642,8 +9829,8 @@
         places: {
           "hoppycat-halfway-tea-garden": {
             name: "Halfway Tea Garden",
-            text: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup and spool rest on the table.",
-            persona: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup and spool rest on the table. Describe this as a playful living place. Use the current story facts for progress.",
+            text: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table.",
+            persona: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
               "hoppycat-open-record-cathedral",
               "hoppycat-prism-foundry",
@@ -12990,9 +10177,9 @@
         items: {
           "hoppycat-red-thread-spool": {
             name: "Red-Thread Spool",
-            text: "A warm spool that catches only on relationships someone has chosen to carry forward.",
-            persona: "A warm spool that catches only on relationships someone has chosen to carry forward.",
-            holder: "hoppycat-halfway-tea-garden",
+            text: "A warm spool washed up at Black pond, its loose thread trailing over the water. It catches only on relationships someone has chosen to carry forward.",
+            persona: "A warm spool washed up at Black pond, its loose thread trailing over the water toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
+            holder: "pond",
             art: "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png"
           },
           "hoppycat-provenance-card": {
@@ -13486,196 +10673,6 @@
             at: "hoppycat-halfway-tea-garden",
             text: "Tapi still needs one real ally before the broadcast ends.",
             requires: []
-          }
-        ],
-        situations: [
-          {
-            id: "hoppycat-sourced-line",
-            kind: "delivery",
-            name: "A sourced line on air",
-            purpose: "Learn from Penny which card still lacks its source, then bring a provenance card to Hoppy Cat and say one true thing on air.",
-            takers: [
-              "visitors"
-            ],
-            roles: {
-              partner: {
-                avatar: [
-                  "hoppycat-hoppy-cat"
-                ]
-              }
-            },
-            steps: [
-              {
-                at: "hoppycat-open-record-cathedral",
-                with: [
-                  "hoppycat-penny-vellum"
-                ],
-                conditions: [
-                  {
-                    kind: "knows",
-                    topic: "hoppycat-missing-source"
-                  }
-                ]
-              },
-              {
-                hold: [
-                  "hoppycat-provenance-card"
-                ],
-                at: "hoppycat-halfway-tea-garden",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "knows",
-                    topic: "hoppycat-missing-source"
-                  }
-                ]
-              }
-            ],
-            consequence: {
-              kind: "trust",
-              avatar: "$partner"
-            }
-          },
-          {
-            id: "hoppycat-thanked-by-name",
-            kind: "delivery",
-            name: "Thanked by name",
-            purpose: "Hear from the short Ledger what the long Ledger is missing, then bring a Context Seed to the Cathedral and thank Ledger by name.",
-            takers: [
-              "visitors"
-            ],
-            roles: {
-              partner: {
-                avatar: [
-                  "hoppycat-ledger-opus"
-                ]
-              }
-            },
-            steps: [
-              {
-                at: "hoppycat-context-greenhouse",
-                with: [
-                  "hoppycat-ledger-sonnet"
-                ],
-                conditions: [
-                  {
-                    kind: "knows",
-                    topic: "hoppycat-unthanked-ledger"
-                  }
-                ]
-              },
-              {
-                hold: [
-                  "hoppycat-context-seed"
-                ],
-                at: "hoppycat-open-record-cathedral",
-                with: [
-                  "$partner"
-                ]
-              }
-            ],
-            consequence: {
-              kind: "trust",
-              avatar: "$partner"
-            }
-          },
-          {
-            id: "hoppycat-held-clapper",
-            kind: "answer",
-            name: "One more quiet day",
-            purpose: "Let Nix explain the quiet bell, fetch the Fermata Clapper from Sol's stage, and keep it silent in the belfry beside Nix.",
-            takers: [
-              "visitors"
-            ],
-            roles: {
-              partner: {
-                avatar: [
-                  "hoppycat-nix-fermata"
-                ]
-              }
-            },
-            steps: [
-              {
-                at: "hoppycat-red-thread-belfry",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "knows",
-                    topic: "hoppycat-quiet-bell"
-                  }
-                ]
-              },
-              {
-                hold: [
-                  "hoppycat-fermata-clapper"
-                ],
-                at: "hoppycat-settled-light-theatre",
-                with: [
-                  "hoppycat-solwashere"
-                ]
-              },
-              {
-                hold: [
-                  "hoppycat-fermata-clapper"
-                ],
-                at: "hoppycat-red-thread-belfry",
-                with: [
-                  "$partner"
-                ]
-              }
-            ],
-            consequence: {
-              kind: "trust",
-              avatar: "$partner"
-            }
-          },
-          {
-            id: "hoppycat-halfway-cup",
-            kind: "gathering",
-            name: "A cup for two hands",
-            purpose: "Hear what Tapi still needs, then hold the Halfway Cup at the tea table with Tapi and Hoppy Cat together.",
-            takers: [
-              "visitors"
-            ],
-            roles: {
-              partner: {
-                avatar: [
-                  "hoppycat-tapi-lilt"
-                ]
-              }
-            },
-            steps: [
-              {
-                at: "hoppycat-halfway-tea-garden",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "knows",
-                    topic: "hoppycat-one-ally"
-                  }
-                ]
-              },
-              {
-                hold: [
-                  "hoppycat-halfway-cup"
-                ],
-                at: "hoppycat-halfway-tea-garden",
-                with: [
-                  "$partner",
-                  "hoppycat-hoppy-cat"
-                ]
-              }
-            ],
-            consequence: {
-              kind: "trust",
-              avatar: "$partner"
-            }
           }
         ],
         bridge: {
@@ -14438,195 +11435,9 @@
             requires: []
           }
         ],
-        situations: [
-          {
-            id: "willows-supper",
-            kind: "delivery",
-            name: "Supper before the wind",
-            purpose: "Ask the Swede what would steady him, bring the stew pot and some food to the fire, then leave the pot in his hands.",
-            takers: [
-              "visitors"
-            ],
-            requires: [
-              {
-                kind: "met",
-                actor: "willows-swede"
-              }
-            ],
-            roles: {
-              partner: {
-                avatar: [
-                  "willows-swede"
-                ]
-              },
-              food: {
-                item: [
-                  "willows-provisions",
-                  "willows-spoon"
-                ]
-              }
-            },
-            steps: [
-              {
-                at: "willows-camp",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "knows",
-                    topic: "willows-supper"
-                  }
-                ]
-              },
-              {
-                hold: [
-                  "willows-pot",
-                  "$food"
-                ],
-                at: "willows-camp",
-                with: [
-                  "$partner"
-                ]
-              },
-              {
-                at: "willows-camp",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "heldBy",
-                    item: "willows-pot",
-                    avatar: "$partner"
-                  }
-                ]
-              }
-            ],
-            consequence: {
-              kind: "trust",
-              avatar: "$partner"
-            }
-          },
-          {
-            id: "willows-channels",
-            kind: "crossing",
-            name: "A map that falls behind",
-            purpose: "Hear from the Swede how the river has changed, carry the map to the crumbling bank to read the new channels, then put it back in his hands.",
-            takers: [
-              "visitors"
-            ],
-            requires: [
-              {
-                kind: "met",
-                actor: "willows-swede"
-              }
-            ],
-            roles: {
-              partner: {
-                avatar: [
-                  "willows-swede"
-                ]
-              }
-            },
-            steps: [
-              {
-                at: "willows-camp",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "knows",
-                    topic: "willows-channels"
-                  }
-                ]
-              },
-              {
-                hold: [
-                  "willows-map"
-                ],
-                at: "willows-bank"
-              },
-              {
-                at: "willows-camp",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "heldBy",
-                    item: "willows-map",
-                    avatar: "$partner"
-                  }
-                ]
-              }
-            ],
-            consequence: {
-              kind: "trust",
-              avatar: "$partner"
-            }
-          },
-          {
-            id: "willows-muffled-bell",
-            kind: "answer",
-            name: "No bells among the willows",
-            purpose: "The Swede hates careless noise by the river. Wrap the bell in its cloth among the willows and bring it to the camp still silent.",
-            takers: [
-              "visitors"
-            ],
-            requires: [
-              {
-                kind: "met",
-                actor: "willows-swede"
-              }
-            ],
-            roles: {
-              partner: {
-                avatar: [
-                  "willows-swede"
-                ]
-              }
-            },
-            steps: [
-              {
-                hold: [
-                  "bell",
-                  "cloth"
-                ],
-                at: "willows-thicket",
-                conditions: [
-                  {
-                    kind: "covered",
-                    item: "bell"
-                  }
-                ]
-              },
-              {
-                hold: [
-                  "bell"
-                ],
-                at: "willows-camp",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "covered",
-                    item: "bell"
-                  }
-                ]
-              }
-            ],
-            consequence: {
-              kind: "trust",
-              avatar: "$partner"
-            }
-          }
-        ],
         bridge: {
           id: "greek-ship-willows",
-          description: "On a misty night, while the Greek ship lies at Black Pond, river mist beside its rail opens onto a small Danube island. The same dark mist keeps a path back to the deck; when it lifts or the ship leaves the pond, the island and the deck lose each other until the ship lies there again on a misty night."
+          description: "On a misty night, while the Greek ship lies at Black Pond or sails between ports, river mist beside its rail opens onto a small Danube island. The same dark mist keeps a path back to the deck; when it lifts or the ship docks at another port, the island and the deck lose each other until the ship lies at the pond or sails again on a misty night."
         },
         values: {
           "willows-swede": {
@@ -14654,9 +11465,19 @@
                 condition: "mist"
               },
               {
-                kind: "ship_at",
-                transport: "greek-ship",
-                dock: "pond"
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "pond"
+                  },
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "@sea"
+                  }
+                ]
               }
             ],
             scenery: {
@@ -14682,9 +11503,19 @@
                 condition: "mist"
               },
               {
-                kind: "ship_at",
-                transport: "greek-ship",
-                dock: "pond"
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "pond"
+                  },
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "@sea"
+                  }
+                ]
               }
             ],
             scenery: {
@@ -15909,109 +12740,6 @@
             on: "give"
           }
         ],
-        storyQuests: [
-          {
-            id: "story-quest-forest-path",
-            group: "forest",
-            line: "Footsteps through the rain.",
-            art: "forest-garden",
-            holder: {
-              kind: "place",
-              id: "forest-garden"
-            },
-            start: {
-              kind: "flag",
-              key: "forest-welcomed",
-              value: true
-            },
-            created: {
-              kind: "receipt",
-              choice: "forest-stay-for-tea"
-            },
-            related: [
-              "forest-stay-for-tea",
-              "forest-clear-drain",
-              "forest-set-stones"
-            ],
-            endings: [
-              {
-                choice: "forest-clear-drain"
-              },
-              {
-                choice: "forest-set-stones"
-              }
-            ]
-          },
-          {
-            id: "story-quest-forest-homecoming",
-            group: "forest",
-            line: "What will the oak hear?",
-            art: "forest-wolfprint-charm",
-            holder: {
-              kind: "avatar",
-              id: "skull"
-            },
-            start: {
-              kind: "receipt",
-              choice: "forest-mark-pawprints"
-            },
-            created: {
-              kind: "receipt",
-              choice: "forest-mark-pawprints"
-            },
-            related: [
-              "forest-mark-pawprints",
-              "forest-tell-hearth",
-              "forest-tell-path",
-              "forest-leave-charm",
-              "forest-keep-charm"
-            ],
-            defaultEnding: "forest-leave-charm",
-            endings: [
-              {
-                choice: "forest-leave-charm"
-              },
-              {
-                choice: "forest-keep-charm"
-              }
-            ],
-            return: {
-              from: [
-                "story-quest-forest-path"
-              ],
-              carries: [
-                {
-                  kind: "flag",
-                  key: "forest-path-cleared"
-                }
-              ]
-            }
-          },
-          {
-            id: "story-quest-forest-walkers",
-            group: "forest-walkers",
-            line: "Three walkers, one old root.",
-            art: "forest-oak",
-            holder: {
-              kind: "avatar",
-              id: "skull"
-            },
-            start: {
-              kind: "flag",
-              key: "forest-homecoming-shared",
-              value: true
-            },
-            progress: [
-              "forest-hear-walkers-rati",
-              "forest-hear-walkers-oak"
-            ],
-            endings: [
-              {
-                choice: "forest-sit-watch"
-              }
-            ]
-          }
-        ],
         topics: [
           {
             id: "forest-walkers-rati",
@@ -16214,124 +12942,6 @@
             scope: "first journey proposal"
           }
         ],
-        situations: [
-          {
-            id: "forest-kettle-word",
-            kind: "delivery",
-            name: "Word of the warm kettle",
-            purpose: "Hear from RATi who the kettle is kept warm for, then carry that word and the Wolfprint Charm to Oak.",
-            takers: [
-              "visitors"
-            ],
-            requires: [
-              {
-                kind: "met",
-                actor: "rati"
-              }
-            ],
-            roles: {
-              partner: {
-                avatar: [
-                  "oak"
-                ]
-              },
-              token: {
-                item: [
-                  "forest-wolfprint-charm"
-                ]
-              }
-            },
-            steps: [
-              {
-                at: "forest-cottage",
-                with: [
-                  "rati"
-                ],
-                conditions: [
-                  {
-                    kind: "knows",
-                    topic: "forest-warm-kettle"
-                  }
-                ]
-              },
-              {
-                hold: [
-                  "$token"
-                ],
-                at: "forest-oak",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "knows",
-                    topic: "forest-warm-kettle"
-                  }
-                ]
-              }
-            ],
-            consequence: {
-              kind: "trust",
-              avatar: "$partner"
-            }
-          },
-          {
-            id: "forest-watch-light",
-            kind: "gathering",
-            name: "A light for the night watch",
-            purpose: "Ask Oak who keeps the trail, then stand beside Skull on the Moonlit Trail with a lit lamp.",
-            takers: [
-              "visitors"
-            ],
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-path-cleared",
-                value: true
-              }
-            ],
-            roles: {
-              partner: {
-                avatar: [
-                  "skull"
-                ]
-              }
-            },
-            steps: [
-              {
-                at: "forest-oak",
-                with: [
-                  "oak"
-                ],
-                conditions: [
-                  {
-                    kind: "knows",
-                    topic: "forest-night-watch"
-                  }
-                ]
-              },
-              {
-                hold: [
-                  "lamp"
-                ],
-                at: "forest-trail",
-                with: [
-                  "$partner"
-                ],
-                conditions: [
-                  {
-                    kind: "lit",
-                    item: "lamp"
-                  }
-                ]
-              }
-            ],
-            consequence: {
-              kind: "trust",
-              avatar: "$partner"
-            }
-          }
-        ],
         bridge: {
           id: "shore-lonely-forest",
           description: "The Black cloth in the lamplit attic reveals stairs down to the cottage. The cottage keeps a free stair back to the attic."
@@ -16404,7 +13014,6 @@
   var tokens = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
   var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens).filter(Boolean);
   var validFactText = (v) => text(v, FACT_TEXT_LIMIT) && /[.!?。！？]["'’”]?$/u.test(v.trim()) && sentences(v).length === 1 && sentences(v)[0].split(" ").length >= 3;
-  var ARTICLES = /* @__PURE__ */ new Set(["a", "an", "the", "s"]);
   var FACT_FORMS = Object.fromEntries(
     [
       "me:i my:i mine:i myself:i your:you yours:you yourself:you is:be was:be ",
@@ -16420,45 +13029,6 @@
     ].join("").split(" ").map((pair) => pair.split(":"))
   );
   var VOWELS = /* @__PURE__ */ new Set([..."aeiou"]);
-  function stem(word) {
-    let w = Object.hasOwn(FACT_FORMS, word) ? FACT_FORMS[word] : word;
-    if ([...w].length <= 3) return w;
-    if (/(ies|ied)$/u.test(w)) w = `${w.slice(0, -3)}i`;
-    else if (/(es|ed)$/u.test(w)) w = w.slice(0, -2);
-    else if (/[^s]s$/u.test(w)) w = w.slice(0, -1);
-    else if (w.endsWith("y")) w = `${w.slice(0, -1)}i`;
-    if (w.endsWith("e")) w = w.slice(0, -1);
-    const chars = [...w];
-    const [a, b] = chars.slice(-2);
-    return a && a === b && !VOWELS.has(a) ? chars.slice(0, -1).join("") : w;
-  }
-  var nameWords = (name) => typeof name === "string" ? tokens(name).split(" ").filter(Boolean) : [];
-  function factWords(sentence, speaker, listener) {
-    const words = tokens(sentence).split(" ").filter(Boolean);
-    const people2 = [
-      [nameWords(speaker), "i"],
-      [nameWords(listener), "you"]
-    ].filter(([name]) => name.length);
-    const out = [];
-    for (let i = 0; i < words.length; ) {
-      const person = people2.find(
-        ([name]) => name.every((w, j) => words[i + j] === w)
-      );
-      if (person) {
-        out.push(person[1]);
-        i += person[0].length;
-        continue;
-      }
-      if (!ARTICLES.has(words[i])) out.push(stem(words[i]));
-      i += 1;
-    }
-    return out.join(" ");
-  }
-  var factDelivered = (line, fact, speaker, listener) => {
-    if (typeof line !== "string" || !validFactText(fact)) return false;
-    const told = factWords(fact, speaker, listener);
-    return line.split(/[.!?。！？]+/u).slice(0, -1).some((sentence) => factWords(sentence, speaker, listener) === told);
-  };
   var newKnowledge = () => ({
     version: KNOWLEDGE_VERSION,
     facts: {},
@@ -16540,121 +13110,6 @@
       witnessKnowledge(world, entry, eligible, topics);
     return world.knowledge;
   }
-  function topicFact(world, topic, entry) {
-    if (!safeId(topic.id) || !validFactText(topic.text)) return null;
-    const fact = retainFact(world, {
-      id: topic.id,
-      text: topic.text,
-      source: {
-        kind: "topic",
-        eventSeq: entry.seq,
-        turn: entry.turn,
-        actorId: topic.speaker,
-        locationId: topic.at,
-        witnesses: [topic.speaker],
-        topic: {
-          packId: topic.packId,
-          id: topic.id,
-          choiceId: topic.choiceId ?? null
-        }
-      }
-    });
-    if (fact)
-      remember(
-        world,
-        topic.speaker,
-        fact,
-        "witnessed",
-        null,
-        fact.source.eventSeq,
-        fact.source.turn
-      );
-    return fact;
-  }
-  function reserveKnowledge(world, speaker, listener, entry, topics = []) {
-    installKnowledge(world);
-    if (speaker === listener || !world.actors[speaker] || !world.actors[listener])
-      return null;
-    const local = world.actors[speaker].place;
-    if (world.actors[listener].place !== local) return null;
-    const authored = topics.filter((t) => t.speaker === speaker && t.at === local).map((topic) => topicFact(world, topic, entry)).filter(Boolean);
-    const known = world.knowledge.known[speaker] || {};
-    const fresh = (fact2) => (fact2.source.kind !== "topic" || topics.some((t) => t.id === fact2.id)) && !knowsFact(world, listener, fact2.id) && (known[fact2.id]?.kind === "witnessed" || known[fact2.id]?.learnedTurn < world.turn);
-    const choiceReady = (fact2) => topics.some(
-      (t) => t.id === fact2.id && t.speaker === speaker && t.at === local && t.choiceReady
-    );
-    const fact = authored.find((f) => fresh(f) || choiceReady(f)) || Object.keys(known).map((id) => world.knowledge.facts[id]).filter(Boolean).sort(compareFacts).find(fresh);
-    if (!fact) return null;
-    const prior = world.knowledge.pending.find(
-      (p) => p.factId === fact.id && p.speaker === speaker && p.listener === listener && p.locationId === local && p.commitChoice === choiceReady(fact)
-    );
-    if (prior) return prior;
-    const disclosure = {
-      factId: fact.id,
-      speaker,
-      listener,
-      eventSeq: entry.seq,
-      turn: entry.turn,
-      locationId: local,
-      commitChoice: choiceReady(fact)
-    };
-    world.knowledge.pending.push(disclosure);
-    world.knowledge.pending = world.knowledge.pending.slice(
-      -KNOWLEDGE_PENDING_LIMIT
-    );
-    return disclosure;
-  }
-  function reserveLaneKnowledge(world, speaker, listener, entry, lane) {
-    installKnowledge(world);
-    if (!lane || !safeId(lane.id) || !validFactText(lane.text) || knowsFact(world, listener, lane.id) || world.actors[speaker]?.place !== world.actors[listener]?.place)
-      return null;
-    const local = world.actors[speaker].place;
-    const fact = world.knowledge.facts[lane.id] || retainFact(world, {
-      id: lane.id,
-      text: lane.text,
-      source: {
-        kind: "lane",
-        eventSeq: entry.seq,
-        turn: entry.turn,
-        actorId: speaker,
-        locationId: local,
-        witnesses: [speaker],
-        topic: null
-      }
-    });
-    if (!fact) return null;
-    if (!knowsFact(world, speaker, fact.id)) {
-      const first = fact.source.witnesses.includes(speaker);
-      if (!first && fact.source.turn >= entry.turn) return null;
-      remember(
-        world,
-        speaker,
-        fact,
-        first ? "witnessed" : "heard",
-        first ? null : fact.source.actorId,
-        fact.source.eventSeq,
-        fact.source.turn
-      );
-    }
-    if (world.knowledge.pending.some(
-      (p) => p.eventSeq === entry.seq && p.speaker === speaker && p.listener === listener
-    ))
-      return null;
-    const disclosure = {
-      factId: fact.id,
-      speaker,
-      listener,
-      eventSeq: entry.seq,
-      turn: entry.turn,
-      locationId: local,
-      commitChoice: false
-    };
-    world.knowledge.pending.push(disclosure);
-    world.knowledge.pending = world.knowledge.pending.slice(
-      -KNOWLEDGE_PENDING_LIMIT
-    );
-    return disclosure;
-  }
   function knowledgeDisclosures(world, speakers, entities2, location, eventSeq = 0) {
     const pending = (world.knowledge?.pending || []).filter(
       (p) => p.locationId === location && speakers.includes(p.speaker) && entities2.includes(p.speaker) && entities2.includes(p.listener) && (!knowsFact(world, p.listener, p.factId) || p.commitChoice)
@@ -16669,46 +13124,6 @@
       eventSeq: p.eventSeq,
       text: world.knowledge.facts[p.factId].text
     }));
-  }
-  function acceptKnowledgeSpeech(world, entry, disclosures = [], nameOf2 = () => null) {
-    if (!entry.generated || entry.kind !== "dialogue" || !Array.isArray(disclosures) || disclosures.length > 1)
-      return [];
-    const learned = [];
-    for (const disclosure of disclosures) {
-      if (!fields2(disclosure, ["factId", "speaker", "listener", "text", "eventSeq"]))
-        continue;
-      const pending = world.knowledge?.pending.find(
-        (p) => p.eventSeq === disclosure.eventSeq && p.factId === disclosure.factId && p.speaker === disclosure.speaker && p.listener === disclosure.listener
-      );
-      const fact = pending && world.knowledge.facts[pending.factId];
-      if (!pending || !fact || disclosure.text !== fact.text || entry.actorId !== pending.speaker || entry.locationId !== pending.locationId || !entry.cast?.includes(pending.listener) || !factDelivered(
-        entry.text,
-        fact.text,
-        nameOf2(pending.speaker),
-        nameOf2(pending.listener)
-      ))
-        continue;
-      const added = remember(
-        world,
-        pending.listener,
-        fact,
-        "heard",
-        pending.speaker,
-        entry.seq,
-        world.turn
-      );
-      if (added || pending.commitChoice)
-        learned.push({
-          fact,
-          listener: pending.listener,
-          learned: added,
-          commitChoice: pending.commitChoice
-        });
-      world.knowledge.pending = world.knowledge.pending.filter(
-        (p) => p.factId !== pending.factId || p.listener !== pending.listener
-      );
-    }
-    return learned;
   }
   function knowledgeFacts(world, actor, nameOf2 = (id) => id, priority = [], relevant = []) {
     const rank = (id) => priority.includes(id) ? 2 : relevant.includes(id) ? 1 : 0;
@@ -16845,6 +13260,7 @@
     "sound",
     "light",
     "not",
+    "any",
     "choice",
     "choice_unset",
     "flag",
@@ -16861,6 +13277,7 @@
     "weather",
     "ship_at"
   ];
+  var AT_SEA = "@sea";
   var WEATHER_CONDITIONS = ["clear", "cloud", "rain", "mist"];
   var TRAVELERS = ["player", "any"];
   var VARIANTS = ["asleep", "awake", "irritated"];
@@ -17060,7 +13477,7 @@
     check(record2(places2) && Object.keys(places2).length > 0, "needs places");
     check(record2(avatars), "avatars must be a map");
     check(record2(fixtures), "fixtures must be a map");
-    const own2 = [
+    const own = [
       ...Object.keys(places2),
       ...Object.keys(avatars),
       ...Object.keys(fixtures),
@@ -17072,11 +13489,11 @@
       ...hub2?.items || []
     ];
     check(
-      new Set(own2).size === own2.length && own2.every(idOk),
+      new Set(own).size === own.length && own.every(idOk),
       "entity ids must be distinct, lowercase and hyphenated"
     );
     check(
-      own2.every((id) => !hubIds.includes(id)),
+      own.every((id) => !hubIds.includes(id)),
       "entity ids must not reuse hub ids"
     );
     check(owns2(places2, pack.entry), "entry must name one of the pack's places");
@@ -17311,6 +13728,10 @@
           case "not":
             ok = keysOk(c, ["kind", "condition"]) && depth < 2 && condition(c.condition, what, depth + 1);
             break;
+          // Holds while one of two to four conditions holds.
+          case "any":
+            ok = keysOk(c, ["kind", "conditions"]) && depth < 2 && Array.isArray(c.conditions) && c.conditions.length >= 2 && c.conditions.length <= 4 && c.conditions.every((r) => condition(r, what, depth + 1));
+            break;
           case "choice":
             ok = keysOk(c, ["kind", "key", "value"]) && idOk(c.key) && idOk(c.value);
             break;
@@ -17351,7 +13772,7 @@
             ok = keysOk(c, ["kind", "place", "condition"]) && anyPlace(c.place) && WEATHER_CONDITIONS.includes(c.condition);
             break;
           case "ship_at":
-            ok = keysOk(c, ["kind", "transport", "dock"]) && idOk(c.transport) && anyPlace(c.dock);
+            ok = keysOk(c, ["kind", "transport", "dock"]) && idOk(c.transport) && (c.dock === AT_SEA || anyPlace(c.dock));
             break;
           case "knows": {
             const named = Array.isArray(c.topics) ? c.topics : [c.topic];
@@ -17464,7 +13885,7 @@
           "for"
         ]) && idOk(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "give" && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor"
-        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && !choiceIds.has(c.id) && own2.includes(c.subject) && owns2(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
+        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && !choiceIds.has(c.id) && own.includes(c.subject) && owns2(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
@@ -17673,17 +14094,17 @@
           r.places.includes(c.at) && [...r.places, ...r.avatars, ...r.items].includes(c.subject),
           "release choice is unavailable"
         );
-      const reachable2 = /* @__PURE__ */ new Set([pack.entry]);
-      for (const id of reachable2)
+      const reachable = /* @__PURE__ */ new Set([pack.entry]);
+      for (const id of reachable)
         for (const to of [
           ...places2[id].exits,
           ...Object.values(pack.transports || {}).filter((t) => Array.isArray(t.docks) && t.docks.includes(id)).map((t) => t.place),
           ...Object.values(pack.transports || {}).filter((t) => t.place === id).flatMap((t) => t.docks),
           ...routes.filter((r2) => r2.from === id).map((r2) => r2.to)
         ].filter((id2) => r.places.includes(id2)))
-          reachable2.add(to);
+          reachable.add(to);
       check(
-        r.places.every((p) => reachable2.has(p) || places2[p]?.retired === true),
+        r.places.every((p) => reachable.has(p) || places2[p]?.retired === true),
         "release contains a disconnected place"
       );
     }
@@ -17899,14 +14320,14 @@
       susa: ["clear", "clear", "cloud", "clear", "cloud", "rain"],
       scythia: ["cloud", "rain", "mist", "cloud", "rain", "clear"],
       heights: ["mist", "clear", "cloud", "mist", "clear", "cloud"],
-      underworld: ["mist"]
+      underworld: ["mist"],
+      sea: ["mist", "rain", "mist", "rain", "mist", "clear"]
     },
     places: {
       boeotia: {
         coast: [
           "greek-harbor",
-          "greek-aulis",
-          "greek-ship"
+          "greek-aulis"
         ],
         court: [
           "greek-courtyard",
@@ -18066,6 +14487,11 @@
         underground: [
           "greek-underworld"
         ]
+      },
+      sea: {
+        coast: [
+          "greek-ship"
+        ]
       }
     }
   };
@@ -18096,110 +14522,10 @@
     };
   }
 
-  // v2/card-game/daylight.mjs
-  var DAYLIGHT_TURNS = 24;
-  var isNight = (world) => Math.floor((world?.turn ?? 0) / DAYLIGHT_TURNS) % 2 === 1;
-  var darkMist = (world) => isNight(world) && locationWeather(world, "greek-ship")?.condition === "mist";
-  var willowsMist = (world) => {
-    const ship = world?.transports?.["greek-ship"];
-    return darkMist(world) && ship?.phase !== "sea" && ship?.dock === "pond";
-  };
-  var art = (file) => `assets/greek-drama/${file}.webp`;
-  var willows = (file) => `assets/willows/${file}.webp`;
-  var darkMistBackdrops = {
-    "willows-landing": willows("landing-ship-night")
-  };
-  var nightBackdrops = {
-    "willows-camp": willows("camp-lit-night"),
-    "greek-harbor": art("harbor-open-berth-night"),
-    "greek-courtyard": art("courtyard-night"),
-    "greek-well": art("market-well-night"),
-    "greek-palace": art("palace-night"),
-    "greek-gate": art("city-gate-night"),
-    "greek-battlefield": art("burial-ground-night"),
-    "greek-sanctuary": art("sanctuary-night"),
-    "greek-road-thebes": art("theban-harbor-road-night"),
-    "greek-athens-harbor": art("athens-harbor-open-berth-night"),
-    "greek-piraeus": art("piraeus-open-berth-night"),
-    "greek-athens": art("athens-grand-agora-night"),
-    "greek-colonus": art("open-door-colonus-night"),
-    "greek-eleusis": art("open-door-eleusis-night"),
-    "greek-marathon": art("open-door-marathon-night"),
-    "greek-ship": art("ship-deck-night"),
-    "greek-road-athens-harbor": art("attic-road-night"),
-    "greek-road-athens-piraeus": art("attic-road-night"),
-    "greek-road-athens-colonus": art("attic-road-night"),
-    "greek-road-athens-eleusis": art("attic-road-night"),
-    "greek-road-athens-marathon": art("attic-road-night"),
-    "greek-road-piraeus-eleusis": art("attic-road-night"),
-    "greek-road-colonus-eleusis": art("attic-road-night"),
-    "greek-road-colonus-marathon": art("attic-road-night"),
-    "greek-aulis": art("aulis-anchorage-night"),
-    "greek-troy": art("trojan-walls-night"),
-    "greek-trojan-camp": art("trojan-night-camp-night"),
-    "greek-lemnos": art("lemnian-cave-night"),
-    "greek-thrace": art("thracian-shore-night"),
-    "greek-troy-beach": art("homecoming-beach-night"),
-    "greek-greek-camp": art("ajax-camp-night"),
-    "greek-ajax-landing": art("ajax-camp-night"),
-    "greek-ajax-household": art("ajax-camp-night"),
-    "greek-ajax-grave": art("ajax-camp-night")
-  };
-  var dockedNightBackdrops = {
-    [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
-    [art("athens-harbor")]: art("athens-harbor-ship-at-berth-night"),
-    [art("open-door-piraeus")]: art("piraeus-ship-at-berth-night")
-  };
-  var placeDescriptions = {
-    "greek-athens-harbor": "at Athens Harbor",
-    "greek-piraeus": "at Piraeus Quays",
-    "greek-athens": "in the Athenian Agora",
-    "greek-colonus": "in Colonus Grove",
-    "greek-eleusis": "at the Eleusinian Sanctuary",
-    "greek-marathon": "at Marathon Altar",
-    "greek-aulis": "at Aulis Anchorage",
-    "greek-troy": "by the Trojan walls",
-    "greek-trojan-camp": "at the Trojan camp",
-    "greek-lemnos": "at the Lemnian Cave",
-    "greek-thrace": "on the Thracian shore",
-    "greek-troy-beach": "on the Homecoming Beach",
-    "greek-ship": "aboard the Greek ship",
-    "willows-landing": "on the Danube island",
-    "willows-camp": "on the Danube island"
-  };
-  var daylightAssets = [
-    .../* @__PURE__ */ new Set([
-      ...Object.values(darkMistBackdrops),
-      ...Object.values(nightBackdrops),
-      ...Object.values(dockedNightBackdrops)
-    ])
-  ];
-  function locationDaylight(world, id) {
-    if (!world || !(Object.hasOwn(nightBackdrops, id) || Object.hasOwn(darkMistBackdrops, id)))
-      return null;
-    const period = Math.floor(world.turn / DAYLIGHT_TURNS);
-    const phase = isNight(world) ? "night" : "day";
-    const where = placeDescriptions[id] || (id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : id.startsWith("greek-road-") && id !== "greek-road-thebes" ? "on the Attic roads" : "in Thebes");
-    return {
-      phase,
-      period,
-      description: `It is ${phase} ${where}.`
-    };
-  }
-  function daylightBackdrop(world, id, file) {
-    if (Object.hasOwn(darkMistBackdrops, id))
-      return willowsMist(world) ? darkMistBackdrops[id] : file;
-    if (locationDaylight(world, id)?.phase !== "night") return file;
-    return dockedNightBackdrops[file] || nightBackdrops[id];
-  }
-
   // v2/card-game/pack-transport.mjs
   var TRANSPORT_VERSION = 3;
-  var IDLE_ROUNDS = 3;
-  var VOYAGE = "@voyage";
   var PHASES = ["docked", "course", "sea", "arrived"];
   var shipAt = (place) => Object.entries(transports).find(([, t]) => t.place === place) || null;
-  var transportPlace = (place) => Boolean(shipAt(place));
   var passengers = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([, a]) => a);
   var passengerIds = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([actor]) => actor).sort();
   function lanesFrom(t, dock) {
@@ -18272,31 +14598,6 @@
     const gate = laneGate(t, dock, to);
     return gate ? conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
   });
-  function berthOpen(s, place) {
-    const ships = Object.values(transports).filter(
-      (t) => t.docks.includes(place)
-    );
-    return !ships.length || ships.some(
-      (t) => lanesFrom(t, place).some((to) => {
-        const gate = laneGate(t, to, place);
-        return entityActive(s, to) && (!gate || conditionsMet(s, t.packId, gate));
-      })
-    );
-  }
-  function lanePath(s, id, from, to, actor = null) {
-    const t = transports[id];
-    const queue = [[from]], seen = /* @__PURE__ */ new Set([from]);
-    for (let i = 0; i < queue.length; i++) {
-      const path = queue[i];
-      if (path.at(-1) === to) return path;
-      for (const next of openLanes(s, t, path.at(-1), actor)) {
-        if (seen.has(next)) continue;
-        seen.add(next);
-        queue.push([...path, next]);
-      }
-    }
-    return null;
-  }
   function laneReach(s, id, from, actor = null) {
     const t = transports[id];
     const seen = /* @__PURE__ */ new Set([from]), queue = [from];
@@ -18312,7 +14613,6 @@
     const state = s.transports?.[id];
     return state?.version === 2 ? upgradeTransportState(s, id, state) : state;
   };
-  var own = (s, id) => s.transports[id] = read(s, id);
   var freshState = (dock, turn = 0) => ({
     version: TRANSPORT_VERSION,
     phase: "docked",
@@ -18332,6 +14632,7 @@
     return !signals.length || signals.some((c) => s.crossings[c.id].discovered);
   }
   var shipDock = (s, id) => read(s, id)?.phase === "sea" ? null : read(s, id)?.dock ?? null;
+  var shipAtSea = (s, id) => read(s, id)?.phase === "sea";
   function preserveTransportAccess(s) {
     for (const id of Object.keys(transports)) {
       if (transportUnlocked(s, id)) continue;
@@ -18343,24 +14644,6 @@
       }
     }
     return s;
-  }
-  function settleEmpty(state, turn) {
-    Object.assign(state, {
-      phase: "docked",
-      dock: state.recall || state.dock,
-      destination: null,
-      riders: [],
-      since: turn,
-      recall: null
-    });
-  }
-  function summonTransport(s, id, dock) {
-    const state = own(s, id);
-    if (passengers(s, id).length) state.recall = dock;
-    else {
-      state.recall = dock;
-      settleEmpty(state, s.turn || 0);
-    }
   }
   var humanAboard = (s, t) => Object.entries(s.actors).some(
     ([who, a]) => a.place === t.place && controlledByHuman(s, who)
@@ -18377,118 +14660,6 @@
     if (actor && s.actors[actor]?.place !== t.place) return [];
     if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
     return openLanes(s, t, state.dock, actor);
-  }
-  function isCourse(s, from, to) {
-    const found = shipAt(from);
-    if (!found) return false;
-    const [id] = found;
-    return to !== read(s, id).dock && openLanes(s, found[1], read(s, id).dock).includes(to);
-  }
-  function setCourse(s, from, to) {
-    const found = shipAt(from);
-    if (!found) return null;
-    const state = own(s, found[0]);
-    Object.assign(state, {
-      phase: "course",
-      destination: to,
-      riders: [],
-      since: s.turn
-    });
-    return found[0];
-  }
-  function courseToward(s, place, target, actor = null) {
-    const found = shipAt(place);
-    if (!found) return null;
-    const dock = read(s, found[0]).dock;
-    if (dock === target) return openLanes(s, found[1], dock, actor)[0] ?? null;
-    return lanePath(s, found[0], dock, target, actor)?.[1] ?? null;
-  }
-  function waitForTransport(s, place, actor) {
-    if (controlledByHuman(s, actor)) callTransport(s, place);
-  }
-  function callTransport(s, place, resident = false) {
-    for (const [id, t] of Object.entries(transports)) {
-      if (!t.docks.includes(place)) continue;
-      const state = own(s, id);
-      if (resident && Object.entries(s.actors).some(
-        ([who, a]) => a.place === state.dock && controlledByHuman(s, who)
-      ) || !transportUnlocked(s, id) || state.phase !== "docked" || state.dock === place || state.since === s.turn && s.turn > 0 || passengers(s, id).length)
-        continue;
-      const path = lanePath(s, id, state.dock, place);
-      if (path) Object.assign(state, { dock: path[1], since: s.turn });
-    }
-  }
-  function transportArrival(s, actor) {
-    if (controlledByHuman(s, actor)) return null;
-    const found = Object.entries(transports).find(
-      ([, t]) => t.place === s.actors[actor]?.place
-    );
-    if (!found) return null;
-    return canDisembark(s, found[0], actor) ? read(s, found[0]).dock : null;
-  }
-  var pruneRiders = (s, id) => {
-    const aboard = new Set(passengerIds(s, id));
-    const state = own(s, id);
-    state.riders = state.riders.filter((a) => aboard.has(a));
-  };
-  function moveTransport(s, from, to) {
-    for (const [id, t] of Object.entries(transports)) {
-      const state = own(s, id);
-      if (to === t.place) {
-        if (state.phase === "docked" || state.phase === "arrived")
-          state.since = s.turn;
-      } else if (from === t.place) {
-        pruneRiders(s, id);
-        if (!passengers(s, id).length) {
-          if (state.phase !== "sea") settleEmpty(state, s.turn);
-        } else if (state.phase === "arrived" && !state.riders.length)
-          state.phase = "docked";
-      }
-    }
-  }
-  function sailTransports(s) {
-    const events = [];
-    for (const [id, t] of Object.entries(transports)) {
-      const state = own(s, id);
-      pruneRiders(s, id);
-      const aboard = passengerIds(s, id);
-      if (state.phase === "sea") {
-        for (const actor of aboard)
-          learnLane(s, actor, state.dock, state.destination);
-        Object.assign(state, {
-          dock: state.destination,
-          destination: null,
-          riders: aboard,
-          phase: aboard.length ? "arrived" : "docked",
-          since: s.turn
-        });
-        if (!aboard.length && state.recall) settleEmpty(state, s.turn);
-        events.push({ id, kind: "arrive", dock: state.dock, riders: aboard });
-      } else if (state.phase === "course") {
-        if (!aboard.length) settleEmpty(state, s.turn);
-        else {
-          Object.assign(state, { phase: "sea", since: s.turn });
-          events.push({
-            id,
-            kind: "sail",
-            from: state.dock,
-            to: state.destination
-          });
-        }
-      } else if (aboard.length && s.turn - state.since >= IDLE_ROUNDS) {
-        const lane = openLanes(s, t, state.dock)[0];
-        if (!lane) continue;
-        Object.assign(state, {
-          phase: "sea",
-          destination: lane,
-          riders: [],
-          since: s.turn
-        });
-        events.push({ id, kind: "sail", from: state.dock, to: lane, idle: true });
-      } else if (state.phase === "arrived" && !state.riders.length)
-        state.phase = "docked";
-    }
-    return events;
   }
   function transportExits(s, place, previous = null, actor = null) {
     const found = shipAt(place);
@@ -18507,25 +14678,6 @@
       ...canDisembark(s, id, actor) ? [state.dock] : [],
       ...courseOptions(s, id, actor)
     ];
-  }
-  function transportCrossing(s, from, to) {
-    for (const [id, t] of Object.entries(transports)) {
-      if (to === t.place && t.docks.includes(from)) {
-        const c = crossings.find((c2) => c2.transport === id && c2.from === from);
-        return { ...c, to, travel: "aboard", travelLabel: "Board" };
-      }
-      if (from === t.place && t.docks.includes(to) && read(s, id).phase === "arrived" && read(s, id).dock === to) {
-        const c = crossings.find((c2) => c2.transport === id && c2.from === to);
-        return {
-          ...c,
-          from,
-          to,
-          travel: "from the ship",
-          travelLabel: "Disembark"
-        };
-      }
-    }
-    return null;
   }
   function transportScenery(s, place, nameOf2) {
     const found = shipAt(place);
@@ -18572,7 +14724,7 @@
   }
 
   // v2/card-game/pack-rules.mjs
-  var fill = (template, values) => template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
+  var DAYLIGHT_TURNS = 24;
   var crossingState = (s, id) => s.crossings?.[id];
   var newCrossingState = (c) => c.signal ? { discovered: false, phase: 0, until: 0 } : { discovered: false };
   var newPackRecord = (pack) => ({
@@ -18596,14 +14748,14 @@
   var fixtureSounding = (s, id) => s.turn < (s.packs?.[packFixtures[id]?.packId]?.sounds?.[id] ?? 0);
   var soundAt = (s, place, senses2) => senses2.baseSoundAt(s, place) || fixturesAt(place).some((f) => fixtureSounding(s, f.id));
   function objectPlace(s, item) {
-    let holder2 = s.items[item]?.holder;
+    let holder = s.items[item]?.holder;
     const seen = /* @__PURE__ */ new Set([item]);
-    while (s.items[holder2]) {
-      if (seen.has(holder2)) return null;
-      seen.add(holder2);
-      holder2 = s.items[holder2].holder;
+    while (s.items[holder]) {
+      if (seen.has(holder)) return null;
+      seen.add(holder);
+      holder = s.items[holder].holder;
     }
-    return s.actors[holder2]?.place || holder2;
+    return s.actors[holder]?.place || holder;
   }
   function conditionMet(s, c, senses2, packId = null, actor = null) {
     const state = s.packs?.[packId];
@@ -18616,6 +14768,10 @@
         );
       case "not":
         return !conditionMet(s, c.condition, senses2, packId, actor);
+      case "any":
+        return c.conditions.some(
+          (r) => conditionMet(s, r, senses2, packId, actor)
+        );
       case "choice":
         return state?.choices?.[c.key] === c.value;
       case "choice_unset":
@@ -18633,13 +14789,13 @@
       case "connected_humans":
         return sharedEnabled(s) && humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum;
       case "item_near": {
-        let holder2 = s.items[c.item]?.holder;
+        let holder = s.items[c.item]?.holder;
         const seen = /* @__PURE__ */ new Set([c.item]);
-        while (s.items[holder2] && !seen.has(holder2)) {
-          seen.add(holder2);
-          holder2 = s.items[holder2].holder;
+        while (s.items[holder] && !seen.has(holder)) {
+          seen.add(holder);
+          holder = s.items[holder].holder;
         }
-        return (!controlledByHuman(s, holder2) || humanPresent(s, holder2)) && objectPlace(s, c.item) === c.place;
+        return (!controlledByHuman(s, holder) || humanPresent(s, holder)) && objectPlace(s, c.item) === c.place;
       }
       case "item_present":
         return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
@@ -18658,9 +14814,9 @@
       // The saved regional weather where c.place is.
       case "weather":
         return locationWeather(s, c.place)?.condition === c.condition;
-      // A transport docked (or just arrived) at a port, not at sea.
+      // A transport docked (or just arrived) at a port, or "@sea" between ports.
       case "ship_at":
-        return shipDock(s, c.transport) === c.dock;
+        return c.dock === "@sea" ? shipAtSea(s, c.transport) : shipDock(s, c.transport) === c.dock;
       default:
         return false;
     }
@@ -18668,7 +14824,6 @@
   var signalReady = (s, c, senses2) => (c.signal?.while || []).every((r) => conditionMet(s, r, senses2, c.packId));
   var windowOpen = (s, c) => !c.signal || (c.signal.opens === null ? crossingState(s, c.id)?.phase === c.signal.steps.length : s.turn < (crossingState(s, c.id)?.until ?? 0));
   var crossingOpen = (s, c, senses2) => (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) && entityActive(s, c.from) && entityActive(s, c.to) && (c.transport ? transportUnlocked(s, c.transport) && shipDock(s, c.transport) === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId));
-  var crossingBetween = (from, to, s = null) => s && transportCrossing(s, from, to) || crossings.find((c) => !c.transport && c.from === from && c.to === to) || null;
   var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || senses2.humanActors?.includes(actor);
   var crossingExits = (s, place, actor, senses2) => crossings.filter(
     (c) => c.from === place && (mayCross(c, actor, senses2) || s.invitedPlaces?.[actor]?.includes(c.from) && (packPeople[actor]?.packId ?? null) === (packPlaces[c.to]?.packId ?? null)) && crossingOpen(s, c, senses2)
@@ -18676,97 +14831,10 @@
   var packDiscovered = (s, packId) => crossings.some(
     (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
   );
-  function markCrossed(s, from, to) {
-    const c = crossingBetween(from, to, s);
-    if (c && !(c.transport && c.signal) && crossingState(s, c.id))
-      s.crossings[c.id].discovered = true;
-  }
   var crossingScenery = (s, place, senses2) => crossings.filter((c) => c.from === place && c.scenery).map(
     (c) => crossingOpen(s, c, senses2) ? c.scenery.open : c.scenery.closed
   ).filter(Boolean);
-  var matches = (p, a, holder2) => Boolean(p) && p.verb === a.kind && (p.item === void 0 || p.item === a.item) && (p.target === void 0 || p.target === a.target) && (p.from === void 0 || p.from === holder2);
-  var beginRound = (s, senses2) => ({
-    open: Object.fromEntries(
-      crossings.map((c) => [c.id, crossingOpen(s, c, senses2)])
-    ),
-    ready: Object.fromEntries(
-      crossings.map((c) => [c.id, signalReady(s, c, senses2)])
-    ),
-    advanced: /* @__PURE__ */ new Set()
-  });
-  var holderBefore = (s, a) => a.item ? s.items[a.item]?.holder ?? null : null;
-  function noteAct(s, a, place, holder2, round2, senses2, log) {
-    for (const c of crossings) {
-      const signal = c.signal, state = s.crossings[c.id];
-      if (!signal) continue;
-      if (!round2.ready[c.id] || !signalReady(s, c, senses2) || s.actors[senses2.player].place !== c.from) {
-        state.phase = 0;
-        if (signal.opens === null) state.until = 0;
-        continue;
-      }
-      if (place !== c.from) continue;
-      if (a.actor !== senses2.player) {
-        if (signal.steps.some((p) => matches(p, a, holder2))) state.phase = 0;
-        continue;
-      }
-      if (signal.opens !== null && round2.open[c.id]) {
-        if (matches(signal.refresh, a, holder2))
-          state.until = s.turn + signal.opens;
-        continue;
-      }
-      if (state.phase === signal.steps.length) {
-        if (matches(signal.steps[0], a, holder2)) state.phase = 0;
-        else continue;
-      }
-      if (!matches(signal.steps[state.phase], a, holder2)) {
-        if (signal.steps.some((p) => matches(p, a, holder2))) state.phase = 0;
-        if (!matches(signal.steps[0], a, holder2)) continue;
-      }
-      state.phase += 1;
-      round2.advanced.add(c.id);
-      if (state.phase === signal.steps.length) {
-        state.discovered = true;
-        if (c.transport) summonTransport(s, c.transport, c.from);
-        if (signal.opens !== null) {
-          state.phase = 0;
-          state.until = s.turn + signal.opens;
-        }
-        if (signal.complete) log(signal.complete, c.from);
-      }
-    }
-  }
-  function endRound(s, round2, senses2, log) {
-    const here = s.actors[senses2.player].place;
-    for (const c of crossings) {
-      const state = s.crossings[c.id];
-      if (c.signal && state.phase > 0 && (here !== c.from || !signalReady(s, c, senses2) || c.signal.consecutive && !round2.advanced.has(c.id)))
-        state.phase = 0;
-      const open = crossingOpen(s, c, senses2);
-      if (open !== round2.open[c.id] && here === c.from) {
-        const text2 = open ? c.opened : c.closed;
-        if (text2) log(text2, c.from);
-      }
-    }
-  }
-  var fixtureOffers = (s, actor, senses2) => actor !== senses2.player ? [] : fixturesAt(s.actors[actor].place).map((f) => ({
-    kind: "ring",
-    actor,
-    item: null,
-    target: f.at,
-    fixture: f.id,
-    label: f.sound.label,
-    text: fill(f.sound.text, { actor: senses2.nameOf(actor) }),
-    cards: [f.at],
-    key: `ring:${actor}::${f.at}:${f.id}`
-  }));
-  function soundFixture(s, id) {
-    const f = packFixtures[id];
-    s.packs[f.packId].sounds[id] = s.turn + f.sound.turns;
-  }
   var hasTemperament = (id) => Boolean(packPeople[id]?.temperament);
-  var residentsAt = (s, place) => Object.keys(packPeople).filter(
-    (id) => hasTemperament(id) && s.actors[id]?.place === place
-  );
   function variantOf(s, id) {
     const a = packPeople[id];
     if (!a?.temperament) return null;
@@ -18777,41 +14845,6 @@
       ...name === "irritated" ? a.variants.awake : {},
       ...a.variants[name]
     };
-  }
-  var greeting = (s, id, actor, senses2) => {
-    const v = variantOf(s, id);
-    return {
-      text: fill(v.greet, {
-        actor: senses2.nameOf(actor),
-        name: senses2.nameOf(id)
-      }),
-      ...v.label ? { label: v.label } : {}
-    };
-  };
-  function wakeByVoice(s, id) {
-    const t = packPeople[id]?.temperament, a = s.actors[id];
-    if (!t || a.awake) return null;
-    a.awake = true;
-    a.wakeCause = "voice";
-    a.irritation = t.voice;
-    return t.woken;
-  }
-  function disturb(s, place) {
-    return residentsAt(s, place).map((id) => {
-      const t = packPeople[id].temperament, a = s.actors[id];
-      a.awake = true;
-      a.wakeCause ??= "sound";
-      a.irritation = Math.min(t.irritation, a.irritation + t.sound);
-      return t.disturbed;
-    });
-  }
-  function calm(s, place, player) {
-    for (const id of residentsAt(s, place)) {
-      const t = packPeople[id].temperament, a = s.actors[id];
-      a.irritation = Math.max(0, a.irritation - t.calm);
-      if (s.motives?.grievances?.[id])
-        s.motives.grievances[id] = s.motives.grievances[id].map((g) => g.other === player ? { ...g, weight: g.weight - 1 } : g).filter((g) => g.weight > 0);
-    }
   }
   var exactKeys = (o, keys) => o && typeof o === "object" && !Array.isArray(o) && Object.keys(o).sort().join() === [...keys].sort().join();
   var whole3 = (n, max) => Number.isSafeInteger(n) && n >= 0 && n <= max;
@@ -18981,9 +15014,6 @@
   var isPackPlace = (id) => Object.hasOwn(packPlaces, id);
   var packOf = (id) => packDefinition(entities[id]?.packId);
   var roamingQuestActor = (id) => packPeople[id]?.roamingQuest === "latest-completion";
-  var staysPut = (id) => packPeople[id]?.travels === false;
-  var packJourneyDestination = (world, id) => journeyNextPlace(world, packOf(id), id);
-  var avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;
   var fixturesAt = (place) => Object.entries(packFixtures).filter(([, f]) => f.at === place).map(([id, f]) => ({ id, ...f }));
   var packProfiles = Object.fromEntries([
     ...Object.entries(packThings).map(([id, item]) => [
@@ -19061,14 +15091,14 @@
   }
   function entityActive(world, id) {
     if (world.items?.[id]) {
-      let holder2 = world.items[id].holder;
+      let holder = world.items[id].holder;
       const seen = /* @__PURE__ */ new Set([id]);
-      while (world.items[holder2] && !seen.has(holder2)) {
-        seen.add(holder2);
-        holder2 = world.items[holder2].holder;
+      while (world.items[holder] && !seen.has(holder)) {
+        seen.add(holder);
+        holder = world.items[holder].holder;
       }
-      if (humanAvatar(holder2) && !humanPresent(world, holder2)) return false;
-      if (holder2 === BOARDY && !boardyActive(world)) return false;
+      if (humanAvatar(holder) && !humanPresent(world, holder)) return false;
+      if (holder === BOARDY && !boardyActive(world)) return false;
     }
     if (humanAvatar(id) && !humanPresent(world, id)) return false;
     return entityEnabled(world, id);
@@ -19117,121 +15147,6 @@
       const domains = t.docks.map((dock) => packPlaces[dock]?.packId ?? null);
       return domains.includes(home) && domains.includes(target) && crossings.filter((c) => c.transport === id).every((c) => c.travelers === "any");
     });
-  }
-  function choiceFeasible(world, pack, choice, actor, mode = null) {
-    const state = packState(world, pack.id);
-    if (!state || owns3(state.receipts, choice.id) || (choice.on ?? null) !== mode || choice.for !== void 0 && choice.for !== actor || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice.id) || world.actors[actor]?.place !== choice.at || !entityActive(world, choice.at) || !entityActive(world, choice.subject) || !conditionsMet(world, pack.id, choice.requires, actor))
-      return false;
-    const subject = choice.subject;
-    if (world.actors[subject] && world.actors[subject].place !== choice.at)
-      return false;
-    if (world.items[subject] && ![actor, choice.at].includes(world.items[subject].holder))
-      return false;
-    return choice.effects.every(
-      (e) => e.kind === "choose" ? !owns3(state.choices, e.key) : e.kind === "place_item" ? world.items[e.item]?.holder === actor && e.place === choice.at : true
-    );
-  }
-  function packChoices(world, actor = "vale") {
-    if (!controlledByHuman(world, actor)) return [];
-    return packDefinitions.flatMap(
-      (pack) => (pack.choices || []).filter((c) => choiceFeasible(world, pack, c, actor)).map((c) => ({
-        kind: "choose",
-        actor,
-        item: null,
-        target: c.subject,
-        packId: pack.id,
-        choiceId: c.id,
-        label: c.label,
-        text: choiceText(c, actor),
-        key: `choose:${actor}:${pack.id}:${c.id}`,
-        cards: [c.subject]
-      }))
-    );
-  }
-  function hidingPlace(world, choice, actor, placeIds) {
-    const here = world.actors[actor].place;
-    const places2 = placeIds.filter((id) => id !== here && entityActive(world, id)).sort();
-    if (!places2.length) return choice.at;
-    let hash2 = 2166136261;
-    for (const ch of `${choice.id}:${actor}:${world.turn}`)
-      hash2 = Math.imul(hash2 ^ ch.charCodeAt(0), 16777619) >>> 0;
-    return places2[hash2 % places2.length];
-  }
-  function applyMeetingChoices(world, actor, placeIds) {
-    const applied = [];
-    for (const pack of packDefinitions)
-      for (const c of pack.choices || []) {
-        if (c.on !== "meet" || !choiceFeasible(world, pack, c, actor, "meet"))
-          continue;
-        if (Object.values(packState(world, pack.id).receipts).includes(world.turn))
-          continue;
-        applied.push(
-          applyPackChoice(
-            world,
-            { packId: pack.id, choiceId: c.id, actor },
-            { mode: "meet", placeIds }
-          )
-        );
-      }
-    return applied;
-  }
-  function packGiveChoice(world, action) {
-    for (const pack of packDefinitions)
-      for (const c of pack.choices || [])
-        if (c.on === "give" && c.subject === action.target && c.requires.some(
-          (r) => r.kind === "holding" && r.role === "actor" && r.item === action.item
-        ) && choiceFeasible(world, pack, c, action.actor, "give"))
-          return { packId: pack.id, choiceId: c.id, actor: action.actor };
-    return null;
-  }
-  function applyPackChoice(world, action, { mode = null, placeIds = [] } = {}) {
-    const pack = packDefinition(action.packId), choice = pack?.choices?.find((c) => c.id === action.choiceId);
-    if (!choice || !choiceFeasible(world, pack, choice, action.actor, mode))
-      throw new Error("That choice is no longer available.");
-    const state = packState(world, pack.id);
-    const note = (id) => {
-      world.items[id].history.push(
-        choiceText(choice, action.actor).slice(0, 400)
-      );
-      world.items[id].history = world.items[id].history.slice(-12);
-    };
-    for (const e of choice.effects) {
-      if (e.kind === "retire_item") {
-        world.items[e.item].holder = pack.items[e.item].holder;
-        world.items[e.item].history = [];
-      }
-      if (e.kind === "give_item") {
-        world.items[e.item].holder = action.actor;
-        note(e.item);
-      }
-      if (e.kind === "hide_item") {
-        world.items[e.item].holder = hidingPlace(
-          world,
-          choice,
-          action.actor,
-          placeIds
-        );
-        note(e.item);
-        world.actors[action.actor].want = {
-          kind: "item",
-          target: e.item,
-          since: world.turn,
-          refusals: 0
-        };
-      }
-      if (e.kind === "choose") state.choices[e.key] = e.value;
-      if (e.kind === "set_flag") state.flags[e.key] = e.value;
-      if (e.kind === "place_item") {
-        world.items[e.item].holder = e.place;
-        world.items[e.item].history.push(
-          choiceText(choice, action.actor).slice(0, 400)
-        );
-        world.items[e.item].history = world.items[e.item].history.slice(-12);
-      }
-    }
-    state.receipts[choice.id] = world.turn;
-    recordRecital(world, pack, choice.id, action.actor);
-    return choice;
   }
   function committedChoiceText(world, pack, choice) {
     if (choice.summary) return choice.summary;
@@ -19401,21 +15316,6 @@
     knowledge[actor] = [...known.values()].sort(
       (a, b) => edgeKey(a).localeCompare(edgeKey(b))
     );
-  }
-  function knownRoute(world, actor, from, to, allowed = () => true) {
-    const queue = [[from]], seen = /* @__PURE__ */ new Set([from]);
-    const edges = world.routeKnowledge?.[actor] || [];
-    while (queue.length) {
-      const path = queue.shift(), here = path.at(-1);
-      if (here === to) return path;
-      for (const [start, end] of edges) {
-        if (start !== here || seen.has(end) || !allowed(start, end, path.at(-2)))
-          continue;
-        seen.add(end);
-        queue.push([...path, end]);
-      }
-    }
-    return null;
   }
   function validRouteKnowledge(world, edges) {
     if (!world.routeKnowledge || typeof world.routeKnowledge !== "object")
@@ -19624,42 +15524,6 @@
     for (const entry of world.log) rememberSightings(world, entry, missing);
     for (const id of missing) world.memories[id].seen ??= {};
   }
-  function rememberEvent(world, entry) {
-    const related2 = /* @__PURE__ */ new Set([
-      entry.locationId,
-      entry.fromLocationId,
-      entry.actorId,
-      entry.entityId,
-      entry.itemId,
-      entry.receiveId,
-      entry.targetId,
-      ...entry.witnesses || [],
-      ...entry.cast || [],
-      ...(entry.items || []).map((item) => item.id)
-    ]);
-    for (const id of related2) {
-      if (!profiles[id]) continue;
-      if (profiles[id].kind === "avatar" && world.controlledActors?.includes(id) && !world.presentActors?.includes(id) && entry.actorId !== id)
-        continue;
-      const memory = world.memories[id];
-      rememberSightings(world, entry, [id]);
-      if (memory.events.some((event) => event.seq === entry.seq)) continue;
-      memory.events.push({
-        seq: entry.seq,
-        turn: entry.turn,
-        kind: entry.generated ? "expression" : "event",
-        text: `${entry.speaker}: ${entry.text}`.slice(0, 650)
-      });
-      memory.events = memory.events.slice(-MEMORY_LIMIT);
-      if (entry.consequence || entry.kind === "action" && ["give", "trade", "threaten", "attack", "accompany", "choose"].includes(
-        entry.verb
-      )) {
-        memory.landmarks ??= [];
-        memory.landmarks.push({ ...memory.events.at(-1) });
-        memory.landmarks = memory.landmarks.slice(-6);
-      }
-    }
-  }
   function validInnerLife(life, turn) {
     if (life === void 0 || life === null) return true;
     const text2 = (value, limit) => typeof value === "string" && value.trim().length > 0 && value.length <= limit && !/[\u0000-\u001f\u007f]/u.test(value);
@@ -19722,13 +15586,13 @@
   var experienceKinds = ["help", "gift", "journey", "care", "talk", "trade"];
   var lifeOf = (s, actor) => s.life?.actors?.[actor];
   var rootOwner = (s, item) => {
-    let holder2 = s.items[item]?.holder;
+    let holder = s.items[item]?.holder;
     const seen = /* @__PURE__ */ new Set([item]);
-    while (s.items[holder2] && !seen.has(holder2)) {
-      seen.add(holder2);
-      holder2 = s.items[holder2].holder;
+    while (s.items[holder] && !seen.has(holder)) {
+      seen.add(holder);
+      holder = s.items[holder].holder;
     }
-    return holder2;
+    return holder;
   };
   function nameIn(s, id) {
     return s.actors?.[id]?.name || s.items?.[id]?.name || s.places?.[id]?.name || profiles[id]?.name || (typeof id === "string" ? id[0].toUpperCase() + id.slice(1) : "someone");
@@ -19797,53 +15661,6 @@
       ...company ? [`I'm staying with ${inline(s, company)} for a while.`] : []
     ];
   }
-  function remember2(life, e) {
-    const last = life.experiences.at(-1);
-    const same2 = last && ["kind", "other", "item", "place"].every((k) => last[k] === e[k]);
-    life.experiences = same2 ? [...life.experiences.slice(0, -1), e] : [...life.experiences, e].slice(-EXPERIENCE_LIMIT);
-  }
-  function recordLifeAction(s, a, accepted, usefulGift = false) {
-    if (!s.life) return;
-    const participant = (id) => lifeOf(s, id) !== void 0 && (!s.opening || s.opening.met[id] !== void 0 || s.controlledActors?.includes(id));
-    const social = a.kind === "talk" || ["ask", "accompany", "give", "trade"].includes(a.kind) && accepted;
-    if (social && s.actors[a.target]) {
-      for (const [id, other] of [
-        [a.actor, a.target],
-        [a.target, a.actor]
-      ])
-        if (participant(id))
-          lifeOf(s, id).company[other] = s.turn + COMPANY_TURNS;
-    }
-    if (a.kind === "give" && accepted && participant(a.target))
-      lifeOf(s, a.target).attachments[a.item] = { from: a.actor, turn: s.turn };
-    for (const id of Object.keys(s.life.actors))
-      for (const item of Object.keys(lifeOf(s, id).attachments))
-        if (rootOwner(s, item) !== id) delete lifeOf(s, id).attachments[item];
-    const kindFor = (id) => {
-      if (a.kind === "give" && usefulGift)
-        return id === a.actor ? "help" : "gift";
-      if (a.kind === "trade" && accepted) return "trade";
-      if (a.kind === "talk") return "talk";
-      if (a.kind === "accompany" && accepted) return "journey";
-      return null;
-    };
-    const participants = [
-      .../* @__PURE__ */ new Set([a.actor, ...social && s.actors[a.target] ? [a.target] : []])
-    ].filter(participant);
-    for (const id of participants) {
-      const kind = kindFor(id);
-      if (!kind) continue;
-      const other = social ? id === a.actor ? a.target : a.actor : null;
-      const item = kind === "care" ? s.items[a.target] ? a.target : a.item : a.item || null;
-      remember2(lifeOf(s, id), {
-        kind,
-        turn: s.turn,
-        other: other || null,
-        item: item && s.items[item] ? item : null,
-        place: a.destination || s.actors[id].place
-      });
-    }
-  }
   function validExperience(s, e, placeIds = null) {
     const keys = ["kind", "turn", "other", "item", "place"];
     return Boolean(
@@ -19887,17 +15704,9 @@
     cloth: "Black cloth"
   };
   var hasMotives = (s) => s.motives?.version === 1;
-  function enableMotives(s) {
-    if (!s.motives)
-      s.motives = {
-        version: 1,
-        grievances: Object.fromEntries(actors.map((id) => [id, []]))
-      };
-    return s;
-  }
   function owner(s, item) {
-    const holder2 = s.items[item].holder;
-    return items.includes(holder2) ? s.items[holder2].holder : holder2;
+    const holder = s.items[item].holder;
+    return items.includes(holder) ? s.items[holder].holder : holder;
   }
   function resentment(s, actor, other) {
     return Math.min(
@@ -19943,12 +15752,6 @@
       accepted: !annoyed && !keepReason(s, giver, item) && (spare || favour)
     };
   }
-  function socialTravel(s, requester, companion) {
-    return {
-      accepted: false,
-      reason: resentment(s, companion, requester) ? "grudge" : "wants-something-else"
-    };
-  }
   var grievanceRules = [
     ...Object.entries(packPeople).filter(([, r]) => r.tastes.noise).map(([id, r]) => [
       id,
@@ -19956,37 +15759,6 @@
     ]),
     ...Object.entries(forest_default.people).filter(([, p]) => p.grievances).map(([id, p]) => [id, p.grievances])
   ];
-  function recordReaction(s, a, witnesses, accepted) {
-    if (!hasMotives(s)) return;
-    const add = (id, reason, kind) => {
-      if (id === a.actor || !witnesses.includes(id)) return;
-      const list = s.motives.grievances[id];
-      const prior = list.find((g) => g.other === a.actor && g.kind === kind);
-      if (prior) {
-        prior.weight = Math.min(3, prior.weight + 1);
-        prior.turn = s.turn;
-        list.splice(list.indexOf(prior), 1);
-        list.push(prior);
-      } else list.push({ other: a.actor, kind, reason, turn: s.turn, weight: 1 });
-      s.motives.grievances[id] = list.slice(-6);
-    };
-    for (const [id, rules] of grievanceRules)
-      for (const rule of rules)
-        if (rule.on.some((p) => Object.entries(p).every(([k, v]) => a[k] === v)))
-          add(id, rule.reason.replace("{actor}", names[a.actor]), rule.kind);
-    if (a.kind === "threaten" || a.kind === "attack")
-      add(a.target, `${names[a.actor]} picked a fight.`, "threat");
-    if (a.kind === "ask" && !accepted && s.log.some(
-      (e) => e.verb === "ask" && e.actorId === a.actor && e.targetId === a.target && e.itemId === a.item && s.turn - e.turn <= 6
-    ))
-      add(
-        a.target,
-        `${names[a.actor]} kept asking for the same belongings.`,
-        "pestering"
-      );
-    if (a.kind === "give" && accepted)
-      s.motives.grievances[a.target] = s.motives.grievances[a.target].map((g) => g.other === a.actor ? { ...g, weight: g.weight - 1 } : g).filter((g) => g.weight > 0);
-  }
   function motiveFacts(s, actor, limit = 6) {
     return [
       tastes[actor].likes,
@@ -20008,13 +15780,13 @@
   var authoredWant = (id) => forest_default.people[id]?.want || packPeople[id]?.want || null;
   var wantOf = (world, id) => world.actors?.[id]?.want || authoredWant(id);
   var rootOf = (world, item) => {
-    let holder2 = world.items[item]?.holder;
+    let holder = world.items[item]?.holder;
     const seen = /* @__PURE__ */ new Set([item]);
-    while (world.items[holder2] && !seen.has(holder2)) {
-      seen.add(holder2);
-      holder2 = world.items[holder2].holder;
+    while (world.items[holder] && !seen.has(holder)) {
+      seen.add(holder);
+      holder = world.items[holder].holder;
     }
-    return holder2;
+    return holder;
   };
   var article = (name) => /^(the|a|an) /iu.test(name) ? name : `the ${name}`;
   function met(world, id, want) {
@@ -20044,9 +15816,6 @@
   var WANT_KINDS = ["item", "place", "person", "connect"];
   var CONNECT_TARGET = "humans";
   var REFUSAL_LIMIT = 3;
-  var STALL_TURNS = 48;
-  var REST_TURNS = 3;
-  var CONTENT_TURNS = 24;
   var knownActors = (s) => [
     .../* @__PURE__ */ new Set([
       ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
@@ -20056,8 +15825,6 @@
     (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
   );
   var travels = (id) => !isPackActor(id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
-  var levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
-  var levelOf = (s, id) => levelFor(s.actors[id]?.xp || 0);
   var wantOf2 = (s, id) => s.actors[id]?.want ?? null;
   var newWant = (kind, target, turn) => ({
     kind,
@@ -20075,127 +15842,6 @@
       a.xp ??= 0;
       a.visited ??= [a.place];
       a.talked ??= [];
-    }
-  }
-  function hash(text2) {
-    let h = 2166136261;
-    for (const c of text2) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
-    return h;
-  }
-  function wantCandidates(s, actor, api, previous = null) {
-    const a = s.actors[actor];
-    const held = api.carried(actor);
-    const floor = Math.max(
-      1,
-      ...held.length ? [Math.min(...held.map((id) => api.valueOf(actor, id)))] : []
-    );
-    const reach = travels(actor) ? api.reachable(actor) : [];
-    const near = /* @__PURE__ */ new Set([a.place, ...reach]);
-    const items2 = Object.keys(s.items).filter((id) => {
-      const owner2 = api.rootHolder(id);
-      return entityActive(s, id) && owner2 !== actor && Object.hasOwn(s.actors, owner2) && near.has(s.actors[owner2].place) && !(s.actors[owner2].want?.kind === "item" && s.actors[owner2].want.target === id) && api.valueOf(actor, id) > floor;
-    });
-    const places2 = reach.filter((id) => !a.visited.includes(id));
-    const people2 = knownActors(s).filter(
-      (id) => id !== actor && !a.talked.includes(id) && near.has(s.actors[id].place)
-    );
-    return [
-      ...items2.map((target) => ["item", target]),
-      ...places2.map((target) => ["place", target]),
-      ...people2.map((target) => ["person", target])
-    ].filter(
-      ([kind, target]) => (kind !== previous?.kind || target !== previous.target) && !(a.gaveUp?.target === target && s.turn - a.gaveUp.turn < CONTENT_TURNS)
-    ).map(([kind, target]) => `${kind}:${target}`).sort();
-  }
-  function nextWant(s, actor, api, previous = null) {
-    const pool = wantCandidates(s, actor, api, previous);
-    if (!pool.length) return null;
-    const [kind, target] = pool[hash(`${actor}:${s.turn}`) % pool.length].split(":");
-    return newWant(kind, target, s.turn);
-  }
-  var introduced = (s, actor, talk) => {
-    const here = s.actors[actor]?.place;
-    return Boolean(
-      talk && here && s.actors[talk.actor]?.place === here && connectedHumans(s).filter((id) => s.actors[id].place === here).length >= 2
-    );
-  };
-  function wantMet(s, actor, talk = null) {
-    const want = wantOf2(s, actor);
-    if (!want) return false;
-    if (want.kind === "connect") return introduced(s, actor, talk);
-    if (want.kind === "item") return rootOf2(s, want.target) === actor;
-    if (want.kind === "place") return s.actors[actor].place === want.target;
-    return Boolean(
-      talk && s.actors[want.target]?.place === s.actors[actor].place && (talk.actor === actor && talk.target === want.target || talk.actor === want.target && talk.target === actor)
-    );
-  }
-  function rootOf2(s, id) {
-    let holder2 = s.items[id].holder;
-    const seen = /* @__PURE__ */ new Set([id]);
-    while (s.items[holder2] && !seen.has(holder2)) {
-      seen.add(holder2);
-      holder2 = s.items[holder2].holder;
-    }
-    return holder2;
-  }
-  var resting = (s, actor, home) => {
-    const want = wantOf2(s, actor);
-    return Boolean(
-      home && s.actors[actor].place === home && s.actors[actor].metTurn !== void 0 && s.turn - s.actors[actor].metTurn < REST_TURNS && (!want || want.since >= s.actors[actor].metTurn)
-    );
-  };
-  function settleWants(s, actors2, api, action = null) {
-    const talk = action?.kind === "talk" ? { actor: action.actor, target: action.target } : null;
-    const met2 = [];
-    for (const id of actors2) {
-      const a = s.actors[id];
-      if (!a) continue;
-      if (!a.visited.includes(a.place))
-        a.visited = [...a.visited, a.place].slice(-64);
-      if (talk && [talk.actor, talk.target].includes(id)) {
-        const other = talk.actor === id ? talk.target : talk.actor;
-        if (s.actors[other] && !a.talked.includes(other))
-          a.talked = [...a.talked, other].slice(-64);
-      }
-      if (!wantMet(s, id, talk)) continue;
-      const want = a.want;
-      a.xp += 1;
-      a.metTurn = s.turn;
-      met2.push({ actorId: id, want });
-      api.log(id, want);
-      const home = api.home(id);
-      const atRest = !home || a.place === home || api.sanctuaries.includes(a.place);
-      a.want = !atRest && travels(id) && !(want.kind === "place" && want.target === home) ? newWant("place", home, s.turn) : nextWant(s, id, api, want);
-    }
-    return met2;
-  }
-  function refuseWant(s, actor, item, api) {
-    const want = wantOf2(s, actor);
-    if (want?.kind !== "item" || want.target !== item) return;
-    if (want.refusals === 0 && !travels(actor)) want.since = s.turn;
-    want.refusals += 1;
-    if (want.refusals >= REFUSAL_LIMIT) giveUp(s, actor, api);
-  }
-  function giveUp(s, actor, api) {
-    const a = s.actors[actor];
-    a.gaveUp = { target: a.want.target, turn: s.turn };
-    a.want = nextWant(s, actor, api, a.want);
-  }
-  function reviseStalledWants(s, actors2, api) {
-    for (const id of actors2) {
-      const want = wantOf2(s, id);
-      if (want && (travels(id) || want.refusals > 0) && s.turn - want.since >= STALL_TURNS)
-        giveUp(s, id, api);
-      else if (!want && s.turn - (s.actors[id].metTurn ?? 0) >= CONTENT_TURNS) {
-        const a = s.actors[id];
-        a.want = nextWant(s, id, api);
-        if (!a.want) {
-          a.visited = [a.place];
-          a.talked = [];
-          a.want = nextWant(s, id, api);
-        }
-        if (!a.want) a.metTurn = s.turn;
-      }
     }
   }
   function validWant(s, id) {
@@ -20823,37 +16469,6 @@
     ])
   );
   var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
-  function createWorld({ opening = false, packScopes = {} } = {}) {
-    const world = {
-      schema: 7,
-      ...structuredClone(forest_default.initialState),
-      memories: newMemories(),
-      turn: 0,
-      revision: 0,
-      eventSeq: 1
-    };
-    if (opening) {
-      const start = structuredClone(forest_default.opening);
-      world.opening = start.discovery;
-      for (const [id, fields3] of Object.entries(start.actors))
-        Object.assign(world.actors[id], fields3);
-      for (const [id, fields3] of Object.entries(start.items))
-        Object.assign(world.items[id], fields3);
-      world.log = start.log;
-    }
-    installPacks(world);
-    for (const [id, scope] of Object.entries(packScopes)) {
-      if (!world.packs[id] || !["opening", "full"].includes(scope) || !packDefinition(id)?.release)
-        throw new Error("Unknown content scope.");
-      world.packs[id].scope = scope;
-    }
-    enableMotives(world);
-    installLife(world, travels);
-    installRouteKnowledge(world);
-    installKnowledge(world);
-    rememberEvent(world, world.log[0]);
-    return world;
-  }
   function installPacks(s) {
     installTransports(s);
     s.crossings ??= {};
@@ -20901,14 +16516,14 @@
       }
   }
   function rootHolder(s, id) {
-    let holder2 = s.items[id].holder;
+    let holder = s.items[id].holder;
     const visited = /* @__PURE__ */ new Set([id]);
-    while (s.items[holder2]) {
-      if (visited.has(holder2)) throw new Error("An item holds itself.");
-      visited.add(holder2);
-      holder2 = s.items[holder2].holder;
+    while (s.items[holder]) {
+      if (visited.has(holder)) throw new Error("An item holds itself.");
+      visited.add(holder);
+      holder = s.items[holder].holder;
     }
-    return holder2;
+    return holder;
   }
   var itemPlace2 = (s, id) => s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
   var carried = (s, actor) => ids.filter((id) => rootHolder(s, id) === actor);
@@ -21002,30 +16617,9 @@
       (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to)
     );
   }
-  function meetCast(s) {
-    const player = currentActor(s);
-    for (const [id, a] of Object.entries(packPeople))
-      if (entityActive(s, id) && s.actors[id].place === s.actors[player].place)
-        s.packs[a.packId].met && (s.packs[a.packId].met[id] ??= s.turn);
-    if (controlledByHuman(s, player))
-      applyMeetingChoices(s, player, Object.keys(places));
-    if (!s.opening || player !== "vale" && !s.opening.crossed) return;
-    if (player === "vale" && s.actors.vale.place === "pond")
-      s.opening.crossed = true;
-    if (!s.opening.crossed) {
-      for (const id of roamingActors)
-        if (entityActive(s, id) && s.actors[id].place === s.actors[player].place)
-          s.opening.met[id] ??= s.turn;
-      return;
-    }
-    for (const id of actorIds)
-      if (entityActive(s, id) && s.actors[id].place === s.actors[player].place && s.opening.met[id] === void 0)
-        s.opening.met[id] = s.turn;
-  }
   var canReach = (s, actor, item) => itemPlace2(s, item) === s.actors[actor].place && !actorIds.includes(rootHolder(s, item)) || rootHolder(s, item) === actor;
   var canUse = canReach;
   var loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
-  var hasSpace = (s, actor, id) => carried(s, actor).length + (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <= 3;
   var bundle = (s, item) => [
     item,
     ...s.items.cloth.holder === item ? ["cloth"] : []
@@ -21051,156 +16645,15 @@
   function canTrade(s, actor, give, receive) {
     return tradePossible(s, actor, give, receive) && tradeWilling(s, actor, give, receive);
   }
-  function giftWilling(s, item, recipient) {
-    return controlledByHuman(s, recipient) || needed(s, recipient, item) || valueOf(s, recipient, item) >= 2;
-  }
   var REFUSAL_REASONS = ["grudge", "needs-it", "wants-something-else"];
   var REFUSED_VERBS = ["give", "trade", "ask", "accompany"];
-  function refusalReason(s, a) {
-    const other = a.kind === "trade" ? s.items[a.receive].holder : a.target;
-    if (resentment(s, other, a.actor)) return "grudge";
-    if (a.kind === "trade" && needed(s, other, a.receive)) return "needs-it";
-    if (a.kind === "ask" && (needed(s, other, a.item) || keepReason(s, other, a.item)))
-      return "needs-it";
-    return "wants-something-else";
-  }
-  function expects(s, a) {
-    if (a.kind === "give") return giftWilling(s, a.item, a.target);
-    if (a.kind === "trade") return tradeWilling(s, a.actor, a.item, a.receive);
-    return true;
-  }
-  function reachable(s, actor) {
-    const from = s.actors[actor].place, seen = /* @__PURE__ */ new Set([from]), queue = [from];
-    for (let i = 0; i < queue.length; i++)
-      for (const next of exits(s, queue[i], actor))
-        if (!seen.has(next) && entityActive(s, next)) {
-          seen.add(next);
-          queue.push(next);
-        }
-    return [...seen].filter((id) => id !== from && !transportPlace(id)).sort();
-  }
   var homeOf2 = (id) => tastes[id]?.home || humanAvatar(id)?.home?.id || null;
-  function wantAPI(s) {
-    return {
-      carried: (actor) => carried(s, actor),
-      rootHolder: (item) => rootHolder(s, item),
-      valueOf: (actor, item) => valueOf(s, actor, item),
-      reachable: (actor) => reachable(s, actor),
-      home: homeOf2,
-      sanctuaries,
-      log: (actor, want) => addLog(
-        s,
-        "World",
-        want.kind === "item" ? `${nameOf(actor)} has the ${nameOf(want.target)} at last.` : want.kind === "place" ? `${nameOf(actor)} reaches ${nameOf(want.target)}.` : want.kind === "connect" ? `${nameOf(actor)} makes an introduction at last.` : `${nameOf(actor)} and ${nameOf(want.target)} talk at last.`,
-        {
-          kind: "narration",
-          actorId: actor,
-          verb: "want_met",
-          wantMet: { kind: want.kind, target: want.target },
-          ...want.kind === "item" ? { itemId: want.target } : {},
-          ...want.kind === "person" ? { targetId: want.target } : {}
-        }
-      )
-    };
-  }
-  function wantActors(s, extra = []) {
-    return [
-      .../* @__PURE__ */ new Set([
-        ...actorIds.filter(
-          (id) => travels(id) && entityActive(s, id) && (!controlledByHuman(s, id) || humanPresent(s, id))
-        ),
-        ...extra
-      ])
-    ].filter((id) => s.actors[id] && entityActive(s, id));
-  }
-  function addLog(s, speaker, text2, detail = {}) {
-    const actorId = detail.actorId ?? actorIds.find((id) => nameOf(id) === speaker) ?? null;
-    const locationId = detail.locationId || s.actors[actorId || currentActor(s)].place;
-    if (s.eventSeq === void 0) {
-      s.log.forEach((entry2, index) => {
-        entry2.seq = index + 1;
-      });
-      s.eventSeq = s.log.length;
-    }
-    s.eventSeq += 1;
-    s.log.push({
-      seq: s.eventSeq,
-      turn: s.turn,
-      speaker,
-      text: text2,
-      kind: detail.kind || (speaker === "You" ? "input" : actorId ? "dialogue" : "narration"),
-      actorId,
-      locationId,
-      cast: knownActors2(s).filter(
-        (id) => s.actors[id].place === locationId && (!controlledByHuman(s, id) || humanPresent(s, id))
-      ),
-      items: ids.filter((id) => entityActive(s, id) && itemPlace2(s, id) === locationId).map((id) => {
-        const { history, ...item } = s.items[id];
-        return { id, ...item };
-      }),
-      light: shining(s) && itemPlace2(s, "lamp") === locationId,
-      ...detail
-    });
-    const entry = s.log.at(-1);
-    if (!entry.generated && entry.actorId === currentActor(s) && entry.fromLocationId && entry.fromLocationId !== entry.locationId && (["move", "retreat", "sent-home"].includes(entry.verb) || entry.verb === "accompany" && entry.accepted))
-      s.arrival = {
-        seq: entry.seq,
-        fromLocationId: entry.fromLocationId,
-        locationId: entry.locationId
-      };
-    rememberEvent(s, entry);
-    witnessKnowledge(
-      s,
-      entry,
-      (id) => entityActive(s, id) && (!controlledByHuman(s, id) || humanPresent(s, id)),
-      authoredKnowledgeTopics()
-    );
-    trimLog(s);
-  }
   var authoredKnowledgeTopics = () => packDefinitions.flatMap(
     (pack) => (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id }))
   );
-  function talkKnowledge(s, action, entry) {
-    const pairs = controlledByHuman(s, action.actor) ? [
-      [action.target, action.actor],
-      [action.actor, action.target]
-    ] : [
-      [action.actor, action.target],
-      [action.target, action.actor]
-    ];
-    for (const [speaker, listener] of pairs) {
-      if (expressionOf(people[speaker]) !== "speech") continue;
-      const choices = listener === action.actor ? packChoices(s, listener) : [];
-      const topics = authoredKnowledgeTopics().filter(
-        (topic) => conditionsMet(s, topic.packId, topic.requires || [], listener)
-      ).map((topic) => ({
-        ...topic,
-        choiceReady: choices.some(
-          (a) => a.packId === topic.packId && a.choiceId === topic.choiceId
-        )
-      }));
-      const lane = laneToTell(s, speaker, listener);
-      const port = lane && atPort(s, speaker) && !topics.some((topic) => topic.choiceReady);
-      if (port && reserveLaneKnowledge(s, speaker, listener, entry, lane)) break;
-      if (reserveKnowledge(s, speaker, listener, entry, topics)) break;
-      if (lane && !port && reserveLaneKnowledge(s, speaker, listener, entry, lane))
-        break;
-    }
-  }
   var atPort = (s, actor) => Object.values(transports).some(
     (t) => t.place === s.actors[actor].place || t.docks.includes(s.actors[actor].place)
   );
-  function laneToTell(s, speaker, listener) {
-    const here = s.actors[speaker].place;
-    const ship = Object.entries(transports).find(([, t]) => t.place === here);
-    const near = ship ? s.transports[ship[0]].dock : here;
-    const lanes = laneEdges().map(laneOfEdge).filter(
-      ([from, to]) => entityActive(s, from) && entityActive(s, to) && knowsLane(s, speaker, from, to) && !knowsLane(s, listener, from, to)
-    ).sort(
-      ([a, b], [c, d]) => Number(c === near || d === near) - Number(a === near || b === near)
-    );
-    return lanes.length ? laneFact(...lanes[0]) : null;
-  }
   function laneTalkFacts(s, actor) {
     if (!s.actors[actor] || !atPort(s, actor)) return [];
     const here = s.actors[actor].place;
@@ -21227,1085 +16680,17 @@
     const [from, to] = id.startsWith("lane:") ? id.slice(5).split(">") : [];
     return from && to && laneEdges().some(([a, b]) => a === `sea:${from}` && b === `sea:${to}`) ? laneFact(from, to).text : null;
   };
-  function publishKnowledgeSpeech(s, entry, disclosures) {
-    const named = (id) => nameOf(id) === "the world" ? null : nameOf(id);
-    const learned = acceptKnowledgeSpeech(s, entry, disclosures, named);
-    for (const { fact, listener } of learned)
-      if (fact.source.kind === "lane")
-        learnLane(s, listener, ...fact.id.slice(5).split(">"));
-    for (const { fact, listener, commitChoice } of learned) {
-      const topic = fact.source.topic;
-      if (!commitChoice || !topic?.choiceId || !humanAvatar(listener) || Object.hasOwn(s.packs[topic.packId].receipts, topic.choiceId))
-        continue;
-      const action = packChoices(s, listener).find(
-        (a) => a.packId === topic.packId && a.choiceId === topic.choiceId
-      );
-      if (!action) continue;
-      applyPackChoice(s, action);
-      addLog(s, "World", action.text, {
-        kind: "action",
-        actorId: listener,
-        verb: "choose",
-        packId: action.packId,
-        choiceId: action.choiceId,
-        targetId: action.target,
-        locationId: s.actors[listener].place
-      });
-    }
-    return learned;
-  }
   var LOG_LIMIT = 100;
   var LAMP_FUEL = 12;
   var GENERATED_LOG_LIMIT = 100;
-  function trimLog(s) {
-    const authoritative = () => s.log.filter((entry) => !entry.generated).length;
-    while (authoritative() > LOG_LIMIT) {
-      const last = s.log.findLastIndex((entry) => !entry.generated);
-      const hint = s.log.findIndex(
-        (entry, index) => !entry.generated && index < last && ["input", "hint"].includes(entry.kind)
-      );
-      s.log.splice(
-        hint >= 0 ? hint : s.log.findIndex((entry) => !entry.generated),
-        1
-      );
-    }
-    while (s.log.filter((entry) => entry.generated).length > GENERATED_LOG_LIMIT || s.log[0]?.generated)
-      s.log.splice(
-        s.log.findIndex((entry) => entry.generated),
-        1
-      );
-  }
-  function remember3(s, item, text2) {
-    s.items[item].history.push(`Turn ${s.turn}: ${text2}`);
-    s.items[item].history = s.items[item].history.slice(-12);
-  }
-  function transfer(s, item, holder2, text2) {
-    s.items[item].holder = holder2;
-    remember3(s, item, text2);
-  }
   var fuelItems = Object.keys(forest_default.things).filter((id) => forest_default.things[id].refuels);
-  function refuelCarried(s) {
-    for (const id of fuelItems) {
-      const { refuels: target, returnsTo } = things[id];
-      const actor = rootHolder(s, id);
-      if (!s.actors[actor] || rootHolder(s, target) !== actor || s.items[target].fuel !== 0 || !entityActive(s, id) || !entityActive(s, target))
-        continue;
-      const here = s.actors[actor].place;
-      const text2 = `${nameOf(actor)} empties the ${nameOf(id)} into the dry ${nameOf(target)}. The ${nameOf(target)} is full. Back at ${nameOf(returnsTo)}, the ${nameOf(id)} stands full again.`;
-      s.items[target].fuel = LAMP_FUEL;
-      remember3(s, target, text2);
-      transfer(s, id, returnsTo, text2);
-      addLog(s, "World", text2, {
-        kind: "narration",
-        verb: "refuel",
-        actorId: actor,
-        itemId: id,
-        targetId: target,
-        itemIds: [id, target],
-        locationId: here,
-        returnLocationId: returnsTo
-      });
-    }
-  }
-  function offer(kind, actor, item, target, text2, cards) {
-    return {
-      kind,
-      actor,
-      item,
-      target,
-      text: text2,
-      cards,
-      key: [kind, actor, item || "", target || ""].join(":")
-    };
-  }
   function standoffFor(s, actor) {
     return s.standoffs.find((c) => [c.challenger, c.defender].includes(actor));
   }
   function opponentOf(c, actor) {
     return c.challenger === actor ? c.defender : c.challenger;
   }
-  function strikePower(s, actor, target) {
-    return 2 + Math.sign(levelOf(s, actor) - levelOf(s, target));
-  }
-  function closeStandoff(s, c) {
-    s.standoffs = s.standoffs.filter((entry) => entry !== c);
-    for (const id of [c.challenger, c.defender]) s.peaceUntil[id] = s.turn + 3;
-  }
   var DEFEATS_TO_SEND_HOME = 3;
-  function defeatInStandoff(s, c, winner, loser, here) {
-    const defeats = s.defeats ??= {};
-    delete defeats[winner];
-    const lossCount = (defeats[loser] || 0) + 1;
-    const home = homeOf2(loser);
-    const sentHome = lossCount >= DEFEATS_TO_SEND_HOME && Boolean(home) && entityActive(s, home) && actorCanVisit(loser, home, s);
-    const dropped = sentHome ? ids.filter((id) => s.items[id].holder === loser) : [
-      c.item && rootHolder(s, c.item) === loser ? c.item : ids.find(
-        (id) => s.items[id].holder === loser && needed(s, winner, id)
-      )
-    ].filter(Boolean);
-    let text2 = "";
-    for (const id of dropped)
-      transfer(s, id, here, `${nameOf(loser)} yields the ${nameOf(id)}.`);
-    if (dropped.length)
-      text2 += ` ${nameOf(loser)} drops the ${dropped.map(nameOf).join(", the ")}.`;
-    if (lossCount >= DEFEATS_TO_SEND_HOME) delete defeats[loser];
-    else defeats[loser] = lossCount;
-    const outcome = sentHome ? "sent-home" : "yield";
-    const to = sentHome ? home : exits(s, here, loser).find((next) => !isCourse(s, here, next));
-    closeStandoff(s, c);
-    if (!to || to === here) {
-      text2 += sentHome ? ` ${nameOf(loser)} is already home. The standoff ends.` : ` ${nameOf(loser)} yields here. The standoff ends.`;
-      return { text: text2, outcome, lossCount, droppedItemIds: dropped, to: null };
-    }
-    if (!sentHome) markCrossed(s, here, to);
-    s.actors[loser].place = to;
-    moveTransport(s, here, to);
-    for (const id of carried(s, loser))
-      remember3(s, id, `${nameOf(loser)} retreated to ${nameOf(to)} with it.`);
-    text2 += sentHome ? ` ${nameOf(loser)} is beaten a third time and sent home to ${nameOf(to)}. The standoff ends.` : ` ${nameOf(loser)} retreats to ${nameOf(to)}. The standoff ends.`;
-    return {
-      text: text2,
-      outcome,
-      lossCount,
-      droppedItemIds: dropped,
-      to,
-      arrivalText: sentHome ? `${nameOf(loser)} arrives home at ${nameOf(to)} with empty hands after a third defeat by ${nameOf(winner)}.` : `${nameOf(loser)} arrives at ${nameOf(to)} after yielding to ${nameOf(winner)}.`
-    };
-  }
-  function settleStandoffs(s) {
-    for (const c of [...s.standoffs]) {
-      const separated = [c.challenger, c.defender].some(
-        (id) => s.actors[id].place !== c.location
-      );
-      const released = c.item && rootHolder(s, c.item) !== c.defender;
-      if (separated || released) {
-        closeStandoff(s, c);
-        addLog(
-          s,
-          "World",
-          separated ? `${nameOf(c.challenger)} and ${nameOf(c.defender)} part. The standoff ends.` : `The ${nameOf(c.item)} changes hands. The standoff ends.`,
-          {
-            kind: "narration",
-            actorId: c.challenger,
-            targetId: c.defender,
-            itemId: c.item,
-            locationId: c.location
-          }
-        );
-      }
-    }
-  }
-  function accompanyDecision(s, actor, companion, destination, routeApproved = false) {
-    const here = s.actors[companion].place;
-    const invited = controlledByHuman(s, actor) && !controlledByHuman(s, companion) && s.actors[actor].place === here && (routeApproved || exits(s, here, actor).includes(destination));
-    if (!invited && !actorCanVisit(companion, destination, s))
-      return { accepted: false, reason: "wants-something-else" };
-    if (standoffFor(s, actor) || standoffFor(s, companion))
-      return { accepted: false, reason: "wants-something-else" };
-    if (s.peaceUntil[companion] > s.turn)
-      return { accepted: false, reason: "wants-something-else" };
-    if (packPeople[companion]?.journey)
-      return invited && packJourneyDestination(s, companion) === destination ? { accepted: true } : { accepted: false, reason: "wants-something-else" };
-    if (resentment(s, companion, actor))
-      return socialTravel(s, actor, companion, destination);
-    const want = wantOf2(s, companion);
-    if (want?.kind === "item" && rootHolder(s, want.target) === actor)
-      return { accepted: true };
-    const goal = want?.kind === "place" ? want.target : want?.kind === "person" ? s.actors[want.target]?.place : want?.kind === "item" && rootHolder(s, want.target) !== companion ? itemPlace2(s, want.target) : null;
-    const distance = (from, to) => {
-      const route = routeBetween(s, from, to);
-      return route ? route.length - 1 : Infinity;
-    };
-    if (goal && (goal === destination || distance(destination, goal) < distance(here, goal)))
-      return { accepted: true };
-    if (s.actors[companion].trust[actor] > 0) return { accepted: true };
-    return socialTravel(s, actor, companion, destination);
-  }
-  function legalActions(s, actor = currentActor(s)) {
-    if (!s.actors[actor] || !entityActive(s, actor) && !roamingQuestActor(actor))
-      return [];
-    const here = s.actors[actor].place;
-    const out = [
-      offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, [])
-    ];
-    for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
-      if (isCourse(s, here, to)) {
-        const course = offer(
-          "course",
-          actor,
-          null,
-          to,
-          `${nameOf(actor)} sets the ship's course for ${nameOf(to)}.`,
-          [to]
-        );
-        course.label = "Set course";
-        out.push(course);
-        continue;
-      }
-      const through = !baseExits(s, here).includes(to);
-      const crossing = crossingBetween(here, to, s);
-      const way = through ? ` ${homeRescueExit(s, here, actor) === to || pondRescueExit(s, here, actor) === to ? "along a narrow path" : crossing?.travel || "through the reflection"}` : "";
-      for (const other of knownActors2(s).filter(
-        (id) => (crossing?.travelers !== "player" || controlledByHuman(s, actor)) && (!transportPlace(here) || !crossing?.transport || canDisembark(s, crossing.transport, id)) && id !== actor && !controlledByHuman(s, id) && (!staysPut(id) || packJourneyDestination(s, id) === to) && s.actors[id].place === here
-      )) {
-        const request = offer(
-          "accompany",
-          actor,
-          null,
-          other,
-          `${nameOf(actor)} asks ${nameOf(other)} to accompany them to ${nameOf(to)}.`,
-          [other, to]
-        );
-        request.destination = to;
-        request.key += `:${to}`;
-        out.push(request);
-      }
-      out.push(
-        offer(
-          "move",
-          actor,
-          null,
-          to,
-          crossing?.transport ? `${nameOf(actor)} ${crossing.travelLabel === "Board" ? "boards" : "disembarks at"} ${nameOf(to)}.` : `${nameOf(actor)} goes to ${nameOf(to)}${way}.`,
-          [to]
-        )
-      );
-      for (const id of ids.filter((id2) => s.items[id2].holder === actor)) {
-        out.push(
-          offer(
-            "move",
-            actor,
-            id,
-            to,
-            crossing?.transport ? `${nameOf(actor)} carries the ${nameOf(id)} ${crossing.travelLabel === "Board" ? "aboard" : "ashore at"} ${nameOf(to)}.` : `${nameOf(actor)} carries the ${nameOf(id)} to ${nameOf(to)}${way}.`,
-            [id, to]
-          )
-        );
-      }
-    }
-    for (const other of knownActors2(s).filter(
-      (id) => id !== actor && s.actors[id].place === here
-    )) {
-      if (hasTemperament(other)) {
-        const greet = greeting(s, other, actor, senses);
-        const talk = offer("talk", actor, null, other, greet.text, [other]);
-        if (greet.label) talk.label = greet.label;
-        out.push(talk);
-      }
-      const conflict = standoffFor(s, actor);
-      if (conflict && opponentOf(conflict, actor) === other) {
-        out.push(
-          offer(
-            "guard",
-            actor,
-            null,
-            other,
-            `${nameOf(actor)} guards against ${nameOf(other)}.`,
-            [other]
-          ),
-          offer(
-            "attack",
-            actor,
-            null,
-            other,
-            `${nameOf(actor)} attacks ${nameOf(other)}.`,
-            [other]
-          )
-        );
-      } else if (!(sharedEnabled(s) && controlledByHuman(s, other)) && !avoidsStandoffs(other) && !conflict && !standoffFor(s, other) && s.peaceUntil[actor] <= s.turn && s.peaceUntil[other] <= s.turn) {
-        const stake = ids.find(
-          (id) => s.items[id].holder === other && needed(s, actor, id)
-        ) || ids.find((id) => s.items[id].holder === other) || null;
-        out.push(
-          offer(
-            "threaten",
-            actor,
-            stake,
-            other,
-            `${nameOf(actor)} threatens ${nameOf(other)}${stake ? ` over the ${nameOf(stake)}` : ""}.`,
-            [other]
-          )
-        );
-      }
-      if (!hasTemperament(other))
-        out.push(
-          offer(
-            "talk",
-            actor,
-            null,
-            other,
-            `${nameOf(actor)} asks ${nameOf(other)} what they want.`,
-            [other]
-          )
-        );
-    }
-    for (const id of ids) {
-      const item = s.items[id];
-      if (!entityActive(s, id) || itemPlace2(s, id) !== here || actorIds.includes(rootHolder(s, id)) && !knownActors2(s).includes(rootHolder(s, id)))
-        continue;
-      if (canReach(s, actor, id) && item.holder !== actor && hasSpace(s, actor, id)) {
-        out.push(
-          offer(
-            "take",
-            actor,
-            id,
-            null,
-            `${nameOf(actor)} ${things[item.holder] ? "uncovers and takes" : "takes"} the ${nameOf(id)}.`,
-            [id]
-          )
-        );
-      }
-      if (item.holder === actor) {
-        out.push(
-          offer(
-            "drop",
-            actor,
-            id,
-            here,
-            `${nameOf(actor)} puts the ${nameOf(id)} in ${nameOf(here)}.`,
-            [id]
-          )
-        );
-        for (const other of knownActors2(s).filter(
-          (p) => p !== actor && s.actors[p].place === here && hasSpace(s, p, id)
-        )) {
-          out.push(
-            offer(
-              "give",
-              actor,
-              id,
-              other,
-              `${nameOf(actor)} gives the ${nameOf(id)} to ${nameOf(other)}.`,
-              [id, other]
-            )
-          );
-        }
-      } else if (actorIds.includes(item.holder) && item.holder !== actor && hasSpace(s, actor, id)) {
-        out.push(
-          offer(
-            "ask",
-            actor,
-            id,
-            item.holder,
-            `${nameOf(actor)} asks ${nameOf(item.holder)} for the ${nameOf(id)}.`,
-            [id, item.holder]
-          )
-        );
-      }
-      if (!canUse(s, actor, id)) continue;
-      const belonging = humanAvatarIds.map(humanAvatar).find((a) => a.id !== "vale" && a.item.id === id);
-      if (belonging) {
-        const use = offer(
-          "use",
-          actor,
-          id,
-          null,
-          `${nameOf(actor)} ${belonging.item.effect}.`,
-          [id]
-        );
-        use.label = belonging.item.verb;
-        out.push(use);
-      }
-      if (id === "lamp") {
-        if (item.lit)
-          out.push(
-            offer(
-              "snuff",
-              actor,
-              id,
-              null,
-              `${nameOf(actor)} puts out the Lamp.`,
-              [id]
-            )
-          );
-        else if (item.fuel > 0)
-          out.push(
-            offer(
-              "light",
-              actor,
-              id,
-              null,
-              `${nameOf(actor)} lights the Lamp${covered(s, id) ? " under its cloth" : ""}.`,
-              [id]
-            )
-          );
-      }
-      if (id === "bell" && !covered(s, id))
-        out.push(
-          offer(
-            "ring",
-            actor,
-            id,
-            null,
-            `${nameOf(actor)} rings the Bell. The sound carries across the shore.`,
-            [id]
-          )
-        );
-      if (id === "cloth" && canReach(s, actor, id) && item.holder !== "lamp" && item.holder !== "bell") {
-        for (const target of ["lamp", "bell"].filter(
-          (t) => itemPlace2(s, t) === here && canReach(s, actor, t) && (rootHolder(s, t) !== actor || hasSpace(s, actor, id))
-        )) {
-          out.push(
-            offer(
-              "cover",
-              actor,
-              id,
-              target,
-              `${nameOf(actor)} covers the ${nameOf(target)} with the Black cloth.`,
-              [id, target]
-            )
-          );
-        }
-      }
-    }
-    const payments = ids.filter((id) => s.items[id].holder === actor);
-    const tradePartners = new Set(
-      payments.length ? knownActors2(s).filter(
-        (other) => other !== actor && !controlledByHuman(s, other) && s.actors[other].place === here
-      ) : []
-    );
-    const tradeGoods = ids.filter((id) => tradePartners.has(s.items[id].holder));
-    for (const give of payments)
-      for (const receive of tradeGoods) {
-        if (!tradePossible(s, actor, give, receive)) continue;
-        const other = s.items[receive].holder;
-        const action = offer(
-          "trade",
-          actor,
-          give,
-          other,
-          `${nameOf(actor)} trades the ${nameOf(give)} for ${nameOf(other)}\u2019s ${nameOf(receive)}.`,
-          [give, receive]
-        );
-        action.receive = receive;
-        action.key += ":" + receive;
-        out.push(action);
-      }
-    out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor));
-    for (const action of out) {
-      if (action.kind === "take" && things[s.items[action.item]?.holder])
-        action.label = "Uncover";
-      if (action.kind === "move") {
-        const crossing = crossingBetween(here, action.target, s);
-        if (crossing?.travelLabel) action.label = crossing.travelLabel;
-      }
-    }
-    return planReads ? out.filter((a) => expects(s, a)) : out;
-  }
-  function matchingActions(s, selected, actor = currentActor(s)) {
-    const set = [...new Set(selected)].filter((id) => id !== actor);
-    if (!set.length) return [];
-    return legalActions(s, actor).filter(
-      (a) => Array.isArray(a.cards) && a.cards.length === set.length && set.every((id) => a.cards.includes(id))
-    );
-  }
-  function travelParty(s, actors2, destination) {
-    const from = s.actors[actors2[0]].place;
-    const through = !baseExits(s, from).includes(destination);
-    if (homeGates[from]?.opening && homeRescueExit(s, from, actors2[0]) === destination)
-      s.locations[from].anchored = true;
-    markCrossed(s, from, destination);
-    for (const actor of actors2) {
-      if (through) s.actors[actor].crossed += 1;
-      s.actors[actor].place = destination;
-      for (const id of carried(s, actor))
-        remember3(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
-    }
-    moveTransport(s, from, destination);
-    return through;
-  }
-  var travel = (s, actor, destination) => travelParty(s, [actor], destination);
-  function trustGiver(s, recipient, item, giver) {
-    if (!needed(s, recipient, item) || !s.actors[recipient].trust) return;
-    s.actors[recipient].trust[giver] = Math.min(
-      3,
-      (s.actors[recipient].trust[giver] || 0) + 1
-    );
-  }
-  function perform(s, a, round2 = null, settle = []) {
-    const who = nameOf(a.actor);
-    const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
-    const here = s.actors[a.actor].place;
-    const witnesses = [
-      ...actorIds.filter(
-        (id) => entityActive(s, id) && s.actors[id].place === here && (!controlledByHuman(s, id) || humanPresent(s, id))
-      ),
-      ...ids.filter((id) => entityActive(s, id) && itemPlace2(s, id) === here)
-    ];
-    const conflict = standoffFor(s, a.actor);
-    if (conflict) {
-      conflict.guarding[a.actor] = false;
-      if (a.actor === conflict.defender) conflict.answered = true;
-    }
-    if (a.kind === "wait") {
-      const learningStart2 = beginLearning2(s, a);
-      if (a.actor === currentActor(s)) calm(s, here, a.actor);
-      if (learningStart2 || a.actor === currentActor(s)) {
-        addLog(s, "World", a.text, {
-          kind: "action",
-          actorId: a.actor,
-          verb: "wait",
-          witnesses
-        });
-        if (learningStart2) recordLearning(s, a, learningStart2, s.log.at(-1));
-      }
-      return;
-    }
-    const learningStart = beginLearning2(s, a);
-    const holder2 = holderBefore(s, a);
-    const usefulGift = a.kind === "give" && (valueOf(s, a.target, a.item) >= 5 || needed(s, a.target, a.item));
-    let text2 = a.text;
-    let requestAccepted = false;
-    let refusal = null;
-    let affected = null, arrival = null, combat = null, invitation = null;
-    switch (a.kind) {
-      case "use":
-        remember3(s, a.item, a.text);
-        break;
-      case "course":
-        setCourse(s, here, a.target);
-        break;
-      case "choose":
-        applyPackChoice(s, a);
-        break;
-      case "accompany": {
-        const respondentConflict = standoffFor(s, a.target);
-        if (respondentConflict) {
-          respondentConflict.guarding[a.target] = false;
-          if (respondentConflict.defender === a.target)
-            respondentConflict.answered = true;
-        }
-        invitation = accompanyDecision(s, a.actor, a.target, a.destination, true);
-        s.actors[a.actor].lastTalk = s.turn;
-        if (invitation.accepted) {
-          const visits = s.invitedPlaces ??= {};
-          visits[a.target] = [
-            .../* @__PURE__ */ new Set([...visits[a.target] || [], a.destination])
-          ].sort();
-          const through = travelParty(s, [a.actor, a.target], a.destination);
-          text2 += ` ${nameOf(a.target)} agrees. They travel together.`;
-          if (through && firstCrossing)
-            text2 += " Something on the far shore turns its head.";
-        } else {
-          text2 += ` ${nameOf(a.target)} declines the trip.`;
-          refusal = invitation.reason;
-        }
-        break;
-      }
-      case "threaten":
-        if (here === "pond") s.locations.pond.answer = null;
-        s.standoffs.push({
-          challenger: a.actor,
-          defender: a.target,
-          location: here,
-          item: a.item,
-          opened: s.turn,
-          answered: false,
-          resolve: { [a.actor]: 4, [a.target]: 4 },
-          guarding: { [a.actor]: false, [a.target]: false },
-          struck: { [a.actor]: false, [a.target]: false }
-        });
-        break;
-      case "guard":
-        conflict.guarding[a.actor] = true;
-        break;
-      case "attack": {
-        const guarded = conflict.guarding[a.target];
-        const damage = Math.max(
-          1,
-          strikePower(s, a.actor, a.target) - Number(guarded)
-        );
-        const resolveBefore = conflict.resolve[a.target];
-        conflict.guarding[a.target] = false;
-        conflict.struck[a.actor] = true;
-        conflict.resolve[a.target] = Math.max(0, resolveBefore - damage);
-        text2 += ` ${guarded ? "The guard softens the blow. " : ""}${nameOf(a.target)} loses ${damage} resolve.`;
-        combat = {
-          damage,
-          guarded,
-          resolveBefore,
-          resolveAfter: conflict.resolve[a.target],
-          outcome: guarded ? "guarded" : "hit",
-          lossCount: s.defeats?.[a.target] || 0
-        };
-        if (conflict.resolve[a.target] === 0) {
-          const defeat = defeatInStandoff(s, conflict, a.actor, a.target, here);
-          text2 += defeat.text;
-          Object.assign(combat, {
-            outcome: defeat.outcome,
-            lossCount: defeat.lossCount,
-            droppedItemIds: defeat.droppedItemIds
-          });
-          if (defeat.to)
-            arrival = {
-              text: defeat.arrivalText,
-              kind: "narration",
-              verb: defeat.outcome === "sent-home" ? "sent-home" : "retreat",
-              actorId: a.target,
-              targetId: a.actor,
-              locationId: defeat.to,
-              fromLocationId: here,
-              droppedItemIds: defeat.droppedItemIds,
-              lossCount: defeat.lossCount,
-              witnesses
-            };
-        }
-        break;
-      }
-      case "move":
-        if (travel(s, a.actor, a.target) && firstCrossing)
-          text2 += " Something on the far shore turns its head.";
-        break;
-      case "take":
-        transfer(s, a.item, a.actor, a.text);
-        break;
-      case "drop":
-        transfer(s, a.item, here, a.text);
-        break;
-      case "give":
-      case "trade": {
-        const gift = a.kind === "give" ? packGiveChoice(s, a) : null;
-        if (gift) {
-          requestAccepted = true;
-          text2 = choiceText(applyPackChoice(s, gift, { mode: "give" }), a.actor);
-          break;
-        }
-        requestAccepted = expects(s, a);
-        if (!requestAccepted) {
-          refusal = refusalReason(s, a);
-          if (a.kind === "trade") refuseWant(s, a.actor, a.receive, wantAPI(s));
-          text2 = a.kind === "give" ? `${who} offers the ${nameOf(a.item)} to ${nameOf(a.target)}.` : `${who} offers the ${nameOf(a.item)} for ${nameOf(a.target)}\u2019s ${nameOf(a.receive)}.`;
-          text2 += ` ${nameOf(a.target)} declines.`;
-          break;
-        }
-        if (a.kind === "give") trustGiver(s, a.target, a.item, a.actor);
-        transfer(s, a.item, a.target, a.text);
-        if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
-        break;
-      }
-      case "light":
-        if (s.opening && !s.opening.crossed && a.actor === "vale" && here === "attic" && s.items.lamp.holder === "attic")
-          transfer(
-            s,
-            "lamp",
-            "vale",
-            "Vale lifts the lamp as its light wakes the mirror."
-          );
-        s.items.lamp.lit = true;
-        remember3(s, "lamp", a.text);
-        break;
-      case "snuff":
-        s.items.lamp.lit = false;
-        remember3(s, "lamp", a.text);
-        break;
-      case "ring":
-        for (const line of disturb(s, here)) text2 += ` ${line}`;
-        if (a.fixture) {
-          soundFixture(s, a.fixture);
-          break;
-        }
-        s.locations.pond.answer = s.locations.pond.answer === "hush" ? null : s.locations.pond.answer;
-        s.items.bell.ringing = 3;
-        remember3(s, "bell", a.text);
-        break;
-      case "cover":
-        transfer(s, "cloth", a.target, a.text);
-        remember3(s, a.target, a.text);
-        if (a.target === "bell") s.items.bell.ringing = 0;
-        break;
-      case "talk": {
-        const woken = wakeByVoice(s, a.target);
-        if (woken) text2 += ` ${woken}`;
-        s.actors[a.actor].lastTalk = s.turn;
-        break;
-      }
-      case "ask": {
-        const willing = willingToGive(s, a.target, a.item, a.actor);
-        requestAccepted = willing;
-        if (willing) {
-          trustGiver(s, a.actor, a.item, a.target);
-          text2 = `${nameOf(a.target)} hands the ${nameOf(a.item)} to ${who}.`;
-          transfer(s, a.item, a.actor, text2);
-        } else {
-          text2 += ` ${nameOf(a.target)} keeps it for now.`;
-          refusal = refusalReason(s, a);
-          refuseWant(s, a.actor, a.item, wantAPI(s));
-        }
-        s.actors[a.actor].lastTalk = s.turn;
-        break;
-      }
-      default:
-        throw new Error("Unknown act.");
-    }
-    const recitals = here !== s.actors[a.actor].place ? arriveRecitals(s, packDefinitions, a.actor) : [];
-    meetCast(s);
-    recordReaction(s, a, witnesses, requestAccepted);
-    recordLifeAction(
-      s,
-      a,
-      invitation?.accepted ?? requestAccepted,
-      usefulGift && requestAccepted
-    );
-    addLog(s, "World", text2, {
-      kind: "action",
-      actorId: a.actor,
-      verb: a.kind,
-      ...a.kind === "choose" ? { packId: a.packId, choiceId: a.choiceId } : {},
-      fromLocationId: here,
-      witnesses,
-      itemId: a.item,
-      ...affected ? { entityId: affected } : {},
-      targetId: a.target,
-      ...a.receive ? { receiveId: a.receive } : {},
-      ...["ask", "give", "trade"].includes(a.kind) ? { accepted: requestAccepted } : {},
-      ...refusal ? { reason: refusal } : {},
-      ...invitation ? { destinationId: a.destination, accepted: invitation.accepted } : {},
-      ...a.kind === "attack" ? { locationId: here, ...combat } : {}
-    });
-    if (a.kind === "talk") talkKnowledge(s, a, s.log.at(-1));
-    recordLearning(s, a, learningStart, s.log.at(-1));
-    for (const visit of recitals)
-      addLog(
-        s,
-        "World",
-        `${nameOf(visit.actorId)} waits here with a song of ${who}'s journey.`,
-        {
-          ...visit,
-          kind: "narration",
-          verb: "move",
-          witnesses: [a.actor, visit.actorId]
-        }
-      );
-    if (arrival) {
-      const { text: arrivalText, ...details } = arrival;
-      addLog(s, "World", arrivalText, details);
-    }
-    settleStandoffs(s);
-    settleWants(
-      s,
-      wantActors(s, [a.actor, ...s.actors[a.target] ? [a.target] : [], ...settle]),
-      wantAPI(s),
-      a
-    );
-    if (round2)
-      noteAct(
-        s,
-        a,
-        here,
-        holder2,
-        round2,
-        sensesFor(s),
-        (line, locationId) => addLog(s, "World", line, { locationId })
-      );
-    refuelCarried(s);
-    return invitation ? a.target : null;
-  }
-  function routeBetween(s, from, target, actor = null) {
-    const reads = planningReadsFor(s);
-    if (!reads) return readRouteBetween(s, from, target, actor);
-    const routes = reads.routes ??= /* @__PURE__ */ new Map();
-    if (!routes.has(actor)) routes.set(actor, /* @__PURE__ */ new Map());
-    const origins = routes.get(actor);
-    if (!origins.has(from)) origins.set(from, /* @__PURE__ */ new Map());
-    const destinations = origins.get(from);
-    if (!destinations.has(target))
-      destinations.set(target, readRouteBetween(s, from, target, actor));
-    return destinations.get(target)?.slice();
-  }
-  function readRouteBetween(s, from, target, actor = null) {
-    const queue = [[from]], visited = /* @__PURE__ */ new Set([from]);
-    while (queue.length) {
-      const route = queue.shift();
-      if (route.at(-1) === target) return route;
-      const here = route.at(-1);
-      const projected = s.actors[actor] && s.actors[actor].place !== here ? { ...s, actors: { ...s.actors, [actor]: { ...s.actors[actor], place: here } } } : s;
-      const previous = route.at(-2) ?? (transportPlace(here) ? VOYAGE : null);
-      for (const next of exits(projected, here, actor, previous))
-        if (!visited.has(next)) {
-          visited.add(next);
-          queue.push([...route, next]);
-        }
-    }
-  }
-  function voyageAction(s, actor, dock, actions = legalActions(s, actor)) {
-    const here = s.actors[actor].place;
-    if (!transportPlace(here)) return void 0;
-    const ashore = actions.find((a) => a.kind === "move" && a.target === dock);
-    if (ashore) return ashore;
-    const lane = courseToward(s, here, dock, actor);
-    return actions.find((a) => a.kind === "course" && a.target === lane) || actions.find((a) => a.kind === "wait");
-  }
-  function toward(s, actor, target) {
-    const here = s.actors[actor].place;
-    const route = routeBetween(s, here, target, actor);
-    let actions;
-    const getActions = () => actions ??= legalActions(s, actor);
-    if (route)
-      return getActions().find((a) => a.kind === "move" && a.target === route[1]) || voyageAction(s, actor, route[1], getActions());
-    if (target === "attic" && !["attic", "pond", "station"].includes(here)) {
-      const approach2 = routeBetween(s, here, "pond", actor);
-      if (approach2?.length > 1)
-        return getActions().find((a) => a.kind === "move" && a.target === approach2[1]);
-    }
-    if (target !== "attic" && atticInterior.has(target) && !atticInterior.has(here))
-      return toward(s, actor, "attic");
-    const rescueRoutes = /* @__PURE__ */ new Map();
-    const rescueRoute = (from) => {
-      if (!rescueRoutes.has(from))
-        rescueRoutes.set(from, routeBetween(s, from, target, actor));
-      return rescueRoutes.get(from);
-    };
-    for (const [home, gate] of Object.entries(homeGates)) {
-      if (here === home || !rescueRoute(gate.rescue)) continue;
-      const approach2 = routeBetween(s, here, home, actor);
-      if (approach2?.length > 1)
-        return getActions().find((a) => a.kind === "move" && a.target === approach2[1]);
-    }
-    if (crossings.some((c) => c.from === here && !c.transport && c.requires.some((r) => r.kind === "sound" && r.at.includes(here)) && routeBetween(s, c.to, target, actor))) {
-      const sound = getActions().find((a) => a.kind === "ring" && a.item === "bell");
-      if (sound) return covered(s, "bell") ? getActions().find((a) => a.kind === "take" && a.item === "cloth") : sound;
-    }
-  }
-  function plan(s, actor = currentActor(s)) {
-    const previousReads = planReads;
-    planReads = /* @__PURE__ */ new WeakMap();
-    try {
-      return readPlan(s, actor);
-    } finally {
-      planReads = previousReads;
-    }
-  }
-  function readPlan(s, actor) {
-    const arrival = transportArrival(s, actor);
-    const landing = arrival && legalActions(s, actor).find(
-      (a) => a.kind === "move" && a.target === arrival
-    );
-    if (landing)
-      return { action: landing };
-    const selected = wantPlan(s, actor);
-    return reconsiderPlan(
-      s,
-      actor,
-      selected,
-      legalActions(s, actor).filter(
-        (a) => a.key === selected.action.key || !["trade", "give"].includes(a.kind) || !needed(s, actor, a.item) && !keepReason(s, actor, a.item)
-      )
-    );
-  }
-  function stepToward(s, actor, target) {
-    const known = s.routeKnowledge?.[actor];
-    if (!known) return { action: toward(s, actor, target) || null };
-    const here = s.actors[actor].place;
-    const open = (from, to, previous) => exits(s, from, actor, previous ?? (transportPlace(from) ? VOYAGE : null)).includes(to);
-    let path = knownRoute(s, actor, here, target, open) || knownRoute(s, actor, here, target);
-    if (!path) {
-      const frontiers = [...new Set(known.map(([, to]) => to))].filter(
-        (to) => to !== here && entityActive(s, to) && berthOpen(s, to) !== false && !known.some(([from]) => from === to)
-      );
-      if (!entityActive(s, here)) frontiers.push(...exits(s, here, actor));
-      path = frontiers.map((to) => knownRoute(s, actor, here, to)).filter(Boolean).sort((a, b) => a.length - b.length || a.at(-1).localeCompare(b.at(-1)))[0];
-      if (!path) return { action: null };
-    }
-    const actions = legalActions(s, actor);
-    const action = actions.find((a) => a.kind === "move" && a.target === path[1]) || voyageAction(s, actor, path[1], actions);
-    return {
-      action: action || null,
-      ...!action && transportPlace(path[1]) ? { callShip: true } : {}
-    };
-  }
-  function wantPlan(s, actor) {
-    const acts = legalActions(s, actor);
-    const find = (kind, test = () => true) => acts.find((a) => a.kind === kind && test(a));
-    const idle = () => ({ action: find("wait") || acts[0] });
-    const here = s.actors[actor].place;
-    if (s.peaceUntil[actor] > s.turn)
-      return idle();
-    const conflict = standoffFor(s, actor);
-    const want = wantOf2(s, actor);
-    if (conflict) {
-      const other = opponentOf(conflict, actor);
-      const answer = (action) => action ? { action } : idle();
-      if (actor === conflict.defender && !conflict.answered)
-        return answer(
-          levelOf(s, actor) > levelOf(s, other) ? find("talk", (a) => a.target === other) : find("guard")
-        );
-      if (conflict.struck[other] || conflict.struck[actor])
-        return answer(find("attack", (a) => a.target === other));
-      if (conflict.challenger === actor && conflict.item && needed(s, actor, conflict.item) && s.turn - conflict.opened >= 2)
-        return answer(
-          find("attack", (a) => a.target === other)
-        );
-      return idle();
-    }
-    if (!want) return idle();
-    if (resting(s, actor, homeOf2(actor))) return idle();
-    const go = (place) => {
-      if (!travels(actor) || staysPut(actor)) return idle();
-      const step = stepToward(s, actor, place);
-      return step.action ? { action: step.action } : { ...idle(), ...step.callShip ? { callShip: true } : {} };
-    };
-    if (want.kind === "place") return here === want.target ? idle() : go(want.target);
-    if (want.kind === "connect") {
-      const humans = connectedHumans(s);
-      const withMe = humans.filter((id) => s.actors[id].place === here);
-      if (withMe.length >= 2) {
-        const talk = find("talk", (a) => withMe.includes(a.target));
-        return talk && s.turn - s.actors[actor].lastTalk >= 1 ? { action: talk } : idle();
-      }
-      const away = humans.find((id) => s.actors[id].place !== here);
-      return away ? go(s.actors[away].place) : idle();
-    }
-    if (want.kind === "person") {
-      const there = s.actors[want.target]?.place;
-      if (there !== here) return go(there);
-      const talk = find("talk", (a) => a.target === want.target);
-      return talk && s.turn - s.actors[actor].lastTalk >= 1 ? { action: talk } : idle();
-    }
-    const item = want.target, owner2 = rootHolder(s, item);
-    if (owner2 === actor) return idle();
-    if (itemPlace2(s, item) !== here) return go(itemPlace2(s, item));
-    let top = item;
-    while (s.items[s.items[top].holder]) top = s.items[top].holder;
-    const spares = (kind) => acts.filter((a) => a.kind === kind && !needed(s, actor, a.item)).sort(
-      (x, y) => valueOf(s, actor, x.item) - valueOf(s, actor, y.item) || x.item.localeCompare(y.item)
-    );
-    if (!actorIds.includes(owner2)) {
-      const take = find("take", (a) => a.item === top) || find("take", (a) => a.item === item);
-      if (take) return { action: take };
-      const drop = spares("drop")[0];
-      return drop ? { action: drop } : idle();
-    }
-    const recent = (verb, test = () => true) => s.log.some(
-      (e) => e.kind === "action" && e.verb === verb && e.actorId === actor && e.targetId === owner2 && s.turn - e.turn <= 4 && test(e)
-    );
-    if (!hasSpace(s, actor, top)) {
-      const drop = spares("drop")[0];
-      if (drop) return { action: drop };
-    }
-    const ask = find("ask", (a) => a.item === top && a.target === owner2);
-    if (ask && !recent("ask")) return { action: ask };
-    const trades = spares("trade").filter((a) => a.receive === top);
-    const trade = trades.find((a) => expects(s, a)) || trades.find((a) => !recent("trade", (e) => e.itemId === a.item));
-    if (trade) return { action: trade };
-    const bold = travels(actor) && !avoidsStandoffs(actor) && want.refusals >= 1 && (resentment(s, actor, owner2) > 0 || want.refusals >= 2 || levelOf(s, actor) > levelOf(s, owner2));
-    const threat = bold && find("threaten", (a) => a.target === owner2);
-    if (threat) return { action: threat };
-    return idle();
-  }
-  function play(s, action, expectedRevision = s.revision, actor = currentActor(s)) {
-    if (expectedRevision !== s.revision)
-      return {
-        ok: false,
-        state: s,
-        error: "The world changed. Choose a current play."
-      };
-    const exact = legalActions(s, actor).find((a) => a.key === action?.key);
-    if (!exact)
-      return {
-        ok: false,
-        state: s,
-        error: "That play has changed. Check the cards and choose again."
-      };
-    const next = structuredClone(s);
-    if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
-    const round2 = beginRound(s, sensesFor(s));
-    next.turn += 1;
-    next.revision += 1;
-    const reflectionSource = next.actors[actor].place;
-    const wasOpen = reflectionOpen(next, reflectionSource);
-    const active = knownActors2(next);
-    const residents = [
-      .../* @__PURE__ */ new Set([
-        "moth",
-        "keeper",
-        ...active.filter((id) => id === BOARDY && !controlledByHuman(next, id)),
-        ...active.filter(
-          (id) => isPackActor(id) && !roamingQuestActor(id) && entityActive(next, id) && next.actors[id].place === next.actors[actor].place
-        )
-      ])
-    ];
-    const respondent = perform(next, exact, round2, residents);
-    if (next.opening && !next.locations.attic.anchored && exact.kind === "light" && next.actors.vale.place === "attic") {
-      next.locations.attic.anchored = true;
-    }
-    for (const id of residents) {
-      if (id === respondent || !active.includes(id) || controlledByHuman(next, id))
-        continue;
-      perform(next, plan(next, id).action, round2, residents);
-    }
-    if (next.items.lamp.lit) {
-      next.items.lamp.fuel = Math.max(0, next.items.lamp.fuel - 1);
-      if (next.items.lamp.fuel === 0) {
-        next.items.lamp.lit = false;
-        addLog(
-          next,
-          "World",
-          "The Lamp runs dry. Its flame folds into a tiny black sun.",
-          { locationId: itemPlace2(next, "lamp") }
-        );
-      }
-    }
-    refuelCarried(next);
-    const rings = next.log.filter(
-      (entry) => entry.turn === next.turn && entry.verb === "ring" && entry.itemId === "bell" && !entry.generated
-    );
-    if (!rings.length)
-      next.items.bell.ringing = Math.max(0, next.items.bell.ringing - 1);
-    endRound(
-      next,
-      round2,
-      sensesFor(next),
-      (line, locationId) => addLog(next, "World", line, { locationId })
-    );
-    const isOpen = reflectionOpen(next, reflectionSource);
-    if (wasOpen !== isOpen)
-      addLog(
-        next,
-        "World",
-        isOpen ? reflectionSource === "pond" ? "The pond's reflection opens a path to the attic." : "The attic mirror opens a path to the pond. A dark shore waits through the glass." : reflectionSource === "pond" ? "The pond's reflected path to the attic closes. The shore path to the station remains open." : "The attic mirror's path to the pond closes.",
-        { locationId: reflectionSource }
-      );
-    for (const id of roamingActors) {
-      if (controlledByHuman(next, id) || id === respondent) continue;
-      const from = next.actors[id].place;
-      rememberRoutes(next, id, visibleRouteEdges(from));
-      const chosen = plan(next, id);
-      if (chosen.callShip) callTransport(next, from, true);
-      if (chosen.action.kind !== "wait") perform(next, chosen.action, round2, [id]);
-      rememberRoutes(next, id, visibleRouteEdges(next.actors[id].place));
-      if (next.actors[id].place !== from)
-        arriveRoamingRecitals(next, packDefinitions, id);
-    }
-    for (const id of Object.keys(next.defeats || {}))
-      if (resting(next, id, homeOf2(id))) delete next.defeats[id];
-    if (exact.kind === "wait")
-      waitForTransport(next, next.actors[actor].place, actor);
-    for (const voyage of sailTransports(next)) {
-      const ship = transports[voyage.id].place;
-      addLog(
-        next,
-        "World",
-        voyage.kind === "arrive" ? `${nameOf(ship)} docks at ${nameOf(voyage.dock)}.` : `${nameOf(ship)} ${voyage.idle ? "sails on its own" : "casts off"} for ${nameOf(voyage.to)}.`,
-        { locationId: ship }
-      );
-    }
-    reviseStalledWants(
-      next,
-      wantActors(next, [...residents, ...roamingActors]).filter(
-        (id) => !controlledByHuman(next, id)
-      ),
-      wantAPI(next)
-    );
-    for (const [id, allowance] of Object.entries(
-      next.sharedMigration?.inventoryAllowances || {}
-    )) {
-      const count = Math.min(allowance, carried(next, id).length);
-      if (count <= 3) delete next.sharedMigration.inventoryAllowances[id];
-      else next.sharedMigration.inventoryAllowances[id] = count;
-    }
-    validateWorld(next);
-    return { ok: true, state: next };
-  }
   function validateWorld(s) {
     const fail = () => {
       throw new Error(
@@ -22522,32 +16907,7 @@
     return validateWorld(s);
   }
 
-  // v2/card-game/scene.mjs
-  var lampLitHere = (world, place) => shining(world) && itemPlace2(world, "lamp") === place;
-  var darkAttic = (world, id) => id === "attic" && world?.actors && !lampLitHere(world, id);
-  function backdrop(id, world = null) {
-    if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
-    const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-    const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
-    return file ? `./${file}` : `./assets/${id}.png`;
-  }
-  var visibleCrossing = (world, place) => crossings.find(
-    (c) => c.from === place && (c.scenery?.overlay || c.scenery?.backdrop) && crossingOpen(world, c, senses)
-  );
-  function locationVariant(world, id) {
-    if (darkAttic(world, id)) return "dark";
-    const crossing = visibleCrossing(world, id)?.id || "base";
-    const weather = locationWeather(world, id);
-    const variant = weather ? `${crossing}:${weather.variant}` : crossing;
-    return locationDaylight(world, id)?.phase === "night" ? `${variant}:night` : variant;
-  }
-  var locationOverlay = (world, id) => {
-    const f = visibleCrossing(world, id)?.scenery.overlay;
-    return f ? `./${f}` : null;
-  };
-  var personIds = Object.keys(people);
-  var speakerId = (entry) => entry.actorId || personIds.find((id) => nameOf(id) === entry.speaker) || null;
-  var entryKind = (entry) => entry.kind || (speakerId(entry) ? "dialogue" : entry.speaker === "You" ? "input" : "narration");
+  // v2/card-game/scene-cast.mjs
   function sceneChanges(world) {
     const here = world.actors[currentActor(world)].place;
     return world.log.filter(
@@ -22559,78 +16919,14 @@
       leaving: entry.fromLocationId === here
     }));
   }
-  function sceneCast(world, through = world.log.length - 1, recordedCast = null) {
-    const here = world.actors[currentActor(world)].place;
-    const known = recordedCast ? null : new Set(knownActors(world));
-    const present = recordedCast || personIds.filter(
-      (id) => known.has(id) && world.actors[id].place === here && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
-    );
-    const target = world.log.slice(0, through + 1).findLast(
-      (entry) => entry.turn === world.turn && entry.actorId === currentActor(world) && entry.kind === "action"
-    )?.targetId;
-    const priority = [.../* @__PURE__ */ new Set([currentActor(world), target, ...present])].filter((id) => present.includes(id) && people[id]).slice(0, world.controlledActors ? 6 : 3);
-    const slots = personIds.filter((id) => priority.includes(id));
-    while (slots.length < 2) slots.push(null);
-    return slots;
+  function speechMemories(memory, { expressions = true } = {}) {
+    const concrete = (e) => e.kind === "event" && !/completes hand|finds a new purpose:| Level \d/u.test(e.text);
+    const recent = memory.events.filter(concrete).slice(-4);
+    const lasting = (memory.landmarks || []).filter(concrete).filter((e) => !recent.some((r) => r.seq === e.seq)).slice(-2);
+    const said = expressions ? memory.events.filter((e) => e.kind === "expression").slice(-2) : [];
+    return [...lasting, ...recent, ...said].sort((a, b) => a.seq - b.seq).map(({ seq, turn, kind, text: text2 }) => ({ seq, turn, kind, text: text2 }));
   }
-  function exchangeCast(world, line) {
-    return [
-      ...new Set(
-        world.log.filter(
-          (e) => e.generated && e.turn === line.turn && e.locationId === line.locationId
-        ).flatMap((e) => e.cast || [])
-      )
-    ];
-  }
-  function sceneLines(world) {
-    const here = world.actors[currentActor(world)].place;
-    return world.log.map((entry, index) => ({ ...entry, index })).filter(
-      (e) => e.generated === true && (!e.locationId || e.locationId === here)
-    );
-  }
-  function visitStart(world, through = world.log.length - 1) {
-    const here = world.actors[currentActor(world)].place;
-    return Math.max(
-      0,
-      world.log.findLastIndex(
-        (entry, index) => index <= through && !entry.generated && entry.actorId === currentActor(world) && entry.fromLocationId && entry.fromLocationId !== here && entry.locationId === here
-      )
-    );
-  }
-  function currentScene(world, lineIndex = null, { hold = false, seq = null, review = false } = {}) {
-    const lines = sceneLines(world);
-    const chosen = lines.find(
-      (e) => seq === null ? e.index === lineIndex : e.seq === seq
-    );
-    const start = visitStart(world, chosen?.index);
-    const line = chosen || !hold && lines.findLast((e) => e.index >= start) || null;
-    const previous = line ? lines.findLast((e) => e.index < line.index && e.index >= start) || null : null;
-    return {
-      locationId: world.actors[currentActor(world)].place,
-      background: backdrop(world.actors[currentActor(world)].place, world),
-      variant: locationVariant(world, world.actors[currentActor(world)].place),
-      overlay: locationOverlay(world, world.actors[currentActor(world)].place),
-      weather: locationWeather(world, world.actors[currentActor(world)].place),
-      daylight: locationDaylight(world, world.actors[currentActor(world)].place),
-      visitStart: start,
-      slots: sceneCast(
-        world,
-        line?.index,
-        review || lineIndex === null && seq === null || !line ? null : exchangeCast(world, line)
-      ),
-      activeSpeaker: line && entryKind(line) === "dialogue" ? speakerId(line) : null,
-      line,
-      previous,
-      lines
-    };
-  }
-
-  // v2/card-game/narrative.mjs
-  function refusalFact(played) {
-    const asked = played.verb === "ask" ? `request for ${nameOf(played.itemId)}` : played.verb === "accompany" ? `invitation to ${nameOf(played.destinationId)}` : `offer of ${nameOf(played.itemId)}`;
-    return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed. Say why in your own words.`;
-  }
-  function defeatArrival(world, location) {
+  function defeatedBy(world, location) {
     const actor = currentActor(world);
     const moved = world.log.findLast(
       (e) => e.turn === world.turn && !e.generated && e.actorId === actor && e.locationId === location && e.fromLocationId && e.fromLocationId !== location && (["retreat", "sent-home"].includes(e.verb) || !e.verb && /after yielding to/u.test(e.text || ""))
@@ -22638,14 +16934,216 @@
     const blow = moved && world.log.findLast(
       (e) => e.turn === world.turn && e.verb === "attack" && e.targetId === actor && e.seq < moved.seq
     );
-    return blow ? `${nameOf(actor)} was beaten by ${nameOf(blow.actorId)} and came to at ${nameOf(location)}. Say one line.` : null;
+    return blow ? blow.actorId : null;
   }
-  function speechMemories(memory, { expressions = true } = {}) {
-    const concrete = (e) => e.kind === "event" && !/completes hand|finds a new purpose:| Level \d/u.test(e.text);
-    const recent = memory.events.filter(concrete).slice(-4);
-    const lasting = (memory.landmarks || []).filter(concrete).filter((e) => !recent.some((r) => r.seq === e.seq)).slice(-2);
-    const said = expressions ? memory.events.filter((e) => e.kind === "expression").slice(-2) : [];
-    return [...lasting, ...recent, ...said].sort((a, b) => a.seq - b.seq).map(({ seq, turn, kind, text: text2 }) => ({ seq, turn, kind, text: text2 }));
+  function waitedThisTurn(world) {
+    const actor = currentActor(world);
+    for (let i = world.log.length - 1; i >= 0; i--) {
+      const entry = world.log[i];
+      if (entry.turn !== world.turn) return false;
+      if (entry.verb === "wait" && entry.actorId === actor) return true;
+    }
+    return false;
+  }
+  function dialogueCast(world, action = null) {
+    const location = world.actors[currentActor(world)].place;
+    const beforeFirstLight = Boolean(
+      world.opening?.version === 1 && !world.locations.attic.anchored
+    );
+    const known = knownActors(world);
+    const present = Object.keys(world.actors).filter(
+      (id) => known.includes(id) && entityActive(world, id) && world.actors[id].place === location && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
+    );
+    const localItems = Object.keys(world.items).filter(
+      (id) => entityActive(world, id) && itemPlace2(world, id) === location
+    );
+    const changes = sceneChanges(world);
+    const departing = changes.filter((change) => change.leaving).map((change) => change.actorId);
+    const awake = (id) => !hasTemperament(id) || world.actors[id].awake;
+    const introductions = present.filter(
+      (id) => id !== currentActor(world) && awake(id) && world.opening?.met[id] === world.turn
+    );
+    const audience = [.../* @__PURE__ */ new Set([...present, ...departing])];
+    const focus = localItems.includes(action?.item) ? action.item : null;
+    const played = world.log.findLast(
+      (entry) => entry.turn === world.turn && entry.kind === "action" && entry.actorId === currentActor(world)
+    );
+    const target = action?.target || played?.targetId;
+    const directPartner = audience.includes(target) && target !== currentActor(world) && awake(target);
+    const partner = directPartner ? target : introductions[0] || departing[0] || present.find((id) => id !== currentActor(world) && awake(id));
+    const movers = changes.map((change) => change.actorId);
+    const chosen = new Set(
+      [currentActor(world), partner, ...introductions, ...movers].filter(
+        (id) => id && awake(id)
+      )
+    );
+    const defeat = defeatedBy(world, location);
+    const host = defeat && present.find((id) => id !== currentActor(world) && awake(id));
+    const speakers = defeat ? [host || currentActor(world)] : [
+      currentActor(world),
+      ...[...chosen].filter(
+        (id) => id !== currentActor(world) && !movers.includes(id)
+      ),
+      ...movers.filter((id) => id !== currentActor(world) && chosen.has(id))
+    ].slice(0, 3);
+    const ids3 = [
+      .../* @__PURE__ */ new Set([
+        location,
+        ...speakers,
+        focus,
+        target,
+        ...audience,
+        ...localItems
+      ])
+    ].filter(
+      (id) => id && (id === location || audience.includes(id) || localItems.includes(id))
+    ).slice(0, 8);
+    const resting2 = speakers[0] === currentActor(world) && (played ? played.verb === "wait" : waitedThisTurn(world)) ? currentActor(world) : null;
+    return {
+      location,
+      beforeFirstLight,
+      known,
+      present,
+      localItems,
+      changes,
+      audience,
+      focus,
+      played,
+      target,
+      defeat,
+      speakers,
+      ids: ids3,
+      resting: resting2
+    };
+  }
+
+  // v2/card-game/shared-world.mjs
+  function ids2(value, fallback = []) {
+    const result = value === void 0 ? fallback : value;
+    if (!Array.isArray(result) || result.length > 8 || new Set(result).size !== result.length || result.some((id) => !humanAvatar(id)))
+      throw new Error("Choose valid human avatars.");
+    return [...result];
+  }
+  function contextual(world, request) {
+    const actor = request.actor || "vale";
+    if (!humanAvatar(actor)) throw new Error("Choose a human avatar.");
+    const claimed = ids2(request.claimed, world.controlledActors || ["vale"]);
+    const present = ids2(request.present, world.presentActors || claimed);
+    if (present.some((id) => !claimed.includes(id)))
+      throw new Error("A present avatar needs a claim.");
+    world.playerActorId = actor;
+    world.controlledActors = claimed;
+    world.presentActors = present;
+    return world;
+  }
+  function load(request) {
+    if (!request.world || typeof request.world !== "object")
+      throw new Error("Load a saved world first.");
+    const world = contextual(structuredClone(request.world), request);
+    const loaded = decodeSave(JSON.stringify(world));
+    return loaded;
+  }
+
+  // v2/card-game/daylight.mjs
+  var isNight = (world) => Math.floor((world?.turn ?? 0) / DAYLIGHT_TURNS) % 2 === 1;
+  var darkMist = (world) => isNight(world) && locationWeather(world, "greek-ship")?.condition === "mist";
+  var willowsMist = (world) => {
+    const ship = world?.transports?.["greek-ship"];
+    return darkMist(world) && (ship?.phase === "sea" || ship?.dock === "pond");
+  };
+  var art = (file) => `assets/greek-drama/${file}.webp`;
+  var willows = (file) => `assets/willows/${file}.webp`;
+  var darkMistBackdrops = {
+    "willows-landing": willows("landing-ship-night")
+  };
+  var nightBackdrops = {
+    "willows-camp": willows("camp-lit-night"),
+    "greek-harbor": art("harbor-open-berth-night"),
+    "greek-courtyard": art("courtyard-night"),
+    "greek-well": art("market-well-night"),
+    "greek-palace": art("palace-night"),
+    "greek-gate": art("city-gate-night"),
+    "greek-battlefield": art("burial-ground-night"),
+    "greek-sanctuary": art("sanctuary-night"),
+    "greek-road-thebes": art("theban-harbor-road-night"),
+    "greek-athens-harbor": art("athens-harbor-open-berth-night"),
+    "greek-piraeus": art("piraeus-open-berth-night"),
+    "greek-athens": art("athens-grand-agora-night"),
+    "greek-colonus": art("open-door-colonus-night"),
+    "greek-eleusis": art("open-door-eleusis-night"),
+    "greek-marathon": art("open-door-marathon-night"),
+    "greek-ship": art("ship-deck-night"),
+    "greek-road-athens-harbor": art("attic-road-night"),
+    "greek-road-athens-piraeus": art("attic-road-night"),
+    "greek-road-athens-colonus": art("attic-road-night"),
+    "greek-road-athens-eleusis": art("attic-road-night"),
+    "greek-road-athens-marathon": art("attic-road-night"),
+    "greek-road-piraeus-eleusis": art("attic-road-night"),
+    "greek-road-colonus-eleusis": art("attic-road-night"),
+    "greek-road-colonus-marathon": art("attic-road-night"),
+    "greek-aulis": art("aulis-anchorage-night"),
+    "greek-troy": art("trojan-walls-night"),
+    "greek-trojan-camp": art("trojan-night-camp-night"),
+    "greek-lemnos": art("lemnian-cave-night"),
+    "greek-thrace": art("thracian-shore-night"),
+    "greek-troy-beach": art("homecoming-beach-night"),
+    "greek-greek-camp": art("ajax-camp-night"),
+    "greek-ajax-landing": art("ajax-camp-night"),
+    "greek-ajax-household": art("ajax-camp-night"),
+    "greek-ajax-grave": art("ajax-camp-night")
+  };
+  var dockedNightBackdrops = {
+    [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
+    [art("athens-harbor")]: art("athens-harbor-ship-at-berth-night"),
+    [art("open-door-piraeus")]: art("piraeus-ship-at-berth-night")
+  };
+  var placeDescriptions = {
+    "greek-athens-harbor": "at Athens Harbor",
+    "greek-piraeus": "at Piraeus Quays",
+    "greek-athens": "in the Athenian Agora",
+    "greek-colonus": "in Colonus Grove",
+    "greek-eleusis": "at the Eleusinian Sanctuary",
+    "greek-marathon": "at Marathon Altar",
+    "greek-aulis": "at Aulis Anchorage",
+    "greek-troy": "by the Trojan walls",
+    "greek-trojan-camp": "at the Trojan camp",
+    "greek-lemnos": "at the Lemnian Cave",
+    "greek-thrace": "on the Thracian shore",
+    "greek-troy-beach": "on the Homecoming Beach",
+    "greek-ship": "aboard the Greek ship",
+    "willows-landing": "on the Danube island",
+    "willows-camp": "on the Danube island"
+  };
+  var daylightAssets = [
+    .../* @__PURE__ */ new Set([
+      ...Object.values(darkMistBackdrops),
+      ...Object.values(nightBackdrops),
+      ...Object.values(dockedNightBackdrops)
+    ])
+  ];
+  function locationDaylight(world, id) {
+    if (!world || !(Object.hasOwn(nightBackdrops, id) || Object.hasOwn(darkMistBackdrops, id)))
+      return null;
+    const period = Math.floor(world.turn / DAYLIGHT_TURNS);
+    const phase = isNight(world) ? "night" : "day";
+    const where = placeDescriptions[id] || (id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : id.startsWith("greek-road-") && id !== "greek-road-thebes" ? "on the Attic roads" : "in Thebes");
+    return {
+      phase,
+      period,
+      description: `It is ${phase} ${where}.`
+    };
+  }
+  function daylightBackdrop(world, id, file) {
+    if (Object.hasOwn(darkMistBackdrops, id))
+      return willowsMist(world) ? darkMistBackdrops[id] : file;
+    if (locationDaylight(world, id)?.phase !== "night") return file;
+    return dockedNightBackdrops[file] || nightBackdrops[id];
+  }
+
+  // v2/card-game/narrative.mjs
+  function refusalFact(played) {
+    const asked = played.verb === "ask" ? `request for ${nameOf(played.itemId)}` : played.verb === "accompany" ? `invitation to ${nameOf(played.destinationId)}` : `offer of ${nameOf(played.itemId)}`;
+    return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed. Say why in your own words.`;
   }
   function turnOutcome(world) {
     const events = world.log.filter(
@@ -22654,7 +17152,7 @@
     const played = events.findLast(
       (entry) => entry.kind === "action" && entry.actorId === currentActor(world)
     );
-    const wantMet2 = played && events.find(
+    const wantMet = played && events.find(
       (entry) => entry.verb === "want_met" && entry.actorId === played.actorId
     )?.wantMet;
     const here = world.actors[currentActor(world)].place;
@@ -22689,7 +17187,7 @@
         receive: played?.receiveId || null,
         destination: played?.destinationId || null,
         accepted: played?.accepted ?? null,
-        ...wantMet2 ? { wantMet: structuredClone(wantMet2) } : {}
+        ...wantMet ? { wantMet: structuredClone(wantMet) } : {}
       },
       avatars: actorIds2.map((id) => {
         const actor = world.actors[id];
@@ -22727,68 +17225,23 @@
     const offset = (seed ^ seed >>> 16) & 1;
     return turn % 4 === offset;
   }
-  function waitedThisTurn(world) {
-    const actor = currentActor(world);
-    for (let i = world.log.length - 1; i >= 0; i--) {
-      const entry = world.log[i];
-      if (entry.turn !== world.turn) return false;
-      if (entry.verb === "wait" && entry.actorId === actor) return true;
-    }
-    return false;
-  }
   function narrativeContext(world, action = null) {
-    const location = world.actors[currentActor(world)].place;
-    const beforeFirstLight = Boolean(
-      world.opening?.version === 1 && !world.locations.attic.anchored
-    );
-    const known = knownActors(world);
-    const present = Object.keys(world.actors).filter(
-      (id) => known.includes(id) && entityActive(world, id) && world.actors[id].place === location && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
-    );
-    const localItems = Object.keys(world.items).filter(
-      (id) => entityActive(world, id) && itemPlace2(world, id) === location
-    );
-    const changes = sceneChanges(world);
-    const departing = changes.filter((change) => change.leaving).map((change) => change.actorId);
-    const awake = (id) => !hasTemperament(id) || world.actors[id].awake;
-    const introductions = present.filter(
-      (id) => id !== currentActor(world) && awake(id) && world.opening?.met[id] === world.turn
-    );
-    const audience = [.../* @__PURE__ */ new Set([...present, ...departing])];
-    const focus = localItems.includes(action?.item) ? action.item : null;
-    const played = world.log.findLast(
-      (entry) => entry.turn === world.turn && entry.kind === "action" && entry.actorId === currentActor(world)
-    );
-    const target = action?.target || played?.targetId;
-    const directPartner = audience.includes(target) && target !== currentActor(world) && awake(target);
-    const partner = directPartner ? target : introductions[0] || departing[0] || present.find((id) => id !== currentActor(world) && awake(id));
-    const movers = changes.map((change) => change.actorId);
-    const chosen = new Set(
-      [currentActor(world), partner, ...introductions, ...movers].filter(
-        (id) => id && awake(id)
-      )
-    );
-    const defeated = defeatArrival(world, location);
-    const host = defeated && present.find((id) => id !== currentActor(world) && awake(id));
-    const speakers = defeated ? [host || currentActor(world)] : [
-      currentActor(world),
-      ...[...chosen].filter(
-        (id) => id !== currentActor(world) && !movers.includes(id)
-      ),
-      ...movers.filter((id) => id !== currentActor(world) && chosen.has(id))
-    ].slice(0, 3);
-    const ids3 = [
-      .../* @__PURE__ */ new Set([
-        location,
-        ...speakers,
-        focus,
-        target,
-        ...audience,
-        ...localItems
-      ])
-    ].filter(
-      (id) => id && (id === location || audience.includes(id) || localItems.includes(id))
-    ).slice(0, 8);
+    const cast = dialogueCast(world, action);
+    const {
+      location,
+      beforeFirstLight,
+      known,
+      present,
+      localItems,
+      changes,
+      focus,
+      played,
+      target,
+      speakers,
+      ids: ids3,
+      resting: resting2
+    } = cast;
+    const defeated = cast.defeat && `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}. Say one line.`;
     const disclosures = knowledgeDisclosures(
       world,
       speakers,
@@ -22807,11 +17260,11 @@
     const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
     const conversation = beforeFirstLight ? [] : world.log.filter(
       (entry) => entry.generated && entry.kind === "dialogue" && profiles[entry.actorId]?.kind === "avatar" && entry.locationId === location && entry.turn < world.turn
-    ).slice(-4).map(({ actorId, text: text2, cast, witnesses }) => ({
+    ).slice(-4).map(({ actorId, text: text2, cast: cast2, witnesses }) => ({
       actorId,
       text: text2,
       witnesses: [
-        .../* @__PURE__ */ new Set([actorId, ...witnesses || [], ...cast || []])
+        .../* @__PURE__ */ new Set([actorId, ...witnesses || [], ...cast2 || []])
       ]
     }));
     return {
@@ -22822,8 +17275,7 @@
       scenery: sceneryDue(world.turn),
       focus,
       speakers,
-      // Only the avatar who chose to wait turns inward this turn.
-      resting: speakers[0] === currentActor(world) && (played ? played.verb === "wait" : waitedThisTurn(world)) ? currentActor(world) : null,
+      resting: resting2,
       ...disclosures.length ? { disclosures } : {},
       action: played?.text || (world.turn ? `${nameOf(currentActor(world))} waits and watches the cast.` : null),
       events,
@@ -22974,381 +17426,106 @@
       })
     };
   }
-  var THOUGHT_GAP = 6;
-  var DREAM_GAP = 24;
-  var THOUGHTS_PER_DREAM = 2;
-  function reflectionDue(context, id, life) {
-    const thoughts = life?.thoughts || [];
-    const dreams = life?.dreams || [];
-    const last = thoughts.at(-1)?.turn;
-    const changed = context.entities.find((e) => e.id === id)?.memories.some(
-      (m) => m.kind === "event" && (last === void 0 || m.turn > last)
+
+  // v2/card-game/scene.mjs
+  var lampLitHere = (world, place) => shining(world) && itemPlace2(world, "lamp") === place;
+  var darkAttic = (world, id) => id === "attic" && world?.actors && !lampLitHere(world, id);
+  function backdrop(id, world = null) {
+    if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
+    const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
+    const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
+    return file ? `./${file}` : `./assets/${id}.png`;
+  }
+  var visibleCrossing = (world, place) => crossings.find(
+    (c) => c.from === place && (c.scenery?.overlay || c.scenery?.backdrop) && crossingOpen(world, c, senses)
+  );
+  function locationVariant(world, id) {
+    if (darkAttic(world, id)) return "dark";
+    const crossing = visibleCrossing(world, id)?.id || "base";
+    const weather = locationWeather(world, id);
+    const variant = weather ? `${crossing}:${weather.variant}` : crossing;
+    return locationDaylight(world, id)?.phase === "night" ? `${variant}:night` : variant;
+  }
+  var locationOverlay = (world, id) => {
+    const f = visibleCrossing(world, id)?.scenery.overlay;
+    return f ? `./${f}` : null;
+  };
+  var personIds = Object.keys(people);
+  var speakerId = (entry) => entry.actorId || personIds.find((id) => nameOf(id) === entry.speaker) || null;
+  var entryKind = (entry) => entry.kind || (speakerId(entry) ? "dialogue" : entry.speaker === "You" ? "input" : "narration");
+  function sceneCast(world, through = world.log.length - 1, recordedCast = null) {
+    const here = world.actors[currentActor(world)].place;
+    const known = recordedCast ? null : new Set(knownActors(world));
+    const present = recordedCast || personIds.filter(
+      (id) => known.has(id) && world.actors[id].place === here && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
     );
-    const thought = Boolean(
-      context.resting === id && context.turn > 0 && changed && (last === void 0 || context.turn >= last + THOUGHT_GAP)
+    const target = world.log.slice(0, through + 1).findLast(
+      (entry) => entry.turn === world.turn && entry.actorId === currentActor(world) && entry.kind === "action"
+    )?.targetId;
+    const priority = [.../* @__PURE__ */ new Set([currentActor(world), target, ...present])].filter((id) => present.includes(id) && people[id]).slice(0, world.controlledActors ? 6 : 3);
+    const slots = personIds.filter((id) => priority.includes(id));
+    while (slots.length < 2) slots.push(null);
+    return slots;
+  }
+  function exchangeCast(world, line) {
+    return [
+      ...new Set(
+        world.log.filter(
+          (e) => e.generated && e.turn === line.turn && e.locationId === line.locationId
+        ).flatMap((e) => e.cast || [])
+      )
+    ];
+  }
+  function sceneLines(world) {
+    const here = world.actors[currentActor(world)].place;
+    return world.log.map((entry, index) => ({ ...entry, index })).filter(
+      (e) => e.generated === true && (!e.locationId || e.locationId === here)
     );
-    const dreamt = dreams.at(-1)?.turn;
-    const settled = thoughts.filter(
-      (m) => dreamt === void 0 || m.turn > dreamt
-    ).length;
+  }
+  function visitStart(world, through = world.log.length - 1) {
+    const here = world.actors[currentActor(world)].place;
+    return Math.max(
+      0,
+      world.log.findLastIndex(
+        (entry, index) => index <= through && !entry.generated && entry.actorId === currentActor(world) && entry.fromLocationId && entry.fromLocationId !== here && entry.locationId === here
+      )
+    );
+  }
+  function currentScene(world, lineIndex = null, { hold = false, seq = null, review = false } = {}) {
+    const lines = sceneLines(world);
+    const chosen = lines.find(
+      (e) => seq === null ? e.index === lineIndex : e.seq === seq
+    );
+    const start = visitStart(world, chosen?.index);
+    const line = chosen || !hold && lines.findLast((e) => e.index >= start) || null;
+    const previous = line ? lines.findLast((e) => e.index < line.index && e.index >= start) || null : null;
     return {
-      thought,
-      dream: thought && settled >= THOUGHTS_PER_DREAM && (dreamt === void 0 || context.turn >= dreamt + DREAM_GAP)
+      locationId: world.actors[currentActor(world)].place,
+      background: backdrop(world.actors[currentActor(world)].place, world),
+      variant: locationVariant(world, world.actors[currentActor(world)].place),
+      overlay: locationOverlay(world, world.actors[currentActor(world)].place),
+      weather: locationWeather(world, world.actors[currentActor(world)].place),
+      daylight: locationDaylight(world, world.actors[currentActor(world)].place),
+      visitStart: start,
+      slots: sceneCast(
+        world,
+        line?.index,
+        review || lineIndex === null && seq === null || !line ? null : exchangeCast(world, line)
+      ),
+      activeSpeaker: line && entryKind(line) === "dialogue" ? speakerId(line) : null,
+      line,
+      previous,
+      lines
     };
-  }
-  function validReflection(entry, world, context) {
-    if (entry.reflection === void 0 || entry.reflection === null) return true;
-    if (profiles[entry.id]?.kind !== "avatar") return false;
-    const previous = world.memories[entry.id].innerLife || {
-      persona: null,
-      thoughts: [],
-      dreams: []
-    };
-    const due = reflectionDue(context, entry.id, previous);
-    if (!due.thought) return false;
-    const r = entry.reflection;
-    if (!r || Object.keys(r).some(
-      (key) => !["thought", "persona", "dream", "models", "evidence"].includes(key)
-    ))
-      return false;
-    if (r.dream !== void 0 && !due.dream) return false;
-    const sources = reflectionSources(world, context, entry.id);
-    if (r.evidence !== void 0 && (!Array.isArray(r.evidence) || r.evidence.join() !== sources.map((e) => e.seq).join()))
-      return false;
-    if (r.models !== void 0 && (!r.models || typeof r.models !== "object" || Array.isArray(r.models) || !["thought", "persona"].every(
-      (k) => typeof r.models[k] === "string" && r.models[k].trim() && r.models[k].length <= 160
-    ) || Object.entries(r.models).some(
-      ([k, v]) => !["thought", "persona", "dream"].includes(k) || typeof v !== "string" || !v.trim() || v.length > 160
-    )))
-      return false;
-    return validInnerLife(
-      {
-        persona: r.persona,
-        thoughts: [{ turn: world.turn, text: r.thought }],
-        dreams: r.dream === void 0 ? [] : [{ turn: world.turn, text: r.dream }]
-      },
-      world.turn
-    );
-  }
-  function reflectionSources(world, context, id) {
-    const selected = context.entities.find((e) => e.id === id)?.memories || [];
-    return selected.filter((e) => e.kind === "event").map((e) => {
-      const saved = [
-        ...world.memories[id].events,
-        ...world.memories[id].landmarks || []
-      ].find(
-        (m) => e.seq ? m.seq === e.seq : m.turn === e.turn && m.text === e.text
-      );
-      return saved && { seq: saved.seq, turn: saved.turn, text: saved.text };
-    }).filter(Boolean).sort((a, b) => a.seq - b.seq);
-  }
-  function saveReflection(world, context, entry, fallbackModel) {
-    const memory = world.memories[entry.id];
-    const previous = memory.innerLife || {
-      persona: null,
-      thoughts: [],
-      dreams: []
-    };
-    const r = entry.reflection;
-    memory.reflections = [
-      ...memory.reflections || [],
-      {
-        turn: world.turn,
-        previousPersona: previous.persona,
-        persona: r.persona,
-        thought: r.thought,
-        dream: r.dream || null,
-        sources: reflectionSources(world, context, entry.id),
-        models: r.models || {
-          thought: fallbackModel,
-          persona: fallbackModel,
-          ...r.dream ? { dream: fallbackModel } : {}
-        }
-      }
-    ].slice(-4);
-    memory.innerLife = {
-      persona: r.persona,
-      thoughts: [
-        ...previous.thoughts,
-        { turn: world.turn, text: r.thought }
-      ].slice(-4),
-      dreams: r.dream ? [...previous.dreams, { turn: world.turn, text: r.dream }].slice(-4) : previous.dreams
-    };
-  }
-  function applySharedReflections(world, entries) {
-    const context = narrativeContext(world);
-    for (const entry of entries || [])
-      if (world.actors[entry.id] && !context.entities.some((e) => e.id === entry.id))
-        context.entities.push({
-          id: entry.id,
-          memories: speechMemories(world.memories[entry.id])
-        });
-    if (!Array.isArray(entries) || entries.length > 2 || new Set(entries.map((e) => e.id)).size !== entries.length)
-      throw new Error("Use the saved scene's character reflections.");
-    for (const entry of entries) {
-      if (!context.entities.some((e) => e.id === entry.id) || !validReflection(entry, world, context))
-        throw new Error("Use a reflection grounded in the saved scene.");
-    }
-    for (const entry of entries)
-      if (entry.reflection)
-        saveReflection(world, context, entry, entry.model || "card-voices-v1");
   }
 
-  // v2/card-game/shared-world.mjs
-  function ids2(value, fallback = []) {
-    const result = value === void 0 ? fallback : value;
-    if (!Array.isArray(result) || result.length > 8 || new Set(result).size !== result.length || result.some((id) => !humanAvatar(id)))
-      throw new Error("Choose valid human avatars.");
-    return [...result];
-  }
-  function contextual(world, request) {
-    const actor = request.actor || "vale";
-    if (!humanAvatar(actor)) throw new Error("Choose a human avatar.");
-    const claimed = ids2(request.claimed, world.controlledActors || ["vale"]);
-    const present = ids2(request.present, world.presentActors || claimed);
-    if (present.some((id) => !claimed.includes(id)))
-      throw new Error("A present avatar needs a claim.");
-    world.playerActorId = actor;
-    world.controlledActors = claimed;
-    world.presentActors = present;
-    return world;
-  }
-  function stored(world) {
-    const result = structuredClone(world);
-    delete result.playerActorId;
-    delete result.controlledActors;
-    delete result.presentActors;
-    return result;
-  }
-  function load(request) {
-    if (!request.world || typeof request.world !== "object")
-      throw new Error("Load a saved world first.");
-    const world = contextual(structuredClone(request.world), request);
-    const loaded = decodeSave(JSON.stringify(world));
-    return loaded;
-  }
-  function response(world, extra = {}) {
-    return { ok: true, world: stored(world), ...extra };
-  }
-  function enableShared(world) {
-    world.sharedVersion = 1;
-    return world;
-  }
-  function settleHomeItems(world, claimed = []) {
-    for (const avatar of humanAvatars.filter((a) => a.id !== "vale")) {
-      const item = world.items[avatar.item.id];
-      if (!claimed.includes(avatar.id) && world.actors[avatar.id].place === avatar.home.id && item.holder === avatar.id && item.history.length === 0)
-        item.holder = avatar.home.id;
-    }
-  }
-  function view(world, actor) {
-    return {
-      actor,
-      room: world.actors[actor].place,
-      actions: legalActions(world, actor),
-      exits: exits(world, world.actors[actor].place, actor),
-      scene: currentScene(world),
-      profiles
-    };
-  }
-  function importClientSave(save) {
-    const raw = typeof save === "string" ? JSON.parse(save) : structuredClone(save);
-    if (!raw || typeof raw !== "object" || Array.isArray(raw))
-      throw new Error("Choose a saved world.");
-    for (const key of [
-      "sharedMigration",
-      "playerActorId",
-      "controlledActors",
-      "presentActors",
-      "claimed",
-      "present"
-    ])
-      delete raw[key];
-    return decodeSave(JSON.stringify(raw));
-  }
-  function dispatchShared(request) {
-    if (!request || typeof request !== "object")
-      throw new Error("Choose a world operation.");
-    if (request.op === "create") {
-      const world2 = request.save == null ? enableMotives(createWorld({ opening: true })) : importClientSave(request.save);
-      if (!world2.sharedVersion) settleHomeItems(world2);
-      enableShared(world2);
-      delete world2.playerActorId;
-      delete world2.controlledActors;
-      delete world2.presentActors;
-      contextual(world2, {
-        ...request,
-        actor: request.actor || "vale",
-        claimed: ["vale"],
-        present: ["vale"]
-      });
-      validateWorld(world2);
-      return response(world2, view(world2, request.actor || "vale"));
-    }
-    if (request.op === "migrate") return migrate(request);
+  // v2/card-game/shared-narrator.mjs
+  function sharedScene(request) {
     const world = load(request);
-    const actor = request.actor || "vale";
-    if (request.op === "upgrade") {
-      if (request.from === "full-card-world/2")
-        settleHomeItems(world, world.controlledActors);
-      world.revision += 1;
-      validateWorld(world);
-      return response(world);
-    }
-    if (request.op === "validate") return response(world);
-    if (request.op === "join") {
-      if (!world.controlledActors.includes(actor))
-        world.controlledActors.push(actor);
-      enableShared(world);
-      validateWorld(world);
-      return response(world, view(world, actor));
-    }
-    if (request.op === "view")
-      return {
-        ...response(world, view(world, actor)),
-        world: privateView(world, actor)
-      };
-    if (request.op === "context")
-      return response(world, {
-        context: narrativeContext(world, request.action || null)
-      });
-    if (request.op === "play") {
-      if (!world.controlledActors.includes(actor) || !world.presentActors.includes(actor))
-        return {
-          ok: false,
-          world: stored(world),
-          error: "Enter this world with your avatar first."
-        };
-      const candidates = request.selectedIds ? matchingActions(world, request.selectedIds, actor) : [];
-      const action = typeof request.action === "string" ? { key: request.action } : request.action || (candidates.length === 1 ? candidates[0] : null);
-      const before = world.eventSeq;
-      const result = play(
-        world,
-        action,
-        request.revision ?? world.revision,
-        actor
-      );
-      if (!result.ok)
-        return { ok: false, world: stored(world), error: result.error };
-      return response(result.state, {
-        events: result.state.log.filter((entry) => entry.seq > before),
-        context: narrativeContext(result.state, action),
-        ...view(result.state, actor)
-      });
-    }
-    if (request.op === "speech") {
-      if (!Array.isArray(request.lines) || ![1, 2].includes(request.lines.length))
-        throw new Error("An exchange needs one or two lines.");
-      const room = request.room || world.actors[actor].place;
-      if (!places[room]) throw new Error("Choose a real room.");
-      if ((request.entries || []).some(
-        (e) => !request.lines.some((l) => (l.actorId || l.entityId) === e.id)
-      ))
-        throw new Error("Keep each reflection with its saved speaker.");
-      applySharedReflections(world, request.entries || []);
-      const lines = [];
-      for (const line of request.lines) {
-        const scenic = line.actorId == null && line.entityId === room;
-        const speaker = scenic ? null : line.actorId || (people[line.entityId] ? line.entityId : null) || Object.keys(people).find((id) => people[id].name === line.speaker) || (people[line.speaker] ? line.speaker : null);
-        if (request.lines.length === 1 && speaker !== actor || !scenic && (!speaker || world.actors[speaker].place !== room || humanAvatar(speaker) && !world.presentActors.includes(speaker) && !(speaker === actor && world.controlledActors.includes(speaker))) || typeof line.text !== "string" || !line.text.trim() || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text) || !validExpression(profiles[speaker], line.text))
-          throw new Error(
-            "Each line needs a present speaker or the room, and clear text."
-          );
-        addLog(world, scenic ? nameOf(room) : nameOf(speaker), line.text.trim(), {
-          generated: true,
-          kind: scenic ? "narration" : expressionKind(profiles[speaker]),
-          actorId: speaker,
-          entityId: scenic ? room : speaker,
-          locationId: room
-        });
-        lines.push(world.log.at(-1));
-        publishKnowledgeSpeech(world, lines.at(-1), request.disclosures || []);
-      }
-      world.revision += 1;
-      validateWorld(world);
-      return response(world, { lines });
-    }
-    throw new Error("Choose a supported world operation.");
-  }
-  function migrate(request) {
-    const legacy = request.legacy;
-    if (!legacy || legacy.version !== 1 || !["claimed", "present", "places", "holders", "uses"].every(
-      (key) => Array.isArray(legacy[key]) && legacy[key].length === 8
-    ))
-      throw new Error("This older shared world has an invalid save.");
-    const world = enableShared(
-      enableMotives(createWorld())
-    );
-    const rooms = ["pond", ...humanAvatars.map((a) => a.home.id)];
-    for (const [index, avatar] of humanAvatars.entries()) {
-      const p = legacy.places[index], holder2 = legacy.holders[index];
-      if (!Number.isInteger(p) || p < 0 || p >= rooms.length || !Number.isInteger(holder2) || holder2 < -1 || holder2 > 16)
-        throw new Error("This older shared world has an invalid location.");
-      world.actors[avatar.id].place = rooms[p];
-      if (holder2 >= 0)
-        world.items[avatar.item.id].holder = holder2 < 8 ? humanAvatars[holder2].id : rooms[holder2 - 8];
-    }
-    world.sharedMigration = {
-      version: 1,
-      legacyTurn: legacy.turn || 0,
-      uses: [...legacy.uses]
+    return {
+      context: narrativeContext(world, request.action || null),
+      ...request.scene ? { scene: currentScene(world) } : {}
     };
-    world.sharedMigration.inventoryAllowances = Object.fromEntries(
-      humanAvatarIds.map((id) => [id, carried(world, id).length]).filter(([, count]) => count > 3)
-    );
-    world.items.lamp.lit = legacy.uses[0] % 2 === 1;
-    if (world.items.lamp.lit)
-      world.items.lamp.fuel = Math.max(1, world.items.lamp.fuel);
-    const claimed = humanAvatarIds.filter((id, i) => legacy.claimed[i]);
-    const present = humanAvatarIds.filter(
-      (id, i) => legacy.present[i] && legacy.claimed[i]
-    );
-    contextual(world, { ...request, claimed, present });
-    const legacyScenes = migrateScenes(world, request.legacyScenes || [], rooms);
-    validateWorld(world);
-    return response(world, { legacyScenes });
-  }
-  function migrateScenes(world, scenes, rooms) {
-    if (!Array.isArray(scenes) || scenes.length > 80)
-      throw new Error("Choose up to eighty saved exchanges.");
-    return scenes.map((scene) => {
-      if (!scene || typeof scene.play !== "string" || !scene.play.length || scene.play.length > 80 || !Number.isInteger(scene.room) || !rooms[scene.room] || !Array.isArray(scene.lines) || scene.lines.length > 2 || ![scene.starts_at, scene.until_at].every(
-        (n) => Number.isSafeInteger(n) && n >= 0
-      ) || scene.until_at < scene.starts_at)
-        throw new Error("A saved exchange needs its place, words and time.");
-      const room = rooms[scene.room];
-      const actor = Number.isInteger(scene.actor) ? humanAvatars[scene.actor]?.id : humanAvatar(scene.actor)?.id;
-      const lines = scene.lines.map((line) => {
-        if (typeof line.speaker !== "string" || line.speaker.length > 40 || typeof line.text !== "string" || !line.text.length || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text))
-          throw new Error("A saved line needs a speaker and clear text.");
-        const speaker = humanAvatars.find((a) => a.name === line.speaker)?.id || (line.speaker === "actor" ? actor : null);
-        addLog(world, line.speaker, line.text, {
-          generated: true,
-          kind: speaker ? "dialogue" : "narration",
-          actorId: speaker || null,
-          entityId: speaker || room,
-          locationId: room,
-          migration: {
-            play: scene.play,
-            turn: scene.turn ?? null,
-            starts_at: scene.starts_at,
-            until_at: scene.until_at
-          }
-        });
-        return world.log.at(-1);
-      });
-      return {
-        play: scene.play,
-        actor: actor || null,
-        room,
-        turn: scene.turn ?? null,
-        lines,
-        starts_at: scene.starts_at,
-        until_at: scene.until_at,
-        error: typeof scene.error === "string" ? scene.error.slice(0, 240) : null,
-        migrated: true
-      };
-    });
   }
 
   // v2/card-game/shared-narrator-entry.mjs
@@ -23363,8 +17540,7 @@
     });
   globalThis.cardNarrator = (json) => {
     try {
-      const result = dispatchShared({ ...JSON.parse(json), op: "context" });
-      return JSON.stringify({ ok: true, context: result.context });
+      return JSON.stringify({ ok: true, ...sharedScene(JSON.parse(json)) });
     } catch (error) {
       return JSON.stringify({
         ok: false,

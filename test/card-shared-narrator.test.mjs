@@ -3,10 +3,12 @@ import { runInNewContext } from "node:vm";
 import { expect, it } from "vitest";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
+import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
 
-// Rust asks the narrator bundle for a committed play's dialogue context
-// instead of the rules engine (docs/design/pack-content-outside-the-engine.md).
-// It must describe the scene exactly as the play itself did.
+// Rust asks the narrator bundle for a committed play's dialogue context; the
+// rules engine no longer builds it (docs/design/pack-content-outside-the-engine.md).
+// The bundle must describe the scene exactly as the browser narrative does.
 const source = readFileSync(
   new URL(
     "../v2/orchestrator-rust/src/card_shared/narrator.js",
@@ -20,7 +22,7 @@ const narrate = (request) =>
   JSON.parse(sandbox.cardNarrator(JSON.stringify(request)));
 const context = { claimed: ["vale"], present: ["vale"] };
 
-it("gives the same dialogue context as the play that committed the scene", () => {
+it("gives the browser narrative's context for each committed scene", () => {
   let world = dispatchShared({ op: "create" }).world;
   let compared = 0;
   for (let step = 0; step < 12; step++) {
@@ -48,9 +50,22 @@ it("gives the same dialogue context as the play that committed the scene", () =>
     }
     expect(played.ok).toBe(true);
     world = played.world;
-    const told = narrate({ world, actor: "vale", action, ...context });
+    expect(played.context).toBeUndefined();
+    const scene = { world, actor: "vale", action, ...context };
+    const told = narrate(scene);
     expect(told.ok).toBe(true);
-    expect(told.context).toEqual(played.context);
+    expect(told.context).toEqual(sharedContext(scene));
+    expect(told.context).toEqual(
+      narrativeContext(
+        {
+          ...world,
+          playerActorId: "vale",
+          controlledActors: ["vale"],
+          presentActors: ["vale"],
+        },
+        action,
+      ),
+    );
     compared++;
   }
   expect(compared).toBe(12);

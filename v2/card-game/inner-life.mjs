@@ -1,5 +1,66 @@
 import { currentActor, nameOf } from "./world.mjs";
-import { learningFacts } from "./learning.mjs";
+import { humanAvatar } from "./human-cast.mjs";
+
+// Phrases an assistant uses about a scene rather than a character inside it.
+// The server's speech check (`ASSISTANT_SPEAK` in card_narrative.rs) rejects
+// most of these before commit, but older saves and the dream prompt still let
+// a few through, so the panel hides them too (#1467).
+const ASSISTANT_TALK = [
+  "as an ai",
+  "language model",
+  "here to help",
+  "how can i assist",
+  "prompt",
+  "the user",
+  "roleplay",
+  "role-play",
+  "in character",
+  "it seems",
+  "it appears",
+  "it looks like you",
+  "sounds like you",
+  "you're outlining",
+  "you're describing",
+  "you've described",
+  "let's break",
+  "let's dive",
+  "let's continue",
+  "scenario",
+  "narrative",
+  "the scene",
+  "this scene",
+  "your character",
+  "what do you do?",
+];
+
+export const inCharacter = (text) => {
+  const lower = String(text || "").toLowerCase();
+  return lower.trim() !== "" && !ASSISTANT_TALK.some((p) => lower.includes(p));
+};
+
+const newestFirst = (moments) =>
+  (moments || [])
+    .slice()
+    .reverse()
+    .map((m) => m.text);
+
+// The three-part chain from #1467: "I'm" is authored, "I'm becoming" is the
+// avatar's own reflection, newest first, and "I dream" is its dreams. The
+// planner's measured attempts stay in the save and are not shown here.
+export function innerLifeChain(world, actor = currentActor(world)) {
+  const name = nameOf(actor);
+  const title = humanAvatar(actor)?.title;
+  const inner = world.memories[actor]?.innerLife || {};
+  const becoming = [
+    ...new Set([inner.persona, ...newestFirst(inner.thoughts)]),
+  ].filter(inCharacter);
+  return {
+    name,
+    im: title ? `I'm ${name}. ${title}.` : `I'm ${name}.`,
+    becoming: becoming.slice(0, 4),
+    dreams: newestFirst(inner.dreams).filter(inCharacter).slice(0, 4),
+  };
+}
 
 // This panel reads only the current player's private projection.
 export function installInnerLife(menu, getWorld) {
@@ -29,13 +90,11 @@ export function installInnerLife(menu, getWorld) {
     button.focus();
   });
   button.onclick = () => {
-    const world = getWorld();
-    const actor = currentActor(world);
-    const memory = world.memories[actor];
+    const chain = innerLifeChain(getWorld());
     content.replaceChildren();
     const title = document.createElement("h2");
     title.id = "inner-life-title";
-    title.textContent = `${nameOf(actor)}'s inner life`;
+    title.textContent = `${chain.name}'s inner life`;
     content.append(title);
     const section = (heading, lines) => {
       if (!lines.length) return;
@@ -48,25 +107,17 @@ export function installInnerLife(menu, getWorld) {
         content.append(p);
       }
     };
-    section("Who I am becoming", [
-      memory.innerLife?.persona ||
-        "Each encounter gives me something to think about.",
-    ]);
-    section(
-      "On my mind",
-      (memory.innerLife?.thoughts || [])
-        .slice()
-        .reverse()
-        .map((m) => m.text),
-    );
-    section("What I learned", learningFacts(world, actor, nameOf));
-    section(
-      "Dreams",
-      (memory.innerLife?.dreams || [])
-        .slice()
-        .reverse()
-        .map((m) => m.text),
-    );
+    // The authored sentence opens the chain; it already says "I'm".
+    const im = document.createElement("p");
+    im.className = "inner-life-im";
+    im.textContent = chain.im;
+    content.append(im);
+    section("I'm becoming", chain.becoming);
+    section("I dream", chain.dreams);
+    const signature = document.createElement("p");
+    signature.className = "inner-life-name";
+    signature.textContent = `— ${chain.name}`;
+    content.append(signature);
     dialog.showModal();
     changed();
   };

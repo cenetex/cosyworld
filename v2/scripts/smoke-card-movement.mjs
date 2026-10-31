@@ -1,5 +1,5 @@
 import { atticOpening } from "../../test/fixtures/card-attic-opening.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { revealCard, selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -171,6 +171,9 @@ try {
         await page.waitForFunction(
           () => document.querySelector("#hand").dataset.cooling === "false",
         );
+        // Vale speaks once his player uncovers him and the attic (#1575).
+        await revealCard(page, "vale");
+        await revealCard(page, "attic");
         await page.waitForTimeout(2000);
         await page.evaluate(() => {
           window.movementCheck.active = false;
@@ -271,16 +274,17 @@ try {
       // did nothing, so has no caption.
       const caption = await page.locator(".dialogue").innerText();
       if (kind === "resident")
-        assert.doesNotMatch(caption, /Pip (arrived|followed|travels)/);
+        assert.doesNotMatch(caption, /Pip (arrived|followed|travelled)/);
       else
         assert.match(
           caption,
           kind === "shared"
-            ? /Pip travels with Vale/
+            ? /Pip travelled with Vale/
             : /Pip followed from Mirror attic/,
         );
       report.caption = caption;
-      assert.equal(await card("vale").isDisabled(), true);
+      // New cards arrive covered in the hand (#1566), so discovery no longer
+      // holds the hand while the arrival speaks.
       assert.deepEqual(
         request.outcome.avatars.find((a) => a.id === "moth").travel
           ?.companions ?? [],

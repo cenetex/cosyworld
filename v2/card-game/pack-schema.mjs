@@ -62,6 +62,7 @@ export const CONDITION_KINDS = [
   "sound",
   "light",
   "not",
+  "any",
   "choice",
   "choice_unset",
   "flag",
@@ -78,6 +79,8 @@ export const CONDITION_KINDS = [
   "weather",
   "ship_at",
 ];
+// The `ship_at` dock for a ship sailing between ports.
+export const AT_SEA = "@sea";
 export const WEATHER_CONDITIONS = ["clear", "cloud", "rain", "mist"];
 export const TRAVELERS = ["player", "any"];
 export const VARIANTS = ["asleep", "awake", "irritated"];
@@ -778,6 +781,16 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             depth < 2 &&
             condition(c.condition, what, depth + 1);
           break;
+        // Holds while one of two to four conditions holds.
+        case "any":
+          ok =
+            keysOk(c, ["kind", "conditions"]) &&
+            depth < 2 &&
+            Array.isArray(c.conditions) &&
+            c.conditions.length >= 2 &&
+            c.conditions.length <= 4 &&
+            c.conditions.every((r) => condition(r, what, depth + 1));
+          break;
         case "choice":
           ok =
             keysOk(c, ["kind", "key", "value"]) && idOk(c.key) && idOk(c.value);
@@ -846,7 +859,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           ok =
             keysOk(c, ["kind", "transport", "dock"]) &&
             idOk(c.transport) &&
-            anyPlace(c.dock);
+            (c.dock === AT_SEA || anyPlace(c.dock));
           break;
         case "knows": {
           // `topics` accepts any one of several facts, so a needed fact can

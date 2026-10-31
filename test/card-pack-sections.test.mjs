@@ -32,6 +32,7 @@ const original = structuredClone({
   sections: pack.sections,
   release: pack.release,
   routes: pack.routes,
+  choices: pack.choices,
 });
 const act = (world, kind, fields = {}) => {
   if (kind === "move") {
@@ -77,6 +78,7 @@ describe("permanent pack sections", () => {
     else pack.sections = structuredClone(original.sections);
     pack.release = structuredClone(original.release);
     pack.routes = structuredClone(original.routes);
+    pack.choices = structuredClone(original.choices);
   });
 
   it("checks static roads and conditional routes for every traveler", () => {
@@ -111,12 +113,23 @@ describe("permanent pack sections", () => {
 
   it("checks section access before applying a choice and while replaying receipts", () => {
     const before = openingFixture("refusal").waterOffer;
+    const question = {
+      id: "test-colonus-question",
+      subject: "greek-colonus",
+      at: "greek-colonus",
+      label: "Ask about the grove",
+      text: "Vale asks about the grove.",
+      requires: [],
+      effects: [{ kind: "set_flag", key: "test-colonus-asked", value: true }],
+    };
+    pack.choices.push(question);
+    pack.release.choices.push(question.id);
     let world = act(before, "choose", { choiceId: "greek-return-water-jar" });
     world = act(world, "move", { target: "greek-harbor" });
     world = act(world, "move", { target: "greek-athens" });
     world = act(world, "move", { target: "greek-colonus" });
     const action = legalActions(world).find(
-      (a) => a.kind === "choose" && a.choiceId.startsWith("greek-inquire-"),
+      (a) => a.kind === "choose" && a.choiceId === question.id,
     );
     expect(action).toBeTruthy();
     const closed = structuredClone(before);

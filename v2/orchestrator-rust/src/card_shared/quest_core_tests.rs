@@ -13,6 +13,7 @@ fn fixture(version: &str) -> (std::path::PathBuf, rusqlite::Connection, String, 
         game: seed["world"].clone(),
         claimed: [0; 8],
         present: [0; 8],
+        pack: None,
     };
     world.game.as_object_mut().unwrap().remove("opening");
     world.game["packs"]["greek-drama"]["scope"] = json!("full");

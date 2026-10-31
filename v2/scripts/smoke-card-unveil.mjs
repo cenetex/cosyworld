@@ -14,6 +14,8 @@ try {
   for (const [width, height, motion] of [
     [1440, 900, "no-preference"],
     [390, 844, "no-preference"],
+    [1440, 900, "reduce"],
+    [390, 844, "reduce"],
     [320, 568, "reduce"],
   ]) {
     const page = await browser.newPage({
@@ -33,8 +35,11 @@ try {
       );
       window.discoveries = [];
       window.flights = [];
+      window.arrivals = [];
       const animate = Element.prototype.animate;
       Element.prototype.animate = function (...args) {
+        if (this.matches?.("#hand .card") && args[0][0]?.opacity === 0 && !args[1].pseudoElement)
+          window.arrivals.push(this.dataset.card);
         if (this.id === "unveil-take")
           window.flights.push({
             id: this.dataset.card,
@@ -193,9 +198,41 @@ try {
       assert(await pond.locator(".card-back").evaluate((img) => img.complete && img.naturalWidth > 0));
       const levelVisibility = () => pond.locator(".card-level").evaluateAll((marks) => marks.map((mark) => getComputedStyle(mark).visibility));
       assert.deepEqual(await levelVisibility(), ["hidden", "hidden"]);
+      assert(await page.evaluate(() => window.arrivals.includes("pond")), "pond settles into the hand");
       await pond.click();
       assert.equal(await pond.getAttribute("aria-pressed"), "false");
       assert.equal(await pond.getAttribute("data-unrevealed"), "false");
+      assert.equal(await pond.getAttribute("data-revealing"), "common");
+      assert.equal(await pond.evaluate((el) => getComputedStyle(el, "::after").content), '"New card"');
+      const lid = await pond.locator(".reveal-lid").evaluate((el) => ({
+        motion: el.getAnimations()[0].effect.getKeyframes()[0].transform ?? "fade",
+        fit: getComputedStyle(el).objectFit,
+      }));
+      assert.equal(lid.fit, "contain");
+      assert.equal(lid.motion === "fade", motion === "reduce", JSON.stringify(lid));
+      // Once the lid has opened it stays gone for the rest of the reveal.
+      const lateLid = await pond.locator(".reveal-lid").evaluate((lid) => {
+        for (const a of lid.getAnimations()) a.currentTime = a.effect.getComputedTiming().endTime + 1;
+        return getComputedStyle(lid).opacity;
+      });
+      assert.equal(lateLid, "0");
+      // A tap during the reveal skips it without selecting, then the card,
+      // with no layers or animations left, takes the next click itself.
+      await pond.click();
+      assert.equal(await pond.getAttribute("data-revealing"), null);
+      assert.equal(await pond.getAttribute("aria-pressed"), "false");
+      const hits = await pond.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        return {
+          card: el.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 3)),
+          layers: el.querySelectorAll(".reveal-lid, .reveal-sheen").length,
+          animations: el.getAnimations({ subtree: true }).length,
+          preserved: [...document.querySelectorAll("#hand *, .beat-stack *")].some((n) => getComputedStyle(n).transformStyle === "preserve-3d"),
+        };
+      });
+      assert.deepEqual(hits, { card: true, layers: 0, animations: 0, preserved: false });
+      if (await page.locator("#speech-row").isVisible())
+        assert.equal((await stackHits(page)).front, true);
       assert.deepEqual(await state(), before);
       const bounds = await pond.boundingBox();
       assert(
@@ -343,7 +380,7 @@ try {
       assert.deepEqual(errors, []);
       reports.push({ width, height, motion, ...events, passed: true });
       console.log(
-        `In-hand card backs, first-click reveal, second-click selection, reload and reset passed at ${width}px (${motion}).`,
+        `Card arrival, first-click reveal, skip, hit-testing, second-click selection, reload and reset passed at ${width}px (${motion}).`,
       );
     } finally {
       await page.close();

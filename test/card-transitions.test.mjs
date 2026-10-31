@@ -6,8 +6,11 @@ import {
   apparitionFor,
   blendUniforms,
   isHalloween,
+  uncannyAt,
+  UNCANNY_PLACES,
   uncannyVariant,
 } from "../v2/card-game/transitions.mjs";
+import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
 import { publicAssets } from "../v2/card-game/public-assets.mjs";
 
 const published = {
@@ -33,6 +36,22 @@ describe("Halloween apparitions", () => {
     expect(isHalloween(new Date(2026, 10, 1, 0, 1), "")).toBe(false);
     expect(isHalloween(new Date(2026, 5, 1), "?halloween=1")).toBe(true);
     expect(isHalloween(new Date(2026, 9, 31), "?halloween=0")).toBe(false);
+  });
+
+  // The owner made the flicker permanent in the Willows (#1589): every
+  // Willows place flickers all year, other places only on Halloween.
+  it("keeps the Willows uncanny all year and other places to Halloween", () => {
+    const willows = packDefinitions.find((p) => p.id === "willows");
+    expect([...UNCANNY_PLACES].sort()).toEqual(
+      Object.keys(willows.places).sort(),
+    );
+    const november = new Date(2026, 10, 1, 12);
+    for (const place of UNCANNY_PLACES)
+      expect(uncannyAt(place, november, "")).toBe(true);
+    expect(uncannyAt("greek-ship", november, "")).toBe(false);
+    expect(uncannyAt("greek-ship", new Date(2026, 9, 31), "")).toBe(true);
+    expect(uncannyAt("willows-bank", november, "?halloween=0")).toBe(false);
+    expect(uncannyAt("greek-ship", november, "?halloween=1")).toBe(true);
   });
 
   it("flashes at most once per entry and never within 30 seconds", () => {
