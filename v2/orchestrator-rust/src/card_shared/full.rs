@@ -396,7 +396,6 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
         let retry = status == "retry";
         let prior: Value = serde_json::from_str(&narrative).map_err(sql_error)?;
         let action: Value = serde_json::from_str(&text).map_err(sql_error)?;
-        let played = action["action"].clone();
         let valid = if a >= 8
             || super::store::member(&tx, id, &u)? != Some(a as i32)
             || w.room(a)? != room
@@ -427,11 +426,7 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
         let mut context = if retry {
             prior
         } else {
-            // Dialogue context comes from the narrator, not the rules engine.
-            let mut scene = w.request("context", a);
-            scene["action"] = played;
-            let told = super::narrator::context(&scene)?;
-            json!({"play":key,"actor":actor_id(a),"room":destination,"turn":w.game["turn"],"context":told,"profiles":result["profiles"],"events":result["events"],"lines":[],"starts_at":time,"until_at":time,"error":null,"browser_chat":false})
+            json!({"play":key,"actor":actor_id(a),"room":destination,"turn":w.game["turn"],"context":result["context"],"profiles":result["profiles"],"events":result["events"],"lines":[],"starts_at":time,"until_at":time,"error":null,"browser_chat":false})
         };
         context["browser_chat"] = json!(false);
         tx.execute(
