@@ -40,7 +40,10 @@ export const RULES_WIRING = [
 ];
 
 // Always rebuilt from source after the branch's work is applied.
-export const GENERATED = ['v2/orchestrator-rust/src/card_assets.rs'];
+export const GENERATED = [
+  'v2/orchestrator-rust/src/card_assets.rs',
+  `${rulesDir}/narrator.js`,
+];
 export const isRulesBundle = (file) => /^v2\/orchestrator-rust\/src\/card_shared\/engine-v\d+\.js$/u.test(file);
 
 // Same test as next-shared-rules.mjs: a version line, a bundle path or a
@@ -182,6 +185,7 @@ function land({ base, branch, name }) {
   }
 
   run(process.execPath, ['v2/scripts/next-shared-rules.mjs', base]);
+  run(process.execPath, ['v2/scripts/build-card-shared-narrator.mjs']);
   run(process.execPath, ['v2/scripts/build-card-assets.mjs']);
   run(process.execPath, ['scripts/bump-version.mjs']);
 
