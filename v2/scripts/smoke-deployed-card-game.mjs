@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { publicAssets } from "../card-game/public-assets.mjs";
 
+const ASSET_CHECK_CONCURRENCY = 8;
 const targets = process.argv.slice(2);
 assert(targets.length, "Pass at least one deployed card-game URL.");
 const { version } = JSON.parse(
@@ -49,7 +50,9 @@ for (const target of targets) {
   console.log(
     `${base.origin}: ${meta.primary_game} ${meta.version}, rules ${meta.card_game.shared_rules_version}`,
   );
-  for (const { file, contentType, source, offset = 0 } of publicAssets) {
+  // Check a few files at a time: the release has hundreds of files and
+  // about 500 MB, which took two minutes one by one.
+  const checkAsset = async ({ file, contentType, source, offset = 0 }) => {
     const url = new URL(
       file === "index.html" ? "/" : `/card-game/${file}`,
       base,
@@ -85,7 +88,13 @@ for (const target of targets) {
         `${url}: MP3 source bytes`,
       );
     }
-  }
+  };
+  const queue = [...publicAssets];
+  await Promise.all(
+    Array.from({ length: ASSET_CHECK_CONCURRENCY }, async () => {
+      while (queue.length) await checkAsset(queue.shift());
+    }),
+  );
   const health = await fetch(new URL("/health", base), {
     signal: AbortSignal.timeout(15_000),
   });
