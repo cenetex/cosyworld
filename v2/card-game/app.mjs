@@ -2274,6 +2274,40 @@ function renderScene() {
   const behind = frontIndex > 0 ? beats[frontIndex - 1] : null;
   const behindLive = reviewing && frontIndex < liveIndex;
   stackView = { beats, frontIndex, liveIndex, pending: pendingCard };
+  // A new front beat moves the stack: forward when it is later, back when
+  // earlier. Measured before the cards change.
+  const frontKey = front?.key ?? null;
+  let direction = null;
+  if (frontKey !== stackRendered.key) {
+    const was = beats.findIndex((beat) => beat.key === stackRendered.key);
+    const settled =
+      stackRendered.key?.startsWith("p:") &&
+      front?.speakerId === stackRendered.speaker;
+    direction =
+      stackRendered.place !== scene.locationId || !stackRendered.key
+        ? "arrive"
+        : settled
+          ? "settle"
+          : was < 0 || was < frontIndex
+            ? "forward"
+            : "back";
+  }
+  // The leaving cards are copies, so the real cards can change at once.
+  for (const old of document.querySelectorAll(".beat-ghost")) old.remove();
+  const stepping = direction === "forward" || direction === "back";
+  const ghost = {
+    behind:
+      (direction === "forward" || (stepping && reducedMotion.matches)) &&
+      !$("beat-behind").hidden
+        ? stackGhost($("beat-behind"))
+        : null,
+    front: stepping && !$("speech-row").hidden ? frontGhost(direction) : null,
+  };
+  stackRendered = {
+    key: frontKey,
+    speaker: front?.speakerId ?? null,
+    place: scene.locationId,
+  };
   const line = front?.line || null;
   shownSceneLine = line;
   const text = line ? line.text : "";
@@ -2315,33 +2349,6 @@ function renderScene() {
       portraitBox.append(image);
     }
   }
-  // A new front beat moves the stack: forward when it is later, back when
-  // earlier. Measured before the cards change.
-  const frontKey = front?.key ?? null;
-  let direction = null;
-  if (frontKey !== stackRendered.key) {
-    const was = beats.findIndex((beat) => beat.key === stackRendered.key);
-    const settled =
-      stackRendered.key?.startsWith("p:") &&
-      front?.speakerId === stackRendered.speaker;
-    direction =
-      stackRendered.place !== scene.locationId || !stackRendered.key
-        ? "arrive"
-        : settled
-          ? "settle"
-          : was < 0 || was < frontIndex
-            ? "forward"
-            : "back";
-  }
-  const ghost =
-    direction === "forward" && !$("beat-behind").hidden
-      ? stackGhost($("beat-behind"))
-      : null;
-  stackRendered = {
-    key: frontKey,
-    speaker: front?.speakerId ?? null,
-    place: scene.locationId,
-  };
   frontCaptions = (front?.actions || []).map((action) => action.text + ".");
   const captions = $("beat-captions");
   const captionKey = JSON.stringify(front?.actions || []);
@@ -2491,14 +2498,56 @@ function beatPortrait(id) {
 }
 let stackView = { beats: [], frontIndex: -1, liveIndex: -1, pending: null };
 let stackRendered = { key: null, speaker: null, place: null };
-const STACK_MS = 250;
-function stackGhost(card) {
+// The leaving card fades faster than the new one arrives, so their words
+// barely overlap.
+const STACK_MS = 300,
+  STACK_LEAVE_MS = 200,
+  STACK_FADE_MS = 160;
+// A leaving card is an inert copy that never takes pointer hits.
+function ghostOf(card) {
   const ghost = card.cloneNode(true);
-  ghost.removeAttribute("id");
+  for (const part of [ghost, ...ghost.querySelectorAll("[id], [aria-live]")]) {
+    part.removeAttribute("id");
+    part.removeAttribute("aria-live");
+  }
   ghost.classList.add("beat-ghost");
   delete ghost.dataset.motion;
   ghost.setAttribute("aria-hidden", "true");
-  ghost.tabIndex = -1;
+  ghost.inert = true;
+  for (const image of ghost.querySelectorAll("img")) image.decoding = "sync";
+  return ghost;
+}
+function stackGhost(card) {
+  const ghost = ghostOf(card);
+  card.after(ghost);
+  return ghost;
+}
+// The old front card keeps its exact box, so its words do not reflow. Going
+// forward it settles behind the new card; going back, or crossfading for
+// reduced motion, it leaves over it.
+function frontGhost(direction) {
+  const card = $("speech-row"),
+    ghost = ghostOf(card),
+    under = direction === "forward" && !reducedMotion.matches;
+  // The card's styles hang on its ids, which the copy cannot share, so the
+  // copy keeps the look it had.
+  const copies = [ghost, ...ghost.querySelectorAll("*")];
+  [card, ...card.querySelectorAll("*")].forEach((part, index) => {
+    const look = getComputedStyle(part);
+    for (const name of look)
+      if (!/^(animation|transition|pointer-events)/.test(name))
+        copies[index].style.setProperty(name, look.getPropertyValue(name));
+  });
+  Object.assign(ghost.style, {
+    position: "absolute",
+    margin: "0",
+    left: `${card.offsetLeft}px`,
+    top: `${card.offsetTop}px`,
+    width: `${card.offsetWidth}px`,
+    height: `${card.offsetHeight}px`,
+    zIndex: under ? "1" : "3",
+  });
+  // After the card, so lookups by class still find the real one first.
   card.after(ghost);
   return ghost;
 }
@@ -2521,49 +2570,63 @@ for (const id of ["speech-row", "beat-behind"]) {
   card.addEventListener("animationend", settle);
   card.addEventListener("animationcancel", settle);
 }
+// A ghost rests invisible, so it never shows again after its fade ends.
+function fadeGhost(ghost, to, duration) {
+  if (!ghost) return;
+  const from = getComputedStyle(ghost).opacity;
+  ghost.style.opacity = "0";
+  const done = () => ghost.remove();
+  ghost
+    .animate([{ opacity: from }, { opacity: 0, ...to }], {
+      duration,
+      easing: "cubic-bezier(.22,.61,.36,1)",
+    })
+    .finished.then(done, done);
+}
 function animateStack(direction, ghost) {
   const front = $("speech-row"),
     behind = $("beat-behind");
-  const finish = () => ghost?.remove();
-  if (!direction || front.hidden) return finish();
-  const timing = { duration: STACK_MS, easing: "cubic-bezier(.2,.7,.25,1)" };
+  if (!direction || front.hidden) {
+    ghost.front?.remove();
+    ghost.behind?.remove();
+    return;
+  }
   const showBehind = !behind.hidden;
-  if (
-    reducedMotion.matches ||
-    direction === "arrive" ||
-    direction === "settle"
-  ) {
-    if (direction !== "settle" || reducedMotion.matches)
+  // Reduced motion turns off CSS animation, so the old cards' copies fade
+  // out over the new ones instead.
+  if (reducedMotion.matches) {
+    fadeGhost(ghost.front, {}, STACK_FADE_MS);
+    fadeGhost(ghost.behind, {}, STACK_FADE_MS);
+    return;
+  }
+  if (direction === "arrive" || direction === "settle") {
+    if (direction === "arrive") {
       playMotion(front, "fade");
-    if (showBehind && direction !== "settle") playMotion(behind, "fade");
-    if (ghost)
-      ghost
-        .animate([{ opacity: 0.7 }, { opacity: 0 }], timing)
-        .finished.then(finish, finish);
+      if (showBehind) playMotion(behind, "fade");
+    }
     return;
   }
   // The behind slot is the front card raised by the peek and scaled down;
-  // the card before it waits one step deeper.
+  // the card before it waits one step deeper, the next one just in front.
   const stack = getComputedStyle(front.closest(".beat-stack"));
   const peek = parseFloat(stack.getPropertyValue("--beat-peek")) || 30;
   const scale =
     parseFloat(stack.getPropertyValue("--beat-behind-scale")) || 0.94;
+  const slot = `translateY(-${peek}px) scale(${scale})`;
   const deeper = `translateY(-${peek * 2}px) scale(${scale * scale})`;
+  const nearer = "translateY(8px) scale(1.015)";
   if (direction === "forward") {
-    // The new beat comes in front; the old front recedes into the slot.
+    // The new beat fades in front; the old front settles into the slot.
     playMotion(front, "arrive");
     if (showBehind) playMotion(behind, "recede");
-    if (ghost)
-      ghost
-        .animate([{}, { transform: deeper, opacity: 0 }], timing)
-        .finished.then(finish, finish);
-    else finish();
+    fadeGhost(ghost.front, { transform: slot }, STACK_LEAVE_MS);
+    fadeGhost(ghost.behind, { transform: deeper }, STACK_MS);
     return;
   }
   // Back in time: the card behind comes forward; an older one appears behind.
   playMotion(front, "return");
   if (showBehind) playMotion(behind, "emerge");
-  finish();
+  fadeGhost(ghost.front, { transform: nearer }, STACK_LEAVE_MS);
 }
 function stepBack() {
   const beat = stackView.beats[stackView.frontIndex - 1];

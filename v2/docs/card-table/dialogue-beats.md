@@ -57,12 +57,19 @@ Beats are cards in depth, not rows in a scroll:
   the newer beats: "● live · 3". There are no previous and next arrows.
 - Desktop also steps with ↑ and ↓ and the wheel over the stack. Phones swipe:
   down brings the earlier card forward, up steps toward live.
-- Transitions take about 250 ms and use transform and opacity. Reduced motion
-  crossfades instead. The front and behind cards are buttons, so they move by
-  CSS keyframes named in `data-motion`, never `element.animate()`: after a
-  modal dialog closes, Chromium can give an animated card a style cached while
-  the page was inert, and the card stops taking clicks. Only the leaving ghost
-  copy, which never takes pointer hits, uses Web Animations.
+- Steps fade and settle in about 300 ms, eased out, with 2D transform and
+  opacity only. The new front card fades in as it eases into place. The old
+  front card is an inert copy at its exact box that fades out as it eases
+  back into the behind slot, or forward out of the way when stepping back, so
+  nothing pops, reflows, or shifts the stack's layout. Reduced motion
+  crossfades: the old cards' copies fade out over the new ones in 160 ms.
+- The front and behind cards are buttons, so they move by CSS keyframes named
+  in `data-motion`, never `element.animate()`: after a modal dialog closes,
+  Chromium can give an animated card a style cached while the page was inert,
+  and the card stops taking clicks. Only the leaving copies, which never take
+  pointer hits, use Web Animations, and they rest invisible and are removed
+  when their fade ends. `v2/scripts/smoke-card-beat-stack.mjs` checks both
+  directions frame by frame and that the front card takes clicks afterwards.
 
 Combat keeps its stage animations. Each fighter's step also becomes a beat as
 it lands, for example "⚔ lunges at Vale · −1 resolve", and the defeat lands on

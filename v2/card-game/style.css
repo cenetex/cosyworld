@@ -1887,7 +1887,7 @@ body .beat-live {
     scale(calc(var(--beat-behind-scale) * var(--beat-behind-scale)));
 }
 .beat-card[data-motion] {
-  animation: 250ms cubic-bezier(0.2, 0.7, 0.25, 1) backwards;
+  animation: 300ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
 }
 .beat-card[data-motion="fade"] {
   animation-name: beat-fade;
@@ -1909,22 +1909,24 @@ body .beat-live {
     opacity: 0;
   }
 }
+/* A new beat eases in from just in front; the old one settles behind. */
 @keyframes beat-arrive {
   from {
-    transform: translateY(12px) scale(1.04);
+    transform: translateY(8px) scale(1.015);
     opacity: 0;
   }
 }
 @keyframes beat-return {
   from {
     transform: var(--beat-slot);
-    opacity: 0.6;
+    opacity: 0;
   }
 }
 @keyframes beat-recede {
   from {
-    transform: none;
-    opacity: 1;
+    transform: translateY(calc(-0.5 * var(--beat-peek)))
+      scale(calc((1 + var(--beat-behind-scale)) / 2));
+    opacity: 0;
   }
 }
 @keyframes beat-emerge {
