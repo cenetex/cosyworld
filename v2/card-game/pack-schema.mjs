@@ -1,8 +1,6 @@
 // The closed vocabulary for card-table world packs and their bridges.
 // The build script and the browser registry both use this one validator, so
 // an authored pack either loads exactly as checked or does not load at all.
-import { storyQuestProblems } from "./pack-story-schema.mjs";
-import { situationProblems } from "./pack-situation-schema.mjs";
 import { validFactText } from "./knowledge.mjs";
 
 import { EXPRESSION_TYPES } from "./expression.mjs";
@@ -1029,13 +1027,6 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       );
     }
   }
-  problems.push(...storyQuestProblems(pack, hub));
-  problems.push(
-    ...situationProblems(pack, hub, (cs, what) => {
-      requirements(cs, what);
-      verifyRefs(cs);
-    }),
-  );
   [
     ...Object.values(places),
     ...Object.values(avatars),

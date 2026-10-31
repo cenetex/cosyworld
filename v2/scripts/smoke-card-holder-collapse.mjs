@@ -5,7 +5,6 @@ import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave, people } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { availableCards } from "../card-game/cards.mjs";
-import { questCards } from "../card-game/quest-cards.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { humanAvatarIds } from "../card-game/human-cast.mjs";
 
@@ -23,13 +22,16 @@ const browser = await browserType.launch({ headless: true });
 try {
   for (const width of [1440, 390]) {
     for (const reducedMotion of ["no-preference", "reduce"]) {
-      const world = enableMotives(createWorld(), { personalQuests: true });
+      const world = enableMotives(createWorld());
       world.actors.vale.place = "pond";
       world.actors.moth.place = "pond";
       world.items.cloth.holder = "vale";
       world.items.lamp.holder = "vale";
       world.items.bell.holder = "moth";
       world.items.oil.holder = "pond";
+      // Pip stays content at the pond, so the hand under test holds still.
+      world.actors.moth.want = null;
+      world.actors.keeper.want = null;
       const table = `holder-${width}-${reducedMotion}`;
       const key = `cosyworld.reflected-shore.v1.${table}`;
       const page = await browser.newPage({
@@ -46,13 +48,9 @@ try {
         return route.fulfill({ status: 503, json: { error: "fixture" } });
       });
       await page.addInitScript(
-        ({ key, save, seen, quests }) => {
+        ({ key, save, seen }) => {
           localStorage.setItem(key, save);
           localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
-          localStorage.setItem(
-            `${key}.quests`,
-            JSON.stringify({ seen: quests, read: quests }),
-          );
           localStorage.setItem("cosyworld.dialogue.sound", "off");
           localStorage.setItem(
             "cosyworld.room-music",
@@ -63,9 +61,6 @@ try {
           key,
           save: encodeSave(world),
           seen: availableCards(world),
-          quests: Object.keys(people).flatMap((id) =>
-            questCards(world, id).map((q) => q.key),
-          ),
         },
       );
       const card = (id) => page.locator(`#hand [data-card="${id}"]`);
@@ -459,13 +454,9 @@ try {
     page.on("pageerror", (error) => errors.push(error.message));
     try {
       await page.addInitScript(
-        ({ seen, quests }) => {
+        ({ seen }) => {
           const key = "cosyworld.reflected-shore.v1.shared.remote-stack.vale";
           localStorage.setItem(key + ".seen", JSON.stringify(seen));
-          localStorage.setItem(
-            key + ".quests",
-            JSON.stringify({ seen: quests, read: quests }),
-          );
           localStorage.setItem("cosyworld.dialogue.sound", "off");
           localStorage.setItem(
             "cosyworld.room-music",
@@ -482,9 +473,6 @@ try {
         },
         {
           seen: Object.keys(profiles),
-          quests: Object.keys(people).flatMap((id) =>
-            questCards(world, id).map((q) => q.key),
-          ),
         },
       );
       await page.route("**/auth/account", (route) =>

@@ -14,7 +14,7 @@ import {
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { avatarPlays, cardPlay } from "../v2/card-game/cards.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
-import { levelOf, hand, hold, at } from "../v2/card-game/quests.mjs";
+import { levelOf } from "../v2/card-game/want.mjs";
 
 const act = (s, kind, target, item) => {
   const action = legalActions(s).find(
@@ -34,6 +34,9 @@ const meeting = () => {
   s.actors.keeper.place = "pond";
   s.items.lamp.holder = "moth";
   s.items.bell.holder = "keeper";
+  // Neither resident is after anything, so only the standoff moves them.
+  s.actors.moth.want = s.actors.keeper.want = null;
+  s.actors.moth.metTurn = s.actors.keeper.metTurn = 0;
   return s;
 };
 
@@ -66,10 +69,10 @@ describe("card standoffs", () => {
   });
   it("lets an avatar ignore a threat and continue with its goal", () => {
     let s = meeting();
-    // Keeper still needs the cloth at the station, so its reply leaves the standoff open.
+    // The more experienced keeper answers with words, so the standoff stays open.
     s.actors.keeper.place = "station";
     s.turn = s.revision = 3;
-    s.actors.keeper.progress = { program: 1, step: 0, marks: [1, 2] };
+    s.actors.keeper.xp = 3;
     s = act(s, "threaten", "keeper");
     expect(s.log.some((e) => e.verb === "talk" && e.actorId === "keeper")).toBe(
       true,
@@ -196,37 +199,17 @@ describe("card standoffs", () => {
       Object.assign(broken.standoffs[0], patch);
       expect(() => validateWorld(broken)).toThrow();
     }
+    // Saves from before standoffs (schema 4) start fresh during alpha.
     const old = meeting();
     old.schema = 4;
-    delete old.standoffs;
-    delete old.peaceUntil;
-    const migrated = decodeSave(JSON.stringify(old));
-    expect(migrated.schema).toBe(7);
-    expect(migrated.items).toEqual(old.items);
-    expect(migrated.standoffs).toEqual([]);
+    expect(() => decodeSave(JSON.stringify(old))).toThrow();
   });
   it("breaks a repeated cast impasse through a threat, combat and a released item", () => {
-    const old = meeting();
-    old.schema = 2;
-    old.turn = old.revision = 8;
-    for (const [id, actor] of Object.entries(old.actors).filter(([id]) =>
-      ["vale", "moth", "keeper"].includes(id),
-    )) {
-      actor.place = "station";
-      actor.progress = {
-        program: 2,
-        step: 0,
-        marks: Array.from({ length: id === "vale" ? 5 : 4 }, (_, i) => i + 1),
-      };
-    }
-    old.items.oil.holder = "keeper";
-    let s = decodeSave(JSON.stringify(old));
-    s.actors.moth.progress.current.steps = [
-      hand(hold("lamp", "oil"), at("attic")),
-    ];
-    s.actors.keeper.progress.current.steps = [
-      hand(hold("lamp", "oil"), at("pond")),
-    ];
+    let s = meeting();
+    s.turn = s.revision = 8;
+    for (const id of ["vale", "moth", "keeper"]) s.actors[id].place = "station";
+    s.items.oil.holder = "keeper";
+    s.actors.moth.want = { kind: "item", target: "oil", since: 8, refusals: 0 };
     expect(plan(s, "moth").action.kind).toBe("ask");
     let seenThreat = false,
       seenAttack = false,
@@ -249,7 +232,7 @@ describe("card standoffs", () => {
   it("lets the winning avatar collect the released item as a card play", () => {
     let s = meeting();
     s.turn = s.revision = 3;
-    s.actors.vale.progress = { program: 1, step: 0, marks: [1, 2, 3] };
+    s.actors.vale.xp = 1;
     s = act(s, "threaten", "moth");
     s = act(s, "attack", "moth");
     s = act(s, "attack", "moth");
@@ -264,6 +247,8 @@ describe("card standoffs", () => {
   it("carries the threat, guard and combat facts into each witness's model context", () => {
     const start = meeting();
     start.items.bell.holder = "station";
+    // The keeper comes from the pond for the bell lying at the station.
+    start.actors.keeper.want = { kind: "item", target: "bell", since: 0, refusals: 0 };
     const s = act(start, "threaten", "moth");
     const context = narrativeContext(s, { target: "moth" });
     expect(context.speakers).toEqual(["vale", "moth", "keeper"]);

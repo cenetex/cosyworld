@@ -10,8 +10,6 @@ import {
   validateWorld,
   itemPlace,
   rootHolder,
-  places,
-  things,
 } from "../v2/card-game/world.mjs";
 import { cardPlay, playLabel } from "../v2/card-game/cards.mjs";
 import {
@@ -20,36 +18,26 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { sceneScript } from "../v2/card-game/scene.mjs";
 import { profiles } from "../v2/card-game/memory.mjs";
-import {
-  generateProgram,
-  hand,
-  hold,
-  at,
-  withAvatars,
-  either,
-  sequence,
-  desireFor,
-  levelOf,
-} from "../v2/card-game/quests.mjs";
-
+// Pip is at the station with Vale and wants to be at the pond.
 function together() {
   const world = createWorld();
   world.actors.moth.place = "station";
   world.items.lamp.holder = "vale";
+  world.actors.moth.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
   return world;
 }
-function ongoingPip(world) {
-  world.turn = world.revision = 8;
-  const progress = (world.actors.moth.progress = {
-    program: 2,
-    step: 0,
-    marks: [1, 2, 3, 4],
-    completedHands: 4,
-    recent: [],
-  });
-  progress.current = generateProgram(world, "moth", places, things);
-  return progress;
-}
+// Pip's quest is the cloth the keeper holds at the pond, not anything Vale carries.
+const wantsCloth = (world) => {
+  world.items.cloth.holder = "keeper";
+  world.actors.keeper.place = "pond";
+  world.actors.keeper.want = null;
+  world.actors.moth.want = { kind: "item", target: "cloth", since: 0, refusals: 0 };
+  return world;
+};
+const wantsLamp = (world) => {
+  world.actors.moth.want = { kind: "item", target: "lamp", since: 0, refusals: 0 };
+  return world;
+};
 function request(world, avatar, destination) {
   const { action } = cardPlay(world, [avatar, destination]);
   expect(action).toMatchObject({
@@ -80,7 +68,7 @@ describe("accompany card requests", () => {
     expect(cardPlay(world, ["vale", "station"]).action.kind).toBe("wait");
     expect(cardPlay(world, ["moth", "station"]).action).toBeFalsy();
   });
-  it("takes one shared trip toward a target hand while the other avatar acts", () => {
+  it("takes one shared trip toward its want while the other avatar acts", () => {
     const start = together(),
       before = encodeSave(start);
     const world = request(start, "moth", "pond");
@@ -103,13 +91,13 @@ describe("accompany card requests", () => {
     ).toHaveLength(0);
     expect(encodeSave(start)).toBe(before);
   });
-  it("answers an unrelated trip with its current goal and resumes that goal next turn", () => {
-    const start = together();
+  it("answers an unrelated trip with its current want and resumes that want next turn", () => {
+    const start = wantsCloth(together());
     start.actors.vale.place = start.actors.moth.place = "pond";
     start.items.lamp.lit = true;
     const world = request(start, "moth", "attic");
     expect(reply(world).accepted).toBe(false);
-    expect(reply(world).text).toContain("Black pond");
+    expect(reply(world).text).toContain("their own want");
     expect(world.actors.vale.place).toBe("pond");
     expect(world.actors.moth.place).toBe("pond");
     const next = wait(world);
@@ -119,110 +107,26 @@ describe("accompany card requests", () => {
           e.turn === 2 &&
           e.actorId === "moth" &&
           e.verb === "ask" &&
-          e.itemId === "lamp",
+          e.itemId === "cloth",
       ),
     ).toBe(true);
   });
   it("asks to collect a wanted item here before leaving it behind", () => {
-    const start = together();
+    const start = wantsLamp(together());
     start.items.lamp.holder = "station";
     const world = request(start, "moth", "pond");
     expect(reply(world).accepted).toBe(false);
     expect(world.items.lamp.holder).toBe("station");
     expect(wait(world).items.lamp.holder).toBe("moth");
   });
-  it("counts both target hands at the same arrival and remembers their own items", () => {
-    const start = createWorld();
-    start.turn = start.revision = 1;
-    start.actors.vale.place = start.actors.keeper.place = "pond";
-    start.items.lamp.lit = true;
-    start.items.lamp.holder = "vale";
-    start.actors.vale.progress = { program: 0, step: 1, marks: [1] };
-    start.items.oil.holder = "vale";
-    start.items.bell.holder = "keeper";
-    const world = request(start, "keeper", "attic");
-    expect(world.actors.vale.progress.step).toBe(2);
-    expect(world.actors.keeper.progress.step).toBe(1);
-    const fulfilled = world.log.filter((e) => e.kind === "quest");
-    expect(fulfilled.map((e) => e.actorId)).toEqual(
-      expect.arrayContaining(["vale", "keeper"]),
-    );
-    for (const entry of fulfilled)
-      expect(entry.fulfillment.location).toBe("attic");
-    expect(world.items.oil.history.at(-1)).toContain(
-      "Vale carried it to Mirror attic",
-    );
-    expect(world.items.bell.history.at(-1)).toContain(
-      "The keeper carried it to Mirror attic",
-    );
-    for (const id of ["vale", "keeper", "pond", "attic", "oil", "bell"])
-      expect(
-        world.memories[id].events.some((e) =>
-          e.text.includes("travel together"),
-        ),
-      ).toBe(true);
-  });
-  it("earns a level when a joint arrival completes the whole quest program", () => {
-    const start = createWorld();
-    start.turn = start.revision = 1;
-    start.actors.vale.place = start.actors.keeper.place = "pond";
-    start.items.lamp.lit = true;
-    start.items.lamp.holder = "vale";
-    start.actors.keeper.progress = { program: 0, step: 1, marks: [1] };
-    start.actors.moth.place = "attic";
-    start.items.lamp.holder = "moth";
-    start.items.cloth.holder = "keeper";
-    const world = request(start, "keeper", "attic");
-    expect(levelOf(world, "keeper")).toBe(2);
-    expect(
-      world.log.findLast((e) => e.kind === "quest" && e.actorId === "keeper"),
-    ).toMatchObject({
-      level: 2,
-      fulfillment: { location: "attic", avatars: ["vale", "moth"] },
-    });
-  });
-  it("joins a trip toward a distant wanted item before its final location", () => {
-    const start = together();
+  it("joins a trip toward a distant wanted item", () => {
+    const start = wantsLamp(together());
     start.actors.vale.place = start.actors.moth.place = "pond";
     start.items.lamp.lit = true;
     start.items.lamp.holder = "attic";
     const world = request(start, "moth", "attic");
     expect(reply(world).accepted).toBe(true);
     expect(wait(world).items.lamp.holder).toBe("moth");
-  });
-  it("joins wanted company when the hand allows any location", () => {
-    const start = together();
-    const progress = ongoingPip(start);
-    start.actors.keeper.place = "pond";
-    progress.current.steps = sequence(
-      hand(hold("cloth"), withAvatars("keeper")),
-      hand(hold("bell"), at("station")),
-    );
-    const world = request(start, "moth", "pond");
-    expect(reply(world).accepted).toBe(true);
-    expect(
-      world.log.findLast((e) => e.kind === "quest" && e.actorId === "moth")
-        .fulfillment.avatars,
-    ).toContain("keeper");
-  });
-  it("uses every composable choice when deciding to join", () => {
-    const start = together();
-    const progress = ongoingPip(start);
-    progress.current.steps = sequence(
-      either(
-        hand(hold("cloth"), at("attic"), withAvatars("vale")),
-        hand(hold("cloth"), at("pond"), withAvatars("vale")),
-      ),
-      hand(hold("bell"), at("station")),
-    );
-    expect(desireFor(start, "moth").location).toBe("attic");
-    validateWorld(start);
-    const world = request(start, "moth", "pond");
-    expect(reply(world).accepted).toBe(true);
-    expect(
-      world.log.findLast((e) => e.kind === "quest" && e.actorId === "moth")
-        .target.location,
-    ).toBe("pond");
   });
   it("crosses an open reflection with both inventories and advances fuel once", () => {
     const start = together();
@@ -283,14 +187,14 @@ describe("accompany card requests", () => {
     expect(world.standoffs[0].guarding.moth).toBe(false);
   });
   it("gives the model the recorded refusal even after an earlier promise", () => {
-    const start = together();
+    const start = wantsCloth(together());
     start.actors.vale.place = start.actors.moth.place = "pond";
     start.items.lamp.lit = true;
     const world = request(start, "moth", "attic");
     world.memories.moth.text = "I will go with you.";
     const context = narrativeContext(world);
     expect(context.action).toContain("Pip declines the trip");
-    expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
+    expect(context.speakers).toEqual(["vale", "moth"]);
     for (const id of ["vale", "moth"]) {
       const entity = context.entities.find((e) => e.id === id);
       expect(entity.facts[0]).toContain(

@@ -94,8 +94,10 @@ describe("the household save upgrade", () => {
       for (const key of ["turn", "revision", "eventSeq", "log"])
         expect(after[key]).toEqual(before[key]);
       expect(after.crossings).toMatchObject(before.crossings);
-      for (const [id, actor] of Object.entries(before.actors))
-        expect(after.actors[id]).toEqual({
+      // Quest progress is dropped; each avatar gains its want record.
+      const lived = ({ want, xp, visited, talked, metTurn, gaveUp, ...a }) => a;
+      for (const [id, { progress, ...actor }] of Object.entries(before.actors))
+        expect(lived(after.actors[id])).toEqual({
           ...actor,
           trust: {
             ...actor.trust,

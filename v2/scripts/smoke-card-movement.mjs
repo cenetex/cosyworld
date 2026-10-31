@@ -17,10 +17,7 @@ function fixture(kind) {
   // The waiting resident is met on the first trip from the lit attic.
   const start =
     kind === "resident" ? atticOpening() : createWorld({ opening: true });
-  let s = enableMotives(start, {
-    questPrograms: true,
-    personalQuests: true,
-  });
+  let s = enableMotives(start);
   s = play(
     s,
     legalActions(s).find((a) => a.kind === "light"),

@@ -24,11 +24,10 @@ export function requestConditions(world, action) {
       g.kind,
       g.weight,
     ]),
-    [
-      world.actors[action.target]?.progress?.program,
-      world.actors[action.target]?.progress?.step,
-    ],
-    world.life?.actors?.[action.target]?.phase || null,
+    // The other side's quest changes when a gift meets it, so it stays out of
+    // the conditions; these slots keep the layout adaptive learning reads.
+    [null, null],
+    null,
     Object.keys(world.items)
       .sort()
       .filter(

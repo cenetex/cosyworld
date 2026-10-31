@@ -32,14 +32,12 @@ describe("playing the world through cards", () => {
     s = cards(s, "lamp");
     s = cards(s, "pond");
     s = cards(s, "attic");
+    // Pip follows the lamp it wants; the keeper keeps to the station.
     expect(availableCards(s)).toEqual([
       "vale",
       "lamp",
       "moth",
       "cloth",
-      "keeper",
-      "oil",
-      "bell",
       "attic",
       "pond",
       ...(places["forest-cottage"] ? ["forest-cottage"] : []),
@@ -88,11 +86,14 @@ describe("playing the world through cards", () => {
     expect(s.log.some((e) => e.verb === "talk" && e.targetId === "moth")).toBe(
       true,
     );
+    const xp = s.actors.moth.xp;
     s = cards(s, "lamp", "moth");
     expect(s.items.lamp.holder).toBe("moth");
-    expect(s.items.lamp.lit).toBe(true);
+    // The lamp is Pip's want: Pip meets it and trusts the giver.
+    expect(s.actors.moth.xp).toBeGreaterThan(xp);
+    expect(s.actors.moth.trust.vale).toBe(1);
     s = cards(s, "station");
-    expect(s.actors.moth.place).toBe("pond");
+    expect(s.actors.moth.place).toBe("station");
     expect(s.actors.vale.place).toBe("station");
   });
   it("lets a current-place card put down a carried item", () => {
@@ -136,21 +137,23 @@ describe("playing the world through cards", () => {
     expect(cardPlay(s, ["lamp"]).action.kind).toBe("ask");
     s = cards(s, "lamp", "moth");
     expect(s.items.lamp.holder).toBe("moth");
+    // The keeper hands over the lamp it values little.
     s = createWorld();
     s.actors.keeper.place = "station";
-    s.items.bell.holder = "keeper";
-    s = cards(s, "oil");
-    expect(s.items.oil.holder).toBe("vale");
+    s.items.lamp.holder = "keeper";
+    s = cards(s, "lamp");
+    expect(s.items.lamp.holder).toBe("vale");
+    s.actors.moth.place = "station";
     s.items.bell.holder = "vale";
     s.items.lamp.holder = "vale";
     s.items.oil.holder = "vale";
     s.items.cloth.holder = "station";
     expect(cardPlay(s, ["cloth"]).action).toBeFalsy();
     expect(cardPlay(s, ["cloth", "lamp"]).action).toBeFalsy();
-    // Give is always offered. The keeper's refusal costs the turn.
-    expect(cardPlay(s, ["oil", "keeper"]).action.kind).toBe("give");
-    s = cards(s, "oil", "keeper");
-    expect(s.items.oil.holder).toBe("vale");
+    // Give is always offered. Pip's refusal of the bell costs the turn.
+    expect(cardPlay(s, ["bell", "moth"]).action.kind).toBe("give");
+    s = cards(s, "bell", "moth");
+    expect(s.items.bell.holder).toBe("vale");
     expect(s.log.findLast((e) => e.verb === "give")).toMatchObject({
       accepted: false,
       reason: "wants-something-else",

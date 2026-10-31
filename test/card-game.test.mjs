@@ -50,19 +50,22 @@ describe("the reflected shore card game", () => {
     expect(encodeSave(s)).toBe(before);
   });
 
-  it("lets the cast move and claim an object while Vale waits", () => {
+  it("lets the cast move and claim its wanted object while Vale waits", () => {
     let s = act(createWorld(), "wait");
     expect(s.actors.moth.place).toBe("station");
     s = act(s, "wait");
     expect(s.items.lamp.holder).toBe("moth");
+    expect(
+      s.log.findLast((e) => e.verb === "want_met" && e.actorId === "moth"),
+    ).toMatchObject({
+      wantMet: { kind: "item", target: "lamp" },
+    });
+    expect(s.actors.moth.xp).toBe(1);
+    // The station is a sanctuary, so Pip rests there and wants something new.
+    expect(s.actors.moth.want?.target).not.toBe("lamp");
     s = act(s, "wait");
-    expect(s.items.lamp.lit).toBe(true);
-    s = act(s, "wait");
-    expect(s.actors.moth.place).toBe("pond");
-    s = act(s, "wait");
+    expect(s.actors.moth.place).toBe("station");
     expect(s.items.lamp.holder).toBe("moth");
-    expect(s.actors.vale.place).toBe("station");
-    expect(reflectionOpen(s)).toBe(true);
   });
 
   it("opens a real route with light and closes it when covered", () => {
@@ -118,20 +121,15 @@ describe("the reflected shore card game", () => {
     expect(legalActions(s).some((a) => a.kind === "refill")).toBe(false);
   });
 
-  it("lets the keeper seek the bell and carry it through the lit pond passage", () => {
+  it("lets the keeper go for its wanted bell and carry it", () => {
     const start = createWorld();
-    start.items.lamp.holder = "pond";
-    start.items.lamp.lit = true;
-    let s = act(start, "ring", "bell");
+    start.actors.keeper.place = "pond";
+    start.items.bell.holder = "station";
+    let s = act(start, "wait");
     expect(s.actors.keeper.place).toBe("station");
     s = act(s, "wait");
     expect(s.items.bell.holder).toBe("keeper");
-    s = act(s, "wait");
-    expect(itemPlace(s, "bell")).toBe("pond");
-    s = act(s, "wait");
-    expect(itemPlace(s, "bell")).toBe("attic");
-    expect(s.items.bell.holder).toBe("keeper");
-    expect(s.items.bell.ringing).toBe(0);
+    expect(s.actors.keeper.xp).toBe(1);
   });
 
   it("uses the same cloth to stop sound", () => {
@@ -155,11 +153,12 @@ describe("the reflected shore card game", () => {
     expect(
       legalActions(s).some((a) => a.kind === "take" && a.item === "lamp"),
     ).toBe(false);
+    // The keeper values the lamp little and hands it over.
     s = createWorld();
     s.actors.keeper.place = "station";
-    s.items.bell.holder = "keeper";
-    s = act(s, "ask", "oil", "keeper");
-    expect(s.items.oil.holder).toBe("vale");
+    s.items.lamp.holder = "keeper";
+    s = act(s, "ask", "lamp", "keeper");
+    expect(s.items.lamp.holder).toBe("vale");
   });
 
   it("counts attached objects when enforcing carrying space", () => {
@@ -252,7 +251,7 @@ describe("the reflected shore card game", () => {
         "awakening.css",
         "app.mjs",
         "world.mjs",
-        "quests.mjs",
+        "want.mjs",
         "life.mjs",
         "scene.mjs",
         "dialogue.mjs",
@@ -275,7 +274,7 @@ describe("the reflected shore card game", () => {
       }
       expect((await fetch(`${url}/scene.mjs`)).status).toBe(200);
       expect((await fetch(`${url}/cards.mjs`)).status).toBe(200);
-      expect((await fetch(`${url}/quests.mjs`)).status).toBe(200);
+      expect((await fetch(`${url}/want.mjs`)).status).toBe(200);
       for (const id of ["station", "attic", "pond", "vale", "moth", "keeper"]) {
         const image = await fetch(`${url}/assets/${id}.png`);
         expect(image.status).toBe(200);

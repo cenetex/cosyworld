@@ -2,15 +2,9 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import {
-  currentActor,
-  encodeSave,
-  legalActions,
-} from "../card-game/world.mjs";
+import { currentActor, encodeSave, legalActions } from "../card-game/world.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 import { profiles } from "../card-game/memory.mjs";
-import { questCards, questCardId } from "../card-game/quest-cards.mjs";
-import { narrativeContext } from "../card-game/narrative.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import {
   openDoorAction,
@@ -122,77 +116,6 @@ try {
         fullPage: true,
       });
     };
-    const checkReportCards = async (world) => {
-      const saved = structuredClone(world);
-      saved.quests.hands.vale = ["agora", "eleusis"].map(
-        (place) => `greek-drama:story-quest-greek-homecoming-return:${place}`,
-      );
-      const reports = questCards(saved);
-      assert.equal(reports.length, 2);
-      const ids = reports.map((report) => questCardId(saved, report));
-      assert.equal(
-        new Set(ids).size,
-        2,
-        "each return card has its own display ID",
-      );
-      const reportPage = await browser.newPage({
-        viewport: { width, height: width === 390 ? 844 : 900 },
-        reducedMotion: "reduce",
-        hasTouch: width === 390,
-      });
-      const reportTable = `homecoming-reports-${width}`;
-      const reportKey = `cosyworld.reflected-shore.v1.${reportTable}`;
-      reportPage.on("pageerror", (error) => errors.push(error.message));
-      try {
-        await reportPage.addInitScript(
-          ({ key, save, seen }) => {
-            if (!localStorage.getItem(key)) localStorage.setItem(key, save);
-            localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
-            localStorage.setItem("cosyworld.dialogue.sound", "off");
-            localStorage.setItem(
-              "cosyworld.room-music",
-              JSON.stringify({ enabled: false }),
-            );
-          },
-          {
-            key: reportKey,
-            save: encodeSave(saved),
-            seen: Object.keys(profiles),
-          },
-        );
-        await reportPage.goto(`${origin}/?table=${reportTable}`);
-        await reportPage.waitForSelector('#hand[data-cooling="false"] .card');
-        await reportPage.reload();
-        await reportPage.waitForSelector('#hand[data-cooling="false"] .card');
-        // Both return reports stay saved; neither becomes a hand card.
-        assert.equal(await reportPage.locator("#hand [data-quest]").count(), 0);
-        for (const id of ids)
-          assert.equal(
-            await reportPage.locator(`#hand [data-card="${id}"]`).count(),
-            0,
-          );
-        // Since #1451 Talk carries one want line, not the report titles; the
-        // reports stay in Vale's saved hand, checked after the reload below.
-        const facts = narrativeContext(saved)
-          .entities.find((entity) => entity.id === "vale")
-          .facts.join(" ");
-        assert.doesNotMatch(
-          facts,
-          /What I want most now|I also want to pursue/,
-        );
-        const reloaded = await reportPage.evaluate(
-          (key) => JSON.parse(localStorage.getItem(key)),
-          reportKey,
-        );
-        assert.deepEqual(reloaded.quests.hands.vale, saved.quests.hands.vale);
-        await reportPage.screenshot({
-          path: new URL(`reports-${width}.png`, output).pathname,
-          fullPage: true,
-        });
-      } finally {
-        await reportPage.close();
-      }
-    };
     const step = async ({ kind, ...fields }) => {
       await settle();
       // Aboard, a port is a voyage: the course card, a round at sea, Disembark.
@@ -244,7 +167,7 @@ try {
         assert.equal(after.actors.vale.place, fields.destination);
         assert.equal(after.actors[fields.target].place, fields.destination);
       }
-      assert.ok(questCards(after).length <= 2, "two quest cards fit the hand");
+      assert.equal(after.quests, undefined, "no quest records return");
     };
     try {
       await page.goto(`${origin}/?table=${table}`);
@@ -256,8 +179,6 @@ try {
       await step({ kind: "drop", item: "lamp", target: "greek-courtyard" });
       for (const action of homecomingSteps({ berth, reading })) {
         await step(action);
-        if (action.choiceId === "greek-open-door-eleusis-care")
-          await checkReportCards(await state());
         if (action.choiceId === `greek-homecoming-report-piraeus-${berth}`) {
           const world = await state();
           assert.notEqual(
@@ -272,12 +193,6 @@ try {
         }
         if (action.choiceId === "greek-homecoming-agree-journey") {
           await capture("agreed-journey");
-          const world = await state();
-          const quest = questCards(world, "greek-household-witness").find(
-            (card) =>
-              card.key === "greek-drama:story-quest-greek-homecoming-household",
-          );
-          assert.ok(quest, "Myrine holds her journey card");
           assert.equal(
             await page.locator("#hand [data-quest]").count(),
             0,
@@ -321,9 +236,9 @@ try {
         "completed reading survives reload",
       );
       assert.deepEqual(
-        (await state()).questCompletions,
-        completed.questCompletions,
-        "rewards remain once",
+        (await state()).log.filter((e) => e.verb === "want_met"),
+        completed.log.filter((e) => e.verb === "want_met"),
+        "met quests remain once",
       );
       assert.ok(
         requests.some((r) =>
@@ -334,7 +249,7 @@ try {
       assert.deepEqual(errors, []);
       assert.deepEqual(failedAssets, []);
       console.log(
-        `Homecoming: ${width}px, ${berth} care, ${reading} reading, distinct report cards, early return, consent, real travel, custody, and reload passed.`,
+        `Homecoming: ${width}px, ${berth} care, ${reading} reading, early return, consent, real travel, custody, and reload passed.`,
       );
     } finally {
       await page.close();

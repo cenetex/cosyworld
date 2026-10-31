@@ -15,8 +15,6 @@ import {
   entityActive,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
-import { addQuestRecord } from "../v2/card-game/shared-quests.mjs";
-import { recordQuestCompletion } from "../v2/card-game/quest-completions.mjs";
 
 function releasedRoad(road, version = 16) {
   const context = vm.createContext({});
@@ -78,7 +76,12 @@ describe("local town visits and road history", () => {
         [port, town],
         [town, port],
       ]);
-      expect(current.log).toEqual(before.log);
+      // Quest records leave the history; every other event stays.
+      expect(current.log).toEqual(
+        before.log
+          .filter((e) => e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""))
+          .map(({ questPlan, consequence, questKey, ...e }) => e),
+      );
       expect(current.memories[road]).toMatchObject(before.memories[road]);
       expect(current.packs["greek-drama"].revision).toBe(
         packDefinition("greek-drama").revision,
@@ -128,26 +131,6 @@ describe("local town visits and road history", () => {
       ["greek-courtyard", "greek-harbor"],
       ["greek-harbor", road],
     ];
-    const help = addQuestRecord(before, {
-      holder: { kind: "place", id: "greek-harbor" },
-      program: {
-        id: "help:greek-rhapsode:old",
-        name: "Open the way to Theban Courtyard",
-        steps: [
-          {
-            items: [],
-            avatars: [],
-            location: "greek-harbor",
-            passage: {
-              actor: "greek-rhapsode",
-              from: "greek-harbor",
-              to: "greek-courtyard",
-              kind: "passage",
-            },
-          },
-        ],
-      },
-    });
     const current = decodeSave(JSON.stringify(before));
     expect(current.packs["greek-drama"].revision).toBe(8);
     expect(current.routeKnowledge.vale).toEqual([
@@ -156,9 +139,8 @@ describe("local town visits and road history", () => {
       ["greek-courtyard", road],
       [road, "greek-harbor"],
     ]);
-    expect(current.quests.records[help.key].program.steps[0].passage.to).toBe(
-      road,
-    );
+    // The old help request for passage was a quest record; it is dropped.
+    expect(current.quests).toBeUndefined();
     expect(decodeSave(encodeSave(current))).toEqual(current);
   });
 
@@ -173,34 +155,21 @@ describe("local town visits and road history", () => {
     expect(current.presentActors).toEqual(before.presentActors);
   });
 
-  it("continues an unfinished quest at the former road's town", () => {
+  it("moves a want for the former road to the road's town", () => {
     const before = releasedRoad("greek-road-athens-harbor");
-    const quest = Object.values(before.quests.records).find(
-      (q) => q.completedTurn === null,
-    );
-    quest.program.steps[0].location = "greek-road-athens-harbor";
-    const shared = addQuestRecord(before, {
-      holder: { kind: "place", id: "greek-road-athens-harbor" },
-      program: {
-        id: "road-visit",
-        name: "A visit by the harbor",
-        steps: [
-          { items: [], avatars: [], location: "greek-road-athens-harbor" },
-        ],
-      },
-    });
-    const current = decodeSave(JSON.stringify(before));
-    expect(current.quests.records[quest.key].program.steps[0].location).toBe(
-      "greek-athens-harbor",
-    );
-    expect(current.quests.records[quest.key].key).toBe(quest.key);
-    expect(current.quests.records[shared.key].holder).toEqual({
+    before.actors.mara.want = {
       kind: "place",
-      id: "greek-athens-harbor",
+      target: "greek-road-athens-harbor",
+      since: 0,
+      refusals: 0,
+    };
+    const current = decodeSave(JSON.stringify(before));
+    expect(current.actors.mara.want).toMatchObject({
+      kind: "place",
+      target: "greek-athens-harbor",
     });
-    expect(current.quests.records[shared.key].program.steps[0].location).toBe(
-      "greek-athens-harbor",
-    );
+    expect(current.quests).toBeUndefined();
+    expect(decodeSave(encodeSave(current))).toEqual(current);
   });
 
   it("keeps one road between towns and direct visits inside each town", () => {
@@ -272,38 +241,6 @@ describe("local town visits and road history", () => {
       .filter(([id, p]) => p.road && entityActive(w, id))
       .map(([, p]) => p.backdrop || p.art);
     expect(new Set(paintings).size).toBe(paintings.length);
-  });
-
-  it("lets the Bard visit a completed deed from an earlier internal road", () => {
-    const before = releasedRoad("greek-road-athens-harbor");
-    const quest = addQuestRecord(before, {
-      holder: { kind: "place", id: "greek-road-athens-harbor" },
-      program: {
-        id: "road-deed",
-        name: "A deed by the harbor",
-        steps: [
-          { items: [], avatars: [], location: "greek-road-athens-harbor" },
-        ],
-      },
-    });
-    quest.completedTurn = before.turn;
-    quest.step = 1;
-    const receipt = recordQuestCompletion(before, quest, {
-      actorId: "vale",
-      locationId: "greek-road-athens-harbor",
-    });
-    const current = decodeSave(JSON.stringify(before));
-    const wait = legalActions(current).find((action) => action.kind === "wait");
-    const result = play(current, wait);
-    expect(result.ok, result.error).toBe(true);
-    expect(result.state.roamingQuests["greek-rhapsode"].target.locationId).toBe(
-      "greek-athens-harbor",
-    );
-    expect(
-      result.state.questCompletions.recent.find(
-        (record) => record.id === receipt.id,
-      ).locationId,
-    ).toBe("greek-road-athens-harbor");
   });
 });
 

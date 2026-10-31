@@ -11,7 +11,6 @@ import {
   nameOf,
 } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
-import { questCards } from "../card-game/quest-cards.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
 const server = createServer();
@@ -47,13 +46,9 @@ function fixture(actor) {
 }
 async function seed(page, key, world) {
   await page.addInitScript(
-    ({ key, save, seen, quests }) => {
+    ({ key, save, seen }) => {
       if (!localStorage.getItem(key)) localStorage.setItem(key, save);
       localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
-      localStorage.setItem(
-        `${key}.quests`,
-        JSON.stringify({ seen: quests, read: quests }),
-      );
       localStorage.setItem("cosyworld.dialogue.sound", "off");
       localStorage.setItem(
         "cosyworld.room-music",
@@ -64,9 +59,6 @@ async function seed(page, key, world) {
       key,
       save: encodeSave(world),
       seen: availableCards(world),
-      quests: Object.keys(world.actors).flatMap((id) =>
-        questCards(world, id).map((q) => q.key),
-      ),
     },
   );
 }

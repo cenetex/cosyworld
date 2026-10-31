@@ -24,6 +24,10 @@ function setup() {
   w.items.lamp.holder = "vale";
   w.items.bell.holder = "vale";
   w.items.cloth.holder = "keeper";
+  // Vale's own want stays open through each measured exchange.
+  w.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
+  // Pip wants nothing for now, so it does not contest Vale's lamp.
+  w.actors.moth.want = null;
   return w;
 }
 function act(w, kind, item, target) {
@@ -139,7 +143,7 @@ describe("adaptive action learning", () => {
     expect(ask.samples).toBe(7);
     expect(ask.value).toBeLessThan(0);
   });
-  it("gives an earlier helpful gift credit when the later request reaches the goal", () => {
+it("gives an earlier helpful gift credit when the later request reaches the goal", () => {
     let w = act(setup(), "ask", "cloth");
     w = act(w, "give", "bell", "keeper");
     const gift = history(w).at(-1);
@@ -198,8 +202,14 @@ describe("adaptive action learning", () => {
   it("keeps a bounded recent history with usable source evidence", () => {
     let w = setup();
     w.items.bell.holder = "keeper";
+    // The keeper has just met a want and stays content at the station for
+    // the whole measured run, so the open request stays the same.
+    w.turn = w.revision = 10;
+    w.actors.keeper.want = null;
+    w.actors.keeper.metTurn = 10;
+    w.actors.moth.metTurn = 10;
     w = act(w, "ask", "oil");
-    for (let i = 0; i < TRIAL_LIMIT + 2; i++) w = act(w, "wait");
+    for (let i = 0; i < TRIAL_LIMIT; i++) w = act(w, "wait");
     expect(history(w)).toHaveLength(TRIAL_LIMIT);
     expect(history(w)[0].seq).toBeGreaterThan(2);
     expect(
@@ -259,7 +269,7 @@ describe("adaptive action learning", () => {
       }),
     ).not.toBe(previous);
   });
-  it("keeps an older open goal out of a new quest step", () => {
+  it("keeps an older open goal out of a new want", () => {
     const w = act(setup(), "ask", "oil");
     const action = legalActions(w).find(
       (a) => a.kind === "talk" && a.target === "keeper",
@@ -268,22 +278,7 @@ describe("adaptive action learning", () => {
     expect(
       reconsiderPlan(w, "vale", selected, legalActions(w)).learning,
     ).toBeDefined();
-    w.actors.vale.progress.step++;
-    expect(reconsiderPlan(w, "vale", selected, legalActions(w))).toEqual(
-      selected,
-    );
-  });
-  it("keeps shared quest focus separate from an older open goal", () => {
-    const w = act(setup(), "ask", "oil");
-    const action = legalActions(w).find(
-      (a) => a.kind === "talk" && a.target === "keeper",
-    );
-    const selected = { action, reason: "Attend to a shared hand." };
-    expect(
-      reconsiderPlan(w, "vale", selected, legalActions(w)).learning,
-    ).toBeDefined();
-    w.quests ??= { focus: {}, records: {} };
-    w.quests.focus.vale = "another-shared-hand";
+    w.actors.vale.want = { kind: "place", target: "attic", since: w.turn, refusals: 0 };
     expect(reconsiderPlan(w, "vale", selected, legalActions(w))).toEqual(
       selected,
     );

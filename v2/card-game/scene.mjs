@@ -12,7 +12,7 @@ import {
 } from "./world.mjs";
 import { entityActive, crossings, transports } from "./pack-registry.mjs";
 
-import { desireFor, programFor, levelOf, knownActors } from "./quests.mjs";
+import { levelOf, knownActors } from "./want.mjs";
 import { packPlaces, packPeople } from "./pack-registry.mjs";
 import { variantOf, crossingOpen } from "./pack-rules.mjs";
 import { locationWeather } from "./weather.mjs";
@@ -685,18 +685,7 @@ export function sceneScript(world) {
       departureTo: e.departureTo || null,
       arrivalFrom: e.arrivalFrom || null,
       accepted: e.accepted ?? null,
-      questPlan: e.questPlan ? structuredClone(e.questPlan) : null,
-      quest:
-        e.kind === "quest"
-          ? {
-              programId: e.programId,
-              program: e.program ? structuredClone(e.program) : null,
-              target: e.target ? structuredClone(e.target) : null,
-              step: e.step,
-              level: e.level,
-              hand: e.fulfillment ? structuredClone(e.fulfillment) : null,
-            }
-          : null,
+      wantMet: e.wantMet ? structuredClone(e.wantMet) : null,
       cast: e.cast || [],
       items: e.items || [],
       light: e.light ?? null,
@@ -729,9 +718,7 @@ export function sceneScript(world) {
         locationId: world.actors[id].place,
         items: carried(world, id),
         level: levelOf(world, id),
-        desire: desireFor(world, id),
-        programId: programFor(world, id)?.id || null,
-        progress: structuredClone(world.actors[id].progress),
+        xp: world.actors[id].xp,
       })),
       items: Object.entries(world.items).map(([id, item]) => ({
         id,
@@ -748,7 +735,7 @@ export function sceneScript(world) {
 // Pick the deterministic events Vale witnessed for History.
 export function witnessed(entry, actor = "vale") {
   if (entry.generated) return false;
-  if (!["action", "narration", "quest"].includes(entry.kind)) return false;
+  if (!["action", "narration"].includes(entry.kind)) return false;
   if (entry.actorId === actor) return true;
   // An action is seen from where it started, so Vale sees a departure.
   if (entry.kind === "action") return Boolean(entry.witnesses?.includes(actor));

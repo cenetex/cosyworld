@@ -15,7 +15,6 @@ import {
   observationProblems,
   packCompositionProblems,
 } from "../card-game/pack-schema.mjs";
-import { storyQuestWarnings } from "../card-game/pack-story-schema.mjs";
 
 const v2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(v2, "card-game/packs.json");
@@ -129,12 +128,6 @@ if (problems.length) {
   console.error(`Card world packs are invalid:\n- ${problems.join("\n- ")}`);
   process.exit(1);
 }
-// Advice for authors: single-card stories and facts with one source.
-const warnings = packs.flatMap((pack) => storyQuestWarnings(pack));
-if (warnings.length && !process.argv.includes("--quiet"))
-  console.warn(
-    `Story quest advice (${warnings.length}):\n- ${warnings.join("\n- ")}`,
-  );
 const compiled = `${JSON.stringify(
   { schemaVersion: 1, hub: table.hub, packs },
   null,

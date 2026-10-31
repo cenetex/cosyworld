@@ -52,21 +52,8 @@ fn play(
 }
 
 fn preserves_old_entities(after: &Value, before: &Value) {
-    for (id, old) in before["actors"].as_object().unwrap() {
-        let mut actor = after["actors"][id].clone();
-        actor["trust"]
-            .as_object_mut()
-            .unwrap()
-            .retain(|other, trust| {
-                if old["trust"].get(other).is_some() {
-                    true
-                } else {
-                    assert_eq!(*trust, json!(0));
-                    false
-                }
-            });
-        assert_eq!(&actor, old, "saved actor {id}");
-    }
+    // Quest progress gives way to one want; the rest of each actor survives.
+    super::full_tests::assert_saved_actors(&after["actors"], &before["actors"]);
     for field in ["items", "peaceUntil"] {
         for (id, value) in before[field].as_object().unwrap() {
             assert_eq!(&after[field][id], value, "saved {field} {id}");
@@ -113,9 +100,13 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 assert_eq!(upgraded.present, old.present);
                 preserves_old_entities(&upgraded.game, &old.game);
                 super::sea_steps::assert_upgraded_ship(&upgraded.game, &old.game);
-                for field in ["turn", "eventSeq", "log"] {
+                for field in ["turn", "eventSeq"] {
                     assert_eq!(upgraded.game[field], old.game[field]);
                 }
+                assert_eq!(
+                    upgraded.game["log"],
+                    super::full_tests::quest_free_log(&old.game["log"])
+                );
                 for (key, value) in old.game["crossings"].as_object().unwrap() {
                     assert_eq!(&upgraded.game["crossings"][key], value);
                 }

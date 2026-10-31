@@ -3,10 +3,10 @@
 ## Shipping engine
 
 `world.mjs` owns the card game's state, legal actions, resident turns, and save
-format. `forest.json` holds the forest catalog, starting state, and authored
-quests for the station, attic and pond openings. `createWorld()` copies that data
-for each game. `app.mjs` uses the engine in the browser. The modules beside it provide quests,
-motives, life, memory, pack rules, and presentation. Both the local server and
+format. `forest.json` holds the forest catalog, starting state, and each hub
+avatar's starter quest. `createWorld()` copies that data for each game.
+`app.mjs` uses the engine in the browser. The modules beside it provide quests
+(`want.mjs`), motives, life, memory, pack rules, and presentation. Both the local server and
 the Rust asset server publish this same game.
 
 [lonelyforest.com](https://lonelyforest.com/) receives deliberate versioned
@@ -101,39 +101,52 @@ spoken words. Audio stays separate from saves and shared world history.
 Shared viewers hear their own copy of the room dialogue in order. Reference
 and generated audio are checked through `test/card-character-speech.test.mjs`.
 
-## Quests through Talk
+## One quest per avatar
 
-Cards choose things; the world chooses the verb. The hand therefore holds only
-people, items and places. Quests have no cards, stack, buttons or reveal
-dialog. Each avatar still keeps its saved quest collection, focus, hand of at
-most two carried quests, progress, receipts and history. Old saves load with
-all of it.
+Each avatar has one quest: an item to hold, a place to reach or a person to
+talk with. A world pack defines each resident's starter quest as its `want`
+(`{kind, target}`); `forest.json` does the same for Vale, Pip and the keeper.
+What happens next comes from the world rules in `want.mjs`, not from authored
+quest chains. The internal field stays `actor.want` so saves and the Talk
+facts from earlier releases keep their names; player-facing text says quest.
 
-A person's want reaches the player only through Talk. `want-talk.mjs` reads
-the speaker's want (`actor.want`, or the authored `want` until the rules keep
-one) and adds one first-person fact to the Talk context: "I want the Lamp.",
-"I want to be at Old Oak Tree." or "I want to see Pip." It goes to the
-player's own avatar and to the person on the other side of a Talk play; a
-bystander's want stays unsaid, and a want already met is not said. Quest
-collections no longer add facts to dialogue.
+- **Met.** An item quest is met when the avatar is the item's root holder, a
+  place quest when it stands there, and a person quest when the two share a
+  place and Talk. Meeting a quest records a `want_met` history event and one
+  experience point. Level is a rising curve of experience: 1, 3, 6, 10 points
+  reach levels 2 to 5. Standoff strength and the scene read that level.
+- **Next.** The next quest is drawn deterministically from the world, seeded
+  by the avatar and turn: items others hold nearby that the avatar values
+  above what it carries, reachable places it has not visited, and known people
+  it has not talked with. A quest met away from home is followed by the way
+  home; at home the avatar rests a few turns before the next one. With nothing
+  left to want it stays content for a while, then its curiosity starts over.
+- **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
+  who learn the roads keep to the routes they know), then ask, trade their
+  least valued spare, and threaten when bold enough by resentment, level or
+  earlier refusals. `expects()` lets them skip some offers they expect to be
+  refused, but refusals still happen: each refusal of the quest item counts,
+  and after three, or a long spell with no way forward, the quest is set aside
+  for a while. A resident that keeps to its scene acts only while someone is
+  there, so its quest can stall only after a first refused attempt, and the
+  stall clock starts at that attempt.
+- **Trust** has one source: someone gave me the item my quest wanted.
 
-Talk keeps two learned facts per speaker: a fact that is about to be told
-leads, then the newest news. The speaker's spark ("It started with …") and
-missing items, places and company still come from the motive and desire facts.
+The hand holds only people, items and places; quests have no cards or
+buttons. A person's quest reaches the player only through Talk:
+`want-talk.mjs` adds one first-person fact ("I want the Lamp.") for the player
+and the person on the other side of a Talk play. Bystanders' quests stay
+unsaid, and a met quest is not said.
 
-The text is narration context only: the rules still decide legality,
-progress, focus and rewards, and building the context never changes the
-world.
+Loading an earlier save drops its quest programs, collections, progress and
+quest history (`forgetQuests` in `legacy-saves.mjs`) and installs each
+avatar's starter quest. Saves from before schema 6 start fresh. Shared worlds
+move to the new rules through the normal upgrade; released journals still
+replay on their frozen rule bundles.
 
-The rules keep their quest actions (`pursue`, `join-quest`, `share-quest` and
-`drop-quest`) for residents, journal replay and shared play. Residents still
-choose them. Ordinary plays advance every matching carried quest, so the
-player needs no focus control.
-
-Run `node v2/scripts/smoke-card-quest-collection.mjs` to check that the hand
-has no quest cards, that saved quests survive reload, and that Talk sends the
-want fact at desktop and phone sizes. `test/card-want-talk.test.mjs` checks
-the fact, who hears it and that no quest facts remain.
+`test/card-want.test.mjs` covers the rules, `test/card-liveness.test.mjs`
+checks that every resident meets a quest in each 80-turn window of loose play,
+and `test/card-want-talk.test.mjs` checks the Talk fact.
 
 ## Image-first presentation
 
@@ -283,111 +296,28 @@ cross-tab updates. Its deterministic speech fixture tests the UI; the
 narrative contract smoke separately sends real Greek request contexts
 through Rust validation without a paid model call.
 
-## Greek story cards
+## Greek stories
 
-Three story cards follow the saved Theban outcomes. Each shows one line:
-**A place beside the bread.**, **Her brother waits for earth.**, and
-**What words will you bring home?** Their completion labels follow the
-chosen outcome: **Fulfilled**, **Declined**, **Reported**, or **Shared**.
+The Theban, Open Door and Ajax stories are told through pack choices: Talk,
+Give and Use plays whose effects the rules commit, with receipts saved in the
+pack state. There are no story quest cards or story quest records. The Bard's
+conversation holds the earned poem in order, and his verses follow the saved
+choice receipts. The [exact copy list](../content/greek-drama/OPENING-POEM.md),
+the [Open Door guide](../content/greek-drama/OPEN-DOOR.md) and the
+[Ajax chapter guide](../content/greek-drama/AJAX.md) record the scenes.
+Pack `storyQuests` and situation data are no longer read. A story choice is
+the listener's own deed: only their Talk commits it. A resident who seeks Vale
+out for its own quest can tell the same account, and Vale's later Talk with
+that resident still commits the choice, one choice per turn.
 
-The Bard appears in the next room the player enters after a quest ends.
-His conversation context holds the earned poem in order. Talking to him
-invites an earned couplet. Permission, burial, refusal, and warning each
-keep their own verses. A later permitted burial opens the return to Dione
-again. The [exact copy list](../content/greek-drama/OPENING-POEM.md) records
-every verse and the three card lines.
-
-Story quests have no card in the hand. Their lines reach the player through
-Talk: the people who carry a story, or stand where it is held, mention it in
-conversation. Saved story records stay with the traveler through a trip home
-and the rest between personal quests. Existing saves derive them from their
-recorded meetings, choices, and flags. Completed stories remain complete after
-reload.
-
-The Open Door adds six story cards with one short line each. The mothers’
-petition leads from Eleusis to Athens and the quay. The keepers at Colonus
-and Marathon name the earlier and later generations of their tales. Current
-gifts, heard reports, and chosen endings earn distinct verses. The final card
-leads back to Dione. The [scene and source guide](../content/greek-drama/OPEN-DOOR.md)
-records the full path and each original adaptation.
-
-Run `node v2/scripts/smoke-card-open-door.mjs` for the complete desktop and
-phone journeys, alternate choices, object care, reloads, cards, and Bard.
-
-The completed Athenian stories and a return to Dione open the Ajax chapter.
-Its shield, spoken plea, three burial routes and signed return account are
-described in the [chapter guide](../content/greek-drama/AJAX.md).
-Run `node v2/scripts/smoke-card-ajax.mjs` for all three desktop and phone journeys.
-
-## Personal quests and lasting hopes
-
-Personal and shared quest programs use `quest-progress.mjs` to capture evidence,
-advance one step per turn, apply each shared effect once and save completions.
-Pack stories use `storyQuests` in their authored data. The
-[story quest guide](../docs/card-story-quests.md) explains how another pack can
-use the same rules.
-
-Talk can share one saved fact. Authored topics and witnessed deeds supply those
-facts; each listener keeps the source and teller. A checked spoken reply teaches
-the fact and can unlock an authored scene or a quest step. Later Talk can pass
-heard news to another person. Greece's spoken clues now use this path, including
-the mothers' plea, the decree and the returning reports.
-
-A remembered fact is told with an age band (just now, a little while ago, some
-time ago, long ago) and its place. A witnessed event six or more turns old adds
-"Things may have changed since," so old news about who carried what stays
-honest. Authored topics and finished stories do not go stale.
-
-The browser enables `personalQuests` alongside motives. The first quest gives
-each avatar a starting purpose. A completed quest earns a level. The avatar then
-heads to a sanctuary and rests there for three turns. Shared human avatars count
-their own turns; residents count world rounds. A meaningful experience can seed
-the next purpose after rest. A long quiet spell also gives the avatar a fresh
-purpose. The new quest can first advance on the following turn.
-
-Each avatar has a lasting hope and three milestones. Generated quests favour
-the next feasible milestone, then recent experiences and variety. A quest
-that fulfils the next milestone records its completion turn. The hope and its
-completed milestones stay with the avatar through later quests. Earlier
-authored quests keep their order as the opening story.
-
-Pack stories and generated lives meet in `story-life.mjs`. When a story
-resolves, its participants and the people present keep a story experience
-with the ending's outcome. It outweighs everyday deeds, so it can seed the
-next purpose after rest. A fulfilled story favours a gathering, a refusal
-favours settling a trouble, and a report or shared account favours a
-delivery. The ending also becomes a witnessed fact for those present, so Talk
-can pass it on as heard news. A pack resident with personal quests who is
-named in an open story leans toward a generated program that brings a needed
-item or person to that story's place. Only the people's own choices finish a
-story. Story experiences only add fields to life version 2, so earlier saves
-and released shared worlds load with their quests, steps, items, memories and
-levels unchanged.
-
-Inside a mounted pack, generated quests also come from the pack's own
-`situations` (see the [pack guide](../docs/card-packs.md)). The Willows, the
-Steam Clock, the Hoppy Cat archive and the Lonely Forest each supply a few,
-such as learning news from a resident through Talk and then carrying an item
-to someone else. Inside a pack, its own situations win ties with the hub's.
-
-Favourite belongings have lasting value. A received gift gains a saved
-attachment to its giver. These reasons affect gifts, prices and autonomous
-handover choices. An explicit delivery quest can give an attached item a new
-purpose. Talking, giving, trading and accepted invitations create three turns
-of shared time. Residents can tend items or talk during this time. A grievance
-still lets them seek space. The player chooses Vale's actions throughout.
-
-Talk carries the current purpose. Personal relationships and lasting hopes may
-inform speech.
-
-Schema 6 saves gain validated `life` state. Life version 2 records experiences,
-rest, hopes and attachments. Loading an earlier save keeps its active quest,
-earned steps, items, memories and levels. New-game and cross-tab save updates use
-the same setup. The action history and lasting experiences have separate bounds.
-
-Run `npx vitest run test/card-personal-quests.test.mjs` for the quest cycle,
-repeat limits, attachment and company rules, hope selection, save migration,
-validation and deterministic mixed-play checks.
+Run `node v2/scripts/smoke-card-open-door.mjs` and
+`node v2/scripts/smoke-card-greek-homecoming.mjs` for the Open Door and
+homecoming journeys at desktop and phone widths, and
+`node v2/scripts/smoke-card-ajax.mjs` for the three Ajax journeys.
+`smoke-card-greek-drama.mjs` also plays the opening poem, where the Bard's
+quest to hear Vale brings it to the courtyard, and
+`smoke-card-bard-travel.mjs` follows the Bard's own quests along the roads and
+through the mask-gated theatre door.
 
 ## The bell crossing to the Steam Clock
 
@@ -435,9 +365,9 @@ are saved in `output/badger-check/`.
 
 ## Shore text and memory
 
-Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Earlier quest counters stay in saved history. Each avatar's voice, beliefs and fears give its request or response a personal reason.
+Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Each avatar's voice, beliefs and fears give its request or response a personal reason.
 
-Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Quest step lists, authored purposes and hidden interaction rules stay in the simulation; each avatar's facts can include the want line described in [Quests through Talk](#quests-through-talk). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until the first light.
+Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Hidden interaction rules stay in the simulation; each avatar's facts can include the quest line described in [One quest per avatar](#one-quest-per-avatar). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until the first light.
 
 When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action; social actions and travel can start an exchange, while ordinary object manipulation can remain silent. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the words to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, combat, travel and introductions retain their relevant speakers. The departure action stays in the source scene. Words are written after the move commits, so a departed avatar's line is recorded at the destination with that place's cast; a player left at the source never sees it, and the waiting portrait does not name them there. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
 
@@ -447,7 +377,7 @@ The stage holds up to three avatars. Vale stands in the foreground, with the oth
 
 A raised card keeps the current conversation in place. Playing a destination starts the new visit. Room memories and the previous response follow that visit; earlier visits stay available through History and the line arrows. While a Talk or Ask reply is pending, Previous shows the last accepted line, and the speaker's portrait button returns to the wait, in local and shared play. Fresh dialogue waits for the backdrop, avatar images, and entrance motion to settle. The travel screen fully covers the source before the destination is drawn. Arrivals begin after that screen clears, and dialogue begins after the arrivals finish. Agreed companions enter together; independent followers enter a moment after Vale. A short caption distinguishes followers, companions, waiting residents, and departures, including with reduced motion. The same order applies when reopening a saved game. Media waits have a time limit. A reset or a save update cancels the travel screen and its waiting entrances.
 
-The card rules still commit movement, trades, quest progress and inventory. The text response updates memories and scene lines. Revision checks discard old replies. Each ready exchange finishes before the next card action. Selecting cards prepares a single play or a combination. The scene and both conversation lines stay on the completed play until the next play is committed. Departure captions use the existing speaker heading. A temporary speech failure retries the same completed turn once after a short pause. Both attempts share a thirty-second limit, allowing the server its full twenty-five-second deadline. The hand becomes available during a slow request after its 2.5-second pause. Reset and save updates cancel the active attempt and retry pause. Completed replies reach playback as soon as they are validated, while stream cleanup finishes separately. A retained line follows its event ID when the history window trims older events. The window keeps the latest 100 game events and, separately, the latest 100 generated lines, so generated text never shortens the history the rules read. The latest arrival also stays on the world, so the stage keeps Vale's entrance side after that event leaves the window. After both attempts fail, the hand becomes playable and the failure remains visible even if the scene has no earlier words. Retry dialogue requests the same completed scene without spending a turn or moving anyone; a later card play also tries again. Incomplete responses remain failures, and stale or cancelled replies cannot overwrite the current scene. A new game or a save update from another tab cancels the old request.
+The card rules still commit movement, trades, quests and inventory. The text response updates memories and scene lines. Revision checks discard old replies. Each ready exchange finishes before the next card action. Selecting cards prepares a single play or a combination. The scene and both conversation lines stay on the completed play until the next play is committed. Departure captions use the existing speaker heading. A temporary speech failure retries the same completed turn once after a short pause. Both attempts share a thirty-second limit, allowing the server its full twenty-five-second deadline. The hand becomes available during a slow request after its 2.5-second pause. Reset and save updates cancel the active attempt and retry pause. Completed replies reach playback as soon as they are validated, while stream cleanup finishes separately. A retained line follows its event ID when the history window trims older events. The window keeps the latest 100 game events and, separately, the latest 100 generated lines, so generated text never shortens the history the rules read. The latest arrival also stays on the world, so the stage keeps Vale's entrance side after that event leaves the window. After both attempts fail, the hand becomes playable and the failure remains visible even if the scene has no earlier words. Retry dialogue requests the same completed scene without spending a turn or moving anyone; a later card play also tries again. Incomplete responses remain failures, and stale or cancelled replies cannot overwrite the current scene. A new game or a save update from another tab cancels the old request.
 
 Schema 6 saves include location changes, favours and lasting memories. Earlier saves keep their positions, items, current programs, earned steps and generated speech. Conversation exports include only the speaker and text of spoken lines.
 
@@ -482,10 +412,10 @@ and earned progress survive loading. The current routes apply to every save.
 
 ## Shore experiment
 
-The browser starts and loads worlds with `enableMotives` and `personalQuests`.
-Vale, Pip, and the Keeper use the same cards, locations, items, ownership rules,
-and turn order. Their quests, motives and saved progress remain internal;
-the player encounters people and their observable actions, not task dashboards.
+Every world keeps motives. Vale, Pip, and the Keeper use the same cards,
+locations, items, ownership rules, and turn order. Their quests and motives
+remain internal; the player encounters people and their observable actions,
+not task dashboards.
 
 Pip values warm light and fine clothes. The Keeper values quiet, the bell, and returned belongings. Vale likes interesting routes and a decent bargain; the player chooses Vale’s actions. Fuel, oil, ownership, and recent slights change what matters now. A cast member scores legal actions to seek an object, trade, ask, tend a lamp, or travel. Its preferred place becomes attractive once its main interest is met.
 
@@ -497,11 +427,11 @@ played. The same willingness tests as before decide it. A refusal takes the
 turn and moves nothing. It records `accepted: false` and one reason: `grudge`,
 `needs-it` or `wants-something-else`. The narrator brief passes that reason to
 the cast, so the refusal is spoken in dialogue. The residents' planner reads
-`expects(s, action)` and makes only the offers it expects to be accepted.
+`expects(s, action)` to skip some offers it expects to be refused.
 
-Accompany requests use current interests, the items carried by the requester, favours, and grievances. An agreed trip moves both avatars and their belongings through the usual rules. A refusal leaves both in place for that exchange. The other cast member takes its own turn.
+Accompany requests use the companion's quest, the items carried by the requester, favours, and grievances. An agreed trip moves both avatars and their belongings through the usual rules. A refusal leaves both in place for that exchange. The other cast member takes its own turn.
 
-Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. The browser enables quest programs alongside personal motives at every new-game and load entry point. Saved progress continues from its recorded step. Completing a program earns a level and starts three quiet turns. Meaningful experiences and the avatar’s lasting hope shape the next purpose after sanctuary rest. Tastes shape prices; a remembered grievance can raise a price, refuse company, or prompt a retreat. Quest items also carry value in a fair exchange. The interests-only simulation remains available through `enableMotives()` for comparison; the browser passes `questPrograms: true`. Generated speech receives current interests, exact outcomes, and witnessed grievances.
+Tastes shape prices; a remembered grievance raises a price, refuses company, or prompts a retreat. A quest item is worth more to the avatar that wants it, and nobody trades away its own quest item. Generated speech receives exact outcomes and witnessed grievances.
 
 At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 
@@ -532,7 +462,7 @@ can replace it when its learned value is higher.
 
 Reaching the goal earns twenty points; improved trust or eased grievances earn
 two points per step; each carried item is worth four points; each play costs
-one point. Exploratory gifts preserve items needed by the current quest program. Up to four linked plays share a
+one point. Exploratory gifts preserve the item the current quest needs. Up to four linked plays share a
 later result with a 0.7 discount per step. A changed recorded situation or a
 completed goal ends that link. Human choices and resident choices use the same
 measurement path. The panel shows measured attempts and how often an approach
@@ -556,7 +486,7 @@ avatar's recorded expressions as their witness evidence.
 
 Shared rules version 18 adds measured action values and exploration. Versions
 2–17 retain their released interpreter bytes. An explicit upgrade keeps the
-existing world, possessions, quest progress, memory and persona.
+existing world, possessions, quest, memory and persona.
 
 ## Your OpenRouter account
 
@@ -628,8 +558,6 @@ Requests record the destination and the answer in the scene script. Both places,
 ## Action, travel and fresh goals
 
 The dialogue service gives the model a plain account of every recorded trip and a direction for Vale's chosen action. Threats keep their pressure, attacks keep their commitment, and guards hold a defensive stance. A later player choice can change that stance. Separate trips to the same destination remain separate arrivals in avatar speech, item descriptions and location narration.
-
-New programs rotate recent purposes and consider the purposes already active across the cast. Feasible alternatives take priority over repeated bell quests; scarce worlds retain a reachable fallback. Pond quests restore oil when the flask needs it, or establish a refuge when the shore needs quiet. Current programs and their completed steps remain saved.
 
 Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, quiet departures, both mirror directions, reload and relighting at desktop and phone widths. Run `node v2/scripts/smoke-card-dialogue-timing.mjs` to check the first loading speaker, card locks through each reply, and the cast after quiet actions. Run `node v2/scripts/smoke-card-movement.mjs` to check visible entrances, the travel screen, movement captions, and reset during travel with fast and delayed replies. The card table still keeps its rules and inventory in the browser; `/card-game/text` only generates validated text and does not authorize movement.
 
@@ -792,16 +720,3 @@ new lane never holds up an authored scene. Lanes are saved as `sea:` edges in ro
 See the Greek pack README and `test/card-theban-release.test.mjs`; the scene
 journey is `v2/scripts/smoke-card-theban-scenery.mjs`. The weather journey is
 `node v2/scripts/smoke-card-weather.mjs`.
-
-## Introduction quests
-
-**Get these two together** is a generated quest type for the cast. The card
-names two people. Their meeting completes it. BoardyAI favours connected human
-pairs and also chooses ordinary quests. He takes the normal break after a quest.
-Later introduction quests favour a new pair.
-
-An avatar pursuing an introduction remembers people seen in a shared scene.
-Boardy travels through open routes to the last place he saw each person. He
-searches other rooms when the trail goes cold. Turns, sightings, search history,
-and quest progress belong to the save. Human players choose their own actions.
-The online list shows names and levels; encounters reveal locations.

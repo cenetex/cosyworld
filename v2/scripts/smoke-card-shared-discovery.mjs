@@ -4,7 +4,6 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, addLog } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
-import { questCards } from "../card-game/quest-cards.mjs";
 
 // UI lifecycle test. Mocked snapshots exercise the shipping shared client;
 // authority and journal replay are covered by the real shared-server smoke.
@@ -45,9 +44,6 @@ try {
     const seen = Object.keys(profiles).filter(
       (id) => !["oil", "bell", "cloth"].includes(id),
     );
-    const quests = Object.keys(world.actors).flatMap((id) =>
-      questCards(world, id).map((q) => q.key),
-    );
     let snapshot = {
       actor: "vale",
       world,
@@ -59,17 +55,10 @@ try {
       present: [true, false, false, false, false, false, false, false],
     };
     await page.addInitScript(
-      ({ seen, quests }) => {
+      ({ seen }) => {
         const key =
           "cosyworld.reflected-shore.v1.shared.discovery-fixture.vale";
         localStorage.setItem(key + ".seen", JSON.stringify(seen));
-        if (!sessionStorage.getItem("quests-seeded")) {
-          localStorage.setItem(
-            key + ".quests",
-            JSON.stringify({ seen: quests, read: quests }),
-          );
-          sessionStorage.setItem("quests-seeded", "true");
-        }
         localStorage.setItem("cosyworld.dialogue.sound", "off");
         localStorage.setItem(
           "cosyworld.room-music",
@@ -94,7 +83,7 @@ try {
           });
         });
       },
-      { seen, quests },
+      { seen },
     );
     await page.route("**/app.mjs", (route) =>
       route.fulfill({ contentType: "text/javascript", body: app + probe }),

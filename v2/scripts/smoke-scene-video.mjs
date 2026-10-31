@@ -67,10 +67,7 @@ try {
           }),
         );
     });
-    const world = enableMotives(createWorld(), {
-      questPrograms: true,
-      personalQuests: true,
-    });
+    const world = enableMotives(createWorld());
     world.items.lamp.holder = "vale";
     world.items.lamp.lit = true;
     world.items.cloth.holder = "lamp";

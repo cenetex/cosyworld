@@ -29,10 +29,7 @@ function action(world, kind, item, target) {
   return result.state;
 }
 function pond() {
-  let s = enableMotives(createWorld({ opening: true }), {
-    questPrograms: true,
-    personalQuests: true,
-  });
+  let s = enableMotives(createWorld({ opening: true }));
   // Keep the bard at this fixture's first deed so the ship starts at harbor.
   // The separate bard smoke covers his fresh-harbor voyage.
   s.actors["greek-rhapsode"].place = "attic";

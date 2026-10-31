@@ -5,7 +5,6 @@ import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
-import { questCards } from "../card-game/quest-cards.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
 const server = createServer();
@@ -20,9 +19,7 @@ try {
   ]) {
     let seed = dispatchShared({
       op: "create",
-      save: encodeSave(
-        enableMotives(createWorld({ opening: true }), { personalQuests: true }),
-      ),
+      save: encodeSave(enableMotives(createWorld({ opening: true }))),
     }).world;
     const membership = {
       actor: "vale",
@@ -70,8 +67,15 @@ try {
     };
     assert.equal(world.actors.vale.place, "pond");
     const startTurn = world.turn;
-    const quest = questCards(world, "boardyai")[0];
-    assert.match(quest.purpose, /Help Vale and Mara meet/);
+    // BoardyAI's quest is to meet Mara; Talk is how Vale learns it.
+    world.actors.boardyai.want = {
+      kind: "person",
+      target: "mara",
+      since: world.turn,
+      refusals: 0,
+    };
+    // He steps out of his station door to meet Vale at the pond.
+    world.actors.boardyai.place = "pond";
     const table = `boardyai-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
     const page = await browser.newPage({
@@ -112,7 +116,7 @@ try {
     await page.locator('#hand [data-card="boardyai"]').waitFor();
     await page.locator('#cast [data-avatar="boardyai"]').waitFor();
     await selectCard(page, "boardyai");
-    // His introduction quest has no card.
+    // His quest has no card; Talk context carries it.
     assert.equal(await page.locator("#hand .quest-frame").count(), 0);
     await page
       .locator("#hand img")
@@ -146,13 +150,10 @@ try {
       .flatMap((input) => input.entities)
       .filter((entity) => entity.id === "boardyai")
       .at(-1);
-    // Since #1451 Talk carries one want line, not quest titles. BoardyAI has
-    // no authored want, so his own facts carry the introductions.
+    // Talk carries one quest line, not quest titles.
     assert(
-      told.facts.some((fact) =>
-        fact.startsWith("I favour introducing two human players."),
-      ),
-      "BoardyAI's Talk context names his introductions",
+      told.facts.some((fact) => fact === "I want to see Mara."),
+      "BoardyAI's Talk context names his quest",
     );
     assert(!told.facts.some((fact) => fact.startsWith("What I want most now")));
     const settle = async () => {

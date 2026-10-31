@@ -47,6 +47,9 @@ function pond({ lit = true, fuel = 12, place = "pond" } = {}) {
   s.items.lamp.fuel = fuel;
   s.items.cloth.holder = "vale";
   s.items.bell.holder = "vale";
+  // Pip rests content here instead of pursuing Vale's lamp.
+  s.actors.moth.want = null;
+  s.actors.moth.metTurn = s.turn;
   addLog(s, "World", "Vale waits beside the water.", { locationId: place });
   return s;
 }
@@ -371,19 +374,17 @@ test("the narration does not expose a partial ritual or claim a ship is present"
   visible(s, false);
 });
 
-// NPCs can fulfil their own meetings before the player knows the witness.
-import { enableMotives } from "../v2/card-game/motives.mjs";
-test("the ship crossing preserves an NPC receipt for a witness Vale has not met", () => {
-  let s = enableMotives(atticOpening(), {
-    questPrograms: true,
-    personalQuests: true,
-  });
+// NPCs can meet their own wants before the player knows the witness.
+import { newWant } from "../v2/card-game/want.mjs";
+test("the ship crossing preserves a want met beside a resident Vale has not met", () => {
+  let s = atticOpening();
   s = act(s, "light", "lamp");
   s = act(s, "move", null, "pond");
   s.items.cloth.holder = "pond";
-  // Pip meets the keeper out of sight while Vale works the lamp signal.
+  // Pip takes the oil beside the keeper, out of sight of Vale's signal.
   s.actors.moth.place = "station";
-  s.items.oil.holder = "moth";
+  s.items.oil.holder = "station";
+  s.actors.moth.want = newWant("item", "oil", s.turn);
   s.items.lamp.fuel = 12;
   assert.equal(s.opening.met.keeper, undefined);
   s = summon(s);
@@ -392,11 +393,9 @@ test("the ship crossing preserves an NPC receipt for a witness Vale has not met"
   s = act(act(s, "course", null, "greek-harbor"), "wait");
   s = act(s, "move", null, "greek-harbor");
   s = act(s, "snuff", "lamp");
-  const receipt = s.log.find(
-    (e) => e.kind === "quest" && e.actorId === "moth" && e.step === 1,
-  );
-  assert(receipt);
-  assert.deepEqual(receipt.fulfillment.avatars, ["keeper"]);
+  const met = s.log.find((e) => e.verb === "want_met" && e.actorId === "moth");
+  assert(met);
+  assert.deepEqual(met.wantMet, { kind: "item", target: "oil" });
   assert.equal(s.opening.met.keeper, undefined);
   assert.deepEqual(reload(s), s);
 });
@@ -418,6 +417,8 @@ test("Pip brings the signaled ship from Greece to a waiting player", () => {
   summonTransport(s, "greek-ship", "greek-harbor");
   s.items.lamp.lit = false;
   s.actors.moth.place = "greek-harbor";
+  // Pip wants to go home to the pond.
+  s.actors.moth.want = newWant("place", "pond", s.turn);
   s.items.lamp.holder = "pond";
   assert.equal(plan(s, "moth").action.target, "greek-ship");
   s = act(s, "wait");

@@ -1,17 +1,7 @@
-import { syncStoryQuests } from "./story-quests.mjs";
-import { publishQuestCompletions } from "./quest-completions.mjs";
-import { installSharedQuestRegistry } from "./shared-quests.mjs";
-import { newProgress, questPrograms } from "./quests.mjs";
-import {
-  migrateMemories,
-  newMemories,
-  rememberEvent,
-  upgradeSightings,
-} from "./memory.mjs";
-import { installHumanLife, migrateLife } from "./life.mjs";
+import { newMemories, upgradeSightings } from "./memory.mjs";
+import { migrateLife } from "./life.mjs";
 import { upgradeRecitals } from "./pack-recital.mjs";
 import {
-  isPackActor,
   packDefinitions,
   transports,
   canonicalPlace,
@@ -28,71 +18,35 @@ import {
 import { installKnowledge } from "./knowledge.mjs";
 import { newTemperament } from "./pack-rules.mjs";
 
+// The quest machinery was replaced by one want per avatar. Its saved records
+// are dropped; each avatar's want is installed again from authored data.
+const QUEST_FIELDS = [
+  "quests",
+  "questCompletions",
+  "roamingQuests",
+  "introductionVisits",
+  "storyQuests",
+];
+const QUEST_VERBS = ["drop-quest", "join-quest", "share-quest", "pursue"];
+export function forgetQuests(s) {
+  for (const field of QUEST_FIELDS) delete s[field];
+  for (const actor of Object.values(s.actors || {})) delete actor.progress;
+  if (s.motives) delete s.motives.questPrograms;
+  if (Array.isArray(s.log))
+    s.log = s.log
+      .filter((e) => e?.kind !== "quest" && !QUEST_VERBS.includes(e?.verb))
+      .map(({ questPlan, consequence, questKey, ...e }) => e);
+  migrateLife(s);
+}
+
 // Upgrade historical records before the world validates the current save.
-// World-owned helpers keep pack installation and generated quests on the same
-// path as a new game, while this module owns the schema order.
-export function upgradeSave(
-  s,
-  { actorIds, ensurePrograms, installPacks, profileOf },
-) {
-  if (s?.schema === 1 && s.actors && typeof s.actors === "object") {
-    s.schema = 2;
-    for (const actor of Object.values(s.actors)) {
-      if (actor && typeof actor === "object") {
-        actor.progress = newProgress();
-        delete actor.aim;
-      }
-    }
-  }
-  if (s?.schema === 2) {
-    for (const [id, actor] of Object.entries(s.actors || {})) {
-      if (isPackActor(id)) continue;
-      const p = actor?.progress,
-        programs = questPrograms[id];
-      if (
-        !programs ||
-        !p ||
-        !Number.isInteger(p.program) ||
-        p.program < 0 ||
-        p.program > programs.length ||
-        !Number.isInteger(p.step) ||
-        p.step < 0 ||
-        (p.program === programs.length
-          ? p.step !== 0
-          : p.step >= programs[p.program].steps.length)
-      )
-        throw new Error("This save has an invalid quest step.");
-    }
-    s.schema = 3;
-    ensurePrograms(s);
-  }
-  if (s?.schema === 3) {
-    s.schema = 4;
-    if (s.eventSeq === undefined && Array.isArray(s.log)) {
-      s.log.forEach((entry, index) => {
-        entry.seq = index + 1;
-      });
-      s.eventSeq = s.log.length;
-    }
-    if (Array.isArray(s.log)) migrateMemories(s);
-  }
-  if (s?.schema === 4) {
-    s.schema = 5;
-    s.standoffs = [];
-    s.peaceUntil = Object.fromEntries(actorIds.map((id) => [id, 0]));
-  }
-  if (s?.schema === 5) {
-    s.schema = 6;
-    s.locations = { attic: { anchored: false }, pond: { answer: null } };
-    for (const [id, actor] of Object.entries(s.actors || {}))
-      actor.trust = Object.fromEntries(
-        actorIds.filter((other) => other !== id).map((other) => [other, 0]),
-      );
-    const remembered = { ...s, memories: newMemories() };
-    for (const entry of s.log || []) rememberEvent(remembered, entry);
-    for (const [id, memory] of Object.entries(s.memories || {}))
-      memory.landmarks = remembered.memories[id]?.landmarks || [];
-  }
+// World-owned helpers keep pack installation on the same path as a new game,
+// while this module owns the schema order. Saves before schema 6 come from
+// the first alpha tables and start fresh.
+export function upgradeSave(s, { installPacks }) {
+  if (!s || ![6, 7].includes(s.schema))
+    throw new Error("This save needs a fresh start.");
+  forgetQuests(s);
   if (s?.schema === 6) {
     // Schema 7 moved the Steam Clock into the world-pack state.
     upgradeSteamClockSave(s);
@@ -130,11 +84,7 @@ export function upgradeSave(
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
-  migrateLife(s, profileOf);
-  installHumanLife(s, profileOf);
-  if (Object.values(s.life?.actors || {}).some((life) => life.collection))
-    installSharedQuestRegistry(s);
-  if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
+  installPacks(s);
   if (s?.schema === 7)
     installKnowledge(
       s,
@@ -338,16 +288,6 @@ function restoreThebanRoad(s, pack) {
       ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values(),
     ];
   }
-  for (const quest of Object.values(s.quests?.records || {}))
-    if (quest.completedTurn === null && !quest.retired)
-      for (const step of quest.program?.steps || []) {
-        const passage = step.passage;
-        if (passage?.kind === "passage" && direct(passage.from, passage.to))
-          passage.to = road;
-      }
-  for (const state of Object.values(s.roamingQuests || {}))
-    if (state.blocked && direct(state.blocked.from, state.blocked.to))
-      state.blocked = null;
 }
 
 // A known step between two Greek places that no exit or route joins any more
@@ -402,42 +342,11 @@ export function foldRetiredRoads(s) {
       ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values(),
     ];
   }
-  const condition = (value) => {
-    if (!value) return;
-    if (value.place) value.place = canonicalPlace(value.place);
-    if (value.at) value.at = [...new Set(value.at.map(canonicalPlace))];
-    if (value.condition) condition(value.condition);
-  };
-  const hand = (value) => {
-    if (!value) return;
-    if (value.location) value.location = canonicalPlace(value.location);
-    for (const option of value.any || []) hand(option);
-    for (const test of value.conditions || []) condition(test);
-    if (value.passage) {
-      value.passage.from = canonicalPlace(value.passage.from);
-      value.passage.to = canonicalPlace(value.passage.to);
-      if (value.passage.from === value.passage.to) delete value.passage;
-    }
-  };
-  const program = (value) => {
-    for (const step of value?.steps || []) hand(step);
-  };
-  for (const actor of Object.values(s.actors || {}))
-    program(actor.progress?.current);
-  for (const quest of Object.values(s.quests?.records || {}))
-    if (quest.completedTurn === null && !quest.retired) {
-      if (quest.holder?.kind === "place")
-        quest.holder.id = canonicalPlace(quest.holder.id);
-      program(quest.program);
-    }
-  for (const state of Object.values(s.roamingQuests || {})) {
-    if (state.target)
-      state.target.locationId = canonicalPlace(state.target.locationId);
-    if (
-      state.blocked &&
-      [state.blocked.from, state.blocked.to].some(localRoadEnds)
-    )
-      state.blocked = null;
+  for (const actor of Object.values(s.actors || {})) {
+    if (actor.want?.kind === "place")
+      actor.want.target = canonicalPlace(actor.want.target);
+    if (Array.isArray(actor.visited))
+      actor.visited = [...new Set(actor.visited.map(canonicalPlace))];
   }
   s.standoffs = (s.standoffs || []).filter(
     (conflict) => !localRoadEnds(conflict.location),
@@ -603,7 +512,6 @@ function addGreekEntities(s, pack, avatars, items) {
   for (const id of avatars) {
     s.actors[id] = {
       place: pack.avatars[id].place,
-      progress: newProgress(),
       crossed: 0,
       lastTalk: -9,
       trust: Object.fromEntries(

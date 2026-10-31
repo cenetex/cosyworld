@@ -343,14 +343,11 @@ jobs:
           node v2/scripts/smoke-card-dialogue-timing.mjs
           node v2/scripts/smoke-card-movement.mjs
 
-      - name: Check quests, shared discovery, and voice
+      - name: Check shared discovery, the Bard's travel, and voice
         if: matrix.mode == 'cards-quests'
         run: |
-          node v2/scripts/smoke-card-quests.mjs
-          node v2/scripts/smoke-card-quest-collection.mjs
           node v2/scripts/smoke-card-shared-discovery.mjs
           node v2/scripts/smoke-card-bard-travel.mjs
-          node v2/scripts/smoke-card-shared-quests.mjs
           node v2/scripts/smoke-card-voice.mjs
 
       - name: Upload browser images
