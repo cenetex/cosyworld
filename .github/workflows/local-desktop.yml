@@ -55,17 +55,29 @@ jobs:
       - name: Read the common release
         id: release
         run: |
-          echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=$(node -p 'require("./package.json").version')"
+            echo "sha=$(git rev-parse --short HEAD)"
+            echo "day=$(date -u +%Y%m%d)"
+          } >> "$GITHUB_OUTPUT"
+      # This cache reached 6 GB. The repository keeps 10 GB of caches, so
+      # saving it for every commit and pull request evicted the .dev release
+      # target and the CI Cargo cache within minutes. Main saves it once per
+      # UTC day; pull requests and later commits restore that copy. It leaves
+      # out the app bundle and the game crate's outputs: every commit bumps
+      # the crate version, so Cargo rebuilds that crate either way.
       - uses: actions/cache/restore@v6
         id: cargo-cache
         with:
           path: |
             ~/.cargo/registry
             .runtime/desktop-target
-          key: macos-arm64-local-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock', 'v2/desktop/src-tauri/Cargo.lock') }}-${{ github.sha }}
+            !.runtime/desktop-target/release/bundle
+            !.runtime/desktop-target/release/cosyworld-orchestrator
+            !.runtime/desktop-target/release/libcosyworld_orchestrator.rlib
+            !.runtime/desktop-target/release/deps/*cosyworld_orchestrator-*
+          key: macos-arm64-local-v1-day-${{ steps.release.outputs.day }}
           restore-keys: |
-            macos-arm64-local-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock', 'v2/desktop/src-tauri/Cargo.lock') }}-
             macos-arm64-local-v1-
       - name: Install Node build tools
         timeout-minutes: 8
@@ -193,11 +205,18 @@ jobs:
             echo "The package version, rules, voice references, and every public game file match this web source."
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/cache/save@v6
-        if: always() && steps.cargo-cache.outputs.cache-hit != 'true'
+        if: >-
+          always() &&
+          github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+          steps.cargo-cache.outputs.cache-hit != 'true'
         timeout-minutes: 5
         continue-on-error: true
         with:
           path: |
             ~/.cargo/registry
             .runtime/desktop-target
-          key: macos-arm64-local-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock', 'v2/desktop/src-tauri/Cargo.lock') }}-${{ github.sha }}
+            !.runtime/desktop-target/release/bundle
+            !.runtime/desktop-target/release/cosyworld-orchestrator
+            !.runtime/desktop-target/release/libcosyworld_orchestrator.rlib
+            !.runtime/desktop-target/release/deps/*cosyworld_orchestrator-*
+          key: macos-arm64-local-v1-day-${{ steps.release.outputs.day }}

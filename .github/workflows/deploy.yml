@@ -38,8 +38,156 @@ env:
   CARGO_PROFILE_TEST_DEBUG: "0"
 
 jobs:
+  # A main push deploys .dev from this one job, so it waits for one runner,
+  # not five in a row. It skips the production gates, primary backup, and
+  # Lonely Forest; CI still checks main, and bugs on .dev are fixed forward.
+  # Tags and dispatches use the jobs below, which this job never touches.
+  dev-deploy:
+    name: Deploy main to .dev
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      # Lets a superseded main run cancel itself so the newer one starts.
+      actions: write
+    outputs:
+      deploy: ${{ steps.impact.outputs.deploy }}
+      rolled-out: ${{ steps.rollout.outcome == 'success' }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout committed release
+        uses: actions/checkout@v7
+
+      # Main moves often. A run whose commit is no longer main's head cancels
+      # itself before the rollout; the newer run deploys every change .dev
+      # does not have yet. The rollout itself is never cancelled.
+      - name: Yield to a newer main commit
+        run: bash scripts/yield-superseded-deploy.sh check
+
+      # Compare with the commit .dev actually runs, not the previous push, so
+      # a docs-only commit after a cancelled code commit still deploys it.
+      - name: Check whether production inputs changed
+        id: impact
+        run: |
+          base="$(node scripts/last-dev-rollout.mjs)"
+          if [ -n "$base" ]; then
+            echo "The primary app last rolled out ${base:0:7}."
+            git fetch --no-tags --depth=1 origin "$base" || true
+          fi
+          node scripts/check-deployment-impact.mjs "$base" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Setup flyctl
+        if: steps.impact.outputs.deploy == 'true'
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Install image transfer tool
+        if: steps.impact.outputs.deploy == 'true'
+        run: |
+          command -v skopeo >/dev/null ||
+            { sudo apt-get update && sudo apt-get install --yes --no-install-recommends skopeo; }
+
+      # Reuse the release target from earlier deploys, so a UI or art change
+      # recompiles only what changed.
+      - name: Choose release build cache key
+        id: release-cache-key
+        if: steps.impact.outputs.deploy == 'true'
+        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore release build cache
+        id: release-cache
+        if: steps.impact.outputs.deploy == 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/release-target
+          key: release-target-v1-${{ hashFiles('Dockerfile') }}-${{ steps.release-cache-key.outputs.day }}
+          restore-keys: |
+            release-target-v1-${{ hashFiles('Dockerfile') }}-
+            release-target-v1-
+
+      # The watcher cancels this run if main moves while the image builds.
+      - name: Prepare primary image
+        id: image
+        if: steps.impact.outputs.deploy == 'true'
+        run: |
+          bash scripts/yield-superseded-deploy.sh watch &
+          watcher=$!
+          status=0
+          bash scripts/prepare-fly-image.sh cosyworld fly.toml || status=$?
+          kill "$watcher" 2>/dev/null || true
+          wait "$watcher" 2>/dev/null || true
+          exit "$status"
+        env:
+          COSYWORLD_IMAGE_BUILDER: runner
+          COSYWORLD_RELEASE_TARGET_CACHE: ${{ runner.temp }}/release-target
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Yield to a newer main commit before the rollout
+        if: steps.impact.outputs.deploy == 'true'
+        run: bash scripts/yield-superseded-deploy.sh check
+
+      - name: Setup Node.js
+        if: steps.impact.outputs.deploy == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Roll out .dev
+        id: rollout
+        if: steps.impact.outputs.deploy == 'true'
+        run: flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling
+        env:
+          RELEASE_IMAGE: ${{ steps.image.outputs.image }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Verify primary readiness and persistence
+        if: steps.impact.outputs.deploy == 'true'
+        run: |
+          # A fresh process may take a moment to report healthy persistence
+          # after a rolling deploy; retry for two minutes before failing.
+          for attempt in {1..13}; do
+            if node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 13 ]; then
+              echo "Primary readiness remained degraded after 120 seconds" >&2
+              exit 1
+            fi
+            echo "::warning::Primary readiness attempt $attempt failed; retrying in 10 seconds"
+            sleep 10
+          done
+
+      - name: Verify primary card game
+        if: steps.impact.outputs.deploy == 'true'
+        run: node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
+
+      # Save once per UTC day, after .dev is live. The key leaves out
+      # Cargo.lock, which every version bump changes; Cargo rebuilds changed
+      # dependencies itself.
+      - name: Check release build cache
+        id: release-cache-state
+        if: >-
+          !cancelled() &&
+          steps.image.outcome == 'success' &&
+          steps.release-cache.outputs.cache-hit != 'true'
+        run: |
+          if [ -d "$RUNNER_TEMP/release-target/target/release" ]; then
+            echo "save=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save release build cache
+        if: "!cancelled() && steps.release-cache-state.outputs.save == 'true'"
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/release-target
+          key: ${{ steps.release-cache.outputs.cache-primary-key }}
+
   deployment-impact:
     name: Check production impact
+    # Tags and dispatches only; dev-deploy deploys main pushes.
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     outputs:
       deploy: ${{ steps.impact.outputs.deploy }}
@@ -222,8 +370,7 @@ jobs:
           test "$RUST_RESULT" = success
 
   # The image builds while the gates run. Building does not touch the running
-  # app; only primary-fly replaces it. A main push rolls it out as soon as it
-  # is built; tags and dispatches wait for the gates and backup.
+  # app; only primary-fly replaces it, after the gates and backup pass.
   primary-image:
     name: Prepare primary image
     outputs:
@@ -247,49 +394,14 @@ jobs:
       - name: Install image transfer tool
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends skopeo
 
-      # Main pushes reuse the release target from earlier deploys, so UI and
-      # art changes recompile only what changed. Tags and dispatches compile
-      # inside the Dockerfile from the registry dependency cache.
-      - name: Choose release build cache key
-        id: release-cache-key
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
-
-      - name: Restore release build cache
-        id: release-cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/cache/restore@v6
-        with:
-          path: ${{ runner.temp }}/release-target
-          key: release-target-v1-${{ hashFiles('Dockerfile') }}-${{ steps.release-cache-key.outputs.day }}
-          restore-keys: |
-            release-target-v1-${{ hashFiles('Dockerfile') }}-
-            release-target-v1-
-
+      # Tags and dispatches compile inside the Dockerfile from the registry
+      # dependency cache, unless an image for this commit already exists.
       - name: Prepare primary image
         id: image
         run: bash scripts/prepare-fly-image.sh cosyworld fly.toml
         env:
           COSYWORLD_IMAGE_BUILDER: runner
-          COSYWORLD_RELEASE_TARGET_CACHE: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && format('{0}/release-target', runner.temp) || '' }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-      # Save once per UTC day. The key leaves out Cargo.lock, which every
-      # version bump changes; Cargo rebuilds changed dependencies itself.
-      - name: Check release build cache
-        id: release-cache-state
-        if: steps.release-cache.outcome == 'success' && steps.release-cache.outputs.cache-hit != 'true'
-        run: |
-          if [ -d "$RUNNER_TEMP/release-target/target/release" ]; then
-            echo "save=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Save release build cache
-        if: steps.release-cache-state.outputs.save == 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: ${{ runner.temp }}/release-target
-          key: ${{ steps.release-cache.outputs.cache-primary-key }}
 
   # Run the guards and rollback snapshot beside the checks and image build.
   # Tags and dispatches wait for all three paths; a main push skips this job.
@@ -344,9 +456,8 @@ jobs:
   primary-fly:
     name: Deploy primary to Fly
     needs: [deployment-impact, release-owner, production-gate, primary-image, primary-backup]
-    # A main push deploys .dev as soon as the image is built: primary-backup
-    # is skipped and production-gate passes without the Node and Rust gates.
-    # Tags and dispatches require both to succeed.
+    # Tags and dispatches require the gates and backup to succeed. Main
+    # pushes never reach this job; dev-deploy rolls them out.
     if: >-
       !cancelled() &&
       needs.deployment-impact.outputs.deploy == 'true' &&
@@ -355,9 +466,8 @@ jobs:
       (github.event_name == 'push' ||
        inputs.target == 'both' ||
        inputs.target == 'primary') &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-       (needs.production-gate.result == 'success' &&
-        needs.primary-backup.result == 'success'))
+      needs.production-gate.result == 'success' &&
+      needs.primary-backup.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -552,6 +662,7 @@ jobs:
     name: Report production deployment outcome
     runs-on: ubuntu-latest
     needs:
+      - dev-deploy
       - deployment-impact
       - release-owner
       - production-gate
@@ -563,7 +674,8 @@ jobs:
       - lonelyforest-fly
     # A queued run that a newer run in the deploy concurrency group replaced
     # (a version tag on the same commit, or a later main push) is cancelled
-    # and owns nothing; the newer run reports for it (#1044).
+    # and owns nothing; the newer run reports for it (#1044). A main run that
+    # a newer main commit superseded cancels itself the same way.
     if: ${{ !cancelled() }}
     permissions:
       contents: read
@@ -573,7 +685,8 @@ jobs:
       # without anyone going to look.
       - name: Open a loud tracking issue when a required production deploy did not succeed
         if: >-
-          needs.deployment-impact.outputs.deploy == 'true' &&
+          needs.dev-deploy.result == 'failure' ||
+          (needs.deployment-impact.outputs.deploy == 'true' &&
           (needs.release-owner.result == 'failure' ||
            needs.production-gate.result != 'success' ||
            contains(fromJSON('["failure","cancelled"]'), needs.primary-image.result) ||
@@ -581,10 +694,11 @@ jobs:
            needs.primary-fly.result == 'failure' ||
            contains(fromJSON('["failure","cancelled"]'), needs.lonelyforest-image.result) ||
            contains(fromJSON('["failure","cancelled"]'), needs.lonelyforest-backup.result) ||
-           needs.lonelyforest-fly.result == 'failure')
+           needs.lonelyforest-fly.result == 'failure'))
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          DEV_RESULT: ${{ needs.dev-deploy.result }}
           OWNER_RESULT: ${{ needs.release-owner.result }}
           GATE_RESULT: ${{ needs.production-gate.result }}
           PRIMARY_IMAGE_RESULT: ${{ needs.primary-image.result }}
@@ -598,6 +712,7 @@ jobs:
           body=$(cat <<BODY
           Merge of ${GITHUB_SHA} did not complete a production deployment.
 
+          - Main push .dev deploy: ${DEV_RESULT}
           - Release ownership check: ${OWNER_RESULT}
           - Deployment gate: ${GATE_RESULT}
           - Primary image build: ${PRIMARY_IMAGE_RESULT}
@@ -626,9 +741,11 @@ jobs:
       # release deploys it.
       - name: Close tracking issues for commits this deploy shipped
         if: >-
-          needs.primary-fly.result == 'success' &&
+          (needs.dev-deploy.result == 'success' &&
+           needs.dev-deploy.outputs.rolled-out == 'true') ||
+          (needs.primary-fly.result == 'success' &&
           (needs.lonelyforest-fly.result == 'success' ||
-           (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+           (github.event_name == 'push' && github.ref == 'refs/heads/main')))
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
