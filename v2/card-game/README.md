@@ -489,6 +489,8 @@ Accompany requests use the companion's quest, the items carried by the requester
 
 Tastes shape prices; a remembered grievance raises a price, refuses company, or prompts a retreat. A quest item is worth more to the avatar that wants it, and nobody trades away its own quest item. Generated speech receives exact outcomes and witnessed grievances.
 
+The Map of the Wood and the Wine-Dark Sea waits at the station too. It is an ordinary hub item: it can be found, held, traded, wanted or left anywhere. A hub thing may name its own `art` (the card and stage image) and a `view` (a larger image). Once its card is uncovered and selected, the action row offers **Look**, a client-only overlay of the view: tap the image to zoom, tap outside it or press Escape to close. Look plays nothing and never reaches the rules. A save written before a hub item existed gains it at its `initialState` holder on load. `npm run v2:card:world-map:smoke` opens the view at 1440 and 390 px.
+
 At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 
 The hub cast's tastes, home and item values live in `forest.json` under `people`, beside the pack residents' `tastes` and `values` in their card worlds. Each named avatar also has one authored `want`, `{ "kind": "item" | "place" | "person", "target": id }`, which names what it seeks first: Vale and Pip want the lamp, the keeper wants the bell. Pack residents with a `desire` carry a matching `want`, which the pack schema checks against the pack's and hub's items, places and avatars. The rules don't read `want` yet.
