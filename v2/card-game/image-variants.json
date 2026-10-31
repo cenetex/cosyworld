@@ -77,6 +77,48 @@
       "card": "assets/optimized/card/png/cloth-card.webp",
       "cardHash": "04c5b7bc38b5f7b9c98eb452b61fe22c0c29944efecc0535f0fc2c83c8f96b59"
     },
+    "assets/combat/keeper-attack.webp": {
+      "sourceHash": "626c7d42e15841255fac0373ac000d4079bad081b2647a315e9d272982c0a724",
+      "stage": "assets/combat/keeper-attack.webp",
+      "stageHash": "626c7d42e15841255fac0373ac000d4079bad081b2647a315e9d272982c0a724",
+      "card": "assets/optimized/card/webp/combat/keeper-attack.webp",
+      "cardHash": "1d5ff652cf3d842dc955ed102955fdd10d02c6a400bd5d156e29f6c5ec85d69e"
+    },
+    "assets/combat/keeper-hit.webp": {
+      "sourceHash": "ac10202ca29c384b5a06fd94f37512edb0535bbb93dce9cbee682769568d1141",
+      "stage": "assets/combat/keeper-hit.webp",
+      "stageHash": "ac10202ca29c384b5a06fd94f37512edb0535bbb93dce9cbee682769568d1141",
+      "card": "assets/optimized/card/webp/combat/keeper-hit.webp",
+      "cardHash": "07d50a67d57bf66dd6dc5f060e1d947723a1c8de69e25bfbe76f5cdd0c899972"
+    },
+    "assets/combat/moth-attack.webp": {
+      "sourceHash": "a9b231a01380959a4244031cf9aa2a36b535e673948195b5082e0114669a01c7",
+      "stage": "assets/combat/moth-attack.webp",
+      "stageHash": "a9b231a01380959a4244031cf9aa2a36b535e673948195b5082e0114669a01c7",
+      "card": "assets/optimized/card/webp/combat/moth-attack.webp",
+      "cardHash": "a72b7e860ea6a2f327c031453302797f40b638a001b4248339c97007092e5fd4"
+    },
+    "assets/combat/moth-hit.webp": {
+      "sourceHash": "835555cc46e3deb54890346c4bc8ab9be0fb1b718d16900e6c49493e4e295e47",
+      "stage": "assets/combat/moth-hit.webp",
+      "stageHash": "835555cc46e3deb54890346c4bc8ab9be0fb1b718d16900e6c49493e4e295e47",
+      "card": "assets/optimized/card/webp/combat/moth-hit.webp",
+      "cardHash": "1f34ce751886b2a4d5570d7d5451d84decdde6b5abe374ad7705719d39c82475"
+    },
+    "assets/combat/vale-attack.webp": {
+      "sourceHash": "b5d863609adaba585435df1fbdc110c602351baa4d374f0e84b2c576b0eb13d0",
+      "stage": "assets/combat/vale-attack.webp",
+      "stageHash": "b5d863609adaba585435df1fbdc110c602351baa4d374f0e84b2c576b0eb13d0",
+      "card": "assets/optimized/card/webp/combat/vale-attack.webp",
+      "cardHash": "7dcab079916cc290eda95e28b200455425cd7105a19168960c00bcc200a3829f"
+    },
+    "assets/combat/vale-hit.webp": {
+      "sourceHash": "4642854948b727a4f2be5020d308a08e8b78f57686cdc292741c79369704d6dc",
+      "stage": "assets/combat/vale-hit.webp",
+      "stageHash": "4642854948b727a4f2be5020d308a08e8b78f57686cdc292741c79369704d6dc",
+      "card": "assets/optimized/card/webp/combat/vale-hit.webp",
+      "cardHash": "69701b1273733be827b2a4ec3c6a8901e7652ea0108f1cb1ca91497cdb830650"
+    },
     "assets/greek-drama/ajax-camp-day.webp": {
       "sourceHash": "846fd6875ded126c01eb4108247d5b94c5a0c6fbf2f9909ff42dafe21ebfbe77",
       "stage": "assets/greek-drama/ajax-camp-day.webp",

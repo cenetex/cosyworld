@@ -1,0 +1,145 @@
+{
+  "created": "2026-10-31",
+  "purpose": "Attack and hit reaction portraits for client-only combat presentation",
+  "max_source_bytes": 300000,
+  "encoding": {
+    "format": "webp",
+    "alphaQuality": 100,
+    "effort": 6,
+    "smartSubsample": true
+  },
+  "assets": [
+    {
+      "id": "keeper-attack",
+      "file": "keeper-attack.webp",
+      "character": "Keeper",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/keeper.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-b1442ee4-fe68-4c6f-adab-07282f825cae",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 200944,
+      "sha256": "626c7d42e15841255fac0373ac000d4079bad081b2647a315e9d272982c0a724",
+      "original_png_sha256": "482665ec1a8eab19a37054098e47e3bf3df4fe98fde4297fb15492760bd592ed",
+      "original_png_bytes": 1877458,
+      "alpha_sha256": "52cc286e62962facf23d0abeee923d207c2e5f1a5f591440eea154771b160bba",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "keeper-hit",
+      "file": "keeper-hit.webp",
+      "character": "Keeper",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/keeper.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-57abc275-218a-463a-8128-64b40532ed8b",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 212138,
+      "sha256": "ac10202ca29c384b5a06fd94f37512edb0535bbb93dce9cbee682769568d1141",
+      "original_png_sha256": "bdfafa876146c204598efbdbaaf827dc2776979e07dc72d49667655c6a6090a9",
+      "original_png_bytes": 1974135,
+      "alpha_sha256": "ae2eade33d038054f98b7b9755784c1cf9a503cf5bec3a0326bbbf171f2aeac2",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "moth-attack",
+      "file": "moth-attack.webp",
+      "character": "Pip",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/moth.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-713b5b4b-f65e-4aa3-873e-561a3603a508",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 82,
+      "bytes": 298146,
+      "sha256": "a9b231a01380959a4244031cf9aa2a36b535e673948195b5082e0114669a01c7",
+      "original_png_sha256": "22cdce97ce8c9a6f4d40bc7bf9c1e2d589eeecb3eea1308379383169ff8ea2e3",
+      "original_png_bytes": 2491719,
+      "alpha_sha256": "a5af70d98a5f1be76827ce19102c7ba400745f0ab4e9c6d067cf56001a6e408a",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "moth-hit",
+      "file": "moth-hit.webp",
+      "character": "Pip",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/moth.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-8b55b2ef-22e2-4ba9-a509-cb6ab09ffc91",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 82,
+      "bytes": 291018,
+      "sha256": "835555cc46e3deb54890346c4bc8ab9be0fb1b718d16900e6c49493e4e295e47",
+      "original_png_sha256": "93a3ffa9769393bd52b66c60e44dd45f394c5fde15598cd5fab399123f9c5580",
+      "original_png_bytes": 2483252,
+      "alpha_sha256": "adf7aebc653542c4e035f24e12719d16902f49d5df841b05867a90f0d0c7bb53",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "vale-attack",
+      "file": "vale-attack.webp",
+      "character": "Vale",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/vale.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-74335f6e-7b0e-4e4c-922b-758d78a3bbc9",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 196360,
+      "sha256": "b5d863609adaba585435df1fbdc110c602351baa4d374f0e84b2c576b0eb13d0",
+      "original_png_sha256": "4c719c7e36dfc19521f2d91527f5b72220cc82d565d578c4ad94a32fd85c1cb6",
+      "original_png_bytes": 2009998,
+      "alpha_sha256": "4ae178538e3580ae2ff383e3f50f779ec264c500debd98e1bef2f96bff747b34",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "vale-hit",
+      "file": "vale-hit.webp",
+      "character": "Vale",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/vale.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-8ffa71c4-cc38-4132-ac00-4188fbca34b1",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 220730,
+      "sha256": "4642854948b727a4f2be5020d308a08e8b78f57686cdc292741c79369704d6dc",
+      "original_png_sha256": "e7c6e32791b3ac12cfea34d86fce6103f4e6a7db0fb0e7442509663bda8c3ef9",
+      "original_png_bytes": 2083610,
+      "alpha_sha256": "f251ce6d9874ecdea3897ae8e15956810fca63977b10be792720b0fc72f6b8f5",
+      "alpha_preserved_exactly": true
+    }
+  ]
+}
