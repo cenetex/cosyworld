@@ -212,6 +212,77 @@ keep the released replay bundles.
     - display-only glitches in labels and the log at high dread
       (*Eternal Darkness*). The journal itself never changes.
 
+## Art direction: an attentive landscape
+
+### Base paintings
+
+- **Thicker.** Overlapping layers of stems, so depth is hard to judge.
+- **The path is incidental.** A narrower distant opening, low branches
+  interrupting its edges, the river partly hidden, just enough sand to read
+  the route.
+- **Inconvenient edges.** Close-cropped stems at the frame edges, irregular
+  and slightly in the way.
+- **No orientation.** Low, repeated willow masses fill the distance, so
+  islands and channels blur and the horizon gives little bearing.
+- **Still beautiful.** Keep the silver-green leaves (the book's "silver
+  leaves to the sunshine in an ever-moving plain of bewildering beauty") and
+  the warm sand. Staying another hour should seem reasonable.
+- **Camp sky.** The base camp painting has a conspicuous circular formation
+  in its sky. Make the base sky ordinary; the bronze ascent gets its own
+  image.
+
+### Pressure by place
+
+| Place | Pressure |
+| --- | --- |
+| Thicket | Layered stems, interrupted sightlines, leaves sharing an uneasy orientation, smooth hollows underfoot |
+| Camp | A shrinking clearing, bushes approaching the belongings, canvas under unexplained pressure |
+| Landing | Unreliable reflections, indistinct channels, the canoe small in the river landscape |
+| Bank | Exposed roots, unstable ground, willow islands repeating into the distance, immense forms barely resolving above them |
+
+### Uncanny images
+
+1. **The camp has become smaller.** Identical camera, tent, fire, pot and
+   belongings. The willow masses have moved inward, the strip behind the tent
+   is narrower, the river view is almost gone, a branch lies across a guy
+   rope, and there is less room by the fire. This pairs with the narrator
+   pacing the distances.
+2. **The leaves turn.** One broad, uneven band of thicket leaves shows pale
+   undersides, all sharing an orientation. It reads first as a gust, then as
+   attention. Same light as the base; not a tidy ring.
+3. **Hollows too smoothly formed.** Continuous curves, undisturbed grains,
+   the same shape at different sizes. A larger companion hollow sits beside
+   something familiar: a tent peg, the pot, the place someone sat. The shape
+   echoes the drowned man's marks ("indented with small hollows, beautifully
+   formed") and the cheeks of the Swede's uncanny portrait. It is the pack's
+   signature shape.
+4. **Pressure on the tent.** Broad depressions in the canvas, with poles,
+   ropes and stakes unchanged. The roof sits slightly lower; a side panel
+   bends on an unfamiliar curve. This pairs with "a great weight upon the
+   surface of my body".
+5. **Bronze forms rising through the willow tops.** Fragments between the
+   leaves, contours almost resolving into bodies and then merging, scale
+   beyond the shrubs, the upper part dissolving into sky. Muted gouache
+   bronze (the book's "hue of dull bronze upon their skins"). One of the
+   strongest images; hold it back.
+6. **The reflection keeps what the shore lost.** At the landing, a willow
+   clump appears in the reflection but not on the bank. A restrained version:
+   one branch fork differs from its reflection. This is an original
+   extension, not in the book.
+
+Paint in this order: a denser ordinary thicket; the thicket with silver
+leaves turned; the camp with bushes closer; then the tent pressure and the
+bronze ascent.
+
+### Wiring
+
+Uncanny images can serve the Halloween flicker as `<backdrop>-uncanny.webp`.
+The camp-closer, tent-pressure and bronze-ascent images work better as
+state-driven backdrop variants: camp-closer after the distance is paced again,
+tent pressure after the night patterings, the bronze ascent once the shapes
+over the willows are discovered. They use the same generic, data-driven
+mechanism as the Swede's poses (item 8), not per-pack code.
+
 ## Accessibility
 
 These are hard rules for every presentation change:
