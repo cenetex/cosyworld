@@ -156,6 +156,27 @@ function art(id) {
     ? `<img src="${imageUrl(media, "card")}" alt="" decoding="async">`
     : `<svg viewBox="0 0 64 64" aria-hidden="true">${paths[id] || '<path d="M20 12h24v40H20zM25 22h14M25 30h14M25 38h10"/>'}</svg>`;
 }
+// Beat captions keep their glyph as data; the table draws each one as line
+// art in the toolbar's style so no glyph falls back to a colour emoji.
+const beatIcons = {
+  "➜": '<path d="M4 12h15M13 6l6 6-6 6"/>',
+  "⚔": '<path d="M4 4l11 11M13 17l4-4M15 15l4 4M20 4 9 15M11 17l-4-4M9 15l-4 4"/>',
+  "↳": '<path d="M7 4v8a3 3 0 0 0 3 3h9M15 11l4 4-4 4"/>',
+  "⇄": '<path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/>',
+  "✦": '<path d="M12 3c.8 5 2 6.2 7 9-5 2.8-6.2 4-7 9-.8-5-2-6.2-7-9 5-2.8 6.2-4 7-9Z"/>',
+  "✋": '<path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V11M11 10.5V4.5a1.5 1.5 0 0 1 3 0v6M14 10.5V6a1.5 1.5 0 0 1 3 0v5M17 11V9a1.5 1.5 0 0 1 3 0v5a7 7 0 0 1-7 7h-.8a6 6 0 0 1-4.7-2.3l-3-3.9a1.6 1.6 0 0 1 2.4-2L8 15"/>',
+  "◌": '<path d="M9 21v-9h6v9M7 21h10M12 12V9M12 7c-1.5-1.3 1.5-2.4 0-4"/>',
+  "♪": '<path d="M5 17h14l-2-3v-4a5 5 0 0 0-10 0v4zM10 19.5a2 2 0 0 0 4 0"/>',
+  "⛽": '<path d="M12 3c-1.6 2.2-2.5 3.5-2.5 4.7a2.5 2.5 0 0 0 5 0C14.5 6.5 13.6 5.2 12 3ZM4 14h16l-2.5 6h-11ZM9 14a3 3 0 0 1 6 0"/>',
+};
+function beatIcon(glyph) {
+  const holder = node("span", undefined, "beat-icon");
+  holder.setAttribute("aria-hidden", "true");
+  if (beatIcons[glyph])
+    holder.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${beatIcons[glyph]}</svg>`;
+  else holder.textContent = glyph;
+  return holder;
+}
 function node(tag, text, className) {
   const el = document.createElement(tag);
   if (text !== undefined) el.textContent = text;
@@ -2372,7 +2393,7 @@ function renderScene() {
         const item = node("span", undefined, "beat-caption");
         item.dataset.kind = action.kind;
         item.append(
-          node("span", action.icon, "beat-icon"),
+          beatIcon(action.icon),
           node("span", action.text),
         );
         return item;
@@ -2450,20 +2471,21 @@ function renderScene() {
         face.append(image);
       }
       const words = behindButton.querySelector(".beat-behind-text");
+      const first = behind.actions[0];
+      const caption = node("span", undefined, "beat-behind-caption");
+      if (first) caption.append(beatIcon(first.icon), first.text);
       words.replaceChildren(
         node("strong", summary.speaker),
         ...(summary.speech
           ? [node("span", summary.speech, "beat-behind-speech")]
           : []),
-        ...(summary.caption
-          ? [node("span", summary.caption, "beat-behind-caption")]
-          : []),
+        ...(first ? [caption] : []),
       );
       behindButton.dataset.beat = behind.line ? "speech" : "action";
     }
     behindButton.setAttribute(
       "aria-label",
-      `Step back to ${summary.speaker}: ${summary.speech || summary.caption}`,
+      `Step back to ${summary.speaker}: ${summary.speech || behind.actions[0]?.text || ""}`,
     );
   }
   // One live control, only while behind live, counting the newer beats.
@@ -2824,7 +2846,7 @@ function renderLog() {
           const caption = node("p", undefined, "beat-caption");
           caption.dataset.kind = action.kind;
           caption.append(
-            node("span", action.icon, "beat-icon"),
+            beatIcon(action.icon),
             node("span", action.text),
           );
           body.append(caption);
