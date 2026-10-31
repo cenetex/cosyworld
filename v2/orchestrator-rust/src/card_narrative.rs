@@ -572,6 +572,10 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
                     .as_ref()
                     .is_some_and(|id| kind(id, "avatar") && id != "vale")
                 && card.item.is_some()
+        } else if matches!(card.kind.as_str(), "give" | "trade") {
+            // Every offer carries its recorded answer. A refusal moves
+            // nothing, and the cast says why.
+            card.destination.is_none()
         } else {
             card.accepted.is_none() && card.destination.is_none()
         }
@@ -3762,6 +3766,37 @@ mod tests {
         }
         o.card.destination = Some("pond".into());
         assert!(!valid_outcome(&o));
+    }
+
+    #[test]
+    fn accepts_recorded_answers_to_give_and_trade() {
+        // Every Give and Trade records its answer; a refusal is a real outcome.
+        for (verb, receive) in [("give", None), ("trade", Some("oil"))] {
+            let mut o = solo_departure();
+            o.card.kind = verb.into();
+            o.card.target = Some("keeper".into());
+            o.card.item = Some("lamp".into());
+            o.card.receive = receive.map(Into::into);
+            for answer in [None, Some(false), Some(true)] {
+                o.card.accepted = answer;
+                assert!(valid_outcome(&o), "{verb} {answer:?}");
+            }
+            o.card.destination = Some("pond".into());
+            assert!(!valid_outcome(&o), "{verb} with a destination");
+        }
+        // A refused gift is never told to either side as received.
+        let mut c = bell_context();
+        c.outcome.as_mut().unwrap().card.accepted = Some(false);
+        assert!(!custody::facts(&c, "keeper")
+            .iter()
+            .any(|fact| fact.starts_with("I received")));
+        assert!(!custody::facts(&c, "vale")
+            .iter()
+            .any(|fact| fact.starts_with("I gave")));
+        c.outcome.as_mut().unwrap().card.accepted = Some(true);
+        assert!(custody::facts(&c, "keeper")
+            .iter()
+            .any(|fact| fact.starts_with("I received")));
     }
 
     fn request(context: &Context) -> Request<Body> {

@@ -18,7 +18,7 @@ pub(super) fn facts(context: &Context, speaker: &str) -> Vec<String> {
     };
     let mut facts = Vec::new();
     let actor = context.acting_avatar.as_deref().unwrap_or("vale");
-    if outcome.card.kind == "give" {
+    if outcome.card.kind == "give" && outcome.card.accepted != Some(false) {
         if let (Some(item), Some(target)) = (&outcome.card.item, &outcome.card.target) {
             if speaker == target {
                 facts.push(format!("I received {} from {}.", name(item), name(actor)));
