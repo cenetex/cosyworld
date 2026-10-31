@@ -176,6 +176,14 @@ try {
       true,
     );
     assert.doesNotMatch(await page.locator("#messages").innerText(), /Turn \d/);
+    // A reload keeps the failed turn's Retry instead of a hidden panel.
+    await page.reload();
+    await page.waitForFunction(
+      () => document.querySelector("#hand").dataset.cooling === "false",
+    );
+    assert.equal(await page.locator(".dialogue").isVisible(), true);
+    assert.equal(await retry.isVisible(), true);
+    assert.equal(await page.locator("#story-status").isVisible(), false);
     // Slow words release the hand rather than holding it.
     mode = "hang";
     await pond.click();
