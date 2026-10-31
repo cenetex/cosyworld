@@ -30,6 +30,17 @@ const files = [
   "rarity.mjs",
   "card-tiers.css",
   "card-reveal.mjs",
+  // Argos commissioned art: start
+  "assets/greek-drama/house-atreus-palace.webp",
+  "assets/greek-drama/house-atreus-tomb.webp",
+  "assets/greek-drama/house-atreus-mycenae.webp",
+  "assets/greek-drama/house-atreus-farmhouse.webp",
+  "assets/greek-drama/house-atreus-palace-night.webp",
+  "assets/greek-drama/house-atreus-tomb-night.webp",
+  "assets/greek-drama/house-atreus-mycenae-night.webp",
+  "assets/greek-drama/house-atreus-farmhouse-night.webp",
+  "assets/greek-drama/olive-branch.webp",
+  // Argos commissioned art: end
   "assets/greek-drama/harbor-day.webp",
   "assets/greek-drama/city-gate-closed-day.webp",
   "assets/greek-drama/city-gate-closed-night.webp",
