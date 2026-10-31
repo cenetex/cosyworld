@@ -199,16 +199,32 @@ describe("deploy workflow", () => {
     ).toBeLessThan(workflow.indexOf("Create rollback backup"));
   });
 
-  it("deploys a main push to .dev as soon as its image is built", () => {
+  it("deploys a main push to .dev from one job without the release path", () => {
     const fullRelease =
       "(github.event_name != 'push' || startsWith(github.ref, 'refs/tags/'))";
+    const mainPush =
+      "github.event_name == 'push' && github.ref == 'refs/heads/main'";
+    const dev = job("dev-deploy", "deployment-impact");
+    const impact = job("deployment-impact", "release-owner");
     const nodeGate = job("production-node-gate", "production-rust-gate");
     const rustGate = job("production-rust-gate", "production-gate");
     const gate = job("production-gate", "primary-fly");
     const primaryBackup = job("primary-backup", "primary-fly");
     const primaryFly = job("primary-fly", "lonelyforest-image");
 
-    // Main pushes skip the Node and Rust gates; tags and dispatches run them.
+    // Main pushes run only dev-deploy; every release job hangs off the
+    // impact job, which runs only for tags and dispatches.
+    expect(dev).toContain(`if: ${mainPush}`);
+    expect(dev).not.toContain("needs:");
+    expect(impact).toContain(
+      "if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')",
+    );
+    expect(dev).not.toContain("production-gate");
+    expect(dev).not.toContain("backup-fly-v2.sh");
+    expect(dev).not.toContain("lonelyforest");
+    expect(dev).not.toContain("FLY_LONELYFOREST_API_TOKEN");
+
+    // Tags and dispatches keep the Node and Rust gates and the backup.
     expect(nodeGate).toContain(
       `needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`,
     );
@@ -216,25 +232,46 @@ describe("deploy workflow", () => {
       `needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`,
     );
     expect(gate).toContain(`FULL_RELEASE: \${{ ${fullRelease} }}`);
-    expect(gate.indexOf('if [ "$FULL_RELEASE" != true ]')).toBeLessThan(
-      gate.indexOf('test "$NODE_RESULT" = success'),
-    );
-
-    // The primary backup runs only for tags and primary dispatches.
     expect(primaryBackup).toContain("startsWith(github.ref, 'refs/tags/') ||");
     expect(primaryBackup).toContain(
       "(github.event_name == 'workflow_dispatch' &&\n        (inputs.target == 'both' || inputs.target == 'primary'))",
     );
     expect(primaryBackup).not.toContain("github.event_name == 'push' ||");
-
-    // The rollout waits only for the image on main; otherwise for the gate and backup.
     expect(primaryFly).toContain("!cancelled()");
     expect(primaryFly).toContain("needs.primary-image.result == 'success'");
     expect(primaryFly).toContain(
-      "((github.event_name == 'push' && github.ref == 'refs/heads/main') ||\n" +
-        "       (needs.production-gate.result == 'success' &&\n" +
-        "        needs.primary-backup.result == 'success'))",
+      "needs.production-gate.result == 'success' &&",
     );
+    expect(primaryFly).toContain("needs.primary-backup.result == 'success'");
+    expect(primaryFly).not.toContain("refs/heads/main");
+
+    // The .dev job compares with what .dev runs, builds, checks once more
+    // that it still owns main, then rolls out and verifies.
+    const order = [
+      "bash scripts/yield-superseded-deploy.sh check",
+      "node scripts/last-dev-rollout.mjs",
+      'node scripts/check-deployment-impact.mjs "$base" "$GITHUB_SHA"',
+      "bash scripts/yield-superseded-deploy.sh watch &",
+      "bash scripts/prepare-fly-image.sh cosyworld fly.toml",
+      "Yield to a newer main commit before the rollout",
+      'flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling',
+      "node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev",
+      "node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev",
+      "actions/cache/save@v6",
+    ];
+    for (const [index, text] of order.entries()) {
+      expect(dev).toContain(text);
+      if (index)
+        expect(dev.indexOf(order[index - 1])).toBeLessThan(dev.indexOf(text));
+    }
+    expect(dev).toContain("RELEASE_IMAGE: ${{ steps.image.outputs.image }}");
+    expect(dev).toContain("FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}");
+    expect(dev).toContain("actions: write");
+    expect(dev).toContain(
+      "rolled-out: ${{ steps.rollout.outcome == 'success' }}",
+    );
+    expect(dev).toContain("for attempt in {1..13}");
+    expect(dev).toContain("remained degraded after 120 seconds");
   });
 
   it("keeps every Lonely Forest gate and backup for tags and dispatches", () => {
@@ -393,40 +430,71 @@ describe("deploy workflow", () => {
   });
 
   it("keeps the release target between main-push deploys only", () => {
-    const primary = job("primary-image", "primary-backup");
-    const mainPush =
-      "github.event_name == 'push' && github.ref == 'refs/heads/main'";
-    expect(primary).toContain("actions/cache/restore@v6");
-    expect(primary).toContain("actions/cache/save@v6");
-    expect(primary).toContain("path: ${{ runner.temp }}/release-target");
-    expect(primary).toContain(
+    const dev = job("dev-deploy", "deployment-impact");
+    expect(dev).toContain("actions/cache/restore@v6");
+    expect(dev).toContain("actions/cache/save@v6");
+    expect(dev).toContain("path: ${{ runner.temp }}/release-target");
+    expect(dev).toContain(
       "key: release-target-v1-${{ hashFiles('Dockerfile') }}-${{ steps.release-cache-key.outputs.day }}",
     );
-    expect(primary).toContain(
-      `COSYWORLD_RELEASE_TARGET_CACHE: \${{ (${mainPush}) && format('{0}/release-target', runner.temp) || '' }}`,
+    expect(dev).toContain(
+      "COSYWORLD_RELEASE_TARGET_CACHE: ${{ runner.temp }}/release-target",
     );
-    expect(
-      primary.match(
-        new RegExp(
-          `if: ${mainPush.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
-          "gm",
-        ),
-      ),
-    ).toHaveLength(2);
-    expect(primary).toContain(
-      "steps.release-cache.outputs.cache-hit != 'true'",
-    );
-    expect(primary).toContain(
+    expect(dev).toContain("steps.release-cache.outputs.cache-hit != 'true'");
+    expect(dev).toContain("steps.image.outcome == 'success'");
+    expect(dev).toContain(
       "key: ${{ steps.release-cache.outputs.cache-primary-key }}",
     );
-    for (const name of ["lonelyforest-image", "lonelyforest-fly"]) {
-      const next =
-        name === "lonelyforest-image"
-          ? "lonelyforest-backup"
-          : "deploy-outcome";
+    // The save waits until .dev is live.
+    expect(dev.indexOf("Verify primary card game")).toBeLessThan(
+      dev.indexOf("Save release build cache"),
+    );
+    for (const [name, next] of [
+      ["primary-image", "primary-backup"],
+      ["lonelyforest-image", "lonelyforest-backup"],
+      ["lonelyforest-fly", "deploy-outcome"],
+    ]) {
       expect(job(name, next)).not.toContain("release-target");
       expect(job(name, next)).not.toContain("actions/cache");
     }
+  });
+
+  it("exports the registry build cache only for in-image builds", () => {
+    const build = readFileSync(
+      new URL("../../scripts/build-release-image.sh", import.meta.url),
+      "utf8",
+    );
+    expect(build).toContain(
+      'cache_args=(--cache-from "type=registry,ref=$cache")',
+    );
+    expect(build).toMatch(
+      /if \[ -z "\$prebuilt" \]; then\n\s+cache_args\+=\(--cache-to "type=registry,ref=\$cache,mode=max/,
+    );
+    expect(build).toContain('"${cache_args[@]}" --provenance=false');
+  });
+
+  it("keeps each workflow's large cache to one save per day from main", () => {
+    const desktop = readFileSync(
+      new URL("../../.github/workflows/local-desktop.yml", import.meta.url),
+      "utf8",
+    );
+    const desktopSave = desktop.slice(desktop.indexOf("actions/cache/save@v6"));
+    expect(desktopSave).toContain(
+      "github.event_name == 'push' && github.ref == 'refs/heads/main'",
+    );
+    expect(desktop).toContain(
+      "key: macos-arm64-local-v1-day-${{ steps.release.outputs.day }}",
+    );
+    expect(desktop).not.toContain("macos-arm64-local-v1-${{ hashFiles");
+    expect(desktop).toContain("!.runtime/desktop-target/release/bundle");
+    const runtime = ciJob("runtime", "smoke-binary");
+    expect(runtime).toContain("lookup-only: true");
+    expect(runtime).toContain(
+      "steps.cargo-cache-today.outputs.cache-hit != 'true'",
+    );
+    expect(runtime.slice(runtime.indexOf("Save Cargo build cache"))).toContain(
+      "key: ${{ runner.os }}-cargo-compact-v1-day-${{ steps.cargo-cache-day.outputs.day }}",
+    );
   });
 
   it("runs Lonely Forest as one process behind the same bundle guard as primary", () => {
@@ -518,9 +586,7 @@ describe("deploy workflow", () => {
         `node v2/scripts/smoke-deployed-readiness.mjs ${url}`,
       );
       expect(deploy).not.toContain("ruby-high");
-      expect(deploy).not.toContain(
-        "ownership feed",
-      );
+      expect(deploy).not.toContain("ownership feed");
       expect(deploy).toContain("sleep 10");
       expect(deploy).toContain("remained degraded after 120 seconds");
     },

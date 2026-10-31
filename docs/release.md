@@ -10,7 +10,23 @@ checks the commit, and bugs on `.dev` are fixed forward. Tags matching `v*` reru
 the primary app and `cosyworld-lonelyforest` from the tagged commit, and create
 a GitHub release only after both deployments succeed.
 
-A main push compiles the release binary on the runner, in the Dockerfile's own
+A main push runs one job, `Deploy main to .dev`, so it waits for one runner
+rather than five in a row. The job:
+
+1. Yields if main has already moved past its commit.
+2. Compares the commit with the one the primary app last rolled out, read
+   from earlier Deploy runs (`scripts/last-dev-rollout.mjs`), and stops when
+   only docs, tests, tooling, or release versions changed. Comparing with the
+   live commit, not the previous push, means a docs-only commit still deploys
+   a code commit whose run was superseded.
+3. Builds the image while a watcher checks main every 15 seconds. When main
+   moves, the run cancels itself (`scripts/yield-superseded-deploy.sh`) and
+   the newer run, waiting in the deploy concurrency group, starts at once.
+   Only main-push runs yield; tag and dispatch runs never do.
+4. Checks ownership once more, then rolls out and verifies `.dev`. Nothing
+   cancels a run after this point.
+
+The image job compiles the release binary on the runner, in the Dockerfile's own
 `cargo-chef` toolchain image, with a release target restored from the GitHub
 Actions cache. The image takes that binary through the `orchestrator-prebuilt`
 build context, so a UI or art change recompiles the crate incrementally rather
@@ -18,10 +34,18 @@ than from scratch. Cargo folds the crate version into the crate's identity and
 every commit bumps it, so this build fixes the manifest version at `0.0.0` and
 passes the real version to the compiler through
 `scripts/release-rustc-wrapper.sh`; `/meta` still reports the real version.
-The first deploy of each UTC day saves the target again. A failed warm build
-retries once from an empty target. Tags and dispatches skip this cache and
-compile inside the Dockerfile as before, unless an image for that commit
-already exists.
+The first deploy of each UTC day saves the target again, after `.dev` is live.
+A failed warm build retries once from an empty target. Tags and dispatches
+skip this cache and compile inside the Dockerfile as before, unless an image
+for that commit already exists; only those builds write the registry build
+cache, so a main push no longer replaces their dependency layers.
+
+The repository keeps 10 GB of Actions caches and evicts the least recently
+used. The release target is about 2.3 GB, the CI Cargo cache about 2 GB, and
+the Mac app cache reached 6 GB before it left out the app bundle and the
+game crate. Each of the three saves at most once per UTC
+day, from main only; saving the Mac cache for every commit and pull request
+evicted the release target within minutes of each save.
 
 The workflow requires these app-scoped GitHub secrets:
 

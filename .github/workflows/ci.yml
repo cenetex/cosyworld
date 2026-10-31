@@ -76,8 +76,8 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # Only main saves the Cargo cache; pull requests restore it. Saving a
-      # new commit-keyed cache on every run cost about 45 seconds each.
+      # Only main saves the Cargo cache, once a day; pull requests restore it.
+      # Saving a new commit-keyed cache on every run cost about 45 seconds each.
       - name: Restore Cargo build cache
         uses: actions/cache/restore@v6
         with:
@@ -94,8 +94,32 @@ jobs:
       - name: Test Rust orchestrator
         run: bash v2/scripts/check-rust.sh test
 
-      - name: Save Cargo build cache
+      # Save at most once per UTC day. Every commit changes Cargo.lock, and the
+      # repository keeps only 10 GB of caches, so a 2 GB save per commit
+      # evicted the other Rust caches, including the .dev release target.
+      # The restore prefixes above still find the day's copy.
+      - name: Choose Cargo cache day
+        id: cargo-cache-day
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Look for today's Cargo cache
+        id: cargo-cache-today
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target
+          key: ${{ runner.os }}-cargo-compact-v1-day-${{ steps.cargo-cache-day.outputs.day }}
+          lookup-only: true
+
+      - name: Save Cargo build cache
+        if: >-
+          github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+          steps.cargo-cache-today.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: |
@@ -103,7 +127,7 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-cargo-compact-v1-day-${{ steps.cargo-cache-day.outputs.day }}
 
   # The browser and composition checks need only the debug binary, so it is
   # built beside the Rust tests instead of after them.
