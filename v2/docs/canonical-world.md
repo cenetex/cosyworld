@@ -333,6 +333,11 @@ region loss, higher-fence promotion, and clients reconnecting through different
 regional edges. It asserts one gap-free suffix, unique event ids, exactly one
 copy of every acknowledged message, and no isolated mutation.
 
+Both harnesses flake under full-suite load and are quarantined until their
+fixes land (#1553, #1554). The blocking Rust job skips them; CI's non-blocking
+`Quarantined Rust tests` job runs them on every push. Run one alone with
+`bash v2/scripts/check-rust.sh quarantine`.
+
 ## Rollout order
 
 1. Add canonical identity and command/receipt envelopes while remaining one

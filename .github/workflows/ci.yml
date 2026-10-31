@@ -8,11 +8,11 @@ on:
   # Runs the full suite on a pushed branch without a pull request.
   workflow_dispatch:
 
-# A newer push cancels a pull request's run. On main a running check finishes,
-# so main gets complete results and saves its caches; GitHub keeps only the
-# newest waiting run behind it.
+# A newer push cancels a pull request's run. Every other run, including each
+# main push, gets its own group, so no main run is cancelled or replaced
+# while waiting and every merge gets a complete result.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Test builds keep assertions and overflow checks, with compact symbols.
@@ -210,6 +210,49 @@ jobs:
           if-no-files-found: error
           retention-days: 1
           compression-level: 1
+
+  # Known flaky tests run here, apart from the blocking Rust job, so they still
+  # run and report on every push without blocking a merge. The `build` gate
+  # does not need this job. Each test has an issue and a fix-by date; see
+  # QUARANTINED_TESTS in v2/scripts/check-rust.sh.
+  rust-quarantine:
+    name: Quarantined Rust tests (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      CI: true
+      RUST_TEST_THREADS: "2"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Choose Cargo cache day
+        id: cargo-cache-day
+        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Cargo build cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target
+          key: ${{ runner.os }}-cargo-compact-v1-day-${{ steps.cargo-cache-day.outputs.day }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-compact-v1-
+
+      - name: Run quarantined Rust tests
+        run: |
+          if ! bash v2/scripts/check-rust.sh quarantine; then
+            echo "::warning title=Quarantined Rust test failed::A known flaky test failed (#1553, #1554). It does not block the merge."
+            exit 1
+          fi
 
   rust-quality:
     name: Rust architecture and lint

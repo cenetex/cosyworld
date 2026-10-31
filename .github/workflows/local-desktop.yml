@@ -24,9 +24,11 @@ on:
 permissions:
   contents: read
 
+# A newer push cancels a pull request's run. Main and tag runs each get their
+# own group, so every merge and release build finishes.
 concurrency:
-  group: local-desktop-${{ github.ref }}
-  cancel-in-progress: true
+  group: local-desktop-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   macos:

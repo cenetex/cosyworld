@@ -74,8 +74,11 @@ CI is the final cross-platform authority. It uses Node 24 and stable Rust
 for lint, tests, content, kernel, Rust builds, browser and composition smokes,
 and guide checks. Browser journeys run in parallel groups from one shared
 debug binary; keep each group near ten minutes and add a new journey script to
-a group in `ci.yml`. A newer push cancels a pull request's run, but a running
-main run finishes. Main saves one Cargo cache per UTC day, right after
+a group in `ci.yml`. A newer push cancels a pull request's run. Main runs are
+never cancelled or replaced while waiting, so every merge gets a complete
+result. Known flaky tests listed in `QUARANTINED_TESTS` in
+`v2/scripts/check-rust.sh` run in the non-blocking `Quarantined Rust tests`
+job; each has an issue and a fix-by date. Main saves one Cargo cache per UTC day, right after
 compiling. A local suite
 that opens ephemeral HTTP listeners may fail inside a restricted sandbox with
 `listen EPERM`; rerun it where loopback binding is permitted rather than
@@ -87,6 +90,10 @@ changing application behavior.
   `Preserve room state across journal replay`.
 - Keep one coherent behavior or extraction per PR. Split unrelated deployment,
   content, and feature changes.
+- Push early. Push a draft PR from your first commit, or just the branch while
+  another PR is open, and keep pushing work in progress, so an agent that
+  stops never strands work on a local branch. Do not keep long-lived local
+  branches.
 - Keep at most one open PR in the repository. Before opening a PR, run
   `gh pr list --state open`. If one is open, finish your work on a pushed branch
   and wait until that PR merges or closes. Do not stack PRs on other PR
