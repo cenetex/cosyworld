@@ -704,10 +704,6 @@ async fn generate(
             "Character voices are waiting for valid timing settings.",
         );
     };
-    state
-        .background
-        .cancel
-        .send_modify(|generation| *generation += 1);
     // `peer` is already the derived client address (see
     // `rate_limit::client_addr`). Check this client's own limits before
     // touching shared capacity, so one client can neither hold every permit
@@ -736,6 +732,12 @@ async fn generate(
     let Ok(_permit) = state.capacity.clone().try_acquire_owned() else {
         return error(StatusCode::TOO_MANY_REQUESTS, "The story service is busy.");
     };
+    // Only an admitted scene replaces queued reflections: a refused request
+    // must not cancel work for this or any other client.
+    state
+        .background
+        .cancel
+        .send_modify(|generation| *generation += 1);
     if headers
         .get("accept")
         .is_some_and(|value| value == "text/event-stream")
