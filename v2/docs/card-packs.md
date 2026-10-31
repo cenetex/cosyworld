@@ -294,6 +294,8 @@ story. River mist beside the Greek ship's rail opens onto the island. Its places
 speak as the landscape; the Swede is its one resident. The landing keeps a
 path back to the ship. See [the pack guide](../content/willows/README.md) for the story
 choices, source text and art.
+[Making the Willows creepier](card-table/willows-horror.md) is the design for
+its next horror pass.
 
 ### Source readings
 
