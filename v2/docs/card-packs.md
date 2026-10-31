@@ -145,7 +145,8 @@ schema 6 `steamClock` record and the Greek ship in pack revision 2.
 windows retain Forest behavior. Only the player can advance a signal.
 Neither phase nor hint/progress text is exposed by the normal interface.
 
-Crossing scenery may name `overlay`, `cardArt`, and `cardName`; an optional
+Crossing scenery may name `overlay`, `cardArt`, `cardName`, and a `focus` for
+its replacement backdrop; an optional
 `travelLabel` names the immediate action. These use the same open predicate.
 Media can be PNG, SVG or WebP under the owning pack folder and is checked
 against actual file signatures and both server allowlists.
@@ -289,6 +290,23 @@ in. Anyone still aboard can stay for the next course. A ship left docked with
 passengers and no course for three world rounds sails its first lane. An empty
 ship stays where it was left; a traveller waiting to board at a port brings it
 one lane closer each round. The same saved ship serves every actor.
+Every place uses the same stage layout, and no CSS is written for a single
+place. An optional place `stage` object holds the per-place differences as
+data. All of its values are whole percentages of the painting:
+
+- `focus: {x, y}` is the point of the painting kept in view when the screen
+  crops it.
+- `mark` is where a lone figure stands on wide screens.
+- `lamp: {x, y}` marks a dim place. A lamp lit there warms the place, with the
+  light pooling at that point.
+- `player: false` leaves the player's own avatar off the stage.
+- `resident` with `alt` and `sprite` (`left`/`top`/`width`) anchors one
+  resident that never travels to the painting itself. The painting moves only
+  as far as keeps that resident whole and standing above the hand. Other
+  visitors still stand on the floor.
+
+The hub's places in `forest.json` use the same `stage` data.
+
 An optional place `art` supplies its card face separately from its backdrop.
 
 An optional place `music` supplies an ordered playlist of `{file, title}`

@@ -160,7 +160,6 @@ mod tests {
             "index.html",
             "style.css",
             "entry.mjs",
-            "awakening.css",
             "assets/badger-forest/steam-clock-background.png",
             "assets/badger-forest/badger-sleeping.png",
             "assets/badger-forest/badger-grumpy.png",

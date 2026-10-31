@@ -121,7 +121,7 @@ try {
   await play("clearing");
   assert.equal((await state()).actors.vale.place, "clearing");
   assert.equal((await state()).items.bell.holder, "vale");
-  const sprite = page.locator("#resident-sprite");
+  const sprite = page.locator(".stage-figure");
   assert.equal(await sprite.getAttribute("data-resident"), "badger");
   assert.equal(await sprite.getAttribute("data-state"), "asleep");
   assert.equal(requests.at(-1).location, "clearing");
@@ -201,11 +201,17 @@ try {
   assert(compact.actionsHidden, "The idle hand uses only the cards");
   console.log("Phone space:", compact);
 
+  // Badger stays whole on the one stage and stands above the hand; like every
+  // figure on a phone, the speech box may pass in front of him.
   const bounds = await sprite.boundingBox();
-  assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 390);
   assert.ok(
-    bounds.y + bounds.height <
-      (await page.locator(".dialogue").boundingBox()).y,
+    bounds.x >= -1 && bounds.x + bounds.width <= 391,
+    "Badger is whole",
+  );
+  assert.ok(
+    bounds.y + bounds.height * 0.92 <=
+      (await page.locator(".play-dock").boundingBox()).y + 4,
+    "Badger stands above the hand",
   );
   await page.setViewportSize({ width: 320, height: 568 });
   await page.screenshot({

@@ -111,6 +111,11 @@
           "exits": [],
           "backdrop": "assets/badger-forest/steam-clock-background.png",
           "stage": {
+            "focus": {
+              "x": 45,
+              "y": 25
+            },
+            "player": false,
             "alt": "The old Steam Clock stands on mossy stones in a sunlit clearing.",
             "resident": "badger",
             "sprite": {
@@ -14637,7 +14642,11 @@
             "closed": "The floorboards show no way downstairs.",
             "backdrop": "assets/shared/places/attic-stairs.webp",
             "cardArt": "assets/lonely-forest/cottage.png",
-            "cardName": "Cosy Cottage"
+            "cardName": "Cosy Cottage",
+            "focus": {
+              "x": 0,
+              "y": 50
+            }
           },
           "opened": "Lamplight reveals stairs leading down to the cosy cottage."
         },

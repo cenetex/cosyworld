@@ -248,7 +248,6 @@ describe("the reflected shore card game", () => {
         "",
         "style.css",
         "entry.mjs",
-        "awakening.css",
         "app.mjs",
         "world.mjs",
         "want.mjs",

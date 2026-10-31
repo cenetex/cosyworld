@@ -75,6 +75,7 @@ import {
   backdrop,
   locationOverlay,
   locationVariant,
+  stageOf,
   travelCard,
   lampLitHere,
 } from "./scene.mjs";
@@ -277,9 +278,10 @@ async function prepareStage() {
   await travelShown;
   await waitForScene(
     [
-      ...[$("backdrop"), ...$("cast").querySelectorAll("img")].map((image) =>
-        image.decode(),
-      ),
+      ...[
+        $("backdrop"),
+        ...$("stage").querySelectorAll(".stage-figure, #cast img"),
+      ].map((image) => image.decode()),
       ...entrances.values(),
       ...exits.values(),
     ],
@@ -1084,7 +1086,10 @@ async function travel(place, arrive, landed, kicker = "Travelling to") {
   if (mine !== trip) return;
   covering = false;
   arrive();
-  const images = [$("backdrop"), ...$("cast").querySelectorAll("img")];
+  const images = [
+    $("backdrop"),
+    ...$("stage").querySelectorAll(".stage-figure, #cast img"),
+  ];
   await Promise.race([
     Promise.all([
       new Promise((done) => setTimeout(done, TRAVEL_HOLD)),
@@ -1676,62 +1681,62 @@ function card(id) {
   }
   return frame;
 }
+// The stage frames each painting with its measured shape, so a resident
+// anchored to it stands on the same spot at every screen size.
+$("backdrop").addEventListener("load", (event) => {
+  const { naturalWidth: width, naturalHeight: height } = event.target;
+  if (width && height)
+    $("stage").style.setProperty("--art-ratio", String(width / height));
+});
+// One stage draws every place. Its data only moves the painting's focus,
+// warms a dim place, and anchors a resident to the painting itself.
 function renderStage(locationId) {
   const pack = packOf(locationId);
-  const stage = packPlaces[locationId]?.stage;
+  const stage = stageOf(world, locationId);
+  const lamp = stage.lamp || null;
+  const view = $("stage");
   document.body.dataset.world = pack?.id || "shore";
   document.body.dataset.place = locationId;
+  document.body.dataset.dim = String(Boolean(lamp));
   document.body.dataset.lamplit = String(lampLitHere(world, locationId));
-  document.body.dataset.stage = stage ? "resident" : "cast";
   document.querySelector(".brand span").textContent =
     pack?.name || "The reflected shore";
-  let picture = $("stage-picture");
-  if (stage && picture?.dataset.place !== locationId) {
-    picture?.remove();
-    picture = node("div", undefined, "stage-picture");
-    picture.id = "stage-picture";
-    picture.dataset.place = locationId;
-    const canvas = node("div", undefined, "stage-canvas");
-    const background = node("img", undefined, "backdrop");
-    background.decoding = "async";
-    background.fetchPriority = "high";
-    background.src = imageUrl(backdrop(locationId, world));
-    background.alt = stage.alt;
-    const sprite = node("img", undefined, "stage-resident");
-    sprite.id = "resident-sprite";
-    sprite.dataset.resident = stage.resident;
-    sprite.style.setProperty("--sprite-left", `${stage.sprite.left}%`);
-    sprite.style.setProperty("--sprite-top", `${stage.sprite.top}%`);
-    sprite.style.setProperty("--sprite-width", `${stage.sprite.width}%`);
-    // The square cutout's bottom edge, as a share of the canvas height.
-    canvas.style.setProperty(
-      "--sprite-foot",
-      String((stage.sprite.top + stage.sprite.width * 1.5 * 0.08) / 100),
-    );
-    canvas.append(background, sprite);
-    picture.append(canvas);
-    $("stage").prepend(picture);
+  const fraction = (value, fallback) => String((value ?? fallback) / 100);
+  view.style.setProperty("--focus-x", fraction(stage.focus?.x, 50));
+  view.style.setProperty("--focus-y", fraction(stage.focus?.y, 50));
+  view.style.setProperty("--lamp-x", `${lamp?.x ?? 50}%`);
+  view.style.setProperty("--lamp-y", `${lamp?.y ?? 50}%`);
+  const sprite = stage.sprite;
+  for (const [name, value] of [
+    ["--figure-left", sprite && sprite.left - sprite.width / 2],
+    ["--figure-right", sprite && sprite.left + sprite.width / 2],
+    ["--figure-top", sprite?.top],
+    ["--figure-width", sprite?.width],
+  ])
+    if (sprite) view.style.setProperty(name, fraction(value, 0));
+    else view.style.removeProperty(name);
+  const figures = $("stage-figures");
+  let figure = figures.querySelector(".stage-figure");
+  if (!stage.resident) {
+    figure?.remove();
+    return;
   }
-  if (picture) picture.hidden = !stage;
-  $("backdrop").hidden = Boolean(stage);
-  if (stage) {
-    const painting = picture.querySelector(".backdrop");
-    painting.dataset.source = backdrop(locationId, world);
-    crossfadeImage(painting, imageUrl(painting.dataset.source), {
-      duration: reducedMotion.matches ? 0 : CROSSFADE_MS,
-    });
+  if (figure?.dataset.resident !== stage.resident) {
+    figure?.remove();
+    figure = node("img", undefined, "stage-figure");
+    figure.dataset.resident = stage.resident;
+    figure.decoding = "async";
+    figure.fetchPriority = "high";
+    figures.append(figure);
   }
-  if (stage) {
-    const sprite = $("resident-sprite");
-    const mood = variantOf(world, stage.resident);
-    const source = imageUrl(portrait(stage.resident, null, world));
-    sprite.decoding = "async";
-    sprite.fetchPriority = "high";
-    if (sprite.getAttribute("src") !== source) sprite.src = source;
-    sprite.dataset.source = portrait(stage.resident, null, world);
-    sprite.dataset.state = mood?.name || "present";
-    sprite.alt = mood?.alt || nameOf(stage.resident);
-  }
+  figure.style.setProperty("--sprite-left", `${sprite.left}%`);
+  figure.style.setProperty("--sprite-top", `${sprite.top}%`);
+  figure.style.setProperty("--sprite-width", `${sprite.width}%`);
+  const mood = variantOf(world, stage.resident);
+  const source = imageUrl(portrait(stage.resident, null, world));
+  if (figure.getAttribute("src") !== source) figure.src = source;
+  figure.dataset.state = mood?.name || "present";
+  figure.alt = mood?.alt || nameOf(stage.resident);
 }
 function leaveFigure(figure, remove = false) {
   if (exits.has(figure)) return;
@@ -1892,7 +1897,8 @@ function renderScene() {
           ? CROSSFADE_MS
           : CHANGE_FADE_MS,
   });
-  img.alt = placeText(world, scene.locationId);
+  img.alt =
+    stageOf(world, scene.locationId).alt || placeText(world, scene.locationId);
   if (scene.weather) img.alt += ` Weather: ${scene.weather.condition}.`;
   if (scene.daylight) img.alt += ` ${scene.daylight.description}`;
   img.dataset.locationVariant = scene.variant;

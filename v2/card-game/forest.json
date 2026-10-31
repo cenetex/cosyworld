@@ -31,7 +31,18 @@
       "sanctuary": true,
       "name": "Mirror attic",
       "text": "A tall mirror stands dark and empty. Dust gathers along its frame.",
-      "exits": []
+      "exits": [],
+      "stage": {
+        "focus": {
+          "x": 64,
+          "y": 50
+        },
+        "mark": 75,
+        "lamp": {
+          "x": 65,
+          "y": 60
+        }
+      }
     },
     "pond": {
       "name": "Black pond",
