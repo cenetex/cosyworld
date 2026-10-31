@@ -247,12 +247,49 @@ jobs:
       - name: Install image transfer tool
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends skopeo
 
+      # Main pushes reuse the release target from earlier deploys, so UI and
+      # art changes recompile only what changed. Tags and dispatches compile
+      # inside the Dockerfile from the registry dependency cache.
+      - name: Choose release build cache key
+        id: release-cache-key
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore release build cache
+        id: release-cache
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/release-target
+          key: release-target-v1-${{ hashFiles('Dockerfile') }}-${{ steps.release-cache-key.outputs.day }}
+          restore-keys: |
+            release-target-v1-${{ hashFiles('Dockerfile') }}-
+            release-target-v1-
+
       - name: Prepare primary image
         id: image
         run: bash scripts/prepare-fly-image.sh cosyworld fly.toml
         env:
           COSYWORLD_IMAGE_BUILDER: runner
+          COSYWORLD_RELEASE_TARGET_CACHE: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && format('{0}/release-target', runner.temp) || '' }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      # Save once per UTC day. The key leaves out Cargo.lock, which every
+      # version bump changes; Cargo rebuilds changed dependencies itself.
+      - name: Check release build cache
+        id: release-cache-state
+        if: steps.release-cache.outcome == 'success' && steps.release-cache.outputs.cache-hit != 'true'
+        run: |
+          if [ -d "$RUNNER_TEMP/release-target/target/release" ]; then
+            echo "save=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save release build cache
+        if: steps.release-cache-state.outputs.save == 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/release-target
+          key: ${{ steps.release-cache.outputs.cache-primary-key }}
 
   # Run the guards and rollback snapshot beside the checks and image build.
   # Tags and dispatches wait for all three paths; a main push skips this job.
