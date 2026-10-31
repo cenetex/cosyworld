@@ -69,6 +69,10 @@ the chosen account settings and provider policy. Temporary provider errors can
 retry; request, account, and routing errors return control to the player
 immediately.
 
+The Settings footer and the COSYWORLD wordmark tooltip name the build from the
+server's `/meta` (`v1.2.104 · 94ff0b8 · rules 57`, commit linked); a static
+server shows none.
+
 Connect OpenRouter in Settings and leave **Voices: on** to hear Vale, Mara,
 Pip (`moth`), the Keeper, Badger, and Dione (`greek-baker`). The first tap or
 key press enables audio. The voice reads the character’s actual dialogue.

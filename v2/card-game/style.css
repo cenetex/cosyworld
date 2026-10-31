@@ -121,6 +121,16 @@ button:focus-visible {
   color: var(--muted);
   font-size: 14px;
 }
+.build-info {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.build-info a {
+  color: inherit;
+}
 .notice {
   padding: 8px 16px;
   margin: 0;
