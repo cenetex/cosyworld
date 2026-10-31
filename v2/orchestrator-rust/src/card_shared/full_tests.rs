@@ -2820,3 +2820,9 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
         std::fs::remove_file(path).unwrap();
     }
 }
+
+#[test]
+fn shared_run_seed_is_the_world_id_hash() {
+    // SHA-256("abc") starts ba 78 16 bf.
+    assert_eq!(super::full_world::run_seed("abc"), 0xba78_16bf);
+}
