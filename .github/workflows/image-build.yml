@@ -19,9 +19,11 @@ on:
 permissions:
   contents: read
 
+# A newer push cancels a pull request's run. Any other run, such as a manual
+# image publish, gets its own group and always finishes.
 concurrency:
-  group: release-image-${{ github.ref }}
-  cancel-in-progress: true
+  group: release-image-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   image:

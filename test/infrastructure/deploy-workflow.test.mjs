@@ -383,10 +383,51 @@ describe("deploy workflow", () => {
     expect(build).toContain('test "$SMOKE_BINARY_RESULT" = success');
   });
 
-  it("lets a running main CI finish while newer pull request pushes cancel", () => {
-    expect(ciWorkflow).toContain(
-      "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+  it("never cancels or replaces a main run; only pull request pushes cancel", () => {
+    // Push- and pull-request-triggered workflows. Deploy serializes on its
+    // own group and never cancels (see deploy-coverage.test.mjs); Fly health
+    // runs only on a schedule or by hand.
+    for (const name of ["ci", "image-build", "local-desktop", "pages"]) {
+      const source = readFileSync(
+        new URL(`../../.github/workflows/${name}.yml`, import.meta.url),
+        "utf8",
+      );
+      const concurrency = source.match(/\nconcurrency:\n((?: {2}.*\n)+)/)[1];
+      expect(concurrency, name).toContain(
+        "${{ github.head_ref || github.run_id }}",
+      );
+      expect(concurrency, name).toContain(
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+      );
+    }
+  });
+
+  it("runs quarantined flaky Rust tests in a non-blocking job", () => {
+    const quarantine = ciJob("rust-quarantine", "rust-quality");
+    const build = ciJob("build");
+    const checkRust = readFileSync(
+      new URL("../../v2/scripts/check-rust.sh", import.meta.url),
+      "utf8",
     );
+    expect(quarantine).toContain("continue-on-error: true");
+    expect(quarantine).toContain("bash v2/scripts/check-rust.sh quarantine");
+    expect(quarantine).not.toContain("actions/cache/save");
+    expect(build).not.toContain("rust-quarantine");
+    // The blocking suite skips each quarantined test, which still exists.
+    const names = [
+      ...checkRust
+        .match(/QUARANTINED_TESTS=\(\n([\s\S]*?)\n\)/)[1]
+        .matchAll(/^\s+(\w+) # #\d+, fix by \d{4}-\d{2}-\d{2}$/gm),
+    ].map(([, name]) => name);
+    expect(names).toHaveLength(2);
+    expect(checkRust).toContain('skips+=(--skip "$name")');
+    const rustMain = readFileSync(
+      new URL("../../v2/orchestrator-rust/src/main.rs", import.meta.url),
+      "utf8",
+    );
+    for (const name of names) {
+      expect(rustMain).toContain(`#[test]\n    fn ${name}()`);
+    }
   });
 
   it("saves the Cargo cache only from main", () => {

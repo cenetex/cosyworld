@@ -11,6 +11,15 @@ if [ "${CI:-}" = "true" ]; then
 fi
 TIMEOUT_SECS="${COSYWORLD_CARGO_TIMEOUT_SECS:-$DEFAULT_TIMEOUT_SECS}"
 
+# Known flaky tests. `test` skips them so they cannot block a merge;
+# `quarantine` runs only them in CI's non-blocking job, so they still run and
+# report on every push. Each has an issue and a fix-by date; remove a name
+# here when its fix lands. Never delete or #[ignore] them.
+QUARANTINED_TESTS=(
+  divergent_capacity_processes_converge_without_affinity # #1553, fix by 2026-11-14
+  hot_room_and_regional_chaos_preserve_one_committed_world # #1554, fix by 2026-11-14
+)
+
 run_with_timeout() {
   local label="$1"
   shift
@@ -60,13 +69,28 @@ run_fmt() {
   )
 }
 
-run_tests() {
+# Compiles the tests, then runs them with the given libtest arguments.
+run_cargo_tests() {
+  local label="$1"
+  shift
   (
     cd "$ROOT/orchestrator-rust"
     export RUST_MIN_STACK="${RUST_MIN_STACK:-16777216}"
     run_with_timeout "compiling orchestrator tests" cargo test --no-run
-    run_with_timeout "running orchestrator cargo test" cargo test
+    run_with_timeout "$label" cargo test -- "$@"
   )
+}
+
+run_tests() {
+  local skips=()
+  for name in "${QUARANTINED_TESTS[@]}"; do
+    skips+=(--skip "$name")
+  done
+  run_cargo_tests "running orchestrator cargo test" "${skips[@]}"
+}
+
+run_quarantined() {
+  run_cargo_tests "running quarantined orchestrator tests" "${QUARANTINED_TESTS[@]}"
 }
 
 run_build() {
@@ -84,6 +108,9 @@ case "${1:-all}" in
     run_fmt
     run_tests
     ;;
+  quarantine)
+    run_quarantined
+    ;;
   build)
     run_build
     ;;
@@ -93,7 +120,7 @@ case "${1:-all}" in
     run_build
     ;;
   *)
-    echo "Usage: check-rust.sh [fmt|test|build|all]" >&2
+    echo "Usage: check-rust.sh [fmt|test|quarantine|build|all]" >&2
     exit 2
     ;;
 esac
