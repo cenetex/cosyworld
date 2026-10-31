@@ -26,7 +26,18 @@ const darkAttic = (world, id) =>
 export function backdrop(id, world = null) {
   if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
   const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-  const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
+  const wayOpen = Boolean(
+    world?.actors &&
+      crossings.some(
+        (c) => c.from === id && !c.transport && crossingOpen(world, c, senses),
+      ),
+  );
+  const file = daylightBackdrop(
+    world,
+    id,
+    variant || packPlaces[id]?.backdrop,
+    wayOpen,
+  );
   return file ? `./${file}` : `./assets/${id}.png`;
 }
 export function portrait(id, facing = null, world = null) {

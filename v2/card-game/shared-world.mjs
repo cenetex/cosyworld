@@ -186,6 +186,7 @@ export function dispatchShared(request) {
       action,
       request.revision ?? world.revision,
       actor,
+      request.date ?? null,
     );
     if (!result.ok)
       return { ok: false, world: stored(world), error: result.error };

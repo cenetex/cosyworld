@@ -1957,12 +1957,21 @@ function wantPlan(s, actor) {
   if (threat) return { action: threat };
   return idle();
 }
+// A play may carry the UTC calendar day it was committed on ("YYYY-MM-DD"):
+// the browser's clock for a local save, the server's for a shared world.
+// The world keeps the latest such day, so replay never reads a clock.
+export const calendarDate = (d) =>
+  typeof d === "string" &&
+  /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(d);
 export function play(
   s,
   action,
   expectedRevision = s.revision,
   actor = currentActor(s),
+  date = null,
 ) {
+  // The committed day decides this play's cards, before it is checked.
+  if (calendarDate(date) && date !== s.date) s = { ...s, date };
   if (expectedRevision !== s.revision)
     return {
       ok: false,
@@ -2115,6 +2124,7 @@ export function validateWorld(s) {
     s.revision < s.turn
   )
     fail();
+  if (s.date !== undefined && !calendarDate(s.date)) fail();
   if (
     !validKnowledge(
       s,

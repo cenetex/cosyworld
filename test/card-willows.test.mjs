@@ -11,14 +11,16 @@ import {
   exits,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
+import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
+  hub,
   packDefinitions,
   packProfiles,
   packReadings,
   packFacts,
 } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { darkMist, isNight } from "../v2/card-game/daylight.mjs";
+import { isNight } from "../v2/card-game/daylight.mjs";
 import { locationWeather } from "../v2/card-game/weather.mjs";
 import { cardChoices, availableCards } from "../v2/card-game/cards.mjs";
 
@@ -42,10 +44,18 @@ const move = (world, target) => act(world, { kind: "move", target });
 const choose = (world, id) => act(world, { choiceId: `willows-${id}` });
 const take = (world, item) =>
   act(world, { kind: "take", item: `willows-${item}` });
+// Night, and mist on the ship's deck.
+const darkMist = (world) =>
+  isNight(world) && locationWeather(world, "greek-ship")?.condition === "mist";
 // Wait out the saved world clock until night and mist beside the ship's rail.
 function mist(world) {
   while (!darkMist(world)) world.turn += 1;
   world.revision = Math.max(world.revision, world.turn);
+  return world;
+}
+// The River Map starts in the Willows camp; these journeys lay it on the deck.
+function chart(world) {
+  world.items["willows-map"].holder = "greek-ship";
   return world;
 }
 function island() {
@@ -58,7 +68,7 @@ function island() {
   expect(world.actors.vale.place).toBe("pond");
   world.crossings["pond-greek-harbor"].discovered = true;
   summonTransport(world, "greek-ship", "pond");
-  world = move(world, "greek-ship");
+  world = move(chart(world), "greek-ship");
   world = move(mist(world), "willows-landing");
   return world;
 }
@@ -121,6 +131,7 @@ describe("The Willows", () => {
     world.actors.boardyai.want = null;
     world.crossings["pond-greek-harbor"].discovered = true;
     summonTransport(world, "greek-ship", "pond");
+    chart(world);
     const request = { claimed: ["vale", "mara"], present: ["vale", "mara"] };
     const go = (actor, target, kind = "move") => {
       const view = dispatchShared({ op: "view", world, ...request, actor });
@@ -141,24 +152,32 @@ describe("The Willows", () => {
     mist(world);
     go("vale", "greek-ship");
     go("mara", "greek-ship");
-    const voyage = structuredClone(world.transports["greek-ship"]);
+    // Residents who follow aboard may restamp the berth; the voyage holds.
+    const { since: _since, ...voyage } = world.transports["greek-ship"];
     go("vale", "willows-landing");
-    expect(world.transports["greek-ship"]).toEqual(voyage);
+    expect(world.transports["greek-ship"]).toMatchObject(voyage);
     expect(world.actors.mara.place).toBe("greek-ship");
     go("mara", "greek-harbor", "course");
     go("mara", null, "wait");
     go("mara", "greek-harbor");
     expect(world.transports["greek-ship"].dock).toBe("greek-harbor");
-    // The ship has left Black Pond: Vale waits on the island, mist or not.
-    expect(
+    // The map sails with the ship, so the way back holds at any port.
+    const back = (w) =>
       dispatchShared({
         op: "view",
-        world,
+        world: w,
         ...request,
         actor: "vale",
-      }).actions.some((a) => a.kind === "move" && a.target === "greek-ship"),
-    ).toBe(false);
-    // The lamp calls the empty ship home; the next dark mist reopens the way.
+      }).actions.some((a) => a.kind === "move" && a.target === "greek-ship");
+    expect(back(world)).toBe(true);
+    // Mara takes the map ashore at the harbor: Vale waits on the island.
+    const ashore = structuredClone(world);
+    ashore.items["willows-map"].holder = "greek-harbor";
+    expect(back(ashore)).toBe(false);
+    // When the dark mist lifts, Vale waits too, until the next misty night.
+    world.turn = world.revision = world.turn + 12;
+    while (darkMist(world)) world.turn = world.revision += 1;
+    expect(back(world)).toBe(false);
     summonTransport(world, "greek-ship", "pond");
     mist(world);
     go("vale", "greek-ship");
@@ -193,7 +212,7 @@ describe("The Willows", () => {
     expect(move(world, "greek-ship").actors.vale.place).toBe("greek-ship");
   });
 
-  it("rises beside the rail only on a misty night, and keeps a traveller there until the next", () => {
+  it("rises beside the rail only with the River Map aboard, on a misty night or all of 31 October", () => {
     let world = enableMotives(createWorld({ opening: true }), {
       questPrograms: true,
       personalQuests: true,
@@ -202,11 +221,17 @@ describe("The Willows", () => {
     world.crossings["pond-greek-harbor"].discovered = true;
     summonTransport(world, "greek-ship", "pond");
     world = move(world, "greek-ship");
-    const at = (turn) =>
-      Object.assign(structuredClone(world), { turn, revision: turn });
+    // The map starts in the Willows camp, so a fresh deck shows no way.
+    expect(world.items["willows-map"].holder).toBe("willows-camp");
+    expect(
+      exits(mist(structuredClone(world)), "greek-ship", "vale"),
+    ).not.toContain("willows-landing");
+    chart(world);
+    const at = (turn, date = "2026-10-30") =>
+      Object.assign(structuredClone(world), { turn, revision: turn, date });
     const deck = (w) => exits(w, "greek-ship", "vale");
     // Night is every other block of 24 turns; the deck's mist is Boeotian.
-    const day = at(0);
+    const day = at(96);
     expect(isNight(day)).toBe(false);
     expect(deck(day)).not.toContain("willows-landing");
     expect(availableCards(day)).not.toContain("willows-landing");
@@ -220,23 +245,71 @@ describe("The Willows", () => {
     expect(locationWeather(mistyDay, "greek-ship").condition).toBe("mist");
     expect(isNight(mistyDay)).toBe(false);
     expect(deck(mistyDay)).not.toContain("willows-landing");
-    const night = mist(at(0));
+    const night = mist(at(96));
     expect(night.turn).toBe(120);
     expect(deck(night)).toContain("willows-landing");
     expect(availableCards(night)).toContain("willows-landing");
-    // Only at Black Pond: the same dark mist at the Wine-Dark Harbor, or at
-    // sea, raises nothing.
+    // Carried aboard counts as aboard; anywhere else it raises nothing.
+    const carried = structuredClone(night);
+    carried.items["willows-map"].holder = "vale";
+    expect(deck(carried)).toContain("willows-landing");
+    for (const holder of ["willows-camp", "greek-harbor", "pond"]) {
+      const away = structuredClone(night);
+      away.items["willows-map"].holder = holder;
+      expect(deck(away)).not.toContain("willows-landing");
+      expect(availableCards(away)).not.toContain("willows-landing");
+    }
+    // The map is the ship's way: any port, or at sea, serves.
     for (const ship of [
       { dock: "greek-harbor", phase: "docked" },
       { dock: "pond", phase: "sea" },
     ]) {
       const elsewhere = structuredClone(night);
       Object.assign(elsewhere.transports["greek-ship"], ship);
-      expect(deck(elsewhere)).not.toContain("willows-landing");
-      expect(availableCards(elsewhere)).not.toContain("willows-landing");
+      expect(deck(elsewhere)).toContain("willows-landing");
     }
-    // The same clock decides it after a reload and in a shared view.
-    expect(deck(decodeSave(encodeSave(night)))).toContain("willows-landing");
+    // On 31 October (UTC) the mist rises all day, in any weather, map aboard.
+    const halloweenDay = at(96, "2026-10-31");
+    expect(isNight(halloweenDay)).toBe(false);
+    expect(locationWeather(halloweenDay, "greek-ship").condition).not.toBe(
+      "mist",
+    );
+    expect(deck(halloweenDay)).toContain("willows-landing");
+    expect(availableCards(halloweenDay)).toContain("willows-landing");
+    for (const clock of [clearNight, mistyDay])
+      expect(deck({ ...clock, date: "2027-10-31" })).toContain(
+        "willows-landing",
+      );
+    const noMap = at(96, "2026-10-31");
+    noMap.items["willows-map"].holder = "willows-camp";
+    expect(deck(noMap)).not.toContain("willows-landing");
+    expect(deck(at(96, "2026-11-01"))).not.toContain("willows-landing");
+    // The same recorded day decides it after a reload.
+    expect(deck(decodeSave(encodeSave(at(72, "2026-10-31"))))).toContain(
+      "willows-landing",
+    );
+    expect(() =>
+      decodeSave(JSON.stringify({ ...night, date: "31/10" })),
+    ).toThrow();
+    // A play commits the day it was made on, before its cards are checked.
+    const committed = play(
+      day,
+      find(day, { kind: "wait" }),
+      day.revision,
+      "vale",
+      "2026-10-31",
+    );
+    expect(committed.ok, committed.error).toBe(true);
+    expect(committed.state.date).toBe("2026-10-31");
+    expect(deck(committed.state)).toContain("willows-landing");
+    const action = find(at(96, "2026-10-31"), {
+      kind: "move",
+      target: "willows-landing",
+    });
+    expect(play(day, action, day.revision, "vale", "2026-10-31").ok).toBe(true);
+    expect(play(day, action, day.revision, "vale", "2026-11-01").ok).toBe(
+      false,
+    );
     // Ashore when the mist lifts: no way back until the next misty night.
     let ashore = move(night, "willows-landing");
     ashore.turn = ashore.revision = 132;
@@ -245,6 +318,99 @@ describe("The Willows", () => {
     );
     expect(mist(ashore).turn).toBe(264);
     expect(exits(ashore, "willows-landing", "vale")).toContain("greek-ship");
+    // The traveller who carried the map ashore still finds the way back.
+    const mapAshore = structuredClone(ashore);
+    mapAshore.items["willows-map"].holder = "vale";
+    expect(exits(mapAshore, "willows-landing", "vale")).toContain("greek-ship");
+    mapAshore.items["willows-map"].holder = "willows-camp";
+    expect(exits(mapAshore, "willows-landing", "vale")).not.toContain(
+      "greek-ship",
+    );
+  });
+
+  it("accepts the authored map, night, mist and 31 October gate and rejects malformed ones", () => {
+    const mounted = packDefinitions.flatMap((p) => Object.keys(p.places));
+    const problems = (edit) => {
+      const willows = structuredClone(pack);
+      edit(willows.crossings[0].requires);
+      return packProblems(willows, hub, mounted).join(" ");
+    };
+    expect(problems(() => {})).toBe("");
+    for (const bad of [
+      { kind: "date", month: 13, day: 31 },
+      { kind: "date", month: 10 },
+      { kind: "any", conditions: [{ kind: "night" }] },
+      { kind: "all", conditions: [{ kind: "night" }, { kind: "nope" }] },
+      {
+        kind: "any",
+        conditions: [
+          { kind: "night" },
+          {
+            kind: "all",
+            conditions: [
+              { kind: "night" },
+              {
+                kind: "any",
+                conditions: [{ kind: "night" }, { kind: "night" }],
+              },
+            ],
+          },
+        ],
+      },
+    ])
+      expect(
+        problems((r) => r.push(bad)),
+        JSON.stringify(bad),
+      ).toMatch(/condition/);
+  });
+
+  it("replays the committed day through a shared world", () => {
+    let world = dispatchShared({
+      op: "create",
+      save: encodeSave(createWorld()),
+    }).world;
+    world.actors.vale.place = "greek-ship";
+    world.actors.boardyai.want = null;
+    chart(world);
+    const request = { claimed: ["vale"], present: ["vale"], actor: "vale" };
+    const view = (w) => dispatchShared({ op: "view", world: w, ...request });
+    const wait = view(world).actions.find((a) => a.kind === "wait");
+    const run = (date) => {
+      const r = dispatchShared({
+        op: "play",
+        world,
+        ...request,
+        action: wait,
+        date,
+      });
+      expect(r.ok, r.error).toBe(true);
+      return r.world;
+    };
+    const halloween = run("2026-10-31");
+    expect(halloween.date).toBe("2026-10-31");
+    expect(
+      view(halloween).actions.some(
+        (a) => a.kind === "move" && a.target === "willows-landing",
+      ),
+    ).toBe(true);
+    // Replaying the same command gives the same world; another day differs.
+    expect(run("2026-10-31")).toEqual(halloween);
+    const after = run("2026-11-01");
+    expect(after.date).toBe("2026-11-01");
+    expect(
+      view(after).actions.some(
+        (a) => a.kind === "move" && a.target === "willows-landing",
+      ),
+    ).toBe(darkMist(after));
+    // A play without a day keeps the world's last recorded one.
+    const r = dispatchShared({
+      op: "play",
+      world: halloween,
+      ...request,
+      action: view(halloween).actions.find((a) => a.kind === "wait"),
+    });
+    expect(r.ok, r.error).toBe(true);
+    expect(r.world.date).toBe("2026-10-31");
   });
 
   it("records each discovery before it becomes a fact for the landscape or Swede", () => {

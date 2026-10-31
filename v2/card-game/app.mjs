@@ -874,7 +874,9 @@ function commitAction(action, revision, renderedAt = -Infinity) {
 }
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
-  const result = play(world, action, revision);
+  // The local save records today's UTC day with the play.
+  const today = new Date().toISOString().slice(0, 10);
+  const result = play(world, action, revision, undefined, today);
   if (!result.ok) {
     notice(result.error);
     render();

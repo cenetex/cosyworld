@@ -1,6 +1,17 @@
 use super::{engine, full_store, full_world::World, now, store};
 use serde_json::json;
 
+// 2026-10-31T12:00:00Z.
+const HALLOWEEN: i64 = 1_793_448_000_000;
+
+#[test]
+fn utc_date_counts_days_from_the_epoch() {
+    assert_eq!(full_store::utc_date(0), "1970-01-01");
+    assert_eq!(full_store::utc_date(HALLOWEEN), "2026-10-31");
+    assert_eq!(full_store::utc_date(951_782_400_000), "2000-02-29");
+    assert_eq!(full_store::utc_date(-1), "1969-12-31");
+}
+
 // Every released version upgrades through the same command, so each one
 // proves its own upgrade and the journey runs once, from the newest.
 #[test]
@@ -13,7 +24,24 @@ fn willows_upgrades_from_each_released_version() {
 #[test]
 fn willows_upgrades_version_eighteen_and_replays_discoveries_custody_and_return() {
     let version = engine::EIGHTEENTH_VERSION;
-    let (path, c, id, mut world) = upgraded_willows(version);
+    let (path, c, _, upgraded) = upgraded_willows(version);
+    // The River Map starts in the Willows camp. This journey begins with it
+    // on the deck, in a world of its own, and plays on 31 October (UTC):
+    // with the map aboard the mist rises all day, whatever the clock.
+    let mut aboard = upgraded.clone();
+    aboard.game["items"]["willows-map"]["holder"] = json!("greek-ship");
+    let id = "b".repeat(48);
+    store::create(&c, &id, "owner", HALLOWEEN).unwrap();
+    full_store::seed(&c, &id, &aboard, "willows-map-aboard", HALLOWEEN).unwrap();
+    let mut world = full_store::world(&c, &id, HALLOWEEN).unwrap();
+    let willows = |w: &World| {
+        w.project(0).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|a| a["kind"] == "move" && a["target"] == "willows-landing")
+    };
+    let mut checked = false;
     for (field, value) in [
         ("kind", "light"),
         ("target", "pond"),
@@ -62,7 +90,7 @@ fn willows_upgrades_version_eighteen_and_replays_discoveries_custody_and_return(
                     &id,
                     &mut world,
                     json!({"op":"play","actor":"vale","action":wait}),
-                    now(),
+                    HALLOWEEN,
                 )
                 .unwrap();
             }
@@ -93,9 +121,21 @@ fn willows_upgrades_version_eighteen_and_replays_discoveries_custody_and_return(
             &id,
             &mut world,
             json!({"op":"play","actor":"vale","action":action}),
-            now(),
+            HALLOWEEN,
         )
         .unwrap_or_else(|error| panic!("{version}: {field} {value}: {error}"));
+        // On the deck: the recorded day opens the way; by day on another
+        // date, without dark mist, the deck shows none.
+        if value == "greek-ship" && !checked {
+            checked = true;
+            assert_eq!(world.game["date"], "2026-10-31");
+            assert!(willows(&world));
+            let mut ordinary = world.clone();
+            ordinary.game["date"] = json!(full_store::utc_date(HALLOWEEN + 86_400_000));
+            assert_eq!(ordinary.game["date"], "2026-11-01");
+            assert_eq!(world.game["turn"].as_u64().unwrap() / 24 % 2, 0, "by day");
+            assert!(!willows(&ordinary));
+        }
     }
     assert_eq!(world.game["actors"]["vale"]["place"], "greek-ship");
     assert_eq!(
@@ -113,6 +153,16 @@ fn willows_upgrades_version_eighteen_and_replays_discoveries_custody_and_return(
         world.project(1).unwrap()["world"]["packs"]["willows"],
         world.game["packs"]["willows"]
     );
+    assert_eq!(world.game["date"], "2026-10-31");
+    // Every play recorded its UTC day, so replay needs no clock.
+    let undated: i64 = c
+        .query_row(
+            "SELECT count(*) FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='play' AND json_extract(command,'$.date') IS NOT '2026-10-31'",
+            [&id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(undated, 0);
     let expected = world.clone();
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);

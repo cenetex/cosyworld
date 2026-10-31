@@ -152,9 +152,22 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return isNight(s);
     case "weather":
       return locationWeather(s, c.place)?.condition === c.condition;
-    // A transport docked (or just arrived) at a port, not at sea.
-    case "ship_at":
-      return shipDock(s, c.transport) === c.dock;
+    // The UTC calendar day committed with the latest play ("YYYY-MM-DD").
+    // Replay reads the same recorded day; the rules never read a clock.
+    case "date":
+      return (
+        typeof s.date === "string" &&
+        Number(s.date.slice(5, 7)) === c.month &&
+        Number(s.date.slice(8, 10)) === c.day
+      );
+    case "any":
+      return c.conditions.some((r) =>
+        conditionMet(s, r, senses, packId, actor),
+      );
+    case "all":
+      return c.conditions.every((r) =>
+        conditionMet(s, r, senses, packId, actor),
+      );
     default:
       return false;
   }

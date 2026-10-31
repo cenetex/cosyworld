@@ -12,9 +12,13 @@ import { enableMotives } from "../card-game/motives.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import { summonTransport } from "../card-game/pack-transport.mjs";
 import { profiles } from "../card-game/memory.mjs";
-import { darkMist } from "../card-game/daylight.mjs";
+import { isNight } from "../card-game/daylight.mjs";
+import { locationWeather } from "../card-game/weather.mjs";
 
-// The Willows mist rises beside the ship's rail only on a misty night.
+// With the River Map aboard, the Willows mist rises beside the ship's rail
+// on a misty night, or all day on 31 October (UTC).
+const darkMist = (world) =>
+  isNight(world) && locationWeather(world, "greek-ship")?.condition === "mist";
 const untilDarkMist = (world) => {
   while (!darkMist(world)) world.turn += 1;
   world.revision = Math.max(world.revision, world.turn);
@@ -46,6 +50,8 @@ try {
     seed.crossings["pond-greek-harbor"].discovered = true;
     untilDarkMist(seed);
     summonTransport(seed, "greek-ship", "pond");
+    // The map starts in the Willows camp; this journey begins with it aboard.
+    seed.items["willows-map"].holder = "greek-ship";
     const table = `willows-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
     const page = await browser.newPage({
@@ -92,6 +98,8 @@ try {
         },
       });
     });
+    // Each local play records the browser's UTC day; pin it off Halloween.
+    await page.clock.setFixedTime(new Date("2026-10-30T12:00:00Z"));
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
@@ -160,14 +168,19 @@ try {
       await page.locator('#hand [data-card="greek-ship"]').count(),
       0,
     );
+    assert.equal(stranded.date, "2026-10-30");
+    // On 31 October the way opens all day: a play on that day shows it.
+    await page.clock.setFixedTime(new Date("2026-10-31T12:00:00Z"));
     await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
       key,
-      save: JSON.stringify(untilDarkMist(stranded)),
+      save: JSON.stringify({ ...stranded, date: "2026-10-31" }),
     });
     await page.reload();
     await page.locator('#hand [data-card="greek-ship"]').waitFor();
     await move("greek-ship");
     assert.equal((await saved()).actors.vale.place, "greek-ship");
+    assert.equal((await saved()).date, "2026-10-31");
+    assert.equal(darkMist(await saved()), false);
     assert.equal(
       (await saved()).packs.willows.choices["willows-response"],
       "watch",

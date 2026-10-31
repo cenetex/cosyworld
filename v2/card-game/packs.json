@@ -12692,7 +12692,7 @@
       ],
       "bridge": {
         "id": "greek-ship-willows",
-        "description": "On a misty night, while the Greek ship lies at Black Pond, river mist beside its rail opens onto a small Danube island. The same dark mist keeps a path back to the deck; when it lifts or the ship leaves the pond, the island and the deck lose each other until the ship lies there again on a misty night."
+        "description": "On a misty night, while the River Map is aboard the Greek ship, river mist beside its rail opens onto a small Danube island. On 31 October the mist opens it all day. The same mist keeps a path back to the deck while the map is aboard or at the landing; when it lifts, the island and the deck lose each other until the next misty night."
       },
       "values": {
         "willows-swede": {
@@ -12711,17 +12711,32 @@
           "travel": "through the river mist beside the rail",
           "requires": [
             {
-              "kind": "night"
+              "kind": "item_present",
+              "item": "willows-map",
+              "place": "greek-ship"
             },
             {
-              "kind": "weather",
-              "place": "greek-ship",
-              "condition": "mist"
-            },
-            {
-              "kind": "ship_at",
-              "transport": "greek-ship",
-              "dock": "pond"
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "date",
+                  "month": 10,
+                  "day": 31
+                },
+                {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "night"
+                    },
+                    {
+                      "kind": "weather",
+                      "place": "greek-ship",
+                      "condition": "mist"
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "scenery": {
@@ -12738,17 +12753,42 @@
           "travel": "through the river mist to the ship",
           "requires": [
             {
-              "kind": "night"
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "item_present",
+                  "item": "willows-map",
+                  "place": "greek-ship"
+                },
+                {
+                  "kind": "item_present",
+                  "item": "willows-map",
+                  "place": "willows-landing"
+                }
+              ]
             },
             {
-              "kind": "weather",
-              "place": "greek-ship",
-              "condition": "mist"
-            },
-            {
-              "kind": "ship_at",
-              "transport": "greek-ship",
-              "dock": "pond"
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "date",
+                  "month": 10,
+                  "day": 31
+                },
+                {
+                  "kind": "all",
+                  "conditions": [
+                    {
+                      "kind": "night"
+                    },
+                    {
+                      "kind": "weather",
+                      "place": "greek-ship",
+                      "condition": "mist"
+                    }
+                  ]
+                }
+              ]
             }
           ],
           "scenery": {

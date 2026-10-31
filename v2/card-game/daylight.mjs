@@ -1,23 +1,13 @@
-import { locationWeather } from "./weather.mjs";
-
 // Painted Greek and Willows places share the saved world clock.
 export const DAYLIGHT_TURNS = 24;
 // Night is every other block of DAYLIGHT_TURNS on the saved world clock.
 export const isNight = (world) =>
   Math.floor((world?.turn ?? 0) / DAYLIGHT_TURNS) % 2 === 1;
-// Dark mist: night, and mist on the ship's deck.
-export const darkMist = (world) =>
-  isNight(world) && locationWeather(world, "greek-ship")?.condition === "mist";
-// The Willows mist rises beside the ship's rail only in dark mist while the
-// ship lies at Black Pond.
-export const willowsMist = (world) => {
-  const ship = world?.transports?.["greek-ship"];
-  return darkMist(world) && ship?.phase !== "sea" && ship?.dock === "pond";
-};
 const art = (file) => `assets/greek-drama/${file}.webp`;
 const willows = (file) => `assets/willows/${file}.webp`;
-// The ship shows at the Willows landing only in dark mist.
-const darkMistBackdrops = {
+// Night paintings that show the way out: used only while a crossing from
+// the place is open (the ship at the Willows landing).
+const openNightBackdrops = {
   "willows-landing": willows("landing-ship-night"),
 };
 const nightBackdrops = {
@@ -80,7 +70,7 @@ const placeDescriptions = {
 };
 export const daylightAssets = [
   ...new Set([
-    ...Object.values(darkMistBackdrops),
+    ...Object.values(openNightBackdrops),
     ...Object.values(nightBackdrops),
     ...Object.values(dockedNightBackdrops),
   ]),
@@ -89,7 +79,9 @@ export const daylightAssets = [
 export function locationDaylight(world, id) {
   if (
     !world ||
-    !(Object.hasOwn(nightBackdrops, id) || Object.hasOwn(darkMistBackdrops, id))
+    !(
+      Object.hasOwn(nightBackdrops, id) || Object.hasOwn(openNightBackdrops, id)
+    )
   )
     return null;
   const period = Math.floor(world.turn / DAYLIGHT_TURNS);
@@ -108,9 +100,9 @@ export function locationDaylight(world, id) {
   };
 }
 
-export function daylightBackdrop(world, id, file) {
-  if (Object.hasOwn(darkMistBackdrops, id))
-    return willowsMist(world) ? darkMistBackdrops[id] : file;
+export function daylightBackdrop(world, id, file, wayOpen = false) {
+  if (Object.hasOwn(openNightBackdrops, id))
+    return wayOpen && isNight(world) ? openNightBackdrops[id] : file;
   if (locationDaylight(world, id)?.phase !== "night") return file;
   return dockedNightBackdrops[file] || nightBackdrops[id];
 }

@@ -60,10 +60,16 @@ carried by someone present there.
 `{ "kind": "weather", "place": "greek-ship", "condition": "mist" }` holds
 while that place's regional weather (`weather.mjs`) is the named condition:
 `clear`, `cloud`, `rain` or `mist`.
-`{ "kind": "ship_at", "transport": "greek-ship", "dock": "pond" }` holds
-while that transport is docked at, or has just arrived at, that dock (not at
-sea). The Willows crossings use all three, so the island appears from the
-ship's rail only on a misty night while the ship lies at Black Pond.
+`{ "kind": "date", "month": 10, "day": 31 }` holds while the world's recorded
+calendar day falls on that month and day. Each play carries the UTC day it
+was committed on (`YYYY-MM-DD`): the browser's clock for a local save, the
+server's for a shared world, where the journal stores it with the play. The
+world keeps the latest day as `date`, so replay never reads a clock.
+`{ "kind": "any", "conditions": [...] }` and `{ "kind": "all", "conditions":
+[...] }` combine two to four conditions, nested at most twice.
+The Willows crossing needs the River Map aboard the Greek ship
+(`item_present`), and `any` of 31 October or `all` of night and mist on the
+deck.
 
 The vocabulary also includes `light`, bounded `not`, and persistent pack
 `choice`, `choice_unset`, `flag`, `holding`, `item_at` and `met`. Environmental

@@ -221,6 +221,10 @@ impl World {
             "play" => {
                 let mut request = self.request("play", a);
                 request["action"] = command["action"].clone();
+                // The UTC day committed with the play; replay reads it back.
+                if let Some(date) = command.get("date") {
+                    request["date"] = date.clone();
+                }
                 let result = engine::reduce_version(&self.version, request)?;
                 next.game = result["world"].clone();
                 (11, result)

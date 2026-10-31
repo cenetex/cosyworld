@@ -16,18 +16,19 @@ The drowned man is a discovery in the bank scene.
 
 ## Play
 
-Aboard the Greek ship at Black Pond on a misty night, choose Visit the
-Willows. River mist beside the rail leads to River Landing. By day, on a clear
-night, or with the ship at any other port or at sea, the mist does not rise
-and the card is not on the deck. With today's weather tables, night and mist
-at the deck meet for twelve turns in every 144; the ship must also lie at the
-pond then. An empty ship stays where it was left, so that happens only when
-someone left it at the pond or called it there.
+With the River Map aboard the Greek ship on a misty night, choose Visit the
+Willows. River mist beside the rail leads to River Landing. The map can lie on
+the deck or be carried by someone aboard, at any port or at sea. By day or on
+a clear night the mist does not rise. On 31 October (the UTC day recorded with
+each play) it rises all day in any weather, map still aboard. With today's
+weather tables, night and mist at the deck meet for twelve turns in every 144.
+The map starts in the camp on the island, so the way is closed until someone
+brings it out.
 The island has a landing, a camp, a willow thicket and a crumbling bank.
-At the landing, choose Return to the ship while the dark mist holds and the
-ship still lies at the pond. The ship shows at the landing only then. A
-traveller still on the island when the mist lifts, or when the ship sails,
-waits there until both hold again.
+At the landing, choose Return to the ship while the mist holds and the map is
+aboard or at the landing. The ship shows at the landing only then, at night.
+A traveller still on the island when the mist lifts waits there until it rises
+again.
 
 Examine the canoe and count the food. Study the sand hollows, listen at the
 bank, and look beneath the roots. Greet the Swede, then compare the signs.

@@ -76,7 +76,9 @@ export const CONDITION_KINDS = [
   "pack_item_present",
   "night",
   "weather",
-  "ship_at",
+  "date",
+  "any",
+  "all",
 ];
 export const WEATHER_CONDITIONS = ["clear", "cloud", "rain", "mist"];
 export const TRAVELERS = ["player", "any"];
@@ -796,11 +798,21 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             anyPlace(c.place) &&
             WEATHER_CONDITIONS.includes(c.condition);
           break;
-        case "ship_at":
+        case "date":
           ok =
-            keysOk(c, ["kind", "transport", "dock"]) &&
-            idOk(c.transport) &&
-            anyPlace(c.dock);
+            keysOk(c, ["kind", "month", "day"]) &&
+            intOk(c.month, 1, 12) &&
+            intOk(c.day, 1, 31);
+          break;
+        case "any":
+        case "all":
+          ok =
+            keysOk(c, ["kind", "conditions"]) &&
+            depth < 2 &&
+            Array.isArray(c.conditions) &&
+            c.conditions.length >= 2 &&
+            c.conditions.length <= 4 &&
+            c.conditions.every((r) => condition(r, what, depth + 1));
           break;
         case "knows": {
           // `topics` accepts any one of several facts, so a needed fact can
