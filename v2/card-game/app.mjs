@@ -2366,8 +2366,6 @@ function renderScene() {
   $("speaker").textContent = front
     ? line?.speaker || (front.speakerId ? nameOf(front.speakerId) : "")
     : "";
-  // Phones set the name on the caption line to keep the card short.
-  document.querySelector(".beat-name").textContent = $("speaker").textContent;
   const canRetryWords = !sharedSession || Boolean(sharedSpeech.retryKey);
   $("story-status").hidden =
     behindLive ||
