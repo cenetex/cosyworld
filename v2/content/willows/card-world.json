@@ -5,7 +5,7 @@
   "revision": 1,
   "name": "The Willows",
   "description": "A small island in the flooded Danube. The Swede keeps camp while the river and the willows gather around him.",
-  "tone": "Quiet cosmic horror grounded in ordinary camping work, river sounds, damaged gear and a companion's growing fear. Each location speaks as its landscape in first person. The Swede speaks for himself. Discoveries and choices follow their recorded world facts.",
+  "tone": "Quiet cosmic horror grounded in ordinary camping work, river sounds and damaged gear. The places narrate in the first person and explain each change away until the reasons run out; the willows speak together and only count. The Swede knows early and says little. Discoveries and choices follow their recorded world facts.",
   "entry": "willows-landing",
   "continuity": {
     "startingEra": "willows-island",
@@ -22,47 +22,51 @@
     "willows-landing": {
       "name": "River Landing",
       "text": "An upturned canoe rests above the backwater. A paddle lies on the sand. Beyond the low willows, the Danube carries whole pieces of bank downstream.",
-      "persona": "Speak as the river landing in first person. Feel the canoe against your sand and the weight of the river beyond your edge. Describe small physical changes through sand, wood, spray and current. The canoe is fixed scenery. Its slit and any preparation become known through recorded discoveries. The Greek ship is reached through river mist beside the backwater; describe that crossing when its action is used.",
+      "persona": "A sand spit above the backwater where the upturned canoe lies, with the flooded Danube racing past beyond the low willows. I am the landing and speak in the first person, as the traveller who keeps noticing things and keeps finding reasons for them. The canoe is fixed scenery; its slit and any preparation become known only through recorded discoveries. The Greek ship is reached through river mist beside the backwater; describe that crossing when its action is used.",
       "exits": ["willows-camp"],
-      "backdrop": "assets/willows/landing.webp"
+      "backdrop": "assets/willows/landing.webp",
+      "voice": "Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Examples: \"Wind in the reeds. Only — the reeds are not moving. Wind, then.\" \"An otter. Its eyes were yellow because the sun was low.\" \"The paddle lies nearer the water than I left it. The wind.\" \"The boatman crossed himself. Boatmen do.\""
     },
     "willows-camp": {
       "name": "River Camp",
       "text": "A canvas tent shelters a food sack and a small cooking pot. The Swede watches the willow tops beyond the fire. A sandy path leads to the canoe.",
-      "persona": "Speak as the campsite in first person, through the tent canvas, fire warmth, cooking smells and disturbed sand. The Swede is the one resident. Let ordinary shelter feel small within the surrounding willows. Supplies are those named in the current facts; their condition follows recorded discoveries. Describe the people and objects present with care.",
+      "persona": "A canvas tent, a food sack and a small pot beside a low fire, ringed by willows on a sandy rise. I am the camp and speak in the first person, as the traveller who measures, counts and explains. The Swede is the one resident. Supplies are those named in the current facts; their condition and any paced distances follow recorded discoveries.",
       "exits": ["willows-landing", "willows-thicket"],
-      "backdrop": "assets/willows/camp.webp"
+      "backdrop": "assets/willows/camp.webp",
+      "voice": "Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Use only paces named in the facts. Examples: \"The fire leans away from the willows. A draught off the river.\" \"The island is smaller tonight. The river takes sand. It takes. That is all rivers do.\" \"I paced it at supper. Eleven paces to the nearest willow. Nine now.\" \"Count the willows if it helps. I counted them at supper and there were —\""
     },
     "willows-thicket": {
       "name": "Willow Thicket",
       "text": "Low willow branches crowd a narrow track. Smooth little hollows mark the sand between their roots. The camp shows through one gap; the riverbank lies beyond another.",
-      "persona": "Speak as the willow thicket in first person. Use the feel of narrow stems, silver leaf undersides, soft sand and the spaces between roots. A rustle can travel against the wind. The hollows become a known clue when examined. Keep the powers beyond the island distant and strange; express their nearness through the landscape and committed discoveries.",
+      "persona": "A narrow track between low willow stems, silver leaf undersides and soft sand pressed into smooth hollows. We are the willows and speak together in the first person plural. We chatter, lean and count the travellers. We give no reasons. The hollows become a known clue when examined; what rises through our tops belongs to its recorded discovery.",
       "exits": ["willows-camp", "willows-bank"],
-      "backdrop": "assets/willows/thicket.webp"
+      "backdrop": "assets/willows/thicket.webp",
+      "voice": "Speak as the willows, many together: one to three very short sentences. Use we, us and our, never I. Rustle, lean, chatter and count: count the travellers, the paces, the leaves. Never explain and never give a reason. Never name what moves above us. Never address anyone. Examples: \"Two of them. Two. We lean to count again.\" \"We are nearer than at supper. We did not move. We are nearer.\" \"Our leaves turn silver side up. Two. Still two.\""
     },
     "willows-bank": {
       "name": "Crumbling Bank",
       "text": "Bare roots hang over the flood. Loose sand drops into the current. Across the water, willows cover every island to the horizon.",
-      "persona": "Speak as the riverbank in first person. Feel the current pull grains from your edge. Use exposed roots, water pressure and the reach of the opposite willows. The distant humming and the discovery below the roots belong to their recorded actions. Give each discovery its own moment. The four authored places remain the paths the traveller can choose.",
+      "persona": "Bare roots over the flood, loose sand dropping into the current, and willows on every island to the horizon. I am the bank and speak in the first person, as the traveller who listens and explains what he hears. The distant humming and what lies below the roots belong to their recorded discoveries. Give each discovery its own moment.",
       "exits": ["willows-thicket"],
-      "backdrop": "assets/willows/bank.webp"
+      "backdrop": "assets/willows/bank.webp",
+      "voice": "Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Examples: \"A humming across the water. A steamer, far off. There are no steamers here.\" \"Something turns below the roots. A log. It is a log.\" \"The current turns him over. The marks are —\""
     }
   },
   "avatars": {
     "willows-swede": {
       "name": "The Swede",
-      "text": "A practical canoe traveller with wind-reddened hands. He keeps looking up from the campfire to the willow tops.",
+      "text": "A stolid canoe traveller with wind-reddened hands. Now and then he holds a hand to his ear and looks up at the willow tops.",
       "place": "willows-camp",
       "travels": false,
       "standoffs": false,
       "home": "willows-camp",
       "portrait": "assets/willows/swede.webp",
-      "persona": "The Swede is the experienced travelling companion from Algernon Blackwood's The Willows. He keeps the river camp and attends to ordinary practical work. He notices damaged gear, river changes and the strange pressure around the island. His fear grows as discoveries are recorded. He cares for his companion and wants them to leave with care. A direct question gets a plain answer drawn from his own observations and the supplied facts. The river and the locations carry the wider horror. The supplied source passages are the parts of his story revealed so far. Let each newly revealed passage shape his knowledge, mood and language. Recalled events stay distinct from the visiting player's current acts.",
-      "voice": "Speak in simple English with the steady warmth of a trusted travelling companion. Use short, concrete observations. Let concern show through a pause or a practical suggestion. Answer from the current facts, recorded discoveries and actual custody. When the signs have been shared, speak with restrained urgency. Let the powers beyond the island remain strange and unnamed. Draw words and observations from the revealed original passages. Keep the Swede's practical voice and respond to the current companion.",
+      "persona": "The Swede is the accurate, stolid travelling companion from Algernon Blackwood's The Willows. He keeps the river camp. He knew before anyone what this island is, and he says little. He does not explain or reassure. He listens with a hand to his ear. He never names them, and he hushes anyone who does: to name them is to be noticed. He wants his companion home by the landing. The supplied source passages are the parts of his story revealed so far; let each shape his words. Recalled events stay distinct from the visiting player's current acts.",
+      "voice": "Speak in very short, plain sentences, often a whisper, usually under ten words. State a fact; never explain, never reassure. Answer from the facts and actual custody only. Never name what is out there. If anyone names them or makes noise, say \"Hush!\" If someone gives a sensible reason for a strange sign, call it the way victims talk. Lines in his manner: \"The steering paddle's gone.\" \"It's their sound.\" \"Hush! Do not refer to them by name.\" \"You fool. That's just the way all victims talk.\" \"We should sleep. I will mend the canoe in the morning.\"",
       "tastes": {
-        "likes": "A sound canoe, a warm meal and a companion who listens",
-        "sore": "Careless noise among the willows",
-        "reason": "The Swede wants his companion to get home safely.",
+        "likes": "A sound canoe, a quiet mind and a companion who does not name them",
+        "sore": "Careless noise and spoken names among the willows",
+        "reason": "The Swede wants his companion home safe, with their minds kept quiet so that nothing notices them.",
         "noise": "{actor} rang a bell beside the river camp."
       },
       "values": {
@@ -71,7 +75,10 @@
         "willows-rope": 6,
         "willows-sheet": 6
       },
-      "want": { "kind": "place", "target": "willows-landing" },
+      "want": {
+        "kind": "place",
+        "target": "willows-landing"
+      },
       "desire": {
         "items": [],
         "location": null,
@@ -203,13 +210,7 @@
       "text": "The traveller listens at the bank. A low metallic humming rises through the willows across the water. For a moment it seems to come from the sand underfoot.",
       "textTemplate": "{actor} listens at the bank. A low metallic humming rises through the willows across the water. For a moment it seems to come from the sand underfoot.",
       "summary": "A metallic humming was heard across the river and through the sand beneath the bank.",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "willows-hollows-seen",
-          "value": true
-        }
-      ],
+      "requires": [],
       "effects": [
         {
           "kind": "set_flag",
@@ -226,17 +227,143 @@
       "text": "The traveller peers beneath the exposed roots. A drowned man lies caught in them. Small smooth hollows mark his skin, the same shape as those in the sand. The current turns him slowly.",
       "textTemplate": "{actor} peers beneath the exposed roots. A drowned man lies caught in them. Small smooth hollows mark his skin, the same shape as those in the sand. The current turns him slowly.",
       "summary": "A drowned man caught below the roots bears hollows like those found in the sand.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "willows-mark-seen",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "willows-watch-otter",
+      "subject": "willows-landing",
+      "at": "willows-landing",
+      "label": "Watch the thing in the current",
+      "text": "The traveller watches something black roll in the current twenty feet out, turning like a drowned man. It looks straight at the landing with odd yellow eyes, then plunges. An otter.",
+      "textTemplate": "{actor} watches something black roll in the current twenty feet out, turning like a drowned man. It looks straight at the landing with odd yellow eyes, then plunges. An otter.",
+      "summary": "Something rolled in the current like a drowned man, looked across with yellow eyes and dived: an otter.",
       "requires": [
         {
-          "kind": "flag",
-          "key": "willows-humming-heard",
-          "value": true
+          "kind": "daylight",
+          "phase": "day"
         }
       ],
       "effects": [
         {
           "kind": "set_flag",
-          "key": "willows-mark-seen",
+          "key": "willows-otter-seen",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "willows-watch-boatman",
+      "subject": "willows-landing",
+      "at": "willows-landing",
+      "label": "Watch the far shore",
+      "text": "The traveller sees a man standing in a flat boat, swept down the far shore at a tremendous pace. He shouts something the wind takes, makes the sign of the Cross toward the island, and is gone among the willows.",
+      "textTemplate": "{actor} sees a man standing in a flat boat, swept down the far shore at a tremendous pace. He shouts something the wind takes, makes the sign of the Cross toward the island, and is gone among the willows.",
+      "summary": "A boatman swept down the far shore, shouted into the wind and made the sign of the Cross toward the island.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "willows-boatman-seen",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "willows-pace-willows",
+      "subject": "willows-camp",
+      "at": "willows-camp",
+      "label": "Pace out the willows",
+      "text": "The traveller paces over the warm sand from the tent door to the nearest willow and counts aloud. Eleven paces.",
+      "textTemplate": "{actor} paces over the warm sand from the tent door to the nearest willow and counts aloud. Eleven paces.",
+      "summary": "Paced by day: eleven paces from the tent door to the nearest willow.",
+      "requires": [
+        {
+          "kind": "daylight",
+          "phase": "day"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "willows-willows-paced",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "willows-pace-again",
+      "subject": "willows-camp",
+      "at": "willows-camp",
+      "label": "Pace it again",
+      "text": "The traveller paces again from the tent door to the nearest willow, slowly, counting twice. Nine paces. The sand between is smooth and unmarked.",
+      "textTemplate": "{actor} paces again from the tent door to the nearest willow, slowly, counting twice. Nine paces. The sand between is smooth and unmarked.",
+      "summary": "Paced again at night: nine paces from the tent door to the nearest willow, where by day there were eleven.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "willows-willows-paced",
+          "value": true
+        },
+        {
+          "kind": "daylight",
+          "phase": "night"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "willows-willows-nearer",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "willows-listen-tent",
+      "subject": "willows-camp",
+      "at": "willows-camp",
+      "label": "Lie still in the tent",
+      "text": "The traveller lies still inside the tent. Outside, multitudinous little patterings come and go around the canvas. The canvas sags inward, as if a great weight pressed on it from above.",
+      "textTemplate": "{actor} lies still inside the tent. Outside, multitudinous little patterings come and go around the canvas. The canvas sags inward, as if a great weight pressed on it from above.",
+      "summary": "At night, little patterings circled the tent and a weight pressed the canvas from above.",
+      "requires": [
+        {
+          "kind": "daylight",
+          "phase": "night"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "willows-patterings-heard",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "willows-look-up-willows",
+      "subject": "willows-thicket",
+      "at": "willows-thicket",
+      "label": "Look up at the willow tops",
+      "text": "The traveller looks up through the willow tops. Within the leaves, shapes pour upward in a slow bending column, dull bronze, rising into the dark. Their faces never show.",
+      "textTemplate": "{actor} looks up through the willow tops. Within the leaves, shapes pour upward in a slow bending column, dull bronze, rising into the dark. Their faces never show.",
+      "summary": "At night, shapes poured upward through the willow tops in a bronze column; no faces showed.",
+      "requires": [
+        {
+          "kind": "daylight",
+          "phase": "night"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "willows-shapes-seen",
           "value": true
         }
       ]
@@ -474,6 +601,48 @@
       "text": "For just as the body swung round to the current the face and the exposed chest turned full towards us, and showed plainly how the skin and flesh were indented with small hollows, beautifully formed, and exactly similar in shape and kind to the sand-funnels that we had found all over the island."
     },
     {
+      "id": "willows-otter-text",
+      "actor": "willows-swede",
+      "after": "willows-watch-otter",
+      "title": "Algernon Blackwood, The Willows (1907), II — The otter",
+      "text": "A black thing, turning over and over in the foaming waves, swept rapidly past. It kept disappearing and coming up to the surface again. It was about twenty feet from the shore, and just as it was opposite to where we stood it lurched round and looked straight at us. We saw its eyes reflecting the sunset, and gleaming an odd yellow as the body turned over. Then it gave a swift, gulping plunge, and dived out of sight in a flash. “An otter, by gad!” we exclaimed in the same breath, laughing. It was an otter, alive, and out on the hunt; yet it had looked exactly like the body of a drowned man turning helplessly in the current. Far below it came to the surface once again, and we saw its black skin, wet and shining in the sunlight."
+    },
+    {
+      "id": "willows-boatman-text",
+      "actor": "willows-swede",
+      "after": "willows-watch-boatman",
+      "title": "Algernon Blackwood, The Willows (1907), II — The boatman",
+      "text": "“He’s crossing himself!” I cried. “Look, he’s making the sign of the Cross!” “I believe you’re right,” the Swede said, shading his eyes with his hand and watching the man out of sight. He seemed to be gone in a moment, melting away down there into the sea of willows where the sun caught them in the bend of the river and turned them into a great crimson wall of beauty. Mist, too, had begun to rise, so that the air was hazy."
+    },
+    {
+      "id": "willows-paced-text",
+      "actor": "willows-swede",
+      "after": "willows-pace-willows",
+      "title": "Algernon Blackwood, The Willows (1907), III — The paced distance",
+      "text": "I returned quietly, creepily, to the tent, first taking another exhaustive look round and—yes, I confess it—making a few measurements. I paced out on the warm sand the distances between the willows and the tent, making a note of the shortest distance particularly."
+    },
+    {
+      "id": "willows-nearer-text",
+      "actor": "willows-swede",
+      "after": "willows-pace-again",
+      "title": "Algernon Blackwood, The Willows (1907), III — Nearer",
+      "text": "For a change, I thought, had somehow come about in the arrangement of the landscape. It was not that my point of vantage gave me a different view, but that an alteration had apparently been effected in the relation of the tent to the willows, and of the willows to the tent. Surely the bushes now crowded much closer—unnecessarily, unpleasantly close. _They had moved nearer._"
+    },
+    {
+      "id": "willows-patterings-text",
+      "actor": "willows-swede",
+      "after": "willows-listen-tent",
+      "title": "Algernon Blackwood, The Willows (1907), III — The patterings",
+      "text": "Outside there was a sound of multitudinous little patterings. They had been coming, I was aware, for a long time, and in my sleep they had first become audible. I sat there nervously wide awake as though I had not slept at all. It seemed to me that my breathing came with difficulty, and that there was a great weight upon the surface of my body. In spite of the hot night, I felt clammy with cold and shivered. Something surely was pressing steadily against the sides of the tent and weighing down upon it from above. Was it the body of the wind? Was this the pattering rain, the dripping of the leaves? The spray blown from the river by the wind and gathering in big drops? I thought quickly of a dozen things."
+    },
+    {
+      "id": "willows-shapes-text",
+      "actor": "willows-swede",
+      "after": "willows-look-up-willows",
+      "title": "Algernon Blackwood, The Willows (1907), III — Over the willows",
+      "text": "They were nude, fluid shapes, passing up the bushes, _within_ the leaves almost—rising up in a living column into the heavens. Their faces I never could see. Unceasingly they poured upwards, swaying in great bending curves, with a hue of dull bronze upon their skins."
+    },
+    {
       "id": "willows-understanding-text",
       "actor": "willows-swede",
       "after": "willows-compare-signs",
@@ -510,9 +679,7 @@
       "kind": "delivery",
       "name": "Supper before the wind",
       "purpose": "Ask the Swede what would steady him, bring the stew pot and some food to the fire, then leave the pot in his hands.",
-      "takers": [
-        "visitors"
-      ],
+      "takers": ["visitors"],
       "requires": [
         {
           "kind": "met",
@@ -521,23 +688,16 @@
       ],
       "roles": {
         "partner": {
-          "avatar": [
-            "willows-swede"
-          ]
+          "avatar": ["willows-swede"]
         },
         "food": {
-          "item": [
-            "willows-provisions",
-            "willows-spoon"
-          ]
+          "item": ["willows-provisions", "willows-spoon"]
         }
       },
       "steps": [
         {
           "at": "willows-camp",
-          "with": [
-            "$partner"
-          ],
+          "with": ["$partner"],
           "conditions": [
             {
               "kind": "knows",
@@ -546,20 +706,13 @@
           ]
         },
         {
-          "hold": [
-            "willows-pot",
-            "$food"
-          ],
+          "hold": ["willows-pot", "$food"],
           "at": "willows-camp",
-          "with": [
-            "$partner"
-          ]
+          "with": ["$partner"]
         },
         {
           "at": "willows-camp",
-          "with": [
-            "$partner"
-          ],
+          "with": ["$partner"],
           "conditions": [
             {
               "kind": "heldBy",
@@ -579,9 +732,7 @@
       "kind": "crossing",
       "name": "A map that falls behind",
       "purpose": "Hear from the Swede how the river has changed, carry the map to the crumbling bank to read the new channels, then put it back in his hands.",
-      "takers": [
-        "visitors"
-      ],
+      "takers": ["visitors"],
       "requires": [
         {
           "kind": "met",
@@ -590,17 +741,13 @@
       ],
       "roles": {
         "partner": {
-          "avatar": [
-            "willows-swede"
-          ]
+          "avatar": ["willows-swede"]
         }
       },
       "steps": [
         {
           "at": "willows-camp",
-          "with": [
-            "$partner"
-          ],
+          "with": ["$partner"],
           "conditions": [
             {
               "kind": "knows",
@@ -609,16 +756,12 @@
           ]
         },
         {
-          "hold": [
-            "willows-map"
-          ],
+          "hold": ["willows-map"],
           "at": "willows-bank"
         },
         {
           "at": "willows-camp",
-          "with": [
-            "$partner"
-          ],
+          "with": ["$partner"],
           "conditions": [
             {
               "kind": "heldBy",
@@ -638,9 +781,7 @@
       "kind": "answer",
       "name": "No bells among the willows",
       "purpose": "The Swede hates careless noise by the river. Wrap the bell in its cloth among the willows and bring it to the camp still silent.",
-      "takers": [
-        "visitors"
-      ],
+      "takers": ["visitors"],
       "requires": [
         {
           "kind": "met",
@@ -649,17 +790,12 @@
       ],
       "roles": {
         "partner": {
-          "avatar": [
-            "willows-swede"
-          ]
+          "avatar": ["willows-swede"]
         }
       },
       "steps": [
         {
-          "hold": [
-            "bell",
-            "cloth"
-          ],
+          "hold": ["bell", "cloth"],
           "at": "willows-thicket",
           "conditions": [
             {
@@ -669,13 +805,9 @@
           ]
         },
         {
-          "hold": [
-            "bell"
-          ],
+          "hold": ["bell"],
           "at": "willows-camp",
-          "with": [
-            "$partner"
-          ],
+          "with": ["$partner"],
           "conditions": [
             {
               "kind": "covered",

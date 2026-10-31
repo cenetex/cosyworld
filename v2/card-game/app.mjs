@@ -3,7 +3,7 @@ import { landingPack, createLandingWorld } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
-import { locationDaylight } from "./daylight.mjs";
+import { DAYLIGHT_TURNS, locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import { expressionLabel, expressionOf } from "./expression.mjs";
@@ -22,6 +22,7 @@ import { enableMotives } from "./motives.mjs";
 import { createNarrator, requestNarrative } from "./narrative.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic } from "./music.mjs";
+import { createHum } from "./hum.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
@@ -159,8 +160,7 @@ const localBackups =
 try {
   await localBackups?.restore();
   const saved = sharedSession ? null : localStorage.getItem(SAVE_KEY);
-  if (saved)
-    world = enableMotives(decodeSave(saved));
+  if (saved) world = enableMotives(decodeSave(saved));
 } catch (error) {
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
@@ -657,6 +657,19 @@ music.setEnabled(musicEnabled);
 music.setVolume(musicVolume);
 music.setHidden(document.hidden);
 music.setStarted(musicHasStarted());
+// The island's drone follows the same switch and volume as the music.
+const hum = createHum();
+hum.setEnabled(musicEnabled);
+hum.setVolume(musicVolume);
+hum.setHidden(document.hidden);
+hum.setStarted(musicHasStarted());
+function humRoom() {
+  const place = world.actors[currentActor(world)].place;
+  // The saved world clock, so unlit places such as the thicket darken too.
+  hum.setRoom(place, {
+    night: Math.floor((world.turn || 0) / DAYLIGHT_TURNS) % 2 === 1,
+  });
+}
 $("music-volume").value = String(Math.round(musicVolume * 100));
 function saveMusicSettings() {
   try {
@@ -669,23 +682,34 @@ function saveMusicSettings() {
 $("music-toggle").onclick = () => {
   musicEnabled = !musicEnabled;
   music.setEnabled(musicEnabled);
+  hum.setEnabled(musicEnabled);
   if (musicEnabled) music.unlock();
   saveMusicSettings();
 };
 $("music-volume").oninput = (event) => {
   musicVolume = Number(event.target.value) / 100;
   music.setVolume(musicVolume);
+  hum.setVolume(musicVolume);
   saveMusicSettings();
 };
-document.addEventListener("pointerdown", () => music.unlock(), {
-  capture: true,
+const unlockAudio = () => {
+  music.unlock();
+  hum.unlock();
+};
+document.addEventListener("pointerdown", unlockAudio, { capture: true });
+document.addEventListener("keydown", unlockAudio, { capture: true });
+document.addEventListener("visibilitychange", () => {
+  music.setHidden(document.hidden);
+  hum.setHidden(document.hidden);
 });
-document.addEventListener("keydown", () => music.unlock(), { capture: true });
-document.addEventListener("visibilitychange", () =>
-  music.setHidden(document.hidden),
-);
-window.addEventListener("pagehide", () => music.setHidden(true));
-window.addEventListener("pageshow", () => music.setHidden(document.hidden));
+window.addEventListener("pagehide", () => {
+  music.setHidden(true);
+  hum.setHidden(true);
+});
+window.addEventListener("pageshow", () => {
+  music.setHidden(document.hidden);
+  hum.setHidden(document.hidden);
+});
 const narrator = createNarrator({
   getWorld: () => world,
   early: Boolean(localRuntime()),
@@ -867,6 +891,8 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   if (selectionBlocked()) return;
   if (renderedAt >= lastPlayAt && performance.now() - lastPlayAt < SETTLE_MS)
     return;
+  // The drone falls silent just before a discovery is revealed.
+  if (action.choiceId) hum.hush();
   if (playQueue.pending?.action.key === action.key) {
     // Shared plays cancel through their own visible control.
     if (!sharedSession) playQueue.clear();
@@ -892,6 +918,9 @@ function performAction(action, revision) {
   music.setRoom(world.actors[currentActor(world)].place);
   music.setStarted(musicHasStarted());
   music.unlock();
+  hum.setStarted(musicHasStarted());
+  humRoom();
+  hum.unlock();
   // A new play ends any review of earlier lines.
   reviewing = false;
   dragging = [];
@@ -2167,9 +2196,11 @@ function renderLog() {
 function render() {
   renderPlayers();
   music.setStarted(musicHasStarted());
+  hum.setStarted(musicHasStarted());
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
   music.setRoom(world.actors[currentActor(world)].place);
+  humRoom();
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;
   $("hand").dataset.presentedRevision = String(world.revision);

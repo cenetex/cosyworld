@@ -6,6 +6,7 @@ import {
   sharedEnabled,
 } from "./human-cast.mjs";
 import { knowsFact } from "./knowledge.mjs";
+import { DAYLIGHT_TURNS } from "./daylight.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
 // that sound, and residents with a temperament. No rule here names a pack,
 // place, resident or hub object; the compiled packs supply every name.
@@ -145,6 +146,12 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       );
     case "met":
       return !!state?.met && Object.hasOwn(state.met, c.actor);
+    // The saved world clock: every DAYLIGHT_TURNS turns, day and night swap.
+    case "daylight":
+      return (
+        (Math.floor((s.turn || 0) / DAYLIGHT_TURNS) % 2 ? "night" : "day") ===
+        c.phase
+      );
     default:
       return false;
   }

@@ -178,10 +178,11 @@ describe("The Willows", () => {
     expect(packFacts(world, "willows-landing")).toEqual([]);
     world = move(move(world, "willows-camp"), "willows-thicket");
     world = move(world, "willows-bank");
-    expect(find(world, { choiceId: "willows-hear-humming" })).toBeUndefined();
+    // The bank is a place that might show something, not a checklist.
     expect(
       find(world, { choiceId: "willows-look-beneath-roots" }),
-    ).toBeUndefined();
+    ).toBeDefined();
+    expect(find(world, { choiceId: "willows-hear-humming" })).toBeDefined();
     world = discoveries();
     expect(packFacts(world, "willows-swede").join(" ")).toContain(
       "compared the canoe damage",
@@ -308,5 +309,72 @@ describe("The Willows", () => {
     expect(
       availableCards(dispatchShared({ op: "view", world, ...request }).world),
     ).toContain("willows-landing");
+  });
+
+  it("paces the willows nearer by night and keeps night signs to the dark", () => {
+    const night = (world) => {
+      const dark = structuredClone(world);
+      dark.turn = dark.revision = 24;
+      return dark;
+    };
+    let world = move(island(), "willows-camp");
+    expect(find(world, { choiceId: "willows-pace-again" })).toBeUndefined();
+    expect(find(world, { choiceId: "willows-listen-tent" })).toBeUndefined();
+    expect(
+      find(night(world), { choiceId: "willows-pace-willows" }),
+    ).toBeUndefined();
+    world = choose(world, "pace-willows");
+    expect(packFacts(world, "willows-camp").join(" ")).toContain(
+      "eleven paces",
+    );
+    expect(find(world, { choiceId: "willows-pace-again" })).toBeUndefined();
+    world = choose(decodeSave(encodeSave(night(world))), "pace-again");
+    world = choose(world, "listen-tent");
+    const facts = packFacts(world, "willows-camp").join(" ");
+    expect(facts).toContain("nine paces");
+    expect(facts).toContain("where by day there were eleven");
+    expect(packReadings(world, "willows-swede").map((r) => r.id)).toEqual(
+      expect.arrayContaining(["willows-paced-text", "willows-nearer-text"]),
+    );
+    world = move(world, "willows-thicket");
+    world = choose(world, "look-up-willows");
+    expect(world.packs.willows.flags["willows-shapes-seen"]).toBe(true);
+    // The otter wants the low sun; the boatman passes at any hour.
+    world = move(move(world, "willows-camp"), "willows-landing");
+    expect(find(world, { choiceId: "willows-watch-otter" })).toBeUndefined();
+    world = choose(world, "watch-boatman");
+    const place = narrativeContext(world).entities.find(
+      (e) => e.id === "willows-landing",
+    );
+    expect(place.facts).toContain("Discoveries recorded so far: 5.");
+  });
+
+  it("lets the places narrate, the willows count and the Swede hush", () => {
+    for (const id of ["willows-landing", "willows-camp", "willows-bank"]) {
+      expect(pack.places[id].voice).toContain("first person");
+      expect(pack.places[id].voice).toContain("Discoveries recorded so far");
+    }
+    expect(pack.places["willows-thicket"].voice).toContain("we, us and our");
+    expect(pack.places["willows-thicket"].voice).toContain(
+      "never give a reason",
+    );
+    expect(pack.places["willows-bank"].persona).not.toContain(
+      "authored places",
+    );
+    const swede = pack.avatars["willows-swede"];
+    for (const line of ["It's their sound.", "Hush!", "You fool."])
+      expect(swede.voice).toContain(line);
+    expect(["item", "place", "person", "connect"]).toContain(swede.want.kind);
+    // The Swede carries at most eight newest passages into a scene.
+    let world = discoveries();
+    world.turn = world.revision = 24;
+    world = choose(world, "listen-tent");
+    world = choose(world, "choose-watch");
+    world = move(world, "willows-thicket");
+    world = choose(world, "look-up-willows");
+    const readings = packReadings(world, "willows-swede");
+    expect(readings).toHaveLength(8);
+    expect(readings.map((r) => r.id)).not.toContain("willows-arrival-text");
+    expect(readings.map((r) => r.id).at(-1)).toBe("willows-understanding-text");
   });
 });
