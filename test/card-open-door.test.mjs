@@ -7,6 +7,7 @@ import {
   exits,
   legalActions,
   play,
+  itemPlace,
 } from "../v2/card-game/world.mjs";
 import {
   entityActive,
@@ -75,7 +76,9 @@ describe("the Open Door", () => {
         "greek-refuge-tablet": "greek-colonus",
         "greek-shelter-blanket": "greek-marathon",
       }))
-        expect(world.items[item].holder).toBe(place);
+        // The story leaves each thing there; a resident of that place may
+        // since have picked it up as its own want.
+        expect(itemPlace(world, item)).toBe(place);
       const poem = recitalPoem(world, pack);
       expect(
         poem.stanzas.some(

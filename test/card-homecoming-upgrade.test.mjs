@@ -97,7 +97,7 @@ describe("the household save upgrade", () => {
         expect(after[key]).toEqual(before[key]);
       expect(after.crossings).toMatchObject(before.crossings);
       // Quest progress is dropped; each avatar gains its want record.
-      const lived = ({ want, xp, visited, talked, metTurn, gaveUp, ...a }) => a;
+      const lived = ({ want, xp, visited, talked, known, metTurn, gaveUp, ...a }) => a;
       for (const [id, { progress, ...actor }] of Object.entries(before.actors))
         expect(lived(after.actors[id])).toEqual({
           ...actor,

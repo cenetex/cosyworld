@@ -12,9 +12,12 @@ import {
   levelFor,
   levelOf,
   newWant,
+  nextWant,
+  weightedCandidates,
   reviseStalledWants,
   wantCandidates,
   wantMet,
+  BLOCKED_TURNS,
   REFUSAL_LIMIT,
   STALL_TURNS,
 } from "../v2/card-game/want.mjs";
@@ -96,12 +99,17 @@ describe("one want per avatar", () => {
     expect(plan(s, "keeper").action.kind).toBe("wait");
   });
 
-  it("draws the next want from the world and the same turn draws the same want", () => {
+  it("draws the next want from everything the avatar knows of", () => {
     const s = createWorld();
     s.actors.moth.place = "station";
     s.actors.moth.visited = ["station"];
+    // Pip has seen the station, the keeper and the loose oil, and heard of
+    // the bell; it knows nothing of the cloth.
+    s.items.oil.holder = "pond";
+    s.actors.moth.known = ["station", "keeper", "oil", "bell", "lamp"];
+    s.items.lamp.holder = "moth";
     const api = {
-      carried: () => [],
+      carried: () => ["lamp"],
       rootHolder: (id) => {
         let h = s.items[id].holder;
         while (s.items[h]) h = s.items[h].holder;
@@ -109,13 +117,46 @@ describe("one want per avatar", () => {
       },
       valueOf: (_, id) => ({ lamp: 12, cloth: 6, oil: 3 })[id] ?? 1,
       reachable: () => ["attic", "pond"],
+      routePlaces: () => [],
+      isPlace: (id) => ["attic", "pond", "station"].includes(id),
+      transportPlace: () => false,
     };
     const pool = wantCandidates(s, "moth", api);
     expect(pool).toContain("place:pond");
     expect(pool).toContain("person:keeper");
-    // Pip values the bell at the minimum, so it never wants it.
-    expect(pool).not.toContain("item:bell");
+    // A thing lying loose in a place can be wanted, and so can one valued
+    // at the minimum; what Pip holds, where it stands and what it has never
+    // seen or heard of cannot.
+    expect(pool).toContain("item:oil");
+    expect(pool).toContain("item:bell");
+    expect(pool).not.toContain("item:lamp");
+    expect(pool).not.toContain("place:station");
+    expect(pool).not.toContain("item:cloth");
     expect(wantCandidates(s, "moth", api)).toEqual(pool);
+    // Preference weights the draw: the near unvisited pond outweighs the
+    // minimum-valued bell.
+    const weight = (kind, target) =>
+      weightedCandidates(s, "moth", api).find(
+        ([k, t]) => k === kind && t === target,
+      )[2];
+    expect(weight("place", "pond")).toBeGreaterThan(weight("item", "bell"));
+    expect(nextWant(s, "moth", api)).toEqual(nextWant(s, "moth", api));
+  });
+
+  it("learns what it sees where it stands and what it hears in Talk", () => {
+    let s = createWorld();
+    s.actors.vale.place = "station";
+    s.actors.keeper.place = "station";
+    s.items.oil.holder = "station";
+    s.actors.keeper.want = newWant("item", "cloth", 0);
+    s.actors.vale.known = ["station"];
+    s = play(s, act(s, "talk", { target: "keeper" })).state;
+    const known = s.actors.vale.known;
+    // Seen: the loose oil and the keeper. Heard: the keeper wants the cloth.
+    expect(known).toEqual(expect.arrayContaining(["oil", "keeper", "cloth"]));
+    expect(known).not.toContain("vale");
+    expect(validateWorld(s)).toBe(s);
+    expect(decodeSave(encodeSave(s)).actors.vale.known).toEqual(known);
   });
 
   it("keeps an unseen resident's starter want until it has tried", () => {
@@ -173,6 +214,45 @@ describe("one want per avatar", () => {
     s = play(s, act(s, "give", { item: "lamp", target: "moth" })).state;
     expect(s.actors.moth.trust.vale).toBe(1);
     expect(metEvents(s, "moth")).toHaveLength(1);
+  });
+
+  it("sets aside sooner a want with no play toward it", () => {
+    const s = createWorld();
+    // The attic is beyond every open route from the station.
+    s.actors.keeper.place = "station";
+    s.actors.keeper.want = newWant("place", "attic", 0);
+    s.turn = BLOCKED_TURNS + 1;
+    s.revision = s.turn;
+    expect(plan(s, "keeper").action.kind).toBe("wait");
+    const next = play(s, act(s, "wait")).state;
+    expect(next.actors.keeper.want?.target).not.toBe("attic");
+    expect(next.actors.keeper.gaveUp).toMatchObject({ target: "attic" });
+  });
+
+  it("lets a challenger whose want moved on leave its standoff", () => {
+    const s = createWorld();
+    for (const id of ["keeper", "moth"]) s.actors[id].place = "station";
+    s.items.lamp.holder = "moth";
+    s.standoffs = [
+      {
+        challenger: "keeper",
+        defender: "moth",
+        location: "station",
+        item: "lamp",
+        opened: 0,
+        answered: true,
+        resolve: { keeper: 4, moth: 4 },
+        guarding: { keeper: false, moth: false },
+        struck: { keeper: false, moth: false },
+      },
+    ];
+    s.actors.keeper.want = newWant("item", "lamp", 0);
+    expect(plan(s, "keeper").action.kind).toBe("wait");
+    s.actors.keeper.want = newWant("place", "pond", 0);
+    expect(plan(s, "keeper").action).toMatchObject({
+      kind: "move",
+      target: "pond",
+    });
   });
 
   it("sets aside a cast want with no way forward", () => {

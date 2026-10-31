@@ -225,7 +225,7 @@ describe("Greek ports and fixed roads", () => {
       };
       const current = decodeSave(JSON.stringify(old));
       // Quest progress is dropped; each avatar gains its want record.
-      const lived = ({ want, xp, visited, talked, metTurn, gaveUp, ...a }) => a;
+      const lived = ({ want, xp, visited, talked, known, metTurn, gaveUp, ...a }) => a;
       for (const [id, { progress, ...actor }] of Object.entries(old.actors))
         expect(lived(current.actors[id])).toEqual({
           ...actor,

@@ -599,6 +599,27 @@ function wantAPI(s) {
     rootHolder: (item) => rootHolder(s, item),
     valueOf: (actor, item) => valueOf(s, actor, item),
     reachable: (actor) => reachable(s, actor),
+    exits: (actor) => exits(s, s.actors[actor].place, actor),
+    isPlace: (id) => Object.hasOwn(places, id),
+    transportPlace,
+    routePlaces: (actor) => [
+      ...new Set((s.routeKnowledge?.[actor] || []).flat()),
+    ],
+    // Whether the want planner has a play toward the want. A truce holds
+    // every want for a few turns, so it is not a dead end.
+    wayForward: (actor) => {
+      if (s.peaceUntil[actor] > s.turn) return true;
+      // Calling a ship counts only while no ship already waits here.
+      const step = wantPlan(s, actor);
+      const here = s.actors[actor].place;
+      return (
+        step.action?.kind !== "wait" ||
+        (Boolean(step.callShip) &&
+          !Object.values(s.transports || {}).some(
+            (t) => t.phase === "docked" && t.dock === here,
+          ))
+      );
+    },
     home: homeOf,
     sanctuaries,
     log: (actor, want) =>
@@ -1860,8 +1881,19 @@ function wantPlan(s, actor) {
   const here = s.actors[actor].place;
   if (s.peaceUntil[actor] > s.turn)
     return idle();
-  const conflict = standoffFor(s, actor);
   const want = wantOf(s, actor);
+  // A challenger whose want has moved on from the stake goes after its new
+  // want, and leaving the room ends the standoff.
+  const standoff = standoffFor(s, actor);
+  const conflict =
+    standoff &&
+    standoff.challenger === actor &&
+    standoff.item &&
+    !standoff.struck[actor] &&
+    !Object.values(standoff.struck).some(Boolean) &&
+    !(want?.kind === "item" && want.target === standoff.item)
+      ? null
+      : standoff;
   if (conflict) {
     const other = opponentOf(conflict, actor);
     const answer = (action) => (action ? { action } : idle());
@@ -2323,7 +2355,7 @@ export function validateWorld(s) {
     )
       fail();
     if (
-      !validWant(s, id) ||
+      !validWant(s, id, (x) => Object.hasOwn(places, x)) ||
       a.visited.length > Object.keys(places).length ||
       a.visited.some((place) => !Object.hasOwn(places, place)) ||
       (a.want?.kind === "place" && !Object.hasOwn(places, a.want.target))

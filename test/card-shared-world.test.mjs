@@ -286,7 +286,13 @@ describe("the full world shared by human avatars", () => {
       rootHolder: (id) => rootHolder(view.world, id),
       valueOf: () => 5,
       reachable: () => ["station", "attic"],
+      routePlaces: () => [],
+      isPlace: (id) => ["station", "attic", "pond"].includes(id),
+      transportPlace: () => false,
     };
+    // Even once Vale has seen Mara and the mask, neither is a candidate
+    // while Mara is away.
+    view.world.actors.vale.known.push("mara", "mask");
     const pool = wantCandidates(view.world, "vale", api);
     expect(pool.length).toBeGreaterThan(0);
     expect(pool).not.toContain("item:mask");

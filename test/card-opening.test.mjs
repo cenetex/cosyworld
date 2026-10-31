@@ -60,16 +60,18 @@ describe("the first light in the attic", () => {
 
   it("keeps the waiting cast and their wants in place while the first play is delayed", () => {
     let s = fresh();
+    // The cast may see its own room while it waits; nothing else changes.
+    const still = ({ known, ...actor }) => actor;
     const before = structuredClone([
-      s.actors.moth,
-      s.actors.keeper,
+      still(s.actors.moth),
+      still(s.actors.keeper),
       s.items.oil,
       s.items.cloth,
     ]);
     for (let i = 0; i < 25; i++) s = act(s, "wait");
     expect([
-      s.actors.moth,
-      s.actors.keeper,
+      still(s.actors.moth),
+      still(s.actors.keeper),
       s.items.oil,
       s.items.cloth,
     ]).toEqual(before);
@@ -212,9 +214,12 @@ describe("the first light in the attic", () => {
     let s = act(fresh(), "light");
     s = act(s, "move", { target: "pond" });
     expect(knownActors(s)).toEqual(["vale", "moth"]);
-    const keeper = structuredClone(s.actors.keeper);
+    const { known, ...keeper } = structuredClone(s.actors.keeper);
     s = act(s, "move", { target: "station" });
-    expect(s.actors.keeper).toEqual(keeper);
+    // The keeper only sees Vale arrive.
+    const { known: seen, ...after } = s.actors.keeper;
+    expect(after).toEqual(keeper);
+    expect(seen).toContain("vale");
     expect(s.opening.met.keeper).toBe(3);
     expect(narrativeContext(s).speakers).toEqual(["vale", "keeper", "moth"]);
     expect(knownActors(s)).toEqual(["vale", "moth", "keeper"]);

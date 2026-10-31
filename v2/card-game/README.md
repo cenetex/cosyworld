@@ -115,19 +115,33 @@ facts from earlier releases keep their names; player-facing text says quest.
   place and Talk. Meeting a quest records a `want_met` history event and one
   experience point. Level is a rising curve of experience: 1, 3, 6, 10 points
   reach levels 2 to 5. Standoff strength and the scene read that level.
-- **Next.** The next quest is drawn deterministically from the world, seeded
-  by the avatar and turn: items others hold nearby that the avatar values
-  above what it carries, reachable places it has not visited, and known people
-  it has not talked with. A quest met away from home is followed by the way
-  home; at home the avatar rests a few turns before the next one. With nothing
-  left to want it stays content for a while, then its curiosity starts over.
+- **Knows of.** Each avatar keeps `known`, the latest 256 items, people and
+  places it has seen or heard about, recorded from committed plays only. It
+  sees the place it stands in, the open ways out, and the people and things
+  there, held or loose. In a Talk each side hears what the other's quest
+  targets. It also learns the people, things and places named by the events
+  of the turn it took part in or witnessed.
+- **Next.** The next quest is drawn from everything the avatar knows of, its
+  open routes and, for a traveller who learns the roads, the places on its
+  chart. Only its own holdings and its own place are left out; a resident that
+  keeps to its scene does not take place quests, and pack residents join once
+  their pack is found. The draw is weighted and seeded by the avatar and turn,
+  so a replay draws the same quest: things worth more than what it carries,
+  places not yet visited, people not yet talked with, and anything nearby
+  weigh more. An unreachable quest is allowed. A quest met away from home is
+  followed by the way home; at home the avatar rests a few turns before the
+  next one. With nothing left to want it stays content for a while, then its
+  curiosity starts over.
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
   who learn the roads keep to the routes they know), then ask, trade their
   least valued spare, and threaten when bold enough by resentment, level or
   earlier refusals. `expects()` lets them skip some offers they expect to be
   refused, but refusals still happen: each refusal of the quest item counts,
   and after three, or a long spell with no way forward, the quest is set aside
-  for a while. A resident that keeps to its scene acts only while someone is
+  for a while. A traveller with no play toward its quest at all, such as a
+  place beyond every open route, sets it aside after 12 turns. A challenger
+  whose quest has moved on from the stake of an unstruck standoff goes after
+  its new quest, and leaving the room ends the standoff. A resident that keeps to its scene acts only while someone is
   there, so its quest can stall only after a first refused attempt, and the
   stall clock starts at that attempt.
 - **Trust** has one source: someone gave me the item my quest wanted.

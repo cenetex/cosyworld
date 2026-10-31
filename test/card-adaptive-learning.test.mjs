@@ -202,14 +202,20 @@ it("gives an earlier helpful gift credit when the later request reaches the goal
   it("keeps a bounded recent history with usable source evidence", () => {
     let w = setup();
     w.items.bell.holder = "keeper";
-    // The keeper has just met a want and stays content at the station for
-    // the whole measured run, so the open request stays the same.
+    // The keeper and Pip stay content for the whole measured run, so the
+    // open request stays the same. Contentment lasts CONTENT_TURNS, shorter
+    // than the run, and either would then draw a want from what it has seen,
+    // such as Vale's lamp, so each turn renews it.
     w.turn = w.revision = 10;
-    w.actors.keeper.want = null;
-    w.actors.keeper.metTurn = 10;
-    w.actors.moth.metTurn = 10;
-    w = act(w, "ask", "oil");
-    for (let i = 0; i < TRIAL_LIMIT; i++) w = act(w, "wait");
+    const content = (w) => {
+      for (const id of ["keeper", "moth"]) {
+        w.actors[id].want = null;
+        w.actors[id].metTurn = w.turn;
+      }
+      return w;
+    };
+    w = act(content(w), "ask", "oil");
+    for (let i = 0; i < TRIAL_LIMIT; i++) w = act(content(w), "wait");
     expect(history(w)).toHaveLength(TRIAL_LIMIT);
     expect(history(w)[0].seq).toBeGreaterThan(2);
     expect(

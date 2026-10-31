@@ -44,9 +44,12 @@ it("offers every possible trade in order and only moves the accepted ones", () =
       expect(result.state.items[action.item].holder).toBe(
         willing ? action.target : action.actor,
       );
-      expect(result.state.log.findLast((e) => e.verb === "trade").accepted).toBe(
-        willing,
-      );
+      // Residents may trade later in the same turn; read the player's own.
+      expect(
+        result.state.log.findLast(
+          (e) => e.verb === "trade" && e.actorId === action.actor,
+        ).accepted,
+      ).toBe(willing);
     }
     world = result.state;
   }
