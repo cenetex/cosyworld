@@ -244,6 +244,159 @@
       ],
       "processing": "Built-in image_gen identity-preserving facial edit. Generated facial detail registered by integer translation (-1, 1) px, then feathered inside small facial masks onto the exact base using Sharp. The original full alpha channel and all visible pixels outside those masks are preserved. Lossless WebP encoding; invisible RGB under alpha zero may be canonicalized by the encoder. Facial masks (centre x, y, radius x, y, opacity): [[533,177,35,38,0.9],[450,152,12,25,0.55],[476,180,34,19,0.85]]; feather begins at normalized radius 0.68.",
       "generated": "2026-10-30"
+    },
+    {
+      "asset": "landing-uncanny",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied assets/willows/landing.webp. Preserve this EXACT 1672 by 941 landscape painting: identical camera, framing, composition, perspective, horizon, river and backwater, upturned canoe, every willow mass, existing plants and driftwood, original painted gouache-and-ink finish, sunset palette and overall brightness. This is a small uncanny alternate of the same image, not a new scene. Change ONE small detail only: add a small cluster of three unnaturally smooth bowl/funnel-shaped depressions of slightly different sizes in the existing foreground sand, in the lower middle sandy area just below and to the right of the canoe but left of the backwater. Their continuous curved sandy surfaces have the same original light and natural ochre colour; they seem pressed from above, with fine grains and no digging spoil or tracks. Keep the hollows modest and physically embedded in the original sand. No large crater, no tunnel, no black pit, no new objects, no additional supernatural change. Preserve all pixels outside that small sandy region as closely as possible. No global grading, darkening, brightening, red tint, stripes or checker patterns. No people, animals, ship, symbols, text or gore. Opaque full-bleed 1672 x 941 landscape output.",
+      "file": "assets/willows/landing-uncanny.webp",
+      "references": [
+        "assets/willows/landing.webp"
+      ],
+      "sourceName": "exec-61044434-0b79-46da-bc98-c9a9ffcd5ec6.png",
+      "sourceSha256": "e4faaa6bad49512f196cb4cdd88236c0649bbaa5d16cc2f84f1690b664dd7654",
+      "sha256": "fc10feeaa45b6bd2e6e653dcd8f360ff0dd8ef9894b89a78896c84bd2ca3f15c",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen identity edit, generated at original 1672x941 canvas. Sharp localized composition onto decoded original landing.webp with no geometric transform or global grading. Three elliptical sand masks (cx,cy,rx,ry): (596,831,72,31), (514,856,75,35), (646,874,72,36); outer 20% radial smoothstep feather, union by maximum alpha. Only the imagegen-authored sand hollows and their immediate rims are transferred. RGB lossless WebP, effort 6. All decoded RGB pixels outside the mask are exactly identical to the base.",
+      "generated": "2026-10-31"
+    },
+    {
+      "asset": "camp-uncanny",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied camp.webp, CosyWorld's existing Willows campsite painting. Produce an uncanny alternate of this exact scene. Keep the EXACT 1672 by 941 landscape canvas, camera, framing, horizon, all shapes and object locations, the warm sunset exposure, natural ochre/sage/slate palette, existing painted gouache-and-ink texture, and overall brightness. Make ONE small uncanny change entirely INSIDE the broad sloping canvas panel of the tent at the right: a broad, shallow inward depression pulls the canvas down as though a great invisible weight were pressing it. Give this depression natural cloth folds and believable tension toward the existing seams. It should be noticeable on a second look but remain subtle and physically ambiguous. The tent ridge, silhouette, poles, ropes, pegs, opening and camping gear keep their exact positions; only folds inside the canvas panel change. There is no visible object or hand causing it. Keep the fire, pot, smoke, sand, bushes, river and sky exactly as in the base. No additional supernatural marks or shapes. No people, creatures, text, symbols, border, red tint, color grading, exposure change, stripes, checker patterns or gore. An opaque finished painted backdrop. Preserve all original detail outside the small tent canvas edit, without repainting or smoothing the rest of the image.",
+      "file": "assets/willows/camp-uncanny.webp",
+      "references": [
+        "assets/willows/camp.webp"
+      ],
+      "sourceName": "exec-fe81c17b-bf88-4f5c-91cb-69170c8a5097.png",
+      "sourceSha256": "e8c3c389a1193649b8c959da54795233d1bd84a60b94c4fe38dbcd8ec316d7fd",
+      "sha256": "2322acd0f14dee3fe4034a297ddad18ee5fbf376bc5c42e66894d6fd0179ea68",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen identity-preserving tent-canvas edit, registered on the original 1672 by 941 canvas without translation, resize or crop. Only the generator-authored tent-panel detail was composited onto the original using a polygon mask with a 16 px inward smoothstep feather. RGB mean of the selected generator patch matched to the original canvas before compositing; no global lighting adjustment. Opaque lossless WebP, effort 6. All pixels outside the localized mask are identical to the decoded original.",
+      "generated": "2026-10-31"
+    },
+    {
+      "asset": "camp-lit-night-uncanny",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied camp-lit-night.webp, CosyWorld's existing Willows campsite at night with its lit fire. Produce an uncanny alternate of this exact scene. Keep the EXACT 1672 by 941 landscape canvas, camera, framing, horizon, all shapes and object locations, the exact existing cool night exposure and local warm campfire light, original natural color balance and overall brightness, and the painted gouache-and-ink texture. Make ONE small uncanny change entirely INSIDE the broad sloping canvas panel of the tent at the right: a broad, shallow inward depression presses the cloth down under an invisible great weight, with believable cloth tension and folds. It is a subtle bodily pressure on an empty shelter, with no visible hand or object. Keep the ridge, silhouette, tent poles, ropes, pegs, opening and all gear in their original positions. The depression retains the same local orange firelight and cool shadows already on that canvas. Keep every other part of the scene unchanged: exact original fire flames, pot, smoke, sand, willow foliage, river and sky. No other uncanny elements, people, creatures, text, symbols, border, red tint, grading, darker or brighter exposure, stripes, checker patterns or gore. Opaque finished painted backdrop; preserve original details everywhere outside this small tent-panel change.",
+      "file": "assets/willows/camp-lit-night-uncanny.webp",
+      "references": [
+        "assets/willows/camp-lit-night.webp"
+      ],
+      "sourceName": "exec-feea1725-de62-4632-b711-9b3edd0ce9a3.png",
+      "sourceSha256": "245234ad2eb20a9c20d9abba2567dff7ef63c52f61288536fb7cae8abab062c5",
+      "sha256": "93e0e8c7cda55b629a25950662b6f725e817a26268958eb916f0a5b405bc7b12",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen identity-preserving tent-canvas edit, registered on the original 1672 by 941 canvas without translation, resize or crop. Only the generator-authored tent-panel detail was composited onto the original using a polygon mask with a 16 px inward smoothstep feather. RGB mean of the selected generator patch matched to the original canvas before compositing; no global lighting adjustment. Opaque lossless WebP, effort 6. All pixels outside the localized mask are identical to the decoded original.",
+      "generated": "2026-10-31"
+    },
+    {
+      "asset": "thicket-uncanny",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied thicket.webp, the existing Willow Thicket painting from CosyWorld. Create a subtle uncanny alternate of this same exact picture. Maintain the exact original 1672 x 941 canvas, camera, horizon, perspective, composition, scale and richly detailed painted gouache-and-ink finish. Preserve the landscape identity and all objects. No people, recognizable faces, gore, text, borders, stripes or checker patterns. Opaque finished scene. Keep the original muted sage and silver leaves, ochre sand, blue-grey sky, warm dusk highlights, and exact overall brightness and colour balance. Change ONLY one local feature: the cluster of fine leafy willow branches along the inner LEFT edge of the narrow central opening now leans noticeably farther inward toward the viewer, into the passage just in front of the distant river. The leaves and fine stems should remain botanically plausible, low flexible willow bushes, familiar and beautifully painted; their changed position makes the passage feel tighter, as if the bushes have quietly approached. Keep the foreground sand hollows, path surface, right willow wall, distant river and entire sky unchanged. Restrained change in one region, no added creature or fog, no global repaint or lighting change. No red tint, extra shadow, brightening or darkening.",
+      "file": "assets/willows/thicket-uncanny.webp",
+      "references": [
+        "assets/willows/thicket.webp"
+      ],
+      "sourceName": "exec-bdf7474b-ab8f-4634-928d-6802935f9cdc.png",
+      "sourceSha256": "61b8b3ffd0a99c8aabdfaef87d26142d52b19d1a4edbfbe6241ed4993f3b352d",
+      "sha256": "555a3fcf3d51185f2777dbd4b0a73293479dec7d399abec387053ffc073fddaa",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen identity-preserving edit; same-canvas registration, localized polygon mask with 22 px smooth feather assembled over exact original RGB pixels; opaque lossless WebP. Original pixels outside mask verified equal. Mask polygon [[576,265],[644,250],[744,248],[837,276],[910,316],[981,374],[1025,465],[1040,563],[1004,632],[944,668],[867,691],[783,678],[724,621],[676,526],[629,414]]; no resampling or geometric shift; 1436145 exterior pixels verified identical with zero mismatches.",
+      "generated": "2026-10-31"
+    },
+    {
+      "asset": "bank-uncanny",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied bank.webp painting. Preserve this exact original composition, every shoreline and wave, sky, camera, canvas 1672 x 941, gouache-and-ink brush texture, brightness and colour balance. Make just one localized uncanny change, no more: among the low grey-green willow tops of the distant island in the RIGHT HALF of the picture, a single irregular slender column of many fine willow twigs and leaves extends slightly too tall. It leans and wavers in the wind, partly see-through, as if separate sprays of leaves accidentally imply a tall presence. It has an asymmetrical ragged top with several narrow leaf tips, NO ROUND HEAD and absolutely NO FACE, no eyes, no nose, no mouth, no shoulders or arms or human proportions. It remains wispy ambiguous VEGETATION, not an upright person, doll, statue or monster. The natural branches and negative gaps only hint at something wrong. Match the surrounding dusty sage-grey foliage and its brightness, no glow, no extra shadow, no contrasting rim. Everything outside that small local distant willow patch must stay exactly as supplied. No red tint, no other changes, no text, checker patterns or stripes.",
+      "file": "assets/willows/bank-uncanny.webp",
+      "references": [
+        "assets/willows/bank.webp"
+      ],
+      "sourceName": "exec-a7b0d065-c0c2-49d1-b658-d7a9728a3387.png",
+      "sourceSha256": "12f18d1e6ac475f770c3f73a9ae97e0bd4a9414c650a2f987be9bced46efe5d8",
+      "sha256": "83dc4e3c118c6348448e54b6043ad5f74c469c6f73857fbcdc355bd0737f9843",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen identity-preserving edit; same-canvas registration, localized polygon mask with 14 px smooth feather assembled over exact original RGB pixels; opaque lossless WebP. Original pixels outside mask verified equal. Mask polygon [[1128,156],[1165,145],[1215,155],[1243,192],[1245,258],[1221,284],[1166,281],[1136,257],[1124,212]]; no resampling or geometric shift; 1559546 exterior pixels verified identical with zero mismatches.",
+      "generated": "2026-10-31"
+    },
+    {
+      "asset": "thicket-night",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied thicket.webp, the existing Willow Thicket painting from CosyWorld. Make a nighttime lighting variant of this exact scene. Maintain the exact original 1672 x 941 canvas, camera, horizon, perspective, composition, scale and richly detailed painted gouache-and-ink finish. Preserve the landscape identity and all objects. No people, recognizable faces, gore, text, borders, stripes or checker patterns. Opaque finished scene. It is deep dark blue night: retain readable very subdued slate-blue light on the silver leaf undersides and cool grey-ochre sand, dark willow masses, black-blue distant water, very faint moonlit sky. Keep every foreground sand hollow, twig, the winding path, both original willow walls and the distant river opening in their exact original positions. Within the tops of the willows above the passage, a faint dull BRONZE COLUMN rises: a few fluid interlaced faceless forms, almost lost inside the stems and leaves, disappearing upward into the dark sky. This should be a low-contrast indeterminate presence larger than human, no solid person, no eyes, no distinct human anatomy, no shiny metal, no light emitted. Keep its colour subdued aged bronze in the local detail only, not a red/brown tint over the image. The environment remains the same exact painted gouache-and-ink scene, just dark night with this one faint apparition. No new moon or celestial ring, no portal, no camp or lights, no additional objects, no text.\n\nFollow-up refinement: Use case: identity-preserve. Edit target: the supplied night thicket painting. Make one localized correction only. The bronze form above the left willow thicket is currently too solid, thick, clear and sculptural. Replace ONLY that form with a very faint, narrow, diffuse vertical discoloration among the willow tips, like a column made of dim bronze mist or tremulous warm air. It must be mostly obscured by the existing fine branches and dark leaves and almost disappear into the blue night. No separate sculptural strands, no twisted roots, no tentacles, no metallic object, no faces, no eyes, no visible anatomy, no glow, no bright portal. The effect should be barely noticed and uncertain: a muted dull-bronze presence within and rising just above the willow canopy. Preserve EVERY other part of this image exactly unchanged: same 1672 x 941 canvas, original camera, framing, horizon, gouache-and-ink texture, cool dark night exposure, silver foliage, foreground sand hollows and path, river opening, dark sky. No new objects, no people, no text, no red overall tint, no stripes or checker patterns.",
+      "file": "assets/willows/thicket-night.webp",
+      "references": [
+        "assets/willows/thicket.webp"
+      ],
+      "sourceName": "exec-fa552037-8aef-4cfd-89d8-c10771562721.png",
+      "sourceSha256": "49a0361b748884a775c15cf9ce46187494787c58a2f443a3bf82a9a113a89732",
+      "sha256": "d91e0177754a1b9a7ab728d59ce574bfa50068de8e44f0b11672239ce108406d",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen identity-preserving night relight and localized column refinement; original canvas retained; opaque lossless WebP.",
+      "generated": "2026-10-31"
+    },
+    {
+      "asset": "bank-night",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied assets/willows/bank.webp. Create this exact crumbling Danube bank at dark night. Keep EXACT 1672 by 941 canvas, camera, framing, perspective, shoreline shape, exposed sand cliff, roots, willow bushes, distant willow islands, currents and original driftwood in their existing locations. Keep the same detailed painted gouache-and-ink finish. Change lighting to very dark cool slate and charcoal night, water almost black with a few subdued grey ripples, dim readable exposed sand and roots. Add only one small ambiguous pale shape caught among existing roots and thin reeds at the waterline below the middle-left bank. It is partly hidden and partly submerged, a muted grey-beige irregular form whose identity cannot be determined: perhaps cloth or water-worn driftwood, without a face, limbs, recognizable body or gore. It must be a small quiet detail, not a bright focal object or newly introduced person. The river and bank remain the main subjects. No other added objects or people. No red tint, orange sunset, bright moon, lights, symbols, stripes or checker patterns, text, borders, glowing monsters or gore. Preserve the exact scene arrangement while changing only night illumination and the small indistinct pale detail. Opaque full-bleed 1672 x 941 landscape.",
+      "file": "assets/willows/bank-night.webp",
+      "references": [
+        "assets/willows/bank.webp"
+      ],
+      "sourceName": "exec-5f50f68e-9a06-41f5-b3f4-962ea14b7b1f.png",
+      "sourceSha256": "4b72c74cfbce9a274295b4af7cb759ba1b813fedb607a55b2e959f6da5e5c731",
+      "sha256": "427b7e1e3c12c3c095f9d78a0ac9727f7ae224a1cd70cd45f93d7463924525ae",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen identity-preserving night edit at original 1672x941 size; no crop, resize, geometric transform or subsequent grading. Sharp RGB WebP quality 94, effort 6. Opaque original-sized backdrop.",
+      "generated": "2026-10-31"
+    },
+    {
+      "asset": "landing-night",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied assets/willows/landing.webp. Make this exact river landing at dark night in dark mist, preserving the SAME 1672 by 941 canvas, camera, horizon, perspective, composition, upturned canoe on the left, shoreline, backwater, individual willow masses, distant low islands and existing driftwood. This is a night-lighting and mist edit of the exact painting. The water and low willows dominate a very dark quiet landscape; the canoe remains its original size and position as an unobtrusive shadow. Replace the sunset light with faint cool slate night illumination, black-blue water with restrained grey glints, low dark mist over the channels and among the distant willows, readable but dim sand and foliage detail. Maintain the detailed hand-painted gouache-and-ink finish, natural surface textures and the scene's original spatial identity. NO GREEK SHIP and no added vessel: the original upturned canoe is the only existing boat. No people, lights, lanterns, flames, prominent moon, bright stars, portal or glowing shapes. No red colour cast or leftover orange sunset glow, no stripes, checker patterns, text, border or gore. Opaque full-bleed 1672 x 941 landscape. The darkness and mist are the only changes.",
+      "file": "assets/willows/landing-night.webp",
+      "references": [
+        "assets/willows/landing.webp"
+      ],
+      "sourceName": "exec-8e43a8aa-4c47-483c-8ebc-5ff485b1e3d1.png",
+      "sourceSha256": "951c29dcb906ffcfb6221645e93571efd837d788662d628c56963814472a7b6d",
+      "sha256": "b6f8aa5cab224eac85b54e677810487c1be6a202df8d9869ab3176a3a444d4e4",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen identity-preserving night edit at original 1672x941 size; no crop, resize, geometric transform or subsequent grading. Sharp RGB WebP quality 94, effort 6. Opaque original-sized backdrop.",
+      "generated": "2026-10-31"
+    },
+    {
+      "asset": "camp-dark-night",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied camp-lit-night.webp, CosyWorld's existing Willows campsite. Make the SAME EXACT campsite at deep night after the campfire has gone out, with only a few dim amber ember points in cold dark charcoal. Keep the EXACT 1672 by 941 wide canvas, exact camera, composition, horizon, all willow shapes, tent outline and canvas, tent poles and ropes, pot, log positions, stones, camping gear, sand and river. Preserve the detailed hand-painted gouache-and-ink finish. Change only the lighting and fire state: REMOVE ALL FLAMES completely, remove the orange glow cast on the left willows, sand, pot and tent. The burned wood, fire stones and hanging/bail pot stay in their original exact places, discernible in faint cool natural night light. A few tiny dull amber coals remain at the bottom of the fire ring, with no luminous flames, no broad warm pool of light, no red wash. Cool dark slate-blue and muted grey-green night colors; the river is dark but readable, tent and foreground remain faintly legible. The sky remains the same ordinary dark sky and soft clouds, without added moon, stars, portals or symbols. No people, creatures, objects, text, labels, borders, stripes, checker patterns, red tint or gore. Opaque finished backdrop, exact same composition as the original, no crop, no camera shift, no reconstruction of props.",
+      "file": "assets/willows/camp-dark-night.webp",
+      "references": [
+        "assets/willows/camp-lit-night.webp"
+      ],
+      "sourceName": "exec-bdfcf6c8-3116-444e-becc-c251a0af9d0c.png",
+      "sourceSha256": "74fcf1c8a1209f23b1a2cbf9bab5f6f06a0ae094965cf440ba27c2e2daaee0ae",
+      "sha256": "cd5e5ea072c79a0a1ea6b7645d6950126db124ebf646d04cf0af2a08408689dd",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen identity-preserving lighting and fire-state edit; WebP quality 94, alpha quality 100, effort 6; original 1672 by 941 canvas, no crop or resize.",
+      "generated": "2026-10-31"
     }
   ]
 }
