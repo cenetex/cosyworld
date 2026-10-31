@@ -1,0 +1,437 @@
+{
+  "created": "2026-10-31",
+  "generator": "OpenAI built-in image generation",
+  "purpose": "Identity-preserving Brace/guard sprites",
+  "assets": [
+    {
+      "id": "vale-guard",
+      "character": "Vale",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "generation_id": "exec-fac51af1-647d-4edc-95eb-9c5a802012ac",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "identity/costume reference",
+          "path": "v2/card-game/assets/shared/characters/vale.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512"
+        }
+      ],
+      "prompt": "Use case: identity-preserve.\nAsset type: a full-body transparent BRACE / GUARD character sprite for COSYWORLD.\nInput image 1 is the authoritative character identity and costume reference. Change the pose and remove the background; preserve the person's exact face, age, skin color, hair, body proportions, clothing, accessories, materials, palette and detailed painted gouache-and-ink storybook style.\n\nPose: the SAME character in a compact stable DEFENSIVE BRACE, body turned three-quarter toward SCREEN RIGHT and alert eyes looking RIGHT toward an expected impact. Both knees are slightly flexed, feet planted firmly apart, weight grounded. Raise both EMPTY forearms protectively in front of chest and face, with elbows bent and hands naturally relaxed or loosely closed. Arms remain close to the body, neither arm extended in a strike. Face is focused and bracing, mouth relaxed/closed, eyes open; no pain, injury or recoil. This is a held defensive preparation pose. Keep the person's recognizable face clearly visible above/behind the forearms and natural five-finger anatomy on each hand.\n\nFraming: one full-body sprite on an EXACT 1024 x 1536 portrait canvas. Whole hair, both hands, clothing hems and both boots entirely inside the frame. At least 40 pixels clear above the hair and below the soles, and at least 50 pixels clear at both sides. Feet near y=1450-1460, approximately 95% canvas height. Retain the reference's human proportions and overall scale; do not make a tiny figure or a squat caricature.\n\nTransparency: genuine alpha-channel transparency everywhere outside the figure, including gaps between arms/body/legs. REMOVE the reference's dark background, vignette, halo, colored glow and floor shadow completely. No background, ground, pedestal, cast shadow, aura, blur or painted checkerboard. The character alone has clean soft antialiased edges, with opaque body/clothing.\n\nAvoid: a punch, kick, attack, leaning-back hurt pose, closed eyes, wounds, blood, weapons, shield, held object, clenched angry snarl, action trails, duplicate limbs, extra fingers, merged hands, cropped extremities, new costume, scarf, changed identity, text, border or watermark.\n\nCharacter-specific invariants: Vale is the youthful slim person in image 1, with short tousled wavy black hair, warm brown eyes, light warm skin and freckles, a small youthful nose and the same recognizable face. Preserve the long weathered charcoal-black coat, tall lapels, brass buckles/buttons, broad pocket flaps, ivory open-collar button shirt and rolled cuffs, brown leather belt and hanging straps, charcoal trousers, and worn dark buckled boots. Keep Vale's light build and youthful proportions. No scarf in this plain variant.\n"
+    },
+    {
+      "id": "vale-scarf-guard",
+      "character": "Vale",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-1a8db71c-106b-428c-86a3-e94a95f8f033",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "finished plain guard edit target",
+          "asset_id": "vale-guard",
+          "generation_id": "exec-fac51af1-647d-4edc-95eb-9c5a802012ac",
+          "original_png_sha256": "ee77d2cc9ee06d89d8be3c8acc638246b05d8284336642280e3c059c7d4cfdf0"
+        },
+        {
+          "role": "canonical scarf and button wardrobe reference only",
+          "path": "v2/card-game/assets/shared/characters/vale-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "db446b75fa43c60658acfdd0704ecdb3187b89c031874eb6ae9d2ba4fdb97f0c"
+        }
+      ],
+      "prompt": "Use case: identity-preserve.\nAsset type: full-body transparent SCARF VARIANT of an already completed COSYWORLD defensive brace sprite.\n\nInput image 1 is the PRIMARY EDIT TARGET: vale's finished plain GUARD pose on a transparent 1024 x 1536 canvas.\nInput image 2 is ONLY the authoritative WARDROBE REFERENCE: the same character's canonical scarf variant. Copy only its exact scarf and button design, NOT its idle pose or background.\n\nMake ONE wardrobe edit to image 1: add the warm ivory/cream knitted scarf, its same thick soft wrapped neck folds and two fringed ends down the front, with the SINGLE round dark CHARCOAL four-hole button with its narrow rim and small light stitches at the same fastening point on the viewer-right side of the upper chest. Match image 2's scarf color, material, folds, length, fringe, fastening and button precisely, adapted only as necessary to lie naturally around the same neck in the guard pose. The scarf must be visibly readable while the hands and forearms remain in their exact existing positions in front of it. Do not put any scarf fabric over the face, hands or arms. Preserve correct natural occlusion of the scarf behind the protecting forearms.\n\nSTRICTLY KEEP EVERYTHING ELSE FROM IMAGE 1: exact character identity, face, expression, age, skin and hair; exact right-facing defensive brace pose, eye direction, empty hands, fingers, arm angles, knees, body proportions, feet and scale; all existing clothing/accessories and their colors; painted gouache-and-ink style, outline quality, lighting and 1024 x 1536 canvas framing. Do not shift, recenter, crop, enlarge, shrink or re-pose the sprite. Full body and all extremities remain visible.\n\nTRANSPARENCY: preserve true alpha transparency everywhere outside the figure and in all body/arm/leg gaps. Remove any original reference vignette, dark backing, glow or floor shadow; input 2's dark backdrop is NOT part of the clothing and must never be copied. Empty background must be exactly zero alpha, without faint residual color or halo. Keep clean antialiased hair and clothing edges, opaque character interior. No background, floor, cast shadow, aura or checkerboard artwork.\n\nAvoid: a new pose, daylight/color shift, character redesign, additional buttons, different scarf colors, hidden face/hands, attack or hurt expression, weapons, held objects, extra limbs/fingers, new background, text, border or watermark. Output one transparent RGBA PNG at exactly 1024 x 1536.\n"
+    },
+    {
+      "id": "mara-guard",
+      "character": "Mara",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "generation_id": "exec-cdfb3e75-8bb6-4b8d-8675-42f1ac22827c",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "identity/costume reference",
+          "path": "v2/card-game/assets/shared/characters/mara.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1"
+        }
+      ],
+      "prompt": "Use case: identity-preserve.\nAsset type: a full-body transparent BRACE / GUARD character sprite for COSYWORLD.\nInput image 1 is the authoritative character identity and costume reference. Change the pose and remove the background; preserve the person's exact face, age, skin color, hair, body proportions, clothing, accessories, materials, palette and detailed painted gouache-and-ink storybook style.\n\nPose: the SAME character in a compact stable DEFENSIVE BRACE, body turned three-quarter toward SCREEN RIGHT and alert eyes looking RIGHT toward an expected impact. Both knees are slightly flexed, feet planted firmly apart, weight grounded. Raise both EMPTY forearms protectively in front of chest and face, with elbows bent and hands naturally relaxed or loosely closed. Arms remain close to the body, neither arm extended in a strike. Face is focused and bracing, mouth relaxed/closed, eyes open; no pain, injury or recoil. This is a held defensive preparation pose. Keep the person's recognizable face clearly visible above/behind the forearms and natural five-finger anatomy on each hand.\n\nFraming: one full-body sprite on an EXACT 1024 x 1536 portrait canvas. Whole hair, both hands, clothing hems and both boots entirely inside the frame. At least 40 pixels clear above the hair and below the soles, and at least 50 pixels clear at both sides. Feet near y=1450-1460, approximately 95% canvas height. Retain the reference's human proportions and overall scale; do not make a tiny figure or a squat caricature.\n\nTransparency: genuine alpha-channel transparency everywhere outside the figure, including gaps between arms/body/legs. REMOVE the reference's dark background, vignette, halo, colored glow and floor shadow completely. No background, ground, pedestal, cast shadow, aura, blur or painted checkerboard. The character alone has clean soft antialiased edges, with opaque body/clothing.\n\nAvoid: a punch, kick, attack, leaning-back hurt pose, closed eyes, wounds, blood, weapons, shield, held object, clenched angry snarl, action trails, duplicate limbs, extra fingers, merged hands, cropped extremities, new costume, scarf, changed identity, text, border or watermark.\n\nCharacter-specific invariants: Mara is the same young woman with warm tan skin, brown eyes, dark curly hair in the high messy updo, the small red hair cord/braid with its gold bell, and gold hoop earrings. Preserve her rich red short jacket with gold trim, ivory blouse and broad loose cuffs, red waist sash and ornate gold buckle/hanging gold ornaments, full red trousers with worn fabric and patch/stitch details, long red side panels, and dark brown buckled boots. Keep her lively recognizable facial features while changing the expression to an attentive defensive brace. No scarf in this plain variant.\n"
+    },
+    {
+      "id": "mara-scarf-guard",
+      "character": "Mara",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-0ab990dd-8bf3-4401-a67d-bcb63ea8930f",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "finished plain guard edit target",
+          "asset_id": "mara-guard",
+          "generation_id": "exec-cdfb3e75-8bb6-4b8d-8675-42f1ac22827c",
+          "original_png_sha256": "d519e68be63a94c9e75176df23ff1d7ad544590400f69bbe53a251ea4475389a"
+        },
+        {
+          "role": "canonical scarf and button wardrobe reference only",
+          "path": "v2/card-game/assets/shared/characters/mara-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "68242c050db52986c8563f894943ae5391ec31489065d9375d37035e65bb3f7f"
+        }
+      ],
+      "prompt": "Use case: identity-preserve.\nAsset type: full-body transparent SCARF VARIANT of an already completed COSYWORLD defensive brace sprite.\n\nInput image 1 is the PRIMARY EDIT TARGET: mara's finished plain GUARD pose on a transparent 1024 x 1536 canvas.\nInput image 2 is ONLY the authoritative WARDROBE REFERENCE: the same character's canonical scarf variant. Copy only its exact scarf and button design, NOT its idle pose or background.\n\nMake ONE wardrobe edit to image 1: add the muted SAGE/OLIVE GREEN woven scarf, its same broad wrapped neck folds, subtle pale woven geometric motifs and long fringed front ends, with the SINGLE round rich RED button, gold-toned rim and gold center stitching at the same fastening point on the viewer-right upper chest. Match image 2's scarf color, material, folds, length, fringe, fastening and button precisely, adapted only as necessary to lie naturally around the same neck in the guard pose. The scarf must be visibly readable while the hands and forearms remain in their exact existing positions in front of it. Do not put any scarf fabric over the face, hands or arms. Preserve correct natural occlusion of the scarf behind the protecting forearms.\n\nSTRICTLY KEEP EVERYTHING ELSE FROM IMAGE 1: exact character identity, face, expression, age, skin and hair; exact right-facing defensive brace pose, eye direction, empty hands, fingers, arm angles, knees, body proportions, feet and scale; all existing clothing/accessories and their colors; painted gouache-and-ink style, outline quality, lighting and 1024 x 1536 canvas framing. Do not shift, recenter, crop, enlarge, shrink or re-pose the sprite. Full body and all extremities remain visible.\n\nTRANSPARENCY: preserve true alpha transparency everywhere outside the figure and in all body/arm/leg gaps. Remove any original reference vignette, dark backing, glow or floor shadow; input 2's dark backdrop is NOT part of the clothing and must never be copied. Empty background must be exactly zero alpha, without faint residual color or halo. Keep clean antialiased hair and clothing edges, opaque character interior. No background, floor, cast shadow, aura or checkerboard artwork.\n\nAvoid: a new pose, daylight/color shift, character redesign, additional buttons, different scarf colors, hidden face/hands, attack or hurt expression, weapons, held objects, extra limbs/fingers, new background, text, border or watermark. Output one transparent RGBA PNG at exactly 1024 x 1536.\n"
+    },
+    {
+      "id": "ash-guard",
+      "character": "Ash",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "generation_id": "exec-130cc3b8-3585-4bec-b8e2-bee335499705",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "identity/costume reference",
+          "path": "v2/card-game/assets/shared/characters/ash.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285"
+        }
+      ],
+      "prompt": "Use case: identity-preserve.\nAsset type: a full-body transparent BRACE / GUARD character sprite for COSYWORLD.\nInput image 1 is the authoritative character identity and costume reference. Change the pose and remove the background; preserve the person's exact face, age, skin color, hair, body proportions, clothing, accessories, materials, palette and detailed painted gouache-and-ink storybook style.\n\nPose: the SAME character in a compact stable DEFENSIVE BRACE, body turned three-quarter toward SCREEN RIGHT and alert eyes looking RIGHT toward an expected impact. Both knees are slightly flexed, feet planted firmly apart, weight grounded. Raise both EMPTY forearms protectively in front of chest and face, with elbows bent and hands naturally relaxed or loosely closed. Arms remain close to the body, neither arm extended in a strike. Face is focused and bracing, mouth relaxed/closed, eyes open; no pain, injury or recoil. This is a held defensive preparation pose. Keep the person's recognizable face clearly visible above/behind the forearms and natural five-finger anatomy on each hand.\n\nFraming: one full-body sprite on an EXACT 1024 x 1536 portrait canvas. Whole hair, both hands, clothing hems and both boots entirely inside the frame. At least 40 pixels clear above the hair and below the soles, and at least 50 pixels clear at both sides. Feet near y=1450-1460, approximately 95% canvas height. Retain the reference's human proportions and overall scale; do not make a tiny figure or a squat caricature.\n\nTransparency: genuine alpha-channel transparency everywhere outside the figure, including gaps between arms/body/legs. REMOVE the reference's dark background, vignette, halo, colored glow and floor shadow completely. No background, ground, pedestal, cast shadow, aura, blur or painted checkerboard. The character alone has clean soft antialiased edges, with opaque body/clothing.\n\nAvoid: a punch, kick, attack, leaning-back hurt pose, closed eyes, wounds, blood, weapons, shield, held object, clenched angry snarl, action trails, duplicate limbs, extra fingers, merged hands, cropped extremities, new costume, scarf, changed identity, text, border or watermark.\n\nCharacter-specific invariants: Ash is the same broad stocky older man with dark brown skin, curly salt-and-pepper hair, full grey-and-white beard and moustache, thick dark eyebrows and kindly recognizable face. Preserve the vivid burnt-orange cable-knit sweater with rolled sleeves, golden-ochre work overalls, broad leather straps and brass buckles, dark leather waist belt and metal ring/strap details, patched knees and scuffed dark lace-up work boots. Retain his solid sturdy build and exact age, not a slim fighter or a younger man. No scarf in this plain variant.\n"
+    },
+    {
+      "id": "ash-scarf-guard",
+      "character": "Ash",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-be2eb423-5317-4d51-a57b-73e6c447a82d",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "finished plain guard edit target",
+          "asset_id": "ash-guard",
+          "generation_id": "exec-130cc3b8-3585-4bec-b8e2-bee335499705",
+          "original_png_sha256": "1da41c80799942b6704806a1552f91769bfb58af0a12ce1d7e697fda6e17434a"
+        },
+        {
+          "role": "canonical scarf and button wardrobe reference only",
+          "path": "v2/card-game/assets/shared/characters/ash-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "a39874896719827006f457eb6b2622a04e08f1a906394bea0c4f39abab6785bb"
+        }
+      ],
+      "prompt": "Use case: identity-preserve.\nAsset type: full-body transparent SCARF VARIANT of an already completed COSYWORLD defensive brace sprite.\n\nInput image 1 is the PRIMARY EDIT TARGET: ash's finished plain GUARD pose on a transparent 1024 x 1536 canvas.\nInput image 2 is ONLY the authoritative WARDROBE REFERENCE: the same character's canonical scarf variant. Copy only its exact scarf and button design, NOT its idle pose or background.\n\nMake ONE wardrobe edit to image 1: add the muted SLATE BLUE wool scarf, its same soft layered neck wrap, speckled weave and fringed front end on the viewer-right upper chest, with the SINGLE bright ORANGE round four-hole button and dark center holes/stitching at that same fastening point. Match image 2's scarf color, material, folds, length, fringe, fastening and button precisely, adapted only as necessary to lie naturally around the same neck in the guard pose. The scarf must be visibly readable while the hands and forearms remain in their exact existing positions in front of it. Do not put any scarf fabric over the face, hands or arms. Preserve correct natural occlusion of the scarf behind the protecting forearms.\n\nSTRICTLY KEEP EVERYTHING ELSE FROM IMAGE 1: exact character identity, face, expression, age, skin and hair; exact right-facing defensive brace pose, eye direction, empty hands, fingers, arm angles, knees, body proportions, feet and scale; all existing clothing/accessories and their colors; painted gouache-and-ink style, outline quality, lighting and 1024 x 1536 canvas framing. Do not shift, recenter, crop, enlarge, shrink or re-pose the sprite. Full body and all extremities remain visible.\n\nTRANSPARENCY: preserve true alpha transparency everywhere outside the figure and in all body/arm/leg gaps. Remove any original reference vignette, dark backing, glow or floor shadow; input 2's dark backdrop is NOT part of the clothing and must never be copied. Empty background must be exactly zero alpha, without faint residual color or halo. Keep clean antialiased hair and clothing edges, opaque character interior. No background, floor, cast shadow, aura or checkerboard artwork.\n\nAvoid: a new pose, daylight/color shift, character redesign, additional buttons, different scarf colors, hidden face/hands, attack or hurt expression, weapons, held objects, extra limbs/fingers, new background, text, border or watermark. Output one transparent RGBA PNG at exactly 1024 x 1536.\n"
+    },
+    {
+      "id": "nell-guard",
+      "character": "Nell",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "generation_id": "exec-22cc91e5-793e-4025-9161-8b5fe9fecd4e",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "canonical edit target",
+          "path": "v2/card-game/assets/shared/characters/nell.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f"
+        }
+      ],
+      "prompt": "Use case: identity-preserve character pose edit.\nEdit the supplied canonical NELL portrait into ONE BRACE / GUARD sprite for COSYWORLD. One full-body character, one pose, exactly 1024 x 1536 portrait canvas, genuinely transparent RGBA background.\n\nIDENTITY AND WARDROBE: Preserve Nell's exact mature face and age, pale warm skin, lively but now focused eyes, long thick silver braid, loose silver wisps and broad weathered straw sunhat. Keep the cream loose-collared blouse and rolled sleeves, golden-yellow weathered apron with its asymmetric long panels, beige patched linen trouser/skirt layers, brown leather belt with brass buckle and attached garden pockets, existing tucked cloth/greens, brown work gloves and worn brown lace-up ankle boots. Keep the source's braid length, straw weave, hat silhouette, patches, pouch detail, body proportions and clothing colors. This is her PLAIN wardrobe: no violet scarf, no added button, no new accessories.\nPreserve the reference's fine hand-inked contours, textured gouache/watercolour paint, lived-in fabrics, illustrated storybook character rendering, warm neutral illumination and original palette. Do not change character identity, age, build or drawing style.\n\nPOSE: a stable, compact DEFENSIVE BRACE directed toward SCREEN RIGHT in readable three-quarter view. The character is preparing to withstand an approaching impact, not attacking and not already struck. Both feet planted in a balanced slightly staggered stance, knees modestly flexed, center of gravity lowered a little, torso upright with a slight defensive lean. Both empty forearms are raised protectively in front of the upper torso; the forward hand is near cheek/chin height with a natural loosely closed or gently open hand, and the other guards the upper chest. Elbows remain bent and close enough to keep the full silhouette compact. Face stays readable and recognizable; alert focused eyes look RIGHT at an unseen opponent, brows attentive, mouth composed. No broad punch, lunge, pointing, recoil, falling, pain grimace, flailing or rage. Exactly two arms, two hands, two legs. Natural anatomy and fingers. Empty hands; do not add a shield, weapon, staff, tool or any prop.\n\nFRAMING: keep the source eye-level camera and approximately its full-body scale. Center the torso. All hair/hat, arms, fingers, garment tails, attached belongings and both whole boots remain visible. Soles around 94-95% of canvas height. Leave at least 50 px transparent side margins and 40 px top/bottom, while keeping the character large enough to match the existing portrait set. No cropping or enlarged head. Clothing follows the compact brace naturally; no exaggerated flying fabric.\n\nTRANSPARENCY: remove the original dark vignette/glow COMPLETELY. Every background pixel and every open gap between limbs or costume pieces is truly transparent alpha, with clean antialiased silhouette edges. Do not paint black/white/checkerboard as a background. No floor, ground patch, cast shadow, halo or colored haze.\n\nAvoid: background scenery, opponent, extra subjects, held objects, particles, sparks, impact marks, motion trails, damage, blood, text, labels, frame, watermark, chibi styling, photorealism or 3D rendering. Change only the pose and its natural clothing folds/expression while preserving the exact character design.\n"
+    },
+    {
+      "id": "nell-scarf-guard",
+      "character": "Nell",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-98ffbd60-922f-4b3b-8bb0-52e9ae2c4e77",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "primary finished plain guard edit target",
+          "asset_id": "nell-guard",
+          "generation_id": "exec-22cc91e5-793e-4025-9161-8b5fe9fecd4e",
+          "original_png_sha256": "ece026c3161b30c6213d2432705e907056cadbef4abffe4f2019daf226e810d7"
+        },
+        {
+          "role": "canonical scarf wardrobe reference only",
+          "path": "v2/card-game/assets/shared/characters/nell-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "c869f75b71093df0878c902f2ae68b065d58c32f35962c25616888ba5f61b3d3"
+        }
+      ],
+      "prompt": "Use case: precise-object-edit / identity-preserving wardrobe variant.\nAsset: NELL SCARF GUARD sprite for COSYWORLD, exact 1024 x 1536 portrait canvas, true transparent RGBA.\n\nInput image 1 is the PRIMARY EDIT TARGET: the finished PLAIN NELL GUARD sprite. Preserve this exact defensive pose, face, expression, facing, camera, body proportions, whole silhouette position, framing and scale.\nInput image 2 is ONLY the canonical SCARF WARDROBE REFERENCE. Borrow its scarf and matching button, not its idle pose, gaze, hand positions, lighting or background.\n\nMAKE THIS ONE LOCAL WARDROBE CHANGE: Add Nell's exact soft woven VIOLET/PURPLE scarf shown in image 2, draped around the shoulders and neck, with its two fringed ends and the round GOLDEN-YELLOW four-hole button fastening near the upper chest/shoulder. Match the existing scarf's color, knit/weave, thickness, button design and fastening arrangement. Keep the long silver braid in front where it already lies and let the scarf tuck naturally behind the raised hands and braid. The blouse, hat, apron, leather straps, gloves, belt and all other clothes are unchanged.\n\nSTRICTLY LOCK ALL OTHER DETAILS FROM IMAGE 1: same person, age, facial features, hair, eyes, mouth, skin, hands and fingers, bent elbows, planted legs, boots, clothing outlines and details, body location, limb angles and figure scale. The character continues to BRACE toward SCREEN RIGHT, hands empty and raised defensively, preparing for impact. Do not turn it into an attack or hit/recoil pose. Do not add equipment or props. Preserve the textured gouache/watercolour painting and fine ink contours from image 1 exactly.\n\nKeep the FULL ORIGINAL 1024 x 1536 canvas, identical safe margins and feet baseline. No crop, zoom, scaling, repositioning, reframe or expansion. Do not modify the pose to make room for the scarf. Use correct natural occlusion where the scarf passes behind existing hair, arms or clothes.\n\nTRANSPARENCY: keep real transparent alpha around the whole figure and through all open silhouette gaps. Remove any residual dark vignette/glow; no painted backdrop, floor, cast shadow, halo, colored haze or checkerboard. Keep character interiors solid and clean antialiased edges.\n\nAvoid any second figure, text, labels, frame, watermark, motion/impact effects, new facial expression, changed hair, changed pose, missing accessories, extra fingers, weapon or altered costume except the named scarf/button. This must read as the SAME FINISHED GUARD IMAGE wearing its canonical scarf.\n"
+    },
+    {
+      "id": "tavi-guard",
+      "character": "Tavi",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "generation_id": "exec-56edb645-0eae-4788-8095-7efa7a508ab0",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "canonical edit target",
+          "path": "v2/card-game/assets/shared/characters/tavi.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a"
+        }
+      ],
+      "prompt": "Use case: identity-preserve character pose edit.\nEdit the supplied canonical TAVI portrait into ONE BRACE / GUARD sprite for COSYWORLD. One full-body character, one pose, exactly 1024 x 1536 portrait canvas, genuinely transparent RGBA background.\n\nIDENTITY AND WARDROBE: Preserve Tavi's exact youthful androgynous face, warm tan freckled complexion, expressive eyes, short lively tightly curled dark-brown hair, lean build and original proportions. Keep the moss/lime-green patched cropped jacket, its ORIGINAL DARK-GREEN hooded shoulder wrap/cloak and brass fastener, ivory open-collar shirt with rolled sleeves, charcoal patched knee-length shorts, brown leather belt and hip pouch, cream knitted socks, worn dark lace-up buckle boots. Preserve the existing green shoulder cloth; this is the PLAIN wardrobe, with NO added red scarf or button. Keep every existing costume piece and color.\nPreserve the reference's fine hand-inked contours, textured gouache/watercolour paint, lived-in fabrics, illustrated storybook character rendering, warm neutral illumination and original palette. Do not change character identity, age, build or drawing style.\n\nPOSE: a stable, compact DEFENSIVE BRACE directed toward SCREEN RIGHT in readable three-quarter view. The character is preparing to withstand an approaching impact, not attacking and not already struck. Both feet planted in a balanced slightly staggered stance, knees modestly flexed, center of gravity lowered a little, torso upright with a slight defensive lean. Both empty forearms are raised protectively in front of the upper torso; the forward hand is near cheek/chin height with a natural loosely closed or gently open hand, and the other guards the upper chest. Elbows remain bent and close enough to keep the full silhouette compact. Face stays readable and recognizable; alert focused eyes look RIGHT at an unseen opponent, brows attentive, mouth composed. No broad punch, lunge, pointing, recoil, falling, pain grimace, flailing or rage. Exactly two arms, two hands, two legs. Natural anatomy and fingers. Empty hands; do not add a shield, weapon, staff, tool or any prop.\n\nFRAMING: keep the source eye-level camera and approximately its full-body scale. Center the torso. All hair/hat, arms, fingers, garment tails, attached belongings and both whole boots remain visible. Soles around 94-95% of canvas height. Leave at least 50 px transparent side margins and 40 px top/bottom, while keeping the character large enough to match the existing portrait set. No cropping or enlarged head. Clothing follows the compact brace naturally; no exaggerated flying fabric.\n\nTRANSPARENCY: remove the original dark vignette/glow COMPLETELY. Every background pixel and every open gap between limbs or costume pieces is truly transparent alpha, with clean antialiased silhouette edges. Do not paint black/white/checkerboard as a background. No floor, ground patch, cast shadow, halo or colored haze.\n\nAvoid: background scenery, opponent, extra subjects, held objects, particles, sparks, impact marks, motion trails, damage, blood, text, labels, frame, watermark, chibi styling, photorealism or 3D rendering. Change only the pose and its natural clothing folds/expression while preserving the exact character design.\n"
+    },
+    {
+      "id": "tavi-scarf-guard",
+      "character": "Tavi",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-09a2136a-8ab8-4e45-9d3a-5ebb30d3daf6",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "primary finished plain guard edit target",
+          "asset_id": "tavi-guard",
+          "generation_id": "exec-56edb645-0eae-4788-8095-7efa7a508ab0",
+          "original_png_sha256": "1c3a909109d667c78c669942127f6544e8b9b720a6faf71f8ad1eab1e5af8fb2"
+        },
+        {
+          "role": "canonical scarf wardrobe reference only",
+          "path": "v2/card-game/assets/shared/characters/tavi-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "69895904f5358ef3e66daabd53152ddacf7cf2c8d814f1120333f3ee7d944fb9"
+        }
+      ],
+      "prompt": "Use case: precise-object-edit / identity-preserving wardrobe variant.\nAsset: TAVI SCARF GUARD sprite for COSYWORLD, exact 1024 x 1536 portrait canvas, true transparent RGBA.\n\nInput image 1 is the PRIMARY EDIT TARGET: the finished PLAIN TAVI GUARD sprite. Preserve this exact defensive pose, face, expression, facing, camera, body proportions, whole silhouette position, framing and scale.\nInput image 2 is ONLY the canonical SCARF WARDROBE REFERENCE. Borrow its scarf and matching button, not its idle pose, gaze, hand positions, lighting or background.\n\nMAKE THIS ONE LOCAL WARDROBE CHANGE: Change ONLY the existing DARK-GREEN shoulder wrap/cloak from image 1 to the canonical RED scarf/wrap shown in image 2, including its GREEN round button fastening. Match the rich red cloth, original texture, green button design and neckline fastening. Preserve the EXACT flowing cloth silhouette, folds, tails and positions from image 1; this is a local wardrobe/color change, not a new pose. The moss/lime-green jacket remains green. Preserve shirt, shorts, belt, pouch, socks and boots unchanged.\n\nSTRICTLY LOCK ALL OTHER DETAILS FROM IMAGE 1: same person, age, facial features, hair, eyes, mouth, skin, hands and fingers, bent elbows, planted legs, boots, clothing outlines and details, body location, limb angles and figure scale. The character continues to BRACE toward SCREEN RIGHT, hands empty and raised defensively, preparing for impact. Do not turn it into an attack or hit/recoil pose. Do not add equipment or props. Preserve the textured gouache/watercolour painting and fine ink contours from image 1 exactly.\n\nKeep the FULL ORIGINAL 1024 x 1536 canvas, identical safe margins and feet baseline. No crop, zoom, scaling, repositioning, reframe or expansion. Do not modify the pose to make room for the scarf. Use correct natural occlusion where the scarf passes behind existing hair, arms or clothes.\n\nTRANSPARENCY: keep real transparent alpha around the whole figure and through all open silhouette gaps. Remove any residual dark vignette/glow; no painted backdrop, floor, cast shadow, halo, colored haze or checkerboard. Keep character interiors solid and clean antialiased edges.\n\nAvoid any second figure, text, labels, frame, watermark, motion/impact effects, new facial expression, changed hair, changed pose, missing accessories, extra fingers, weapon or altered costume except the named scarf/button. This must read as the SAME FINISHED GUARD IMAGE wearing its canonical scarf.\n"
+    },
+    {
+      "id": "rue-guard",
+      "character": "Rue",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "generation_id": "exec-6d93d690-ed41-47d1-aedc-0113ae124994",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "canonical edit target",
+          "path": "v2/card-game/assets/shared/characters/rue.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633"
+        }
+      ],
+      "prompt": "Use case: identity-preserve character pose edit.\nEdit the supplied canonical RUE portrait into ONE BRACE / GUARD sprite for COSYWORLD. One full-body character, one pose, exactly 1024 x 1536 portrait canvas, genuinely transparent RGBA background.\n\nIDENTITY AND WARDROBE: Preserve Rue's exact recognizable mature face, deep warm brown complexion, short tightly curled black hair, arched brows, poised expression, slim long-limbed build and proportions. Keep her weathered royal-blue railway/travel coat with broad lapels, brass double-breasted fastenings and epaulettes, cream open collar and cuffs, dark waistcoat, brown leather belt/brass buckle, blue trousers, tall worn dark buckle boots and the blue-and-gold cap hanging at her hip. This is the PLAIN wardrobe: NO orange scarf or extra button, no new equipment or accessories.\nPreserve the reference's fine hand-inked contours, textured gouache/watercolour paint, lived-in fabrics, illustrated storybook character rendering, warm neutral illumination and original palette. Do not change character identity, age, build or drawing style.\n\nPOSE: a stable, compact DEFENSIVE BRACE directed toward SCREEN RIGHT in readable three-quarter view. The character is preparing to withstand an approaching impact, not attacking and not already struck. Both feet planted in a balanced slightly staggered stance, knees modestly flexed, center of gravity lowered a little, torso upright with a slight defensive lean. Both empty forearms are raised protectively in front of the upper torso; the forward hand is near cheek/chin height with a natural loosely closed or gently open hand, and the other guards the upper chest. Elbows remain bent and close enough to keep the full silhouette compact. Face stays readable and recognizable; alert focused eyes look RIGHT at an unseen opponent, brows attentive, mouth composed. No broad punch, lunge, pointing, recoil, falling, pain grimace, flailing or rage. Exactly two arms, two hands, two legs. Natural anatomy and fingers. Empty hands; do not add a shield, weapon, staff, tool or any prop.\n\nFRAMING: keep the source eye-level camera and approximately its full-body scale. Center the torso. All hair/hat, arms, fingers, garment tails, attached belongings and both whole boots remain visible. Soles around 94-95% of canvas height. Leave at least 50 px transparent side margins and 40 px top/bottom, while keeping the character large enough to match the existing portrait set. No cropping or enlarged head. Clothing follows the compact brace naturally; no exaggerated flying fabric.\n\nTRANSPARENCY: remove the original dark vignette/glow COMPLETELY. Every background pixel and every open gap between limbs or costume pieces is truly transparent alpha, with clean antialiased silhouette edges. Do not paint black/white/checkerboard as a background. No floor, ground patch, cast shadow, halo or colored haze.\n\nAvoid: background scenery, opponent, extra subjects, held objects, particles, sparks, impact marks, motion trails, damage, blood, text, labels, frame, watermark, chibi styling, photorealism or 3D rendering. Change only the pose and its natural clothing folds/expression while preserving the exact character design.\n"
+    },
+    {
+      "id": "rue-scarf-guard",
+      "character": "Rue",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-bd0b6d61-0d98-45bb-8ff8-3bfe8d02b713",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "primary finished plain guard edit target",
+          "asset_id": "rue-guard",
+          "generation_id": "exec-6d93d690-ed41-47d1-aedc-0113ae124994",
+          "original_png_sha256": "2e88df9a21ff58a5b189535255ab94b69ac171746685444c3a38020c70dea112"
+        },
+        {
+          "role": "canonical scarf wardrobe reference only",
+          "path": "v2/card-game/assets/shared/characters/rue-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "c8e3593650e08f71678427169ea95aaec69ffd17ee00a3661c896a2e1cf05796"
+        }
+      ],
+      "prompt": "Use case: precise-object-edit / identity-preserving wardrobe variant.\nAsset: RUE SCARF GUARD sprite for COSYWORLD, exact 1024 x 1536 portrait canvas, true transparent RGBA.\n\nInput image 1 is the PRIMARY EDIT TARGET: the finished PLAIN RUE GUARD sprite. Preserve this exact defensive pose, face, expression, facing, camera, body proportions, whole silhouette position, framing and scale.\nInput image 2 is ONLY the canonical SCARF WARDROBE REFERENCE. Borrow its scarf and matching button, not its idle pose, gaze, hand positions, lighting or background.\n\nMAKE THIS ONE LOCAL WARDROBE CHANGE: Add Rue's exact ORANGE woven scarf shown in image 2, wrapped at the neck with the round royal-BLUE four-hole button fastening and the two short fringed ends lying on the blue coat. Match the source scarf's color, weave, thickness and button design. Fit it naturally behind the raised forearms where they overlap it, without moving either hand or arm. Keep the blue coat, brass fastenings, epaulettes, white collar, belt, hip cap, trousers and boots unchanged.\n\nSTRICTLY LOCK ALL OTHER DETAILS FROM IMAGE 1: same person, age, facial features, hair, eyes, mouth, skin, hands and fingers, bent elbows, planted legs, boots, clothing outlines and details, body location, limb angles and figure scale. The character continues to BRACE toward SCREEN RIGHT, hands empty and raised defensively, preparing for impact. Do not turn it into an attack or hit/recoil pose. Do not add equipment or props. Preserve the textured gouache/watercolour painting and fine ink contours from image 1 exactly.\n\nKeep the FULL ORIGINAL 1024 x 1536 canvas, identical safe margins and feet baseline. No crop, zoom, scaling, repositioning, reframe or expansion. Do not modify the pose to make room for the scarf. Use correct natural occlusion where the scarf passes behind existing hair, arms or clothes.\n\nTRANSPARENCY: keep real transparent alpha around the whole figure and through all open silhouette gaps. Remove any residual dark vignette/glow; no painted backdrop, floor, cast shadow, halo, colored haze or checkerboard. Keep character interiors solid and clean antialiased edges.\n\nAvoid any second figure, text, labels, frame, watermark, motion/impact effects, new facial expression, changed hair, changed pose, missing accessories, extra fingers, weapon or altered costume except the named scarf/button. This must read as the SAME FINISHED GUARD IMAGE wearing its canonical scarf.\n"
+    },
+    {
+      "id": "orin-guard",
+      "character": "Orin",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "generation_id": "exec-d1f1039c-a0cf-49e4-9400-50ee545e251f",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "canonical identity and plain wardrobe reference",
+          "path": "v2/card-game/assets/shared/characters/orin.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4"
+        }
+      ],
+      "prompt": "Use case: identity-preserve.\nAsset type: one transparent COSYWORLD character sprite, ORIN, PLAIN clothing, defensive brace/guard pose.\nInput image 1 is the authoritative identity and wardrobe reference: canonical orin.png. Preserve this exact person's identity, facial shape, long nose, freckles, pale skin, green-hazel eyes, round wire spectacles, loose curly auburn hair tied at the back, slim lanky build and proportions. Preserve his long weathered indigo-blue sleeveless coat/waistcoat with brass buttons, cream shirt with rolled sleeves, patched charcoal-brown trousers, brown leather belt, brass chain and pendant, and brown lace-up boots. No neck scarf in this plain version.\n\nChange the pose to a stable grounded defensive guard, oriented to the RIGHT side of the canvas. Orin is preparing for an approaching impact, not attacking and not already injured. Both boots are planted apart with a believable staggered stance, knees softly flexed, weight centered and shoulders slightly braced. Raise both forearms to protect upper chest and face: one empty hand near cheek height and the other forearm across the upper chest. Hands are naturally cupped or loosely closed, not punching or grabbing, with clean normal anatomy and exactly two arms/two hands. Keep his face visible, eyes OPEN and alert looking toward an opponent off canvas right; mouth closed or slightly tense, not smiling broadly and not grimacing in pain. Keep every identity and costume detail recognizable. The long coat hangs naturally around the braced legs.\nOutput exactly 1024 x 1536 RGBA pixels with a GENUINELY TRANSPARENT background. Remove the source's colored vignette, diffuse aura, floor and ground shadow completely. Every gap around and within the silhouette must be transparent, including between limbs and equipment. The figure and clothing are opaque, with clean antialiased outline edges; no translucent body, grey matte, colored fringe, halo, checkerboard texture or painted background. Full figure fully visible, around 40 pixels clear above the highest point, at least 50 pixels on both sides, and approximately 60–80 pixels below the soles/contact points (near 95% canvas height). Preserve a readable tall full-body scale; no cropped hair, boots or accessories. Painted gouache-and-ink style matching the reference, fine ink outlines, tactile aged cloth and warm natural materials. No added text, logos, impact flashes, extra props, scenery or watermark.\n"
+    },
+    {
+      "id": "orin-scarf-guard",
+      "character": "Orin",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-deb9ebeb-d490-4b36-88da-9615b4295cb2",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "primary edit target: finished plain Orin guard",
+          "asset_id": "orin-guard",
+          "generation_id": "exec-d1f1039c-a0cf-49e4-9400-50ee545e251f",
+          "original_png_sha256": "bccc461ee91db47b7f95b6e6097bf0aee7d913739b4b8af4168975def347c5bf"
+        },
+        {
+          "role": "wardrobe-only reference: canonical mustard-gold scarf and indigo four-hole button",
+          "path": "v2/card-game/assets/shared/characters/orin-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "3812b42acdb754238d18ff453c9f8f5c9ba4513b272d726ca1af342fe4b49530"
+        }
+      ],
+      "prompt": "Use case: precise-object-edit.\nAsset type: transparent COSYWORLD ORIN SCARF defensive guard sprite, matching the already-finished plain guard.\nInput image 1 is the PRIMARY EDIT TARGET: finished Orin brace pose. Input image 2 is a WARDROBE-ONLY REFERENCE: canonical Orin scarf portrait.\nMake one local wardrobe change to image 1: add precisely the worn MUSTARD-GOLD scarf from image 2, with its soft wrapped folds, two fringed tails and single INDIGO-BLUE round FOUR-HOLE button. The scarf belongs naturally around his neck and lies against his coat/chest, respecting the raised defensive forearms. Do not import any posture, expression, background, scale or body proportions from image 2.\nSTRICTLY PRESERVE image 1's exact identity, face, open alert rightward gaze, wire spectacles, auburn tied curls, skin, hand poses, all arm/leg positions, defensive stance facing RIGHT, costume, coat silhouette, empty hands, proportions and full-body placement. Only the scarf and the very small naturally covered neck/chest areas may change. Preserve exactly two arms, two hands and two legs. Do not turn this into an attack or injury.\nOutput exactly 1024 x 1536 RGBA with true transparent background and all original clear gaps. Keep every character edge inside the canvas, preserving image 1's margins and soles position. Remove any colored aura, vignette, floor shadow or background from either reference. Opaque character, clean antialiased edges, unchanged gouache-and-ink style. No new props, captions, text, logos, glow, checkerboard texture or watermark.\n"
+    },
+    {
+      "id": "ada-guard",
+      "character": "Ada",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "generation_id": "exec-181efaa5-9e86-492f-8df8-942944b029e6",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "primary edit target: initial seated Ada brace",
+          "asset_id": "ada-guard",
+          "revision": "initial",
+          "generation_id": "exec-de779e89-beca-4346-8c9c-f11dcb4ab8b4",
+          "original_png_sha256": "557ebfae0d18dbf9df7dc7485cf9fa2de6a947ff3e6453748bba8d164863f022"
+        },
+        {
+          "role": "canonical identity, plain purple neckerchief and complete wheelchair lineage",
+          "path": "v2/card-game/assets/shared/characters/ada.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512"
+        }
+      ],
+      "prompt": "Use case: precise-object-edit.\nAsset type: production framing correction for a transparent COSYWORLD ADA brace sprite.\nInput image 1 is the EDIT TARGET: finished seated Ada guard pose. Preserve this exact face, white bob, open alert eyes looking RIGHT, defensive raised hand/forearm pose, purple neckerchief, blouse, suspenders, trousers, boots and complete wheelchair.\nMake ONE framing correction only: uniformly reduce the complete Ada-plus-wheelchair silhouette just enough to give at least50 pixels of genuine transparent clearance on BOTH left and right sides of the1024-pixel canvas. The current chair/raised elbow approaches the sides too closely. Fit the whole unchanged figure-chair unit within x=55 to x=969. Keep it centered, maintain natural proportions and align the lowest wheel/contact point around y=1460, leaving roughly70 pixels clear below. Keep adequate transparent headroom. Do not crop or stretch any part.\nDo not change her seated posture, face, hands, outfit, chair perspective, wheels, casters, spokes, footplate or foot support. Every visible chair part must remain, both feet on the footplate and wheels stable. No standing or tipping.\nOutput exact1024 x1536 RGBA, fully transparent outside the silhouette and through every gap between spokes, chair parts and limbs. No diffuse colored vignette, aura, floor, ground shadow or painted background. Solid character and chair interiors should be opaque with only clean antialiased edge transparency. Keep all gouache-and-ink artwork and colors unchanged apart from the uniform fit. No new objects, text or watermark.\n",
+      "revisions": [
+        {
+          "revision": "initial",
+          "generation_id": "exec-de779e89-beca-4346-8c9c-f11dcb4ab8b4",
+          "prompt": "Use case: identity-preserve.\nAsset type: one transparent COSYWORLD character sprite, ADA, PLAIN clothing, seated defensive brace/guard pose.\nInput image 1 is the authoritative identity, outfit and wheelchair reference: canonical ada.png. Preserve Ada's exact young freckled face, warm fair skin, large brown eyes, tousled short white bob, compact build, lavender rolled-sleeve blouse, plain PURPLE neckerchief tied in its original knot, dark-purple high-waisted trousers, brown leather suspenders with brass fittings, cream wool socks and dark lace-up boots.\n\nADA MUST REMAIN SEATED in her exact complete wooden-and-brass wheelchair. Preserve its wood frame, brown upholstered seat/back, brass rims and supports, large rear wheels with wooden spokes and dark tires, small front casters, curved armrests and full front footplate. The two large wheels and the casters stay upright and grounded on a common invisible plane, with the far wheel naturally occluded as in the reference. Both feet remain supported on the footplate. No standing, rising from the seat, levitation, tipping, wheelies, missing chair parts or extra wheels. Preserve the original chair's perspective, proportions and construction.\n\nChange only her upper-body pose to a stable defensive guard facing RIGHT. She braces in the seat, leaning forward slightly within the stable chair, with both forearms raised protectively across chest and near her face; one empty hand beside the cheek and the other below it across the upper chest. Keep her eyes OPEN and alert toward the opponent off canvas right, lips closed or gently parted in concentration. This is anticipation of impact, not a strike, not an injury, not a frightened recoil. Both hands are empty with natural fingers and normal anatomy. Keep her face unobscured, knees bent naturally in the seated position, and the wheelchair fully visible.\nOutput exactly 1024 x 1536 RGBA pixels with a GENUINELY TRANSPARENT background. Remove the source's colored vignette, diffuse aura, floor and ground shadow completely. Every gap around and within the silhouette must be transparent, including between limbs and equipment. The figure and clothing are opaque, with clean antialiased outline edges; no translucent body, grey matte, colored fringe, halo, checkerboard texture or painted background. Full figure fully visible, around 40 pixels clear above the highest point, at least 50 pixels on both sides, and approximately 60–80 pixels below the soles/contact points (near 95% canvas height). Preserve a readable tall full-body scale; no cropped hair, boots or accessories. Painted gouache-and-ink style matching the reference, fine ink outlines, tactile aged cloth and warm natural materials. No added text, logos, impact flashes, extra props, scenery or watermark.\nFor this seated character, keep the full chair-and-person silhouette within the canvas, wheels/footplate near 95% canvas height, and a little extra headroom is acceptable because her seated proportions must remain natural.\n",
+          "references": [
+            {
+              "role": "canonical identity, plain wardrobe and wheelchair reference",
+              "path": "v2/card-game/assets/shared/characters/ada.png",
+              "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+              "sha256": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512"
+            }
+          ],
+          "raw_output": {
+            "dimensions": [1024, 1536],
+            "mode": "RGBA",
+            "bytes": 2750184,
+            "sha256": "557ebfae0d18dbf9df7dc7485cf9fa2de6a947ff3e6453748bba8d164863f022"
+          },
+          "decision": "Revised once for insufficient side clearance, especially footplate and raised elbow."
+        }
+      ]
+    },
+    {
+      "id": "ada-scarf-guard",
+      "character": "Ada",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-5681bcca-7c98-4f52-84cd-c6f29d113340",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "primary edit target: finished seated Ada plain brace",
+          "asset_id": "ada-guard",
+          "generation_id": "exec-181efaa5-9e86-492f-8df8-942944b029e6",
+          "original_png_sha256": "cfc9f66e219932fd43d2aa5b726a2ff02db5d9b3e210c224bd5e69b22c88cafe"
+        },
+        {
+          "role": "wardrobe only: canonical chartreuse scarf and purple four-hole button",
+          "path": "v2/card-game/assets/shared/characters/ada-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "401bf9cc37ba4bb8ebcfaae2fa45b9e3126e197d1a6e482da7bf006b63b98c8f"
+        }
+      ],
+      "prompt": "Use case: precise-object-edit.\nAsset type: transparent COSYWORLD ADA SCARF seated defensive guard sprite, matching the finished plain guard.\nInput image 1 is the PRIMARY EDIT TARGET: finished Ada guard sprite in her complete wheelchair.\nInput image 2 is a WARDROBE-ONLY REFERENCE: canonical ada-scarf.png.\nMake exactly one local wardrobe change to image 1: replace the plain purple neckerchief with the canonical CHARTREUSE / YELLOW-GREEN scarf from image 2, tied and draped with the same folds and pointed tails, fastened by its one PURPLE round FOUR-HOLE button. Keep the scarf naturally behind/in front of the appropriate raised forearm, without changing the arms or obscuring her face. No other wardrobe change.\nSTRICTLY LOCK the pose, face, white bob, open alert eyes looking RIGHT, empty hands, raised defensive forearms, expression, shoulders, body shape, seated legs, socks, boots and full wheelchair from image 1. Preserve its exact complete wood/brass chair, wheels, spokes, casters, armrests, footplate and both feet supported on the plate. Never stand, lift, tip or redesign Ada or the chair. Do not import any smile, pose, proportions, scale or background from image 2.\nKeep image 1's complete silhouette placement, dimensions and clear canvas margins. Output EXACTLY 1024 x 1536 RGBA with real transparent background, clear wheel-spoke gaps and all clear spaces between limbs/chair. No backdrop, aura, vignette, floor or ground shadow. Keep the original gouache-and-ink style and opaque subject with clean antialiased edges. No text, extra objects, logos, impact effects or watermark.\n"
+    },
+    {
+      "id": "moth-guard",
+      "character": "Pip",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "left",
+      "generation_id": "exec-19aafec2-ef4b-4627-a4d9-bdda8a81774d",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "primary edit target: initial Pip/moth guard",
+          "asset_id": "moth-guard",
+          "revision": "initial",
+          "generation_id": "exec-a2c8ec04-17aa-4c27-a2d3-6ac581aae022",
+          "original_png_sha256": "25c951eb1d9c463a11b3bfcf923c35b8f7d899dfb4e27fab86ad23acdc2bdac3"
+        },
+        {
+          "role": "canonical identity and wardrobe lineage",
+          "path": "v2/card-game/assets/moth.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "89a55a9fe6a3541c8c63bbf55673d04e1bdf18c6b1b186707846c1a12713dcd5"
+        }
+      ],
+      "prompt": "Use case: precise-object-edit.\nAsset type: one framing-only correction to the finished transparent COSYWORLD Pip/moth defensive guard sprite.\nInput image 1 is the EDIT TARGET. Preserve this exact anthropomorphic moth identity, cream fur, open amber eyes, two feather antennas, patterned wings, blue neckwear, ochre waistcoat, shirt, satchel, pocket watch, trousers and boots. Keep the exact LEFT-facing brace pose with two raised empty hands and planted bent-knee stance. Exactly two arms and two legs. No additional limbs, no strike or injury.\nMake ONE change only: fit the complete unchanged figure with safer transparent canvas margins. Uniformly reduce the whole silhouette by approximately 6 percent, with no stretching, then center it on the same 1024 x 1536 canvas. Target highest antenna around y55, lowest boot around y1455, and every antenna/wing/hand/boot at least50 pixels inside the left and right edges. The current antenna nearly touches the top and right wing is too close to the edge. Keep all parts fully visible, and preserve natural anatomy and the relative positions of every feature.\nDo not redesign the face, wings, clothes, pose, colors, lines or painterly texture. Preserve the exact number of arms and legs, the eye spots, the natural wing attachment and the complete antennas. No cropping and no new objects.\nOutput exactly1024 x1536 RGBA with genuine transparency (alpha0) outside the silhouette and through every internal gap, including around the arms, legs and wing tips. No original vignette, glow, floor, ground shadow, colored matte, halo or opaque background. Keep character interiors opaque with only clean antialiased outline transparency. Preserve the original gouache-and-ink style. No text or watermark.\n",
+      "revisions": [
+        {
+          "revision": "initial",
+          "generation_id": "exec-a2c8ec04-17aa-4c27-a2d3-6ac581aae022",
+          "prompt": "Use case: identity-preserve.\nAsset type: one full-figure transparent COSYWORLD PIP (asset ID moth) defensive guard / brace sprite.\nInput image 1 is the authoritative identity, anatomy, outfit and wing-pattern reference: moth.png. Pip is the exact anthropomorphic moth from this painting: cream furry head and ruff, huge glossy dark amber-brown eyes, fine little mouth, two tall FEATHERY antennae, and two broad moth wings with the existing grey-brown, ivory and ochre eye-spot patterns. Keep the ochre waistcoat with brass buttons, ivory rolled sleeves, blue-grey spotted neck bow/scarf, diagonal brown leather satchel and its straps, pocket watch/chain, dark loose trousers and brown boots.\nChange the pose to a stable grounded defensive guard facing LEFT. Both feet planted in a slight stagger, knees softly bent, weight centered. Raise both EMPTY hands and forearms in front of upper chest and beside the face to brace for an incoming impact from off canvas LEFT. Open alert eyes looking LEFT. No punch, weapon, attack, recoil, injury, closed eyes or falling. Keep face and antennae visible.\nExactly TWO arms with TWO hands and TWO legs with TWO boots. The wings sit folded closer behind his back for a compact guard silhouette, preserving the same patterned surfaces; they remain broad moth wings, never extra arms, sleeves, tails, feathers or insect legs. Keep both antennae wholly visible with a clear gap around their tips. Preserve all identity, build, texture, clothes and accessories. Hands are empty; satchel/watch remain attached, not held as weapons.\nOutput EXACT 1024 x 1536 RGBA, full silhouette from antenna tips to boot soles, about 40 pixels of transparent clearance above, at least 50 pixels on both sides, soles around y=1460 with clear space beneath. The entire character remains on canvas. GENUINELY TRANSPARENT background: alpha0 outside the subject and in every gap between limbs, antennae and wings; no source vignette, diffuse aura, floor or ground shadow. Subject interiors opaque with clean antialiased edges. Same painted gouache-and-ink illustration style, warm tactile natural materials and fine dark outlines. No added text, scenery, logos, effects, checkerboard pattern or watermark.\n",
+          "references": [
+            {
+              "role": "canonical identity and wardrobe",
+              "path": "v2/card-game/assets/moth.png",
+              "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+              "sha256": "89a55a9fe6a3541c8c63bbf55673d04e1bdf18c6b1b186707846c1a12713dcd5"
+            }
+          ],
+          "raw_output": {
+            "dimensions": [1024, 1536],
+            "mode": "RGBA",
+            "bytes": 2443246,
+            "sha256": "25c951eb1d9c463a11b3bfcf923c35b8f7d899dfb4e27fab86ad23acdc2bdac3"
+          },
+          "decision": "Revised once for safer clearance around top antenna, right wing and lowest boot."
+        }
+      ]
+    },
+    {
+      "id": "keeper-guard",
+      "character": "Keeper",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "left",
+      "generation_id": "exec-90515661-7422-493c-80a2-941c98b81cac",
+      "transparent_background": true,
+      "references": [
+        {
+          "role": "canonical identity, clock dial, left-facing orientation and wardrobe",
+          "path": "v2/card-game/assets/keeper.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "5ef1a982a8bd921edb86ff8c3b7aec9ae11025bdad395561a2e7b2e6a3b92f88"
+        }
+      ],
+      "prompt": "Use case: identity-preserve.\nAsset type: one full-figure transparent COSYWORLD KEEPER defensive guard / brace sprite.\nInput image 1 is the authoritative identity, clock-face and wardrobe reference: keeper.png, the LEFT-facing canonical keeper.\nPreserve the exact tall slim clock-headed keeper: aged round brass clock case and cream dial, clock-face features and hand arrangement, dark eyes/eyebrows integrated into the original clock design, station cap with its original brass badge/band, weathered long plum-purple coat with brass buttons and lapel badge, dark striped waistcoat/trousers, white shirt, black tie, chain, BLACK GLOVES and black buckled shoes.\nCRITICAL CLOCK INVARIANT: keep the clock face and cap identity exactly as in the reference, with the clock dial visibly turned toward the LEFT in the same three-quarter view. Roman numerals must stay readable in their correct clockwise orientation: XII at top, III at right, VI at bottom, IX at left. Preserve the intervening numerals and the original clock hands/face construction. NO mirrored numerals, flipped dial, scrambled symbols, new digital face, redesigned hands, human replacement face or missing clock details. Keep the face unobscured.\nChange only the body pose to a calm, stable defensive guard facing LEFT. Both shoes planted apart in a grounded staggered stance, knees softly flexed. Raise the two black-gloved EMPTY hands and forearms protectively: one forearm across the upper chest and one hand near the side of the lower clock rim, keeping the dial readable. Both clock eyes stay OPEN and alert toward an approaching opponent off canvas LEFT. Preparing for impact; not punching, striking, already hurt, falling, recoiling or making the original shushing gesture. Exactly two arms and two legs. Keep the coat hanging naturally.\nOutput EXACT 1024 x 1536 RGBA, full figure from cap to soles, about 40 pixels clear above, at least 50 pixels clear on both sides and approximately 60–80 pixels clear below, soles near y=1460. No cropped hat, gloves, coat or shoes. TRUE TRANSPARENT background with alpha0 outside the silhouette and through all gaps. Remove the original diffuse vignette, aura, ground plane and shadow entirely. Opaque subject with clean antialiased edges. Match the original detailed gouache-and-ink style and aged fabric/brass palette. No added props, readable text outside the existing clock numerals, effects, scenery, watermark, logos or checkerboard texture.\n"
+    }
+  ]
+}
