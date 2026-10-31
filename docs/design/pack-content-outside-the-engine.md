@@ -1,0 +1,147 @@
+# Version pack content separately from the shared rules engine
+
+Status: design, 2026-10-31. Issue #1548. Related: #1549 (engine gate), #1552
+(generated asset lists and per-pack files).
+
+## Outcome
+
+A pack, art, pose, dialogue or presentation change ships without a new
+`engine-vN.js`. The rules engine changes only when the rules change. Every
+released bundle, v2 through the newest, keeps replaying its journals
+byte-identically.
+
+## Why
+
+The shared engine is everything `v2/card-game/shared-world-entry.mjs` imports.
+On 2026-10-31 that was 36 modules. The bundle is about 950 KB, and
+`packs.json` alone is 575 KB of it. Other members include `scene.mjs`,
+`daylight.mjs`, `narrative.mjs`, `want-talk.mjs`, `forest.json`,
+`weather.json` and `shared-cast.json`. Of the 25 rules bumps on 2026-10-30/31
+(v32 to v57), 17 changed only art, poses, presentation or pack data. Each one
+edited the same five wiring files and raced other branches for the next
+number.
+
+## Target
+
+1. **Content is an input, not code.** The engine bundle holds rule modules
+   only. Rust supplies one content revision per request: the compiled packs,
+   forest, weather, cast, entity profiles, BoardyAI and emoji data that the
+   rules read today through JSON imports.
+2. **A content revision is content-addressed.** `packHash` is the SHA-256 of
+   the exact content bytes handed to the engine. `packRevision` is the
+   human-readable package version that built it. The hash is the authority.
+3. **The journal records which content it used.** A world's state carries
+   `{engine, packRevision, packHash}`. Seed records set all three. A new
+   `repack` command moves a world to new content under the same engine.
+4. **Content revisions are immutable and stored.** The server writes each
+   revision it uses into `card_full_packs(hash PRIMARY KEY, revision, content)`
+   before the first journal row that names it, in the same transaction.
+   Replay reads content from that table by hash and checks the hash. Rows are
+   never updated or deleted.
+5. **Presentation and dialogue are outside the engine.** Scene staging,
+   daylight drawing, narrative context and dialogue prompts move into a
+   separate narrator bundle. Its output is never a journal input, so it is
+   rebuilt freely and is never versioned or pinned.
+
+## What the rules actually need
+
+Most of the presentation imports are reachable only through two paths:
+
+- `dispatchShared` puts `currentScene(world)` in every view. Rust drops that
+  field; `full_store.rs` sends only `world`, `actions` and `exits`, and
+  `full.rs` reads `context`, `profiles` and `events` from a play.
+- `narrativeContext` builds the dialogue context for `play` and `context`.
+
+One path is a real rule. The `speech` reducer calls `applySharedReflections`,
+which validates and saves reflections against `narrativeContext(world)`. It
+reads `entities[].memories`, `resting` and `turn`, and the entity list depends
+on `sceneChanges` in `scene.mjs`. So a scene edit can change which committed
+reflections are valid. Before the split, the fields reflections need move into
+a rules module, `reflections.mjs`, with `sceneChanges`. `narrativeContext`
+then calls that module, so the two cannot drift. `DAYLIGHT_TURNS`, the only
+part of `daylight.mjs` the rules use, moves next to the clock rules in
+`pack-rules.mjs`.
+
+## Engine and Rust changes
+
+- **Build.** `build-card-shared-engine.mjs` resolves the content JSON imports
+  to a virtual module that reads `globalThis.cardContent[path]`.
+  Rule modules keep their static JSON imports, so the browser is unchanged.
+  `build-card-shared-content.mjs` writes the current revision to
+  `card_shared/content.json` with a stable key order. CI checks that it is
+  fresh, as it does for the engine.
+- **QuickJS.** For engines that declare content input (v58 and later),
+  `engine::reduce_version` takes the content text. Each request still uses a
+  fresh runtime with the same limits and deadline. Rust parses the content
+  with QuickJS's JSON parser, sets `globalThis.cardContent`, then evaluates
+  the bundle. Module initialisers that derive tables from packs run after the
+  content is set. Engines v2 to v57 get exactly the source they get today and
+  no content global.
+- **World.** `full_world::World` gains `pack: Option<String>`, with
+  `#[serde(default, skip_serializing_if = "Option::is_none")]`. Old snapshots
+  and seed records then deserialize and re-serialize to the same bytes.
+- **Load.** After replay, a world on an old engine is upgraded as today. The
+  upgrade to v58 also records the current `packHash`. A v58 world whose
+  `pack` differs from the binary's current hash gets one `repack` command,
+  `{"op":"repack","from":old,"to":new,"revision":"1.x.y"}`. The engine's
+  `upgrade` operation applies it under the new content and bumps the
+  revision, just as a rules upgrade does today.
+- **Narrator.** `card_shared/narrator.js` is built from
+  `shared-narrator-entry.mjs`. Rust calls it for the `context` of a committed
+  play and for the scene text it sends to providers. It only ever sees
+  current-engine worlds, because live worlds upgrade on load.
+- **Cast.** Rust reads `shared-cast.json` for avatar IDs and the C session
+  guard. The content loader rejects a revision whose eight avatar IDs or their
+  order differ from the binary's, because that would change guard indices.
+
+## Replay guarantees
+
+- Journals written under v2 to v57 replay with their own bundles, unchanged.
+  Their packs are baked in, so they need no content row. The released-rules
+  hash test keeps pinning those bundles.
+- A journal row under v58 or later replays with that engine and the content
+  named by the world's `pack` at that row. The seed, upgrade and `repack`
+  commands are the only rows that change it.
+- The server refuses to commit a command that names content it cannot store.
+  It also refuses to replay when a content row is missing or its hash fails.
+  It reports the world as needing recovery and never falls back to current
+  content.
+- Recovery captures and backups include `card_full_packs` with the journal.
+
+## Migration, one PR at a time
+
+Each PR stays under the 400-line budget and lands on green CI.
+
+1. This note and a bundle-module allowlist test. A new import into the shared
+   engine fails CI until the allowlist is changed on purpose. No engine change.
+2. Narrator bundle and Rust call path, with the engine still returning
+   `context`. Rust prefers the narrator's context. No engine change.
+3. Content store, the `content.json` builder, the `World.pack` field and the
+   content-aware `reduce_version`. They stay inert until an engine declares
+   content input. No engine change.
+4. **The one engine bump (v58, `engine` label).** It moves `sceneChanges`,
+   the reflection context and `DAYLIGHT_TURNS` into rules modules. It drops
+   `scene.mjs`, `narrative.mjs` and `daylight.mjs` from the entry, switches
+   the build to injected content and records `packHash` on upgrade. It must
+   pass client/server agreement and the v2 to v57 replay tests. It runs
+   `next-shared-rules`.
+5. Shrink the allowlist to rules modules plus content paths. Add a test that
+   edits a pack's art in a scratch copy and shows the engine bytes do not
+   change.
+
+After step 4, an art, pose, dialogue or pack PR changes `content.json` or
+`narrator.js` (both generated) and never `engine-v*.js`.
+
+## Later
+
+- Hash only the fields the rules read, so an image path change does not even
+  create a content revision.
+- Precompile the engine to QuickJS bytecode once per version.
+
+## Per-pack files (#1552)
+
+Split `packs.json` into compiled files per pack if that helps merges. The
+engine still receives one logical object, `{schemaVersion, hub, packs}`, with
+packs in sorted ID order. The content builder assembles it, and the hash
+covers the assembled bytes. Until step 4 lands, keep `pack-registry.mjs`
+importing the single `packs.json`. Changing that import changes the engine.
