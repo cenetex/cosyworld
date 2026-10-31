@@ -1,7 +1,8 @@
 import { locationWeather } from "./weather.mjs";
+import { DAYLIGHT_TURNS } from "./pack-rules.mjs";
+export { DAYLIGHT_TURNS };
 
 // Painted Greek and Willows places share the saved world clock.
-export const DAYLIGHT_TURNS = 24;
 // Night is every other block of DAYLIGHT_TURNS on the saved world clock.
 export const isNight = (world) =>
   Math.floor((world?.turn ?? 0) / DAYLIGHT_TURNS) % 2 === 1;

@@ -21,6 +21,16 @@ const MAX_BYTES: usize = 4 * 1024 * 1024;
 /// The dialogue context for `request`: a `view`-shaped request for the world
 /// after a committed play, plus that play's `action`.
 pub(super) fn context(request: &Value) -> Result<Value> {
+    Ok(describe(request)?["context"].take())
+}
+/// The drawn scene the browser shows for the same request.
+#[cfg(test)]
+pub(super) fn scene(request: &Value) -> Result<Value> {
+    let mut request = request.clone();
+    request["scene"] = Value::Bool(true);
+    Ok(describe(&request)?["scene"].take())
+}
+fn describe(request: &Value) -> Result<Value> {
     let input = serde_json::to_string(request).map_err(|_| "Choose a saved world.".to_string())?;
     if input.len() > MAX_BYTES {
         return Err("This saved world is too large to share.".into());
@@ -62,7 +72,7 @@ pub(super) fn context(request: &Value) -> Result<Value> {
         tracing::warn!(error=?value["error"], "shared narrator refused a scene");
         return Err("The shared world is taking a moment. Try again.".into());
     }
-    Ok(value["context"].clone())
+    Ok(value)
 }
 fn host_error(error: impl std::fmt::Display) -> String {
     tracing::warn!(error=%error, "shared narrator interpreter error");
@@ -75,13 +85,23 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn describes_a_committed_play_as_the_rules_did() {
+    fn describes_a_committed_play() {
         let created = super::super::engine::reduce(json!({"op":"create"})).unwrap();
+        let request =
+            json!({"world":created["world"],"actor":"vale","claimed":["vale"],"present":["vale"]});
         let view = super::super::engine::reduce(json!({"op":"view","world":created["world"],"actor":"vale","claimed":["vale"],"present":["vale"]})).unwrap();
         let action = view["actions"][0].clone();
-        let played = super::super::engine::reduce(json!({"op":"play","world":created["world"],"actor":"vale","claimed":["vale"],"present":["vale"],"action":action})).unwrap();
-        let told = context(&json!({"world":played["world"],"actor":"vale","claimed":["vale"],"present":["vale"],"action":action})).unwrap();
-        assert_eq!(told, played["context"]);
+        let mut play = request.clone();
+        play["op"] = json!("play");
+        play["action"] = action.clone();
+        let played = super::super::engine::reduce(play).unwrap();
+        let mut scene = request.clone();
+        scene["world"] = played["world"].clone();
+        scene["action"] = action;
+        let told = context(&scene).unwrap();
+        assert_eq!(told["revision"], played["world"]["revision"]);
+        assert_eq!(told["speakers"][0], "vale");
+        assert!(super::scene(&scene).unwrap()["background"].is_string());
     }
 
     #[test]

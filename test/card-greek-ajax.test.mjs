@@ -15,6 +15,7 @@ import {
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import { recitalPoem } from "../v2/card-game/pack-recital.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
 import {
   narrativeContext,
   applyGeneratedText,
@@ -280,7 +281,9 @@ describe("shared Ajax testimony", () => {
           Object.entries(fields).every(([k, v]) => a[k] === v),
       );
       expect(action, `${actor} ${kind} ${JSON.stringify(fields)}`).toBeTruthy();
-      return request("play", actor, { action });
+      const result = request("play", actor, { action });
+      const scene = { world, actor, claimed, present: claimed, action };
+      return { ...result, context: sharedContext(scene) };
     };
     act("mara", "move", { target: "greek-greek-camp" });
     act("vale", "give", { item: "greek-ajax-plea", target: "mara" });
@@ -327,7 +330,9 @@ describe("shared Ajax testimony", () => {
     }
     act("mara", "choose", { choiceId: "greek-ajax-return-public" });
     expect(world.items["greek-ajax-plea"].holder).toBe("greek-courtyard");
-    expect(ajaxState(world).receipts["greek-ajax-return-public"]).toBe(world.turn);
+    expect(ajaxState(world).receipts["greek-ajax-return-public"]).toBe(
+      world.turn,
+    );
     expect(reload(world).knowledge).toEqual(world.knowledge);
   });
 });

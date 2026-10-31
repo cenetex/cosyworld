@@ -6,7 +6,6 @@ import {
   sharedEnabled,
 } from "./human-cast.mjs";
 import { knowsFact } from "./knowledge.mjs";
-import { DAYLIGHT_TURNS } from "./daylight.mjs";
 import { locationWeather } from "./weather.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
 // that sound, and residents with a temperament. No rule here names a pack,
@@ -38,6 +37,9 @@ import {
   transportCrossing,
   shipDock,
 } from "./pack-transport.mjs";
+
+// Day and night each last this many turns on the saved world clock.
+export const DAYLIGHT_TURNS = 24;
 
 const fill = (template, values) =>
   template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
