@@ -265,6 +265,10 @@ describe("the Open Door", () => {
       "courtyard",
       "gate",
     );
+    world = playOpenDoor(world, "give", {
+      item: "greek-decree",
+      target: "greek-guard",
+    });
     world = playOpenDoor(world, "take", { item: "greek-shovel" });
     world = openDoorWalk(world, "battlefield");
     expect(

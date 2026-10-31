@@ -98,13 +98,21 @@ export function openingFixture(
       take("greek-decree");
       choose("greek-petition-burial");
       states.permission = world;
+      take("greek-decree");
       walk("well", "courtyard");
       if (reportFirst) {
         choose("greek-courtyard-concession");
         states.permissionShared = world;
       }
       walk("gate");
+    } else {
+      walk("courtyard", "well", "palace");
+      take("greek-decree");
+      walk("gate");
     }
+    // The road out to the battlefield is open while the guard at the gate
+    // holds the decree.
+    act("give", { item: "greek-decree", target: "greek-guard" });
     take("greek-shovel");
     walk("battlefield");
     choose(

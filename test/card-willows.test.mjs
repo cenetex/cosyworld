@@ -64,6 +64,14 @@ function clock(world, night) {
   world.revision = Math.max(world.revision, world.turn);
   return world;
 }
+// A resident who boarded at the pond may have sailed the ship off while Vale
+// was ashore; anyone aboard steps off and the lamp calls the ship home.
+function shipHome(world) {
+  for (const a of Object.values(world.actors))
+    if (a.place === "greek-ship") a.place = world.transports["greek-ship"].dock;
+  summonTransport(world, "greek-ship", "pond");
+  return world;
+}
 function island() {
   let world = enableMotives(createWorld({ opening: true }), {
     questPrograms: true,
@@ -285,7 +293,7 @@ describe("The Willows", () => {
     world = choose(saved, "choose-watch");
     expect(world.packs.willows.choices["willows-response"]).toBe("watch");
     expect(world.actors["willows-swede"].place).toBe("willows-camp");
-    world = move(world, "willows-landing");
+    world = shipHome(move(world, "willows-landing"));
     expect(exits(mist(world), "willows-landing", "vale")).toContain(
       "greek-ship",
     );
@@ -355,10 +363,7 @@ describe("The Willows", () => {
     ).toBeUndefined();
     world = choose(ready, "choose-departure");
     expect(world.packs.willows.choices["willows-response"]).toBe("depart");
-    // A resident who boarded at the pond may have sailed the ship off while
-    // Vale was ashore; the lamp calls it home before the next dark mist.
-    summonTransport(world, "greek-ship", "pond");
-    world = move(mist(world), "greek-ship");
+    world = move(mist(shipHome(world)), "greek-ship");
     world = move(move(mist(world), "willows-landing"), "willows-camp");
     expect(find(world, { choiceId: "willows-choose-watch" })).toBeUndefined();
     expect(decodeSave(encodeSave(world)).packs.willows).toEqual(

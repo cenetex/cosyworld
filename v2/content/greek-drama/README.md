@@ -20,6 +20,15 @@ refuse, report or give a later warning. Objects keep their actual holders.
 Witnesses and recorded deeds shape each later offer. The quiet sanctuary and
 the homeward road remain available throughout.
 
+The road from the City Gate out to the battlefield is open only while the
+gate guard (`greek-guard`) holds the Burial Decree (`greek-decree`, first at
+the palace) at the gate. It is a live condition in pack data: a
+`greek-gate` → `greek-battlefield` route that `requires` a `holding`
+condition and an `item_near` condition at the gate. If the guard gives the
+decree away or leaves his post, the road closes. The way back from the
+battlefield is always open. A petition needs the decree in hand and returns
+it to the palace, so a petitioner carries it back to the guard afterwards.
+
 Three short story cards follow the opening. The Bard carries its growing
 poem. Finishing a quest brings him to the next room the player enters.
 Talking to him supplies the earned verses through that visit, in order.

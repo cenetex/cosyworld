@@ -1986,7 +1986,6 @@
             exits: [
               "greek-courtyard",
               "greek-well",
-              "greek-battlefield",
               "greek-aulis"
             ],
             backdrop: "assets/greek-drama/city-gate-day.webp",
@@ -2830,6 +2829,7 @@
             home: "greek-gate",
             values: {
               "greek-provisions": 3,
+              "greek-decree": 3,
               "greek-bread": 2
             },
             persona: "An ordinary guard afraid of punishment. Be concrete, defensive, occasionally dry. Distinguish an order, a suspicion, and an act actually witnessed.",
@@ -3865,6 +3865,22 @@
           }
         },
         routes: [
+          {
+            from: "greek-gate",
+            to: "greek-battlefield",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-decree",
+                actor: "greek-guard"
+              },
+              {
+                kind: "item_near",
+                item: "greek-decree",
+                place: "greek-gate"
+              }
+            ]
+          },
           {
             from: "greek-harbor",
             to: "greek-egypt-tomb",

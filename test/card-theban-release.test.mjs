@@ -91,7 +91,10 @@ const act = (s, kind, fields = {}) => {
   expect(r.ok, r.error).toBe(true);
   return r.state;
 };
-const reachable = (s) => {
+// The battlefield road is open while the guard at the gate holds the decree.
+const reachable = (world) => {
+  const s = structuredClone(world);
+  s.items["greek-decree"].holder = "greek-guard";
   const seen = new Set([pack.entry]);
   for (const id of seen)
     for (const to of exits(s, id, "vale"))
