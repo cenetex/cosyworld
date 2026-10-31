@@ -53,11 +53,228 @@ pub(super) fn directions(context: &Context, id: &str) -> Vec<String> {
         .filter(|fact| fact.speaker == id)
         .map(|fact| {
             format!(
-                "I tell {} this recorded fact as one complete sentence, using these words: {} I may add one short sentence in my own voice.",
-                super::name(&fact.listener), fact.text
+                "I tell {} this as one sentence: {} I may add one short sentence of my own.",
+                super::name(&fact.listener),
+                spoken(
+                    &fact.text,
+                    &super::name(&fact.speaker),
+                    &super::name(&fact.listener)
+                )
             )
         })
         .collect()
+}
+
+/// The fact in the speaker's own voice, so a small model can say it as it
+/// stands: "Vale takes the Lamp." becomes "I take the Lamp." for Vale.
+fn spoken(text: &str, speaker: &str, listener: &str) -> String {
+    let mut out = String::new();
+    let mut rest = text;
+    let mut subject = None;
+    while !rest.is_empty() {
+        let start = out.is_empty();
+        let person = [
+            (speaker, ["I", "me", "My", "my"]),
+            (listener, ["You", "you", "Your", "your"]),
+        ]
+        .into_iter()
+        .find(|(name, ..)| {
+            !name.is_empty()
+                && rest.starts_with(name)
+                && !rest[name.len()..].starts_with(char::is_alphanumeric)
+        });
+        if let Some((name, [upper, lower, upper_own, own])) = person {
+            rest = &rest[name.len()..];
+            if let Some(after) = rest.strip_prefix("’s").or_else(|| rest.strip_prefix("'s")) {
+                rest = after;
+                out.push_str(if start { upper_own } else { own });
+            } else if start {
+                out.push_str(upper);
+                subject = Some(upper);
+            } else {
+                out.push_str(lower);
+            }
+            continue;
+        }
+        let c = rest.chars().next().unwrap();
+        // A word boundary carries one whole word across.
+        let len = if c.is_alphanumeric() {
+            rest.find(|c: char| !c.is_alphanumeric())
+                .unwrap_or(rest.len())
+        } else {
+            c.len_utf8()
+        };
+        let word = &rest[..len];
+        rest = &rest[len..];
+        match subject.take() {
+            Some(person) if word.chars().all(char::is_alphanumeric) => {
+                out.push_str(&agree(word, person == "I"))
+            }
+            Some(person) if word == " " => {
+                out.push(' ');
+                subject = Some(person);
+            }
+            _ => out.push_str(word),
+        }
+    }
+    out
+}
+
+/// The verb after "I" or "You": takes -> take, is -> am/are, has -> have.
+fn agree(verb: &str, first: bool) -> String {
+    match verb {
+        "is" => (if first { "am" } else { "are" }).into(),
+        "was" if !first => "were".into(),
+        "has" => "have".into(),
+        "does" => "do".into(),
+        "goes" => "go".into(),
+        _ if verb.ends_with("ies") && verb.len() > 4 => format!("{}y", &verb[..verb.len() - 3]),
+        _ if ["sses", "shes", "ches", "xes", "zes", "oes"]
+            .iter()
+            .any(|end| verb.ends_with(end)) =>
+        {
+            verb[..verb.len() - 2].into()
+        }
+        _ if verb.ends_with('s') && !verb.ends_with("ss") && verb.len() > 2 => {
+            verb[..verb.len() - 1].into()
+        }
+        _ => verb.into(),
+    }
+}
+
+const ARTICLES: &[&str] = &["a", "an", "the", "s"];
+const FORMS: &[(&str, &str)] = &[
+    ("me", "i"),
+    ("my", "i"),
+    ("mine", "i"),
+    ("myself", "i"),
+    ("your", "you"),
+    ("yours", "you"),
+    ("yourself", "you"),
+    ("is", "be"),
+    ("was", "be"),
+    ("am", "be"),
+    ("are", "be"),
+    ("were", "be"),
+    ("been", "be"),
+    ("m", "be"),
+    ("re", "be"),
+    ("has", "have"),
+    ("had", "have"),
+    ("ve", "have"),
+    ("does", "do"),
+    ("did", "do"),
+    ("goes", "go"),
+    ("went", "go"),
+    ("took", "take"),
+    ("gave", "give"),
+    ("chose", "choose"),
+    ("brought", "bring"),
+    ("threw", "throw"),
+    ("made", "make"),
+    ("saw", "see"),
+    ("found", "find"),
+    ("held", "hold"),
+    ("kept", "keep"),
+    ("told", "tell"),
+    ("sold", "sell"),
+    ("bought", "buy"),
+    ("caught", "catch"),
+    ("led", "lead"),
+    ("fought", "fight"),
+    ("rang", "ring"),
+    ("ran", "run"),
+    ("came", "come"),
+    ("said", "say"),
+    ("stole", "steal"),
+    ("hid", "hide"),
+    ("wrote", "write"),
+    ("drew", "draw"),
+    ("knew", "know"),
+    ("fell", "fall"),
+    ("sat", "sit"),
+    ("stood", "stand"),
+    ("sent", "send"),
+    ("lost", "lose"),
+    ("met", "meet"),
+    ("paid", "pay"),
+    ("struck", "strike"),
+    ("won", "win"),
+    ("woke", "wake"),
+    ("broke", "break"),
+    ("spoke", "speak"),
+    ("ate", "eat"),
+    ("drank", "drink"),
+    ("sang", "sing"),
+    ("swore", "swear"),
+    ("wore", "wear"),
+    ("tore", "tear"),
+    ("left", "leave"),
+];
+
+/// One word reduced to the form both tellings share. Must match `stem` in
+/// v2/card-game/knowledge.mjs.
+fn stem(word: &str) -> String {
+    let mut w = FORMS
+        .iter()
+        .find(|(from, _)| *from == word)
+        .map_or(word, |(_, to)| to)
+        .to_string();
+    if w.chars().count() <= 3 {
+        return w;
+    }
+    // The suffixes are ASCII, so their byte lengths cut on char boundaries.
+    if w.ends_with("ies") || w.ends_with("ied") {
+        w.truncate(w.len() - 3);
+        w.push('i');
+    } else if w.ends_with("es") || w.ends_with("ed") {
+        w.truncate(w.len() - 2);
+    } else if w.ends_with('s') && !w.ends_with("ss") {
+        w.pop();
+    } else if w.ends_with('y') {
+        w.pop();
+        w.push('i');
+    }
+    if w.ends_with('e') {
+        w.pop();
+    }
+    let mut last = w.chars().rev();
+    if let (Some(b), Some(a)) = (last.next(), last.next()) {
+        if a == b && !"aeiou".contains(a) {
+            w.pop();
+        }
+    }
+    w
+}
+
+/// A sentence's words with the speaker's name as I, the listener's as you,
+/// articles dropped and simple tense or person changes folded.
+fn fact_words(sentence: &str, speaker: &str, listener: &str) -> Vec<String> {
+    let all = words(sentence);
+    let people: Vec<(Vec<String>, &str)> = [(words(speaker), "i"), (words(listener), "you")]
+        .into_iter()
+        .filter(|(name, _)| !name.is_empty())
+        .collect();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < all.len() {
+        if let Some((name, as_word)) = people.iter().find(|(name, _)| all[i..].starts_with(name)) {
+            out.push(as_word.to_string());
+            i += name.len();
+            continue;
+        }
+        if !ARTICLES.contains(&all[i].as_str()) {
+            out.push(stem(&all[i]));
+        }
+        i += 1;
+    }
+    out
+}
+
+/// Whether one spoken sentence tells this fact.
+fn tells(fact: &Disclosure, sentence: &str) -> bool {
+    let (speaker, listener) = (super::name(&fact.speaker), super::name(&fact.listener));
+    fact_words(sentence, &speaker, &listener) == fact_words(&fact.text, &speaker, &listener)
 }
 
 pub(super) fn delivered(context: &Context, id: &str, text: &str) -> bool {
@@ -68,7 +285,7 @@ pub(super) fn delivered(context: &Context, id: &str, text: &str) -> bool {
         .all(|fact| {
             text.split_inclusive(['.', '!', '?', '。', '！', '？'])
                 .filter(|sentence| sentence.ends_with(['.', '!', '?', '。', '！', '？']))
-                .any(|sentence| words(sentence) == words(&fact.text))
+                .any(|sentence| tells(fact, sentence))
         })
 }
 
@@ -78,13 +295,13 @@ pub(super) fn other_words(context: &Context, id: &str, text: &str) -> String {
         .disclosures
         .iter()
         .filter(|fact| fact.speaker == id)
-        .map(|fact| words(&fact.text))
         .collect();
-    if facts.is_empty() || !sentences(text).any(|sentence| facts.contains(&words(sentence))) {
+    let told = |sentence: &str| facts.iter().any(|fact| tells(fact, sentence));
+    if facts.is_empty() || !sentences(text).any(told) {
         return text.to_string();
     }
     sentences(text)
-        .filter(|sentence| !facts.contains(&words(sentence)))
+        .filter(|sentence| !told(sentence))
         .collect::<Vec<_>>()
         .join(". ")
 }
@@ -159,5 +376,101 @@ mod tests {
         context.disclosures[0].event_seq = 12;
         context.disclosures[0].text.push_str(" A second fact.");
         assert!(!valid(&context));
+    }
+
+    fn vale_saw(text: &str) -> Context {
+        let mut context = context();
+        context.disclosures[0].speaker = "vale".into();
+        context.disclosures[0].listener = "moth".into();
+        context.disclosures[0].text = text.into();
+        context
+    }
+
+    #[test]
+    fn the_actor_tells_their_own_deed_in_the_first_person() {
+        let context = vale_saw("Vale takes the Lamp.");
+        assert!(valid(&context));
+        let prompt = directions(&context, "vale").join(" ");
+        assert!(prompt.contains("I take the Lamp."), "{prompt}");
+        for told in [
+            "I take the Lamp.",
+            "I took the lamp. It was warm.",
+            "Well. Vale takes the Lamp!",
+        ] {
+            assert!(delivered(&context, "vale", told), "{told}");
+        }
+        for wrong in [
+            "I took the bell.",
+            "I took the lamp from Pip.",
+            "I never took the lamp.",
+            "I took",
+            "Pip took the lamp.",
+        ] {
+            assert!(!delivered(&context, "vale", wrong), "{wrong}");
+        }
+        let vale = &context.entities[0];
+        let check = Check::new(&context, vale, Part::Line);
+        assert_eq!(
+            check.clean("I took the lamp. It is mine now.", true),
+            Ok("I took the lamp. It is mine now.".into())
+        );
+    }
+
+    #[test]
+    fn tense_person_and_pronouns_fold_but_names_and_items_hold() {
+        let context = vale_saw("Pip gives the Lamp to Vale.");
+        assert_eq!(
+            directions(&context, "vale")[0],
+            "I tell Pip this as one sentence: You give the Lamp to me. I may add one short sentence of my own."
+        );
+        assert!(delivered(&context, "vale", "You gave the lamp to me."));
+        assert!(delivered(&context, "vale", "Pip gave the Lamp to me."));
+        assert!(!delivered(&context, "vale", "You gave the cloth to me."));
+        let context = vale_saw("Vale has Pip's Lamp.");
+        assert!(directions(&context, "vale")[0].contains("I have your Lamp."));
+        assert!(delivered(&context, "vale", "I had your lamp."));
+        assert!(!delivered(&context, "vale", "I had my lamp."));
+        let context = vale_saw("Vale is beside the pond.");
+        assert!(directions(&context, "vale")[0].contains("I am beside the pond."));
+        assert!(delivered(&context, "vale", "I was beside the pond."));
+        assert!(!delivered(&context, "vale", "I was beside the attic."));
+    }
+
+    #[test]
+    fn a_reply_that_misses_its_fact_can_still_be_spoken_untold() {
+        let context = vale_saw("Vale takes the Lamp.");
+        let vale = &context.entities[0];
+        let check = Check::new(&context, vale, Part::Line);
+        assert_eq!(check.clean("I am listening.", true), Err("knowledge_fact"));
+        assert_eq!(
+            check.untold("I am listening.", true),
+            Ok("I am listening.".into())
+        );
+        // Without the fact, naming oneself is narration again.
+        assert_eq!(
+            check.untold("Vale takes the bell.", true),
+            Err("self-narration")
+        );
+    }
+
+    #[test]
+    fn the_matching_rule_agrees_with_the_browser_rules() {
+        // The same vectors run against factWords in test/card-knowledge.test.mjs.
+        for (sentence, folded) in [
+            ("Vale takes the Lamp.", "i tak lamp"),
+            ("I took the lamp", "i tak lamp"),
+            ("Pip gives the Lamp to Vale.", "you giv lamp to i"),
+            ("Vale's dropped shells were mossy.", "i drop shel be mossi"),
+            (
+                "The Argive mothers seek burial.",
+                "argiv mother seek burial",
+            ),
+        ] {
+            assert_eq!(
+                fact_words(sentence, "Vale", "Pip").join(" "),
+                folded,
+                "{sentence}"
+            );
+        }
     }
 }

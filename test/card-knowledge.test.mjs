@@ -8,6 +8,7 @@ import {
   acceptKnowledgeSpeech,
   knowsFact,
   factDelivered,
+  factWords,
   validKnowledge,
   validFactText,
   KNOWLEDGE_FACT_LIMIT,
@@ -212,6 +213,65 @@ describe("saved public knowledge", () => {
         "The Argive mothers seek burial for their sons.",
       ),
     ).toBe(true);
+  });
+
+  it("lets the actor tell their own deed in the first person or another tense", () => {
+    const fact = "Vale takes the Lamp.";
+    for (const told of [
+      "I take the Lamp.",
+      "I took the lamp. It was warm.",
+      "Well. Vale takes the Lamp!",
+    ])
+      expect(factDelivered(told, fact, "Vale", "Pip"), told).toBe(true);
+    for (const wrong of [
+      "I took the bell.",
+      "I took the lamp from Pip.",
+      "I never took the lamp.",
+      "I took",
+      "Pip took the lamp.",
+    ])
+      expect(factDelivered(wrong, fact, "Vale", "Pip"), wrong).toBe(false);
+    expect(
+      factDelivered(
+        "You gave the lamp to me.",
+        "Pip gives the Lamp to Vale.",
+        "Vale",
+        "Pip",
+      ),
+    ).toBe(true);
+    expect(
+      factDelivered(
+        "You gave the cloth to me.",
+        "Pip gives the Lamp to Vale.",
+        "Vale",
+        "Pip",
+      ),
+    ).toBe(false);
+    expect(
+      factDelivered("I had my lamp.", "Vale has Pip's Lamp.", "Vale", "Pip"),
+    ).toBe(false);
+    expect(
+      factDelivered(
+        "I was beside the pond.",
+        "Vale is beside the pond.",
+        "Vale",
+        "Pip",
+      ),
+    ).toBe(true);
+    // Without names the old third-person rule still holds.
+    expect(factDelivered("I took the lamp.", fact)).toBe(false);
+  });
+
+  it("folds fact words exactly as the Rust speech check does", () => {
+    // The same vectors run against fact_words in card_narrative/knowledge.rs.
+    for (const [sentence, folded] of [
+      ["Vale takes the Lamp.", "i tak lamp"],
+      ["I took the lamp", "i tak lamp"],
+      ["Pip gives the Lamp to Vale.", "you giv lamp to i"],
+      ["Vale's dropped shells were mossy.", "i drop shel be mossi"],
+      ["The Argive mothers seek burial.", "argiv mother seek burial"],
+    ])
+      expect(factWords(sentence, "Vale", "Pip"), sentence).toBe(folded);
   });
 
   it("keeps authored knowledge through bounded news churn", () => {
