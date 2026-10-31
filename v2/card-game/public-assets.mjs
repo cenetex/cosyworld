@@ -30,6 +30,7 @@ const files = [
   "rarity.mjs",
   "card-tiers.css",
   "card-reveal.mjs",
+  "card-level-up.mjs",
   // Argos commissioned art: start
   "assets/greek-drama/house-atreus-palace.webp",
   "assets/greek-drama/house-atreus-tomb.webp",

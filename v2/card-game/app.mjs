@@ -1,6 +1,7 @@
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { arriveCard, finishReveal, revealCard } from "./card-reveal.mjs";
+import { levelUpCard } from "./card-level-up.mjs";
 import { landingPack, createLandingWorld } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
@@ -241,6 +242,8 @@ let encountered = new Set(),
   discoveryDone = Promise.resolve(),
   discoveryPending = false;
 const fresh = new Set();
+// The level each card last showed, so a rise plays on the card itself.
+const shownLevels = new Map();
 const coveredCards = new Set();
 let openingHeld = false;
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
@@ -280,6 +283,7 @@ function loadSeen(reset = false) {
   // keeps the cards its player has already uncovered.
   if (opening) for (const id of availableCards(world)) coveredCards.add(id);
   fresh.clear();
+  shownLevels.clear();
   rememberCards();
 }
 loadSeen();
@@ -2975,6 +2979,7 @@ function render() {
     else $("hand").replaceChildren(...handCards.map(card));
     $("hand").scrollLeft = samePlace ? scroll : 0;
     renderActions(animate);
+    if (!sameWorld) playLevelUps();
     if (arriving) revealHandCard(renderedHandPlace, true, true);
     if (animate)
       for (const frame of $("hand").children) {
@@ -3011,6 +3016,16 @@ function render() {
       ?.focus({ preventScroll: true });
   }
   updateHandArrows();
+}
+function playLevelUps() {
+  for (const button of $("hand").querySelectorAll(".card[data-card]")) {
+    const id = button.dataset.card,
+      level = Number(button.dataset.level),
+      from = shownLevels.get(id);
+    shownLevels.set(id, level);
+    if (from < level && !cardIsCovered(id) && !button.closest(".card-frame").hidden)
+      void levelUpCard(button, from);
+  }
 }
 function revealHandCard(id, alignStart = false, instant = false) {
   const hand = $("hand"),

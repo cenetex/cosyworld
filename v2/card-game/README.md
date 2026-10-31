@@ -224,6 +224,9 @@ Borders use Signal's level-tier colours: Common 0–9, Uncommon 10–19, Rare 20
 Epic 30–49 and Legendary 50+. Selected cards show their exact level in faint,
 matching Roman numerals at both ends. These fixed bands use existing avatar
 levels; items and places currently have level 1. They do not change progression.
+When a shown card's level rises, it glows once from its old tier colour to the
+new one, lifts slightly and changes its numerals in place, in about a second;
+reduced motion shows the new level at once.
 No card face or hover text exposes quest checklists, hope fractions, Inspiration,
 fuel arithmetic, ringing deadlines, or ritual phases. Observable changes
 belong in the scene and art; hidden conditions never become a progress indicator.
