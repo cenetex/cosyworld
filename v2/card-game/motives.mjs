@@ -52,17 +52,25 @@ export function resentment(s, actor, other) {
       .reduce((n, g) => n + g.weight, 0),
   );
 }
+// Situational worth is data: each thing and each person may carry
+// valueRules, read in order. A rule whose facts all hold adds to the
+// value, or sets it outright and ends the reading.
+const factHolds = (s, actor, f) => {
+  if (f.holds) return owner(s, f.holds) === actor;
+  const v = Number(s.items[f.item]?.[f.field] || 0);
+  return (f.min === undefined || v >= f.min) && (f.max === undefined || v <= f.max);
+};
+const valueRules = (actor, item) => [
+  ...(forest.things[item]?.valueRules || []),
+  ...(forest.people[actor]?.valueRules?.[item] || []),
+];
 export function valueOf(s, actor, item) {
   let value = tastes[actor]?.values[item] ?? 1;
-  if (item === "lamp" && !s.items.lamp.fuel) value -= 5;
-  if (item === "oil") {
-    if (!s.items.oil.doses) return 1;
-    if (owner(s, "lamp") === actor && s.items.lamp.fuel <= 2) value += 9;
+  for (const rule of valueRules(actor, item)) {
+    if (!rule.when.every((f) => factHolds(s, actor, f))) continue;
+    if (rule.set !== undefined) return rule.set;
+    value += rule.add;
   }
-  if (item === "bell" && !s.items.oil.doses && s.items.lamp.fuel === 0)
-    value += 12;
-  if (item === "cloth" && actor === "keeper" && s.items.bell.ringing)
-    value += 9;
   // The wanted item is worth more than anything spare.
   const want = s.actors[actor]?.want;
   if (want?.kind === "item" && want.target === item) value += 6;
@@ -116,6 +124,19 @@ export function socialTravel(s, requester, companion) {
     reason: `${names[companion]} would rather follow their own want.`,
   };
 }
+// The hub cast's grievances are authored in forest.json; a pack resident's
+// noise taste is the same rule for a rung bell.
+const grievanceRules = [
+  ...Object.entries(packPeople)
+    .filter(([, r]) => r.tastes.noise)
+    .map(([id, r]) => [
+      id,
+      [{ kind: "noise", on: [{ kind: "ring" }], reason: r.tastes.noise }],
+    ]),
+  ...Object.entries(forest.people)
+    .filter(([, p]) => p.grievances)
+    .map(([id, p]) => [id, p.grievances]),
+];
 export function recordReaction(s, a, witnesses, accepted) {
   if (!hasMotives(s)) return;
   const add = (id, reason, kind) => {
@@ -130,23 +151,11 @@ export function recordReaction(s, a, witnesses, accepted) {
     } else list.push({ other: a.actor, kind, reason, turn: s.turn, weight: 1 });
     s.motives.grievances[id] = list.slice(-6);
   };
-  // Residents who mind noise resent a bell rung beside them.
-  if (a.kind === "ring")
-    for (const [id, resident] of Object.entries(packPeople))
-      if (resident.tastes.noise)
-        add(
-          id,
-          resident.tastes.noise.replace("{actor}", names[a.actor]),
-          "noise",
-        );
-  if (a.kind === "ring")
-    add(
-      "keeper",
-      `${names[a.actor]} rang the bell during a perfectly good quiet moment.`,
-      "noise",
-    );
-  if (a.kind === "snuff" || (a.kind === "cover" && a.target === "lamp"))
-    add("moth", `${names[a.actor]} spoiled Pip's light.`, "light");
+  // Grievances a resident takes from a witnessed play are profile data.
+  for (const [id, rules] of grievanceRules)
+    for (const rule of rules)
+      if (rule.on.some((p) => Object.entries(p).every(([k, v]) => a[k] === v)))
+        add(id, rule.reason.replace("{actor}", names[a.actor]), rule.kind);
   if (a.kind === "threaten" || a.kind === "attack")
     add(a.target, `${names[a.actor]} picked a fight.`, "threat");
   if (

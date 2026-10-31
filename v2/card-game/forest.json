@@ -62,7 +62,10 @@
       },
       "home": "pond",
       "values": { "lamp": 12, "oil": 3, "bell": 1, "cloth": 6 },
-      "want": { "kind": "item", "target": "lamp" }
+      "want": { "kind": "item", "target": "lamp" },
+      "grievances": [
+        { "kind": "light", "on": [{ "kind": "snuff" }, { "kind": "cover", "target": "lamp" }], "reason": "{actor} spoiled Pip's light." }
+      ]
     },
     "keeper": {
       "name": "The keeper",
@@ -73,21 +76,35 @@
       },
       "home": "station",
       "values": { "lamp": 3, "oil": 8, "bell": 10, "cloth": 6 },
-      "want": { "kind": "item", "target": "bell" }
+      "want": { "kind": "item", "target": "bell" },
+      "valueRules": {
+        "cloth": [{ "when": [{ "item": "bell", "field": "ringing", "min": 1 }], "add": 9 }]
+      },
+      "grievances": [
+        { "kind": "noise", "on": [{ "kind": "ring" }], "reason": "{actor} rang the bell during a perfectly good quiet moment." }
+      ]
     }
   },
   "things": {
     "lamp": {
       "name": "Lamp",
-      "text": "An oil lamp with soot-darkened glass. Burns one fuel each turn, even under a cloth."
+      "text": "An oil lamp with soot-darkened glass. Burns one fuel each turn, even under a cloth.",
+      "valueRules": [{ "when": [{ "item": "lamp", "field": "fuel", "max": 0 }], "add": -5 }]
     },
     "oil": {
       "name": "Oil flask",
-      "text": "Each dose adds four fuel to the lamp, up to twelve."
+      "text": "Each dose adds four fuel to the lamp, up to twelve.",
+      "valueRules": [
+        { "when": [{ "item": "oil", "field": "doses", "max": 0 }], "set": 1 },
+        { "when": [{ "holds": "lamp" }, { "item": "lamp", "field": "fuel", "max": 2 }], "add": 9 }
+      ]
     },
     "bell": {
       "name": "Bell",
-      "text": "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound."
+      "text": "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound.",
+      "valueRules": [
+        { "when": [{ "item": "oil", "field": "doses", "max": 0 }, { "item": "lamp", "field": "fuel", "max": 0 }], "add": 12 }
+      ]
     },
     "cloth": {
       "name": "Black cloth",
