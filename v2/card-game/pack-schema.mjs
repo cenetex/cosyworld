@@ -941,7 +941,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   for (const [id, p] of Object.entries(places)) {
     requirements(p.requires, `place ${id} requires`);
     for (const b of Array.isArray(p.backdrops) ? p.backdrops : [])
-      requirements(b?.requires, `place ${id} backdrop requires`);
+      requirements(b?.requires, `place ${id} backdrop requires`, false);
   }
   for (const [id, a] of Object.entries(avatars)) {
     requirements(a.requires, `avatar ${id} requires`);
@@ -1081,9 +1081,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on === "meet";
       if (e.kind === "give_item")
         valid =
-          keysOk(e, ["kind", "item"]) &&
-          owns(items, e.item) &&
-          c.on !== "meet";
+          keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on !== "meet";
       if (e.kind === "retire_item")
         valid =
           keysOk(e, ["kind", "item"]) &&

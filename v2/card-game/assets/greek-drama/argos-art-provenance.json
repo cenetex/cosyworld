@@ -1,0 +1,720 @@
+{
+  "created": "2026-10-31",
+  "generator": "OpenAI built-in image generation",
+  "brief": "Four tellings of the House of Atreus with one composition, matching night variants, and the Suppliant’s Olive Branch item card.",
+  "issues": [
+    "https://github.com/cenetex/cosyworld/issues/1622",
+    "https://github.com/cenetex/cosyworld/pull/1609"
+  ],
+  "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+  "composition_master": {
+    "id": "house-atreus-palace",
+    "generation_id": "exec-969aa7d3-ba99-4931-b502-c9d5a658d35a",
+    "original_png_sha256": "3ac73d68d3c553ef9cbb79b678f636d69112d5540b13304f479f450011b7696c",
+    "observed_anchors_approximate": {
+      "doorway_rectangle": [376, 111, 655, 544],
+      "threshold_center": [517, 541],
+      "steps_rectangle": [215, 535, 1025, 666],
+      "tapestry_center_at_bottom_step": [760, 659],
+      "path_connection_to_steps": [765, 667],
+      "path_lower_right_direction_center": [1450, 941],
+      "path_visible_bottom_left_edge_x": 980,
+      "path_right_edge_intersects_right_canvas_y": 875,
+      "distant_plain_horizon_y_range": [490, 550],
+      "far_hill_beacon": [1608, 351],
+      "unobstructed_actor_foreground_y_range": [675, 941]
+    }
+  },
+  "max_source_bytes": 300000,
+  "encoding": {
+    "format": "webp",
+    "maxQuality": 88,
+    "alphaQuality": 100,
+    "effort": 6,
+    "smartSubsample": true
+  },
+  "encoder_versions": {
+    "sharp": "0.35.5",
+    "webp": "1.6.0"
+  },
+  "assets": [
+    {
+      "id": "house-atreus-palace",
+      "file": "house-atreus-palace.webp",
+      "kind": "backdrop",
+      "period": "dusk",
+      "dimensions": [1672, 941],
+      "opaque": true,
+      "quality": 76,
+      "bytes": 299118,
+      "sha256": "c88f0b48cea88c3127aeef62f9e9c250b57bad8f0e7d9a480da895075debdef9",
+      "original_png_sha256": "3ac73d68d3c553ef9cbb79b678f636d69112d5540b13304f479f450011b7696c",
+      "original_png_bytes": 2935896,
+      "processing": "Full native canvas encoded to WebP only. No crop, resize, retouching, compositing or colour edits.",
+      "generation": {
+        "asset_id": "house-atreus-palace",
+        "filename": "house-atreus-palace.webp",
+        "generation_id": "exec-969aa7d3-ba99-4931-b502-c9d5a658d35a",
+        "generator": "built-in image_gen",
+        "use_case": "precise-object-edit",
+        "revision": "path-correction",
+        "created_at": "2026-10-31T23:11:59.240881+00:00",
+        "source_reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+        "prompt": "Use case: precise-object-edit.\nAsset type: COSYWORLD House of Atreus master landscape backdrop, one focused foreground-path correction.\nImage 1 is the exact edit target. Preserve this entire painting and its exact 1672x941 opaque framing. Do not generate a new scene.\n\nMake only this change: the lower-right approach must read as an actual worn ancient path across the existing stone forecourt. Add one gently curving diagonal band of pale worn stone and fine gravel, edged subtly by a single narrow line of low rough stones flush with the surrounding ground. Its centre enters the bottom edge near (1460,941), and leads up and left to about (800,665), immediately at the foot of the existing purple-red tapestry steps. The path is about 350 pixels wide at the bottom edge and narrows naturally in perspective to about 130 pixels wide where it joins the steps. Make its pale stone/gravel surface visibly but tastefully distinct from the surrounding broad old paving, catching the same warm torchlight. It must be a legible continuous walking route to the existing tapestry and doorway. The small rough edging stones must be low and unobtrusive: no curb wall, no barrier. Keep the whole foreground flat and open for game actors, with plenty of untouched open paving to the left.\n\nStrict invariants: leave the entire palace building, facade, all architectural details, both open bronze-studded doors, dark interior, threshold centre about (517,541), every stair, the purple-red tapestry, torch fixtures and flames, trees and plants, distant buildings, every hill and ridge, all sky and clouds, tiny far-hill beacon about (1608,351), lighting, colour, camera and framing unchanged. No shifting, resizing, redesigning or adding anything except this one foreground path band and its low edge stones. The new path ends at the existing bottom step; do not move or alter the steps or tapestry to fit it.\nPreserve the original Greek gouache-and-ink painting style and material texture. Exactly 1672x941, fully opaque.\nNo people, readable text, signs, animals, props, grass patches obscuring the path, new walls, railings, extra lights or other changes.",
+        "references": [
+          {
+            "asset_id": "house-atreus-palace",
+            "revision": "initial",
+            "generation_id": "exec-a32f19ba-f19d-4986-8596-29d837c699db",
+            "role": "exact master edit target; preserve all scene geometry and lighting except new foreground path",
+            "sha256": "041e2a4dfc2cb0acd3923efa0792b7ff2e95fc83f1ada04c641ea4dcab809ebe",
+            "dimensions": [1672, 941]
+          }
+        ],
+        "canonical_references": [
+          {
+            "repository_path": "v2/card-game/assets/greek-drama/suppliants-argive-shore-day.webp",
+            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+            "role": "Argos landscape identity reference",
+            "sha256": "eeefe8a71013f2f9fab65cf71b4b153aa4a83ef454e1c87de2487eb42fa1bc60",
+            "dimensions": [1672, 941]
+          },
+          {
+            "repository_path": "v2/card-game/assets/greek-drama/city-gate-day.webp",
+            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+            "role": "Greek painted architecture, materials and style reference",
+            "sha256": "6b40cfeb3a5b3ee0bd08ad2f3d815f07aaa4b08d6a208b1f8ca483024c2d1c33",
+            "dimensions": [1672, 941]
+          }
+        ],
+        "raw_output": {
+          "source_filename": "house-atreus-palace-raw.png",
+          "sha256": "3ac73d68d3c553ef9cbb79b678f636d69112d5540b13304f479f450011b7696c",
+          "bytes": 2935896,
+          "dimensions": [1672, 941],
+          "mode": "RGB",
+          "alpha_range": [255, 255],
+          "opaque": true
+        },
+        "revisions": [
+          {
+            "asset_id": "house-atreus-palace",
+            "filename": "house-atreus-palace.webp",
+            "generation_id": "exec-a32f19ba-f19d-4986-8596-29d837c699db",
+            "generator": "built-in image_gen",
+            "use_case": "illustration-story",
+            "created_at": "2026-10-31T23:08:48.441722+00:00",
+            "source_reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+            "prompt": "Use case: illustration-story.\nAsset type: COSYWORLD Greek drama landscape backdrop; MASTER composition A for a matched set of four House of Atreus story states.\nCreate one complete, opaque painting, exactly 1672 pixels wide by 941 pixels high, no borders.\n\nPrimary request: The great Argive palace at dusk: tall bronze-studded doors open on darkness, a purple-red tapestry path spread on the steps leading in, a watchman's beacon glowing on the far hill. Grand, uneasy, a house that has waited ten years. Warm torchlight against a bruised sky.\n\nInput images: Image 1, suppliants-argive-shore-day.webp, is the Argos landscape identity reference: its layered rugged lavender and ochre Argive hills, dry Mediterranean terrain, cypress and olive vegetation, weathered creamy limestone, terracotta warmth. Image 2, city-gate-day.webp, is the Greek painted architecture/material/style reference: dimensional gouache-and-ink brushwork, worn cream stone, convincing dark bronze-studded timber, restrained ancient red/gold detail and atmospheric depth. Generate the new palace scene described here; neither reference is the target scene or the composition to copy. Do not import the shore altar, the boat or the city gate.\n\nFixed composition for all future alternate paintings, coordinates on the 1672x941 canvas:\n- Eye-level, moderately wide camera looking across a broad empty stone forecourt. Natural perspective, no fisheye, no overhead view.\n- Monumental palace facade occupies the left and middle, approximately x0 to x1000. Its roof/cornice and heavy ancient masonry make it read as a great palace, with one dominant entrance, not a freestanding city gate.\n- Main open doorway is left of centre, approximately x470 to x780 and y170 to y575. Threshold centre at about (625,590). Tall bronze-studded timber door leaves are visibly open into a nearly black palace interior, not a landscape view through a gate.\n- Broad shallow stone steps span roughly x390 to x920, y575 to y690. A single rich, worn purple-red tapestry runs down these steps from the threshold toward (850,690), its folds following every step.\n- The pale stone approach enters from the lower right around (1400,941) and leads diagonally toward that same threshold. Keep the entire lower foreground, especially y730 to y941, broad and visually open for game actors. It is empty walkable paving, with no foreground furniture, props, railing or oversized plants.\n- The land opens out to the right of the palace. Low distant plain horizon near y520, with layered rugged Argive hills behind it, their ridge rising to about y390. A very small watchman's fire beacon glows on the far right hill around (1410,405), far away and clearly separate from the palace. No visible watchman.\n\nLighting and mood: early dusk still readable as a landscape painting. A bruised plum, mauve and slate-blue sky above the ancient house, with muted last warmth low in the distance. Warm amber torchlight from modest wall torches flanking the entrance makes the pale masonry, bronze studs and purple-red tapestry glow against the cool twilight. The open interior remains dark and uneasy. Quiet grandeur, suspended anticipation, a long-awaited return. No melodramatic weather.\nStyle: match the two supplied COSYWORLD Greek references: richly painted gouache-and-ink illustration with fine material texture and restrained brush grain, warm ochre stone, believable patinated bronze, atmospheric purple hills, painterly depth. No glossy 3D rendering, no cartoon outlines, no photographic lens effects.\n\nConstraints: exactly one continuous landscape image at 1672x941, fully opaque. No people, faces, silhouettes, statues shaped like people, animals, readable text, letters, signs, watermark, UI, modern objects or weapons. No new foreground obstructions. The tapestry, open bronze-studded doors, dark interior, two warm wall torches and tiny far-hill beacon must all be plainly legible.",
+            "references": [
+              {
+                "repository_path": "v2/card-game/assets/greek-drama/suppliants-argive-shore-day.webp",
+                "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+                "role": "Argos landscape identity reference",
+                "sha256": "eeefe8a71013f2f9fab65cf71b4b153aa4a83ef454e1c87de2487eb42fa1bc60",
+                "dimensions": [1672, 941]
+              },
+              {
+                "repository_path": "v2/card-game/assets/greek-drama/city-gate-day.webp",
+                "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+                "role": "Greek painted architecture, materials and style reference",
+                "sha256": "6b40cfeb3a5b3ee0bd08ad2f3d815f07aaa4b08d6a208b1f8ca483024c2d1c33",
+                "dimensions": [1672, 941]
+              }
+            ],
+            "raw_output": {
+              "source_filename": "house-atreus-palace-initial.png",
+              "sha256": "041e2a4dfc2cb0acd3923efa0792b7ff2e95fc83f1ada04c641ea4dcab809ebe",
+              "bytes": 3039714,
+              "dimensions": [1672, 941],
+              "mode": "RGB",
+              "alpha_range": [255, 255],
+              "opaque": true
+            },
+            "planned_composition_anchors": {
+              "canvas": [1672, 941],
+              "doorway_rectangle": [470, 170, 780, 575],
+              "threshold_center": [625, 590],
+              "steps_rectangle": [390, 575, 920, 690],
+              "approach_entry": [1400, 941],
+              "distant_plain_horizon_y": 520,
+              "far_hill_beacon": [1410, 405],
+              "actor_foreground_y_range": [730, 941]
+            },
+            "observed_composition_anchors_approximate": {
+              "doorway_rectangle": [376, 111, 655, 544],
+              "threshold_center": [517, 541],
+              "steps_rectangle": [215, 535, 1025, 666],
+              "tapestry_center_at_bottom_step": [760, 659],
+              "distant_plain_horizon_y_range": [490, 550],
+              "far_hill_beacon": [1608, 351],
+              "unobstructed_actor_foreground_y_range": [675, 941]
+            },
+            "visual_qa": {
+              "reviewed": true,
+              "assessment": "Candidate master ready for root review. Visually coherent warm gouache/ink style matching Greek reference assets. Monumental palace entrance left of centre with two open bronze-studded timber doors, dark columned interior, rich purple-red tapestry descending the broad steps, two warm flanking wall torches, dusk sky and layered Argive hills on the right, one small far-hill beacon. Full lower foreground is open paving. No people, readable text or modern objects observed.",
+              "limitations": "Generated anchor coordinates differ from planned approximate positions: doorway is farther left and beacon nearer the right edge. Use the observed master geometry as the fixed edit reference for alternates if accepted. The lower-right approach is suggested by the open stone paving and perspective leading to the steps, without a separate outlined path. Interior contains a small low light but remains predominantly dark."
+            },
+            "processing": "Original generated PNG copied byte-for-byte. No crop, resize, compositing, retouching or encoding. Root owns WebP production and repository integration.",
+            "revision": "initial",
+            "decision": "Superseded by one focused edit because the lower-right approach needed a visibly distinct stone/gravel path. Palace, steps, tapestry, landscape, lighting and camera were to remain fixed."
+          }
+        ],
+        "observed_composition_anchors_approximate": {
+          "doorway_rectangle": [376, 111, 655, 544],
+          "threshold_center": [517, 541],
+          "steps_rectangle": [215, 535, 1025, 666],
+          "tapestry_center_at_bottom_step": [760, 659],
+          "path_connection_to_steps": [765, 667],
+          "path_lower_right_direction_center": [1450, 941],
+          "path_visible_bottom_left_edge_x": 980,
+          "path_right_edge_intersects_right_canvas_y": 875,
+          "distant_plain_horizon_y_range": [490, 550],
+          "far_hill_beacon": [1608, 351],
+          "unobstructed_actor_foreground_y_range": [675, 941]
+        },
+        "visual_qa": {
+          "reviewed": true,
+          "assessment": "Focused path edit visually preserves the palace framing, architectural placement, open doors, tapestry, torch sconces, vegetation, distant hills, dusk sky and beacon. A distinct pale stone/gravel walking route now leads from lower right to the foot of the tapestry steps, with subtle low rough-stone edging. Foreground remains flat and open. No added people, readable text or props. Ready for root review before alternates.",
+          "limitations": "Imagegen repaints texture rather than preserving source pixels exactly. The new path is broader than the requested approximate 350px horizontal entry width: its left edge meets the bottom near x980, and its right edge exits the right border near y875. Direction and destination are correct; lower-right path width requires root review. All coordinates are approximate visual estimates."
+        },
+        "processing": "Original initial PNG preserved byte-for-byte. Corrected generated PNG copied byte-for-byte to the master raw path. No crop, resize, compositing, retouching, masking or encoding."
+      }
+    },
+    {
+      "id": "house-atreus-tomb",
+      "file": "house-atreus-tomb.webp",
+      "kind": "backdrop",
+      "period": "day",
+      "dimensions": [1672, 941],
+      "opaque": true,
+      "quality": 75,
+      "bytes": 298120,
+      "sha256": "fe9fa7064c46d04ca3a24857c8ae7cea0d4a14cfd0ed4cacc19a47501b49d43b",
+      "original_png_sha256": "d2d94bc09beb41d49833d3030371f0f87adad1b65a78e237376505986e242b34",
+      "original_png_bytes": 3267026,
+      "processing": "Full native canvas encoded to WebP only. No crop, resize, retouching, compositing or colour edits.",
+      "generation": {
+        "asset_id": "house-atreus-tomb",
+        "filename": "house-atreus-tomb.webp",
+        "generation_id": "exec-7445f73c-e288-476b-a387-d3bd19584c8c",
+        "generator": "built-in image_gen",
+        "use_case": "precise-object-edit",
+        "scene_state": "B - tomb, grey morning",
+        "created_at": "2026-10-31T23:14:56.974967+00:00",
+        "prompt": "Use case: precise-object-edit.\nAsset type: COSYWORLD Greek drama backdrop B, house-atreus-tomb.webp, a story-state alternate of the supplied approved master.\nImage 1 is the exact approved master and the only edit target. Keep the identical 1672x941 canvas, eye-level camera, perspective and composition.\n\nPrimary request: The House of Atreus location has become a low earthen tomb mound with a plain stone threshold. On that stone rests a small lock of hair beside a spilled libation. Restrained cypresses. Grey morning light. Grief, return, recognition.\n\nChange the existing palace area only in these structural ways:\n- Remove the entire palace building and all its facade, columns, towers, banners, bronze doors, tapestry, torches and associated palace ornament. Replace them with a low, broad weathered earthen burial mound in the left/middle of the scene, with muted earth, a little sparse dry vegetation and a simple uninscribed stone threshold/slab. This is a low tomb mound, not a temple, mausoleum, house or new monumental building.\n- Keep the stone threshold's front contact point at the same master destination, approximately (517,541). Its flat exposed stone surface must be readable from this camera.\n- On this stone, visibly place a small curled lock of brown hair and a small dark glossy wet libation stain/pool with a little run-off over the stone. They are quiet, tangible offerings at natural small scale. The libation is watered wine, not blood. No person, body, bones or skull.\n- Where the palace's broad steps were, use a modest weathered stone approach with low worn treads or ground stones, leading to that same threshold. Remove the purple-red tapestry completely.\n- Include a few slender, solemn cypresses around/behind the mound; use the existing cypress locations where practical. Do not crowd the open foreground.\n\nFreeze these spatial invariants:\nThe complete pale stone/gravel foreground path must stay in EXACTLY the same location and shape as the master, including both full rough-stone border lines, every bend, its lower-right entry and its narrowing connection around (765,667). Preserve the surrounding paving layout and perspective. Preserve the large flat/open foreground for actors. Do not straighten, narrow, widen, shift or reroute the path.\nPreserve the silhouettes, shapes and positions of ALL already-visible distant hills and ridges on the right, the valley/horizon level, distant settlement placement and the small far-hill beacon structure around (1608,351). The beacon is now UNLIT: remove its flame and glow but retain the physical landmark exactly there. Where removing the palace reveals background on the left, continue the same Argive terrain naturally without changing the existing right-hand landscape.\n\nLighting: replace dusk with quiet grey morning, soft cool overcast light, restrained warm-grey/ochre stone and earth, muted olive greens, blue-grey distant hills. No golden sunset, no orange torch light, no dramatic fog, rain or weather effects. Keep the scene clearly legible and dimensional, with a mournful stillness.\nStyle: retain the exact painted Greek gouache-and-ink material language of the reference: worn limestone, finely textured earth/paving, natural foliage and atmospheric distance. The tomb belongs to this same painted world. No 3D-render shine or new illustration style.\n\nExactly 1672x941, complete opaque image. No crop, zoom, tilt or reframing. No people, faces, human silhouettes, statues, readable writing, inscriptions, letters, signs, modern objects, UI or watermark. No fixed foreground obstruction. This is a precise scene-state edit of the master, not a newly composed tomb illustration.",
+        "references": [
+          {
+            "asset_id": "house-atreus-palace",
+            "generation_id": "exec-969aa7d3-ba99-4931-b502-c9d5a658d35a",
+            "role": "approved frozen shared master; exact camera, path, threshold destination, landscape and framing reference",
+            "sha256": "3ac73d68d3c553ef9cbb79b678f636d69112d5540b13304f479f450011b7696c",
+            "dimensions": [1672, 941],
+            "provenance_path": "/workspace/scratch/2770a740be9f/generated-art/argos/house-atreus-palace/house-atreus-palace-metadata.json"
+          }
+        ],
+        "inherited_canonical_style_references": [
+          {
+            "repository_path": "v2/card-game/assets/greek-drama/suppliants-argive-shore-day.webp",
+            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+            "role": "Argos landscape identity reference",
+            "sha256": "eeefe8a71013f2f9fab65cf71b4b153aa4a83ef454e1c87de2487eb42fa1bc60",
+            "dimensions": [1672, 941]
+          },
+          {
+            "repository_path": "v2/card-game/assets/greek-drama/city-gate-day.webp",
+            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+            "role": "Greek painted architecture, materials and style reference",
+            "sha256": "6b40cfeb3a5b3ee0bd08ad2f3d815f07aaa4b08d6a208b1f8ca483024c2d1c33",
+            "dimensions": [1672, 941]
+          }
+        ],
+        "raw_output": {
+          "source_filename": "house-atreus-tomb-raw.png",
+          "sha256": "d2d94bc09beb41d49833d3030371f0f87adad1b65a78e237376505986e242b34",
+          "bytes": 3267026,
+          "dimensions": [1672, 941],
+          "mode": "RGB",
+          "alpha_range": [255, 255],
+          "opaque": true
+        },
+        "visual_qa": {
+          "reviewed": true,
+          "assessment": "Ready for root review. Palace, banners, bronze doors, tapestry and torchlight removed. Broad earthen tomb mound, weathered stone slab/threshold, small curled brown hair offering and dark wine libation pooled on the stone with visible run-off. Grey morning light; restrained muted earth/stone palette and cypress setting. Full original lower-right path borders and paving perspective visually retained, as are the right-hand hill/ridge silhouettes, distant settlement and unlit beacon landmark. Foreground remains open and flat. No people, readable text, bodies, bones or modern objects observed.",
+          "limitations": "Generative editing preserves scene geometry visually rather than exact pixel values. Tomb slab extends approximately x400–805,y492–562, encompassing the old threshold point (517,541); its broad centre is approximately x600. Libation reads as a dark brown wine spill, with conspicuous vertical run-off. Cypresses and new ground within the former palace footprint necessarily differ."
+        },
+        "observed_composition_anchors_approximate": {
+          "tomb_slab_rectangle": [400, 492, 805, 562],
+          "old_threshold_contact_point_covered": [517, 541],
+          "path_connection_to_approach": [765, 667],
+          "path_visible_bottom_left_edge_x": 980,
+          "path_right_edge_intersects_right_canvas_y": 875,
+          "distant_plain_horizon_y_range": [490, 550],
+          "far_beacon_landmark": [1608, 351],
+          "beacon_lit": false,
+          "actor_foreground_y_range": [675, 941]
+        },
+        "processing": "Original generated PNG copied byte-for-byte. No crop, resize, compositing, retouching or encoding. Approved A master verified unchanged by SHA-256 before and after generation."
+      }
+    },
+    {
+      "id": "house-atreus-mycenae",
+      "file": "house-atreus-mycenae.webp",
+      "kind": "backdrop",
+      "period": "day",
+      "dimensions": [1672, 941],
+      "opaque": true,
+      "quality": 53,
+      "bytes": 299998,
+      "sha256": "210d4d48bf0c4c17ea2e03edd046c13d86273313239313866fbbad3f17c8ef98",
+      "original_png_sha256": "568aa7f160ac4622860775439b9f184f72fe334c8dffd8664bcd7fe63df139bf",
+      "original_png_bytes": 3483490,
+      "processing": "Full native canvas encoded to WebP only. No crop, resize, retouching, compositing or colour edits.",
+      "generation": {
+        "asset_id": "house-atreus-mycenae",
+        "variation": "C",
+        "intended_repository_asset": "v2/card-game/assets/greek-drama/house-atreus-mycenae.webp",
+        "status": "accepted_main_variant",
+        "visual_review_status": "passed local review",
+        "generation_tool": "built-in image_gen.imagegen",
+        "generation_id": "exec-3ad4a9ef-0fd7-4279-8499-c76017ffe9bc",
+        "output_sha256": "568aa7f160ac4622860775439b9f184f72fe334c8dffd8664bcd7fe63df139bf",
+        "output_bytes": 3483490,
+        "actual_dimensions": [1672, 941],
+        "mode": "RGB",
+        "opaque": true,
+        "transparent_background": false,
+        "prompt_sha256": "e7881d6fb97df2b7e1567513d7632f891b26960d1671f6c64ea018608e49f468",
+        "references": [
+          {
+            "index": 1,
+            "role": "approved corrected composition master and primary edit target",
+            "asset_id": "house-atreus-palace",
+            "generation_id": "exec-969aa7d3-ba99-4931-b502-c9d5a658d35a",
+            "sha256": "3ac73d68d3c553ef9cbb79b678f636d69112d5540b13304f479f450011b7696c",
+            "dimensions": [1672, 941],
+            "mode": "RGB",
+            "visually_inspected_before_generation": true
+          },
+          {
+            "index": 2,
+            "role": "supporting style and daylight palette only",
+            "repository_path": "v2/card-game/assets/greek-drama/suppliants-argive-shore-day.webp",
+            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+            "sha256": "eeefe8a71013f2f9fab65cf71b4b153aa4a83ef454e1c87de2487eb42fa1bc60",
+            "dimensions": [1672, 941],
+            "mode": "RGB",
+            "visually_inspected_before_generation": true
+          },
+          {
+            "index": 3,
+            "role": "supporting style and daylight palette only",
+            "repository_path": "v2/card-game/assets/greek-drama/city-gate-day.webp",
+            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+            "sha256": "6b40cfeb3a5b3ee0bd08ad2f3d815f07aaa4b08d6a208b1f8ca483024c2d1c33",
+            "dimensions": [1672, 941],
+            "mode": "RGB",
+            "visually_inspected_before_generation": true
+          }
+        ],
+        "revision_lineage": {
+          "revision": 1,
+          "approved_master_sha256": "3ac73d68d3c553ef9cbb79b678f636d69112d5540b13304f479f450011b7696c",
+          "parent_path_correction_approved": true,
+          "derived_from": "approved corrected A palace master",
+          "prior_C_generations": [],
+          "targeted_corrections": []
+        },
+        "visual_notes": [
+          "Cyclopean walls and a heavy monolithic lintel replace the palatial facade; a single triangular carved relief contains two stone lionesses and a central column.",
+          "The gate is open and deeply shadowed. Red banners, carpet, tapestry and torches/flames are removed; bare stair geometry remains.",
+          "The threshold foot, staircase approach and raised path borders visually align with the approved master. Left border reaches the lower edge near x980 and right border reaches the right edge near y875.",
+          "Right-hand ridge silhouette, hilltop beacon, valley buildings and cypress/olive arrangement remain visually aligned. Beacon is unlit.",
+          "Bright hard daytime light and warm stone/cool shadows replace dusk. No people or readable text are present.",
+          "This is a generative repaint: retained geometry was visually reviewed, not claimed to be pixel-identical. Fine paving, stone and vegetation textures differ slightly under the new light.",
+          "No night variant has been generated; awaiting parent acceptance of the main set."
+        ],
+        "geometry_contract": {
+          "threshold_foot": [517, 541],
+          "path_connection": [765, 667],
+          "left_path_border_bottom_x": 980,
+          "right_path_border_right_edge_y": 875,
+          "canvas": [1672, 941]
+        },
+        "postprocessing": "None. Original generated PNG copied byte-for-byte; no visual edits or encoding.",
+        "prompt": "Use case: precise-object-edit\nAsset type: COSYWORLD Greek-drama landscape backdrop, variation C, house-atreus-mycenae.\n\nINPUT ROLES\nImage 1 is the APPROVED CORRECTED ARGOS PALACE MASTER and the primary edit target. Its camera, framing, threshold, approach path and landscape geometry are binding.\nImages 2 and 3 are the existing Argive shore day and city gate day paintings. They are style and daylight-palette references ONLY. Do not import their architecture, layouts, coastline, paths, objects or landmarks.\n\nPRIMARY EDIT\nTransform Image 1 into the Mycenaean House of Atreus. Replace its palace architecture with massive cyclopean Mycenaean walls: immense irregular interlocking weathered stone blocks, dense ancient masonry and a heavy monolithic lintel. The Lion Gate must occupy the palace entrance's position, with its threshold foot at exactly the same place. Above the lintel, show a clearly visible ancient triangular stone relief containing TWO stone lionesses flanking a central column, their forepaws raised on its base. This is a single carved architectural relief, not living animals or extra free-standing statues. Fit the complete lioness relief within the left facade. The new building should feel ancient, fortified and inevitable.\n\nEXACT COMPOSITION AND GROUND LOCK\nKeep the full 1672 x 941 canvas, camera position, viewpoint, field of view, perspective and framing unchanged.\nThe master entrance threshold foot is approximately pixel (517, 541). Keep the new Lion Gate threshold foot at that exact location.\nThe approach path joins the foot of the entrance steps around pixel (765, 667). Keep that connection at the exact location.\nPreserve ALL actual foreground path pixels' geometric positions: both raised stone path borders, every bend, the path width and course, the paving divisions, the courtyard perspective and the staircase approach geometry. Its left border meets the bottom of the canvas near x=980; its right border exits the right edge near y=875. Keep those endpoints and all intermediate border positions as they are. No new path, no widening, narrowing, straightening, rerouting, recentering, zooming or cropping.\nPreserve the surrounding planting, courtyard objects, horizon and visible right-hand distant hill/ridge silhouettes at the same coordinates. Preserve the distant right hilltop beacon structure and its exact location, but make it UNLIT in daylight. Keep the distant valley buildings and land shapes where they are. The building materials and light can change; the approach and landscape geometry cannot.\n\nBUILDING-SPECIFIC CHANGES\nRemove the palace's red tapestry, stair carpet/runner, banners, decorative palatial friezes, Ionic ornament and all wall/interior torches and flames. Replace those architectural details with the cyclopean fortress and bare ancient stone. Keep the existing step geometry when removing the runner. Retain an open, deep, shadowed gateway at the same threshold, without introducing a new visible destination or a new ground route.\n\nLIGHT AND STYLE\nHard, clear noon daylight with strong long architectural shadows from the tall walls and deep entry. Warm ochre and weathered earth-colored stone, cool deep shadows, and a clear daytime sky. Remove the sunset glow and every fire. Preserve the right landscape contours while relighting them for noon.\nPainted gouache and ink matching the supplied COSYWORLD Greek backdrops: textured brushwork, finely observed stone, warm Mediterranean color. This is a finished painted game backdrop, not a photo or 3D render.\n\nOUTPUT AND EXCLUSIONS\nExactly 1672 x 941 pixels, opaque full canvas. No people, readable text, lettering, interface, logo, border or watermark. No weather effects. No extra structures, no extra gate, no shifted hills. Change the palace architecture and lighting/mood only; preserve the approved master camera and ground/landscape geometry. This is the main NOON variant, not its later night edit.",
+        "raw_output": {
+          "source_filename": "house-atreus-mycenae-raw.png",
+          "dimensions": [1672, 941],
+          "mode": "RGB",
+          "bytes": 3483490,
+          "sha256": "568aa7f160ac4622860775439b9f184f72fe334c8dffd8664bcd7fe63df139bf"
+        },
+        "accepted_by_parent": true
+      }
+    },
+    {
+      "id": "house-atreus-farmhouse",
+      "file": "house-atreus-farmhouse.webp",
+      "kind": "backdrop",
+      "period": "day",
+      "dimensions": [1672, 941],
+      "opaque": true,
+      "quality": 52,
+      "bytes": 299798,
+      "sha256": "58204e5b87fa8378cb928e77588181b8411a1ab9fc72a1a7d27f24282cd09fd0",
+      "original_png_sha256": "c773f161b26af73510058a5d6ed4d4087e97ed29e962e05f1ff2d03d3a29a5d9",
+      "original_png_bytes": 3535456,
+      "processing": "Full native canvas encoded to WebP only. No crop, resize, retouching, compositing or colour edits.",
+      "generation": {
+        "created": "2026-10-31",
+        "asset_id": "house-atreus-farmhouse",
+        "runtime_target": "greek-drama/house-atreus-farmhouse.webp",
+        "variant": "D main daylight",
+        "generator": "OpenAI built-in image generation",
+        "generation_id": "exec-53282990-47ed-41bc-8448-f0b4dc689ff2",
+        "prompt": "Use case: precise-object-edit / composition-preserving environment variation.\nAsset: COSYWORLD House of Atreus, variation D — the farmhouse. Output exactly 1672 x 941 pixels, landscape, fully opaque RGB painting.\nInput image 1 is the APPROVED CORRECTED PALACE MASTER and the authoritative EDIT TARGET. Preserve its camera, canvas framing, perspective, foreground ground, explicit lower-right approach path, shared threshold foot, and distant horizon/hill silhouettes. The master hash is 3ac73d68d3c553ef9cbb79b678f636d69112d5540b13304f479f450011b7696c.\nInputs 2 and 3 (Argive-shore-day and city-gate-day) are STYLE REFERENCES ONLY. Match their established painted gouache-and-ink finish, warm ochre stone/earth, weathered materials, olive greens and fine organic linework. Do not import their composition, architecture, sea, gate, decorations or people.\n\nChange the grand palace into a POOR FARMER'S COTTAGE at the hills' edge, within the master's building footprint. Modest rural construction: rough irregular fieldstone base, worn earth-ochre plaster, a simple weathered timber lintel, plain wooden doorway and low practical clay-tile roof. The building must feel humble and poor, without columns, palatial stone carving, ornate entablature, crenellations, banners, tapestries, gilding, statues or ceremonial fittings. A low rough farmyard retaining wall can occupy the old lateral palace-wall footprint, keeping the existing terrain geometry. Its raised hillside foundation explains the retained approach steps.\nThe rough cottage doorway must meet the SAME shared threshold foot at approximately x517,y541 on the1672x941 canvas. Keep that exact ground-contact position and the existing step perspective, even though the doorway above it becomes modest and unadorned. Put one plain worn terracotta WATER JAR beside the step, outside the approach, without obscuring the threshold or changing its footprint. Remove the red carpet entirely, but preserve every step's spatial geometry; let the same stone approach look naturally worn, chipped and rural. Remove all palace tapestries, torches, lamps, flames and royal decoration.\nAdd restrained olive terraces and practical low dry-stone edges only where they fit the existing adjacent terrain. Keep all distant hills, valley ridges and skyline silhouettes at the exact same positions. The small beacon landmark on the far-right rocky hill stays in its original place, visibly UNLIT: no flame, glow or smoke.\nThe empty setting should suggest a princess living as a peasant through its modest, worn, quiet surroundings. No princess, farmer, person, human silhouette, face, statue, crown, royal badge, notice or narrative symbol.\n\nLighting and mood: PLAIN DAYLIGHT, humble and slightly sad. A pale ordinary daytime sky with subdued natural clouds; restrained warm earth, faded plaster and olive-grey foliage. Natural daylight, gentle shadows, no sunset orange/purple sky and no night lighting. Keep the established hand-painted gouache-and-ink environment style, detailed organic surfaces and clear depth.\n\nCRITICAL COMPOSITION LOCK — change neither layout nor camera:\n• Exactly the same1672x941 canvas, camera height/angle, framing, perspective, lens feel and ground plane as input1. No crop, zoom, pan, tilt or mirror.\n• Preserve ALL foreground path edges, paving layout and perspective. The path joins the approach around x765,y667; its left border meets the bottom edge around x980; its right border exits the right edge around y875. Retain those actual positions and the exact converging edges in between. The clear path enters from the LOWER RIGHT and reaches the shared threshold in the same way as the master.\n• Preserve the threshold foot around x517,y541, the step positions, their ground contact and the complete stair/approach geometry. Remove only carpet/decoration and weather surfaces, without shifting or reshaping the route.\n• Keep the foreground paving stones/earth features, horizon height, and exact distant hill/ridge silhouettes, positions and scale. Daylight may change their colors and shadows, never their geometry.\n• Do not add a new foreground obstacle, alternate route, new stairs, fence, wall or prop crossing the approach. Change only the building within its footprint, directly relevant cottage props/vegetation and daylight mood.\nNo people, readable text, letters, numerals, signage, logos, watermark, UI, borders, rain, snow or fantasy effects. Fully opaque painted backdrop, no transparency.\n",
+        "references": [
+          {
+            "role": "primary edit target: approved corrected palace master; exact camera, foreground path, threshold and distant silhouettes",
+            "asset_id": "house-atreus-palace",
+            "generation_id": "exec-969aa7d3-ba99-4931-b502-c9d5a658d35a",
+            "sha256": "3ac73d68d3c553ef9cbb79b678f636d69112d5540b13304f479f450011b7696c",
+            "dimensions": [1672, 941],
+            "mode": "RGB"
+          },
+          {
+            "role": "style only: Argos environment materials, olive palette and painted finish",
+            "repository_path": "v2/card-game/assets/greek-drama/suppliants-argive-shore-day.webp",
+            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+            "sha256": "eeefe8a71013f2f9fab65cf71b4b153aa4a83ef454e1c87de2487eb42fa1bc60",
+            "dimensions": [1672, 941],
+            "mode": "RGB"
+          },
+          {
+            "role": "style only: established Greek daylight painted environment",
+            "repository_path": "v2/card-game/assets/greek-drama/city-gate-day.webp",
+            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+            "sha256": "6b40cfeb3a5b3ee0bd08ad2f3d815f07aaa4b08d6a208b1f8ca483024c2d1c33",
+            "dimensions": [1672, 941],
+            "mode": "RGB"
+          }
+        ],
+        "raw_output": {
+          "source_filename": "house-atreus-farmhouse-raw.png",
+          "dimensions": [1672, 941],
+          "mode": "RGB",
+          "bytes": 3535456,
+          "sha256": "c773f161b26af73510058a5d6ed4d4087e97ed29e962e05f1ff2d03d3a29a5d9"
+        },
+        "composition_constraints": {
+          "threshold_foot": [517, 541],
+          "path_approach_connection": [765, 667],
+          "path_left_border_at_bottom_x": 980,
+          "path_right_border_at_right_edge_y": 875,
+          "other_locks": [
+            "camera/framing",
+            "foreground path edges and paving perspective",
+            "horizon and distant hill/ridge silhouettes",
+            "unlit far-right beacon landmark"
+          ]
+        },
+        "visual_review": "First generation reviewed. Poor farmhouse with worn plaster and rough stone, plain timber doorway and low tiled roof replaces the palace within its left-side footprint. Water jar beside the doorway step. Broad approach steps remain in the same perspective with carpet removed; explicit lower-right bordered path remains aligned to the same approach and threshold. Olive/dry-stone terraces occupy adjacent ground. Plain daylight replaces dusk. Distant hills, valley and beacon remain recognizable in the same arrangement, with beacon unlit. No visible people, readable text, tapestry, torches or palace ornament.",
+        "review_status": "Ready for parent review alongside the complete four-image main set; no night edit started.",
+        "limitations": [
+          "Generative repaint preserves the arrangement and anchor geometry visually but is not a pixel-identical layer edit; small surface and distant-contour differences may remain.",
+          "Daylight is warm and clear; the melancholy comes from the empty, worn rural setting.",
+          "No runtime crop/transition verification or WebP encoding performed by this agent."
+        ],
+        "transparent_background_requested": false,
+        "opacity": {
+          "has_alpha_channel": false,
+          "opaque": true
+        },
+        "processing": "Raw generated PNG copied byte-for-byte. No encoding, resizing, cropping, color adjustments, alpha processing, repository edits or publication."
+      }
+    },
+    {
+      "id": "house-atreus-palace-night",
+      "file": "house-atreus-palace-night.webp",
+      "kind": "backdrop",
+      "period": "night",
+      "dimensions": [1672, 941],
+      "opaque": true,
+      "quality": 82,
+      "bytes": 294804,
+      "sha256": "a596ecc2a06574f5e726490f3e46a76cdaba5232229e7a9e59b240af6c6a8095",
+      "original_png_sha256": "217e4e530ddf2e76d524901d426b694577fc9c547e608c6c2f7162a00bea9d98",
+      "original_png_bytes": 2652614,
+      "processing": "Full native canvas encoded to WebP only. No crop, resize, retouching, compositing or colour edits.",
+      "generation": {
+        "asset_id": "house-atreus-palace-night",
+        "filename": "house-atreus-palace-night.webp",
+        "generation_id": "exec-5c740f3c-79e2-4f3b-ae54-22a975e53040",
+        "generator": "built-in image_gen",
+        "use_case": "lighting-weather",
+        "created_at": "2026-10-31T23:18:23.116919+00:00",
+        "prompt": "Use case: lighting-weather.\nAsset type: COSYWORLD Greek drama landscape backdrop, house-atreus-palace-night.webp.\nImage 1 is the exact accepted palace master, and the only edit target. Make a NIGHT illumination alternate of this identical painting.\n\nChange ONLY illumination and sky: true deep indigo night, with cool blue ambient fill and the warm orange-gold light of the EXISTING two wall torches and the EXISTING tiny distant hill beacon. The palace's open interior remains dark and uneasy; preserve its existing contents. Keep the purple-red tapestry runner readable as purple-red, with warm highlights on the step edges. The bronze door studs and warm cream masonry catch the existing torchlight. Preserve the tiny beacon flame and its restrained distant glow. No visible moon, no new lamps, fires, torches or other light sources. The sky has no sunset orange; retain subtle cloud texture in deep midnight blues without a dramatic star spectacle.\n\nStrict spatial invariants: keep every building, architectural detail, banner, door, doorway, threshold, step, tapestry fold, torch fixture, existing object, plant and distant settlement in exactly the same place and at the same size. Keep the threshold around (517,541), all existing stair geometry, and the far beacon around (1608,351). Preserve ALL hill and ridge silhouettes and horizon positions.\nMost critically preserve the complete foreground stone/gravel path and BOTH of its rough-stone border lines: exact bends, width, perspective, lower-right entry and connection to the steps around (765,667). Preserve every surrounding paving pattern and the large flat open foreground. Do not redraw, reroute, widen, narrow or shift the path.\nMaintain night readability for game characters composited in front: the foreground and route should be clearly visible in dim blue ambient light and restrained warm torch spill, with retained stone texture and edge detail. Do not crush them into black, and do not make the scene look like bright daylight.\n\nKeep the same richly painted Greek gouache-and-ink style, texture, camera and exact 1672x941 framing. Fully opaque image. No crop, zoom, tilt, redesign or added objects. No people, readable text, signs, visible moon, modern items, UI or watermark. This is a lighting-only edit, not a new palace composition.",
+        "references": [
+          {
+            "role": "accepted house-atreus-palace painting; exact geometry and object-preserving night edit target",
+            "asset_id": "house-atreus-palace",
+            "generation_id": "exec-969aa7d3-ba99-4931-b502-c9d5a658d35a",
+            "sha256": "3ac73d68d3c553ef9cbb79b678f636d69112d5540b13304f479f450011b7696c",
+            "dimensions": [1672, 941],
+            "provenance_path": "/workspace/scratch/2770a740be9f/generated-art/argos/house-atreus-palace/house-atreus-palace-metadata.json"
+          }
+        ],
+        "shared_master": {
+          "asset_id": "house-atreus-palace",
+          "sha256": "3ac73d68d3c553ef9cbb79b678f636d69112d5540b13304f479f450011b7696c"
+        },
+        "raw_output": {
+          "source_filename": "house-atreus-palace-night-raw.png",
+          "dimensions": [1672, 941],
+          "mode": "RGB",
+          "bytes": 2652614,
+          "sha256": "217e4e530ddf2e76d524901d426b694577fc9c547e608c6c2f7162a00bea9d98",
+          "opaque": true,
+          "alpha_range": [255, 255]
+        },
+        "visual_review": "Accepted visual QA: true deep indigo night with warm existing wall torches and distant beacon. Palace facade, open doors, dark interior, runner, all step positions, full foreground path borders and paving geometry, trees, hills and distant settlement remain visually matched to the accepted palace. No visible moon or added light sources. Purple-red runner and foreground are readable; no black crush. No people or readable text observed.",
+        "limitations": "Lighting edit visually preserves scene geometry and existing objects; individual brush textures and pixel values are regenerated rather than byte-identical. No material defect or correction identified.",
+        "revisions": [],
+        "processing": "Original generated PNG copied byte-for-byte. No crop, resize, compositing, retouching, colour postprocessing or encoding. Accepted source PNG hash verified unchanged."
+      }
+    },
+    {
+      "id": "house-atreus-tomb-night",
+      "file": "house-atreus-tomb-night.webp",
+      "kind": "backdrop",
+      "period": "night",
+      "dimensions": [1672, 941],
+      "opaque": true,
+      "quality": 85,
+      "bytes": 293354,
+      "sha256": "7bedb3fc0a71dc9a3fc2b75f11d8f446715d70c1ba57517c3f309327a2ba1891",
+      "original_png_sha256": "40bb990f7389832dda3497818549ad3f5f3e79ec5e73ef933520f7eccb44fe47",
+      "original_png_bytes": 2725478,
+      "processing": "Full native canvas encoded to WebP only. No crop, resize, retouching, compositing or colour edits.",
+      "generation": {
+        "asset_id": "house-atreus-tomb-night",
+        "filename": "house-atreus-tomb-night.webp",
+        "generation_id": "exec-516d612c-bf2e-4c8e-8656-a46f6d678ee8",
+        "generator": "built-in image_gen",
+        "use_case": "lighting-weather",
+        "created_at": "2026-10-31T23:18:23.129841+00:00",
+        "prompt": "Use case: lighting-weather.\nAsset type: COSYWORLD Greek drama landscape backdrop, house-atreus-tomb-night.webp.\nImage 1 is the exact accepted tomb painting, and the only edit target. Make a NIGHT illumination alternate of this identical painting.\n\nChange ONLY illumination and sky: cool, subdued off-canvas moonlight makes the weathered stone softly grey-blue, the earthen mound muted brown-grey, and the cypresses dark against a deep blue night sky. No visible moon anywhere. Preserve the existing cloud arrangement as subdued night cloud texture. There are NO flames, torches, lamps or added lights in this scene. The existing far-hill beacon structure stays UNLIT, without flame or glow.\n\nStrict spatial invariants: keep the whole mound, every stone, every worn step, the slab/threshold, all cypresses, shrubs, ground plants, distant buildings, and every existing object in exactly the same positions and at the same sizes. Keep the small brown hair lock on the stone and the spilled libation with its existing pooled shape and runoff exactly as they are; make these offerings legible with a little cool reflected light, without enlarging, moving or replacing them. No new objects.\nKeep the threshold/slab around the same original destination at (517,541), all step geometry, every visible hill and ridge silhouette, the valley/horizon and the tiny unlit beacon landmark around (1608,351).\nMost critically preserve the complete foreground stone/gravel path and BOTH of its rough-stone border lines: exact bends, width, perspective, lower-right entry and connection to the worn approach around (765,667). Preserve the surrounding paving pattern and the broad flat open foreground for actors. Do not redraw, reroute, widen, narrow or shift the path.\n\nMaintain night readability behind game sprites: the pathway, foreground paving, tomb slab and hair/libation must remain visible in subdued cool reflected light, with material detail retained. Dark and mournful, but no black crush. No theatrical spotlight or beams, no added fog, rain or storm.\nKeep the same richly painted Greek gouache-and-ink style and texture. Exactly 1672x941, fully opaque, identical camera and framing. No crop, zoom, tilt, redesign, people, human silhouettes, bones, bodies, readable text, inscriptions, visible moon, modern items, UI or watermark. This is a lighting-only edit, not a newly composed tomb illustration.",
+        "references": [
+          {
+            "role": "accepted house-atreus-tomb painting; exact geometry and object-preserving night edit target",
+            "asset_id": "house-atreus-tomb",
+            "generation_id": "exec-7445f73c-e288-476b-a387-d3bd19584c8c",
+            "sha256": "d2d94bc09beb41d49833d3030371f0f87adad1b65a78e237376505986e242b34",
+            "dimensions": [1672, 941],
+            "provenance_path": "/workspace/scratch/2770a740be9f/generated-art/argos/house-atreus-tomb/house-atreus-tomb-metadata.json"
+          }
+        ],
+        "shared_master": {
+          "asset_id": "house-atreus-palace",
+          "sha256": "3ac73d68d3c553ef9cbb79b678f636d69112d5540b13304f479f450011b7696c"
+        },
+        "raw_output": {
+          "source_filename": "house-atreus-tomb-night-raw.png",
+          "dimensions": [1672, 941],
+          "mode": "RGB",
+          "bytes": 2725478,
+          "sha256": "40bb990f7389832dda3497818549ad3f5f3e79ec5e73ef933520f7eccb44fe47",
+          "opaque": true,
+          "alpha_range": [255, 255]
+        },
+        "visual_review": "Accepted visual QA: subdued cool off-canvas night light, grey-blue stone, dark cypresses, deep blue sky, no visible moon. Mound, stone slab, hair lock, libation pool and run-off, steps, path borders, paving perspective, hills and distant settlement remain visually matched to the accepted tomb. Beacon stays unlit. Foreground texture, path edges and offerings remain readable without black crush. No added flames, props, people or readable text observed.",
+        "limitations": "Lighting edit visually preserves scene geometry and existing objects; individual brush textures and pixel values are regenerated rather than byte-identical. No material defect or correction identified.",
+        "revisions": [],
+        "processing": "Original generated PNG copied byte-for-byte. No crop, resize, compositing, retouching, colour postprocessing or encoding. Accepted source PNG hash verified unchanged."
+      }
+    },
+    {
+      "id": "house-atreus-mycenae-night",
+      "file": "house-atreus-mycenae-night.webp",
+      "kind": "backdrop",
+      "period": "night",
+      "dimensions": [1672, 941],
+      "opaque": true,
+      "quality": 79,
+      "bytes": 289214,
+      "sha256": "2bfc5eaae09d6640e42727a62b010f7d7db0348cbaf6f20f89227db2027a5779",
+      "original_png_sha256": "3734f7bbbe95bcca12109570b4e3939cb62afb69b05f0f9d45e7ac118d49ce25",
+      "original_png_bytes": 2904241,
+      "processing": "Full native canvas encoded to WebP only. No crop, resize, retouching, compositing or colour edits.",
+      "generation": {
+        "asset_id": "house-atreus-mycenae-night",
+        "generation_id": "exec-d3c380d7-fac2-4694-877d-7a1372a053c3",
+        "generation_tool": "built-in image_gen.imagegen",
+        "status": "ready_for_parent_review",
+        "prompt": "Use case: lighting-weather\nAsset type: COSYWORLD Greek-drama backdrop, house-atreus-mycenae-night.\n\nImage 1 is the accepted house-atreus-mycenae main painting and the ONLY edit target. Make a strict lighting-only night version of this exact painting.\n\nLIGHTING CHANGE ONLY\nReplace the bright noon illumination with deep indigo night. Use cool moonlight from outside the canvas to define the existing cyclopean stone blocks, the two stone lionesses and their central column, lintel edges, stone steps and raised path borders. Keep the open gateway dark. The courtyard and approach path must remain legible in the low light, with clear separation of stone edges and shadows. Convert the existing sky and cloud shapes to subdued night blues without adding new celestial objects. The distant hilltop beacon must remain UNLIT.\n\nLOCK EVERY OBJECT AND POSITION\nKeep the exact 1672 x 941 canvas, viewpoint, camera, framing and all composition unchanged. Preserve the complete existing cyclopean architecture, two-lioness relief, lintel, open gateway, stairs, planting, pots, courtyard paving, surrounding walls, distant buildings, beacon structure and right-hand hill/ridge silhouettes in their exact positions and proportions. Do not rebuild, simplify, shift or reshape anything.\nKeep the threshold foot near (517,541), the path/stair connection near (765,667), every path-border stone and paving division at its exact existing image position. The left path border meets the bottom near x980 and the right border exits the right edge near y875. These are invariant geometry anchors, not approximate redesign suggestions.\nRetain the current painted gouache-and-ink texture and Greek-world style. Preserve all stone, plant and relief details while changing their illumination and color temperature.\n\nEXCLUSIONS\nNo visible moon. No new torches, lamps, flames, firelight, props, people, readable text, letters, logo, border or watermark. Do not light the beacon. No rain, fog or added weather. No gate or stair changes, no new route, no crop, zoom, recentering or rescaling. Do not add or remove physical details.\n\nOUTPUT\nOne full-frame opaque painting, exactly 1672 x 941 pixels. Lighting and palette only: the same accepted Mycenaean scene at night.",
+        "references": [
+          {
+            "role": "accepted main Mycenaean C painting; sole primary edit target for lighting-only night variation",
+            "asset_id": "house-atreus-mycenae",
+            "generation_id": "exec-3ad4a9ef-0fd7-4279-8499-c76017ffe9bc",
+            "sha256": "568aa7f160ac4622860775439b9f184f72fe334c8dffd8664bcd7fe63df139bf"
+          }
+        ],
+        "raw_output": {
+          "source_filename": "house-atreus-mycenae-night-raw.png",
+          "dimensions": [1672, 941],
+          "mode": "RGB",
+          "bytes": 2904241,
+          "sha256": "3734f7bbbe95bcca12109570b4e3939cb62afb69b05f0f9d45e7ac118d49ce25"
+        },
+        "transparent_background": false,
+        "opaque": true,
+        "revision_lineage": {
+          "revision": 1,
+          "parent_asset_id": "house-atreus-mycenae",
+          "parent_sha256": "568aa7f160ac4622860775439b9f184f72fe334c8dffd8664bcd7fe63df139bf",
+          "parent_accepted_before_generation": true,
+          "targeted_corrections": []
+        },
+        "visual_review": {
+          "status": "passed local review; parent review pending",
+          "composition": "The same cyclopean wall, two-lioness relief, gate opening, stairs and both path borders remain visually aligned.",
+          "landscape": "The right ridge silhouettes, beacon structure, distant buildings, cypresses and foreground planting stay in place.",
+          "lighting": "Deep indigo night with cool off-canvas moonlight; the stone relief, blocks, steps and foreground path remain readable; gateway stays dark.",
+          "exclusions": "No visible moon, new torch/lamp, fire, people, text or props. Distant beacon remains unlit."
+        },
+        "limitations": [
+          "Generative repaint: geometry was visually reviewed, not claimed byte-identical. Fine stone/foliage textures show small paint-level changes.",
+          "Day/night crossfade alignment will also be inspected in the complete Argos QA fixture."
+        ],
+        "postprocessing": "None. Original generated PNG copied byte-for-byte. No encoding or repository edits."
+      }
+    },
+    {
+      "id": "house-atreus-farmhouse-night",
+      "file": "house-atreus-farmhouse-night.webp",
+      "kind": "backdrop",
+      "period": "night",
+      "dimensions": [1672, 941],
+      "opaque": true,
+      "quality": 79,
+      "bytes": 290848,
+      "sha256": "8e98904188e2ab1c49aceaa16290bb457b168e859b5c2762973b0fd3f47ae5e2",
+      "original_png_sha256": "737c2b932f9f96e34a6ff0f042a158fbf3b8ef1a310b0dee4a226509292cb0cc",
+      "original_png_bytes": 3031303,
+      "processing": "Full native canvas encoded to WebP only. No crop, resize, retouching, compositing or colour edits.",
+      "generation": {
+        "created": "2026-10-31",
+        "asset_id": "house-atreus-farmhouse-night",
+        "runtime_target": "greek-drama/house-atreus-farmhouse-night.webp",
+        "variant": "D night",
+        "generator": "OpenAI built-in image generation",
+        "generation_id": "exec-4137abe4-3411-4413-b970-8f77098cfbb2",
+        "prompt": "Use case: precise-object-edit / strict lighting-only environment variant.\nAsset: COSYWORLD house-atreus-farmhouse-night. Output exactly1672 x941 pixels, fully opaque RGB painting.\nInput image1 is the ACCEPTED DAYTIME FARMHOUSE and sole authoritative EDIT TARGET: /workspace/scratch/2770a740be9f/generated-art/argos/house-atreus-farmhouse/house-atreus-farmhouse-raw.png, SHA256 c773f161b26af73510058a5d6ed4d4087e97ed29e962e05f1ff2d03d3a29a5d9.\nCreate a strict LIGHTING-ONLY EDIT of this exact image. Preserve the entire composition, camera, crop, framing, perspective and all objects/geometry. Keep every cottage wall, roof tile, timber, open door, plain water jar, step, stone, paving crack, path edge, terrace, fence, olive tree, leaf mass, cypress, distant town, hill, ridge and beacon tower in the same position, size, shape and orientation. No repainting, redesign, addition, removal, relocation or recropping of the scene. Preserve the exact clear lower-right path and its convergence into the same threshold: threshold foot about x517,y541; approach connection about x765,y667; left path border reaches bottom near x980; right border exits the right edge near y875.\n\nChange only the illumination and sky colors to TRUE QUIET NIGHT. Deep restrained indigo and blue-black sky, subdued dark cloud forms following the existing sky arrangement, no orange/pink sunset and no daytime cyan. Soft cool MOONLIGHT from OFF CANVAS gently reveals the cottage plaster, rough stone steps, the water jar rim, olive leaves and the foreground path. Keep shadows soft and the overall scene convincingly nocturnal. Retain readable ground/path detail and muted warm ochre/earth undertones beneath the cool light; avoid crushed black ground, overbright daytime surfaces, neon blue color, luminous foliage or artificial cinematic spotlights.\nThe open cottage interior is DARK and empty, without any lamp, candle, flame, glowing window or warm interior light. The far-right beacon tower remains UNLIT and in its exact existing place: no flame, glow or smoke. Do not introduce torches, lanterns, lamps, fire, glowing objects, people, animals, movement or new props. Do not show the moon in the sky. Humble, empty and still; a quiet poor farmhouse at night.\nPreserve the established detailed painted gouache-and-ink style and every physical surface. Only color, exposure and natural night illumination may change. No readable text, symbols, signs, lettering, numerals, UI, borders, logo or watermark. Opaque full-canvas backdrop with no transparency.\n",
+        "references": [
+          {
+            "role": "sole primary edit target: accepted farmhouse day, strict lighting-only night edit",
+            "asset_id": "house-atreus-farmhouse",
+            "generation_id": "exec-53282990-47ed-41bc-8448-f0b4dc689ff2",
+            "sha256": "c773f161b26af73510058a5d6ed4d4087e97ed29e962e05f1ff2d03d3a29a5d9",
+            "dimensions": [1672, 941],
+            "mode": "RGB"
+          }
+        ],
+        "lineage": {
+          "day_generation_id": "exec-53282990-47ed-41bc-8448-f0b4dc689ff2",
+          "day_metadata": "/workspace/scratch/2770a740be9f/generated-art/argos/house-atreus-farmhouse/generation-metadata.json",
+          "common_approved_palace_master_sha256": "3ac73d68d3c553ef9cbb79b678f636d69112d5540b13304f479f450011b7696c"
+        },
+        "raw_output": {
+          "source_filename": "house-atreus-farmhouse-night-raw.png",
+          "dimensions": [1672, 941],
+          "mode": "RGB",
+          "bytes": 3031303,
+          "sha256": "737c2b932f9f96e34a6ff0f042a158fbf3b8ef1a310b0dee4a226509292cb0cc"
+        },
+        "transparent_background_requested": false,
+        "opacity": {
+          "has_alpha_channel": false,
+          "opaque": true
+        },
+        "visual_review": "Accepted on first generation for parent review. True indigo night with soft cool off-canvas moonlight; worn earth/plaster remains subdued and readable. The cottage, timber door, dark open interior, water jar, complete steps, foreground path edges, olive terraces, vegetation and distant hills visually remain aligned to the accepted day image. Far-right beacon is unlit. No visible moon, lamps, torches, people, readable text or added props. Foreground path remains legible, and the empty cottage feels quiet and still.",
+        "limitations": [
+          "A generative lighting edit may contain small painterly surface differences; not claimed to be a pixel-identical color-grade operation.",
+          "Final runtime crop/transition verification and source/manifest audit follow after encoded files are ready."
+        ],
+        "processing": "Raw generated PNG copied byte-for-byte. No encoding, resizing, cropping, color adjustment, alpha processing, repo edits or publication."
+      }
+    },
+    {
+      "id": "olive-branch",
+      "file": "olive-branch.webp",
+      "kind": "item",
+      "period": null,
+      "dimensions": [1254, 1254],
+      "opaque": true,
+      "quality": 88,
+      "bytes": 209582,
+      "sha256": "e5dcbf33dfc6902ba18532e89515c8d669fa58742452ebeac138a86a588653e6",
+      "original_png_sha256": "e9d958bfdfd548caeea8831e5bc65bd0548efba743a280e18bf5b99bc39c34ae",
+      "original_png_bytes": 2487651,
+      "processing": "Full native canvas encoded to WebP only. No crop, resize, retouching, compositing or colour edits.",
+      "generation": {
+        "created": "2026-10-31",
+        "asset_id": "olive-branch",
+        "runtime_target": "greek-drama/olive-branch.webp",
+        "generator": "OpenAI built-in image generation",
+        "generation_id": "exec-047749b3-b93c-48be-a39c-624b3c72a07b",
+        "user_prompt": "An item card in the existing Greek item style: an olive bough wound with white and red wool (the suppliant’s branch), a little worn, a few leaves falling, tied with a cord; painted gouache-and-ink, warm ochre and olive greens, plain dark background like the other Greek item cards.",
+        "prompt": "Use case: precise-object-edit / style-matched Greek game item illustration.\nAsset: COSYWORLD Suppliant's Olive Branch, replacing the stand-in Greek burial-petition item. Final illustration must be exactly 1254 x 1254 pixels, square to match the inspected Greek item-art source set.\nInput image 1 (burial-petition.png) is the primary botanical and Greek item-style reference. Edit its item concept into a SINGLE CLEAR OLIVE BOUGH on a plain dark background: remove the entire wax tablet, wooden frame, writing, ornament and any other object. Keep the natural narrow olive-leaf shapes, aged woody stem, muted olive/silvery leaf colors, and tactile painted material style, but compose an independent clean olive-bough card.\nInput image 2 (funeral-cloth.png) is a material/style reference for soft worn off-white fibers. Input image 3 (oil-flask.png) is a style, cord and warm ochre palette reference only. Do not include the cloth bundle, flask, tablet or any object other than the specified branch, wool and cord.\n\nSubject: one handheld olive bough, a little worn from travel, with a gently forked natural woody stem and a readable scattering of slender olive-green leaves with silvery undersides. The bough is wound with clearly visible WHITE and RED WOOL: a few substantial soft woolen strands or narrow wool bands spiral around the lower and middle stem, distinct creamy-white and muted deep terracotta-red wrapping, slightly fuzzy and frayed, with modest loose ends. A simple natural tan twisted cord ties the wool securely around the stem in a small practical knot. These are soft fibers and cord, not rigid metal bands, a bow of shiny ribbon, or a second branch. Three or four loose olive leaves fall naturally near the lower part of the composition. A few subtly chipped or curled leaf edges communicate use without making the bough dead.\n\nComposition: full object isolated and prominent, gracefully angled from lower left toward upper right, centered with generous breathing room, readable even as a small inventory card. Keep the entire bough, wool ends, cord and falling leaves within the image with roughly 75–100 pixels of clear space from all canvas edges. No cropping, no multiple arrangements, no wreath, no vase, no hand holding it. This is one humble token of supplication rather than a weapon or ceremonial staff.\nStyle: painted gouache-and-ink, detailed but clearly hand-painted, fine organic ink outlines, tactile dry-brush pigment and natural fiber/bark detail, warm ochre wood, muted olive greens, restrained cream-white and earthy red accents. Match the existing Greek item set's warm worn materials and single-object clarity. Gentle upper-left light gives readable form without a luminous halo.\nBackground: fully OPAQUE plain very dark warm charcoal/umber across the full canvas, understated almost-black paint texture only. No transparency; no checkerboard; no floor line, tabletop, scenery, dramatic spotlight or decorative background.\nNo readable text, letters, numerals, labels, symbols, seals, logos, card borders, frames, UI, people, animals, architecture or watermark. Preserve the requested white-and-red wool and cord as the defining details.\n",
+        "references": [
+          {
+            "role": "primary botanical and Greek item-style reference; tablet and text removed from new composition",
+            "repository_path": "v2/card-game/assets/greek-drama/burial-petition.png",
+            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+            "sha256": "8da862019d8d638f2a94a4e3fa6f9f929577b9d5a16c7c9a8054d762b090a6f4",
+            "dimensions": [1254, 1254],
+            "mode": "RGBA"
+          },
+          {
+            "role": "worn off-white fiber and material-style reference",
+            "repository_path": "v2/card-game/assets/greek-drama/funeral-cloth.png",
+            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+            "sha256": "495f882672ce8513a65f789b919741ef3f49f22a76c73551847cefb5d217e0a0",
+            "dimensions": [1254, 1254],
+            "mode": "RGBA"
+          },
+          {
+            "role": "warm ochre palette, material detail and cord reference",
+            "repository_path": "v2/card-game/assets/greek-drama/oil-flask.png",
+            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+            "sha256": "93a2cc9f0e8bfdc2b7da0077aa1f0f16f5e6768467f7a39489e9d3dc41dc6f3a",
+            "dimensions": [1254, 1254],
+            "mode": "RGBA"
+          }
+        ],
+        "raw_output": {
+          "source_filename": "olive-branch-raw.png",
+          "dimensions": [1254, 1254],
+          "mode": "RGB",
+          "bytes": 2487651,
+          "sha256": "e9d958bfdfd548caeea8831e5bc65bd0548efba743a280e18bf5b99bc39c34ae"
+        },
+        "format_decision": "1254x1254 square matches all inspected canonical Greek item PNGs, including burial-petition, funeral-cloth and oil-flask. Parent approved matching the observed square set rather than a portrait canvas.",
+        "transparent_background_requested": false,
+        "opacity": {
+          "has_alpha_channel": false,
+          "opaque": true
+        },
+        "processing": "Raw generated PNG copied byte-for-byte; no encoding, resizing, cropping, color adjustment, alpha processing, repo edits or publication.",
+        "visual_review": "Accepted on first generation. One clear diagonal olive bough with narrow olive/silver leaves and warm aged wood, visible cream-white and earthy-red wool wrapping, practical tan cord knot, two detached falling leaves, and a few natural olives. Full object remains inside the canvas. Plain opaque near-black warm background. Worn material detail and gouache/ink item treatment correspond to the inspected Greek item references. No tablet, writing, readable text, people, symbols, card frame or UI.",
+        "limitations": [
+          "Two detached falling leaves are visible rather than the full prompt’s suggestion of three or four; the user requested only a few.",
+          "Material detail is highly rendered, consistent with the inspected canonical Greek item set.",
+          "Runtime card rendering and WebP encoding are left to the integration agent."
+        ]
+      }
+    }
+  ]
+}
