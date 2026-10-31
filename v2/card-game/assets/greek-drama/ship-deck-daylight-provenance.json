@@ -1,0 +1,63 @@
+{
+  "created": "2026-10-31",
+  "generator": "OpenAI built-in image generation",
+  "brief": "Rainy and misty coastal daylight ship deck at the existing default filename. The accepted plan #1613 preserves the existing coastal night painting and archives the former default as ship-deck-twilight.webp.",
+  "assets": [
+    {
+      "file": "ship-deck.webp",
+      "period": "day",
+      "generation_id": "exec-d0eb5f55-3503-4627-91f1-48b530f2c175",
+      "prompt": "Use case: lighting-weather.\nAsset type: final environmental painting for COSYWORLD's Greek ship-deck backdrop.\nInput image 1 is the authoritative EDIT TARGET: the existing ship-deck-night.webp painting. Perform an identity-preserving time-of-day and weather edit, not a new interpretation.\n\nPrimary request: the EXACT SAME SHIP DECK and composition, now in rainy and misty DAYLIGHT. Preserve the entire original 1672 x 941 canvas, camera, viewpoint, perspective, framing, and precise geometry.\nChange only illumination, sky, weather, water-surface response and the wetness of existing surfaces. This must switch cleanly with the existing night backdrop.\n\nLighting/weather: clearly daytime beneath a pale grey overcast sky, soft diffuse cool daylight, no sun disc, no stars, no moon, no sunset or pink horizon. Fine visible rain slants gently across the open air; low white-grey sea mist softens the same distant hills and shore, without relocating them. Keep distant coast silhouettes and horizon positions. Calm-to-lightly-rippled sea with delicate rain stippling, muted sea-blue and grey-green daylight colors. Keep the ship level in the same place. Wood is visibly rain-wet, with restrained grey sky reflections and small raindrop marks; no storm waves washing over the deck. The deck must remain fully readable for a game scene.\n\nStrict composition invariants: keep the massive mast at left and its exact rope windings, bronze mast collar, foreground bronze fixture and beam; the same canvas sail cutting across the upper edge, its seams and edges; all rigging ropes and pulley blocks in exactly the same positions; left and right bulwarks with their existing carving, metal ornaments and rope ties; the tall curled prow at center-right; every deck plank, hatch, bolt, crossbeam and rope coil. Keep both lantern housings mounted in their original positions, now unlit daylight glass, with no orange flames or dramatic pools of lamplight. Preserve the warm natural walnut/ochre wood and aged bronze materials under the cooler daylight. Do not bleach the deck into monochrome.\n\nStyle: keep the reference's detailed painted environmental art, tactile brushwork, fine wood grain, period Greek ship details, natural atmosphere and subtle ink-like edge definition. Maintain its visual identity and polished rendering.\n\nOutput: exact 1672 x 941 opaque RGB-style painting; do not crop, enlarge, extend, zoom, reframe or change aspect ratio.\nAvoid: people, creatures, text, captions, symbols added anywhere, extra ships, new objects, port buildings, sails/rigging redesigned, missing coils, altered mast/prow positions, open ocean replacing the same coast, night sky, stars, moon, sunrise/sunset, warm night lantern glow, lightning, giant waves, fog so thick that the deck disappears, borders, watermark or transparency.\n",
+      "references": [
+        {
+          "role": "edit target: previous darker night painting",
+          "repository_path": "v2/card-game/assets/greek-drama/ship-deck-night.webp",
+          "commit": "48dd0b84e0c85d6278c23785c8dc3977b4fef09b",
+          "url": "https://github.com/cenetex/cosyworld/blob/48dd0b84e0c85d6278c23785c8dc3977b4fef09b/v2/card-game/assets/greek-drama/ship-deck-night.webp",
+          "sha256": "b942c80b09b6b52e7eb36b43706bfba2f23c6058d549f68725e9244527888d9c"
+        }
+      ],
+      "dimensions": [1672, 941],
+      "transparent_background": false,
+      "original_png_sha256": "eb7ae4f60e5db06a11bb06350f1fe5657fdffbdc8ff8c4bbba44c9a6adb0e296",
+      "original_png_bytes": 2612628,
+      "encoding": {
+        "format": "webp",
+        "quality": 88,
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "bytes": 294024,
+      "sha256": "3356fc6209ee05ae7c988c93682a831c1026c5b1cd7da4078b84f0acb0d28422",
+      "processing": "WebP encoding only. No crop, resize, retouching or compositing.",
+      "visual_review": "Passed: exact canvas; mast, sail, rigging, prow, rails, rope coils, lantern housings, deck and shore framing visually match the reference. Overcast rainy daylight, sea mist, wet planks and unlit lanterns are present. No people, text, stars, moon or sunset. Imagegen changes painted surface texture; output is not pixel-identical beyond the requested lighting/weather edit."
+    },
+    {
+      "file": "ship-deck-twilight.webp",
+      "period": "twilight",
+      "operation": "Byte-for-byte preservation of the former ship-deck.webp at its explicit twilight filename, following the accepted plan #1613.",
+      "references": [
+        {
+          "role": "preserved former default painting",
+          "repository_path": "v2/card-game/assets/greek-drama/ship-deck.webp",
+          "commit": "48dd0b84e0c85d6278c23785c8dc3977b4fef09b",
+          "url": "https://github.com/cenetex/cosyworld/blob/48dd0b84e0c85d6278c23785c8dc3977b4fef09b/v2/card-game/assets/greek-drama/ship-deck.webp",
+          "sha256": "e09145506d279ba279abb94f716d93366b4a3584852e2ddc6f52584798425dbd"
+        }
+      ],
+      "dimensions": [1672, 941],
+      "transparent_background": false,
+      "bytes": 466156,
+      "sha256": "e09145506d279ba279abb94f716d93366b4a3584852e2ddc6f52584798425dbd"
+    }
+  ],
+  "integration": "Existing greek-ship coastal day/night selection remains in use. Twilight is preserved as an authoring archive. New open-sea art and source layers are prepared separately for a phase-aware selector follow-up. No rules, weather data, voice, attic, boarding-pass or release-version changes.",
+  "retained_night_reference": {
+    "role": "Canonical coastal night painting retained unchanged and used as the daylight edit reference",
+    "repository_path": "v2/card-game/assets/greek-drama/ship-deck-night.webp",
+    "commit": "48dd0b84e0c85d6278c23785c8dc3977b4fef09b",
+    "url": "https://github.com/cenetex/cosyworld/blob/48dd0b84e0c85d6278c23785c8dc3977b4fef09b/v2/card-game/assets/greek-drama/ship-deck-night.webp",
+    "sha256": "b942c80b09b6b52e7eb36b43706bfba2f23c6058d549f68725e9244527888d9c"
+  }
+}
