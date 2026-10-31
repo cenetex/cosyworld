@@ -536,10 +536,48 @@ export function renderSharedQueue(
 }
 const sharedLineDuration = (line) =>
   Math.min(9000, Math.max(3500, line.text.length * 45 + 1500));
+// A reply speaker whose words did not come is listed under `silent` on the
+// scene record. The table shows "…" for them after the spoken lines; these
+// lines are read on the scene clock but never voiced or saved.
+export const SHARED_SILENT_TEXT = "…";
+function withSilence(scene) {
+  const last = scene.lines.at(-1);
+  if (!Array.isArray(scene.silent) || !Number.isFinite(last?.seq)) return scene;
+  const quiet = [...new Set(scene.silent)].filter(
+    (id) =>
+      typeof id === "string" &&
+      id.length <= 80 &&
+      !scene.lines.some((line) => (line.actorId || line.entityId) === id),
+  );
+  if (!quiet.length) return scene;
+  return {
+    ...scene,
+    lines: [
+      ...scene.lines,
+      ...quiet.slice(0, 2).map((id, index) => ({
+        seq: last.seq + (index + 1) / 10,
+        turn: last.turn,
+        text: SHARED_SILENT_TEXT,
+        kind: "dialogue",
+        actorId: id,
+        entityId: id,
+        generated: true,
+        silent: true,
+        locationId: last.locationId ?? scene.room,
+      })),
+    ],
+  };
+}
 const roomScenes = (state, room) =>
   (state.history || [])
     .filter((entry) => entry.room === room && entry.lines?.length)
+    .map(withSilence)
     .toSorted((a, b) => a.starts_at - b.starts_at);
+// The "…" lines of this room's saved scenes, for the stage and Conversation.
+export const sharedSilentLines = (state, room) =>
+  roomScenes(state, room).flatMap((scene) =>
+    scene.lines.filter((line) => line.silent),
+  );
 const sceneIdentity = (scene) => `${scene.starts_at}:${scene.play || ""}`;
 
 // Each viewer reads incoming scenes in order, including scenes received together.

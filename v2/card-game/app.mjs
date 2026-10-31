@@ -26,6 +26,7 @@ import {
   installSharedControls,
   renderSharedQueue,
   sharedLiveLine,
+  sharedSilentLines,
   sharedNextActor,
   sharedSpeechState,
   hasSharedPlace,
@@ -300,11 +301,22 @@ let shownSceneLine = null;
 // Speakers whose words did not come this turn show "…"; never saved or voiced.
 let silence = { turn: -1, lines: [] };
 function shownWorld() {
-  return !sharedSession &&
-    silence.turn === world.turn &&
-    silence.lines.length
-    ? { ...world, log: [...world.log, ...silence.lines] }
-    : world;
+  const lines = sharedSession
+    ? sharedSilentLines(
+        sharedSession.state,
+        world.actors[currentActor(world)].place,
+      )
+        .filter((line) => world.log.some((entry) => entry.seq < line.seq))
+        .map((line) => ({ ...line, speaker: nameOf(line.actorId) }))
+    : silence.turn === world.turn
+      ? silence.lines
+      : [];
+  if (!lines.length) return world;
+  // Each "…" follows its own scene's words in the log.
+  const log = [...world.log];
+  for (const line of lines)
+    log.splice(log.findLastIndex((entry) => entry.seq < line.seq) + 1, 0, line);
+  return { ...world, log };
 }
 async function prepareStage() {
   await travelShown;
@@ -2989,7 +3001,7 @@ function syncSharedLine() {
     sharedPlayback.now(sharedSession.state, sharedSession.now(), room, true);
     return;
   }
-  const entry = world.log.findLast(
+  const entry = shownWorld().log.findLast(
     (entry) =>
       entry.generated &&
       entry.locationId === room &&
