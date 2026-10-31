@@ -11,6 +11,15 @@
 - Removal migration: [#682](https://github.com/cenetex/cosyworld/issues/682)
 - Avatar bridge: [#688](https://github.com/cenetex/cosyworld/issues/688)
 - Decision owners: CosyWorld maintainers
+- Amended 2026-10-30 by [#1502](https://github.com/cenetex/cosyworld/issues/1502)
+
+> **Amendment (2026-10-30).** The protected server-side adapter is the chain
+> itself: the server reads a linked wallet's assets through Solana DAS
+> (`proxim8/helius.rs`). No other domain feeds ownership; the ruby-high.ai
+> wallet-cards feed is retired. An avatar is self-contained: when the world
+> authors no shared character for an asset, the NFT's own metadata supplies
+> its name and description. Metadata still grants no stats, actions, access,
+> items, rewards, or pack ids.
 
 ## Context
 

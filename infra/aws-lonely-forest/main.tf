@@ -603,7 +603,6 @@ resource "aws_iam_role" "ecs_task" {
 
 locals {
   secret_arns = compact([
-    var.ruby_high_wallet_cards_bearer_secret_arn,
     var.moderation_token_secret_arn,
     var.openrouter_api_key_secret_arn,
     var.replicate_api_token_secret_arn,
@@ -647,7 +646,6 @@ locals {
     { name = "COSYWORLD_WEBAUTHN_RP_ID", value = var.app_domain },
     { name = "COSYWORLD_WEBAUTHN_ORIGIN", value = "https://${var.app_domain}" },
     { name = "COSYWORLD_WEBAUTHN_EXTRA_ORIGINS", value = var.enable_www_records ? "https://www.${var.app_domain}" : "" },
-    { name = "COSYWORLD_RUBY_HIGH_WALLET_CARDS_URL", value = var.ruby_high_wallet_cards_url },
     { name = "COSYWORLD_RENDEZVOUS_PARTY_MAX_GUESTS", value = tostring(var.rendezvous_party_max_guests) },
     { name = "COSYWORLD_RENDEZVOUS_PARTY_MAX_ACTIVE_PER_GUEST", value = tostring(var.rendezvous_party_max_active_per_guest) },
     { name = "COSYWORLD_RENDEZVOUS_PARTY_TTL_SECS", value = tostring(var.rendezvous_party_ttl_seconds) },
@@ -720,7 +718,6 @@ locals {
   )
 
   app_secrets = concat(
-    var.ruby_high_wallet_cards_bearer_secret_arn != "" ? [{ name = "COSYWORLD_RUBY_HIGH_WALLET_CARDS_BEARER", valueFrom = var.ruby_high_wallet_cards_bearer_secret_arn }] : [],
     var.moderation_token_secret_arn != "" ? [{ name = "COSYWORLD_MODERATION_TOKEN", valueFrom = var.moderation_token_secret_arn }] : [],
     var.openrouter_api_key_secret_arn != "" ? [{ name = "OPENROUTER_API_KEY", valueFrom = var.openrouter_api_key_secret_arn }] : [],
     var.replicate_api_token_secret_arn != "" ? [
@@ -801,12 +798,9 @@ resource "aws_ecs_task_definition" "app" {
     precondition {
       condition = (
         var.deploy_profile != "production" ||
-        (
-          var.ruby_high_wallet_cards_bearer_secret_arn != "" &&
-          var.moderation_token_secret_arn != ""
-        )
+        var.moderation_token_secret_arn != ""
       )
-      error_message = "Production deploys require ruby_high_wallet_cards_bearer_secret_arn and moderation_token_secret_arn."
+      error_message = "Production deploys require moderation_token_secret_arn."
     }
   }
 }

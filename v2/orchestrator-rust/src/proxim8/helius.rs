@@ -23,10 +23,14 @@ pub(crate) struct OwnedAsset {
     /// DAS interface, e.g. `MplCoreAsset`, `V1_NFT`, `ProgrammableNFT`.
     pub(crate) interface: String,
     pub(crate) name: Option<String>,
+    /// The NFT's own `content.metadata.description`, raw; the avatar's
+    /// self-contained description when the world authors none.
+    pub(crate) description: Option<String>,
 }
 
 /// `COSYWORLD_HELIUS_RPC_URL`, or the Helius mainnet RPC for
-/// `HELIUS_API_KEY`. None leaves discovery to the ownership feed.
+/// `HELIUS_API_KEY`. None means the server cannot discover wallet-linked
+/// avatars on chain; only a local development fixture can supply them.
 pub(crate) fn helius_rpc_url() -> Option<String> {
     if let Ok(url) = std::env::var("COSYWORLD_HELIUS_RPC_URL") {
         let url = url.trim();
@@ -115,6 +119,10 @@ pub(crate) fn parse_assets_page(
                 .pointer("/content/metadata/name")
                 .and_then(serde_json::Value::as_str)
                 .map(str::to_string),
+            description: item
+                .pointer("/content/metadata/description")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string),
         });
     }
     Ok((assets, items.len()))
@@ -172,7 +180,7 @@ mod tests {
                 "total": 6, "limit": 1000, "page": 1,
                 "items": [
                     {"id": "8GwrpeSH4TpAGEJsmoF35J8DY6RNCdyjCBZsEnTySEKd", "interface": "MplCoreAsset",
-                     "content": {"metadata": {"name": "Proxim8 #412"}},
+                     "content": {"metadata": {"name": "Proxim8 #412", "description": "A courier who remembers tomorrow."}},
                      "grouping": [{"group_key": "collection", "group_value": "5QBfYxnihn5De4UEV3U1To4sWuWoWwHYJsxpd3hPamaf"}],
                      "ownership": {"owner": WALLET}, "burnt": false},
                     {"id": "AvatarTm1111111111111111111111111111111111", "interface": "V1_NFT",
@@ -217,6 +225,11 @@ mod tests {
             Some("5QBfYxnihn5De4UEV3U1To4sWuWoWwHYJsxpd3hPamaf")
         );
         assert_eq!(assets[0].name.as_deref(), Some("Proxim8 #412"));
+        assert_eq!(
+            assets[0].description.as_deref(),
+            Some("A courier who remembers tomorrow.")
+        );
+        assert_eq!(assets[1].description, None);
         assert_eq!(assets[1].interface, "V1_NFT");
         assert_eq!(
             assets[3].collection, None,

@@ -101,15 +101,14 @@ token is unnecessary.
 The Lonely Forest app requires these independently provisioned secrets:
 
 ```text
-COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER
 COSYWORLD_MODERATION_TOKEN
 OPENROUTER_API_KEY
 COSYWORLD_REPLICATE_API_TOKEN
 REPLICATE_API_TOKEN
 ```
 
-The avatar-ownership bearer is needed only when the adapter URL is configured;
-ordinary play does not depend on it. Optional model aliases may be copied when
+Linked-avatar discovery needs a Solana DAS endpoint (`COSYWORLD_HELIUS_RPC_URL`
+or `HELIUS_API_KEY`); ordinary play does not depend on it. Optional model aliases may be copied when
 those features are enabled. Secret values must never enter the repository or
 command output.
 

@@ -148,7 +148,6 @@ impl DeploymentConfig {
 
     pub(crate) fn validate_runtime_options(
         &self,
-        ownership_feed: &OwnershipFeedConfig,
         trust_client_card_ids: bool,
         dev_reset_enabled: bool,
         allow_unsigned_wallet_claims: bool,
@@ -160,11 +159,6 @@ impl DeploymentConfig {
             return Ok(());
         }
 
-        if ownership_feed.remote_url.is_some() && ownership_feed.remote_bearer.is_none() {
-            return Err(deployment_config_error(
-                "production profile requires COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER when the linked-avatar adapter URL is configured",
-            ));
-        }
         if trust_client_card_ids {
             return Err(deployment_config_error(
                 "production profile cannot enable COSYWORLD_DEV_TRUST_CLIENT_CARD_IDS",
