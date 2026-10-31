@@ -797,7 +797,9 @@ const laneFactText = (id) => {
 
 // Only recorded speech publishes a selected account and its authored effects.
 export function publishKnowledgeSpeech(s, entry, disclosures) {
-  const learned = acceptKnowledgeSpeech(s, entry, disclosures);
+  // An unnamed id has no name to stand for I or you.
+  const named = (id) => (nameOf(id) === "the world" ? null : nameOf(id));
+  const learned = acceptKnowledgeSpeech(s, entry, disclosures, named);
   // A lane heard in published speech goes on the listener's own chart.
   for (const { fact, listener } of learned)
     if (fact.source.kind === "lane")
