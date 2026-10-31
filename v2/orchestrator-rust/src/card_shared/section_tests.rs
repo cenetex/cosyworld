@@ -224,13 +224,9 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
         world.game["packs"]["greek-drama"]["flags"]["greek-open-door-open"],
         true
     );
-    for target in [
-        "greek-ship",
-        "greek-athens-harbor",
-        "greek-athens",
-        "greek-road-athens-piraeus",
-        "greek-piraeus",
-    ] {
+    // Black Pond sails only to the Wine-Dark Harbor. Dione's invitation
+    // opens Piraeus, whose lanes every traveller then knows.
+    for target in ["greek-ship", "greek-piraeus"] {
         if target == "greek-ship" {
             for _ in 0..32 {
                 if world.project(1).unwrap()["exits"]
@@ -243,8 +239,8 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
                 play(&c, &id, &mut world, 1, "kind", "wait");
             }
         }
-        // Aboard, Athens Harbor is a voyage of course cards and rounds at sea.
-        if target == "greek-athens-harbor" {
+        // Aboard, Piraeus is a voyage of course cards and rounds at sea.
+        if target == "greek-piraeus" {
             for _ in 0..8 {
                 if world.game["actors"]["mara"]["place"] == target {
                     break;

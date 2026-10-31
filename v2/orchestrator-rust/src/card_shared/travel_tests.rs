@@ -12,19 +12,21 @@ fn greek_ports_and_roads_upgrade_from_each_released_version() {
         engine::SIXTEENTH_VERSION,
         engine::SEVENTEENTH_VERSION,
     ] {
-        upgraded_ports(version);
+        upgraded_ports(version, false);
     }
 }
 
 #[test]
 fn greek_ports_roads_and_waiting_replay_after_the_version_eighteen_upgrade() {
-    let (path, c, id, mut w) = upgraded_ports(engine::EIGHTEENTH_VERSION);
+    let (path, c, id, mut w) = upgraded_ports(engine::EIGHTEENTH_VERSION, true);
+    // Black Pond sails only to the Wine-Dark Harbor, so Vale sails on by
+    // Piraeus. Myrto has told her the lanes on to Piraeus and Athens Harbor.
     for target in [
         "greek-ship",
-        "greek-athens-harbor",
-        "greek-athens",
-        "greek-road-athens-piraeus",
         "greek-piraeus",
+        "greek-road-athens-piraeus",
+        "greek-athens",
+        "greek-athens-harbor",
         "greek-ship",
         "greek-harbor",
         "greek-road-thebes",
@@ -120,7 +122,10 @@ fn local_road_visitors_and_belongings_continue_inside_the_town_after_replay() {
     }
 }
 
-fn upgraded_ports(version: &str) -> (std::path::PathBuf, rusqlite::Connection, String, World) {
+fn upgraded_ports(
+    version: &str,
+    harbor_lanes: bool,
+) -> (std::path::PathBuf, rusqlite::Connection, String, World) {
     let path = std::env::temp_dir().join(format!("greek-travel-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();
     full_store::schema(&c).unwrap();
@@ -139,6 +144,23 @@ fn upgraded_ports(version: &str) -> (std::path::PathBuf, rusqlite::Connection, S
         old.game["actors"][actor]["place"] = json!("greek-harbor");
     }
     old.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+    if harbor_lanes {
+        let known = &mut old.game["routeKnowledge"]["vale"];
+        if !known.is_array() {
+            *known = json!([]);
+        }
+        for (from, to) in [
+            ("greek-harbor", "greek-piraeus"),
+            ("greek-piraeus", "greek-harbor"),
+            ("greek-piraeus", "greek-athens-harbor"),
+            ("greek-athens-harbor", "greek-piraeus"),
+        ] {
+            known
+                .as_array_mut()
+                .unwrap()
+                .push(json!([format!("sea:{from}"), format!("sea:{to}")]));
+        }
+    }
     full_store::seed(&c, &id, &old, "released-ports-fixture", now()).unwrap();
     let w = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(w.version, engine::VERSION);
