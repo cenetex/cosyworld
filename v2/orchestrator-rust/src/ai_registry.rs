@@ -160,6 +160,18 @@ pub(crate) struct SupportedParameters {
     /// outright while reasoning-only endpoints reject an attempt to disable it.
     #[serde(default)]
     pub(crate) reasoning: bool,
+    /// Whether the endpoint accepts a sampling `temperature`. Absent means the
+    /// older declared shape, which always sent one; `false` makes the gateway
+    /// omit it for reasoning-first endpoints that reject the parameter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) temperature: Option<bool>,
+}
+
+impl SupportedParameters {
+    /// The gateway sends a temperature unless the registry says it must not.
+    pub(crate) fn accepts_temperature(&self) -> bool {
+        self.temperature != Some(false)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -624,6 +636,7 @@ impl CapabilityRegistrySnapshot {
                     seed: false,
                     stop: true,
                     reasoning: false,
+                    temperature: None,
                 },
                 data_policy: DataPolicyEligibility::default(),
                 prompt_adapter: PromptAdapterRef::default(),
@@ -1169,6 +1182,7 @@ impl PinnedModelSelection {
                 seed: parameter(&["seed"]),
                 stop: parameter(&["stop"]),
                 reasoning: parameter(&["reasoning", "reasoning_effort"]),
+                temperature: Some(parameter(&["temperature"])),
             },
             data_policy,
             prompt_adapter: PromptAdapterRef {
@@ -2004,6 +2018,7 @@ mod tests {
                 seed: true,
                 stop: true,
                 reasoning: false,
+                temperature: None,
             },
             data_policy: DataPolicyEligibility {
                 retention: DataRetention::None,

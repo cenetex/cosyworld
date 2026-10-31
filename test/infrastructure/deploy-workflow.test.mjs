@@ -952,11 +952,11 @@ describe("deploy workflow", () => {
     }
   });
 
-  it("uses the low-latency model for unbound and player-avatar voice", () => {
+  it("uses the card voice model for unbound and player-avatar voice", () => {
     const voiceDefault =
-      'COSYWORLD_AI_CAPABILITY_MODELS_JSON = \'{"voice":"openai/gpt-5.4-nano"';
+      'COSYWORLD_AI_CAPABILITY_MODELS_JSON = \'{"voice":"openai/gpt-6-luna"';
     const voiceDeclaration =
-      '"requested_model_id":"openai/gpt-5.4-nano","provider":"openrouter"';
+      '"requested_model_id":"openai/gpt-6-luna","provider":"openrouter"';
 
     for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
       expect(config).toContain(voiceDefault);
@@ -964,7 +964,7 @@ describe("deploy workflow", () => {
       expect(config).not.toContain('"voice":"mistralai/mistral-nemo"');
     }
     expect(lonelyForestFlyConfig).toContain(
-      'OPENROUTER_CHAT_MODEL = "openai/gpt-5.4-nano"',
+      'OPENROUTER_CHAT_MODEL = "openai/gpt-6-luna"',
     );
   });
 
