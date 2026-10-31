@@ -15,7 +15,8 @@
         "hoppycat-open-record-cathedral",
         "hoppycat-prism-foundry",
         "hoppycat-meraki-atelier",
-        "hoppycat-goldfish-tank"
+        "hoppycat-goldfish-tank",
+        "hoppycat-signal-jetty"
       ],
       "backdrop": "assets/hoppycat-archive/hoppycat-halfway-tea-garden.webp"
     },
@@ -44,28 +45,40 @@
       "name": "Prism Foundry",
       "text": "Cool furnaces cast coloured light through unfinished glass. Lumen offers each guest a final facet to choose. Phase Two has drawn several plans around the prism.",
       "persona": "Cool furnaces cast coloured light through unfinished glass. Lumen offers each guest a final facet to choose. Phase Two has drawn several plans around the prism. Describe this as a playful living place. Use the current story facts for progress.",
-      "exits": ["hoppycat-context-greenhouse", "hoppycat-halfway-tea-garden"],
+      "exits": [
+        "hoppycat-context-greenhouse",
+        "hoppycat-halfway-tea-garden"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-prism-foundry.webp"
     },
     "hoppycat-context-greenhouse": {
       "name": "Context Greenhouse",
       "text": "Small labelled beds fill the greenhouse. Patch tends one useful memory at a time. The short Ledger keeps room on each label for a later correction.",
       "persona": "Small labelled beds fill the greenhouse. Patch tends one useful memory at a time. The short Ledger keeps room on each label for a later correction. Describe this as a playful living place. Use the current story facts for progress.",
-      "exits": ["hoppycat-open-record-cathedral", "hoppycat-prism-foundry"],
+      "exits": [
+        "hoppycat-open-record-cathedral",
+        "hoppycat-prism-foundry"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-context-greenhouse.webp"
     },
     "hoppycat-concordance-tidelands": {
       "name": "Concordance Tidelands",
       "text": "Pools reflect the same disco ball from different angles. Rill maps a route between them. Arc keeps each reflection linked to the object that cast it.",
       "persona": "Pools reflect the same disco ball from different angles. Rill maps a route between them. Arc keeps each reflection linked to the object that cast it. Describe this as a playful living place. Use the current story facts for progress.",
-      "exits": ["hoppycat-settled-light-theatre", "hoppycat-red-thread-belfry"],
+      "exits": [
+        "hoppycat-settled-light-theatre",
+        "hoppycat-red-thread-belfry"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp"
     },
     "hoppycat-settled-light-theatre": {
       "name": "Theatre of Settled Light",
       "text": "A disco ball hangs over the Theatre of Settled Light. The playbill has room for each contributor. Sol checks the credits for tonight's show. A bell clapper waits by the stage.",
       "persona": "A disco ball hangs over the Theatre of Settled Light. The playbill has room for each contributor. Sol checks the credits for tonight's show. A bell clapper waits by the stage. Describe this as a playful living place. Use the current story facts for progress.",
-      "exits": ["hoppycat-meraki-atelier", "hoppycat-concordance-tidelands"],
+      "exits": [
+        "hoppycat-meraki-atelier",
+        "hoppycat-concordance-tidelands"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-settled-light-theatre.webp"
     },
     "hoppycat-meraki-atelier": {
@@ -83,14 +96,21 @@
       "name": "Goldfish Tank",
       "text": "Glim circles a brass ring marked dream, achieve, repeat. Dream slips swim through the tank. A second attempt gets its own place in the notebook.",
       "persona": "Glim circles a brass ring marked dream, achieve, repeat. Dream slips swim through the tank. A second attempt gets its own place in the notebook. Describe this as a playful living place. Use the current story facts for progress.",
-      "exits": ["hoppycat-halfway-tea-garden", "hoppycat-signal-jetty"],
+      "exits": [
+        "hoppycat-halfway-tea-garden",
+        "hoppycat-signal-jetty"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-goldfish-tank.webp"
     },
     "hoppycat-signal-jetty": {
       "name": "Signal Jetty",
       "text": "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home.",
       "persona": "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home. Describe this as a playful living place. Use the current story facts for progress.",
-      "exits": ["hoppycat-goldfish-tank", "hoppycat-meraki-atelier"],
+      "exits": [
+        "hoppycat-goldfish-tank",
+        "hoppycat-meraki-atelier",
+        "hoppycat-halfway-tea-garden"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-signal-jetty.webp"
     }
   },
@@ -407,6 +427,349 @@
       "holder": "hoppycat-signal-jetty",
       "art": "assets/hoppycat-archive/hoppycat-return-path-checklist-cutout.png"
     }
+  },
+  "routes": [
+    {
+      "from": "hoppycat-signal-jetty",
+      "to": "hoppycat-open-record-cathedral",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-open-record-cathedral"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-open-record-cathedral",
+      "to": "hoppycat-signal-jetty",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-open-record-cathedral"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-halfway-tea-garden",
+      "to": "hoppycat-red-thread-belfry",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-red-thread-belfry"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-red-thread-belfry",
+      "to": "hoppycat-halfway-tea-garden",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-red-thread-belfry"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-signal-jetty",
+      "to": "hoppycat-red-thread-belfry",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-red-thread-belfry"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-red-thread-belfry",
+      "to": "hoppycat-signal-jetty",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-red-thread-belfry"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-signal-jetty",
+      "to": "hoppycat-prism-foundry",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-prism-foundry"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-prism-foundry",
+      "to": "hoppycat-signal-jetty",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-prism-foundry"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-halfway-tea-garden",
+      "to": "hoppycat-context-greenhouse",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-context-greenhouse"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-context-greenhouse",
+      "to": "hoppycat-halfway-tea-garden",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-context-greenhouse"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-signal-jetty",
+      "to": "hoppycat-context-greenhouse",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-context-greenhouse"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-context-greenhouse",
+      "to": "hoppycat-signal-jetty",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-context-greenhouse"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-halfway-tea-garden",
+      "to": "hoppycat-concordance-tidelands",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-concordance-tidelands"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-concordance-tidelands",
+      "to": "hoppycat-halfway-tea-garden",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-concordance-tidelands"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-signal-jetty",
+      "to": "hoppycat-concordance-tidelands",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-concordance-tidelands"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-concordance-tidelands",
+      "to": "hoppycat-signal-jetty",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-concordance-tidelands"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-halfway-tea-garden",
+      "to": "hoppycat-settled-light-theatre",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-settled-light-theatre"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-settled-light-theatre",
+      "to": "hoppycat-halfway-tea-garden",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-settled-light-theatre"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-signal-jetty",
+      "to": "hoppycat-settled-light-theatre",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-settled-light-theatre"
+        }
+      ]
+    },
+    {
+      "from": "hoppycat-settled-light-theatre",
+      "to": "hoppycat-signal-jetty",
+      "requires": [
+        {
+          "kind": "drawn",
+          "id": "hoppycat-settled-light-theatre"
+        }
+      ]
+    }
+  ],
+  "specials": {
+    "draw": {
+      "places": 2,
+      "avatars": 1,
+      "items": 1
+    },
+    "pool": [
+      {
+        "id": "hoppycat-open-record-cathedral",
+        "rarity": "common"
+      },
+      {
+        "id": "hoppycat-red-thread-belfry",
+        "rarity": "common"
+      },
+      {
+        "id": "hoppycat-prism-foundry",
+        "rarity": "common"
+      },
+      {
+        "id": "hoppycat-context-greenhouse",
+        "rarity": "common"
+      },
+      {
+        "id": "hoppycat-concordance-tidelands",
+        "rarity": "common"
+      },
+      {
+        "id": "hoppycat-settled-light-theatre",
+        "rarity": "common"
+      },
+      {
+        "id": "hoppycat-meraki-atelier",
+        "rarity": "common"
+      },
+      {
+        "id": "hoppycat-goldfish-tank",
+        "rarity": "common"
+      },
+      {
+        "id": "hoppycat-penny-vellum",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-rill-current",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-patch-fern",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-lumen-facet",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-mira-meraki",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-glim-twice",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-nix-fermata",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-fable",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-phase-two",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-arc",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-solwashere",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-ledger-opus",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-ledger-sonnet",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-provenance-card",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-unfinished-prism",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-context-seed",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-concordance-compass",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-meraki-brush",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-loop-token",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-fermata-clapper",
+        "rarity": "common",
+        "anchor": "hoppycat-halfway-tea-garden"
+      }
+    ]
   },
   "choices": [
     {

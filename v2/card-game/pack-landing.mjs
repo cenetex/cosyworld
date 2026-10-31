@@ -15,6 +15,15 @@ export const newRunSeed = () =>
 export function createLandingWorld(pack = null, seed = newRunSeed()) {
   const world = createWorld({ opening: !pack, seed });
   if (!pack) return world;
+  // A world's own landing opens its whole pool, with everyone at home.
+  if (pack.specials) {
+    const pool = pack.specials.pool.map((e) => e.id);
+    world.packs[pack.id].specials = pool.filter((id) => pack.places[id]);
+    for (const id of pool) {
+      if (pack.avatars[id]) world.actors[id].place = pack.avatars[id].place;
+      if (pack.items?.[id]) world.items[id].holder = pack.items[id].holder;
+    }
+  }
   world.actors.vale.place = pack.entry;
   // A retired crossing stays closed in a new game.
   for (const crossing of pack.crossings)
