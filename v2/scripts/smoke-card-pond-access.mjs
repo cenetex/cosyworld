@@ -18,9 +18,7 @@ const act = (s, kind, target) => {
   assert.ok(result.ok);
   return result.state;
 };
-let fixture = enableMotives(createWorld({ opening: true }), {
-  questPrograms: true,
-});
+let fixture = enableMotives(createWorld({ opening: true }));
 fixture = act(fixture, "light");
 fixture = act(fixture, "move", "pond");
 fixture.items.lamp.holder = "moth";

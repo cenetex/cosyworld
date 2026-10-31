@@ -134,7 +134,10 @@ describe("agreed resident journeys", () => {
         "Kept for the journey.",
       );
       expect(itemPlace(world, "greek-water-jar")).toBe(destination);
-      expect(plan(world, resident).action.kind).toBe("wait");
+      // The resident may talk, but never walks off the agreed road.
+      expect(["move", "course", "accompany"]).not.toContain(
+        plan(world, resident).action.kind,
+      );
       expect(legalActions(world, resident).some((a) => a.kind === "move")).toBe(
         false,
       );

@@ -48,3 +48,50 @@ export const witnessedRouteEdges = (world, actor) =>
         ),
     )
     .map((e) => [e.fromLocationId, e.locationId]);
+
+// Each traveller learns routes from its home region, its own travel and what
+// it sees. A saved edge is knowledge; the live exit guard decides access.
+const edgeKey = ([from, to]) => `${from}>${to}`;
+export function rememberRoutes(world, actor, edges) {
+  const knowledge = (world.routeKnowledge ??= {});
+  const known = new Map(
+    (knowledge[actor] || []).map((edge) => [edgeKey(edge), edge]),
+  );
+  for (const edge of edges) known.set(edgeKey(edge), [...edge]);
+  knowledge[actor] = [...known.values()].sort((a, b) =>
+    edgeKey(a).localeCompare(edgeKey(b)),
+  );
+}
+export function knownRoute(world, actor, from, to, allowed = () => true) {
+  const queue = [[from]],
+    seen = new Set([from]);
+  const edges = world.routeKnowledge?.[actor] || [];
+  while (queue.length) {
+    const path = queue.shift(),
+      here = path.at(-1);
+    if (here === to) return path;
+    for (const [start, end] of edges) {
+      if (start !== here || seen.has(end) || !allowed(start, end, path.at(-2)))
+        continue;
+      seen.add(end);
+      queue.push([...path, end]);
+    }
+  }
+  return null;
+}
+export function validRouteKnowledge(world, edges) {
+  if (!world.routeKnowledge || typeof world.routeKnowledge !== "object")
+    return false;
+  const allowed = new Set(edges.map(edgeKey));
+  return Object.entries(world.routeKnowledge).every(
+    ([actor, known]) =>
+      world.actors[actor] &&
+      Array.isArray(known) &&
+      known.length <= allowed.size &&
+      new Set(known.map(edgeKey)).size === known.length &&
+      known.every(
+        (edge) =>
+          Array.isArray(edge) && edge.length === 2 && allowed.has(edgeKey(edge)),
+      ),
+  );
+}

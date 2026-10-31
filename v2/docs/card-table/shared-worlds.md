@@ -9,16 +9,10 @@ Mirror attic, Pip, the keeper, Badger, mounted story packs, and their rules belo
 to this same world. Each account claims one of eight human avatars. Each room
 holds four present humans. Residents can share a room with those humans.
 
-BoardyAI appears while two or more humans are connected. He favours
-**Get these two together** quests, which name a chosen pair. This quest type is
-also available to the rest of the cast. He visits the pair in turn on his turns
-and uses his last sightings to find them. When a remembered place is empty,
-he searches other open rooms. Each human chooses their own journey.
-
-A meeting completes the quest. Boardy takes the usual break before choosing
-another purpose. He also chooses ordinary quests. Later introductions favour
-a new pair. His position, sightings, search, quest history, and break survive
-reloads and journal replay. Presence uses the usual reconnect grace.
+BoardyAI appears while two or more humans are connected. Like every avatar,
+he pursues one quest at a time and draws the next from the people and places
+he can reach. His position, sightings and quest survive reloads and journal
+replay. Presence uses the usual reconnect grace.
 
 The online list shows names, levels, and connection status. Players discover
 each other's locations through encounters in the world.
@@ -190,40 +184,21 @@ Each player's course cards are the lanes that player knows from the dock. A
 lane told in Talk joins the listener's chart only from published speech that
 contains the fact, so replay and every client agree.
 
-## Collected quests
+## Quests in shared worlds
 
-Each personal quest has a stable card key, its own steps, and the experience
-that led to it. Each avatar carries at most two quest cards across personal,
-shared, and story goals. The saved hand controls which cards appear. Existing
-saves keep the focused purpose first, then meaningful progress and participation,
-with stable ordering for remaining choices. Other records remain in the saved
-collection and history.
+Each avatar has one quest, as described in the
+[card guide](../../card-game/README.md#one-quest-per-avatar). Meeting it is a
+`want_met` event in the shared history, so every client and the journal agree
+on who met what. A quest met away from home is followed by the way home; the
+station and attic are sanctuaries. Human rest counts that person's own turns;
+resident rest counts world rounds.
 
-The rules offer `drop-quest`. The browser shows no quest cards or Drop control;
-quests reach players through Talk context. Dropping a card removes it from that avatar's hand
-and focus while retaining its record, progress, participants, receipts, and earned
-rewards. The saved drop keeps that identity out of the avatar's hand. Automatic
-personal offers wait eight turns after a drop. New offers and joins respect the
-two-card limit.
-
-Generated experience offers keep one unfinished offer per situation family and
-an eight-turn gap. Each collection pass chooses at most one offer and consumes
-skipped experiences, so reloading preserves the gap. Distinct goals keep their
-exact requirements and identify their companions when needed.
-
-Each round captures matching cards before applying consequences. Each card
-advances by at most one step in that round. Matching completions share one world
-effect while each card keeps its own receipt: key, step, turn, and witnessed hand.
-A fulfilled card fades from the hand after two world turns. Its completion
-record stays available to saved history and the bard.
-
-Completing the active quest begins a rest at a place marked `sanctuary: true`.
-The station and attic are sanctuaries. Human rest counts that person's own turns
-in a shared world. Resident rest counts world rounds.
-
-The shared interpreter builder writes `engine-v20.js`. Earlier interpreters stay
-frozen. Upgrade tests cover checkpoints, journal-only rebuilds, saved drops,
-quest hand limits, and completion receipts.
+The rules version that brings this model replaces collected, shared and story
+quest records. Loading an earlier world replays its journal with the recorded
+interpreters, then the normal upgrade drops quest records, hands, progress and
+completion receipts, and installs each avatar's starter quest. Places, items,
+pack choices and their receipts, ships, conversation and route knowledge carry
+over.
 
 ## Shared words
 

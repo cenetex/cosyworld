@@ -3,13 +3,8 @@ import { mkdir } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import {
-  currentActor,
-  encodeSave,
-  legalActions,
-} from "../card-game/world.mjs";
+import { currentActor, encodeSave, legalActions } from "../card-game/world.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
-import { questCards, questHistoryCards } from "../card-game/quest-cards.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import {
@@ -121,10 +116,6 @@ export async function checkOpenDoor(browser, origin) {
         const world = await state(),
           place = world.actors.vale.place;
         assert.ok(
-          questCards(world).length <= 2,
-          "The traveler carries at most two quest cards",
-        );
-        assert.ok(
           await page.evaluate(
             () => document.documentElement.scrollWidth <= innerWidth + 1,
           ),
@@ -149,7 +140,11 @@ export async function checkOpenDoor(browser, origin) {
         for (let n = 0; n < 12 && kind === "move"; n++) {
           const world = await state();
           if (!needsVoyage(world, currentActor(world), fields.target)) break;
-          const next = nextVoyagePlay(world, currentActor(world), fields.target);
+          const next = nextVoyagePlay(
+            world,
+            currentActor(world),
+            fields.target,
+          );
           await step(next.target ? next : { kind: next.kind });
         }
         if (kind === "move" && fields.target === "greek-ship") {
@@ -207,12 +202,6 @@ export async function checkOpenDoor(browser, origin) {
       for (const action of openDoorSteps(options)) {
         await step(action);
         if (action.choiceId === "greek-open-door-hear-mothers") {
-          const world = await state();
-          const quest = questCards(world, "greek-aethra").find(
-            (card) =>
-              card.key === "greek-drama:story-quest-greek-open-door-eleusis",
-          );
-          assert.ok(quest, "Aethra holds the mothers' story card");
           // Aethra's story has no hand card; she says it in Talk.
           assert.equal(await page.locator("#hand [data-quest]").count(), 0);
           await page.screenshot({
@@ -246,15 +235,22 @@ export async function checkOpenDoor(browser, origin) {
         world.packs["greek-drama"].flags["greek-open-door-returned"],
         true,
       );
-      assert.equal(
-        questHistoryCards(world).filter(
-          (card) =>
-            card.id?.startsWith("story-quest-greek-open-door-") &&
-            card.resolved,
-        ).length,
-        6,
-      );
+      assert.equal(world.quests, undefined, "No quest records remain");
       assert.deepEqual([...photographed].sort(), [...OPEN_DOOR_PLACES].sort());
+      // The Bard's quest is to hear how the journey ended. The world rules
+      // carry it to Vale along its known roads.
+      world.actors["greek-rhapsode"].want = {
+        kind: "person",
+        target: "vale",
+        since: world.turn,
+        refusals: 0,
+      };
+      await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
+        key,
+        save: encodeSave(world),
+      });
+      await page.reload();
+      await settle();
       for (
         let turn = 0;
         turn < 16 && world.actors["greek-rhapsode"].place !== "greek-courtyard";
@@ -286,18 +282,23 @@ export async function checkOpenDoor(browser, origin) {
         path: new URL(`return-bard-${width}.png`, output).pathname,
         fullPage: true,
       });
-      const completed = (await state()).questCompletions;
+      const met = (s) =>
+        s.log.filter(
+          (e) => e.verb === "want_met" && e.actorId === "greek-rhapsode",
+        );
+      const completed = met(await state());
+      assert.ok(completed.length >= 1, "Hearing Vale meets the Bard's quest");
       await page.reload();
       await settle();
       assert.deepEqual(
-        (await state()).questCompletions,
+        met(await state()),
         completed,
-        "Final rewards survive reload once",
+        "The met quest survives reload once",
       );
       assert.deepEqual(errors, []);
       assert.deepEqual(failedAssets, []);
       console.log(
-        `Open Door: ${width}px, five places, ${options.recovery}, all stories, custody, reloads, two-card hand, and the Bard passed.`,
+        `Open Door: ${width}px, five places, ${options.recovery}, all stories, custody, reloads, and the Bard's quest passed.`,
       );
     } finally {
       await page.close();

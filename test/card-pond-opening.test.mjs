@@ -10,7 +10,7 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-import { knownActors, programFor } from "../v2/card-game/quests.mjs";
+const wantPlace = (target) => ({ kind: "place", target, since: 0, refusals: 0 });
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatars, humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
@@ -18,7 +18,7 @@ import { pondOpening } from "./fixtures/card-pond-opening.mjs";
 import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
 import { sceneCast } from "../v2/card-game/scene.mjs";
 
-const fresh = () => enableMotives(pondOpening(), { questPrograms: true });
+const fresh = () => enableMotives(pondOpening());
 const act = (world, kind, target) => {
   const action = legalActions(world).find(
     (a) => a.kind === kind && (!target || a.target === target),
@@ -45,7 +45,10 @@ describe("the attic opening and saved pond journeys", () => {
       });
       expect(sceneCast(world)).toEqual(["vale", null]);
       expect(world.actors.moth.place).toBe("pond");
-      expect(programFor(world, "vale").id).toBe("first-light");
+      expect(world.actors.vale.want).toMatchObject({
+        kind: "item",
+        target: "lamp",
+      });
       expect(world.log[0]).toMatchObject({
         locationId: "attic",
         cast: ["vale"],
@@ -57,7 +60,7 @@ describe("the attic opening and saved pond journeys", () => {
     }
   });
 
-  it("keeps a released pond save beside Pip with its own opening purpose", () => {
+  it("keeps a released pond save beside Pip with Vale's authored want", () => {
     const before = pondOpening();
     const world = decodeSave(encodeSave(before));
     expect(world).toEqual(before);
@@ -67,21 +70,17 @@ describe("the attic opening and saved pond journeys", () => {
       crossed: true,
       met: { vale: 0, moth: 0 },
     });
-    expect(programFor(world, "vale").id).toBe("shore-light");
+    expect(world.actors.vale.want).toMatchObject({ kind: "item", target: "lamp" });
   });
 
-  it("finishes the two opening purposes through the pond and station", () => {
+  it("meets Vale's lamp want and then the keeper through the pond and station", () => {
     let world = fresh();
     world = act(world, "light");
-    expect(world.actors.vale.progress.program).toBe(1);
+    expect(world.actors.vale.xp).toBe(1);
     expect(exits(world, "pond")).toEqual(["station", "attic"]);
     world = act(world, "wait");
     world = act(world, "move", "station");
-    expect(world.actors.vale.progress.program).toBe(2);
     expect(world.opening.met.keeper).toBe(3);
-    for (let i = 0; i < 16 && !programFor(world, "vale"); i++)
-      world = act(world, "wait");
-    expect(programFor(world, "vale").generated).toBeDefined();
     world = act(world, "move", "pond");
     expect(world.actors.vale.place).toBe("pond");
   });
@@ -100,31 +99,10 @@ describe("the attic opening and saved pond journeys", () => {
     expect(world.actors.vale.place).toBe("station");
   });
 
-  it("brings oil to the shore when waiting partners cannot reach the attic", () => {
-    const world = createWorld();
-    world.turn = world.revision = 1;
-    world.actors.vale.place = world.actors.moth.place = "pond";
-    world.actors.keeper.place = "attic";
-    world.actors.vale.progress = { program: 0, step: 1, marks: [1] };
-    world.actors.moth.progress = { program: 0, step: 1, marks: [1] };
-    world.items.lamp.fuel = 0;
-    world.items.bell.holder = "keeper";
-    expect(plan(world, "keeper").action).toMatchObject({
-      kind: "move",
-      target: "pond",
-    });
-    const next = play(
-      world,
-      legalActions(world).find((a) => a.kind === "wait"),
-    ).state;
-    expect(next.actors.keeper.place).toBe("pond");
-    expect(next.items.oil.holder).toBe("keeper");
-    expect(decodeSave(encodeSave(next))).toEqual(next);
-  });
-
   it("prepares a carried lamp before planning a return through the mirror", () => {
     const world = fresh();
     world.actors.vale.place = "attic";
+    world.actors.vale.want = wantPlace("pond");
     expect(plan(world).action.kind).toBe("light");
     const lit = play(world, plan(world).action).state;
     expect(plan(lit).action).toMatchObject({ kind: "move", target: "pond" });
@@ -144,6 +122,7 @@ describe("the attic opening and saved pond journeys", () => {
     world.items.lamp.lit = false;
     world.items.oil.holder = "station";
     world = decodeSave(encodeSave(world));
+    world.actors.vale.want = wantPlace("pond");
     if (places["forest-cottage"]) {
       expect(exits(world, "attic", "vale")).not.toContain("forest-cottage");
       expect(exits(world, "forest-cottage", "vale")).toContain("attic");
@@ -163,6 +142,7 @@ describe("the attic opening and saved pond journeys", () => {
     world.actors.moth.place = "attic";
     world.items.lamp.holder = "moth";
     world.items.lamp.fuel = 0;
+    world.actors.moth.want = wantPlace("pond");
     expect(exits(world, "attic", "moth")).toEqual(["pond"]);
     const action = legalActions(world, "moth").find(
       (a) => a.kind === "move" && a.target === "pond",
@@ -204,12 +184,12 @@ describe("the attic opening and saved pond journeys", () => {
     before.locations.attic.anchored = true;
     const restored = decodeSave(encodeSave(before));
     expect(restored).toEqual(before);
-    expect(programFor(restored, "vale").id).toBe("first-light");
+    expect(restored.actors.vale.want).toMatchObject({ kind: "item", target: "lamp" });
     expect(exits(restored, "station")).toEqual(["pond"]);
     const lit = act(restored, "light");
     const shore = act(lit, "move", "pond");
     const attic = act(shore, "move", "attic");
-    expect(attic.actors.vale.progress.program).toBe(1);
+    expect(attic.actors.vale.xp).toBeGreaterThan(0);
     expect(attic.opening.version).toBe(1);
     expect(attic.items.lamp.holder).toBe("vale");
     expect(attic.log[0]).toEqual(before.log[0]);

@@ -23,10 +23,7 @@ try {
     [1440, 900],
     [390, 844],
   ]) {
-    let seed = enableMotives(createWorld({ opening: true }), {
-      questPrograms: true,
-      personalQuests: true,
-    });
+    let seed = enableMotives(createWorld({ opening: true }));
     for (const fields of [
       { kind: "light", item: "lamp" },
       { kind: "move", target: "pond" },

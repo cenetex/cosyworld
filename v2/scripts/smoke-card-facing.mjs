@@ -7,7 +7,6 @@ import { createServer } from "../card-game/serve.mjs";
 import { createWorld, addLog, people } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { humanAvatarIds } from "../card-game/human-cast.mjs";
-import { questCards } from "../card-game/quest-cards.mjs";
 
 // Real shared-view rendering with fixed snapshots. The scene computes the gaze;
 // the browser must turn the actual artwork toward the other staged portrait.
@@ -60,13 +59,9 @@ try {
         const errors = [];
         page.on("pageerror", (error) => errors.push(error.message));
         await page.addInitScript(
-          ({ actor, seen, quests }) => {
+          ({ actor, seen }) => {
             const key = `cosyworld.reflected-shore.v1.shared.facing-view.${actor}`;
             localStorage.setItem(key + ".seen", JSON.stringify(seen));
-            localStorage.setItem(
-              key + ".quests",
-              JSON.stringify({ seen: quests, read: quests }),
-            );
             localStorage.setItem("cosyworld.dialogue.sound", "off");
             localStorage.setItem(
               "cosyworld.room-music",
@@ -76,9 +71,6 @@ try {
           {
             actor,
             seen: [...Object.keys(profiles), "lamp"],
-            quests: Object.keys(people).flatMap((id) =>
-              questCards(world, id).map((q) => q.key),
-            ),
           },
         );
         await page.route("**/auth/account", (route) =>

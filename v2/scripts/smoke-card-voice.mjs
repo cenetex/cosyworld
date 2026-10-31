@@ -3,7 +3,6 @@ import { mkdir } from "node:fs/promises";
 import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
-import { playerQuest } from "../card-game/quest-cards.mjs";
 
 const type = process.env.CARD_BROWSER || "chromium";
 const browser = await { chromium, webkit }[type].launch({ headless: true });
@@ -162,32 +161,36 @@ try {
       assert.equal(opening.turn, 0);
       assert.equal(opening.actors.vale.place, "attic");
       assert.equal(opening.items.lamp.lit, false);
-      const openingQuest = playerQuest(opening);
-      assert(openingQuest, "The opening has an active quest");
+      assert.deepEqual(
+        {
+          kind: opening.actors.vale.want?.kind,
+          target: opening.actors.vale.want?.target,
+        },
+        { kind: "item", target: "lamp" },
+        "The opening gives Vale a quest for the lamp",
+      );
       await selectCard(page, "lamp");
       await page.locator('#card-actions [data-action="light"]').click();
       await finish(); // The delayed request releases the hand after scene preparation.
       assert(heldLight);
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
       assert.equal(await page.locator("#dialogue-text").textContent(), "");
+      // Holding the lamp meets Vale's quest on the first play; the scene
+      // request carries that outcome.
+      assert.deepEqual(heldLight.input.outcome.card.wantMet, {
+        kind: "item",
+        target: "lamp",
+      });
       await playCards("snuff", ["lamp"]);
-      // A replaced slow reply keeps the completion. Talk no longer names
-      // finished quests (#1451), and no completion dialog opens.
-      assert.notEqual(
+      // A replaced slow reply keeps the met quest in the saved history.
+      assert.ok(
         await page.evaluate(
-          ({ key, quest }) =>
-            JSON.parse(localStorage.getItem(key)).quests.records[quest]
-              .completedTurn,
-          { key, quest: openingQuest.key },
+          (key) =>
+            JSON.parse(localStorage.getItem(key)).log.some(
+              (e) => e.verb === "want_met" && e.actorId === "vale",
+            ),
+          key,
         ),
-        null,
-      );
-      assert.doesNotMatch(
-        requests
-          .at(-1)
-          .entities.find((e) => e.id === "vale")
-          .facts.join(" "),
-        /I just finished|What I want most now/,
       );
       await heldLight.route
         .fulfill({

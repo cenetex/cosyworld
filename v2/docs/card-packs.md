@@ -29,139 +29,16 @@ for personas, so ids and voices cannot drift between them. One validator
 loads. It rejects unknown fields, unknown condition kinds, dangling ids and
 missing art with a reason naming the field.
 
-Packs can also supply `storyQuests` and `topics`. The
-[story quest guide](card-story-quests.md) covers saved evidence, branches,
-spoken clues and ordered knowledge requirements.
+Packs can also supply `topics`: facts a resident tells through Talk.
 
-### Personal quest situations
+### Starter quests
 
-`situations` gives visitors generated personal quests that belong to the pack.
-`v2/card-game/pack-situation-schema.mjs` checks them in the build and on load.
-Each template has:
-
-- `id`, `name` and a `purpose` sentence of at most 200 characters;
-- `kind`: `delivery`, `gathering`, `crossing` or `answer`, so hopes count it
-  like the hub situations;
-- `takers`: `"visitors"` (the player, shared human avatars and pack residents
-  with `personalQuests`) or named avatars;
-- `requires`: optional pack conditions that must hold before it is offered;
-- `roles`: a map with a required `partner`. A role is one of
-  `{"item": [ids]}`, `{"avatar": [ids]}`, `{"place": [ids]}`,
-  `{"holder": "$itemRole"}` or `{"placeOf": "$role"}`. The first fitting id in
-  the list wins;
-- `steps`: one to four hands, or `{"any": [hands]}` with two to four hands.
-  A hand has `at` (required), `hold` (up to three items), `with` (up to two
-  people) and `conditions` (up to three of `heldBy`, `knows` with a pack topic,
-  `together`, and `lit`, `ringing` or `covered` with the hub lamp or bell);
-- `consequence`: optional `{"kind": "trust", "avatar": ...}` on the last step.
-
-Hands name pack or hub ids directly, or a role as `"$name"`. A template needs
-an item, a person and a condition or consequence. A visitor gets a template
-only when every place, person and item in it is within reach now; an `any`
-step keeps its reachable hands. Steps with `knows` wait for Talk, so only an
-avatar with a personal life (whose quiet spells bring a fresh purpose) takes
-them. The result is an ordinary saved program, so later template changes do
-not change saved quests.
-
-## The pack source
-
-```jsonc
-{
-  "schemaVersion": 1,
-  "id": "badger-forest",            // stable; also the asset folder name
-  "packId": "cosyworld.badger-forest",
-  "revision": 1,                     // bump only with a save migration
-  "name": "The Steam Clock",         // shown as the table's title while inside
-  "description": "…",
-  "entry": "clearing",               // the place the hub's crossing reaches
-  "places": { … },
-  "fixtures": { … },                 // optional
-  "avatars": { … }
-}
-```
-
-**Places** have `name`, `text` (card text), `persona` (for generated
-description), `exits` (other places in this pack only) and `backdrop`. An
-optional `stage` shows one resident as a sprite on the backdrop in place of
-the shore's cast row. `sprite` gives left/top/width percentages of the
-backdrop. Only a resident that never travels can be staged.
-
-**Fixtures** are things fixed in a place that the player can use from the
-place card. Today a fixture can sound:
-`"sound": { "label", "text", "turns" }`. A sounding fixture counts as a sound
-at its place for crossing conditions and disturbs residents there. `{actor}`
-in `text` is replaced with the player's name.
-
-**Avatars** (residents) have `name`, `text`, `place`, `persona`, `voice`
-and `tastes` (`likes`, `sore`, `reason`, and optional `noise`, a grievance
-recorded when a bell is rung beside them). Residents never receive the
-shore's authored quest programs; their interest is their home.
-
-- `"travels": false` keeps a resident at home. It is never invited along
-  and the planner leaves it in place.
-- `"standoffs": false` means it cannot be threatened.
-- `portrait` is its art, unless it has a temperament.
-- `presentation: "backdrop"` keeps a fixed resident in the place illustration.
-  Its card, dialogue and interactions keep their usual place in the game.
-  The stage paints the resident once, through the place art. The default
-  `figure` presentation uses the separate portrait.
-
-A **temperament** gives a resident moods that general rules change:
-
-```jsonc
-"temperament": {
-  "asleep": true,      // starts asleep
-  "irritation": 3,     // maximum irritation
-  "irritated": 2,      // at or above this, the "irritated" variant applies
-  "voice": 1,          // talking to it while asleep wakes it at this irritation
-  "sound": 2,          // a sound made where it rests wakes it and adds this
-  "calm": 1,           // each player wait beside it removes this, and eases grievances
-  "woken": "…",        // narration when talk wakes it
-  "disturbed": "…"     // narration when a sound disturbs it
-}
-```
-
-Its `variants` (`asleep`, `awake`, optional `irritated`) supply the portrait,
-alt text, greeting (`{actor}`, `{name}`), an optional play label, the current
-want, and the note that tells the text model how to play this mood. The
-irritated variant inherits the awake portrait and greeting.
-
-## The bridge
-
-```jsonc
-{
-  "schemaVersion": 1,
-  "id": "shore-badger-forest",
-  "pack": "badger-forest",
-  "description": "…",
-  "values": { "badger": { "lamp": 3, "cloth": 7 } },  // unlisted hub items are worth 1
-  "crossings": [ … ]
-}
-```
-
-A **crossing** joins one hub place and one pack place in one direction:
-
-A crossing can also join a place in another mounted pack. The compiler checks
-that the external place exists. A passage from a ship keeps the vessel's saved
-dock and its other passengers. The last passenger through a side passage
-settles any pending recall, and a return to the deck joins its current voyage.
-
-| Field              | Meaning                                                                                |
-| ------------------ | -------------------------------------------------------------------------------------- |
-| `id`               | Stable id; its saved state is keyed by it.                                             |
-| `from`, `to`       | One hub place and one pack place.                                                      |
-| `travelers`        | `"player"` (no one else follows or is asked along) or `"any"`.                         |
-| `travel`           | Wording after "goes to X": `"through the reflection"`, `"aboard the ship"`.            |
-| `requires`         | Conditions that must hold now.                                                         |
-| `signal`           | Optional. A sequence of plays that opens the crossing for a few turns.                 |
-| `scenery`          | Optional `open` / `closed` sentences appended to the `from` place's text.              |
-| `opened`, `closed` | Optional lines logged when the crossing opens or closes while the player is at `from`. |
-
-A crossing is open when its signal window is open (if it has a signal) and
-every condition holds. The bridge must have a way in to the entry and a way
-back to the hub. A crossing marked `"retired": true` stays open only in saves
-that had already found it; new games never open it. Hoppy Cat's red thread
-from Black pond is retired this way, so new games reach Hoppy Cat by ship.
+Each resident can name its starter quest as `want`: `{"kind": "item" |
+"place" | "person", "target": id}`, with a target in the pack or the hub. The
+pack schema checks it. After the starter quest is met, the world rules draw the
+resident's next quest from what it can reach, so a pack authors no quest
+chains. `storyQuests` and `situations` are no longer read; they stay in the data
+until they are removed.
 
 ### Conditions
 

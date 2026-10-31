@@ -221,7 +221,14 @@ describe("the Theban release and its ship", () => {
       ].sort(),
     );
     expect(after.memories).toMatchObject(before.memories);
-    expect(after.log).toEqual(before.log);
+    // Quest records leave the history; every other event stays as it was.
+    expect(after.log).toEqual(
+      before.log
+        .filter((e) => e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""))
+        .map(({ questPlan, consequence, questKey, ...e }) => e),
+    );
+    expect(after.quests).toBeUndefined();
+    expect(Object.values(after.actors).every((a) => !("progress" in a))).toBe(true);
     expect(after.actors.vale.place).toBe("greek-egypt-tomb");
     expect(after.items["greek-egypt-testimony"].holder).toBe("vale");
     expect(entityActive(after, "greek-athens")).toBe(true);

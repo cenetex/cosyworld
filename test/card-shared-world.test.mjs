@@ -11,28 +11,16 @@ import {
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { soundAt } from "../v2/card-game/pack-rules.mjs";
-import {
-  validCondition,
-  questItemAvailable,
-} from "../v2/card-game/situations.mjs";
-import { generateProgram, alternatives } from "../v2/card-game/quests.mjs";
-import { places, things } from "../v2/card-game/world.mjs";
+import { wantCandidates } from "../v2/card-game/want.mjs";
+import { carried, rootHolder } from "../v2/card-game/world.mjs";
 import { humanAvatarIds, humanAvatars } from "../v2/card-game/human-cast.mjs";
-import {
-  questCards,
-  questHand,
-  questCardId,
-} from "../v2/card-game/quest-cards.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 
 const shared = () =>
   dispatchShared({
     op: "create",
     save: encodeSave(
-      enableMotives(createWorld(), {
-        questPrograms: true,
-        personalQuests: true,
-      }),
+      enableMotives(createWorld()),
     ),
   }).world;
 const ask = (world, op, actor = "vale", extra = {}) =>
@@ -46,7 +34,7 @@ const ask = (world, op, actor = "vale", extra = {}) =>
   });
 
 describe("the full world shared by human avatars", () => {
-  it("matches selected item cards while personal and shared quest actions are offered", () => {
+  it("matches selected item cards and offers no quest plays", () => {
     let world = dispatchShared({ op: "create" }).world;
     for (const [kind, target] of [
       ["light", null],
@@ -59,8 +47,8 @@ describe("the full world shared by human avatars", () => {
     }
     world.items.cloth.holder = "vale";
     const actions = ask(world, "view").actions;
-    for (const kind of ["pursue", "share-quest", "join-quest"])
-      expect(actions.some((a) => a.kind === kind && !a.cards)).toBe(true);
+    for (const kind of ["pursue", "share-quest", "join-quest", "drop-quest"])
+      expect(actions.some((a) => a.kind === kind)).toBe(false);
     const cover = actions.find((a) => a.kind === "cover");
     expect(cover).toBeDefined();
     const selected = ask(world, "play", "vale", {
@@ -136,14 +124,10 @@ describe("the full world shared by human avatars", () => {
     const { boardyai: boardy, ...others } = result.world.actors;
     const { boardyai: oldBoardy, ...oldOthers } = old.actors;
     expect(others).toEqual(oldOthers);
-    expect(boardy).toMatchObject(oldBoardy);
-    expect(boardy.progress.current.generated.pair).toEqual(["vale", "mara"]);
+    expect(boardy).toEqual(oldBoardy);
   });
-  it("imports the exact opening, fuel, progress, memory and life state", () => {
-    let world = enableMotives(createWorld({ opening: true }), {
-      questPrograms: true,
-      personalQuests: true,
-    });
+  it("imports the exact opening, fuel, wants, memory and life state", () => {
+    let world = enableMotives(createWorld({ opening: true }));
     world = play(
       world,
       legalActions(world).find((a) => a.kind === "light"),
@@ -296,13 +280,16 @@ describe("the full world shared by human avatars", () => {
         (a) => a.cards.includes("mara") || a.cards.includes("mask"),
       ),
     ).toBe(false);
-    expect(questItemAvailable(view.world, "vale", "mask")).toBe(false);
-    const program = generateProgram(view.world, "vale", places, things);
-    expect(
-      program.steps
-        .flatMap(alternatives)
-        .some((h) => h.items.includes("mask") || h.avatars.includes("mara")),
-    ).toBe(false);
+    // An absent human's belonging is not something Vale can want now.
+    const api = {
+      carried: (id) => carried(view.world, id),
+      rootHolder: (id) => rootHolder(view.world, id),
+      valueOf: () => 5,
+      reachable: () => ["station", "attic"],
+    };
+    const pool = wantCandidates(view.world, "vale", api);
+    expect(pool.length).toBeGreaterThan(0);
+    expect(pool).not.toContain("item:mask");
     const all = ask(world, "view").world;
     for (const npc of ["moth", "keeper"]) {
       const actions = legalActions(all, npc);
@@ -315,15 +302,6 @@ describe("the full world shared by human avatars", () => {
         false,
       );
     }
-    expect(
-      validCondition({ kind: "heldBy", item: "mask", avatar: "mara" }, "vale"),
-    ).toBe(true);
-    expect(
-      validCondition(
-        { kind: "heldBy", item: "unknown", avatar: "mara" },
-        "vale",
-      ),
-    ).toBe(false);
   });
   it("rejects actor impersonation and extra actor keys before play", () => {
     const world = shared();
@@ -483,7 +461,7 @@ describe("the full world shared by human avatars", () => {
 });
 
 it.each(["mara", "rue"])(
-  "places %s first among avatars with their items and quests together",
+  "places %s first among avatars with their items together",
   (actor) => {
     const world = shared();
     for (const id of ["vale", "mara", "rue"])
@@ -494,21 +472,10 @@ it.each(["mara", "rue"])(
     world.items.cloth.holder = "lamp";
     world.items.oil.holder = "station";
     const view = ask(world, "view", actor).world;
-    const cards = availableCards(view),
-      hand = questHand(view);
+    const cards = availableCards(view);
     expect(cards[0]).toBe(actor);
     expect(cards.indexOf("oil")).toBeGreaterThan(cards.indexOf(actor));
     expect(cards.indexOf(actor)).toBeLessThan(cards.indexOf("vale"));
-    const start = hand.indexOf(actor);
-    expect(hand.slice(start, start + 4)).toEqual([
-      actor,
-      item,
-      "lamp",
-      "cloth",
-    ]);
-    const quests = questCards(view, actor).map((q) => questCardId(view, q));
-    expect(quests.length).toBeGreaterThan(0);
-    expect(hand.slice(start + 4, start + 4 + quests.length)).toEqual(quests);
   },
 );
 

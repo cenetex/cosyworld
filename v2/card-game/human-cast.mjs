@@ -126,23 +126,3 @@ export const humanHomePack = {
     },
   ]),
 };
-
-export const humanQuestPrograms = Object.fromEntries(
-  visitors.map((a) => [
-    a.id,
-    [
-      {
-        id: `${a.id}-first-visit`,
-        name: "A first visit",
-        purpose: a.pleasure,
-        steps: [{ items: [a.item.id], location: "pond", avatars: [] }],
-      },
-      {
-        id: `${a.id}-station-visit`,
-        name: "A visit to the station",
-        purpose: a.pleasure,
-        steps: [{ items: [a.item.id], location: "station", avatars: [] }],
-      },
-    ],
-  ]),
-);

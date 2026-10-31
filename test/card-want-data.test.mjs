@@ -9,7 +9,6 @@ import {
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
   enableMotives,
-  interest,
   tastes,
   tradeDecision,
   valueOf,
@@ -18,7 +17,7 @@ import {
 const hub = ["vale", "moth", "keeper"];
 const things = ["lamp", "oil", "bell", "cloth"];
 
-// Motive decisions recorded before the hub tastes moved into forest.json.
+// Motive decisions from the hub tastes. The wanted item is worth six more.
 function decisions() {
   const s = enableMotives(createWorld());
   for (const id of hub) s.actors[id].place = "station";
@@ -34,8 +33,7 @@ function decisions() {
     ["moth", "cloth", "oil"],
     ["keeper", "oil", "cloth"],
   ].map(([r, g, w]) => tradeDecision(s, r, g, w).accepted);
-  const wants = Object.fromEntries(hub.map((a) => [a, interest(s, a)]));
-  return { values, trades, wants };
+  return { values, trades };
 }
 
 describe("want data", () => {

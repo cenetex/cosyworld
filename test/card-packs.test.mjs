@@ -22,8 +22,7 @@ import {
   playLabel,
 } from "../v2/card-game/cards.mjs";
 import { portrait } from "../v2/card-game/scene.mjs";
-import { interest } from "../v2/card-game/motives.mjs";
-import { knownActors } from "../v2/card-game/quests.mjs";
+import { knownActors } from "../v2/card-game/want.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
   hub,
@@ -193,10 +192,9 @@ describe("world packs on the card table", () => {
     ];
     for (const file of [
       "world.mjs",
-      "quests.mjs",
+      "want.mjs",
       "motives.mjs",
       "life.mjs",
-      "situations.mjs",
       "narrative.mjs",
       "scene.mjs",
       "cards.mjs",
@@ -275,10 +273,7 @@ describe("the forest crossing's signal", () => {
 
 describe("planning across crossings", () => {
   it("routes the player, but not residents, through a player-only crossing", () => {
-    let s = enableMotives(createWorld(), {
-      questPrograms: true,
-      personalQuests: true,
-    });
+    let s = enableMotives(createWorld());
     s.actors.vale.place = "clearing";
     s.crossings["pond-clearing"].discovered = true;
     s.items.bell.holder = "vale";
@@ -410,10 +405,11 @@ describe("a resident's temperament", () => {
     expect(portrait("badger", null, s)).toBe(
       "./assets/badger-forest/badger-grumpy.png",
     );
-    expect(interest(s, "badger").text).toBe("The warm patch of moss");
+    // The mood's want is pack data, worded for Talk; the rules keep the mood.
+    expect(variantOf(s, "badger").want).toBe("The warm patch of moss");
     s = act(s, "ring", null, "bell");
     expect(variantOf(s, "badger").name).toBe("irritated");
-    expect(interest(s, "badger").text).toBe("Some quiet after all that noise");
+    expect(variantOf(s, "badger").want).toBe("Some quiet after all that noise");
     s = act(s, "wait");
     expect(s.actors.badger.irritation).toBe(2);
     s = act(s, "wait");

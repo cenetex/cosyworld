@@ -150,8 +150,19 @@ describe("a path out of a stranded home", () => {
     w.actors.tavi.place = "station";
     expect(view(w, a.id).exits).toEqual(["pond"]);
   });
-  it("keeps accepted resident gifts and trades as real recovery routes", () => {
-    for (const kind of ["ask", "trade"]) {
+  it("keeps an accepted trade with a slighted resident as a recovery route", () => {
+    const s = enableMotives(opening());
+    s.opening.crossed = true;
+    s.opening.met.moth = s.opening.met.keeper = 0;
+    s.locations.attic.anchored = true;
+    s.actors.keeper.place = "attic";
+    s.items.lamp.holder = "keeper";
+    s.items.bell.holder = "vale";
+    recordReaction(s, { kind: "ring", actor: "vale", item: "bell" }, ["keeper"]);
+    expect(exits(s, "attic", "vale")).toEqual([]);
+  });
+  it("keeps accepted resident gifts as real recovery routes", () => {
+    for (const kind of ["ask"]) {
       const s = enableMotives(opening());
       s.opening.crossed = true;
       s.opening.met.moth = s.opening.met.keeper = 0;

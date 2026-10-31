@@ -9,47 +9,30 @@ import {
   legalActions,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
-import { addQuestRecord } from "../card-game/shared-quests.mjs";
-import { recordQuestCompletion } from "../card-game/quest-completions.mjs";
-import { questCards } from "../card-game/quest-cards.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
 const singer = "greek-rhapsode";
+const want = (kind, target, since = 0) => ({
+  kind,
+  target,
+  since,
+  refusals: 0,
+});
+// The Bard wants the shore. The theatre door opens to it only while someone
+// carries the mask, so its journey waits on an ordinary item play.
 function fixture() {
-  let s = enableMotives(createWorld(), { personalQuests: true });
+  const s = enableMotives(createWorld());
   s.sharedVersion = 1;
   s.controlledActors = ["vale"];
   s.presentActors = ["vale"];
   s.actors.vale.place = "theatre";
   s.actors[singer].place = "theatre";
   s.items.mask.holder = "theatre";
-  const q = addQuestRecord(s, {
-    holder: { kind: "place", id: "pond" },
-    program: {
-      id: "shore-deed",
-      name: "A deed by the shore",
-      steps: [{ items: [], avatars: [], location: "pond" }],
-    },
-  });
-  q.completedTurn = s.turn;
-  q.step = 1;
-  recordQuestCompletion(s, q, { actorId: "keeper", locationId: "pond" });
-  s = play(
+  s.actors[singer].want = want("place", "pond");
+  return play(
     s,
     legalActions(s).find((a) => a.kind === "wait"),
   ).state;
-  // Start with the shared help already collected through the shipping rules.
-  // Quest cards now offer Drop; ordinary item plays fulfil the held request.
-  const helpKey = s.roamingQuests[singer].blocked.questKey;
-  const join = legalActions(s).find(
-    (action) => action.kind === "join-quest" && action.questKey === helpKey,
-  );
-  assert(join);
-  const joined = play(s, join);
-  assert.equal(joined.ok, true);
-  assert(joined.state.quests.hands.vale.includes(helpKey));
-  assert(joined.state.quests.hands.vale.length <= 2);
-  return joined.state;
 }
 const output = new URL("../../output/card-bard-travel/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -61,12 +44,13 @@ try {
     [1440, 900],
     [390, 844],
   ]) {
-    // A fresh bard follows a real completed quest through every ordinary step.
+    // A fresh Bard wants to hear Vale and walks every ordinary step to her.
     {
-      const world = enableMotives(createWorld(), { personalQuests: true });
+      const world = enableMotives(createWorld());
       world.actors.vale.place = "greek-gate";
       world.crossings["pond-greek-harbor"].discovered = true;
       assert.equal(world.actors[singer].place, "greek-harbor");
+      world.actors[singer].want = want("person", "vale");
       const key = `cosyworld.reflected-shore.v1.bard-route-${width}`;
       const page = await browser.newPage({
         viewport: { width, height },
@@ -138,36 +122,27 @@ try {
       await selectCard(page, "greek-guard");
       await page.locator('[data-action="talk"]').click();
       await reachTurn(1);
-      assert.equal((await saved()).actors[singer].place, "greek-harbor");
+      assert.equal((await saved()).actors[singer].place, "greek-road-thebes");
       await selectCard(page, "greek-antigone");
       await page.locator('[data-choice="greek-decline-burial"]').click();
       await reachTurn(2);
-      // The Bard walks up the Theban Harbor Road, then into the city.
+      // The Bard walks on into the city; its first step after the deed
+      // records the verse's visit.
       let state = await saved();
-      assert.equal(state.actors[singer].place, "greek-road-thebes");
-      assert.equal(state.roamingQuests[singer].target.locationId, "greek-gate");
+      assert.equal(state.actors[singer].place, "greek-courtyard");
+      assert.deepEqual(state.actors[singer].want, want("person", "vale"));
+      assert.equal(
+        state.packs["greek-drama"].recitals["greek-decline-burial"].visit,
+        2,
+      );
       await selectCard(page, "vale");
       await page.locator('#card-actions [data-action="wait"]').click();
       await reachTurn(3);
       state = await saved();
-      assert.equal(state.actors[singer].place, "greek-courtyard");
-      assert.equal(state.roamingQuests[singer].target.locationId, "greek-gate");
-      assert.equal(
-        state.packs["greek-drama"].recitals["greek-decline-burial"].visit,
-        null,
-      );
-      await selectCard(page, "vale");
-      await page.locator('#card-actions [data-action="wait"]').click();
-      await reachTurn(4);
-      state = await saved();
       assert.equal(state.actors[singer].place, "greek-gate");
-      assert.equal(
-        state.packs["greek-drama"].recitals["greek-decline-burial"].visit,
-        4,
-      );
       await selectCard(page, singer);
       await page.locator('#card-actions [data-action="talk"]').click();
-      await reachTurn(5);
+      await reachTurn(4);
       assert.equal(await page.locator("#story-retry").isVisible(), false);
       const poem = requests.at(-1).entities.find((e) => e.id === singer)?.poem;
       assert.equal(poem.stanzas.length, 1);
@@ -180,8 +155,17 @@ try {
         path: new URL(`legal-arrival-${width}.png`, output).pathname,
       });
       await page.reload();
-      await page.waitForSelector(`#hand [data-card="${singer}"]`);
-      assert.equal((await saved()).actors[singer].place, "greek-gate");
+      await page.waitForSelector("#hand .card");
+      // Hearing Vale met the Bard's quest; it is recorded once and the Bard
+      // turns for home by the world rules.
+      state = await saved();
+      assert.equal(
+        state.log.filter((e) => e.verb === "want_met" && e.actorId === singer)
+          .length,
+        1,
+      );
+      assert.equal(state.actors[singer].xp, 1);
+      assert.notEqual(state.actors[singer].want?.target, "vale");
       assert.deepEqual(errors, []);
       await page.close();
     }
@@ -250,11 +234,7 @@ try {
       await page.close();
     }
     const world = fixture();
-    const helpKey = world.roamingQuests[singer].blocked.questKey;
-    const helpCard = questCards(world, "theatre").find(
-      (q) => q.key === helpKey,
-    );
-    assert(helpCard);
+    assert.equal(world.actors[singer].place, "theatre");
     const key = `cosyworld.reflected-shore.v1.bard-${width}`;
     const page = await browser.newPage({
       viewport: { width, height },
@@ -263,23 +243,15 @@ try {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.addInitScript(
-      ({ key, save, seen }) => {
+      ({ key, save }) => {
         if (!localStorage.getItem(key)) localStorage.setItem(key, save);
-        localStorage.setItem(
-          `${key}.quests`,
-          JSON.stringify({ seen, read: [] }),
-        );
         localStorage.setItem("cosyworld.dialogue.sound", "off");
         localStorage.setItem(
           "cosyworld.room-music",
           JSON.stringify({ enabled: false }),
         );
       },
-      {
-        key,
-        save: encodeSave(world),
-        seen: questCards(world).map((q) => q.key),
-      },
+      { key, save: encodeSave(world) },
     );
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
@@ -297,25 +269,13 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=bard-${width}`,
     );
-    // The journey and help cards stay out of the hand. Since #1451 Talk
-    // carries one want line, not the journey or help titles.
+    // Quests are not cards: the Bard's journey stays out of the hand.
     await page.waitForSelector(`#hand [data-card="${singer}"]`);
     assert.equal(await page.locator("#hand .quest-frame").count(), 0);
     assert.equal(await page.locator("#hand [data-quest]").count(), 0);
-    const journey = questCards(world, singer).find(
-      (q) => q.key === world.roamingQuests[singer].questKey,
-    );
-    assert(journey, "the bard keeps a roaming journey");
     await page.screenshot({
       path: new URL(`journey-${width}.png`, output).pathname,
     });
-    await page.waitForFunction(
-      ({ key, helpKey }) =>
-        JSON.parse(localStorage.getItem(key)).quests.records[
-          helpKey
-        ].participants.includes("vale"),
-      { key, helpKey },
-    );
     await selectCard(page, "mask");
     await page.locator('#card-actions [data-action="take"]').click();
     await page.waitForFunction(
@@ -328,10 +288,14 @@ try {
       key,
     );
     assert.equal(saved.items.mask.holder, "vale");
-    assert.equal(saved.quests.records[helpKey].completion.cause.kind, "help");
-    const fulfilledHelp = structuredClone(saved.quests.records[helpKey]);
-    assert(fulfilledHelp.participants.includes("vale"));
-    assert.equal(fulfilledHelp.step, fulfilledHelp.program.steps.length);
+    assert.equal(saved.actors[singer].xp, 1);
+    const met = saved.log.filter(
+      (e) => e.verb === "want_met" && e.actorId === singer,
+    );
+    assert.deepEqual(
+      met.map((e) => e.wantMet),
+      [{ kind: "place", target: "pond" }],
+    );
     await page.reload();
     await page.waitForSelector('#hand [data-card="vale"]');
     await selectCard(page, "pond");
@@ -345,15 +309,13 @@ try {
       (key) => JSON.parse(localStorage.getItem(key)),
       key,
     );
-    assert.equal(saved.actors[singer].place, "pond");
-    assert.deepEqual(saved.quests.records[helpKey], fulfilledHelp);
-    assert(saved.quests.hands.vale.length <= 2);
-    assert.equal(
-      saved.quests.records[saved.roamingQuests[singer].questKey]
-        .completedTurn !== null,
-      true,
+    assert.deepEqual(
+      saved.log
+        .filter((e) => e.verb === "want_met" && e.actorId === singer)
+        .map((e) => e.seq),
+      met.map((e) => e.seq),
+      "the met quest stays recorded once",
     );
-    await selectCard(page, singer);
     await page.screenshot({
       path: new URL(`arrival-${width}.png`, output).pathname,
     });
@@ -361,7 +323,7 @@ try {
     await page.close();
   }
   console.log(
-    "Bard quest cards, collected help, Drop action, item-gated travel, arrival and saved history passed at desktop and phone widths.",
+    "Bard quest to hear Vale, carriage invitation, item-gated travel, arrival and saved history passed at desktop and phone widths.",
   );
 } finally {
   await browser.close();

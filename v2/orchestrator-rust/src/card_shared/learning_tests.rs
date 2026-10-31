@@ -211,14 +211,17 @@ fn measured_approaches_and_later_success_survive_journal_only_replay() {
         .as_object_mut()
         .unwrap()
         .remove("questPrograms");
-    for actor in w.game["actors"].as_object_mut().unwrap().values_mut() {
-        actor["progress"] = json!({"program":0,"step":0,"marks":[]});
-    }
     w.game["actors"]["vale"]["place"] = json!("station");
     w.game["actors"]["keeper"]["place"] = json!("station");
     w.game["items"]["lamp"]["holder"] = json!("vale");
     w.game["items"]["bell"]["holder"] = json!("vale");
     w.game["items"]["cloth"]["holder"] = json!("keeper");
+    // Vale wants the keeper's cloth; the keeper wants Vale's bell, so the
+    // gift earns trust and a later request succeeds.
+    w.game["actors"]["vale"]["want"] =
+        json!({"kind":"item","target":"cloth","since":0,"refusals":0});
+    w.game["actors"]["keeper"]["want"] =
+        json!({"kind":"item","target":"bell","since":0,"refusals":0});
     w.apply(&json!({"op":"claim","actor":"vale"})).unwrap();
     w.apply(&json!({"op":"enter","actor":"vale"})).unwrap();
     full_store::seed(&c, &id, &w, "measured-learning", now()).unwrap();

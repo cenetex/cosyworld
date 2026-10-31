@@ -30,7 +30,7 @@ fn new_shared_world_starts_in_the_dark_attic_and_moves_after_the_lamp() {
 }
 
 #[test]
-fn released_pond_opening_keeps_its_place_and_progress_through_upgrade_and_journal_rebuild() {
+fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
     let old = engine::reduce_version(engine::TWENTIETH_VERSION, json!({"op":"create"})).unwrap()
         ["world"]
         .clone();
@@ -59,9 +59,17 @@ fn released_pond_opening_keeps_its_place_and_progress_through_upgrade_and_journa
     // BoardyAI revision 2 carries his card from the pond to the station door.
     let mut expected = old.clone();
     expected["items"]["boardyai-calling-card"]["holder"] = json!("station");
-    for field in ["actors", "items", "opening", "log", "turn"] {
+    for field in ["items", "opening", "turn"] {
         assert_eq!(world.game[field], expected[field], "{field}");
     }
+    // Places, trust and the rest of each actor survive; quest progress gives
+    // way to one want, and quest lines leave the history.
+    super::full_tests::assert_saved_actors(&world.game["actors"], &expected["actors"]);
+    assert_eq!(world.game["actors"]["vale"]["place"], "pond");
+    assert_eq!(
+        world.game["log"],
+        super::full_tests::quest_free_log(&expected["log"])
+    );
     c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
         .unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);

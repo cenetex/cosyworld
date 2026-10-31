@@ -28,7 +28,10 @@ fn upgraded(found: bool) -> (rusqlite::Connection, String, World) {
     full_store::seed(&c, &id, &old, "before-signal-jetty", now()).unwrap();
     let w = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(w.version, engine::VERSION);
-    assert_eq!(w.game["log"], old.game["log"]);
+    assert_eq!(
+        w.game["log"],
+        super::full_tests::quest_free_log(&old.game["log"])
+    );
     assert_eq!(w.game["packs"]["hoppycat-archive"]["revision"], 2);
     assert_eq!(w.game["crossings"][THREAD]["discovered"], json!(found));
     (c, id, w)

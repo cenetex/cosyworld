@@ -56,9 +56,7 @@ export function narrativeContractCases() {
   const covered = playCard(echoed, "cover", "cloth", "bell");
   const secondRing = playCard(echoed, "ring", "bell");
   const clearing = playCard(secondRing, "move", null, "clearing");
-  const opening = enableMotives(atticOpening(), {
-    questPrograms: true,
-  });
+  const opening = enableMotives(atticOpening());
   const lit = playCard(opening, "light", "lamp");
   const pond = playCard(lit, "move", null, "pond");
   const signalStart = structuredClone(pond);
@@ -114,15 +112,9 @@ export function narrativeContractCases() {
   ];
   for (const branch of ["burial", "concession", "refusal", "exposure"]) {
     const earned = openingFixture(branch).closed;
-    // The Bard may still be at sea; a voyage takes a world round.
-    let arrival = playCard(earned, "wait");
-    for (
-      let turn = 0;
-      turn < 8 &&
-      arrival.actors["greek-rhapsode"].place !== arrival.actors.vale.place;
-      turn++
-    )
-      arrival = playCard(arrival, "wait");
+    // The Bard follows its own want; the case meets it where Vale stands.
+    const arrival = playCard(earned, "wait");
+    arrival.actors["greek-rhapsode"].place = arrival.actors.vale.place;
     worlds.push([`${branch} bard arrival`, arrival]);
     worlds.push([
       `${branch} bard conversation`,

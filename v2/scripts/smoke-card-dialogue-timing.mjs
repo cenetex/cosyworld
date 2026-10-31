@@ -14,10 +14,7 @@ import {
 import { enableMotives } from "../card-game/motives.mjs";
 
 function fixture(kind) {
-  let world = enableMotives(createWorld({ opening: true }), {
-    questPrograms: true,
-    personalQuests: true,
-  });
+  let world = enableMotives(createWorld({ opening: true }));
   for (const kind of ["light", "move"])
     world = play(
       world,

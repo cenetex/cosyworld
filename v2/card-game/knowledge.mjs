@@ -81,19 +81,8 @@ function retainFact(world, fact) {
   if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
   // Authored facts keep their stable identity. Event and ending news ages in
   // source order.
-  const protectedIds = new Set();
-  const protect = (program) => {
-    for (const step of program?.steps || [])
-      for (const hand of step.any || [step])
-        for (const condition of hand.conditions || [])
-          if (condition.kind === "knows") protectedIds.add(condition.topic);
-  };
-  for (const q of Object.values(world.quests?.records || {}))
-    if (q.completedTurn === null && !q.retired) protect(q.program);
-  for (const actor of Object.values(world.actors))
-    protect(actor.progress?.current);
   const eventFacts = Object.values(knowledge.facts)
-    .filter((f) => f.source.kind !== "topic" && !protectedIds.has(f.id))
+    .filter((f) => f.source.kind !== "topic")
     .sort(compareFacts);
   if (Object.keys(knowledge.facts).length >= KNOWLEDGE_FACT_LIMIT) {
     const old = eventFacts.at(-1);
@@ -123,7 +112,6 @@ export function witnessKnowledge(
   if (
     !world.knowledge ||
     entry.generated ||
-    entry.questPlan ||
     (entry.kind !== "action" && !entry.consequence) ||
     (!newsVerbs.has(entry.verb) && !entry.consequence) ||
     !validFactText(entry.text) ||
@@ -161,50 +149,6 @@ export function witnessKnowledge(
   if (!fact) return null;
   for (const actor of witnesses)
     remember(world, actor, fact, "witnessed", null, entry.seq, entry.turn);
-  return fact;
-}
-
-// A resolved story becomes news for the people present at its ending. The
-// fact keeps the story card's key, so each ending is told once per listener.
-export function witnessStoryEnding(world, ending) {
-  const id = `ending:${ending.questKey}`;
-  if (
-    !world.knowledge ||
-    !safeId(id) ||
-    !validFactText(ending.text) ||
-    !Number.isSafeInteger(ending.eventSeq) ||
-    ending.eventSeq < 1 ||
-    !world.actors[ending.actorId] ||
-    typeof ending.locationId !== "string"
-  )
-    return null;
-  const witnesses = [...new Set([ending.actorId, ...ending.witnesses])]
-    .filter((actor) => world.actors[actor])
-    .sort();
-  const fact = retainFact(world, {
-    id,
-    text: ending.text.trim(),
-    source: {
-      kind: "ending",
-      eventSeq: ending.eventSeq,
-      turn: ending.turn,
-      actorId: ending.actorId,
-      locationId: ending.locationId,
-      witnesses,
-      topic: null,
-    },
-  });
-  if (!fact) return null;
-  for (const actor of fact.source.witnesses)
-    remember(
-      world,
-      actor,
-      fact,
-      "witnessed",
-      null,
-      fact.source.eventSeq,
-      fact.source.turn,
-    );
   return fact;
 }
 
@@ -463,7 +407,7 @@ export function knowledgeFacts(
   priority = [],
   relevant = [],
 ) {
-  // Facts about to be told lead, then facts an open quest asks about.
+  // Facts about to be told lead, then facts the listener asks about.
   const rank = (id) =>
     priority.includes(id) ? 2 : relevant.includes(id) ? 1 : 0;
   const known = world.knowledge?.known?.[actor] || {};

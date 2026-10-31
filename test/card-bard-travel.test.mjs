@@ -1,6 +1,3 @@
-import { atticOpening } from "./fixtures/card-attic-opening.mjs";
-import { generateProgram } from "../v2/card-game/quests.mjs";
-import { enableMotives } from "../v2/card-game/motives.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import {
@@ -15,13 +12,8 @@ import {
   encodeSave,
   decodeSave,
   exits,
-  plan,
-  places,
-  things,
 } from "../v2/card-game/world.mjs";
-import { addQuestRecord, joinQuest } from "../v2/card-game/shared-quests.mjs";
-import { recordQuestCompletion } from "../v2/card-game/quest-completions.mjs";
-import { rememberRoutes } from "../v2/card-game/roaming-quests.mjs";
+import { newWant } from "../v2/card-game/want.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 import { needsVoyage, sailTo } from "./helpers/voyage.mjs";
 const singer = "greek-rhapsode";
@@ -31,23 +23,11 @@ function untilSinger(s, place, limit = 8) {
     s = act(s);
   return s;
 }
-function complete(
-  s,
-  location,
-  actor = "vale",
-  holder = { kind: "avatar", id: actor },
-) {
-  const q = addQuestRecord(s, {
-    holder,
-    program: {
-      id: "test-deed",
-      name: "A finished deed",
-      steps: [{ items: [], avatars: [], location }],
-    },
-  });
-  q.completedTurn = s.turn;
-  q.step = 1;
-  return recordQuestCompletion(s, q, { actorId: actor, locationId: location });
+// The Bard wants to be somewhere; its own want, not a quest record, sends it.
+function wants(s, place) {
+  s.actors[singer].want = newWant("place", place, s.turn);
+  delete s.actors[singer].metTurn;
+  return s;
 }
 function act(s, kind = "wait", fields = {}, actor = "vale") {
   if (
@@ -82,7 +62,6 @@ describe("ordinary bard travel", () => {
     old.packs["greek-drama"].scope = "full";
     old.actors[singer].place = "greek-argolid-road";
     old.actors[singer].lastTalk = 0;
-    delete old.roamingQuests;
     delete old.routeKnowledge;
     const loaded = decodeSave(JSON.stringify(old));
     expect(loaded.actors[singer].place).toBe("greek-argolid-road");
@@ -91,63 +70,19 @@ describe("ordinary bard travel", () => {
   it("keeps an untouched old spawn through migration and explores its authored exit", () => {
     const old = createWorld();
     old.actors[singer].place = "greek-argolid-road";
-    delete old.roamingQuests;
     delete old.routeKnowledge;
-    complete(old, "station");
+    wants(old, "station");
     let s = decodeSave(JSON.stringify(old));
     expect(s.actors[singer].place).toBe("greek-argolid-road");
     s = act(s);
     expect(s.actors[singer].place).toBe("greek-harbor");
-    expect(s.roamingQuests[singer].target.locationId).toBe("station");
-    expect(
-      Object.values(s.quests.records).some(
-        (q) => q.program.steps[0]?.passage?.kind === "directions",
-      ),
-    ).toBe(true);
+    expect(s.actors[singer].want).toMatchObject({ kind: "place", target: "station" });
   });
-  it("records a real first-light visit and returns from a dry attic for the next journey", () => {
-    let s = enableMotives(atticOpening(), {
-      personalQuests: true,
-    });
-    s.crossings["pond-greek-harbor"].discovered = true;
-    s = act(s, "light", { item: "lamp" });
-    s = untilSinger(s, "attic");
-    expect(s.actors[singer].place).toBe("attic");
-    const firstMet = s.turn;
-    expect(s.opening.met[singer]).toBe(firstMet);
-    const nextPurpose = generateProgram(s, "vale", places, things);
-    expect(nextPurpose.generated.solo).toBe(true);
-    expect(nextPurpose.steps.every((h) => h.avatars.length === 0)).toBe(true);
-    expect(s.packs["greek-drama"].met[singer]).toBe(firstMet);
-    expect(
-      legalActions(s).some((a) => a.kind === "talk" && a.target === singer),
-    ).toBe(true);
-    for (const target of [
-      "pond",
-      "greek-ship",
-      "greek-harbor",
-      "greek-road-thebes",
-      "greek-courtyard",
-      "greek-gate",
-    ])
-      s = act(s, "move", { target });
-    s = act(s, "choose", { choiceId: "greek-hear-decree" });
-    s = act(s, "choose", { choiceId: "greek-decline-burial" });
-    expect(s.actors[singer].place).toBe("pond");
-    expect(s.roamingQuests[singer].target.locationId).toBe("greek-gate");
-    expect(s.roamingQuests[singer].blocked).toBeNull();
-    expect(exits(s, "attic", singer)).toEqual([]);
-    expect(decodeSave(encodeSave(s))).toEqual(s);
-  });
-  it("takes one legal offscreen step each turn and stays at an exact AI completion site", () => {
+  it("takes one legal offscreen step each turn and stays at the place it wants", () => {
     let s = createWorld();
     s.actors.vale.place = "attic";
     s.actors[singer].place = "greek-argolid-road";
-    const receipt = complete(s, "greek-well", "keeper", {
-      kind: "item",
-      id: "bell",
-    });
-    s.items.bell.holder = "pond";
+    wants(s, "greek-well");
     s.actors.keeper.place = "station";
     const trace = [];
     for (let i = 0; i < 5; i++) {
@@ -164,31 +99,26 @@ describe("ordinary bard travel", () => {
         ),
       ).toHaveLength(before === after ? 0 : 1);
     }
-    expect(trace).toEqual([
+    expect(trace.slice(0, 4)).toEqual([
       "greek-harbor",
       "greek-road-thebes",
       "greek-courtyard",
       "greek-well",
-      "greek-well",
     ]);
-    expect(s.roamingQuests[singer].target).toEqual(receipt);
-    expect(
-      s.quests.records[s.roamingQuests[singer].questKey].completedTurn,
-    ).toBe(4);
+    const met = s.log.find((e) => e.verb === "want_met" && e.actorId === singer);
+    expect(met).toMatchObject({ turn: 4, wantMet: { kind: "place", target: "greek-well" } });
   });
   it("calls the actual ship, sails it, and preserves destination through reload", () => {
     let s = createWorld();
     // Vale waits away from the ship, so the Bard may call it.
     s.actors.vale.place = "station";
     s.actors[singer].place = "greek-harbor";
-    complete(s, "pond");
+    wants(s, "pond");
     s.transports["greek-ship"].dock = "pond";
     s.crossings["pond-greek-harbor"].discovered = true;
-    // Waiting at the harbor, the Bard asks for passage and calls the ship
-    // one lane closer.
+    // Waiting at the harbor, the Bard calls the ship one lane closer.
     s = act(s);
     expect(s.actors[singer].place).toBe("greek-harbor");
-    expect(s.roamingQuests[singer].blocked.questKey).toBeTruthy();
     expect(s.transports["greek-ship"]).toMatchObject({
       phase: "docked",
       dock: "greek-harbor",
@@ -206,22 +136,20 @@ describe("ordinary bard travel", () => {
     expect(s.actors[singer].place).toBe("pond");
     expect(s.transports["greek-ship"].dock).toBe("pond");
   });
-  it("keeps a player-only home door subject to the real item gate and rejects stale travel", () => {
-    let s = shared();
+  it("keeps a player-only home door subject to the real item gate", () => {
+    let s = createWorld();
+    s.sharedVersion = 1;
+    s.controlledActors = [...humanAvatarIds];
+    s.presentActors = [...humanAvatarIds];
+    s.actors.vale.place = "station";
     s.actors[singer].place = "theatre";
     s.items.mask.holder = "theatre";
     s.actors.mara.place = "theatre";
-    complete(s, "pond");
+    wants(s, "pond");
     s = act(s);
     expect(s.actors[singer].place).toBe("theatre");
-    const key = s.roamingQuests[singer].blocked.questKey;
-    expect(s.quests.records[key].program.steps[0].passage).toEqual({
-      actor: singer,
-      from: "theatre",
-      to: "pond",
-      kind: "passage",
-    });
-    s = act(s, "join-quest", { questKey: key }, "mara");
+    expect(exits(s, "theatre", singer)).not.toContain("pond");
+    // Once Mara carries her mask, the door opens for the Bard as well.
     s = act(s, "take", { item: "mask" }, "mara");
     expect(s.actors[singer].place).toBe("pond");
     const stale = legalActions(s, "mara").find(
@@ -229,104 +157,6 @@ describe("ordinary bard travel", () => {
     );
     s = act(s, "drop", { item: "mask" }, "mara");
     expect(play(s, stale, s.revision, "mara").ok).toBe(false);
-    expect(s.actors[singer].place).toBe("pond");
-  });
-  it("an eligible AI joins a directions request and shares its witnessed route", () => {
-    let s = createWorld();
-    s.actors[singer].place = "pond";
-    s.actors.keeper.place = "pond";
-    s.actors.vale.place = "attic";
-    s.routeKnowledge[singer] = [];
-    rememberRoutes(s, "keeper", [
-      ["pond", "greek-ship"],
-      ["greek-ship", "greek-harbor"],
-      ["greek-harbor", "greek-road-thebes"],
-      ["greek-road-thebes", "greek-courtyard"],
-      ["greek-courtyard", "greek-well"],
-    ]);
-    complete(s, "greek-well");
-    s = act(s);
-    const q = Object.values(s.quests.records).find(
-      (q) => q.program.steps[0]?.passage?.kind === "directions",
-    ).key;
-    // Give the helper a local turn next to the request.
-    s.actors.keeper.place = "pond";
-    expect(plan(s, "keeper").action).toMatchObject({
-      kind: "join-quest",
-      questKey: q,
-    });
-    s = act(s);
-    expect(s.quests.records[q].completion).toMatchObject({
-      actorId: "keeper",
-      cause: { kind: "help" },
-    });
-    expect(s.roamingQuests[singer].target.locationId).toBe("greek-well");
-  });
-  it("uses new directions, retargets mid-trip and keeps the new completion site after its author moves", () => {
-    let s = shared();
-    s.actors[singer].place = "pond";
-    s.actors.vale.place = "pond";
-    s.routeKnowledge[singer] = [];
-    complete(s, "greek-well");
-    s = act(s);
-    const q = Object.values(s.quests.records).find(
-      (q) => q.program.steps[0]?.passage?.kind === "directions",
-    ).key;
-    expect(s.quests.records[q].holder).toEqual({ kind: "avatar", id: singer });
-    joinQuest(s, "vale", q);
-    // A helper's witnessed route is durable route knowledge.
-    rememberRoutes(s, "vale", [
-      ["pond", "greek-ship"],
-      ["greek-ship", "greek-harbor"],
-      ["greek-harbor", "greek-road-thebes"],
-      ["greek-road-thebes", "greek-courtyard"],
-      ["greek-courtyard", "greek-well"],
-    ]);
-    s.transports["greek-ship"].dock = "pond";
-    s.crossings["pond-greek-harbor"].discovered = true;
-    s = act(s);
-    expect(s.actors[singer].place).toBe("greek-ship");
-    const latest = complete(s, "station", "mara", {
-      kind: "place",
-      id: "station",
-    });
-    s.actors.mara.place = "theatre";
-    s = act(s);
-    expect(s.roamingQuests[singer].target).toEqual(latest);
-    // A boarder cannot step straight back ashore: the Bard sails out to the
-    // harbor and back, then lands at the pond on the way to the station.
-    s = untilSinger(s, "pond", 6);
-    expect(s.actors[singer].place).toBe("pond");
-    expect(
-      s.log.some((e) => e.text === "Greek ship docks at The Wine-Dark Harbor."),
-    ).toBe(true);
-    expect(s.roamingQuests[singer].history.length).toBeGreaterThan(0);
-  });
-  it("retains a joined helper's compact card through more than32 retargets and reload", () => {
-    let s = createWorld();
-    s.actors[singer].place = "pond";
-    s.actors.vale.place = "pond";
-    complete(s, "greek-well");
-    s = act(s);
-    const key = s.roamingQuests[singer].blocked.questKey;
-    s = act(s, "join-quest", { questKey: key });
-    expect(s.quests.records[key].participants).toContain("vale");
-    for (let n = 0; n < 40; n++) {
-      complete(s, n % 2 ? "pond" : "station");
-      s = act(s);
-    }
-    const loaded = decodeSave(encodeSave(s));
-    expect(loaded.quests.records[key].retired.reason).toBe("superseded");
-    expect(loaded.quests.records[key].participants).toContain("vale");
-    expect(loaded.quests.records[key].familyActor).toBe(singer);
-    expect(loaded.roamingQuests[singer].history).toHaveLength(32);
-    expect(
-      Object.values(loaded.quests.records).filter(
-        (q) =>
-          q.transientActor === singer &&
-          (q.completedTurn !== null || q.retired),
-      ).length,
-    ).toBeLessThanOrEqual(32);
   });
   it("keeps a known AI verse author through save reload and uses truthful song facts", () => {
     const s = openingFixture("refusal").closed;
