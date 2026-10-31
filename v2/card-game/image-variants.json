@@ -1918,6 +1918,55 @@
       "card": "assets/optimized/card/png/willows/spoon.webp",
       "cardHash": "fa3a8ce300298ff67fdd112138f6def84171e8aed7d4eb8c5f70fd788efe86b3"
     },
+    "assets/willows/swede-listening-uncanny.webp": {
+      "sourceHash": "1a4438993356470e6ca0d1ff9199ceeae3d0ecc9ea9091c689993ab132763cba",
+      "stage": "assets/willows/swede-listening-uncanny.webp",
+      "stageHash": "1a4438993356470e6ca0d1ff9199ceeae3d0ecc9ea9091c689993ab132763cba",
+      "card": "assets/optimized/card/webp/willows/swede-listening-uncanny.webp",
+      "cardHash": "975eebbe71f34bf55f1df9a1c972abe13bcb297c61c8f84e91dc94d8c7216fde"
+    },
+    "assets/willows/swede-listening.webp": {
+      "sourceHash": "766e6b2cedabd2d735689ae3063dbab8180e9fabc2d372ad3b84236bcdf35a4f",
+      "stage": "assets/willows/swede-listening.webp",
+      "stageHash": "766e6b2cedabd2d735689ae3063dbab8180e9fabc2d372ad3b84236bcdf35a4f",
+      "card": "assets/optimized/card/webp/willows/swede-listening.webp",
+      "cardHash": "dc819d7a76d4d8865478e18107a987598040453c0c5275776c703f84bbb27ecf"
+    },
+    "assets/willows/swede-seated-uncanny.webp": {
+      "sourceHash": "1ce241999e673dd6c8698a117bddcdc3623204cb566bb0a9ed7c8eead6ab3b0a",
+      "stage": "assets/willows/swede-seated-uncanny.webp",
+      "stageHash": "1ce241999e673dd6c8698a117bddcdc3623204cb566bb0a9ed7c8eead6ab3b0a",
+      "card": "assets/optimized/card/webp/willows/swede-seated-uncanny.webp",
+      "cardHash": "04c555fdbe82932dd805cf50e1274cc1b55fd46e77dff5faa6856cfe2913430a"
+    },
+    "assets/willows/swede-seated.webp": {
+      "sourceHash": "edc20cb2636b6e340f71591d334beb3b548dfee54294bb446db6ddc34f6ea7f6",
+      "stage": "assets/willows/swede-seated.webp",
+      "stageHash": "edc20cb2636b6e340f71591d334beb3b548dfee54294bb446db6ddc34f6ea7f6",
+      "card": "assets/optimized/card/webp/willows/swede-seated.webp",
+      "cardHash": "f065cbe3979aefd796a48a633dc724bdb761b9f061cc05d455165b47474041d9"
+    },
+    "assets/willows/swede-uncanny.webp": {
+      "sourceHash": "ec32e505c9514aabaf1d04426556343019dc2a23b7e170651f5649358c731e45",
+      "stage": "assets/willows/swede-uncanny.webp",
+      "stageHash": "ec32e505c9514aabaf1d04426556343019dc2a23b7e170651f5649358c731e45",
+      "card": "assets/optimized/card/webp/willows/swede-uncanny.webp",
+      "cardHash": "0e097c563120cd037da9c265ea2aac7f310dcc0f4f9df22cbb1cdc17e91c223d"
+    },
+    "assets/willows/swede-worried-uncanny.webp": {
+      "sourceHash": "999fe670456c88787a25f33f76c7107ff74de36010f30f031f1dca360e7704ef",
+      "stage": "assets/willows/swede-worried-uncanny.webp",
+      "stageHash": "999fe670456c88787a25f33f76c7107ff74de36010f30f031f1dca360e7704ef",
+      "card": "assets/optimized/card/webp/willows/swede-worried-uncanny.webp",
+      "cardHash": "c80dd5a4c0c1e4c03177a74970bc4c48a1acb5a9b12571fa41ce344336f8a662"
+    },
+    "assets/willows/swede-worried.webp": {
+      "sourceHash": "5c379121ab909a82d9710b20b8d0d8e82f5dde18e62d85621cca33be8036c6a0",
+      "stage": "assets/willows/swede-worried.webp",
+      "stageHash": "5c379121ab909a82d9710b20b8d0d8e82f5dde18e62d85621cca33be8036c6a0",
+      "card": "assets/optimized/card/webp/willows/swede-worried.webp",
+      "cardHash": "86ff5345de8574aa59820145044e6d04a14d9e4857c12cf22d41fb06b0ac22aa"
+    },
     "assets/willows/swede.webp": {
       "sourceHash": "b29d85b8a68d2c15ff68033b5b1bc244875b05adfda3aa3ab2ec96f387f44c4f",
       "stage": "assets/willows/swede.webp",
