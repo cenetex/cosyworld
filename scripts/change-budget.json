@@ -1,0 +1,39 @@
+{
+  "about": "Change budget for one branch, read by scripts/check-change-budget.mjs (pre-push hook and CI). Lines added plus deleted against the merge base with main count toward the budget unless a path matches a group below. Binary files never count. Version bumps (package.json, Cargo.toml) count, at a few lines each.",
+  "budget": 400,
+  "excluded": {
+    "lockfiles": {
+      "why": "Written by npm, cargo, and bun.",
+      "paths": [
+        "**/package-lock.json",
+        "**/Cargo.lock",
+        "**/bun.lock",
+        "**/yarn.lock"
+      ]
+    },
+    "generated": {
+      "why": "Rebuilt by repository tools; review their sources instead.",
+      "paths": [
+        "v2/card-game/packs.json",
+        "v2/card-game/image-variants.json",
+        "v2/card-game/media-manifest.json",
+        "v2/card-game/music-streams.json",
+        "v2/orchestrator-rust/src/card_assets.rs",
+        "v2/orchestrator-rust/src/card_shared/engine-v*.js",
+        "**/__snapshots__/**"
+      ]
+    },
+    "assets": {
+      "why": "Art, audio, video, fonts, and authored pack content.",
+      "paths": [
+        "**/*.{png,jpg,jpeg,gif,webp,avif,svg,ico,bmp}",
+        "**/*.{mp3,ogg,oga,wav,m4a,flac,aac,opus}",
+        "**/*.{mp4,webm,mov}",
+        "**/*.{woff,woff2,ttf,otf,eot}",
+        "v2/card-game/assets/**",
+        "v2/content/**",
+        "test/fixtures/**"
+      ]
+    }
+  }
+}

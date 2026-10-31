@@ -35,8 +35,27 @@ npm run version:bump   # bumps package.json, package-lock.json, and the
 
 `npm run check:version` also fails early when the Rust crate version drifts
 from `package.json`, so run it after any manual version edit. The pre-push hook
-runs only `npm run check:version`; run `npm run check` by hand for the full
-local gate.
+runs the change budget and `npm run check:version`; run `npm run check` by hand
+for the full local gate.
+
+### Change budget
+
+A branch may change at most 400 hand-written lines (added plus deleted) against
+its merge base with `main`. `scripts/check-change-budget.mjs` prints the count on
+every push and fails above the budget. The `Change budget` CI job runs the same
+script on every pull request, so skipping hooks does not skip it. Pushes to
+`main` and tags are not measured.
+
+Binary files, images, audio, video, fonts, pack content (`v2/content/`,
+`v2/card-game/assets/`, `test/fixtures/`), lockfiles, and outputs rebuilt by
+tools (`packs.json`, media and image manifests, `card_assets.rs`, released
+`engine-v*.js` bundles, snapshots) do not count. The groups and the budget live
+in `scripts/change-budget.json`. An art-only or generated-only branch passes.
+
+Over budget, split the work into smaller branches that each land on `main`. For
+a rare change that cannot be split, set `COSYWORLD_LARGE_CHANGE=<reason>` when
+pushing and add a `Large-Change: <reason>` line to the PR body; both print a
+warning.
 
 Then run every row that matches the change:
 
