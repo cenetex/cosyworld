@@ -9829,8 +9829,8 @@
         places: {
           "hoppycat-halfway-tea-garden": {
             name: "Halfway Tea Garden",
-            text: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup and spool rest on the table.",
-            persona: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup and spool rest on the table. Describe this as a playful living place. Use the current story facts for progress.",
+            text: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table.",
+            persona: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
               "hoppycat-open-record-cathedral",
               "hoppycat-prism-foundry",
@@ -10177,9 +10177,9 @@
         items: {
           "hoppycat-red-thread-spool": {
             name: "Red-Thread Spool",
-            text: "A warm spool that catches only on relationships someone has chosen to carry forward.",
-            persona: "A warm spool that catches only on relationships someone has chosen to carry forward.",
-            holder: "hoppycat-halfway-tea-garden",
+            text: "A warm spool washed up at Black pond, its loose thread trailing over the water. It catches only on relationships someone has chosen to carry forward.",
+            persona: "A warm spool washed up at Black pond, its loose thread trailing over the water toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
+            holder: "pond",
             art: "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png"
           },
           "hoppycat-provenance-card": {
