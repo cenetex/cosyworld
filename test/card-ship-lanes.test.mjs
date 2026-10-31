@@ -200,6 +200,10 @@ describe("knowing a lane is personal", () => {
       `sea:${from}`,
       `sea:${to}`,
     ]);
+    // A save told older words loads with the lane's current words.
+    world.knowledge.facts[disclosure.factId].text = "Ships leave at dawn.";
+    const saved = decodeSave(JSON.stringify(world)).knowledge.facts;
+    expect(saved[disclosure.factId].text).toBe(disclosure.text);
   });
 
   it("Talk context at a port lists the lanes the speaker knows from it", () => {

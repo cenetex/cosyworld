@@ -214,6 +214,8 @@ describe("the Theban release and its ship", () => {
         "board",
         "boardyai-calling-card",
         "can",
+        "greek-pass-athens-harbor",
+        "greek-pass-piraeus",
         "float",
         "kite",
         "mask",

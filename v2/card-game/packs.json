@@ -414,7 +414,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 8,
+      "revision": 9,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -2101,6 +2101,44 @@
           "holder": "greek-harbor",
           "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
           "art": "assets/greek-drama/provisions.png"
+        },
+        "greek-pass-piraeus": {
+          "name": "Boarding Pass: Piraeus",
+          "text": "A bronze token on a cord, stamped with Dione's seal. It names a berth on the lane to Piraeus.",
+          "art": "assets/greek-drama/household-token.png",
+          "holder": "greek-shipmaster",
+          "persona": "Describe the pass, its actual holder and its recorded use. Myrto opens the lane to Piraeus for every ship's company once she is given it.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lane-piraeus-open",
+              "value": false
+            }
+          ]
+        },
+        "greek-pass-athens-harbor": {
+          "name": "Boarding Pass: Athens Harbor",
+          "text": "A bronze token on a cord, stamped with the Athenian seal. It names a berth on the lane to Athens Harbor.",
+          "art": "assets/greek-drama/household-token.png",
+          "holder": "greek-shipmaster",
+          "persona": "Describe the pass, its actual holder and its recorded use. Myrto opens the lane to Athens Harbor for every ship's company once she is given it.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-plea-registered",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lane-athens-harbor-open",
+              "value": false
+            }
+          ]
         },
         "greek-egypt-testimony": {
           "name": "The Egyptian Witness Tablet",
@@ -4443,8 +4481,8 @@
           "subject": "greek-baker",
           "at": "greek-courtyard",
           "label": "Take the road to Eleusis",
-          "text": "Dione has heard the burial. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
-          "textTemplate": "Dione has heard the burial. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
+          "text": "Dione has heard the burial. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis and her boarding pass for Piraeus.",
+          "textTemplate": "Dione has heard the burial. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis and her boarding pass for Piraeus.",
           "summary": "After the public account of the burial, the traveler accepted Dione’s introduction to Eleusis and the Attic roads.",
           "requires": [
             {
@@ -4465,6 +4503,10 @@
           ],
           "effects": [
             {
+              "kind": "give_item",
+              "item": "greek-pass-piraeus"
+            },
+            {
               "kind": "set_flag",
               "key": "greek-open-door-open",
               "value": true
@@ -4476,8 +4518,8 @@
           "subject": "greek-baker",
           "at": "greek-courtyard",
           "label": "Take the road to Eleusis",
-          "text": "Dione has heard the permission. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
-          "textTemplate": "Dione has heard the permission. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
+          "text": "Dione has heard the permission. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis and her boarding pass for Piraeus.",
+          "textTemplate": "Dione has heard the permission. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis and her boarding pass for Piraeus.",
           "summary": "After the public account of the permission, the traveler accepted Dione’s introduction to Eleusis and the Attic roads.",
           "requires": [
             {
@@ -4498,6 +4540,10 @@
           ],
           "effects": [
             {
+              "kind": "give_item",
+              "item": "greek-pass-piraeus"
+            },
+            {
               "kind": "set_flag",
               "key": "greek-open-door-open",
               "value": true
@@ -4509,8 +4555,8 @@
           "subject": "greek-baker",
           "at": "greek-courtyard",
           "label": "Take the road to Eleusis",
-          "text": "Dione has heard the refusal. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
-          "textTemplate": "Dione has heard the refusal. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
+          "text": "Dione has heard the refusal. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis and her boarding pass for Piraeus.",
+          "textTemplate": "Dione has heard the refusal. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis and her boarding pass for Piraeus.",
           "summary": "After the public account of the refusal, the traveler accepted Dione’s introduction to Eleusis and the Attic roads.",
           "requires": [
             {
@@ -4531,6 +4577,10 @@
           ],
           "effects": [
             {
+              "kind": "give_item",
+              "item": "greek-pass-piraeus"
+            },
+            {
               "kind": "set_flag",
               "key": "greek-open-door-open",
               "value": true
@@ -4542,8 +4592,8 @@
           "subject": "greek-baker",
           "at": "greek-courtyard",
           "label": "Take the road to Eleusis",
-          "text": "Dione has heard the warning. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
-          "textTemplate": "Dione has heard the warning. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
+          "text": "Dione has heard the warning. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis and her boarding pass for Piraeus.",
+          "textTemplate": "Dione has heard the warning. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis and her boarding pass for Piraeus.",
           "summary": "After the public account of the warning, the traveler accepted Dione’s introduction to Eleusis and the Attic roads.",
           "requires": [
             {
@@ -4563,6 +4613,10 @@
             }
           ],
           "effects": [
+            {
+              "kind": "give_item",
+              "item": "greek-pass-piraeus"
+            },
             {
               "kind": "set_flag",
               "key": "greek-open-door-open",
@@ -4626,8 +4680,8 @@
           "subject": "greek-theseus",
           "at": "greek-athens",
           "label": "Lay the mothers’ petition before Theseus",
-          "text": "Vale lays the mothers’ petition on the public table. Theseus hears the request and Adrastus’s part in the war. The city takes up the burial claim as its own duty.",
-          "textTemplate": "{actor} lays the mothers’ petition on the public table. Theseus hears the request and Adrastus’s part in the war. The city takes up the burial claim as its own duty.",
+          "text": "Vale lays the mothers’ petition on the public table. Theseus hears the request and Adrastus’s part in the war. The city takes up the burial claim as its own duty and seals a boarding pass for Athens Harbor.",
+          "textTemplate": "{actor} lays the mothers’ petition on the public table. Theseus hears the request and Adrastus’s part in the war. The city takes up the burial claim as its own duty and seals a boarding pass for Athens Harbor.",
           "requires": [
             {
               "kind": "flag",
@@ -4652,12 +4706,70 @@
               "place": "greek-athens"
             },
             {
+              "kind": "give_item",
+              "item": "greek-pass-athens-harbor"
+            },
+            {
               "kind": "set_flag",
               "key": "greek-open-door-plea-registered",
               "value": true
             }
           ],
           "workId": "euripides-suppliant-women"
+        },
+        {
+          "id": "greek-pass-piraeus-given",
+          "subject": "greek-shipmaster",
+          "at": "greek-harbor",
+          "label": "Give Myrto the boarding pass",
+          "text": "Vale gives Myrto the boarding pass for Piraeus. She puts it away in her keeping and opens the lane to Piraeus for every ship's company.",
+          "textTemplate": "{actor} gives Myrto the boarding pass for Piraeus. She puts it away in her keeping and opens the lane to Piraeus for every ship's company.",
+          "requires": [
+            {
+              "kind": "holding",
+              "item": "greek-pass-piraeus",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "retire_item",
+              "item": "greek-pass-piraeus"
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lane-piraeus-open",
+              "value": true
+            }
+          ],
+          "on": "give"
+        },
+        {
+          "id": "greek-pass-athens-harbor-given",
+          "subject": "greek-shipmaster",
+          "at": "greek-harbor",
+          "label": "Give Myrto the boarding pass",
+          "text": "Vale gives Myrto the boarding pass for Athens Harbor. She puts it away in her keeping and opens the lane to Athens Harbor for every ship's company.",
+          "textTemplate": "{actor} gives Myrto the boarding pass for Athens Harbor. She puts it away in her keeping and opens the lane to Athens Harbor for every ship's company.",
+          "requires": [
+            {
+              "kind": "holding",
+              "item": "greek-pass-athens-harbor",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "retire_item",
+              "item": "greek-pass-athens-harbor"
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lane-athens-harbor-open",
+              "value": true
+            }
+          ],
+          "on": "give"
         },
         {
           "id": "greek-open-door-request-truce",
@@ -8372,7 +8484,9 @@
           "greek-ajax-shield",
           "greek-ajax-plea",
           "greek-ajax-cloth",
-          "greek-ajax-tools"
+          "greek-ajax-tools",
+          "greek-pass-piraeus",
+          "greek-pass-athens-harbor"
         ],
         "choices": [
           "greek-return-water-jar",
@@ -8397,6 +8511,8 @@
           "greek-open-door-hear-mothers",
           "greek-open-door-hear-adrastus",
           "greek-open-door-register-plea",
+          "greek-pass-piraeus-given",
+          "greek-pass-athens-harbor-given",
           "greek-open-door-request-truce",
           "greek-open-door-request-recovery",
           "greek-open-door-hear-truce-report",

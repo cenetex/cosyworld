@@ -17,6 +17,7 @@ import { recitalPoem, recitalContext } from "../v2/card-game/pack-recital.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 import {
   OPEN_DOOR_PLACES,
+  givePass,
   openDoorInvitation,
   openDoorJourney,
   openDoorStart,
@@ -257,14 +258,8 @@ describe("the Open Door", () => {
     const invitation = openDoorInvitation(world);
     expect(invitation).toBeTruthy();
     world = playOpenDoor(world, "choose", { choiceId: invitation.choiceId });
-    world = openDoorWalk(
-      world,
-      "harbor",
-      "athens",
-      "harbor",
-      "courtyard",
-      "gate",
-    );
+    world = givePass(openDoorWalk(world, "harbor"), "piraeus");
+    world = openDoorWalk(world, "athens", "harbor", "courtyard", "gate");
     world = playOpenDoor(world, "take", { item: "greek-shovel" });
     world = openDoorWalk(world, "battlefield");
     expect(

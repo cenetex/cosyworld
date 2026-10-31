@@ -89,15 +89,27 @@ export function openDoorInvitation(world) {
   );
 }
 
-export function openDoorStart(branch = "refusal") {
+// Giving Myrto a boarding pass opens its lane for everyone.
+export const givePass = (world, port) =>
+  playOpenDoor(world, "give", {
+    item: `greek-pass-${port}`,
+    target: "greek-shipmaster",
+  });
+
+// Dione's invitation hands Vale the Piraeus boarding pass. Unless `pass` is
+// false, Vale then gives it to Myrto, which opens the lane, and walks back.
+export function openDoorStart(branch = "refusal", { pass = true } = {}) {
   let world = openingFixture(branch).closed;
   const invitation = openDoorInvitation(world);
   if (!invitation) throw new Error(`Missing invitation after ${branch}`);
   world = playOpenDoor(world, "choose", { choiceId: invitation.choiceId });
-  return playOpenDoor(world, "drop", {
+  world = playOpenDoor(world, "drop", {
     item: "lamp",
     target: "greek-courtyard",
   });
+  if (!pass) return world;
+  world = givePass(openDoorWalk(world, "harbor"), "piraeus");
+  return openDoorWalk(world, "courtyard");
 }
 
 export function openDoorSteps({
@@ -113,6 +125,12 @@ export function openDoorSteps({
     kind: "choose",
     choiceId: `greek-open-door-${id}`,
   });
+  // The plea hands Vale the Athens Harbor pass; Myrto opens its lane.
+  const pass = (port) => ({
+    kind: "give",
+    item: `greek-pass-${port}`,
+    target: "greek-shipmaster",
+  });
   return [
     ...move("harbor", "athens", "eleusis"),
     choose("hear-mothers"),
@@ -122,6 +140,8 @@ export function openDoorSteps({
     choose("register-plea"),
     choose(`request-${recovery}`),
     choose(`hear-${recovery}-report`),
+    ...move("harbor"),
+    pass("athens-harbor"),
     ...move("piraeus"),
     choose("hear-quay"),
     take("provision-basket"),

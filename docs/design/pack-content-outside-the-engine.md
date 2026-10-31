@@ -139,6 +139,16 @@ deletes the originals.
 After step 5, an art, pose, dialogue or pack PR changes `content.json` or
 `narrator.js` (both generated) and never `engine-v*.js`.
 
+## Content that saved state repeats
+
+Saved knowledge keeps the words of a told sea lane (`lane:a>b`), and the
+rules check them against `laneFact`, which reads the lane's `opensWith`. From
+rules v59 a load rewrites each told lane's words to the lane's current
+conditions, so a pack revision may change a lane's gate without
+invalidating saved knowledge. A lane is told only with the conditions that
+sit aboard (they name a `place`); a story `flag`, such as a boarding pass
+given to the shipmaster, goes untold.
+
 ## Later
 
 - Hash only the fields the rules read, so an image path change does not even

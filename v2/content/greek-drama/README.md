@@ -135,6 +135,15 @@ Piraeus. The lane between the Wine-Dark Harbor and Piraeus opens only while
 the Travel Provisions (`greek-provisions`, first at the harbour) are aboard.
 Piraeus Quays lies outside the Open Door section, so that lane reaches it in
 any save; its roads inland and its stories still wait for Dione's invitation.
+
+Boarding passes are ordinary items. Dione's invitation hands the traveller
+the Piraeus pass (`greek-pass-piraeus`) and the plea at the Agora the Athens
+Harbor pass (`greek-pass-athens-harbor`). Giving a pass to Myrto at the
+Wine-Dark Harbor is an `on: "give"` choice: it sets the lane's flag
+(`greek-lane-piraeus-open`, `greek-lane-athens-harbor-open`) for the whole
+world and returns the pass to her keeping, out of play. The lanes adopt
+those flags as their `opensWith` gate in the next pack change (#1603).
+Their card art uses the household token until its own images arrive.
 Boarding keeps the ship at its harbour. The first course
 card played aboard sets the voyage for everyone, and the ship spends one world
 round at sea. On arrival the only Disembark card is that port. The ship stays
