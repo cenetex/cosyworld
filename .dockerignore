@@ -7,6 +7,8 @@
 !deploy/
 !v2/
 !v2/content-engine-version.txt
+!v2/scripts/
+!v2/scripts/build-card-assets.mjs
 !v2/card-game/
 !v2/card-game/**
 !v2/ai-model-rust/

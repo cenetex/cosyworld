@@ -29,7 +29,7 @@ A card pack is three files and some art. See [card packs](../../v2/docs/card-pac
 | Mount | `v2/worlds/card-table.json` | the pack id in `packs` |
 | Art | `v2/card-game/assets/<id>/` | backdrops (16:9, day and night), portraits and cutouts (3:4, alpha), item art |
 | Art record | `art-prompts.json`, `*-provenance.json` | full prompts, references, source hashes, sizes |
-| Compile | `npm run v2:card:pack:build` | `packs.json`, image variants, media hashes, `card_assets.rs`, shared engine |
+| Compile | `npm run v2:card:pack:build` | `packs.json`, image variants, media hashes, shared engine (Cargo builds the asset module) |
 | Check | `npm run v2:card:pack:check`, `npm run v2:worldpack` | schema, stale outputs, story warnings |
 | Rules | `npm run v2:card:shared:next` | the next shared rules version (packs.json is inside the bundle) |
 | Tests | `test/card-<pack>.test.mjs`, a smoke script | a walk in and back through a reload, each story path |

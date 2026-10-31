@@ -76,6 +76,12 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
       # Only main saves the Cargo cache; pull requests restore it. Saving a
       # new commit-keyed cache on every run cost about 45 seconds each.
       # Main saves one Cargo cache per UTC day. Every commit changes
@@ -144,6 +150,12 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
       # Main saves one Cargo cache per UTC day. Every commit changes
       # Cargo.lock, and the repository keeps only 10 GB of caches, so a 2 GB
       # save per commit evicted the other caches before a run could use them.
@@ -203,6 +215,12 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
       - name: Choose Cargo cache day
         id: cargo-cache-day
         run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
@@ -239,6 +257,12 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
 
       - name: Check Rust architecture
         run: |

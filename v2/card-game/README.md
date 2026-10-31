@@ -45,8 +45,12 @@ Music stream URLs expose the original MP3 audio frames after the leading ID3
 metadata. The original MP3s keep their metadata and remain available at their
 published paths. Each stream has its own hash and byte range support.
 
-Commit the generated image map, WebP files, music stream map, media hashes, and
-`v2/orchestrator-rust/src/card_assets.rs` with their source changes.
+Commit the generated image map, WebP files, music stream map, and media hashes
+with their source changes. The Rust module that embeds these files is not
+committed: `v2/orchestrator-rust/build.rs` runs
+`v2/scripts/build-card-assets.mjs --rust-out` on every build, so Cargo needs
+Node.js 22 or newer on `PATH`. The module depends only on repository files, so
+one commit always yields the same `assets_sha256` in `/meta`.
 `npm run v2:card:pack:build` rebuilds this set and the pack data.
 `npm run v2:card:pack:check` checks it during CI and release gates.
 
