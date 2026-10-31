@@ -53,6 +53,7 @@
         "location": null,
         "avatars": []
       },
+      "want": { "kind": "connect", "target": "humans" },
       "personalQuests": true
     }
   },

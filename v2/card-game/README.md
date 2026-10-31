@@ -131,6 +131,12 @@ facts from earlier releases keep their names; player-facing text says quest.
   there, so its quest can stall only after a first refused attempt, and the
   stall clock starts at that attempt.
 - **Trust** has one source: someone gave me the item my quest wanted.
+- **Connect.** BoardyAI's starter quest is `{ "kind": "connect", "target":
+  "humans" }` in `boardyai.json`. It is met by any Talk in his room while two
+  connected humans are there with him. In Talk he says "I want to introduce
+  you to someone." As a resident he Talks once two connected humans share his
+  room, and otherwise goes to one who is elsewhere. Generated quests are never
+  connect quests.
 
 The hand holds only people, items and places; quests have no cards or
 buttons. A person's quest reaches the player only through Talk:

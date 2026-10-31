@@ -58,6 +58,7 @@ describe("want data", () => {
       "greek-baker": { kind: "place", target: "greek-courtyard" },
       "willows-swede": { kind: "place", target: "willows-landing" },
       rati: { kind: "item", target: "forest-story-button" },
+      boardyai: { kind: "connect", target: "humans" },
     });
   });
 
@@ -67,6 +68,7 @@ describe("want data", () => {
       { kind: "item", target: hubIds.items[0] },
       { kind: "place", target: pack.avatars.badger.place },
       { kind: "person", target: hubIds.player },
+      { kind: "connect", target: "humans" },
     ];
     for (const want of ok) {
       pack.avatars.badger.want = want;
@@ -78,6 +80,7 @@ describe("want data", () => {
       { kind: "person", target: "badger" },
       { kind: "place", target: "lamp" },
       { kind: "item", target: "lamp", since: 3 },
+      { kind: "connect", target: "lamp" },
     ]) {
       pack.avatars.badger.want = want;
       expect(packProblems(pack, hubIds).join(" ")).toContain("want needs");
