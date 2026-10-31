@@ -221,13 +221,13 @@ try {
         await playCards("light", ["lamp"]);
       }
       if (width < 700) {
-        // Step back through the beat stack to Vale's long reply.
+        // Read Vale's long reply through the player history controls.
         for (
           let line = 0;
           line < 8 && (await page.locator("#speaker").innerText()) !== "Vale";
           line++
         ) {
-          await page.locator("#beat-behind").click();
+          await page.locator("#previous-line").click();
         }
         assert.match(
           await page.locator("#dialogue-text").textContent(),

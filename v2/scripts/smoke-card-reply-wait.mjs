@@ -73,17 +73,9 @@ async function waitingFor(page, id) {
   assert.equal(await page.locator("#speaker").innerText(), nameOf(id));
   assert.equal(await page.locator("#dialogue-text").innerText(), "");
 }
-// Stepping back from the wait reaches the last accepted line, past any
-// later action beats; ● live returns to the wait.
+// Previous reviews the last accepted line, then the wait comes back.
 async function reviewsEarlierLine(page, id) {
-  for (
-    let step = 0;
-    step < 10 &&
-    (await page.locator("#dialogue-text").innerText()) !==
-      "An earlier line from Vale.";
-    step++
-  )
-    await page.locator("#beat-behind").click();
+  await page.locator("#previous-line").click();
   assert.equal(await page.locator("#speaker").innerText(), "Vale");
   assert.equal(
     await page.locator("#dialogue-text").innerText(),

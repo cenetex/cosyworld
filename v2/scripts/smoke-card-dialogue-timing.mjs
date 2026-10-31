@@ -161,14 +161,8 @@ try {
           };
         });
         assert(layout.portraitRight < layout.textLeft);
-        // The front beat card shows three lines, two on a phone, where the
-        // name shares the caption line; long replies scroll.
-        const shownLines = width < 700 ? 2 : 3;
-        assert(
-          Math.abs(layout.lines - shownLines) <= 0.05,
-          `Speech shows ${shownLines} lines: ${layout.lines}`,
-        );
-        assert(layout.font >= (width < 700 ? 14 : 15));
+        assert(layout.lines >= 2.95 && layout.lines <= 3.05);
+        assert(layout.font >= 15);
         await page.locator("#dialogue-advance").focus();
         if (motion !== "reduce")
           await page.locator("#dialogue-advance").click();
@@ -218,8 +212,13 @@ try {
           }
           await page.locator("#dialogue-advance").click();
           if (i < speakers.length - 1) {
-            // The next beat arrives in front while the finished one recedes.
-            assert.equal(await card("vale").isDisabled(), false);
+            if (motion !== "reduce") {
+              assert.equal(
+                await page.locator("#speaker").innerText(),
+                nameOf(speaker),
+              );
+              assert.equal(await card("vale").isDisabled(), false);
+            }
             await page.waitForFunction(
               (name) => document.querySelector("#speaker").textContent === name,
               nameOf(speakers[i + 1]),
