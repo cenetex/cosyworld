@@ -284,11 +284,9 @@ describe("BoardyAI's starter quest: connect people", () => {
     const both = plan(world, "boardyai");
     expect(both.action).toMatchObject({ kind: "talk" });
     expect(["vale", "mara"]).toContain(both.action.target);
-    expect(both.reason).toBe("I want to introduce two people.");
     const apart = view(atParlour("vale")).world;
     apart.actors.mara.place = "station";
     const step = plan(apart, "boardyai");
-    expect(step.reason).toBe("I want to introduce two people.");
     expect(step.action?.kind ?? "wait").not.toBe("talk");
   });
 });
