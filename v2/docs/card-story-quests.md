@@ -2,8 +2,8 @@
 
 > Retired. The rules no longer read `storyQuests`: each avatar now has one
 > quest, described in the [card guide](../card-game/README.md#one-quest-per-avatar).
-> Stories are told through pack choices. This page records the earlier format
-> until the data is removed.
+> Stories are told through pack choices. The mounted packs dropped their
+> `storyQuests` data in #1581; this page records the earlier format.
 
 A card pack can declare its story cards in `card-world.json` under
 `storyQuests`. The shared story engine reads these definitions for every

@@ -1,47 +1,29 @@
 # The storybook map as a hub item
 
-Status: built, 2026-10-31. Engine change: shared rules v60.
+The **Map of the Wood and the Wine-Dark Sea** (`world-map`) waits at the Empty
+station, outside the opening hand. It starts covered like every newly met card.
+The station's timetable names years yet to happen; a map belongs beside it.
 
-## Outcome
+## Rules and compatibility
 
-The pen-and-ink storybook map of the shore is a card: the **Map of the Wood
-and the Wine-Dark Sea** (`world-map`). It waits at the Empty station, outside
-the opening hand, and starts covered like every newly met card. Players find,
-hold, trade, want and drop it like the bell. Selected and uncovered, its card
-offers **Look**, which opens the full map over the table.
+`forest.json` supplies the name, text, art, large view and initial station holder.
+`card-table.json` registers the hub item; `entity-profiles.json` supplies its voice.
+Take, give, trade, drop and wants use the ordinary item rules. The Willows retain
+their separate `willows-map` and `assets/willows/map.png`.
 
-## Why the station
+`installPacks` adds genuinely absent hub items at their initial holders, including
+in older local saves and shared worlds. Existing custody, history and memories
+stay intact; a present malformed item remains invalid. This generic migration
+also restores other absent hub items. Its rule change requires shared engine v60.
+Content is supplied separately by the host; released interpreters stay pinned.
 
-The station is a sanctuary with a timetable of years that have yet to happen.
-A map of where the rails might go belongs beside it. Vale wakes in the attic,
-so the map is a discovery after the first crossing, not part of the opening.
+## Presentation and art
 
-## Rules
+An uncovered selected item with a `view` offers client-only **Look**. The dialog
+pauses speech and supports Enlarge/Fit, image tapping, Close, Escape and outside
+tapping. Keyboard buttons work without submitting a play or advancing the world.
+Card art resolves from pack art, then the hub item's `art`, then the forest card.
 
-- `forest.json` `things["world-map"]` carries `name`, `text`, `art` and
-  `view`. `initialState.items` places it at the station. `card-table.json`
-  lists it in the hub items, and `entity-profiles.json` gives it a voice.
-- No new verb. Take, give, trade, drop and wants already cover any hub item.
-- `installPacks` now adds a hub item missing from an older save at its
-  `initialState` holder. This keeps local saves and shared worlds valid when
-  they upgrade to v60. It is the only rule-module code change, and it is why
-  this needs a new rules bundle. `forest.json` is also still inside the engine
-  until the content split in
-  [pack content outside the engine](pack-content-outside-the-engine.md) lands.
-
-## Presentation
-
-- `app.mjs` resolves card art as pack art, then a hub thing's own `art`, then
-  the forest `<id>-card.png`.
-- **Look** appears only for a thing with a `view`, one card selected and
-  uncovered. It opens the `#item-view` dialog with the large image. A tap on
-  the image toggles zoom; a tap outside or Escape closes it. It never sends a
-  play.
-- Art: `assets/shared/items/world-map.webp` (1600 px, card and stage) and
-  `world-map-full.webp` (4096 px, the view). The prompts and hashes live in
-  `world-map-art-prompts.json`.
-
-## Ids
-
-The Willows already have `willows-map` (`assets/willows/map.png`), a different
-map. The hub id is `world-map`, so the two never collide.
+`assets/shared/items/world-map.webp` serves cards/stage at 1600 px;
+`world-map-full.webp` serves the view at 4096 px. The generation chain, original
+PNG hashes and encoding details live in `world-map-art-prompts.json` beside them.

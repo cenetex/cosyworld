@@ -1369,22 +1369,26 @@ function showItemView(id) {
   const dialog = $("item-view"),
     image = $("item-view-image");
   dialog.dataset.zoomed = "false";
+  $("item-view-zoom").textContent = "Enlarge";
   dialog.setAttribute("aria-label", nameOf(id));
   image.src = `./${things[id].view}`;
   image.alt = nameOf(id);
   dialog.showModal();
+  pauseSpeech();
 }
 $("item-view").addEventListener("click", (event) => {
-  const dialog = $("item-view");
-  if (event.target !== $("item-view-image")) return dialog.close();
+  const dialog = $("item-view"), image = $("item-view-image");
+  if (![image, $("item-view-zoom")].includes(event.target)) return dialog.close();
   const zoomed = dialog.dataset.zoomed !== "true",
-    { offsetX, offsetY } = event,
-    { width, height } = event.target.getBoundingClientRect();
+    { width, height } = image.getBoundingClientRect(),
+    offsetX = event.target === image ? event.offsetX : width / 2,
+    offsetY = event.target === image ? event.offsetY : height / 2;
   dialog.dataset.zoomed = String(zoomed);
+  $("item-view-zoom").textContent = zoomed ? "Fit" : "Enlarge";
   if (zoomed)
     dialog.scrollTo(
-      (offsetX / width) * event.target.offsetWidth - dialog.clientWidth / 2,
-      (offsetY / height) * event.target.offsetHeight - dialog.clientHeight / 2,
+      (offsetX / width) * image.offsetWidth - dialog.clientWidth / 2,
+      (offsetY / height) * image.offsetHeight - dialog.clientHeight / 2,
     );
 });
 $("unveil-take").onclick = takeDiscovered;

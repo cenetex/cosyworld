@@ -1406,6 +1406,14 @@ body[data-hand-expanded="true"] .card .name {
 
 /* An item with its own view, such as the map, opens over the table.
    Tap the image to zoom; tap outside it or press Escape to close. */
+.item-view-tools {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 1;
+}
 .item-view[open] {
   position: fixed;
   inset: 0;
@@ -1414,7 +1422,7 @@ body[data-hand-expanded="true"] .card .name {
   max-width: none;
   max-height: none;
   margin: 0;
-  padding: 16px;
+  padding: 56px 16px 16px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1426,7 +1434,7 @@ body[data-hand-expanded="true"] .card .name {
 .item-view img {
   display: block;
   max-width: 100%;
-  max-height: calc(100dvh - 32px);
+  max-height: calc(100dvh - 72px);
   border-radius: 4px;
   box-shadow: 0 20px 90px #000a;
   cursor: zoom-in;

@@ -245,7 +245,7 @@ function installPacks(s) {
   const fresh = newMemories();
   // A hub item added after this save was written joins it where it starts.
   for (const [id, item] of Object.entries(forest.initialState.items))
-    if (!s.items[id]) {
+    if (!Object.hasOwn(s.items, id)) {
       s.items[id] = structuredClone(item);
       s.memories[id] ??= fresh[id];
     }

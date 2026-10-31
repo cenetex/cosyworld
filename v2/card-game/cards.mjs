@@ -156,7 +156,7 @@ export function cardPlay(world, selected) {
       );
     return result(
       null,
-      packThings[id]
+      id !== "oil" && id !== "cloth"
         ? "Pair with a person to give it, or this place to put it down."
         : id === "oil"
           ? "Hold it with an empty Lamp to fill the Lamp."

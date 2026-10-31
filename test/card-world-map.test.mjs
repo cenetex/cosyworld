@@ -13,6 +13,7 @@ import {
 import { hub } from "../v2/card-game/pack-registry.mjs";
 import { profiles } from "../v2/card-game/memory.mjs";
 import { publicAssets } from "../v2/card-game/public-assets.mjs";
+import { cardPlay } from "../v2/card-game/cards.mjs";
 
 const root = new URL("../v2/card-game/", import.meta.url);
 const published = new Set(publicAssets.map(({ file }) => file));
@@ -52,17 +53,28 @@ describe("the storybook map", () => {
     const result = play(world, take);
     expect(result.ok).toBe(true);
     expect(result.state.items["world-map"].holder).toBe("vale");
+    expect(cardPlay(result.state, ["world-map"]).hint).toContain("give it");
+    expect(decodeSave(encodeSave(result.state))).toEqual(result.state);
     expect(play(decodeSave(encodeSave(world)), take)).toEqual(result);
   });
 
   it("joins a save written before it existed", () => {
     const old = JSON.parse(encodeSave(createWorld()));
+    const expected = structuredClone(old);
     delete old.items["world-map"];
     delete old.memories["world-map"];
     const loaded = decodeSave(JSON.stringify(old));
+    expect(loaded).toEqual(expected);
+    expect(decodeSave(encodeSave(loaded))).toEqual(loaded);
     expect(loaded.items["world-map"]).toEqual({
       holder: "station",
       history: [],
     });
+  });
+
+  it("rejects a present but malformed map instead of replacing it", () => {
+    const old = createWorld();
+    old.items["world-map"] = null;
+    expect(() => decodeSave(JSON.stringify(old))).toThrow();
   });
 });

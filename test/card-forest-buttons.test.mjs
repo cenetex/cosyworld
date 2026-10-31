@@ -76,9 +76,6 @@ describe("a button in each traveler's own colour", () => {
       "forest-set-watch-bell",
     ])
       expect(choices).not.toContain(id);
-    expect(pack.storyQuests.map((q) => q.id)).not.toContain(
-      "story-quest-forest-hearth",
-    );
     expect(JSON.stringify(pack)).not.toMatch(
       /forest-(story|dewbright)-button|forest-watch-bell/,
     );

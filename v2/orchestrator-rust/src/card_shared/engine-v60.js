@@ -4469,7 +4469,7 @@
     s.packs ??= {};
     const fresh = newMemories();
     for (const [id, item] of Object.entries(forest_default.initialState.items))
-      if (!s.items[id]) {
+      if (!Object.hasOwn(s.items, id)) {
         s.items[id] = structuredClone(item);
         s.memories[id] ??= fresh[id];
       }
