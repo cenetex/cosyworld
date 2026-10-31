@@ -89,6 +89,7 @@ const files = [
   "daylight.mjs",
   ...daylightAssets,
   "weather-view.mjs",
+  "transitions.mjs",
   "weather-shader.mjs",
   "weather.css",
   "portrait-facing.mjs",
