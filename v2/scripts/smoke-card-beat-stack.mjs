@@ -13,8 +13,91 @@ import {
   play,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
+import { stackHits } from "./card-browser-helpers.mjs";
 
 const output = process.env.BEAT_STACK_OUTPUT || "output/beat-stack";
+// Set to save start, middle and end frames of each step.
+const frames = process.env.BEAT_MOTION_FRAMES;
+// Step the stack and watch every frame of the move: the stack and the front
+// card keep their layout box, and the leaving card fades as a copy.
+async function watchStep(page, step, name) {
+  await page.waitForFunction(
+    () => !document.querySelector(".beat-ghost, .beat-card[data-motion]"),
+  );
+  await page.evaluate(() => {
+    const stack = document.querySelector(".beat-stack"),
+      front = document.querySelector("#speech-row");
+    const box = () => [
+      stack.offsetHeight,
+      front.offsetTop,
+      front.offsetWidth,
+      front.offsetHeight,
+      document.querySelector("#dialogue-text").offsetHeight,
+    ];
+    window.stepWatch = { boxes: [], motions: new Set(), ghosts: 0 };
+    let frame = 0;
+    const sample = () => {
+      const watch = window.stepWatch;
+      watch.start ||= Boolean(stack.querySelector(".beat-ghost"));
+      if (watch.start) watch.boxes.push(box().join());
+      if (front.dataset.motion) watch.motions.add(front.dataset.motion);
+      watch.ghosts = Math.max(
+        watch.ghosts,
+        stack.querySelectorAll(".beat-ghost").length,
+      );
+      if (frame++ < 40) requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  await step();
+  if (frames) {
+    // Hold the move still to photograph its start, middle and end.
+    for (const [at, ms] of [
+      ["start", 0],
+      ["mid", 120],
+      ["end", 280],
+    ]) {
+      await page.evaluate((ms) => {
+        for (const run of document.querySelector(".beat-stack").getAnimations({
+          subtree: true,
+        })) {
+          run.pause();
+          run.currentTime = Math.min(ms, run.effect.getTiming().duration - 1);
+        }
+      }, ms);
+      await page.screenshot({
+        path: `${frames}/${name}-${at}.png`,
+        clip: await page.locator(".beat-stack").evaluate((stack) => {
+          const box = stack.getBoundingClientRect();
+          return {
+            x: Math.max(0, box.left - 16),
+            y: Math.max(0, box.top - 60),
+            width: Math.min(innerWidth, box.width + 32),
+            height: box.height + 90,
+          };
+        }),
+      });
+    }
+    await page.evaluate(() => {
+      for (const run of document
+        .querySelector(".beat-stack")
+        .getAnimations({ subtree: true }))
+        if (run.effect.getTiming().iterations === 1) run.finish();
+    });
+  }
+  await page.waitForTimeout(800);
+  const watch = await page.evaluate(() => ({
+    boxes: [...new Set(window.stepWatch.boxes)],
+    motions: [...window.stepWatch.motions],
+    ghosts: window.stepWatch.ghosts,
+    left: document.querySelectorAll(".beat-ghost, .beat-card[data-motion]")
+      .length,
+  }));
+  assert.equal(watch.boxes.length, 1, `${name}: no layout jump ${watch.boxes}`);
+  assert.equal(watch.left, 0, `${name}: the move settles`);
+  assert.deepEqual(await stackHits(page), { front: true, behind: true });
+  return watch;
+}
 let fixture = enableMotives(createWorld({ opening: true }));
 for (const kind of ["light", "move"])
   fixture = play(
@@ -185,10 +268,12 @@ try {
       await page.waitForTimeout(400);
       await page.screenshot({ path: `${output}/live-${width}-${motion}.png` });
       // Tap behind: back in time. Vale comes forward; the live count shows.
-      await behind.click({ position: { x: 80, y: 8 } });
-      await page.waitForFunction(
-        () => document.querySelector("#speaker").textContent === "Vale",
+      const back = await watchStep(
+        page,
+        () => behind.click({ position: { x: 80, y: 8 } }),
+        `back-${width}-${motion}`,
       );
+      assert.equal(await front(), "Vale");
       assert.equal(await words(), lines.vale);
       assert(await page.locator("#live-line").isVisible());
       assert.match(
@@ -210,10 +295,18 @@ try {
         );
       }
       // Tap front: forward in time, back to live.
-      await page.locator("#dialogue-advance").click();
-      await page.waitForFunction(
-        () => document.querySelector("#speaker").textContent === "Pip",
+      const forward = await watchStep(
+        page,
+        () => page.locator("#dialogue-advance").click(),
+        `forward-${width}-${motion}`,
       );
+      assert.equal(await front(), "Pip");
+      // Both directions fade the leaving card out as an inert copy.
+      assert.deepEqual(
+        [back.motions, forward.motions],
+        motion === "reduce" ? [[], []] : [["return"], ["arrive"]],
+      );
+      assert(back.ghosts > 0 && forward.ghosts > 0, "The old card fades.");
       assert.equal(await page.locator("#live-line").isVisible(), false);
       // ● live returns from any depth.
       await behind.click({ position: { x: 80, y: 8 } });
