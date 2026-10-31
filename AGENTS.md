@@ -31,4 +31,7 @@ CI runs only by hand. PRs merge on fast local checks and review. After a
 batch of merges, or when .dev looks broken, run `gh workflow run ci.yml --ref
 main`. A release tag requires the latest main CI run to be green.
 
+Pull requests do not bump the version. Between releases, main and `.dev` carry
+the last released version; `/meta.commit` names the deployed commit.
+
 Validation and release follow `.github/AGENT.md` and `docs/release.md`.

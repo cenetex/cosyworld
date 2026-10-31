@@ -28,13 +28,14 @@ Always run:
 
 ```sh
 git diff --check
-npm run version:bump   # bumps package.json, package-lock.json, and the
-                       # orchestrator Cargo.toml/Cargo.lock together; then
-                       # check:version accepts the branch
+npm run check:version  # package.json, package-lock.json, and both Cargo
+                       # manifests and lock files agree
 ```
 
-`npm run check:version` also fails early when the Rust crate version drifts
-from `package.json`, so run it after any manual version edit. The pre-push hook
+Pull requests do not bump the version. A release bumps it once with
+`npm run version:bump` (see [release operations](../docs/release.md)).
+`npm run check:version` fails when the Rust crate version drifts from
+`package.json`, so run it after any manual version edit. The pre-push hook
 runs the change budget and `npm run check:version`; run `npm run check` by hand
 for the full local gate.
 
@@ -113,8 +114,7 @@ changing application behavior.
   get no CI. The deploy
   workflow runs its own gates, so a red main keeps .dev on the last good build.
   If main goes red, the next PR fixes it forward before anything else.
-- Bump `package.json` and the root versions in `package-lock.json`;
-  `npm run check:version` rejects a branch whose version matches `main`.
+- Leave the release version alone; only a release PR runs `npm run version:bump`.
 
 ## Known traps
 
@@ -154,8 +154,8 @@ Do not edit or commit these directly:
   and their version wiring. After rebasing a branch that changes rule modules,
   run `npm run v2:card:shared:next`; it restores main's live rules and claims
   the next version once. To land a prepared branch, `npm run land -- <branch>`
-  applies its own work onto main, regenerates the rules bundle, asset manifest
-  and version, and commits; it stops only on a conflict in the branch's work;
+  applies its own work onto main at main's version, regenerates the rules
+  bundle and asset manifest, and commits; it stops only on a conflict in the branch's work;
 - `v2/worlds/official/pack.lock.json` except through the lock command;
 - `package-lock.json` except through an intentional dependency/version update;
 - `v2/tests/visual-baselines/**` except for a reviewed UI change using the
@@ -180,4 +180,4 @@ Treat these as review-sensitive rather than forbidden:
 - Generated artifacts match their source and contain no unrelated churn.
 - Public copy passes the writing-register checks.
 - No secret or local runtime file appears in the diff.
-- The PR is versioned, validated, linked to its issue, and ready to merge.
+- The PR is validated, linked to its issue, and ready to merge.

@@ -137,7 +137,7 @@ jobs:
       - name: Roll out .dev
         id: rollout
         if: steps.impact.outputs.deploy == 'true'
-        run: flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling
+        run: flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
         env:
           RELEASE_IMAGE: ${{ steps.image.outputs.image }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -482,7 +482,7 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy primary Fly app
-        run: flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling
+        run: flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
         env:
           RELEASE_IMAGE: ${{ needs.primary-image.outputs.image }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -629,7 +629,7 @@ jobs:
       - name: Deploy Lonely Forest
         run: |
           for attempt in 1 2; do
-            if flyctl deploy --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false --strategy rolling; then
+            if flyctl deploy --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"; then
               exit 0
             fi
             if [ "$attempt" -eq 2 ]; then
