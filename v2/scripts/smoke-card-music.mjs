@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { roomTracks } from "../card-game/music.mjs";
+import streams from "../card-game/music-streams.json" with { type: "json" };
 import { createWorld, encodeSave, play } from "../card-game/world.mjs";
 import { cardPlay } from "../card-game/cards.mjs";
 
@@ -19,7 +20,7 @@ try {
     window.musicStops = [];
     const connect = MediaElementAudioSourceNode.prototype.connect;
     MediaElementAudioSourceNode.prototype.connect = function (node, ...args) {
-      window.musicGain = node;
+      if (this.mediaElement.id === "room-music") window.musicGain = node;
       return connect.call(this, node, ...args);
     };
     for (const method of ["pause", "load"]) {
@@ -29,6 +30,9 @@ try {
           window.musicStops.push({
             method,
             level: window.musicGain?.gain.value || 0,
+            source: this.src,
+            position: this.currentTime,
+            ended: this.ended,
           });
         return original.apply(this, args);
       };
@@ -85,6 +89,16 @@ try {
   }, roomTracks.attic[0].file);
   await playCard("pond");
   await takeUnveiled();
+  // The attic song follows the player to the pond until it ends.
+  await page.waitForFunction(() => document.body.dataset.place === "pond");
+  assert(
+    new URL(
+      await page.locator("#room-music").evaluate((audio) => audio.src),
+    ).pathname.endsWith(roomTracks.attic[0].file),
+  );
+  await page.locator("#room-music").evaluate((audio) => {
+    audio.currentTime = audio.duration - 1.25;
+  });
   await page.waitForFunction((file) => {
     const audio = document.querySelector("#room-music");
     return new URL(audio.src).pathname.endsWith(file) && audio.currentTime > 0;
@@ -98,9 +112,34 @@ try {
       volume,
     );
   await fullVolume();
+  // An ended song is silent while the audio clock settles its final frame.
+  const unexpectedStops = () =>
+    page.evaluate(() =>
+      window.musicStops.filter(
+        (stop, index, stops) =>
+          stop.level >= 0.003 &&
+          !stop.ended &&
+          !(stop.method === "load" && stops[index - 1]?.ended),
+      ),
+    );
 
   async function checkPlaylist(room) {
-    for (const [index, track] of roomTracks[room].entries()) {
+    await page.waitForFunction(
+      (tracks) =>
+        tracks.some(({ file }) =>
+          document.querySelector("#room-music").src.includes(file),
+        ),
+      roomTracks[room],
+    );
+    const source = await page.locator("#room-music").getAttribute("src");
+    const start = roomTracks[room].findIndex(({ file }) =>
+      source.includes(file),
+    );
+    const ordered = [
+      ...roomTracks[room].slice(start),
+      ...roomTracks[room].slice(0, start),
+    ];
+    for (const [index, track] of ordered.entries()) {
       await page.waitForFunction((file) => {
         const audio = document.querySelector("#room-music");
         return (
@@ -130,7 +169,7 @@ try {
         new URL(document.querySelector("#room-music").src).pathname.endsWith(
           file,
         ),
-      roomTracks[room][0].file,
+      ordered[0].file,
     );
   }
   await checkPlaylist("pond");
@@ -152,6 +191,18 @@ try {
       oldSource,
     );
     assert(await page.evaluate(() => window.musicGain.gain.value > 0));
+    await page.waitForFunction(
+      (room) => document.body.dataset.place === room,
+      room,
+    );
+    await fullVolume();
+    assert.equal(
+      await page.locator("#room-music").getAttribute("src"),
+      oldSource,
+    );
+    await page.locator("#room-music").evaluate((audio) => {
+      audio.currentTime = audio.duration - 1.25;
+    });
     await page.waitForFunction((volume) => {
       const level = window.musicGain.gain.value;
       return level > 0.01 && level < volume - 0.02;
@@ -193,11 +244,10 @@ try {
   await page.waitForFunction(
     () => document.querySelector("#room-music").paused,
   );
-  assert(
-    await page.evaluate(() =>
-      window.musicStops.every(({ level }) => level < 0.003),
-    ),
-    "Track changes and pauses happen after the gain reaches silence",
+  assert.deepEqual(
+    await unexpectedStops(),
+    [],
+    "Active songs fade before a pause",
   );
   await page.reload();
   await page.locator("#toolbar-menu-button").click();
@@ -270,7 +320,6 @@ try {
       );
     }, roomTracks["greek-ship"]);
     await fullVolume();
-    const source = await page.locator("#room-music").getAttribute("src");
     await page.locator("#room-music").evaluate((audio) => {
       audio.currentTime = audio.duration - 1.25;
     });
@@ -278,18 +327,22 @@ try {
       const level = window.musicGain.gain.value;
       return level > 0.01 && level < volume - 0.02;
     }, volume);
-    await page.waitForFunction((source) => {
+    await page.waitForFunction((tracks) => {
       const audio = document.querySelector("#room-music");
       return (
-        audio.getAttribute("src") === source &&
+        tracks.some(({ file }) => audio.src.includes(file)) &&
         audio.currentTime < 2 &&
         !audio.paused
       );
-    }, source);
+    }, roomTracks["greek-ship"]);
     await fullVolume();
+    const activeSource = await page.locator("#room-music").getAttribute("src");
     await playCard("greek-ship");
     await fullVolume();
-    assert.equal(await page.locator("#room-music").getAttribute("src"), source);
+    assert.equal(
+      await page.locator("#room-music").getAttribute("src"),
+      activeSource,
+    );
   }
   // Aboard, the port card sets the course and the ship card waits out the
   // round at sea; the deck song keeps playing until Disembark.
@@ -306,11 +359,16 @@ try {
   await voyage("pond");
   await travel("pond");
   // Check decoding for every candidate, including songs chance did not select.
-  const tracks = Object.values(roomTracks).flat();
+  const tracks = Object.values(roomTracks)
+    .flat()
+    .map((track) => ({
+      ...track,
+      url: `/card-game/${streams[`assets/music/${track.file}`]?.file || `assets/music/${track.file}`}`,
+    }));
   const decoded = await page.evaluate(async (tracks) => {
     const results = [];
-    for (const { file } of tracks) {
-      const probe = new Audio(`/card-game/assets/music-stream/${file}`);
+    for (const { file, url } of tracks) {
+      const probe = new Audio(url);
       probe.muted = true;
       try {
         await probe.play();
@@ -327,11 +385,11 @@ try {
   assert(
     decoded.every(({ duration }) => Number.isFinite(duration) && duration > 30),
   );
-  assert(
-    await page.evaluate(() =>
-      window.musicStops.every(({ level }) => level < 0.003),
-    ),
-    "Ship boarding and disembarking change music after the fade",
+  const loudStops = await unexpectedStops();
+  assert.deepEqual(
+    loudStops,
+    [],
+    "Songs finish their fade before the next room starts music",
   );
   await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
@@ -352,7 +410,7 @@ try {
     `http://127.0.0.1:${server.address().port}`,
   );
   console.log(
-    `Room music: all ${tracks.length} MP3s decoded; each crossing kept one random ship song through its ending and card plays. Fades, harbor and return music, saved controls and mobile menu passed.`,
+    `Room music: all ${tracks.length} tracks decoded. Songs followed travel until their end. Room playlists, saved controls and the mobile menu passed.`,
   );
 } finally {
   await browser.close();

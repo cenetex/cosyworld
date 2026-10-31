@@ -170,6 +170,7 @@ const types = {
   svg: "image/svg+xml",
   webp: "image/webp",
   mp3: "audio/mpeg",
+  m4a: "audio/mp4",
 };
 const aliases = Object.entries(musicStreams).map(([source, value]) => {
   if (

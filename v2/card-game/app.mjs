@@ -923,7 +923,10 @@ function performAction(action, revision) {
   const from = world.actors[currentActor(world)].place;
   const heldBefore = heldSelection();
   world = result.state;
-  music.setRoom(world.actors[currentActor(world)].place);
+  music.setRoom(
+    world.actors[currentActor(world)].place,
+    locationDaylight(world, world.actors[currentActor(world)].place)?.phase || "day",
+  );
   music.setStarted(musicHasStarted());
   music.unlock();
   hum.setStarted(musicHasStarted());
@@ -2235,7 +2238,10 @@ function render() {
   hum.setStarted(musicHasStarted());
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
-  music.setRoom(world.actors[currentActor(world)].place);
+  music.setRoom(
+    world.actors[currentActor(world)].place,
+    locationDaylight(world, world.actors[currentActor(world)].place)?.phase || "day",
+  );
   humRoom();
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;
