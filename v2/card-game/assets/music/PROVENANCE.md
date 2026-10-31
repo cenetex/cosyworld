@@ -59,3 +59,9 @@ Selected from the owner's existing Suno downloads on 2026-10-26 at their request
 | small-change-tall-stories.mp3 | [Gloamgate - Small Change, Tall Stories - Town Trial.mp3](https://suno.com/song/91d556e5-bfc6-45e7-b371-992921ece9bf) | Games pavilion                             | `5299108601c0c019dc853e267d1ebc724ff0da912c6f0c18f20d4839174f9a22` |
 
 The Paper theatre and the Juror's House use the existing `attic-1.mp3` (Music Box Waltz). The Sunken belfry and Underworld use `pond-2.mp3` (Something Below the Surface). Aulis Anchorage uses `station-2.mp3` (Faint Hope). Their original source records appear above. Vale's Empty station keeps its two existing tracks. The forest clearing keeps its authored silence.
+
+The project owner supplied four complete acid jazz M4A songs on 2026-10-28
+for River Camp in The Willows. The game serves the original audio bytes.
+`willows-provenance.json` records their source names and SHA-256 hashes.
+River Camp chooses one during the day when music is idle. Each song follows
+the player until it ends.
