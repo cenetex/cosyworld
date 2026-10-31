@@ -29,9 +29,17 @@ try {
       localStorage.setItem("cosyworld.dialogue.sound", "off");
       localStorage.setItem("cosyworld.room-music", JSON.stringify({ enabled: false }));
     });
+    // At phone width the voice fails: no line is scripted, Vale shows "…".
+    const voiceFails = width < 400;
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
       requests.push(input);
+      if (voiceFails)
+        return route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "Model unavailable." }),
+        });
       return route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -69,11 +77,18 @@ try {
       assert(!(await mentions(names.attic)));
       assert.equal(requests.length, 0);
       await uncover("attic");
-      await page.waitForFunction(() => /Where am I/.test(document.body.innerText));
+      if (voiceFails)
+        await page.waitForFunction(
+          () => document.querySelector("#dialogue-text")?.textContent.trim() === "…",
+        );
+      else await page.waitForFunction(() => /Where am I/.test(document.body.innerText));
+      assert(!/remember how I got here/.test(await named()), "A scripted line showed");
       assert(await mentions(names.attic));
       assert(await mentions(names.world));
-      // The covered lamp never reaches the speech request.
-      assert.equal(requests.length, 1);
+      // The raw waking frame (#1600); the covered lamp never reaches it.
+      assert(requests.length >= 1);
+      assert.equal(requests[0].waking, true);
+      assert.equal(requests[0].covered, undefined);
       const sent = JSON.stringify(requests[0]);
       assert(!/lamp/i.test(sent), `The opening request named the lamp: ${sent}`);
       assert(!(await mentions(names.lamp)));
