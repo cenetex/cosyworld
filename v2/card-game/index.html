@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="./toolbar.css" />
     <link rel="stylesheet" href="./openrouter.css" />
     <link rel="stylesheet" href="./scene-video.css" />
+    <link rel="stylesheet" href="./combat.css" />
     <!-- card-image-preload:start -->
     <link
       rel="preload"
@@ -72,9 +73,16 @@
         <div id="floor-items" class="floor-items" aria-hidden="true"></div>
         <div id="cast" class="cast" aria-label="Conversation cast"></div>
         <div id="travel" class="travel" aria-hidden="true">
-          <p class="kicker">Travelling to</p>
+          <p id="travel-kicker" class="kicker">Travelling to</p>
           <p id="travel-name" class="travel-name"></p>
         </div>
+        <p
+          id="combat-caption"
+          class="combat-caption"
+          role="status"
+          aria-live="polite"
+          hidden
+        ></p>
         <section class="dialogue" aria-label="Conversation">
           <p
             id="movement-caption"
@@ -185,6 +193,23 @@
       role="status"
       aria-live="polite"
     ></span>
+    <dialog
+      id="defeat-dialog"
+      class="defeat-card"
+      aria-labelledby="defeat-title"
+      aria-describedby="defeat-changes"
+    >
+      <p class="kicker">Standoff lost</p>
+      <h2 id="defeat-title" data-combat-title></h2>
+      <ul id="defeat-changes" data-combat-changes></ul>
+      <button type="button" data-combat-continue>Continue</button>
+    </dialog>
+    <span
+      id="combat-announcement"
+      class="sr-only"
+      aria-live="assertive"
+      aria-atomic="true"
+    ></span>
     <dialog id="history-dialog">
       <div class="modal-heading">
         <h2>Conversation</h2>
@@ -216,6 +241,9 @@
       </button>
       <button id="scares-toggle" type="button" aria-pressed="true">
         Flashes and scares: on
+      </button>
+      <button id="combat-speed" type="button" aria-pressed="false">
+        Fight speed: 1×
       </button>
       <p
         id="voice-status"

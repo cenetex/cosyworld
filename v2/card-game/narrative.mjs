@@ -52,6 +52,35 @@ function refusalFact(played) {
   return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed. Say why in your own words.`;
 }
 
+// A player driven off in a standoff this turn came to here. One short line
+// keeps tiny models on the committed result.
+function defeatArrival(world, location) {
+  const actor = currentActor(world);
+  const moved = world.log.findLast(
+    (e) =>
+      e.turn === world.turn &&
+      !e.generated &&
+      e.actorId === actor &&
+      e.locationId === location &&
+      e.fromLocationId &&
+      e.fromLocationId !== location &&
+      (["retreat", "sent-home"].includes(e.verb) ||
+        (!e.verb && /after yielding to/u.test(e.text || ""))),
+  );
+  const blow =
+    moved &&
+    world.log.findLast(
+      (e) =>
+        e.turn === world.turn &&
+        e.verb === "attack" &&
+        e.targetId === actor &&
+        e.seq < moved.seq,
+    );
+  return blow
+    ? `${nameOf(actor)} was beaten by ${nameOf(blow.actorId)} and came to at ${nameOf(location)}. Say one line.`
+    : null;
+}
+
 // Keep a few lasting encounters beside fresh facts. Speech stays secondary to
 // witnessed events. Hidden puzzle bookkeeping is not dialogue material.
 export function speechMemories(memory, { expressions = true } = {}) {
@@ -248,14 +277,21 @@ export function narrativeContext(world, action = null) {
       (id) => id && awake(id),
     ),
   );
+  // After a defeat only one voice speaks: a resident here, or else the avatar.
+  const defeated = defeatArrival(world, location);
+  const host =
+    defeated &&
+    present.find((id) => id !== currentActor(world) && awake(id));
   // Vale responds to every play. Other travellers keep their movement order.
-  const speakers = [
-    currentActor(world),
-    ...[...chosen].filter(
-      (id) => id !== currentActor(world) && !movers.includes(id),
-    ),
-    ...movers.filter((id) => id !== currentActor(world) && chosen.has(id)),
-  ].slice(0, 3);
+  const speakers = defeated
+    ? [host || currentActor(world)]
+    : [
+        currentActor(world),
+        ...[...chosen].filter(
+          (id) => id !== currentActor(world) && !movers.includes(id),
+        ),
+        ...movers.filter((id) => id !== currentActor(world) && chosen.has(id)),
+      ].slice(0, 3);
   // Model requests stay bounded as the pack catalog grows. The actual chosen
   // card and every speaker take priority over incidental objects in a room.
   const ids = [
@@ -439,7 +475,8 @@ export function narrativeContext(world, action = null) {
           `Location now: ${nameOf(world.actors[id].place)}. Company now: ${company.map(nameOf).join(", ") || "alone"}.`,
         );
         const movement = changes.find((change) => change.actorId === id);
-        if (movement)
+        if (defeated && id === speakers[0]) facts.unshift(defeated);
+        else if (movement)
           facts.push(
             movement.leaving
               ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now. Say goodbye to ${nameOf(currentActor(world))} and name your destination and reason as you leave.`
