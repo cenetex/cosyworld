@@ -2362,7 +2362,7 @@ function renderScene() {
       portraitBox.append(image);
     }
   }
-  frontCaptions = (front?.actions || []).map((action) => action.text + ".");
+  frontCaptions = (front?.actions || []).map((action) => action.text);
   const captions = $("beat-captions");
   const captionKey = JSON.stringify(front?.actions || []);
   if (captions.dataset.key !== captionKey) {
