@@ -826,9 +826,10 @@ function talkKnowledge(s, action, entry) {
       ];
   for (const [speaker, listener] of pairs) {
     if (expressionOf(people[speaker]) !== "speech") continue;
-    // A story choice is the listener's own deed: only their Talk commits it.
-    // A resident who seeks them out may tell the account, which their own
-    // later Talk can still turn into the choice, one choice per turn.
+    // A story choice is the listener's own deed: only their Talk commits it,
+    // at the play, whether or not the line is ever voiced. A resident who
+    // seeks them out may tell the account, which their own later Talk can
+    // still turn into the choice, one choice per turn.
     const choices = listener === action.actor ? packChoices(s, listener) : [];
     const topics = authoredKnowledgeTopics()
       .filter((topic) =>
@@ -847,7 +848,9 @@ function talkKnowledge(s, action, entry) {
     const port =
       lane && atPort(s, speaker) && !topics.some((topic) => topic.choiceReady);
     if (port && reserveLaneKnowledge(s, speaker, listener, entry, lane)) break;
-    if (reserveKnowledge(s, speaker, listener, entry, topics)) break;
+    const told = reserveKnowledge(s, speaker, listener, entry, topics);
+    if (told?.commitChoice) commitTopicChoice(s, told);
+    if (told) break;
     if (
       lane &&
       !port &&
@@ -855,6 +858,24 @@ function talkKnowledge(s, action, entry) {
     )
       break;
   }
+}
+function commitTopicChoice(s, told) {
+  const topic = s.knowledge.facts[told.factId].source.topic;
+  const action = packChoices(s, told.listener).find(
+    (a) => a.packId === topic.packId && a.choiceId === topic.choiceId,
+  );
+  if (!action || Object.values(s.packs[topic.packId].receipts).includes(s.turn))
+    return;
+  applyPackChoice(s, action);
+  addLog(s, "World", action.text, {
+    kind: "action",
+    actorId: told.listener,
+    verb: "choose",
+    packId: action.packId,
+    choiceId: action.choiceId,
+    targetId: action.target,
+    locationId: s.actors[told.listener].place,
+  });
 }
 const atPort = (s, actor) =>
   Object.values(transports).some(
@@ -925,7 +946,8 @@ const laneFactText = (id) => {
     : null;
 };
 
-// Only recorded speech publishes a selected account and its authored effects.
+// Only recorded speech teaches a selected account. Its story choice was
+// already committed by the Talk that reserved it.
 export function publishKnowledgeSpeech(s, entry, disclosures) {
   // An unnamed id has no name to stand for I or you.
   const named = (id) => (nameOf(id) === "the world" ? null : nameOf(id));
@@ -934,30 +956,6 @@ export function publishKnowledgeSpeech(s, entry, disclosures) {
   for (const { fact, listener } of learned)
     if (fact.source.kind === "lane")
       learnLane(s, listener, ...fact.id.slice(5).split(">"));
-  for (const { fact, listener, commitChoice } of learned) {
-    const topic = fact.source.topic;
-    if (
-      !commitChoice ||
-      !topic?.choiceId ||
-      !humanAvatar(listener) ||
-      Object.hasOwn(s.packs[topic.packId].receipts, topic.choiceId)
-    )
-      continue;
-    const action = packChoices(s, listener).find(
-      (a) => a.packId === topic.packId && a.choiceId === topic.choiceId,
-    );
-    if (!action) continue;
-    applyPackChoice(s, action);
-    addLog(s, "World", action.text, {
-      kind: "action",
-      actorId: listener,
-      verb: "choose",
-      packId: action.packId,
-      choiceId: action.choiceId,
-      targetId: action.target,
-      locationId: s.actors[listener].place,
-    });
-  }
   return learned;
 }
 // Rules read recent history, so generated words never shorten the authoritative

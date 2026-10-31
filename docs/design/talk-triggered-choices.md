@@ -22,6 +22,16 @@ receipts for it still replay and new ones cannot be played.
 
 The choice commits at the play. It does not wait for the AI line.
 
+## Topic choices
+
+The 23 choices linked from a topic's `choiceId` used to commit only when the
+speaker's AI line was published and said the fact. They now commit at the
+listener's Talk that reserves the topic, through the same `applyPackChoice`
+and `choose` log entry. Published words still teach the fact; a failed or
+off-topic line no longer loses the deed. One choice per turn still holds: if
+a meeting or an `on: "talk"` choice already took the turn's receipt, the
+topic is told and its choice waits for a later Talk.
+
 ## Engine
 
 This changes `world.mjs`, `pack-registry.mjs` and `pack-schema.mjs`, so it

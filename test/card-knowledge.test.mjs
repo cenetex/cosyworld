@@ -479,7 +479,7 @@ describe("authored topics keep their saved deed identity", () => {
     if (originalTopics === undefined) delete pack.topics;
     else pack.topics = originalTopics;
   });
-  it("learns the plea through Talk before recording its authored receipt once", () => {
+  it("records the plea's receipt once at the Talk and teaches it from the words", () => {
     const choice = pack.choices.find(
       (c) => c.id === "greek-open-door-hear-mothers",
     );
@@ -502,7 +502,8 @@ describe("authored topics keep their saved deed identity", () => {
     world = play(world, action).state;
     const context = narrativeContext(world, action);
     expect(context.disclosures[0].factId).toBe(choice.id);
-    expect(world.packs[pack.id].receipts[choice.id]).toBeUndefined();
+    expect(world.packs[pack.id].receipts[choice.id]).toBe(world.turn);
+    expect(knowsFact(world, "vale", choice.id)).toBe(false);
     world = applyGeneratedText(world, context, response(context, text));
     expect(knowsFact(world, "vale", choice.id)).toBe(true);
     expect(world.packs[pack.id].receipts[choice.id]).toBe(world.turn);

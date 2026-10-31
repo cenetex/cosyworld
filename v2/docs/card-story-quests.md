@@ -180,6 +180,8 @@ the fact. Requirements use the common pack condition vocabulary.
 
 `choiceId` links the topic to an existing authored scene. Its speaker and
 place match that choice. The original choice keeps its ID and saved effects.
+The listener's Talk that selects the topic commits the choice at the play,
+even if the AI line never arrives; published words only teach the fact.
 Each avatar's learned topics stay separate from the world's choice receipts.
 
 Build the compiled catalog with

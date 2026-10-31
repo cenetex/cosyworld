@@ -165,7 +165,7 @@ describe("Earth Beside the Ships", () => {
     expect(offered(world, "bury-public")).toBe(true);
   });
 
-  it("records the plea only after Teucer's words are published", () => {
+  it("records the plea at Teucer's Talk even when his words never arrive", () => {
     let world = shieldDelivered();
     const talk = legalActions(world).find(
       (a) => a.kind === "talk" && a.target === "greek-ajax-teucer",
@@ -173,8 +173,8 @@ describe("Earth Beside the Ships", () => {
     world = play(world, talk).state;
     const context = narrativeContext(world, talk);
     expect(context.disclosures[0].factId).toBe("greek-ajax-plea");
-    expect(ajaxState(world).receipts["greek-ajax-hear-plea"]).toBeUndefined();
-    expect(entityActive(world, "greek-ajax-plea")).toBe(false);
+    expect(ajaxState(world).receipts["greek-ajax-hear-plea"]).toBe(world.turn);
+    expect(entityActive(world, "greek-ajax-plea")).toBe(true);
     const response = (text) => ({
       revision: context.revision,
       model: "fixture",
@@ -188,15 +188,16 @@ describe("Earth Beside the Ships", () => {
       context,
       response("The tide is turning."),
     );
-    expect(ajaxState(missed).receipts["greek-ajax-hear-plea"]).toBeUndefined();
+    expect(knowsFact(missed, "vale", "greek-ajax-plea")).toBe(false);
+    expect(ajaxState(missed).receipts["greek-ajax-hear-plea"]).toBe(world.turn);
+    const turn = world.turn;
     world = applyGeneratedText(
       reload(world),
       context,
       response(context.disclosures[0].text),
     );
     expect(knowsFact(world, "vale", "greek-ajax-plea")).toBe(true);
-    expect(entityActive(world, "greek-ajax-plea")).toBe(true);
-    expect(ajaxState(world).receipts["greek-ajax-hear-plea"]).toBe(world.turn);
+    expect(ajaxState(world).receipts["greek-ajax-hear-plea"]).toBe(turn);
   });
 
   it("uses local paths inside the camp and a ship stop between its shores", () => {
