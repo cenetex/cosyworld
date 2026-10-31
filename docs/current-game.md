@@ -59,6 +59,7 @@ behavior follows the shipping code, catalogs, tests, and live release.
 
 - [Card game](../v2/card-game/README.md)
 - [Shared worlds](../v2/docs/card-table/shared-worlds.md)
+- [Dialogue beats](../v2/docs/card-table/dialogue-beats.md)
 - [Card pack authoring](../v2/docs/card-packs.md)
 - [Runtime operations](../v2/README.md)
 - [Releases](release.md)
