@@ -112,6 +112,7 @@ const files = [
   "learning.mjs",
   "adaptive-learning.mjs",
   "narrative.mjs",
+  "speech-knowledge.mjs",
   "expression.mjs",
   "emoji-symbols.json",
   "dialogue.mjs",

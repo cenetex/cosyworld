@@ -41,6 +41,7 @@ import {
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
+import { forgetCovered } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic } from "./music.mjs";
 import { createHum } from "./hum.mjs";
@@ -240,7 +241,16 @@ let encountered = new Set(),
   discoveryPending = false;
 const fresh = new Set();
 const coveredCards = new Set();
+let openingHeld = false;
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
+// The screen names a card only once its player has uncovered it (#1575).
+const knownName = (id, unknown = "…") =>
+  coveredCards.has(id) ? unknown : nameOf(id);
+// An avatar wakes knowing nothing: it speaks once its player has uncovered
+// both its own card and the place it stands in.
+const selfKnown = () =>
+  !coveredCards.has(currentActor(world)) &&
+  !coveredCards.has(world.actors[currentActor(world)].place);
 function rememberCards() {
   try {
     localStorage.setItem(SEEN_KEY, JSON.stringify([...encountered]));
@@ -817,6 +827,7 @@ window.addEventListener("pageshow", () => {
 const narrator = createNarrator({
   getWorld: () => world,
   early: Boolean(localRuntime()),
+  limit: (context) => forgetCovered(world, context, (id) => coveredCards.has(id)),
   request: localRuntime()
     ? (context, signal, progress) =>
         requestNarrative(context, signal, progress, "/card-game/text", true)
@@ -959,6 +970,8 @@ function choose(id) {
     fresh.delete(id);
     rememberCards();
     render();
+    if (openingHeld && openingWordsDue() && selfKnown()) resumeScene();
+    if (sharedSession) syncSharedLine();
     return;
   }
   playQueue.clear();
@@ -1747,7 +1760,9 @@ function card(id) {
   const observation = node("span", cardObservation(world, id), "sr-only");
   observation.id = `card-detail-${id}`;
   if (raised && label) observation.textContent += ` ${label}.`;
-  el.append(graphic, node("span", def.name, "name"), observation);
+  const hidden = cardIsCovered(id);
+  if (hidden) observation.textContent = "";
+  el.append(graphic, node("span", hidden ? "" : def.name, "name"), observation);
   for (const end of ["top", "bottom"]) {
     const numeral = node("span", romanLevel(level), `card-level card-level-${end}`);
     numeral.setAttribute("aria-hidden", "true");
@@ -1809,7 +1824,7 @@ function card(id) {
       : !raised && !expandedHolders.has(holder);
     el.setAttribute(
       "aria-label",
-      `${def.name}, ${places[holder] ? "at" : "carried by"} ${nameOf(holder)}, ${tier.label}, level ${level}`,
+      `${def.name}, ${places[holder] ? "at" : "carried by"} ${knownName(holder, "someone")}, ${tier.label}, level ${level}`,
     );
   }
   if (people[id] || places[id]) {
@@ -1820,8 +1835,10 @@ function card(id) {
       frame.dataset.inventory = String(held.length);
       frame.dataset.expanded = String(expandedHolders.has(id));
       el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
-      if (held.length)
-        observation.textContent += ` ${places[id] ? "Contains" : "Carries"} ${held.map(nameOf).join(", ")}. Select to show these cards.`;
+      const named = held.filter((item) => !cardIsCovered(item)).map(nameOf);
+      if (named.length < held.length) named.push(`${held.length - named.length} covered`);
+      if (!hidden)
+        observation.textContent += ` ${places[id] ? "Contains" : "Carries"} ${named.join(", ")}. Select to show these cards.`;
       for (const item of held.slice(0, 2)) {
         const preview = node("img", undefined, "held-preview");
         preview.decoding = "async";
@@ -1865,8 +1882,12 @@ function renderStage(locationId) {
   document.body.dataset.place = locationId;
   document.body.dataset.dim = String(Boolean(lamp));
   document.body.dataset.lamplit = String(lampLitHere(world, locationId));
-  document.querySelector(".brand span").textContent =
-    pack?.name || "The reflected shore";
+  // A world's name waits, like the place's, for its card to be uncovered.
+  const worldName = coveredCards.has(locationId)
+    ? null
+    : pack?.name || "The reflected shore";
+  document.querySelector(".brand span").textContent = worldName || "…";
+  document.title = worldName ? `CosyWorld · ${worldName}` : "CosyWorld";
   const fraction = (value, fallback) => String((value ?? fallback) / 100);
   view.style.setProperty("--focus-x", fraction(stage.focus?.x, 50));
   view.style.setProperty("--focus-y", fraction(stage.focus?.y, 50));
@@ -1902,7 +1923,9 @@ function renderStage(locationId) {
   const source = imageUrl(portrait(stage.resident, null, world));
   if (figure.getAttribute("src") !== source) figure.src = source;
   figure.dataset.state = mood?.name || "present";
-  figure.alt = mood?.alt || nameOf(stage.resident);
+  figure.alt = coveredCards.has(stage.resident)
+    ? "Someone"
+    : mood?.alt || nameOf(stage.resident);
 }
 function leaveFigure(figure, remove = false) {
   if (exits.has(figure)) return;
@@ -1946,7 +1969,9 @@ function renderHeldItem(figure, actor, itemId) {
   let preview = figure.querySelector(".portrait-held-item");
   figure.setAttribute(
     "aria-label",
-    itemId ? `${nameOf(actor.id)} holds ${nameOf(itemId)}` : nameOf(actor.id),
+    itemId
+      ? `${knownName(actor.id, "Someone")} holds ${knownName(itemId, "a covered card")}`
+      : knownName(actor.id, "Someone"),
   );
   if (!itemId) {
     preview?.remove();
@@ -2065,8 +2090,9 @@ function renderScene() {
           ? CROSSFADE_MS
           : CHANGE_FADE_MS,
   });
-  img.alt =
-    stageOf(world, scene.locationId).alt || placeText(world, scene.locationId);
+  img.alt = coveredCards.has(scene.locationId)
+    ? ""
+    : stageOf(world, scene.locationId).alt || placeText(world, scene.locationId);
   if (scene.weather) img.alt += ` Weather: ${scene.weather.condition}.`;
   if (scene.daylight) img.alt += ` ${scene.daylight.description}`;
   img.dataset.locationVariant = scene.variant;
@@ -2886,7 +2912,7 @@ function render() {
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;
   $("hand").dataset.presentedRevision = String(world.revision);
-  $("place-title").textContent = nameOf(
+  $("place-title").textContent = knownName(
     world.actors[currentActor(world)].place,
   );
   if (rowCollapsed) expandedHolders.clear();
@@ -3291,9 +3317,8 @@ function showOpeningFallback() {
   addLog(
     world,
     "Vale",
-    world.opening.version === 2
-      ? "The water is dark. I'll light the lamp."
-      : "It's cold up here. I'll light the lamp.",
+    // Vale wakes knowing nothing; the line names no card and hints no play.
+    "Where am I? I don't remember how I got here.",
     {
       actorId: currentActor(world),
       entityId: currentActor(world),
@@ -3312,6 +3337,14 @@ function resumeScene() {
   if (sharedSession) {
     render();
     syncSharedLine();
+    return;
+  }
+  openingHeld = openingWordsDue() && !selfKnown();
+  if (openingHeld) {
+    // Vale's first line waits until his player uncovers him and his place.
+    storyStatus = "ready";
+    save();
+    render();
     return;
   }
   if (openingWordsDue()) {
@@ -3469,6 +3502,8 @@ async function submitSharedPlay(action) {
 function syncSharedLine() {
   renderPlayers();
   if (!sharedSession || reviewing || covering) return;
+  // A viewer hears the room once they have uncovered themselves and it.
+  if (!selfKnown()) return;
   const room = world.actors[currentActor(world)].place;
   const playbackTime = sharedPlayback.now(
     sharedSession.state,
