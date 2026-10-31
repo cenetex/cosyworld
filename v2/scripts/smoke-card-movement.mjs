@@ -267,15 +267,18 @@ try {
           );
         if (kind === "resident") assert.equal(pip, undefined);
       }
-      const caption = await page.locator("#movement-caption").innerText();
-      assert.match(
-        caption,
-        kind === "shared"
-          ? /Pip travels with Vale/
-          : kind === "resident"
-            ? /Pip is waiting here/
-            : /Pip follows from Mirror attic/,
-      );
+      // Arrivals are beats in the stack; a resident who was already here
+      // did nothing, so has no caption.
+      const caption = await page.locator(".dialogue").innerText();
+      if (kind === "resident")
+        assert.doesNotMatch(caption, /Pip (arrived|followed|travels)/);
+      else
+        assert.match(
+          caption,
+          kind === "shared"
+            ? /Pip travels with Vale/
+            : /Pip followed from Mirror attic/,
+        );
       report.caption = caption;
       assert.equal(await card("vale").isDisabled(), true);
       assert.deepEqual(

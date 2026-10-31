@@ -13,7 +13,13 @@ import {
   installScaresToggle,
 } from "./transitions.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
-import { combatBeats, isCombatLine, lastSeq } from "./combat-beats.mjs";
+import { combatBeats, lastSeq } from "./combat-beats.mjs";
+import {
+  beatSummary,
+  memoryVisits,
+  sceneBeats,
+  withPending,
+} from "./beats.mjs";
 import {
   createCombatView,
   installCombatSpeed,
@@ -26,18 +32,14 @@ import {
   installSharedControls,
   renderSharedQueue,
   sharedLiveLine,
-  sharedSilentLines,
   sharedNextActor,
+  sharedSilentLines,
   sharedSpeechState,
   hasSharedPlace,
   humanAvatars,
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
-import {
-  createNarrator,
-  requestNarrative,
-  silentLines,
-} from "./narrative.mjs";
+import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic } from "./music.mjs";
 import { createHum } from "./hum.mjs";
@@ -73,7 +75,6 @@ import {
   isSceneText,
   sceneCast,
   nextSpeaker,
-  movementCaption,
   sceneStaging,
   selectedHandItem,
   portrait,
@@ -265,10 +266,12 @@ let storyStatus = "ready",
   speechHeight = 0,
   speechScrollTarget = 0,
   speechComplete = null,
-  nextSceneSeq = null,
-  replay = 0,
   cardsCooling = false,
   reviewing = false,
+  // The beat stepped back to while reviewing, by beat key.
+  reviewBeat = null,
+  announcedBeat = null,
+  frontCaptions = [],
   pendingSpeaker = null,
   // This play's speakers in order, and those whose lines have been shown.
   sceneSpeakers = [],
@@ -424,13 +427,10 @@ const exchange = createExchange({
     if (speakerId && !shownSpeakers.includes(speakerId))
       shownSpeakers.push(speakerId);
     reviewing = false;
+    reviewBeat = null;
     lineSeq = line.seq;
+    // The stack brings the new beat in front as it renders.
     renderScene();
-    if (!reducedMotion.matches)
-      $("speech-row").animate([{ opacity: 0 }, { opacity: 1 }], {
-        duration: 240,
-        easing: "ease-out",
-      });
   },
   settled: () => {
     renderScene();
@@ -448,16 +448,9 @@ const exchange = createExchange({
   transition: (previous, next) => {
     if (reducedMotion.matches) return;
     const version = trip;
-    return waitForScene([...exits.values()]).then(async () => {
-      if (version !== trip || !exchange.active) return;
-      if (next) {
-        await $("speech-row")
-          .animate([{ opacity: 1 }, { opacity: 0 }], {
-            duration: 220,
-            easing: "ease-in",
-          })
-          .finished.catch(() => {});
-      }
+    // The finished beat recedes behind the next one instead of fading out.
+    return waitForScene([...exits.values()]).then(() => {
+      if (version !== trip || !exchange.active || !next) return;
     });
   },
   busy: (value) => {
@@ -525,26 +518,23 @@ function measureSpeech() {
 }
 new ResizeObserver(measureSpeech).observe($("dialogue-text"));
 function updateSpeechControls(complete) {
+  const forward = reviewing || Boolean(exchange.current);
   $("dialogue-advance").dataset.revealing = String(!complete);
   $("dialogue-advance").setAttribute(
     "aria-label",
     complete
-      ? nextSceneSeq !== null
-        ? "Continue to the next line"
+      ? reviewing
+        ? "Step forward to a later beat"
         : exchange.current
-          ? "Finish this exchange"
-          : "Read this line again"
+          ? "Continue to the next beat"
+          : "The latest beat"
       : "Reveal the full line",
   );
   $("speech-hint").textContent = complete
-    ? nextSceneSeq !== null
+    ? forward
       ? "Continue"
-      : exchange.current
-        ? "Continue"
-        : "Read again"
+      : ""
     : "Tap to reveal";
-  $("next-line").disabled =
-    complete && nextSceneSeq === null && !exchange.current;
 }
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
@@ -594,11 +584,18 @@ const reveal = createTextReveal({
         behavior: reducedMotion.matches ? "instant" : "smooth",
       });
     }
+    // Only the newest beat is announced, never one stepped back to.
+    if (value.complete && !reviewing && announcedBeat !== value.key) {
+      announcedBeat = value.key;
+      $("speech-announcement").textContent = [
+        expressionLabel(
+          { ...people[value.speaker], name: nameOf(value.speaker) },
+          value.text,
+        ),
+        ...frontCaptions,
+      ].join(" ");
+    }
     if (value.complete) {
-      $("speech-announcement").textContent = expressionLabel(
-        { ...people[value.speaker], name: nameOf(value.speaker) },
-        value.text,
-      );
       updateSpeechControls(true);
       completedSpeech.add(value.key);
       if (completedSpeech.size > 100)
@@ -796,10 +793,7 @@ const narrator = createNarrator({
     pendingSpeaker = nextSpeaker(world, { speakers: sceneSpeakers });
     renderScene();
   },
-  apply: (
-    next,
-    { pending = false, reflection = false, silent = [] } = {},
-  ) => {
+  apply: (next, { pending = false, reflection = false, silent = [] } = {}) => {
     world = next;
     save();
     if (reflection) {
@@ -994,7 +988,8 @@ function performAction(action, revision) {
   world = result.state;
   music.setRoom(
     world.actors[currentActor(world)].place,
-    locationDaylight(world, world.actors[currentActor(world)].place)?.phase || "day",
+    locationDaylight(world, world.actors[currentActor(world)].place)?.phase ||
+      "day",
   );
   music.setStarted(musicHasStarted());
   music.unlock();
@@ -1034,6 +1029,24 @@ function performAction(action, revision) {
   if (beats.length) presentCombat(beats, land);
   else land();
   narrator.changed(action);
+  restoreHandFocus();
+}
+// A play leaves keyboard focus with the hand, never in the dialogue stack.
+function restoreHandFocus() {
+  const active = document.activeElement;
+  if (
+    active &&
+    active !== document.body &&
+    active.isConnected &&
+    !active.disabled &&
+    !$("card-actions").contains(active)
+  )
+    return;
+  const card =
+    $("hand").querySelector(
+      `.card-frame:not([hidden]) [data-card="${selected.at(-1)}"]`,
+    ) || $("hand").querySelector(".card-frame:not([hidden]) .card");
+  card?.focus({ preventScroll: true });
 }
 
 // Standoff beats play over the scene the player saw before the play. The new
@@ -1073,7 +1086,9 @@ async function presentCombat(beats, land) {
   updateCardCooldown();
   await view.play(beats);
   if (mine !== combatRun) return;
-  const defeat = beats.find((beat) => beat.kind === "defeat" && beat.viewerLost);
+  const defeat = beats.find(
+    (beat) => beat.kind === "defeat" && beat.viewerLost,
+  );
   if (defeat) await view.defeat(defeat);
   if (mine !== combatRun) return;
   await view.release();
@@ -1826,6 +1841,7 @@ function leaveFigure(figure, remove = false) {
 function returnToLive() {
   sharedPlayback.reset();
   reviewing = false;
+  reviewBeat = null;
   lineSeq = null;
   sharedLineKey = "";
   syncSharedLine();
@@ -2131,46 +2147,108 @@ function renderScene() {
           )?.actor,
         })
       : pendingSpeaker;
-  const spoken =
-    isSceneText(scene.line, Boolean(sharedSession)) &&
-    !(awaitingNext && !reviewing) &&
-    (reviewing ||
-      scene.line.turn === world.turn ||
-      (sharedSession && storyStatus !== "pending"));
-  $("speaker").textContent = spoken
-    ? scene.line.speaker
-    : waitingSpeaker
-      ? nameOf(waitingSpeaker)
-      : "";
-  const movement = reviewing || !cardsCooling ? "" : movementCaption(world);
-  $("movement-caption").textContent = movement;
-  $("movement-caption").hidden = !movement;
+  const shared = Boolean(sharedSession);
+  const viewer = currentActor(world);
+  const sharedLive = sharedSession
+    ? sharedLiveLine(sharedSession.state, sharedSession.now(), scene.locationId)
+    : null;
+  // Speech the exchange or the room's reading clock has not reached stays
+  // unseen; a beat arrives in front when its line is shown.
+  const liveThrough = sharedSession
+    ? reviewing
+      ? (sharedLive?.seq ?? Infinity)
+      : (lineSeq ?? Infinity)
+    : exchange.active
+      ? (exchange.current?.seq ?? -Infinity)
+      : Infinity;
+  const hiddenSpeech = (line) =>
+    line.seq > liveThrough && (shared || line.turn === world.turn);
+  // Queued shared plays commit before their words. While the room clock still
+  // has lines to read, later turns' actions wait for their own scene.
+  const shownTurn = sharedSession
+    ? view.log.find((entry) => entry.seq === liveThrough)?.turn
+    : undefined;
+  const moreToRead =
+    shownTurn !== undefined &&
+    view.log.some(
+      (entry) =>
+        entry.generated &&
+        entry.seq > liveThrough &&
+        entry.locationId === scene.locationId,
+    );
+  const hiddenAction = (entry) => moreToRead && entry.turn > shownTurn;
   const wordsFailed = storyStatus === "retry";
+  const waiting = sharedSession
+    ? sharedSpeech.status === "pending" &&
+      !(
+        scene.line &&
+        scene.line.turn === world.turn &&
+        scene.line.seq <= liveThrough
+      )
+    : Boolean(
+        exchange.preparing ||
+          awaitingNext ||
+          (storyStatus === "pending" && !exchange.current),
+      );
+  const stack = withPending(
+    sceneBeats(view, {
+      viewer,
+      shared,
+      held: combatHeld,
+      hiddenSpeech,
+      hiddenAction,
+    }),
+    { speakerId: waiting ? waitingSpeaker || "" : null, turn: world.turn },
+  );
+  const beats = stack.beats;
+  const pendingCard =
+    stack.pending ||
+    (waiting
+      ? {
+          key: `p:${world.turn}:`,
+          speakerId: null,
+          line: null,
+          actions: [],
+          pending: true,
+        }
+      : null);
+  const liveIndex = pendingCard ? beats.length : beats.length - 1;
+  let frontIndex = -1;
+  if (reviewing) {
+    frontIndex = beats.findIndex((beat) => beat.key === reviewBeat);
+    if (frontIndex < 0 && lineSeq !== null)
+      frontIndex = beats.findIndex((beat) => beat.line?.seq === lineSeq);
+  }
+  if (frontIndex < 0) frontIndex = liveIndex;
+  const front =
+    frontIndex === beats.length ? pendingCard : beats[frontIndex] || null;
+  const behind = frontIndex > 0 ? beats[frontIndex - 1] : null;
+  const behindLive = reviewing && frontIndex < liveIndex;
+  stackView = { beats, frontIndex, liveIndex, pending: pendingCard };
+  const line = front?.line || null;
+  shownSceneLine = line;
+  const text = line ? line.text : "";
+  $("speaker").textContent = front
+    ? line?.speaker || (front.speakerId ? nameOf(front.speakerId) : "")
+    : "";
+  // Phones set the name on the caption line to keep the card short.
+  document.querySelector(".beat-name").textContent = $("speaker").textContent;
   const canRetryWords = !sharedSession || Boolean(sharedSpeech.retryKey);
   $("story-status").hidden =
-    wordsFailed || (storyStatus === "ready" && !exchange.preparing);
+    behindLive ||
+    wordsFailed ||
+    (storyStatus === "ready" && !exchange.preparing);
   $("story-status").setAttribute("aria-label", "Thinking about this scene");
   $("speech-row").setAttribute("aria-busy", String(!$("story-status").hidden));
   const retryWords = $("story-retry");
-  retryWords.hidden = !wordsFailed;
+  retryWords.hidden = !wordsFailed || behindLive;
   retryWords.disabled = storyRetrying || !canRetryWords;
   retryWords.title = canRetryWords ? "Retry dialogue" : "Waiting for dialogue";
   retryWords.setAttribute("aria-label", retryWords.title);
-  const portraitId = spoken
-    ? scene.line.entityId || scene.line.actorId || scene.locationId
-    : waitingSpeaker;
+  const portraitId = front?.speakerId || null;
   const portraitBox = $("speaker-portrait");
   // Key on the resolved art too, so a scarf given or taken repaints it.
-  const portraitSource = portraitId
-    ? imageUrl(
-        people[portraitId]
-          ? portrait(portraitId, null, world)
-          : places[portraitId]
-            ? backdrop(portraitId, world)
-            : packMedia(portraitId, "art") || `./assets/${portraitId}-card.png`,
-        "card",
-      )
-    : "";
+  const portraitSource = beatPortrait(portraitId);
   if (
     portraitBox.dataset.entity !== (portraitId || "") ||
     portraitBox.dataset.source !== portraitSource
@@ -2188,45 +2266,75 @@ function renderScene() {
       portraitBox.append(image);
     }
   }
-  const text = spoken ? scene.line.text : "";
-  const speaker =
-    scene.line?.entityId || scene.line?.actorId || scene.locationId;
-  const spokenLines = scene.lines.filter((entry) =>
-    isSceneText(entry, Boolean(sharedSession)),
-  );
-  const at = spokenLines.findIndex(
-    (entry) => entry.index === scene.line?.index,
-  );
-  // While a reply is pending, Previous reviews the last accepted line.
-  const localWaiting =
-    !sharedSession &&
-    Boolean(exchange.preparing || awaitingNext || storyStatus === "pending");
-  const replyPending = !spoken && Boolean(sharedSession || localWaiting);
-  // A held local scene has no current line, so review starts at the latest.
-  const previousAt = spoken
-    ? at - 1
-    : replyPending
-      ? at >= 0
-        ? at
-        : spokenLines.length - 1
-      : -1;
-  nextSceneSeq =
-    at >= 0 && at < spokenLines.length - 1 ? spokenLines[at + 1].seq : null;
-  if (exchange.active) nextSceneSeq = exchange.hasNext ? nextSceneSeq : null;
-  // Keep failures visible even when this scene has no earlier words.
-  const hasSpeech = Boolean(
-    text || storyStatus !== "ready" || exchange.preparing,
-  );
+  // A new front beat moves the stack: forward when it is later, back when
+  // earlier. Measured before the cards change.
+  const frontKey = front?.key ?? null;
+  let direction = null;
+  if (frontKey !== stackRendered.key) {
+    const was = beats.findIndex((beat) => beat.key === stackRendered.key);
+    const settled =
+      stackRendered.key?.startsWith("p:") &&
+      front?.speakerId === stackRendered.speaker;
+    direction =
+      stackRendered.place !== scene.locationId || !stackRendered.key
+        ? "arrive"
+        : settled
+          ? "settle"
+          : was < 0 || was < frontIndex
+            ? "forward"
+            : "back";
+  }
+  const ghost =
+    direction === "forward" && !$("beat-behind").hidden
+      ? stackGhost($("beat-behind"))
+      : null;
+  stackRendered = {
+    key: frontKey,
+    speaker: front?.speakerId ?? null,
+    place: scene.locationId,
+  };
+  frontCaptions = (front?.actions || []).map((action) => action.text + ".");
+  const captions = $("beat-captions");
+  const captionKey = JSON.stringify(front?.actions || []);
+  if (captions.dataset.key !== captionKey) {
+    captions.dataset.key = captionKey;
+    captions.replaceChildren(
+      ...(front?.actions || []).map((action) => {
+        const item = node("span", undefined, "beat-caption");
+        item.dataset.kind = action.kind;
+        item.append(
+          node("span", action.icon, "beat-icon"),
+          node("span", action.text),
+        );
+        return item;
+      }),
+    );
+  }
+  captions.hidden = !front?.actions.length;
+  const showFront = Boolean(front) || wordsFailed;
   document.querySelector(".dialogue").hidden =
-    !hasSpeech && !movement && !sharedSession?.state.queue?.length;
-  $("speech-row").hidden = !hasSpeech;
-  document.querySelector(".line-controls").hidden = !text && previousAt < 0;
-  $("dialogue-advance").hidden = !text;
+    !showFront && !sharedSession?.state.queue?.length;
+  document.querySelector(".dialogue").dataset.behind = String(Boolean(behind));
+  $("speech-row").hidden = !showFront;
+  $("speech-row").dataset.beat = front?.line
+    ? front.silent
+      ? "silent"
+      : "speech"
+    : front?.pending
+      ? "pending"
+      : "action";
+  $("dialogue-text").hidden = !text;
+  $("dialogue-advance").hidden = !text && !front?.actions.length;
   $("speech-hint").hidden = true;
   if (text) {
-    const key = JSON.stringify([scene.line.seq, speaker, text, replay]);
+    const speaker = line.entityId || line.actorId || scene.locationId;
+    const key = JSON.stringify([line.seq, speaker, text]);
+    // A local line from an earlier turn that is still the latest beat was
+    // already read; it stays whole instead of being written again.
     reveal.show(key, text, speaker, {
-      instant: completedSpeech.has(key),
+      instant:
+        completedSpeech.has(key) ||
+        (!sharedSession && !reviewing && line.turn !== world.turn),
     });
   } else {
     reveal.cancel();
@@ -2237,155 +2345,372 @@ function renderScene() {
     });
     speechKey = null;
     $("dialogue-text").replaceChildren();
-    $("speech-announcement").textContent = "";
+    // An action beat is announced when it arrives live.
+    const announce =
+      !reviewing && front && !front.pending && front.actions.length
+        ? `${nameOf(front.speakerId)}: ${frontCaptions.join(" ")}`
+        : "";
+    if (announce && announcedBeat !== front.key) {
+      announcedBeat = front.key;
+      $("speech-announcement").textContent = announce;
+    } else if (!announce) $("speech-announcement").textContent = "";
   }
-  $("previous-line").disabled =
-    (cardsCooling && !localWaiting) || previousAt < 0;
   updateSpeechControls(reveal.complete);
-  if (!text) $("next-line").disabled = true;
-  $("previous-line").onclick = () => {
-    reviewing = true;
-    lineSeq = spokenLines[previousAt].seq;
-    renderScene();
-  };
-  const advance = () => {
-    if (!reveal.complete) {
-      reveal.finish();
-      speechSounds.stop();
-      return;
+  // The card behind is one earlier beat: tap it to step back in time.
+  const behindButton = $("beat-behind");
+  behindButton.hidden = !behind;
+  if (behind) {
+    const summary = beatSummary(behind);
+    const behindKey = JSON.stringify([
+      behind.key,
+      summary.text,
+      behind.speakerId,
+    ]);
+    if (behindButton.dataset.key !== behindKey) {
+      behindButton.dataset.key = behindKey;
+      const face = behindButton.querySelector(".beat-behind-portrait");
+      face.replaceChildren();
+      const source = beatPortrait(behind.speakerId);
+      if (source) {
+        const image = node("img");
+        image.alt = "";
+        image.decoding = "async";
+        image.src = source;
+        face.dataset.kind = people[behind.speakerId] ? "avatar" : "scene";
+        if (people[behind.speakerId]) frameFigure(image);
+        face.append(image);
+      }
+      const words = behindButton.querySelector(".beat-behind-text");
+      words.replaceChildren(
+        node("strong", summary.speaker),
+        ...(summary.speech
+          ? [node("span", summary.speech, "beat-behind-speech")]
+          : []),
+        ...(summary.caption
+          ? [node("span", summary.caption, "beat-behind-caption")]
+          : []),
+      );
+      behindButton.dataset.beat = behind.line ? "speech" : "action";
     }
-    if (exchange.current) {
-      characterSpeech.stop();
-      syncSpeechPlayback();
-      finishSpokenLine();
-      exchange.advance();
-      return;
-    }
-    if (nextSceneSeq !== null) lineSeq = nextSceneSeq;
-    else replay++;
-    // Reading through the latest shared line rejoins the room's live clock.
-    reviewing = !sharedSession || lineSeq !== spokenLines.at(-1)?.seq;
-    renderScene();
-  };
-  $("dialogue-advance").onclick = advance;
-  $("dialogue-advance").onkeydown = (event) => {
-    const amount = {
-      ArrowDown: 28,
-      ArrowUp: -28,
-      PageDown: speechHeight,
-      PageUp: -speechHeight,
-    }[event.key];
-    if (amount !== undefined) {
-      event.preventDefault();
-      $("dialogue-text").scrollTop += amount;
-    } else if (["Home", "End"].includes(event.key)) {
-      event.preventDefault();
-      $("dialogue-text").scrollTop =
-        event.key === "Home" ? 0 : $("dialogue-text").scrollHeight;
-    }
-  };
-  $("next-line").onclick = advance;
+    behindButton.setAttribute(
+      "aria-label",
+      `Step back to ${summary.speaker}: ${summary.speech || summary.caption}`,
+    );
+  }
+  // One live control, only while behind live, counting the newer beats.
+  const newer = Math.max(0, liveIndex - frontIndex);
   const liveButton = $("live-line");
-  liveButton.hidden = !sharedSession;
-  if (!sharedSession) {
-    // Local play rejoins its pending reply after reviewing earlier lines.
-    const pending = reviewing && localWaiting;
-    const actor = pendingSpeaker || currentActor(world);
-    liveButton.hidden = !pending;
-    liveButton.dataset.live = "false";
-    liveButton.title = `Return to live dialogue · ${nameOf(actor)}`;
-    liveButton.setAttribute("aria-label", liveButton.title);
-    if (pending && liveButton.dataset.actor !== actor) {
-      liveButton.dataset.actor = actor;
-      liveButton.replaceChildren(sharedQueuePortrait(actor));
-    }
-    liveButton.onclick = returnToLive;
-  } else {
-    const actor = sharedNextActor(
+  liveButton.hidden = !behindLive;
+  liveButton.dataset.live = String(!behindLive);
+  liveButton.querySelector(".beat-live-count").textContent = newer
+    ? ` · ${newer}`
+    : "";
+  liveButton.title = newer
+    ? `Return to live dialogue · ${newer} newer`
+    : "Return to live dialogue";
+  liveButton.setAttribute("aria-label", liveButton.title);
+  liveButton.onclick = returnToLive;
+  if (sharedSession) {
+    // The queue lists whoever plays next first.
+    const nextActor = sharedNextActor(
       sharedSession.state,
       sharedSession.now(),
       scene.locationId,
     );
-    liveButton.dataset.live = String(!reviewing);
-    liveButton.title = `Return to live dialogue · ${nameOf(actor)}`;
-    liveButton.setAttribute("aria-label", liveButton.title);
-    if (liveButton.dataset.actor !== actor) {
-      liveButton.dataset.actor = actor;
-      liveButton.replaceChildren(sharedQueuePortrait(actor));
-    }
-    const live = sharedLiveLine(
-      sharedSession.state,
-      sharedSession.now(),
-      scene.locationId,
-    );
-    const matchesLive =
-      !live ||
-      (live.seq
-        ? scene.line?.seq === live.seq
-        : scene.line?.text === live.text &&
-          scene.line?.speaker === live.speaker);
-    const mergedPortrait = Boolean(
-      sharedSession.state.queue?.some((entry) => entry.actor === actor),
-    );
-    liveButton.hidden = mergedPortrait;
-    liveButton.dataset.returnLive = "true";
-    liveButton.onclick = returnToLive;
     renderSharedQueue(sharedSession, sharedQueuePortrait, {
-      liveActor: mergedPortrait ? actor : null,
-      needsLive: reviewing || !matchesLive,
-      onLive: returnToLive,
+      liveActor: sharedSession.state.queue?.some(
+        (entry) => entry.actor === nextActor,
+      )
+        ? nextActor
+        : null,
       onWithdraw: withdrawSharedPlay,
     });
   }
+  animateStack(direction, ghost);
 }
-let renderedLog = [];
-// A declined offer stays in the record as the World's line, even when no
-// words follow it.
-function isRefusalLine(entry, viewer) {
-  return (
-    entry.kind === "action" &&
-    entry.accepted === false &&
-    ["give", "trade", "ask"].includes(entry.verb) &&
-    Boolean(entry.witnesses?.includes(viewer))
+// The art for a beat's speaker: a person, a place, or an item.
+function beatPortrait(id) {
+  if (!id) return "";
+  return imageUrl(
+    people[id]
+      ? portrait(id, null, world)
+      : places[id]
+        ? backdrop(id, world)
+        : packMedia(id, "art") || `./assets/${id}-card.png`,
+    "card",
   );
 }
+let stackView = { beats: [], frontIndex: -1, liveIndex: -1, pending: null };
+let stackRendered = { key: null, speaker: null, place: null };
+const STACK_MS = 250;
+function stackGhost(card) {
+  const ghost = card.cloneNode(true);
+  ghost.removeAttribute("id");
+  ghost.classList.add("beat-ghost");
+  delete ghost.dataset.motion;
+  ghost.setAttribute("aria-hidden", "true");
+  ghost.tabIndex = -1;
+  card.after(ghost);
+  return ghost;
+}
+// Cards move in depth with transform and opacity; reduced motion crossfades.
+// The front and behind cards are hit-tested buttons, so their motion is a CSS
+// animation named by data-motion rather than element.animate(): after a modal
+// dialog closes, Chromium can resolve a Web Animation's target from a style
+// cached while the page was inert, and the card stops taking clicks.
+function playMotion(card, motion) {
+  delete card.dataset.motion;
+  if (!motion) return;
+  void card.offsetWidth;
+  card.dataset.motion = motion;
+}
+for (const id of ["speech-row", "beat-behind"]) {
+  const card = $(id),
+    settle = (event) => {
+      if (event.target === card) delete card.dataset.motion;
+    };
+  card.addEventListener("animationend", settle);
+  card.addEventListener("animationcancel", settle);
+}
+function animateStack(direction, ghost) {
+  const front = $("speech-row"),
+    behind = $("beat-behind");
+  const finish = () => ghost?.remove();
+  if (!direction || front.hidden) return finish();
+  const timing = { duration: STACK_MS, easing: "cubic-bezier(.2,.7,.25,1)" };
+  const showBehind = !behind.hidden;
+  if (
+    reducedMotion.matches ||
+    direction === "arrive" ||
+    direction === "settle"
+  ) {
+    if (direction !== "settle" || reducedMotion.matches)
+      playMotion(front, "fade");
+    if (showBehind && direction !== "settle") playMotion(behind, "fade");
+    if (ghost)
+      ghost
+        .animate([{ opacity: 0.7 }, { opacity: 0 }], timing)
+        .finished.then(finish, finish);
+    return;
+  }
+  // The behind slot is the front card raised by the peek and scaled down;
+  // the card before it waits one step deeper.
+  const stack = getComputedStyle(front.closest(".beat-stack"));
+  const peek = parseFloat(stack.getPropertyValue("--beat-peek")) || 30;
+  const scale =
+    parseFloat(stack.getPropertyValue("--beat-behind-scale")) || 0.94;
+  const deeper = `translateY(-${peek * 2}px) scale(${scale * scale})`;
+  if (direction === "forward") {
+    // The new beat comes in front; the old front recedes into the slot.
+    playMotion(front, "arrive");
+    if (showBehind) playMotion(behind, "recede");
+    if (ghost)
+      ghost
+        .animate([{}, { transform: deeper, opacity: 0 }], timing)
+        .finished.then(finish, finish);
+    else finish();
+    return;
+  }
+  // Back in time: the card behind comes forward; an older one appears behind.
+  playMotion(front, "return");
+  if (showBehind) playMotion(behind, "emerge");
+  finish();
+}
+function stepBack() {
+  const beat = stackView.beats[stackView.frontIndex - 1];
+  if (!beat) return false;
+  reviewing = true;
+  reviewBeat = beat.key;
+  if (beat.line) lineSeq = beat.line.seq;
+  renderScene();
+  return true;
+}
+function stepForward() {
+  if (!reviewing || stackView.frontIndex >= stackView.liveIndex) return false;
+  const next = stackView.frontIndex + 1;
+  if (next >= stackView.liveIndex) {
+    returnToLive();
+    return true;
+  }
+  const beat = stackView.beats[next];
+  reviewBeat = beat.key;
+  if (beat.line) lineSeq = beat.line.seq;
+  renderScene();
+  return true;
+}
+// Tap the front card: finish the line, step toward live, or move the
+// exchange on to its next speaker.
+function advanceFront() {
+  if (!$("dialogue-text").hidden && !reveal.complete) {
+    reveal.finish();
+    speechSounds.stop();
+    return;
+  }
+  if (stepForward()) return;
+  if (exchange.current) {
+    characterSpeech.stop();
+    syncSpeechPlayback();
+    finishSpokenLine();
+    exchange.advance();
+  }
+}
+$("dialogue-advance").onclick = advanceFront;
+$("beat-behind").onclick = () => {
+  stepBack();
+};
+$("dialogue-advance").addEventListener("keydown", (event) => {
+  const amount = {
+    PageDown: speechHeight,
+    PageUp: -speechHeight,
+  }[event.key];
+  if (amount !== undefined) {
+    event.preventDefault();
+    $("dialogue-text").scrollTop += amount;
+  } else if (["Home", "End"].includes(event.key)) {
+    event.preventDefault();
+    $("dialogue-text").scrollTop =
+      event.key === "Home" ? 0 : $("dialogue-text").scrollHeight;
+  }
+});
+// ↑ steps back in time and ↓ toward live, from the stack or the open scene.
+document.addEventListener("keydown", (event) => {
+  if (
+    !["ArrowUp", "ArrowDown"].includes(event.key) ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    document.querySelector("dialog[open], .world-menu:popover-open")
+  )
+    return;
+  const target = event.target;
+  if (target !== document.body && !target.closest?.(".dialogue")) return;
+  // A long line scrolls first, then the arrows step through the beats.
+  const words = $("dialogue-text");
+  if (target === $("dialogue-advance") && !words.hidden) {
+    const room =
+      event.key === "ArrowUp"
+        ? words.scrollTop > 0
+        : words.scrollTop + words.clientHeight < words.scrollHeight - 1;
+    if (room) {
+      event.preventDefault();
+      words.scrollTop += event.key === "ArrowUp" ? -28 : 28;
+      return;
+    }
+  }
+  const moved = event.key === "ArrowUp" ? stepBack() : stepForward();
+  if (moved) event.preventDefault();
+});
+{
+  const stackBox = document.querySelector(".dialogue");
+  let wheelAt = 0;
+  stackBox.addEventListener(
+    "wheel",
+    (event) => {
+      if (Math.abs(event.deltaY) < 4) return;
+      const words = $("dialogue-text");
+      const scrolls =
+        words.contains(event.target) &&
+        (event.deltaY < 0
+          ? words.scrollTop > 0
+          : words.scrollTop + words.clientHeight < words.scrollHeight - 1);
+      if (scrolls) return;
+      event.preventDefault();
+      if (performance.now() - wheelAt < STACK_MS + 100) return;
+      wheelAt = performance.now();
+      if (event.deltaY < 0) stepBack();
+      else stepForward();
+    },
+    { passive: false },
+  );
+  // Swipe down brings the earlier card forward; swipe up steps toward live.
+  let touch = null;
+  stackBox.addEventListener(
+    "touchstart",
+    (event) => {
+      const point = event.touches[0];
+      touch = point ? { x: point.clientX, y: point.clientY } : null;
+    },
+    { passive: true },
+  );
+  stackBox.addEventListener("touchend", (event) => {
+    const point = event.changedTouches[0];
+    if (!touch || !point) return;
+    const dx = point.clientX - touch.x,
+      dy = point.clientY - touch.y;
+    touch = null;
+    if (Math.abs(dy) < 32 || Math.abs(dy) < Math.abs(dx)) return;
+    const moved = dy > 0 ? stepBack() : stepForward();
+    if (moved && event.cancelable) event.preventDefault();
+  });
+}
+let renderedMemory = "";
+// Memory is opened on purpose: every remembered visit, newest first, as the
+// same beats the stack shows.
 function renderLog() {
   const box = $("messages");
-  const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-  // Shared rooms include generated room details in their conversation record.
-  // Standoff lines join as each beat lands, so the words come before the effect.
-  const conversation = shownWorld().log.filter(
-    (entry) =>
-      (isCombatLine(entry, currentActor(world)) &&
-        !combatHeld.has(entry.seq)) ||
-      isRefusalLine(entry, currentActor(world)) ||
-      (isSceneText(entry, Boolean(sharedSession)) &&
-        entry.generated === true &&
-        (!sharedSession ||
-          entry.locationId === world.actors[currentActor(world)].place)),
+  const visits = memoryVisits(shownWorld(), {
+    viewer: currentActor(world),
+    shared: Boolean(sharedSession),
+    held: combatHeld,
+  });
+  const key = JSON.stringify(
+    visits.map((visit) => [
+      visit.key,
+      visit.placeId,
+      visit.beats.map((beat) => [
+        beat.key,
+        beat.line?.text,
+        beat.actions.map((action) => action.text),
+      ]),
+    ]),
   );
-  let common = 0;
-  while (
-    common < renderedLog.length &&
-    common < conversation.length &&
-    renderedLog[common] === JSON.stringify(conversation[common])
-  )
-    common++;
-  // Preserve existing nodes so screen readers announce only new messages.
-  while (box.children.length > common) box.lastChild.remove();
-  for (const entry of conversation.slice(common)) {
-    const item = node(
-      "div",
-      undefined,
-      `message ${entry.speaker === "World" || !entry.generated ? "world" : entry.speaker === "You" ? "you" : ""}`,
-    );
-    const by = node("div", entry.speaker, "speaker");
-
-    item.append(by, node("p", entry.text));
-    box.append(item);
-  }
-  renderedLog = conversation.map((e) => JSON.stringify(e));
-  if (atEnd || common === 0) box.scrollTop = box.scrollHeight;
+  if (key === renderedMemory) return;
+  renderedMemory = key;
+  box.replaceChildren(
+    ...visits.map((visit) => {
+      const section = node("section", undefined, "memory-visit");
+      section.append(node("h3", nameOf(visit.placeId), "memory-place"));
+      const list = node("ol", undefined, "memory-beats");
+      for (const beat of visit.beats) {
+        const item = node("li", undefined, "message memory-beat");
+        item.dataset.beat = beat.line
+          ? beat.silent
+            ? "silent"
+            : "speech"
+          : "action";
+        const face = node("span", undefined, "memory-portrait");
+        face.setAttribute("aria-hidden", "true");
+        const source = beatPortrait(beat.speakerId);
+        if (source) {
+          const image = node("img");
+          image.alt = "";
+          image.loading = "lazy";
+          image.src = source;
+          face.dataset.kind = people[beat.speakerId] ? "avatar" : "scene";
+          if (people[beat.speakerId]) frameFigure(image);
+          face.append(image);
+        }
+        const body = node("div", undefined, "memory-body");
+        body.append(
+          node("div", beat.line?.speaker || nameOf(beat.speakerId), "speaker"),
+        );
+        if (beat.line) body.append(node("p", beat.line.text));
+        for (const action of beat.actions) {
+          const caption = node("p", undefined, "beat-caption");
+          caption.dataset.kind = action.kind;
+          caption.append(
+            node("span", action.icon, "beat-icon"),
+            node("span", action.text),
+          );
+          body.append(caption);
+        }
+        item.append(face, body);
+        list.append(item);
+      }
+      section.append(list);
+      return section;
+    }),
+  );
 }
 
 function render() {
@@ -2396,7 +2721,8 @@ function render() {
   if (covering) return;
   music.setRoom(
     world.actors[currentActor(world)].place,
-    locationDaylight(world, world.actors[currentActor(world)].place)?.phase || "day",
+    locationDaylight(world, world.actors[currentActor(world)].place)?.phase ||
+      "day",
   );
   humRoom();
   const focused = document.activeElement?.dataset.card,
@@ -2658,9 +2984,11 @@ document.addEventListener("click", (e) => {
   }
 });
 $("history-button").onclick = () => {
+  renderLog();
   $("history-dialog").showModal();
   pauseSpeech();
-  $("messages").scrollTop = $("messages").scrollHeight;
+  // The newest visit is first; the past is further down.
+  $("messages").scrollTop = 0;
 };
 $("menu-button").onclick = () => {
   $("menu-dialog").showModal();
@@ -2728,8 +3056,8 @@ $("confirm-reset").onclick = () => {
   loadSeen(true);
   completedSpeech.clear();
   reviewing = false;
+  reviewBeat = null;
   renderedHand = "";
-  replay = 0;
   lineSeq = null;
   selected = [];
   expandedHolders.clear();
@@ -2963,6 +3291,7 @@ async function submitSharedPlay(action) {
     if (!playQueue.pending && JSON.stringify(selected) === selection) {
       keepHeldSelection(heldBefore, current);
       reviewing = false;
+      reviewBeat = null;
     }
     if (sharedPlay) {
       sharedPlay.state = "accepted";
@@ -2975,6 +3304,7 @@ async function submitSharedPlay(action) {
     sharedSending = false;
     renderedHand = "";
     render();
+    restoreHandFocus();
   }
 }
 function syncSharedLine() {

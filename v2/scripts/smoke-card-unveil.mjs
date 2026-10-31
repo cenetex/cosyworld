@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, stackHits } from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -114,8 +114,22 @@ try {
       for (let i = 0; i < 300; i++) {
         if (await page.locator("#unveil-dialog[open]").count())
           await page.keyboard.press("Escape");
-        else if (await page.locator("#dialogue-advance").isVisible())
-          await page.locator("#dialogue-advance").click();
+        else if (await page.locator("#dialogue-advance").isVisible()) {
+          // After a discovery the front card still takes real clicks.
+          const open = () => page.locator("#unveil-dialog[open]").count();
+          if ((await stackHits(page)).front === false && !(await open())) {
+            await page.waitForTimeout(400);
+            if ((await stackHits(page)).front === false && !(await open()))
+              throw Error(`The front card missed a click at ${width}px`);
+          }
+          // A discovery can open over the line mid-click; the loop takes it.
+          await page
+            .locator("#dialogue-advance")
+            .click({ timeout: 3000 })
+            .catch(async (error) => {
+              if (!(await open())) throw error;
+            });
+        }
         if (
           (await page.locator("#hand").getAttribute("data-cooling")) === "false"
         )
@@ -140,7 +154,10 @@ try {
       assert.equal((await state()).items.lamp.lit, false);
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       // The unlit attic is dark, with no shore in the mirror.
-      assert.equal(await backdrop(), await stage("./assets/shared/places/attic-dark.webp"));
+      assert.equal(
+        await backdrop(),
+        await stage("./assets/shared/places/attic-dark.webp"),
+      );
       await page.screenshot({
         path: new URL(`attic-start-${width}.png`, output).pathname,
       });
@@ -242,6 +259,15 @@ try {
       await finish();
       if (motion === "reduce")
         assert.equal(await page.locator("#story-retry").isVisible(), true);
+      // Tapping the card behind still goes back in time after discoveries.
+      if (await page.locator("#beat-behind").isVisible()) {
+        await page.waitForTimeout(400);
+        assert.deepEqual(await stackHits(page), { front: true, behind: true });
+        await page.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
+        await page.locator("#live-line").waitFor();
+        await page.locator("#live-line").click();
+        await page.locator("#live-line").waitFor({ state: "hidden" });
+      }
       const events = await page.evaluate(() => ({
         discoveries: window.discoveries,
         flights: window.flights,

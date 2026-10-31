@@ -46,3 +46,21 @@ export async function selectCard(page, id, { touch = false } = {}) {
     }
   }
 }
+// The beat stack's cards take real pointer hits: the front card under its own
+// centre, and the card behind under its peeking top line (#1538).
+export async function stackHits(page) {
+  return page.evaluate(() => {
+    const hit = (id, dy) => {
+      const card = document.getElementById(id);
+      if (!card || card.hidden) return null;
+      const box = card.getBoundingClientRect();
+      const y = dy ? box.top + dy : box.top + box.height / 2;
+      return Boolean(
+        document
+          .elementFromPoint(box.left + box.width / 2, y)
+          ?.closest(`#${id}`),
+      );
+    };
+    return { front: hit("speech-row"), behind: hit("beat-behind", 6) };
+  });
+}

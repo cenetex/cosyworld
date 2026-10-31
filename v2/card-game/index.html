@@ -49,7 +49,7 @@
         <span>The reflected shore</span>
       </div>
       <div class="top-actions">
-        <button id="history-button">Conversation</button
+        <button id="history-button">Memory</button
         ><button id="menu-button">Settings</button>
       </div>
     </header>
@@ -83,14 +83,27 @@
           aria-live="polite"
           hidden
         ></p>
-        <section class="dialogue" aria-label="Conversation">
-          <p
-            id="movement-caption"
-            class="movement-caption"
-            role="status"
+        <section class="dialogue beat-stack" aria-label="What is happening now">
+          <button
+            id="beat-behind"
+            class="beat-card beat-behind"
+            type="button"
             hidden
-          ></p>
-          <div id="speech-row" class="speech-row" hidden>
+          >
+            <span class="beat-behind-portrait" aria-hidden="true"></span>
+            <span class="beat-behind-text" aria-hidden="true"></span>
+          </button>
+          <button
+            id="live-line"
+            class="beat-live"
+            type="button"
+            aria-label="Return to live dialogue"
+            hidden
+          >
+            <span class="beat-live-dot" aria-hidden="true">●</span>
+            <span>live</span><span class="beat-live-count"></span>
+          </button>
+          <div id="speech-row" class="speech-row beat-card beat-front" hidden>
             <span
               id="speaker-portrait"
               class="speaker-portrait"
@@ -122,27 +135,6 @@
                   >
                     ♪
                   </button>
-                  <button
-                    id="previous-line"
-                    type="button"
-                    aria-label="Previous scene line"
-                  >
-                    ‹
-                  </button>
-                  <button
-                    id="next-line"
-                    type="button"
-                    aria-label="Next scene line"
-                  >
-                    ›
-                  </button>
-                  <button
-                    id="live-line"
-                    class="shared-play-avatar"
-                    type="button"
-                    aria-label="Return to live dialogue"
-                    hidden
-                  ></button>
                 </div>
               </div>
               <button
@@ -151,7 +143,13 @@
                 type="button"
                 hidden
               >
+                <span class="beat-name" aria-hidden="true"></span>
                 <span id="dialogue-text" aria-hidden="true"></span>
+                <span
+                  id="beat-captions"
+                  class="beat-captions"
+                  aria-hidden="true"
+                ></span>
               </button>
               <span
                 id="speech-hint"
@@ -232,7 +230,7 @@
     ></span>
     <dialog id="history-dialog">
       <div class="modal-heading">
-        <h2>Conversation</h2>
+        <h2>Memory</h2>
         <button data-close="history-dialog">Close</button>
       </div>
       <div id="messages" class="messages"></div>
