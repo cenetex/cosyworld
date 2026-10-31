@@ -107,6 +107,13 @@ jobs:
             release-target-v1-${{ hashFiles('Dockerfile') }}-
             release-target-v1-
 
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        if: steps.impact.outputs.deploy == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
       # The watcher cancels this run if main moves while the image builds.
       - name: Prepare primary image
         id: image
@@ -127,12 +134,6 @@ jobs:
       - name: Yield to a newer main commit before the rollout
         if: steps.impact.outputs.deploy == 'true'
         run: bash scripts/yield-superseded-deploy.sh check
-
-      - name: Setup Node.js
-        if: steps.impact.outputs.deploy == 'true'
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
 
       - name: Roll out .dev
         id: rollout
@@ -313,6 +314,13 @@ jobs:
       - name: Setup Rust
         if: steps.ci.outputs.reuse != 'true'
         uses: dtolnay/rust-toolchain@stable
+
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        if: steps.ci.outputs.reuse != 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
 
       - name: Restore Cargo build cache
         if: steps.ci.outputs.reuse != 'true'

@@ -23,6 +23,10 @@ fn main() {
 /// the same module and the same `manifest_sha256`.
 fn build_card_assets() {
     println!("cargo:rerun-if-changed=../scripts/build-card-assets.mjs");
+    // The asset list, its imports, and the hashed file bytes all live here.
+    // Without this, a new public file or changed art would keep a stale
+    // module and manifest hash in an incremental build.
+    println!("cargo:rerun-if-changed=../card-game");
     let out = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR")).join("card_assets.rs");
     let status = Command::new("node")
         .arg("../scripts/build-card-assets.mjs")

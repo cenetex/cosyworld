@@ -215,6 +215,12 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
       - name: Choose Cargo cache day
         id: cargo-cache-day
         run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
