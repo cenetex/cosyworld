@@ -1,0 +1,565 @@
+{
+  "schemaVersion": 1,
+  "title": "Eight personal traveler buttons",
+  "created": "2026-10-30",
+  "specification": "https://github.com/cenetex/cosyworld/issues/1441",
+  "preparedRulesReference": "edede0d674ba0757c232f443b304c906f617f11a",
+  "paletteReferences": [
+    "v2/docs/card-table/art-prompts.json",
+    "v2/card-game/assets/shared/scarf-attic-provenance.json"
+  ],
+  "activation": "public-assets.mjs publishes all eight canonical paths. The prepared personal-button items use these same paths; quest activation is a separate content change.",
+  "preservation": "Generated originals are identified by generation ID and SHA-256. Runtime PNGs are uniform 1024px exports with alpha, followed by the standard stage/card WebP pipeline. Existing artwork is not re-encoded.",
+  "assets": [
+    {
+      "id": "button-vale",
+      "actorId": "vale",
+      "intendedItemId": "forest-button-vale",
+      "palette": {
+        "button": "Charcoal black",
+        "thread": "Warm ivory"
+      },
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "promptSummary": "Generate one centered black worn painted wooden sewing button, near face-on with a slight tilt, recessed face, raised rim, four visible holes and an ivory cross stitch. Fine painted storybook texture, genuine transparent background and holes, no cast shadow, text or extra objects.",
+      "promptRecord": "Summary retained; exact generation prompt is not present in this manifest.",
+      "references": [],
+      "original": {
+        "basename": "exec-c6b8a513-d011-4d60-b4f0-08a935e3b911.png",
+        "generationId": "exec-c6b8a513-d011-4d60-b4f0-08a935e3b911",
+        "sha256": "8d275067d0e6af9bd0d3158b1fea19769dd33d0e79fe350926198a246b2aac83",
+        "width": 1254,
+        "height": 1254,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 844403,
+          "fullyTransparentFraction": 0.5369757763990954,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 152,
+            "minY": 142,
+            "maxX": 1104,
+            "maxY": 1107
+          }
+        }
+      },
+      "runtime": {
+        "path": "v2/card-game/assets/lonely-forest/button-vale.png",
+        "sha256": "0ea8244b300d3c1784513f454a6f083881927797e350e2d3ce879732314d9a13",
+        "width": 1024,
+        "height": 1024,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 562829,
+          "fullyTransparentFraction": 0.5367555618286133,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 124,
+            "minY": 116,
+            "maxX": 901,
+            "maxY": 904
+          }
+        }
+      },
+      "normalization": {
+        "tool": "sharp 0.35.5",
+        "operation": "Uniform square resize to 1024x1024; PNG encoding",
+        "kernel": "lanczos3",
+        "compressionLevel": 9,
+        "backgroundFlattened": false,
+        "colourOrContentEdited": false
+      },
+      "visualReview": "One centered worn wooden button, four open sewing holes, contrasting cross stitch, and clear transparent margins."
+    },
+    {
+      "id": "button-mara",
+      "actorId": "mara",
+      "intendedItemId": "forest-button-mara",
+      "palette": {
+        "button": "Crimson red",
+        "thread": "Sage green"
+      },
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "promptSummary": "Edit the approved Vale button. Change only its painted body to crimson red and central cross stitch to sage green; preserve geometry, four visible holes, wear, framing, lighting, painted texture and genuine alpha.",
+      "promptRecord": "Summary retained; exact generation prompt is not present in this manifest.",
+      "references": [
+        {
+          "kind": "generated",
+          "basename": "exec-c6b8a513-d011-4d60-b4f0-08a935e3b911.png",
+          "sha256": "8d275067d0e6af9bd0d3158b1fea19769dd33d0e79fe350926198a246b2aac83"
+        }
+      ],
+      "original": {
+        "basename": "exec-c0bcede3-6064-4a72-8916-74098440d0c5.png",
+        "generationId": "exec-c0bcede3-6064-4a72-8916-74098440d0c5",
+        "sha256": "e363c2f5bd09ce63387586b0d4945427703c946d1105ec52045b713d045fdb7c",
+        "width": 1254,
+        "height": 1254,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 842470,
+          "fullyTransparentFraction": 0.5357465361242747,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 151,
+            "minY": 140,
+            "maxX": 1105,
+            "maxY": 1110
+          }
+        }
+      },
+      "runtime": {
+        "path": "v2/card-game/assets/lonely-forest/button-mara.png",
+        "sha256": "0457116c4d66cf4f7679ccec30cf640780b4ad72c54a6c66e53a4fdc99f194a2",
+        "width": 1024,
+        "height": 1024,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 561524,
+          "fullyTransparentFraction": 0.5355110168457031,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 124,
+            "minY": 114,
+            "maxX": 902,
+            "maxY": 906
+          }
+        }
+      },
+      "normalization": {
+        "tool": "sharp 0.35.5",
+        "operation": "Uniform square resize to 1024x1024; PNG encoding",
+        "kernel": "lanczos3",
+        "compressionLevel": 9,
+        "backgroundFlattened": false,
+        "colourOrContentEdited": false
+      },
+      "visualReview": "One centered worn wooden button, four open sewing holes, contrasting cross stitch, and clear transparent margins."
+    },
+    {
+      "id": "button-ash",
+      "actorId": "ash",
+      "intendedItemId": "forest-button-ash",
+      "palette": {
+        "button": "Burnt orange",
+        "thread": "Dusty blue"
+      },
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "promptSummary": "Edit the approved Vale button. Change only its painted body to burnt orange and central cross stitch to dusty blue; preserve geometry, four visible holes, wear, framing, lighting, painted texture and genuine alpha.",
+      "promptRecord": "Summary retained; exact generation prompt is not present in this manifest.",
+      "references": [
+        {
+          "kind": "generated",
+          "basename": "exec-c6b8a513-d011-4d60-b4f0-08a935e3b911.png",
+          "sha256": "8d275067d0e6af9bd0d3158b1fea19769dd33d0e79fe350926198a246b2aac83"
+        }
+      ],
+      "original": {
+        "basename": "exec-cd8e2718-7c60-4847-a582-3eca1b5a3320.png",
+        "generationId": "exec-cd8e2718-7c60-4847-a582-3eca1b5a3320",
+        "sha256": "4ed27ac4d53bd27b951ee68f8113a924ec2dbf1b6fd059dd79a76c33f02b4829",
+        "width": 1254,
+        "height": 1254,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 844063,
+          "fullyTransparentFraction": 0.5367595623828311,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 150,
+            "minY": 140,
+            "maxX": 1106,
+            "maxY": 1109
+          }
+        }
+      },
+      "runtime": {
+        "path": "v2/card-game/assets/lonely-forest/button-ash.png",
+        "sha256": "5fe808fc3f2a46166593f2b76980640b39f940244cf3000d5f10675bdee01758",
+        "width": 1024,
+        "height": 1024,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 562556,
+          "fullyTransparentFraction": 0.5364952087402344,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 123,
+            "minY": 115,
+            "maxX": 903,
+            "maxY": 905
+          }
+        }
+      },
+      "normalization": {
+        "tool": "sharp 0.35.5",
+        "operation": "Uniform square resize to 1024x1024; PNG encoding",
+        "kernel": "lanczos3",
+        "compressionLevel": 9,
+        "backgroundFlattened": false,
+        "colourOrContentEdited": false
+      },
+      "visualReview": "One centered worn wooden button, four open sewing holes, contrasting cross stitch, and clear transparent margins."
+    },
+    {
+      "id": "button-nell",
+      "actorId": "nell",
+      "intendedItemId": "forest-button-nell",
+      "palette": {
+        "button": "Mustard yellow",
+        "thread": "Lavender violet"
+      },
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "prompt": "Use case: precise-object-edit\nAsset type: Cosyworld inventory sprite, 1024 by 1024 square.\nInput image: edit target, the approved Vale wooden sewing button.\nPrimary request: create nell's matching button by changing ONLY the painted wooden body colour to warm mustard yellow, and the central cross stitch colour to soft lavender violet.\nKeep the exact shape, slight angle, framing, recessed face, raised rim, four visible thread holes, diagonal wood grain, worn edges, painterly texture, lighting, and balanced composition. Preserve the natural exposed wood at chips and inside the holes. Keep all four holes visibly open around the stitch, and keep the stitch clearly separate from the wood.\nScene/backdrop: genuine fully transparent background and transparent open holes. No cast shadow or floor.\nConstraints: one centered button, same generous transparent padding as reference, no text, no label, no extra objects, no border. Preserve the existing alpha silhouette. Soft painted storybook game-item art.",
+      "references": [
+        {
+          "kind": "generated",
+          "basename": "exec-c6b8a513-d011-4d60-b4f0-08a935e3b911.png",
+          "sha256": "8d275067d0e6af9bd0d3158b1fea19769dd33d0e79fe350926198a246b2aac83"
+        }
+      ],
+      "original": {
+        "basename": "exec-1a2bf5ed-45f7-4c0d-8801-220c08bef272.png",
+        "generationId": "exec-1a2bf5ed-45f7-4c0d-8801-220c08bef272",
+        "sha256": "3dd484db21757dae78f368a2c6b534bd80bc3b63ef7fbac7e1a0b74887dc94ff",
+        "width": 1254,
+        "height": 1254,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 847639,
+          "fullyTransparentFraction": 0.5390336250950706,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 150,
+            "minY": 141,
+            "maxX": 1104,
+            "maxY": 1108
+          }
+        }
+      },
+      "runtime": {
+        "path": "v2/card-game/assets/lonely-forest/button-nell.png",
+        "sha256": "777a14a0e1067c68de63014fa57720f86e95f23b9943eafed96cb8c3c535c31d",
+        "width": 1024,
+        "height": 1024,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 564819,
+          "fullyTransparentFraction": 0.5386533737182617,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 123,
+            "minY": 115,
+            "maxX": 901,
+            "maxY": 904
+          }
+        }
+      },
+      "normalization": {
+        "tool": "sharp 0.35.5",
+        "operation": "Uniform square resize to 1024x1024; PNG encoding",
+        "kernel": "lanczos3",
+        "compressionLevel": 9,
+        "backgroundFlattened": false,
+        "colourOrContentEdited": false
+      },
+      "visualReview": "One centered worn wooden button, four open sewing holes, contrasting cross stitch, and clear transparent margins."
+    },
+    {
+      "id": "button-tavi",
+      "actorId": "tavi",
+      "intendedItemId": "forest-button-tavi",
+      "palette": {
+        "button": "Moss green",
+        "thread": "Brick red"
+      },
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "prompt": "Use case: precise-object-edit\nAsset type: Cosyworld inventory sprite, 1024 by 1024 square.\nInput image: edit target, the approved Vale wooden sewing button.\nPrimary request: create tavi's matching button by changing ONLY the painted wooden body colour to natural moss green, and the central cross stitch colour to warm brick red.\nKeep the exact shape, slight angle, framing, recessed face, raised rim, four visible thread holes, diagonal wood grain, worn edges, painterly texture, lighting, and balanced composition. Preserve the natural exposed wood at chips and inside the holes. Keep all four holes visibly open around the stitch, and keep the stitch clearly separate from the wood.\nScene/backdrop: genuine fully transparent background and transparent open holes. No cast shadow or floor.\nConstraints: one centered button, same generous transparent padding as reference, no text, no label, no extra objects, no border. Preserve the existing alpha silhouette. Soft painted storybook game-item art.",
+      "references": [
+        {
+          "kind": "generated",
+          "basename": "exec-c6b8a513-d011-4d60-b4f0-08a935e3b911.png",
+          "sha256": "8d275067d0e6af9bd0d3158b1fea19769dd33d0e79fe350926198a246b2aac83"
+        }
+      ],
+      "original": {
+        "basename": "exec-64c3cf1b-cf70-4169-a69e-07822dea57f7.png",
+        "generationId": "exec-64c3cf1b-cf70-4169-a69e-07822dea57f7",
+        "sha256": "65a35065bfb885f8e5353a7a276bce5b9ce0f9ff2d20a74c97fac788baa2f006",
+        "width": 1254,
+        "height": 1254,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 844474,
+          "fullyTransparentFraction": 0.5370209269730801,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 151,
+            "minY": 140,
+            "maxX": 1106,
+            "maxY": 1108
+          }
+        }
+      },
+      "runtime": {
+        "path": "v2/card-game/assets/lonely-forest/button-tavi.png",
+        "sha256": "7195fcb28f4391020ea40a7f7088e119fa62cabcff3c3b9ef240a4f1a0ef4fa0",
+        "width": 1024,
+        "height": 1024,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 562801,
+          "fullyTransparentFraction": 0.5367288589477539,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 123,
+            "minY": 114,
+            "maxX": 903,
+            "maxY": 905
+          }
+        }
+      },
+      "normalization": {
+        "tool": "sharp 0.35.5",
+        "operation": "Uniform square resize to 1024x1024; PNG encoding",
+        "kernel": "lanczos3",
+        "compressionLevel": 9,
+        "backgroundFlattened": false,
+        "colourOrContentEdited": false
+      },
+      "visualReview": "One centered worn wooden button, four open sewing holes, contrasting cross stitch, and clear transparent margins."
+    },
+    {
+      "id": "button-rue",
+      "actorId": "rue",
+      "intendedItemId": "forest-button-rue",
+      "palette": {
+        "button": "Cobalt blue",
+        "thread": "Apricot orange"
+      },
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "promptSummary": "Edit the approved Vale button. Change only its painted body to cobalt blue and central cross stitch to apricot orange; preserve geometry, four visible holes, wear, framing, lighting, painted texture and genuine alpha.",
+      "promptRecord": "Summary retained; exact generation prompt is not present in this manifest.",
+      "references": [
+        {
+          "kind": "generated",
+          "basename": "exec-c6b8a513-d011-4d60-b4f0-08a935e3b911.png",
+          "sha256": "8d275067d0e6af9bd0d3158b1fea19769dd33d0e79fe350926198a246b2aac83"
+        }
+      ],
+      "original": {
+        "basename": "exec-2cdde0bf-802e-4096-b72c-c682033b79fc.png",
+        "generationId": "exec-2cdde0bf-802e-4096-b72c-c682033b79fc",
+        "sha256": "a2d7602407e79b57f3bb48d4a15a6b1400c3c4017b3eb86728579f3853bd4251",
+        "width": 1254,
+        "height": 1254,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 842438,
+          "fullyTransparentFraction": 0.5357261865698028,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 148,
+            "minY": 140,
+            "maxX": 1107,
+            "maxY": 1110
+          }
+        }
+      },
+      "runtime": {
+        "path": "v2/card-game/assets/lonely-forest/button-rue.png",
+        "sha256": "4a7e70f4ab34dae52fa8abd835fded670965e9d8e74303137a241a447c631e30",
+        "width": 1024,
+        "height": 1024,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 561518,
+          "fullyTransparentFraction": 0.5355052947998047,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 121,
+            "minY": 115,
+            "maxX": 904,
+            "maxY": 906
+          }
+        }
+      },
+      "normalization": {
+        "tool": "sharp 0.35.5",
+        "operation": "Uniform square resize to 1024x1024; PNG encoding",
+        "kernel": "lanczos3",
+        "compressionLevel": 9,
+        "backgroundFlattened": false,
+        "colourOrContentEdited": false
+      },
+      "visualReview": "One centered worn wooden button, four open sewing holes, contrasting cross stitch, and clear transparent margins."
+    },
+    {
+      "id": "button-orin",
+      "actorId": "orin",
+      "intendedItemId": "forest-button-orin",
+      "palette": {
+        "button": "Indigo blue-violet",
+        "thread": "Amber gold"
+      },
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "prompt": "Use case: precise-object-edit\nAsset type: Cosyworld inventory sprite, 1024 by 1024 square.\nInput image: edit target, the approved Vale wooden sewing button.\nPrimary request: create orin's matching button by changing ONLY the painted wooden body colour to deep indigo blue-violet, clearly darker and bluer than violet, and the central cross stitch colour to warm amber gold.\nKeep the exact shape, slight angle, framing, recessed face, raised rim, four visible thread holes, diagonal wood grain, worn edges, painterly texture, lighting, and balanced composition. Preserve the natural exposed wood at chips and inside the holes. Keep all four holes visibly open around the stitch, and keep the stitch clearly separate from the wood.\nScene/backdrop: genuine fully transparent background and transparent open holes. No cast shadow or floor.\nConstraints: one centered button, same generous transparent padding as reference, no text, no label, no extra objects, no border. Preserve the existing alpha silhouette. Soft painted storybook game-item art.",
+      "references": [
+        {
+          "kind": "generated",
+          "basename": "exec-c6b8a513-d011-4d60-b4f0-08a935e3b911.png",
+          "sha256": "8d275067d0e6af9bd0d3158b1fea19769dd33d0e79fe350926198a246b2aac83"
+        }
+      ],
+      "original": {
+        "basename": "exec-746e64f9-5cd9-433b-b3ae-4aba7e1ee6af.png",
+        "generationId": "exec-746e64f9-5cd9-433b-b3ae-4aba7e1ee6af",
+        "sha256": "1a43b24e38820881e1a926ab6bea8eef4e4c93f9b81ba28eef960577b2fdfe7e",
+        "width": 1254,
+        "height": 1254,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 841350,
+          "fullyTransparentFraction": 0.5350343017177568,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 150,
+            "minY": 138,
+            "maxX": 1105,
+            "maxY": 1111
+          }
+        }
+      },
+      "runtime": {
+        "path": "v2/card-game/assets/lonely-forest/button-orin.png",
+        "sha256": "c5f7667a28a1bf0c3e9f6441da5eccd72cae7a1d3fd1d3c69697824dc5832dee",
+        "width": 1024,
+        "height": 1024,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 560715,
+          "fullyTransparentFraction": 0.5347394943237305,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 123,
+            "minY": 113,
+            "maxX": 903,
+            "maxY": 907
+          }
+        }
+      },
+      "normalization": {
+        "tool": "sharp 0.35.5",
+        "operation": "Uniform square resize to 1024x1024; PNG encoding",
+        "kernel": "lanczos3",
+        "compressionLevel": 9,
+        "backgroundFlattened": false,
+        "colourOrContentEdited": false
+      },
+      "visualReview": "One centered worn wooden button, four open sewing holes, contrasting cross stitch, and clear transparent margins."
+    },
+    {
+      "id": "button-ada",
+      "actorId": "ada",
+      "intendedItemId": "forest-button-ada",
+      "palette": {
+        "button": "Violet",
+        "thread": "Pale warm yellow"
+      },
+      "tool": "built-in image_gen",
+      "transparentBackground": true,
+      "prompt": "Use case: precise-object-edit\nAsset type: Cosyworld inventory sprite, 1024 by 1024 square.\nInput image: edit target, the approved Vale wooden sewing button.\nPrimary request: create ada's matching button by changing ONLY the painted wooden body colour to clear medium violet, clearly lighter and purpler than indigo, and the central cross stitch colour to pale warm yellow.\nKeep the exact shape, slight angle, framing, recessed face, raised rim, four visible thread holes, diagonal wood grain, worn edges, painterly texture, lighting, and balanced composition. Preserve the natural exposed wood at chips and inside the holes. Keep all four holes visibly open around the stitch, and keep the stitch clearly separate from the wood.\nScene/backdrop: genuine fully transparent background and transparent open holes. No cast shadow or floor.\nConstraints: one centered button, same generous transparent padding as reference, no text, no label, no extra objects, no border. Preserve the existing alpha silhouette. Soft painted storybook game-item art.",
+      "references": [
+        {
+          "kind": "generated",
+          "basename": "exec-c6b8a513-d011-4d60-b4f0-08a935e3b911.png",
+          "sha256": "8d275067d0e6af9bd0d3158b1fea19769dd33d0e79fe350926198a246b2aac83"
+        }
+      ],
+      "original": {
+        "basename": "exec-399db8f9-23c7-4593-bc4b-24b002f2d08b.png",
+        "generationId": "exec-399db8f9-23c7-4593-bc4b-24b002f2d08b",
+        "sha256": "31dbef7ed2b51041407e730699818c45173f99eabb1d1830b65206dc9a7b1d44",
+        "width": 1254,
+        "height": 1254,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 842289,
+          "fullyTransparentFraction": 0.5356314339567928,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 149,
+            "minY": 138,
+            "maxX": 1107,
+            "maxY": 1110
+          }
+        }
+      },
+      "runtime": {
+        "path": "v2/card-game/assets/lonely-forest/button-ada.png",
+        "sha256": "4fdb80d97cef1fe2c20b87440ad8e8edf2a28e508f773e6e5d76813afa73b8d7",
+        "width": 1024,
+        "height": 1024,
+        "format": "PNG",
+        "alpha": {
+          "minimum": 0,
+          "maximum": 255,
+          "fullyTransparentPixels": 561130,
+          "fullyTransparentFraction": 0.5351352691650391,
+          "cornerAlpha": [0, 0, 0, 0],
+          "visibleBounds": {
+            "minX": 122,
+            "minY": 113,
+            "maxX": 903,
+            "maxY": 906
+          }
+        }
+      },
+      "normalization": {
+        "tool": "sharp 0.35.5",
+        "operation": "Uniform square resize to 1024x1024; PNG encoding",
+        "kernel": "lanczos3",
+        "compressionLevel": 9,
+        "backgroundFlattened": false,
+        "colourOrContentEdited": false
+      },
+      "visualReview": "One centered worn wooden button, four open sewing holes, contrasting cross stitch, and clear transparent margins."
+    }
+  ]
+}
