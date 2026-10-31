@@ -1691,6 +1691,11 @@ body .beat-live {
   width: 1.3em;
   font-style: normal;
 }
+.beat-icon svg {
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.2em;
+}
 .beat-caption:is(
     [data-kind="move"],
     [data-kind="course"],
