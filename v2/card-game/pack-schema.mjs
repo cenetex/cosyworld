@@ -76,7 +76,10 @@ export const CONDITION_KINDS = [
   "knows",
   "pack_item_present",
   "daylight",
+  "weather",
+  "ship_at",
 ];
+export const WEATHER_CONDITIONS = ["clear", "cloud", "rain", "mist"];
 export const TRAVELERS = ["player", "any"];
 export const VARIANTS = ["asleep", "awake", "irritated"];
 
@@ -814,6 +817,18 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             keysOk(c, ["kind", "pack", "place"]) &&
             idOk(c.pack) &&
             anyPlace(c.place);
+          break;
+        case "weather":
+          ok =
+            keysOk(c, ["kind", "place", "condition"]) &&
+            anyPlace(c.place) &&
+            WEATHER_CONDITIONS.includes(c.condition);
+          break;
+        case "ship_at":
+          ok =
+            keysOk(c, ["kind", "transport", "dock"]) &&
+            idOk(c.transport) &&
+            anyPlace(c.dock);
           break;
         case "knows": {
           // `topics` accepts any one of several facts, so a needed fact can

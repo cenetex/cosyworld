@@ -40,10 +40,12 @@ fn willows_upgrades_version_eighteen_and_replays_discoveries_custody_and_return(
         ("choiceId", "willows-choose-departure"),
         ("target", "greek-ship"),
     ] {
-        // A resident may have called the empty ship away; waiting at the
-        // pond brings it back one lane a round.
-        if field == "target" && value == "greek-ship" {
-            for _ in 0..8 {
+        // The Willows crossings open only on a misty night with the ship at
+        // Black Pond (turns 120-131, then 264-275, ...). The journey waits for
+        // the way; a resident may also have called the empty ship away, and
+        // waiting brings it back one lane a round.
+        if field == "target" && (value == "greek-ship" || value == "willows-landing") {
+            for _ in 0..200 {
                 let view = world.project(0).unwrap();
                 let actions = view["actions"].as_array().unwrap();
                 if actions
@@ -146,6 +148,9 @@ fn upgraded_willows(version: &str) -> (std::path::PathBuf, rusqlite::Connection,
     assert!(old.game["packs"].get("willows").is_none());
     old.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
     old.game["transports"]["greek-ship"]["dock"] = json!("pond");
+    // Begin just before the first misty night at the pond (turn 120).
+    old.game["turn"] = json!(117);
+    old.game["revision"] = json!(117);
     full_store::seed(&c, &id, &old, "before-willows", now()).unwrap();
     let world = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(world.version, engine::VERSION);

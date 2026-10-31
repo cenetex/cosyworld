@@ -82,8 +82,8 @@ describe("Greek ports and fixed roads", () => {
       w = move(w, "vale", "greek-ship");
       w = move(w, "mara", "greek-ship");
       // Course cards are the boarding port's lanes, never the port itself.
+      // By day the Willows mist does not rise beside the rail.
       expect(ask(w, "vale").exits).toEqual([
-        "willows-landing",
         // A gated lane (the Signal Jetty) waits for a thing from its world.
         ...lanesFrom(transports["greek-ship"], from).filter(
           (d) => entityActive(w, d) && !laneGated(from, d),
@@ -97,7 +97,7 @@ describe("Greek ports and fixed roads", () => {
         w = play(w, "vale", "course", { target: lane });
         if (stale)
           expect(ask(w, "mara", { op: "play", action: stale }).ok).toBe(false);
-        expect(ask(w, "mara").exits).toEqual(["willows-landing"]);
+        expect(ask(w, "mara").exits).toEqual([]);
         w = play(w, "mara", "wait", {});
         expect(w.transports["greek-ship"]).toMatchObject({
           phase: "arrived",
@@ -123,10 +123,7 @@ describe("Greek ports and fixed roads", () => {
     const before = atticOpening();
     before.actors.vale.place = "greek-ship";
     before.transports["greek-ship"].destination = "pond";
-    expect(exits(before, "greek-ship", "vale")).toEqual([
-      "willows-landing",
-      "pond",
-    ]);
+    expect(exits(before, "greek-ship", "vale")).toEqual(["pond"]);
     const after = openDoorStart();
     expect(entityActive(after, "greek-athens-harbor")).toBe(true);
     expect(exits(after, "greek-athens-harbor", "vale")).toContain(

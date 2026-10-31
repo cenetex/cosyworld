@@ -12899,7 +12899,7 @@
       ],
       "bridge": {
         "id": "greek-ship-willows",
-        "description": "River mist beside the Greek ship's rail opens onto a small Danube island. The same mist keeps a path back to the deck."
+        "description": "On a misty night, while the Greek ship lies at Black Pond, river mist beside its rail opens onto a small Danube island. The same dark mist keeps a path back to the deck; when it lifts or the ship leaves the pond, the island and the deck lose each other until the ship lies there again on a misty night."
       },
       "values": {
         "willows-swede": {
@@ -12916,7 +12916,22 @@
           "to": "willows-landing",
           "travelers": "player",
           "travel": "through the river mist beside the rail",
-          "requires": [],
+          "requires": [
+            {
+              "kind": "daylight",
+              "phase": "night"
+            },
+            {
+              "kind": "weather",
+              "place": "greek-ship",
+              "condition": "mist"
+            },
+            {
+              "kind": "ship_at",
+              "transport": "greek-ship",
+              "dock": "pond"
+            }
+          ],
           "scenery": {
             "open": "River mist gathers beside the rail. Beyond it, a canoe rests on a sandy willow island.",
             "cardArt": "assets/willows/landing.webp"
@@ -12929,7 +12944,22 @@
           "to": "greek-ship",
           "travelers": "player",
           "travel": "through the river mist to the ship",
-          "requires": [],
+          "requires": [
+            {
+              "kind": "daylight",
+              "phase": "night"
+            },
+            {
+              "kind": "weather",
+              "place": "greek-ship",
+              "condition": "mist"
+            },
+            {
+              "kind": "ship_at",
+              "transport": "greek-ship",
+              "dock": "pond"
+            }
+          ],
           "scenery": {
             "open": "Beyond the quiet backwater, river mist parts onto the Greek ship's deck."
           },
