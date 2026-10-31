@@ -98,7 +98,7 @@ describe("Give and Trade are always offered", () => {
     expect(decodeSave(encodeSave(next))).toEqual(next);
     // The cast hears the reason so they can say it in dialogue.
     expect(facts(next, "moth", give)).toContain(
-      "refused Vale's offer of Bell: they want something else",
+      "refused Vale's offer of Bell (refusal: wants-something-else)",
     );
   });
 
@@ -120,7 +120,22 @@ describe("Give and Trade are always offered", () => {
       accepted: false,
       reason: "grudge",
     });
-    expect(facts(next, "keeper", trade)).toContain("a grudge");
+    expect(facts(next, "keeper", trade)).toContain("(refusal: grudge)");
+  });
+
+  it("commits a code when an ask is refused and briefs it, without canned text", () => {
+    const s = enableMotives(table());
+    const ask = find(s, "ask", "bell", { target: "keeper" });
+    expect(ask).toBeDefined();
+    const next = play(s, ask).state;
+    expect(next.items.bell.holder).toBe("keeper");
+    const entry = next.log.findLast((e) => e.verb === "ask");
+    expect(entry).toMatchObject({ accepted: false, reason: "needs-it" });
+    expect(entry.text).toMatch(/keeps it for now\.$/);
+    expect(decodeSave(encodeSave(next))).toEqual(next);
+    expect(facts(next, "keeper", ask)).toContain(
+      "refused Vale's request for Bell (refusal: needs-it)",
+    );
   });
 
   it("rejects a refusal reason on any other verb or an accepted play", () => {
@@ -130,7 +145,7 @@ describe("Give and Trade are always offered", () => {
     for (const broken of [
       { ...entry, reason: "bored" },
       { ...entry, accepted: true },
-      { ...entry, verb: "ask" },
+      { ...entry, verb: "talk" },
     ]) {
       const copy = structuredClone(next);
       copy.log[copy.log.indexOf(copy.log.findLast((e) => e.verb === "give"))] =

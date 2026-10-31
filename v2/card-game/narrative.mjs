@@ -34,15 +34,22 @@ import {
   places,
   publishKnowledgeSpeech,
   laneTalkFacts,
-  waitNarration,
+  REFUSED_VERBS,
 } from "./world.mjs";
 import { knownActors, wantOf } from "./want.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
-const REFUSAL_WORDS = {
-  grudge: "a grudge",
-  "needs-it": "they need what was asked for",
-  "wants-something-else": "they want something else",
-};
+
+// A refusal reaches the brief as its committed code; the refuser's line
+// says why in its own words.
+function refusalFact(played) {
+  const asked =
+    played.verb === "ask"
+      ? `request for ${nameOf(played.itemId)}`
+      : played.verb === "accompany"
+        ? `invitation to ${nameOf(played.destinationId)}`
+        : `offer of ${nameOf(played.itemId)}`;
+  return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed. Say why in your own words.`;
+}
 
 // Keep a few lasting encounters beside fresh facts. Speech stays secondary to
 // witnessed events. Hidden puzzle bookkeeping is not dialogue material.
@@ -177,11 +184,11 @@ export function sceneryDue(turn) {
 
 // The log is long; a Wait is recorded among this turn's newest entries.
 function waitedThisTurn(world) {
-  const text = waitNarration(currentActor(world));
+  const actor = currentActor(world);
   for (let i = world.log.length - 1; i >= 0; i--) {
     const entry = world.log[i];
     if (entry.turn !== world.turn) return false;
-    if (entry.speaker === "World" && entry.text === text) return true;
+    if (entry.verb === "wait" && entry.actorId === actor) return true;
   }
   return false;
 }
@@ -387,13 +394,11 @@ export function narrativeContext(world, action = null) {
           );
         }
         if (
-          ["give", "trade"].includes(played?.verb) &&
+          REFUSED_VERBS.includes(played?.verb) &&
           played.accepted === false &&
           [played.actorId, played.targetId].includes(id)
         )
-          facts.unshift(
-            `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s offer of ${nameOf(played.itemId)}: ${REFUSAL_WORDS[played.reason] || "not now"}. Nothing changed hands. Say why in your own words.`,
-          );
+          facts.unshift(refusalFact(played));
         else if (
           played?.verb === "trade" &&
           [played.actorId, played.targetId].includes(id)
