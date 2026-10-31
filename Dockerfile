@@ -29,6 +29,9 @@ FROM dependencies AS build
 
 ARG CARGO_BUILD_JOBS=1
 
+# build.rs runs Node to generate the embedded card asset list.
+COPY --from=node:24.11.0-bookworm-slim /usr/local/bin/node /usr/local/bin/node
+COPY v2/scripts/build-card-assets.mjs /app/v2/scripts/build-card-assets.mjs
 COPY v2/core-c /app/v2/core-c
 COPY v2/content /app/v2/content
 COPY v2/content-engine-version.txt /app/v2/content-engine-version.txt
@@ -44,6 +47,7 @@ COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 RUN --mount=type=cache,id=cosyworld-release-target-v1,target=/app/v2/orchestrator-rust/target,from=dependencies,source=/app/v2/orchestrator-rust/target,sharing=locked \
   touch build.rs \
   && find src ../ai-model-rust/src ../core-c ../content ../card-game ../media -type f -exec touch {} + \
+  && touch ../scripts/build-card-assets.mjs \
   && touch ../content-engine-version.txt \
   && CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS} cargo build --release --locked \
   && mkdir -p /app/bin \

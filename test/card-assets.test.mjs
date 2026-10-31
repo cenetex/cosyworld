@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { publicAssets } from "../v2/card-game/public-assets.mjs";
 import { createServer } from "../v2/card-game/serve.mjs";
@@ -24,13 +26,28 @@ describe("one public card asset list", () => {
     }
   });
 
-  it("keeps the checked-in Rust assets current", () => {
+  it("keeps the media hashes current and builds the Rust module the same way twice", () => {
     expect(() =>
       execFileSync(process.execPath, [
         "v2/scripts/build-card-assets.mjs",
         "--check",
       ]),
     ).not.toThrow();
+    const dir = mkdtempSync(join(tmpdir(), "card-assets-"));
+    const build = (name) => {
+      const out = join(dir, name);
+      execFileSync(process.execPath, [
+        "v2/scripts/build-card-assets.mjs",
+        "--rust-out",
+        out,
+      ]);
+      return readFileSync(out, "utf8");
+    };
+    const first = build("a.rs");
+    expect(build("b.rs")).toBe(first);
+    expect(first.match(/include_bytes!|let \(_, bytes\) = get\(/g)).toHaveLength(
+      publicAssets.length,
+    );
   });
 
   it("serves every listed file with the expected type and bytes", async () => {

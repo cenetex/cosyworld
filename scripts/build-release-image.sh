@@ -27,9 +27,13 @@ if [ -n "$target_cache" ]; then
   mkdir -p "$prebuilt/app/bin"
   mounts=()
   for path in v2/core-c v2/content v2/content-engine-version.txt v2/card-game \
-    v2/media v2/ai-model-rust; do
+    v2/media v2/ai-model-rust v2/scripts/build-card-assets.mjs; do
     mounts+=(--mount "type=bind,src=$root/$path,dst=/app/$path,readonly")
   done
+  # build.rs runs Node to generate the embedded card asset list. Official
+  # Node builds run on the toolchain image's Debian release.
+  node_binary="$(realpath "$(command -v node)")"
+  mounts+=(--mount "type=bind,src=$node_binary,dst=/usr/local/bin/node,readonly")
   compile() {
     docker run --rm --platform linux/amd64 "${mounts[@]}" \
       --mount "type=bind,src=$root/v2/orchestrator-rust,dst=/src,readonly" \
