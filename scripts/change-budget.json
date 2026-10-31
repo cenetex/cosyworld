@@ -20,6 +20,7 @@
         "v2/card-game/music-streams.json",
         "v2/orchestrator-rust/src/card_assets.rs",
         "v2/orchestrator-rust/src/card_shared/engine-v*.js",
+        "v2/orchestrator-rust/src/card_shared/narrator.js",
         "**/__snapshots__/**"
       ]
     },

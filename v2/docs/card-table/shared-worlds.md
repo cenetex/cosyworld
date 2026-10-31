@@ -98,6 +98,12 @@ presentation modules are moving out of the bundle so that content changes stop
 minting rules versions; see
 [the design note](../../../docs/design/pack-content-outside-the-engine.md).
 
+The dialogue context for a committed play comes from a second bundle,
+`card_shared/narrator.js`, built by `npm run v2:card:narrator:build`. Its
+output goes only to the story service and is never a journal input, so it is
+rebuilt from current sources and never versioned. `npm run v2:card:shared:next`
+and the land script rebuild it.
+
 ## Event sync
 
 Each browser keeps a sequence number and SHA-256 hash for its shared view.

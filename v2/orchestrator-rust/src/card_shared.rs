@@ -17,6 +17,7 @@ mod homecoming_tests;
 #[cfg(test)]
 mod hoppycat_tests;
 mod kernel;
+mod narrator;
 #[cfg(test)]
 mod opening_tests;
 #[cfg(test)]
