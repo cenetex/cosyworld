@@ -1,0 +1,25 @@
+# Receives workflow_job webhooks and starts runner machines. It stays on so
+# its in-memory wait list survives between webhooks.
+app = "cosyworld-ci-dispatch"
+primary_region = "iad"
+
+[env]
+  GITHUB_REPOSITORY = "cenetex/cosyworld"
+  FLY_RUNNER_APP = "cosyworld-ci-runners"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "5s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

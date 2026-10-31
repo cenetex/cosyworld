@@ -1,0 +1,19 @@
+# Runner machines for CI. Create with --network so jobs cannot reach the
+# production apps' private network: see docs/deployment/ci-runners.md.
+app = "cosyworld-ci-runners"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[[mounts]]
+  source = "ci_cache"
+  destination = "/cache"
+  initial_size = "50gb"
+
+[[restart]]
+  policy = "never"
+
+[[vm]]
+  size = "performance-8x"
+  memory = "16gb"
