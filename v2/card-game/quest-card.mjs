@@ -2,6 +2,7 @@
 // with the rules' own words for the want as the caption. Nothing here is
 // authored or decides anything; the rules own the want (want.mjs).
 import { CONNECT_TARGET, wantOf } from "./want.mjs";
+import { romanLevel } from "./rarity.mjs";
 import {
   currentActor,
   exits,
@@ -19,11 +20,14 @@ export function questCard(world, actor = currentActor(world)) {
   const want = wantOf(world, actor);
   if (!want) return null;
   return {
-    key: `${actor}:${want.kind}:${want.target}:${want.since}`,
+    key: `${actor}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}`,
     actor,
     kind: want.kind,
     target: want.target === CONNECT_TARGET ? null : want.target,
     xp: world.actors[actor].xp,
+    // A level quest: the level it leads to and the steps still to go.
+    level: want.quest?.level ?? null,
+    left: want.quest?.left ?? 0,
   };
 }
 
@@ -32,7 +36,8 @@ export function questCaption(quest, covered = false) {
   const words = wantText({ kind: quest.kind, target: quest.target });
   const shown =
     covered && quest.target ? words.replace(nameOf(quest.target), "…") : words;
-  return shown[0].toUpperCase() + shown.slice(1);
+  const caption = shown[0].toUpperCase() + shown.slice(1);
+  return quest.level ? `Level ${romanLevel(quest.level)}: ${caption}` : caption;
 }
 
 // Places between here and there along the routes this avatar can use now.
@@ -70,6 +75,11 @@ const away = (n) =>
 
 // What selecting the quest card shows: who holds the item, and how far.
 export function questProgress(world, quest, name = nameOf) {
+  const steps = quest.left > 1 ? `${quest.left} steps to go` : null;
+  const where = questWhere(world, quest, name);
+  return [where, steps].filter(Boolean).join(" · ");
+}
+function questWhere(world, quest, name) {
   if (!quest.target) return "";
   const { actor, kind, target } = quest;
   if (kind === "place") return away(questDistance(world, actor, target));

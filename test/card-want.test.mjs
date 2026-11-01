@@ -84,7 +84,8 @@ describe("one want per avatar", () => {
     const [event] = metEvents(s, "vale");
     expect(event.wantMet).toEqual({ kind: "place", target: "pond" });
     expect(s.actors.vale.xp).toBe(1);
-    expect(levelOf(s, "vale")).toBe(2);
+    // The player's level waits for its level quest.
+    expect(levelOf(s, "vale")).toBe(1);
     // Vale's home is the attic, so the want after a trip is the way home.
     expect(s.actors.vale.want).toMatchObject({
       kind: "place",

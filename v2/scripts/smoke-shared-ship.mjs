@@ -141,7 +141,7 @@ try {
       async function sail(page, port) {
         await playCard(page, port, "Set course");
         assert.equal(world.transports["greek-ship"].phase, "sea");
-        await playCard(page, "greek-ship", "Observe");
+        await playCard(page, "greek-ship", "Wait");
         assert.equal(world.transports["greek-ship"].phase, "arrived");
         assert.equal(world.transports["greek-ship"].dock, port);
       }
@@ -173,7 +173,7 @@ try {
       await vale.screenshot({
         path: new URL(`at-sea-${width}.png`, output).pathname,
       });
-      await playCard(vale, "greek-ship", "Observe");
+      await playCard(vale, "greek-ship", "Wait");
       await move(vale, "vale", "greek-harbor");
       assert.equal(world.transports["greek-ship"].dock, "greek-harbor");
       await mara.locator('#hand [data-card="greek-harbor"]').waitFor();

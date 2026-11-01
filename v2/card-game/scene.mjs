@@ -1,4 +1,3 @@
-import { observeText } from "./observe-words.mjs";
 import {
   currentActor,
   people,
@@ -748,7 +747,7 @@ export function sceneScript(world) {
       fromLocationId: e.fromLocationId || null,
       weather: locationWeather({ turn: e.turn }, e.locationId),
       daylight: locationDaylight({ turn: e.turn }, e.locationId),
-      text: observeText(e.text),
+      text: e.text,
       verb: e.verb || null,
       itemId: e.itemId || null,
       targetId: e.targetId || null,
