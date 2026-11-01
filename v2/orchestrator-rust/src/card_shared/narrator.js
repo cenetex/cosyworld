@@ -3707,7 +3707,7 @@
             ]
           },
           "greek-pyre-account": {
-            name: "The Funeral Account",
+            name: "The Pyre Account",
             text: "Aethra\u2019s written account of the rite at Eleusis: the cloths, the urn in the mothers\u2019 care, and the losses beside the pyre.",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             holder: "greek-eleusis",

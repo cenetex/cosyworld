@@ -576,13 +576,17 @@ fn ajax_shield_delivered_under_rules_twenty_one_stays_complete_after_upgrade() {
         .is_none());
     let current = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(current.version, engine::VERSION);
-    // Greek revision 11 retires the Theban invitation buttons.
+    // Greek revision 11 retires the Theban invitation buttons, and revision
+    // 15 the Open Door's request, care and Marathon hearing buttons.
     let mut receipts = old.game["packs"]["greek-drama"]["receipts"].clone();
-    receipts
-        .as_object_mut()
-        .unwrap()
-        .remove("greek-open-door-invite-exposure")
-        .unwrap();
+    for retired in [
+        "greek-open-door-invite-exposure",
+        "greek-open-door-request-truce",
+        "greek-open-door-eleusis-care",
+        "greek-open-door-marathon-hearing",
+    ] {
+        receipts.as_object_mut().unwrap().remove(retired).unwrap();
+    }
     assert_eq!(current.game["packs"]["greek-drama"]["receipts"], receipts);
     // The delivered shield stays a receipt; story quest records are dropped.
     assert!(current.game.get("quests").is_none());
