@@ -1056,7 +1056,7 @@ function closeStandoff(s, c) {
   s.standoffs = s.standoffs.filter((entry) => entry !== c);
   for (const id of [c.challenger, c.defender]) s.peaceUntil[id] = s.turn + 3;
 }
-// Consecutive defeats per avatar. A win or a rest at home clears the count;
+// Consecutive defeats per avatar. A win or a rest at a sanctuary clears it;
 // the third defeat sends the loser home with empty hands.
 export const DEFEATS_TO_SEND_HOME = 3;
 // A loss at zero resolve. The first two drop the disputed item and fall back
@@ -1619,10 +1619,10 @@ function trustGiver(s, recipient, item, giver) {
     (s.actors[recipient].trust[giver] || 0) + 1,
   );
 }
-// Wait is the only rest, and the player's own play. At a sanctuary it is a
-// long rest: the avatar sleeps until the light next changes, then wakes with
-// every loss cleared. Anywhere else it is a short rest that clears one loss.
-// Nobody rests in the middle of a standoff.
+// Wait is the only rest. Any Wait at a sanctuary, by a player or a resident,
+// clears every loss. A player's is a long rest: it sleeps until the light
+// next changes. A player's Wait anywhere else is a short rest that clears
+// one loss. Nobody rests in the middle of a standoff.
 function rest(s, actor, here) {
   const a = s.actors[actor],
     losses = s.defeats?.[actor] || 0;
@@ -1633,7 +1633,9 @@ function rest(s, actor, here) {
     wake(s, actor, wantAPI(s));
     return "long";
   }
-  if (actor !== currentActor(s) || standoffFor(s, actor)) return null;
+  if (standoffFor(s, actor)) return null;
+  if (sanctuaries.includes(here) && losses) delete s.defeats[actor];
+  if (actor !== currentActor(s)) return null;
   if (sanctuaries.includes(here))
     a.sleepUntil = (Math.floor(s.turn / DAYLIGHT_TURNS) + 1) * DAYLIGHT_TURNS;
   else if (losses > 1) s.defeats[actor] = losses - 1;
@@ -2435,13 +2437,11 @@ export function play(
     if (chosen.callShip) callTransport(next, from, true);
     if (chosen.action.kind !== "wait")
       perform(next, chosen.action, round, [id]);
+    else rest(next, id, from);
     rememberRoutes(next, id, visibleRouteEdges(next.actors[id].place));
     if (next.actors[id].place !== from)
       arriveRoamingRecitals(next, packDefinitions, id);
   }
-  // A resident resting where it met a want clears a run of defeats.
-  for (const id of Object.keys(next.defeats || {}))
-    if (!wantAPI(next).player(id) && resting(next, id)) delete next.defeats[id];
   if (exact.kind === "wait")
     waitForTransport(next, next.actors[actor].place, actor);
   for (const voyage of sailTransports(next)) {

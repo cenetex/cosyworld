@@ -112,7 +112,7 @@ describe("one want per avatar", () => {
     );
   });
 
-  it("rests where a want is met, holding the next want, and the rest clears defeats", () => {
+  it("rests where a want is met, holding the next want", () => {
     let s = createWorld();
     s.actors.keeper.place = "station";
     s.actors.keeper.want = newWant("place", "station", 0);
@@ -125,6 +125,7 @@ describe("one want per avatar", () => {
     expect(next === null || next.target !== "station").toBe(true);
     expect(plan(s, "keeper").action.kind).toBe("wait");
     // Away from home too: the resident rests right where its want is met.
+    // The pond is no sanctuary, so that rest leaves its defeats.
     s.actors.keeper.want = newWant("place", "pond", s.turn);
     delete s.actors.keeper.metTurn;
     s.defeats = { keeper: 2 };
@@ -132,7 +133,7 @@ describe("one want per avatar", () => {
     expect(s.actors.keeper.place).toBe("pond");
     expect(s.actors.keeper.want?.target).not.toBe("station");
     expect(plan(s, "keeper").action.kind).toBe("wait");
-    expect(s.defeats?.keeper).toBeUndefined();
+    expect(s.defeats).toEqual({ keeper: 2 });
   });
 
   it("draws the next want from the world and the same turn draws the same want", () => {
