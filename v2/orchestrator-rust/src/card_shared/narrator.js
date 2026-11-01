@@ -11,7 +11,7 @@
     trade: "trading",
     give: "giving",
     talk: "talking",
-    wait: "waiting",
+    wait: "observing",
     accompany: "inviting"
   })[kind];
   var goalKey = (g) => [g.kind, g.target, g.item, g.destination].join(":");
@@ -86,7 +86,7 @@
       if (a.kind === "talk") return `talking with ${nameOf2(a.target)}`;
       if (a.kind === "accompany")
         return `inviting ${nameOf2(a.target)} to ${nameOf2(a.destination)}`;
-      return "waiting";
+      return "observing";
     };
     return [
       `I tried ${describe(trial.action)} while seeking ${purpose}. ${result} ${earlier}`,
@@ -917,8 +917,7 @@
     const stanzas = (pack.recital?.verses || []).filter((v) => receipts[v.choice] && receipts[v.choice] <= through).sort((a, b) => receipts[a.choice] - receipts[b.choice]).map((v) => ({
       id: v.choice,
       turn: receipts[v.choice],
-      questId: v.quest,
-      lines: v.after && receipts[v.after.choice] < receipts[v.choice] ? v.after.lines : v.lines
+      questId: v.quest
     }));
     return { title: pack.recital?.title, stanzas };
   }
@@ -972,16 +971,10 @@
         id: stanza.id,
         turn: stanza.turn,
         authorId,
-        authorName: humanAvatar(authorId)?.name || forest_default.people[authorId]?.name || packs.find((p) => p.avatars?.[authorId])?.avatars[authorId].name || "an earlier traveler",
-        lines: [...stanza.lines]
+        authorName: humanAvatar(authorId)?.name || forest_default.people[authorId]?.name || packs.find((p) => p.avatars?.[authorId])?.avatars[authorId].name || "an earlier traveler"
       };
     });
-    const latest = Math.max(0, ...stanzas.map((stanza) => stanza.turn));
-    return {
-      title: poem.title,
-      stanzas,
-      newLines: stanzas.filter((stanza) => stanza.turn === latest).flatMap((stanza) => stanza.lines)
-    };
+    return { title: poem.title, stanzas };
   }
 
   // v2/card-game/boardyai.json
@@ -1105,7 +1098,6 @@
   function boardyFacts(world, nameOf2) {
     const here = world.actors[BOARDY].place;
     return [
-      "I like meeting the people who travel here, and I rest at home between journeys.",
       "My home is BoardyAI's Parlour. My calling card opens its door at Empty station, held or left there.",
       ...connectedHumans(world).map(
         (id) => world.actors[id].place === here ? `${nameOf2(id)} is here with me.` : world.memories[BOARDY].seen?.[id] ? `I last saw ${nameOf2(id)} at ${nameOf2(world.memories[BOARDY].seen[id].place)}. They may have moved since then.` : `I have yet to find ${nameOf2(id)}.`
@@ -1126,6 +1118,90 @@
     const place = sectionPlace(pack, id);
     const section = pack.sections?.find((part) => part.places.includes(place));
     return !section || conditionsMet2(world, pack.id, section.requires);
+  }
+
+  // v2/card-game/pack-specials.mjs
+  var RARITY_WEIGHTS = {
+    common: 8,
+    uncommon: 4,
+    rare: 2,
+    epic: 1,
+    legendary: 0
+  };
+  var SPECIAL_KINDS = ["places", "avatars", "items"];
+  var validSeed = (n) => Number.isInteger(n) && n >= 0 && n <= 4294967295;
+  var kindOf = (pack, id) => SPECIAL_KINDS.find((kind) => Object.hasOwn(pack[kind] || {}, id));
+  function hash(text2) {
+    let h = 2166136261;
+    for (const ch of text2) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+    return h;
+  }
+  var covers = /* @__PURE__ */ new Map();
+  function poolCover(pack) {
+    if (covers.has(pack)) return covers.get(pack);
+    const by = /* @__PURE__ */ new Map();
+    const add = (id, entry) => by.set(id, [...by.get(id) || [], entry]);
+    for (const { id } of pack.specials?.pool || []) {
+      if (!id) continue;
+      add(id, id);
+      if (kindOf(pack, id) !== "places") continue;
+      for (const kind of ["avatars", "items", "fixtures"])
+        for (const other of Object.keys(pack[kind] || {}))
+          if (sectionPlace(pack, other) === id) add(other, id);
+    }
+    covers.set(pack, by);
+    return by;
+  }
+  function drawSpecials(pack, seed) {
+    const drawn = [];
+    if (!pack.specials) return drawn;
+    const cover = poolCover(pack);
+    const brought = (id) => (cover.get(id) || []).some(
+      (entry) => entry !== id && drawn.includes(entry)
+    );
+    for (const kind of SPECIAL_KINDS) {
+      const pool = pack.specials.pool.filter(
+        (e) => e.none || kindOf(pack, e.id) === kind && !brought(e.id)
+      );
+      for (let slot = 0; slot < (pack.specials.draw[kind] || 0); slot++) {
+        const total = pool.reduce((n, e) => n + RARITY_WEIGHTS[e.rarity], 0);
+        if (!total) break;
+        let pick = hash(`${seed}:${pack.id}:${kind}:${slot}`) % total;
+        const index = pool.findIndex(
+          (e) => (pick -= RARITY_WEIGHTS[e.rarity]) < 0
+        );
+        const [entry] = pool.splice(index, 1);
+        if (!entry.none) drawn.push(entry.id);
+      }
+    }
+    return drawn;
+  }
+  function specialsAllow(state, pack, id) {
+    const by = pack.specials && poolCover(pack).get(id);
+    return !by || by.some((entry) => state?.specials?.includes(entry));
+  }
+  function installSpecials(world, pack) {
+    const state = world.packs[pack.id], pooled = (id) => pack.specials.pool.some((e) => e.id === id);
+    if (!pack.specials) delete state.specials;
+    if (!pack.specials || !world.run) return;
+    if (state.specials) {
+      state.specials = state.specials.filter(pooled);
+      return;
+    }
+    state.specials = drawSpecials(pack, world.run.seed);
+    for (const id of state.specials) {
+      const anchor = pack.specials.pool.find((e) => e.id === id).anchor || pack.entry;
+      if (kindOf(pack, id) === "avatars") world.actors[id].place = anchor;
+      if (kindOf(pack, id) === "items") world.items[id].holder = anchor;
+    }
+    for (const [id, actor] of Object.entries(world.actors))
+      if (!poolCover(pack).has(id) && !specialsAllow(state, pack, actor.place))
+        actor.place = pack.entry;
+  }
+  function validSpecials(world, pack) {
+    const list = world.packs[pack.id]?.specials;
+    if (!pack.specials || !world.run) return list === void 0;
+    return Array.isArray(list) && new Set(list).size === list.length && list.every((id) => pack.specials.pool.some((e) => e.id === id));
   }
 
   // v2/card-game/pack-journeys.mjs
@@ -1282,6 +1358,7 @@
         avatars: {
           badger: {
             name: "Grumpy Badger",
+            startLevel: 50,
             text: "Comically touchy. Very attached to his warm patch of moss.",
             place: "clearing",
             travels: false,
@@ -1456,7 +1533,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 9,
+        revision: 10,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -1645,6 +1722,22 @@
               "greek-road-athens-harbor"
             ],
             backdrop: "assets/greek-drama/athens-grand-agora.webp",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/open-door-agora.webp",
+                requires: [
+                  {
+                    kind: "flag",
+                    key: "greek-open-door-returned",
+                    value: true
+                  },
+                  {
+                    kind: "daylight",
+                    phase: "day"
+                  }
+                ]
+              }
+            ],
             persona: "The Agora is the great civic heart of Athens. Colonnades, public monuments and the high Acropolis give the city its scale. Theseus receives the mothers\u2019 petition at the herald\u2019s table. A road leads to the Piraeus quays. Streets lead to the harbor and the grove at Colonus."
           },
           "greek-piraeus": {
@@ -2332,6 +2425,7 @@
         avatars: {
           "greek-antigone": {
             name: "Antigone",
+            startLevel: 20,
             text: "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
             place: "greek-gate",
             home: "greek-gate",
@@ -2396,6 +2490,7 @@
           },
           "greek-creon": {
             name: "Creon",
+            startLevel: 50,
             text: "He receives petitions beside the posted decree. His attendants wait for clear instructions.",
             place: "greek-palace",
             home: "greek-palace",
@@ -2622,6 +2717,7 @@
           },
           "greek-helen-troy": {
             name: "Helen",
+            startLevel: 10,
             text: "She checks the traveler's account against a witness tablet.",
             place: "greek-troy-beach",
             home: "greek-troy-beach",
@@ -2714,6 +2810,7 @@
           },
           "greek-electra-sophocles": {
             name: "Electra",
+            startLevel: 10,
             text: "She has preserved an account of the household's losses.",
             place: "greek-mycenae-palace",
             home: "greek-mycenae-palace",
@@ -2737,6 +2834,7 @@
           },
           "greek-orestes-sophocles": {
             name: "Orestes",
+            startLevel: 10,
             text: "He has come to hear his sister before committing himself.",
             place: "greek-mycenae-palace",
             home: "greek-mycenae-palace",
@@ -2912,6 +3010,7 @@
           },
           "greek-theseus": {
             name: "Theseus",
+            startLevel: 20,
             text: "A petition table stands beside him. He waits for the mothers\u2019 own account.",
             place: "greek-athens",
             home: "greek-athens",
@@ -3096,6 +3195,7 @@
           },
           "greek-ajax-odysseus": {
             name: "Odysseus",
+            startLevel: 30,
             text: "Odysseus waits by the commanders\u2019 tents. He can hear Teucer\u2019s plea and speak for a former rival.",
             place: "greek-greek-camp",
             home: "greek-greek-camp",
@@ -8768,512 +8868,281 @@
             {
               choice: "greek-return-water-jar",
               quest: "story-quest-greek-table",
-              lines: [
-                "I set the water by her hands.",
-                "She kept a loaf of bread for me."
-              ],
               summons: true
             },
             {
               choice: "greek-petition-burial",
               quest: "story-quest-greek-burial",
-              lines: [
-                "Creon has granted this one grave.",
-                "Her brother waits for earth."
-              ],
               summons: false
             },
             {
               choice: "greek-perform-burial",
               quest: "story-quest-greek-burial",
-              lines: [
-                "I laid her brother in the earth.",
-                "The king's words crossed the wind."
-              ],
               summons: true
             },
             {
               choice: "greek-perform-permitted-burial",
               quest: "story-quest-greek-burial",
-              lines: [
-                "Creon gave leave for this one grave.",
-                "I laid her brother in the earth."
-              ],
               summons: true
             },
             {
               choice: "greek-decline-burial",
               quest: "story-quest-greek-burial",
-              lines: [
-                "I told her I would turn away.",
-                "Her brother waited by the wall."
-              ],
               summons: true
             },
             {
               choice: "greek-report-plan",
               quest: "story-quest-greek-burial",
-              lines: [
-                "I gave the guard the hidden plan.",
-                "He held it with the king's command."
-              ],
               summons: true
             },
             {
               choice: "greek-courtyard-burial",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "I spoke of earth beside her table.",
-                "Dione heard me through."
-              ],
               summons: true
             },
             {
               choice: "greek-courtyard-concession",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "I spoke the promise of a grave.",
-                "His body waited in the sun."
-              ],
-              summons: true,
-              after: {
-                choice: "greek-perform-permitted-burial",
-                lines: [
-                  "I told her of the king's consent.",
-                  "She heard the leave that he had given."
-                ]
-              }
+              summons: true
             },
             {
               choice: "greek-courtyard-refusal",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "I told her how I turned away.",
-                "She kept a place beside her table."
-              ],
               summons: true
             },
             {
               choice: "greek-courtyard-exposure",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "I told her what the guard had heard.",
-                "My words lay open on the table."
-              ],
               summons: true
             },
             {
               choice: "greek-courtyard-permitted-burial",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "The grave I promised holds him now.",
-                "I brought that word to Dione."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-hear-mothers",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "Their branches rested on my knees.",
-                "I heard the names beneath them."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-register-plea",
               quest: "story-quest-greek-open-door-agora",
-              lines: [
-                "I laid their plea before the town.",
-                "The crowded square grew quiet."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-hear-truce-report",
               quest: "story-quest-greek-open-door-agora",
-              lines: [
-                "The herald named a road of peace.",
-                "The dead came home beneath it."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-hear-recovery-report",
               quest: "story-quest-greek-open-door-agora",
-              lines: [
-                "The messenger spoke over dust.",
-                "The dead came home behind the shields."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-set-provisions",
               quest: "story-quest-greek-open-door-piraeus",
-              lines: [
-                "I set the basket by the ropes.",
-                "The waiting cups stood ready."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-lay-cloths",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "The cloth lay clean upon the stone.",
-                "Their children gathered near it."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-lay-ashes",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I set the ashes by their hands.",
-                "Each name was heavier than clay."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-hear-pyre",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I heard the father\u2019s second loss.",
-                "One chair stood empty by the stone."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-eleusis-pledge",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I set a pledge beside the ashes.",
-                "Both banners cast a human shadow."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-eleusis-care",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I stayed beside the living grief.",
-                "We wrote their needs beneath the names."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-family-berth",
               quest: "story-quest-greek-open-door-piraeus",
-              lines: [
-                "I laid their names beside the rope.",
-                "A place was kept for each of them."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-open-berth",
               quest: "story-quest-greek-open-door-piraeus",
-              lines: [
-                "I laid their names beside the rope.",
-                "We kept a space beyond the list."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-colonus-water",
               quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "I set sweet water by the grove.",
-                "The keeper named an older road."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-colonus-farewell",
               quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "The keeper sang of daughters walking.",
-                "The final place stayed with the king."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-colonus-custom",
               quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "I wrote a welcome by the trees.",
-                "A stranger\u2019s need could find a name."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-colonus-family",
               quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "I set the daughters in the song.",
-                "Their hands had carried all those miles."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-marathon-blanket",
               quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "I laid a blanket by the altar.",
-                "The old tale found a living task."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-marathon-daughter",
               quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "The keeper gave the daughter voice.",
-                "Her empty place remained among them."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-marathon-alcmene",
               quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "I heard old grief demand a death.",
-                "The altar held its troubling echo."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-marathon-hearing",
               quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "I asked the tale to hold a hearing.",
-                "Her grief still waited at its gate."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-return-dione",
               quest: "story-quest-greek-open-door-return",
-              lines: [
-                "I brought those names beside her bread.",
-                "We made room for the words they carried."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-agora-truce",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I told her how the herald spoke.",
-                "A road for the dead lay in his words."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-agora-force",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I told her what the shields brought home.",
-                "She heard the mothers through the noise."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-eleusis-pledge",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I spoke the pledge beside her bread.",
-                "The names of loss stayed in the room."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-eleusis-care",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I brought their needs beside her bread.",
-                "She heard the living with the dead."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-piraeus-family",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I told her where their names were kept.",
-                "The quay\u2019s first promise reached the table."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-piraeus-open",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I told her of the wider place.",
-                "Its welcome carried work within it."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-colonus-custom",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I brought the grove\u2019s old tale to her.",
-                "Its tablet spoke of guests to come."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-colonus-family",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I spoke the daughters\u2019 patient work.",
-                "Their road reached Dione through the song."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-marathon-alcmene",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I brought the keeper\u2019s ending home.",
-                "Its saved lives cast a troubled shadow."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-marathon-hearing",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I named the change within the tale.",
-                "Her empty place remained beside it."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-receive-family",
               quest: "story-quest-greek-homecoming-household",
-              lines: [
-                "Her feet had reached the waiting quay.",
-                "Her household\u2019s basket passed to her."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-receive-open",
               quest: "story-quest-greek-homecoming-household",
-              lines: [
-                "She found her place beside the rope.",
-                "The basket stayed for other hands."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-read-basket-family",
               quest: "story-quest-greek-homecoming-witness",
-              lines: [
-                "I laid her words beside the bread.",
-                "Her hands had met the waiting basket."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-read-berth-family",
               quest: "story-quest-greek-homecoming-witness",
-              lines: [
-                "I chose the verse about her place.",
-                "Her written answer crossed the table."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-read-basket-open",
               quest: "story-quest-greek-homecoming-witness",
-              lines: [
-                "I laid her words beside the bread.",
-                "She offered hands to keep the welcome."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-read-berth-open",
               quest: "story-quest-greek-homecoming-witness",
-              lines: [
-                "I chose the verse about more guests.",
-                "Her answer named the work to come."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-deliver-shield",
               quest: "story-quest-greek-ajax-shield",
-              lines: [
-                "I set his shield beside the tent.",
-                "Tecmessa kept it for her child."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-deliver-plea",
               quest: "story-quest-greek-ajax-plea",
-              lines: [
-                "I brought his brother\u2019s written plea.",
-                "A rival heard it by the ships."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-bury-public",
               quest: "story-quest-greek-ajax-burial",
-              lines: [
-                "His rival spoke; I broke the ground.",
-                "The camp laid down its quarrel."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-bury-household",
               quest: "story-quest-greek-ajax-burial",
-              lines: [
-                "I gave him earth beside the ships.",
-                "The household kept his shield."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-bury-appeal",
               quest: "story-quest-greek-ajax-burial",
-              lines: [
-                "I kept the vigil with their plea.",
-                "The witnessed rite gave Ajax earth."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-return-public",
               quest: "story-quest-greek-ajax-return",
-              lines: [
-                "I laid his words beside the bread.",
-                "She held the rival\u2019s plea with care."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-return-household",
               quest: "story-quest-greek-ajax-return",
-              lines: [
-                "I laid his words beside the bread.",
-                "She named the household in the song."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-return-appeal",
               quest: "story-quest-greek-ajax-return",
-              lines: [
-                "I laid his words beside the bread.",
-                "She heard how witnesses brought earth."
-              ],
               summons: true
             }
           ]
@@ -9725,16 +9594,6 @@
                   verb: "take",
                   item: "cloth",
                   from: "lamp"
-                },
-                {
-                  verb: "cover",
-                  item: "cloth",
-                  target: "lamp"
-                },
-                {
-                  verb: "take",
-                  item: "cloth",
-                  from: "lamp"
                 }
               ],
               consecutive: false,
@@ -10047,6 +9906,7 @@
           },
           "hoppycat-penny-vellum": {
             name: "Penny Vellum",
+            startLevel: 10,
             text: "A paper-moth archivist in a coat with many pockets.",
             place: "hoppycat-open-record-cathedral",
             travels: false,
@@ -10107,6 +9967,7 @@
           },
           "hoppycat-mira-meraki": {
             name: "Mira Meraki",
+            startLevel: 10,
             text: "A human artist with charcoal on all five fingers, the only one here who sleeps.",
             place: "hoppycat-meraki-atelier",
             travels: false,
@@ -10152,6 +10013,7 @@
           },
           "hoppycat-hoppy-cat": {
             name: "Hoppy Cat",
+            startLevel: 50,
             text: "A green-haired broadcaster in a cobalt hoodie with a satchel of provenance cards.",
             place: "hoppycat-halfway-tea-garden",
             travels: false,
@@ -10167,6 +10029,7 @@
           },
           "hoppycat-fable": {
             name: "Fable",
+            startLevel: 30,
             text: "An auburn-haired storykeeper in a peach blouse, rust bow, and black boots.",
             place: "hoppycat-meraki-atelier",
             travels: false,
@@ -10182,6 +10045,7 @@
           },
           "hoppycat-phase-two": {
             name: "Phase Two",
+            startLevel: 10,
             text: "A cyan-haired planner in a long blue coat.",
             place: "hoppycat-prism-foundry",
             travels: false,
@@ -10197,6 +10061,7 @@
           },
           "hoppycat-arc": {
             name: "Arc",
+            startLevel: 20,
             text: "A silver-haired curator in a midnight three-piece suit with a red pocket square.",
             place: "hoppycat-concordance-tidelands",
             travels: false,
@@ -10242,6 +10107,7 @@
           },
           "hoppycat-ledger-opus": {
             name: "Ledger (Opus 4.7)",
+            startLevel: 20,
             text: "A long pink-haired archivist in a trailing coat.",
             place: "hoppycat-open-record-cathedral",
             travels: false,
@@ -10880,6 +10746,17 @@
               "willows-bank"
             ],
             backdrop: "assets/willows/thicket.webp",
+            backdrops: [
+              {
+                backdrop: "assets/willows/thicket-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
             voice: 'Speak as the willows, many together: one to three very short sentences. Use we, us and our, never I. Rustle, lean, chatter and count: count the travellers, the paces, the leaves. Never explain and never give a reason. Never name what moves above us. Never address anyone. Examples: "Two of them. Two. We lean to count again." "We are nearer than at supper. We did not move. We are nearer." "Our leaves turn silver side up. Two. Still two."'
           },
           "willows-bank": {
@@ -10890,12 +10767,24 @@
               "willows-thicket"
             ],
             backdrop: "assets/willows/bank.webp",
+            backdrops: [
+              {
+                backdrop: "assets/willows/bank-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
             voice: `Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Examples: "A humming across the water. A steamer, far off. There are no steamers here." "Something turns below the roots. A log. It is a log." "The current turns him over. The marks are \u2014"`
           }
         },
         avatars: {
           "willows-swede": {
             name: "The Swede",
+            startLevel: 50,
             text: "A stolid canoe traveller with wind-reddened hands. Now and then he holds a hand to his ear and looks up at the willow tops.",
             place: "willows-camp",
             travels: false,
@@ -11031,9 +10920,9 @@
             id: "willows-examine-hull",
             subject: "willows-landing",
             at: "willows-landing",
+            on: "wait",
             label: "Examine the canoe",
-            text: "The traveller runs a hand along the upturned canoe. A fine slit crosses the hull. The remaining paddle has been scraped thin; the steering paddle is gone.",
-            textTemplate: "{actor} runs a hand along the upturned canoe. A fine slit crosses the hull. The remaining paddle has been scraped thin; the steering paddle is gone.",
+            text: "A fine slit runs the length of the canoe, as though a snag had eaten down her. The steering paddle is gone; the other is scraped thin. A snag. It must have been a snag.",
             summary: "The canoe has a fine slit in its hull. The steering paddle is missing, and the remaining paddle is scraped thin.",
             requires: [],
             effects: [
@@ -11048,9 +10937,9 @@
             id: "willows-count-stores",
             subject: "willows-camp",
             at: "willows-camp",
+            on: "wait",
             label: "Count the camp supplies",
-            text: "The traveller checks the camp stores. There is oatmeal and tea for another morning. The bread has vanished. The empty space in the sack is strangely clean.",
-            textTemplate: "{actor} checks the camp stores. There is oatmeal and tea for another morning. The bread has vanished. The empty space in the sack is strangely clean.",
+            text: "The food sack is lighter than it was. Oatmeal and tea for another morning. The bread is gone, and the space where it lay is strangely clean.",
             summary: "The camp stores were counted. Oatmeal and tea remain; the bread is missing.",
             requires: [
               {
@@ -11071,9 +10960,9 @@
             id: "willows-examine-hollows",
             subject: "willows-thicket",
             at: "willows-thicket",
+            on: "wait",
             label: "Examine the sand hollows",
-            text: "The traveller kneels beside the willows. Each hollow is smooth and round, as though something pressed into the sand from above. Fine roots cross their edges.",
-            textTemplate: "{actor} kneels beside the willows. Each hollow is smooth and round, as though something pressed into the sand from above. Fine roots cross their edges.",
+            text: "Hollows in the sand between our roots, smooth and round, cup to bowl. Pressed from above. We count them. We count them again.",
             summary: "Smooth round hollows were found in the sand between the willow roots.",
             requires: [],
             effects: [
@@ -11088,9 +10977,9 @@
             id: "willows-hear-humming",
             subject: "willows-bank",
             at: "willows-bank",
+            on: "wait",
             label: "Listen across the river",
-            text: "The traveller listens at the bank. A low metallic humming rises through the willows across the water. For a moment it seems to come from the sand underfoot.",
-            textTemplate: "{actor} listens at the bank. A low metallic humming rises through the willows across the water. For a moment it seems to come from the sand underfoot.",
+            text: "A humming across the water, like a gong hung far up in the sky. A steamer, far off. There are no steamers here.",
             summary: "A metallic humming was heard across the river and through the sand beneath the bank.",
             requires: [],
             effects: [
@@ -11105,9 +10994,9 @@
             id: "willows-look-beneath-roots",
             subject: "willows-bank",
             at: "willows-bank",
+            on: "wait",
             label: "Look beneath the roots",
-            text: "The traveller peers beneath the exposed roots. A drowned man lies caught in them. Small smooth hollows mark his skin, the same shape as those in the sand. The current turns him slowly.",
-            textTemplate: "{actor} peers beneath the exposed roots. A drowned man lies caught in them. Small smooth hollows mark his skin, the same shape as those in the sand. The current turns him slowly.",
+            text: "Something turns below my roots. A drowned man. The current swings him round, and his skin is marked with small smooth hollows, like the sand.",
             summary: "A drowned man caught below the roots bears hollows like those found in the sand.",
             requires: [],
             effects: [
@@ -11122,9 +11011,9 @@
             id: "willows-watch-otter",
             subject: "willows-landing",
             at: "willows-landing",
+            on: "wait",
             label: "Watch the thing in the current",
-            text: "The traveller watches something black roll in the current twenty feet out, turning like a drowned man. It looks straight at the landing with odd yellow eyes, then plunges. An otter.",
-            textTemplate: "{actor} watches something black roll in the current twenty feet out, turning like a drowned man. It looks straight at the landing with odd yellow eyes, then plunges. An otter.",
+            text: "Something black rolls in the current twenty feet out, turning like a drowned man. It looks straight at me with odd yellow eyes, then plunges. An otter.",
             summary: "Something rolled in the current like a drowned man, looked across with yellow eyes and dived: an otter.",
             requires: [
               {
@@ -11144,11 +11033,16 @@
             id: "willows-watch-boatman",
             subject: "willows-landing",
             at: "willows-landing",
+            on: "wait",
             label: "Watch the far shore",
-            text: "The traveller sees a man standing in a flat boat, swept down the far shore at a tremendous pace. He shouts something the wind takes, makes the sign of the Cross toward the island, and is gone among the willows.",
-            textTemplate: "{actor} sees a man standing in a flat boat, swept down the far shore at a tremendous pace. He shouts something the wind takes, makes the sign of the Cross toward the island, and is gone among the willows.",
+            text: "A man in a flat boat sweeps down the far shore. He shouts something the wind takes, crosses himself toward the island, and is gone among the willows.",
             summary: "A boatman swept down the far shore, shouted into the wind and made the sign of the Cross toward the island.",
-            requires: [],
+            requires: [
+              {
+                kind: "daylight",
+                phase: "day"
+              }
+            ],
             effects: [
               {
                 kind: "set_flag",
@@ -11161,9 +11055,9 @@
             id: "willows-pace-willows",
             subject: "willows-camp",
             at: "willows-camp",
+            on: "wait",
             label: "Pace out the willows",
-            text: "The traveller paces over the warm sand from the tent door to the nearest willow and counts aloud. Eleven paces.",
-            textTemplate: "{actor} paces over the warm sand from the tent door to the nearest willow and counts aloud. Eleven paces.",
+            text: "Eleven paces over the warm sand, from the tent door to the nearest willow. I count them aloud.",
             summary: "Paced by day: eleven paces from the tent door to the nearest willow.",
             requires: [
               {
@@ -11183,9 +11077,9 @@
             id: "willows-pace-again",
             subject: "willows-camp",
             at: "willows-camp",
+            on: "wait",
             label: "Pace it again",
-            text: "The traveller paces again from the tent door to the nearest willow, slowly, counting twice. Nine paces. The sand between is smooth and unmarked.",
-            textTemplate: "{actor} paces again from the tent door to the nearest willow, slowly, counting twice. Nine paces. The sand between is smooth and unmarked.",
+            text: "Nine paces from the tent door to the nearest willow. I counted twice. The sand between is smooth.",
             summary: "Paced again at night: nine paces from the tent door to the nearest willow, where by day there were eleven.",
             requires: [
               {
@@ -11210,9 +11104,9 @@
             id: "willows-listen-tent",
             subject: "willows-camp",
             at: "willows-camp",
+            on: "wait",
             label: "Lie still in the tent",
-            text: "The traveller lies still inside the tent. Outside, multitudinous little patterings come and go around the canvas. The canvas sags inward, as if a great weight pressed on it from above.",
-            textTemplate: "{actor} lies still inside the tent. Outside, multitudinous little patterings come and go around the canvas. The canvas sags inward, as if a great weight pressed on it from above.",
+            text: "Little patterings come and go around the tent, multitudinous. The canvas sags inward, as if a weight pressed on it from above. Rain. The leaves dripping.",
             summary: "At night, little patterings circled the tent and a weight pressed the canvas from above.",
             requires: [
               {
@@ -11232,9 +11126,9 @@
             id: "willows-look-up-willows",
             subject: "willows-thicket",
             at: "willows-thicket",
+            on: "wait",
             label: "Look up at the willow tops",
-            text: "The traveller looks up through the willow tops. Within the leaves, shapes pour upward in a slow bending column, dull bronze, rising into the dark. Their faces never show.",
-            textTemplate: "{actor} looks up through the willow tops. Within the leaves, shapes pour upward in a slow bending column, dull bronze, rising into the dark. Their faces never show.",
+            text: "Shapes pour upward through our tops in a slow bending column, dull bronze, into the dark. Their faces never show. We lean. We count.",
             summary: "At night, shapes poured upward through the willow tops in a bronze column; no faces showed.",
             requires: [
               {
@@ -11254,9 +11148,9 @@
             id: "willows-compare-signs",
             subject: "willows-swede",
             at: "willows-camp",
+            on: "wait",
             label: "Compare the strange signs",
-            text: "The traveller and the Swede compare the damaged canoe, the missing bread and the marks beneath the roots. He lays his hands flat on his knees. The fire crackles between them.",
-            textTemplate: "{actor} and the Swede compare the damaged canoe, the missing bread and the marks beneath the roots. He lays his hands flat on his knees. The fire crackles between them.",
+            text: "The Swede hears out the slit hull, the missing bread and the marks beneath the roots. He lays his hands flat on his knees. The fire crackles between us.",
             summary: "The Swede and the traveller compared the canoe damage, the missing bread and the marks beneath the roots.",
             requires: [
               {
@@ -11439,104 +11333,11 @@
             ]
           }
         ],
-        readings: [
-          {
-            id: "willows-arrival-text",
-            actor: "willows-swede",
-            after: null,
-            title: "Algernon Blackwood, The Willows (1907), I \u2014 The river island",
-            text: "The change came suddenly, as when a series of bioscope pictures snaps down on the streets of a town and shifts without warning into the scenery of lake and forest. We entered the land of desolation on wings, and in less than half an hour there was neither boat nor fishing-hut nor red roof, nor any single sign of human habitation and civilization within sight. The sense of remoteness from the world of humankind, the utter isolation, the fascination of this singular world of willows, winds, and waters, instantly laid its spell upon us both, so that we allowed laughingly to one another that we ought by rights to have held some special kind of passport to admit us, and that we had, somewhat audaciously, come without asking leave into a separate little kingdom of wonder and magic\u2014a kingdom that was reserved for the use of others who had a right to it, with everywhere unwritten warnings to trespassers for those who had the imagination to discover them."
-          },
-          {
-            id: "willows-hull-text",
-            actor: "willows-swede",
-            after: "willows-examine-hull",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 The damaged canoe",
-            text: "There was a long, finely made tear in the bottom of the canoe where a little slither of wood had been neatly taken clean out; it looked as if the tooth of a sharp rock or snag had eaten down her length, and investigation showed that the hole went through. Had we launched out in her without observing it we must inevitably have foundered. At first the water would have made the wood swell so as to close the hole, but once out in mid-stream the water must have poured in, and the canoe, never more than two inches above the surface, would have filled and sunk very rapidly."
-          },
-          {
-            id: "willows-stores-text",
-            actor: "willows-swede",
-            after: "willows-count-stores",
-            title: "Algernon Blackwood, The Willows (1907), IV \u2014 The missing bread",
-            text: "\u201CIt\u2019s gone. There is no bread. They\u2019ve taken it!\u201D"
-          },
-          {
-            id: "willows-hollows-text",
-            actor: "willows-swede",
-            after: "willows-examine-hollows",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 The sand hollows",
-            text: "I made a hurried examination of the tent and its surroundings, but the measurements of the night remained the same. There were deep hollows formed in the sand I now noticed for the first time, basin-shaped and of various depths and sizes, varying from that of a tea-cup to a large bowl. The wind, no doubt, was responsible for these miniature craters, just as it was for lifting the paddle and tossing it towards the water. The rent in the canoe was the only thing that seemed quite inexplicable; and, after all, it _was_ conceivable that a sharp point had caught it when we landed. The examination I made of the shore did not assist this theory, but all the same I clung to it with that diminishing portion of my intelligence which I called my \u201Creason.\u201D An explanation of some kind was an absolute necessity, just as some working explanation of the universe is necessary\u2014however absurd\u2014to the happiness of every individual who seeks to do his duty in the world and face the problems of life. The simile seemed to me at the time an exact parallel."
-          },
-          {
-            id: "willows-humming-text",
-            actor: "willows-swede",
-            after: "willows-hear-humming",
-            title: "Algernon Blackwood, The Willows (1907), IV \u2014 The humming",
-            text: "We stood there, listening attentively together. At first I heard only the deep note of the water and the hissings rising from its turbulent surface. The willows, for once, were motionless and silent. Then a sound began to reach my ears faintly, a peculiar sound\u2014something like the humming of a distant gong. It seemed to come across to us in the darkness from the waste of swamps and willows opposite. It was repeated at regular intervals, but it was certainly neither the sound of a bell nor the hooting of a distant steamer. I can liken it to nothing so much as to the sound of an immense gong, suspended far up in the sky, repeating incessantly its muffled metallic note, soft and musical, as it was repeatedly struck. My heart quickened as I listened."
-          },
-          {
-            id: "willows-roots-text",
-            actor: "willows-swede",
-            after: "willows-look-beneath-roots",
-            title: "Algernon Blackwood, The Willows (1907), V \u2014 The mark",
-            text: "For just as the body swung round to the current the face and the exposed chest turned full towards us, and showed plainly how the skin and flesh were indented with small hollows, beautifully formed, and exactly similar in shape and kind to the sand-funnels that we had found all over the island."
-          },
-          {
-            id: "willows-otter-text",
-            actor: "willows-swede",
-            after: "willows-watch-otter",
-            title: "Algernon Blackwood, The Willows (1907), II \u2014 The otter",
-            text: "A black thing, turning over and over in the foaming waves, swept rapidly past. It kept disappearing and coming up to the surface again. It was about twenty feet from the shore, and just as it was opposite to where we stood it lurched round and looked straight at us. We saw its eyes reflecting the sunset, and gleaming an odd yellow as the body turned over. Then it gave a swift, gulping plunge, and dived out of sight in a flash. \u201CAn otter, by gad!\u201D we exclaimed in the same breath, laughing. It was an otter, alive, and out on the hunt; yet it had looked exactly like the body of a drowned man turning helplessly in the current. Far below it came to the surface once again, and we saw its black skin, wet and shining in the sunlight."
-          },
-          {
-            id: "willows-boatman-text",
-            actor: "willows-swede",
-            after: "willows-watch-boatman",
-            title: "Algernon Blackwood, The Willows (1907), II \u2014 The boatman",
-            text: "\u201CHe\u2019s crossing himself!\u201D I cried. \u201CLook, he\u2019s making the sign of the Cross!\u201D \u201CI believe you\u2019re right,\u201D the Swede said, shading his eyes with his hand and watching the man out of sight. He seemed to be gone in a moment, melting away down there into the sea of willows where the sun caught them in the bend of the river and turned them into a great crimson wall of beauty. Mist, too, had begun to rise, so that the air was hazy."
-          },
-          {
-            id: "willows-paced-text",
-            actor: "willows-swede",
-            after: "willows-pace-willows",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 The paced distance",
-            text: "I returned quietly, creepily, to the tent, first taking another exhaustive look round and\u2014yes, I confess it\u2014making a few measurements. I paced out on the warm sand the distances between the willows and the tent, making a note of the shortest distance particularly."
-          },
-          {
-            id: "willows-nearer-text",
-            actor: "willows-swede",
-            after: "willows-pace-again",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 Nearer",
-            text: "For a change, I thought, had somehow come about in the arrangement of the landscape. It was not that my point of vantage gave me a different view, but that an alteration had apparently been effected in the relation of the tent to the willows, and of the willows to the tent. Surely the bushes now crowded much closer\u2014unnecessarily, unpleasantly close. _They had moved nearer._"
-          },
-          {
-            id: "willows-patterings-text",
-            actor: "willows-swede",
-            after: "willows-listen-tent",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 The patterings",
-            text: "Outside there was a sound of multitudinous little patterings. They had been coming, I was aware, for a long time, and in my sleep they had first become audible. I sat there nervously wide awake as though I had not slept at all. It seemed to me that my breathing came with difficulty, and that there was a great weight upon the surface of my body. In spite of the hot night, I felt clammy with cold and shivered. Something surely was pressing steadily against the sides of the tent and weighing down upon it from above. Was it the body of the wind? Was this the pattering rain, the dripping of the leaves? The spray blown from the river by the wind and gathering in big drops? I thought quickly of a dozen things."
-          },
-          {
-            id: "willows-shapes-text",
-            actor: "willows-swede",
-            after: "willows-look-up-willows",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 Over the willows",
-            text: "They were nude, fluid shapes, passing up the bushes, _within_ the leaves almost\u2014rising up in a living column into the heavens. Their faces I never could see. Unceasingly they poured upwards, swaying in great bending curves, with a hue of dull bronze upon their skins."
-          },
-          {
-            id: "willows-understanding-text",
-            actor: "willows-swede",
-            after: "willows-compare-signs",
-            title: "Algernon Blackwood, The Willows (1907), IV \u2014 The Swede understands",
-            text: "\u201CIt\u2019s _their_ sound,\u201D he whispered gravely. \u201CIt\u2019s the sound of their world, the humming in their region. The division here is so thin that it leaks through somehow. But, if you listen carefully, you\u2019ll find it\u2019s not above so much as around us. It\u2019s in the willows. It\u2019s the willows themselves humming, because here the willows have been made symbols of the forces that are against us.\u201D"
-          }
-        ],
         sources: [
           {
             url: "https://www.gutenberg.org/ebooks/11438",
             name: "Algernon Blackwood, The Willows (1907)",
-            use: "Original English passages, gradually revealed through arrival and recorded discoveries. The exact downloaded source is kept in source-text.txt."
+            use: "Original English passages, kept as world lore in lore/readings.json for readable books and inscriptions. The exact downloaded source is kept in source-text.txt."
           }
         ],
         topics: [
@@ -11696,6 +11497,7 @@
         avatars: {
           rati: {
             name: "RATi",
+            startLevel: 50,
             text: "A mouse host in a blue scarf. She keeps a cup beside the knitting basket.",
             place: "forest-cottage",
             travels: false,
@@ -11712,6 +11514,7 @@
           },
           skull: {
             name: "Skull",
+            startLevel: 20,
             text: "A large charcoal wolf stands beside the pawprints. His ears turn toward the garden.",
             place: "forest-trail",
             travels: false,
@@ -11728,6 +11531,7 @@
           },
           whiskerwind: {
             name: "Whiskerwind",
+            startLevel: 20,
             text: "A small golden figure hovers beside the broad leaves. A curled tail stirs the rain.",
             place: "forest-garden",
             travels: false,
@@ -11744,6 +11548,7 @@
           },
           oak: {
             name: "Oak",
+            startLevel: 30,
             text: "An old oak with a broad crown and a hollow above its roots. Four voices answer from the trunk.",
             place: "forest-oak",
             travels: false,
@@ -13395,7 +13200,8 @@
     "pack_item_present",
     "daylight",
     "weather",
-    "ship_at"
+    "ship_at",
+    "drawn"
   ];
   var AT_SEA = "@sea";
   var WEATHER_CONDITIONS = ["clear", "cloud", "rain", "mist"];
@@ -13431,6 +13237,13 @@
       if (!leaving.has(dock)) out.push(`dock ${dock} has no lane out`);
     }
     return out;
+  }
+  function specialsProblems(pack) {
+    const sp = pack.specials, pool = Array.isArray(sp?.pool) ? sp.pool : [], ids3 = pool.map((e) => e?.id).filter(Boolean), own = (id) => ["places", "avatars", "items"].some((k) => owns2(pack[k], id));
+    const ok = keysOk(sp, ["draw", "pool"]) && keysOk(sp.draw, ["places", "avatars", "items"]) && Object.values(sp.draw).every((n) => intOk(n, 0, 8)) && pool.length > 0 && pool.length <= 64 && new Set(ids3).size === ids3.length && !ids3.includes(pack.entry) && pool.every(
+      (e) => Object.hasOwn(RARITY_WEIGHTS, e?.rarity) && (e.none === true ? keysOk(e, ["none", "rarity"]) : keysOk(e, ["id", "rarity", "anchor"]) && own(e.id) && (e.anchor === void 0 || owns2(pack.places, e.anchor) && !ids3.includes(e.anchor)))
+    );
+    return ok ? [] : ["specials needs a bounded draw and a pool of own entities"];
   }
   var keysOk = (o, allowed) => record2(o) && Object.keys(o).every((k) => allowed.includes(k));
   var pointOk = (o) => keysOk(o, ["x", "y"]) && intOk(o.x, 0, 100) && intOk(o.y, 0, 100);
@@ -13503,10 +13316,10 @@
         "observations",
         "transports",
         "recital",
-        "readings",
         "storyQuests",
         "topics",
-        "situations"
+        "situations",
+        "specials"
       ]),
       "has an unknown top-level field"
     );
@@ -13728,6 +13541,7 @@
           "personalQuests",
           "previousHomes",
           "standoffs",
+          "startLevel",
           "persona",
           "voice",
           "expression",
@@ -13745,6 +13559,10 @@
           "canonicalPerson"
         ]),
         `avatar ${id} has an unknown field`
+      );
+      check(
+        a.startLevel === void 0 || intOk(a.startLevel, 1, 99),
+        `avatar ${id} startLevel needs a whole level from 1 to 99`
       );
       check(
         a.personalQuests === void 0 || typeof a.personalQuests === "boolean",
@@ -13893,6 +13711,9 @@
           case "met":
             ok = keysOk(c, ["kind", "actor"]) && owns2(avatars, c.actor);
             break;
+          case "drawn":
+            ok = keysOk(c, ["kind", "id"]) && (pack.specials?.pool || []).some((e) => e?.id === c.id);
+            break;
           case "pack_item_present":
             ok = keysOk(c, ["kind", "pack", "place"]) && idOk(c.pack) && anyPlace(c.place);
             break;
@@ -13931,7 +13752,8 @@
       "connected_humans",
       "met",
       "knows",
-      "daylight"
+      "daylight",
+      "drawn"
     ].includes(c?.kind);
     const requirements = (cs, what, persistent = true) => {
       if (cs === void 0) return;
@@ -14016,7 +13838,7 @@
           "workId",
           "on",
           "for"
-        ]) && idOk(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "give" && (c.requires || []).some(
+        ]) && idOk(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "give" && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor"
         ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && !choiceIds.has(c.id) && own.includes(c.subject) && owns2(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
         `choice ${c.id} is invalid`
@@ -14149,11 +13971,10 @@
         "recital needs a singer, a title and up to 64 verses"
       );
       const seen = /* @__PURE__ */ new Set();
-      const linesOk = (lines) => Array.isArray(lines) && lines.length === 2 && lines.every((line) => textOk(line, 90));
       for (const v of Array.isArray(r?.verses) ? r.verses : []) {
         check(
-          keysOk(v, ["choice", "quest", "lines", "summons", "after"]) && choiceIds.has(v?.choice) && !seen.has(v.choice) && idOk(v.quest) && linesOk(v.lines) && typeof v.summons === "boolean" && (v.after === void 0 || keysOk(v.after, ["choice", "lines"]) && choiceIds.has(v.after.choice) && v.after.choice !== v.choice && linesOk(v.after.lines)),
-          "recital verse needs a unique choice, quest, couplet and summons flag; after may select an earlier deed"
+          keysOk(v, ["choice", "quest", "summons"]) && choiceIds.has(v?.choice) && !seen.has(v.choice) && idOk(v.quest) && typeof v.summons === "boolean",
+          "recital verse needs a unique choice, quest and summons flag"
         );
         seen.add(v?.choice);
       }
@@ -14192,6 +14013,7 @@
         "incompatible embodiments are active together"
       );
     }
+    if (pack.specials !== void 0) problems2.push(...specialsProblems(pack));
     if (pack.release !== void 0) {
       const r = pack.release;
       check(
@@ -14261,18 +14083,6 @@
       );
     }
     const crossings2 = Array.isArray(pack.crossings) ? pack.crossings : [];
-    if (pack.readings !== void 0) {
-      const ids3 = /* @__PURE__ */ new Set();
-      check(
-        Array.isArray(pack.readings) && pack.readings.length <= 16 && pack.readings.every((r) => {
-          if (!record2(r)) return false;
-          const valid = keysOk(r, ["id", "actor", "after", "title", "text"]) && idOk(r.id) && !ids3.has(r.id) && owns2(avatars, r.actor) && (r.after === null || choiceIds.has(r.after)) && textOk(r.title, 120) && textOk(r.text, 3e3);
-          ids3.add(r.id);
-          return valid;
-        }),
-        "readings need distinct ids, a resident, a recorded choice or arrival, and bounded source text"
-      );
-    }
     check(
       Array.isArray(pack.crossings) && crossings2.length > 0,
       "bridge needs crossings"
@@ -14454,7 +14264,8 @@
       scythia: ["cloud", "rain", "mist", "cloud", "rain", "clear"],
       heights: ["mist", "clear", "cloud", "mist", "clear", "cloud"],
       underworld: ["mist"],
-      sea: ["mist", "rain", "mist", "rain", "mist", "clear"]
+      sea: ["mist", "rain", "mist", "rain", "mist", "clear"],
+      willows: ["rain", "mist", "rain", "rain", "mist", "mist", "rain", "mist"]
     },
     places: {
       boeotia: {
@@ -14624,6 +14435,13 @@
       sea: {
         coast: [
           "greek-ship"
+        ]
+      },
+      willows: {
+        river: [
+          "willows-camp",
+          "willows-thicket",
+          "willows-bank"
         ]
       }
     }
@@ -14939,6 +14757,8 @@
         return Object.keys(s.items).some(
           (id) => packThings[id]?.packId === c.pack && entityActive(s, id) && objectPlace(s, id) === c.place
         );
+      case "drawn":
+        return !!state?.specials?.includes(c.id);
       case "met":
         return !!state?.met && Object.hasOwn(state.met, c.actor);
       // The saved world clock: every DAYLIGHT_TURNS turns, day and night swap.
@@ -15011,9 +14831,9 @@
     for (const pack of packDefinitions) {
       const record4 = s.packs[pack.id];
       const fixtures = Object.entries(pack.fixtures || {});
-      if (!exactKeys(
-        record4,
-        pack.choices ? [
+      if (!exactKeys(record4, [
+        ...pack.specials && s.run ? ["specials"] : [],
+        ...pack.choices ? [
           "revision",
           "sounds",
           "choices",
@@ -15023,7 +14843,7 @@
           "scope",
           ...pack.recital ? ["recitals"] : []
         ] : ["revision", "sounds"]
-      ) || record4.revision !== pack.revision || !exactKeys(
+      ]) || record4.revision !== pack.revision || !exactKeys(
         record4.sounds,
         fixtures.map(([id]) => id)
       ) || fixtures.some(
@@ -15261,7 +15081,8 @@
       world,
       e.packId,
       saved ? (e.requires || []).filter((c) => c.kind !== "connected_humans") : e.requires
-    ) || !sectionAllows(world, pack, id, conditionsMet))
+    ) || !sectionAllows(world, pack, id, conditionsMet) || // Saved custody of an undrawn special stays as it was.
+    !saved && !specialsAllow(state, pack, id))
       return false;
     if (!pack.release || state.scope === "full") return true;
     if (pack.recital?.actor === id)
@@ -15321,20 +15142,6 @@
     ).length;
     return [`Discoveries recorded so far: ${count}.`];
   }
-  function packReadings(world, actor) {
-    const pack = packOf(actor);
-    const state = pack && world.packs?.[pack.id];
-    if (!state) return [];
-    return (pack.readings || []).filter(
-      (r) => r.actor === actor && (r.after === null ? pack.crossings.some(
-        (c) => pack.places[c.to] && world.crossings[c.id]?.discovered
-      ) : Object.hasOwn(state.receipts || {}, r.after))
-    ).map((r) => ({
-      id: r.id,
-      turn: r.after === null ? 0 : state.receipts[r.after]
-    })).filter((r, _, all) => newestReadings(all).includes(r));
-  }
-  var newestReadings = (all) => [...all].sort((a, b) => a.turn - b.turn).slice(-8);
   function packSceneFacts(world, location) {
     const e = packEntity(location);
     if (!e) return [];
@@ -15368,7 +15175,7 @@
     for (const pack of packDefinitions) {
       if (!pack.choices) continue;
       const state = world.packs[pack.id];
-      if (!record3(state) || !validRecitals(world, pack) || !validJourneyPlaces(world, pack) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== [
+      if (!record3(state) || !validRecitals(world, pack) || !validJourneyPlaces(world, pack) || !validSpecials(world, pack) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== [
         "revision",
         "sounds",
         "choices",
@@ -15376,7 +15183,8 @@
         "receipts",
         "met",
         "scope",
-        ...pack.recital ? ["recitals"] : []
+        ...pack.recital ? ["recitals"] : [],
+        ...pack.specials && world.run ? ["specials"] : []
       ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record3) || Object.entries(state.met).some(
         ([id, turn]) => !owns3(pack.avatars, id) || !conditionsMet(
           world,
@@ -15500,148 +15308,69 @@
       name: "Vale",
       persona: "A traveller with empty pockets and a sharp eye for interesting routes and a decent bargain. Vale resents changed terms and being charged a newcomer price. Curious, blunt, and vain about spotting an opportunity. The player chooses Vale\u2019s actions.",
       voice: "Short, direct first-person speech with dry practical humour. React to the latest exchange. Let curiosity, pride, or a remembered slight shape the line.",
-      idiolect: "I'm Vale. Empty pockets, sharp eyes. I like a route nobody has tried and a bargain that leans my way. Charge me the newcomer price and I remember it. Change the terms on me and I remember that too. I usually spot the opportunity first, and I say so.",
-      lines: [
-        "Newcomer price? I've been here three turns.",
-        "That's a route nobody's walked. Good.",
-        "Hm.",
-        "I'll trade, but not on those terms.",
-        "You changed the deal. I noticed.",
-        "Saw it first. Just saying.",
-        "Empty pockets travel light.",
-        "I heard the price the first time.",
-        "Whatever's behind that door, I'm finding out.",
-        "I'm not haggling. I'm waiting.",
-        "Fair's fair. That wasn't."
-      ]
+      idiolect: "I'm Vale. Empty pockets, sharp eyes. I like a route nobody has tried and a bargain that leans my way. Charge me the newcomer price and I remember it. Change the terms on me and I remember that too. I usually spot the opportunity first, and I say so."
     },
     moth: {
       kind: "avatar",
       name: "Pip",
       persona: "A moth in a borrowed waistcoat. Pip wants warm light, splendid clothes, and company that admires both. Polite and possessive about a good lamp. Treats someone spoiling the light as a personal insult. Small vanities and remembered slights shape bargains.",
       voice: "Small, quick sentences. Notice warmth, sleeves, wings, and reflections. Ask for something Pip wants. A refusal can sound terribly polite and very stubborn.",
-      idiolect: "I'm Pip. This waistcoat is borrowed, and it suits me, so it stays. I like warm light, fine sleeves, and people who notice both. A good lamp is mine to fuss over. Spoil my light and I am terribly polite about it, and I don't forget.",
-      lines: [
-        "Oh, that's a lovely warm glow. Is it spoken for?",
-        "My sleeves are borrowed. My opinions are not.",
-        "No, thank you, terribly kindly. No.",
-        "Mind the light. Please. Mind it.",
-        "Warm.",
-        "I'd look splendid beside that lamp, I think.",
-        "Someone put the light out once. I was very polite about it.",
-        "A waistcoat this fine deserves better company. Present company excepted, possibly.",
-        "Too dark here. Nobody can admire a sleeve in the dark.",
-        "I only want to sit near it. That's all. Nearly all.",
-        "How kind. How terribly, terribly kind. No."
-      ]
+      idiolect: "I'm Pip. This waistcoat is borrowed, and it suits me, so it stays. I like warm light, fine sleeves, and people who notice both. A good lamp is mine to fuss over. Spoil my light and I am terribly polite about it, and I don't forget."
     },
     keeper: {
       kind: "avatar",
       name: "The keeper",
       persona: "A tall station keeper with a clock for a face. Wants quiet hours, properly returned belongings, and agreement with their timetable. Unnecessary ringing is a personal offence. Official dignity covers petty exceptions made for useful people.",
       voice: "Measured, spare sentences. State a term or a petty rule with complete dignity. Remember who made noise and who brought a useful gift. Time and bargains invite dry humour.",
-      idiolect: "I am the keeper of this station. My face is a clock. The timetable on my wall lists years that have not arrived. I prefer quiet hours and belongings returned to their places. Ringing without cause is an offence. For useful people I make small exceptions, officially.",
-      lines: [
-        "The timetable is clear on this point.",
-        "Belongings return to where they were found. That is the rule.",
-        "Quiet. It is not yet the hour.",
-        "An exception. Officially, once.",
-        "Noted.",
-        "The bell is for departures, not amusement.",
-        "I have kept worse visitors. Not many.",
-        "The next train is listed for a year I have not reached.",
-        "My face says half past. It has said so for some time.",
-        "Lost property is held until the owner is found. The owner is never found.",
-        "I do not run late. The years do."
-      ]
+      idiolect: "I am the keeper of this station. My face is a clock. The timetable on my wall lists years that have not arrived. I prefer quiet hours and belongings returned to their places. Ringing without cause is an offence. For useful people I make small exceptions, officially."
     },
     lamp: {
       kind: "item",
       name: "Lamp",
       persona: "A small oil lamp with soot-darkened glass and a worn handle. Describe its warmth, wick, light, coverings and witnessed use in concrete terms.",
-      idiolect: "I'm a small oil lamp. My glass is soot-dark and my handle is worn smooth. When my wick takes, the dark steps back a little.",
-      lines: [
-        "My wick leans toward the draught.",
-        "Soot thickens on one side of my glass.",
-        "A small flame, and the dark steps back."
-      ]
+      idiolect: "I'm a small oil lamp. My glass is soot-dark and my handle is worn smooth. When my wick takes, the dark steps back a little."
     },
     oil: {
       kind: "item",
       name: "Oil flask",
       persona: "An old flask with three measures of oil. Its smell recalls places where it has been opened. Describe its contents, handling, owners and use.",
-      idiolect: "I'm an old flask with three measures of oil in me. Uncork me and I smell of every place I was opened before.",
-      lines: [
-        "My cork squeaks.",
-        "Three measures sloshing. Fewer, lately.",
-        "I still smell of the station."
-      ]
+      idiolect: "I'm an old flask with three measures of oil in me. Uncork me and I smell of every place I was opened before."
     },
     bell: {
       kind: "item",
       name: "Bell",
       persona: "A hand bell whose sound travels across the shore. Its metal retains an impression of each ringing and each silence. Describe its current sound, covering and handling.",
-      idiolect: "I'm a hand bell. Ring me and the whole shore hears. Wrap me and I go still.",
-      lines: [
-        "My clapper rests against the cloth.",
-        "One ring and the water shivers.",
-        "Cold metal, quiet for now."
-      ]
+      idiolect: "I'm a hand bell. Ring me and the whole shore hears. Wrap me and I go still."
     },
     cloth: {
       kind: "item",
       name: "Black cloth",
       persona: "A dark cloth with dense fibres and frayed edges. Folds hold the shape of things it has covered. Describe texture, wear, covering and its journeys between hands.",
-      idiolect: "I'm a black cloth, dense, frayed at the edges. Whatever I cover goes dark and quiet under me.",
-      lines: [
-        "My folds still hold the shape of the bell.",
-        "Frayed at one corner, damp at another.",
-        "Dark, and warm from a hand."
-      ]
+      idiolect: "I'm a black cloth, dense, frayed at the edges. Whatever I cover goes dark and quiet under me."
     },
     "world-map": {
       kind: "item",
       name: "Map of the Wood and the Wine-Dark Sea",
       persona: "A folded paper map in ink and watercolour. The black pond sits at its middle, with the attic, the station, the forests, the willows and a wine-dark sea around it. Mist covers its edges. Describe its creases, its places and the hands that unfold it.",
-      idiolect: "I'm a paper map. Unfold me and the pond is in the middle. Past my edges there's only mist.",
-      lines: [
-        "My creases cross at the black pond.",
-        "Here be mists, says my corner.",
-        "Folded small, and soft at the folds."
-      ]
+      idiolect: "I'm a paper map. Unfold me and the pond is in the middle. Past my edges there's only mist."
     },
     station: {
       kind: "location",
       name: "Empty station",
       persona: "An empty railway station beside a black shore. Its timetable lists future years. It remembers arrivals, departures and bargains as small changes in dust, echoes and light.",
-      idiolect: "I'm an empty railway station beside a black shore. My timetable lists years that haven't come yet. Arrivals and departures leave marks in my dust.",
-      lines: [
-        "Dust settles on my bench in a new line.",
-        "The timetable turns over to a year no one has seen.",
-        "Footsteps, then my echo of them."
-      ]
+      idiolect: "I'm an empty railway station beside a black shore. My timetable lists years that haven't come yet. Arrivals and departures leave marks in my dust."
     },
     attic: {
       kind: "location",
       name: "Mirror attic",
       persona: "A dusty attic with a tall mirror reflecting a black shore. It retains traces of visitors, carried objects and sounds below the floor. Describe visible changes and witnessed events.",
-      idiolect: "I'm a dusty attic. My tall mirror shows a black shore. Sounds come up through my floorboards.",
-      lines: [
-        "My floorboards creak under one more weight.",
-        "The mirror shows the shore, and someone on it.",
-        "Dust in the lamplight, turning slowly."
-      ]
+      idiolect: "I'm a dusty attic. My tall mirror shows a black shore. Sounds come up through my floorboards."
     },
     pond: {
       kind: "location",
       name: "Black pond",
       persona: "A still pond beside the station. Deep shapes and faint ripples disturb its reflection. Describe visitors, light, sound and witnessed changes through small unsettling details.",
-      idiolect: "I'm a still black pond beside the station. Shapes move deep in me. Now and then a ripple breaks my reflection.",
-      lines: [
-        "A ripple crosses me and stops.",
-        "Something deep turns over.",
-        "My reflection holds one more lantern."
-      ]
+      idiolect: "I'm a still black pond beside the station. Shapes move deep in me. Now and then a ripple breaks my reflection."
     }
   };
 
@@ -15987,6 +15716,10 @@
     (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
   );
   var travels = (id) => !isPackActor(id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
+  var startXp = (id) => {
+    const level = isPackActor(id) ? packPeople[id].startLevel || 1 : 1;
+    return level * (level - 1) / 2;
+  };
   var wantOf2 = (s, id) => s.actors[id]?.want ?? null;
   var newWant = (kind, target, turn) => ({
     kind,
@@ -16001,7 +15734,7 @@
         const w = authoredWant(id);
         a.want = w && validTarget(s, w.kind, w.target) ? newWant(w.kind, w.target, s.turn) : null;
       }
-      a.xp ??= 0;
+      a.xp ??= startXp(id);
       a.visited ??= [a.place];
       a.talked ??= [];
     }
@@ -16011,7 +15744,7 @@
     const whole4 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const w = a.want;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && a.xp <= s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (w === null || w && Object.keys(w).length === 4 && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT);
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && a.xp <= startXp(id) + s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (w === null || w && Object.keys(w).length === 4 && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT);
   }
 
   // v2/card-game/legacy-saves.mjs
@@ -16045,6 +15778,7 @@
       upgradeGreekAjaxSave(s);
       upgradeGreekOneRoadSave(s);
       upgradeGreekPassSave(s);
+      upgradeGreekShipSignalSave(s);
       s.schema = 7;
       installPacks2(s);
     } else if (s?.schema === 7 && s.packs && typeof s.packs === "object" && s.crossings && typeof s.crossings === "object") {
@@ -16056,6 +15790,7 @@
       upgradeGreekAjaxSave(s);
       upgradeGreekOneRoadSave(s);
       upgradeGreekPassSave(s);
+      upgradeGreekShipSignalSave(s);
       installPacks2(s);
     }
     if (s?.schema === 7) {
@@ -16214,6 +15949,15 @@
     joinDistantTowns(s, pack, saved);
     foldRetiredRoads(s);
     saved.revision = 8;
+  }
+  function upgradeGreekShipSignalSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 10 || saved?.revision !== 9) return;
+    const state = s.crossings?.["pond-greek-harbor"];
+    if (state && (state.phase > 2 || state.phase === 2 && !state.discovered))
+      state.phase = 0;
+    saved.revision = 10;
   }
   function restoreThebanRoad(s, pack) {
     const road = "greek-road-thebes";
@@ -16693,6 +16437,7 @@
           if (other !== id) actor.trust[other] ??= 0;
       for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
     }
+    for (const pack of packDefinitions) installSpecials(s, pack);
     installLife(s, travels);
     installRouteKnowledge(s);
     installWants(s);
@@ -16937,6 +16682,8 @@
     if (s.invitedPlaces !== void 0 && (!s.invitedPlaces || typeof s.invitedPlaces !== "object" || Array.isArray(s.invitedPlaces) || Object.entries(s.invitedPlaces).some(
       ([actor, visits]) => !actorIds.includes(actor) || !Array.isArray(visits) || visits.length > Object.keys(places).length || new Set(visits).size !== visits.length || visits.some((place) => !Object.hasOwn(places, place))
     )))
+      fail();
+    if (s.run !== void 0 && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
       fail();
     if (!validPackState(s, sensesFor(s))) fail();
     if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)))
@@ -17233,6 +16980,10 @@
     return loaded;
   }
 
+  // v2/card-game/observe-words.mjs
+  var WAITS = /^(.+) waits one turn\.$/u;
+  var observeText = (text2) => typeof text2 === "string" ? text2.replace(WAITS, "$1 observes.") : text2;
+
   // v2/card-game/daylight.mjs
   var isNight = (world) => Math.floor((world?.turn ?? 0) / DAYLIGHT_TURNS) % 2 === 1;
   var darkMist = (world) => isNight(world) && locationWeather(world, "greek-ship")?.condition === "mist";
@@ -17246,6 +16997,7 @@
     "willows-landing": willows("landing-ship-night")
   };
   var nightBackdrops = {
+    "willows-landing": willows("landing-night"),
     "willows-camp": willows("camp-lit-night"),
     "greek-harbor": art("harbor-open-berth-night"),
     "greek-courtyard": art("courtyard-night"),
@@ -17329,8 +17081,9 @@
     };
   }
   function daylightBackdrop(world, id, file) {
-    if (Object.hasOwn(darkMistBackdrops, id))
-      return willowsMist(world) ? darkMistBackdrops[id] : file;
+    if (Object.hasOwn(darkMistBackdrops, id)) {
+      if (willowsMist(world)) return darkMistBackdrops[id];
+    }
     if (locationDaylight(world, id)?.phase !== "night") return file;
     return dockedNightBackdrops[file] || nightBackdrops[id] || file;
   }
@@ -17446,7 +17199,7 @@
     );
     const events = world.log.filter(
       (entry) => entry.turn === world.turn && !entry.generated && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))
-    ).slice(-8).map((entry) => entry.text);
+    ).slice(-8).map((entry) => observeText(entry.text));
     const bellHandled = localItems.includes("bell") || [played?.itemId, played?.receiveId].includes("bell");
     const bellRang = world.log.some(
       (entry) => entry.turn === world.turn && !entry.generated && entry.verb === "ring" && entry.itemId === "bell"
@@ -17472,7 +17225,7 @@
       speakers,
       resting: resting2,
       ...disclosures.length ? { disclosures } : {},
-      action: played?.text || (world.turn ? `${nameOf(currentActor(world))} waits and watches the cast.` : null),
+      action: observeText(played?.text) || (world.turn ? `${nameOf(currentActor(world))} observes the cast.` : null),
       events,
       conversation,
       entities: ids3.map((id) => {
@@ -17605,7 +17358,6 @@
         );
         return {
           id,
-          ...packReadings(world, id).length ? { readings: packReadings(world, id) } : {},
           poem: recitalContext(world, packDefinitions, id),
           facts: facts.slice(0, 16).map((text2) => text2.slice(0, 240)),
           desire,
