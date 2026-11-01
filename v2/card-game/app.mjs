@@ -505,7 +505,11 @@ const playQueue = createPlayQueue({
         sharedPlay.state,
       );
     else notice("");
-    renderActions();
+    // Capture the hand before a queued play folds it; refresh progress labels
+    // even when the hand's render key is unchanged.
+    const handBefore = renderedHand;
+    render();
+    if (renderedHand === handBefore) renderActions();
   },
 });
 // Strikes and journeys have the screen: the hand, locked through them
