@@ -61,6 +61,7 @@ behavior follows the shipping code, catalogs, tests, and live release.
 - [Shared worlds](../v2/docs/card-table/shared-worlds.md)
 - [Dialogue beats](../v2/docs/card-table/dialogue-beats.md)
 - [Greek redesign](../v2/docs/card-table/greek-redesign.md)
+- [Recipes and the item economy](../v2/docs/card-table/recipes-and-item-economy.md)
 - [Card pack authoring](../v2/docs/card-packs.md)
 - [Runtime operations](../v2/README.md)
 - [Releases](release.md)

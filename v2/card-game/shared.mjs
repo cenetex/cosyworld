@@ -2,6 +2,7 @@ import { imageUrl } from "./images.mjs";
 import { request, passkey } from "./shared-auth.mjs";
 import { createSharedSync } from "./shared-sync.mjs";
 import roster from "./shared-cast.json" with { type: "json" };
+import { worldName, worldNameOf } from "./world-name.mjs";
 
 export const humanAvatars = roster.avatars;
 const avatarName = (id) => humanAvatars.find((a) => a.id === id)?.name || id;
@@ -96,9 +97,9 @@ export function worldLink(id) {
   url.searchParams.set("world", id);
   return url.href;
 }
-async function showLink(id, offerContinue = false) {
+async function showLink(id, offerContinue = false, name = null) {
   const box = panel(
-    "Invite someone",
+    name ? `Invite to ${name}` : "Invite someone",
     "This link opens this world, with its places, people, belongings, and progress.",
   );
   if (offerContinue)
@@ -133,8 +134,10 @@ export async function openWorlds() {
         box.append(
           button(
             entry.actor
-              ? `Continue as ${avatarName(entry.actor)}`
-              : `The reflected shore · ${8 - entry.claimed} avatars available`,
+              ? [avatarName(entry.actor), worldName(entry.seed)]
+                  .filter(Boolean)
+                  .join(" · ")
+              : `${worldName(entry.seed) || "The reflected shore"} · ${8 - entry.claimed} avatars available`,
             () => {
               location.href = worldLink(entry.id);
             },
@@ -367,7 +370,13 @@ export async function connectSharedWorld(id) {
     },
   };
 }
-export function installSharedControls({ session, saveSlot, getSave, notice }) {
+export function installSharedControls({
+  session,
+  saveSlot,
+  getSave,
+  getWorld = () => null,
+  notice,
+}) {
   ensureSharedStyle();
   const linkedWorld = () => {
     try {
@@ -377,12 +386,14 @@ export function installSharedControls({ session, saveSlot, getSave, notice }) {
     }
   };
   const share = button("Share", async () => {
-    if (session) return showLink(session.id);
+    if (session)
+      return showLink(session.id, false, worldNameOf(session.state.world));
+    const name = worldNameOf(getWorld());
     const linked = linkedWorld();
-    if (linked) return showLink(linked, true);
+    if (linked) return showLink(linked, true, name);
     await authenticate(async () => {
       const box = panel(
-        "Share this world",
+        name ? `Share ${name}` : "Share this world",
         "Friends will join this exact world. Its places, people, belongings, quests, and progress stay together. You will continue as Vale.",
       );
       box.append(
