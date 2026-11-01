@@ -1,29 +1,23 @@
-# The storybook map as a hub item
+# The storybook map, retired
 
-The **Map of the Wood and the Wine-Dark Sea** (`world-map`) waits at the Empty
-station, outside the opening hand. It starts covered like every newly met card.
-The station's timetable names years yet to happen; a map belongs beside it.
+The **Map of the Wood and the Wine-Dark Sea** (`world-map`) was a hub item at
+the Empty station (#1621). On 2026-11-01 the owner removed it from the game.
+There is no replacement in the menu or settings.
 
 ## Rules and compatibility
 
-`forest.json` supplies the name, text, art, large view and initial station holder.
-`card-table.json` registers the hub item; `entity-profiles.json` supplies its voice.
-Take, give, trade, drop and wants use the ordinary item rules. The Willows retain
-their separate `willows-map` and `assets/willows/map.png`.
+`forest.json`, `card-table.json` and `entity-profiles.json` no longer define the
+map, so new games never place it. Loading a save runs the generic content
+reconcile: a thing the content no longer defines leaves the world with its
+memories, wherever it lay. A map in Vale's hand leaves too; alpha saves may
+lose it. The released engine bundles stay as they were, so journal replay of
+older shared worlds is unchanged. The current shared content drops the item.
 
-`installPacks` adds genuinely absent hub items at their initial holders, including
-in older local saves and shared worlds. Existing custody, history and memories
-stay intact; a present malformed item remains invalid. This generic migration
-also restores other absent hub items. Its rule change requires shared engine v60.
-Content is supplied separately by the host; released interpreters stay pinned.
+## Art
 
-## Presentation and art
-
-An uncovered selected item with a `view` offers client-only **Look**. The dialog
-pauses speech and supports Enlarge/Fit, image tapping, Close, Escape and outside
-tapping. Keyboard buttons work without submitting a play or advancing the world.
-Card art resolves from pack art, then the hub item's `art`, then the forest card.
-
-`assets/shared/items/world-map.webp` serves cards/stage at 1600 px;
-`world-map-full.webp` serves the view at 4096 px. The generation chain, original
-PNG hashes and encoding details live in `world-map-art-prompts.json` beside them.
+The map's card and view images (`assets/shared/items/world-map*.webp`), their
+optimized variants and `world-map-art-prompts.json` were used only by this item.
+They left the repo and the public asset list; git history keeps them. The
+`art`/`view` and client-only **Look** support for hub things remains, unused.
+The Willows' own `willows-map` and the art-direction atlas
+(`docs/art-direction/assets/world-map.png`) are separate and stay.

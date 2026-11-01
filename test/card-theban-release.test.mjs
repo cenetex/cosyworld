@@ -244,7 +244,6 @@ describe("the Theban release and its ship", () => {
         ...Object.keys(packDefinition("hoppycat-archive").items),
         ...Object.keys(packDefinition("willows").items),
         ...Object.keys(packDefinition("lonely-forest").items),
-        "world-map",
       ].sort(),
     );
     expect(after.memories).toMatchObject(before.memories);

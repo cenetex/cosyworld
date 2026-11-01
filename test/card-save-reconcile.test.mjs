@@ -31,18 +31,17 @@ describe("a loaded save follows the current content", () => {
     expect(s.actors.vale.place).toBe("pond");
     expect(s.crossings[THREAD].discovered).toBe(false);
     expect(reachable(s)).not.toContain(GARDEN);
-    expect(s.items["world-map"]).toBeTruthy();
     expect(() => exercise(s)).not.toThrow();
   });
 
   it("adds a thing the save lacks and drops one the content no longer has", () => {
     const s = JSON.parse(released);
-    delete s.items["world-map"];
+    delete s.items.bell;
     delete s.items.cloth;
     s.items["retired-thing"] = { holder: "vale", history: [] };
     s.items.lamp.holder = "retired-thing";
     const loaded = decodeSave(JSON.stringify(s));
-    expect(loaded.items["world-map"]).toBeTruthy();
+    expect(loaded.items.bell).toBeTruthy();
     expect(loaded.items.cloth).toBeTruthy();
     expect(loaded.items["retired-thing"]).toBeUndefined();
     // Vale keeps what the retired thing held.

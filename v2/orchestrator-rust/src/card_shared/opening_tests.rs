@@ -86,11 +86,6 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
         "greek-olive-branch".into(),
         json!({"holder": "greek-athens", "history": []}),
     );
-    // The storybook world map waits at the empty station.
-    items.insert(
-        "world-map".into(),
-        json!({"holder": "station", "history": []}),
-    );
     // Greek revision 11's Theban outcomes wait unseen where their deeds are done.
     for (id, holder) in [
         ("greek-burial-account", "greek-battlefield"),

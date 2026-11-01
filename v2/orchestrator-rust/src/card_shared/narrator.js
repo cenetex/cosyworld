@@ -403,13 +403,6 @@
         name: "Black cloth",
         startLevel: 20,
         text: "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object."
-      },
-      "world-map": {
-        name: "Map of the Wood and the Wine-Dark Sea",
-        startLevel: 30,
-        text: "A folded paper map, inked and washed in watercolour. The pond sits at its middle. Mist covers the edges.",
-        art: "assets/shared/items/world-map.webp",
-        view: "assets/shared/items/world-map-full.webp"
       }
     },
     initialState: {
@@ -474,10 +467,6 @@
         },
         cloth: {
           holder: "moth",
-          history: []
-        },
-        "world-map": {
-          holder: "station",
           history: []
         }
       },
@@ -1242,8 +1231,7 @@
         "lamp",
         "oil",
         "bell",
-        "cloth",
-        "world-map"
+        "cloth"
       ],
       observations: [
         {
@@ -15849,12 +15837,6 @@
       name: "Black cloth",
       persona: "A dark cloth with dense fibres and frayed edges. Folds hold the shape of things it has covered. Describe texture, wear, covering and its journeys between hands.",
       idiolect: "I'm a black cloth, dense, frayed at the edges. Whatever I cover goes dark and quiet under me."
-    },
-    "world-map": {
-      kind: "item",
-      name: "Map of the Wood and the Wine-Dark Sea",
-      persona: "A folded paper map in ink and watercolour. The black pond sits at its middle, with the attic, the station, the forests, the willows and a wine-dark sea around it. Mist covers its edges. Describe its creases, its places and the hands that unfold it.",
-      idiolect: "I'm a paper map. Unfold me and the pond is in the middle. Past my edges there's only mist."
     },
     station: {
       kind: "location",
