@@ -69,16 +69,20 @@ try {
           return { top: r.top, bottom: r.bottom, left: r.left, right: r.right };
         });
     // Every card's frame reaches the hand's foot: nothing cuts it short.
+    // The hand's top padding is clear room for a lean or a lift that rises
+    // under the action row; the row itself ends above the cards' row.
     async function handUncut() {
       const { clipped, handBottom } = await page.evaluate(() => {
-        const hand = document.querySelector("#hand").getBoundingClientRect();
+        const el = document.querySelector("#hand");
+        const hand = el.getBoundingClientRect();
+        const row = hand.top + parseFloat(getComputedStyle(el).paddingTop);
         const panel = document.querySelector(".action-panel");
         const p = panel.hidden ? null : panel.getBoundingClientRect();
         return {
           handBottom: hand.bottom,
           clipped:
             p &&
-            p.bottom > hand.top + 1 &&
+            p.bottom > row + 1 &&
             p.left < hand.right &&
             p.right > hand.left,
         };
@@ -107,9 +111,20 @@ try {
     await page.waitForTimeout(400);
     const button = await box("#card-actions .card-primary"),
       dialogue = await box(".dialogue"),
-      hand = await box("#hand");
+      hand = await box("#hand"),
+      // The highest card, the chosen one lifted with its lean.
+      cardsTop = await page.evaluate(() =>
+        Math.min(
+          ...[
+            ...document.querySelectorAll("#hand .card-frame:not([hidden])"),
+          ].map((f) => f.getBoundingClientRect().top),
+        ),
+      );
     assert(button.top >= dialogue.bottom - 1, "button under the dialogue");
-    assert(button.bottom <= hand.top + 1, "button above the hand");
+    assert(
+      button.bottom <= cardsTop + 1,
+      `button above the hand: ends ${button.bottom}, cards at ${cardsTop}`,
+    );
     assert(button.bottom <= height, "button on screen");
     assert(Math.abs(hand.bottom - restHand.bottom) < 2, "hand stays put");
     await handUncut();

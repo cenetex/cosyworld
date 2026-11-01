@@ -114,7 +114,9 @@ try {
       assert.equal(fit.scrollWidth, fit.width, `${where}: page scrolls sideways`);
       // The hand tucks its bottom quarter under the screen edge, never more.
       assert(fit.shown >= 0.7, `${where}: only ${fit.shown} of a card shows`);
-      assert(fit.labelBottom <= fit.height, `${where}: card name is off screen`);
+      // The name's box ends on the tuck line, so a leaning card's corner may
+      // round a fraction of a pixel past the edge.
+      assert(fit.labelBottom <= fit.height + 1, `${where}: card name is off screen`);
       assert(fit.controlsInside, `${where}: a top-bar control is off screen`);
       assert(fit.speechInside, `${where}: the dialogue is off screen`);
       assert(fit.speechClear, `${where}: the dialogue covers the hand`);

@@ -940,14 +940,17 @@ body .dialogue[data-dropped="true"] {
   overflow-y: hidden;
   /* Room for the outer cards' lean, the folded quest and a chosen card's lift,
      which the hand's scroll box would otherwise clip. The room rises above
-     the dock, so the cards still sit 12px under the dialogue. */
+     the dock, so the cards still sit 12px under the dialogue. Its scroll
+     padding keeps that room when a focused card scrolls into view; without
+     it the hand scrolls down to the card's top and the cards rise into the
+     dialogue. */
   margin-top: calc(12px - var(--hand-top));
   padding: var(--hand-top) var(--hand-inline) 0;
   height: calc(var(--card-height) * 0.75 + var(--hand-top));
   transition: height 220ms ease-out;
   scrollbar-width: none;
   scrollbar-color: #ad97744d transparent;
-  scroll-padding-inline: var(--hand-inline);
+  scroll-padding: var(--hand-top) var(--hand-inline) 0;
   scroll-snap-type: x proximity;
   overscroll-behavior-x: contain;
 }
