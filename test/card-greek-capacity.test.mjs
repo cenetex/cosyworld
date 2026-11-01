@@ -30,12 +30,9 @@ import {
 } from "./helpers/greek-capacity.mjs";
 import { branchItems, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
-// Colonus and Marathon now sit inside Athens, so only the Piraeus side
+// The countryside reaches the harbour only through the city, so only Piraeus
 // reaches the harbor without passing through the Agora.
-const paths = [
-  ["eleusis", "piraeus", "harbor"],
-  ["piraeus", "harbor"],
-];
+const paths = [["piraeus", "harbor"]];
 
 describe("roads around a full Agora", () => {
   it.each(paths.map((path) => [path[0], path]))(

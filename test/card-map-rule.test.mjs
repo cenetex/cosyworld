@@ -36,19 +36,24 @@ const TOWNS = {
     "greek-battlefield",
     "greek-aulis",
   ],
-  athens: [
+  // Athens has three districts. The Sacred Way joins the countryside to the
+  // city, and the Long Walls join the city to its harbour.
+  "athens-countryside": [
+    "greek-eleusis",
+    "greek-colonus",
+    "greek-marathon",
+    "greek-attic-farm",
+    "greek-acharnae",
+  ],
+  "athens-city": [
     "greek-athens",
     "greek-assembly",
     "greek-acropolis",
-    "greek-demos-house",
     "greek-thinkery",
+    "greek-demos-house",
     "greek-festival",
-    "greek-attic-farm",
-    "greek-colonus",
-    "greek-acharnae",
-    "greek-marathon",
   ],
-  piraeus: ["greek-piraeus", "greek-eleusis"],
+  "athens-harbour": ["greek-piraeus"],
   delphi: ["greek-delphi"],
   trachis: ["greek-trachis", "greek-pherae", "greek-thetis"],
   troy: [
@@ -85,6 +90,15 @@ const TOWNS = {
     "forest-trail",
   ],
 };
+
+// A place within another links only to its parent and does not count toward
+// its district's four places.
+const INTERIORS = {
+  "greek-acharnae": "greek-attic-farm",
+  "greek-demos-house": "greek-assembly",
+  "greek-festival": "greek-acropolis",
+};
+const DISTRICTS = ["athens-countryside", "athens-city", "athens-harbour"];
 
 const town = (id) =>
   Object.entries(TOWNS).find(([, places]) => places.includes(id))?.[0] ?? id;
@@ -157,6 +171,19 @@ describe("the map rule", () => {
         : place.exits || [])
         if (!localRoadEnds(to))
           expect(back.has(`${to}>${id}`), `${id} -> ${to}`).toBe(true);
+  });
+
+  it("keeps each Athens district to four places, not counting interiors", () => {
+    for (const district of DISTRICTS)
+      expect(
+        TOWNS[district].filter((id) => !INTERIORS[id]).length,
+        district,
+      ).toBeLessThanOrEqual(4);
+    for (const [id, parent] of Object.entries(INTERIORS)) {
+      expect(packPlaces[id].exits, id).toEqual([parent]);
+      expect(packPlaces[parent].exits, parent).toContain(id);
+      expect(town(id), id).toBe(town(parent));
+    }
   });
 
   it("gives every walkable road its own painting", () => {

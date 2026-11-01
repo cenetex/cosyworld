@@ -31,7 +31,8 @@ const docks = ["pond", "greek-harbor", "greek-piraeus"];
 const players = ["vale", "mara"];
 const pack = packDefinition("greek-drama");
 function shared(dock, seas = false) {
-  // After the plea at the Agora the olive branch rides on deck.
+  // After the plea at the Agora the petition and the olive branch rest
+  // there, so both Athenian gates stand open.
   const world = dispatchShared({
     op: "create",
     save: encodeSave(
@@ -142,9 +143,9 @@ describe("Greek ports and fixed roads", () => {
     // Athens Harbor has joined Piraeus, whose Long Walls lead to the city.
     expect(entityActive(after, "greek-athens-harbor")).toBe(false);
     expect(entityActive(after, "greek-road-athens-piraeus")).toBe(true);
-    expect(exits(after, "greek-piraeus", "vale")).toContain(
+    expect(exits(after, "greek-piraeus", "vale")).toEqual([
       "greek-road-athens-piraeus",
-    );
+    ]);
     expect(exits(after, "greek-harbor", "vale")).toContain("greek-road-thebes");
     expect(exits(after, "greek-harbor", "vale")).not.toContain(
       "greek-courtyard",

@@ -143,10 +143,13 @@ describe("the Theban release and its ship", () => {
     expect(reachable(s)).toHaveLength(9);
     s = act(s, "give", { item: "greek-guard-tablet", target: "greek-baker" });
     // The tablet on Dione's table opens the Cithaeron road from the
-    // battlefield, so Athens is reached overland.
-    expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
+    // battlefield to the countryside. The Sacred Way waits for the mothers'
+    // petition; the ship with the Travel Provisions reaches the city.
+    expect(reachable(s)).toContain("greek-eleusis");
+    expect(reachable(s)).not.toContain("greek-athens");
     s.items["greek-provisions"].holder = "greek-ship";
-    expect(reachable(s)).toHaveLength(16);
+    expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
+    expect(reachable(s)).toHaveLength(17);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     for (const start of openDoorPlaces) {
@@ -154,6 +157,15 @@ describe("the Theban release and its ship", () => {
       trip.transports["greek-ship"].dock = "greek-piraeus";
       // Vale sailed in, so she knows the lane home from Piraeus.
       learnLane(trip, "vale", "greek-harbor", "greek-piraeus");
+      // The Long Walls lead home from the city once the plea's olive branch
+      // is in the Agora; the mothers' petition there keeps the Sacred Way
+      // open from Eleusis.
+      Object.assign(trip.packs[pack.id].flags, {
+        "greek-open-door-mothers-heard": true,
+        "greek-open-door-plea-registered": true,
+      });
+      for (const id of ["greek-burial-petition", "greek-olive-branch"])
+        trip.items[id].holder = "greek-athens";
       const seen = new Set([start]);
       for (const id of seen)
         for (const to of exits(trip, id, "vale"))

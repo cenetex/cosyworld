@@ -7,7 +7,7 @@ import {
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { learnLane } from "../v2/card-game/pack-transport.mjs";
 import { openDoorAction, playOpenDoor } from "./helpers/open-door.mjs";
-import { homecomingJourney } from "./helpers/greek-homecoming.mjs";
+import { homecomingJourney, myrineSteps } from "./helpers/greek-homecoming.mjs";
 
 const flag = (world, key) =>
   world.packs["greek-drama"].flags[`greek-homecoming-${key}`];
@@ -58,7 +58,7 @@ describe("the household reaches its berth", () => {
           entry.verb === "accompany" &&
           entry.targetId === "greek-household-witness",
       );
-      expect(travel).toHaveLength(1);
+      expect(travel).toHaveLength(myrineSteps.length);
       expect(travel.every((entry) => entry.accepted)).toBe(true);
       expect(flag(world, "arrived")).toBe(true);
       expect(flag(world, "witness-heard")).toBe(true);
@@ -125,7 +125,7 @@ describe("the household reaches its berth", () => {
     world = decodeSave(encodeSave(world));
     const later = shared(world, "mara", ["mara"]);
     let result;
-    for (const destination of ["greek-piraeus"]) {
+    for (const destination of myrineSteps) {
       const view = shared(world, "mara", ["mara"]);
       const next = openDoorAction(view.world, "accompany", {
         target: "greek-household-witness",

@@ -43,7 +43,6 @@ const nightBackdrops = {
   "greek-road-athens-harbor": art("attic-road-night"),
   "greek-road-athens-piraeus": art("attic-road-night"),
   "greek-road-athens-colonus": art("attic-road-night"),
-  "greek-road-athens-eleusis": art("attic-road-night"),
   "greek-road-athens-marathon": art("attic-road-night"),
   "greek-road-piraeus-eleusis": art("attic-road-night"),
   "greek-road-colonus-eleusis": art("attic-road-night"),

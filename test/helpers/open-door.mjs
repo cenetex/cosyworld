@@ -158,8 +158,9 @@ export function openDoorJourney(options) {
   return { world, before, after };
 }
 
-// The world just after the plea at the Agora, with the Suppliant’s
-// olive branch on the ship's deck: every Greek lane is open.
+// The world just after the plea at the Agora. The petition and the
+// Suppliant’s olive branch rest there, so the Sacred Way and the Long Walls
+// both stand open.
 let plea;
 export function openSeas() {
   if (!plea) {
@@ -168,7 +169,7 @@ export function openSeas() {
       world = playOpenDoor(world, kind, fields);
       if (fields.choiceId === "greek-open-door-register-plea") break;
     }
-    world.items["greek-olive-branch"].holder = "greek-ship";
+    world.items["greek-olive-branch"].holder = "greek-athens";
     plea = world;
   }
   return structuredClone(plea);

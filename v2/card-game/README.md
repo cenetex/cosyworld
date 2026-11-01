@@ -336,21 +336,23 @@ invitation. Athens Harbor has joined Piraeus.
 
 Roads separate towns, and places inside a town link directly. Between two
 towns there is exactly one road or a sea lane, and every walkable road has its
-own painting. In Attica one shared road scene, the Athens–Piraeus Road, joins
-Athens and Piraeus. Colonus and Marathon are direct visits from the Agora;
-Eleusis is a direct visit from Piraeus. The Theban Harbor Road is the only way
+own painting. Athens has three districts: the countryside, the city and the
+harbour. The Sacred Way joins the countryside to the city and the Long Walls
+join the city to Piraeus. Each is a gate: a route from one end, with a live
+condition, replaces that end's exit, and the way back stays open (see the
+[Open Door guide](../content/greek-drama/OPEN-DOOR.md)). The Theban Harbor Road is the only way
 between the Wine-Dark Harbor and Thebes. The battlefield is a Theban place
 outside the walls; the City Gate opens onto it only while the gate guard holds
 the Burial Decree there, and the way back in is always open. The Cithaeron
 road leads on from the battlefield to Eleusis while a Theban account of the
-burial is there or on Dione's table. The Sacred Way joins the Agora and
+burial is there or on Dione's table. The Road to Delphi joins the Agora and
 Delphi, the Oeta Road joins Delphi and Trachis, the Royal Road joins Troy and
 Susa, the Black Sea Road joins Thrace and Tauris, and the Colonists' Road joins
 Corinth and Sicily. A road has two fixed ends, shown by destination cards in a
 fixed order. Avatars come first in the hand, followed by the first end, the
 road, and the other end. Its entry card names the place ahead. Travelers can
 meet, wait and carry objects on the road. Myrine walks from Eleusis to Piraeus
-in one Accompany play.
+one road at a time, along the Sacred Way and the Long Walls.
 
 A pack marks an old road or place `retired: true` to keep its ID for saved
 history. No exit leads onto it. A save that stands on a retired road
