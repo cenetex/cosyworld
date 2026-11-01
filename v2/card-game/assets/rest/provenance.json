@@ -1,0 +1,141 @@
+{
+  "issue": "https://github.com/cenetex/cosyworld/issues/1849",
+  "created": "2026-11-01",
+  "generation": {
+    "tool": "built-in image_gen",
+    "transparent_background": false,
+    "prompt_file": "prompts.json"
+  },
+  "assets": [
+    {
+      "name": "short-rest",
+      "source": {
+        "generated_file": "exec-4a957e28-e116-433d-b311-303eeb6d1d8d.png",
+        "sha256": "26422306257aee55228b30ad8a660a80bdd41a0c6dff0a7b84b73871981de8b1",
+        "bytes": 2769800,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": false
+      },
+      "runtime": {
+        "file": "assets/rest/short-rest.webp",
+        "sha256": "061729cfd13b522f484185c365d375192d7220ff79bc150d2ef2800fa3427e5e",
+        "bytes": 285814,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": false,
+        "encoding": {
+          "format": "webp",
+          "quality": 84,
+          "alphaQuality": 100,
+          "effort": 6,
+          "smartSubsample": true
+        }
+      },
+      "generation_id": "exec-4a957e28-e116-433d-b311-303eeb6d1d8d",
+      "card": {
+        "file": "assets/optimized/card/webp/rest/short-rest.webp",
+        "sha256": "08cfa9f67a3eec18007a5ecd7e93344963c44e2f5c0820e70be9af9083a9890f",
+        "bytes": 110084,
+        "width": 512,
+        "height": 768,
+        "has_alpha": false,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "cardWidth": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/rest/short-rest.webp",
+        "sha256": "0d2b50defdcb3098af2b821292be9bf6ee38e340470a2c304f06c922abe6c5fb",
+        "bytes": 142828,
+        "width": 640,
+        "height": 960,
+        "has_alpha": false,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "phoneSize": 960
+        }
+      }
+    },
+    {
+      "name": "long-rest",
+      "source": {
+        "generated_file": "exec-d5dc07c0-5581-48b7-bf93-0ab5ed0a0f75.png",
+        "sha256": "e01c08e026e483332addeeb2ec441f3a5812e4873fb22f6ea78b124e3acee52d",
+        "bytes": 2723179,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": false
+      },
+      "runtime": {
+        "file": "assets/rest/long-rest.webp",
+        "sha256": "9cd6aea86be840fd030bfaf584c8b4f6c30641bbb104090840f92fb6d50a6a0e",
+        "bytes": 277582,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": false,
+        "encoding": {
+          "format": "webp",
+          "quality": 84,
+          "alphaQuality": 100,
+          "effort": 6,
+          "smartSubsample": true
+        }
+      },
+      "generation_id": "exec-d5dc07c0-5581-48b7-bf93-0ab5ed0a0f75",
+      "card": {
+        "file": "assets/optimized/card/webp/rest/long-rest.webp",
+        "sha256": "82ae1cc4112659494cdfb4f9f90a7fae1d214c1f3dbd7ad2295098a78f8df41d",
+        "bytes": 103818,
+        "width": 512,
+        "height": 768,
+        "has_alpha": false,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "cardWidth": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/rest/long-rest.webp",
+        "sha256": "720400f1af6a5b436f65adb1dfe78894c39b5fbb04259a8078162232ce247a06",
+        "bytes": 131192,
+        "width": 640,
+        "height": 960,
+        "has_alpha": false,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "phoneSize": 960
+        }
+      }
+    }
+  ],
+  "derivation": "Runtime WebPs encode the complete generated 1024x1536 paintings without cropping, resizing, compositing or creative editing. Original PNGs are represented by filename and SHA-256. Card and phone versions were generated from the runtime WebPs by the unmodified official build-card-images.mjs in an isolated two-image fixture. Builder-produced records were merged into the existing manifests without changing any earlier entry.",
+  "validation": {
+    "dimensions": "Both runtime paintings verified at 1024x1536",
+    "opacity": "Both source PNGs and runtime WebPs are opaque",
+    "runtime_bytes_limit": 300000,
+    "visual_review": "Both full paintings and 512x768 card derivatives inspected. Requested objects are clear, no people or text, and lower quarter remains dark. Phone variants retain the same full 2:3 composition.",
+    "builder_scope": "Unmodified official image and asset builders pass build and --check in the isolated two-image fixture. This is not a full repository build.",
+    "existing_entries": "Removing the new entries restores both baseline manifests and the public registry byte-for-byte."
+  },
+  "pipeline": {
+    "node": "24.22.1",
+    "sharp": "0.35.5",
+    "libvips": "8.18.7",
+    "webp": "1.6.0",
+    "source_commit": "9b5e47c1298bde88a4c0f0156809356999a24266"
+  }
+}

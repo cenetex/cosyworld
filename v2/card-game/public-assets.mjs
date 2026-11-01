@@ -33,6 +33,9 @@ const files = [
   "boardyai.mjs",
   "boardyai.json",
   "assets/card-back.webp",
+  // Rest card paintings for issue #1849; the rest-card feature follows.
+  "assets/rest/short-rest.webp",
+  "assets/rest/long-rest.webp",
   // Combat pose art is ready for client-side presentation integration.
   ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].flatMap(
     (id) =>
