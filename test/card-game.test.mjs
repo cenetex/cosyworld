@@ -329,7 +329,6 @@ describe("the reflected shore card game", () => {
         "dialogue.mjs",
         "music.mjs",
         "cards.mjs",
-        "lessons.mjs",
         "assets/station.png",
         "assets/badger-forest/steam-clock-background.png",
         "assets/badger-forest/badger-sleeping.png",

@@ -167,7 +167,6 @@ mod tests {
             "world.mjs",
             "scene.mjs",
             "cards.mjs",
-            "lessons.mjs",
             "want.mjs",
             "motives.mjs",
             "life.mjs",
