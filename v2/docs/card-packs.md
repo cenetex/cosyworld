@@ -202,6 +202,13 @@ A resident with `"travels": false` may list `stayUntil` conditions. While
 they hold, it travels like any traveller and can be invited along; when
 they stop holding, it keeps to wherever it is (the Swede and his kit).
 
+A choice with `"on": "depart"` has a resident as its subject. It commits when
+that resident takes a way out of the pack from the choice's place, and what it
+carries stays behind there. Its flag should hide the resident through its own
+`requires`: the resident has left the world for good, while the save, journal
+and shared views keep its record. A departure waits while the pack already
+has a receipt this turn. The Swede leaves this way when he takes the canoe.
+
 Canonical
 person identities prevent incompatible embodiments being active together.
 Ordered receipts recompute saved choices/flags on loading.

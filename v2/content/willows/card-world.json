@@ -151,6 +151,13 @@
           "item": "willows-provisions",
           "place": "willows-camp"
         }
+      ],
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "willows-swede-gone",
+          "value": false
+        }
       ]
     }
   },
@@ -433,6 +440,23 @@
         }
       ],
       "on": "wait"
+    },
+    {
+      "id": "willows-swede-departs",
+      "subject": "willows-swede",
+      "at": "willows-landing",
+      "label": "The Swede takes the canoe",
+      "on": "depart",
+      "text": "The Swede pushes the mended canoe off the sand and paddles into the main stream without looking back. The willows close over the place where he went.",
+      "summary": "The Swede took the mended canoe and left the island. He is gone, and the canoe with him.",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "willows-swede-gone",
+          "value": true
+        }
+      ]
     }
   ],
   "sources": [

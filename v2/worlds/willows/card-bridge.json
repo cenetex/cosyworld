@@ -65,6 +65,11 @@
       "travel": "downriver in the mended canoe",
       "requires": [
         {
+          "kind": "flag",
+          "key": "willows-swede-gone",
+          "value": false
+        },
+        {
           "kind": "item_near",
           "item": "willows-paddle",
           "place": "willows-camp"
@@ -94,6 +99,11 @@
       "travelers": "any",
       "travel": "upriver in the mended canoe",
       "requires": [
+        {
+          "kind": "flag",
+          "key": "willows-swede-gone",
+          "value": false
+        },
         {
           "kind": "item_near",
           "item": "willows-paddle",
