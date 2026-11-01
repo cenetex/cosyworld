@@ -39,14 +39,14 @@ describe("rest and sanctuary", () => {
     expect(sanctuaries.every((id) => places[id])).toBe(true);
   });
 
-  it("clears one loss on a short rest away from a sanctuary", () => {
+  it("leaves a player's losses as they are on a Wait away from a sanctuary", () => {
     let s = createWorld();
     s.defeats = { vale: 2 };
     s = wait(s);
-    expect(s.defeats).toEqual({ vale: 1 });
+    expect(s.defeats).toEqual({ vale: 2 });
     expect(s.actors.vale.sleepUntil).toBeUndefined();
     s = wait(s);
-    expect(s.defeats).toEqual({});
+    expect(s.defeats).toEqual({ vale: 2 });
   });
 
   it("sleeps until the light changes at a sanctuary, then clears every loss", () => {

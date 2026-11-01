@@ -1621,8 +1621,8 @@ function trustGiver(s, recipient, item, giver) {
 }
 // Wait is the only rest. Any Wait at a sanctuary, by a player or a resident,
 // clears every loss. A player's is a long rest: it sleeps until the light
-// next changes. A player's Wait anywhere else is a short rest that clears
-// one loss. Nobody rests in the middle of a standoff.
+// next changes. A Wait anywhere else leaves losses as they are. Nobody rests
+// in the middle of a standoff.
 function rest(s, actor, here) {
   const a = s.actors[actor],
     losses = s.defeats?.[actor] || 0;
@@ -1638,8 +1638,6 @@ function rest(s, actor, here) {
   if (actor !== currentActor(s)) return null;
   if (sanctuaries.includes(here))
     a.sleepUntil = (Math.floor(s.turn / DAYLIGHT_TURNS) + 1) * DAYLIGHT_TURNS;
-  else if (losses > 1) s.defeats[actor] = losses - 1;
-  else if (losses) delete s.defeats[actor];
   return null;
 }
 // A standoff goes on only while someone strikes. Any other play by either
