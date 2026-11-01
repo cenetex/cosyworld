@@ -111,6 +111,14 @@ describe("combat beats from today's rule lines", () => {
     expect(telegraphText(threat)).toMatch(/^Vale (eyes the|squares up)/u);
   });
 
+  it("lowercases a name's article inside a caption", () => {
+    const beat = { kind: "attack", actorId: "keeper", targetId: "vale" };
+    expect(telegraphText(beat)).toBe("The keeper lunges at Vale");
+    expect(
+      telegraphText({ ...beat, actorId: "vale", targetId: "keeper" }),
+    ).toBe("Vale lunges at the keeper");
+  });
+
   it("ignores plays with no standoff", () => {
     const s = enableMotives(atticOpening());
     expect(combatBeats(s, act(s, "snuff"), { viewer: "vale" })).toEqual([]);

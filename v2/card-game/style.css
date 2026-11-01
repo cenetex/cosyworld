@@ -932,6 +932,33 @@ main {
   transform: translateY(calc(100% - 28px));
   opacity: 0.6;
 }
+/* The dialogue sinks with the hand to just above its sliver, below the
+   fighters; beside a resting hand it sinks to a strip. Reduced motion fades
+   it out and back in place. */
+body .dialogue {
+  transition:
+    translate 280ms ease-in-out,
+    opacity 280ms ease-in-out;
+}
+body .dialogue[data-dropped="true"] {
+  translate: 0 calc(var(--dock-height) - 34px);
+  opacity: 0.85;
+}
+.dialogue .beat-behind {
+  transition: opacity 280ms ease-in-out;
+}
+.dialogue[data-dropped="true"] .beat-behind {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  body .dialogue {
+    transition: opacity 280ms ease-in-out;
+  }
+  :root body[data-hand-expanded] .dialogue[data-dropped="true"] {
+    translate: none;
+    opacity: 0;
+  }
+}
 .hand-wrap {
   position: relative;
   pointer-events: auto;
@@ -1484,6 +1511,9 @@ body[data-hand-expanded="true"] .card .name {
   body[data-hand-expanded="false"] .play-dock {
     left: auto;
     width: calc(var(--resting-hand-width) + 44px);
+  }
+  body[data-hand-expanded="false"] .dialogue[data-dropped="true"] {
+    translate: 0 calc(100% - 38px);
   }
   body[data-hand-expanded="false"] .dialogue {
     left: 22px;

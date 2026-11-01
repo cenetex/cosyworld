@@ -13,6 +13,7 @@ import {
   MAX_RESOLVE,
   createBeatRunner,
   defeatSummary,
+  inSentence,
   outcomeWord,
   telegraphText,
 } from "./combat-beats.mjs";
@@ -382,7 +383,7 @@ export function createCombatView({
       setCaption(
         beat.viewerLost
           ? `${summary.title}.`
-          : `${nameOf(beat.loserId)} yields to ${nameOf(beat.winnerId)}.`,
+          : `${nameOf(beat.loserId)} yields to ${inSentence(beat.winnerId)}.`,
       );
     }
   };

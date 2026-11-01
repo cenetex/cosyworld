@@ -126,11 +126,12 @@ try {
     // The hand drops away, untappable, as soon as the play commits.
     assert.deepEqual(
       await page.evaluate(() => {
-        const dock = document.querySelector(".play-dock");
-        return [dock.dataset.dropped, dock.inert];
+        const dock = document.querySelector(".play-dock"),
+          dialogue = document.querySelector(".dialogue");
+        return [dock.dataset.dropped, dock.inert, dialogue.dataset.dropped];
       }),
-      ["true", true],
-      "The hand is down before the strikes resolve",
+      ["true", true, "true"],
+      "The hand and the dialogue are down before the strikes resolve",
     );
     // The telegraph and the rules line appear on stage before the new place.
     await page.locator("#combat-caption:not([hidden])").waitFor();
@@ -234,6 +235,11 @@ try {
       await page.locator('.play-dock[data-dropped="false"]').count(),
       1,
       "The hand rises once the new place is drawn",
+    );
+    assert.equal(
+      await page.locator('.dialogue[data-dropped="false"]').count(),
+      1,
+      "The dialogue rises with the hand",
     );
     assert.equal(
       await page.locator("#combat-caption:not([hidden])").count(),
