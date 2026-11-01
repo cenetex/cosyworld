@@ -30,6 +30,26 @@ const files = [
   "rarity.mjs",
   "card-tiers.css",
   "card-reveal.mjs",
+  // Willows sign alternates and notebook cards remain available before wiring.
+  ...[
+    "landing-otter",
+    "landing-boatman",
+    "landing-mended",
+    "camp-closer",
+    "camp-tent-pressure",
+    "thicket-bronze",
+    "thicket-hollows",
+    "bank-humming",
+    "bank-roots",
+    "bank-drowned",
+  ].map((name) => `assets/willows/${name}.webp`),
+  ...[
+    "notebook-page-1",
+    "notebook-page-2",
+    "notebook-page-3",
+    "notebook-chapter",
+    "notebook-book",
+  ].map((name) => `assets/willows/${name}.png`),
   // Argos commissioned art: start
   "assets/greek-drama/house-atreus-palace.webp",
   "assets/greek-drama/house-atreus-tomb.webp",
