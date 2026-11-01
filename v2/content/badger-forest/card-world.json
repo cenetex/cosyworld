@@ -43,6 +43,7 @@
   "avatars": {
     "badger": {
       "name": "Grumpy Badger",
+      "startLevel": 50,
       "text": "Comically touchy. Very attached to his warm patch of moss.",
       "place": "clearing",
       "travels": false,

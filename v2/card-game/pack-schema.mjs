@@ -603,6 +603,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "personalQuests",
         "previousHomes",
         "standoffs",
+        "startLevel",
         "persona",
         "voice",
         "expression",
@@ -620,6 +621,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "canonicalPerson",
       ]),
       `avatar ${id} has an unknown field`,
+    );
+    check(
+      a.startLevel === undefined || intOk(a.startLevel, 1, 99),
+      `avatar ${id} startLevel needs a whole level from 1 to 99`,
     );
     check(
       a.personalQuests === undefined || typeof a.personalQuests === "boolean",
