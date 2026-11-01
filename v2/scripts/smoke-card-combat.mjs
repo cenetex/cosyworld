@@ -123,6 +123,15 @@ try {
       });
     });
     await page.locator("#card-actions button", { hasText: /^Guard/ }).click();
+    // The hand drops away, untappable, as soon as the play commits.
+    assert.deepEqual(
+      await page.evaluate(() => {
+        const dock = document.querySelector(".play-dock");
+        return [dock.dataset.dropped, dock.inert];
+      }),
+      ["true", true],
+      "The hand is down before the strikes resolve",
+    );
     // The telegraph and the rules line appear on stage before the new place.
     await page.locator("#combat-caption:not([hidden])").waitFor();
     report.telegraph = await page.locator("#combat-caption").textContent();
@@ -221,6 +230,11 @@ try {
     assert.match(log, /Vale was beaten and (sent home|fell back to )/);
     assert.match(log, /You came to at /);
     assert.equal(await page.locator(".combat-dim").count(), 0);
+    assert.equal(
+      await page.locator('.play-dock[data-dropped="false"]').count(),
+      1,
+      "The hand rises once the new place is drawn",
+    );
     assert.equal(
       await page.locator("#combat-caption:not([hidden])").count(),
       0,
