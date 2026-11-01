@@ -1216,6 +1216,13 @@ function performAction(action, revision) {
     render();
     return;
   }
+  // Choosing a quest passes no turn and leaves the scene and its speech be.
+  if (action.kind === "focus") {
+    world = result.state;
+    save();
+    render();
+    return;
+  }
   reveal.finish();
   speechSounds.stop();
   cancelTravel();
@@ -1827,25 +1834,20 @@ function renderActions(animate = false) {
     row.append(nudge);
     panel.hidden = false;
   }
-  // The quest chosen in the open fan can be dropped (a level quest costs half
-  // the experience) or, from beneath the top, pursued instead.
+  // The top quest, chosen in the open fan, can be dropped (a level quest
+  // costs half the experience). Choosing a card beneath brings it to the top.
   const picked = questOpen ? shownQuests[questPick] : null;
-  for (const action of picked
+  for (const action of picked?.index === 0
     ? legalActions(world).filter(
-        (a) =>
-          a.quest === picked.index &&
-          (a.kind === "focus" || (a.kind === "drop" && !a.item)),
+        (a) => a.kind === "drop" && !a.item && a.quest === 0,
       )
     : []) {
-    const focus = action.kind === "focus";
     const button = node("button", playLabel(action), "card-action");
     button.type = "button";
-    button.dataset[focus ? "focusQuest" : "dropQuest"] = String(picked.index);
-    button.title = focus
-      ? "Make this the quest you pursue"
-      : picked.level
-        ? "Give up this level quest; it costs half your experience"
-        : "Give up this quest";
+    button.dataset.dropQuest = String(picked.index);
+    button.title = picked.level
+      ? "Give up this level quest; it costs half your experience"
+      : "Give up this quest";
     button.disabled = selectionBlocked();
     button.onclick = () => {
       questOpen = false;
@@ -2229,16 +2231,11 @@ function questFrame({ id, quest, met }) {
     ),
     head,
   );
-  // A met quest clears; in the open fan another quest is chosen, and the
-  // chosen one folds the fan again.
+  // A met quest clears; in the open fan choosing another quest brings it to
+  // the top, and choosing the chosen one folds the fan again.
   el.addEventListener("click", () => {
     if (met) return clearQuest(el, quest);
-    if (questOpen && quest.index !== questPick) {
-      if (selectionBlocked()) return;
-      questPick = quest.index;
-      render();
-      return;
-    }
+    if (questOpen && quest.index !== questPick) return pickQuest(quest);
     if (!questOpen) questPick = quest.index;
     toggleQuest();
   });
@@ -2259,6 +2256,17 @@ function questFrame({ id, quest, met }) {
   }
   frame.append(el);
   return frame;
+}
+// Choosing a quest beneath the top plays the rules' focus, which takes no
+// turn; the fan stays open on it while the play settles.
+function pickQuest(quest) {
+  if (selectionBlocked()) return;
+  const focus = legalActions(world).find(
+    (a) => a.kind === "focus" && a.quest === quest.index,
+  );
+  questPick = quest.index;
+  if (focus) playQueue.submit(focus, world.revision);
+  render();
 }
 function toggleQuest() {
   if (selectionBlocked()) return;
@@ -3451,8 +3459,13 @@ function render() {
   // A quest where there was none, such as the first at the pond, is new.
   if (!shownQuests.length && liveQuests.length && renderedHand)
     questFresh = true;
+  // The chosen quest stays chosen as the stack reorders around it.
+  const pickedKey = shownQuests[questPick]?.key;
   shownQuests = liveQuests;
-  if (questPick >= shownQuests.length) questPick = 0;
+  questPick = Math.max(
+    0,
+    shownQuests.findIndex((q) => q.key === pickedKey),
+  );
   // A new quest stops glowing once its card has been seen.
   if (questShown(foldQuest())) questFresh = false;
   const handCards = questHand(

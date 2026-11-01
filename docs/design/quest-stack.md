@@ -33,9 +33,11 @@ first.
   (`quest`). An ordinary quest costs nothing; its target goes into `gaveUp`.
   A level quest also costs half the experience and keeps the level. Dropping
   the last quest draws a new one at once.
-- **Focus.** The player's `focus` play (Pursue quest) moves a quest from
-  beneath to the top. It is a play and takes a turn, like Drop, so local and
-  shared play journal it the same way. Residents are never offered either play.
+- **Focus.** The player's `focus` play moves a quest from beneath to the
+  top. Owner decision, 2026-11-01: choosing the card is the whole act, with no
+  Pursue button. Local and shared play journal focus like any play, but it
+  takes no turn: `play` bumps the revision, reorders the stack and logs it,
+  and the world does not move on. Residents are never offered either play.
 - **Stall.** A resident's stalled or thrice-refused quest moves to the
   bottom of the stack with `since` reset and refusals cleared. A lone quest
   gets a newly drawn one above it. A level quest still turns into another
@@ -54,8 +56,9 @@ first.
 
 The quest card code builds one card per stack entry (`questCards`). The folded
 card behind the avatar shows the top quest. Choosing the folded card fans the
-stack out. In the fan, tapping a card chooses it, and the chosen card offers
-Drop quest, plus Pursue quest when it is not on top. The rules remove a met
+stack out. In the fan, the top quest is chosen and offers Drop quest. Tapping a card
+beneath plays focus, which brings it to the top, and the fan stays open on it.
+Tapping the chosen card folds the fan. The rules remove a met
 quest at once. The browser reads `want_met` events after the last event it saw
 (`metQuests`) and keeps those quests as sealed cards until the player clears
 them, in any order.
