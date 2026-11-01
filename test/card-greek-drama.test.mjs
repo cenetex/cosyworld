@@ -144,7 +144,7 @@ function pond(scope = "full") {
   let world = enableMotives(
     createWorld({ opening: true, packScopes: { "greek-drama": scope } }),
   );
-  world = act(world, "light");
+  world = act(world, "snuff");
   world = act(world, "move", { target: "pond" });
   world.items.cloth.holder = "vale";
   world.items.oil.holder = HARBOR;

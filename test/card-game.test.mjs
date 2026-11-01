@@ -75,9 +75,14 @@ describe("the reflected shore card game", () => {
     s = act(s, "light", "lamp");
     s = act(s, "move", null, "pond");
     s = act(s, "move", null, "attic");
+    // The lit attic mirror holds only the room; dousing opens it (#1600).
+    expect(exits(s, "attic")).toEqual([]);
+    s = act(s, "snuff", "lamp");
     s = act(s, "move", null, "pond");
     expect(s.actors.vale.place).toBe("pond");
     expect(s.actors.vale.crossed).toBe(2);
+    expect(exits(s, "pond")).toEqual(["station"]);
+    s = act(s, "light", "lamp");
     expect(exits(s, "pond")).toContain("attic");
     s = act(s, "cover", "cloth", "lamp");
     expect(covered(s, "lamp")).toBe(true);

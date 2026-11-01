@@ -147,7 +147,7 @@ test("ship variant never leaks into another location", () => {
   const s = pond();
   for (const [id, variant] of [
     ["station", "base"],
-    ["attic", "dark"],
+    ["attic", "attic-dark"],
     ["clearing", "base"],
   ]) {
     assert.equal(locationVariant(s, id), variant);

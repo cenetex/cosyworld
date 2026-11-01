@@ -194,7 +194,7 @@ describe("Tea beneath the oak", () => {
       world.items.bell.holder = "attic";
       world.items.cloth.holder = holder;
       const restored = reload(world);
-      expect(exits(restored, "attic", "vale")).toEqual(["pond", COTTAGE]);
+      expect(exits(restored, "attic", "vale")).toEqual([COTTAGE]);
       expect(availableCards(restored)).toContain(COTTAGE);
       expect(backdrop("attic", restored)).toBe(
         "./assets/shared/places/attic-stairs.webp",
@@ -207,7 +207,7 @@ describe("Tea beneath the oak", () => {
   );
 
   it.each(["unlit", "empty", "covered", "at the pond", "at the station"])(
-    "closes the cottage stairs and clears the mirror when the lamp is %s",
+    "closes the cottage stairs when the lamp is %s; only a dark lamp here opens the mirror",
     (condition) => {
       const world = attic();
       const stale = legalActions(world).find(
@@ -224,15 +224,19 @@ describe("Tea beneath the oak", () => {
       if (condition === "at the station") world.items.lamp.holder = "station";
       const before = encodeSave(world);
       const restored = reload(world);
-      expect(reflectionOpen(restored, "attic")).toBe(false);
+      const dark = ["unlit", "empty", "covered"].includes(condition);
+      expect(reflectionOpen(restored, "attic")).toBe(dark);
       expect(exits(restored, "attic", "vale")).not.toContain(COTTAGE);
       expect(availableCards(restored)).not.toContain(COTTAGE);
       expect(backdrop("attic", restored)).toBe(
-        "./assets/shared/places/attic-dark.webp",
+        dark
+          ? "./assets/attic/attic-doused.webp"
+          : "./assets/shared/places/attic-dark.webp",
       );
-      expect(locationVariant(restored, "attic")).toBe("dark");
-      expect(placeText(restored, "attic")).toContain("mirror stands dark and empty");
-      expect(placeText(restored, "attic")).not.toContain("black shore");
+      expect(locationVariant(restored, "attic")).toBe(
+        dark ? "attic-doused" : "attic-dark",
+      );
+      expect(placeText(restored, "attic").includes("black shore")).toBe(dark);
       const result = play(world, stale);
       expect(result.ok).toBe(false);
       expect(result.state).toBe(world);
@@ -240,19 +244,21 @@ describe("Tea beneath the oak", () => {
     },
   );
 
-  it("keeps only the pond mirror when the cloth leaves the lit attic", () => {
+  it("keeps the lit attic shut when the cloth leaves until the lamp is doused", () => {
     const world = attic();
     const stale = legalActions(world).find(
       (a) => a.kind === "move" && a.target === COTTAGE,
     );
     world.items.cloth.holder = "pond";
     const restored = reload(world);
-    expect(exits(restored, "attic", "vale")).toEqual(["pond"]);
-    expect(backdrop("attic", restored)).toBe("./assets/attic.png");
-    expect(locationVariant(restored, "attic")).toBe("base");
-    expect(placeText(restored, "attic")).toContain("mirror opens onto a black shore");
+    expect(exits(restored, "attic", "vale")).toEqual([]);
+    expect(backdrop("attic", restored)).toBe("./assets/attic/attic-lit.webp");
+    expect(locationVariant(restored, "attic")).toBe("attic-lit");
+    expect(placeText(restored, "attic")).toContain("Dust gathers");
     expect(play(restored, stale).ok).toBe(false);
-    expect(move(restored, "pond").actors.vale.place).toBe("pond");
+    const doused = act(restored, "snuff");
+    expect(placeText(doused, "attic")).toContain("mirror opens onto a black shore");
+    expect(move(doused, "pond").actors.vale.place).toBe("pond");
   });
 
   it("rejects a shared cottage crossing after another player puts out the lamp", () => {
@@ -283,7 +289,7 @@ describe("Tea beneath the oak", () => {
     expect(rejected.world.actors.mara.place).toBe("attic");
     expect(rejected.world.items.cloth.holder).toBe("vale");
     expect(backdrop("attic", rejected.world)).toBe(
-      "./assets/shared/places/attic-dark.webp",
+      "./assets/attic/attic-doused.webp",
     );
   });
 

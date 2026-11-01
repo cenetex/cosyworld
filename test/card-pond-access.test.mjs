@@ -19,7 +19,7 @@ function pond(opening = true) {
   if (opening) {
     s = play(
       s,
-      legalActions(s).find((a) => a.kind === "light"),
+      legalActions(s).find((a) => a.kind === "snuff"),
     ).state;
     s = play(
       s,
@@ -110,11 +110,12 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
     s.actors.vale.place = s.actors.moth.place = "attic";
     s.locations.attic.anchored = true;
     s.items.lamp.holder = "vale";
+    s.items.lamp.lit = false;
     return s;
   }
 
   it.each(["attic", "vale", "moth"])(
-    "allows departure with a shining lamp held by %s at the attic",
+    "allows departure with a doused lamp held by %s at the attic",
     (holder) => {
       const s = attic();
       s.items.lamp.holder = holder;
@@ -124,7 +125,7 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
     },
   );
 
-  it.each(["unlit", "empty", "covered", "at the station"])(
+  it.each(["shining", "at the station"])(
     "closes with the lamp %s and checks saved and selected routes again",
     (condition) => {
       const s = attic();
@@ -138,15 +139,10 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
       expect(stale.some((a) => a.kind === "move" && a.item === "bell")).toBe(
         true,
       );
-      if (condition === "unlit") s.items.lamp.lit = false;
-      if (condition === "empty") {
-        s.items.lamp.lit = false;
-        s.items.lamp.fuel = 0;
-      }
-      if (condition === "covered") s.items.cloth.holder = "lamp";
+      if (condition === "shining") s.items.lamp.lit = true;
       if (condition === "at the station") s.items.lamp.holder = "station";
       const before = encodeSave(s);
-      const rescue = condition === "empty" || condition === "at the station";
+      const rescue = condition === "at the station";
       expect(exits(s, "attic").includes("pond")).toBe(rescue);
       expect(availableCards(s).includes("pond")).toBe(rescue);
       const move = cardPlay(s, ["pond"]).action;
@@ -172,25 +168,21 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
 });
 
 describe.each([true, false])(
-  "return toward light in the attic (opening: %s)",
+  "return toward light at the pond (opening: %s)",
   (opening) => {
-    it.each([
-      ["pond", "attic", "attic"],
-      ["pond", "attic", "moth"],
-    ])("opens %s to %s with the lamp held by %s", (from, to, holder) => {
-      const s = pond(opening);
-      s.actors.vale.place = from;
-      s.actors.moth.place = to;
-      s.items.lamp.holder = holder;
-      expect(itemPlace(s, "lamp")).toBe(to);
-      expect(exits(s, from)).toContain(to);
-      expect(exits(s, to)).toContain(from);
-      const restored = decodeSave(encodeSave(s));
-      expect(availableCards(restored)).toContain(to);
-      const result = play(restored, cardPlay(restored, [to]).action);
-      expect(result.ok).toBe(true);
-      expect(result.state.actors.vale.place).toBe(to);
-    });
+    it.each(["attic", "moth"])(
+      "keeps both mirrors shut while the lamp held by %s shines in the attic",
+      (holder) => {
+        const s = pond(opening);
+        s.actors.moth.place = "attic";
+        s.items.lamp.holder = holder;
+        const restored = decodeSave(encodeSave(s));
+        expect(reflectionOpen(restored, "pond")).toBe(false);
+        expect(reflectionOpen(restored, "attic")).toBe(false);
+        restored.items.lamp.lit = false;
+        expect(reflectionOpen(restored, "attic")).toBe(true);
+      },
+    );
     it.each(["pond", "moth"])(
       "keeps the attic mirror dark when a distant lamp is held by %s",
       (holder) => {
@@ -201,7 +193,7 @@ describe.each([true, false])(
         const restored = decodeSave(encodeSave(s));
         expect(reflectionOpen(restored, "attic")).toBe(false);
         expect(reflectionOpen(restored, "pond")).toBe(true);
-        expect(placeText(restored, "attic")).toContain("mirror stands dark and empty");
+        expect(placeText(restored, "attic")).toContain("Dust gathers");
         // Losing the local lamp keeps the existing emergency escape, not a mirror gate.
         const rescue = cardPlay(restored, ["pond"]).action;
         expect(rescue?.text).toContain("along a narrow path");

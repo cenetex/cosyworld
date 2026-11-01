@@ -9133,10 +9133,33 @@
       "items": {
         "hoppycat-red-thread-spool": {
           "name": "Red-Thread Spool",
-          "text": "A warm spool washed up at Black pond, its loose thread trailing over the water. It catches only on relationships someone has chosen to carry forward.",
-          "persona": "A warm spool washed up at Black pond, its loose thread trailing over the water toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
-          "holder": "pond",
-          "art": "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png"
+          "text": "A warm spool left on the empty station's bench, its loose thread trailing toward the pond. It catches only on relationships someone has chosen to carry forward.",
+          "persona": "A warm spool left on the empty station's bench, its loose thread trailing past the pond toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
+          "holder": "station",
+          "art": "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png",
+          "requires": [
+            {
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "not",
+                  "condition": {
+                    "kind": "item_present",
+                    "item": "oil",
+                    "place": "station"
+                  }
+                },
+                {
+                  "kind": "not",
+                  "condition": {
+                    "kind": "item_at",
+                    "item": "hoppycat-red-thread-spool",
+                    "place": "station"
+                  }
+                }
+              ]
+            }
+          ]
         },
         "hoppycat-provenance-card": {
           "name": "Blank Provenance Card",

@@ -5,7 +5,6 @@ import {
   encodeSave,
   decodeSave,
   reflectionOpen,
-  places,
 } from "../v2/card-game/world.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
 function cards(s, ...ids) {
@@ -22,6 +21,8 @@ describe("playing the world through cards", () => {
     expect(availableCards(s)).toEqual([
       "vale",
       "station",
+      // The Hoppy Cat spool lies here while the keeper's oil is at the pond.
+      "hoppycat-red-thread-spool",
       "lamp",
       "bell",
       "world-map",
@@ -33,16 +34,11 @@ describe("playing the world through cards", () => {
     s = cards(s, "lamp");
     s = cards(s, "pond");
     s = cards(s, "attic");
-    // Pip follows the lamp it wants; the keeper keeps to the station.
-    expect(availableCards(s)).toEqual([
-      "vale",
-      "lamp",
-      "moth",
-      "cloth",
-      "attic",
-      "pond",
-      ...(places["forest-cottage"] ? ["forest-cottage"] : []),
-    ]);
+    // The lit attic holds only itself: Pip cannot follow the lamp through
+    // the pond's dark mirror, and the attic mirror stays shut (#1600).
+    expect(availableCards(s)).toEqual(["vale", "lamp", "attic"]);
+    s = cards(s, "lamp");
+    expect(availableCards(s)).toContain("pond");
   });
   it("previews single cards and pairs freely, then spends one turn per play", () => {
     const s = createWorld(),
@@ -65,12 +61,17 @@ describe("playing the world through cards", () => {
     s = cards(s, "lamp");
     s = cards(s, "pond");
     s = cards(s, "lamp", "attic");
+    expect(reflectionOpen(s)).toBe(false);
+    s = cards(s, "lamp");
     expect(reflectionOpen(s)).toBe(true);
     // The flask has no pour play; it waits until the lamp runs dry.
     expect(cardPlay(s, ["oil", "lamp"]).action).toBeFalsy();
     expect(s.items.oil.holder).toBe("vale");
     s = cards(s, "pond");
     expect(s.actors.vale.crossed).toBe(2);
+    expect(reflectionOpen(s)).toBe(false);
+    s = cards(s, "lamp");
+    expect(reflectionOpen(s)).toBe(true);
     s = cards(s, "cloth", "lamp");
     expect(s.items.cloth.holder).toBe("lamp");
     expect(reflectionOpen(s)).toBe(false);

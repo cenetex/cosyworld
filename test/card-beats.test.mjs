@@ -279,7 +279,7 @@ describe("combat beats from the rules", () => {
   };
   it("gives each fighter a beat and the loser the defeat", () => {
     let s = enableMotives(atticOpening());
-    s = act(s, "light");
+    s = act(s, "snuff");
     s.actors.moth.place = "pond";
     s = act(s, "move", "pond");
     s.standoffs = [
