@@ -212,11 +212,13 @@ and page title show "…", and card labels, screen-reader text and stage alt tex
 leave it out. A new game's first line waits until its player uncovers both the
 avatar and its place; in shared play the room's lines wait the same way for
 each viewer. `speech-knowledge.mjs` removes covered items from every local
-speech request, so the dialogue service cannot name them. The first line is
+speech request, so the dialogue service cannot name them; a fact that
+mentioned one says "something I can't make out" instead. The first line is
 raw (#1600): the request is marked `waking`, and the service frames it with
 "I'm waking up." and only what is uncovered (the place, the holdings and,
-once the avatar's own card is uncovered, its name and idiolect). Until then
-it sends no system voice and cues "Me:". No line is scripted: if the model
+once the avatar's own card is uncovered, its name). The waking line never
+gets a system voice, so the idiolect's wants and bargains start on the next
+turn (#1665). The cue is "Me:" until the avatar's card is uncovered. No line is scripted: if the model
 gives no first line, the avatar shows the silent "…". This filter lives in the browser
 because it uses that browser's covered set. Rules-owned knowledge will replace
 it.
