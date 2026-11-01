@@ -62,9 +62,12 @@ jobs:
           npm run v2:kernel
           npm run v2:syntax
 
+  # FLY_RUNNERS=on (repository variable) moves this job to the self-hosted Fly
+  # runners in infra/ci-runners, whose volume keeps Cargo's cache. Fork pull
+  # requests always stay on GitHub-hosted runners.
   runtime:
     name: Rust build and tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.FLY_RUNNERS == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","fly","cosyworld"]') || 'ubuntu-latest' }}
     env:
       CI: true
       RUST_TEST_THREADS: "2"
@@ -95,6 +98,7 @@ jobs:
 
       - name: Restore Cargo build cache
         id: cargo-cache
+        if: runner.environment == 'github-hosted'
         uses: actions/cache/restore@v6
         with:
           path: |
@@ -117,12 +121,12 @@ jobs:
       # the entry exists even if the tests fail. The debug build adds the
       # crates the smoke-test binary needs.
       - name: Compile the smoke-test binary's crates for the cache
-        if: github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
+        if: runner.environment == 'github-hosted' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
         working-directory: v2/orchestrator-rust
         run: cargo build
 
       - name: Save Cargo build cache
-        if: github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
+        if: runner.environment == 'github-hosted' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: |
@@ -180,6 +184,18 @@ jobs:
 
       - name: Build V2 binary
         run: bash v2/scripts/check-rust.sh build
+
+      # While the Rust tests run on Fly, this job keeps main's daily cache.
+      - name: Save Cargo build cache
+        if: vars.FLY_RUNNERS == 'on' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
 
       - name: Prepare smoke-test binary
         run: |
