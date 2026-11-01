@@ -15,7 +15,8 @@ Status: decided by the owner on #1648 (2026-11-01). It ships with level quests
   light change (the next multiple of `DAYLIGHT_TURNS` on the world clock).
   While it sleeps, Wait is its only play. When it wakes, every loss is
   cleared and a dream comes.
-- **Short rest.** Wait anywhere else clears one loss.
+- **No short rest.** Wait anywhere else changes no loss. The owner dropped
+  #1648's short rest on 2026-11-01, so players and residents share one rule.
 - **No fighting in a sanctuary.** Threaten is allowed there; Attack is not. A
   standoff in a sanctuary ends by guarding, yielding or waiting it out.
 - **No XP for resting.** Experience still comes only from wants met, so
@@ -76,11 +77,9 @@ Three straight losses still send an avatar home with nothing in hand, and a
 win still clears the count (#1505). Players and residents share one rule
 (owner, 2026-11-01): any Wait at a sanctuary clears the count, at any time,
 whether or not a want was just met. A resident's rest where it met a want
-clears nothing unless that place is a sanctuary. For a player:
-
-- a long rest at a sanctuary clears the count as the avatar falls asleep, and
-  waking finds it clear;
-- a short rest (Wait away from a sanctuary) takes one loss off the count.
+clears nothing unless that place is a sanctuary. Only a rest at a sanctuary
+changes the count. A player's Wait there is a long rest, which clears the count
+as the avatar falls asleep. A Wait anywhere else leaves the count as it is.
 
 ## Dreams
 
