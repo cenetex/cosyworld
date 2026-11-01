@@ -1,4 +1,4 @@
-# Avatar bindings and the owner's delete
+# Avatar bindings, Free and Release
 
 Owner rules, 2026-11-01 (#1825): no takeover.
 
@@ -7,10 +7,17 @@ Owner rules, 2026-11-01 (#1825): no takeover.
   claim it, released or not.
 - When every avatar in a world is bound, the world is full. A newcomer sees
   "This world is full."
-- The world's owner can delete an avatar. It starts over as a fresh level-1
-  starter, drops what it held where it stood, and its place is free.
-- Release becomes Leave. Move keeps the old world's binding, so an avatar is
-  played in one world at a time rather than kept in one world.
+- The world's owner can **Free** an avatar (2026-11-01: it removes that
+  passkey's hold). It starts over as a fresh level-1 starter, drops what it
+  held where it stood, and its place is free.
+- The holder can **Release** their own avatar the same way: they give the
+  seat back and lose their progress there.
+- Release became Leave, now **Step away**; Move is now **Send to…**. Sending
+  keeps the old world's binding, so an avatar is played in one world at a
+  time rather than kept in one world.
+- Each holder shows under a holder name ("Amber Heron"), a hash of their
+  account id over frozen word lists, the same in every world. Ban is not
+  built: a person can make many passkeys.
 - Bindings are back-filled from the current members only. An avatar released
   before then was never recorded and can be claimed once by a newcomer
   (accepted for alpha).
@@ -20,11 +27,13 @@ Owner rules, 2026-11-01 (#1825): no takeover.
 The binding is server state, not a rule: `card_bindings(world, actor, user)`
 in `v2/orchestrator-rust/src/card_shared/bindings.rs`, checked before a claim
 is journaled. Journals replay unchanged because the binding never enters them.
-The snapshot adds `bound` (eight 0/1 seats), `owner`, and for a non-member
-`mine`. The world list adds `bound` and `full`.
+The snapshot adds `bound` (eight 0/1 seats), `holders` (each bound seat's
+holder name), `owner`, and for a non-member `mine`. The world list adds `bound` and `full`.
 
-The delete is a rules change (`engine` label). It is the journaled command
-`{"op":"reset","actor":id}`, reduced by `resetAvatar` in
+Free and Release are one rules change (`engine` label, rules 77). Each is the
+journaled command
+`{"op":"reset","actor":id}`; the server accepts it from the owner or
+the avatar's holder. It is reduced by `resetAvatar` in
 `v2/card-game/avatar-reset.mjs` through the shared rules, with C guard kind 13
 (`CT_SHARED_RESET`: the avatar ends unclaimed and absent; nobody else
 changes). The fresh avatar is the actor record of a new shared world, so its

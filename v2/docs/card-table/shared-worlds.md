@@ -155,7 +155,8 @@ without `move` keeps the earlier behaviour.
 A person's passkey binds them to the avatar they take in a shared world
 ([#1825](https://github.com/cenetex/cosyworld/issues/1825)). The server keeps
 the binding in `card_bindings(world, actor, user)`, written by each new claim
-and by creating a world. Leave, release and Move keep it: the person always
+and by creating a world. Step away (`leave`/`release`) and Send to (Move)
+keep it: the person always
 returns there as that avatar, and nobody else can claim it. A person bound in
 a world can claim only their own avatar there. When all eight avatars are
 bound the world is full: "This world is full." Bindings sit outside the
@@ -163,13 +164,22 @@ journal, so old journals replay unchanged. The table was back-filled from
 the members at deploy; an avatar released before then was never recorded
 and can be claimed once by a newcomer.
 
-The world's owner (`card_tables.owner`) can delete an avatar from ☰. The
-delete is the journaled `reset` command, guard kind 13 (`CT_SHARED_RESET`): the
-rules put a fresh level-1 starter in that avatar's place (its starting place,
-experience, quest, memory, learning and routes), drop everything it held where
-it stood, and end any standoff it was in. The server then frees the binding
-and the claim, so anyone may take that avatar. Rules before the batch that
-added `reset` refuse it, so it is never journaled for them.
+The world's owner (`card_tables.owner`) can **Free** a held avatar from the
+Table in ☰, and the holder can **Release** their own. Both are the journaled
+`reset` command, guard kind 13 (`CT_SHARED_RESET`): the rules put a fresh
+level-1 starter in that avatar's place (its starting place, experience, quest,
+memory, learning and routes), drop everything it held where it stood, and end
+any standoff it was in. The server then frees the binding and the claim, so
+anyone may take that avatar. A `reset` without `avatar` releases the sender's
+own. Anyone else is refused: "Only this world's owner can free an avatar."
+Rules before the batch that added `reset` refuse it, so it is never journaled
+for them.
+
+Each holder has a holder name, two words such as "Amber Heron", taken from a
+SHA-256 hash of their account id over two frozen 64-word lists in
+`bindings.rs`. It is the same in every world for one person. The snapshot's
+`holders` gives the name for each bound avatar (or `null`); account ids and
+passkey data never reach other players.
 
 ## Saving, replay, and earlier worlds
 

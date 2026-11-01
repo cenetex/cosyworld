@@ -104,11 +104,11 @@ fn current_members_are_bound_when_the_table_arrives() {
 }
 
 #[test]
-fn only_the_owner_deletes_an_avatar() {
+fn only_the_owner_frees_someone_elses_avatar() {
     let (_path, mut c, id) = fixture();
     run(&mut c, &id, "ann", &body("claim", Some("mara"))).unwrap();
-    let refused = run(&mut c, &id, "ann", &body("reset", Some("mara"))).unwrap_err();
-    assert_eq!(refused, "Only this world's owner can delete an avatar.");
+    let refused = run(&mut c, &id, "bob", &body("reset", Some("mara"))).unwrap_err();
+    assert_eq!(refused, "Only this world's owner can free an avatar.");
 }
 
 // The reset op arrives in rules 77; earlier released rules refuse it.
@@ -126,4 +126,41 @@ fn the_owner_deletes_an_avatar_and_frees_its_place() {
     // The journal replays to the same world.
     let replayed = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(replayed.claimed[mara], 1);
+}
+
+// The holder releases their own avatar: it starts over and its place is free.
+#[test]
+fn the_holder_releases_their_own_avatar() {
+    let (_path, mut c, id) = fixture();
+    run(&mut c, &id, "ann", &body("claim", Some("mara"))).unwrap();
+    run(&mut c, &id, "bob", &body("claim", Some("ash"))).unwrap();
+    let refused = run(&mut c, &id, "ann", &body("reset", Some("ash"))).unwrap_err();
+    assert_eq!(refused, "Only this world's owner can free an avatar.");
+    run(&mut c, &id, "ann", &body("reset", None)).unwrap();
+    let mara = actor_index("mara").unwrap();
+    let w = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!((w.claimed[mara], w.present[mara]), (0, 0));
+    assert_eq!(store::member(&c, &id, "ann").unwrap(), None);
+    let view = full_store::snapshot(&c, &id, "ann", now()).unwrap();
+    assert_eq!(view["mine"], serde_json::Value::Null);
+    // Ann may now take any free avatar, and Bob may take Mara.
+    run(&mut c, &id, "bob", &body("release", None)).unwrap();
+    run(&mut c, &id, "ann", &body("claim", Some("vale"))).unwrap();
+    assert!(store::member(&c, &id, "ann").unwrap().is_some());
+}
+
+#[test]
+fn holders_are_named_without_their_account_id() {
+    let (_path, mut c, id) = fixture();
+    let user = "acct-5f3a9c";
+    run(&mut c, &id, user, &body("claim", Some("mara"))).unwrap();
+    let name = super::bindings::holder_name(user);
+    assert_eq!(name, super::bindings::holder_name(user));
+    assert_ne!(name, super::bindings::holder_name("acct-5f3a9d"));
+    // The word lists are frozen: this pin changes only if they do.
+    assert_eq!(super::bindings::holder_name("ann"), "Sage Swift");
+    let view = full_store::snapshot(&c, &id, "late", now()).unwrap();
+    assert_eq!(view["holders"][actor_index("mara").unwrap()], name);
+    assert_eq!(view["holders"][0], serde_json::Value::Null);
+    assert!(!view.to_string().contains(user));
 }

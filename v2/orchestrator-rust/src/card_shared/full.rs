@@ -319,8 +319,9 @@ fn leave(
     }
     Ok(())
 }
-// The world's owner deletes an avatar: it starts over as a fresh starter, what
-// it held stays where it stood, and its place is free for anyone (#1825).
+// The world's owner frees an avatar, or its holder releases it: it starts
+// over as a fresh starter, what it held stays where it stood, and its place
+// is free for anyone (#1825).
 fn reset(
     c: &rusqlite::Connection,
     id: &str,
@@ -329,10 +330,14 @@ fn reset(
     b: &Command,
     time: i64,
 ) -> Result<Value> {
-    if !bindings::owner(c, id, u)? {
-        return Err("Only this world's owner can delete an avatar.".into());
+    let mine = bindings::mine(c, id, u)?;
+    let a = match b.avatar.as_deref() {
+        Some(avatar) => actor_index(avatar)?,
+        None => mine.ok_or("Choose an avatar.")?,
+    };
+    if mine != Some(a) && !bindings::owner(c, id, u)? {
+        return Err("Only this world's owner can free an avatar.".into());
     }
-    let a = actor_index(b.avatar.as_deref().ok_or("Choose an avatar.")?)?;
     let busy: i32 = c
         .query_row(
             "SELECT count(*) FROM card_full_plays WHERE world=? AND actor=? AND status IN ('working','playing')",
