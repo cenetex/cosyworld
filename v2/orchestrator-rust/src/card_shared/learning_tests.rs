@@ -53,9 +53,11 @@ fn shared_reflections_survive_restart_and_journal_rebuild_with_private_views() {
     );
     assert!(w.project(0).unwrap()["world"]["memories"]["vale"]["innerLife"].is_object());
     let other = full_store::snapshot(&c, &id, "user1", now()).unwrap();
-    for key in ["innerLife", "reflections", "learning"] {
+    for key in ["innerLife", "reflections", "learning", "seen", "text"] {
         assert!(other["world"]["memories"]["vale"].get(key).is_none());
     }
+    assert_eq!(other["world"]["memories"]["vale"]["events"], json!([]));
+    assert!(other["world"]["memories"]["mara"]["events"].is_array());
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
     let restored = store::open(&_path).unwrap();

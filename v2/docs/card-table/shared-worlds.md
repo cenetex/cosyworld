@@ -321,6 +321,12 @@ Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
+Every other entity's memory reaches the browser as an empty record: no
+events, landmarks, sightings or summary. The browser reads only its own
+avatar's memory; the stored world, journal and dialogue context keep all of
+it. Late in a 66-actor world this halves the view (644 KB to 322 KB JSON,
+41 KB to 25 KB with brotli). Every route already compresses JSON responses.
+
 The current interpreter is `engine-v22.js`. Version 22 adds spoken story
 middles: the Ajax shield's carrier learns from Teucer, Odysseus or Tecmessa
 where it belongs, and the forest adds the three walkers' evening watch. A
