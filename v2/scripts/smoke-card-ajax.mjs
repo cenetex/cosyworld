@@ -16,6 +16,7 @@ import { ajaxStart } from "../../test/helpers/greek-ajax.mjs";
 import {
   clearSelection,
   selectCard,
+  smokeWidths,
   topicForChoice,
 } from "./card-browser-helpers.mjs";
 
@@ -65,7 +66,7 @@ export async function checkAjax(browser, origin) {
     process.env.COSYWORLD_AJAX_EVIDENCE ||
     new URL("../../output/ajax/", import.meta.url).pathname;
   await mkdir(output, { recursive: true });
-  for (const width of [1440, 390]) {
+  for (const width of smokeWidths([1440, 390])) {
     for (const route of ["public", "household", "appeal"]) {
       const page = await browser.newPage({
         viewport: { width, height: width === 390 ? 844 : 900 },

@@ -14,6 +14,7 @@ import { homecomingSteps } from "../../test/helpers/greek-homecoming.mjs";
 import {
   clearSelection,
   selectCard,
+  smokeWidths,
   topicForChoice,
 } from "./card-browser-helpers.mjs";
 
@@ -25,7 +26,7 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
   browser = await chromium.launch({ headless: true });
-  for (const width of [1440, 390]) {
+  for (const width of smokeWidths([1440, 390])) {
     const berth = width === 1440 ? "family" : "open";
     const reading = width === 1440 ? "basket" : "berth";
     const table = `homecoming-${width}`;

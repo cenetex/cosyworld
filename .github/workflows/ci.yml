@@ -142,6 +142,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: true
+    outputs:
+      browser-shards: ${{ steps.browser-shards.outputs.matrix }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -156,6 +158,11 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: "24"
+
+      # The browser job's matrix: measured checks packed into even shards.
+      - name: Plan browser shards
+        id: browser-shards
+        run: echo "matrix=$(node scripts/plan-browser-shards.mjs)" >> "$GITHUB_OUTPUT"
 
       # Main saves one Cargo cache per UTC day. Every commit changes
       # Cargo.lock, and the repository keeps only 10 GB of caches, so a 2 GB
@@ -311,44 +318,19 @@ jobs:
           COMPOSITION_SUITE: ${{ matrix.suite }}
 
   browser:
-    name: Browser checks (${{ matrix.mode }})
+    name: Browser checks (${{ matrix.shard }})
     needs: smoke-binary
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # Each group has its own runner, ports, and files, and all of them feed
-      # the required build check. Scripts within a group run in order. The
-      # Greek journeys, which once ran 25 to 45 minutes on one runner, are
-      # split so no group runs much past ten minutes.
-      matrix:
-        include:
-          - mode: baseline
-            scripts: ""
-          - mode: living-world
-            scripts: ""
-          - mode: cards-shared
-            scripts: smoke-shared-cards smoke-card-greek-capacity
-          - mode: cards-ui
-            scripts: check-card-awakening smoke-card-unveil smoke-card-world-map smoke-card-amnesia smoke-card-hand smoke-card-boardyai smoke-card-music smoke-card-music-network smoke-card-media-cache smoke-scene-video
-          - mode: cards-routes
-            scripts: smoke-card-narrative-contract smoke-card-home-rescue smoke-card-oil-return smoke-card-pond-access smoke-card-clearing-access smoke-card-pond-crossings smoke-shared-ship smoke-card-facing smoke-card-image-first smoke-card-toolbar smoke-card-learning smoke-shared-snapshot-order smoke-shared-play-status smoke-card-actions
-          - mode: cards-drama
-            scripts: smoke-card-greek-drama smoke-card-theban-scenery
-          - mode: cards-weather
-            scripts: smoke-card-weather smoke-card-greek-travel smoke-card-ship-fade smoke-card-painted-travel
-          - mode: cards-open-door
-            scripts: smoke-card-open-door
-          - mode: cards-homecoming
-            scripts: smoke-card-greek-homecoming
-          - mode: cards-ajax
-            scripts: smoke-card-ajax
-          - mode: cards-dialogue
-            scripts: smoke-card-dialogue-recovery smoke-card-silent-reply smoke-card-dialogue-timing smoke-card-movement smoke-card-beat-stack smoke-card-combat
-          - mode: cards-quests
-            scripts: smoke-card-shared-discovery smoke-card-bard-travel smoke-card-voice
+      # Each shard has its own runner, ports, and files, and all of them feed
+      # the required build check. Checks within a shard run in order.
+      # scripts/plan-browser-shards.mjs packs the measured checks in
+      # scripts/browser-shards.json into shards of about six minutes; add a
+      # new journey there.
+      matrix: ${{ fromJSON(needs.smoke-binary.outputs.browser-shards) }}
     env:
       CI: true
-      COSYWORLD_BROWSER_CHECK_MODE: ${{ matrix.mode }}
       COSYWORLD_SMOKE_BINARY: ${{ github.workspace }}/dist/ci/cosyworld-orchestrator
     steps:
       - name: Checkout
@@ -403,18 +385,23 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium
 
-      - name: Run fresh-seed browser gate
-        if: matrix.mode == 'baseline' || matrix.mode == 'living-world'
-        run: npm run v2:browser:check
-
-      - name: Run card browser journeys
-        if: matrix.scripts != ''
+      - name: Run browser checks
         env:
-          SCRIPTS: ${{ matrix.scripts }}
+          CHECKS: ${{ matrix.checks }}
         run: |
-          for script in $SCRIPTS; do
-            echo "::group::$script"
-            node "v2/scripts/$script.mjs"
+          for check in $CHECKS; do
+            echo "::group::$check"
+            case "$check" in
+              browser-check:*)
+                COSYWORLD_BROWSER_CHECK_MODE="${check#browser-check:}" \
+                  npm run v2:browser:check
+                ;;
+              *@*)
+                COSYWORLD_SMOKE_WIDTHS="${check#*@}" \
+                  node "v2/scripts/${check%@*}.mjs"
+                ;;
+              *) node "v2/scripts/$check.mjs" ;;
+            esac
             echo "::endgroup::"
           done
 
@@ -422,7 +409,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: cosyworld-browser-${{ matrix.mode }}
+          name: cosyworld-browser-${{ strategy.job-index }}
           path: |
             output/shared-cards/*.png
             output/greek-homecoming/*.png
