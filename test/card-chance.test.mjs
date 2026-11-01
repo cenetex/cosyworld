@@ -11,18 +11,22 @@ describe("the chance condition", () => {
   const otter = { kind: "chance", key: "otter", odds: 12, lasts: 2 };
   const at = (turn, seed) =>
     Object.assign(createWorld(), { turn, run: { seed } });
+  // The window test reads thousands of turns; a chance reads only the turn
+  // and the run seed, so one world serves them all.
+  const base = createWorld();
+  const tick = (turn, seed) => ({ ...base, turn, run: { seed } });
   it("holds for whole windows, about one in odds, the same on every table", () => {
     const hits = [];
     for (let turn = 0; turn < 2400; turn++)
-      if (conditionMet(at(turn, 7), otter)) hits.push(turn);
+      if (conditionMet(tick(turn, 7), otter)) hits.push(turn);
     expect(hits.length).toBeGreaterThan(2400 / 12 / 2);
     expect(hits.length).toBeLessThan((2400 / 12) * 2);
     for (const turn of hits) expect(hits).toContain(turn ^ 1);
     expect(hits).toEqual(
-      hits.filter((turn) => conditionMet(at(turn, 7), otter)),
+      hits.filter((turn) => conditionMet(tick(turn, 7), otter)),
     );
     const other = [...Array(2400).keys()].filter((turn) =>
-      conditionMet(at(turn, 8), otter),
+      conditionMet(tick(turn, 8), otter),
     );
     expect(other).not.toEqual(hits);
   });
