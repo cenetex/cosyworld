@@ -152,7 +152,7 @@ fn a_move_releases_the_avatar_in_its_other_worlds() {
         .unwrap()
         .query_map([], |r| r.get(0))
         .unwrap()
-        .map(Result::unwrap)
+        .map(|row| row.unwrap())
         .collect();
     assert_eq!(rows, vec![second.clone()]);
     let mara = actor_index("mara").unwrap();
