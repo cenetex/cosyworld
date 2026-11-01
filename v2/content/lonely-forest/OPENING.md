@@ -75,8 +75,9 @@ and its scarf repair, along with the Dewbright Button and the Watch Bell.
 The save upgrade drops them and their choices. A Watch Bell set beside
 Skull becomes the pawprint watch.
 
-Revision 3 retired the story buttons with no save upgrade. An earlier
-forest save asks for a fresh start.
+Revision 3 retired the story buttons. A save that had set the stones moves
+that deed to clearing the drain, and one that told Oak of the path moves it
+to telling of the hearth: each pair shares a place, a subject and a flag.
 
 ## The three walkers
 

@@ -167,6 +167,48 @@ export function reconcileContent(s) {
     delete s.items[id];
     if (s.memories) delete s.memories[id];
   }
+  forgetRetiredThings(s, new Set(gone));
+}
+
+// The journal keeps every moment that still names a living thing. A deed done
+// with a retired thing leaves, with what anyone learned from it; a moment it
+// only witnessed keeps the others.
+export function forgetRetiredThings(s, retired) {
+  if (!retired.size) return;
+  const names = (lesson) =>
+    [
+      lesson?.item,
+      lesson?.goal?.item,
+      lesson?.action?.item,
+      lesson?.action?.receive,
+    ].some((id) => retired.has(id));
+  for (const memory of Object.values(s.memories || {}))
+    if (Array.isArray(memory?.learning))
+      memory.learning = memory.learning.filter((lesson) => !names(lesson));
+  if (!Array.isArray(s.log)) return;
+  s.log = s.log.flatMap((entry) => {
+    if (
+      !entry ||
+      retired.has(entry.itemId) ||
+      retired.has(entry.receiveId) ||
+      retired.has(entry.wantMet?.target)
+    )
+      return entry ? [] : [entry];
+    const next = { ...entry };
+    if (retired.has(next.entityId)) delete next.entityId;
+    if (retired.has(next.targetId)) delete next.targetId;
+    if (Array.isArray(next.witnesses))
+      next.witnesses = next.witnesses.filter((id) => !retired.has(id));
+    if (Array.isArray(next.items))
+      next.items = next.items.filter(
+        (item) => !retired.has(item?.id) && !retired.has(item?.holder),
+      );
+    if (Array.isArray(next.droppedItemIds))
+      next.droppedItemIds = next.droppedItemIds.filter(
+        (id) => !retired.has(id),
+      );
+    return [next];
+  });
 }
 
 // Earlier station links to the attic and carriage pass through the pond.
@@ -928,12 +970,50 @@ export function upgradeForestButtonsSave(s) {
 }
 
 // Lonely Forest revision 3 retires the story buttons and their fork keys.
-// A save moves to it as it is; one that holds a retired fork's deed asks
-// for a fresh start.
+// Each retired fork's deed passes to the step that took it in: setting the
+// stones becomes clearing the drain, and telling Oak of the path becomes
+// telling of the hearth. Both share their step's place, subject and flag.
+const FOREST_FORKS = {
+  "forest-set-stones": "forest-clear-drain",
+  "forest-tell-path": "forest-tell-hearth",
+};
 export function upgradeForestRevisionSave(s) {
   const pack = packDefinitions.find((p) => p.id === "lonely-forest");
   const saved = s.packs?.[pack?.id];
   if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
+  const renamed = {};
+  for (const [was, now] of Object.entries(FOREST_FORKS)) {
+    const turn = saved.receipts?.[was];
+    if (turn === undefined) continue;
+    delete saved.receipts[was];
+    if (saved.recitals) {
+      if (saved.recitals[was] && !Object.hasOwn(saved.receipts, now))
+        saved.recitals[now] ??= saved.recitals[was];
+      delete saved.recitals[was];
+    }
+    if (Object.hasOwn(saved.receipts, now)) continue;
+    saved.receipts[now] = turn;
+    renamed[was] = now;
+  }
+  s.log = (s.log || []).flatMap((entry) => {
+    if (
+      entry?.packId !== pack.id ||
+      !Object.hasOwn(FOREST_FORKS, entry.choiceId)
+    )
+      return [entry];
+    const now = renamed[entry.choiceId];
+    if (!now) return [];
+    return [
+      {
+        ...entry,
+        choiceId: now,
+        text: choiceText(
+          pack.choices.find((c) => c.id === now),
+          entry.actorId,
+        ),
+      },
+    ];
+  });
   saved.choices = {};
   saved.revision = 3;
 }
