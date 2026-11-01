@@ -3355,11 +3355,7 @@ function render() {
     if (!shownQuest && liveQuest && renderedHand) questFresh = true;
     shownQuest = liveQuest;
   }
-  const handCards = questHand(
-    stackPlaces(handAvailable()),
-    world,
-    shownQuest,
-  );
+  const handCards = questHand(stackPlaces(handAvailable()), world, shownQuest);
   // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
     handCards,
