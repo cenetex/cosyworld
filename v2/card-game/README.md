@@ -145,8 +145,12 @@ facts from earlier releases keep their names; player-facing text says quest.
   by the avatar and turn: items others hold nearby that the avatar values
   above what it carries, reachable places it has not visited, and known people
   it has not talked with. A quest met away from home is followed by the way
-  home; at home the avatar rests a few turns before the next one. With nothing
-  left to want it stays content for a while, then its curiosity starts over.
+  home; at home the avatar rests a few turns while it holds the next one.
+  Every active avatar, players and unseen residents too, always holds one
+  quest: with nothing near left, its curiosity starts over at once, and then
+  anyone known, or what they hold, will do, reachable or not. A new world
+  draws one for every avatar without an authored `want`; a quest left empty
+  by an older rule set or a pack mounted later is drawn after a short rest.
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
   who learn the roads keep to the routes they know), then ask, trade their
   least valued spare, and threaten when bold enough by resentment, level or

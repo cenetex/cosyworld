@@ -64,6 +64,7 @@ import {
   settleWants,
   refuseWant,
   reviseStalledWants,
+  fillWants,
   validWant,
   WANT_KINDS,
   CONNECT_TARGET,
@@ -250,6 +251,8 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   installLife(world, travels);
   installRouteKnowledge(world);
   installKnowledge(world);
+  // A new world starts with one want on every avatar.
+  fillWants(world, wantAPI(world), true);
   rememberEvent(world, world.log[0]);
   return world;
 }
@@ -1860,6 +1863,19 @@ function toward(s, actor, target) {
       getActions().find((a) => a.kind === "move" && a.target === route[1]) ||
       voyageAction(s, actor, route[1], getActions())
     );
+  // Inside a lamp gate, a cast avatar lights its lamp to open the way out;
+  // the player's own hand makes that play.
+  const gate = homeGates[here];
+  if (
+    gate?.light &&
+    !s.items[gate.item].lit &&
+    actor !== currentActor(s) &&
+    !controlledByHuman(s, actor) &&
+    homeGateRecoverable(s, here, gate, actor)
+  ) {
+    const light = getActions().find((a) => a.kind === "light" && a.item === gate.item);
+    if (light) return light;
+  }
   if (target === "attic" && !["attic", "pond", "station"].includes(here)) {
     const approach = routeBetween(s, here, "pond", actor);
     if (approach?.length > 1)
@@ -2216,6 +2232,7 @@ export function play(
     ),
     wantAPI(next),
   );
+  fillWants(next, wantAPI(next));
   // A round of waits still ends a standoff nobody would carry on.
   settleStandoffs(next);
   for (const [id, allowance] of Object.entries(
