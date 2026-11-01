@@ -2,7 +2,8 @@ import { imageUrl } from "./images.mjs";
 import { request, passkey } from "./shared-auth.mjs";
 import { createSharedSync } from "./shared-sync.mjs";
 import roster from "./shared-cast.json" with { type: "json" };
-import { worldName, worldNameOf } from "./world-name.mjs";
+import { worldNameOf } from "./world-name.mjs";
+import { INVITE_KEY, PLAYING_KEY } from "./avatar-world.mjs";
 
 export const humanAvatars = roster.avatars;
 const avatarName = (id) => humanAvatars.find((a) => a.id === id)?.name || id;
@@ -116,17 +117,11 @@ export function worldLink(id) {
   url.searchParams.set("world", id);
   return url.href;
 }
-async function showLink(id, offerContinue = false, name = null) {
+async function showLink(id, name = null) {
   const box = panel(
     name ? `Invite to ${name}` : "Invite someone",
     "This link opens this world, with its places, people, belongings, and progress.",
   );
-  if (offerContinue)
-    box.append(
-      button("Continue shared world", () => {
-        location.href = worldLink(id);
-      }),
-    );
   const field = node("input");
   field.id = "invite-url";
   field.readOnly = true;
@@ -139,53 +134,6 @@ async function showLink(id, offerContinue = false, name = null) {
       $("shared-error").textContent = "World link copied.";
     }),
   );
-}
-export async function openWorlds() {
-  try {
-    await authenticate(async () => {
-      const result = await request("/card-game/shared/worlds");
-      const box = panel(
-        "Your worlds",
-        "Continue with your saved avatar, or open a friend's world link.",
-        false,
-      );
-      for (const entry of result.worlds)
-        box.append(
-          button(
-            entry.actor
-              ? [avatarName(entry.actor), worldName(entry.seed)]
-                  .filter(Boolean)
-                  .join(" · ")
-              : `${worldName(entry.seed) || "The reflected shore"} · ${8 - entry.claimed} avatars available`,
-            () => {
-              location.href = worldLink(entry.id);
-            },
-          ),
-        );
-      box.append(
-        button("Return to my game", () => {
-          location.href = "/";
-        }),
-        button("Sign out", async () => {
-          await request("/auth/logout", {});
-          location.reload();
-        }),
-      );
-    }, false);
-  } catch (error) {
-    const box = panel(
-      "Open your worlds",
-      "Your worlds are saved. Try again when the connection is ready.",
-      false,
-    );
-    box.append(
-      button("Try again", openWorlds),
-      button("Return to my game", () => {
-        location.href = "/";
-      }),
-    );
-    showError(error);
-  }
 }
 export async function connectSharedWorld(id) {
   ensureSharedStyle();
@@ -202,133 +150,20 @@ export async function connectSharedWorld(id) {
   const initial = await new Promise((resolve) => {
     const enter = async () => {
       value = await worldRequest();
-      if (!value.actor) return choose();
-      value = await worldRequest({
-        op: "enter",
-      });
-      const index = humanAvatars.findIndex((a) => a.id === value.actor);
-      if (value.present && !value.present[index]) {
-        const box = panel(
-          "A place will open shortly",
-          "Your room has four people. Your avatar and belongings are saved.",
-          false,
-        );
-        box.append(
-          button("Check for a place", enter),
-          // Your avatar stays yours here; you return as it (#1825).
-          button("Leave", async () => {
-            await worldRequest({ op: "leave" });
-            location.href = "/?shared=1";
-          }),
-          button("Your worlds", () => {
-            location.href = "/?shared=1";
-          }),
-        );
-        return;
+      // A friend's link opens ☰ on the player's own table, with this
+      // world's seats to bring an avatar to (avatar-menu.mjs, #1877).
+      if (!value.actor) {
+        try {
+          sessionStorage.setItem(INVITE_KEY, id);
+          const playing = JSON.parse(localStorage.getItem(PLAYING_KEY));
+          if (playing?.world === id) localStorage.removeItem(PLAYING_KEY);
+        } catch {}
+        return location.replace("/");
       }
+      // A full room waits at the table (renderSharedQueue).
+      value = await worldRequest({ op: "enter" });
       modal?.close();
       resolve(value);
-    };
-    const choose = async () => {
-      // Avatars this account holds in other worlds: choosing one moves it.
-      const elsewhere = {};
-      try {
-        for (const row of (await request("/card-game/shared/worlds")).worlds)
-          if (row.actor && row.id !== id)
-            elsewhere[row.actor] ??= worldName(row.seed) || "another world";
-      } catch {}
-      const claim = async (avatar, move = false) => {
-        try {
-          await worldRequest({
-            op: "claim",
-            avatar: avatar.id,
-            ...(move ? { move } : {}),
-          });
-          await enter();
-        } catch (error) {
-          value = await worldRequest();
-          if (value.actor) return enter();
-          await choose();
-          showError(error);
-        }
-      };
-      // A passkey returns as the avatar it took here; nobody else can claim a
-      // bound avatar, and with all eight bound the world is full (#1825).
-      const mine = humanAvatars.find((a) => a.id === value.mine);
-      if (mine) {
-        const away = elsewhere[mine.id];
-        panel(
-          `Return as ${mine.name}`,
-          away
-            ? `${mine.name} is yours in this world. ${mine.name} leaves ${away} to come back.`
-            : `${mine.name} is yours in this world.`,
-          false,
-        ).append(
-          button("Return", () => claim(mine, Boolean(away))),
-          button("Your worlds", () => {
-            location.href = "/?shared=1";
-          }),
-        );
-        return;
-      }
-      const taken = (index) =>
-        Boolean(value.claimed[index] || value.bound?.[index]);
-      if (humanAvatars.every((a, index) => taken(index))) {
-        panel(
-          "This world is full",
-          "Every avatar here belongs to someone. Its owner can free a place.",
-          false,
-        ).append(
-          button("Your worlds", () => {
-            location.href = "/?shared=1";
-          }),
-        );
-        return;
-      }
-      const box = panel(
-        "Choose your avatar",
-        "Join this world's story. Each person has one avatar here.",
-        false,
-      );
-      const picker = node("div", undefined, "shared-picker");
-      humanAvatars.forEach((avatar, index) => {
-        const card = button("", () => {
-          if (!elsewhere[avatar.id]) return claim(avatar);
-          panel(`Move ${avatar.name} here?`, "", false).append(
-            button("Move", () => claim(avatar, true)),
-            button("Back", choose),
-          );
-        });
-        card.className = "shared-choice";
-        card.disabled = taken(index);
-        card.dataset.avatar = avatar.id;
-        const image = node("img");
-        image.decoding = "async";
-        image.loading = "lazy";
-        image.src = imageUrl(`/card-game/${avatar.image}`, "card");
-        image.alt = "";
-        card.append(
-          image,
-          node("strong", avatar.name),
-          node("span", avatar.title),
-          node(
-            "small",
-            card.disabled
-              ? "Taken"
-              : elsewhere[avatar.id]
-                ? `in ${elsewhere[avatar.id]}`
-                : avatar.pleasure,
-          ),
-        );
-        picker.append(card);
-      });
-      box.append(
-        picker,
-        button("Refresh avatars", enter),
-        button("Your worlds", () => {
-          location.href = "/?shared=1";
-        }),
-      );
     };
     // One message: why the world did not open, and that it is kept. A
     // failed retry redraws the card instead of repeating the message below.
@@ -443,19 +278,9 @@ export function installSharedControls({
 }) {
   tableNotice = notice;
   ensureSharedStyle();
-  const linkedWorld = () => {
-    try {
-      return saveSlot ? localStorage.getItem(`${saveSlot}.shared`) : null;
-    } catch {
-      return null;
-    }
-  };
   const share = button("Share", async () => {
-    if (session)
-      return showLink(session.id, false, worldNameOf(session.state.world));
+    if (session) return showLink(session.id, worldNameOf(session.state.world));
     const name = worldNameOf(getWorld());
-    const linked = linkedWorld();
-    if (linked) return showLink(linked, true, name);
     await authenticate(async () => {
       const box = panel(
         name ? `Share ${name}` : "Share this world",
@@ -483,17 +308,7 @@ export function installSharedControls({
   });
   share.id = "shared-worlds-button";
   document.querySelector(".top-actions").prepend(share);
-  if (!session) {
-    if (linkedWorld()) {
-      const resume = button("Continue shared world", () => {
-        location.href = worldLink(linkedWorld());
-      });
-      resume.id = "continue-shared-world";
-      resume.className = "shared-resume";
-      document.querySelector(".play-dock").prepend(resume);
-    }
-    return;
-  }
+  if (!session) return;
   const queue = node("ol", undefined, "shared-play-queue");
   queue.id = "shared-queue";
   queue.setAttribute("aria-label", "Plays at the table");
@@ -513,7 +328,7 @@ export function installSharedControls({
     button("Sign out", async () => {
       await session.command({ op: "leave" });
       await request("/auth/logout", {});
-      location.href = "/?shared=1";
+      location.href = "/";
     }),
   );
 }
