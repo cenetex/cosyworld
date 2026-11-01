@@ -19,11 +19,24 @@ fn play(
                 .unwrap()
                 .to_string();
             // Aboard, a dock is a voyage: course, a round at sea, Disembark.
+            // Mara does not know the Piraeus lane home, and the provisions
+            // aboard open the lane to Marathon Bay (#1789), so a course
+            // anywhere else is a wrong turn: she waits, and the idle ship
+            // sails its port's first lane, home to the Wine-Dark Harbor.
             if from == "greek-ship" && *target != "greek-ship" {
                 let who = if actor == 0 { "vale" } else { "mara" };
                 for _ in 0..8 {
-                    let action =
-                        super::sea_steps::toward(&world.project(actor).unwrap()["actions"], target);
+                    let actions = world.project(actor).unwrap()["actions"].clone();
+                    let mut action = super::sea_steps::toward(&actions, target);
+                    if action["kind"] == "course" && action["target"] != *target {
+                        action = actions
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .find(|a| a["kind"] == "wait")
+                            .cloned()
+                            .expect("a wait aboard");
+                    }
                     full_store::commit(
                         c,
                         id,

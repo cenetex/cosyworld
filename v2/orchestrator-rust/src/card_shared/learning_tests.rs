@@ -222,6 +222,12 @@ fn measured_approaches_and_later_success_survive_journal_only_replay() {
     w.game["items"]["lamp"]["holder"] = json!("vale");
     w.game["items"]["bell"]["holder"] = json!("vale");
     w.game["items"]["cloth"]["holder"] = json!("keeper");
+    // A player holds no want before first reaching the Black Pond (#1768), so
+    // Vale starts past it, as test/helpers/first-quest.mjs does.
+    w.game["actors"]["vale"]["visited"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("pond"));
     // Vale wants the keeper's cloth; the keeper wants Vale's bell, so the
     // gift earns trust and a later request succeeds.
     w.game["actors"]["vale"]["want"] =
