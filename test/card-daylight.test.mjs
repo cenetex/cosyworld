@@ -165,12 +165,6 @@ describe("day and night in Greece", () => {
       "harbor-ship-at-berth",
     ],
     [
-      "greek-athens-harbor",
-      "athens-harbor-open-berth",
-      "athens-harbor",
-      "athens-harbor-ship-at-berth",
-    ],
-    [
       "greek-piraeus",
       "piraeus-open-berth",
       "open-door-piraeus",

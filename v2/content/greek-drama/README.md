@@ -100,9 +100,14 @@ a town link directly. Between towns there is exactly one road or a sea lane:
 the Sacred Way joins the Agora and Delphi, the Oeta Road joins Delphi and
 Trachis, the Royal Road joins Troy and Susa, the Black Sea Road joins Thrace and
 Tauris, and the Colonists' Road joins Corinth and Sicily. Troy is reached by
-ship at the Trojan landing. The Greek ship serves Athens Harbor,
-Piraeus, the Wine-Dark Harbor, Black Pond and the invited Trojan landing.
-Athens Harbor has an empty-water painting while the shared ship is away.
+ship at the Trojan landing. The Greek ship serves Piraeus, the Wine-Dark
+Harbor, Black Pond and the invited Trojan landing.
+
+A pack retires a place with `retired: true` and one exit, the place that took
+it in. No exit or route leads to it. A save upgrade moves anyone and anything
+there, and a ship berthed or bound there, to that place. Athens Harbor joined
+Piraeus; the Juror's House, the Divine Heights, the Hoopoe's Thicket and the
+Underworld Landing retired.
 
 ## Sources and runtime
 
@@ -161,12 +166,12 @@ single saved cover and starts any longer partial signal again.
 Completing the signal summons a shared ship. Its saved discovery keeps the
 boarding shores open through lamp changes, reloads and later voyages.
 The ship sails authored lanes: Black Pond only to the Wine-Dark Harbor; the
-Wine-Dark Harbor to Piraeus and the Trojan camp landing; Athens Harbor to
-Piraeus. The lane between the Wine-Dark Harbor and Piraeus opens only while
-the Travel Provisions (`greek-provisions`, first at the harbour) are aboard.
-The lane between Piraeus and Athens Harbor opens only while the Suppliant's
-Olive Branch (`greek-olive-branch`) is aboard. The herald hands it to whoever
-registers the mothers' plea at the Agora.
+Wine-Dark Harbor to Piraeus and the Trojan camp landing. The lane between the
+Wine-Dark Harbor to Piraeus opens only while the Travel Provisions
+(`greek-provisions`, first at the harbour) are aboard; the way home from
+Piraeus is always open. The herald hands the
+Suppliant's Olive Branch (`greek-olive-branch`) to whoever registers the
+mothers' plea at the Agora.
 Its card uses `assets/greek-drama/olive-branch.webp`, the wool-bound branch
 painting documented in [the Argos art handoff](../../card-game/assets/greek-drama/argos-alternates-README.md).
 Piraeus Quays lies outside the Open Door section, so that lane reaches it in

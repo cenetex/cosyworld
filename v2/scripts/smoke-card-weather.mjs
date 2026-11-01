@@ -254,11 +254,6 @@ try {
       ? []
       : [
           [
-            "greek-athens-harbor",
-            "athens-harbor.webp",
-            "athens-harbor-ship-at-berth-night.webp",
-          ],
-          [
             "greek-piraeus",
             "open-door-piraeus.webp",
             "piraeus-ship-at-berth-night.webp",
@@ -289,11 +284,8 @@ try {
       ["greek-battlefield", 24, "night-battlefield"],
       ["greek-piraeus", 0, "piraeus-open-day"],
       ["greek-piraeus", 24, "piraeus-open-night"],
-      ["greek-athens-harbor", 0, "athens-open-day"],
-      ["greek-athens-harbor", 24, "athens-open-night"],
       ["greek-colonus", 60, "mist-grove"],
       ["greek-thinkery", 36, "rain-shelter"],
-      ["greek-underworld", 36, "underworld-mist"],
     ].filter(([, , name]) => !phone || phoneScenes.includes(name))) {
       await load(place, turn);
       await check(place, turn, name);

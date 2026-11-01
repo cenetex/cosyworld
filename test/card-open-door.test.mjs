@@ -201,11 +201,7 @@ describe("the Open Door", () => {
       expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
       world = openDoorWalk(reload(world), "harbor", "athens");
       expect(exits(world, "greek-athens", "vale")).toEqual(
-        expect.arrayContaining([
-          "greek-athens-harbor",
-          "greek-road-athens-piraeus",
-          "greek-colonus",
-        ]),
+        expect.arrayContaining(["greek-road-athens-piraeus", "greek-colonus"]),
       );
       expect(entityActive(world, "greek-thinkery")).toBe(false);
       expect(entityActive(world, "greek-argolid-road")).toBe(false);

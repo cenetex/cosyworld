@@ -119,9 +119,11 @@ export function laneProblems(t) {
       out.push("has a lane that does not join two of its docks");
       continue;
     }
-    const pair = [lane.from, lane.to].sort().join(">");
-    if (seen.has(pair)) out.push(`repeats the lane ${pair}`);
-    seen.add(pair);
+    const ways = [`${lane.from}>${lane.to}`];
+    if (!lane.oneWay) ways.push(`${lane.to}>${lane.from}`);
+    if (ways.some((way) => seen.has(way)))
+      out.push(`repeats the lane ${ways[0]}`);
+    for (const way of ways) seen.add(way);
     neighbours.get(lane.from).add(lane.to);
     neighbours.get(lane.to).add(lane.from);
     leaving.add(lane.from);
@@ -517,16 +519,20 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           p.exits.length === 2,
         `road ${id} needs two fixed ends with a return path`,
       );
-    // A retired road keeps its ID for saved history. No place leads onto it.
+    // A retired road or place keeps its ID for saved history. No place leads
+    // onto it. A retired place has one exit: the place that took it in.
     if (p.retired !== undefined)
       check(
         p.retired === true &&
-          p.road !== undefined &&
+          (p.road !== undefined ||
+            (p.exits.length === 1 && places[p.exits[0]]?.retired !== true)) &&
           Object.values(places).every(
             (other) =>
+              other.retired === true ||
               !(Array.isArray(other.exits) && other.exits.includes(id)),
-          ),
-        `retired road ${id} must be a road that no exit names`,
+          ) &&
+          !(pack.routes || []).some((r) => r.to === id),
+        `retired place ${id} must be a road or lead to one live place, and no exit names it`,
       );
     if (p.art !== undefined) media(p.art, `place ${id} art`);
     if (p.music !== undefined)

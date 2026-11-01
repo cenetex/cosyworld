@@ -25,9 +25,9 @@ import {
   learnLane,
 } from "../v2/card-game/pack-transport.mjs";
 import { openDoorStart, openSeas } from "./helpers/open-door.mjs";
-import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
+import { upgradedActor, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
-const docks = ["pond", "greek-harbor", "greek-athens-harbor", "greek-piraeus"];
+const docks = ["pond", "greek-harbor", "greek-piraeus"];
 const players = ["vale", "mara"];
 const pack = packDefinition("greek-drama");
 function shared(dock, seas = false) {
@@ -139,9 +139,11 @@ describe("Greek ports and fixed roads", () => {
     before.transports["greek-ship"].destination = "pond";
     expect(exits(before, "greek-ship", "vale")).toEqual(["pond"]);
     const after = openDoorStart();
-    expect(entityActive(after, "greek-athens-harbor")).toBe(true);
-    expect(exits(after, "greek-athens-harbor", "vale")).toContain(
-      "greek-athens",
+    // Athens Harbor has joined Piraeus, whose Long Walls lead to the city.
+    expect(entityActive(after, "greek-athens-harbor")).toBe(false);
+    expect(entityActive(after, "greek-road-athens-piraeus")).toBe(true);
+    expect(exits(after, "greek-piraeus", "vale")).toContain(
+      "greek-road-athens-piraeus",
     );
     expect(exits(after, "greek-harbor", "vale")).toContain("greek-road-thebes");
     expect(exits(after, "greek-harbor", "vale")).not.toContain(
@@ -176,9 +178,7 @@ describe("Greek ports and fixed roads", () => {
     },
   );
 
-  // The Athens Harbor lane waits for the olive branch aboard; the voyages
-  // above cover that port.
-  const near = docks.filter((p) => p !== "greek-athens-harbor");
+  const near = docks;
   it.each(near)("brings an empty ship to a traveler waiting at %s", (port) => {
     let w = shared(near.find((p) => p !== port));
     w.actors.vale.place = port;
@@ -242,7 +242,7 @@ describe("Greek ports and fixed roads", () => {
       const lived = ({ want, xp, visited, talked, metTurn, gaveUp, ...a }) => a;
       for (const [id, { progress, ...actor }] of Object.entries(old.actors))
         expect(lived(current.actors[id])).toEqual({
-          ...actor,
+          ...upgradedActor(actor),
           trust: {
             ...actor.trust,
             ...Object.fromEntries(

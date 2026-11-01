@@ -3,7 +3,7 @@ import {
   summonTransport,
   moveTransport,
 } from "../v2/card-game/pack-transport.mjs";
-import { crossings } from "../v2/card-game/pack-registry.mjs";
+import { crossings, packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { crossingOpen, fixtureSounding } from "../v2/card-game/pack-rules.mjs";
 import { senses } from "../v2/card-game/world.mjs";
 const gate = (id) => crossings.find((c) => c.id === id);
@@ -366,7 +366,7 @@ test("a revision 9 save keeps one cover and restarts longer marks", () => {
     old.packs["greek-drama"].revision = 9;
     Object.assign(old.crossings["pond-greek-harbor"], { phase, discovered });
     const s = decodeSave(JSON.stringify(old));
-    assert.equal(s.packs["greek-drama"].revision, 11);
+    assert.equal(s.packs["greek-drama"].revision, packDefinition("greek-drama").revision);
     assert.equal(shipSignalPhase(s), kept);
     assert.equal(s.crossings["pond-greek-harbor"].discovered, discovered);
   }

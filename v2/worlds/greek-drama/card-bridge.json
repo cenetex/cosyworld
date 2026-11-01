@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "shore-greek-drama",
   "pack": "greek-drama",
-  "description": "A shared ship sails authored lanes from Black Pond only to the Wine-Dark Harbor, and from there to Piraeus Quays, Athens Harbor and the Trojan camp landing. The lamp signal calls it to the pond.",
+  "description": "A shared ship sails authored lanes from Black Pond only to the Wine-Dark Harbor, and from there to Piraeus Quays and the Trojan camp landing. The lamp signal calls it to the pond.",
   "crossings": [
     {
       "id": "pond-greek-harbor",
@@ -73,7 +73,6 @@
       "travelers": "any",
       "travel": "aboard the ship",
       "requires": [],
-      "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
         "open": "The Greek ship waits beside the quay.",
@@ -81,7 +80,8 @@
         "cardArt": "assets/greek-drama/ship-card.webp",
         "backdrop": "assets/greek-drama/athens-harbor.webp",
         "closed": "The shared ship is sailing elsewhere. The quay waits beside open water."
-      }
+      },
+      "retired": true
     },
     {
       "id": "greek-piraeus-ship",
@@ -144,16 +144,19 @@
       "docks": [
         "pond",
         "greek-harbor",
-        "greek-athens-harbor",
         "greek-piraeus",
         "greek-ajax-landing",
         "hoppycat-signal-jetty"
       ],
       "lanes": [
-        { "from": "pond", "to": "greek-harbor" },
+        {
+          "from": "pond",
+          "to": "greek-harbor"
+        },
         {
           "from": "greek-harbor",
           "to": "greek-piraeus",
+          "oneWay": true,
           "opensWith": [
             {
               "kind": "item_present",
@@ -162,17 +165,14 @@
             }
           ]
         },
-        { "from": "greek-harbor", "to": "greek-ajax-landing" },
         {
-          "from": "greek-athens-harbor",
-          "to": "greek-piraeus",
-          "opensWith": [
-            {
-              "kind": "item_present",
-              "item": "greek-olive-branch",
-              "place": "greek-ship"
-            }
-          ]
+          "from": "greek-piraeus",
+          "to": "greek-harbor",
+          "oneWay": true
+        },
+        {
+          "from": "greek-harbor",
+          "to": "greek-ajax-landing"
         },
         {
           "from": "greek-piraeus",

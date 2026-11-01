@@ -82,10 +82,12 @@ fn greek_ports_roads_and_waiting_replay_after_the_version_eighteen_upgrade() {
 
 #[test]
 fn local_road_visitors_and_belongings_continue_inside_the_town_after_replay() {
+    // Athens Harbor has joined Piraeus, so its old road folds into the
+    // quays, and the visit continues along the road to the Agora.
     for (road, port, town) in [(
         "greek-road-athens-harbor",
-        "greek-athens-harbor",
-        "greek-athens",
+        "greek-piraeus",
+        "greek-road-athens-piraeus",
     )] {
         let path =
             std::env::temp_dir().join(format!("town-travel-{}.sqlite", crate::random_hex(12)));

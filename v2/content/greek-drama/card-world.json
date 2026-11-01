@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 11,
+  "revision": 12,
   "name": "The Wine-Dark Sea",
   "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -149,18 +149,15 @@
       "name": "Athenian Agora",
       "text": "A broad civic square opens beneath long painted colonnades. Marble steps rise toward the Acropolis above the roofs. A herald keeps a petition table beside the market.",
       "exits": [
-        "greek-athens-harbor",
         "greek-road-athens-piraeus",
         "greek-assembly",
         "greek-acropolis",
         "greek-demos-house",
         "greek-thinkery",
-        "greek-jury-house",
         "greek-festival",
         "greek-attic-farm",
         "greek-colonus",
-        "greek-road-sacred-way",
-        "greek-road-athens-harbor"
+        "greek-road-sacred-way"
       ],
       "backdrop": "assets/greek-drama/athens-grand-agora.webp",
       "backdrops": [
@@ -221,7 +218,8 @@
       "text": "A jury token hangs beside the door. The household has arranged a small court in the yard.",
       "exits": ["greek-athens"],
       "backdrop": "assets/greek-drama/courtyard.svg",
-      "persona": "A jury token hangs beside the door. The household has arranged a small court in the yard."
+      "persona": "A jury token hangs beside the door. The household has arranged a small court in the yard.",
+      "retired": true
     },
     "greek-festival": {
       "name": "The Women's Festival",
@@ -233,12 +231,7 @@
     "greek-attic-farm": {
       "name": "The Attic Farm",
       "text": "Vines grow beside a patched farmhouse. Unused ploughs stand where military wagons passed.",
-      "exits": [
-        "greek-athens",
-        "greek-acharnae",
-        "greek-divine-heights",
-        "greek-bird-wilderness"
-      ],
+      "exits": ["greek-athens", "greek-acharnae"],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Vines grow beside a patched farmhouse. Unused ploughs stand where military wagons passed."
     },
@@ -252,7 +245,7 @@
     "greek-colonus": {
       "name": "Colonus Grove",
       "text": "A cup and a small pot of honey stand at the grove’s edge. A keeper rests beside a smooth stone. Paths lead back to the Agora and on to the Marathon altar.",
-      "exits": ["greek-athens", "greek-underworld", "greek-marathon"],
+      "exits": ["greek-athens", "greek-marathon"],
       "backdrop": "assets/greek-drama/open-door-colonus.webp",
       "persona": "The keeper tells Sophocles’s Oedipus at Colonus as an earlier tale, before the brothers died at Thebes. Oedipus and his daughters belong to that named tale. The traveler’s offerings and refuge tablet belong to the present grove."
     },
@@ -565,21 +558,24 @@
       "text": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
       "exits": ["greek-attic-farm"],
       "backdrop": "assets/greek-drama/sea.svg",
-      "persona": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing."
+      "persona": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
+      "retired": true
     },
     "greek-bird-wilderness": {
       "name": "The Hoopoe's Thicket",
       "text": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
       "exits": ["greek-attic-farm"],
       "backdrop": "assets/greek-drama/grove.svg",
-      "persona": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city."
+      "persona": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
+      "retired": true
     },
     "greek-underworld": {
       "name": "The Underworld Landing",
       "text": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
       "exits": ["greek-colonus"],
       "backdrop": "assets/greek-drama/harbor.svg",
-      "persona": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing."
+      "persona": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
+      "retired": true
     },
     "greek-ship": {
       "name": "Greek ship",
@@ -642,8 +638,9 @@
       "name": "Athens Harbor",
       "text": "Stone quays run beneath long warehouses. Beyond the harbor gate, city streets and steps climb toward the walls and the Acropolis of Athens.",
       "persona": "Athens Harbor is the ship’s landing for the great city. City streets lead inland to the Agora. Piraeus Quays is a separate town with its own host and work of welcome.",
-      "exits": ["greek-athens", "greek-road-athens-harbor"],
-      "backdrop": "assets/greek-drama/athens-harbor-open-berth.webp"
+      "exits": ["greek-piraeus"],
+      "backdrop": "assets/greek-drama/athens-harbor-open-berth.webp",
+      "retired": true
     },
     "greek-road-thebes": {
       "name": "Theban Harbor Road",
@@ -659,7 +656,8 @@
       "persona": "A shared road between Athens Harbor and Athenian Agora. The left end always leads to Athens Harbor. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": ["greek-athens-harbor", "greek-athens"],
       "road": ["greek-athens-harbor", "greek-athens"],
-      "backdrop": "assets/greek-drama/attic-road.webp"
+      "backdrop": "assets/greek-drama/attic-road.webp",
+      "retired": true
     },
     "greek-road-athens-piraeus": {
       "name": "Athens–Piraeus Road",
@@ -1017,8 +1015,8 @@
     "greek-ferryman": {
       "name": "The Lower Ferryman",
       "text": "He holds a mooring rope and waits for each traveler to name a purpose.",
-      "place": "greek-underworld",
-      "home": "greek-underworld",
+      "place": "greek-colonus",
+      "home": "greek-colonus",
       "values": {
         "greek-provisions": 2
       },
@@ -1625,10 +1623,10 @@
     "greek-olive-branch": {
       "name": "The Suppliant’s Olive Branch",
       "startLevel": 30,
-      "text": "An olive branch bound with white wool, given at the Agora when the mothers’ plea is registered. Ships sail between Piraeus and Athens Harbor while it is aboard.",
+      "text": "An olive branch bound with white wool, given at the Agora when the mothers’ plea is registered.",
       "holder": "greek-athens",
       "art": "assets/greek-drama/olive-branch.webp",
-      "persona": "Describe the branch, its actual holder and its recorded use. The lane between Piraeus and Athens Harbor is open only while it is aboard the ship.",
+      "persona": "Describe the branch, its actual holder and its recorded use.",
       "requires": [
         {
           "kind": "flag",

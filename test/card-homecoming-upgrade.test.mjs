@@ -18,7 +18,7 @@ import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
-import { branchItems, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
+import { branchItems, upgradedActor, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
 const context = vm.createContext({});
 vm.runInContext(
@@ -104,7 +104,7 @@ describe("the household save upgrade", () => {
       const lived = ({ want, xp, visited, talked, metTurn, gaveUp, ...a }) => a;
       for (const [id, { progress, ...actor }] of Object.entries(before.actors))
         expect(lived(after.actors[id])).toEqual({
-          ...actor,
+          ...upgradedActor(actor),
           trust: {
             ...actor.trust,
             [witness]: 0,
