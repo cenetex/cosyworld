@@ -1045,7 +1045,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   }
   for (const [id, i] of Object.entries(items)) {
     check(
-      keysOk(i, ["name", "text", "persona", "holder", "art", "requires"]) &&
+      keysOk(i, [
+        "name",
+        "text",
+        "persona",
+        "holder",
+        "art",
+        "requires",
+        "startLevel",
+      ]) &&
         textOk(i.name, 120) &&
         textOk(i.text) &&
         textOk(i.persona) &&
@@ -1053,6 +1061,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           owns(avatars, i.holder) ||
           hub?.places?.includes(i.holder)),
       `item ${id} is invalid`,
+    );
+    check(
+      i.startLevel === undefined || intOk(i.startLevel, 1, 99),
+      `item ${id} startLevel needs a whole level from 1 to 99`,
     );
     media(i.art, `item ${id} art`);
     requirements(i.requires, `item ${id} requires`);

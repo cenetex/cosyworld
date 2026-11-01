@@ -1594,6 +1594,7 @@
     },
     "greek-shovel": {
       "name": "Burial Shovel",
+      "startLevel": 10,
       "text": "A short iron shovel with soil caught beneath the blade.",
       "holder": "greek-gate",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
@@ -1601,6 +1602,7 @@
     },
     "greek-decree": {
       "name": "The Burial Decree",
+      "startLevel": 50,
       "text": "A public copy forbids burial of the brother left outside the city.",
       "holder": "greek-palace",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
@@ -1622,6 +1624,7 @@
     },
     "greek-olive-branch": {
       "name": "The Suppliant’s Olive Branch",
+      "startLevel": 30,
       "text": "An olive branch bound with white wool, given at the Agora when the mothers’ plea is registered. Ships sail between Piraeus and Athens Harbor while it is aboard.",
       "holder": "greek-athens",
       "art": "assets/greek-drama/olive-branch.webp",
@@ -1636,6 +1639,7 @@
     },
     "greek-egypt-testimony": {
       "name": "The Egyptian Witness Tablet",
+      "startLevel": 10,
       "text": "The account records Helen's stay in Egypt and distinguishes her from the phantom sent to Troy.",
       "holder": "greek-egypt-tomb",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
@@ -1706,6 +1710,7 @@
     },
     "greek-burial-petition": {
       "name": "The Mothers’ Petition",
+      "startLevel": 20,
       "text": "An olive branch lies across a tablet bearing the mothers’ request. Aethra has left room for the city’s answer.",
       "holder": "greek-eleusis",
       "art": "assets/greek-drama/burial-petition.png",
@@ -1753,6 +1758,7 @@
     },
     "greek-ash-urn": {
       "name": "The Funeral Urn",
+      "startLevel": 10,
       "text": "A covered urn holds ashes entrusted to the mothers after the recorded recovery and funeral. Its clay is cool.",
       "holder": "greek-eleusis",
       "art": "assets/greek-drama/ash-urn.png",
@@ -1852,6 +1858,7 @@
     },
     "greek-ajax-shield": {
       "name": "Ajax’s Shield",
+      "startLevel": 20,
       "text": "Ajax’s shield waits to be carried to Tecmessa’s household for Eurysaces.",
       "holder": "greek-greek-camp",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",

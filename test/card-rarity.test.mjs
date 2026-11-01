@@ -5,6 +5,8 @@ import {
   rarityColor,
   romanLevel,
 } from "../v2/card-game/rarity.mjs";
+import { packProblems } from "../v2/card-game/pack-schema.mjs";
+import { packDefinitions, hub } from "../v2/card-game/pack-registry.mjs";
 
 describe("card level presentation", () => {
   it.each([
@@ -27,15 +29,35 @@ describe("card level presentation", () => {
   it("reads earned levels without giving an owner's level to their things or place", () => {
     const world = {
       actors: { vale: { xp: 45 } },
-      items: { lamp: { holder: "vale" } },
+      items: { oil: { holder: "vale" } },
     };
     expect(cardLevel(world, "vale")).toBe(10);
-    expect(cardLevel(world, "lamp")).toBe(1);
+    expect(cardLevel(world, "oil")).toBe(10);
     expect(cardLevel(world, "attic")).toBe(1);
     world.actors.vale.xp = 5050;
     expect(cardLevel(world, "vale")).toBe(101);
     expect(levelTier(cardLevel(world, "vale")).id).toBe("mythic");
     expect(world.actors.vale.xp).toBe(5050);
+  });
+
+  it("gives items their authored start level and tier, whatever holds them", () => {
+    const world = { actors: { vale: { xp: 0 } }, items: {} };
+    expect(cardLevel(world, "lamp")).toBe(50);
+    expect(levelTier(cardLevel(world, "greek-decree")).id).toBe("legendary");
+    expect(levelTier(cardLevel(world, "greek-olive-branch")).id).toBe("epic");
+    expect(levelTier(cardLevel(world, "willows-pot")).id).toBe("rare");
+    expect(levelTier(cardLevel(world, "hoppycat-context-seed")).id).toBe(
+      "uncommon",
+    );
+    expect(cardLevel(world, "greek-water-jar")).toBe(1);
+    const pack = structuredClone(
+      packDefinitions.find((p) => p.id === "willows"),
+    );
+    expect(packProblems(pack, hub).join(" ")).not.toContain("item ");
+    pack.items["willows-pot"].startLevel = 0;
+    expect(packProblems(pack, hub).join(" ")).toContain(
+      "willows-pot startLevel",
+    );
   });
 
   it("keeps actual levels in Roman numerals, including subtractive notation", () => {
