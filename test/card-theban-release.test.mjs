@@ -68,6 +68,8 @@ const openDoorItems = [
   "greek-grove-honey",
   "greek-shelter-blanket",
   "greek-refuge-tablet",
+  "greek-pyre-account",
+  "greek-marathon-record",
 ];
 const legacy = (name) =>
   JSON.parse(

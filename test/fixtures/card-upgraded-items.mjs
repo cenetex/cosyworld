@@ -14,11 +14,18 @@ export const thebanItems = {
   "greek-guard-tablet": { holder: "greek-gate", history: [] },
 };
 
-// Revision 9 of the Greek pack adds the Suppliant’s Olive Branch; later
-// revisions add the Theban outcomes.
+// The Athenian outcomes wait the same way (Greek revision 15).
+export const athenianItems = {
+  "greek-pyre-account": { holder: "greek-eleusis", history: [] },
+  "greek-marathon-record": { holder: "greek-marathon", history: [] },
+};
+
+// Revision 9 of the Greek pack adds the olive branch that became the
+// herald's truce; later revisions add the Theban and Athenian outcomes.
 export const branchItems = {
   "greek-olive-branch": { holder: "greek-athens", history: [] },
   ...thebanItems,
+  ...athenianItems,
 };
 
 // Greek revision 12 retires places; a resident of one lives where it was

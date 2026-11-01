@@ -31,109 +31,96 @@ const accessible = (world) =>
 const reload = (world) => decodeSave(encodeSave(world));
 const pack = packDefinition("greek-drama");
 
-describe("the Open Door", () => {
-  it.each([
-    {
-      recovery: "truce",
-      eleusis: "care",
-      berth: "family",
-      colonus: "custom",
-      marathon: "hearing",
-    },
-    {
-      recovery: "recovery",
-      eleusis: "pledge",
-      berth: "open",
-      colonus: "family",
-      marathon: "alcmene",
-    },
-  ])(
-    "carries the five stories home through the $recovery branch",
-    (options) => {
-      const { world, before } = openDoorJourney(options);
-      expect(world.actors.vale.place).toBe("greek-courtyard");
-      for (const id of ["eleusis", "piraeus", "colonus", "marathon"])
-        expect(state(world).flags[`greek-open-door-${id}-done`]).toBe(true);
-      expect(state(world).flags["greek-open-door-returned"]).toBe(true);
-      expect(state(world).choices).toMatchObject({
-        "greek-open-door-recovery":
-          options.recovery === "truce" ? "truce" : "force",
-        "greek-open-door-eleusis": options.eleusis,
-        "greek-open-door-berth": options.berth,
-        "greek-open-door-colonus": options.colonus,
-        "greek-open-door-marathon": options.marathon,
-      });
-      // Choices and receipts are the record of the stories; no quest
-      // records remain.
-      expect(world.quests).toBeUndefined();
-      for (const [item, place] of Object.entries({
-        "greek-burial-petition": "greek-athens",
-        "greek-return-cloths": "greek-eleusis",
-        "greek-ash-urn": "greek-eleusis",
-        "greek-return-list": "greek-piraeus",
-        "greek-grove-cup": "greek-colonus",
-        "greek-grove-honey": "greek-colonus",
-        "greek-refuge-tablet": "greek-colonus",
-        "greek-shelter-blanket": "greek-marathon",
-      }))
-        expect(world.items[item].holder).toBe(place);
-      const poem = recitalPoem(world, pack);
-      expect(
-        poem.stanzas.some(
-          (verse) => verse.id === "greek-open-door-return-dione",
-        ),
-      ).toBe(true);
-      expect(
-        poem.stanzas.some(
-          (verse) =>
-            verse.id === `greek-open-door-marathon-${options.marathon}`,
-        ),
-      ).toBe(true);
-      const restored = reload(reload(world));
-      expect(restored.packs).toEqual(world.packs);
-      expect(recitalPoem(restored, pack)).toEqual(poem);
-      for (const [id, prior] of Object.entries(before)) {
-        const stale = legalActions(prior).find(
-          (action) => action.choiceId === id,
-        );
-        expect(play(restored, stale).ok, id).toBe(false);
-      }
-    },
-  );
+const story = (id) => /^greek-(open-door|homecoming)-/.test(id);
+const OUTCOMES = [
+  "greek-olive-branch",
+  "greek-pyre-account",
+  "greek-return-list",
+  "greek-refuge-tablet",
+  "greek-marathon-record",
+];
 
-  it("requires the acting traveler to carry the petition and each offering", () => {
+describe("the Open Door", () => {
+  it("carries the five stories home with ordinary plays", () => {
+    const { world, before } = openDoorJourney();
+    expect(world.actors.vale.place).toBe("greek-courtyard");
+    for (const id of ["eleusis", "piraeus", "colonus", "marathon"])
+      expect(state(world).flags[`greek-open-door-${id}-done`]).toBe(true);
+    expect(state(world).flags["greek-open-door-returned"]).toBe(true);
+    expect(state(world).choices).toMatchObject({
+      "greek-open-door-recovery": "truce",
+      "greek-open-door-berth": "family",
+      "greek-homecoming-care": "family",
+    });
+    // No story button is ever offered; every receipt came from a fixed verb.
+    for (const prior of Object.values(before))
+      expect(
+        legalActions(prior).filter(
+          (a) => a.kind === "choose" && story(a.choiceId),
+        ),
+      ).toEqual([]);
+    expect(pack.choices.filter((c) => story(c.id)).every((c) => c.on)).toBe(
+      true,
+    );
+    expect(world.quests).toBeUndefined();
+    // The five outcomes rest on Dione's table; the offerings stay where
+    // their deeds were done.
+    for (const item of OUTCOMES)
+      expect(world.items[item].holder).toBe("greek-courtyard");
+    for (const [item, place] of Object.entries({
+      "greek-burial-petition": "greek-athens",
+      "greek-return-cloths": "greek-eleusis",
+      "greek-ash-urn": "greek-eleusis",
+      "greek-grove-cup": "greek-colonus",
+      "greek-grove-honey": "greek-colonus",
+      "greek-shelter-blanket": "greek-marathon",
+    }))
+      expect(world.items[item].holder).toBe(place);
+    const poem = recitalPoem(world, pack);
+    expect(
+      poem.stanzas.some((verse) => verse.id === "greek-open-door-return-dione"),
+    ).toBe(true);
+    const restored = reload(reload(world));
+    expect(restored.packs).toEqual(world.packs);
+    expect(recitalPoem(restored, pack)).toEqual(poem);
+  });
+
+  it("requires the actual things at each deed", () => {
     const { before } = openDoorJourney();
+    // Waiting does a deed only beside its things.
     for (const [id, item] of [
-      ["register-plea", "greek-burial-petition"],
+      ["set-provisions", "greek-provision-basket"],
       ["lay-cloths", "greek-return-cloths"],
-      ["lay-ashes", "greek-ash-urn"],
-      ["family-berth", "greek-return-list"],
       ["colonus-water", "greek-grove-honey"],
       ["colonus-custom", "greek-refuge-tablet"],
       ["marathon-blanket", "greek-shelter-blanket"],
     ]) {
       const choiceId = `greek-open-door-${id}`;
       const world = structuredClone(before[choiceId]);
-      const offered = legalActions(world).find(
-        (action) => action.choiceId === choiceId,
-      );
-      expect(offered).toBeTruthy();
+      world.items[item].holder = "mara";
+      const waited = playOpenDoor(world, "wait");
+      expect(state(waited).receipts[choiceId], id).toBeUndefined();
+    }
+    // A gift needs the thing in the giver's hands.
+    for (const [id, item] of [
+      ["register-plea", "greek-burial-petition"],
+      ["lay-ashes", "greek-ash-urn"],
+      ["family-berth", "greek-return-list"],
+    ]) {
+      const world = structuredClone(before[`greek-open-door-${id}`]);
       world.items[item].holder = "mara";
       expect(
-        legalActions(world).some((action) => action.choiceId === choiceId),
+        legalActions(world).some((a) => a.kind === "give" && a.item === item),
       ).toBe(false);
-      const denied = play(world, offered);
-      expect(denied.ok).toBe(false);
-      expect(state(world).receipts[choiceId]).toBeUndefined();
-      expect(world.items[item].holder).toBe("mara");
     }
   });
 
   it("keeps remembered generations in their named tales", () => {
     const { world } = openDoorJourney();
+    // Meetings commit their tale; its words are the choice's own caption.
     const line = (id) =>
-      world.log.find((event) => event.choiceId === `greek-open-door-${id}`)
-        ?.text;
+      state(world).receipts[`greek-open-door-${id}`] &&
+      pack.choices.find((c) => c.id === `greek-open-door-${id}`).text;
     expect(line("colonus-enter")).toMatch(
       /earlier time.*before the deaths of the Theban brothers/,
     );
@@ -150,11 +137,13 @@ describe("the Open Door", () => {
   });
 
   it("credits a second player's final deed through save and poem context", () => {
-    const prior = openDoorJourney().before["greek-open-door-eleusis-care"];
+    const id = "greek-open-door-lay-ashes";
+    const prior = openDoorJourney().before[id];
     const created = dispatchShared({ op: "create", save: encodeSave(prior) });
     expect(created.ok).toBe(true);
     let world = created.world;
     world.actors.mara.place = "greek-eleusis";
+    world.items["greek-ash-urn"].holder = "mara";
     const request = (op, extra = {}) =>
       dispatchShared({
         world,
@@ -164,24 +153,23 @@ describe("the Open Door", () => {
         present: ["vale", "mara"],
         ...extra,
       });
-    let view = request("view");
+    const view = request("view");
     expect(view.ok).toBe(true);
-    const choice = view.actions.find(
-      (action) => action.choiceId === "greek-open-door-eleusis-care",
+    const gift = view.actions.find(
+      (a) =>
+        a.kind === "give" &&
+        a.item === "greek-ash-urn" &&
+        a.target === "greek-argive-mother",
     );
-    expect(choice).toBeTruthy();
-    const completed = request("play", { action: choice });
+    expect(gift).toBeTruthy();
+    const completed = request("play", { action: gift });
     expect(completed.ok).toBe(true);
     world = reload(completed.world);
-    expect(
-      world.log.find((e) => e.choiceId === "greek-open-door-eleusis-care"),
-    ).toMatchObject({ actorId: "mara", locationId: "greek-eleusis" });
-    expect(state(world).recitals["greek-open-door-eleusis-care"].actor).toBe(
-      "mara",
-    );
+    expect(state(world).receipts[id]).toBe(world.turn);
+    expect(state(world).recitals[id].actor).toBe("mara");
     expect(
       recitalContext(world, [pack], "greek-rhapsode").stanzas.find(
-        (stanza) => stanza.id === "greek-open-door-eleusis-care",
+        (stanza) => stanza.id === id,
       ).authorId,
     ).toBe("mara");
   });
@@ -201,8 +189,8 @@ describe("the Open Door", () => {
       expect(state(world).choices["greek-theban-response"]).toBe(branch);
       expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
       world = openDoorWalk(reload(world), "harbor", "athens");
-      // The Long Walls stay shut until the plea's olive branch is in the
-      // Agora; the Sacred Way leads out to the countryside.
+      // The Long Walls stay shut until the herald's truce is in the Agora;
+      // the Sacred Way leads out to the countryside.
       expect(exits(world, "greek-athens", "vale")).toEqual([
         "greek-road-athens-eleusis",
       ]);
@@ -218,12 +206,12 @@ describe("the Open Door", () => {
 
   it("keeps the five roads open through a return to the Theban table", () => {
     // Through the plea: the petition rests in the Agora, which keeps the
-    // Sacred Way open, and so does the olive branch for the Long Walls.
+    // Sacred Way open, and so does the herald's truce for the Long Walls.
     let world = openDoorStart();
     const steps = openDoorSteps();
     for (const { kind, ...fields } of steps.slice(
       0,
-      steps.findIndex((step) => step.kind === "drop") + 1,
+      steps.findIndex((step) => step.target === "greek-theseus") + 1,
     ))
       world = playOpenDoor(world, kind, fields);
     world = openDoorWalk(
@@ -263,16 +251,20 @@ describe("the Open Door", () => {
   });
 
   it("keeps Dione's closing report open while the other welcomes are pending", () => {
-    let world = openDoorJourney().after["greek-open-door-eleusis-care"];
+    let world = openDoorJourney().after["greek-open-door-lay-ashes"];
+    world = playOpenDoor(world, "take", { item: "greek-pyre-account" });
     world = openDoorWalk(world, "athens", "harbor", "courtyard");
+    world = playOpenDoor(world, "give", {
+      item: "greek-pyre-account",
+      target: "greek-baker",
+    });
+    world = playOpenDoor(world, "talk", { target: "greek-baker" });
     expect(
-      legalActions(world).some(
-        (action) => action.choiceId === "greek-open-door-return-dione",
-      ),
-    ).toBe(false);
-    expect(state(reload(world)).flags["greek-open-door-eleusis-done"]).toBe(
-      true,
-    );
+      state(world).receipts["greek-open-door-return-dione"],
+    ).toBeUndefined();
+    expect(
+      state(reload(world)).flags["greek-homecoming-eleusis-reported"],
+    ).toBe(true);
   });
 
   it("preserves an earlier full world and its Egyptian account", () => {

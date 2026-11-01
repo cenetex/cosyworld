@@ -72,7 +72,7 @@ describe("the opening poem", () => {
     expect(Object.keys(lore.verses).sort()).toEqual(
       pack.recital.verses.map((v) => v.choice).sort(),
     );
-    expect(couplets).toHaveLength(110);
+    expect(couplets).toHaveLength(76);
     expect(quotesLore(pack.recital)).toBe(false);
     expect(lore.verses["greek-courtyard-concession"].after.choice).toBe(
       "greek-perform-permitted-burial",

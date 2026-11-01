@@ -95,13 +95,6 @@
         "The dead came home beneath it."
       ]
     },
-    "greek-open-door-hear-recovery-report": {
-      "quest": "story-quest-greek-open-door-agora",
-      "lines": [
-        "The messenger spoke over dust.",
-        "The dead came home behind the shields."
-      ]
-    },
     "greek-open-door-set-provisions": {
       "quest": "story-quest-greek-open-door-piraeus",
       "lines": [
@@ -130,32 +123,11 @@
         "One chair stood empty by the stone."
       ]
     },
-    "greek-open-door-eleusis-pledge": {
-      "quest": "story-quest-greek-open-door-eleusis",
-      "lines": [
-        "I set a pledge beside the ashes.",
-        "Both banners cast a human shadow."
-      ]
-    },
-    "greek-open-door-eleusis-care": {
-      "quest": "story-quest-greek-open-door-eleusis",
-      "lines": [
-        "I stayed beside the living grief.",
-        "We wrote their needs beneath the names."
-      ]
-    },
     "greek-open-door-family-berth": {
       "quest": "story-quest-greek-open-door-piraeus",
       "lines": [
         "I laid their names beside the rope.",
         "A place was kept for each of them."
-      ]
-    },
-    "greek-open-door-open-berth": {
-      "quest": "story-quest-greek-open-door-piraeus",
-      "lines": [
-        "I laid their names beside the rope.",
-        "We kept a space beyond the list."
       ]
     },
     "greek-open-door-colonus-water": {
@@ -179,13 +151,6 @@
         "A stranger’s need could find a name."
       ]
     },
-    "greek-open-door-colonus-family": {
-      "quest": "story-quest-greek-open-door-colonus",
-      "lines": [
-        "I set the daughters in the song.",
-        "Their hands had carried all those miles."
-      ]
-    },
     "greek-open-door-marathon-blanket": {
       "quest": "story-quest-greek-open-door-marathon",
       "lines": [
@@ -198,20 +163,6 @@
       "lines": [
         "The keeper gave the daughter voice.",
         "Her empty place remained among them."
-      ]
-    },
-    "greek-open-door-marathon-alcmene": {
-      "quest": "story-quest-greek-open-door-marathon",
-      "lines": [
-        "I heard old grief demand a death.",
-        "The altar held its troubling echo."
-      ]
-    },
-    "greek-open-door-marathon-hearing": {
-      "quest": "story-quest-greek-open-door-marathon",
-      "lines": [
-        "I asked the tale to hold a hearing.",
-        "Her grief still waited at its gate."
       ]
     },
     "greek-open-door-return-dione": {
@@ -228,25 +179,11 @@
         "A road for the dead lay in his words."
       ]
     },
-    "greek-homecoming-report-agora-force": {
-      "quest": "story-quest-greek-homecoming-return",
-      "lines": [
-        "I told her what the shields brought home.",
-        "She heard the mothers through the noise."
-      ]
-    },
     "greek-homecoming-report-eleusis-pledge": {
       "quest": "story-quest-greek-homecoming-return",
       "lines": [
         "I spoke the pledge beside her bread.",
         "The names of loss stayed in the room."
-      ]
-    },
-    "greek-homecoming-report-eleusis-care": {
-      "quest": "story-quest-greek-homecoming-return",
-      "lines": [
-        "I brought their needs beside her bread.",
-        "She heard the living with the dead."
       ]
     },
     "greek-homecoming-report-piraeus-family": {
@@ -256,25 +193,11 @@
         "The quay’s first promise reached the table."
       ]
     },
-    "greek-homecoming-report-piraeus-open": {
-      "quest": "story-quest-greek-homecoming-return",
-      "lines": [
-        "I told her of the wider place.",
-        "Its welcome carried work within it."
-      ]
-    },
     "greek-homecoming-report-colonus-custom": {
       "quest": "story-quest-greek-homecoming-return",
       "lines": [
         "I brought the grove’s old tale to her.",
         "Its tablet spoke of guests to come."
-      ]
-    },
-    "greek-homecoming-report-colonus-family": {
-      "quest": "story-quest-greek-homecoming-return",
-      "lines": [
-        "I spoke the daughters’ patient work.",
-        "Their road reached Dione through the song."
       ]
     },
     "greek-homecoming-report-marathon-alcmene": {
@@ -284,53 +207,11 @@
         "Its saved lives cast a troubled shadow."
       ]
     },
-    "greek-homecoming-report-marathon-hearing": {
-      "quest": "story-quest-greek-homecoming-return",
-      "lines": [
-        "I named the change within the tale.",
-        "Her empty place remained beside it."
-      ]
-    },
     "greek-homecoming-receive-family": {
       "quest": "story-quest-greek-homecoming-household",
       "lines": [
         "Her feet had reached the waiting quay.",
         "Her household’s basket passed to her."
-      ]
-    },
-    "greek-homecoming-receive-open": {
-      "quest": "story-quest-greek-homecoming-household",
-      "lines": [
-        "She found her place beside the rope.",
-        "The basket stayed for other hands."
-      ]
-    },
-    "greek-homecoming-read-basket-family": {
-      "quest": "story-quest-greek-homecoming-witness",
-      "lines": [
-        "I laid her words beside the bread.",
-        "Her hands had met the waiting basket."
-      ]
-    },
-    "greek-homecoming-read-berth-family": {
-      "quest": "story-quest-greek-homecoming-witness",
-      "lines": [
-        "I chose the verse about her place.",
-        "Her written answer crossed the table."
-      ]
-    },
-    "greek-homecoming-read-basket-open": {
-      "quest": "story-quest-greek-homecoming-witness",
-      "lines": [
-        "I laid her words beside the bread.",
-        "She offered hands to keep the welcome."
-      ]
-    },
-    "greek-homecoming-read-berth-open": {
-      "quest": "story-quest-greek-homecoming-witness",
-      "lines": [
-        "I chose the verse about more guests.",
-        "Her answer named the work to come."
       ]
     },
     "greek-ajax-deliver-shield": {

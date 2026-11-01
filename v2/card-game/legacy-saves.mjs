@@ -101,6 +101,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     upgradeGreekDistrictSave(s);
     upgradeGreekCithaeronSave(s);
     upgradeGreekDistrictRoadsSave(s);
+    upgradeGreekOpenDoorSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -969,4 +970,81 @@ export function upgradeGreekThebesSave(s) {
     if (topic) told.choiceId = topic.choiceId ?? null;
   }
   saved.revision = 11;
+}
+
+// Greek revision 15 retires the Open Door and homecoming story buttons. The
+// steps that stay keep their receipts; a retired fork's receipt passes to the
+// step that took it in, or leaves with its log line and its told topic. The
+// reading at Dione's table is now the gift of the signed list. The story's
+// flags and account choices are then counted again from its receipts.
+const OPEN_DOOR_RETIRED = {
+  "open-door-request-truce": null,
+  "open-door-request-recovery": null,
+  "open-door-hear-recovery-report": "open-door-hear-truce-report",
+  "open-door-eleusis-pledge": null,
+  "open-door-eleusis-care": null,
+  "open-door-open-berth": "open-door-family-berth",
+  "open-door-colonus-family": "open-door-colonus-custom",
+  "open-door-marathon-alcmene": null,
+  "open-door-marathon-hearing": null,
+  "homecoming-report-agora-force": "homecoming-report-agora-truce",
+  "homecoming-report-eleusis-care": "homecoming-report-eleusis-pledge",
+  "homecoming-report-piraeus-family": null,
+  "homecoming-report-piraeus-open": null,
+  "homecoming-report-colonus-family": "homecoming-report-colonus-custom",
+  "homecoming-report-marathon-hearing": "homecoming-report-marathon-alcmene",
+  "homecoming-receive-open": "homecoming-receive-family",
+  "homecoming-read-basket-family": "homecoming-report-piraeus-family",
+  "homecoming-read-berth-family": "homecoming-report-piraeus-family",
+  "homecoming-read-basket-open": "homecoming-report-piraeus-family",
+  "homecoming-read-berth-open": "homecoming-report-piraeus-family",
+};
+export function upgradeGreekOpenDoorSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 15 || saved?.revision !== 14) return;
+  const renamed = {};
+  for (const [old, next] of Object.entries(OPEN_DOOR_RETIRED)) {
+    const was = `greek-${old}`,
+      now = next && `greek-${next}`;
+    const turn = saved.receipts[was];
+    delete saved.receipts[was];
+    if (turn === undefined || !now || Object.hasOwn(saved.receipts, now))
+      continue;
+    saved.receipts[now] = turn;
+    renamed[was] = now;
+    if (saved.recitals?.[was]) saved.recitals[now] ??= saved.recitals[was];
+  }
+  const retired = Object.keys(OPEN_DOOR_RETIRED).map((id) => `greek-${id}`);
+  if (saved.recitals) {
+    for (const id of retired) delete saved.recitals[id];
+    for (const v of pack.recital.verses)
+      if (Object.hasOwn(saved.receipts, v.choice))
+        saved.recitals[v.choice] ??= { actor: null, visit: null };
+  }
+  s.log = (s.log || []).flatMap((e) =>
+    e?.packId !== pack.id || !retired.includes(e.choiceId)
+      ? [e]
+      : renamed[e.choiceId]
+        ? [{ ...e, choiceId: renamed[e.choiceId] }]
+        : [],
+  );
+  const story = (key) => /^greek-(open-door|homecoming)-/.test(key);
+  for (const record of [saved.choices, saved.flags])
+    for (const key of Object.keys(record)) if (story(key)) delete record[key];
+  for (const [id] of Object.entries(saved.receipts).sort((a, b) => a[1] - b[1]))
+    for (const e of pack.choices.find((c) => c.id === id)?.effects || []) {
+      if (!story(e.key)) continue;
+      if (e.kind === "choose") saved.choices[e.key] ??= e.value;
+      if (e.kind === "set_flag") saved.flags[e.key] = e.value;
+    }
+  // The recovery report's topic is gone; whoever knew it forgets it.
+  const k = s.knowledge,
+    topic = "greek-open-door-hear-recovery-report";
+  if (k?.facts?.[topic]) {
+    delete k.facts[topic];
+    for (const known of Object.values(k.known || {})) delete known[topic];
+    k.pending = (k.pending || []).filter((p) => p.factId !== topic);
+  }
+  saved.revision = 15;
 }
