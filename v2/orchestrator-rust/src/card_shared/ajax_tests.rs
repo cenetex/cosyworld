@@ -435,6 +435,12 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             if id == "vale" {
                 retained["place"] = saved["place"].clone();
             }
+            // Drawing Hoppy Cat's specials brings a drawn resident to its
+            // anchor and sends anyone in an undrawn place to the garden (#1622).
+            let hoppy = |place: &Value| place.as_str().is_some_and(|p| p.starts_with("hoppycat-"));
+            if hoppy(&saved["place"]) && hoppy(&retained["place"]) {
+                retained["place"] = saved["place"].clone();
+            }
             let mut saved = saved.clone();
             saved.as_object_mut().unwrap().remove("progress");
             for field in ["want", "xp", "visited", "talked", "metTurn", "gaveUp"] {
