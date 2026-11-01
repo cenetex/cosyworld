@@ -1355,7 +1355,10 @@ body .card.want-card[data-near="true"] {
   /* Kept within the hand's 12px top margin, which clips anything higher. */
   transform: translate(-7px, -9px) rotate(-2deg);
 }
-.card-frame > .quest-tab[data-glow="true"] {
+.card-frame > .quest-tab[data-glow="near"] {
+  box-shadow: 0 0 12px 2px var(--tier-color);
+}
+.card-frame > .quest-tab[data-glow="invite"] {
   box-shadow: 0 0 12px 2px var(--tier-color);
   animation: quest-invite 2.4s ease-in-out infinite alternate;
 }
@@ -1398,7 +1401,7 @@ body .card.want-card[data-met="true"] {
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .card-frame > .quest-tab[data-glow="true"] {
+  .card-frame > .quest-tab[data-glow="invite"] {
     animation: none;
   }
 }
