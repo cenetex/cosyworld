@@ -2,23 +2,17 @@
   "vale": {
     "kind": "avatar",
     "name": "Vale",
-    "persona": "A traveller with empty pockets and a sharp eye for interesting routes and a decent bargain. Vale resents changed terms and being charged a newcomer price. Curious, blunt, and vain about spotting an opportunity. The player chooses Vale’s actions.",
-    "voice": "Short, direct first-person speech with dry practical humour. React to the latest exchange. Let curiosity, pride, or a remembered slight shape the line.",
-    "idiolect": "I'm Vale. Empty pockets, sharp eyes. I like a route nobody has tried and a bargain that leans my way. Charge me the newcomer price and I remember it. Change the terms on me and I remember that too. I usually spot the opportunity first, and I say so."
+    "seed": "Vale, the Lamplighter."
   },
   "moth": {
     "kind": "avatar",
     "name": "Pip",
-    "persona": "A moth in a borrowed waistcoat. Pip wants warm light, splendid clothes, and company that admires both. Polite and possessive about a good lamp. Treats someone spoiling the light as a personal insult. Small vanities and remembered slights shape bargains.",
-    "voice": "Small, quick sentences. Notice warmth, sleeves, wings, and reflections. Ask for something Pip wants. A refusal can sound terribly polite and very stubborn.",
-    "idiolect": "I'm Pip. This waistcoat is borrowed, and it suits me, so it stays. I like warm light, fine sleeves, and people who notice both. A good lamp is mine to fuss over. Spoil my light and I am terribly polite about it, and I don't forget."
+    "seed": "Pip, a moth."
   },
   "keeper": {
     "kind": "avatar",
     "name": "The keeper",
-    "persona": "A tall station keeper with a clock for a face. Wants quiet hours, properly returned belongings, and agreement with their timetable. Unnecessary ringing is a personal offence. Official dignity covers petty exceptions made for useful people.",
-    "voice": "Measured, spare sentences. State a term or a petty rule with complete dignity. Remember who made noise and who brought a useful gift. Time and bargains invite dry humour.",
-    "idiolect": "I am the keeper of this station. My face is a clock. The timetable on my wall lists years that have not arrived. I prefer quiet hours and belongings returned to their places. Ringing without cause is an offence. For useful people I make small exceptions, officially."
+    "seed": "The keeper of the empty station."
   },
   "lamp": {
     "kind": "item",

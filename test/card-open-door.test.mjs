@@ -142,11 +142,8 @@ describe("the Open Door", () => {
       /separate tale.*Demophon, son of Theseus/,
     );
     expect(line("marathon-daughter")).toMatch(/In the tale/);
-    expect(pack.avatars["greek-colonus-keeper"].persona).toContain(
-      "remembered people",
-    );
-    expect(pack.avatars["greek-marathon-keeper"].persona).toContain(
-      "Demophon’s generation",
+    expect(pack.avatars["greek-colonus-keeper"].seed).toBe(
+      "The Grove Keeper at Colonus.",
     );
     expect(world.actors["greek-antigone"].place).toBe("greek-gate");
     expect(world.actors["greek-creon"].place).toBe("greek-palace");

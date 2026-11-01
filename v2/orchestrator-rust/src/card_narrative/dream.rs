@@ -31,14 +31,9 @@ fn fragment(text: &str, seed: u64) -> Option<String> {
     .filter(|f| !f.is_empty())
 }
 
-/// The first sentence of a profile's persona: who someone seems to be.
-fn sketch(id: &str) -> Option<String> {
-    let persona = profiles()[id]["persona"].as_str()?;
-    let first = persona.split_inclusive(". ").next()?.trim();
-    let first = first.trim_end_matches('.');
-    let mut chars = first.chars();
-    let lead = chars.next()?.to_lowercase().collect::<String>();
-    Some(format!("{}, {lead}{}", name(id), chars.as_str()))
+/// Someone's seed sentence, as a dream half-remembers a face (#1673).
+fn sketch(id: &str) -> String {
+    seed_sentence(id).trim_end_matches('.').to_string()
 }
 
 pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
@@ -76,7 +71,7 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
         .iter()
         .filter(|e| e.id != id && kind(&e.id, "avatar"))
         .filter(|e| !roll(&e.id, turn, 3).is_multiple_of(3))
-        .filter_map(|e| sketch(&e.id))
+        .map(|e| sketch(&e.id))
         .take(2)
         .collect();
     drift.extend(met);

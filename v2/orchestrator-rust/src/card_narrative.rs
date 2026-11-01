@@ -147,7 +147,12 @@ fn base_profiles() -> &'static Value {
         let map = profiles.as_object_mut().expect("profiles");
         let boardy: Value = serde_json::from_str(include_str!("../../card-game/boardyai.json"))
             .expect("BoardyAI guest");
-        for pack in packs["packs"].as_array().expect("pack list").iter().chain(std::iter::once(&boardy)) {
+        for pack in packs["packs"]
+            .as_array()
+            .expect("pack list")
+            .iter()
+            .chain(std::iter::once(&boardy))
+        {
             for (collection, kind) in [
                 ("places", "location"),
                 ("avatars", "avatar"),
@@ -157,14 +162,17 @@ fn base_profiles() -> &'static Value {
                     continue;
                 };
                 for (id, entity) in entities {
-                    let mut profile = json!({
-                        "kind": kind,
-                        "name": entity["name"],
-                        "persona": entity.get("persona").unwrap_or(&entity["text"]),
-                        "pack": pack["id"],
-                    });
-                    for field in ["voice", "idiolect", "expression"] {
-                        if let Some(value) = entity.get(field) { profile[field] = value.clone(); }
+                    let mut profile =
+                        json!({"kind": kind, "name": entity["name"], "pack": pack["id"]});
+                    // An avatar is only its seed sentence; card text is for the table.
+                    if kind != "avatar" {
+                        profile["persona"] =
+                            entity.get("persona").unwrap_or(&entity["text"]).clone();
+                    }
+                    for field in ["seed", "voice", "idiolect", "expression"] {
+                        if let Some(value) = entity.get(field) {
+                            profile[field] = value.clone();
+                        }
                     }
                     assert!(
                         map.insert(id.clone(), profile).is_none(),
@@ -173,14 +181,25 @@ fn base_profiles() -> &'static Value {
                 }
             }
         }
-        let cast: Value = serde_json::from_str(include_str!("../../card-game/shared-cast.json")).expect("shared cast");
+        let cast: Value = serde_json::from_str(include_str!("../../card-game/shared-cast.json"))
+            .expect("shared cast");
         for human in cast["avatars"].as_array().expect("human avatars") {
-            if human["id"] == "vale" { continue; }
-            for (entry, kind) in [(human, "avatar"), (&human["home"], "location"), (&human["item"], "item")] {
+            if human["id"] == "vale" {
+                continue;
+            }
+            for (entry, kind) in [
+                (human, "avatar"),
+                (&human["home"], "location"),
+                (&human["item"], "item"),
+            ] {
                 if let Some(id) = entry["id"].as_str() {
-                    let mut profile = json!({"kind":kind,"name":entry["name"],"persona":entry.get("text").or_else(||entry.get("effect")),"pack":"shared-homes"});
+                    let mut profile =
+                        json!({"kind":kind,"name":entry["name"],"pack":"shared-homes"});
                     if kind == "avatar" {
-                        profile["voice"] = json!("Speak briefly about this shared moment. The player chooses this avatar's actions.");
+                        profile["seed"] = entry["seed"].clone();
+                    } else {
+                        profile["persona"] =
+                            json!(entry.get("text").or_else(|| entry.get("effect")));
                     }
                     map.insert(id.into(), profile);
                 }
@@ -1213,6 +1232,15 @@ fn names(ids: &[String]) -> String {
         .join(" and ")
 }
 
+/// An avatar's one seed sentence, such as "Vale, the Lamplighter." (#1673).
+/// Everything else it knows about itself comes from events and its inner life.
+fn seed_sentence(id: &str) -> String {
+    profiles()[id]["seed"]
+        .as_str()
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("{}.", name(id)))
+}
+
 /// The entity's own first-person words, with the persona its reflections grew.
 fn idiolect(entity: &Entity, part: Part) -> String {
     if kind(&entity.id, "location") {
@@ -1222,17 +1250,26 @@ fn idiolect(entity: &Entity, part: Part) -> String {
         return String::new();
     }
     let profile = &profiles()[&entity.id];
-    let mut text = profile["idiolect"]
-        .as_str()
-        .map(str::to_owned)
-        .unwrap_or_else(|| {
-            format!(
-                "I am {}.\n{}\n{}",
-                name(&entity.id),
-                profile["persona"].as_str().unwrap_or_default(),
-                profile["voice"].as_str().unwrap_or_default()
-            )
-        });
+    let mut text = if kind(&entity.id, "avatar") {
+        let seed = seed_sentence(&entity.id);
+        // "The Swede, ..." reads as "I am the Swede, ...".
+        match ["The ", "A ", "An "].iter().find(|a| seed.starts_with(**a)) {
+            Some(article) => format!("I am {}{}", article.to_lowercase(), &seed[article.len()..]),
+            None => format!("I am {seed}"),
+        }
+    } else {
+        profile["idiolect"]
+            .as_str()
+            .map(str::to_owned)
+            .unwrap_or_else(|| {
+                format!(
+                    "I am {}.\n{}\n{}",
+                    name(&entity.id),
+                    profile["persona"].as_str().unwrap_or_default(),
+                    profile["voice"].as_str().unwrap_or_default()
+                )
+            })
+    };
     if let Some(persona) = entity
         .inner_life
         .as_ref()
@@ -2432,6 +2469,16 @@ mod tests {
     #[test]
     fn prompts_hold_only_first_person_idiolect_and_transcript() {
         for (id, profile) in profiles().as_object().unwrap() {
+            // An avatar is one seed sentence: no persona, voice or idiolect.
+            if profile["kind"] == "avatar" {
+                let seed = profile["seed"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{id} seed"));
+                assert!(bounded(seed, 120) && seed.ends_with('.'), "{id}");
+                for gone in ["persona", "voice", "idiolect", "lines"] {
+                    assert!(profile.get(gone).is_none(), "{id} {gone}");
+                }
+            }
             let Some(words) = profile["idiolect"].as_str() else {
                 continue;
             };
@@ -3830,7 +3877,8 @@ mod tests {
         assert!(valid(&c));
         assert_eq!(voiced(&c), ["vale", "badger", "clearing"]);
         let badger = &c.entities[2];
-        assert!(idiolect(badger, Part::Line).contains("moss"));
+        assert!(idiolect(badger, Part::Line)
+            .starts_with("I am Grumpy Badger, a badger of the clearing."));
         let heard = transcript(&c, badger, Part::Line);
         assert!(heard.contains("Awake after Vale spoke. Still grumpy about the interruption."));
         assert!(heard.contains("I'm talking with Vale."));
@@ -4002,7 +4050,7 @@ mod tests {
         assert!(!pip.contains("I offered my cloth."));
         assert!(transcript(&c, &c.entities[3], Part::Thought)
             .contains("Earlier: Pip: I offered my cloth."));
-        assert!(idiolect(&c.entities[3], Part::Line).contains("borrowed"));
+        assert!(idiolect(&c.entities[3], Part::Line).starts_with("I am Pip, a moth.\n"));
         c.action = Some("x".repeat(651));
         assert!(!valid(&c));
         c = context();
@@ -4457,8 +4505,7 @@ mod tests {
         c.entities[1].id = c.location.clone();
         c.entities[3].id = "greek-baker".into();
         c.speakers[1] = "greek-baker".into();
-        assert!(idiolect(&c.entities[3], Part::Line)
-            .contains(profiles()["greek-baker"]["voice"].as_str().unwrap()));
+        assert!(idiolect(&c.entities[3], Part::Line).starts_with("I am Dione the Baker."));
         assert!(valid(&c));
         let result = complete(
             &test_config(address),
@@ -4478,8 +4525,7 @@ mod tests {
         assert_eq!(baker["model"], "test-entity-model");
         c = context();
         c.entities[0].id = "mara".into();
-        assert!(idiolect(&c.entities[0], Part::Line)
-            .contains("The player chooses this avatar's actions."));
+        assert!(idiolect(&c.entities[0], Part::Line).starts_with("I am Mara, the Understudy."));
         c.speakers[0] = "mara".into();
         seen.lock().unwrap().clear();
         let result = shared_lines(

@@ -1,5 +1,16 @@
 import { packDefinitions } from "../card-game/pack-registry.mjs";
 
+// The full suite runs each width of a long journey on its own runner
+// (scripts/browser-shards.json). Without COSYWORLD_SMOKE_WIDTHS, run them all.
+export function smokeWidths(widths) {
+  const only = process.env.COSYWORLD_SMOKE_WIDTHS?.split(",");
+  if (!only) return widths;
+  const chosen = widths.filter((width) => only.includes(String(width)));
+  if (!chosen.length)
+    throw new Error(`No journey width among ${only} (has ${widths})`);
+  return chosen;
+}
+
 export const topicForChoice = (choiceId) =>
   choiceId &&
   packDefinitions
@@ -20,7 +31,8 @@ export async function revealCard(page, id) {
   if ((await card.getAttribute("data-unrevealed")) === "true") {
     await card.click();
     await page.waitForFunction(
-      (id) => !document.querySelector(`#hand [data-card="${id}"]`)?.dataset.revealing,
+      (id) =>
+        !document.querySelector(`#hand [data-card="${id}"]`)?.dataset.revealing,
       id,
     );
   }

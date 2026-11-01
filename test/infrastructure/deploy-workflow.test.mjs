@@ -419,22 +419,13 @@ describe("deploy workflow", () => {
     expect(composition).toContain("suite: [standalone, core-ruby]");
     expect(composition).toContain("actions/download-artifact@v8");
     expect(browser).toContain("needs: smoke-binary");
-    for (const mode of [
-      "baseline",
-      "living-world",
-      "cards-shared",
-      "cards-ui",
-      "cards-routes",
-      "cards-drama",
-      "cards-weather",
-      "cards-open-door",
-      "cards-homecoming",
-      "cards-ajax",
-      "cards-dialogue",
-      "cards-quests",
-    ])
-      expect(browser).toContain(`- mode: ${mode}\n`);
-    expect(browser).toContain('node "v2/scripts/$script.mjs"');
+    // The browser matrix comes from the measured shard plan.
+    expect(binary).toContain("node scripts/plan-browser-shards.mjs");
+    expect(browser).toContain(
+      "matrix: ${{ fromJSON(needs.smoke-binary.outputs.browser-shards) }}",
+    );
+    expect(browser).toContain('node "v2/scripts/$check.mjs"');
+    expect(browser).toContain("npm run v2:browser:check");
     expect(browser).toContain("actions/download-artifact@v8");
     for (const job of ["node", "runtime", "smoke-binary", "rust-quality"])
       expect(build).toContain(job);

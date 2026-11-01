@@ -24,7 +24,11 @@ jobs:
   plan:
     name: Change budget, version, engine gate, and smoke plan
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 5
+    # Up to 15 minutes of this is the wait for a production deploy.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
     outputs:
       smokes: ${{ steps.smokes.outputs.smokes }}
     steps:
@@ -32,6 +36,13 @@ jobs:
         with:
           fetch-depth: 0
           filter: blob:none
+      # Every other job needs this one, so a production deploy gets the
+      # runners first.
+      - name: Yield runners to a production deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: bash scripts/yield-to-production-deploy.sh
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -150,7 +161,11 @@ jobs:
       - name: Run ${{ matrix.smoke }}
         env:
           SMOKE: ${{ matrix.smoke }}
-        run: node "v2/scripts/$SMOKE.mjs"
+        run: |
+          case "$SMOKE" in
+            *@*) COSYWORLD_SMOKE_WIDTHS="${SMOKE#*@}" node "v2/scripts/${SMOKE%@*}.mjs" ;;
+            *) node "v2/scripts/$SMOKE.mjs" ;;
+          esac
       - name: Upload browser images
         if: failure()
         uses: actions/upload-artifact@v7

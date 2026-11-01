@@ -41,6 +41,7 @@
       "scarfColor": "green",
       "name": "Mara",
       "title": "The Understudy",
+      "seed": "Mara, the Understudy.",
       "pleasure": "Try a role and start a little scene.",
       "text": "A witty performer who improvises with whoever arrives. She wants to stage the station's unfinished play and eagerly promises everyone a part.",
       "item": {
@@ -68,6 +69,7 @@
       "scarfColor": "blue",
       "name": "Ash",
       "title": "The Diver",
+      "seed": "Ash, the Diver.",
       "pleasure": "Look beneath the surface.",
       "text": "A sturdy pond explorer with dry humour and patient hands. He wants to recover the sunken station bell. Each find makes the next difficult recovery tempting.",
       "item": {
@@ -95,6 +97,7 @@
       "scarfColor": "violet",
       "name": "Nell",
       "title": "The Grafter",
+      "seed": "Nell, the Grafter.",
       "pleasure": "Grow something surprising.",
       "text": "A bold gardener who experiments in unused places. She wants a garden across the platform. Shared space gives others a say in her plans.",
       "item": {
@@ -122,6 +125,7 @@
       "scarfColor": "red",
       "name": "Tavi",
       "title": "The Kite Runner",
+      "seed": "Tavi, the Kite Runner.",
       "pleasure": "Try an idea and send a signal.",
       "text": "A quick, playful inventor who sends signals across the shore. They want to catch the wind that arrives before the train. Every experiment invites help.",
       "item": {
@@ -149,6 +153,7 @@
       "scarfColor": "orange",
       "name": "Rue",
       "title": "The Conductor",
+      "seed": "Rue, the Conductor.",
       "pleasure": "Arrange an unlikely journey.",
       "text": "A brisk organiser with dry wit and a gift for useful exceptions. She wants the first departure in years and sometimes promises a destination before finding the route.",
       "item": {
@@ -178,6 +183,7 @@
       "scarfColor": "amber",
       "name": "Orin",
       "title": "The Game Maker",
+      "seed": "Orin, the Game Maker.",
       "pleasure": "Invite someone into a friendly game.",
       "text": "A warm, eager player who loves friendly contests and elaborate rules. He wants a game everyone can enjoy. His delight carries him toward extravagant wagers.",
       "item": {
@@ -205,6 +211,7 @@
       "scarfColor": "yellow",
       "name": "Ada",
       "title": "The Unpicker",
+      "seed": "Ada, the Unpicker.",
       "pleasure": "Find the seam and make a new possibility.",
       "text": "A brisk, mischievous craftswoman with a hand-powered chair. She wants to turn the old curtain into a sail. She weighs keeping a story against giving its cloth another use.",
       "item": {

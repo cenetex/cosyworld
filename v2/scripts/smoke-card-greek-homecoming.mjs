@@ -5,15 +5,16 @@ import { createServer } from "../card-game/serve.mjs";
 import { currentActor, encodeSave, legalActions } from "../card-game/world.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 import { profiles } from "../card-game/memory.mjs";
-import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import {
   openDoorAction,
-  openDoorInvitation,
+  openDoorStart,
+  playOpenDoor,
 } from "../../test/helpers/open-door.mjs";
 import { homecomingSteps } from "../../test/helpers/greek-homecoming.mjs";
 import {
   clearSelection,
   selectCard,
+  smokeWidths,
   topicForChoice,
 } from "./card-browser-helpers.mjs";
 
@@ -25,9 +26,18 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
   browser = await chromium.launch({ headless: true });
-  for (const width of [1440, 390]) {
+  for (const width of smokeWidths([1440, 390])) {
     const berth = width === 1440 ? "family" : "open";
     const reading = width === 1440 ? "basket" : "berth";
+    // smoke-card-open-door walks the Open Door chapter in the browser, so
+    // this journey starts from a save just after the berth choice.
+    const steps = homecomingSteps({ berth, reading });
+    const start = steps.findIndex(
+      (a) => a.choiceId === `greek-open-door-${berth}-berth`,
+    );
+    let world = openDoorStart();
+    for (const { kind, ...fields } of steps.slice(0, start + 1))
+      world = playOpenDoor(world, kind, fields);
     const table = `homecoming-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
     const page = await browser.newPage({
@@ -55,7 +65,7 @@ try {
       },
       {
         key,
-        save: encodeSave(openingFixture("refusal").closed),
+        save: encodeSave(world),
         seen: Object.keys(profiles),
       },
     );
@@ -172,12 +182,7 @@ try {
     try {
       await page.goto(`${origin}/?table=${table}`);
       await settle();
-      await step({
-        kind: "choose",
-        choiceId: openDoorInvitation(await state()).choiceId,
-      });
-      await step({ kind: "drop", item: "lamp", target: "greek-courtyard" });
-      for (const action of homecomingSteps({ berth, reading })) {
+      for (const action of steps.slice(start + 1)) {
         await step(action);
         if (action.choiceId === `greek-homecoming-report-piraeus-${berth}`) {
           const world = await state();

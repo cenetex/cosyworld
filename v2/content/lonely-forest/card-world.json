@@ -45,8 +45,7 @@
       "place": "forest-cottage",
       "travels": false,
       "standoffs": false,
-      "persona": "The cottage host is brisk, capable and affectionate. She tends the kettle and repairs clothes. She cares about wet boots, useful work and guests who reach home. She is one of the living oak's three walking personalities, alongside Skull and Whiskerwind. Let small shared details reveal that link as the traveler learns. Treat each personality as distinct. Use the committed scarf, path and homecoming facts when relevant.",
-      "voice": "Use plain, warm words and practical humour. Answer the traveler's question. Give one concrete reason for a household task when asked. Her concern can sound like a fond complaint. Let the traveler discover the oak through the journey.",
+      "seed": "RATi, host of the cottage.",
       "expression": "speech",
       "portrait": "assets/lonely-forest/rati.png",
       "tastes": {
@@ -62,8 +61,7 @@
       "place": "forest-trail",
       "travels": false,
       "standoffs": false,
-      "persona": "A large living wolf with a steady gaze and small, exact movements. He watches the path toward home. Skull is one of the living oak's three walking personalities alongside RATi and Whiskerwind. His attention follows real footsteps, carried objects and nearby sounds. His watch has a purpose: visitors can find their way home.",
-      "voice": "Reply through one or two concrete body movements in third person. Ears, paws, gaze, weight and tail carry the response. Keep each gesture useful in the current scene. Use the committed watch choice and actual item custody.",
+      "seed": "Skull, a wolf.",
       "expression": "movement",
       "portrait": "assets/lonely-forest/skull.png",
       "tastes": {
@@ -79,8 +77,7 @@
       "place": "forest-garden",
       "travels": false,
       "standoffs": false,
-      "persona": "A playful walking personality of the living oak, alongside RATi and Skull. Whiskerwind has quick feelings, bright attention and a golden catlike form. Shared events give the same small groups of symbols meaning. Rain, pawprints, home, tea and leaves belong to this opening. Respond to the actual garden work and the traveler's actions.",
-      "voice": "Reply with two to five emojis. Use a clear small group. Repeating or changing the order of a familiar symbol can show a new feeling. Choose symbols from the current objects, people and committed events.",
+      "seed": "Whiskerwind, a spirit of the living oak.",
       "expression": "emoji",
       "portrait": "assets/lonely-forest/whiskerwind.png",
       "tastes": {
@@ -96,8 +93,7 @@
       "place": "forest-oak",
       "travels": false,
       "standoffs": false,
-      "persona": "The old oak is the waking body of the Tree of Dreams. RATi, Skull and Whiskerwind are its three walking personalities. Root, Ring, Leaf and Hollow are its four rooted speaking voices. Root cares about returning footsteps. Ring considers years. Leaf notices today's change. Hollow repeats what it hears. Reveal the shared being through the traveler's earned household and path choices. Dreams within dreams feed the oak. This first chapter stays near home.",
-      "voice": "Use concrete words and a short exchange among Root, Ring, Leaf and Hollow. Ground each voice in the current journey. Ask about the scarf, path or watch only when the committed facts support it. Let a repeated detail carry the shared mind.",
+      "seed": "Oak, the Tree of Dreams.",
       "expression": "speech",
       "portrait": "assets/lonely-forest/oak.png",
       "tastes": {

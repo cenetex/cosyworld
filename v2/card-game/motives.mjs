@@ -169,9 +169,10 @@ export function recordReaction(s, a, witnesses, accepted) {
       .map((g) => (g.other === a.actor ? { ...g, weight: g.weight - 1 } : g))
       .filter((g) => g.weight > 0);
 }
+// Tastes steer valuations only; a liking stated in the prompt became the
+// avatar's whole voice (#1665), so speech hears what happened instead.
 export function motiveFacts(s, actor, limit = 6) {
   return [
-    tastes[actor].likes,
     ...(lifeOf(s, actor) ? [lifeFacts(s, actor).join(" ").slice(0, 240)] : []),
     ...(s.motives?.grievances[actor] || [])
       .slice(-limit)

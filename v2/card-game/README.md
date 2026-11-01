@@ -162,7 +162,7 @@ facts from earlier releases keep their names; player-facing text says quest.
   connected humans are there with him. In Talk he says "I want to introduce
   you to someone." As a resident he Talks once two connected humans share his
   room, and otherwise goes to one who is elsewhere. Generated quests are never
-  connect quests.
+  connect quests. BoardyAI is inspired by [Boardy](https://x.com/boardyai).
 
 The hand holds only people, items and places; quests have no cards or
 buttons. A person's quest reaches the player only through Talk:
@@ -184,6 +184,10 @@ and `test/card-want-talk.test.mjs` checks the Talk fact.
 
 Card faces contain the illustration and a small name. Tapping a card toggles
 its selection. Selecting a card or pair shows named actions in the row below.
+A selected card lifts and wears a white inner ring, apart from its tier border
+and the level-up glow, and the rest of the hand dims. At most one place is
+selected: choosing another place replaces it and keeps the selected person or
+item, so Pip + Station, then Pond, offers **Invite Pip along** to the Pond.
 Tapping an action button plays it. The current place leads the hand, followed
 by items lying there, avatars with their carried items, and travel destinations.
 Hover lifts a card and its preview stack together. The name shade reaches the
@@ -191,7 +195,7 @@ card edge, so a raised card clipped by the folded row shows no stray art.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 On wide screens, the resting hand occupies two card widths at the right. Dialogue
 sits at the left. Selecting a card opens the hand across the screen and moves
-dialogue above it. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, and a sideways swipe stays inside the hand.
+dialogue above it. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, cards fade out at an edge that hides more of the hand, and a sideways swipe stays inside the hand.
 Play stays available during an exchange. A waiting play shows **Queued** and
 the notice names what it waits for: an earlier play, the arrival, the cards or
 an open menu. In a local game tapping it again cancels it. Selecting another
@@ -382,7 +386,7 @@ that resident still commits the choice, one choice per turn.
 Run `node v2/scripts/smoke-card-open-door.mjs` and
 `node v2/scripts/smoke-card-greek-homecoming.mjs` for the Open Door and
 homecoming journeys at desktop and phone widths, and
-`node v2/scripts/smoke-card-ajax.mjs` for the three Ajax journeys.
+`node v2/scripts/smoke-card-ajax.mjs` for the three Ajax journeys, each walked once.
 `smoke-card-greek-drama.mjs` also plays the opening poem, where the Bard's
 quest to hear Vale brings it to the courtyard, and
 `smoke-card-bard-travel.mjs` follows the Bard's own quests along the roads and
@@ -434,11 +438,11 @@ are saved in `output/badger-check/`.
 
 ## Shore text and memory
 
-Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Each avatar's voice, beliefs and fears give its request or response a personal reason.
+Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Each avatar's memories, beliefs and fears give its request or response a personal reason.
 
-Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Hidden interaction rules stay in the simulation; each avatar's facts can include the quest line described in [One quest per avatar](#one-quest-per-avatar). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until Vale first douses or relights the lamp in the attic, or leaves it.
+Speech receives visible facts, current wants, and witnessed results. Item and place profiles describe appearance; an avatar profile is one seed sentence. Hidden interaction rules stay in the simulation; each avatar's facts can include the quest line described in [One quest per avatar](#one-quest-per-avatar). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until Vale first douses or relights the lamp in the attic, or leaves it.
 
-When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. A speech prompt shows the present rather than a transcript: it leaves out earlier table lines and remembered speech, and keeps one past line only when this turn's Talk is aimed at the speaker, the acting avatar's latest line that the speaker heard. A character's voice comes from its authored idiolect, a short description in prose; prompts carry no authored example lines. The `repeat` check compares a reply with the speaker's last three spoken lines, which the service reads from its memories, its previous reply and the request's table lines without putting them in the prompt. Thought, persona and dream calls still read remembered speech ([#1537](https://github.com/cenetex/cosyworld/issues/1537)). The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action; social actions and travel can start an exchange, while ordinary object manipulation can remain silent. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the words to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, combat, travel and introductions retain their relevant speakers. The departure action stays in the source scene. Words are written after the move commits, so a departed avatar's line is recorded at the destination with that place's cast; a player left at the source never sees it, and the waiting portrait does not name them there. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
+When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. A speech prompt shows the present rather than a transcript: it leaves out earlier table lines and remembered speech, and keeps one past line only when this turn's Talk is aimed at the speaker, the acting avatar's latest line that the speaker heard. A character's voice comes from its seed sentence, its facts and its own inner life; prompts carry no authored description or example lines. The `repeat` check compares a reply with the speaker's last three spoken lines, which the service reads from its memories, its previous reply and the request's table lines without putting them in the prompt. Thought, persona and dream calls still read remembered speech ([#1537](https://github.com/cenetex/cosyworld/issues/1537)). The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action; social actions and travel can start an exchange, while ordinary object manipulation can remain silent. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the words to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, combat, travel and introductions retain their relevant speakers. The departure action stays in the source scene. Words are written after the move commits, so a departed avatar's line is recorded at the destination with that place's cast; a player left at the source never sees it, and the waiting portrait does not name them there. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
 
 Each server voice call writes one `card voice call` log record with the entity, part, attempt count, outcome (`spoken`, `untold`, `silent` or `cancelled`), each attempt's rejection reason, and approximate prompt tokens (characters / 4) for every section: `system`, `now`, `facts`, `directions`, `memories`, `earlier`, `conversation` and `inner`. It never records prompt or reply text. `GET /meta` reports the same counters since the process started under `card_voice`. `npm run v2:voice:eval` builds every prompt for the narrative-contract scenes and a scripted station conversation, prints token and section statistics, and replays the recorded replies in `test/fixtures/card-voice-replies.json` through the validator. The eval also counts first-person possession and deed claims that the resolved turn does not support (`false_claim`); the live validator does not check those yet ([#1537](https://github.com/cenetex/cosyworld/issues/1537)).
 
@@ -464,7 +468,7 @@ Empty station connects to Black pond. Mirror attic connects to the pond through
 the reflection. Leaving the attic requires the lamp in the attic, not shining
 (doused, dry or covered). Returning needs a lit, fueled, uncovered lamp at the pond. Both are
 `requires` data on `forest.json` `reflectionRoutes`; the attic's `backdrops`
-paint it lit, doused, or dark without the lamp. The Black
+paint it lit, doused, or dark without the lamp; the stage dims those paintings only at night. The Black
 cloth in the lit attic also reveals stairs down to Cosy Cottage, with a matching
 painting. The cloth can lie in the room or travel with someone or something
 there. The cottage's
@@ -721,8 +725,8 @@ place chooses the next song. A quiet place lets the player hear the landscape.
 Mute and hidden tabs pause the same song for a later resume. River Camp chooses
 one of four supplied acid jazz songs during the day. An active camp song keeps
 playing through dusk and night. Run `node v2/scripts/smoke-card-music-network.mjs`
-for the throttled request and first-sound checks, and
-`node v2/scripts/smoke-card-music-follow.mjs` for songs that follow travel.
+for the throttled request and first-sound checks. `test/card-music.test.mjs`
+covers songs that follow travel.
 
 Room music starts with the first accepted card play in a new game. In a shared world, each avatar starts in silence until their own first accepted play, such as picking up or using their item. The saved play journal keeps that choice across reloads. The opening scene and menu wait for that play. Starting another new game resets this wait and keeps the saved music and volume settings.
 
@@ -752,9 +756,11 @@ the gateway omit sampling temperature for endpoints that reject it.
 
 Each avatar call receives the public scene plus that avatar's own witnessed
 memories, current persona, thoughts and dreams. Other avatars' inner lives stay
-with their own calls. Authored personas and voice profiles remain the roots of
-identity; current actions, possessions, travel and relationships come from the
-resolved simulation.
+with their own calls. The only authored identity is one seed sentence, such as
+"Vale, the Lamplighter." ([#1673](https://github.com/cenetex/cosyworld/issues/1673);
+[seed sentences](../docs/card-table/seed-sentences.md)). Current actions,
+possessions, travel, wants and relationships come from the resolved simulation,
+and the rest of who an avatar is grows in its inner life.
 
 An avatar reflects when it chooses Observe after a new witnessed event; the scene
 names that avatar as `resting`. A reflection supplies a thought and an evolved
@@ -772,14 +778,16 @@ for six turns. A dream colours speech for two turns after waking.
 
 The browser saves the current persona and the latest four thoughts and four
 dreams per avatar beside the existing witnessed memories and landmarks.
-`History` → `Inner life` shows them for discovered characters. Existing saves
-start with their authored personas and gain inner lives as play continues.
+`History` → `Inner life` shows them for discovered characters. Every avatar
+starts from its seed sentence and gains an inner life as play continues.
 Dreams and thoughts are marked as private impressions. They are separate from
 witnessed events and public conversation.
 
 Each voice receives a short first-person transcript and completes one plain-text
-line. An optional `idiolect` profile field describes the voice in prose;
-profiles carry no example utterances ([#1537](https://github.com/cenetex/cosyworld/issues/1537)). Existing pack `persona` and `voice` fields remain supported. The server checks
+line. An avatar's system line is `I am <seed>` plus its grown persona; avatar
+profiles carry no persona, voice, idiolect or example utterances, and tastes
+stay out of speech ([#1673](https://github.com/cenetex/cosyworld/issues/1673)). Items keep an optional `idiolect`, and places keep their
+`persona` and narrator `voice`. The server checks
 visible state, including lamp state, before accepting each line. Supplied quest
 facts remain part of the transcript. A bard's poem context names its title
 and the travelers whose deeds it holds, with no authored verse text. The bard

@@ -82,7 +82,11 @@ smoke serves the static card game; smokes that start the Rust server run only
 in the full suite. A new PR run cancels the PR's older run; main runs are
 never cancelled. Each job reads its runner label from the `FAST_CHECK_RUNNER`
 repository variable (default `ubuntu-latest`), so moving to the Fly runner
-(#1565) needs no workflow edit.
+(#1565) needs no workflow edit. While a production deploy (a `v*` tag or a
+dispatch of `deploy.yml`) is queued or running, the plan job waits, for up to
+15 minutes, before the other fast-check jobs ask for runners
+(`scripts/yield-to-production-deploy.sh`), so the deploy is not queued behind
+pull request checks.
 
 ### Landing
 
@@ -93,7 +97,7 @@ repository variable (default `ubuntu-latest`), so moving to the Fly runner
 
 ### Full suite
 
-The full suite (`ci.yml`, about 40 minutes) runs only by hand
+The full suite (`ci.yml`, about 12 minutes on idle runners) runs only by hand
 (`gh workflow run ci.yml --ref main`) and does not block a release: tag the
 commit `.dev` serves as in [release operations](../docs/release.md#cutting-a-release),
 and file failures as issues. Do not run it after batches.
@@ -103,9 +107,12 @@ gates on tags.
 
 The full suite is the final cross-platform authority. It uses Node 24 and stable Rust
 for lint, tests, content, kernel, Rust builds, browser and composition smokes,
-and guide checks. Browser journeys run in parallel groups from one shared
-debug binary; keep each group near ten minutes and add a new journey script to
-a group in `ci.yml`. No full-suite run is cancelled. Known flaky tests listed in `QUARANTINED_TESTS` in
+and guide checks. Browser journeys run in parallel shards from one shared
+debug binary. `scripts/plan-browser-shards.mjs` packs the measured checks in
+`scripts/browser-shards.json` into shards of about six minutes; add a new
+journey there with its duration, and split a long journey by width with
+`smokeWidths` from `v2/scripts/card-browser-helpers.mjs`. Each run takes about
+20 runners, so runs dispatched together queue for GitHub's concurrency limit. No full-suite run is cancelled. Known flaky tests listed in `QUARANTINED_TESTS` in
 `v2/scripts/check-rust.sh` run in the non-blocking `Quarantined Rust tests`
 job; each has an issue and a fix-by date. Main saves one Cargo cache per UTC day, right after
 compiling. A local suite

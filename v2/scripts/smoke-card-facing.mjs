@@ -17,11 +17,16 @@ await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({ headless: true });
 try {
+  const pairs = [
+    ...humanAvatarIds.map((actor) => ({ actor, resident: "greek-baker" })),
+    { actor: "mara", resident: "keeper" },
+  ];
+  // Every portrait runs at desktop width; the phone width checks one human
+  // and Mara, since the facing rule does not depend on the portrait.
   for (const width of [1440, 390]) {
-    for (const { actor, resident } of [
-      ...humanAvatarIds.map((actor) => ({ actor, resident: "greek-baker" })),
-      { actor: "mara", resident: "keeper" },
-    ]) {
+    for (const { actor, resident } of width === 1440
+      ? pairs
+      : [pairs[0], pairs.at(-1)]) {
       for (const mirrored of [false, true]) {
         const world = createWorld();
         world.sharedVersion = 1;
@@ -183,7 +188,7 @@ try {
       }
     }
     console.log(
-      `Stage facing: all eight shared avatars with Dione, both stage orders, plus both Keeper variants passed at ${width}px.`,
+      `Stage facing: ${width === 1440 ? "all eight shared avatars" : "one shared avatar"} with Dione, both stage orders, plus both Keeper variants passed at ${width}px.`,
     );
   }
 } finally {

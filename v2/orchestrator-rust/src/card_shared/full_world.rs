@@ -164,6 +164,7 @@ impl World {
                 engine::SIXTIETH_VERSION,
                 engine::SIXTY_FIRST_VERSION,
                 engine::SIXTY_SECOND_VERSION,
+                engine::SIXTY_THIRD_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
@@ -259,6 +260,7 @@ impl World {
             engine::SIXTIETH_VERSION,
             engine::SIXTY_FIRST_VERSION,
             engine::SIXTY_SECOND_VERSION,
+            engine::SIXTY_THIRD_VERSION,
         ]
         .contains(&self.version.as_str())
         {
@@ -340,12 +342,27 @@ impl World {
         let mut view =
             engine::reduce_pack(&self.version, self.pack.as_deref(), self.request("view", a))?;
         // Apply privacy to every released interpreter, including older saves.
+        // The browser reads only its own avatar's memory, so every other
+        // memory leaves as an empty record. This keeps each view a fraction
+        // of the world's size; the journal and the stored world keep all.
         if let Some(memories) = view["world"]["memories"].as_object_mut() {
             for (id, memory) in memories {
                 if id != actor_id(a) {
                     if let Some(memory) = memory.as_object_mut() {
-                        for key in ["innerLife", "reflections", "learning"] {
+                        for key in [
+                            "innerLife",
+                            "reflections",
+                            "learning",
+                            "seen",
+                            "text",
+                            "model",
+                        ] {
                             memory.remove(key);
+                        }
+                        for key in ["events", "landmarks"] {
+                            if memory.contains_key(key) {
+                                memory.insert(key.into(), json!([]));
+                            }
                         }
                     }
                 }

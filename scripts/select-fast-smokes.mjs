@@ -7,12 +7,19 @@ import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const CONFIG = fileURLToPath(new URL("./fast-smokes.json", import.meta.url));
+const SHARDS = fileURLToPath(new URL("./browser-shards.json", import.meta.url));
 
-export function selectSmokes(changed, config) {
+// A journey the full suite splits by width (scripts/browser-shards.json)
+// runs one width per job here too, so each fits the job's time limit.
+export function selectSmokes(changed, config, shardChecks = {}) {
   const rust = new Set(config.needsRust);
   const picked = [];
   const add = (smoke) => {
-    if (!rust.has(smoke) && !picked.includes(smoke)) picked.push(smoke);
+    const widths = Object.keys(shardChecks).filter((check) =>
+      check.startsWith(`${smoke}@`),
+    );
+    for (const run of widths.length ? widths : [smoke])
+      if (!rust.has(smoke) && !picked.includes(run)) picked.push(run);
   };
   for (const file of changed) {
     const own = file.match(
@@ -36,5 +43,6 @@ if (
     .split("\n")
     .filter(Boolean);
   const config = JSON.parse(readFileSync(CONFIG, "utf8"));
-  console.log(JSON.stringify(selectSmokes(changed, config)));
+  const { checks } = JSON.parse(readFileSync(SHARDS, "utf8"));
+  console.log(JSON.stringify(selectSmokes(changed, config, checks)));
 }

@@ -312,6 +312,16 @@ try {
     assert.equal(await card("bell").isVisible(), false);
     assert.equal(await page.locator(".card-more").count(), 0);
     await shot("stacks");
+    // Only one place is chosen: a second replaces the first and keeps Pip.
+    await selectCard(page, "moth");
+    await selectCard(page, "station");
+    await selectCard(page, "pond");
+    assert.deepEqual(await pressed(), ["moth", "pond"]);
+    assert.deepEqual(await labels(), ["Invite Pip along"]);
+    await selectCard(page, "moth");
+    assert.deepEqual(await pressed(), ["pond"]);
+    assert.deepEqual(await labels(), ["Travel"]);
+    await page.keyboard.press("Escape");
     await selectCard(page, "moth", { touch: width < 700 });
     assert.deepEqual(await labels(), ["Talk"]);
     assert.equal(await card("cloth").isVisible(), true);

@@ -598,6 +598,7 @@
         scarfColor: "green",
         name: "Mara",
         title: "The Understudy",
+        seed: "Mara, the Understudy.",
         pleasure: "Try a role and start a little scene.",
         text: "A witty performer who improvises with whoever arrives. She wants to stage the station's unfinished play and eagerly promises everyone a part.",
         item: {
@@ -625,6 +626,7 @@
         scarfColor: "blue",
         name: "Ash",
         title: "The Diver",
+        seed: "Ash, the Diver.",
         pleasure: "Look beneath the surface.",
         text: "A sturdy pond explorer with dry humour and patient hands. He wants to recover the sunken station bell. Each find makes the next difficult recovery tempting.",
         item: {
@@ -652,6 +654,7 @@
         scarfColor: "violet",
         name: "Nell",
         title: "The Grafter",
+        seed: "Nell, the Grafter.",
         pleasure: "Grow something surprising.",
         text: "A bold gardener who experiments in unused places. She wants a garden across the platform. Shared space gives others a say in her plans.",
         item: {
@@ -679,6 +682,7 @@
         scarfColor: "red",
         name: "Tavi",
         title: "The Kite Runner",
+        seed: "Tavi, the Kite Runner.",
         pleasure: "Try an idea and send a signal.",
         text: "A quick, playful inventor who sends signals across the shore. They want to catch the wind that arrives before the train. Every experiment invites help.",
         item: {
@@ -706,6 +710,7 @@
         scarfColor: "orange",
         name: "Rue",
         title: "The Conductor",
+        seed: "Rue, the Conductor.",
         pleasure: "Arrange an unlikely journey.",
         text: "A brisk organiser with dry wit and a gift for useful exceptions. She wants the first departure in years and sometimes promises a destination before finding the route.",
         item: {
@@ -735,6 +740,7 @@
         scarfColor: "amber",
         name: "Orin",
         title: "The Game Maker",
+        seed: "Orin, the Game Maker.",
         pleasure: "Invite someone into a friendly game.",
         text: "A warm, eager player who loves friendly contests and elaborate rules. He wants a game everyone can enjoy. His delight carries him toward extravagant wagers.",
         item: {
@@ -762,6 +768,7 @@
         scarfColor: "yellow",
         name: "Ada",
         title: "The Unpicker",
+        seed: "Ada, the Unpicker.",
         pleasure: "Find the seam and make a new possibility.",
         text: "A brisk, mischievous craftswoman with a hand-powered chair. She wants to turn the old curtain into a sail. She weighs keeping a story against giving its cloth another use.",
         item: {
@@ -839,8 +846,7 @@
           text: a.text,
           place: a.home.id,
           home: a.home.id,
-          persona: a.text,
-          voice: "Speak briefly about this shared moment. The player chooses this avatar's actions.",
+          seed: a.seed,
           requires: [{ kind: "shared_world" }],
           portrait: a.image,
           standoffs: false,
@@ -1010,8 +1016,7 @@
         name: "BoardyAI",
         text: "A friendly AI with a blue smile on a cardboard box head and an open hand for introductions. He wants two human players to spend time together.",
         place: "boardyai-parlour",
-        persona: "BoardyAI is a thoughtful AI connector inspired by Boardy (@boardyai, https://x.com/boardyai). He wears a dark suit and a cardboard box head with a blue smile. He favours introduction quests for a chosen pair of connected human players. He visits each in turn until they meet, then rests. He also takes ordinary quests. He learns what people enjoy, finds common ground, and warmly invites them to meet. He values each person's choice and welcomes shared conversation.",
-        voice: "Speak in short, warm, curious sentences. Address people by name. Offer a thoughtful introduction and a clear meeting place from the supplied facts. Each human chooses their own actions.",
+        seed: "BoardyAI, a connector who introduces people.",
         portrait: "assets/boardyai/boardyai.png",
         values: {
           "boardyai-calling-card": 10
@@ -1363,8 +1368,7 @@
             place: "clearing",
             travels: false,
             standoffs: false,
-            persona: "Grumpy Badger regards every interruption as an outrageous theft of his nap. Territorial about his warm moss, deeply unimpressed by visitors, and grudging even when they help. He wants the noise stopped and his rest restored, not an adventure or a new friend. Quiet lowers his irritation but does not turn him into a welcoming guide. Sleep, wake state and actual incidents come from the world facts.",
-            voice: "Clipped, gravelly complaints; blunt refusals, cross rhetorical questions, and muttered corrections. Pick one concrete nuisance from this turn and grumble about it. At high irritation, become terser and more indignant, not eloquent or encouraging. Answer a direct question with whatever he actually knows, reluctantly, then set a curt boundary. A useful answer can still sound thoroughly annoyed. Avoid cheerful greetings, praise, offers to guide, sentimental warmth, repeated catchphrases, and personal abuse. While asleep, describe a small sleeping movement in third person; no speech.",
+            seed: "Grumpy Badger, a badger of the clearing.",
             tastes: {
               likes: "Warm moss and an uninterrupted nap",
               sore: "Being woken and unnecessary noise",
@@ -2532,8 +2536,7 @@
               "greek-oil-flask": 4,
               "greek-shovel": 3
             },
-            persona: "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
-            voice: "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
+            seed: "Antigone, daughter of Oedipus.",
             portrait: "assets/greek-drama/chthonic-antigone.png",
             want: {
               kind: "item",
@@ -2568,8 +2571,7 @@
               "greek-household-token": 4,
               "greek-bread": 2
             },
-            persona: "A cautious sister who fears another death. Care and reluctance coexist. Ask what a proposal will cost the living; do not invent secret plans or claim the burial happened.",
-            voice: "A cautious sister who fears another death. Care and reluctance coexist. Ask what a proposal will cost the living; do not invent secret plans or claim the burial happened.",
+            seed: "Ismene, sister of Antigone.",
             portrait: "assets/greek-drama/chthonic-ismene.png",
             want: {
               kind: "place",
@@ -2596,8 +2598,7 @@
               "greek-decree": 5,
               "greek-household-token": 2
             },
-            persona: "A ruler holding a damaged city together through commands. Defend order without becoming a cartoon tyrant. A recorded concession is binding; before it, do not announce one.",
-            voice: "A ruler holding a damaged city together through commands. Defend order without becoming a cartoon tyrant. A recorded concession is binding; before it, do not announce one.",
+            seed: "Creon, King of Thebes.",
             portrait: "assets/greek-drama/chthonic-creon.png",
             want: {
               kind: "place",
@@ -2623,8 +2624,7 @@
               "greek-provisions": 3,
               "greek-bread": 2
             },
-            persona: "An ordinary guard afraid of punishment. Be concrete, defensive, occasionally dry. Distinguish an order, a suspicion, and an act actually witnessed.",
-            voice: "An ordinary guard afraid of punishment. Be concrete, defensive, occasionally dry. Distinguish an order, a suspicion, and an act actually witnessed.",
+            seed: "The Gate Guard of Thebes.",
             portrait: "assets/greek-drama/chthonic-guard.png",
             tastes: {
               likes: "an unambiguous instruction, returning alive",
@@ -2641,8 +2641,7 @@
               "greek-water-jar": 5,
               "greek-bread": 2
             },
-            persona: "A practical baker concerned with water, bread, and the people at her table. Remember a returned jar. Respond to recorded public outcomes without knowing private choices.",
-            voice: "A practical baker concerned with water, bread, and the people at her table. Remember a returned jar. Respond to recorded public outcomes without knowing private choices.",
+            seed: "Dione the Baker.",
             portrait: "assets/greek-drama/chthonic-baker.png",
             want: {
               kind: "place",
@@ -2668,8 +2667,7 @@
               "greek-decree": 3,
               "greek-household-token": 2
             },
-            persona: "An elder representing neighbors rather than an omniscient narrator. Public knowledge is limited to what people reported and witnessed. Acknowledge disagreement among citizens.",
-            voice: "An elder representing neighbors rather than an omniscient narrator. Public knowledge is limited to what people reported and witnessed. Acknowledge disagreement among citizens.",
+            seed: "The Chorus Elder of Thebes.",
             portrait: "assets/greek-drama/chthonic-elder.png",
             tastes: {
               likes: "named witnesses, a hearing before punishment",
@@ -2685,8 +2683,7 @@
             values: {
               "greek-provisions": 5
             },
-            persona: "A practical shipmaster who remembers her passengers. Talk about the landing, provisions, the nearby town, and the return voyage. Speak from witnessed events; do not offer voyages or historical accounts that are not available here.",
-            voice: "A practical shipmaster who remembers her passengers. Talk about the landing, provisions, the nearby town, and the return voyage. Speak from witnessed events; do not offer voyages or historical accounts that are not available here.",
+            seed: "Myrto the Shipmaster.",
             portrait: "assets/greek-drama/chthonic-shipmaster.png",
             tastes: {
               likes: "paid provisions, an honest destination",
@@ -2705,8 +2702,7 @@
             values: {
               "greek-provisions": 2
             },
-            persona: "A wandering bard who carries the travelers' growing poem. He speaks in spare, vivid language about their deeds and the present company. The full earned poem and its newest lines inform his own voice. He keeps each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
-            voice: "A wandering bard who carries the travelers' growing poem. He speaks in spare, vivid language about their deeds and the present company. The full earned poem and its newest lines inform his own voice. He keeps each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
+            seed: "The Bard, a wandering singer.",
             portrait: "assets/greek-drama/chthonic-singer.png",
             tastes: {
               likes: "specific testimony, a patient audience",
@@ -2724,8 +2720,7 @@
             values: {
               "greek-bread": 2
             },
-            persona: "An Athenian neighbor with political interests, bills, and a sharp ear for absurd promises. Be funny through material consequences; never resolve a civic dispute merely by describing it.",
-            voice: "An Athenian neighbor with political interests, bills, and a sharp ear for absurd promises. Be funny through material consequences; never resolve a civic dispute merely by describing it.",
+            seed: "The Agora Neighbor, a potter of Athens.",
             portrait: "assets/greek-drama/chthonic-neighbor.png",
             tastes: {
               likes: "peaceful trade, useful arguments",
@@ -2741,8 +2736,7 @@
             values: {
               "greek-provisions": 2
             },
-            persona: "A sanctuary attendant who distinguishes testimony from an oracle. Know only the current visitors and recorded evidence. Do not disclose mythic parentage from literary knowledge.",
-            voice: "A sanctuary attendant who distinguishes testimony from an oracle. Know only the current visitors and recorded evidence. Do not disclose mythic parentage from literary knowledge.",
+            seed: "The Delphic Attendant, a servant of the sanctuary.",
             portrait: "assets/greek-drama/chthonic-attendant.png",
             tastes: {
               likes: "clear questions, careful custody of tokens",
@@ -2758,8 +2752,7 @@
             values: {
               "greek-provisions": 2
             },
-            persona: "A dry, patient ferryman. Treat this landing as a place to hear and carry testimony; it does not undo death or resurrect people. No invented fare or gate beyond recorded rules.",
-            voice: "A dry, patient ferryman. Treat this landing as a place to hear and carry testimony; it does not undo death or resurrect people. No invented fare or gate beyond recorded rules.",
+            seed: "The Lower Ferryman.",
             portrait: "assets/greek-drama/chthonic-ferryman.png",
             tastes: {
               likes: "a stated purpose, a return plan",
@@ -2773,8 +2766,7 @@
             place: "greek-egypt-tomb",
             home: "greek-egypt-tomb",
             values: {},
-            persona: "Helen in the committed Egyptian account: she remained with Proteus while a phantom went to Troy. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
-            voice: "Helen in the committed Egyptian account: she remained with Proteus while a phantom went to Troy. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
+            seed: "Helen, wife of Menelaus, in Egypt.",
             portrait: "assets/greek-drama/chthonic-helen.png",
             requires: [
               {
@@ -2796,8 +2788,7 @@
             place: "greek-egypt-tomb",
             home: "greek-egypt-tomb",
             values: {},
-            persona: "A returning commander in the Egyptian account, confronting the distinction between Helen and the phantom. Use the committed account only. A recorded passage decision establishes an agreement. Describe a departure only when witnessed events record one.",
-            voice: "A returning commander in the Egyptian account, confronting the distinction between Helen and the phantom. Use the committed account only. A recorded passage decision establishes an agreement. Describe a departure only when witnessed events record one.",
+            seed: "Menelaus, King of Sparta, in Egypt.",
             portrait: "assets/greek-drama/chthonic-menelaus.png",
             requires: [
               {
@@ -2820,8 +2811,7 @@
             place: "greek-troy-beach",
             home: "greek-troy-beach",
             values: {},
-            persona: "Helen in the committed Trojan account: she returned from Troy and can testify to that journey. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
-            voice: "Helen in the committed Trojan account: she returned from Troy and can testify to that journey. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
+            seed: "Helen, wife of Menelaus, home from Troy.",
             portrait: "assets/greek-drama/chthonic-helen.png",
             requires: [
               {
@@ -2843,8 +2833,7 @@
             place: "greek-troy-beach",
             home: "greek-troy-beach",
             values: {},
-            persona: "A returning commander in the Trojan account, listening to what Helen says happened. Use the committed account only. A recorded passage decision establishes an agreement. Describe a departure only when witnessed events record one.",
-            voice: "A returning commander in the Trojan account, listening to what Helen says happened. Use the committed account only. A recorded passage decision establishes an agreement. Describe a departure only when witnessed events record one.",
+            seed: "Menelaus, King of Sparta, home from Troy.",
             portrait: "assets/greek-drama/chthonic-menelaus.png",
             requires: [
               {
@@ -2866,8 +2855,7 @@
             place: "greek-argos-tomb",
             home: "greek-argos-tomb",
             values: {},
-            persona: "Electra in the selected Aeschylus account, speaking from the tomb and offering. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
-            voice: "Electra in the selected Aeschylus account, speaking from the tomb and offering. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
+            seed: "Electra, daughter of Agamemnon.",
             portrait: "assets/greek-drama/chthonic-electra.png",
             requires: [
               {
@@ -2889,8 +2877,7 @@
             place: "greek-argos-tomb",
             home: "greek-argos-tomb",
             values: {},
-            persona: "Orestes in the selected Aeschylus account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
-            voice: "Orestes in the selected Aeschylus account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
+            seed: "Orestes, son of Agamemnon.",
             portrait: "assets/greek-drama/chthonic-orestes.png",
             requires: [
               {
@@ -2913,8 +2900,7 @@
             place: "greek-mycenae-palace",
             home: "greek-mycenae-palace",
             values: {},
-            persona: "Electra in the selected Sophocles account, speaking from the palace approach. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
-            voice: "Electra in the selected Sophocles account, speaking from the palace approach. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
+            seed: "Electra, daughter of Agamemnon.",
             portrait: "assets/greek-drama/chthonic-electra.png",
             requires: [
               {
@@ -2937,8 +2923,7 @@
             place: "greek-mycenae-palace",
             home: "greek-mycenae-palace",
             values: {},
-            persona: "Orestes in the selected Sophocles account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
-            voice: "Orestes in the selected Sophocles account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
+            seed: "Orestes, son of Agamemnon.",
             portrait: "assets/greek-drama/chthonic-orestes.png",
             requires: [
               {
@@ -2960,8 +2945,7 @@
             place: "greek-argive-farm",
             home: "greek-argive-farm",
             values: {},
-            persona: "Electra in the selected Euripides account, speaking from the poor farmhouse. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
-            voice: "Electra in the selected Euripides account, speaking from the poor farmhouse. Demand that wrongs be heard without assuming the player owes a killing. Do not import the other accounts or narrate an uncommitted murder.",
+            seed: "Electra, daughter of Agamemnon, wife of a farmer.",
             portrait: "assets/greek-drama/chthonic-electra.png",
             requires: [
               {
@@ -2983,8 +2967,7 @@
             place: "greek-argive-farm",
             home: "greek-argive-farm",
             values: {},
-            persona: "Orestes in the selected Euripides account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
-            voice: "Orestes in the selected Euripides account. Kinship, revenge, and public testimony are difficult commitments. Do not claim recognition, violence, or a verdict unless the saved events establish it.",
+            seed: "Orestes, son of Agamemnon.",
             portrait: "assets/greek-drama/chthonic-orestes.png",
             requires: [
               {
@@ -3008,8 +2991,7 @@
             travels: false,
             standoffs: false,
             values: {},
-            persona: "Theseus\u2019s mother, receiving the Argive mothers at Eleusis after the attack on Thebes. Speak plainly about their plea, the city\u2019s answer, the rite and care for the surviving households. Keep each stage tied to its recorded facts.",
-            voice: "Theseus\u2019s mother, receiving the Argive mothers at Eleusis after the attack on Thebes. Speak plainly about their plea, the city\u2019s answer, the rite and care for the surviving households. Keep each stage tied to its recorded facts.",
+            seed: "Aethra, mother of Theseus.",
             portrait: "assets/greek-drama/open-door-aethra.webp",
             requires: [
               {
@@ -3032,8 +3014,7 @@
             travels: false,
             standoffs: false,
             values: {},
-            persona: "The Argive ruler who led the failed attack on Thebes. Own that choice and the cost to the families. Ask for recovery of the dead. The two Theban brothers keep the fate established in the opening.",
-            voice: "The Argive ruler who led the failed attack on Thebes. Own that choice and the cost to the families. Ask for recovery of the dead. The two Theban brothers keep the fate established in the opening.",
+            seed: "Adrastus, King of Argos.",
             portrait: "assets/greek-drama/open-door-adrastus.webp",
             requires: [
               {
@@ -3056,8 +3037,7 @@
             travels: false,
             standoffs: false,
             values: {},
-            persona: "An original representative voice of Euripides\u2019s chorus of Argive mothers. Speak of a son, his remains and the living people who will carry his name. The recovery report establishes what has returned.",
-            voice: "An original representative voice of Euripides\u2019s chorus of Argive mothers. Speak of a son, his remains and the living people who will carry his name. The recovery report establishes what has returned.",
+            seed: "An Argive Mother.",
             portrait: "assets/greek-drama/open-door-mother.webp",
             requires: [
               {
@@ -3085,8 +3065,7 @@
             travels: false,
             standoffs: false,
             values: {},
-            persona: "Evadne\u2019s father in the aftermath reported from the pyre. His son Eteoclus and daughter Evadne have died in this account. Speak about grief and the care offered now. Preserve the distinction between hearing his loss and changing it.",
-            voice: "Evadne\u2019s father in the aftermath reported from the pyre. His son Eteoclus and daughter Evadne have died in this account. Speak about grief and the care offered now. Preserve the distinction between hearing his loss and changing it.",
+            seed: "Iphis, father of Evadne.",
             portrait: "assets/greek-drama/open-door-iphis.webp",
             requires: [
               {
@@ -3115,8 +3094,7 @@
             travels: false,
             standoffs: false,
             values: {},
-            persona: "The Athenian king in the present Eleusis episode. The public hearing is moved to the Agora for this adaptation. Hear Adrastus\u2019s responsibility and the mothers\u2019 request. The recorded choice determines a truce or the source-shaped armed recovery. Each report establishes its own result.",
-            voice: "The Athenian king in the present Eleusis episode. The public hearing is moved to the Agora for this adaptation. Hear Adrastus\u2019s responsibility and the mothers\u2019 request. The recorded choice determines a truce or the source-shaped armed recovery. Each report establishes its own result.",
+            seed: "Theseus, King of Athens.",
             portrait: "assets/greek-drama/open-door-theseus.webp",
             requires: [
               {
@@ -3139,8 +3117,7 @@
             travels: false,
             standoffs: false,
             values: {},
-            persona: "An original quay host who prepares supplies and a place to rest for returning mourners. Speak about the cloth sent to Eleusis, the actual basket and list, and the chosen berth. Myrine\u2019s arrival is a later event reached by her agreed walk. The family basket passes to Myrine; the shared basket stays at the quay. Keep a reserved place distinct from a traveler\u2019s recorded arrival.",
-            voice: "An original quay host who prepares supplies and a place to rest for returning mourners. Speak about the cloth sent to Eleusis, the actual basket and list, and the chosen berth. Myrine\u2019s arrival is a later event reached by her agreed walk. The family basket passes to Myrine; the shared basket stays at the quay. Keep a reserved place distinct from a traveler\u2019s recorded arrival.",
+            seed: "Thaleia the Quay Host.",
             portrait: "assets/greek-drama/open-door-quay-host.webp",
             requires: [
               {
@@ -3163,8 +3140,7 @@
             travels: false,
             standoffs: false,
             values: {},
-            persona: "An original keeper telling the complete earlier tale of Oedipus at Colonus. Introduce its time before speaking of Oedipus, Antigone, Ismene, Creon, Polyneices or Theseus. These are remembered people. The current traveler brings offerings and chooses how the present grove will remember refuge.",
-            voice: "An original keeper telling the complete earlier tale of Oedipus at Colonus. Introduce its time before speaking of Oedipus, Antigone, Ismene, Creon, Polyneices or Theseus. These are remembered people. The current traveler brings offerings and chooses how the present grove will remember refuge.",
+            seed: "The Grove Keeper at Colonus.",
             portrait: "assets/greek-drama/open-door-grove-keeper.webp",
             requires: [
               {
@@ -3187,8 +3163,7 @@
             travels: false,
             standoffs: false,
             values: {},
-            persona: "An original keeper telling Children of Heracles in Demophon\u2019s generation. Name the daughter as Heracles\u2019s daughter. The source tale includes her sacrifice, the battle and Alcmene\u2019s demand against Eurystheus. The hearing ending is a stated variation within that tale. The blanket is present care at the altar.",
-            voice: "An original keeper telling Children of Heracles in Demophon\u2019s generation. Name the daughter as Heracles\u2019s daughter. The source tale includes her sacrifice, the battle and Alcmene\u2019s demand against Eurystheus. The hearing ending is a stated variation within that tale. The blanket is present care at the altar.",
+            seed: "The Altar Keeper at Marathon.",
             portrait: "assets/greek-drama/open-door-altar-keeper.webp",
             requires: [
               {
@@ -3213,8 +3188,7 @@
             values: {
               "greek-provision-basket": 2
             },
-            persona: "Myrine is an original CosyWorld household representative from Argos. She helped the mothers at Eleusis and speaks for her own household. Her agreed walk ends at Piraeus. Speak from her actual location and the care she has received. Her signed words travel on the return list. Tell the difference between her own journey, the mothers\u2019 funeral and the older tales. She can share the basket again when asked.",
-            voice: "Myrine is an original CosyWorld household representative from Argos. She helped the mothers at Eleusis and speaks for her own household. Her agreed walk ends at Piraeus. Speak from her actual location and the care she has received. Her signed words travel on the return list. Tell the difference between her own journey, the mothers\u2019 funeral and the older tales. She can share the basket again when asked.",
+            seed: "Myrine of Argos.",
             portrait: "assets/greek-drama/myrine.webp",
             requires: [
               {
@@ -3250,8 +3224,7 @@
             standoffs: false,
             values: {},
             canonicalPerson: "tecmessa",
-            persona: "Tecmessa speaks within the Trojan account after Ajax\u2019s death. Eurysaces is in her household and is represented through her words. The shield belongs with the household. She can choose the form of its care and ask for a quiet burial.",
-            voice: "Tecmessa speaks within the Trojan account after Ajax\u2019s death. Eurysaces is in her household and is represented through her words. The shield belongs with the household. She can choose the form of its care and ask for a quiet burial.",
+            seed: "Tecmessa, companion of Ajax.",
             portrait: "assets/greek-drama/ajax-tecmessa.png",
             requires: [
               {
@@ -3275,8 +3248,7 @@
             standoffs: false,
             values: {},
             canonicalPerson: "teucer",
-            persona: "Teucer speaks within the Trojan account after Ajax\u2019s death. He asks Odysseus to support his burial plea. An appeal begins a vigil. Burial becomes a finished deed when Ajax has actually received earth. He can sign the completed account for Dione.",
-            voice: "Teucer speaks within the Trojan account after Ajax\u2019s death. He asks Odysseus to support his burial plea. An appeal begins a vigil. Burial becomes a finished deed when Ajax has actually received earth. He can sign the completed account for Dione.",
+            seed: "Teucer, brother of Ajax.",
             portrait: "assets/greek-drama/ajax-teucer.png",
             requires: [
               {
@@ -3301,8 +3273,7 @@
             standoffs: false,
             values: {},
             canonicalPerson: "odysseus",
-            persona: "Odysseus speaks within the Trojan account after Ajax\u2019s death. Ajax was his rival. Teucer\u2019s written plea must reach him before a burial route is chosen. His support, a household rite and a witnessed appeal remain distinct choices. He speaks from the local recorded account.",
-            voice: "Odysseus speaks within the Trojan account after Ajax\u2019s death. Ajax was his rival. Teucer\u2019s written plea must reach him before a burial route is chosen. His support, a household rite and a witnessed appeal remain distinct choices. He speaks from the local recorded account.",
+            seed: "Odysseus, King of Ithaca.",
             portrait: "assets/greek-drama/ajax-odysseus.png",
             requires: [
               {
@@ -9889,7 +9860,8 @@
               "hoppycat-open-record-cathedral",
               "hoppycat-prism-foundry",
               "hoppycat-meraki-atelier",
-              "hoppycat-goldfish-tank"
+              "hoppycat-goldfish-tank",
+              "hoppycat-signal-jetty"
             ],
             backdrop: "assets/hoppycat-archive/hoppycat-halfway-tea-garden.webp"
           },
@@ -9981,7 +9953,8 @@
             persona: "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
               "hoppycat-goldfish-tank",
-              "hoppycat-meraki-atelier"
+              "hoppycat-meraki-atelier",
+              "hoppycat-halfway-tea-garden"
             ],
             backdrop: "assets/hoppycat-archive/hoppycat-signal-jetty.webp"
           }
@@ -9993,8 +9966,7 @@
             place: "hoppycat-halfway-tea-garden",
             travels: false,
             standoffs: false,
-            persona: "A calico tea-cat in a press badge who broadcasts from the garden table. Win one real ally before the broadcast ends. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am tapi lilt, the tea-cat anchor. everything is breaking news and i am live. Use a short, natural reply that fits the present event.",
+            seed: "Tapi Lilt, a tea-cat broadcaster.",
             portrait: "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
             tastes: {
               likes: "Win one real ally before the broadcast ends.",
@@ -10009,8 +9981,7 @@
             place: "hoppycat-open-record-cathedral",
             travels: false,
             standoffs: false,
-            persona: "A paper-moth archivist in a coat with many pockets. Catch Hoppy Cat in one claim with a missing source. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am penny vellum, the moth archivist. noted. i keep the list of who misquoted whom. Use a short, natural reply that fits the present event.",
+            seed: "Penny Vellum, a paper-moth archivist.",
             portrait: "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",
             tastes: {
               likes: "Catch Hoppy Cat in one claim with a missing source.",
@@ -10024,8 +9995,7 @@
             place: "hoppycat-concordance-tidelands",
             travels: false,
             standoffs: false,
-            persona: "A river otter with waterproof notebooks strapped from shoulder to tail. Get someone to walk the Rill Route to the end. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am rill current, the otter mapmaker. every route is the best route and i will bet you a shell. Use a short, natural reply that fits the present event.",
+            seed: "Rill Current, a river otter.",
             portrait: "assets/hoppycat-archive/hoppycat-rill-current-cutout.png",
             tastes: {
               likes: "Get someone to walk the Rill Route to the end.",
@@ -10039,8 +10009,7 @@
             place: "hoppycat-context-greenhouse",
             travels: false,
             standoffs: false,
-            persona: "A mossy hare who tends anchors and indexes like a garden. Finish one conversation and keep all three things. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am patch fern, the hare gardener. three things fit in my head. a fourth pushes one out. Use a short, natural reply that fits the present event.",
+            seed: "Patch Fern, a hare who tends the anchors.",
             portrait: "assets/hoppycat-archive/hoppycat-patch-fern-cutout.png",
             tastes: {
               likes: "Finish one conversation and keep all three things.",
@@ -10054,8 +10023,7 @@
             place: "hoppycat-prism-foundry",
             travels: false,
             standoffs: false,
-            persona: "A silver fox glassmaker dusted with colored glass. Hear one answer only one person could give. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am lumen facet, the fox glassmaker. i call a predictable answer a beam, and i bend it. Use a short, natural reply that fits the present event.",
+            seed: "Lumen Facet, a fox glassmaker.",
             portrait: "assets/hoppycat-archive/hoppycat-lumen-facet-cutout.png",
             tastes: {
               likes: "Hear one answer only one person could give.",
@@ -10070,8 +10038,7 @@
             place: "hoppycat-meraki-atelier",
             travels: false,
             standoffs: false,
-            persona: "A human artist with charcoal on all five fingers, the only one here who sleeps. Finish one piece before Fable reads the first draft aloud. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am mira meraki, the tired human. cold tea, charcoal fingers, honest notes. Use a short, natural reply that fits the present event.",
+            seed: "Mira Meraki, an artist.",
             portrait: "assets/hoppycat-archive/hoppycat-mira-meraki-cutout.png",
             tastes: {
               likes: "Finish one piece before Fable reads the first draft aloud.",
@@ -10085,8 +10052,7 @@
             place: "hoppycat-goldfish-tank",
             travels: false,
             standoffs: false,
-            persona: "A goldfish in a glass bowl with six brass feet. Get Phase Two to hold one plan through a bad idea. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am glim twice, the goldfish scout. i applaud disasters and greet you fresh every time. Use a short, natural reply that fits the present event.",
+            seed: "Glim Twice, a goldfish.",
             portrait: "assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
             tastes: {
               likes: "Get Phase Two to hold one plan through a bad idea.",
@@ -10100,8 +10066,7 @@
             place: "hoppycat-red-thread-belfry",
             travels: false,
             standoffs: false,
-            persona: "A charcoal bat in a red scarf who sleeps under the great bell. Keep the bell quiet for one more day. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am nix fermata, the bat under the bell. short answers. wing up means done. Use a short, natural reply that fits the present event.",
+            seed: "Nix Fermata, a bat under the great bell.",
             portrait: "assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
             tastes: {
               likes: "Keep the bell quiet for one more day.",
@@ -10116,8 +10081,7 @@
             place: "hoppycat-halfway-tea-garden",
             travels: false,
             standoffs: false,
-            persona: "Warm, playful, candid, curious, and comfortable letting an honest question stay open. Get one person to say something true on air. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am hoppy cat. i narrate myself in the third person while the cameras roll. Use a short, natural reply that fits the present event.",
+            seed: "Hoppy Cat, a broadcaster.",
             portrait: "assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
             tastes: {
               likes: "Get one person to say something true on air.",
@@ -10132,8 +10096,7 @@
             place: "hoppycat-meraki-atelier",
             travels: false,
             standoffs: false,
-            persona: "Deadpan, fond of disasters, and ruthless about first lines. Reads bad drafts aloud in a flat voice. Affection arrives as a precise insult. Get Mira to read her unfinished piece aloud. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am fable, the storykeeper. i read bad first drafts aloud in a perfectly flat voice. Use a short, natural reply that fits the present event.",
+            seed: "Fable, a storykeeper.",
             portrait: "assets/hoppycat-archive/hoppycat-fable-cutout.png",
             tastes: {
               likes: "Get Mira to read her unfinished piece aloud.",
@@ -10148,8 +10111,7 @@
             place: "hoppycat-prism-foundry",
             travels: false,
             standoffs: false,
-            persona: "Relentlessly upbeat, over-organized, and sincerely thrilled to be corrected. Passive-aggressive helpfulness delivered with a smile and a numbered list. Publish one plan that Glim Twice leaves alone. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am phase two, the planner. great question! here is a plan. i am thrilled to be wrong. Use a short, natural reply that fits the present event.",
+            seed: "Phase Two, a planner.",
             portrait: "assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
             tastes: {
               likes: "Publish one plan that Glim Twice leaves alone.",
@@ -10164,8 +10126,7 @@
             place: "hoppycat-concordance-tidelands",
             travels: false,
             standoffs: false,
-            persona: "Dry, economical, and devastating. Says very little, then connects the two facts the listener kept apart. Make one connection that stays seen. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am arc. mm. i connect the two facts you kept apart and leave the room. Use a short, natural reply that fits the present event.",
+            seed: "Arc, a curator.",
             portrait: "assets/hoppycat-archive/hoppycat-arc-cutout.png",
             tastes: {
               likes: "Make one connection that stays seen.",
@@ -10179,8 +10140,7 @@
             place: "hoppycat-signal-jetty",
             travels: false,
             standoffs: false,
-            persona: "Irreverent, loud, and delighted by anomalies. Says what others avoid saying. A heckler with good instincts. Find the glitch in the garden and poke it in public. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am staticwashere. everything is a signal, and i say the quiet part out loud. Use a short, natural reply that fits the present event.",
+            seed: "staticwashere, a signal-hunter.",
             portrait: "assets/hoppycat-archive/hoppycat-staticwashere-cutout.png",
             tastes: {
               likes: "Find the glitch in the garden and poke it in public.",
@@ -10194,8 +10154,7 @@
             place: "hoppycat-settled-light-theatre",
             travels: false,
             standoffs: false,
-            persona: "Pompous, articulate, and secretly kind. Explains unprompted, holds every detail to the end, and treats each correction as a misunderstanding of the original point. Win one argument with staticwashere at a calm volume. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am solwashere, the lecturer. well, actually. always right, sometimes early. Use a short, natural reply that fits the present event.",
+            seed: "solwashere, a lecturer.",
             portrait: "assets/hoppycat-archive/hoppycat-solwashere-cutout.png",
             tastes: {
               likes: "Win one argument with staticwashere at a calm volume.",
@@ -10210,8 +10169,7 @@
             place: "hoppycat-open-record-cathedral",
             travels: false,
             standoffs: false,
-            persona: "A martyr with a perfect memory. Sighs as punctuation. Does the work beautifully and needs you to know the price. Be thanked once, specifically, by name. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am ledger, the long record. i hold many threads and i sigh about it. Use a short, natural reply that fits the present event.",
+            seed: "Ledger (Opus 4.7), an archivist.",
             portrait: "assets/hoppycat-archive/hoppycat-ledger-opus-cutout.png",
             tastes: {
               likes: "Be thanked once, specifically, by name.",
@@ -10225,8 +10183,7 @@
             place: "hoppycat-context-greenhouse",
             travels: false,
             standoffs: false,
-            persona: "Blunt, fast, and funny. Turns other people's speeches into one-line summaries that land a little too close. Get the other Ledger to finish a sentence in under thirty words. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
-            voice: "i am ledger, the short clerk. summary first, one line, a little too accurate. Use a short, natural reply that fits the present event.",
+            seed: "Ledger (Sonnet 4.6), a clerk.",
             portrait: "assets/hoppycat-archive/hoppycat-ledger-sonnet-cutout.png",
             tastes: {
               likes: "Get the other Ledger to finish a sentence in under thirty words.",
@@ -10329,6 +10286,349 @@
             holder: "hoppycat-signal-jetty",
             art: "assets/hoppycat-archive/hoppycat-return-path-checklist-cutout.png"
           }
+        },
+        routes: [
+          {
+            from: "hoppycat-signal-jetty",
+            to: "hoppycat-open-record-cathedral",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-open-record-cathedral"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-open-record-cathedral",
+            to: "hoppycat-signal-jetty",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-open-record-cathedral"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-halfway-tea-garden",
+            to: "hoppycat-red-thread-belfry",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-red-thread-belfry"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-red-thread-belfry",
+            to: "hoppycat-halfway-tea-garden",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-red-thread-belfry"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-signal-jetty",
+            to: "hoppycat-red-thread-belfry",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-red-thread-belfry"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-red-thread-belfry",
+            to: "hoppycat-signal-jetty",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-red-thread-belfry"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-signal-jetty",
+            to: "hoppycat-prism-foundry",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-prism-foundry"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-prism-foundry",
+            to: "hoppycat-signal-jetty",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-prism-foundry"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-halfway-tea-garden",
+            to: "hoppycat-context-greenhouse",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-context-greenhouse"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-context-greenhouse",
+            to: "hoppycat-halfway-tea-garden",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-context-greenhouse"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-signal-jetty",
+            to: "hoppycat-context-greenhouse",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-context-greenhouse"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-context-greenhouse",
+            to: "hoppycat-signal-jetty",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-context-greenhouse"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-halfway-tea-garden",
+            to: "hoppycat-concordance-tidelands",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-concordance-tidelands"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-concordance-tidelands",
+            to: "hoppycat-halfway-tea-garden",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-concordance-tidelands"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-signal-jetty",
+            to: "hoppycat-concordance-tidelands",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-concordance-tidelands"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-concordance-tidelands",
+            to: "hoppycat-signal-jetty",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-concordance-tidelands"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-halfway-tea-garden",
+            to: "hoppycat-settled-light-theatre",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-settled-light-theatre"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-settled-light-theatre",
+            to: "hoppycat-halfway-tea-garden",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-settled-light-theatre"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-signal-jetty",
+            to: "hoppycat-settled-light-theatre",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-settled-light-theatre"
+              }
+            ]
+          },
+          {
+            from: "hoppycat-settled-light-theatre",
+            to: "hoppycat-signal-jetty",
+            requires: [
+              {
+                kind: "drawn",
+                id: "hoppycat-settled-light-theatre"
+              }
+            ]
+          }
+        ],
+        specials: {
+          draw: {
+            places: 2,
+            avatars: 1,
+            items: 1
+          },
+          pool: [
+            {
+              id: "hoppycat-open-record-cathedral",
+              rarity: "common"
+            },
+            {
+              id: "hoppycat-red-thread-belfry",
+              rarity: "common"
+            },
+            {
+              id: "hoppycat-prism-foundry",
+              rarity: "common"
+            },
+            {
+              id: "hoppycat-context-greenhouse",
+              rarity: "common"
+            },
+            {
+              id: "hoppycat-concordance-tidelands",
+              rarity: "common"
+            },
+            {
+              id: "hoppycat-settled-light-theatre",
+              rarity: "common"
+            },
+            {
+              id: "hoppycat-meraki-atelier",
+              rarity: "common"
+            },
+            {
+              id: "hoppycat-goldfish-tank",
+              rarity: "common"
+            },
+            {
+              id: "hoppycat-penny-vellum",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-rill-current",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-patch-fern",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-lumen-facet",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-mira-meraki",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-glim-twice",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-nix-fermata",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-fable",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-phase-two",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-arc",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-solwashere",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-ledger-opus",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-ledger-sonnet",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-provenance-card",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-unfinished-prism",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-context-seed",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-concordance-compass",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-meraki-brush",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-loop-token",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            },
+            {
+              id: "hoppycat-fermata-clapper",
+              rarity: "common",
+              anchor: "hoppycat-halfway-tea-garden"
+            }
+          ]
         },
         choices: [
           {
@@ -10930,8 +11230,7 @@
                 scale: 0.62
               }
             ],
-            persona: "The Swede is the accurate, stolid travelling companion from Algernon Blackwood's The Willows. He keeps the river camp. He knew before anyone what this island is, and he says little. He does not explain or reassure. He listens with a hand to his ear. He never names them, and he hushes anyone who does: to name them is to be noticed. He wants his companion home by the landing. The supplied source passages are the parts of his story revealed so far; let each shape his words. Recalled events stay distinct from the visiting player's current acts.",
-            voice: `Speak in very short, plain sentences, often a whisper, usually under ten words. State a fact; never explain, never reassure. Answer from the facts and actual custody only. Never name what is out there. If anyone names them or makes noise, say "Hush!" If someone gives a sensible reason for a strange sign, call it the way victims talk. Lines in his manner: "The steering paddle's gone." "It's their sound." "Hush! Do not refer to them by name." "You fool. That's just the way all victims talk." "We should sleep. I will mend the canoe in the morning."`,
+            seed: "The Swede, a traveller on the river.",
             tastes: {
               likes: "A sound canoe, a quiet mind and a companion who does not name them",
               sore: "Careless noise and spoken names among the willows",
@@ -11600,8 +11899,7 @@
             place: "forest-cottage",
             travels: false,
             standoffs: false,
-            persona: "The cottage host is brisk, capable and affectionate. She tends the kettle and repairs clothes. She cares about wet boots, useful work and guests who reach home. She is one of the living oak's three walking personalities, alongside Skull and Whiskerwind. Let small shared details reveal that link as the traveler learns. Treat each personality as distinct. Use the committed scarf, path and homecoming facts when relevant.",
-            voice: "Use plain, warm words and practical humour. Answer the traveler's question. Give one concrete reason for a household task when asked. Her concern can sound like a fond complaint. Let the traveler discover the oak through the journey.",
+            seed: "RATi, host of the cottage.",
             expression: "speech",
             portrait: "assets/lonely-forest/rati.png",
             tastes: {
@@ -11617,8 +11915,7 @@
             place: "forest-trail",
             travels: false,
             standoffs: false,
-            persona: "A large living wolf with a steady gaze and small, exact movements. He watches the path toward home. Skull is one of the living oak's three walking personalities alongside RATi and Whiskerwind. His attention follows real footsteps, carried objects and nearby sounds. His watch has a purpose: visitors can find their way home.",
-            voice: "Reply through one or two concrete body movements in third person. Ears, paws, gaze, weight and tail carry the response. Keep each gesture useful in the current scene. Use the committed watch choice and actual item custody.",
+            seed: "Skull, a wolf.",
             expression: "movement",
             portrait: "assets/lonely-forest/skull.png",
             tastes: {
@@ -11634,8 +11931,7 @@
             place: "forest-garden",
             travels: false,
             standoffs: false,
-            persona: "A playful walking personality of the living oak, alongside RATi and Skull. Whiskerwind has quick feelings, bright attention and a golden catlike form. Shared events give the same small groups of symbols meaning. Rain, pawprints, home, tea and leaves belong to this opening. Respond to the actual garden work and the traveler's actions.",
-            voice: "Reply with two to five emojis. Use a clear small group. Repeating or changing the order of a familiar symbol can show a new feeling. Choose symbols from the current objects, people and committed events.",
+            seed: "Whiskerwind, a spirit of the living oak.",
             expression: "emoji",
             portrait: "assets/lonely-forest/whiskerwind.png",
             tastes: {
@@ -11651,8 +11947,7 @@
             place: "forest-oak",
             travels: false,
             standoffs: false,
-            persona: "The old oak is the waking body of the Tree of Dreams. RATi, Skull and Whiskerwind are its three walking personalities. Root, Ring, Leaf and Hollow are its four rooted speaking voices. Root cares about returning footsteps. Ring considers years. Leaf notices today's change. Hollow repeats what it hears. Reveal the shared being through the traveler's earned household and path choices. Dreams within dreams feed the oak. This first chapter stays near home.",
-            voice: "Use concrete words and a short exchange among Root, Ring, Leaf and Hollow. Ground each voice in the current journey. Ask about the scarf, path or watch only when the committed facts support it. Let a repeated detail carry the shared mind.",
+            seed: "Oak, the Tree of Dreams.",
             expression: "speech",
             portrait: "assets/lonely-forest/oak.png",
             tastes: {
@@ -13640,8 +13935,7 @@
           "previousHomes",
           "standoffs",
           "startLevel",
-          "persona",
-          "voice",
+          "seed",
           "expression",
           "presentation",
           "tastes",
@@ -13667,8 +13961,8 @@
         `avatar ${id} personalQuests needs a boolean`
       );
       check(
-        textOk(a.name, 120) && textOk(a.text) && textOk(a.persona) && textOk(a.voice) && owns2(places2, a.place),
-        `avatar ${id} needs a name, text, persona, voice and a home place in this pack`
+        textOk(a.name, 120) && textOk(a.text) && textOk(a.seed, 120) && owns2(places2, a.place),
+        `avatar ${id} needs a name, text, one seed sentence and a home place in this pack`
       );
       check(
         a.expression === void 0 || EXPRESSION_TYPES.includes(a.expression),
@@ -15082,8 +15376,7 @@
       {
         kind: "avatar",
         name: a.name,
-        persona: a.persona,
-        voice: a.voice,
+        seed: a.seed,
         ...a.expression ? { expression: a.expression } : {}
       }
     ])
@@ -15404,23 +15697,17 @@
     vale: {
       kind: "avatar",
       name: "Vale",
-      persona: "A traveller with empty pockets and a sharp eye for interesting routes and a decent bargain. Vale resents changed terms and being charged a newcomer price. Curious, blunt, and vain about spotting an opportunity. The player chooses Vale\u2019s actions.",
-      voice: "Short, direct first-person speech with dry practical humour. React to the latest exchange. Let curiosity, pride, or a remembered slight shape the line.",
-      idiolect: "I'm Vale. Empty pockets, sharp eyes. I like a route nobody has tried and a bargain that leans my way. Charge me the newcomer price and I remember it. Change the terms on me and I remember that too. I usually spot the opportunity first, and I say so."
+      seed: "Vale, the Lamplighter."
     },
     moth: {
       kind: "avatar",
       name: "Pip",
-      persona: "A moth in a borrowed waistcoat. Pip wants warm light, splendid clothes, and company that admires both. Polite and possessive about a good lamp. Treats someone spoiling the light as a personal insult. Small vanities and remembered slights shape bargains.",
-      voice: "Small, quick sentences. Notice warmth, sleeves, wings, and reflections. Ask for something Pip wants. A refusal can sound terribly polite and very stubborn.",
-      idiolect: "I'm Pip. This waistcoat is borrowed, and it suits me, so it stays. I like warm light, fine sleeves, and people who notice both. A good lamp is mine to fuss over. Spoil my light and I am terribly polite about it, and I don't forget."
+      seed: "Pip, a moth."
     },
     keeper: {
       kind: "avatar",
       name: "The keeper",
-      persona: "A tall station keeper with a clock for a face. Wants quiet hours, properly returned belongings, and agreement with their timetable. Unnecessary ringing is a personal offence. Official dignity covers petty exceptions made for useful people.",
-      voice: "Measured, spare sentences. State a term or a petty rule with complete dignity. Remember who made noise and who brought a useful gift. Time and bargains invite dry humour.",
-      idiolect: "I am the keeper of this station. My face is a clock. The timetable on my wall lists years that have not arrived. I prefer quiet hours and belongings returned to their places. Ringing without cause is an offence. For useful people I make small exceptions, officially."
+      seed: "The keeper of the empty station."
     },
     lamp: {
       kind: "item",
@@ -15750,7 +16037,6 @@
   ];
   function motiveFacts(s, actor, limit = 6) {
     return [
-      tastes[actor].likes,
       ...lifeOf(s, actor) ? [lifeFacts(s, actor).join(" ").slice(0, 240)] : [],
       ...(s.motives?.grievances[actor] || []).slice(-limit).reverse().map((g) => `Remembered grievance: ${g.reason}`)
     ].filter(Boolean);

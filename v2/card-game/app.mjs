@@ -11,7 +11,7 @@ import {
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
-import { DAYLIGHT_TURNS, locationDaylight } from "./daylight.mjs";
+import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
 import {
   CHANGE_FADE_MS,
@@ -1028,6 +1028,10 @@ function choose(id) {
     const holder = things[id] ? rootHolder(world, id) : null;
     if (places[holder])
       selected = selected.filter((cardId) => cardId !== holder);
+    // No play takes two places, so a new place replaces the chosen one and
+    // keeps its partner: Pip + Station, then Pond, invites Pip to the Pond.
+    if (places[id] && !selected.includes(id))
+      selected = selected.filter((cardId) => !places[cardId]);
     selectCards(
       selected.includes(id)
         ? selected.filter((cardId) => cardId !== id)
@@ -1885,7 +1889,9 @@ function card(id) {
     ) {
       playQueue.clear();
       rowCollapsed = false;
-      selectCards([dragging[0], id]);
+      selectCards(
+        places[dragging[0]] && places[id] ? [id] : [dragging[0], id],
+      );
       selectionRevision = world.revision;
       render();
     }
@@ -1955,7 +1961,12 @@ $("backdrop").addEventListener("load", (event) => {
 function renderStage(locationId) {
   const pack = packOf(locationId);
   const stage = stageOf(world, locationId);
-  const lamp = stage.lamp || null;
+  // A place painted in its own light or dark (state backdrops) dims only in
+  // the darkest phase of the saved clock, so its paintings aren't darkened twice.
+  const lamp =
+    (!places[locationId]?.backdrops || isNight(world)) && stage.lamp
+      ? stage.lamp
+      : null;
   const view = $("stage");
   document.body.dataset.world = pack?.id || "shore";
   document.body.dataset.place = locationId;
@@ -3136,13 +3147,18 @@ function revealHandCard(id, alignStart = false, instant = false) {
   if (!frame || frame.hidden) return;
   const left = frame.offsetLeft - hand.offsetLeft,
     right = left + frame.offsetWidth,
-    visibleLeft = hand.scrollLeft + 16,
-    visibleRight = hand.scrollLeft + hand.clientWidth - 16;
+    // Keep the revealed card clear of the faded edges.
+    margin = Math.max(
+      16,
+      parseFloat(getComputedStyle(hand).getPropertyValue("--hand-fade")) || 0,
+    ),
+    visibleLeft = hand.scrollLeft + margin,
+    visibleRight = hand.scrollLeft + hand.clientWidth - margin;
   const target =
     alignStart || left < visibleLeft
-      ? left - 16
+      ? left - margin
       : right > visibleRight
-        ? right - hand.clientWidth + 16
+        ? right - hand.clientWidth + margin
         : hand.scrollLeft;
   hand.scrollTo({
     left: target,
@@ -3164,6 +3180,13 @@ function updateHandArrows() {
   $("hand-previous").disabled = hand.scrollLeft <= Math.max(0, start) + 1;
   $("hand-next").disabled =
     hand.scrollLeft + hand.clientWidth >= hand.scrollWidth - 2;
+  // Fade only the edges that hide more cards.
+  const fade = [
+    overflow && !$("hand-previous").disabled && "start",
+    overflow && !$("hand-next").disabled && "end",
+  ].filter(Boolean);
+  if (fade.length) hand.dataset.fade = fade.join(" ");
+  else delete hand.dataset.fade;
 }
 for (const [id, direction] of [
   ["hand-previous", -1],
