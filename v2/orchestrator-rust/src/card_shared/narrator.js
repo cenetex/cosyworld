@@ -16173,6 +16173,12 @@
     (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
   );
   var travels = (id, s = null) => !isPackActor(id) || freed(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
+  var levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
+  var questSteps = (level) => {
+    let [a, b] = [1, 1];
+    for (let i = 1; i < level; i++) [a, b] = [b, a + b];
+    return a;
+  };
   var startXp = (id) => {
     const level = isPackActor(id) ? packPeople[id].startLevel || 1 : 1;
     return level * (level - 1) / 2;
@@ -16201,7 +16207,7 @@
     const whole4 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const w = a.want;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && a.xp <= startXp(id) + s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (w === null || w && Object.keys(w).length === 4 && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT);
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(startXp(id) + s.turn * 8)) && a.xp <= startXp(id) + s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (w === null || w && Object.keys(w).length === (w.quest === void 0 ? 4 : 5) && (w.quest === void 0 || Object.keys(w.quest).length === 2 && Number.isSafeInteger(w.quest.level) && w.quest.level >= 2 && Number.isSafeInteger(w.quest.left) && w.quest.left >= 1 && w.quest.left <= questSteps(w.quest.level)) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT);
   }
 
   // v2/card-game/legacy-saves.mjs
@@ -17088,6 +17094,13 @@
   var canReach = (s, actor, item) => itemPlace2(s, item) === s.actors[actor].place && !actorIds.includes(rootHolder(s, item)) || rootHolder(s, item) === actor;
   var canUse = canReach;
   var loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
+  function wantText(want) {
+    if (!want) return "nothing in particular";
+    if (want.kind === "item") return `hold ${nameOf(want.target)}`;
+    if (want.kind === "place") return `be at ${nameOf(want.target)}`;
+    if (want.kind === "connect") return "introduce two people";
+    return `talk with ${nameOf(want.target)}`;
+  }
   var bundle = (s, item) => [
     item,
     ...s.items.cloth.holder === item ? ["cloth"] : []
@@ -17767,7 +17780,10 @@
         const kind = profiles[id].kind;
         const continuity = kind === "location" || id === currentActor(world) ? packSceneFacts(world, location) : [];
         const want = kind === "avatar" && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf) : null;
+        const quest = world.actors[id]?.want;
+        const dreamt = rest === "long" && id === resting2 && quest?.quest?.left && quest.since === world.turn ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.` : null;
         const facts = [
+          ...dreamt ? [dreamt] : [],
           ...want ? [want] : [],
           ...knowledgeFacts(
             world,
