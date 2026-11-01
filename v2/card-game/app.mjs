@@ -69,7 +69,11 @@ import {
   otherAvatar,
 } from "./avatar-world.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
-import { forgetCovered, markWaking } from "./speech-knowledge.mjs";
+import {
+  forgetCovered,
+  forgetUnfound,
+  markWaking,
+} from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic } from "./music.mjs";
 import { createHum } from "./hum.mjs";
@@ -961,7 +965,9 @@ const narrator = createNarrator({
   early: Boolean(localRuntime()),
   limit: (context) => {
     const covered = (id) => coveredCards.has(id);
-    return markWaking(world, forgetCovered(world, context, covered), covered);
+    // A quest target whose card this player never uncovered stays unnamed.
+    const unseen = forgetUnfound(world, context, cardIsCovered);
+    return markWaking(world, forgetCovered(world, unseen, covered), covered);
   },
   request: localRuntime()
     ? (context, signal, progress) =>
