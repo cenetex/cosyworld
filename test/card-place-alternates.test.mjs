@@ -36,4 +36,39 @@ describe("alternate place paintings", () => {
       before.night["greek-athens"],
     );
   });
+
+  it("shows each Willows sign's painting in its own light", () => {
+    const world = createWorld();
+    const flags = world.packs.willows.flags;
+    const art = (name) => `./assets/willows/${name}.webp`;
+    const at = (w) =>
+      ["willows-camp", "willows-thicket", "willows-bank"].map((id) =>
+        backdrop(id, w),
+      );
+    flags["willows-hollows-seen"] = true;
+    flags["willows-humming-heard"] = true;
+    expect(at(world)).toEqual([
+      before.day["willows-camp"],
+      art("thicket-hollows"),
+      art("bank-humming"),
+    ]);
+    expect(at(night(world))).toEqual([
+      art("camp-lit-night"),
+      art("thicket-night"),
+      art("bank-night"),
+    ]);
+    flags["willows-willows-nearer"] = true;
+    flags["willows-shapes-seen"] = true;
+    flags["willows-mark-seen"] = true;
+    expect(at(night(world))).toEqual([
+      art("camp-closer"),
+      art("thicket-bronze"),
+      art("bank-drowned"),
+    ]);
+    expect(backdrop("willows-bank", world)).toBe(art("bank-roots"));
+    flags["willows-patterings-heard"] = true;
+    expect(backdrop("willows-camp", night(world))).toBe(
+      art("camp-tent-pressure"),
+    );
+  });
 });

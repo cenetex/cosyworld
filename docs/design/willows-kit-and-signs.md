@@ -58,4 +58,5 @@ landing, paddle and rope at the bank). Anyone in the thicket stays there.
    Read view; characters get facts about pages, never their text.
 3. Sign paintings: each sign shows an alternate of its place's painting while it
    is the place's newest sign (#1620's place backdrops); no alternate means the
-   base painting.
+   base painting. The hollows and the bronze shapes are thicket signs, so their
+   paintings (`thicket-hollows`, `thicket-bronze`) are thicket backdrops.

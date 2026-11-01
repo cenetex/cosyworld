@@ -90,6 +90,26 @@ through place `backdrops` with a `daylight` night condition (#1622). The ship an
 #1293; their prompts are in `art-prompts.json`. The camp's fire-out painting
 waits for the owner to choose its flag.
 
+Sign paintings ([sign-art-README](../../card-game/assets/willows/sign-art-README.md))
+are more place `backdrops` at the place where each sign is Observed (the
+hollows and the bronze shapes at the thicket), each named by its sign's flag and
+the painting's own light. The first entry that holds wins, so the later sign
+comes first:
+
+| Place   | Night                                                                | Day                                                 |
+| ------- | -------------------------------------------------------------------- | --------------------------------------------------- |
+| Camp    | `camp-tent-pressure` (patterings), then `camp-closer` (paced nearer) | base                                                |
+| Thicket | `thicket-bronze` (shapes)                                            | `thicket-hollows` (hollows)                         |
+| Bank    | `bank-drowned` (roots)                                               | `bank-roots` (roots), then `bank-humming` (humming) |
+
+A sign painting holds while its sign is the newest that matches; there is no
+timed return to the base, and the stage crossfades between paintings as for any
+backdrop change. A sign seen in the other light shows that light's base
+painting, never a wrong-lit one. The camp's stage focus sits at 82% on the base
+and the alternates alike, so the crossfade does not pan. The otter and the
+boatman appear by chance at the landing (step 4 of the design note); the mended
+canoe follows the kit (step 2); the hull has no painting.
+
 The uncanny flicker (`transitions.mjs`) runs at every Willows place all year,
 not only on Halloween, with the same limits: one cut of 140 ms per entry at
 most, a 40% chance, 30 seconds apart, no brightening, and none under reduced

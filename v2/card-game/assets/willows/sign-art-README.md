@@ -57,12 +57,14 @@ Observe events, repair receipts, notebook assembly rules or display timers.
 The Observe owner in [#1640](https://github.com/cenetex/cosyworld/pull/1640)
 specifies that each sign painting holds while it is that place's newest sign;
 there is no fixed six-second return. At `fca8307c`, the PR implements Observe
-selection but does not yet implement that artwork selector. Its later planned
-steps move the thicket signs to camp and show them on the camp-to-bank travel
-painting, gate the mended canoe on nearby kit, and give passing otter/boatman
-appearances seeded per-turn windows. Those are content-owner integration tasks,
-not shipped behavior of this asset PR. An unavailable alternate must retain its
-place's base painting and never block play.
+selection but does not yet implement that artwork selector. The owner kept the
+willow thicket as a live road between camp and bank (2026-11-01), so its two
+signs, the hollows and the bronze shapes, are Observed at the thicket and their
+paintings are thicket `backdrops`. The later steps gate the mended canoe on the
+kit at camp and give passing otter/boatman appearances seeded per-turn windows.
+Those are content-owner integration tasks, not shipped behavior of this asset
+PR. An unavailable alternate must retain its place's base painting and never
+block play.
 
 The owner's exact prompts and the state/timing handoff are in
 `v2/content/willows/ART-BRIEF.md` and `ART-HANDOFF.md`. The four interim paintings
@@ -84,8 +86,8 @@ The other low scene details still need presentation work in the owner pilot:
   its rope and full hull need a suitable reveal. Do not move the shore or crop
   the source painting to solve these stage-layout constraints.
 
-All five notebook cards were checked in the real card layout. The proposed
-thicket travel presentation still needs checking when that owner step exists.
+All five notebook cards were checked in the real card layout. The thicket
+paintings show while the player stands in the thicket, like any place.
 
 [Initial and accepted revision prompts](sign-art-prompts.json) and
 [provenance and file checks](sign-art-provenance.json) record the built-in tool,
