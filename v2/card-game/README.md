@@ -164,8 +164,14 @@ facts from earlier releases keep their names; player-facing text says quest.
   room, and otherwise goes to one who is elsewhere. Generated quests are never
   connect quests.
 
-The hand holds only people, items and places; quests have no cards or
-buttons. A person's quest reaches the player only through Talk:
+The hand holds people, items and places, and one quest card for the player's
+own quest (`quest-card.mjs`, client only). It shows the target's art with the
+rules' words for the quest (`wantText`), covered until the player uncovers the
+target. Selecting it shows who holds the item and how many places away it is;
+it plays nothing. A met quest glows once in the player's tier colour and the
+next quest takes its place. There is never more than one quest card, and no
+card for anyone else's quest. Another person's quest reaches the player only
+through Talk:
 `want-talk.mjs` adds one first-person fact ("I want the Lamp.") for the player
 and the person on the other side of a Talk play. Bystanders' quests stay
 unsaid, and a met quest is not said.

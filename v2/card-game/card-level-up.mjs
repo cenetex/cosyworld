@@ -20,6 +20,27 @@ export function levelUpPlan(from, to, { reduced = false } = {}) {
 
 const reduceMotion = () =>
   globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+const rest = "0 6px 20px #0006";
+const shine = (color, size) =>
+  `0 0 0 1px ${color}cc, 0 0 ${size}px ${color}99, ${rest}`;
+
+// A met quest card swells once in its own tier colour before the next
+// quest takes its place. Resolves at rest; reduced motion skips it.
+export function glowCard(button, color, options = {}) {
+  if (options.reduced ?? reduceMotion()) return Promise.resolve(false);
+  const motion = button.animate(
+    [
+      { boxShadow: rest, borderColor: color },
+      { boxShadow: shine(color, 22), borderColor: color, offset: 0.5 },
+      { boxShadow: rest, borderColor: color },
+    ],
+    { duration: LEVEL_UP_MS, easing: "ease-in-out" },
+  );
+  return motion.finished.then(
+    () => true,
+    () => false,
+  );
+}
 
 // Plays on a freshly drawn card button already showing its new level.
 // Resolves once every added layer is gone and the card is at rest.
@@ -30,9 +51,6 @@ export function levelUpCard(button, from, options = {}) {
   if (!plan) return Promise.resolve(false);
   const { ms, from: a, to: b, glow } = plan;
   const ease = "cubic-bezier(.3,.6,.3,1)";
-  const rest = "0 6px 20px #0006";
-  const shine = (color, size) =>
-    `0 0 0 1px ${color}cc, 0 0 ${size}px ${color}99, ${rest}`;
   const resting = button.dataset.selected === "true" ? 0.6 : 0;
   button.dataset.levelingUp = "true";
   const marks = [...button.querySelectorAll(".card-level")];
