@@ -4013,7 +4013,11 @@ installSharedControls({
   getWorld: () => world,
   notice,
 });
-installToolbar({ session: sharedSession, getWorld: () => world });
+installToolbar({
+  session: sharedSession,
+  getWorld: () => world,
+  allowShared: () => !localRuntime(),
+});
 // The root page resumes whichever avatar was played last.
 if (!tableName && !startingPack)
   try {
