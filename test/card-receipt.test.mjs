@@ -26,7 +26,8 @@ function stationTrade() {
     s = act(s, "wait");
     if (s.log.some((e) => e.verb === "trade")) break;
   }
-  // Then Pip sets off for the pond.
+  // Then Pip, rested, sets off for the pond.
+  delete s.actors.moth.metTurn;
   s.actors.moth.want = { kind: "place", target: "pond", since: s.turn, refusals: 0 };
   return act(s, "wait");
 }

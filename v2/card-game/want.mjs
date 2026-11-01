@@ -18,18 +18,20 @@ export const WANT_KINDS = ["item", "place", "person", "connect"];
 // A level quest step may name a verb beyond the kind's own (hold, be at,
 // talk). State verbs are met when their condition holds after any play; act
 // verbs when that play by the avatar resolves (Give only when accepted). A
-// step names its other cards: `to` a person, `at` a place.
+// step names its other cards: `to` a person, `at` a place. The last step,
+// rest, is a long rest at the sanctuary the avatar last slept in.
 export const STEP_VERBS = {
   item: ["find", "give", "bring"],
   person: ["meet", "threaten", "attack"],
+  place: ["rest"],
 };
 const HOSTILE_LEVEL = 20; // Threaten and Attack join steps from Rare
 
 // A connect want introduces people: its one target is the connected humans.
 export const CONNECT_TARGET = "humans";
 // A want is set aside after this many refusals, or after a long spell with
-// no way forward, and its target stays out of mind a while. Resting at home
-// lasts a few turns after a want is met.
+// no way forward, and its target stays out of mind a while. A rest lasts a
+// few turns after a want is met, wherever it was met.
 export const REFUSAL_LIMIT = 3;
 export const STALL_TURNS = 48;
 export const REST_TURNS = 3;
@@ -66,7 +68,8 @@ export const travels = (id, s = null) =>
 export const levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
 export const levelOf = (s, id) =>
   s.actors[id]?.level ?? levelFor(s.actors[id]?.xp || 0);
-// The quest for level n has F(n) steps: 1, 1, 2, 3, 5, 8 ...
+// The quest for level n has F(n) steps: 1, 1, 2, 3, 5, 8 ... and then the
+// rest that raises the level.
 export const questSteps = (level) => {
   let [a, b] = [1, 1];
   for (let i = 1; i < level; i++) [a, b] = [b, a + b];
@@ -158,8 +161,28 @@ export function offerLevelQuest(s, actor, api) {
   a.level ??= levelFor(a.xp);
   if (a.want?.quest || levelFor(a.xp) <= a.level) return null;
   const level = a.level + 1;
-  a.want = questStep(s, actor, api, { level, left: questSteps(level) });
+  a.want = questStep(s, actor, api, { level, left: questSteps(level) + 1 });
   return a.want;
+}
+// The way back to the sanctuary the avatar last slept in, or, for one that
+// never reached a sanctuary, its home.
+const restStep = (s, actor, api, quest) => ({
+  ...newWant(
+    "place",
+    s.actors[actor].sanctuary ?? api.home(actor) ?? s.actors[actor].place,
+    s.turn,
+  ),
+  quest,
+  step: { verb: "rest" },
+});
+// Waking from a long rest completes a level quest's rest step there, or
+// brings the level quest when experience is enough for the next level.
+export function wake(s, actor, api) {
+  const a = s.actors[actor];
+  if (api.sanctuaries.includes(a.place)) a.sanctuary = a.place;
+  if (a.want?.step?.verb === "rest" && a.want.target === a.place)
+    return commitMet(s, actor, api, []);
+  return offerLevelQuest(s, actor, api);
 }
 // Dropping a level quest costs half the avatar's experience; its ordinary
 // wants resume.
@@ -329,6 +352,7 @@ function stepMet(s, actor, want, action) {
     );
   if (verb === "meet")
     return together(s, actor, want.target) && (!at || me.place === at);
+  if (verb === "rest") return false; // met only on waking there
   return by(verb); // threaten, attack: any outcome
 }
 export function wantMet(s, actor, talk = null, action = null) {
@@ -366,20 +390,19 @@ function rootOf(s, id) {
   return holder;
 }
 
-export const resting = (s, actor, home) => {
+// A resident rests right where it met a want, holding the next one.
+export const resting = (s, actor) => {
   const want = wantOf(s, actor);
   return Boolean(
-    home &&
-      s.actors[actor].place === home &&
-      s.actors[actor].metTurn !== undefined &&
+    s.actors[actor].metTurn !== undefined &&
       s.turn - s.actors[actor].metTurn < REST_TURNS &&
       (!want || want.since >= s.actors[actor].metTurn),
   );
 };
 
-// Record what each participant saw and said, then commit met wants. A want
-// met away from home is followed by the way home; at home the next real want
-// is drawn while the avatar rests.
+// Record what each participant saw and said, then commit met wants. The next
+// want is drawn where one is met; only a level quest ends with the way back
+// to a sanctuary, where a long rest raises the level.
 export function settleWants(s, actors, api, action = null) {
   const talk =
     action?.kind === "talk"
@@ -391,39 +414,31 @@ export function settleWants(s, actors, api, action = null) {
     if (!a) continue;
     if (!a.visited.includes(a.place))
       a.visited = [...a.visited, a.place].slice(-64);
+    if (api.sanctuaries.includes(a.place)) a.sanctuary = a.place;
     if (talk && [talk.actor, talk.target].includes(id)) {
       const other = talk.actor === id ? talk.target : talk.actor;
       if (s.actors[other] && !a.talked.includes(other))
         a.talked = [...a.talked, other].slice(-64);
     }
-    if (!wantMet(s, id, talk, action)) continue;
-    const want = a.want;
-    a.level ??= levelFor(a.xp);
-    a.xp += 1;
-    a.metTurn = s.turn;
-    met.push({ actorId: id, want });
-    api.log(id, want);
-    if (want.quest?.left > 1) {
-      a.want = questStep(
-        s,
-        id,
-        api,
-        { ...want.quest, left: want.quest.left - 1 },
-        want,
-      );
-      continue;
-    }
-    if (want.quest) a.level = want.quest.level;
+    if (wantMet(s, id, talk, action)) commitMet(s, id, api, met);
+  }
+  return met;
+}
+function commitMet(s, id, api, met) {
+  const a = s.actors[id],
+    want = a.want,
+    quest = want.quest && { ...want.quest, left: want.quest.left - 1 };
+  a.level ??= levelFor(a.xp);
+  a.xp += 1;
+  a.metTurn = s.turn;
+  met.push({ actorId: id, want });
+  api.log(id, want);
+  if (quest?.left > 1) a.want = questStep(s, id, api, quest, want);
+  else if (quest?.left === 1) a.want = restStep(s, id, api, quest);
+  else {
+    if (quest) a.level = quest.level;
     else if (!api.player(id)) a.level = Math.max(a.level, levelFor(a.xp));
-    const home = api.home(id);
-    const atRest =
-      !home || a.place === home || api.sanctuaries.includes(a.place);
-    a.want =
-      !atRest &&
-      travels(id, s) &&
-      !(want.kind === "place" && want.target === home)
-        ? newWant("place", home, s.turn)
-        : nextWant(s, id, api, want);
+    a.want = nextWant(s, id, api, want);
   }
   return met;
 }
@@ -442,10 +457,14 @@ export function refuseWant(s, actor, item, api) {
 function giveUp(s, actor, api) {
   const a = s.actors[actor];
   a.gaveUp = { target: a.want.target, turn: s.turn };
-  // A level quest with no way forward becomes another of the same level.
-  a.want = a.want.quest
-    ? questStep(s, actor, api, a.want.quest, a.want)
-    : nextWant(s, actor, api, a.want);
+  // A level quest with no way forward becomes another of the same level;
+  // its rest still waits at the sanctuary.
+  a.want =
+    a.want.step?.verb === "rest"
+      ? restStep(s, actor, api, a.want.quest)
+      : a.want.quest
+        ? questStep(s, actor, api, a.want.quest, a.want)
+        : nextWant(s, actor, api, a.want);
 }
 // A cast want with no way forward for a long spell is set aside. A resident
 // that keeps to its scene acts only when someone is there, so time spent
@@ -544,7 +563,7 @@ export function validWant(s, id) {
             w.quest.level >= 2 &&
             Number.isSafeInteger(w.quest.left) &&
             w.quest.left >= 1 &&
-            w.quest.left <= questSteps(w.quest.level))) &&
+            w.quest.left <= questSteps(w.quest.level) + 1)) &&
         WANT_KINDS.includes(w.kind) &&
         typeof w.target === "string" &&
         validTarget(s, w.kind, w.target) &&

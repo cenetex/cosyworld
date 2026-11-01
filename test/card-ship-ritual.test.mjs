@@ -438,7 +438,8 @@ test("Pip brings the signaled ship from Greece to a waiting player", () => {
   summonTransport(s, "greek-ship", "greek-harbor");
   s.items.lamp.lit = false;
   s.actors.moth.place = "greek-harbor";
-  // Pip wants to go home to the pond.
+  // Pip, rested, wants to go to the pond.
+  delete s.actors.moth.metTurn;
   s.actors.moth.want = newWant("place", "pond", s.turn);
   s.items.lamp.holder = "pond";
   assert.equal(plan(s, "moth").action.target, "greek-ship");

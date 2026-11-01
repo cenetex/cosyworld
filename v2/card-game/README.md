@@ -154,8 +154,9 @@ facts from earlier releases keep their names; player-facing text says quest.
 - **Next.** The next quest is drawn deterministically from the world, seeded
   by the avatar and turn: items others hold nearby that the avatar values
   above what it carries, reachable places it has not visited, and known people
-  it has not talked with. A quest met away from home is followed by the way
-  home; at home the avatar rests a few turns while it holds the next one.
+  it has not talked with. A quest ends where it is met: nobody is sent home
+  (#1824). A resident rests right there a few turns while it holds the next
+  one.
   Every active avatar, players and unseen residents too, always holds one
   quest: with nothing near left, its curiosity starts over at once, and then
   anyone known, or what they hold, will do, reachable or not. A new world
@@ -168,8 +169,10 @@ facts from earlier releases keep their names; player-facing text says quest.
   the scene tells the model the quest as a fact, and the quest card shows it
   in place of the ordinary quest. The quest for level n has F(n) steps
   (1, 1, 2, 3, 5 ...), each drawn from the whole known world among the half
-  furthest from home; the last step raises the level and ordinary quests
-  resume. A step with no way forward becomes another of the same level. Drop
+  furthest from home. After the last step comes the way back: a **rest**
+  step at the sanctuary the avatar last stood in (`actor.sanctuary`, or home
+  for one that never reached a sanctuary). Being there is not enough; the
+  long rest there raises the level, and ordinary quests resume. A step with no way forward becomes another of the same level. Drop
   quest (a `drop` play with no item) gives it up for half the experience;
   the level stays. Residents level on experience alone.
 - **One world each.** Level, experience and quests belong to an avatar in
@@ -757,7 +760,7 @@ The cast braces, answers strikes, or steps back. Threats, hits, releases, and re
 
 ### Repeated defeats
 
-Each avatar counts its defeats in a row in `defeats`. A win clears the count. A player's Wait away from a sanctuary is a short rest that takes one defeat off; a long rest at a sanctuary clears the count when the avatar wakes. A resident clears it by resting at home just after meeting a want. Nobody rests during a standoff.
+Each avatar counts its defeats in a row in `defeats`. A win clears the count. A player's Wait away from a sanctuary is a short rest that takes one defeat off; a long rest at a sanctuary clears the count when the avatar wakes. A resident clears it by resting where it just met a want. Nobody rests during a standoff.
 
 ### Rest and sanctuary
 
