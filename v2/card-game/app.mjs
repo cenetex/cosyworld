@@ -514,10 +514,15 @@ const playQueue = createPlayQueue({
 });
 // Strikes and journeys have the screen: the hand, locked through them
 // anyway, drops away the moment they start and rises once the scene is drawn.
+// The dialogue sinks with it to a strip at the foot of the stage, so the
+// fighters stay in view, and rises for the speech that follows.
 function syncHandDrop() {
-  const dock = document.querySelector(".play-dock");
+  const dock = document.querySelector(".play-dock"),
+    dialogue = document.querySelector(".dialogue");
   dock.dataset.dropped = String(covering);
   dock.inert = covering;
+  dialogue.dataset.dropped = String(covering);
+  dialogue.inert = covering;
 }
 function updateCardCooldown() {
   syncHandDrop();
