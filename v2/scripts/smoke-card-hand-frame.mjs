@@ -7,7 +7,8 @@ import { enableMotives } from "../card-game/motives.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 
 // Hand cards wear no count badges, a chosen card has one white edge, the
-// first card and its quest tab stay inside the hand, and no name hides
+// first card and its folded quest stay inside the hand, the folded quest is
+// a full-size face-down card with a glowing tier line, and no name hides
 // under the next card in the fan.
 const output = new URL("../../output/card-hand-frame/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -18,8 +19,13 @@ const world = enableMotives(createWorld());
 world.actors.moth.place = world.actors.keeper.place = "station";
 for (const item of ["cloth", "lamp", "oil"]) world.items[item].holder = "vale";
 world.actors.vale.visited.push("pond");
-// A near quest folds behind Vale with its tab glowing.
-world.actors.vale.want = { kind: "item", target: "bell", since: 0, refusals: 0 };
+// A near quest folds behind Vale as a glowing face-down card.
+world.actors.vale.want = {
+  kind: "item",
+  target: "bell",
+  since: 0,
+  refusals: 0,
+};
 
 const inspect = () => {
   const hand = document.querySelector("#hand"),
@@ -50,7 +56,10 @@ const inspect = () => {
       if (style.outlineColor !== "rgb(255, 250, 240)")
         problems.push(`${id} edge`);
       if (/242, 219, 166/.test(style.boxShadow)) problems.push(`${id} gold`);
-      if (levels[0] && style.borderTopColor !== getComputedStyle(levels[0]).color)
+      if (
+        levels[0] &&
+        style.borderTopColor !== getComputedStyle(levels[0]).color
+      )
         problems.push(`${id} numeral colour`);
     }
     // A name ends before the next card begins, unless this card is in front.
@@ -65,8 +74,8 @@ const inspect = () => {
       if (over > 1) problems.push(`${id} name under next ${over.toFixed(1)}`);
     }
   });
-  // The first card and its quest tab, rotated, inside the hand's clip box.
-  for (const el of frames[0].querySelectorAll(":scope > .card, .quest-tab")) {
+  // The first card and its folded quest, rotated, inside the hand's clip box.
+  for (const el of frames[0].querySelectorAll(":scope > .card, .quest-fold")) {
     const rect = el.getBoundingClientRect();
     if (el.checkVisibility() && (rect.left < box.left || rect.top < box.top))
       problems.push(`${el.className} clipped`);
@@ -110,6 +119,40 @@ try {
       await page.screenshot({ path });
     };
     await check("rest");
+    // The folded quest is a card in Vale's stack: Vale's size, the carved
+    // back and a glowing line in its tier colour. There is no tab.
+    const fold = await page.evaluate(() => {
+      const frame = document.querySelector(
+          '#hand [data-card="vale"]',
+        ).parentElement,
+        fold = frame.querySelector(":scope > .quest-fold"),
+        card = frame.querySelector(":scope > .card"),
+        style = fold && getComputedStyle(fold);
+      // outline-color resolves the tier colour the same way the line does.
+      if (fold) fold.style.outlineColor = "var(--tier-color)";
+      return {
+        tabs: document.querySelectorAll(".quest-tab").length,
+        visible: fold?.checkVisibility() ?? false,
+        size: fold && [
+          fold.offsetWidth - card.offsetWidth,
+          fold.offsetHeight - card.offsetHeight,
+        ],
+        back: style?.backgroundImage ?? "",
+        line: style?.borderTopColor === style?.outlineColor,
+        lineWidth: style?.borderTopWidth,
+        glow: style?.boxShadow ?? "none",
+      };
+    });
+    assert.equal(fold.tabs, 0, `${width} no quest tab`);
+    assert.equal(fold.visible, true, `${width} folded quest shows`);
+    assert.ok(
+      fold.size.every((d) => Math.abs(d) <= 1),
+      `${width} fold size ${fold.size}`,
+    );
+    assert.match(fold.back, /card-back/, `${width} fold shows the card back`);
+    assert.equal(fold.lineWidth, "2px", `${width} fold line`);
+    assert.equal(fold.line, true, `${width} fold line in its tier colour`);
+    assert.notEqual(fold.glow, "none", `${width} fold glows`);
     await card("vale").click();
     await check("vale");
     assert.equal(await card("vale").locator(".card-level").count(), 1);
@@ -120,7 +163,9 @@ try {
     assert.deepEqual(errors, []);
     await page.close();
   }
-  console.log("Hand frames: no counts, one chosen edge, nothing clipped.");
+  console.log(
+    "Hand frames: no counts, one chosen edge, a card-sized folded quest, nothing clipped.",
+  );
 } finally {
   await browser.close();
   server.close();

@@ -1873,8 +1873,8 @@ function updateCardSelection(frame) {
     frame.replaceWith(questFrame(shownQuest));
     return;
   }
-  const tab = frame.querySelector(":scope > .quest-tab");
-  if (tab) syncQuestTab(tab);
+  const fold = frame.querySelector(":scope > .quest-fold");
+  if (fold) syncQuestFold(fold);
   const button = frame.querySelector(".card"),
     id = button.dataset.card,
     raised =
@@ -2104,14 +2104,15 @@ function card(id) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
     if (!hidden) observation.textContent += stackLabel(stack);
-    // Blank edges: how many ways on, not where they lead.
+    // Face-down cards: how many ways on, not where they lead.
     for (let i = Math.min(stack.length, 3); i > 0; i--) {
       const edge = node("span", undefined, "place-edge");
       edge.style.setProperty("--i", String(i));
+      edge.style.setProperty("--card-back", cardBackImage());
       frame.prepend(edge);
     }
   }
-  if (shownQuest?.actor === id) frame.prepend(questTab(shownQuest));
+  if (shownQuest?.actor === id) frame.prepend(questFold(shownQuest));
   el.dataset.unrevealed = String(cardIsCovered(id));
   const back = node("img", undefined, "card-back");
   back.src = imageUrl("./assets/card-back.webp", "card");
@@ -2124,6 +2125,10 @@ function card(id) {
   }
   return frame;
 }
+// Face-down layers in a stack (the ways on, the folded quest and its steps
+// to come) show the carved card back.
+const cardBackImage = () =>
+  `url("${imageUrl("./assets/card-back.webp", "card")}")`;
 const stackLabel = (stack) =>
   stack.length
     ? ` ${stack.length} ${stack.length === 1 ? "way" : "ways"} on. Select to show ${stack.length === 1 ? "it" : "them"}.`
@@ -2203,6 +2208,7 @@ function questFrame(quest) {
     const edge = node("span", undefined, "quest-edge");
     edge.style.setProperty("--i", String(i));
     edge.style.setProperty("--tier-color", tier.color);
+    edge.style.setProperty("--card-back", cardBackImage());
     frame.append(edge);
   }
   frame.append(el);
@@ -2227,30 +2233,33 @@ function toggleQuest() {
 // The quest shows when the avatar's stack or the quest itself is open.
 const questShown = (quest) =>
   Boolean(quest) && (questOpen || expandedHolders.has(quest.actor));
-// The folded quest's tab carries its glows: a pulse while a first quest is
-// new or a met quest waits to be cleared, a steady halo while it is near.
-// Once the quest card shows, the tab hides and the card glows instead.
-function syncQuestTab(tab) {
+// The folded quest is a card in the avatar's stack: the world's card back
+// with a glowing line in its tier colour. The line pulses while a first
+// quest is new or a met quest waits to be cleared and holds a steady halo
+// while it is near. Once the quest card shows, the fold hides and the card
+// glows instead.
+function syncQuestFold(fold) {
   const quest = shownQuest;
-  tab.hidden = questShown(quest);
-  tab.dataset.glow =
+  fold.hidden = questShown(quest);
+  fold.dataset.glow =
     metQuest || questFresh
       ? "invite"
       : !questCovered(quest) && questNear(world, quest)
         ? "near"
         : "none";
 }
-function questTab(quest) {
-  const tab = node("button", undefined, "quest-tab");
-  tab.type = "button";
-  tab.style.setProperty("--tier-color", questTier(quest).color);
-  syncQuestTab(tab);
-  tab.setAttribute("aria-label", metQuest ? "Quest met: open it" : "Quest");
-  tab.addEventListener("click", (event) => {
+function questFold(quest) {
+  const fold = node("button", undefined, "quest-fold");
+  fold.type = "button";
+  fold.style.setProperty("--tier-color", questTier(quest).color);
+  fold.style.setProperty("--card-back", cardBackImage());
+  syncQuestFold(fold);
+  fold.setAttribute("aria-label", metQuest ? "Quest met: open it" : "Quest");
+  fold.addEventListener("click", (event) => {
     event.stopPropagation();
     toggleQuest();
   });
-  return tab;
+  return fold;
 }
 // Clearing a met quest shows the experience it brought rising from the card,
 // glows the avatar when it ends a level quest, then shows the next quest.

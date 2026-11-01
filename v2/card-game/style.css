@@ -945,7 +945,7 @@ body .dialogue[data-dropped="true"] {
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
-  /* Room for the outer cards' lean, the quest tab and a chosen card's lift,
+  /* Room for the outer cards' lean, the folded quest and a chosen card's lift,
      which the hand's scroll box would otherwise clip. The room rises above
      the dock, so the cards still sit 12px under the dialogue. */
   margin-top: calc(12px - var(--hand-top));
@@ -1211,18 +1211,25 @@ body .card-frame[hidden] {
 .card-frame .card {
   z-index: 1;
 }
-.held-preview {
+/* Layers in a holder's stack. The carried thing shows its face (the card
+   back while it is covered); the ways on, the folded quest and the quest's
+   steps to come lie face down, showing the carved card back (--card-back). */
+:is(.held-preview, .place-edge, .quest-edge, .quest-fold) {
   position: absolute;
   inset: 0;
+  border: 1px solid #a48d6380;
+  border-radius: 13px;
+  background: var(--card-back) center / cover no-repeat, #2a2118;
+  box-shadow: 0 4px 12px #0007;
+  pointer-events: none;
+}
+.held-preview {
   width: 100%;
   height: 100%;
   object-fit: contain;
   padding: 8px;
-  border: 1px solid #a48d6380;
-  border-radius: 13px;
   background: #25252c;
   transform: translate(7px, -4px) rotate(3deg);
-  pointer-events: none;
 }
 .card-frame[data-expanded="true"] .held-preview {
   display: none;
@@ -1230,19 +1237,11 @@ body .card-frame[hidden] {
 .card-frame[data-holder] .card {
   border-color: #a48d6370;
 }
-/* The places you can go from here: blank edges behind the current place.
-   Opening the place fans them out like the hand. */
+/* The places you can go from here: face-down cards behind the current
+   place. Opening the place fans them out like the hand. */
 .place-edge {
-  position: absolute;
-  inset: 0;
-  border-radius: 13px;
   translate: calc(var(--i) * 6px) calc(var(--i) * -4px);
   rotate: calc(var(--i) * 1.5deg);
-  border: 1px solid #a48d6380;
-  background:
-    repeating-linear-gradient(45deg, #ffffff07 0 3px, transparent 3px 6px),
-    linear-gradient(#2a2118, #17110c);
-  pointer-events: none;
 }
 .card-frame[data-expanded="true"] .place-edge {
   display: none;
@@ -1297,29 +1296,29 @@ body .card.want-card[data-near="true"] {
   aspect-ratio: 4 / 3;
   pointer-events: none;
 }
-/* The quest folds behind the player's avatar: a plain tab in its tier
-   colour rises above the card's top left, opposite the carried thing. It
-   glows while a first quest is new or a met quest waits to be cleared. */
-.card-frame > .quest-tab {
-  position: absolute;
-  top: 0;
-  left: 10px;
+/* The quest folds behind the player's avatar as a face-down card leaning
+   out to the top left, opposite the carried thing, with a glowing line in
+   its tier colour along its edge. The line pulses while a first quest is new
+   or a met quest waits to be cleared. */
+.card-frame > .quest-fold {
   z-index: 0;
-  width: 38%;
   min-height: 0;
-  height: 40px;
   padding: 0;
-  border: 0;
-  border-radius: 7px 7px 0 0;
-  background: var(--tier-color);
-  /* Kept within the hand's top margin, which clips anything higher. */
-  transform: translateY(-9px);
+  border: 2px solid var(--tier-color);
+  box-shadow:
+    0 0 6px 1px color-mix(in srgb, var(--tier-color) 70%, transparent),
+    0 4px 12px #0007;
+  transform: translate(-7px, -5px) rotate(-3deg);
+  pointer-events: auto;
+  cursor: pointer;
 }
-.card-frame > .quest-tab[data-glow="near"] {
-  box-shadow: 0 0 12px 2px var(--tier-color);
+.card-frame > .quest-fold[data-glow="near"] {
+  box-shadow:
+    0 0 14px 3px var(--tier-color),
+    0 4px 12px #0007;
 }
-.card-frame > .quest-tab[data-glow="invite"] {
-  box-shadow: 0 0 12px 2px var(--tier-color);
+.card-frame > .quest-fold[data-glow="invite"] {
+  box-shadow: 0 0 14px 3px var(--tier-color);
   animation: quest-invite 2.4s ease-in-out infinite alternate;
 }
 @keyframes quest-invite {
@@ -1361,22 +1360,15 @@ body .card.want-card[data-met="true"] {
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .card-frame > .quest-tab[data-glow="invite"] {
+  .card-frame > .quest-fold[data-glow="invite"] {
     animation: none;
   }
 }
-/* Steps still to come: blank lids stacked behind the card. */
+/* Steps still to come: face-down cards stacked behind the quest. */
 .quest-edge {
-  position: absolute;
-  inset: 0;
-  border-radius: 13px;
   translate: calc(var(--i) * 6px) calc(var(--i) * -4px);
   rotate: calc(var(--i) * 1.5deg);
-  border: 1px solid color-mix(in srgb, var(--tier-color) 50%, #333);
-  background:
-    repeating-linear-gradient(45deg, #ffffff07 0 3px, transparent 3px 6px),
-    linear-gradient(#2a2118, #17110c);
-  pointer-events: none;
+  border-color: color-mix(in srgb, var(--tier-color) 50%, #333);
 }
 .quest-screen img {
   position: absolute;
