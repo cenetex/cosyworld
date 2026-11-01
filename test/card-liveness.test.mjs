@@ -24,19 +24,23 @@ function longestGaps(seed, opening = false) {
     for (let i = 0; i < TURNS; i++) {
       if (i % 100 === 0) await yieldToRunner();
       x = (Math.imul(x, 1103515245) + 12345) >>> 0;
-      const acts = legalActions(s);
+      const acts = legalActions(s),
+        before = s.turn;
       s = play(s, acts[x % acts.length]).state;
+      // A long rest runs the world on for many turns in one play, so count
+      // every want met since the last play, each at its own turn.
       for (const e of s.log)
         if (
           e.verb === "want_met" &&
-          e.turn === s.turn &&
+          e.turn > before &&
+          e.turn <= s.turn &&
           cast.includes(e.actorId)
         ) {
-          gaps[e.actorId] = Math.max(gaps[e.actorId], s.turn - last[e.actorId]);
-          last[e.actorId] = s.turn;
+          gaps[e.actorId] = Math.max(gaps[e.actorId], e.turn - last[e.actorId]);
+          last[e.actorId] = e.turn;
         }
     }
-    for (const id of cast) gaps[id] = Math.max(gaps[id], TURNS - last[id]);
+    for (const id of cast) gaps[id] = Math.max(gaps[id], s.turn - last[id]);
     return gaps;
   })();
 }
