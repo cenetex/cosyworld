@@ -41,6 +41,15 @@ export function availableCards(world) {
       world.presentActors.filter((id) => world.actors[id]?.place === place)
         .length < 4,
   );
+  // A standoff here locks the room: no leaving and no changing items. The
+  // hand keeps the people, and the demanded item while it can be handed over.
+  const fight = world.standoffs?.find((c) => c.location === here);
+  if (fight) {
+    const mine = [fight.challenger, fight.defender].includes(player);
+    const demanded =
+      mine && fight.defender === player && fight.item ? [fight.item] : [];
+    return [...cast, ...demanded.filter((id) => items.includes(id))];
+  }
   const road = packPlaces[here]?.road;
   return [
     ...cast.flatMap((id) => [id, ...after(id)]),

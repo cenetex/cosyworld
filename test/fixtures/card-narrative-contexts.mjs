@@ -1,3 +1,4 @@
+import { endStandoff } from "../helpers/standoff.mjs";
 import { atticOpening } from "./card-attic-opening.mjs";
 import { openingFixture } from "../helpers/greek-opening.mjs";
 import {
@@ -15,6 +16,7 @@ import {
 } from "../../v2/card-game/narrative.mjs";
 
 export function playCard(world, kind, item, target) {
+  world = endStandoff(world);
   const action = legalActions(world).find(
     (candidate) =>
       candidate.kind === kind &&
@@ -135,6 +137,9 @@ export function narrativeContractCases() {
     // The Bard follows its own want; the case meets it where Vale stands.
     const arrival = playCard(earned, "wait");
     arrival.actors["greek-rhapsode"].place = arrival.actors.vale.place;
+    // Meeting him there, as the stage does when Vale and he share a place.
+    arrival.opening.met["greek-rhapsode"] ??= arrival.turn;
+    arrival.packs["greek-drama"].met["greek-rhapsode"] ??= arrival.turn;
     worlds.push([`${branch} bard arrival`, arrival]);
     worlds.push([
       `${branch} bard conversation`,

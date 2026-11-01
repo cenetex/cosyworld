@@ -42,9 +42,18 @@ function shared(dock, seas = false) {
     ),
   }).world;
   world.crossings["pond-greek-harbor"].discovered = true;
-  world.transports["greek-ship"].dock = docks.includes(dock)
-    ? dock
-    : "greek-harbor";
+  // The ship lies empty at the dock, whatever errand it was on.
+  Object.assign(world.transports["greek-ship"], {
+    phase: "docked",
+    dock: docks.includes(dock) ? dock : "greek-harbor",
+    destination: null,
+    riders: [],
+    since: world.turn,
+    recall: null,
+  });
+  for (const actor of Object.values(world.actors))
+    if (actor.place === "greek-ship")
+      actor.place = world.transports["greek-ship"].dock;
   for (const id of players) world.actors[id].place = dock;
   // Residents' errands (BoardyAI's introductions, a rhapsode bound for
   // Athens Harbor) are tested on their own; here nobody calls the ship.
@@ -70,6 +79,17 @@ const ask = (world, actor, extra = {}) =>
     ...extra,
   });
 function play(world, actor, kind, fields) {
+  // A standoff locks the room; the walkthrough talks its way out first.
+  const fight = world.standoffs.find(
+    (c) => c.location === world.actors[actor].place,
+  );
+  const party =
+    fight &&
+    players.find((id) => [fight.challenger, fight.defender].includes(id));
+  if (party && kind !== "talk")
+    world = play(world, party, "talk", {
+      target: fight.challenger === party ? fight.defender : fight.challenger,
+    });
   const action = ask(world, actor).actions.find(
     (a) =>
       a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),

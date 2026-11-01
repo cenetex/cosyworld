@@ -1,5 +1,9 @@
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
-import { selectCard, topicForChoice } from "./card-browser-helpers.mjs";
+import {
+  endStandoff,
+  selectCard,
+  topicForChoice,
+} from "./card-browser-helpers.mjs";
 import { checkOpeningPoem } from "./smoke-card-opening-poem.mjs";
 // Exercise the public card UI and its one saved history, at desktop and phone
 // widths. Text is a bounded fixture; the deterministic model owns every result.
@@ -129,6 +133,7 @@ try {
     };
     const playCard = async (id) => {
       await ready();
+      if (await endStandoff(page, await state())) await ready();
       // A held item stays raised after its play; start each play fresh.
       await page.keyboard.press("Escape");
       await selectCard(page, id);
@@ -137,6 +142,7 @@ try {
     };
     const pair = async (one, two) => {
       await ready();
+      if (await endStandoff(page, await state())) await ready();
       await page.keyboard.press("Escape");
       await selectCard(page, one);
 

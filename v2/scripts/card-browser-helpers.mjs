@@ -44,6 +44,20 @@ export async function clearSelection(page) {
   if (await page.locator('#hand .card[aria-pressed="true"]').count())
     await page.keyboard.press("Escape");
 }
+// A standoff locks its room, so a scripted walk talks its way out first.
+export async function endStandoff(page, world, actor = "vale") {
+  const fight = world.standoffs?.find((c) =>
+    [c.challenger, c.defender].includes(actor),
+  );
+  if (!fight) return false;
+  await clearSelection(page);
+  await selectCard(
+    page,
+    fight.challenger === actor ? fight.defender : fight.challenger,
+  );
+  await page.locator('#card-actions [data-action="talk"]').click();
+  return true;
+}
 export async function selectCard(page, id, { touch = false } = {}) {
   const frame = page.locator(`#hand [data-card="${id}"]`).locator("..");
   const holder =

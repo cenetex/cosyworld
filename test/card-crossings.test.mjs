@@ -35,6 +35,7 @@ import {
   backdrop,
 } from "../v2/card-game/scene.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { endStandoff } from "./helpers/standoff.mjs";
 
 function clearing() {
   const s = createWorld();
@@ -50,10 +51,14 @@ function pond() {
   s.items.lamp.lit = true;
   s.items.lamp.fuel = 12;
   s.items.cloth.holder = "vale";
-  // Cover, then uncover, the lit lamp: the whole ship signal.
-  return act(act(s, "cover", "lamp", "cloth"), "take", null, "cloth");
+  // Cover, then uncover, the lit lamp: the whole ship signal. Pip's threat
+  // over the lamp is talked down, so the room is not locked.
+  return endStandoff(
+    act(act(s, "cover", "lamp", "cloth"), "take", null, "cloth"),
+  );
 }
 function act(s, kind, target, item) {
+  s = endStandoff(s);
   if (kind === "move" && item === null && needsVoyage(s, currentActor(s), target))
     return sailTo(s, target);
   const a = legalActions(s).find(

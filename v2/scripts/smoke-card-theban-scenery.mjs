@@ -1,5 +1,9 @@
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
-import { revealCard, selectCard } from "./card-browser-helpers.mjs";
+import {
+  endStandoff,
+  revealCard,
+  selectCard,
+} from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -111,6 +115,7 @@ try {
     }
     async function use(...ids) {
       await ready();
+      if (await endStandoff(page, await state())) await ready();
       if (ids.length === 1) {
         const steps = greekTravelTargets(
           (await state()).actors.vale.place,
@@ -193,6 +198,7 @@ try {
       await use("greek-harbor");
       assert.equal((await state()).packs["greek-drama"].scope, "opening");
       await use("lamp");
+      if (await endStandoff(page, await state())) await ready();
       await shot("harbor");
       const harborSave = await page.evaluate(
         (key) => localStorage.getItem(key),

@@ -176,18 +176,16 @@ describe("accompany card requests", () => {
       expect(() => decodeSave(JSON.stringify(broken))).toThrow();
     }
   });
-  it("answers a trip during a standoff, which ends it", () => {
+  it("offers no trip while a standoff locks the room", () => {
     const start = together();
     const threat = legalActions(start).find(
       (a) => a.kind === "threaten" && a.target === "moth",
     );
     const standoff = play(start, threat).state;
-    const world = request(standoff, "moth", "pond");
-    expect(reply(world).accepted).toBe(false);
-    expect(reply(world).reason).toBe("wants-something-else");
-    expect(world.actors.vale.place).toBe("station");
-    // Asking is not a Strike or a Brace, so it steps back from the standoff.
-    expect(world.standoffs).toHaveLength(0);
+    expect(standoff.standoffs).toHaveLength(1);
+    expect(legalActions(standoff).some((a) => a.kind === "accompany")).toBe(
+      false,
+    );
   });
   it("gives the model the recorded refusal even after an earlier promise", () => {
     const start = wantsCloth(together());

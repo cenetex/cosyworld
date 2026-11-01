@@ -22,8 +22,10 @@ import {
 const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { createServer } from "../v2/card-game/serve.mjs";
 import { roomTracks } from "../v2/card-game/music.mjs";
+import { endStandoff } from "./helpers/standoff.mjs";
 
 function act(s, kind, item, target) {
+  s = endStandoff(s);
   const action = legalActions(s).find(
     (a) =>
       a.kind === kind &&
@@ -93,6 +95,7 @@ describe("the reflected shore card game", () => {
     s = act(s, "cover", "cloth", "lamp");
     expect(covered(s, "lamp")).toBe(true);
     expect(exits(s, "pond")).toEqual(["station"]);
+    s = endStandoff(s);
     const fuel = s.items.lamp.fuel;
     s = act(s, "take", "cloth");
     expect(reflectionOpen(s)).toBe(true);

@@ -39,6 +39,20 @@ const ask = (world, actor, op = "view", extra = {}) =>
     ...extra,
   });
 function act(world, actor, kind, target) {
+  // A standoff locks the room; the walkthrough talks its way out first.
+  const fight = world.standoffs.find(
+    (c) => c.location === world.actors[actor].place,
+  );
+  const party =
+    fight &&
+    players.find((id) => [fight.challenger, fight.defender].includes(id));
+  if (party && kind !== "talk")
+    world = act(
+      world,
+      party,
+      "talk",
+      fight.challenger === party ? fight.defender : fight.challenger,
+    );
   const action = ask(world, actor).actions.find(
     (a) => a.kind === kind && (target === undefined || a.target === target),
   );

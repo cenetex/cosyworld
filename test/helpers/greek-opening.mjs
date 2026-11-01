@@ -12,6 +12,7 @@ import {
 import { needsVoyage, sailTo } from "./voyage.mjs";
 import { enableMotives } from "../../v2/card-game/motives.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
+import { endStandoff } from "./standoff.mjs";
 
 // Opening-only worlds reached through legal choices. Initial inventory setup
 // leaves the forest tools at the harbor and room for the funeral materials.
@@ -27,6 +28,7 @@ export function openingFixture(
   });
   const states = {};
   const act = (kind, fields = {}) => {
+    world = endStandoff(world);
     const action = legalActions(world).find(
       (a) =>
         a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),

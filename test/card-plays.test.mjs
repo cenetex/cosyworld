@@ -7,7 +7,9 @@ import {
   reflectionOpen,
 } from "../v2/card-game/world.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
+import { endStandoff } from "./helpers/standoff.mjs";
 function cards(s, ...ids) {
+  s = endStandoff(s);
   const { action } = cardPlay(s, ids);
   expect(action, ids.join(" + ")).toBeTruthy();
   const result = play(s, action, s.revision);

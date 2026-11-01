@@ -16,6 +16,7 @@ import {
   applyGeneratedText,
 } from "../v2/card-game/narrative.mjs";
 import { knownActors } from "../v2/card-game/want.mjs";
+import { endStandoff } from "./helpers/standoff.mjs";
 
 function pond() {
   const s = enableMotives(createWorld());
@@ -27,6 +28,7 @@ function pond() {
   return s;
 }
 function act(s, kind, item, target) {
+  s = endStandoff(s);
   const action = legalActions(s).find(
     (a) =>
       a.kind === kind &&

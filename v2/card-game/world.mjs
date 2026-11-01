@@ -1546,9 +1546,36 @@ export function legalActions(s, actor = currentActor(s)) {
       if (crossing?.travelLabel) action.label = crossing.travelLabel;
     }
   }
+  const open = roomLocked(s, here, actor, out);
   // Every Give and Trade is offered. While planning, residents only consider
   // the offers they expect the other side to accept.
-  return planReads ? out.filter((a) => expects(s, a)) : out;
+  return planReads ? open.filter((a) => expects(s, a)) : open;
+}
+// A standoff locks its room: nobody there leaves or changes items until it
+// ends. Arrivals are locked in too. Talk, Wait and the fight's own plays
+// stay, and the threatened side may still hand over the demanded item.
+const ROOM_LOCKED = new Set([
+  "move",
+  "accompany",
+  "course",
+  "take",
+  "drop",
+  "give",
+  "trade",
+  "ask",
+  "cover",
+]);
+function roomLocked(s, here, actor, actions) {
+  if (!s.standoffs.some((c) => c.location === here)) return actions;
+  const conflict = standoffFor(s, actor);
+  return actions.filter(
+    (a) =>
+      !ROOM_LOCKED.has(a.kind) ||
+      (a.kind === "drop" && !a.item) ||
+      (a.kind === "give" &&
+        conflict?.item === a.item &&
+        a.target === opponentOf(conflict, actor)),
+  );
 }
 export function matchingActions(s, selected, actor = currentActor(s)) {
   const set = [...new Set(selected)].filter((id) => id !== actor);
