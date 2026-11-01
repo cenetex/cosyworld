@@ -175,7 +175,6 @@ const files = [
   "weather.css",
   "portrait-facing.mjs",
   "cards.mjs",
-  "observe-words.mjs",
   "lessons.mjs",
   "motives.mjs",
   "life.mjs",

@@ -37,7 +37,7 @@ ship lies at the pond or is at sea. The ship shows at the landing only then.
 A traveller still on the island when the mist lifts, or when the ship docks
 at another port, waits there until both hold again.
 
-Observe (the `wait` play) at a place to notice its signs, one per Observe, in
+Wait (the `wait` play) at a place to notice its signs, one per Wait, in
 an order seeded by the run; there are no observation buttons. By day: the
 otter and the boatman (landing) and pacing out the willows (camp). By night:
 pacing it again and the patterings on the tent (camp) and the shapes over the
@@ -92,7 +92,7 @@ motion or with Flashes and scares off.
 ## Design
 
 [The kit and the signs](../../../docs/design/willows-kit-and-signs.md) holds
-the Observe signs and the planned scattered kit and notebook.
+the Wait signs and the planned scattered kit and notebook.
 
 [Making the Willows creepier](../../docs/card-table/willows-horror.md) holds the
 planned horror pass: missing book motifs, a rewritten Swede, the hum and

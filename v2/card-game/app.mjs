@@ -1,5 +1,4 @@
 import { imageUrl } from "./images.mjs";
-import { observeText } from "./observe-words.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { arriveCard, finishReveal, revealCard } from "./card-reveal.mjs";
 import { levelUpCard } from "./card-level-up.mjs";
@@ -102,6 +101,8 @@ import {
   cardType,
   cardPlay,
   playLabel,
+  playProgress,
+  playProgressLine,
   cardActions,
   cardObservation,
 } from "./cards.mjs";
@@ -442,23 +443,16 @@ function ownSharedEntry() {
     (entry) => entry.actor === currentActor(world),
   );
 }
-// Name the one thing a queued play is waiting for.
-function queuedWait() {
-  if (sharedSession && (sharedSending || ownSharedEntry()))
-    return "Waiting for your earlier play.";
-  if (!reveal.complete) return "Waiting for the arrival.";
-  if (cardsCooling) return "Waiting for the cards to settle.";
-  if (document.hidden) return "Waiting for this tab.";
-  if (document.querySelector("dialog[open], .world-menu:popover-open"))
-    return "Waiting for the open menu.";
-  return sharedSession
-    ? "Cancel it to choose again."
-    : "Select a card to change it.";
+// A chosen play that has not resolved reads as what the avatar is doing.
+// The button of a chosen, unresolved play: "Waiting…".
+function progressLabel(action) {
+  const verb = playProgress(action);
+  return `${verb[0].toUpperCase()}${verb.slice(1)}…`;
 }
 function showQueuedPlay() {
   const pending = playQueue.pending;
   if (!pending) return false;
-  const text = `Queued: ${playLabel(pending.action)}. ${queuedWait()}`;
+  const text = playProgressLine(currentActor(world), pending.action);
   if ($("notice").textContent !== text) notice(text, "queued");
   return true;
 }
@@ -482,7 +476,7 @@ const playQueue = createPlayQueue({
     if (pending) showQueuedPlay();
     else if (["sent", "playing"].includes(sharedPlay?.state))
       notice(
-        sharedPlayText[sharedPlay.state](sharedPlay.label),
+        sharedPlayText[sharedPlay.state](sharedPlay),
         sharedPlay.state,
       );
     else notice("");
@@ -1637,11 +1631,7 @@ function renderActions(animate = false) {
       const queued = playQueue.pending?.action.key === action.key;
       const button = node(
         "button",
-        queued
-          ? `Queued: ${playLabel(action)}`
-          : sent
-            ? `${{ sending: "Sending", sent: "Sent" }[sharedPlay.state] || "Playing"}: ${playLabel(action)}`
-            : playLabel(action),
+        queued || sent ? progressLabel(action) : playLabel(action),
         index === 0 ? "card-primary" : "card-action",
       );
       button.type = "button";
@@ -1650,8 +1640,8 @@ function renderActions(animate = false) {
       if (sent && !queued) button.dataset.sent = sharedPlay.state;
       button.title =
         queued && !sharedSession
-          ? "Cancel this queued play"
-          : observeText(action.text);
+          ? "Cancel this play"
+          : action.text;
       button.disabled = selectionBlocked();
       button.setAttribute("aria-pressed", String(queued));
       if (action.choiceId) {
@@ -1672,7 +1662,7 @@ function renderActions(animate = false) {
     const cancel = node("button", "Cancel play", "card-action");
     cancel.type = "button";
     cancel.dataset.cancelPlay = "true";
-    cancel.title = "Withdraw your queued play";
+    cancel.title = "Withdraw your play";
     cancel.onclick = () =>
       playQueue.pending
         ? playQueue.clear()
@@ -3490,25 +3480,26 @@ function resumeScene({ otherTab = false } = {}) {
     exchange.load(line ? [line] : []);
   } else render();
 }
+// Until it resolves, the player's own play reads as what their avatar is doing.
 const sharedPlayText = {
-  sending: (label) => `Sending: ${label}…`,
-  sent: (label) => `Sent: ${label}. Waiting for the round.`,
-  playing: (label) => `Playing: ${label}.`,
-  played: (label) => `Played: ${label}.`,
-  rejected: (label, reason) => `Not played: ${label}. ${reason}`,
+  sending: ({ line }) => line,
+  sent: ({ line }) => line,
+  playing: ({ line }) => line,
+  played: ({ label }) => `Played: ${label}.`,
+  rejected: ({ label }, reason) => `Not played: ${label}. ${reason}`,
 };
 function showSharedPlay(state, reason = "") {
   if (!sharedPlay) return;
   clearTimeout(sharedPlayTimer);
-  const { label } = sharedPlay;
+  const play = sharedPlay;
   sharedPlay.state = state;
   if (state === "played" || state === "rejected") sharedPlay = null;
   if (state === "sending") sharedRefusal = null;
   if (state === "rejected")
-    sharedRefusal = { reason, text: sharedPlayText.rejected(label, reason) };
+    sharedRefusal = { reason, text: sharedPlayText.rejected(play, reason) };
   if (state === "uncertain") notice(reason, state);
   else if (state === "rejected" || !playQueue.pending)
-    notice(sharedPlayText[state](label, reason), state);
+    notice(sharedPlayText[state](play, reason), state);
   if (state === "played")
     sharedPlayTimer = setTimeout(() => {
       if ($("notice").dataset.playStatus === "played") notice("");
@@ -3583,6 +3574,7 @@ async function submitSharedPlay(action) {
     key: crypto.randomUUID(),
     actionKey: current.key,
     label: playLabel(current),
+    line: playProgressLine(currentActor(world), current),
     notice: sharedSession.state.notice || "",
   };
   showSharedPlay("sending");

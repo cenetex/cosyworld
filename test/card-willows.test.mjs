@@ -49,7 +49,7 @@ const move = (world, target) => act(world, { kind: "move", target });
 const choose = (world, id) => act(world, { choiceId: `willows-${id}` });
 const seen = (world, id) =>
   Object.hasOwn(world.packs.willows.receipts, `willows-${id}`);
-// Observe (the Wait play) until this place's sign turns up. Each Observe
+// Wait until this place's sign turns up. Each Wait
 // notices at most one sign, in the run's seeded order.
 function observe(world, id) {
   for (let i = 0; i < 16 && !seen(world, id); i++)
@@ -311,7 +311,7 @@ describe("The Willows", () => {
     expect(packFacts(world, "willows-landing")).toEqual([]);
     world = move(move(world, "willows-camp"), "willows-thicket");
     world = move(world, "willows-bank");
-    // Observe finds signs; no observation is a story button.
+    // Wait finds signs; no observation is a story button.
     expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
     world = act(world, { kind: "wait" });
     expect(

@@ -53,10 +53,10 @@ titles and assembly progress belong to the notebook content/UI.
 ## Integration and provenance
 
 This art change registers the files and optimized variants. It does not add
-Observe events, repair receipts, notebook assembly rules or display timers.
-The Observe owner in [#1640](https://github.com/cenetex/cosyworld/pull/1640)
+Wait sign events, repair receipts, notebook assembly rules or display timers.
+The Wait sign owner in [#1640](https://github.com/cenetex/cosyworld/pull/1640)
 specifies that each sign painting holds while it is that place's newest sign;
-there is no fixed six-second return. At `fca8307c`, the PR implements Observe
+there is no fixed six-second return. At `fca8307c`, the PR implements Wait sign
 selection but does not yet implement that artwork selector. Its later planned
 steps move the thicket signs to camp and show them on the camp-to-bank travel
 painting, gate the mended canoe on nearby kit, and give passing otter/boatman

@@ -11,7 +11,7 @@
     trade: "trading",
     give: "giving",
     talk: "talking",
-    wait: "observing",
+    wait: "waiting",
     accompany: "inviting"
   })[kind];
   var goalKey = (g) => [g.kind, g.target, g.item, g.destination].join(":");
@@ -86,7 +86,7 @@
       if (a.kind === "talk") return `talking with ${nameOf2(a.target)}`;
       if (a.kind === "accompany")
         return `inviting ${nameOf2(a.target)} to ${nameOf2(a.destination)}`;
-      return "observing";
+      return "waiting";
     };
     return [
       `I tried ${describe(trial.action)} while seeking ${purpose}. ${result} ${earlier}`,
@@ -17120,10 +17120,6 @@
     return loaded;
   }
 
-  // v2/card-game/observe-words.mjs
-  var WAITS = /^(.+) waits one turn\.$/u;
-  var observeText = (text2) => typeof text2 === "string" ? text2.replace(WAITS, "$1 observes.") : text2;
-
   // v2/card-game/daylight.mjs
   var isNight = (world) => Math.floor((world?.turn ?? 0) / DAYLIGHT_TURNS) % 2 === 1;
   var darkMist = (world) => isNight(world) && locationWeather(world, "greek-ship")?.condition === "mist";
@@ -17339,7 +17335,7 @@
     );
     const events = world.log.filter(
       (entry) => entry.turn === world.turn && !entry.generated && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))
-    ).slice(-8).map((entry) => observeText(entry.text));
+    ).slice(-8).map((entry) => entry.text);
     const bellHandled = localItems.includes("bell") || [played?.itemId, played?.receiveId].includes("bell");
     const bellRang = world.log.some(
       (entry) => entry.turn === world.turn && !entry.generated && entry.verb === "ring" && entry.itemId === "bell"
@@ -17365,7 +17361,7 @@
       speakers,
       resting: resting2,
       ...disclosures.length ? { disclosures } : {},
-      action: observeText(played?.text) || (world.turn ? `${nameOf(currentActor(world))} observes the cast.` : null),
+      action: played?.text || (world.turn ? `${nameOf(currentActor(world))} waits and watches the cast.` : null),
       events,
       conversation,
       entities: ids3.map((id) => {

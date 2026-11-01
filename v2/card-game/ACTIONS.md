@@ -13,14 +13,14 @@ holder's group. Transfers move the cards into the new holder's group.
 | Selection                                 | Available plays                              |
 | ----------------------------------------- | -------------------------------------------- |
 | Person                                    | Talk and relevant story choices              |
-| Vale                                      | Observe; Guard during a standoff             |
+| Vale                                      | Wait; Guard during a standoff                |
 | Vale + person                             | Threaten; Guard and Attack during a standoff |
 | Loose item                                | Take                                         |
 | Someone's item                            | Ask the named owner for it                   |
 | Carried lamp or bell                      | Light, Put out, or Ring                      |
 | Vale + item                               | The item's single-card play                  |
 | Destination, or Vale + destination        | Travel or Board                              |
-| Current place                             | Observe and local actions                    |
+| Current place                             | Wait and local actions                       |
 | Person + destination                      | Invite that person along                     |
 | Own item + person                         | Give to that person                          |
 | Their item + person                       | Ask them for it                              |

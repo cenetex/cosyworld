@@ -130,13 +130,13 @@ try {
     };
     const move = (target) => click(target, '[data-action="move"]');
     const choose = (place, id) => click(place, `[data-choice="willows-${id}"]`);
-    // Observe at a place until it shows this sign.
+    // Wait at a place until it shows this sign.
     const observe = async (place, id) => {
       for (let i = 0; i < 16; i++) {
         if ((await saved()).packs.willows.receipts[`willows-${id}`]) return;
         await click(place, '[data-action="wait"]');
       }
-      assert.fail(`Observe never found ${id}`);
+      assert.fail(`Wait never found ${id}`);
     };
     const willowsCards = () =>
       page.locator('#hand [data-card="willows-landing"]').count();
