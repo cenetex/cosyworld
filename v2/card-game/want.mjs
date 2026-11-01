@@ -125,7 +125,11 @@ export function drawStep(s, actor, api, kind, target, level, roll) {
         ? ["give", "bring", "find"]
         : ["", "find"]
       : kind === "person"
-        ? ["", "meet", ...(level >= HOSTILE_LEVEL ? ["threaten", "attack"] : [])]
+        ? [
+            "",
+            "meet",
+            ...(level >= HOSTILE_LEVEL ? ["threaten", "attack"] : []),
+          ]
         : [""];
   const verb = verbs[Math.floor(roll / 7) % verbs.length];
   // A step already true where the avatar stands is no step at all.
@@ -138,7 +142,11 @@ export function drawStep(s, actor, api, kind, target, level, roll) {
     return null;
   if (verb === "give") return { verb, to: wanting };
   if (verb === "bring")
-    return { verb, to: wanting, at: api.home(wanting) || s.actors[wanting].place };
+    return {
+      verb,
+      to: wanting,
+      at: api.home(wanting) || s.actors[wanting].place,
+    };
   if (verb === "meet" && going?.kind === "place" && !going.step)
     return { verb, at: going.target };
   return { verb };
@@ -183,7 +191,12 @@ export function installWants(s) {
       const w = authoredWant(id);
       a.want =
         w && validTarget(s, w.kind, w.target)
-          ? newWant(w.kind, w.target, s.turn)
+          ? {
+              ...newWant(w.kind, w.target, s.turn),
+              ...(w.kind === "item" && typeof w.lit === "boolean"
+                ? { lit: w.lit }
+                : {}),
+            }
           : null;
     }
     a.xp ??= startXp(id);
@@ -216,9 +229,7 @@ export function wantCandidates(s, actor, api, previous = null, wide = false) {
   // Only what can be reached from here: the open routes, or this place for
   // a resident who keeps to its scene.
   const reach = travels(actor, s) ? api.reachable(actor) : [];
-  const near = wide
-    ? { has: () => true }
-    : new Set([a.place, ...reach]);
+  const near = wide ? { has: () => true } : new Set([a.place, ...reach]);
   const items = Object.keys(s.items).filter((id) => {
     const owner = api.rootHolder(id);
     return (
@@ -309,7 +320,9 @@ function stepMet(s, actor, want, action) {
   if (verb === "give") return by("give");
   if (verb === "bring")
     return (
-      rootOf(s, want.target) === actor && me.place === at && together(s, actor, to)
+      rootOf(s, want.target) === actor &&
+      me.place === at &&
+      together(s, actor, to)
     );
   if (verb === "meet")
     return together(s, actor, want.target) && (!at || me.place === at);
@@ -320,13 +333,24 @@ export function wantMet(s, actor, talk = null, action = null) {
   if (!want) return false;
   if (want.step) return stepMet(s, actor, want, action);
   if (want.kind === "connect") return introduced(s, actor, talk);
-  if (want.kind === "item") return rootOf(s, want.target) === actor;
+  if (want.kind === "item") return holdsAsWanted(s, actor, want);
   if (want.kind === "place") return s.actors[actor].place === want.target;
   return Boolean(
     talk &&
       s.actors[want.target]?.place === s.actors[actor].place &&
       ((talk.actor === actor && talk.target === want.target) ||
         (talk.actor === want.target && talk.target === actor)),
+  );
+}
+// An item want may name the item's light: then it is met only in the
+// actor's own hands, lit (or dark) and uncovered, as a moth wants a flame.
+export function holdsAsWanted(s, actor, want) {
+  if (want.lit === undefined) return rootOf(s, want.target) === actor;
+  const item = s.items[want.target];
+  return (
+    item.holder === actor &&
+    Boolean(item.lit) === want.lit &&
+    !Object.values(s.items).some((i) => i.holder === want.target)
   );
 }
 function rootOf(s, id) {
@@ -504,8 +528,13 @@ export function validWant(s, id) {
     (w === null ||
       (w &&
         Object.keys(w).length ===
-          4 + (w.quest === undefined ? 0 : 1) + (w.step === undefined ? 0 : 1) &&
+          4 +
+            (w.quest === undefined ? 0 : 1) +
+            (w.step === undefined ? 0 : 1) +
+            (w.lit === undefined ? 0 : 1) &&
         (w.step === undefined || validStep(s, w)) &&
+        (w.lit === undefined ||
+          (w.kind === "item" && typeof w.lit === "boolean")) &&
         (w.quest === undefined ||
           (Object.keys(w.quest).length === 2 &&
             Number.isSafeInteger(w.quest.level) &&

@@ -40,7 +40,10 @@ const metEvents = (s, actor) =>
 describe("one want per avatar", () => {
   it("installs the authored want on every hub avatar", () => {
     const s = createWorld();
-    expect(s.actors.moth.want).toEqual(newWant("item", "lamp", 0));
+    expect(s.actors.moth.want).toEqual({
+      ...newWant("item", "lamp", 0),
+      lit: true,
+    });
     expect(s.actors.keeper.want).toEqual(newWant("item", "bell", 0));
     expect(s.actors.vale.xp).toBe(0);
     expect(validateWorld(s)).toBe(s);
@@ -62,12 +65,24 @@ describe("one want per avatar", () => {
 
   it("meets an item want when the actor is its root holder", () => {
     const s = createWorld();
+    s.items.lamp.holder = "vale";
+    expect(wantMet(s, "vale")).toBe(true);
+    s.items.cloth.holder = "lamp";
+    expect(wantMet(s, "vale")).toBe(true);
+    s.items.lamp.holder = "station";
+    expect(wantMet(s, "vale")).toBe(false);
+  });
+
+  it("meets a lit item want only with the light uncovered in hand", () => {
+    const s = createWorld();
     s.items.lamp.holder = "moth";
+    s.items.lamp.lit = false;
+    expect(wantMet(s, "moth")).toBe(false);
+    s.items.lamp.lit = true;
     expect(wantMet(s, "moth")).toBe(true);
     s.items.cloth.holder = "lamp";
-    expect(wantMet(s, "moth")).toBe(true);
-    s.items.lamp.holder = "station";
     expect(wantMet(s, "moth")).toBe(false);
+    expect(validateWorld(s)).toBe(s);
   });
 
   it("meets a person want only through Talk in a shared place", () => {

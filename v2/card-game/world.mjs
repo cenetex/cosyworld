@@ -167,13 +167,18 @@ export const things = { ...packThings, ...forest.things };
 validatePackLinks(places, people, things);
 // Geography identifies resources beyond the attic; each real trip keeps its gates.
 const atticInterior = (() => {
-  const found = new Set(["attic"]), queue = ["attic"];
+  const found = new Set(["attic"]),
+    queue = ["attic"];
   const routes = packDefinitions.flatMap((pack) => pack.routes || []);
   for (let i = 0; i < queue.length && i < Object.keys(places).length; i++) {
     const from = queue[i];
-    for (const to of [...places[from].exits,
-      ...crossings.filter((c) => c.from === from && !c.transport).map((c) => c.to),
-      ...routes.filter((r) => r.from === from).map((r) => r.to)]) {
+    for (const to of [
+      ...places[from].exits,
+      ...crossings
+        .filter((c) => c.from === from && !c.transport)
+        .map((c) => c.to),
+      ...routes.filter((r) => r.from === from).map((r) => r.to),
+    ]) {
       if (to === "pond" || found.has(to)) continue;
       found.add(to);
       queue.push(to);
@@ -387,8 +392,10 @@ export const placeText = (s, place) =>
         : places[place].text,
     ...crossingScenery(s, place, sensesFor(s)),
     ...transportScenery(s, place, nameOf),
-    ...((homeRescueExit(s, place) || pondRescueExit(s, place))
-      ? [`A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`]
+    ...(homeRescueExit(s, place) || pondRescueExit(s, place)
+      ? [
+          `A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`,
+        ]
       : []),
   ].join(" ");
 // A home gate can be restored by resources in the room, including a present
@@ -428,12 +435,17 @@ function ordinaryExits(s, place, actor, previous) {
 // A doorway into another part of the same isolated home still needs a way out.
 // Capacity is checked when traveling, so a crowded shore remains a waiting case.
 function ordinaryRouteHome(s, place, destination, actor, previous) {
-  const queue = [[place, previous]], visited = new Set([place]);
+  const queue = [[place, previous]],
+    visited = new Set([place]);
   for (let i = 0; i < queue.length; i++) {
     const [from, before] = queue[i];
     if (from === destination) return true;
     for (const to of ordinaryExits(s, from, actor, before)) {
-      if (visited.has(to) || !entityActive(s, to) || !actorCanVisit(actor, to, s))
+      if (
+        visited.has(to) ||
+        !entityActive(s, to) ||
+        !actorCanVisit(actor, to, s)
+      )
         continue;
       visited.add(to);
       queue.push([to, from]);
@@ -455,30 +467,58 @@ function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     : null;
 }
 function insideLampRemedy(s, actor) {
-  const here = s.actors[actor].place, lamp = itemPlace(s, "lamp"), oil = itemPlace(s, "oil");
-  if (!atticInterior.has(here) || !ordinaryRouteHome(s, here, lamp, actor) ||
-    !ordinaryRouteHome(s, lamp, "attic", actor)) return false;
-  const at = (place) => ({ ...s, actors: { ...s.actors,
-    [actor]: { ...s.actors[actor], place } } });
+  const here = s.actors[actor].place,
+    lamp = itemPlace(s, "lamp"),
+    oil = itemPlace(s, "oil");
+  if (
+    !atticInterior.has(here) ||
+    !ordinaryRouteHome(s, here, lamp, actor) ||
+    !ordinaryRouteHome(s, lamp, "attic", actor)
+  )
+    return false;
+  const at = (place) => ({
+    ...s,
+    actors: { ...s.actors, [actor]: { ...s.actors[actor], place } },
+  });
   if (!localGateResource(at(lamp), lamp, "lamp", actor)) return false;
-  return s.items.lamp.fuel > 0 || (ordinaryRouteHome(s, here, oil, actor) &&
-    ordinaryRouteHome(s, oil, lamp, actor) && localGateResource(at(oil), oil, "oil", actor));
+  return (
+    s.items.lamp.fuel > 0 ||
+    (ordinaryRouteHome(s, here, oil, actor) &&
+      ordinaryRouteHome(s, oil, lamp, actor) &&
+      localGateResource(at(oil), oil, "oil", actor))
+  );
 }
 // Recover a gate resource left beyond the mirror after reachable remedies are gone.
 function pondRescueExit(s, place, actor, previous) {
   actor ||= currentActor(s);
-  const lamp = itemPlace(s, "lamp"), oil = itemPlace(s, "oil");
+  const lamp = itemPlace(s, "lamp"),
+    oil = itemPlace(s, "oil");
   // The flask is always full; it matters while it is shut inside with the lamp empty.
-  if (place !== "pond" || s.actors[actor]?.place !== place ||
+  if (
+    place !== "pond" ||
+    s.actors[actor]?.place !== place ||
     (!controlledByHuman(s, actor) && !knownActors(s).includes(actor)) ||
     !(atticInterior.has(lamp) || atticInterior.has(oil)) ||
-    ordinaryRouteHome(s, place, "attic", actor, previous)) return null;
-  if (ordinaryRouteHome(s, place, lamp, actor, previous) &&
-    (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous))) return null;
-  if (knownActors(s).some((id) =>
-    (!controlledByHuman(s, id) || humanPresent(s, id)) &&
-    (insideLampRemedy(s, id) || (!atticInterior.has(lamp) && s.actors[id].place === "attic" &&
-      homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id))))) return null;
+    ordinaryRouteHome(s, place, "attic", actor, previous)
+  )
+    return null;
+  if (
+    ordinaryRouteHome(s, place, lamp, actor, previous) &&
+    (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous))
+  )
+    return null;
+  if (
+    knownActors(s).some(
+      (id) =>
+        (!controlledByHuman(s, id) || humanPresent(s, id)) &&
+        (insideLampRemedy(s, id) ||
+          (!atticInterior.has(lamp) &&
+            s.actors[id].place === "attic" &&
+            homeRescueExit(s, "attic", id) &&
+            localGateResource(s, "attic", "oil", id))),
+    )
+  )
+    return null;
   return "attic";
 }
 export function exits(s, place, actor = null, previous = null) {
@@ -542,7 +582,8 @@ export function wantText(want) {
     return `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`;
   if (step?.at) return `${verb} ${what} at ${nameOf(step.at)}`;
   if (step) return `${verb} ${what}`;
-  if (want.kind === "item") return `hold ${nameOf(want.target)}`;
+  if (want.kind === "item")
+    return `hold ${want.lit === undefined ? "" : want.lit ? "the lit " : "the dark "}${nameOf(want.target)}`;
   if (want.kind === "place") return `go to ${nameOf(want.target)}`;
   if (want.kind === "connect") return "introduce two people";
   return `talk with ${nameOf(want.target)}`;
@@ -615,7 +656,10 @@ function refusalReason(s, a) {
   const other = a.kind === "trade" ? s.items[a.receive].holder : a.target;
   if (resentment(s, other, a.actor)) return "grudge";
   if (a.kind === "trade" && needed(s, other, a.receive)) return "needs-it";
-  if (a.kind === "ask" && (needed(s, other, a.item) || keepReason(s, other, a.item)))
+  if (
+    a.kind === "ask" &&
+    (needed(s, other, a.item) || keepReason(s, other, a.item))
+  )
     return "needs-it";
   return "wants-something-else";
 }
@@ -639,8 +683,7 @@ function reachable(s, actor) {
       }
   return [...seen].filter((id) => id !== from && !transportPlace(id)).sort();
 }
-const homeOf = (id) =>
-  tastes[id]?.home || humanAvatar(id)?.home?.id || null;
+const homeOf = (id) => tastes[id]?.home || humanAvatar(id)?.home?.id || null;
 function wantAPI(s) {
   return {
     carried: (actor) => carried(s, actor),
@@ -791,7 +834,11 @@ function talkKnowledge(s, action, entry) {
       lane && atPort(s, speaker) && !topics.some((topic) => topic.choiceReady);
     if (port && reserveLaneKnowledge(s, speaker, listener, entry, lane)) break;
     if (reserveKnowledge(s, speaker, listener, entry, topics)) break;
-    if (lane && !port && reserveLaneKnowledge(s, speaker, listener, entry, lane))
+    if (
+      lane &&
+      !port &&
+      reserveLaneKnowledge(s, speaker, listener, entry, lane)
+    )
       break;
   }
 }
@@ -831,9 +878,7 @@ export function laneTalkFacts(s, actor) {
     .map(laneOfEdge)
     .filter(
       ([from, to]) =>
-        from === near &&
-        entityActive(s, to) &&
-        knowsLane(s, actor, from, to),
+        from === near && entityActive(s, to) && knowsLane(s, actor, from, to),
     )
     .map(([, to]) => nameOf(to));
   return known.length
@@ -942,13 +987,20 @@ function transfer(s, item, holder, text) {
 }
 // A fuel item fills its empty target when one avatar holds both, then returns
 // full to its authored place. Forest data names the pair (oil refuels lamp).
-const fuelItems = Object.keys(forest.things).filter((id) => forest.things[id].refuels);
+const fuelItems = Object.keys(forest.things).filter(
+  (id) => forest.things[id].refuels,
+);
 function refuelCarried(s) {
   for (const id of fuelItems) {
     const { refuels: target, returnsTo } = things[id];
     const actor = rootHolder(s, id);
-    if (!s.actors[actor] || rootHolder(s, target) !== actor ||
-      s.items[target].fuel !== 0 || !entityActive(s, id) || !entityActive(s, target))
+    if (
+      !s.actors[actor] ||
+      rootHolder(s, target) !== actor ||
+      s.items[target].fuel !== 0 ||
+      !entityActive(s, id) ||
+      !entityActive(s, target)
+    )
       continue;
     const here = s.actors[actor].place;
     const text = `${nameOf(actor)} empties the ${nameOf(id)} into the dry ${nameOf(target)}. The ${nameOf(target)} is full. Back at ${nameOf(returnsTo)}, the ${nameOf(id)} stands full again.`;
@@ -1131,7 +1183,10 @@ export function accompanyDecision(
     const route = routeBetween(s, from, to);
     return route ? route.length - 1 : Infinity;
   };
-  if (goal && (goal === destination || distance(destination, goal) < distance(here, goal)))
+  if (
+    goal &&
+    (goal === destination || distance(destination, goal) < distance(here, goal))
+  )
     return { accepted: true };
   if (s.actors[companion].trust[actor] > 0) return { accepted: true };
   return socialTravel(s, actor, companion, destination);
@@ -1173,7 +1228,7 @@ export function legalActions(s, actor = currentActor(s)) {
     const through = !baseExits(s, here).includes(to);
     const crossing = crossingBetween(here, to, s);
     const way = through
-      ? ` ${(homeRescueExit(s, here, actor) === to || pondRescueExit(s, here, actor) === to) ? "along a narrow path" : crossing?.travel || "through the reflection"}`
+      ? ` ${homeRescueExit(s, here, actor) === to || pondRescueExit(s, here, actor) === to ? "along a narrow path" : crossing?.travel || "through the reflection"}`
       : "";
     // A human can invite a willing resident along their open route.
     for (const other of knownActors(s).filter(
@@ -1336,10 +1391,7 @@ export function legalActions(s, actor = currentActor(s)) {
         ),
       );
       for (const other of knownActors(s).filter(
-        (p) =>
-          p !== actor &&
-          s.actors[p].place === here &&
-          hasSpace(s, p, id),
+        (p) => p !== actor && s.actors[p].place === here && hasSpace(s, p, id),
       )) {
         out.push(
           offer(
@@ -1747,12 +1799,7 @@ function perform(s, a, round = null, settle = []) {
         here === "attic" &&
         s.items.lamp.holder === "attic"
       )
-        transfer(
-          s,
-          "lamp",
-          "vale",
-          "Vale lifts the lamp.",
-        );
+        transfer(s, "lamp", "vale", "Vale lifts the lamp.");
       s.items.lamp.lit = true;
       remember(s, "lamp", a.text);
       break;
@@ -1856,7 +1903,11 @@ function perform(s, a, round = null, settle = []) {
   // A want met by this play is a world fact recorded right after it.
   settleWants(
     s,
-    wantActors(s, [a.actor, ...(s.actors[a.target] ? [a.target] : []), ...settle]),
+    wantActors(s, [
+      a.actor,
+      ...(s.actors[a.target] ? [a.target] : []),
+      ...settle,
+    ]),
     wantAPI(s),
     ["ask", "give", "trade"].includes(a.kind)
       ? { ...a, accepted: requestAccepted }
@@ -1893,9 +1944,16 @@ function readRouteBetween(s, from, target, actor = null) {
     const route = queue.shift();
     if (route.at(-1) === target) return route;
     const here = route.at(-1);
-    const projected = s.actors[actor] && s.actors[actor].place !== here
-      ? { ...s, actors: { ...s.actors, [actor]: { ...s.actors[actor], place: here } } }
-      : s;
+    const projected =
+      s.actors[actor] && s.actors[actor].place !== here
+        ? {
+            ...s,
+            actors: {
+              ...s.actors,
+              [actor]: { ...s.actors[actor], place: here },
+            },
+          }
+        : s;
     const previous = route.at(-2) ?? (transportPlace(here) ? VOYAGE : null);
     for (const next of exits(projected, here, actor, previous))
       if (!visited.has(next)) {
@@ -1937,15 +1995,23 @@ function toward(s, actor, target) {
     !controlledByHuman(s, actor) &&
     homeGateRecoverable(s, here, gate, actor)
   ) {
-    const light = getActions().find((a) => a.kind === "light" && a.item === gate.item);
+    const light = getActions().find(
+      (a) => a.kind === "light" && a.item === gate.item,
+    );
     if (light) return light;
   }
   if (target === "attic" && !["attic", "pond", "station"].includes(here)) {
     const approach = routeBetween(s, here, "pond", actor);
     if (approach?.length > 1)
-      return getActions().find((a) => a.kind === "move" && a.target === approach[1]);
+      return getActions().find(
+        (a) => a.kind === "move" && a.target === approach[1],
+      );
   }
-  if (target !== "attic" && atticInterior.has(target) && !atticInterior.has(here))
+  if (
+    target !== "attic" &&
+    atticInterior.has(target) &&
+    !atticInterior.has(here)
+  )
     return toward(s, actor, "attic");
   // Reach a home threshold before tending its gate or taking its rescue path.
   const rescueRoutes = new Map();
@@ -1958,16 +2024,27 @@ function toward(s, actor, target) {
     if (here === home || !rescueRoute(gate.rescue)) continue;
     const approach = routeBetween(s, here, home, actor);
     if (approach?.length > 1)
-      return getActions().find((a) => a.kind === "move" && a.target === approach[1]);
+      return getActions().find(
+        (a) => a.kind === "move" && a.target === approach[1],
+      );
   }
   // Sound can reopen an outward crossing while the traveler stays on its shore.
-  if (crossings.some((c) => c.from === here && !c.transport &&
-    c.requires.some((r) => r.kind === "sound" && r.at.includes(here)) &&
-    routeBetween(s, c.to, target, actor))) {
-    const sound = getActions().find((a) => a.kind === "ring" && a.item === "bell");
-    if (sound) return covered(s, "bell")
-      ? getActions().find((a) => a.kind === "take" && a.item === "cloth")
-      : sound;
+  if (
+    crossings.some(
+      (c) =>
+        c.from === here &&
+        !c.transport &&
+        c.requires.some((r) => r.kind === "sound" && r.at.includes(here)) &&
+        routeBetween(s, c.to, target, actor),
+    )
+  ) {
+    const sound = getActions().find(
+      (a) => a.kind === "ring" && a.item === "bell",
+    );
+    if (sound)
+      return covered(s, "bell")
+        ? getActions().find((a) => a.kind === "take" && a.item === "cloth")
+        : sound;
   }
 }
 export function plan(s, actor = currentActor(s)) {
@@ -1986,8 +2063,7 @@ function readPlan(s, actor) {
     legalActions(s, actor).find(
       (a) => a.kind === "move" && a.target === arrival,
     );
-  if (landing)
-    return { action: landing };
+  if (landing) return { action: landing };
   const selected = wantPlan(s, actor);
   return reconsiderPlan(
     s,
@@ -2009,7 +2085,12 @@ function stepToward(s, actor, target) {
   if (!known) return { action: toward(s, actor, target) || null };
   const here = s.actors[actor].place;
   const open = (from, to, previous) =>
-    exits(s, from, actor, previous ?? (transportPlace(from) ? VOYAGE : null)).includes(to);
+    exits(
+      s,
+      from,
+      actor,
+      previous ?? (transportPlace(from) ? VOYAGE : null),
+    ).includes(to);
   let path =
     knownRoute(s, actor, here, target, open) ||
     knownRoute(s, actor, here, target);
@@ -2025,7 +2106,9 @@ function stepToward(s, actor, target) {
     path = frontiers
       .map((to) => knownRoute(s, actor, here, to))
       .filter(Boolean)
-      .sort((a, b) => a.length - b.length || a.at(-1).localeCompare(b.at(-1)))[0];
+      .sort(
+        (a, b) => a.length - b.length || a.at(-1).localeCompare(b.at(-1)),
+      )[0];
     if (!path) return { action: null };
   }
   const actions = legalActions(s, actor);
@@ -2047,8 +2130,7 @@ function wantPlan(s, actor) {
     acts.find((a) => a.kind === kind && test(a));
   const idle = () => ({ action: find("wait") || acts[0] });
   const here = s.actors[actor].place;
-  if (s.peaceUntil[actor] > s.turn)
-    return idle();
+  if (s.peaceUntil[actor] > s.turn) return idle();
   const conflict = standoffFor(s, actor);
   const want = wantOf(s, actor);
   if (conflict) {
@@ -2058,7 +2140,7 @@ function wantPlan(s, actor) {
       return answer(
         levelOf(s, actor) > levelOf(s, other)
           ? find("talk", (a) => a.target === other)
-          : find("guard")
+          : find("guard"),
       );
     if (conflict.struck[other] || conflict.struck[actor])
       return answer(find("attack", (a) => a.target === other));
@@ -2068,9 +2150,7 @@ function wantPlan(s, actor) {
       needed(s, actor, conflict.item) &&
       s.turn - conflict.opened >= 2
     )
-      return answer(
-        find("attack", (a) => a.target === other)
-      );
+      return answer(find("attack", (a) => a.target === other));
     return idle();
   }
   if (!want) return idle();
@@ -2082,7 +2162,8 @@ function wantPlan(s, actor) {
       ? { action: step.action }
       : { ...idle(), ...(step.callShip ? { callShip: true } : {}) };
   };
-  if (want.kind === "place") return here === want.target ? idle() : go(want.target);
+  if (want.kind === "place")
+    return here === want.target ? idle() : go(want.target);
   // A connector Talks once two connected humans share the room, and
   // otherwise visits one who is elsewhere.
   if (want.kind === "connect") {
@@ -2107,7 +2188,16 @@ function wantPlan(s, actor) {
   }
   const item = want.target,
     owner = rootHolder(s, item);
-  if (owner === actor) return idle();
+  // Held but not as wanted: uncover it, then light or put it out.
+  if (owner === actor) {
+    if (want.lit === undefined) return idle();
+    const cover = ids.find((id) => s.items[id].holder === item);
+    const fix = cover
+      ? find("take", (a) => a.item === cover)
+      : s.items[item].lit !== want.lit &&
+        find(want.lit ? "light" : "snuff", (a) => a.item === item);
+    return fix ? { action: fix } : idle();
+  }
   if (itemPlace(s, item) !== here) return go(itemPlace(s, item));
   let top = item;
   while (s.items[s.items[top].holder]) top = s.items[top].holder;
@@ -2121,7 +2211,8 @@ function wantPlan(s, actor) {
       );
   if (!actorIds.includes(owner)) {
     const take =
-      find("take", (a) => a.item === top) || find("take", (a) => a.item === item);
+      find("take", (a) => a.item === top) ||
+      find("take", (a) => a.item === item);
     if (take) return { action: take };
     const drop = spares("drop")[0];
     return drop ? { action: drop } : idle();
@@ -2268,7 +2359,8 @@ export function play(
     rememberRoutes(next, id, visibleRouteEdges(from));
     const chosen = plan(next, id);
     if (chosen.callShip) callTransport(next, from, true);
-    if (chosen.action.kind !== "wait") perform(next, chosen.action, round, [id]);
+    if (chosen.action.kind !== "wait")
+      perform(next, chosen.action, round, [id]);
     rememberRoutes(next, id, visibleRouteEdges(next.actors[id].place));
     if (next.actors[id].place !== from)
       arriveRoamingRecitals(next, packDefinitions, id);
@@ -2311,8 +2403,12 @@ export function play(
   let slept = next;
   if (s.actors[actor].sleepUntil === undefined && !sharedEnabled(next))
     while (slept.actors[actor].sleepUntil !== undefined)
-      slept = play(slept, legalActions(slept, actor)[0], slept.revision, actor)
-        .state;
+      slept = play(
+        slept,
+        legalActions(slept, actor)[0],
+        slept.revision,
+        actor,
+      ).state;
   return { ok: true, state: slept };
 }
 export function validateWorld(s) {
@@ -2440,7 +2536,10 @@ export function validateWorld(s) {
       ))
   )
     fail();
-  if (s.run !== undefined && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
+  if (
+    s.run !== undefined &&
+    (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed))
+  )
     fail();
   if (!validPackState(s, sensesFor(s))) fail();
   if (
@@ -2667,11 +2766,7 @@ export function validateWorld(s) {
         fail();
       seq = e.seq;
     }
-    if (
-      e.kind !== undefined &&
-      !LOG_KINDS.includes(e.kind)
-    )
-      fail();
+    if (e.kind !== undefined && !LOG_KINDS.includes(e.kind)) fail();
     if (
       e.witnesses !== undefined &&
       (!Array.isArray(e.witnesses) ||
@@ -2679,11 +2774,7 @@ export function validateWorld(s) {
         e.witnesses.some((id) => !cast.has(id)))
     )
       fail();
-    if (
-      e.entityId != null &&
-      !entities.has(e.entityId)
-    )
-      fail();
+    if (e.entityId != null && !entities.has(e.entityId)) fail();
     if (e.fromLocationId != null && !Object.hasOwn(places, e.fromLocationId))
       fail();
     if (e.generated !== undefined && e.generated !== true) fail();
@@ -2702,8 +2793,7 @@ export function validateWorld(s) {
     if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
     if (e.verb != null && !verbs.includes(e.verb)) fail();
     if (
-      (e.outcome !== undefined &&
-        !OUTCOMES.includes(e.outcome)) ||
+      (e.outcome !== undefined && !OUTCOMES.includes(e.outcome)) ||
       (e.droppedItemIds !== undefined &&
         (!Array.isArray(e.droppedItemIds) ||
           e.droppedItemIds.some((id) => !ids.includes(id))))
@@ -2759,11 +2849,7 @@ export function validateWorld(s) {
             : !entities.has(e.wantMet.target))))
     )
       fail();
-    if (
-      e.targetId != null &&
-      !entities.has(e.targetId)
-    )
-      fail();
+    if (e.targetId != null && !entities.has(e.targetId)) fail();
     if (e.light !== undefined && typeof e.light !== "boolean") fail();
     if (
       e.cast !== undefined &&
@@ -2779,9 +2865,7 @@ export function validateWorld(s) {
         e.items.length > ids.length ||
         e.items.some(
           (item) =>
-            !item ||
-            !ids.includes(item.id) ||
-            !entities.has(item.holder),
+            !item || !ids.includes(item.id) || !entities.has(item.holder),
         ))
     )
       fail();

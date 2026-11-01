@@ -58,6 +58,9 @@ describe("the reflected shore card game", () => {
     expect(s.actors.moth.place).toBe("station");
     s = act(s, "wait");
     expect(s.items.lamp.holder).toBe("moth");
+    // A moth wants the flame: Pip lights the lamp he took.
+    s = act(s, "wait");
+    expect(s.items.lamp.lit).toBe(true);
     expect(
       s.log.findLast((e) => e.verb === "want_met" && e.actorId === "moth"),
     ).toMatchObject({

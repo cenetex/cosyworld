@@ -42,7 +42,7 @@ describe("want data", () => {
       Object.fromEntries(hub.map((id) => [id, forest.people[id].want])),
     ).toEqual({
       vale: { kind: "item", target: "lamp" },
-      moth: { kind: "item", target: "lamp" },
+      moth: { kind: "item", target: "lamp", lit: true },
       keeper: { kind: "item", target: "bell" },
     });
     expect(
