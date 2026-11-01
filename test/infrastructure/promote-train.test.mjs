@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   chooseTrain,
   isProductionRun,
+  liveBlock,
+  promotionBlock,
   trainRollout,
 } from "../../scripts/promote-train.mjs";
 
@@ -56,6 +58,50 @@ describe("production promotes the soaked .dev train", () => {
     expect(
       chooseTrain({ trains, now: 100 * minute, soakMs: 0 }).train.sha,
     ).toBe(sha(4));
+  });
+});
+
+describe("promotion never ships something older than production", () => {
+  const tag = (status, conclusion = null) => ({
+    id: 9,
+    event: "push",
+    head_branch: "v1.2.114",
+    head_sha: sha(9),
+    status,
+    conclusion,
+  });
+
+  it("waits while a tag deploy is queued or running", () => {
+    for (const status of ["queued", "waiting", "in_progress"]) {
+      expect(promotionBlock({ runs: [tag(status)], sha: sha(4) })).toContain(
+        "production deploy is active",
+      );
+    }
+    expect(
+      promotionBlock({ runs: [tag("completed", "success")], sha: sha(4) }),
+    ).toBeNull();
+  });
+
+  it("never retries a commit whose production run failed", () => {
+    const failed = { ...tag("completed", "failure"), head_sha: sha(4) };
+    expect(promotionBlock({ runs: [failed], sha: sha(4) })).toContain(
+      "already failed",
+    );
+  });
+
+  it("promotes only a commit ahead of the live /meta commit", () => {
+    const live = sha(9).slice(0, 12);
+    expect(liveBlock({ live, sha: sha(4), status: "ahead" })).toBeNull();
+    expect(
+      liveBlock({
+        live: sha(4).slice(0, 12),
+        sha: sha(4),
+        status: "identical",
+      }),
+    ).toContain("already runs");
+    for (const status of ["behind", "diverged", "identical"]) {
+      expect(liveBlock({ live, sha: sha(4), status })).toContain("not ahead");
+    }
   });
 });
 

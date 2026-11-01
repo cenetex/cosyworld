@@ -24,6 +24,7 @@ function prepare({
   manifestDelays = 0,
   targetCache = false,
   runFailures = 0,
+  train = "",
 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "cosyworld-image-test-"));
   const log = join(dir, "calls.jsonl");
@@ -55,6 +56,9 @@ if (command === 'flyctl' && args[0] === 'auth') {
 } else if (command === 'skopeo' && args[0] === 'copy') {
   if (env.TEST_COPY_FAIL === 'true') process.exit(1);
   writeFileSync(env.TEST_STATE, 'copied');
+} else if (command === 'skopeo' && args[0] === 'inspect' && args[args.indexOf('--authfile') + 1].includes('/source/')) {
+  if (!env.TEST_TRAIN) process.exit(1);
+  console.log(env.TEST_TRAIN);
 } else if (command === 'skopeo' && args[0] === 'inspect') {
   if (existsSync(env.TEST_STATE)) {
     const counter = env.TEST_STATE + '.reads';
@@ -96,6 +100,7 @@ if (command === 'flyctl' && args[0] === 'auth') {
           TEST_LOG: log,
           TEST_STATE: join(dir, "state"),
           TEST_EXISTING: existing,
+          TEST_TRAIN: train,
           TEST_DIGEST: wrongDigest ? `sha256:${"c".repeat(64)}` : digest,
           TEST_COPY_FAIL: String(copyFails),
           TEST_BUILD_FAIL: String(buildFails),
@@ -290,6 +295,22 @@ describe("Fly commit image preparation", () => {
     expect(result.output).toBe(
       `image=registry.fly.io/cosyworld-lonelyforest@${digest}\n`,
     );
+  });
+  it("copies the .dev train's image for a Lonely Forest-only deploy", () => {
+    const result = prepare({ copy: true, sourceImage: "", train: digest });
+    expect(result.status).toBe(0);
+    const args = operations(result, "skopeo", "copy")[0].args;
+    expect(args).toContain(`docker://${source}`);
+    expect(operations(result, "flyctl", "deploy")).toHaveLength(0);
+    expect(result.output).toBe(
+      `image=registry.fly.io/cosyworld-lonelyforest@${digest}\n`,
+    );
+  });
+  it("builds a Lonely Forest-only deploy when no train built the commit", () => {
+    const result = prepare({ copy: true, sourceImage: "" });
+    expect(result.status).toBe(0);
+    expect(operations(result, "skopeo", "copy")).toHaveLength(0);
+    expect(operations(result, "flyctl", "deploy")).toHaveLength(1);
   });
   it("reuses the destination when it already has the source digest", () => {
     const result = prepare({ copy: true, existing: digest });
