@@ -99,7 +99,9 @@ async function watchStep(page, step, name) {
   return watch;
 }
 let fixture = enableMotives(createWorld({ opening: true }));
-for (const kind of ["light", "move"])
+// The opening starts lit: douse it to open the mirror (#1653). Relighting it
+// at the pond would spend Pip's ask for the lamp before the talk.
+for (const kind of ["snuff", "move"])
   fixture = play(
     fixture,
     legalActions(fixture).find(

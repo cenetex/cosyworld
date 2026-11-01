@@ -137,8 +137,10 @@ try {
       hit: true,
     });
     assert.equal(await frame.count(), 1);
-    // Wait until the ship sails without the player; it fades out.
-    for (let n = 0; n < 16 && (await ship()).dock === place; n++)
+    // Wait until the ship sails without the player; it fades out. Residents
+    // never call it away from a human, so at the harbor it leaves only when
+    // the Bard wanders aboard (about 19 rounds with the doused opening).
+    for (let n = 0; n < 32 && (await ship()).dock === place; n++)
       fade = await wait();
     assert.notEqual((await ship()).dock, place, "the ship sails on");
     if (place === "pond") {

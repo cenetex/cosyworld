@@ -34,7 +34,8 @@ let fixture = enableMotives(
 );
 // Keep the first ship signal part of this story fixture's legal journey.
 fixture.actors["greek-rhapsode"].place = "attic";
-fixture = commit(fixture, "light");
+// The opening starts lit; douse it to open the mirror (#1653).
+fixture = commit(fixture, "snuff");
 fixture = commit(fixture, "move", "pond");
 fixture.items.cloth.holder = "vale";
 fixture.items.lamp.fuel = 12;

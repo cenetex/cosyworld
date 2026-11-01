@@ -11,7 +11,9 @@ import {
 import { enableMotives } from "../card-game/motives.mjs";
 
 let fixture = enableMotives(createWorld({ opening: true }));
-for (const kind of ["light", "move"])
+// The opening starts lit: douse it to open the mirror, then relight it at
+// the pond (#1653).
+for (const kind of ["snuff", "move", "light"])
   fixture = play(
     fixture,
     legalActions(fixture).find(

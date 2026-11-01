@@ -28,8 +28,11 @@ function initial() {
   let s = createWorld({ opening: true });
   // Keep the ship at harbor until this scenery fixture completes the signal.
   s.actors["greek-rhapsode"].place = "attic";
-  s = act(s, "light");
+  // The opening starts lit; douse it to open the mirror, then relight it at
+  // the pond for the ship signal (#1653).
+  s = act(s, "snuff");
   s = act(s, "move", { target: "pond" });
+  s = act(s, "light");
   s.items.cloth.holder = "vale";
   s.items.lamp.fuel = 12;
   s.items.bell.holder = "station";
