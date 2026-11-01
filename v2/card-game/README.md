@@ -217,14 +217,15 @@ level numeral of a level quest and its tier colour, which follows the quest's
 F(n) steps (1 Common, 2–3 Uncommon, 5 Rare, 8 Epic, 13+ Legendary). It never
 shows who holds the target or how far it is; it glows softly and steadily
 while the target is within two moves. Steps still to come lie face down behind
-the card. It plays nothing. The quest folds behind the player's avatar card:
-a plain tab in its tier colour rises above its top left, and it comes forward when
-the avatar's stack opens or the tab is chosen. A met quest stays, sealed, and
-its tab glows until its player taps it to clear it; clearing shows the
+the card, showing the card back. It plays nothing. The quest folds behind the player's avatar card as
+a full-size card in its stack: face down, showing the carved card back, leaning
+out to the top left with a glowing line in its tier colour along its edge. It
+comes forward when the avatar's stack opens or the folded card is chosen. A met
+quest stays, sealed, and its line glows until its player taps it to clear it; clearing shows the
 experience it brought rising from the card (a still label with reduced
 motion), glows the avatar when it ends a level quest, and brings the next
 quest. The rules grant that experience when the quest is met; clearing is
-this browser's alone. A first quest arrives with its tab glowing. There is
+this browser's alone. A first quest arrives with its line glowing. There is
 never more than one quest card, and no
 card for anyone else's quest. Another person's quest reaches the player only
 through Talk:
@@ -250,7 +251,7 @@ landscape-leaning card (4:5 on phones). The hand fans: each card overlaps the
 one before it and leans with its place in the row, and the chosen or hovered
 card comes to the front. Names stay clear of the next card's overlap and wrap
 rather than hide under it, and the hand leaves room for the outer cards' lean,
-the quest tab and a chosen card's lift, so nothing is clipped at its edges.
+the folded quest and a chosen card's lift, so nothing is clipped at its edges.
 Cards carry no count badges; opening a stack shows its cards. Tapping a card toggles
 its selection. Selecting a card or pair shows named actions in the row below.
 A selected card lifts and wears one white edge over its tier border, apart from
@@ -260,8 +261,8 @@ item, so Pip + Station, then Pond, offers **Invite Pip along** to the Pond.
 Tapping an action button plays it. The current place leads the hand, followed
 by items lying there, avatars with their carried items, and travel destinations.
 The places you can go from here form one location stack: the current place
-lies face up on top, and each reachable place adds a blank edge behind it, up
-to three. Tapping the current place fans the stack (and the items lying there)
+lies face up on top, and each reachable place adds a face-down card, showing
+the carved card back, behind it, up to three. Tapping the current place fans the stack (and the items lying there)
 out like the hand; tapping a place selects it for **Travel**, and the stack
 folds back after the play.
 A person or place holding things shows the first of them peeking out behind
