@@ -64,7 +64,7 @@ describe("knowing a lane is personal", () => {
     );
     for (const [from, to] of [
       ["greek-harbor", "greek-piraeus"],
-      ["greek-harbor", "greek-ajax-landing"],
+      ["greek-marathon", "greek-ajax-landing"],
     ])
       expect(knowsLane(s, "greek-shipmaster", from, to)).toBe(true);
   });
@@ -75,12 +75,17 @@ describe("knowing a lane is personal", () => {
     let s = dispatchShared({ op: "create", save: encodeSave(openSeas()) })
       .world;
     for (const id of players) s.actors[id].place = "greek-piraeus";
+    // The roaming Bard may be aboard, bound for Marathon Bay; set him ashore.
+    if (s.actors["greek-rhapsode"].place === "greek-ship") {
+      s.actors["greek-rhapsode"].place = s.transports["greek-ship"].dock;
+      s.transports["greek-ship"].riders = [];
+    }
     summonTransport(s, "greek-ship", "greek-piraeus");
     s = reload(s);
     s = act(s, "vale", "move", "greek-ship");
     s = act(s, "mara", "move", "greek-ship");
     // The ship always sails home from Piraeus, for both, known or not.
-    expect(courses(s, "vale")).toEqual(["greek-harbor"]);
+    expect(courses(s, "vale")).toContain("greek-harbor");
     expect(knowsLane(s, "mara", "greek-piraeus", "greek-harbor")).toBe(false);
     s = act(s, "vale", "course", "greek-harbor");
     s = act(s, "mara", "wait");

@@ -215,10 +215,15 @@ describe("a real voyage", () => {
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-harbor",
     ]);
+    // Aboard, they open Piraeus, Marathon Bay round the cape, and the east
+    // sea's open shores beyond it.
     s.items["greek-provisions"].holder = "greek-ship";
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-harbor",
+      "greek-lemnos",
+      "greek-marathon",
       "greek-piraeus",
+      "greek-sicily",
     ]);
   });
 });

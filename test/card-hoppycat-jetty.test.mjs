@@ -70,12 +70,14 @@ const moves = (s, actor) =>
     .map((a) => a.target);
 
 describe("the Signal Jetty lane", () => {
-  it("is Piraeus's third lane and the jetty's only one", () => {
+  it("is one of Piraeus's lanes and the jetty's only one", () => {
     const ship = packDefinition("greek-drama").transports["greek-ship"];
     const lanes = (dock) =>
       ship.lanes.filter((l) => l.from === dock || l.to === dock);
     expect(ship.docks).toContain(JETTY);
-    expect(lanes("greek-piraeus")).toHaveLength(3);
+    // Piraeus: the harbor and Marathon, each one way out and one back, and
+    // the jetty.
+    expect(lanes("greek-piraeus")).toHaveLength(5);
     expect(lanes(JETTY)).toEqual([
       expect.objectContaining({ from: "greek-piraeus", to: JETTY }),
     ]);
@@ -133,6 +135,7 @@ describe("the Signal Jetty lane", () => {
     let s = setup("greek-piraeus");
     learnLane(s, "vale", "greek-piraeus", "greek-harbor");
     learnLane(s, "vale", "greek-piraeus", "greek-athens-harbor");
+    learnLane(s, "vale", "greek-piraeus", "greek-marathon");
     s.actors["greek-shipmaster"].place = "greek-piraeus";
     s = reload(s);
     const talk = ask(s, "vale").actions.find(

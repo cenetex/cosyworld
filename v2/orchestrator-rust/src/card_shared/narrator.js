@@ -1530,7 +1530,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 15,
+        revision: 16,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -1844,7 +1844,7 @@
           },
           "greek-marathon": {
             name: "Marathon Altar",
-            text: "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. Country paths lead to Eleusis, Colonus and the farm.",
+            text: "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. Country paths lead to Eleusis, Colonus and the farm. Ships call in the bay below.",
             exits: [
               "greek-eleusis",
               "greek-colonus",
@@ -2002,8 +2002,7 @@
             text: "A rented household opens onto the harbor road. Bundles stand ready beside the door.",
             exits: [
               "greek-argolid-road",
-              "greek-troezen",
-              "greek-road-colonists"
+              "greek-troezen"
             ],
             backdrop: "assets/greek-drama/courtyard.svg",
             persona: "A rented household opens onto the harbor road. Bundles stand ready beside the door."
@@ -2075,9 +2074,7 @@
             text: "The city road runs between battered walls. Soldiers and displaced households share the remaining wells.",
             exits: [
               "greek-greek-camp",
-              "greek-trojan-camp",
-              "greek-thrace",
-              "greek-road-royal"
+              "greek-trojan-camp"
             ],
             backdrop: "assets/greek-drama/trojan-walls-day.webp",
             persona: "The city road runs between battered walls. Soldiers and displaced households share the remaining wells."
@@ -2087,7 +2084,6 @@
             text: "A speaker names the Trojan account after Ajax\u2019s death. Tents stand above the ships. Teucer carries a burial plea to the commanders.",
             exits: [
               "greek-troy",
-              "greek-lemnos",
               "greek-ajax-landing",
               "greek-ajax-household",
               "greek-ajax-grave"
@@ -2121,19 +2117,14 @@
           "greek-lemnos": {
             name: "The Lemnian Cave",
             text: "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
-            exits: [
-              "greek-greek-camp"
-            ],
+            exits: [],
             backdrop: "assets/greek-drama/lemnian-cave-day.webp",
             persona: "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
           },
           "greek-thrace": {
             name: "The Thracian Shore",
             text: "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
-            exits: [
-              "greek-troy",
-              "greek-road-black-sea"
-            ],
+            exits: [],
             backdrop: "assets/greek-drama/thracian-shore-day.webp",
             persona: "A fleet waits beyond the breakers. Captive households search among the new arrivals."
           },
@@ -2154,19 +2145,14 @@
           "greek-tauris": {
             name: "The Taurian Temple",
             text: "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
-            exits: [
-              "greek-road-black-sea",
-              "greek-scythian-crag"
-            ],
+            exits: [],
             backdrop: "assets/greek-drama/tauris-shore-scene.webp",
             persona: "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
           },
           "greek-sicily": {
             name: "The Sicilian Cave",
             text: "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
-            exits: [
-              "greek-road-colonists"
-            ],
+            exits: [],
             backdrop: "assets/greek-drama/book-three-lemnos-day.webp",
             persona: "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
           },
@@ -2174,10 +2160,11 @@
             name: "The Court at Susa",
             text: "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
             exits: [
-              "greek-road-royal"
+              "greek-troy"
             ],
             backdrop: "assets/greek-drama/book-three-susa-day.webp",
-            persona: "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
+            persona: "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
+            retired: true
           },
           "greek-scythian-crag": {
             name: "The Scythian Crag",
@@ -2186,7 +2173,8 @@
               "greek-tauris"
             ],
             backdrop: "assets/greek-drama/grove.svg",
-            persona: "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach."
+            persona: "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
+            retired: true
           },
           "greek-divine-heights": {
             name: "The Divine Heights",
@@ -2221,7 +2209,7 @@
           "greek-ship": {
             name: "Greek ship",
             text: "Water passes beneath the hull. The shipmaster watches the shores. Open ports wait beyond the rail.",
-            persona: "A shared ship serving Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. Myrto\u2019s lasting invitation adds the Trojan camp landing. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage. The Ajax visit is a named Trojan account after his death.",
+            persona: "A shared ship. On the west sea it serves Black Pond, the Wine-Dark Harbor and Piraeus Quays; around the cape it reaches Marathon Bay. On the east sea it sails from Marathon to the Trojan camp landing and the Far Shores. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
             exits: [],
             backdrop: "assets/greek-drama/ship-deck.webp",
             art: "assets/greek-drama/ship-card.webp",
@@ -2443,7 +2431,8 @@
               "greek-troy",
               "greek-susa"
             ],
-            backdrop: "assets/greek-drama/royal-road.svg"
+            backdrop: "assets/greek-drama/royal-road.svg",
+            retired: true
           },
           "greek-road-black-sea": {
             name: "The Black Sea Road",
@@ -2457,7 +2446,8 @@
               "greek-thrace",
               "greek-tauris"
             ],
-            backdrop: "assets/greek-drama/black-sea-road.svg"
+            backdrop: "assets/greek-drama/black-sea-road.svg",
+            retired: true
           },
           "greek-road-colonists": {
             name: "The Colonists' Road",
@@ -2471,7 +2461,8 @@
               "greek-corinth",
               "greek-sicily"
             ],
-            backdrop: "assets/greek-drama/colonists-road.svg"
+            backdrop: "assets/greek-drama/colonists-road.svg",
+            retired: true
           },
           "greek-ajax-landing": {
             name: "The Trojan Camp Landing",
@@ -8764,7 +8755,7 @@
         ],
         bridge: {
           id: "shore-greek-drama",
-          description: "A shared ship sails authored lanes from Black Pond only to the Wine-Dark Harbor, and from there to Piraeus Quays and the Trojan camp landing. The lamp signal calls it to the pond."
+          description: "A shared ship sails authored lanes: from Black Pond only to the Wine-Dark Harbor, from there to Piraeus Quays, around the cape to Marathon Bay, and on the east sea to the Trojan camp landing and the Far Shores. The lamp signal calls it to the pond."
         },
         crossings: [
           {
@@ -8904,6 +8895,102 @@
               cardName: "Greek ship",
               cardArt: "assets/greek-drama/ship-card.webp"
             }
+          },
+          {
+            id: "greek-marathon-ship",
+            from: "greek-marathon",
+            to: "pond",
+            travelers: "any",
+            travel: "aboard the ship",
+            requires: [],
+            transport: "greek-ship",
+            travelLabel: "Board",
+            scenery: {
+              open: "The Greek ship waits offshore.",
+              closed: "The shared ship is sailing elsewhere. The shore waits beside open water.",
+              cardName: "Greek ship",
+              cardArt: "assets/greek-drama/ship-card.webp"
+            }
+          },
+          {
+            id: "greek-lemnos-ship",
+            from: "greek-lemnos",
+            to: "pond",
+            travelers: "any",
+            travel: "aboard the ship",
+            requires: [],
+            transport: "greek-ship",
+            travelLabel: "Board",
+            scenery: {
+              open: "The Greek ship waits offshore.",
+              closed: "The shared ship is sailing elsewhere. The shore waits beside open water.",
+              cardName: "Greek ship",
+              cardArt: "assets/greek-drama/ship-card.webp"
+            }
+          },
+          {
+            id: "greek-thrace-ship",
+            from: "greek-thrace",
+            to: "pond",
+            travelers: "any",
+            travel: "aboard the ship",
+            requires: [],
+            transport: "greek-ship",
+            travelLabel: "Board",
+            scenery: {
+              open: "The Greek ship waits offshore.",
+              closed: "The shared ship is sailing elsewhere. The shore waits beside open water.",
+              cardName: "Greek ship",
+              cardArt: "assets/greek-drama/ship-card.webp"
+            }
+          },
+          {
+            id: "greek-egypt-tomb-ship",
+            from: "greek-egypt-tomb",
+            to: "pond",
+            travelers: "any",
+            travel: "aboard the ship",
+            requires: [],
+            transport: "greek-ship",
+            travelLabel: "Board",
+            scenery: {
+              open: "The Greek ship waits offshore.",
+              closed: "The shared ship is sailing elsewhere. The shore waits beside open water.",
+              cardName: "Greek ship",
+              cardArt: "assets/greek-drama/ship-card.webp"
+            }
+          },
+          {
+            id: "greek-tauris-ship",
+            from: "greek-tauris",
+            to: "pond",
+            travelers: "any",
+            travel: "aboard the ship",
+            requires: [],
+            transport: "greek-ship",
+            travelLabel: "Board",
+            scenery: {
+              open: "The Greek ship waits offshore.",
+              closed: "The shared ship is sailing elsewhere. The shore waits beside open water.",
+              cardName: "Greek ship",
+              cardArt: "assets/greek-drama/ship-card.webp"
+            }
+          },
+          {
+            id: "greek-sicily-ship",
+            from: "greek-sicily",
+            to: "pond",
+            travelers: "any",
+            travel: "aboard the ship",
+            requires: [],
+            transport: "greek-ship",
+            travelLabel: "Board",
+            scenery: {
+              open: "The Greek ship waits offshore.",
+              closed: "The shared ship is sailing elsewhere. The shore waits beside open water.",
+              cardName: "Greek ship",
+              cardArt: "assets/greek-drama/ship-card.webp"
+            }
           }
         ],
         transports: {
@@ -8914,7 +9001,13 @@
               "greek-harbor",
               "greek-piraeus",
               "greek-ajax-landing",
-              "hoppycat-signal-jetty"
+              "hoppycat-signal-jetty",
+              "greek-marathon",
+              "greek-lemnos",
+              "greek-thrace",
+              "greek-egypt-tomb",
+              "greek-tauris",
+              "greek-sicily"
             ],
             lanes: [
               {
@@ -8939,8 +9032,84 @@
                 oneWay: true
               },
               {
-                from: "greek-harbor",
-                to: "greek-ajax-landing"
+                from: "greek-piraeus",
+                to: "greek-marathon",
+                oneWay: true,
+                opensWith: [
+                  {
+                    kind: "item_present",
+                    item: "greek-provisions",
+                    place: "greek-ship"
+                  }
+                ]
+              },
+              {
+                from: "greek-marathon",
+                to: "greek-piraeus",
+                oneWay: true
+              },
+              {
+                from: "greek-marathon",
+                to: "greek-ajax-landing",
+                oneWay: true,
+                opensWith: [
+                  {
+                    kind: "item_present",
+                    item: "greek-provisions",
+                    place: "greek-ship"
+                  }
+                ]
+              },
+              {
+                from: "greek-ajax-landing",
+                to: "greek-marathon",
+                oneWay: true
+              },
+              {
+                from: "greek-marathon",
+                to: "greek-lemnos",
+                oneWay: true,
+                opensWith: [
+                  {
+                    kind: "item_present",
+                    item: "greek-provisions",
+                    place: "greek-ship"
+                  }
+                ]
+              },
+              {
+                from: "greek-lemnos",
+                to: "greek-marathon",
+                oneWay: true
+              },
+              {
+                from: "greek-marathon",
+                to: "greek-sicily",
+                oneWay: true,
+                opensWith: [
+                  {
+                    kind: "item_present",
+                    item: "greek-provisions",
+                    place: "greek-ship"
+                  }
+                ]
+              },
+              {
+                from: "greek-sicily",
+                to: "greek-marathon",
+                oneWay: true
+              },
+              {
+                from: "greek-lemnos",
+                to: "greek-thrace"
+              },
+              {
+                from: "greek-lemnos",
+                to: "greek-egypt-tomb"
+              },
+              {
+                from: "greek-thrace",
+                to: "greek-tauris"
               },
               {
                 from: "greek-piraeus",
@@ -13541,8 +13710,8 @@
     const transportPlaces = /* @__PURE__ */ new Set();
     for (const [id, t] of Object.entries(pack.transports || {})) {
       const valid = check(
-        idOk(id) && keysOk(t, ["place", "docks", "at", "lanes", "shipmaster"]) && owns2(places2, t.place) && !transportPlaces.has(t.place) && places2[t.place]?.exits.length === 0 && Array.isArray(t.docks) && t.docks.length >= 2 && t.docks.length <= 8 && new Set(t.docks).size === t.docks.length && t.docks.every((p) => anyPlace(p) && p !== t.place) && t.docks.includes(t.at),
-        `transport ${id} needs its own place, two to eight docks and an initial dock`
+        idOk(id) && keysOk(t, ["place", "docks", "at", "lanes", "shipmaster"]) && owns2(places2, t.place) && !transportPlaces.has(t.place) && places2[t.place]?.exits.length === 0 && Array.isArray(t.docks) && t.docks.length >= 2 && t.docks.length <= 12 && new Set(t.docks).size === t.docks.length && t.docks.every((p) => anyPlace(p) && p !== t.place) && t.docks.includes(t.at),
+        `transport ${id} needs its own place, two to twelve docks and an initial dock`
       );
       if (!valid) continue;
       transportPlaces.add(t.place);
@@ -15286,6 +15455,7 @@
       upgradeGreekCithaeronSave(s);
       upgradeGreekDistrictRoadsSave(s);
       upgradeGreekOpenDoorSave(s);
+      upgradeGreekEastSeaSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -16047,6 +16217,19 @@
       k.pending = (k.pending || []).filter((p) => p.factId !== topic);
     }
     saved.revision = 15;
+  }
+  function upgradeGreekEastSeaSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 16 || saved?.revision !== 15) return;
+    foldRetiredRoads(s);
+    const sailed = new Set(laneEdges().map((edge) => JSON.stringify(edge)));
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {}))
+      if (Array.isArray(edges))
+        s.routeKnowledge[actor] = edges.filter(
+          (edge) => !laneOfEdge(edge) || sailed.has(JSON.stringify(edge))
+        );
+    saved.revision = 16;
   }
 
   // v2/card-game/world.mjs

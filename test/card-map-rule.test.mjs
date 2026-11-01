@@ -60,15 +60,15 @@ const TOWNS = {
     "greek-troy",
     "greek-greek-camp",
     "greek-trojan-camp",
-    "greek-thrace",
-    "greek-lemnos",
     "greek-ajax-landing",
     "greek-ajax-household",
     "greek-ajax-grave",
   ],
-  tauris: ["greek-tauris", "greek-scythian-crag"],
+  // The Far Shores are one-place ship stops on the east sea.
+  lemnos: ["greek-lemnos"],
+  thrace: ["greek-thrace"],
+  tauris: ["greek-tauris"],
   sicily: ["greek-sicily"],
-  susa: ["greek-susa"],
   "hoppy-cat-archive": [
     "hoppycat-signal-jetty",
     "hoppycat-halfway-tea-garden",
@@ -202,10 +202,17 @@ describe("the map rule", () => {
         ).toBe(true);
     for (const ship of Object.values(transports)) {
       const lanes = ship.lanes || [];
-      expect(lanes.length).toBeLessThanOrEqual(7);
+      // Two seas: the west sea and, around the cape, the east sea.
+      expect(lanes.length).toBeLessThanOrEqual(15);
+      // Boarding is one link for a dock; the ship reaches at most four ports
+      // from any one of them.
       for (const dock of ship.docks)
         expect(
-          lanes.filter((l) => l.from === dock || l.to === dock).length,
+          new Set(
+            lanes.flatMap((l) =>
+              l.from === dock ? [l.to] : l.to === dock ? [l.from] : [],
+            ),
+          ).size,
           dock,
         ).toBeLessThanOrEqual(4);
       for (const { from, to } of lanes)

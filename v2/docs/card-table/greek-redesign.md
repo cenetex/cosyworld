@@ -375,3 +375,12 @@ Recorded on #1732 (2026-11-01):
    chain is a live condition, like the Theban gate, not a lasting flag.
 4. **The Far Shores are one-place ship stops** on the east sea.
 5. **The Athens sort stands as written**, and the Juror's House goes.
+
+## East sea
+
+Greek revision 16 opens the east sea. Marathon Altar is also Marathon Bay,
+the far harbour of Athens. The ship rounds the cape from Piraeus, and from
+Marathon it sails to the Trojan camp landing, Lemnos and Sicily; Lemnos leads
+on to Thrace and Egypt, and Thrace to Tauris. The Wine-Dark Harbor's lane to
+the landing goes. A dock counts boarding the ship as one link, however many
+lanes the ship sails (owner, 2026-11-01).
