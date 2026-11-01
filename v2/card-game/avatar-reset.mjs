@@ -33,6 +33,7 @@ export function resetAvatar(world, id) {
     else delete world.routeKnowledge[id];
   }
   if (world.motives?.grievances?.[id]) world.motives.grievances[id] = [];
+  if (world.motives?.helpers) delete world.motives.helpers[id];
   if (world.invitedPlaces) delete world.invitedPlaces[id];
   world.peaceUntil[id] = 0;
   if (world.defeats) delete world.defeats[id];

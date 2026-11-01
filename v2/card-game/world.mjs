@@ -44,6 +44,8 @@ import {
   giftDecision,
   socialTravel,
   recordReaction,
+  recordHearsay,
+  recordHelp,
   validMotives,
   tastes,
 } from "./motives.mjs";
@@ -301,6 +303,7 @@ function installPacks(s) {
       s.peaceUntil[id] = 0;
       s.memories[id] = fresh[id];
       if (s.motives) s.motives.grievances[id] = [];
+      if (s.motives?.helpers) delete s.motives.helpers[id];
     }
     for (const [id, item] of Object.entries(pack.items || {})) {
       if (s.items[id]) throw new Error("A pack item is already present.");
@@ -960,6 +963,14 @@ export function publishKnowledgeSpeech(s, entry, disclosures) {
   // An unnamed id has no name to stand for I or you.
   const named = (id) => (nameOf(id) === "the world" ? null : nameOf(id));
   const learned = acceptKnowledgeSpeech(s, entry, disclosures, named);
+  // Heard news of a play still in the history shifts the listener's stance.
+  for (const { fact, listener, learned: added } of learned) {
+    const play =
+      added &&
+      fact.source.kind === "event" &&
+      s.log.find((e) => e.seq === fact.source.eventSeq && !e.generated);
+    if (play) recordHearsay(s, play, listener);
+  }
   // A lane heard in published speech goes on the listener's own chart.
   for (const { fact, listener } of learned)
     if (fact.source.kind === "lane")
@@ -2001,7 +2012,7 @@ function performPlay(s, a, round = null, settle = []) {
   }
   settleStandoffs(s);
   // A want met by this play is a world fact recorded right after it.
-  settleWants(
+  const met = settleWants(
     s,
     wantActors(s, [
       a.actor,
@@ -2013,6 +2024,7 @@ function performPlay(s, a, round = null, settle = []) {
       ? { ...a, accepted: requestAccepted }
       : a,
   );
+  recordHelp(s, a, witnesses, met);
   // Resolved plays, and only those, can advance a crossing's signal.
   if (round)
     noteAct(s, a, here, holder, round, sensesFor(s), (line, locationId) =>

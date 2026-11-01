@@ -166,6 +166,13 @@ function specialsProblems(pack) {
 }
 const keysOk = (o, allowed) =>
   record(o) && Object.keys(o).every((k) => allowed.includes(k));
+const listOk = (v, ok) =>
+  v === undefined || (Array.isArray(v) && v.length <= 8 && v.every(ok));
+const playPatternOk = (p) =>
+  keysOk(p, ["kind", "target", "item", "accepted"]) &&
+  typeof p.kind === "string" &&
+  ["target", "item"].every((k) => p[k] === undefined || typeof p[k] === "string") &&
+  (p.accepted === undefined || typeof p.accepted === "boolean");
 // A point on a painting, as whole percentages of its width and height.
 const pointOk = (o) =>
   keysOk(o, ["x", "y"]) && intOk(o.x, 0, 100) && intOk(o.y, 0, 100);
@@ -696,13 +703,29 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `avatar ${id} previous homes need authored places`,
     );
     check(
-      keysOk(a.tastes, ["likes", "sore", "reason", "noise"]) &&
+      keysOk(a.tastes, ["likes", "sore", "reason", "noise", "admires", "resents"]) &&
         textOk(a.tastes?.likes, 120) &&
         textOk(a.tastes?.sore, 120) &&
         textOk(a.tastes?.reason, 240) &&
         (a.tastes?.noise === undefined ||
           templateOk(a.tastes.noise, 240, ["actor"])),
       `avatar ${id} tastes need likes, sore and reason`,
+    );
+    // A witnessed play a resident admires or resents, as patterns over the
+    // play's kind, target, item and accepted fields.
+    check(
+      listOk(a.tastes?.admires, playPatternOk) &&
+        listOk(
+          a.tastes?.resents,
+          (r) =>
+            keysOk(r, ["kind", "on", "reason"]) &&
+            /^[a-z][a-z-]{0,31}$/u.test(r.kind) &&
+            Array.isArray(r.on) &&
+            r.on.length >= 1 &&
+            r.on.every(playPatternOk) &&
+            templateOk(r.reason, 180, ["actor"]),
+        ),
+      `avatar ${id} tastes admires needs play patterns and resents needs kind, on and a reason with only {actor}`,
     );
     // One want per resident: an item, a place or a person it seeks first, or
     // (BoardyAI) connecting humans.

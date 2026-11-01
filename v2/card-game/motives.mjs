@@ -113,38 +113,107 @@ export function socialTravel(s, requester, companion) {
       : "wants-something-else",
   };
 }
-// The hub cast's grievances are authored in forest.json; a pack resident's
-// noise taste is the same rule for a rung bell.
-const grievanceRules = [
-  ...Object.entries(packPeople)
-    .filter(([, r]) => r.tastes.noise)
-    .map(([id, r]) => [
-      id,
-      [{ kind: "noise", on: [{ kind: "ring" }], reason: r.tastes.noise }],
-    ]),
-  ...Object.entries(forest.people)
-    .filter(([, p]) => p.grievances)
-    .map(([id, p]) => [id, p.grievances]),
-];
+// What a resident resents or admires in a play it sees is profile data. A
+// pattern names fields of the committed play: kind, target, item, accepted.
+// The hub cast's rules are authored in forest.json; a pack resident's noise
+// taste is the same rule for a rung bell, and its resents list adds more.
+const byResident = (pairs) =>
+  pairs.reduce((m, [id, rules]) => ({ ...m, [id]: [...(m[id] || []), ...rules] }), {});
+const grievanceRules = byResident([
+  ...Object.entries(packPeople).map(([id, r]) => [
+    id,
+    [
+      ...(r.tastes.noise
+        ? [{ kind: "noise", on: [{ kind: "ring" }], reason: r.tastes.noise }]
+        : []),
+      ...(r.tastes.resents || []),
+    ],
+  ]),
+  ...Object.entries(forest.people).map(([id, p]) => [id, p.grievances || []]),
+]);
+const admireRules = byResident([
+  ...Object.entries(packPeople).map(([id, r]) => [id, r.tastes.admires || []]),
+  ...Object.entries(forest.people).map(([id, p]) => [id, p.admires || []]),
+]);
+const grievanceKinds = new Set([
+  "noise",
+  "light",
+  "threat",
+  "pestering",
+  ...Object.values(grievanceRules).flatMap((rules) => rules.map((r) => r.kind)),
+]);
+const matches = (a, on) =>
+  on.some((p) => Object.entries(p).every(([k, v]) => a[k] === v));
+function addGrievance(s, id, other, reason, kind) {
+  const list = s.motives.grievances[id];
+  if (!list || id === other) return;
+  const prior = list.find((g) => g.other === other && g.kind === kind);
+  if (prior) {
+    prior.weight = Math.min(3, prior.weight + 1);
+    prior.turn = s.turn;
+    list.splice(list.indexOf(prior), 1);
+    list.push(prior);
+  } else list.push({ other, kind, reason, turn: s.turn, weight: 1 });
+  s.motives.grievances[id] = list.slice(-6);
+}
+// Each witness judges a committed play by its own tastes: a resented play
+// becomes a grievance, an admired one earns the actor a point of trust. The
+// play's own target is judged by the direct rules instead.
+function judge(s, a, ids) {
+  for (const id of ids) {
+    if (id === a.actor) continue;
+    for (const rule of grievanceRules[id] || [])
+      if (matches(a, rule.on))
+        addGrievance(s, id, a.actor, rule.reason.replace("{actor}", names[a.actor]), rule.kind);
+    const trust = s.actors[id]?.trust;
+    if (id !== a.target && Object.hasOwn(trust || {}, a.actor) && matches(a, admireRules[id] || []))
+      trust[a.actor] = Math.min(3, trust[a.actor] + 1);
+  }
+}
+// Gossip carries stance: a listener who hears of a play in published speech
+// judges it by its own tastes, as if it had been there.
+export function recordHearsay(s, entry, listener) {
+  if (!hasMotives(s) || entry.kind !== "action" || entry.actorId === listener) return;
+  judge(
+    s,
+    {
+      kind: entry.verb,
+      actor: entry.actorId,
+      target: entry.targetId,
+      item: entry.itemId,
+      accepted: entry.accepted,
+    },
+    [listener],
+  );
+}
+// A resident remembers who met its want: the other party to the play. Those
+// watching judge the help as a play of its own kind.
+export function recordHelp(s, a, witnesses, met) {
+  if (!hasMotives(s)) return;
+  for (const actorId of new Set(met.map((m) => m.actorId))) {
+    const helper = actorId === a.actor ? a.target : a.actor;
+    if (helper === actorId || !actors.includes(helper) || !actors.includes(actorId))
+      continue;
+    const helpers = (s.motives.helpers ??= {});
+    helpers[actorId] = [...(helpers[actorId] || []).filter((h) => h !== helper), helper].slice(-4);
+    judge(
+      s,
+      { kind: "help", actor: helper, target: actorId },
+      witnesses.filter((id) => id !== actorId),
+    );
+  }
+}
 export function recordReaction(s, a, witnesses, accepted) {
   if (!hasMotives(s)) return;
   const add = (id, reason, kind) => {
     if (id === a.actor || !witnesses.includes(id)) return;
-    const list = s.motives.grievances[id];
-    const prior = list.find((g) => g.other === a.actor && g.kind === kind);
-    if (prior) {
-      prior.weight = Math.min(3, prior.weight + 1);
-      prior.turn = s.turn;
-      list.splice(list.indexOf(prior), 1);
-      list.push(prior);
-    } else list.push({ other: a.actor, kind, reason, turn: s.turn, weight: 1 });
-    s.motives.grievances[id] = list.slice(-6);
+    addGrievance(s, id, a.actor, reason, kind);
   };
-  // Grievances a resident takes from a witnessed play are profile data.
-  for (const [id, rules] of grievanceRules)
-    for (const rule of rules)
-      if (rule.on.some((p) => Object.entries(p).every(([k, v]) => a[k] === v)))
-        add(id, rule.reason.replace("{actor}", names[a.actor]), rule.kind);
+  judge(
+    s,
+    ["ask", "give", "trade"].includes(a.kind) ? { ...a, accepted } : a,
+    witnesses.filter((id) => actors.includes(id)),
+  );
   if (a.kind === "threaten" || a.kind === "attack")
     add(a.target, `${names[a.actor]} picked a fight.`, "threat");
   if (
@@ -174,18 +243,34 @@ export function recordReaction(s, a, witnesses, accepted) {
 export function motiveFacts(s, actor, limit = 6) {
   return [
     ...(lifeOf(s, actor) ? [lifeFacts(s, actor).join(" ").slice(0, 240)] : []),
+    ...(s.motives?.helpers?.[actor] || []).map(
+      (h) => `I remember ${names[h]} met my want.`,
+    ),
     ...(s.motives?.grievances[actor] || [])
       .slice(-limit)
       .reverse()
       .map((g) => `Remembered grievance: ${g.reason}`),
   ].filter(Boolean);
 }
+const validHelpers = (h) =>
+  h === undefined ||
+  (!!h &&
+    typeof h === "object" &&
+    Object.entries(h).every(
+      ([id, list]) =>
+        actors.includes(id) &&
+        Array.isArray(list) &&
+        list.length <= 4 &&
+        new Set(list).size === list.length &&
+        list.every((o) => o !== id && actors.includes(o)),
+    ));
 export function validMotives(s) {
   if (s.motives === undefined) return true;
   const m = s.motives;
   return (
     m?.version === 1 &&
     m.questPrograms === undefined &&
+    validHelpers(m.helpers) &&
     Object.keys(m.grievances || {})
       .sort()
       .join() === actors.slice().sort().join() &&
@@ -197,7 +282,7 @@ export function validMotives(s) {
           (g) =>
             actors.includes(g.other) &&
             g.other !== id &&
-            ["noise", "light", "threat", "pestering"].includes(g.kind) &&
+            grievanceKinds.has(g.kind) &&
             typeof g.reason === "string" &&
             g.reason.length <= 180 &&
             Number.isSafeInteger(g.turn) &&
