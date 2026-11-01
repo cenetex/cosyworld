@@ -192,7 +192,8 @@ describe("Tea beneath the oak", () => {
     expect(world.items[CHARM].holder).toBe("oak");
   });
 
-  it("requires a shared charm holder to be present, but keeps a charm left at Oak", () => {
+  // An away holder stays at Oak as a resident with the charm (#1846).
+  it("counts a shared charm holder standing at Oak, present or away, and a charm left there", () => {
     let world = dispatchShared({
       op: "create",
       save: encodeSave(charmAtOak()),
@@ -207,7 +208,7 @@ describe("Tea beneath the oak", () => {
         present,
         ...fields,
       });
-    expect(command("mara", ["mara"]).exits).not.toContain(TRAIL);
+    expect(command("mara", ["mara"]).exits).toContain(TRAIL);
     expect(command("mara", ["vale", "mara"]).exits).toContain(TRAIL);
     const drop = command("vale", ["vale", "mara"]).actions.find(
       (a) => a.kind === "drop" && a.item === CHARM,

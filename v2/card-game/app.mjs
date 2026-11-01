@@ -61,6 +61,7 @@ import {
   humanAvatars,
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
+import { seatActors } from "./human-cast.mjs";
 import {
   PLAYING_KEY,
   SAVE_BASE,
@@ -4056,16 +4057,13 @@ let sharedLineKey = "";
 let sharedWorldKey = "";
 let sharedNudgeKey = "";
 function sharedWorld(value) {
-  return {
-    ...value.world,
-    playerActorId: value.actor,
-    controlledActors: humanAvatars
-      .filter((_, index) => value.claimed?.[index])
-      .map((avatar) => avatar.id),
-    presentActors: humanAvatars
-      .filter((_, index) => value.present?.[index])
-      .map((avatar) => avatar.id),
-  };
+  const seated = (flags) =>
+    humanAvatars.filter((_, index) => flags?.[index]).map((a) => a.id);
+  return seatActors(
+    { ...value.world, playerActorId: value.actor },
+    seated(value.claimed),
+    seated(value.present),
+  );
 }
 async function submitSharedPlay(action) {
   if (

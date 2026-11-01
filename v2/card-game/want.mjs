@@ -633,14 +633,18 @@ export function validWant(s, id) {
     new Set(v).size === v.length &&
     v.every((x) => Object.hasOwn(of, x));
   const quests = questsOf(s, id);
+  // Experience an avatar brought from its last world (#1846) raises the cap.
+  const most = startXp(id) + (a.carried ?? 0) + s.turn * 8;
   return (
     Number.isSafeInteger(a.xp) &&
     a.xp >= 0 &&
+    (a.carried === undefined ||
+      (Number.isSafeInteger(a.carried) && a.carried >= 0)) &&
     (a.level === undefined ||
       (Number.isSafeInteger(a.level) &&
         a.level >= 1 &&
-        a.level <= levelFor(startXp(id) + s.turn * 8))) &&
-    a.xp <= startXp(id) + s.turn * 8 &&
+        a.level <= levelFor(most))) &&
+    a.xp <= most &&
     (a.metTurn === undefined || whole(a.metTurn)) &&
     (a.gaveUp === undefined ||
       (a.gaveUp &&

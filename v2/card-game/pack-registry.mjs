@@ -14,6 +14,7 @@ import {
   controlledByHuman,
   humanPresent,
   sharedEnabled,
+  residentAvatar,
 } from "./human-cast.mjs";
 import {
   packProblems,
@@ -315,10 +316,16 @@ function rootOf(world, id) {
 export function entityActive(world, id) {
   if (world.items?.[id]) {
     let holder = rootOf(world, id);
-    if (humanAvatar(holder) && !humanPresent(world, holder)) return false;
+    if (
+      humanAvatar(holder) &&
+      !humanPresent(world, holder) &&
+      !residentAvatar(world, holder)
+    )
+      return false;
     if (holder === BOARDY && !boardyActive(world)) return false;
   }
-  if (humanAvatar(id) && !humanPresent(world, id)) return false;
+  if (humanAvatar(id) && !humanPresent(world, id) && !residentAvatar(world, id))
+    return false;
   return entityEnabled(world, id);
 }
 export function entityEnabled(world, id, saved = false) {

@@ -64,7 +64,9 @@ describe("a path out of a stranded home", () => {
     s.items.lamp.fuel = 0;
     s.items.oil.holder = "attic";
     expect(exits(s, "attic", "vale")).toEqual(["pond"]);
-    const take = legalActions(s, "vale").find((a) => a.kind === "take" && a.item === "oil");
+    const take = legalActions(s, "vale").find(
+      (a) => a.kind === "take" && a.item === "oil",
+    );
     expect(take).toBeDefined();
     const filled = play(s, take).state;
     // The refilled lamp still shines and burns this turn's fuel.
@@ -129,11 +131,17 @@ describe("a path out of a stranded home", () => {
       expect(view(w, avatar.id).exits).toEqual(["pond"]);
     },
   );
-  it("counts a present helper's lamp and keeps absence meaningful", () => {
-    const w = dispatchShared({ op: "create", save: encodeSave(opening()) }).world;
+  // An away holder's avatar stays as a resident, lamp in hand (#1846).
+  it("counts a helper's lamp while they stand by, present or away", () => {
+    const w = dispatchShared({
+      op: "create",
+      save: encodeSave(opening()),
+    }).world;
     w.actors.mara.place = "attic";
     w.items.lamp.holder = "mara";
     expect(view(w, "vale").exits).toEqual([]);
+    expect(view(w, "vale", ["vale"]).exits).toEqual([]);
+    w.actors.mara.place = "station";
     expect(view(w, "vale", ["vale"]).exits).toEqual(["pond"]);
   });
   it("keeps crowding as a wait and respects pond capacity", () => {
@@ -158,7 +166,9 @@ describe("a path out of a stranded home", () => {
     s.actors.keeper.place = "attic";
     s.items.lamp.holder = "keeper";
     s.items.bell.holder = "vale";
-    recordReaction(s, { kind: "ring", actor: "vale", item: "bell" }, ["keeper"]);
+    recordReaction(s, { kind: "ring", actor: "vale", item: "bell" }, [
+      "keeper",
+    ]);
     expect(exits(s, "attic", "vale")).toEqual([]);
   });
   it("keeps accepted resident gifts as real recovery routes", () => {

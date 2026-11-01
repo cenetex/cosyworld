@@ -342,8 +342,9 @@ fn version_sixteen_lessons_upgrade_before_new_measured_plays() {
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
 }
 
+// An away holder's avatar stays as a resident and witnesses the room (#1846).
 #[test]
-fn shared_interpreter_keeps_absent_players_out_of_witnessed_memory() {
+fn shared_interpreter_lets_an_away_players_avatar_witness_as_a_resident() {
     let mut w = World::create(None).unwrap();
     w.game["actors"]["mara"]["place"] = w.game["actors"]["vale"]["place"].clone();
     for actor in ["vale", "mara"] {
@@ -358,7 +359,8 @@ fn shared_interpreter_keeps_absent_players_out_of_witnessed_memory() {
     assert!(w.game["memories"]["mara"]["events"]
         .as_array()
         .unwrap()
-        .is_empty());
+        .iter()
+        .any(|e| e["text"].as_str().unwrap().contains("quiet story")));
     let own = w.game["memories"]["vale"]["events"].as_array().unwrap();
     assert!(own
         .iter()

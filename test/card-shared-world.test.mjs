@@ -19,9 +19,7 @@ import { availableCards } from "../v2/card-game/cards.mjs";
 const shared = () =>
   dispatchShared({
     op: "create",
-    save: encodeSave(
-      enableMotives(createWorld()),
-    ),
+    save: encodeSave(enableMotives(createWorld())),
   }).world;
 const ask = (world, op, actor = "vale", extra = {}) =>
   dispatchShared({
@@ -184,13 +182,16 @@ describe("the full world shared by human avatars", () => {
       }).exits,
     ).toContain("pond");
   });
-  it("opens a home through a nearby belonging and closes it when its carrier leaves", () => {
+  // Passkey v2 (#1846): an away holder's avatar stays as a resident.
+  it("keeps a home open while its away carrier stands near, and closes it when they walk off", () => {
     const world = shared();
     world.items.mask.holder = "mara";
     world.actors.vale.place = "pond";
     world.actors.mara.place = "pond";
     expect(ask(world, "view").exits).toContain("theatre");
     const present = humanAvatarIds.filter((id) => id !== "mara");
+    expect(ask(world, "view", "vale", { present }).exits).toContain("theatre");
+    world.actors.mara.place = "station";
     expect(ask(world, "view", "vale", { present }).exits).not.toContain(
       "theatre",
     );
@@ -245,7 +246,7 @@ describe("the full world shared by human avatars", () => {
     }
     expect(ask(reorder(world), "validate").ok).toBe(true);
   });
-  it("applies light and sound presence to carried objects while floor and NPC objects remain", () => {
+  it("lights and rings from an away resident's hands as from anyone's", () => {
     const world = shared();
     world.actors.vale.place = "pond";
     world.items.lamp.holder = "vale";
@@ -254,54 +255,47 @@ describe("the full world shared by human avatars", () => {
     world.items.bell.ringing = 3;
     world.items.oil.holder = "station";
     world.actors.mara.place = "pond";
-    let visible = ask(world, "view", "mara", { present: ["mara"] }).world;
-    expect(reflectionOpen(visible, "pond")).toBe(false);
-    expect(soundAt(visible, "pond", sensesFor(visible))).toBe(false);
-    visible = ask(world, "view", "mara", { present: ["mara", "vale"] }).world;
-    expect(reflectionOpen(visible, "pond")).toBe(true);
-    expect(soundAt(visible, "pond", sensesFor(visible))).toBe(true);
-    for (const holder of ["pond", "moth"]) {
-      world.items.lamp.holder = holder;
-      world.items.bell.holder = holder;
-      world.actors.moth.place = "pond";
-      visible = ask(world, "view", "mara", { present: ["mara"] }).world;
+    for (const present of [["mara"], ["mara", "vale"]]) {
+      const visible = ask(world, "view", "mara", { present }).world;
       expect(reflectionOpen(visible, "pond")).toBe(true);
       expect(soundAt(visible, "pond", sensesFor(visible))).toBe(true);
     }
+    world.actors.vale.place = "station";
+    const visible = ask(world, "view", "mara", { present: ["mara"] }).world;
+    expect(reflectionOpen(visible, "pond")).toBe(false);
+    expect(soundAt(visible, "pond", sensesFor(visible))).toBe(false);
   });
-  it("keeps absent humans and their belongings out of plays and new quest candidates", () => {
+  it("lets an away human live on as a resident who keeps their belongings", () => {
     const world = shared();
     world.items.mask.holder = "mara";
     world.actors.mara.place = "pond";
     world.actors.vale.place = "pond";
     const view = ask(world, "view", "vale", { present: ["vale"] });
     expect(
-      view.actions.some(
-        (a) => a.cards.includes("mara") || a.cards.includes("mask"),
-      ),
+      view.actions.some((a) => a.kind === "talk" && a.target === "mara"),
+    ).toBe(true);
+    expect(
+      view.actions.some((a) => a.kind === "take" && a.item === "mask"),
     ).toBe(false);
-    // An absent human's belonging is not something Vale can want now.
-    const api = {
-      carried: (id) => carried(view.world, id),
-      rootHolder: (id) => rootHolder(view.world, id),
-      valueOf: () => 5,
-      reachable: () => ["station", "attic"],
-    };
-    const pool = wantCandidates(view.world, "vale", api);
-    expect(pool.length).toBeGreaterThan(0);
-    expect(pool).not.toContain("item:mask");
-    const all = ask(world, "view").world;
-    for (const npc of ["moth", "keeper"]) {
-      const actions = legalActions(all, npc);
+    for (const npc of ["moth", "keeper"])
       expect(
-        actions.some(
-          (a) => a.kind === "accompany" && humanAvatarIds.includes(a.target),
+        legalActions(view.world, npc).some(
+          (a) => a.kind === "take" && a.item === "mask",
         ),
       ).toBe(false);
-      expect(actions.some((a) => a.kind === "take" && a.item === "mask")).toBe(
-        false,
-      );
+    // Vale's plays let the resident Mara act on her own wants.
+    let next = world;
+    for (let i = 0; i < 6; i++) {
+      const own = ask(next, "view", "vale", { present: ["vale"] }).actions;
+      const wait = own.find((a) => a.kind === "wait") || own[0];
+      const result = ask(next, "play", "vale", {
+        present: ["vale"],
+        action: wait,
+      });
+      expect(result.ok).toBe(true);
+      next = result.world;
     }
+    expect(next.log.some((e) => e.actorId === "mara")).toBe(true);
   });
   it("rejects actor impersonation and extra actor keys before play", () => {
     const world = shared();
