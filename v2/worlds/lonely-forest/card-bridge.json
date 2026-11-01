@@ -35,6 +35,7 @@
         }
       ],
       "scenery": {
+        "backdrop": "assets/shared/places/attic-lit-cottage.webp",
         "open": "A narrow stair leads down to the cosy cottage.",
         "closed": "The floorboards show no way downstairs.",
         "cardArt": "assets/lonely-forest/cottage.png",

@@ -1,12 +1,16 @@
 {
   "created": "2026-10-31",
   "generator": "OpenAI built-in image generation",
-  "brief": "The attic is the last safe place. Lamplight is warm and protective, and the mirror reflects only the room. Dousing the lamp reveals the cold moonlit Black Pond: escape is the dark.",
+  "brief": "Three matching attic paintings lit by Vale's off-camera held lantern, with no painted lantern or lamp. Lit is a warm refuge with an ordinary attic reflection. Lit with the scarf reveals the descent into Cosy Cottage while retaining that reflection. Only the doused state reveals the moonlit Black Pond through the mirror.",
   "art_direction_feedback": [
-    "Preserve the original attic camera, perspective, rafters, stair opening/balustrade, shrouded furniture, trunks and city windows.",
-    "Replace the warm state's giant-moon seascape with an ordinary warm reflection of the attic.",
-    "Replace the dark state's empty glass with the still moonlit Black Pond, the brightest focus.",
-    "Add one stationary floor lamp beside the mirror, and retain it exactly between the two states."
+    "Preserve the same camera, perspective, rafters, stair opening and balustrade, shrouded furniture, trunks, city windows, ornate mirror and painterly style for crossfades.",
+    "Remove the standing floor lamp entirely and restore bare boards at its old position.",
+    "Keep the lower-left foreground as clear, uncluttered floorboards for Vale.",
+    "In lit states, warm amber light originates outside the picture, just in front of and below the camera, slightly left of centre. The near floor and trunk fronts receive the brightest light.",
+    "Both lit states show only an ordinary warm reflection of the attic; no Black Pond or visible figure in the mirror.",
+    "Only the doused state shows the Black Pond, the brightest area in the cold blue-black room, with a thin curl of smoke entering from the lower left.",
+    "In the cottage state, a long soft heather knitted scarf marks the balustrade above a clear descent into a blue timber cottage with kettle, basket and softer hearth firelight.",
+    "No people, visible lanterns, lamps, candles, light fixtures or text in any delivered painting."
   ],
   "max_source_bytes": 300000,
   "encoding": {
@@ -19,52 +23,152 @@
     {
       "id": "attic-lit",
       "file": "attic-lit.webp",
-      "state": "Lamp lit; safe room; attic reflection only",
-      "generation_id": "exec-08f7dc1e-6b64-4188-92cb-d2b54022e698",
+      "state": "Held lantern lit; warm refuge; ordinary attic reflection; no destination shown",
+      "generation_id": "exec-1ebb128f-de6c-46c4-8859-6d0931785b00",
       "references": [
         {
           "role": "edit target",
-          "repository_path": "v2/card-game/assets/attic.png",
-          "commit": "02348c737be70db61979c32ca450bdb0cdee00f5",
-          "url": "https://github.com/cenetex/cosyworld/blob/02348c737be70db61979c32ca450bdb0cdee00f5/v2/card-game/assets/attic.png",
-          "sha256": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e"
+          "repository_path": "v2/card-game/assets/attic/attic-lit.webp",
+          "commit": "03b20826923279685fd1a149fb3ab8887fd20676",
+          "url": "https://github.com/cenetex/cosyworld/blob/03b20826923279685fd1a149fb3ab8887fd20676/v2/card-game/assets/attic/attic-lit.webp",
+          "sha256": "7e13716c980e4044028c421d2e2406c5e0312addf534c70a828d4ea45e172ee7"
         }
       ],
-      "dimensions": [1672, 941],
+      "dimensions": [
+        1672,
+        941
+      ],
       "transparent_background": false,
-      "quality": 88,
-      "bytes": 282564,
-      "sha256": "7e13716c980e4044028c421d2e2406c5e0312addf534c70a828d4ea45e172ee7",
-      "original_png_sha256": "d765bfca74e0d27d79ac90350e7eee224a20fbf509312ac7895b6eeb2abd8e81",
-      "original_png_bytes": 2380332
+      "quality": 87,
+      "bytes": 294142,
+      "sha256": "b7844bf64e69d0f220f469f25efb767a67e240585c7c4d4a748ead6e51b9745e",
+      "original_png_sha256": "d58268d2ea9aaccfe5284763df8a9d7c835f271c145fedc9534bf7b9bc372448",
+      "original_png_bytes": 2402811
     },
     {
       "id": "attic-doused",
       "file": "attic-doused.webp",
-      "state": "Lamp just doused; cold room; moonlit pond opening",
-      "generation_id": "exec-55029ea1-a4a0-4391-8463-b8bda90fcbae",
+      "state": "Held lantern doused; cold attic; moonlit Black Pond through the mirror; smoke at lower left",
+      "generation_id": "exec-de3033e8-dc70-4a04-9a83-25b1d737feee",
       "references": [
         {
           "role": "edit target",
-          "asset_id": "attic-lit",
-          "generation_id": "exec-08f7dc1e-6b64-4188-92cb-d2b54022e698",
-          "original_png_sha256": "d765bfca74e0d27d79ac90350e7eee224a20fbf509312ac7895b6eeb2abd8e81"
-        },
-        {
-          "role": "canonical composition reference (through edit target)",
-          "repository_path": "v2/card-game/assets/attic.png",
-          "commit": "02348c737be70db61979c32ca450bdb0cdee00f5",
-          "url": "https://github.com/cenetex/cosyworld/blob/02348c737be70db61979c32ca450bdb0cdee00f5/v2/card-game/assets/attic.png",
-          "sha256": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e"
+          "repository_path": "v2/card-game/assets/attic/attic-doused.webp",
+          "commit": "03b20826923279685fd1a149fb3ab8887fd20676",
+          "url": "https://github.com/cenetex/cosyworld/blob/03b20826923279685fd1a149fb3ab8887fd20676/v2/card-game/assets/attic/attic-doused.webp",
+          "sha256": "04465bdd3c4650c02edea08971aba379adabdb89845d296bb78bfb6135d7ecc7"
         }
       ],
-      "dimensions": [1672, 941],
+      "dimensions": [
+        1672,
+        941
+      ],
       "transparent_background": false,
       "quality": 88,
-      "bytes": 177838,
-      "sha256": "04465bdd3c4650c02edea08971aba379adabdb89845d296bb78bfb6135d7ecc7",
-      "original_png_sha256": "e86a20146820c37bc165e529f5e68fdc057601c0f2e3f633e46c06716483893b",
-      "original_png_bytes": 2127212
+      "bytes": 170898,
+      "sha256": "a249e51c54f6fc1ee5b292866c9eeb533d43de730fe89ef049ac7c10c070a821",
+      "original_png_sha256": "44c14a2d5aa4053baf79f35c2a35ddda077bb05499be6cf7d5bc5e8f454c8e0d",
+      "original_png_bytes": 2096424
+    },
+    {
+      "id": "attic-lit-cottage",
+      "file": "attic-lit-cottage.webp",
+      "state": "Held lantern lit and scarf held; cottage descent marked by scarf; ordinary warm attic reflection",
+      "generation_id": "exec-6e12597f-baa0-4a5f-abb7-2679077ae9df",
+      "references": [
+        {
+          "role": "direct edit target; cottage draft derived from attic-lit and attic-stairs",
+          "generation_id": "exec-68235f7d-5725-4636-abd8-a993abba2e65",
+          "original_png_sha256": "8fd414d62ef742726837c524b58597b9495cea78d1017a0ababdd6c8246a52c1",
+          "original_png_bytes": 2282224
+        },
+        {
+          "role": "enlarged inspection crop identifying stairwell fixtures for removal",
+          "source_generation_id": "exec-517dab25-838d-4cba-8434-e303e1bcf351",
+          "source_original_png_sha256": "4f870d4f90b46378a46b06afe629537d132afafd58407e753669bb66aac9bbb8",
+          "crop": {
+            "left": 60,
+            "top": 425,
+            "width": 230,
+            "height": 240
+          },
+          "resize": {
+            "width": 690,
+            "height": 720
+          },
+          "sha256": "4164a787ee961dde0041cc93b35a0e271b0c1330b4d2267df51d026b752f961b"
+        },
+        {
+          "role": "approved warm composition and lighting master",
+          "asset_id": "attic-lit",
+          "generation_id": "exec-1ebb128f-de6c-46c4-8859-6d0931785b00",
+          "original_png_sha256": "d58268d2ea9aaccfe5284763df8a9d7c835f271c145fedc9534bf7b9bc372448",
+          "original_png_bytes": 2402811
+        },
+        {
+          "role": "stair descent reference only",
+          "repository_path": "v2/card-game/assets/shared/places/attic-stairs.webp",
+          "commit": "03b20826923279685fd1a149fb3ab8887fd20676",
+          "url": "https://github.com/cenetex/cosyworld/blob/03b20826923279685fd1a149fb3ab8887fd20676/v2/card-game/assets/shared/places/attic-stairs.webp",
+          "sha256": "1184ccdc03049f071e089e0952a6fc363e8370d43a4d28f5ae4232b53791847d"
+        }
+      ],
+      "dimensions": [
+        1672,
+        941
+      ],
+      "transparent_background": false,
+      "quality": 88,
+      "bytes": 270536,
+      "sha256": "a3703e8d2ac683986e38d265b5c2d0eed537b01a0edcc9ad39ecfec631609cfc",
+      "original_png_sha256": "208116596b749a5efd6bfe8672675d2e0f3c65d076c851ac5f7a9ed5e6da9629",
+      "original_png_bytes": 2214575,
+      "generation_history": [
+        {
+          "role": "initial cottage generation",
+          "generation_id": "exec-68235f7d-5725-4636-abd8-a993abba2e65",
+          "original_png_sha256": "8fd414d62ef742726837c524b58597b9495cea78d1017a0ababdd6c8246a52c1",
+          "original_png_bytes": 2282224,
+          "references": [
+            {
+              "role": "edit target",
+              "asset_id": "attic-lit",
+              "generation_id": "exec-1ebb128f-de6c-46c4-8859-6d0931785b00",
+              "original_png_sha256": "d58268d2ea9aaccfe5284763df8a9d7c835f271c145fedc9534bf7b9bc372448",
+              "original_png_bytes": 2402811
+            },
+            {
+              "role": "stair descent reference only",
+              "repository_path": "v2/card-game/assets/shared/places/attic-stairs.webp",
+              "commit": "03b20826923279685fd1a149fb3ab8887fd20676",
+              "url": "https://github.com/cenetex/cosyworld/blob/03b20826923279685fd1a149fb3ab8887fd20676/v2/card-game/assets/shared/places/attic-stairs.webp",
+              "sha256": "1184ccdc03049f071e089e0952a6fc363e8370d43a4d28f5ae4232b53791847d"
+            }
+          ]
+        },
+        {
+          "role": "intermediate generation used only to create the enlarged inspection reference",
+          "generation_id": "exec-517dab25-838d-4cba-8434-e303e1bcf351",
+          "original_png_sha256": "4f870d4f90b46378a46b06afe629537d132afafd58407e753669bb66aac9bbb8",
+          "original_png_bytes": 2297981,
+          "references": [
+            {
+              "role": "edit target",
+              "generation_id": "exec-68235f7d-5725-4636-abd8-a993abba2e65",
+              "original_png_sha256": "8fd414d62ef742726837c524b58597b9495cea78d1017a0ababdd6c8246a52c1",
+              "original_png_bytes": 2282224
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "runtime_aliases": [
+    {
+      "source": "v2/card-game/assets/attic/attic-lit-cottage.webp",
+      "alias": "v2/card-game/assets/shared/places/attic-lit-cottage.webp",
+      "sha256": "a3703e8d2ac683986e38d265b5c2d0eed537b01a0edcc9ad39ecfec631609cfc",
+      "purpose": "The existing cross-pack bridge accepts shared place art; the alias preserves the approved painting byte for byte."
     }
   ]
 }

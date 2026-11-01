@@ -259,9 +259,10 @@ try {
         .getAttribute("data-places"),
       "1",
     );
-    await painted("attic-lit");
+    await painted("attic-lit-cottage");
     await page.reload();
     await ready();
+    await painted("attic-lit-cottage");
     assert.equal(await card("pond").count(), 0);
     await page.reload();
     await ready();

@@ -84,8 +84,10 @@ describe("earned Hoppy Cat portraits", () => {
   it.each(Object.entries(rarityForms))(
     "keeps %s in the earned outfit through every combat pose",
     (id, form) => {
-      expect(combatPortrait(id, "guard", portrait(id), "right")).toBeNull();
       for (const pose of ["attack", "hit", "guard"]) {
+        expect(combatPortrait(id, pose, portrait(id), "right")).toBe(
+          `./assets/combat/${id}-${pose}.webp`,
+        );
         const source = combatPortrait(id, pose, `./${form.portrait}`, "left");
         expect(source).toBe(`./${form.combat}-${pose}.webp`);
         expect(combatPortrait(id, "guard", source, "right")).toBe(

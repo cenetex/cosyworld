@@ -62,6 +62,7 @@ const nightBackdrops = {
 const dockedNightBackdrops = {
   [art("city-gate-closed-day")]: art("city-gate-closed-night"),
   [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
+  [art("ajax-landing-ship-at-berth")]: art("ajax-landing-ship-at-berth-night"),
   [art("athens-harbor")]: art("athens-harbor-ship-at-berth-night"),
   [art("open-door-piraeus")]: art("piraeus-ship-at-berth-night"),
 };

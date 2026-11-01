@@ -56,6 +56,11 @@ specials draw will scatter them across the other worlds. The pot, spoon, map and
 pipe stay at the camp as lore objects, each inscribed with one short line from
 the story.
 
+The open canoe crossing selects `landing-mended.webp` by day, using the same
+kit and departure conditions as travel. Removing a kit item or letting the
+Swede leave removes that painting. The ordinary night and dark-mist ship
+paintings still take over at night.
+
 Past the landing the island is never dry. The camp, the thicket and the bank
 share one `willows` weather region (`v2/card-game/weather.json`): soft drizzle
 under low mist, or heavy river mist, changing every twelve turns. The landing

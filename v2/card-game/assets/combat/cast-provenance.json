@@ -4,7 +4,7 @@
   "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
   "max_source_bytes": 300000,
   "expected_source_count": 150,
-  "accepted_source_count": 94,
+  "accepted_source_count": 150,
   "source_note": "Original PNGs are identified by generation IDs and SHA256. Portrait WebPs preserve dimensions and every generated alpha value exactly; opaque Oak scenes preserve the entire original canvas. Only format encoding is applied.",
   "assets": [
     {
@@ -774,6 +774,577 @@
       ],
       "visual_review": "Full figure, both feet, correct leftward orientation and distinct hit pose visible. Identity, age, clothing, attached jewelry/bag and painted style match canonical portrait. Empty hands; no injury or added equipment. RGBA and minimum40px visible margins verified.",
       "limitations": []
+    },
+    {
+      "id": "greek-ajax-odysseus-attack",
+      "file": "greek-ajax-odysseus-attack.webp",
+      "character": "Odysseus",
+      "actor_ids": [
+        "greek-ajax-odysseus"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/ajax-odysseus.png",
+      "reference_path": "v2/card-game/assets/greek-drama/ajax-odysseus.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "1434a77416bccea91a6b81c66eb96e00040f886a49407129c17bd6b5ccc1ab62",
+      "generation_id": "exec-d46b2568-2694-4543-9092-5d4bb28a2541",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 283232,
+      "sha256": "6109baf38583dbdd31a80f4481e2f3a4c2ee5214f4e9686bbc08161a8b13cfc4",
+      "original_png_sha256": "3a335ea927d4dccb09ce64de454ef0cfad0647d487fbd54ab87080e9f972cbd1",
+      "original_png_bytes": 2394604,
+      "alpha_sha256": "6468028a88cca18d7788c50c590eb1f575b43827f7790e879ad3e24e004d599a",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5813954671223959,
+        "alpha_at_least_240_fraction": 0.3855368296305339,
+        "visible_bounds_alpha_at_least_128": [
+          42,
+          51,
+          979,
+          1472
+        ],
+        "visible_margins_left_top_right_bottom": [
+          42,
+          51,
+          45,
+          64
+        ],
+        "edge_nonzero_pixels": 44,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-d46b2568-2694-4543-9092-5d4bb28a2541",
+          "original_png_sha256": "3a335ea927d4dccb09ce64de454ef0cfad0647d487fbd54ab87080e9f972cbd1"
+        }
+      ],
+      "visual_review": "Canonical mature face, hair/beard, tunic, brooch, belt, mantle and sandals retained. Teucer retains worn quiver/arrows and bracers with the held bow removed; Odysseus retains the low wool cap and salt-and-pepper beard. Distinct leftward palm strike, recoil and compact guard; complete silhouette.",
+      "limitations": "Generated paint is visually matched, not pixel-identical."
+    },
+    {
+      "id": "greek-ajax-odysseus-guard",
+      "file": "greek-ajax-odysseus-guard.webp",
+      "character": "Odysseus",
+      "actor_ids": [
+        "greek-ajax-odysseus"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/ajax-odysseus.png",
+      "reference_path": "v2/card-game/assets/greek-drama/ajax-odysseus.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "1434a77416bccea91a6b81c66eb96e00040f886a49407129c17bd6b5ccc1ab62",
+      "generation_id": "exec-89d72366-0cce-451e-8dac-95451c0dac35",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 269608,
+      "sha256": "87973bc873581b8a86bc59dacfa9496455c0253e2a2b62820e654c738b3b99b2",
+      "original_png_sha256": "95fab922f00c14279e6af75aa19959f7b334af4d8b267831b0889fda5c443c66",
+      "original_png_bytes": 2365185,
+      "alpha_sha256": "62247500c5cae37fdcb5fe236f83ec1b87a728b6e4b01a05ab4986a45d974bd1",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5813509623209635,
+        "alpha_at_least_240_fraction": 0.3863665262858073,
+        "visible_bounds_alpha_at_least_128": [
+          97,
+          32,
+          966,
+          1435
+        ],
+        "visible_margins_left_top_right_bottom": [
+          97,
+          32,
+          58,
+          101
+        ],
+        "edge_nonzero_pixels": 48,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-89d72366-0cce-451e-8dac-95451c0dac35",
+          "original_png_sha256": "95fab922f00c14279e6af75aa19959f7b334af4d8b267831b0889fda5c443c66"
+        }
+      ],
+      "visual_review": "Canonical mature face, hair/beard, tunic, brooch, belt, mantle and sandals retained. Teucer retains worn quiver/arrows and bracers with the held bow removed; Odysseus retains the low wool cap and salt-and-pepper beard. Distinct leftward palm strike, recoil and compact guard; complete silhouette.",
+      "limitations": "Generated paint is visually matched, not pixel-identical."
+    },
+    {
+      "id": "greek-ajax-odysseus-hit",
+      "file": "greek-ajax-odysseus-hit.webp",
+      "character": "Odysseus",
+      "actor_ids": [
+        "greek-ajax-odysseus"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/ajax-odysseus.png",
+      "reference_path": "v2/card-game/assets/greek-drama/ajax-odysseus.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "1434a77416bccea91a6b81c66eb96e00040f886a49407129c17bd6b5ccc1ab62",
+      "generation_id": "exec-8c761851-418b-48bb-8a43-e11f38d9aaa5",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 260212,
+      "sha256": "6bc9769eb677ec5c1cee3125f506fa4ea2506a11341370968e25734a55e2e9bd",
+      "original_png_sha256": "3cbfe1c19cf2764e9be343417fac5f8936d666f86a3a347ad545d8e62c8535e4",
+      "original_png_bytes": 2213512,
+      "alpha_sha256": "4501ec66894b6e45c3a1be149aa494538694218debc98ec3bcd0adc4dc599716",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6431248982747396,
+        "alpha_at_least_240_fraction": 0.33246612548828125,
+        "visible_bounds_alpha_at_least_128": [
+          193,
+          117,
+          899,
+          1424
+        ],
+        "visible_margins_left_top_right_bottom": [
+          193,
+          117,
+          125,
+          112
+        ],
+        "edge_nonzero_pixels": 1,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-8c761851-418b-48bb-8a43-e11f38d9aaa5",
+          "original_png_sha256": "3cbfe1c19cf2764e9be343417fac5f8936d666f86a3a347ad545d8e62c8535e4"
+        },
+        {
+          "generation_id": "exec-c7a72f33-5c91-4adf-bbde-3c84c6ac47f3",
+          "original_png_sha256": "095085ac128ef13b458f0db66c9c3e0d89f90cfd2ff99bdba57c5d05399e6c07"
+        }
+      ],
+      "visual_review": "Canonical mature face, hair/beard, tunic, brooch, belt, mantle and sandals retained. Teucer retains worn quiver/arrows and bracers with the held bow removed; Odysseus retains the low wool cap and salt-and-pepper beard. Distinct leftward palm strike, recoil and compact guard; complete silhouette.",
+      "limitations": "Generated paint is visually matched, not pixel-identical."
+    },
+    {
+      "id": "greek-ajax-tecmessa-attack",
+      "file": "greek-ajax-tecmessa-attack.webp",
+      "character": "Tecmessa",
+      "actor_ids": [
+        "greek-ajax-tecmessa"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/ajax-tecmessa.png",
+      "reference_path": "v2/card-game/assets/greek-drama/ajax-tecmessa.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "f1f7c057b83a5a7c681d2b4446901e2e0b40998f0fd91c0de5a2bbc9b0fe7c09",
+      "generation_id": "exec-e584d487-60f8-418f-bf32-df8acc36f31f",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 298266,
+      "sha256": "5e0547b47679ef9a206b7e3bcba418ba5a994824c285503b4729e157fbbba503",
+      "original_png_sha256": "ca8ad18954f60f6eb8e6f233b4e712bc6cdbb88c059d0c6088c283670c9a0f9e",
+      "original_png_bytes": 2416502,
+      "alpha_sha256": "27bb09ccd84934cb688c82a2d598dcf9979682d1cc3f0d79465a9e393a7facd5",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.573553721110026,
+        "alpha_at_least_240_fraction": 0.40123875935872394,
+        "visible_bounds_alpha_at_least_128": [
+          83,
+          36,
+          956,
+          1504
+        ],
+        "visible_margins_left_top_right_bottom": [
+          83,
+          36,
+          68,
+          32
+        ],
+        "edge_nonzero_pixels": 30,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-e584d487-60f8-418f-bf32-df8acc36f31f",
+          "original_png_sha256": "ca8ad18954f60f6eb8e6f233b4e712bc6cdbb88c059d0c6088c283670c9a0f9e"
+        }
+      ],
+      "visual_review": "Compared with the exact canonical portrait: identity, age, hair, clothing and anatomy retained. Clear screen-left attack pose; full silhouette, both sandals and empty hands. No clipping, injury or new equipment. Visible margins [83,36,68,32]. Genuine alpha verified and preserved exactly.",
+      "limitations": []
+    },
+    {
+      "id": "greek-ajax-tecmessa-guard",
+      "file": "greek-ajax-tecmessa-guard.webp",
+      "character": "Tecmessa",
+      "actor_ids": [
+        "greek-ajax-tecmessa"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/ajax-tecmessa.png",
+      "reference_path": "v2/card-game/assets/greek-drama/ajax-tecmessa.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "f1f7c057b83a5a7c681d2b4446901e2e0b40998f0fd91c0de5a2bbc9b0fe7c09",
+      "generation_id": "exec-651d3e27-700b-4b72-be02-3e1884e7eafe",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 272490,
+      "sha256": "42f196afb38c2737031a6cf903a5862791634f90922e3733b44dc8a21df7261e",
+      "original_png_sha256": "2cafe83c0c3c493973f40f293478421b1fc0f0b48f259b855ee1cc2eee96e265",
+      "original_png_bytes": 2322895,
+      "alpha_sha256": "6d4b5946a754511b57eb86caba921a9bc3228927d1392af7405d94dded6229ef",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5933685302734375,
+        "alpha_at_least_240_fraction": 0.38187917073567706,
+        "visible_bounds_alpha_at_least_128": [
+          152,
+          45,
+          915,
+          1485
+        ],
+        "visible_margins_left_top_right_bottom": [
+          152,
+          45,
+          109,
+          51
+        ],
+        "edge_nonzero_pixels": 54,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-651d3e27-700b-4b72-be02-3e1884e7eafe",
+          "original_png_sha256": "2cafe83c0c3c493973f40f293478421b1fc0f0b48f259b855ee1cc2eee96e265"
+        }
+      ],
+      "visual_review": "Compared with the exact canonical portrait: identity, age, hair, clothing and anatomy retained. Clear screen-left guard pose; full silhouette, both sandals and empty hands. No clipping, injury or new equipment. Visible margins [152,45,109,51]. Genuine alpha verified and preserved exactly.",
+      "limitations": []
+    },
+    {
+      "id": "greek-ajax-tecmessa-hit",
+      "file": "greek-ajax-tecmessa-hit.webp",
+      "character": "Tecmessa",
+      "actor_ids": [
+        "greek-ajax-tecmessa"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/ajax-tecmessa.png",
+      "reference_path": "v2/card-game/assets/greek-drama/ajax-tecmessa.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "f1f7c057b83a5a7c681d2b4446901e2e0b40998f0fd91c0de5a2bbc9b0fe7c09",
+      "generation_id": "exec-90c863c8-5acb-40ec-b19a-9bd36a6c367d",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 256282,
+      "sha256": "8f672f44b8f89e9569f46a0d3b3f23692f9cc0abe91d9d5f07aa0f04a29fa86e",
+      "original_png_sha256": "ee5448784d90b6049e21f348d9f7f144c4a4ddbf82a7b45facec326e73839166",
+      "original_png_bytes": 2289954,
+      "alpha_sha256": "41ae7bbaa48ef0b7aaf78cf96fcbe49123c5794c77dff2a33f414702eeab6ac8",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5847606658935547,
+        "alpha_at_least_240_fraction": 0.39176177978515625,
+        "visible_bounds_alpha_at_least_128": [
+          205,
+          26,
+          916,
+          1508
+        ],
+        "visible_margins_left_top_right_bottom": [
+          205,
+          26,
+          108,
+          28
+        ],
+        "edge_nonzero_pixels": 6,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-90c863c8-5acb-40ec-b19a-9bd36a6c367d",
+          "original_png_sha256": "ee5448784d90b6049e21f348d9f7f144c4a4ddbf82a7b45facec326e73839166"
+        }
+      ],
+      "visual_review": "Compared with the exact canonical portrait: identity, age, hair, clothing and anatomy retained. Clear screen-left hit pose; full silhouette, both sandals and empty hands. No clipping, injury or new equipment. Visible margins [205,26,108,28]. Genuine alpha verified and preserved exactly.",
+      "limitations": []
+    },
+    {
+      "id": "greek-ajax-teucer-attack",
+      "file": "greek-ajax-teucer-attack.webp",
+      "character": "Teucer",
+      "actor_ids": [
+        "greek-ajax-teucer"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/ajax-teucer.png",
+      "reference_path": "v2/card-game/assets/greek-drama/ajax-teucer.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "b27ccde3bf5b45d23cfb0d5a1047d61420aaf65a1efac7d0f7797f2a4526bb9b",
+      "generation_id": "exec-d9802435-db92-4a3a-b7b6-9942c55d16ac",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 276066,
+      "sha256": "9350ae562a8e4a1c65a9db0b5510af44b1d2fa935d107327d50fe6e27c9d0ddf",
+      "original_png_sha256": "5762ab1aa48e1b4bd39d933ebac79353f849d8bf7f57d2164553d17dda1ac72c",
+      "original_png_bytes": 2381734,
+      "alpha_sha256": "c15e7f66ecd60b9c3db18bb915bd1bdd2bf69e36cf547672156903a4b3af1347",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5680351257324219,
+        "alpha_at_least_240_fraction": 0.4028523763020833,
+        "visible_bounds_alpha_at_least_128": [
+          49,
+          29,
+          985,
+          1477
+        ],
+        "visible_margins_left_top_right_bottom": [
+          49,
+          29,
+          39,
+          59
+        ],
+        "edge_nonzero_pixels": 20,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-d9802435-db92-4a3a-b7b6-9942c55d16ac",
+          "original_png_sha256": "5762ab1aa48e1b4bd39d933ebac79353f849d8bf7f57d2164553d17dda1ac72c"
+        }
+      ],
+      "visual_review": "Canonical mature face, hair/beard, tunic, brooch, belt, mantle and sandals retained. Teucer retains worn quiver/arrows and bracers with the held bow removed; Odysseus retains the low wool cap and salt-and-pepper beard. Distinct leftward palm strike, recoil and compact guard; complete silhouette.",
+      "limitations": "Generated paint is visually matched, not pixel-identical."
+    },
+    {
+      "id": "greek-ajax-teucer-guard",
+      "file": "greek-ajax-teucer-guard.webp",
+      "character": "Teucer",
+      "actor_ids": [
+        "greek-ajax-teucer"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/ajax-teucer.png",
+      "reference_path": "v2/card-game/assets/greek-drama/ajax-teucer.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "b27ccde3bf5b45d23cfb0d5a1047d61420aaf65a1efac7d0f7797f2a4526bb9b",
+      "generation_id": "exec-1b928092-5656-46d1-b5dd-8ded0933950a",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 248342,
+      "sha256": "3485521aab28b906fdc3de9a1d19e97025fb38f753736c199ee9d0b42312a9fc",
+      "original_png_sha256": "3d7147351086c716fc40183c846acbba95123ffe8d8635b66dcd9a05c028e1c5",
+      "original_png_bytes": 2315842,
+      "alpha_sha256": "73e0b465921a414cce7e5ae91b61b07a89c85837a869bb2be6aaa51b58044e23",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5668481190999349,
+        "alpha_at_least_240_fraction": 0.4032980600992839,
+        "visible_bounds_alpha_at_least_128": [
+          126,
+          26,
+          932,
+          1456
+        ],
+        "visible_margins_left_top_right_bottom": [
+          126,
+          26,
+          92,
+          80
+        ],
+        "edge_nonzero_pixels": 45,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-1b928092-5656-46d1-b5dd-8ded0933950a",
+          "original_png_sha256": "3d7147351086c716fc40183c846acbba95123ffe8d8635b66dcd9a05c028e1c5"
+        }
+      ],
+      "visual_review": "Canonical mature face, hair/beard, tunic, brooch, belt, mantle and sandals retained. Teucer retains worn quiver/arrows and bracers with the held bow removed; Odysseus retains the low wool cap and salt-and-pepper beard. Distinct leftward palm strike, recoil and compact guard; complete silhouette.",
+      "limitations": "Generated paint is visually matched, not pixel-identical."
+    },
+    {
+      "id": "greek-ajax-teucer-hit",
+      "file": "greek-ajax-teucer-hit.webp",
+      "character": "Teucer",
+      "actor_ids": [
+        "greek-ajax-teucer"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/ajax-teucer.png",
+      "reference_path": "v2/card-game/assets/greek-drama/ajax-teucer.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "b27ccde3bf5b45d23cfb0d5a1047d61420aaf65a1efac7d0f7797f2a4526bb9b",
+      "generation_id": "exec-c4150951-dd62-41c4-8306-efbbc4eb1108",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 242850,
+      "sha256": "6938b76e61f61447416f3e368345ba26c1c1e230d537c348eee4c1c0c7acaf66",
+      "original_png_sha256": "ba7ddc310a7f72bb15dc09b2f850891b2d94fb3090454c36c6c5a57e224b97ff",
+      "original_png_bytes": 2276789,
+      "alpha_sha256": "b8ccc6c4d39a900fb4629d6427b1ba2c776c60938e6c483067d218d4aa0baed2",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5935802459716797,
+        "alpha_at_least_240_fraction": 0.37844276428222656,
+        "visible_bounds_alpha_at_least_128": [
+          103,
+          27,
+          919,
+          1474
+        ],
+        "visible_margins_left_top_right_bottom": [
+          103,
+          27,
+          105,
+          62
+        ],
+        "edge_nonzero_pixels": 8,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-c4150951-dd62-41c4-8306-efbbc4eb1108",
+          "original_png_sha256": "ba7ddc310a7f72bb15dc09b2f850891b2d94fb3090454c36c6c5a57e224b97ff"
+        }
+      ],
+      "visual_review": "Canonical mature face, hair/beard, tunic, brooch, belt, mantle and sandals retained. Teucer retains worn quiver/arrows and bracers with the held bow removed; Odysseus retains the low wool cap and salt-and-pepper beard. Distinct leftward palm strike, recoil and compact guard; complete silhouette.",
+      "limitations": "Generated paint is visually matched, not pixel-identical."
     },
     {
       "id": "greek-antigone-attack",
@@ -1946,6 +2517,402 @@
       ]
     },
     {
+      "id": "greek-electra-aeschylus-attack",
+      "file": "greek-electra-aeschylus-attack.webp",
+      "character": "Electra",
+      "actor_ids": [
+        "greek-electra-aeschylus",
+        "greek-electra-sophocles",
+        "greek-electra-euripides"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-electra.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-electra.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "5239e39dbc53bfdca3ccbecbd3ac7fdf1eddc1b9a513ddc2310a44336d2ee66e",
+      "generation_id": "exec-97ef9bf6-abc9-4c83-b228-16fe52a7ab6c",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 221116,
+      "sha256": "0bc12c6597ef5371d0e5b62fd5d6b009cc88723b9d9ca0decb051d737e70edce",
+      "original_png_sha256": "39f0a4ff92d09cb0849544b26110138e5eac6afd24650e19de1845df81cd27a7",
+      "original_png_bytes": 2118075,
+      "alpha_sha256": "4ae57d0ce70d188fa339003212f5e3f3d224ce129a090bc1d545c18d2320c363",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6159063975016276,
+        "alpha_at_least_240_fraction": 0.361263910929362,
+        "visible_bounds_alpha_at_least_128": [
+          64,
+          97,
+          943,
+          1463
+        ],
+        "visible_margins_left_top_right_bottom": [
+          64,
+          97,
+          81,
+          73
+        ],
+        "edge_nonzero_pixels": 92,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-97ef9bf6-abc9-4c83-b228-16fe52a7ab6c",
+          "original_png_sha256": "39f0a4ff92d09cb0849544b26110138e5eac6afd24650e19de1845df81cd27a7"
+        }
+      ],
+      "visual_review": "Electra retains young adult angular face, short cropped dark hair, lean natural build, sleeveless rust dress with existing stitched patches, charcoal shawl and tied belt. Distinct leftward strike, upright recoiling wince and compact planted brace; hands empty, complete fingers and sandals, no added injury or redesign.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-electra-aeschylus-guard",
+      "file": "greek-electra-aeschylus-guard.webp",
+      "character": "Electra",
+      "actor_ids": [
+        "greek-electra-aeschylus",
+        "greek-electra-sophocles",
+        "greek-electra-euripides"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-electra.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-electra.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "5239e39dbc53bfdca3ccbecbd3ac7fdf1eddc1b9a513ddc2310a44336d2ee66e",
+      "generation_id": "exec-7f441d59-127c-4171-a681-784a6b4dd7b9",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 209228,
+      "sha256": "b516253f2ca6fe1ec2af9e4ca17df7dfb542c4410dca35c698879cbecbe50a23",
+      "original_png_sha256": "6de697570ea8313268e9da82a46ca484996a76131978765db441505e874b4ce2",
+      "original_png_bytes": 2059185,
+      "alpha_sha256": "d926613ff906bd434f7992a931facf91dd4a5a56b40eba5126519c97249aa3c2",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6433372497558594,
+        "alpha_at_least_240_fraction": 0.33292198181152344,
+        "visible_bounds_alpha_at_least_128": [
+          186,
+          65,
+          851,
+          1474
+        ],
+        "visible_margins_left_top_right_bottom": [
+          186,
+          65,
+          173,
+          62
+        ],
+        "edge_nonzero_pixels": 84,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-7f441d59-127c-4171-a681-784a6b4dd7b9",
+          "original_png_sha256": "6de697570ea8313268e9da82a46ca484996a76131978765db441505e874b4ce2"
+        }
+      ],
+      "visual_review": "Electra retains young adult angular face, short cropped dark hair, lean natural build, sleeveless rust dress with existing stitched patches, charcoal shawl and tied belt. Distinct leftward strike, upright recoiling wince and compact planted brace; hands empty, complete fingers and sandals, no added injury or redesign.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-electra-aeschylus-hit",
+      "file": "greek-electra-aeschylus-hit.webp",
+      "character": "Electra",
+      "actor_ids": [
+        "greek-electra-aeschylus",
+        "greek-electra-sophocles",
+        "greek-electra-euripides"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-electra.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-electra.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "5239e39dbc53bfdca3ccbecbd3ac7fdf1eddc1b9a513ddc2310a44336d2ee66e",
+      "generation_id": "exec-53711bf1-08fe-4eb6-b9da-74aea5d2e360",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 203786,
+      "sha256": "11480922a2cd931b6fa7e55f08dfb646ea1c44edba0517d95162962614514852",
+      "original_png_sha256": "13768ae17e7efaa32eb94a9b5d9ef18d14a01b38a2e3f065b938d0de2ce1ebab",
+      "original_png_bytes": 2008306,
+      "alpha_sha256": "3b339d6cbfb2bc36964a3d658792633cf0dc00fb1b21619971f7749538a9a8b7",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6391951243082682,
+        "alpha_at_least_240_fraction": 0.338592529296875,
+        "visible_bounds_alpha_at_least_128": [
+          237,
+          41,
+          844,
+          1483
+        ],
+        "visible_margins_left_top_right_bottom": [
+          237,
+          41,
+          180,
+          53
+        ],
+        "edge_nonzero_pixels": 5,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-53711bf1-08fe-4eb6-b9da-74aea5d2e360",
+          "original_png_sha256": "13768ae17e7efaa32eb94a9b5d9ef18d14a01b38a2e3f065b938d0de2ce1ebab"
+        }
+      ],
+      "visual_review": "Electra retains young adult angular face, short cropped dark hair, lean natural build, sleeveless rust dress with existing stitched patches, charcoal shawl and tied belt. Distinct leftward strike, upright recoiling wince and compact planted brace; hands empty, complete fingers and sandals, no added injury or redesign.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-ferryman-attack",
+      "file": "greek-ferryman-attack.webp",
+      "character": "The Lower Ferryman",
+      "actor_ids": [
+        "greek-ferryman"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-ferryman.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-ferryman.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "af8fdc32806113c750aa048e4f3eefb429013a24c457a75ad7dd1d89dce5d3a0",
+      "generation_id": "exec-ea55bfd4-1ac2-478e-a7f5-60b4403cf757",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 224482,
+      "sha256": "1c2f52277b5e49d1d1f57a6ed0f604ef716d8baa63de128252c7436adca210e6",
+      "original_png_sha256": "67431dfe18f182689fa4ef4c1d12f8e9c2a2731f47a04b2179bf566a4c1512d1",
+      "original_png_bytes": 2179373,
+      "alpha_sha256": "a1278efbebec1accd8aa9ff5523ebe50dd8f639841474793eff5affee79375e6",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5838692982991537,
+        "alpha_at_least_240_fraction": 0.3957195281982422,
+        "visible_bounds_alpha_at_least_128": [
+          63,
+          107,
+          962,
+          1447
+        ],
+        "visible_margins_left_top_right_bottom": [
+          63,
+          107,
+          62,
+          89
+        ],
+        "edge_nonzero_pixels": 7,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-ea55bfd4-1ac2-478e-a7f5-60b4403cf757",
+          "original_png_sha256": "67431dfe18f182689fa4ef4c1d12f8e9c2a2731f47a04b2179bf566a4c1512d1"
+        }
+      ],
+      "visual_review": "Ferryman retains gaunt weathered face and age, short gray hair/goatee, charcoal cloak, olive robe, spoke brooch and cloth sash. Three distinct left-facing poses with empty hands, intact fingers and full sandals. Recoil is upright and has no new injury.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-ferryman-guard",
+      "file": "greek-ferryman-guard.webp",
+      "character": "The Lower Ferryman",
+      "actor_ids": [
+        "greek-ferryman"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-ferryman.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-ferryman.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "af8fdc32806113c750aa048e4f3eefb429013a24c457a75ad7dd1d89dce5d3a0",
+      "generation_id": "exec-f6838c1e-efaa-4e43-98c5-d245a5becd0a",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 229366,
+      "sha256": "28c5627f1fa405f1f31fcf646cb6ae0cd804b5bb0548c2cca97f288b82d25838",
+      "original_png_sha256": "1670154033e05d950464cbad3872d9306474e67c54ed79d7e182ea6c114e7de3",
+      "original_png_bytes": 2210821,
+      "alpha_sha256": "5f04e97e59d32a272120b3cea03353204b4be9c077a87f12675452721d8044b2",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5864575703938802,
+        "alpha_at_least_240_fraction": 0.3947073618570964,
+        "visible_bounds_alpha_at_least_128": [
+          221,
+          83,
+          919,
+          1486
+        ],
+        "visible_margins_left_top_right_bottom": [
+          221,
+          83,
+          105,
+          50
+        ],
+        "edge_nonzero_pixels": 25,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-f6838c1e-efaa-4e43-98c5-d245a5becd0a",
+          "original_png_sha256": "1670154033e05d950464cbad3872d9306474e67c54ed79d7e182ea6c114e7de3"
+        }
+      ],
+      "visual_review": "Ferryman retains gaunt weathered face and age, short gray hair/goatee, charcoal cloak, olive robe, spoke brooch and cloth sash. Three distinct left-facing poses with empty hands, intact fingers and full sandals. Recoil is upright and has no new injury.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-ferryman-hit",
+      "file": "greek-ferryman-hit.webp",
+      "character": "The Lower Ferryman",
+      "actor_ids": [
+        "greek-ferryman"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-ferryman.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-ferryman.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "af8fdc32806113c750aa048e4f3eefb429013a24c457a75ad7dd1d89dce5d3a0",
+      "generation_id": "exec-83d1bf6f-910b-48c4-869e-98da014addfa",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 206240,
+      "sha256": "e3ca67e9d50065c8e7b34e13a59cf6ee0d18f2864c778c369636f44a59c5b329",
+      "original_png_sha256": "cadc5dfb10a4159028fc166c647694340f012753c0bbef622ed80c9d7880e9a5",
+      "original_png_bytes": 2060166,
+      "alpha_sha256": "f092f4ea9503a243721c9ee89246ec4b21bc877fcef1bfe530223cd249973e26",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6182988484700521,
+        "alpha_at_least_240_fraction": 0.36463038126627606,
+        "visible_bounds_alpha_at_least_128": [
+          265,
+          77,
+          880,
+          1485
+        ],
+        "visible_margins_left_top_right_bottom": [
+          265,
+          77,
+          144,
+          51
+        ],
+        "edge_nonzero_pixels": 23,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-83d1bf6f-910b-48c4-869e-98da014addfa",
+          "original_png_sha256": "cadc5dfb10a4159028fc166c647694340f012753c0bbef622ed80c9d7880e9a5"
+        }
+      ],
+      "visual_review": "Ferryman retains gaunt weathered face and age, short gray hair/goatee, charcoal cloak, olive robe, spoke brooch and cloth sash. Three distinct left-facing poses with empty hands, intact fingers and full sandals. Recoil is upright and has no new injury.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
       "id": "greek-guard-attack",
       "file": "greek-guard-attack.webp",
       "character": "The Gate Guard",
@@ -2139,6 +3106,397 @@
       "limitations": [
         "Near-opaque figure alpha and faint edge residues are recorded by the encoder."
       ]
+    },
+    {
+      "id": "greek-helen-egypt-attack",
+      "file": "greek-helen-egypt-attack.webp",
+      "character": "Helen",
+      "actor_ids": [
+        "greek-helen-egypt",
+        "greek-helen-troy"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-helen.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-helen.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f",
+      "generation_id": "exec-23169d72-2f21-4c42-86f2-625bc455e50e",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 235994,
+      "sha256": "4c53bd21557d13664c2bbfaade3e4ce908ad8e67c5a10ab67d4fb914d95e54d5",
+      "original_png_sha256": "2b36a8584fea192c827b1e118bdb1b9733cfdd3a3ca2d63e3aa3c6284232c040",
+      "original_png_bytes": 2204912,
+      "alpha_sha256": "9c2352a40cfcd9cffd925b8587455fc458c56d857574333b063cba6b755450ef",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5730768839518229,
+        "alpha_at_least_240_fraction": 0.406796137491862,
+        "visible_bounds_alpha_at_least_128": [
+          72,
+          51,
+          953,
+          1492
+        ],
+        "visible_margins_left_top_right_bottom": [
+          72,
+          51,
+          71,
+          44
+        ],
+        "edge_nonzero_pixels": 16,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-23169d72-2f21-4c42-86f2-625bc455e50e",
+          "original_png_sha256": "2b36a8584fea192c827b1e118bdb1b9733cfdd3a3ca2d63e3aa3c6284232c040"
+        }
+      ],
+      "visual_review": "Helen retains adult face/green-gray eyes, auburn low bun/teal clasp, gold earrings, ivory dress and gold-bordered teal drapery. Distinct leftward unarmed strike, upright recoiling wince and planted compact brace; no added wardrobe or prop. Full silhouette, hands, hair and sandals intact.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-helen-egypt-guard",
+      "file": "greek-helen-egypt-guard.webp",
+      "character": "Helen",
+      "actor_ids": [
+        "greek-helen-egypt",
+        "greek-helen-troy"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-helen.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-helen.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f",
+      "generation_id": "exec-80356b52-4ef9-4246-b527-2727df0ada15",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 215338,
+      "sha256": "46bab59797bf7df0a05650613ee215da169f9a2ec5dd32bc1d9a29b771069e65",
+      "original_png_sha256": "79ad64586ea1d4063385a9e4e29d3d550b632089c3e85bcdbe717ebb20381093",
+      "original_png_bytes": 2110162,
+      "alpha_sha256": "1d4553f62d72cb00417401c689eaa3ffa0b37814d53d932dbec68b1b3416c18d",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6109873453776041,
+        "alpha_at_least_240_fraction": 0.371917724609375,
+        "visible_bounds_alpha_at_least_128": [
+          216,
+          68,
+          909,
+          1470
+        ],
+        "visible_margins_left_top_right_bottom": [
+          216,
+          68,
+          115,
+          66
+        ],
+        "edge_nonzero_pixels": 3,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-80356b52-4ef9-4246-b527-2727df0ada15",
+          "original_png_sha256": "79ad64586ea1d4063385a9e4e29d3d550b632089c3e85bcdbe717ebb20381093"
+        }
+      ],
+      "visual_review": "Helen retains adult face/green-gray eyes, auburn low bun/teal clasp, gold earrings, ivory dress and gold-bordered teal drapery. Distinct leftward unarmed strike, upright recoiling wince and planted compact brace; no added wardrobe or prop. Full silhouette, hands, hair and sandals intact.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-helen-egypt-hit",
+      "file": "greek-helen-egypt-hit.webp",
+      "character": "Helen",
+      "actor_ids": [
+        "greek-helen-egypt",
+        "greek-helen-troy"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-helen.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-helen.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f",
+      "generation_id": "exec-530d1dec-a662-4198-963e-e28fa1486f69",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 195552,
+      "sha256": "92ffc60bdaa284d0e725c8d19fa35e5468fe0a6cdd16ed7b18bfd83c3903372b",
+      "original_png_sha256": "69922bc0849fcff8cc4b07844226b308bb325632c4cb27cdfd4c6d600c79ac3e",
+      "original_png_bytes": 1993615,
+      "alpha_sha256": "2e6145e04ae994dbaba108ebb5fc3b98d1678b4103aae6377c151f1c95cb1975",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6345856984456381,
+        "alpha_at_least_240_fraction": 0.34819984436035156,
+        "visible_bounds_alpha_at_least_128": [
+          235,
+          49,
+          850,
+          1487
+        ],
+        "visible_margins_left_top_right_bottom": [
+          235,
+          49,
+          174,
+          49
+        ],
+        "edge_nonzero_pixels": 16,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-530d1dec-a662-4198-963e-e28fa1486f69",
+          "original_png_sha256": "69922bc0849fcff8cc4b07844226b308bb325632c4cb27cdfd4c6d600c79ac3e"
+        }
+      ],
+      "visual_review": "Helen retains adult face/green-gray eyes, auburn low bun/teal clasp, gold earrings, ivory dress and gold-bordered teal drapery. Distinct leftward unarmed strike, upright recoiling wince and planted compact brace; no added wardrobe or prop. Full silhouette, hands, hair and sandals intact.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-household-witness-attack",
+      "file": "greek-household-witness-attack.webp",
+      "character": "Myrine of Argos",
+      "actor_ids": [
+        "greek-household-witness"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/myrine.webp",
+      "reference_path": "v2/card-game/assets/greek-drama/myrine.webp",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "e507850aa9959a4d1fedf42eb6ba17d1b70e8a1c2b25799c033e7926bb6ae0ec",
+      "generation_id": "exec-d860bd4b-2728-41a7-832d-561c89ec5929",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 278138,
+      "sha256": "0015abb468548f7afbb01197f238aa3591bf693e331a75b2c53ab003bfdd6ec4",
+      "original_png_sha256": "d567461e4c5d5972b7caa70bd4757336eacb39582373e20f0e2f936cb58adb68",
+      "original_png_bytes": 2414828,
+      "alpha_sha256": "0445c16c77de125cf9cbe4f7e700f5a25be20f5674ba2ada7ce009c17e02cb37",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5747013092041016,
+        "alpha_at_least_240_fraction": 0.4018287658691406,
+        "visible_bounds_alpha_at_least_128": [
+          48,
+          27,
+          937,
+          1510
+        ],
+        "visible_margins_left_top_right_bottom": [
+          48,
+          27,
+          87,
+          26
+        ],
+        "edge_nonzero_pixels": 2,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-d860bd4b-2728-41a7-832d-561c89ec5929",
+          "original_png_sha256": "d567461e4c5d5972b7caa70bd4757336eacb39582373e20f0e2f936cb58adb68"
+        }
+      ],
+      "visual_review": "Compared with the canonical portrait: facial identity, age, hair and existing costume retained. Clear screen-left attack pose; complete figure, both sandals and empty hands. No clipping, injury or new equipment. Genuine alpha verified; detailed framing measurements are in the encoding report.",
+      "limitations": []
+    },
+    {
+      "id": "greek-household-witness-guard",
+      "file": "greek-household-witness-guard.webp",
+      "character": "Myrine of Argos",
+      "actor_ids": [
+        "greek-household-witness"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/myrine.webp",
+      "reference_path": "v2/card-game/assets/greek-drama/myrine.webp",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "e507850aa9959a4d1fedf42eb6ba17d1b70e8a1c2b25799c033e7926bb6ae0ec",
+      "generation_id": "exec-83482512-9fa9-4540-890b-36b68d4012cf",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 256296,
+      "sha256": "b21a81fac18b275418592ce83bfd9edba28ff6a738a31b7b52368d37f57efca1",
+      "original_png_sha256": "d7dff9c8884ca1d13abe17320878bd9587a52e9f78b21face435ae5950dd6b1b",
+      "original_png_bytes": 2351847,
+      "alpha_sha256": "02f9a75d975613e9ff84d5e5175e356f1e708d64909dda666b9c2dbf189d4e5c",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5823866526285807,
+        "alpha_at_least_240_fraction": 0.3945789337158203,
+        "visible_bounds_alpha_at_least_128": [
+          155,
+          56,
+          930,
+          1484
+        ],
+        "visible_margins_left_top_right_bottom": [
+          155,
+          56,
+          94,
+          52
+        ],
+        "edge_nonzero_pixels": 47,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-83482512-9fa9-4540-890b-36b68d4012cf",
+          "original_png_sha256": "d7dff9c8884ca1d13abe17320878bd9587a52e9f78b21face435ae5950dd6b1b"
+        }
+      ],
+      "visual_review": "Compared with the canonical portrait: facial identity, age, hair and existing costume retained. Clear screen-left guard pose; complete figure, both sandals and empty hands. No clipping, injury or new equipment. Genuine alpha verified; detailed framing measurements are in the encoding report.",
+      "limitations": []
+    },
+    {
+      "id": "greek-household-witness-hit",
+      "file": "greek-household-witness-hit.webp",
+      "character": "Myrine of Argos",
+      "actor_ids": [
+        "greek-household-witness"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/myrine.webp",
+      "reference_path": "v2/card-game/assets/greek-drama/myrine.webp",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "e507850aa9959a4d1fedf42eb6ba17d1b70e8a1c2b25799c033e7926bb6ae0ec",
+      "generation_id": "exec-74ac2381-35e9-406d-b201-0f4d2e8933fb",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 249152,
+      "sha256": "0e6cca9c0c62c05d55970ddf4e8d2d037e2635c6ad1ad9537c406683e8d71063",
+      "original_png_sha256": "4b1852e47c9031a613068de16c444efb813512e1105f3f368c5a503b81daf76e",
+      "original_png_bytes": 2205432,
+      "alpha_sha256": "2b0395efb965abd455eaf5034123b93850c4ec3f3c6dd3f17f87f20acfc51d7f",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6374257405598959,
+        "alpha_at_least_240_fraction": 0.3444989522298177,
+        "visible_bounds_alpha_at_least_128": [
+          235,
+          74,
+          868,
+          1483
+        ],
+        "visible_margins_left_top_right_bottom": [
+          235,
+          74,
+          156,
+          53
+        ],
+        "edge_nonzero_pixels": 2,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-74ac2381-35e9-406d-b201-0f4d2e8933fb",
+          "original_png_sha256": "4b1852e47c9031a613068de16c444efb813512e1105f3f368c5a503b81daf76e"
+        },
+        {
+          "generation_id": "exec-f6cff3e3-1b73-4194-9e8a-365f587f17d6",
+          "original_png_sha256": "f72c87178230c7f89eea3bbbd9bac18af3b5c185db93de3a970b9a3a2d46a32f"
+        }
+      ],
+      "visual_review": "Compared with the exact canonical portrait: identity, age, hair, clothing and anatomy retained. Clear screen-left hit pose; full silhouette, both sandals and empty hands. No clipping, injury or new equipment. Visible margins [235,74,156,53]. Genuine alpha verified and preserved exactly.",
+      "limitations": []
     },
     {
       "id": "greek-iphis-attack",
@@ -2525,6 +3883,588 @@
       ]
     },
     {
+      "id": "greek-marathon-keeper-attack",
+      "file": "greek-marathon-keeper-attack.webp",
+      "character": "The Altar Keeper",
+      "actor_ids": [
+        "greek-marathon-keeper"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/open-door-altar-keeper.webp",
+      "reference_path": "v2/card-game/assets/greek-drama/open-door-altar-keeper.webp",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "8ad272e454c6d9d9337b0eeb87f9fc22bd1d661ea1338db5a295a651990e5968",
+      "generation_id": "exec-60d568d9-8429-45a5-b67c-774152dad2c1",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 87,
+      "bytes": 295932,
+      "sha256": "6077bff0a4257b66d95c1a1049d1bbcb09fbbc8fb7db9667febe81fc8d01a32e",
+      "original_png_sha256": "82da6b416b04a40c4a1c1b232910ec78a1ba42d5fb48965ceaeb7d3f3c2ad533",
+      "original_png_bytes": 2492438,
+      "alpha_sha256": "853b0c77db4e0c1f5988062abcff020fc6bc1c9d246199cc99608c3bbb4e9272",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5467166900634766,
+        "alpha_at_least_240_fraction": 0.42528025309244794,
+        "visible_bounds_alpha_at_least_128": [
+          51,
+          27,
+          981,
+          1468
+        ],
+        "visible_margins_left_top_right_bottom": [
+          51,
+          27,
+          43,
+          68
+        ],
+        "edge_nonzero_pixels": 1,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-60d568d9-8429-45a5-b67c-774152dad2c1",
+          "original_png_sha256": "82da6b416b04a40c4a1c1b232910ec78a1ba42d5fb48965ceaeb7d3f3c2ad533"
+        }
+      ],
+      "visual_review": "Compared with the canonical portrait: facial identity, age, hair and existing costume retained. Clear screen-left attack pose; complete figure, both sandals and empty hands. No clipping, injury or new equipment. Genuine alpha verified; detailed framing measurements are in the encoding report.",
+      "limitations": []
+    },
+    {
+      "id": "greek-marathon-keeper-guard",
+      "file": "greek-marathon-keeper-guard.webp",
+      "character": "The Altar Keeper",
+      "actor_ids": [
+        "greek-marathon-keeper"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/open-door-altar-keeper.webp",
+      "reference_path": "v2/card-game/assets/greek-drama/open-door-altar-keeper.webp",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "8ad272e454c6d9d9337b0eeb87f9fc22bd1d661ea1338db5a295a651990e5968",
+      "generation_id": "exec-8916d507-4963-415b-99eb-237e931094d5",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 87,
+      "bytes": 288710,
+      "sha256": "c68f8126c7ada91a846104eb5d7441a164414b181aefc92a4f997e29dcbfed18",
+      "original_png_sha256": "39fa4a7540ad72337b359ffc47f8d9a91e504e3a65b458c960eb13da5b599255",
+      "original_png_bytes": 2476892,
+      "alpha_sha256": "7c6920fea50821f57da0ff8031df7de56f189e2ce78dab0eb6c99c02a01e5d52",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5503635406494141,
+        "alpha_at_least_240_fraction": 0.4253959655761719,
+        "visible_bounds_alpha_at_least_128": [
+          163,
+          46,
+          941,
+          1477
+        ],
+        "visible_margins_left_top_right_bottom": [
+          163,
+          46,
+          83,
+          59
+        ],
+        "edge_nonzero_pixels": 96,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-8916d507-4963-415b-99eb-237e931094d5",
+          "original_png_sha256": "39fa4a7540ad72337b359ffc47f8d9a91e504e3a65b458c960eb13da5b599255"
+        }
+      ],
+      "visual_review": "Compared with the canonical portrait: facial identity, age, hair and existing costume retained. Clear screen-left guard pose; complete figure, both sandals and empty hands. No clipping, injury or new equipment. Genuine alpha verified; detailed framing measurements are in the encoding report.",
+      "limitations": []
+    },
+    {
+      "id": "greek-marathon-keeper-hit",
+      "file": "greek-marathon-keeper-hit.webp",
+      "character": "The Altar Keeper",
+      "actor_ids": [
+        "greek-marathon-keeper"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/open-door-altar-keeper.webp",
+      "reference_path": "v2/card-game/assets/greek-drama/open-door-altar-keeper.webp",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "8ad272e454c6d9d9337b0eeb87f9fc22bd1d661ea1338db5a295a651990e5968",
+      "generation_id": "exec-fea8a5cc-2698-4b91-bf8e-c88e07e3a4cb",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 241332,
+      "sha256": "844323e1ac0f8e460bf7a67e0f3d79cb124e31001f1b811ba9d71069a15aa186",
+      "original_png_sha256": "cfdde00af5d2c6ebeb99104af2be54e41239997bb77ab04432d9d61b252c8e9a",
+      "original_png_bytes": 2199621,
+      "alpha_sha256": "733459d9b51ba538bc67fc6eaeb5fd384e205199bfc25b6c117a3d4845ae85eb",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6195933024088541,
+        "alpha_at_least_240_fraction": 0.35710779825846356,
+        "visible_bounds_alpha_at_least_128": [
+          241,
+          55,
+          874,
+          1483
+        ],
+        "visible_margins_left_top_right_bottom": [
+          241,
+          55,
+          150,
+          53
+        ],
+        "edge_nonzero_pixels": 0,
+        "edge_max": 0
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-fea8a5cc-2698-4b91-bf8e-c88e07e3a4cb",
+          "original_png_sha256": "cfdde00af5d2c6ebeb99104af2be54e41239997bb77ab04432d9d61b252c8e9a"
+        }
+      ],
+      "visual_review": "Compared with the canonical portrait: facial identity, age, hair and existing costume retained. Clear screen-left hit pose; complete figure, both sandals and empty hands. No clipping, injury or new equipment. Genuine alpha verified; detailed framing measurements are in the encoding report.",
+      "limitations": []
+    },
+    {
+      "id": "greek-market-neighbor-attack",
+      "file": "greek-market-neighbor-attack.webp",
+      "character": "The Agora Neighbor",
+      "actor_ids": [
+        "greek-market-neighbor"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-neighbor.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-neighbor.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "8d37d52aa924f1432fe751eb2c99daee8c6136c4507a36550f914b6948e34401",
+      "generation_id": "exec-bf170c57-abce-4200-b0bf-934910c2d4be",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 248610,
+      "sha256": "30caf73d8c9f39f1daa2980e797b25c455eac9d7d4d22a5674856af56305548b",
+      "original_png_sha256": "5f55e16fd4ec9d77cf83179b978baec70d6642146a835f52374a035ca050dbfb",
+      "original_png_bytes": 2294697,
+      "alpha_sha256": "8ef3db3800777f896efe61f8aa64c5e3da5bad9699b452ad6285f69dd919a599",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5686632792154948,
+        "alpha_at_least_240_fraction": 0.41147613525390625,
+        "visible_bounds_alpha_at_least_128": [
+          58,
+          39,
+          900,
+          1479
+        ],
+        "visible_margins_left_top_right_bottom": [
+          58,
+          39,
+          124,
+          57
+        ],
+        "edge_nonzero_pixels": 12,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-bf170c57-abce-4200-b0bf-934910c2d4be",
+          "original_png_sha256": "5f55e16fd4ec9d77cf83179b978baec70d6642146a835f52374a035ca050dbfb"
+        }
+      ],
+      "visual_review": "Market Neighbor retains mature sturdy build, gray braided crown, expressive rounded face, indigo dress and patched rust apron. Hands empty; strike, upright recoil and brace are clearly differentiated and face screen left. Full silhouette including hair and sandals is intact.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-market-neighbor-guard",
+      "file": "greek-market-neighbor-guard.webp",
+      "character": "The Agora Neighbor",
+      "actor_ids": [
+        "greek-market-neighbor"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-neighbor.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-neighbor.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "8d37d52aa924f1432fe751eb2c99daee8c6136c4507a36550f914b6948e34401",
+      "generation_id": "exec-237143c0-df28-4fbf-b5b1-c617b2793d31",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 207308,
+      "sha256": "c5e38002fda1f6abd335fa02d076c8916fb4fe6a2638230dd26a629cecddca34",
+      "original_png_sha256": "a1551e9d0ee5a7915a2bf5b50d12d9afe09b4fb432d46d8719abfca2f39300ff",
+      "original_png_bytes": 2169462,
+      "alpha_sha256": "736cb31371a82a18a67b1badb3b60b39ca67ce20a6403b66eaf130236fb2dfcd",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5879491170247396,
+        "alpha_at_least_240_fraction": 0.3966382344563802,
+        "visible_bounds_alpha_at_least_128": [
+          190,
+          40,
+          857,
+          1504
+        ],
+        "visible_margins_left_top_right_bottom": [
+          190,
+          40,
+          167,
+          32
+        ],
+        "edge_nonzero_pixels": 0,
+        "edge_max": 0
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-237143c0-df28-4fbf-b5b1-c617b2793d31",
+          "original_png_sha256": "a1551e9d0ee5a7915a2bf5b50d12d9afe09b4fb432d46d8719abfca2f39300ff"
+        }
+      ],
+      "visual_review": "Market Neighbor retains mature sturdy build, gray braided crown, expressive rounded face, indigo dress and patched rust apron. Hands empty; strike, upright recoil and brace are clearly differentiated and face screen left. Full silhouette including hair and sandals is intact.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-market-neighbor-hit",
+      "file": "greek-market-neighbor-hit.webp",
+      "character": "The Agora Neighbor",
+      "actor_ids": [
+        "greek-market-neighbor"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-neighbor.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-neighbor.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "8d37d52aa924f1432fe751eb2c99daee8c6136c4507a36550f914b6948e34401",
+      "generation_id": "exec-f9422847-0b76-4c7d-8ed3-6d63bb5e616d",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 208000,
+      "sha256": "5de342273d31ad7fc31eba1adbfd85fcf51f343b0b20008f1387cc3e76591203",
+      "original_png_sha256": "3444baf55b04bdca10cf441fdd8076cb7f239b6cc97b18b2b47be9acb497d853",
+      "original_png_bytes": 2119333,
+      "alpha_sha256": "6740454985ae01bda54dc1067caaf4a7201ba515a97e44a65b4d7a5173fab514",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6182829538981119,
+        "alpha_at_least_240_fraction": 0.36414337158203125,
+        "visible_bounds_alpha_at_least_128": [
+          206,
+          65,
+          831,
+          1482
+        ],
+        "visible_margins_left_top_right_bottom": [
+          206,
+          65,
+          193,
+          54
+        ],
+        "edge_nonzero_pixels": 4,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-f9422847-0b76-4c7d-8ed3-6d63bb5e616d",
+          "original_png_sha256": "3444baf55b04bdca10cf441fdd8076cb7f239b6cc97b18b2b47be9acb497d853"
+        }
+      ],
+      "visual_review": "Market Neighbor retains mature sturdy build, gray braided crown, expressive rounded face, indigo dress and patched rust apron. Hands empty; strike, upright recoil and brace are clearly differentiated and face screen left. Full silhouette including hair and sandals is intact.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-menelaus-egypt-attack",
+      "file": "greek-menelaus-egypt-attack.webp",
+      "character": "Menelaus",
+      "actor_ids": [
+        "greek-menelaus-egypt",
+        "greek-menelaus-troy"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b",
+      "generation_id": "exec-6e548587-2669-4fa6-a6b6-e4b86d747a68",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 280232,
+      "sha256": "f7c200a64575f0fa75d960d2ad2ab5068d35436ff4134e218d251214d519139c",
+      "original_png_sha256": "a6a17a531f266de03e0e3ac49af52a45d8c90ada0d3889de9f966e89e2972732",
+      "original_png_bytes": 2367315,
+      "alpha_sha256": "f96cc86657f440e06dc966fb90ead15b4be3482ea6b4a58fbe1e181eebc1294e",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5687459309895834,
+        "alpha_at_least_240_fraction": 0.4053516387939453,
+        "visible_bounds_alpha_at_least_128": [
+          37,
+          67,
+          993,
+          1459
+        ],
+        "visible_margins_left_top_right_bottom": [
+          37,
+          67,
+          31,
+          77
+        ],
+        "edge_nonzero_pixels": 3,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-6e548587-2669-4fa6-a6b6-e4b86d747a68",
+          "original_png_sha256": "a6a17a531f266de03e0e3ac49af52a45d8c90ada0d3889de9f966e89e2972732"
+        }
+      ],
+      "visual_review": "Menelaus retains mature stocky build, sandy hair, reddish beard with gray chin, existing healed scars, rust-red cloak with bronze clasps, patched ivory tunic and studded belt. Empty hands; strong compact leftward strike, upright recoil and protective brace. No new injury; full cloak and sandals visible.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-menelaus-egypt-guard",
+      "file": "greek-menelaus-egypt-guard.webp",
+      "character": "Menelaus",
+      "actor_ids": [
+        "greek-menelaus-egypt",
+        "greek-menelaus-troy"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b",
+      "generation_id": "exec-7db1e310-4fd3-4d0e-ae86-73453407726e",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 269474,
+      "sha256": "89b4e169e139b15b703af61e1214bc50825fbf167a9b7194badd80067fa053ae",
+      "original_png_sha256": "d7e893c19297b13defde22083e21b1b33c96fcf7b4d6369bc745821209c60980",
+      "original_png_bytes": 2375609,
+      "alpha_sha256": "e49f0ed8e756db0512ed12f1f476d1249fbe778d8b490b8c07dbb0977fde2d6f",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5538864135742188,
+        "alpha_at_least_240_fraction": 0.42363929748535156,
+        "visible_bounds_alpha_at_least_128": [
+          197,
+          64,
+          944,
+          1484
+        ],
+        "visible_margins_left_top_right_bottom": [
+          197,
+          64,
+          80,
+          52
+        ],
+        "edge_nonzero_pixels": 22,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-7db1e310-4fd3-4d0e-ae86-73453407726e",
+          "original_png_sha256": "d7e893c19297b13defde22083e21b1b33c96fcf7b4d6369bc745821209c60980"
+        }
+      ],
+      "visual_review": "Menelaus retains mature stocky build, sandy hair, reddish beard with gray chin, existing healed scars, rust-red cloak with bronze clasps, patched ivory tunic and studded belt. Empty hands; strong compact leftward strike, upright recoil and protective brace. No new injury; full cloak and sandals visible.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-menelaus-egypt-hit",
+      "file": "greek-menelaus-egypt-hit.webp",
+      "character": "Menelaus",
+      "actor_ids": [
+        "greek-menelaus-egypt",
+        "greek-menelaus-troy"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b",
+      "generation_id": "exec-8b7e5f0d-59ca-497a-b515-0982b9394d80",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 282544,
+      "sha256": "08f070ebef3e4a1c3a756d45de4351c15ec4cac0afd82e98b6fb8f349dffc5d7",
+      "original_png_sha256": "2f31bd5210d8240ee2df81d663881aca720a212df1b62cf4fd69220abd2e8ef2",
+      "original_png_bytes": 2388716,
+      "alpha_sha256": "14ba9f623749643a38cd73333b9c0ffdaad633cda4633eb867964d1bd1acf2dd",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5558382670084635,
+        "alpha_at_least_240_fraction": 0.41853078206380206,
+        "visible_bounds_alpha_at_least_128": [
+          172,
+          42,
+          933,
+          1494
+        ],
+        "visible_margins_left_top_right_bottom": [
+          172,
+          42,
+          91,
+          42
+        ],
+        "edge_nonzero_pixels": 43,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-8b7e5f0d-59ca-497a-b515-0982b9394d80",
+          "original_png_sha256": "2f31bd5210d8240ee2df81d663881aca720a212df1b62cf4fd69220abd2e8ef2"
+        }
+      ],
+      "visual_review": "Menelaus retains mature stocky build, sandy hair, reddish beard with gray chin, existing healed scars, rust-red cloak with bronze clasps, patched ivory tunic and studded belt. Empty hands; strong compact leftward strike, upright recoil and protective brace. No new injury; full cloak and sandals visible.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
       "id": "greek-orestes-aeschylus-attack",
       "file": "greek-orestes-aeschylus-attack.webp",
       "character": "Orestes",
@@ -2728,6 +4668,73 @@
       "limitations": []
     },
     {
+      "id": "greek-quay-host-attack",
+      "file": "greek-quay-host-attack.webp",
+      "character": "Thaleia the Quay Host",
+      "actor_ids": [
+        "greek-quay-host"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/open-door-quay-host.webp",
+      "reference_path": "v2/card-game/assets/greek-drama/open-door-quay-host.webp",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "e6c987ea74f4892491f0a91f764fb363d5d64f90045f5ba91fdc2a40d007dc4f",
+      "generation_id": "exec-c380b9a0-a16a-4b91-893f-b85fde748add",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 246248,
+      "sha256": "3adca5afec6d85c30692ec6f8fba4ff1c35b6f62d34bf52a106c97d4b92e44ea",
+      "original_png_sha256": "b13491cd7110f6269a88df75ca240c35cf8755183967b9ca24ac074e1de67f7e",
+      "original_png_bytes": 2201638,
+      "alpha_sha256": "5d87feb30fa9629d351a2eb3677c3557d748b4695a5c2b8f06f6c1107d03f709",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6443316141764323,
+        "alpha_at_least_240_fraction": 0.33242225646972656,
+        "visible_bounds_alpha_at_least_128": [
+          108,
+          94,
+          947,
+          1449
+        ],
+        "visible_margins_left_top_right_bottom": [
+          108,
+          94,
+          77,
+          87
+        ],
+        "edge_nonzero_pixels": 1,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-4dab69b0-4181-482d-8269-c39a138d7c11",
+          "original_png_sha256": "e002104a7e7494351b733b783caacfb7b8e19f9d43342e920a80364367eabf8c"
+        },
+        {
+          "generation_id": "exec-c380b9a0-a16a-4b91-893f-b85fde748add",
+          "original_png_sha256": "b13491cd7110f6269a88df75ca240c35cf8755183967b9ca24ac074e1de67f7e"
+        }
+      ],
+      "visual_review": "Compared with the exact canonical portrait: identity, age, hair, clothing and anatomy retained. Clear screen-left attack pose; full silhouette, both sandals and empty hands. No clipping, injury or new equipment. Visible margins [108,94,77,87]. Genuine alpha verified and preserved exactly.",
+      "limitations": []
+    },
+    {
       "id": "greek-quay-host-guard",
       "file": "greek-quay-host-guard.webp",
       "character": "Thaleia the Quay Host",
@@ -2852,6 +4859,270 @@
       ],
       "visual_review": "Exact reference compared: Thaleia the Quay Host's face, age, hair and distinctive workwear/mantle retained. Clear screen-left hit, full figure and both sandals, empty hands and no new equipment or injury. Visible margins [216,34,117,33]; no clipping.",
       "limitations": []
+    },
+    {
+      "id": "greek-rhapsode-attack",
+      "file": "greek-rhapsode-attack.webp",
+      "character": "The Bard",
+      "actor_ids": [
+        "greek-rhapsode"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-singer.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-singer.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "6e5ae857c2efbe1d6a545675d4198b3b1d12b0cad2ca828eca6771ade6d6792a",
+      "generation_id": "exec-eb3111a0-13c0-40b3-8c09-99e9729e185d",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 247410,
+      "sha256": "867f95ec9936e03f472244ce119f869cd5eb4ef0024b31e99647a0620803eb96",
+      "original_png_sha256": "05ff3d1be6037dae3fb1a1f27d4d9ac6d1b710dc4716d444eb148991d68bb9c4",
+      "original_png_bytes": 2237423,
+      "alpha_sha256": "1b0c56a1106065768ca65061df5bf4c6ee1b352dba6dd737dfdd8df077a0bc22",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5989456176757812,
+        "alpha_at_least_240_fraction": 0.3767236073811849,
+        "visible_bounds_alpha_at_least_128": [
+          71,
+          56,
+          947,
+          1465
+        ],
+        "visible_margins_left_top_right_bottom": [
+          71,
+          56,
+          77,
+          71
+        ],
+        "edge_nonzero_pixels": 27,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-eb3111a0-13c0-40b3-8c09-99e9729e185d",
+          "original_png_sha256": "05ff3d1be6037dae3fb1a1f27d4d9ac6d1b710dc4716d444eb148991d68bb9c4"
+        }
+      ],
+      "visual_review": "Rhapsode retains tied-back dark wavy hair, short beard, lean build, ivory robe and maroon/charcoal Greek-key cloak. Distinct compact leftward strike, upright recoiling wince and planted brace; empty hands; complete fingers, fabric and sandals.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-rhapsode-guard",
+      "file": "greek-rhapsode-guard.webp",
+      "character": "The Bard",
+      "actor_ids": [
+        "greek-rhapsode"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-singer.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-singer.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "6e5ae857c2efbe1d6a545675d4198b3b1d12b0cad2ca828eca6771ade6d6792a",
+      "generation_id": "exec-43763b3b-3d85-4de8-b686-0c6fe4a3368a",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 216734,
+      "sha256": "3f82dc0dda925c2e966da5bc8aead85edc24a399d358709fe06273f36eedb361",
+      "original_png_sha256": "689861a338487ab8eda74396991c4ce8b458132d40ce5f9c062df2f1ae83d392",
+      "original_png_bytes": 2064134,
+      "alpha_sha256": "19f5541c4ceb3f6f724855421479fa7bb76b001a07443ec7ee6b7cd0026cd553",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6507918039957682,
+        "alpha_at_least_240_fraction": 0.3268515268961589,
+        "visible_bounds_alpha_at_least_128": [
+          243,
+          97,
+          865,
+          1451
+        ],
+        "visible_margins_left_top_right_bottom": [
+          243,
+          97,
+          159,
+          85
+        ],
+        "edge_nonzero_pixels": 0,
+        "edge_max": 0
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-43763b3b-3d85-4de8-b686-0c6fe4a3368a",
+          "original_png_sha256": "689861a338487ab8eda74396991c4ce8b458132d40ce5f9c062df2f1ae83d392"
+        }
+      ],
+      "visual_review": "Rhapsode retains tied-back dark wavy hair, short beard, lean build, ivory robe and maroon/charcoal Greek-key cloak. Distinct compact leftward strike, upright recoiling wince and planted brace; empty hands; complete fingers, fabric and sandals.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-rhapsode-hit",
+      "file": "greek-rhapsode-hit.webp",
+      "character": "The Bard",
+      "actor_ids": [
+        "greek-rhapsode"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-singer.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-singer.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "6e5ae857c2efbe1d6a545675d4198b3b1d12b0cad2ca828eca6771ade6d6792a",
+      "generation_id": "exec-69d62893-f901-4a50-b30d-af6bbe8b6292",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 209964,
+      "sha256": "7c94120258ae8905f564157041a930733d30cfab16e421fd83e225aa38a74a3d",
+      "original_png_sha256": "f16d347aff50d2335c41c12e9a7a5c2e4d3fabb4c2dcb412d00d822b407ebad8",
+      "original_png_bytes": 2060006,
+      "alpha_sha256": "541eda3f91b54e8e83a48884fc1ec6310548287ec8c45e77ea7c354ab4cdbc3c",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6461435953776041,
+        "alpha_at_least_240_fraction": 0.3312753041585286,
+        "visible_bounds_alpha_at_least_128": [
+          203,
+          54,
+          833,
+          1465
+        ],
+        "visible_margins_left_top_right_bottom": [
+          203,
+          54,
+          191,
+          71
+        ],
+        "edge_nonzero_pixels": 0,
+        "edge_max": 0
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-69d62893-f901-4a50-b30d-af6bbe8b6292",
+          "original_png_sha256": "f16d347aff50d2335c41c12e9a7a5c2e4d3fabb4c2dcb412d00d822b407ebad8"
+        }
+      ],
+      "visual_review": "Rhapsode retains tied-back dark wavy hair, short beard, lean build, ivory robe and maroon/charcoal Greek-key cloak. Distinct compact leftward strike, upright recoiling wince and planted brace; empty hands; complete fingers, fabric and sandals.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-shipmaster-attack",
+      "file": "greek-shipmaster-attack.webp",
+      "character": "Myrto the Shipmaster",
+      "actor_ids": [
+        "greek-shipmaster"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-shipmaster.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-shipmaster.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "cc8a78bca8bd303988a38c693304556b52df632ed7f99f69111466028a894ed8",
+      "generation_id": "exec-3745aa7b-a941-4019-b048-ef062cbe990a",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 239280,
+      "sha256": "c342f9175da0b4eb2ec6562e5814f5c1a489a47c8599d63f16e1955d4261770a",
+      "original_png_sha256": "0557de65e2eb73dda75723d18ad4781429cc21a3f2354c9ede806b68024a7936",
+      "original_png_bytes": 2109449,
+      "alpha_sha256": "ebcfbdfec9aca36d4637e7515633bc5681b6a8c89b2daf8e25909a271193b58b",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6641788482666016,
+        "alpha_at_least_240_fraction": 0.30794843037923175,
+        "visible_bounds_alpha_at_least_128": [
+          69,
+          117,
+          965,
+          1360
+        ],
+        "visible_margins_left_top_right_bottom": [
+          69,
+          117,
+          59,
+          176
+        ],
+        "edge_nonzero_pixels": 3,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-1002fd0a-2ed6-4211-a96d-a3c003ae955d",
+          "original_png_sha256": "2ebc0d3032375315e841712b9348d080f67255723823c57b53d88b8439f007db"
+        },
+        {
+          "generation_id": "exec-3745aa7b-a941-4019-b048-ef062cbe990a",
+          "original_png_sha256": "0557de65e2eb73dda75723d18ad4781429cc21a3f2354c9ede806b68024a7936"
+        }
+      ],
+      "visual_review": "Framing-only correction reviewed: Shipmaster keeps the original leftward strike, recognizable face/curls, teal cloak/trident brooch, existing healed scars and belt/sash details. Full figure and trailing cloak now have clear canvas margin; hands empty, feet complete.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
     },
     {
       "id": "greek-shipmaster-guard",
@@ -2979,6 +5250,201 @@
         }
       ],
       "visual_review": "Shipmaster retains short curls, old healed scars, teal nautical cloak/brooch, ivory tunic, red sash, attached belts and sandals. Empty hands; distinct planted leftward strike, upright recoil and guard. Entire figure visible; no new injury.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-temple-attendant-attack",
+      "file": "greek-temple-attendant-attack.webp",
+      "character": "The Delphic Attendant",
+      "actor_ids": [
+        "greek-temple-attendant"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-attendant.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-attendant.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "61977265e6897bc973d582ec0487fa82a2b4c7e2baecc4571420c18047f55130",
+      "generation_id": "exec-3efa1b5b-7b81-451f-a4fc-e02dd6424f5d",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 232688,
+      "sha256": "bb1d94f29379943892c06ad3a5cb4f471bb1488cde4c2eaa5921dfdc6dcd98f8",
+      "original_png_sha256": "aa774c92096c0c3ef438dd8a9fa7cd812a46b8343cbe44ac0ae32ccd28e50cd9",
+      "original_png_bytes": 2214782,
+      "alpha_sha256": "d340d4c7312cbcbefe91bf6538ffe408b6714ab1e1518cafa3bd75d49fd4fb14",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6282405853271484,
+        "alpha_at_least_240_fraction": 0.35155359903971356,
+        "visible_bounds_alpha_at_least_128": [
+          66,
+          116,
+          923,
+          1439
+        ],
+        "visible_margins_left_top_right_bottom": [
+          66,
+          116,
+          101,
+          97
+        ],
+        "edge_nonzero_pixels": 1,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-3efa1b5b-7b81-451f-a4fc-e02dd6424f5d",
+          "original_png_sha256": "aa774c92096c0c3ef438dd8a9fa7cd812a46b8343cbe44ac0ae32ccd28e50cd9"
+        }
+      ],
+      "visual_review": "Temple Attendant retains receding salt-and-pepper hair, close beard, age and lean build, ivory robe, lavender-gray shawl and woven sash. Clear leftward unarmed strike, upright wincing recoil and compact brace; empty hands; complete full figure, shawl fringe and sandals.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-temple-attendant-guard",
+      "file": "greek-temple-attendant-guard.webp",
+      "character": "The Delphic Attendant",
+      "actor_ids": [
+        "greek-temple-attendant"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-attendant.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-attendant.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "61977265e6897bc973d582ec0487fa82a2b4c7e2baecc4571420c18047f55130",
+      "generation_id": "exec-d5957383-09e9-4c9f-bb95-0dd2469562e2",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 220376,
+      "sha256": "cf7e530f35e44c798829a685233482caa7d6a353faaa5fa2f0aa3622d090fe1c",
+      "original_png_sha256": "0a63c365c2313b64f67b06ce053079aa61c28fac053433af2a78b835edf7dcca",
+      "original_png_bytes": 2175145,
+      "alpha_sha256": "29937ace1182a4f51cf623edcee7278e9d99e7563df35604e25225f148cbc162",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6328709920247396,
+        "alpha_at_least_240_fraction": 0.3491401672363281,
+        "visible_bounds_alpha_at_least_128": [
+          216,
+          61,
+          838,
+          1478
+        ],
+        "visible_margins_left_top_right_bottom": [
+          216,
+          61,
+          186,
+          58
+        ],
+        "edge_nonzero_pixels": 18,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-d5957383-09e9-4c9f-bb95-0dd2469562e2",
+          "original_png_sha256": "0a63c365c2313b64f67b06ce053079aa61c28fac053433af2a78b835edf7dcca"
+        }
+      ],
+      "visual_review": "Temple Attendant retains receding salt-and-pepper hair, close beard, age and lean build, ivory robe, lavender-gray shawl and woven sash. Clear leftward unarmed strike, upright wincing recoil and compact brace; empty hands; complete full figure, shawl fringe and sandals.",
+      "limitations": [
+        "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
+      ]
+    },
+    {
+      "id": "greek-temple-attendant-hit",
+      "file": "greek-temple-attendant-hit.webp",
+      "character": "The Delphic Attendant",
+      "actor_ids": [
+        "greek-temple-attendant"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/greek-drama/chthonic-attendant.png",
+      "reference_path": "v2/card-game/assets/greek-drama/chthonic-attendant.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "61977265e6897bc973d582ec0487fa82a2b4c7e2baecc4571420c18047f55130",
+      "generation_id": "exec-8a629b6a-01e9-4734-b032-3fafd0a2e316",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 198978,
+      "sha256": "fe4e9836f08be8e2f89725f256ca2f79f0d024a00ced79e612de101f42646a19",
+      "original_png_sha256": "8f25a2bb6f916a8ca402f029c939cf0a9cba9d8e01fe903ff6cb2269c28e6dc9",
+      "original_png_bytes": 2073003,
+      "alpha_sha256": "9b00bd03d07117ea011f60a1dd82f80052c73771bf720cff7bd6546aed185c1e",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6520881652832031,
+        "alpha_at_least_240_fraction": 0.3298714955647786,
+        "visible_bounds_alpha_at_least_128": [
+          252,
+          70,
+          813,
+          1491
+        ],
+        "visible_margins_left_top_right_bottom": [
+          252,
+          70,
+          211,
+          45
+        ],
+        "edge_nonzero_pixels": 18,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-8a629b6a-01e9-4734-b032-3fafd0a2e316",
+          "original_png_sha256": "8f25a2bb6f916a8ca402f029c939cf0a9cba9d8e01fe903ff6cb2269c28e6dc9"
+        }
+      ],
+      "visual_review": "Temple Attendant retains receding salt-and-pepper hair, close beard, age and lean build, ivory robe, lavender-gray shawl and woven sash. Clear leftward unarmed strike, upright wincing recoil and compact brace; empty hands; complete full figure, shawl fringe and sandals.",
       "limitations": [
         "Decoded alpha preserved exactly; near-opaque alpha and faint edge residue are measured in the encoding report."
       ]
@@ -3171,6 +5637,802 @@
       ],
       "visual_review": "Compared with exact canonical portrait: Theseus's face, age, hair/beard, mantle, tunic, belt and sandals retained. Clear left-facing hit, complete uninjured anatomy and empty hands. No cropping; visible margins [203,27,153,48].",
       "limitations": []
+    },
+    {
+      "id": "hoppycat-arc-attack",
+      "file": "hoppycat-arc-attack.webp",
+      "character": "Arc",
+      "actor_ids": [
+        "hoppycat-arc"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-arc-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-arc-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "921b74b9477e89e2458ac560de0b47bafc8b9ab12f250957fc256e31b16d3ce3",
+      "generation_id": "exec-153ab21c-0deb-4684-85c7-f8be310696bd",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 125350,
+      "sha256": "637daf52920e8db19ee5d54b000f18f52a86df0e277bccb422f3962592b6f74d",
+      "original_png_sha256": "09eda45f3f0227e150f7d689367dadeaa0c677fd2618217a13f50fccefe48c86",
+      "original_png_bytes": 1539765,
+      "alpha_sha256": "233c3dc7f410a5662a1012e3b613d33dc43d995e4fa3fa65bf671f83c66b5f23",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.7407131195068359,
+        "alpha_at_least_240_fraction": 0.23897298177083334,
+        "visible_bounds_alpha_at_least_128": [
+          57,
+          57,
+          948,
+          1442
+        ],
+        "visible_margins_left_top_right_bottom": [
+          57,
+          57,
+          76,
+          94
+        ],
+        "edge_nonzero_pixels": 0,
+        "edge_max": 0
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-153ab21c-0deb-4684-85c7-f8be310696bd",
+          "original_png_sha256": "09eda45f3f0227e150f7d689367dadeaa0c677fd2618217a13f50fccefe48c86"
+        }
+      ],
+      "visual_review": "The canonical face, hair, clothing, attached accessories, colour palette and illustration style are retained. Distinct three-quarter leftward strike, recoil or guard, with complete hands, hair, coat tails and shoes within clear margins.",
+      "limitations": "Generated paint is visually matched, not pixel-identical."
+    },
+    {
+      "id": "hoppycat-arc-guard",
+      "file": "hoppycat-arc-guard.webp",
+      "character": "Arc",
+      "actor_ids": [
+        "hoppycat-arc"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-arc-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-arc-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "921b74b9477e89e2458ac560de0b47bafc8b9ab12f250957fc256e31b16d3ce3",
+      "generation_id": "exec-68c9550d-358a-45d2-99c3-467092368780",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 120914,
+      "sha256": "8a246d66891feb8e7f416f88211f857f9cc7f1581fe9fbe84a3f4904cd979464",
+      "original_png_sha256": "4ffb1605d7b4d414b210937bbf7d5875dba4fc8b3f3f6df39b4a1292892f11fb",
+      "original_png_bytes": 1508706,
+      "alpha_sha256": "407d3879adf5946278d9dd8bfdbe67186b49c09c16418e19366e93eab489496a",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.7366288503011068,
+        "alpha_at_least_240_fraction": 0.2416070302327474,
+        "visible_bounds_alpha_at_least_128": [
+          110,
+          31,
+          947,
+          1474
+        ],
+        "visible_margins_left_top_right_bottom": [
+          110,
+          31,
+          77,
+          62
+        ],
+        "edge_nonzero_pixels": 0,
+        "edge_max": 0
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-68c9550d-358a-45d2-99c3-467092368780",
+          "original_png_sha256": "4ffb1605d7b4d414b210937bbf7d5875dba4fc8b3f3f6df39b4a1292892f11fb"
+        }
+      ],
+      "visual_review": "The canonical face, hair, clothing, attached accessories, colour palette and illustration style are retained. Distinct three-quarter leftward strike, recoil or guard, with complete hands, hair, coat tails and shoes within clear margins.",
+      "limitations": "Generated paint is visually matched, not pixel-identical."
+    },
+    {
+      "id": "hoppycat-arc-hit",
+      "file": "hoppycat-arc-hit.webp",
+      "character": "Arc",
+      "actor_ids": [
+        "hoppycat-arc"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-arc-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-arc-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "921b74b9477e89e2458ac560de0b47bafc8b9ab12f250957fc256e31b16d3ce3",
+      "generation_id": "exec-58e12ba6-81ac-42ca-b5f1-86ebd7c7f2c5",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 126594,
+      "sha256": "7f08157fbf3ccf5ee7eb9179ead7fad99e2a35cfee0c455f211eaa5b213620d2",
+      "original_png_sha256": "68ffda02cf85ebec23797957a3d621399584dc972cdd20d61ec20cc8d1bb8e6f",
+      "original_png_bytes": 1512415,
+      "alpha_sha256": "6307cc5c6ce45177a1f6bfd54fd8b39fd5020fcd5386199b3565a474575f20df",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.7348906199137369,
+        "alpha_at_least_240_fraction": 0.24322128295898438,
+        "visible_bounds_alpha_at_least_128": [
+          138,
+          45,
+          854,
+          1478
+        ],
+        "visible_margins_left_top_right_bottom": [
+          138,
+          45,
+          170,
+          58
+        ],
+        "edge_nonzero_pixels": 4,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-58e12ba6-81ac-42ca-b5f1-86ebd7c7f2c5",
+          "original_png_sha256": "68ffda02cf85ebec23797957a3d621399584dc972cdd20d61ec20cc8d1bb8e6f"
+        }
+      ],
+      "visual_review": "The canonical face, hair, clothing, attached accessories, colour palette and illustration style are retained. Distinct three-quarter leftward strike, recoil or guard, with complete hands, hair, coat tails and shoes within clear margins.",
+      "limitations": "Generated paint is visually matched, not pixel-identical."
+    },
+    {
+      "id": "hoppycat-fable-attack",
+      "file": "hoppycat-fable-attack.webp",
+      "character": "Fable",
+      "actor_ids": [
+        "hoppycat-fable"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-fable-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-fable-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "bb73ff33d45ae87b892fb68f3fccb082982df3965e6e0ccb1bf6be778c3fc596",
+      "generation_id": "exec-08f0b18b-a3a2-421b-a31c-e9406949b43a",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 116596,
+      "sha256": "2f543b4f21fb66090b2b9c7eb1683fd920b079397031e3698de3e473a1d9f27c",
+      "original_png_sha256": "b034529e8e7ed74da86e9b79506b8f4d751a6036cf7c24320dc1c17166987ecf",
+      "original_png_bytes": 1419900,
+      "alpha_sha256": "929fae961c53c49ab8e3cfc572df18f91964798af06682f0a964401a1134873d",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.7914409637451172,
+        "alpha_at_least_240_fraction": 0.18944549560546875,
+        "visible_bounds_alpha_at_least_128": [
+          141,
+          138,
+          789,
+          1426
+        ],
+        "visible_margins_left_top_right_bottom": [
+          141,
+          138,
+          235,
+          110
+        ],
+        "edge_nonzero_pixels": 8,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-08f0b18b-a3a2-421b-a31c-e9406949b43a",
+          "original_png_sha256": "b034529e8e7ed74da86e9b79506b8f4d751a6036cf7c24320dc1c17166987ecf"
+        }
+      ],
+      "visual_review": "Accepted: distinct attack facing SCREEN LEFT, canonical auburn curls/flower, blue eyes, peach ruffled blouse, rust bow, brown striped trousers and black platform boots preserved. Full body and hands complete, no new clothing or props, no injury.",
+      "limitations": [
+        "True transparent alpha verified and preserved exactly. Hidden RGB may show a dark field in alpha-ignoring previews; tiny alpha1 edge residues visually negligible where present.",
+        "Minimum margins: attack110px, hit54px, guard107px."
+      ]
+    },
+    {
+      "id": "hoppycat-fable-guard",
+      "file": "hoppycat-fable-guard.webp",
+      "character": "Fable",
+      "actor_ids": [
+        "hoppycat-fable"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-fable-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-fable-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "bb73ff33d45ae87b892fb68f3fccb082982df3965e6e0ccb1bf6be778c3fc596",
+      "generation_id": "exec-0f37bc1d-2aa0-4be6-aae3-a03dee2975d3",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 128554,
+      "sha256": "52064e666febbd43c820cad095dfe96ec187c15d3a24bd814bbce53f626de6f4",
+      "original_png_sha256": "a74318150667bb66d25b248e5466993c6d69abc3018e2e2338886797798c4ec9",
+      "original_png_bytes": 1490893,
+      "alpha_sha256": "27b55d8a8647c8e8d4185fc18884b3976f8f40c6b9a2d4f40c017cebe7523f9e",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.7656599680582682,
+        "alpha_at_least_240_fraction": 0.21435864766438803,
+        "visible_bounds_alpha_at_least_128": [
+          205,
+          119,
+          871,
+          1429
+        ],
+        "visible_margins_left_top_right_bottom": [
+          205,
+          119,
+          153,
+          107
+        ],
+        "edge_nonzero_pixels": 0,
+        "edge_max": 0
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-0f37bc1d-2aa0-4be6-aae3-a03dee2975d3",
+          "original_png_sha256": "a74318150667bb66d25b248e5466993c6d69abc3018e2e2338886797798c4ec9"
+        }
+      ],
+      "visual_review": "Accepted: distinct guard facing SCREEN LEFT, canonical auburn curls/flower, blue eyes, peach ruffled blouse, rust bow, brown striped trousers and black platform boots preserved. Full body and hands complete, no new clothing or props, no injury.",
+      "limitations": [
+        "True transparent alpha verified and preserved exactly. Hidden RGB may show a dark field in alpha-ignoring previews; tiny alpha1 edge residues visually negligible where present.",
+        "Minimum margins: attack110px, hit54px, guard107px."
+      ]
+    },
+    {
+      "id": "hoppycat-fable-hit",
+      "file": "hoppycat-fable-hit.webp",
+      "character": "Fable",
+      "actor_ids": [
+        "hoppycat-fable"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-fable-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-fable-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "bb73ff33d45ae87b892fb68f3fccb082982df3965e6e0ccb1bf6be778c3fc596",
+      "generation_id": "exec-21f3e111-d2bb-440c-b961-813b1965fcc8",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 128062,
+      "sha256": "24a28f2387f210bb1577da2bbf3fd5b51019168559d64f997745270ada0449a8",
+      "original_png_sha256": "9a9ea3918ec650a8ae4919e752b5f5436a2dd9f4abfc00fd118aeb9079f5f905",
+      "original_png_bytes": 1455937,
+      "alpha_sha256": "8ddb11e7a5726eb1f955f4d52b2d8cc9f869359ee834686bf1dc82c3825c1970",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.7551708221435547,
+        "alpha_at_least_240_fraction": 0.2231451670328776,
+        "visible_bounds_alpha_at_least_128": [
+          237,
+          78,
+          782,
+          1482
+        ],
+        "visible_margins_left_top_right_bottom": [
+          237,
+          78,
+          242,
+          54
+        ],
+        "edge_nonzero_pixels": 37,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-21f3e111-d2bb-440c-b961-813b1965fcc8",
+          "original_png_sha256": "9a9ea3918ec650a8ae4919e752b5f5436a2dd9f4abfc00fd118aeb9079f5f905"
+        }
+      ],
+      "visual_review": "Accepted: distinct hit facing SCREEN LEFT, canonical auburn curls/flower, blue eyes, peach ruffled blouse, rust bow, brown striped trousers and black platform boots preserved. Full body and hands complete, no new clothing or props, no injury.",
+      "limitations": [
+        "True transparent alpha verified and preserved exactly. Hidden RGB may show a dark field in alpha-ignoring previews; tiny alpha1 edge residues visually negligible where present.",
+        "Minimum margins: attack110px, hit54px, guard107px."
+      ]
+    },
+    {
+      "id": "hoppycat-glim-twice-attack",
+      "file": "hoppycat-glim-twice-attack.webp",
+      "character": "Glim Twice",
+      "actor_ids": [
+        "hoppycat-glim-twice"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "3109c8ade34592543793976b8f370b44385938b02203ac77860d73d727c58e0b",
+      "generation_id": "exec-3bf121c8-d4c7-49d5-8088-048afbe84ed9",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 84,
+      "bytes": 295636,
+      "sha256": "906a9418eb5e82bce764f1df1cf9acf29b1e028af7ff9a7b1e6a16260bfc818a",
+      "original_png_sha256": "7494f1668f02bc1ac692272c6577a36d2b5bcb178b550b510056954044487d4b",
+      "original_png_bytes": 2183294,
+      "alpha_sha256": "790b750766733841074f5a980eba777f6a72550f5cbe1aac5483a9e075d0f477",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5708433787027994,
+        "alpha_at_least_240_fraction": 0.4044017791748047,
+        "visible_bounds_alpha_at_least_128": [
+          31,
+          78,
+          1001,
+          1426
+        ],
+        "visible_margins_left_top_right_bottom": [
+          31,
+          78,
+          23,
+          110
+        ],
+        "edge_nonzero_pixels": 7,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-204eeacc-7290-4c27-b8cb-4503dc203112",
+          "original_png_sha256": "8eee8bd7653be2e8ed201ae3120c9880b1ae829d1e0867c3daebba5fa3804400"
+        },
+        {
+          "generation_id": "exec-3bf121c8-d4c7-49d5-8088-048afbe84ed9",
+          "original_png_sha256": "7494f1668f02bc1ac692272c6577a36d2b5bcb178b550b510056954044487d4b"
+        }
+      ],
+      "visual_review": "Accepted after limb-count correction: exactly six separate brass feet visible, connected under intact bowl; attack uses mechanical stance and contained fish movement. Fish faces left, all fins remain inside sealed glass, no human arms/hands, no spill/crack. Attached lantern, bags and notebook/pencils preserved; letter/ribbons absent.",
+      "limitations": [
+        "Six legs overlap naturally at the chassis, but all six separate feet are visible. Minimum alpha>=128 margins23px attack/21px hit; no clipping. True alpha preserved exactly, including visually negligible alpha1 edge residues where present."
+      ]
+    },
+    {
+      "id": "hoppycat-glim-twice-guard",
+      "file": "hoppycat-glim-twice-guard.webp",
+      "character": "Glim Twice",
+      "actor_ids": [
+        "hoppycat-glim-twice"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "3109c8ade34592543793976b8f370b44385938b02203ac77860d73d727c58e0b",
+      "generation_id": "exec-221c1f82-91d5-4f3d-9a2e-d3f1168c16af",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 296122,
+      "sha256": "dcad24ddfc4c806dd94584d3de1d5616b3c7cc531892db203d7c369f28c08c05",
+      "original_png_sha256": "6325f149f60f5b3dc2c6d989eed2d13a36f643c75c207a4a0e32be494083b298",
+      "original_png_bytes": 2010317,
+      "alpha_sha256": "acc4e8d1eb78b23a6f6913909fd63012dec3def18a325210e4fdfa080bc9685f",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6183967590332031,
+        "alpha_at_least_240_fraction": 0.36273829142252606,
+        "visible_bounds_alpha_at_least_128": [
+          45,
+          176,
+          981,
+          1344
+        ],
+        "visible_margins_left_top_right_bottom": [
+          45,
+          176,
+          43,
+          192
+        ],
+        "edge_nonzero_pixels": 1,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-221c1f82-91d5-4f3d-9a2e-d3f1168c16af",
+          "original_png_sha256": "6325f149f60f5b3dc2c6d989eed2d13a36f643c75c207a4a0e32be494083b298"
+        },
+        {
+          "generation_id": "exec-3bf121c8-d4c7-49d5-8088-048afbe84ed9",
+          "original_png_sha256": "7494f1668f02bc1ac692272c6577a36d2b5bcb178b550b510056954044487d4b"
+        },
+        {
+          "generation_id": "exec-9145daa9-89ca-4dcc-93a1-2009620483b4",
+          "original_png_sha256": "7c890dd6f15b30cb212202395e3fe279073e9f4727caaaff7853f1c757f922b5"
+        }
+      ],
+      "visual_review": "Accepted: lower compact planted brace derived from the accepted six-foot attack image. Exactly six separate brass feet remain countable, bowl intact and upright, fish facing left with fins closer to body. No human anatomy, no spill/crack, no loose letter/ribbons. Attached lantern, bags and notebook/pencils retained. All silhouette details complete.",
+      "limitations": [
+        "The near and far legs overlap naturally at the chassis; all six feet are distinct. Minimum visible margin43px. Fish occupies slightly less of the bowl in guard as fins tuck inward. True alpha preserved exactly, with one visually negligible alpha1 edge pixel."
+      ]
+    },
+    {
+      "id": "hoppycat-glim-twice-hit",
+      "file": "hoppycat-glim-twice-hit.webp",
+      "character": "Glim Twice",
+      "actor_ids": [
+        "hoppycat-glim-twice"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "3109c8ade34592543793976b8f370b44385938b02203ac77860d73d727c58e0b",
+      "generation_id": "exec-8535e252-df68-4c31-a7d2-d2ee33f69614",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 85,
+      "bytes": 290286,
+      "sha256": "a232ee7d0f6696f1e477fac3cd54801a21b66856636db8366c34b4cc45f406a6",
+      "original_png_sha256": "332026860a6755267896701643b3b524c353f98dfe83f4351796fd36b77b4ed3",
+      "original_png_bytes": 2172878,
+      "alpha_sha256": "9df0616912185401fc8d81604dff3c9a9d51e14657ccb12ecea30bae0f76469c",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5921554565429688,
+        "alpha_at_least_240_fraction": 0.3838507334391276,
+        "visible_bounds_alpha_at_least_128": [
+          21,
+          129,
+          1003,
+          1433
+        ],
+        "visible_margins_left_top_right_bottom": [
+          21,
+          129,
+          21,
+          103
+        ],
+        "edge_nonzero_pixels": 0,
+        "edge_max": 0
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-1cc65b14-ea57-4ba1-8c99-a2a57c46718a",
+          "original_png_sha256": "a5b4ca2d60fe2053a0ff6d4fdff5c12d7a3aaead42f8b3cff87ab74249877a0b"
+        },
+        {
+          "generation_id": "exec-8535e252-df68-4c31-a7d2-d2ee33f69614",
+          "original_png_sha256": "332026860a6755267896701643b3b524c353f98dfe83f4351796fd36b77b4ed3"
+        }
+      ],
+      "visual_review": "Accepted after limb-count correction: exactly six separate brass feet visible, connected under intact bowl; hit uses mechanical stance and contained fish movement. Fish faces left, all fins remain inside sealed glass, no human arms/hands, no spill/crack. Attached lantern, bags and notebook/pencils preserved; letter/ribbons absent.",
+      "limitations": [
+        "Six legs overlap naturally at the chassis, but all six separate feet are visible. Minimum alpha>=128 margins23px attack/21px hit; no clipping. True alpha preserved exactly, including visually negligible alpha1 edge residues where present."
+      ]
+    },
+    {
+      "id": "hoppycat-hoppy-cat-attack",
+      "file": "hoppycat-hoppy-cat-attack.webp",
+      "character": "Hoppy Cat",
+      "actor_ids": [
+        "hoppycat-hoppy-cat"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "8b4277c7d5ea61f5c6ba34e301b67321a939b953c5691459f9a6ae8aaecfe69a",
+      "generation_id": "exec-aacd1da3-a2f6-41ae-ba21-59884cbc321d",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 236324,
+      "sha256": "485c2ecbcab8dae4e3a4df9479bcd4507453a8207e9ce2ac3000be977f7ad9dc",
+      "original_png_sha256": "134da5c4c7047ce18b35f62ce59ea01d76dfbccfc216818145a0a23d867d5184",
+      "original_png_bytes": 1952330,
+      "alpha_sha256": "df50b09dc4283c7b8f1486183000731926aed0bcc872a5c18c278f269ce432d7",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6748479207356771,
+        "alpha_at_least_240_fraction": 0.28642908732096356,
+        "visible_bounds_alpha_at_least_128": [
+          63,
+          92,
+          970,
+          1438
+        ],
+        "visible_margins_left_top_right_bottom": [
+          63,
+          92,
+          54,
+          98
+        ],
+        "edge_nonzero_pixels": 0,
+        "edge_max": 0
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-aacd1da3-a2f6-41ae-ba21-59884cbc321d",
+          "original_png_sha256": "134da5c4c7047ce18b35f62ce59ea01d76dfbccfc216818145a0a23d867d5184"
+        }
+      ],
+      "visual_review": "Accepted: distinct attack toward SCREEN LEFT; full long green hair, green eyes, blue hoodie, jeans, sneakers and worn provenance-card satchel preserved. Microphone absent, both hands empty. Complete fingers/shoes/hair, canonical human anatomy, no injury or invented animal traits.",
+      "limitations": [
+        "True transparent alpha verified and preserved exactly. Hidden RGB may show a dark field in alpha-ignoring previews; tiny alpha1 edge residues visually negligible where present.",
+        "Minimum margins: attack54px, hit47px, guard78px. The satchel hangs at the opposite screen side in guard; canonical satchel details remain, and this is recorded for runtime art review."
+      ]
+    },
+    {
+      "id": "hoppycat-hoppy-cat-guard",
+      "file": "hoppycat-hoppy-cat-guard.webp",
+      "character": "Hoppy Cat",
+      "actor_ids": [
+        "hoppycat-hoppy-cat"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "8b4277c7d5ea61f5c6ba34e301b67321a939b953c5691459f9a6ae8aaecfe69a",
+      "generation_id": "exec-28e61bbd-cf7a-4f2b-972c-5ac8132e2ecf",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 240474,
+      "sha256": "7d133d19ea62155f0c6d0cee6860b7ab41d299e29376ab31b448c11cd921292f",
+      "original_png_sha256": "9c5c7742ab278d4d5f19a1264d9c1551a3c1b50c4afba4fc4df0cfc48017d694",
+      "original_png_bytes": 1991027,
+      "alpha_sha256": "066bab1a2ef28f3a6352548b063ba5a3ef39dca9496bbef7ee1956dd020009ef",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6664740244547526,
+        "alpha_at_least_240_fraction": 0.29245440165201825,
+        "visible_bounds_alpha_at_least_128": [
+          140,
+          78,
+          917,
+          1407
+        ],
+        "visible_margins_left_top_right_bottom": [
+          140,
+          78,
+          107,
+          129
+        ],
+        "edge_nonzero_pixels": 9,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-28e61bbd-cf7a-4f2b-972c-5ac8132e2ecf",
+          "original_png_sha256": "9c5c7742ab278d4d5f19a1264d9c1551a3c1b50c4afba4fc4df0cfc48017d694"
+        }
+      ],
+      "visual_review": "Accepted: distinct guard toward SCREEN LEFT; full long green hair, green eyes, blue hoodie, jeans, sneakers and worn provenance-card satchel preserved. Microphone absent, both hands empty. Complete fingers/shoes/hair, canonical human anatomy, no injury or invented animal traits.",
+      "limitations": [
+        "True transparent alpha verified and preserved exactly. Hidden RGB may show a dark field in alpha-ignoring previews; tiny alpha1 edge residues visually negligible where present.",
+        "Minimum margins: attack54px, hit47px, guard78px. The satchel hangs at the opposite screen side in guard; canonical satchel details remain, and this is recorded for runtime art review."
+      ]
+    },
+    {
+      "id": "hoppycat-hoppy-cat-hit",
+      "file": "hoppycat-hoppy-cat-hit.webp",
+      "character": "Hoppy Cat",
+      "actor_ids": [
+        "hoppycat-hoppy-cat"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "8b4277c7d5ea61f5c6ba34e301b67321a939b953c5691459f9a6ae8aaecfe69a",
+      "generation_id": "exec-63ee7ed1-69fa-462e-91c4-f22b4ad7daa0",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 242864,
+      "sha256": "4525e1ed143fedcb80355f579a87c5f92b94447f3d10eaf0579892ae8dcbf98c",
+      "original_png_sha256": "eb07eac3eed99a3c3764215c85bb362a4ac8dec563d5c6dd2d9d326d5b168d57",
+      "original_png_bytes": 1982228,
+      "alpha_sha256": "16e83d9336ab4ec894980f08a320db7fb2c174678dd725c0a6dadfd39728db6c",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6754385630289713,
+        "alpha_at_least_240_fraction": 0.2802130381266276,
+        "visible_bounds_alpha_at_least_128": [
+          224,
+          86,
+          977,
+          1445
+        ],
+        "visible_margins_left_top_right_bottom": [
+          224,
+          86,
+          47,
+          91
+        ],
+        "edge_nonzero_pixels": 9,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-63ee7ed1-69fa-462e-91c4-f22b4ad7daa0",
+          "original_png_sha256": "eb07eac3eed99a3c3764215c85bb362a4ac8dec563d5c6dd2d9d326d5b168d57"
+        }
+      ],
+      "visual_review": "Accepted: distinct hit toward SCREEN LEFT; full long green hair, green eyes, blue hoodie, jeans, sneakers and worn provenance-card satchel preserved. Microphone absent, both hands empty. Complete fingers/shoes/hair, canonical human anatomy, no injury or invented animal traits.",
+      "limitations": [
+        "True transparent alpha verified and preserved exactly. Hidden RGB may show a dark field in alpha-ignoring previews; tiny alpha1 edge residues visually negligible where present.",
+        "Minimum margins: attack54px, hit47px, guard78px. The satchel hangs at the opposite screen side in guard; canonical satchel details remain, and this is recorded for runtime art review."
+      ]
     },
     {
       "id": "hoppycat-ledger-opus-attack",
@@ -3959,6 +7221,213 @@
       ]
     },
     {
+      "id": "hoppycat-nix-fermata-attack",
+      "file": "hoppycat-nix-fermata-attack.webp",
+      "character": "Nix Fermata",
+      "actor_ids": [
+        "hoppycat-nix-fermata"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "12f8d9951ac94f773f56dab7c1680ac2c9674239dbf8c493286d84451929a85c",
+      "generation_id": "exec-0e7f14dc-734a-4ee7-bba5-e12964aaacc5",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 198994,
+      "sha256": "59e7923d85e056bb7e8da7ffafed374cabecdbff182dca6f19f1d8ba7f59435b",
+      "original_png_sha256": "82889b8b41824088deff7eede551493876480e183c389ec514a8f47805ffa61c",
+      "original_png_bytes": 1857932,
+      "alpha_sha256": "a3c4f6b249507ff653194ebccdf149f9bb0952a1adbf727deb5e6ec6d0419197",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6917444864908854,
+        "alpha_at_least_240_fraction": 0.28319422403971356,
+        "visible_bounds_alpha_at_least_128": [
+          80,
+          194,
+          966,
+          1372
+        ],
+        "visible_margins_left_top_right_bottom": [
+          80,
+          194,
+          58,
+          164
+        ],
+        "edge_nonzero_pixels": 0,
+        "edge_max": 0
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-0e7f14dc-734a-4ee7-bba5-e12964aaacc5",
+          "original_png_sha256": "82889b8b41824088deff7eede551493876480e183c389ec514a8f47805ffa61c"
+        },
+        {
+          "generation_id": "exec-8c373120-d47e-4762-88ff-075458433283",
+          "original_png_sha256": "4dd001f6ad2c8cdc6c50e9b1665bfe5cd19508366587d11391f41116c9be3a24"
+        }
+      ],
+      "visual_review": "Accepted after framing-only edit: distinct attack toward SCREEN LEFT. Complete tall ears, two canonical bat arms/hands with wing membranes, two clawed hind feet, furry tail and red fringed scarf remain uncropped. Exact dark clothing, worn satchel and attached vial/kit preserved. No handheld bell, extra human limbs or injury.",
+      "limitations": [
+        "Minimum visible alpha>=128 margin: attack58px, hit85px, guard56px. True alpha preserved exactly; tiny alpha1 edge residues are visually negligible where present."
+      ]
+    },
+    {
+      "id": "hoppycat-nix-fermata-guard",
+      "file": "hoppycat-nix-fermata-guard.webp",
+      "character": "Nix Fermata",
+      "actor_ids": [
+        "hoppycat-nix-fermata"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "12f8d9951ac94f773f56dab7c1680ac2c9674239dbf8c493286d84451929a85c",
+      "generation_id": "exec-970bf99a-85f1-4ef8-9995-169d9dceee50",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 213050,
+      "sha256": "5ab864d8d7941a186dab8d4369706eb984a8b01b8af47400bacde082d8f2058a",
+      "original_png_sha256": "076cc4ba88ed3d74390097c52b6cf6db59fd5d572112a8b6e6a2dde5f1c720f3",
+      "original_png_bytes": 1912138,
+      "alpha_sha256": "520c1161ca72bd4a6bfaaf5f81cf6a56b607da6016c9e56add0a5d39cc9892a7",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6689815521240234,
+        "alpha_at_least_240_fraction": 0.3088537851969401,
+        "visible_bounds_alpha_at_least_128": [
+          77,
+          135,
+          968,
+          1415
+        ],
+        "visible_margins_left_top_right_bottom": [
+          77,
+          135,
+          56,
+          121
+        ],
+        "edge_nonzero_pixels": 21,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-1eb53aa2-60da-4dfd-9a83-3b973367137c",
+          "original_png_sha256": "7e94025e59629a2f81966e52c0c3179ccad08086c7b3a2f0ad91015fbf0f3b3c"
+        },
+        {
+          "generation_id": "exec-970bf99a-85f1-4ef8-9995-169d9dceee50",
+          "original_png_sha256": "076cc4ba88ed3d74390097c52b6cf6db59fd5d572112a8b6e6a2dde5f1c720f3"
+        }
+      ],
+      "visual_review": "Accepted after framing-only edit: distinct guard toward SCREEN LEFT. Complete tall ears, two canonical bat arms/hands with wing membranes, two clawed hind feet, furry tail and red fringed scarf remain uncropped. Exact dark clothing, worn satchel and attached vial/kit preserved. No handheld bell, extra human limbs or injury.",
+      "limitations": [
+        "Minimum visible alpha>=128 margin: attack58px, hit85px, guard56px. True alpha preserved exactly; tiny alpha1 edge residues are visually negligible where present."
+      ]
+    },
+    {
+      "id": "hoppycat-nix-fermata-hit",
+      "file": "hoppycat-nix-fermata-hit.webp",
+      "character": "Nix Fermata",
+      "actor_ids": [
+        "hoppycat-nix-fermata"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "12f8d9951ac94f773f56dab7c1680ac2c9674239dbf8c493286d84451929a85c",
+      "generation_id": "exec-11941cc8-94e1-4005-b982-2233d0cc2356",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 192142,
+      "sha256": "76bfee869ec1987729aed5411e4e46ac3bc272ecdb6e7397f51811d62eef91d5",
+      "original_png_sha256": "f1c181d7bb8ec611d1f2fa495b6d0c1cab5dd3dc74b783129cdbbf0fa72dce0b",
+      "original_png_bytes": 1798061,
+      "alpha_sha256": "ab80dd26eb59b2524cae518f279387556c06663311e02d83c8024dcae3e9e758",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.7103443145751953,
+        "alpha_at_least_240_fraction": 0.2699877421061198,
+        "visible_bounds_alpha_at_least_128": [
+          110,
+          153,
+          939,
+          1357
+        ],
+        "visible_margins_left_top_right_bottom": [
+          110,
+          153,
+          85,
+          179
+        ],
+        "edge_nonzero_pixels": 1,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-11941cc8-94e1-4005-b982-2233d0cc2356",
+          "original_png_sha256": "f1c181d7bb8ec611d1f2fa495b6d0c1cab5dd3dc74b783129cdbbf0fa72dce0b"
+        },
+        {
+          "generation_id": "exec-1eef355d-809c-4a19-b171-6052f44caea8",
+          "original_png_sha256": "f5088eb1d76bc0b77a1701a991eb76766d0ee1c324444ad834221258aac29588"
+        }
+      ],
+      "visual_review": "Accepted after framing-only edit: distinct hit toward SCREEN LEFT. Complete tall ears, two canonical bat arms/hands with wing membranes, two clawed hind feet, furry tail and red fringed scarf remain uncropped. Exact dark clothing, worn satchel and attached vial/kit preserved. No handheld bell, extra human limbs or injury.",
+      "limitations": [
+        "Minimum visible alpha>=128 margin: attack58px, hit85px, guard56px. True alpha preserved exactly; tiny alpha1 edge residues are visually negligible where present."
+      ]
+    },
+    {
       "id": "hoppycat-patch-fern-attack",
       "file": "hoppycat-patch-fern-attack.webp",
       "character": "Patch Fern",
@@ -4350,6 +7819,195 @@
       "limitations": [
         "Minimum visible margins28px attack,31px hit,63px guard; no clipping. Tiny alpha1 edge residues are visually negligible; source alpha preserved exactly."
       ]
+    },
+    {
+      "id": "hoppycat-phase-two-attack",
+      "file": "hoppycat-phase-two-attack.webp",
+      "character": "Phase Two",
+      "actor_ids": [
+        "hoppycat-phase-two"
+      ],
+      "pose": "attack",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "a08b48da37377fdb69d27e2debc42e1228c2132abb1b13df1b2895acfccb7258",
+      "generation_id": "exec-d964c652-a882-4f85-b625-e9c96644f27a",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 204724,
+      "sha256": "8406c0061fb2214811e0676072588b354c614220aff7539882486e4352f3a67b",
+      "original_png_sha256": "f95497db704fca878be5b6ba886e7ea13946a0a6597de68b09645441a62b5c26",
+      "original_png_bytes": 1821029,
+      "alpha_sha256": "39a09f30d8510a469d85636a9d862f5967d936adb81653c2012f71b682d32a5b",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6510531107584635,
+        "alpha_at_least_240_fraction": 0.31674830118815106,
+        "visible_bounds_alpha_at_least_128": [
+          54,
+          46,
+          996,
+          1473
+        ],
+        "visible_margins_left_top_right_bottom": [
+          54,
+          46,
+          28,
+          63
+        ],
+        "edge_nonzero_pixels": 11,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-d964c652-a882-4f85-b625-e9c96644f27a",
+          "original_png_sha256": "f95497db704fca878be5b6ba886e7ea13946a0a6597de68b09645441a62b5c26"
+        }
+      ],
+      "visual_review": "The canonical face, hair, clothing, attached accessories, colour palette and illustration style are retained. Distinct three-quarter leftward strike, recoil or guard, with complete hands, hair, coat tails and shoes within clear margins.",
+      "limitations": "Generated paint is visually matched, not pixel-identical."
+    },
+    {
+      "id": "hoppycat-phase-two-guard",
+      "file": "hoppycat-phase-two-guard.webp",
+      "character": "Phase Two",
+      "actor_ids": [
+        "hoppycat-phase-two"
+      ],
+      "pose": "guard",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "a08b48da37377fdb69d27e2debc42e1228c2132abb1b13df1b2895acfccb7258",
+      "generation_id": "exec-678ddf4e-5948-46e5-8bed-9bb046c9312e",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 195298,
+      "sha256": "03c719601086aecff722a9ee51178db8a3f6cfa077a51f262c48372ced66bcdf",
+      "original_png_sha256": "b6ce753e964da50df239e0296dbf8b83e32d39d5bf68c050826b5fb572157abd",
+      "original_png_bytes": 1808647,
+      "alpha_sha256": "75663429af94a6a55f73742a2f8a7e13f9d6ab2f14dbbdb2f8ea157588470b06",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6602884928385416,
+        "alpha_at_least_240_fraction": 0.3122406005859375,
+        "visible_bounds_alpha_at_least_128": [
+          142,
+          31,
+          959,
+          1502
+        ],
+        "visible_margins_left_top_right_bottom": [
+          142,
+          31,
+          65,
+          34
+        ],
+        "edge_nonzero_pixels": 25,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-678ddf4e-5948-46e5-8bed-9bb046c9312e",
+          "original_png_sha256": "b6ce753e964da50df239e0296dbf8b83e32d39d5bf68c050826b5fb572157abd"
+        }
+      ],
+      "visual_review": "The canonical face, hair, clothing, attached accessories, colour palette and illustration style are retained. Distinct three-quarter leftward strike, recoil or guard, with complete hands, hair, coat tails and shoes within clear margins.",
+      "limitations": "Generated paint is visually matched, not pixel-identical."
+    },
+    {
+      "id": "hoppycat-phase-two-hit",
+      "file": "hoppycat-phase-two-hit.webp",
+      "character": "Phase Two",
+      "actor_ids": [
+        "hoppycat-phase-two"
+      ],
+      "pose": "hit",
+      "presentation": "portrait",
+      "wardrobe": "canonical",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/037c155514965c20af6762eb389db2c2c2794a9a/v2/card-game/assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
+      "reference_path": "v2/card-game/assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
+      "reference_commit": "037c155514965c20af6762eb389db2c2c2794a9a",
+      "reference_sha256": "a08b48da37377fdb69d27e2debc42e1228c2132abb1b13df1b2895acfccb7258",
+      "generation_id": "exec-b6a775eb-28fb-414b-9cb7-d420d565dd44",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 210364,
+      "sha256": "416d0724a1140059a4155a601a41d983180237019674b565e986393353d6aa60",
+      "original_png_sha256": "2f7f89139b57c8d39b46a89ae6d803a72e66ed3d1cfe3456aa129b89da28987f",
+      "original_png_bytes": 1856354,
+      "alpha_sha256": "087b9dfe520828eed35a634f2bf5e8803a53e53609adf88f3de12fd101e111d7",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6277198791503906,
+        "alpha_at_least_240_fraction": 0.3426685333251953,
+        "visible_bounds_alpha_at_least_128": [
+          97,
+          27,
+          975,
+          1496
+        ],
+        "visible_margins_left_top_right_bottom": [
+          97,
+          27,
+          49,
+          40
+        ],
+        "edge_nonzero_pixels": 20,
+        "edge_max": 1
+      },
+      "encoding": {
+        "format": "webp",
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "processing": "Encoding only; original dimensions and every alpha value preserved. No crop, resize, compositing, opacity changes or visual postprocessing.",
+      "generation_references": [
+        {
+          "generation_id": "exec-b6a775eb-28fb-414b-9cb7-d420d565dd44",
+          "original_png_sha256": "2f7f89139b57c8d39b46a89ae6d803a72e66ed3d1cfe3456aa129b89da28987f"
+        }
+      ],
+      "visual_review": "The canonical face, hair, clothing, attached accessories, colour palette and illustration style are retained. Distinct three-quarter leftward strike, recoil or guard, with complete hands, hair, coat tails and shoes within clear margins.",
+      "limitations": "Generated paint is visually matched, not pixel-identical."
     },
     {
       "id": "hoppycat-rill-current-attack",

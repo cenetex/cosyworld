@@ -21,6 +21,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
+  backdrop,
   portrait,
   residentPose,
   sceneStaging,
@@ -353,6 +354,21 @@ describe("The Willows", () => {
     world = move(world, "willows-landing");
     expect(canoe(world)).toBe(true);
     expect(exits(world, "willows-landing", "willows-swede")).toContain("pond");
+    const painting = (w) => backdrop("willows-landing", w);
+    const mended = "./assets/willows/landing-mended.webp";
+    const day = clock(structuredClone(world), false);
+    expect(painting(day)).toBe(mended);
+    expect(painting(decodeSave(encodeSave(day)))).toBe(mended);
+    expect(painting(clock(gone, false))).not.toBe(mended);
+    const departed = structuredClone(day);
+    departed.packs.willows.flags["willows-swede-gone"] = true;
+    expect(painting(departed)).not.toBe(mended);
+    const night = clock(structuredClone(day), true);
+    while (darkMist(night)) night.turn += 1;
+    expect(painting(night)).toBe("./assets/willows/landing-night.webp");
+    const misty = mist(structuredClone(day));
+    misty.transports["greek-ship"].dock = "pond";
+    expect(painting(misty)).toBe("./assets/willows/landing-ship-night.webp");
     expect(move(world, "pond").actors.vale.place).toBe("pond");
   });
 

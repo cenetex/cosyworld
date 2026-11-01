@@ -759,6 +759,7 @@
       "retired": true
     },
     "greek-ajax-landing": {
+      "stage": { "focus": { "x": 80, "y": 50 } },
       "name": "The Trojan Camp Landing",
       "text": "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",

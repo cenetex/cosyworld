@@ -1,0 +1,161 @@
+{
+  "createdAt": "2026-11-01T06:19:33.857255+00:00",
+  "generator": "OpenAI built-in image generation",
+  "referenceCommit": "fac0aeca30a5897e261a88738d658fd8173afaec",
+  "canvasContract": {
+    "width": 1672,
+    "height": 941,
+    "opaque": true,
+    "maximumBytes": 300000
+  },
+  "scope": "Two existing shore locations: Trojan camp landing (day and night) and Hoppycat Signal Jetty (fixed starlight). Complete paintings with the visiting Greek ship present; existing shore paintings remain the ship-away state.",
+  "assets": [
+    {
+      "key": "trojan-day",
+      "file": "v2/card-game/assets/greek-drama/ajax-landing-ship-at-berth.webp",
+      "generationId": "exec-08f11e9b-6abb-40ff-bcd1-7c8b4c13f37f",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "opaque": true,
+      "originalPngBytes": 3371035,
+      "originalPngSha256": "d0d04b02d196fea6013adeb19ed161132494aef16815ffb4248d09b1d4977c4a",
+      "encoding": {
+        "format": "webp",
+        "quality": 60,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "bytes": 294756,
+      "sha256": "f82218791d148b644d4c472554c0a56c65a353b78beb7c72b1c94a52147cf587",
+      "processing": "WebP encoding only; no crop, resize, retouching or compositing. Fully opaque generated alpha, if present, omitted from RGB WebP.",
+      "prompt": "Use case: compositing.\nAsset type: complete opaque landscape painting for an existing Cosyworld game location, 1672 x 941, widescreen approximately 16:9.\nPrimary request: edit Image 1, the existing Trojan camp landing in daylight, to show the player's Greek ship newly berthed at the camp. This must read as an alternate state of exactly the same place.\nInput images: Image 1 is the edit target and controls the entire camera, horizon, scene geometry, light and painterly rendering. Image 2 is the primary reference for the visiting ship's identity and moored rigging. Image 3 is a supporting reference for that ship's dark timber and curled ornamental prow only; do not copy its setting.\nPreserve the sandy clearing and broad clear lower foreground, cream tents with red drapery on the left, olive branches, shore, distant walled citadel, dry hills, blue sea, and brilliant warm afternoon sky of Image 1. Existing camp boats stay in the background where visible.\nAdd one clearly identifiable visiting vessel in the nearest available water berth at the center-right shore, with its stern extending toward the image center so the hull and mast still read in a centered portrait crop. It is a dark weathered wooden ancient Greek sailing ship, warm muted red-and-gold hull band, painted eye near the high inward-curled prow, single mast and ivory square sail tightly furled across the yard, taut natural rope rigging, coiled ropes and a short usable timber boarding plank meeting the shore. Match the ship of Image 2, with the darker carved timber character of Image 3. It sits in the water, physically moored to shore posts, in correct perspective and scale relative to the tents and nearby camp boats. The visiting ship is prominent and distinct from the local camp fleet. Integrate its waterline, small ripples, reflections, sunlight and contact shadows naturally.\nKeep the precise original view and location identity. Use the same finely detailed storybook oil-painted adventure-game aesthetic, visible brush texture and material detail. No people, no character sprites, no lettering, no watermark, no UI, no borders. Do not bring the Black Pond mirror, forest, or another harbor's architecture into this scene. The lower central sandy foreground remains open for game characters. Output one complete opaque landscape painting, not a cutout, not a collage.",
+      "references": [
+        {
+          "path": "v2/card-game/assets/greek-drama/ajax-camp-day.webp",
+          "sha256": "846fd6875ded126c01eb4108247d5b94c5a0c6fbf2f9909ff42dafe21ebfbe77",
+          "gitBlob": "06a6c9e7e341c0d17edc138a4f1295042033fa89",
+          "bytes": 791734
+        },
+        {
+          "path": "v2/card-game/assets/greek-drama/harbor-ship-at-berth.webp",
+          "sha256": "f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0",
+          "gitBlob": "68f5d62273f28b298b2ebd756c078f6c74680ee1",
+          "bytes": 677188
+        },
+        {
+          "path": "v2/card-game/assets/greek-drama/ship-card.webp",
+          "sha256": "c7789a3163cbd45ac8cc9fccda27591f58d66c23dafb19e768545b68707fcd06",
+          "gitBlob": "0abd7b15e6322c603d5921d3d4fd2027075e49b2",
+          "bytes": 453366
+        }
+      ]
+    },
+    {
+      "key": "hoppycat",
+      "file": "v2/card-game/assets/greek-drama/hoppycat-signal-jetty-ship-at-berth.webp",
+      "generationId": "exec-7d185c52-c576-4e32-bf34-bcfd8467de52",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "opaque": true,
+      "originalPngBytes": 2492253,
+      "originalPngSha256": "d9228343477c373438768eab7eb42bfa8d820402d53a4b339024e4564247aac9",
+      "encoding": {
+        "format": "webp",
+        "quality": 84,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "bytes": 284438,
+      "sha256": "abecab72e7a0848ee7ee67d3e4bbc24a1e7a2cb0d5d32917db3d87ebe30e6aa4",
+      "processing": "WebP encoding only; no crop, resize, retouching or compositing. Fully opaque generated alpha, if present, omitted from RGB WebP.",
+      "prompt": "Use case: compositing.\nAsset type: complete opaque landscape painting for an existing Cosyworld game location, 1672 x 941, widescreen approximately 16:9.\nPrimary request: edit Image 1, the existing Hoppy Cat Signal Jetty, to show the same visiting Greek ship moored alongside the jetty. This must read as an alternate state of exactly this scene.\nInput images: Image 1 is the edit target, controlling the complete camera, horizon, composition, nighttime palette and painterly style. Image 2 is the primary identity and docking reference for the visiting Greek ship. Image 3 is a supporting reference for its dark timber, curled ornamental prow and restrained warm ship lanterns; do not copy Image 3's location or giant mirror.\nPreserve Image 1's wooden jetty, red-thread railings and posts, cube lanterns, leafy path at left, observatory and dishes, large circular brass ring at the end of the jetty, luminous star constellation, moon and jewel-colored floating signal buoys and paper boats. Keep the same horizon, viewpoint and quiet blue starry night.\nAdd the Greek ship immediately alongside the outer right side of the jetty, extending from near the center into the right-hand sea. Place part of its stern/hull and mast within the central area so the ship is still recognizable in a centered phone/portrait crop. Keep the jetty's brass ring clearly visible in front, with believable depth and overlap. Preserve visible nearby signal buoys where they are not naturally occluded by the ship.\nThe vessel matches Image 2: dark weathered wooden hull, restrained red-and-gold trim, an eye near a high curled prow, one mast, an ivory square sail furled on its yard, natural rigging, shore mooring ropes, a small boarding plank connecting ship to jetty. Its darker carved timber and a few tiny amber lanterns recall Image 3. It is a wooden ancient Greek ship arriving in this whimsical signal harbor, not a spaceship, modern yacht or new kind of boat. Match its cool moonlit edges and warm reflected jetty lanterns to this scene. Add only physically necessary shadows, ripples and reflections.\nDo not move, redesign or replace the jetty, brass ring, observatory or sky; no new buildings or terrain. Preserve the broad lower wooden foreground for character sprites. No characters or people, no lettering, no logos, no watermark, no UI or border. Match the detailed storybook oil-painted adventure-game style and existing brush texture. Output one complete opaque landscape painting, not a cutout, not a collage.",
+      "references": [
+        {
+          "path": "v2/card-game/assets/hoppycat-archive/hoppycat-signal-jetty.webp",
+          "sha256": "7732aa62df2edbc6b34e47269ddce9e4c2b02634e765c90e3bfef2115e62d293",
+          "gitBlob": "c0e56db6f9b153feade40a33a67f19caae4de922",
+          "bytes": 277058
+        },
+        {
+          "path": "v2/card-game/assets/greek-drama/harbor-ship-at-berth.webp",
+          "sha256": "f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0",
+          "gitBlob": "68f5d62273f28b298b2ebd756c078f6c74680ee1",
+          "bytes": 677188
+        },
+        {
+          "path": "v2/card-game/assets/greek-drama/ship-card.webp",
+          "sha256": "c7789a3163cbd45ac8cc9fccda27591f58d66c23dafb19e768545b68707fcd06",
+          "gitBlob": "0abd7b15e6322c603d5921d3d4fd2027075e49b2",
+          "bytes": 453366
+        }
+      ]
+    },
+    {
+      "key": "trojan-night",
+      "file": "v2/card-game/assets/greek-drama/ajax-landing-ship-at-berth-night.webp",
+      "generationId": "exec-4ba77b8b-e755-486d-b3e6-eafb9a888117",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "opaque": true,
+      "originalPngBytes": 3103420,
+      "originalPngSha256": "dd9f8db430cff29a3bf603272a3f7e9f74425853afb73aa77d4692bb0160edd4",
+      "encoding": {
+        "format": "webp",
+        "quality": 76,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "bytes": 289130,
+      "sha256": "0f671427cbde32fc72935975f343c827f8ad90aea4155eeff6a1f556dd5a2a0f",
+      "processing": "WebP encoding only; no crop, resize, retouching or compositing. Fully opaque generated alpha, if present, omitted from RGB WebP.",
+      "prompt": "Use case: lighting-weather.\nAsset type: complete opaque Cosyworld landscape alternate, exactly 1672 x 941.\nPrimary request: make the NIGHT counterpart of Image 1, the new Trojan camp landing with the visiting Greek ship at berth. Change lighting, sky and emitted lamps only. It must align with the day painting when the game changes time.\nInput images: Image 1 is the authoritative EDIT TARGET and geometry reference. Image 2 is the original camp's nighttime lighting reference only.\nPreserve Image 1's exact full canvas, camera, horizon, perspective and composition: sandy open foreground, left cream/red tents and all their equipment, olive canopy, shore and distant walled citadel; every background camp boat; and especially the entire new dark-timber Greek ship in the same center-right berth. Keep the ship's hull silhouette, red-and-gold band and eye, tall inward-curled prow, single mast, furled ivory sail, rigging, cargo, mooring posts/ropes and boarding plank in the same positions and with the same design.\nApply Image 2's clear deep-blue moonlit night: starry sky, moon in the upper-right sky in the existing night-reference position where the rigging permits, cool silver-blue light over sand, tent roofs, furled sail, ropes and the water. Warm restrained amber firelight glows inside the existing camp tents and in the same existing braziers. The visiting ship has only a few small practical amber lanterns; preserve readable dark carved wood without turning the whole hull orange. Distant citadel windows glow subtly. Water carries physically consistent broken moon and lamp reflections. Keep all structural details legible; it should look like the same detailed storybook oil-painted scene at night.\nDo not move, scale, add or remove boats, tents, objects, ropes, buildings or terrain. Do not change the shore or enlarge the moon. Do not introduce fog, rain, smoke, weather streaks, people, silhouettes, text, UI, borders or watermark. No crop, zoom, rotation or reframing. Full opaque landscape, not a cutout or collage. The clear lower central ground remains available for game characters.",
+      "references": [
+        {
+          "role": "geometry edit target",
+          "generationId": "exec-08f11e9b-6abb-40ff-bcd1-7c8b4c13f37f",
+          "originalPngSha256": "d0d04b02d196fea6013adeb19ed161132494aef16815ffb4248d09b1d4977c4a"
+        },
+        {
+          "path": "v2/card-game/assets/greek-drama/ajax-camp-night.webp",
+          "sha256": "45dd0233ac83a755d6f4aa645683c77aa1959d4f68128668f4a11cb9a61a2bbb",
+          "gitBlob": "7a1f927c6becc3b7dec3727921adc6d0e00d9ba0",
+          "bytes": 616244
+        }
+      ]
+    }
+  ],
+  "integration": {
+    "bridge": "v2/worlds/greek-drama/card-bridge.json",
+    "crossings": [
+      "greek-ajax-landing-ship",
+      "hoppycat-signal-jetty-ship"
+    ],
+    "nightMapping": "v2/card-game/daylight.mjs dockedNightBackdrops",
+    "behavior": "Existing ship custody, invitation, signal, weather and arrival/departure conditions select the berth painting and matching boarding card. No travel rules changed.",
+    "assetOwnership": "All new berth images belong to greek-drama, which owns both transport crossings. The original Hoppycat empty-jetty image remains owned by hoppycat-archive.",
+    "framing": {
+      "trojan": {
+        "x": 80,
+        "y": 50
+      },
+      "hoppycat": {
+        "x": 90,
+        "y": 50
+      },
+      "behavior": "Berth scenery focus frames the stage and boarding card; source paintings and generated WebP dimensions are unchanged."
+    }
+  },
+  "visualReview": {
+    "sourcePaintings": "Reviewed for existing location identity, ship design, physical mooring, clear foreground and day/night geometry.",
+    "limitation": "Generated paint textures are not pixel-identical to the references. The image edits preserve visual scene geometry rather than claiming exact unchanged pixels."
+  }
+}

@@ -24,7 +24,7 @@ export function combatPortrait(id, pose, source, facing) {
     : stem
       ? `assets/combat/${stem}-${pose}.webp`
       : `assets/combat/${id}${scarf ? "-scarf" : ""}-${pose}.webp`;
-  return variants.images[file] ? `./${file}` : null;
+  return variants.images[file]?.stage ? `./${file}` : null;
 }
 
 export function showCombatPortrait(figure, source, pose) {
@@ -108,8 +108,7 @@ export function createCombatPortraits(fighter) {
             }),
         ),
       );
-      for (const [figure, original] of originals)
-        if (players.has(original.id)) figure.dataset.framing = "wide";
+      for (const figure of originals.keys()) figure.dataset.framing = "wide";
     },
     // Before the first frame the two fighters turn to face each other,
     // whoever they were watching. The keeper's clock is never mirrored:
@@ -152,7 +151,7 @@ export function createCombatPortraits(fighter) {
       );
       if (source && ready.has(source)) showCombatPortrait(figure, source, pose);
       else restore(figure, original);
-      if (players.has(id)) figure.dataset.framing = "wide";
+      figure.dataset.framing = "wide";
       figure.dataset.pose = value;
     },
     restore() {

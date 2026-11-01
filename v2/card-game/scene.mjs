@@ -166,7 +166,11 @@ export function travelCard(world, id) {
     ? daylightBackdrop(world, c.from, c.scenery.backdrop)
     : c?.scenery?.cardArt;
   return c?.scenery
-    ? { name: c.scenery.cardName || nameOf(id), art: art ? `./${art}` : null }
+    ? {
+        name: c.scenery.cardName || nameOf(id),
+        art: art ? `./${art}` : null,
+        ...(moored && c.scenery.focus ? { focus: c.scenery.focus } : {}),
+      }
     : null;
 }
 const personIds = Object.keys(people);
