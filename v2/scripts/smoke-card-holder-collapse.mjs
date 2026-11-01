@@ -196,12 +196,15 @@ try {
         assert(
           await page.locator('#card-actions [data-action="light"]').count(),
         );
-        // Pip's pack is private: no stack, and his Bell never reaches the hand.
+        // Opening the other holder and choosing its child preserves the first item.
         await tap("moth");
-        assert.deepEqual(await selected(), ["lamp", "moth"]);
-        assert.equal(await frame("moth").getAttribute("data-inventory"), null);
-        assert.equal(await page.locator('#hand [data-card="bell"]').count(), 0);
-        assert.equal(await frame("moth").locator(".held-preview").count(), 0);
+        await tap("bell");
+        assert.deepEqual(await selected(), ["bell", "lamp"]);
+        assert.equal(await card("moth").getAttribute("aria-expanded"), "false");
+        assert.equal(
+          await page.locator(".card-primary").innerText(),
+          "Trade Lamp for Bell",
+        );
         await tap("pond");
         assert.deepEqual(
           await selected(),
@@ -432,15 +435,28 @@ try {
           "a taken item is raised in the hand",
         );
         assert.equal(await frame("oil").getAttribute("hidden"), null);
-        // Pip's Bell stays hidden, so no Trade can be built by browsing it.
         await tap("moth");
-        assert.equal(await page.locator('#hand [data-card="bell"]').count(), 0);
+        await tap("bell");
+        assert.deepEqual(await selected(), ["bell", "oil"]);
+        assert.equal(
+          await page.locator(".card-primary").innerText(),
+          "Trade Oil flask for Bell",
+        );
+        await page.waitForTimeout(600);
+        await action("trade").click();
+        await settled();
+        assert.deepEqual(
+          await selected(),
+          ["bell"],
+          "Pip's side of the trade is raised in the hand",
+        );
+        assert.equal(await frame("bell").getAttribute("hidden"), null);
         await page.screenshot({
           path: new URL(`${table}-received.png`, output).pathname,
         });
         assert.deepEqual(errors, []);
         console.log(
-          `${table}: avatar stack, chosen child, cross-holder pair, quest-free stacks, Escape and outside reset, held item through Light, Give and Put down, raised Take, private other packs passed`,
+          `${table}: avatar stack, chosen child, cross-holder pair, quest-free stacks, Escape and outside reset, held item through Light, Give and Put down, raised Take and Trade passed`,
         );
       } catch (error) {
         await page.screenshot({
@@ -520,9 +536,7 @@ try {
       const avatar = page.locator('#hand [data-card="mara"]');
       await avatar.scrollIntoViewIfNeeded();
       await avatar.click();
-      assert.equal(await avatar.getAttribute("aria-pressed"), "true");
-      // Mara's float is hers: her card shows no stack to open.
-      assert.equal(await avatar.getAttribute("aria-expanded"), null);
+      assert.equal(await avatar.getAttribute("aria-expanded"), "true");
       snapshot.queue = [
         { id: "thinking-play", actor: "vale", status: "working" },
       ];
@@ -546,6 +560,7 @@ try {
       snapshot.now = Date.now();
       await avatar.waitFor({ state: "visible" });
       assert.equal(await avatar.getAttribute("aria-pressed"), "false");
+      assert.equal(await avatar.getAttribute("aria-expanded"), "false");
       assert.equal(
         await page.locator('#hand [data-card="float"]').isVisible(),
         false,
