@@ -139,8 +139,9 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                         + 4
                         // Greek revision 9: the Suppliant's Olive Branch.
                         + 1
-                        // The storybook world map at the empty station.
-                        + 1
+                        // The storybook world map was retired on 2026-11-01
+                        // (docs/design/storybook-map-item.md); upgrades no
+                        // longer add it.
                         // The Lonely Forest: the Wolfprint Charm and eight
                         // buttons and scarves.
                         + 17

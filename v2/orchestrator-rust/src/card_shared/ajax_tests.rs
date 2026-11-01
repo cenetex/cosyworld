@@ -234,14 +234,23 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         }
         if target == "greek-harbor" {
             // Home from the landing by Marathon Bay and Piraeus: a course
-            // card, then a round at sea, for each lane.
+            // card, then a round at sea, for each lane. A course card is
+            // only a lane Mara knows, which may be the lane back, so take
+            // only the next lane homeward; otherwise wait, and an idle ship
+            // sails its port's first lane by itself.
             for _ in 0..24 {
                 if action(&world, 1, &[("kind", "move"), ("target", target)]).is_some() {
                     break;
                 }
-                let next = [target, "greek-piraeus", "greek-marathon"]
-                    .into_iter()
-                    .find(|to| action(&world, 1, &[("kind", "course"), ("target", to)]).is_some());
+                let homeward = match world.game["transports"]["greek-ship"]["dock"].as_str() {
+                    Some("greek-ajax-landing") => Some("greek-marathon"),
+                    Some("greek-marathon") => Some("greek-piraeus"),
+                    Some("greek-piraeus") => Some(target),
+                    _ => None,
+                };
+                let next = homeward.filter(|to| {
+                    action(&world, 1, &[("kind", "course"), ("target", to)]).is_some()
+                });
                 match next {
                     Some(to) => play(
                         &c,
