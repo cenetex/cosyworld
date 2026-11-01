@@ -1794,9 +1794,9 @@
     return openLanes(s, t, state.dock, actor);
   }
   function transportExits(s, place, previous = null, actor = null) {
-    const found = shipAt(place);
-    if (!found) return [];
-    const [id, t] = found, state = read(s, id);
+    const found2 = shipAt(place);
+    if (!found2) return [];
+    const [id, t] = found2, state = read(s, id);
     const aboard = actor && s.actors[actor]?.place === t.place;
     if (previous !== null && previous !== void 0 || !aboard) {
       if (t.docks.includes(previous)) return laneReach(s, id, previous, actor);
@@ -1812,9 +1812,9 @@
     ];
   }
   function transportScenery(s, place, nameOf2) {
-    const found = shipAt(place);
-    if (!found) return [];
-    const state = read(s, found[0]);
+    const found2 = shipAt(place);
+    if (!found2) return [];
+    const state = read(s, found2[0]);
     if (state.phase === "sea")
       return [`The ship is at sea, bound for ${nameOf2(state.destination)}.`];
     if (state.phase === "course")
@@ -16430,7 +16430,7 @@
   var things = { ...packThings, ...forest_default.things };
   validatePackLinks(places, people, things);
   var atticInterior = (() => {
-    const found = /* @__PURE__ */ new Set(["attic"]), queue = ["attic"];
+    const found2 = /* @__PURE__ */ new Set(["attic"]), queue = ["attic"];
     const routes = packDefinitions.flatMap((pack) => pack.routes || []);
     for (let i = 0; i < queue.length && i < Object.keys(places).length; i++) {
       const from = queue[i];
@@ -16439,12 +16439,12 @@
         ...crossings.filter((c) => c.from === from && !c.transport).map((c) => c.to),
         ...routes.filter((r) => r.from === from).map((r) => r.to)
       ]) {
-        if (to === "pond" || found.has(to)) continue;
-        found.add(to);
+        if (to === "pond" || found2.has(to)) continue;
+        found2.add(to);
         queue.push(to);
       }
     }
-    return found;
+    return found2;
   })();
   var ids = Object.keys(things);
   var actorIds = [...Object.keys(forest_default.people), ...packActorIds];
@@ -17198,6 +17198,88 @@
     return dockedNightBackdrops[file] || nightBackdrops[id] || file;
   }
 
+  // v2/card-game/speech-knowledge.mjs
+  var UNKNOWN_THING = "something I can't make out";
+  var UNKNOWN_PERSON = "someone I haven't met yet";
+  var unnamed = (world, id) => world.actors[id] ? UNKNOWN_PERSON : world.items[id] ? UNKNOWN_THING : "a place I haven't found yet";
+  var escape = (text2) => text2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  function blurrer(unknown) {
+    if (!unknown.size) return (text2) => text2;
+    const names2 = [...unknown.keys()].sort((a, b) => b.length - a.length).map(escape);
+    const pattern = new RegExp(
+      `\\b(?:(?:the|an?) )?(${names2.join("|")})\\b`,
+      "gi"
+    );
+    return (text2) => text2?.replace(pattern, (_, name) => unknown.get(name.toLowerCase())) ?? text2;
+  }
+  function questTargets(world, id) {
+    const goal = world.memories[id]?.learning?.at(-1)?.goal;
+    return [
+      ...questsOf(world, id).map((q) => q.target),
+      goal?.item,
+      goal?.destination
+    ].filter((t) => t && t !== id && nameOf(t) !== t);
+  }
+  function found(world, speaker, id) {
+    const a = world.actors[speaker];
+    if (world.actors[id])
+      return !a?.talked || a.talked.includes(id) || world.opening?.met?.[id] !== void 0 || world.packs?.[packOf(id)?.id]?.met?.[id] !== void 0;
+    return world.items[id] || !a?.visited || a.visited.includes(id);
+  }
+  function unfoundBlur(world, id, scene = [], isCovered = () => false) {
+    const hidden = questTargets(world, id).filter(
+      (t) => !scene.includes(t) && (isCovered(t) || !found(world, id, t))
+    );
+    return {
+      hidden,
+      blur: blurrer(
+        new Map(hidden.map((t) => [nameOf(t).toLowerCase(), unnamed(world, t)]))
+      )
+    };
+  }
+  var GENERIC = /* @__PURE__ */ new Set(["account", "card", "list", "record", "plea", "seed"]);
+  var itemNouns = /* @__PURE__ */ new Map();
+  for (const [id, p] of Object.entries({ ...entity_profiles_default, ...packThings }))
+    if (p.kind === "item" || packThings[id]) {
+      const noun = String(p.name || "").split(" ").at(-1).toLowerCase();
+      if (noun.length > 2 && !GENERIC.has(noun))
+        itemNouns.set(noun, [...itemNouns.get(noun) || [], id]);
+    }
+  function inventsItem(world, speaker, text2) {
+    const a = world.actors[speaker];
+    const near = (id) => world.items[id] && entityActive(world, id) && (rootHolder(world, id) === speaker || !a?.visited || a.visited.includes(itemPlace2(world, id)));
+    const lower = String(text2 || "").toLowerCase();
+    return [...itemNouns].some(
+      ([noun, ids3]) => new RegExp(`\\b${noun}s?\\b`).test(lower) && !ids3.some(near)
+    );
+  }
+  var groundedInner = (world, speaker, text2) => /\b(i|i'm|i've|my|me|mine)\b/i.test(text2) && (text2.match(/["\u201c\u201d]/g) || []).length % 2 === 0 && !/[,!?]["\u201d] [a-z]/.test(text2) && !inventsItem(world, speaker, text2);
+  function forgetUnfound(world, context, isCovered = () => false) {
+    const scene = [
+      context.location,
+      ...context.entities.map(({ id }) => id),
+      ...Object.values(context.outcome?.card || {})
+    ];
+    let changed = false;
+    const entities2 = context.entities.map((entity) => {
+      if (!world.actors[entity.id] || !entity.desire) return entity;
+      const { hidden, blur } = unfoundBlur(world, entity.id, scene, isCovered);
+      if (!hidden.length) return entity;
+      changed = true;
+      const kept = (id) => !hidden.includes(id);
+      return {
+        ...entity,
+        facts: entity.facts.map(blur),
+        desire: {
+          items: entity.desire.items.filter(kept),
+          location: kept(entity.desire.location) ? entity.desire.location : null,
+          avatars: entity.desire.avatars.filter(kept)
+        }
+      };
+    });
+    return changed ? { ...context, entities: entities2 } : context;
+  }
+
   // v2/card-game/narrative.mjs
   function refusalFact(played) {
     const asked = played.verb === "ask" ? `request for ${nameOf(played.itemId)}` : played.verb === "accompany" ? `invitation to ${nameOf(played.destinationId)}` : `offer of ${nameOf(played.itemId)}`;
@@ -17291,6 +17373,27 @@
     const offset = (seed ^ seed >>> 16) & 1;
     return turn % 4 === offset;
   }
+  function pastDeedsAside(world, id, telling) {
+    const known = world.knowledge?.known?.[id];
+    if (!known) return world;
+    const keep = Object.fromEntries(
+      Object.entries(known).filter(([factId]) => {
+        const source = world.knowledge.facts[factId]?.source;
+        return telling.includes(factId) || source?.kind !== "event" || source.actorId !== id || source.turn >= world.turn;
+      })
+    );
+    const knowledge = {
+      ...world.knowledge,
+      known: { ...world.knowledge.known, [id]: keep }
+    };
+    return { ...world, knowledge };
+  }
+  function groundedLife(world, id) {
+    const life = world.memories[id].innerLife;
+    if (!life?.persona || groundedInner(world, id, life.persona))
+      return life || null;
+    return { ...life, persona: null };
+  }
   function narrativeContext(world, action = null) {
     const cast = dialogueCast(world, action);
     const {
@@ -17316,6 +17419,7 @@
       location,
       playedEntry(world)?.seq
     );
+    const told = (id) => disclosures.filter((d) => d.speaker === id).map((d) => d.factId);
     const events = world.log.filter(
       (entry) => entry.turn === world.turn && !entry.generated && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))
     ).slice(-8).map((entry) => entry.text);
@@ -17334,7 +17438,7 @@
         .../* @__PURE__ */ new Set([actorId, ...witnesses || [], ...cast2 || []])
       ]
     }));
-    return {
+    return forgetUnfound(world, {
       revision: world.revision,
       turn: world.turn,
       outcome: turnOutcome(world),
@@ -17358,10 +17462,10 @@
           ...dreamt ? [dreamt] : [],
           ...want ? [want] : [],
           ...knowledgeFacts(
-            world,
+            pastDeedsAside(world, id, told(id)),
             id,
             nameOf,
-            disclosures.filter((d) => d.speaker === id).map((d) => d.factId)
+            told(id)
           ),
           ...id === BOARDY ? boardyFacts(world, nameOf) : [],
           ...recitalFacts(world, packDefinitions, id),
@@ -17489,12 +17593,12 @@
           }),
           previous: beforeFirstLight ? null : world.memories[id].text,
           ...kind === "avatar" ? {
-            inner_life: world.memories[id].innerLife || null,
+            inner_life: groundedLife(world, id),
             hope: null
           } : {}
         };
       })
-    };
+    });
   }
 
   // v2/card-game/rarity-portraits.mjs

@@ -1,5 +1,6 @@
 import { currentActor, nameOf } from "./world.mjs";
 import { humanAvatar } from "./human-cast.mjs";
+import { groundedInner, unfoundBlur } from "./speech-knowledge.mjs";
 
 // Phrases an assistant uses about a scene rather than a character inside it.
 // The server's speech check (`ASSISTANT_SPEAK` in card_narrative.rs) rejects
@@ -45,20 +46,27 @@ const newestFirst = (moments) =>
     .map((m) => m.text);
 
 // The three-part chain from #1467: "I'm" is authored, "I'm becoming" is the
-// avatar's own reflection, newest first, and "I dream" is its dreams. The
-// planner's measured attempts stay in the save and are not shown here.
+// avatar's one current intention, its newest grounded thought, and "I dream"
+// is its dreams. A line that narrates, breaks its quotes, or names a thing
+// the avatar was never near is not shown; a quest target it has not found
+// stays unnamed (#1850). Measured attempts stay in the save.
 export function innerLifeChain(world, actor = currentActor(world)) {
   const name = nameOf(actor);
   const title = humanAvatar(actor)?.title;
   const inner = world.memories[actor]?.innerLife || {};
-  const becoming = [
-    ...new Set([inner.persona, ...newestFirst(inner.thoughts)]),
-  ].filter(inCharacter);
+  const { blur } = unfoundBlur(world, actor);
+  const shown = (lines) =>
+    lines
+      .filter((t) => inCharacter(t) && groundedInner(world, actor, t))
+      .map(blur);
   return {
     name,
     im: title ? `I'm ${name}. ${title}.` : `I'm ${name}.`,
-    becoming: becoming.slice(0, 4),
-    dreams: newestFirst(inner.dreams).filter(inCharacter).slice(0, 4),
+    becoming: shown([...newestFirst(inner.thoughts), inner.persona]).slice(
+      0,
+      1,
+    ),
+    dreams: shown(newestFirst(inner.dreams)).slice(0, 4),
   };
 }
 
