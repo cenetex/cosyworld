@@ -25,6 +25,38 @@ Their pack catalog and metadata have an explicit classic scope.
 4. Keep public assets and server bundles from the same committed release.
 5. Preserve identity, possession, consent, and completed quest evidence.
 
+## Later: refactor without changing behaviour
+
+Folded from the refactor epic [#1361](https://github.com/cenetex/cosyworld/issues/1361)
+on 2026-11-01. The goal is smaller code that is easier to change, with a
+harness proving behaviour stays the same. The harness comes before the big
+splits, and every stage that moves code must pass it. Stages C, E, F and H
+are done; dead-code removal (#1389) stays an open issue.
+
+- **A. Equivalence harness (#1387).** A JS runner plays seeded games through
+  the old and new `world.mjs` and compares `encodeSave`, `legalActions` and
+  `narrativeContext` byte for byte; `decodeSave` runs over every fixture; a
+  Rust `rules_agree` test compares `reduce_version(old)` and
+  `reduce_version(new)`; it runs in CI. Using the production-journal corpus
+  needs the owner's approval.
+- **B. One released-version table, brotli bundles (#1388).** `engine.rs` and
+  `full_world.rs` read one table; bundles are brotli-compressed (about
+  17.0 MB to 2.54 MB); no new rules version; the `next-shared-rules.mjs`
+  wiring regex follows.
+- **D. Split `world.mjs` behind a facade (#1390).** Modules under
+  `v2/card-game/world/` (catalog, geography, create, items, programs, log,
+  encounters, actions, perform, planner, play, validate, save), a re-exporting
+  facade, a codemod, and a passing harness. Needs #1387 first.
+- **G. Invariant test helpers (#1393).** Tests stop pinning exact NPC paths,
+  item starting spots and fixed `engine-vN` imports, and still fail when a
+  real rule breaks.
+- **I. Split `app.mjs` (#1395)** once the card-play UI work settles; browser
+  smokes pass.
+- **Measure `reduce_version` (#1396).** Measure where it spends its time
+  before changing anything; then consider QuickJS bytecode precompiled once
+  per version, validating packs only at build time, and fewer `validateWorld`
+  passes.
+
 ## Source ownership and checks
 
 The [card guide](v2/card-game/README.md) owns the game map. The
