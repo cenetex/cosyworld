@@ -269,7 +269,7 @@ describe("card standoffs", () => {
         s.memories[id].events.some((e) => e.text.includes("threatens")),
       ).toBe(true);
     const moth = context.entities.find((e) => e.id === "moth");
-    expect(moth.facts.join(" ")).toContain("guarding");
+    expect(moth.facts.join(" ")).toContain("braced");
     expect(
       context.entities.every(
         (e) => e.facts.length <= 16 && e.facts.every((f) => f.length <= 240),

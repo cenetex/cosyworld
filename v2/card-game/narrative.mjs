@@ -365,7 +365,7 @@ export function narrativeContext(world, action = null) {
         const conflict = standoffFor(world, id);
         if (conflict)
           facts.push(
-            `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: ${conflict.guarding[id] ? "guarding" : "open stance"}. Talk, trade, guard, attack or leave are available.`,
+            `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: ${conflict.guarding[id] ? "braced" : "open stance"}. Talk, trade, brace, strike or leave are available.`,
           );
         const want = wantHeard(world, played, id, currentActor(world))
           ? wantOf(world, id)
