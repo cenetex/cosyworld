@@ -27,6 +27,7 @@ import {
 import { profiles } from "./memory.mjs";
 import { enableMotives } from "./motives.mjs";
 import { applySharedReflections } from "./reflections.mjs";
+import { resetAvatar } from "./avatar-reset.mjs";
 
 function ids(value, fallback = []) {
   const result = value === undefined ? fallback : value;
@@ -156,6 +157,12 @@ export function dispatchShared(request) {
     enableShared(world);
     validateWorld(world);
     return response(world, view(world, actor));
+  }
+  // The host checks that the world's owner asked; the avatar starts over.
+  if (request.op === "reset") {
+    resetAvatar(world, actor);
+    validateWorld(world);
+    return response(world);
   }
   if (request.op === "view")
     return {

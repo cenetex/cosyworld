@@ -94,6 +94,8 @@ int32_t ct_shared_guard(const ct_shared_session *before,
     if(after->claimed[a]!=1 || after->present[a]!=before->present[a]) return CT_INVALID;
   } else if(kind==CT_RELEASE) {
     if(!before->claimed[a] || after->claimed[a] || after->present[a]) return CT_INVALID;
+  } else if(kind==CT_SHARED_RESET) {
+    if(after->claimed[a] || after->present[a]) return CT_INVALID;
   } else if(kind==CT_ENTER) {
     if(!before->claimed[a] || after->claimed[a]!=1 || after->present[a]!=1) return CT_ABSENT;
   } else if(kind==CT_LEAVE) {

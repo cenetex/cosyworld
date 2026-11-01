@@ -10,6 +10,7 @@ import { sharedContentInput } from "../v2/scripts/shared-content-input.mjs";
 // modules (scene, narrative, daylight) live in the narrator bundle, and pack
 // content arrives per request from content.json (#1548).
 const RULES = [
+  "avatar-reset.mjs",
   "adaptive-learning.mjs",
   "boardyai.mjs",
   "expression.mjs",

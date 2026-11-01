@@ -66,6 +66,18 @@ export function leaveNote(avatar, place) {
     : `${name} keeps ${avatar.name}'s things.`;
 }
 
+// A shared world this avatar can go to: one this person holds no avatar in,
+// where the avatar is the one bound to them there, or a free one has room
+// (#1825: a passkey keeps the avatar it took in a world).
+export const joinable = (row, avatar) =>
+  !row.actor && (row.bound ? row.bound === avatar.id : !row.full);
+
+// The world owner's delete, for each avatar someone took in this world.
+export function ownedSeats(state) {
+  if (!state?.owner || !Array.isArray(state.bound)) return [];
+  return humanAvatars.filter((a, index) => state.bound[index] === 1);
+}
+
 export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
   const list = el("ul", "avatar-list");
   list.setAttribute("aria-label", "Your avatars");
@@ -105,7 +117,7 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
   function move(avatar, place) {
     const current = here().actor === avatar.id;
     const targets = rows.filter(
-      (row) => !row.actor && row.id !== place?.shared,
+      (row) => joinable(row, avatar) && row.id !== place?.shared,
     );
     // The current local world's New world is the table's own reset.
     const fresh = act(
@@ -139,7 +151,7 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
     if (!place)
       return [
         act("New world", () => (location.href = localLink(avatar.id))),
-        ...(rows.some((row) => !row.actor)
+        ...(rows.some((row) => joinable(row, avatar))
           ? [act("Join", () => move(avatar, null))]
           : []),
       ];
@@ -159,7 +171,7 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
           `Leave ${place.name || "this world"}?`,
           place.local
             ? leaveNote(avatar, place)
-            : `${avatar.name}'s things stay there.`,
+            : `${avatar.name} stays yours there, with ${avatar.name}'s things.`,
           [
             act("Leave", async () => {
               await leave(avatar.id, place);
@@ -198,6 +210,29 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
     button.dataset.keepMenu = "true";
     return button;
   }
+  // The owner deletes an avatar with a second tap; it starts over as a fresh
+  // starter and its place is free for anyone.
+  function seat(avatar) {
+    const name = worldNameOf(session.state.world) || "this world";
+    const button = act(`Delete ${avatar.name}`, async () => {
+      if (button.dataset.armed !== "true") {
+        button.dataset.armed = "true";
+        button.textContent = `Delete ${avatar.name} from ${name}?`;
+        status.textContent = `${avatar.name} starts over at level 1 and leaves everything where they stand.`;
+        return;
+      }
+      await request(`/card-game/shared/worlds/${session.id}/command`, {
+        op: "reset",
+        avatar: avatar.id,
+      });
+      location.reload();
+    });
+    button.classList.add("avatar-delete");
+    button.dataset.keepMenu = "true";
+    const row = el("li", "avatar-seat");
+    row.append(button);
+    return row;
+  }
   function render() {
     const now = here();
     const places = placesOf(rows, now);
@@ -234,6 +269,15 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
         row.append(bar);
       }
       list.append(row);
+    }
+    const seats = session ? ownedSeats(session.state) : [];
+    if (seats.length) {
+      const heading = el("li", "avatar-seats-heading");
+      heading.append(
+        el("strong", "", "Avatars taken here"),
+        el("small", "", "As this world's owner you can free a place."),
+      );
+      list.append(heading, ...seats.map(seat));
     }
   }
   menu.addEventListener("toggle", () => {

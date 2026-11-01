@@ -214,21 +214,10 @@ export async function connectSharedWorld(id) {
         );
         box.append(
           button("Check for a place", enter),
-          button("Release this avatar", () => {
-            const confirmation = panel(
-              "Release your avatar?",
-              "Their belongings and story will stay in this world. Someone else can then claim this avatar.",
-              false,
-            );
-            confirmation.append(
-              button("Keep my avatar", enter),
-              button("Release avatar", async () => {
-                await worldRequest({
-                  op: "release",
-                });
-                await enter();
-              }),
-            );
+          // Your avatar stays yours here; you return as it (#1825).
+          button("Leave", async () => {
+            await worldRequest({ op: "leave" });
+            location.href = "/?shared=1";
           }),
           button("Your worlds", () => {
             location.href = "/?shared=1";
@@ -262,6 +251,39 @@ export async function connectSharedWorld(id) {
           showError(error);
         }
       };
+      // A passkey returns as the avatar it took here; nobody else can claim a
+      // bound avatar, and with all eight bound the world is full (#1825).
+      const mine = humanAvatars.find((a) => a.id === value.mine);
+      if (mine) {
+        const away = elsewhere[mine.id];
+        panel(
+          `Return as ${mine.name}`,
+          away
+            ? `${mine.name} is yours in this world. ${mine.name} leaves ${away} to come back.`
+            : `${mine.name} is yours in this world.`,
+          false,
+        ).append(
+          button("Return", () => claim(mine, Boolean(away))),
+          button("Your worlds", () => {
+            location.href = "/?shared=1";
+          }),
+        );
+        return;
+      }
+      const taken = (index) =>
+        Boolean(value.claimed[index] || value.bound?.[index]);
+      if (humanAvatars.every((a, index) => taken(index))) {
+        panel(
+          "This world is full",
+          "Every avatar here belongs to someone. Its owner can free a place.",
+          false,
+        ).append(
+          button("Your worlds", () => {
+            location.href = "/?shared=1";
+          }),
+        );
+        return;
+      }
       const box = panel(
         "Choose your avatar",
         "Join this world's story. Each person has one avatar here.",
@@ -277,7 +299,7 @@ export async function connectSharedWorld(id) {
           );
         });
         card.className = "shared-choice";
-        card.disabled = Boolean(value.claimed[index]);
+        card.disabled = taken(index);
         card.dataset.avatar = avatar.id;
         const image = node("img");
         image.decoding = "async";
@@ -291,7 +313,7 @@ export async function connectSharedWorld(id) {
           node(
             "small",
             card.disabled
-              ? "Claimed"
+              ? "Taken"
               : elsewhere[avatar.id]
                 ? `in ${elsewhere[avatar.id]}`
                 : avatar.pleasure,

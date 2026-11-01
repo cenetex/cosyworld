@@ -309,6 +309,19 @@ impl World {
                 next.present[a] = 0;
                 (2, json!({}))
             }
+            // The owner's delete: the avatar starts over (#1825). Rules that
+            // predate it refuse the request, so it is never journaled for them.
+            "reset" => {
+                let result = engine::reduce_pack(
+                    &self.version,
+                    self.pack.as_deref(),
+                    self.request("reset", a),
+                )?;
+                next.game = result["world"].clone();
+                next.claimed[a] = 0;
+                next.present[a] = 0;
+                (13, result)
+            }
             "enter" => {
                 next.present[a] = 1;
                 (3, json!({}))

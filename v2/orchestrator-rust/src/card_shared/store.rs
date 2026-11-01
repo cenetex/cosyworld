@@ -31,6 +31,10 @@ pub(super) fn open_sqlite(path: &Path, busy_timeout: Duration) -> rusqlite::Resu
       CREATE TABLE IF NOT EXISTS card_checkpoints(world TEXT PRIMARY KEY, seq INTEGER NOT NULL, state TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS card_tables_owner ON card_tables(owner);
       CREATE INDEX IF NOT EXISTS card_members_user ON card_members(user);
+      -- A passkey's avatar in a world (bindings.rs). Current members are bound;
+      -- an avatar released before bindings existed was never recorded.
+      CREATE TABLE IF NOT EXISTS card_bindings(world TEXT NOT NULL, actor INTEGER NOT NULL, user TEXT NOT NULL, PRIMARY KEY(world,actor), UNIQUE(world,user));
+      INSERT OR IGNORE INTO card_bindings(world,actor,user) SELECT world,actor,user FROM card_members;
       CREATE TABLE IF NOT EXISTS card_log(seq INTEGER PRIMARY KEY AUTOINCREMENT, world TEXT NOT NULL, command TEXT NOT NULL, at INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS card_log_world ON card_log(world,seq);
       CREATE TABLE IF NOT EXISTS card_plays(id TEXT PRIMARY KEY, world TEXT NOT NULL, actor INTEGER NOT NULL, user TEXT NOT NULL, room INTEGER NOT NULL, command TEXT NOT NULL, status TEXT NOT NULL, created INTEGER NOT NULL, until_at INTEGER NOT NULL DEFAULT 0, result TEXT NOT NULL DEFAULT '{}');
@@ -195,8 +199,10 @@ pub(super) fn create(c: &Connection, id: &str, user: &str, now: i64) -> Result<(
     Ok(())
 }
 pub(super) fn list(c: &Connection, user: &str) -> Result<Value> {
-    let mut q=c.prepare("SELECT t.id,m.actor,(SELECT count(*) FROM card_members c WHERE c.world=t.id) FROM card_tables t LEFT JOIN card_members m ON m.world=t.id AND m.user=? WHERE t.owner=? OR m.user=? ORDER BY t.created DESC LIMIT 64").map_err(err)?;
-    let rows=q.query_map(params![user,user,user],|r|Ok(json!({"id":r.get::<_,String>(0)?,"actor":r.get::<_,Option<i32>>(1)?,"claimed":r.get::<_,i32>(2)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+    // `bound` is the avatar this person returns as there (bindings.rs), and
+    // `full` says every avatar there belongs to someone.
+    let mut q=c.prepare("SELECT t.id,m.actor,(SELECT count(*) FROM card_members c WHERE c.world=t.id),b.actor,(SELECT count(*) FROM card_bindings f WHERE f.world=t.id) FROM card_tables t LEFT JOIN card_members m ON m.world=t.id AND m.user=? LEFT JOIN card_bindings b ON b.world=t.id AND b.user=? WHERE t.owner=? OR m.user=? OR b.user=? ORDER BY t.created DESC LIMIT 64").map_err(err)?;
+    let rows=q.query_map(params![user,user,user,user,user],|r|Ok(json!({"id":r.get::<_,String>(0)?,"actor":r.get::<_,Option<i32>>(1)?,"claimed":r.get::<_,i32>(2)?,"bound":r.get::<_,Option<i32>>(3)?,"full":r.get::<_,i32>(4)?>=8}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
     Ok(json!({"worlds":rows}))
 }
 #[cfg(test)]
