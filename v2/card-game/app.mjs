@@ -1714,6 +1714,23 @@ function renderActions(animate = false) {
     row.append(nudge);
     panel.hidden = false;
   }
+  // An open level quest can be dropped, at the cost of half the experience.
+  const drop =
+    questOpen &&
+    legalActions(world).find((action) => action.kind === "drop" && !action.item);
+  if (drop) {
+    const button = node("button", "Drop quest", "card-action");
+    button.type = "button";
+    button.dataset.dropQuest = "true";
+    button.title = "Give up this level quest; it costs half your experience";
+    button.disabled = selectionBlocked();
+    button.onclick = () => {
+      questOpen = false;
+      commitAction(drop, revision);
+    };
+    row.append(button);
+    panel.hidden = false;
+  }
   // An item with its own view offers a client-only Look; it plays nothing.
   const viewed = selected.length === 1 && selected[0];
   if (viewed && things[viewed]?.view && !cardIsCovered(viewed)) {

@@ -151,6 +151,17 @@ facts from earlier releases keep their names; player-facing text says quest.
   anyone known, or what they hold, will do, reachable or not. A new world
   draws one for every avatar without an authored `want`; a quest left empty
   by an older rule set or a pack mounted later is drawn after a short rest.
+- **Level quest.** The quest is the threshold (#1583). A player's
+  experience still rises with every quest met, but its level (`actor.level`)
+  rises only through a level quest. Waking from a long rest at a sanctuary
+  with experience enough for the next level brings that quest in the dream:
+  the scene tells the model the quest as a fact, and the quest card shows it
+  in place of the ordinary quest. The quest for level n has F(n) steps
+  (1, 1, 2, 3, 5 ...), each drawn from the whole known world among the half
+  furthest from home; the last step raises the level and ordinary quests
+  resume. A step with no way forward becomes another of the same level. Drop
+  quest (a `drop` play with no item) gives it up for half the experience;
+  the level stays. Residents level on experience alone.
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
   who learn the roads keep to the routes they know), then ask, trade their
   least valued spare, and threaten when bold enough by resentment, level or

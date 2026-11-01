@@ -29,6 +29,7 @@ import {
   covered,
   exits,
   nameOf,
+  wantText,
   validateWorld,
   standoffFor,
   opponentOf,
@@ -272,7 +273,15 @@ export function narrativeContext(world, action = null) {
         kind === "avatar" && wantHeard(world, played, id, currentActor(world))
           ? wantFact(world, id, nameOf)
           : null;
+      // Waking from a long rest, a new level quest arrives in the dream.
+      const quest = world.actors[id]?.want;
+      const dreamt =
+        rest === "long" && id === resting && quest?.quest?.left &&
+        quest.since === world.turn
+          ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.`
+          : null;
       const facts = [
+        ...(dreamt ? [dreamt] : []),
         ...(want ? [want] : []),
         ...knowledgeFacts(
           world,
