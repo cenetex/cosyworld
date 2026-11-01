@@ -12,7 +12,7 @@ const approach = (kind) =>
     trade: "trading",
     give: "giving",
     talk: "talking",
-    wait: "observing",
+    wait: "waiting",
     accompany: "inviting",
   })[kind];
 const goalKey = (g) => [g.kind, g.target, g.item, g.destination].join(":");
@@ -272,7 +272,7 @@ export function trialFacts(world, actor, nameOf) {
     if (a.kind === "talk") return `talking with ${nameOf(a.target)}`;
     if (a.kind === "accompany")
       return `inviting ${nameOf(a.target)} to ${nameOf(a.destination)}`;
-    return "observing";
+    return "waiting";
   };
   return [
     `I tried ${describe(trial.action)} while seeking ${purpose}. ${result} ${earlier}`,

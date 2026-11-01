@@ -910,7 +910,7 @@ try {
     );
   });
   await ash
-    .getByRole("button", { name: /^Ash · next · Withdraw your play$/ })
+    .getByRole("button", { name: /^Ash is thinking… · Withdraw your play$/ })
     .click();
   assert.equal((await cancelled).status(), 200);
   await until(

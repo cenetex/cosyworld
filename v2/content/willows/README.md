@@ -32,8 +32,8 @@ chance; stepping off at sea leaves the empty ship to finish its voyage. The
 island has four places: the landing, the camp, the willow thicket and the
 crumbling bank.
 
-There are no story buttons. Observe (the Wait play) at a place to notice its
-signs, one per Observe, in an order seeded by the run. By day: pacing out the
+There are no story buttons. Wait at a place to notice its
+signs, one per Wait, in an order seeded by the run. By day: pacing out the
 willows (camp). By night: pacing it again and the patterings on the tent
 (camp), and the shapes over the willow tops (thicket). At any hour: the slit
 hull (landing), the missing bread (camp, with the Food Sack there), the hollows
@@ -91,7 +91,7 @@ through place `backdrops` with a `daylight` night condition (#1622). The ship an
 waits for the owner to choose its flag.
 
 Sign paintings ([sign-art-README](../../card-game/assets/willows/sign-art-README.md))
-are more place `backdrops` at the place where each sign is Observed (the
+are more place `backdrops` at the place where each sign is found by waiting (the
 hollows and the bronze shapes at the thicket), each named by its sign's flag and
 the painting's own light. The first entry that holds wins, so the later sign
 comes first:
@@ -130,7 +130,7 @@ accessibility rules.
 ## Checks
 
 `test/card-hum.test.mjs` covers the drone. `test/card-willows.test.mjs` covers
-Observed signs, the kit's return, the revision 2 upgrade, old saves and shared
+signs found by waiting, the kit's return, the revision 2 upgrade, old saves and shared
 play. The Rust Willows tests cover upgrades from released rules versions 16 and
 17 and journal replay. Play the changed path by hand at desktop and phone sizes
 with `npm run play:cards`.

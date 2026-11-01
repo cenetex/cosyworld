@@ -53,13 +53,13 @@ titles and assembly progress belong to the notebook content/UI.
 ## Integration and provenance
 
 This art change registers the files and optimized variants. It does not add
-Observe events, repair receipts, notebook assembly rules or display timers.
-The Observe owner in [#1640](https://github.com/cenetex/cosyworld/pull/1640)
+Wait sign events, repair receipts, notebook assembly rules or display timers.
+The Wait sign owner in [#1640](https://github.com/cenetex/cosyworld/pull/1640)
 specifies that each sign painting holds while it is that place's newest sign;
-there is no fixed six-second return. At `fca8307c`, the PR implements Observe
+there is no fixed six-second return. At `fca8307c`, the PR implements Wait sign
 selection but does not yet implement that artwork selector. The owner kept the
 willow thicket as a live road between camp and bank (2026-11-01), so its two
-signs, the hollows and the bronze shapes, are Observed at the thicket and their
+signs, the hollows and the bronze shapes, are found by waiting at the thicket and their
 paintings are thicket `backdrops`. The later steps gate the mended canoe on the
 kit at camp and give passing otter/boatman appearances seeded per-turn windows.
 Those are content-owner integration tasks, not shipped behavior of this asset

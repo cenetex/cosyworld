@@ -1,4 +1,3 @@
-import { observeText } from "./observe-words.mjs";
 import {
   entityActive,
   packThings,
@@ -100,10 +99,7 @@ export function placePlays(world, id) {
 export function cardPlay(world, selected) {
   const cards = [...new Set(selected)];
   const available = availableCards(world);
-  const result = (action, hint) => ({
-    action,
-    hint: observeText(action?.text) || hint,
-  });
+  const result = (action, hint) => ({ action, hint: action?.text || hint });
   if (!cards.length || cards.some((id) => !available.includes(id)))
     return result(null, "Choose a card from this hand.");
   if (cards.length > 2) return result(null, "Play one card or a pair.");
@@ -317,8 +313,38 @@ export function playLabel(action) {
     cover: "Cover",
     move: "Travel",
     talk: "Talk",
-    wait: "Observe",
+    wait: "Wait",
   }[action?.kind];
+}
+
+// A play that has not resolved yet reads as what its actor is doing now: a
+// rules caption from the action kind, never authored dialogue.
+const progress = {
+  accompany: "inviting",
+  threaten: "threatening",
+  guard: "guarding",
+  attack: "attacking",
+  take: "taking",
+  drop: "putting down",
+  give: "giving",
+  ask: "asking",
+  trade: "trading",
+  light: "lighting",
+  snuff: "putting out",
+  ring: "ringing",
+  cover: "covering",
+  move: "travelling",
+  talk: "talking",
+  wait: "waiting",
+};
+export function playProgress(action) {
+  return action?.kind === "move" && action.item
+    ? "carrying"
+    : progress[action?.kind] || "acting";
+}
+/** "Vale is waiting…" */
+export function playProgressLine(actor, action) {
+  return `${nameOf(actor)} is ${playProgress(action)}…`;
 }
 
 export function cardObservation(world, id) {
