@@ -1,6 +1,6 @@
 # Greek redesign
 
-Status: proposal for owner review (2026-11-01). It applies the owner decisions
+Status: approved by the owner (2026-11-01; see Owner decisions). It applies the owner decisions
 recorded on #1581 and #1540 to the Wine-Dark Sea pack
 (`v2/content/greek-drama/card-world.json`). The Thebes pilot follows this doc.
 
@@ -62,7 +62,7 @@ sanctuary and becomes the road beyond the battlefield.
 Each step opens through an item quest or a live condition in pack data, the
 way the Theban gate does today. No step is a button.
 
-| Step | Opens | Condition (proposal) |
+| Step | Opens | Condition |
 | --- | --- | --- |
 | Thebes to the battlefield | The City Gate route | The guard holds the decree at the gate (#1728) |
 | Battlefield to the Cithaeron road | The battlefield's far route | The dead have burial rights: the rite that yields the Burial Account is done, or the Herald's Truce has reached the battlefield |
@@ -84,7 +84,7 @@ A district has at most four places.
 | City | Agora `athens`, Assembly Hill `assembly`, Acropolis Treasury `acropolis`, The Thinkery `thinkery` | House of Demos `demos-house` within the Assembly; Women's Festival `festival` within the Acropolis |
 | Harbour | Piraeus Quays `piraeus` (Athens Harbor `athens-harbor` merges into it) | The quay host's house (new, optional) |
 
-The Juror's House `jury-house` goes (proposal; owner question 5).
+The Juror's House `jury-house` goes (owner decision 5).
 
 **Gates** are road places between districts:
 
@@ -114,7 +114,7 @@ Mycenaean Palace `mycenae-palace`), Agamemnon's Tomb `argos-tomb` and Argive
 Shore Sanctuary `argos-sanctuary`. *Interior:* the Argive Farmhouse
 `argive-farm`, within the crossroads. Its road is the Argolid Road from the
 Wine-Dark Harbor. The three Atreid tellings share one palace; the telling is
-drawn per run or fixed (owner question 1).
+fixed (owner decision 1).
 
 ### Troy
 
@@ -194,7 +194,7 @@ the place, held or put down (`item_near`). "Give" uses the existing
 
 | Choice | Button today | Becomes | How |
 | --- | --- | --- | --- |
-| `helen-egypt` | Follow Helen's Egyptian account | Delete | The telling is a per-run draw or a fixed city (owner question 1). |
+| `helen-egypt` | Follow Helen's Egyptian account | Delete | The city keeps one fixed telling (owner decision 1). |
 | `helen-troy` | Follow Helen's Trojan account | Delete | As above. |
 | `hear-helen-egypt` | Hear Helen's testimony | Talk | Talk with Helen at Proteus's tomb. |
 | `helen-egypt-passage` | Provision a return passage | Item | Give Menelaus the provisions with the testimony in hand. Testimony goes to Dione. |
@@ -207,7 +207,7 @@ the place, held or put down (`item_near`). "Give" uses the existing
 
 | Choice | Button today | Becomes | How |
 | --- | --- | --- | --- |
-| `atreid-aeschylus` | Follow the tomb account · Aeschylus | Delete | Per-run draw or fixed city (owner question 1). |
+| `atreid-aeschylus` | Follow the tomb account · Aeschylus | Delete | One fixed telling (owner decision 1). |
 | `atreid-sophocles` | Follow the palace account · Sophocles | Delete | As above. |
 | `atreid-euripides` | Follow the farmhouse account · Euripides | Delete | As above. |
 | `hear-electra-aeschylus` | Hear the household's testimony | Talk | Talk with Electra at the tomb. |
@@ -216,7 +216,7 @@ the place, held or put down (`item_near`). "Give" uses the existing
 | `atreid-aeschylus-hearing` | Commit the testimony to a hearing | Item | Give Orestes the testimony. Yields the Hearing Summons. |
 | `atreid-sophocles-hearing` | Commit the testimony to a hearing | Item | As above. |
 | `atreid-euripides-hearing` | Commit the testimony to a hearing | Item | As above. |
-| `atreid-aeschylus-refusal` | Refuse the revenge commitment | Delete | Pure attitude fork (owner question 2). |
+| `atreid-aeschylus-refusal` | Refuse the revenge commitment | Delete | Pure attitude fork (owner decision 2 allows its return). |
 | `atreid-sophocles-refusal` | Refuse the revenge commitment | Delete | As above. |
 | `atreid-euripides-refusal` | Refuse the revenge commitment | Delete | As above. |
 
@@ -228,7 +228,7 @@ the place, held or put down (`item_near`). "Give" uses the existing
 | `open-door-hear-adrastus` | Ask Adrastus about the war | Talk | Talk with Adrastus. |
 | `open-door-register-plea` | Lay the mothers’ petition before Theseus | Item | Give Theseus the petition. |
 | `open-door-request-truce` | Ask for a witnessed burial truce | Item | Merged: the petition yields the Herald's Truce. |
-| `open-door-request-recovery` | Support the city’s recovery demand | Delete | The source battle is told, not chosen (owner question 2). |
+| `open-door-request-recovery` | Support the city’s recovery demand | Delete | The source battle is told, not chosen (owner decision 2 allows its return). |
 | `open-door-hear-truce-report` | Receive the herald’s truce report | Talk | Talk with Theseus after the truce. |
 | `open-door-hear-recovery-report` | Receive the messenger’s recovery report | Delete | Folded into the truce report. |
 | `open-door-hear-quay` | Ask what the returning households need | Talk | Talk with the quay host. |
@@ -252,7 +252,7 @@ the place, held or put down (`item_near`). "Give" uses the existing
 | `open-door-marathon-battle` | Hear the battle and the captive’s arrival | Talk | Talk with the keeper. |
 | `open-door-marathon-captive` | Hear the claim against the captive | Talk | Talk with the keeper; yields the Marathon Record. |
 | `open-door-marathon-alcmene` | Hear the source ending with Alcmene | Delete | Told in the captive Talk. |
-| `open-door-marathon-hearing` | Ask for a hearing in another telling | Delete | Attitude fork (owner question 2). |
+| `open-door-marathon-hearing` | Ask for a hearing in another telling | Delete | Attitude fork (owner decision 2 allows its return). |
 | `open-door-return-dione` | Tell Dione what welcome has cost | Item | Four Athenian outcomes on Dione's table. |
 
 ### Homecoming
@@ -325,10 +325,11 @@ the quest card read the same receipts they read today.
 The first PR after this doc:
 
 1. Thebes becomes four quarters. The well is within the courtyard and links
-   only to it; the palace links to the courtyard; Aulis leaves the gate.
+   only to it; the palace links to the courtyard.
 2. `return-water-jar`, `petition-burial`, `report-plan` and the courtyard
    reports become `on: "give"` choices.
-3. The two grave steps and both rites become item quests at the battlefield.
+3. The grave and both rites become item quests at the battlefield: Wait
+   there with the shovel, then with cloth and oil (`on: "wait"`).
 4. `hear-decree` and `gather-witness` become Talk. Until `on: "talk"`
    (#1611) lands they commit `on: "meet"`: the guard's order reaches anyone at
    the gate, and the elder stands witness when met after it. Each is a one-word
@@ -336,25 +337,21 @@ The first PR after this doc:
 5. The refusal pair and the four invitation buttons are deleted; the
    courtyard gifts open the road to Eleusis.
 6. New items: Burial Account, Creon's Writ, the Guard's Tablet.
-7. The battlefield stays the gate's road-like place. The Cithaeron road beyond
-   it waits for the Athens PR.
+7. The battlefield stays the gate's road-like place. A follow-up opens the
+   Cithaeron road beyond it to Eleusis; Aulis and Cithaeron move then.
 
 Choice ids, flags and receipts stay, so the Bard, the quest card and the Open
 Door read them unchanged. Alpha saves may break.
 
-## Owner questions
+## Owner decisions
 
-1. **Per-run draws or fixed cities?** Helen (Egypt or Troy) and the Atreids
-   (three tellings) choose today by button. Draw the telling per world from
-   its seed, or fix one telling per city?
-2. **May endings diverge from the plays?** The deleted forks (Antigone's
-   refusal, the battle versus the truce, the Atreid refusals, the Marathon
-   hearing) are the non-source endings. Keep only one ending each, or keep one
-   alternative each as an item quest?
-3. **Do unlocked roads stay open?** Once the burial account opens the
-   Cithaeron road, does it stay open for everyone (a lasting flag, like the
-   Open Door section), or close when the item moves (a live condition, like
-   the Theban gate)?
-4. **The Far Shores:** one-place ship stops or retirement, per the table.
-5. **The Athens sort:** the three districts and two gates above, and which of
-   the Juror's House or the Thinkery goes.
+Recorded on #1732 (2026-11-01):
+
+1. **Fixed cities.** Helen and the Atreids each keep one fixed telling; their
+   telling buttons are deleted, not drawn per run.
+2. **Endings may differ from the plays.** A deleted fork may come back as an
+   item quest where it earns one; the table is the starting point.
+3. **Unlocked roads close again if the item moves.** Every step of the unlock
+   chain is a live condition, like the Theban gate, not a lasting flag.
+4. **The Far Shores are one-place ship stops** on the east sea.
+5. **The Athens sort stands as written**, and the Juror's House goes.
