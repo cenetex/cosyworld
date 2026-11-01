@@ -10,6 +10,7 @@ import {
 } from "../v2/card-game/pack-specials.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
+  hub,
   packDefinition,
   packDefinitions,
 } from "../v2/card-game/pack-registry.mjs";
@@ -91,7 +92,6 @@ describe("seeded specials", () => {
   });
 
   it("validates the pool", () => {
-    const hub = { places: [], avatars: [], items: [], player: "vale" };
     const mounted = packDefinitions.flatMap((p) => Object.keys(p.places));
     const problems = (s) =>
       packProblems({ ...hoppy, specials: s }, hub, mounted).filter((p) =>
