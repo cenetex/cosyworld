@@ -1255,6 +1255,38 @@ body .card-frame[hidden] {
 .card-frame[data-holder] .card {
   border-color: #a48d6370;
 }
+/* The places you can go from here: blank edges behind the current place, and
+   their count. Opening the place fans them out like the hand. */
+.place-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  translate: calc(var(--i) * 6px) calc(var(--i) * -4px);
+  rotate: calc(var(--i) * 1.5deg);
+  border: 1px solid #a48d6380;
+  background:
+    repeating-linear-gradient(45deg, #ffffff07 0 3px, transparent 3px 6px),
+    linear-gradient(#2a2118, #17110c);
+  pointer-events: none;
+}
+.place-count {
+  position: absolute;
+  z-index: 2;
+  top: -7px;
+  right: -9px;
+  min-width: 22px;
+  padding: 2px 6px;
+  border: 1px solid #a48d63;
+  border-radius: 11px;
+  background: #17110c;
+  color: #e8d9b8;
+  font: 600 12px / 16px system-ui, sans-serif;
+  text-align: center;
+  pointer-events: none;
+}
+.card-frame[data-expanded="true"] :is(.place-edge, .place-count) {
+  display: none;
+}
 /* The quest card shows the player doing the verb with the target, standing
    in the place's painting feathered into the card, or on its dark ground.
    It holds steady while the target is near: a soft halo, unlike the brief
@@ -1437,6 +1469,30 @@ body .card.want-card[data-met="true"] {
   pointer-events: auto;
   text-align: center;
   overflow: clip;
+}
+/* A ready or pending play's buttons sit under the dialogue, above the hand,
+   so nothing lies between the cards and the screen edge. The dock grows
+   upward, the hand stays put, and the dialogue rides on the dock's height.
+   This is also the spot for the action bar's status line (#1725). */
+.play-dock {
+  display: flex;
+  flex-direction: column;
+}
+.play-dock > .action-panel {
+  order: -1;
+  padding-bottom: 4px;
+}
+.play-dock > .action-panel:not([hidden]) {
+  animation: action-in 200ms ease-out;
+}
+@keyframes action-in {
+  from {
+    opacity: 0;
+  }
+}
+/* A strike or journey drops the hand; its buttons leave with it. */
+.play-dock[data-dropped="true"] > .action-panel {
+  display: none;
 }
 #card-actions {
   display: flex;
@@ -1708,6 +1764,27 @@ body[data-hand-expanded="true"] .card .name {
     transform: none;
     width: calc(100% - var(--resting-hand-width) - 110px);
     max-width: 620px;
+    transition:
+      bottom 220ms ease-out,
+      translate 280ms ease-in-out,
+      opacity 280ms ease-in-out;
+  }
+  /* Beside a resting hand, the buttons sit under the dialogue, which rises
+     to make room for them. */
+  body[data-hand-expanded="false"] .play-dock > .action-panel {
+    position: fixed;
+    left: 22px;
+    bottom: max(18px, env(safe-area-inset-bottom));
+    width: min(calc(100% - var(--resting-hand-width) - 110px), 620px);
+  }
+  body[data-hand-expanded="false"]:has(.action-panel:not([hidden]))
+    .dialogue {
+    bottom: calc(max(22px, env(safe-area-inset-bottom)) + 52px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body[data-hand-expanded="false"] .dialogue {
+      transition: opacity 280ms ease-in-out;
+    }
   }
 }
 @media (max-width: 700px) {

@@ -2,17 +2,17 @@
 // journey can be played, the hand names the pair once. Playing that kind of
 // pair, or dismissing the tip, retires it for this browser.
 import { availableCards, cardPlay } from "./cards.mjs";
-import { legalActions, nameOf } from "./world.mjs";
+import { inSentence, theName } from "./combat-beats.mjs";
+import { legalActions } from "./world.mjs";
 
 export const LESSONS = ["give", "trade", "accompany"];
 
 const tipText = {
   give: (a) =>
-    `Pair the ${nameOf(a.item)} with ${nameOf(a.target)} to give it.`,
-  trade: (a) =>
-    `Pair the ${nameOf(a.item)} with the ${nameOf(a.receive)} to trade.`,
+    `Pair ${theName(a.item)} with ${inSentence(a.target)} to give it.`,
+  trade: (a) => `Pair ${theName(a.item)} with ${theName(a.receive)} to trade.`,
   accompany: (a) =>
-    `Pair ${nameOf(a.target)} with ${nameOf(a.destination)} to travel together.`,
+    `Pair ${inSentence(a.target)} with ${inSentence(a.destination)} to travel together.`,
 };
 
 // The tip to show now, or null: the first unlearned kind with a pair in hand

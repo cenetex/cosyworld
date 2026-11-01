@@ -255,6 +255,11 @@ selected: choosing another place replaces it and keeps the selected person or
 item, so Pip + Station, then Pond, offers **Invite Pip along** to the Pond.
 Tapping an action button plays it. The current place leads the hand, followed
 by items lying there, avatars with their carried items, and travel destinations.
+The places you can go from here form one location stack: the current place
+lies face up on top, and each reachable place adds a blank edge behind it with
+a count. Tapping the current place fans the stack (and the items lying there)
+out like the hand; tapping a place selects it for **Travel**, and the stack
+folds back after the play.
 Hover lifts a card and its preview stack together. The name shade reaches the
 card edge, so a raised card clipped by the folded row shows no stray art.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
@@ -788,6 +793,8 @@ Tapping the stage finishes the current beat; its outcome text still shows. Setti
 Run `node v2/scripts/smoke-card-combat.mjs` for a lost standoff at desktop, phone and reduced motion.
 
 Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand and action row open together over 220 milliseconds; held items slide out from their owner. A play in the same place refreshes the cards as the hand lowers, with each name moving into its resting position. Travel changes the hand under the scene veil. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Memory keep the selected cards and open items, and Escape closes the active panel before lowering the hand. Only a click outside the card area (the stage or the dialogue's beats, not the toolbar or action row), Escape, or a play folds the hand to its resting row. A click outside keeps the selection and any chosen play; the next tap on the hand only raises it again as it was. A tap on the beats while the hand is up folds the hand without stepping the beat. Selecting, changing the pair and deselecting keep it open, as do the scroll arrows and empty hand space. A held item stays raised with its plays, and any tap on the folded hand opens it again. Short landscape screens keep the hand inside the viewport.
+
+A ready or pending play's buttons sit under the dialogue, above the hand. The hand never moves for them: the dialogue rises to make room, and nothing lies between the cards and the screen edge. Beside a resting hand on a wide screen, the buttons sit under the dialogue on the left. A strike or journey that drops the hand takes the buttons with it. The action bar's status line (#1725) belongs in the same spot. Captions name a thing with one article: "Vale took the Burial Decree". `node v2/scripts/smoke-card-action-spot.mjs` checks the spot at 1440, 390 and 844 px.
 
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
 

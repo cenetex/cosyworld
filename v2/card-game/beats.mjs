@@ -8,16 +8,17 @@
 // is ever saved. See v2/docs/card-table/dialogue-beats.md.
 import { currentActor, nameOf as fullName } from "./world.mjs";
 import { isSceneText } from "./scene.mjs";
+import { inSentence, theName } from "./combat-beats.mjs";
 
 const QUIET_VERBS = new Set(["talk", "wait"]);
 const DAMAGE = /loses (\d+) resolve/u;
 const YIELDED = /after yielding to/u;
 const STANDOFF_ENDS = /standoff ends/u;
 
-// A name inside a sentence: "the keeper", not "The keeper". The sentence
-// itself is capitalised by sentence().
-const nameOf = (id) => fullName(id).replace(/^The /u, "the ");
-const the = (id) => (id ? `the ${nameOf(id)}` : "something");
+// A name inside a sentence: "the keeper", not "The keeper", and one article:
+// "took the Burial Decree". The sentence itself is capitalised by sentence().
+const nameOf = inSentence;
+const the = (id) => (id ? theName(id) : "something");
 
 // How a blow landed, in words: the number stays in the resolve pips. The
 // word is picked from the event's seq, so replay always shows the same one.
