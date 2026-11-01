@@ -8,7 +8,6 @@ use std::sync::OnceLock;
 pub(super) struct Poem {
     pub title: String,
     pub stanzas: Vec<Stanza>,
-    pub new_lines: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -18,7 +17,6 @@ pub(super) struct Stanza {
     pub turn: u64,
     pub author_id: Option<String>,
     pub author_name: String,
-    pub lines: Vec<String>,
 }
 
 fn authored_recital(actor: &str) -> Option<&'static Value> {
@@ -33,8 +31,8 @@ fn authored_recital(actor: &str) -> Option<&'static Value> {
         .map(|pack| &pack["recital"])
 }
 
-// Authored poem data remains exact. The voice's response uses the ordinary
-// speech checks and can reflect on any part of this context.
+// The poem names authored verse ids and their travellers. Couplet text is
+// lore in content/<pack>/lore and never reaches the prompt.
 pub(super) fn valid(actor: &str, poem: Option<&Poem>, turn: u64) -> bool {
     let Some(poem) = poem else { return true };
     let Some(recital) = authored_recital(actor) else {
@@ -48,63 +46,33 @@ pub(super) fn valid(actor: &str, poem: Option<&Poem>, turn: u64) -> bool {
     }
     let mut seen = BTreeSet::new();
     for stanza in &poem.stanzas {
-        let Some(verse) = verses.iter().find(|verse| verse["choice"] == stanza.id) else {
-            return false;
-        };
-        if !seen.insert(&stanza.id)
+        if !verses.iter().any(|verse| verse["choice"] == stanza.id)
+            || !seen.insert(&stanza.id)
             || stanza.turn > turn
             || !super::bounded(&stanza.author_name, 160)
             || stanza
                 .author_id
                 .as_deref()
                 .is_some_and(|id| !super::kind(id, "avatar"))
-            || ![&verse["lines"], &verse["after"]["lines"]]
-                .iter()
-                .any(|lines| **lines == serde_json::json!(stanza.lines))
         {
             return false;
         }
     }
-    let latest = poem.stanzas.iter().map(|stanza| stanza.turn).max();
-    let new_lines: Vec<_> = poem
-        .stanzas
-        .iter()
-        .filter(|stanza| Some(stanza.turn) == latest)
-        .flat_map(|stanza| stanza.lines.iter())
-        .collect();
-    new_lines == poem.new_lines.iter().collect::<Vec<_>>()
+    true
 }
 
 pub(super) fn prompt_lines(poem: &Poem) -> Vec<String> {
-    let mut lines = vec![format!("My earned poem: {}", poem.title)];
-    lines.extend(
-        poem.stanzas
-            .iter()
-            .map(|stanza| format!("{}: {}", stanza.author_name, stanza.lines.join(" "))),
-    );
-    lines.push(format!(
-        "These are the new lines: {}",
-        poem.new_lines.join(" ")
-    ));
-    lines
-}
-
-// Quoting an earned line again is a valid choice during another conversation.
-pub(super) fn earned_quote(text: &str, poem: Option<&Poem>) -> bool {
-    let Some(poem) = poem else { return false };
-    let key = |value: &str| {
-        value
-            .chars()
-            .filter(|c| c.is_alphanumeric())
-            .flat_map(char::to_lowercase)
-            .collect::<String>()
-    };
-    let text = key(text);
-    !text.is_empty()
-        && poem.stanzas.iter().any(|stanza| {
-            stanza.lines.iter().any(|line| key(line) == text)
-                || key(&stanza.lines.join(" ")) == text
-        })
+    let mut names: Vec<&str> = Vec::new();
+    for stanza in &poem.stanzas {
+        if !names.contains(&stanza.author_name.as_str()) {
+            names.push(&stanza.author_name);
+        }
+    }
+    let title = &poem.title;
+    vec![match names.is_empty() {
+        true => format!("My poem {title} holds no deeds yet."),
+        false => format!("My poem {title} holds deeds by {}.", names.join(", ")),
+    }]
 }
 
 pub(super) fn consistent(text: &str, actor: &str, poem: Option<&Poem>) -> bool {

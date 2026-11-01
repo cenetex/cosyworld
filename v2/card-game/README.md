@@ -339,8 +339,9 @@ through Rust validation without a paid model call.
 The Theban, Open Door and Ajax stories are told through pack choices: Talk,
 Give and Use plays whose effects the rules commit, with receipts saved in the
 pack state. There are no story quest cards or story quest records. The Bard's
-conversation holds the earned poem in order, and his verses follow the saved
-choice receipts. The [exact copy list](../content/greek-drama/OPENING-POEM.md),
+conversation names his poem and the travelers whose deeds it holds, in the
+order of the saved choice receipts. The couplet text is lore in the pack's
+`lore/` folder, not prompt text. The [exact copy list](../content/greek-drama/OPENING-POEM.md),
 the [Open Door guide](../content/greek-drama/OPEN-DOOR.md) and the
 [Ajax chapter guide](../content/greek-drama/AJAX.md) record the scenes.
 Packs no longer carry `storyQuests` or `situations`. A story choice is
@@ -744,11 +745,10 @@ Each voice receives a short first-person transcript and completes one plain-text
 line. An optional `idiolect` profile field describes the voice in prose;
 profiles carry no example utterances ([#1537](https://github.com/cenetex/cosyworld/issues/1537)). Existing pack `persona` and `voice` fields remain supported. The server checks
 visible state, including lamp state, before accepting each line. Supplied quest
-facts remain part of the transcript. A bard receives the complete earned poem
-as structured context, with the newest lines marked separately. The poem data
-keeps its authored words and attribution. The bard speaks in its own voice and
-may quote, paraphrase, or comment on that context. Ordinary factual, custody,
-observation, and speech checks apply to local and shared replies.
+facts remain part of the transcript. A bard's poem context names its title
+and the travelers whose deeds it holds, with no authored verse text. The bard
+speaks in its own voice. Ordinary factual, custody, observation, and speech
+checks apply to local and shared replies.
 
 Hosted calls have a twelve-second limit and the scene has a twenty-two-second
 limit, with eight calls in flight. Replies are collected as they complete, then

@@ -395,6 +395,19 @@ journey is her saved place on its path. If she was on the coast road, she and
 her companion continue at Piraeus, where she arrives. Visitors already on the
 Theban road in an earlier save stay there.
 
+## The Bard's poem as world facts
+
+Shared rules version 60 moves the Bard's 56 authored couplets out of the
+rules and prompts (#1537). Recital verses keep their choice, quest and
+`summons` flag; receipts, `recitals` records, the singer's travel and
+`claims` checks are unchanged. The pack schema now rejects couplet text in a
+recital verse, so the engine bytes change; v59 keeps its exact bundle for
+journals recorded with the older content. The couplets live intact in
+`v2/content/greek-drama/lore/bard-couplets.json`. The narrator's poem
+context carries the title and each stanza's id, turn and author, and the
+prompt says only "My poem … holds deeds by …". A follow-up turns the lore
+into readable book items.
+
 ## Learning from outcomes
 
 Shared rules version 19 records measured attempts for item and companionship
