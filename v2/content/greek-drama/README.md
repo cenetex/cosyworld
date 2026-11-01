@@ -102,7 +102,7 @@ source guide](AJAX.md) for the choices, objects and saved account.
 
 The camp's landing, household and grave have direct local paths. Places inside
 a town link directly. Between towns there is exactly one road or a sea lane:
-the Sacred Way joins the Agora and Delphi, the Oeta Road joins Delphi and
+the Road to Delphi joins the Agora and Delphi, the Oeta Road joins Delphi and
 Trachis, the Royal Road joins Troy and Susa, the Black Sea Road joins Thrace and
 Tauris, and the Colonists' Road joins Corinth and Sicily. Troy is reached by
 ship at the Trojan landing. The Greek ship serves Piraeus, the Wine-Dark
