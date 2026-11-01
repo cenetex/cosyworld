@@ -47,10 +47,13 @@ try {
     [1440, 900],
     [390, 844],
   ]) {
+    // The opening starts lit: douse it to open the mirror, then relight it at
+    // the pond (#1653).
     let seed = enableMotives(createWorld({ opening: true }));
     for (const fields of [
-      { kind: "light", item: "lamp" },
+      { kind: "snuff", item: "lamp" },
       { kind: "move", target: "pond" },
+      { kind: "light", item: "lamp" },
     ]) {
       const action = legalActions(seed).find((a) =>
         Object.entries(fields).every(([k, v]) => a[k] === v),
