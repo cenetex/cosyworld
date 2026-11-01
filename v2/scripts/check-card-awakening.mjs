@@ -207,9 +207,12 @@ try {
     const card = document
       .querySelector('#hand [data-card="vale"]')
       .getBoundingClientRect();
-    const label = document
-      .querySelector('#hand [data-card="vale"] .name')
-      .getBoundingClientRect();
+    // The name's letters, not its padded backing band, must stay in view.
+    const name = document.createRange();
+    name.selectNodeContents(
+      document.querySelector('#hand [data-card="vale"] .name'),
+    );
+    const label = name.getBoundingClientRect();
     return {
       dialogHeight: dialog.height,
       gap: card.top - dialog.bottom,
