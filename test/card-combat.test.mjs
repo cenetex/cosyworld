@@ -392,7 +392,9 @@ describe("card standoffs", () => {
 describe("standoff endings", () => {
   // A player who keeps Striking or Bracing keeps a threat open by choice, so
   // the long run mixes fighting with standing down. Residents follow their
-  // own plans, and every standoff still ends within a few rounds.
+  // own plans, and every standoff still ends within a few rounds. Six seeds
+  // of 150 plays take about 4 s locally and 20 s on a busy runner, past the
+  // 10 s default.
   it("never leaves a standoff open in long runs", () => {
     for (let seed = 1; seed <= 6; seed++) {
       let rng = seed;
@@ -423,7 +425,7 @@ describe("standoff endings", () => {
       }
       expect(longest, `seed ${seed}`).toBeLessThanOrEqual(10);
     }
-  });
+  }, 60_000);
   // A player who stands down at once still gets out: a resident either
   // stands down too or fights it to a finish.
   it("ends every standoff the player stands down from", () => {
