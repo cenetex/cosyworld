@@ -15389,6 +15389,7 @@
       upgradeHoppyCatInteriorsSave(s);
       upgradeBoardingSave(s);
       upgradeForestButtonsSave(s);
+      upgradeForestRevisionSave(s);
       upgradeWillowsKitSave(s);
       upgradeGreekThebesSave(s);
       upgradeGreekDistrictSave(s);
@@ -16024,6 +16025,13 @@
       forget(life);
     }
     saved.revision = 2;
+  }
+  function upgradeForestRevisionSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "lonely-forest");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
+    saved.choices = {};
+    saved.revision = 3;
   }
   var WILLOWS_RETIRED_CHOICES = [
     "willows-prepare-canoe",
