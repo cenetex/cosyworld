@@ -1,6 +1,6 @@
 use super::{
     content, engine,
-    full_world::{actor_id, actor_index, World},
+    full_world::{actor_id, actor_index, run_seed, World},
     store::{self, sql_error, Result},
 };
 use rusqlite::{params, Connection, OptionalExtension};
@@ -103,7 +103,8 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
     if let Some(mut w) = state {
         if engine::historical(&w.version) {
             let from = w.version.clone();
-            let mut upgrade = json!({"op":"upgrade", "from":from, "to":engine::VERSION});
+            let mut upgrade =
+                json!({"op":"upgrade", "from":from, "to":engine::VERSION, "seed":run_seed(id)});
             if engine::takes_content(engine::VERSION) {
                 content::save(c)?;
                 upgrade["pack"] = json!(content::current());
@@ -144,7 +145,9 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         let scene: Value = serde_json::from_str(&text).ok()?;
         Some(json!({"play":play,"room":room,"actor":scene["actor"],"turn":scene["turn"],"action":scene["action"],"lines":scene["lines"],"starts_at":scene["starts_at"],"until_at":scene["until_at"],"error":scene["error"]}))
     }).collect();
-    let result = engine::reduce(json!({"op":"migrate","legacy":old,"legacyScenes":legacy_scenes}))?;
+    let result = engine::reduce(
+        json!({"op":"migrate","legacy":old,"legacyScenes":legacy_scenes,"seed":run_seed(id)}),
+    )?;
     let w = World {
         version: engine::VERSION.into(),
         game: result["world"].clone(),
