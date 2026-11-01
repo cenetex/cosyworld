@@ -90,6 +90,10 @@
           "place": "willows-camp"
         }
       ],
+      "scenery": {
+        "open": "The mended canoe waits at the water's edge, with its paddle, coiled rope and folded sheet.",
+        "backdrop": "assets/willows/landing-mended.webp"
+      },
       "travelLabel": "Paddle the canoe home"
     },
     {

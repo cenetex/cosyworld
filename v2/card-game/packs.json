@@ -1250,6 +1250,12 @@
           "retired": true
         },
         "greek-ajax-landing": {
+          "stage": {
+            "focus": {
+              "x": 80,
+              "y": 50
+            }
+          },
           "name": "The Trojan Camp Landing",
           "text": "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
           "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
@@ -7662,7 +7668,12 @@
             "open": "The Greek ship waits at the camp landing.",
             "closed": "The shared ship is sailing elsewhere. The camp landing waits for its return.",
             "cardName": "Greek ship",
-            "cardArt": "assets/greek-drama/ship-card.webp"
+            "cardArt": "assets/greek-drama/ship-card.webp",
+            "backdrop": "assets/greek-drama/ajax-landing-ship-at-berth.webp",
+            "focus": {
+              "x": 80,
+              "y": 50
+            }
           }
         },
         {
@@ -7678,7 +7689,12 @@
             "open": "The Greek ship waits at the end of the jetty.",
             "closed": "The shared ship is sailing elsewhere. The jetty points out over open water.",
             "cardName": "Greek ship",
-            "cardArt": "assets/greek-drama/ship-card.webp"
+            "cardArt": "assets/greek-drama/ship-card.webp",
+            "backdrop": "assets/greek-drama/hoppycat-signal-jetty-ship-at-berth.webp",
+            "focus": {
+              "x": 90,
+              "y": 50
+            }
           }
         },
         {
@@ -8017,6 +8033,12 @@
           "backdrop": "assets/hoppycat-archive/hoppycat-goldfish-tank.webp"
         },
         "hoppycat-signal-jetty": {
+          "stage": {
+            "focus": {
+              "x": 90,
+              "y": 50
+            }
+          },
           "name": "Signal Jetty",
           "text": "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home.",
           "persona": "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home. Describe this as a playful living place. Use the current story facts for progress.",
@@ -9757,6 +9779,10 @@
               "place": "willows-camp"
             }
           ],
+          "scenery": {
+            "open": "The mended canoe waits at the water's edge, with its paddle, coiled rope and folded sheet.",
+            "backdrop": "assets/willows/landing-mended.webp"
+          },
           "travelLabel": "Paddle the canoe home"
         },
         {
@@ -11194,6 +11220,7 @@
             }
           ],
           "scenery": {
+            "backdrop": "assets/shared/places/attic-lit-cottage.webp",
             "open": "A narrow stair leads down to the cosy cottage.",
             "closed": "The floorboards show no way downstairs.",
             "cardArt": "assets/lonely-forest/cottage.png",

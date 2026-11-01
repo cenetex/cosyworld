@@ -1957,6 +1957,8 @@ function card(id) {
   );
   img.alt = "";
   img.draggable = false;
+  if (crossingFace?.focus)
+    img.style.objectPosition = `${crossingFace.focus.x}% ${crossingFace.focus.y}%`;
   if (type === "avatar") frameFigure(img);
   graphic.append(img);
   if (type === "location") {

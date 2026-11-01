@@ -423,9 +423,11 @@ also tests the destination cards, a reload on the road and waiting for the ship.
 
 The ship's card follows the same paintings. Aboard, it shows the stage
 backdrop: the deck at a port, or open sea by day or night. From a mooring
-with a berth painting (the Wine-Dark Harbor, Piraeus) it shows
-the ship at that berth, lit for the hour. Black Pond, the Trojan camp landing
-and the Hoppycat jetty keep the authored Black Pond card.
+with a berth painting (the Wine-Dark Harbor, Piraeus, Trojan camp landing or
+Signal Jetty), it shows the ship at that berth. Greek moorings follow the hour;
+the Signal Jetty keeps its starry sky. The berth's focus frames both the scene
+and boarding card on phones. Departures restore the empty shore painting.
+Black Pond keeps the authored Black Pond card.
 
 The ship sails authored sea lanes, at most four from each port. Black Pond
 has one lane, to the Wine-Dark Harbor. The Wine-Dark Harbor has

@@ -11,29 +11,29 @@ import { encodeSave, legalActions, nameOf, play } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { combatPortrait } from "../card-game/combat-portraits.mjs";
 
-function fixture() {
+function fixture(opponent) {
   let s = enableMotives(atticOpening());
   s = play(
     s,
     legalActions(s).find((a) => a.kind === "snuff"),
   ).state;
-  s.actors.moth.place = "pond";
+  s.actors[opponent].place = "pond";
   s = play(
     s,
     legalActions(s).find((a) => a.kind === "move" && a.target === "pond"),
   ).state;
-  // Pip has the upper hand: Vale's next guard still loses the standoff.
+  // The opponent has the upper hand: Vale's next brace loses the standoff.
   s.standoffs = [
     {
-      challenger: "moth",
+      challenger: opponent,
       defender: "vale",
       location: "pond",
       item: "lamp",
       opened: s.turn - 1,
       answered: true,
-      resolve: { vale: 1, moth: 4 },
-      guarding: { vale: true, moth: false },
-      struck: { vale: true, moth: true },
+      resolve: { vale: 1, [opponent]: 4 },
+      guarding: { vale: true, [opponent]: false },
+      struck: { vale: true, [opponent]: true },
     },
   ];
   return s;
@@ -49,19 +49,22 @@ const browser = await chromium.launch({
 });
 const results = [];
 try {
-  for (const [width, height, motion] of [
-    [1440, 900, "no-preference"],
-    [390, 844, "no-preference"],
-    [390, 844, "reduce"],
-  ]) {
+  for (const [width, height, motion, opponent] of [
+    "moth",
+    "greek-antigone",
+  ].flatMap((id) => [
+    [1440, 900, "no-preference", id],
+    [390, 844, "no-preference", id],
+    [390, 844, "reduce", id],
+  ])) {
     const page = await browser.newPage({
       viewport: { width, height },
       reducedMotion: motion,
     });
     page.setDefaultTimeout(15000);
-    const table = `combat-${width}-${motion}`;
+    const table = `combat-${opponent}-${width}-${motion}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
-    const report = { width, motion, errors: [] };
+    const report = { opponent, width, motion, errors: [] };
     results.push(report);
     page.on("pageerror", (error) => report.errors.push(error.message));
     await page.addInitScript(
@@ -73,7 +76,7 @@ try {
           JSON.stringify({ enabled: false }),
         );
       },
-      { key, save: encodeSave(fixture()) },
+      { key, save: encodeSave(fixture(opponent)) },
     );
     let request;
     await page.route("**/card-game/text", async (route) => {
@@ -94,7 +97,7 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
-    await page.locator('#hand [data-card="moth"]').waitFor();
+    await page.locator(`#hand [data-card="${opponent}"]`).waitFor();
     // Under threat the room is locked: no place cards and no items but the
     // demanded Lamp, which Vale may still hand over.
     assert.deepEqual(
@@ -105,8 +108,8 @@ try {
           ),
         ),
       ].sort(),
-      ["lamp", "moth", "vale"],
-      "Under threat the hand holds only the fighters and the demanded item",
+      [...new Set(["lamp", "moth", opponent, "vale"])].sort(),
+      "Under threat the hand holds only the people and the demanded item",
     );
     // Standing resolve shows under both fighters before the play.
     await page.waitForFunction(
@@ -119,9 +122,9 @@ try {
       /vale-guard\.webp$/,
       "The saved standing guard selects its painting before another play",
     );
-    // Vale with Pip raised offers Guard during the standoff.
+    // Raising both fighters offers Brace during the standoff.
     await selectCard(page, "vale");
-    await selectCard(page, "moth");
+    await selectCard(page, opponent);
     await page.evaluate(() => {
       window.combatArt = [];
       new MutationObserver(() => {
@@ -151,7 +154,10 @@ try {
     // From the first combat frame the two fighters face each other.
     assert.deepEqual(
       await page.evaluate(() =>
-        ["vale", "moth"].map((id, i, pair) => {
+        Array.from(
+          document.querySelectorAll("#cast .combat-pips"),
+          (bar) => bar.parentElement.dataset.avatar,
+        ).map((id, i, pair) => {
           const at = (who) => {
             const box = document
               .querySelector(`#cast [data-avatar="${who}"]`)
@@ -175,7 +181,7 @@ try {
       /vale-guard\.webp$/,
     );
     await page.waitForFunction(() =>
-      /loses 1 resolve/.test(
+      /loses \d+ resolve/.test(
         document.querySelector("#combat-caption").textContent,
       ),
     );
@@ -187,7 +193,7 @@ try {
     report.art = [...new Set(await page.evaluate(() => window.combatArt))];
     for (const [id, pose] of [
       ["vale", "guard"],
-      ["moth", "attack"],
+      [opponent, "attack"],
       ["vale", "hit"],
     ]) {
       const source = combatPortrait(
@@ -210,7 +216,7 @@ try {
     );
     assert.equal(
       await page.locator("#defeat-title").textContent(),
-      "Pip drove you off",
+      `${nameOf(opponent)} drove you off`,
     );
     assert.match(
       await page.locator("#defeat-changes").textContent(),
@@ -218,19 +224,22 @@ try {
     );
     assert.match(
       await page.locator("#combat-announcement").textContent(),
-      /Pip drove you off/,
+      new RegExp(`${nameOf(opponent)} drove you off`, "u"),
     );
     // The player decides when to move on; the place has not changed yet.
     await page.waitForTimeout(600);
     assert.equal(await page.locator("#defeat-dialog[open]").count(), 1);
     assert.equal(await page.locator("#travel.travelling").count(), 0);
     await page.screenshot({
-      path: new URL(`defeat-${width}-${motion}.png`, output).pathname,
+      path: new URL(`defeat-${opponent}-${width}-${motion}.png`, output)
+        .pathname,
     });
     await page.locator("#defeat-dialog [data-combat-continue]").click();
     if (motion === "reduce") {
-      await page.waitForFunction(() =>
-        /You came to at /.test(document.querySelector(".dialogue").textContent),
+      assert.equal(
+        await page.locator("#travel.travelling").count(),
+        0,
+        "Reduced motion arrives without an animated travel veil",
       );
     } else {
       await page.locator("#travel.travelling").waitFor();
@@ -259,7 +268,7 @@ try {
     await page.evaluate(() =>
       document.querySelector("#history-dialog").close(),
     );
-    assert.match(log, /Pip struck Vale\./);
+    assert.ok(log.includes(`${nameOf(opponent)} struck Vale.`));
     assert.match(log, /Vale was beaten and (sent home|fell back to )/);
     assert.match(log, /You came to at /);
     assert.equal(await page.locator(".combat-dim").count(), 0);
@@ -282,7 +291,8 @@ try {
     assert.ok(request, "The arrival asked for words");
     assert.equal(request.speakers.length, 1);
     await page.screenshot({
-      path: new URL(`arrival-${width}-${motion}.png`, output).pathname,
+      path: new URL(`arrival-${opponent}-${width}-${motion}.png`, output)
+        .pathname,
     });
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth,

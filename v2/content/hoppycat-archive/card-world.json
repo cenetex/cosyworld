@@ -102,6 +102,7 @@
       "backdrop": "assets/hoppycat-archive/hoppycat-goldfish-tank.webp"
     },
     "hoppycat-signal-jetty": {
+      "stage": { "focus": { "x": 90, "y": 50 } },
       "name": "Signal Jetty",
       "text": "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home.",
       "persona": "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home. Describe this as a playful living place. Use the current story facts for progress.",

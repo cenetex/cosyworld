@@ -283,8 +283,10 @@ describe("Tea beneath the oak", () => {
       expect(reflectionOpen(restored, "attic")).toBe(false);
       expect(availableCards(restored)).toContain(COTTAGE);
       expect(availableCards(restored)).not.toContain("pond");
-      expect(backdrop("attic", restored)).toBe("./assets/attic/attic-lit.webp");
-      expect(locationVariant(restored, "attic")).toBe("attic-lit");
+      expect(backdrop("attic", restored)).toBe(
+        "./assets/shared/places/attic-lit-cottage.webp",
+      );
+      expect(locationVariant(restored, "attic")).toBe("attic-forest-cottage");
       const next = move(restored, COTTAGE);
       expect(next.actors.vale.place).toBe(COTTAGE);
       expect(next.items.cloth.holder).toBe(holder);
@@ -309,6 +311,9 @@ describe("Tea beneath the oak", () => {
     (_, scarf, holder) => {
       const world = scarfed(scarf, holder);
       world.actors.moth.place = "attic";
+      expect(backdrop("attic", world)).toBe(
+        "./assets/shared/places/attic-lit-cottage.webp",
+      );
       expect(exits(world, "attic", "vale")).toEqual([COTTAGE]);
       expect(availableCards(world)).not.toContain("pond");
       expect(
@@ -317,6 +322,7 @@ describe("Tea beneath the oak", () => {
         ),
       ).toBe(true);
       world.items.lamp.lit = false;
+      expect(backdrop("attic", world)).toBe("./assets/attic/attic-doused.webp");
       expect(exits(world, "attic", "vale")).toEqual(["pond"]);
     },
   );

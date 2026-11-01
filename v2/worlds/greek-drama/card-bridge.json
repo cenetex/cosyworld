@@ -118,7 +118,9 @@
         "open": "The Greek ship waits at the camp landing.",
         "closed": "The shared ship is sailing elsewhere. The camp landing waits for its return.",
         "cardName": "Greek ship",
-        "cardArt": "assets/greek-drama/ship-card.webp"
+        "cardArt": "assets/greek-drama/ship-card.webp",
+        "backdrop": "assets/greek-drama/ajax-landing-ship-at-berth.webp",
+        "focus": { "x": 80, "y": 50 }
       }
     },
     {
@@ -134,7 +136,9 @@
         "open": "The Greek ship waits at the end of the jetty.",
         "closed": "The shared ship is sailing elsewhere. The jetty points out over open water.",
         "cardName": "Greek ship",
-        "cardArt": "assets/greek-drama/ship-card.webp"
+        "cardArt": "assets/greek-drama/ship-card.webp",
+        "backdrop": "assets/greek-drama/hoppycat-signal-jetty-ship-at-berth.webp",
+        "focus": { "x": 90, "y": 50 }
       }
     },
     {

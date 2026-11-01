@@ -9,7 +9,8 @@ const stems = new Map(
   portraits.flatMap((i) => i.actorIds.map((id) => [id, i.stem])),
 );
 export const castCombatStem = (id) => stems.get(id) || null;
-export const castCombatAssets = portraits.flatMap((i) =>
+// Publish the landscape sources without selecting them as portrait sprites.
+export const castCombatAssets = roster.identities.flatMap((i) =>
   i.poses.map((pose) => `assets/combat/${i.stem}-${pose}.webp`),
 );
 export const castCombatFacings = (facing) =>

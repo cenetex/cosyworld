@@ -2466,6 +2466,12 @@
             retired: true
           },
           "greek-ajax-landing": {
+            stage: {
+              focus: {
+                x: 80,
+                y: 50
+              }
+            },
             name: "The Trojan Camp Landing",
             text: "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
@@ -8878,7 +8884,12 @@
               open: "The Greek ship waits at the camp landing.",
               closed: "The shared ship is sailing elsewhere. The camp landing waits for its return.",
               cardName: "Greek ship",
-              cardArt: "assets/greek-drama/ship-card.webp"
+              cardArt: "assets/greek-drama/ship-card.webp",
+              backdrop: "assets/greek-drama/ajax-landing-ship-at-berth.webp",
+              focus: {
+                x: 80,
+                y: 50
+              }
             }
           },
           {
@@ -8894,7 +8905,12 @@
               open: "The Greek ship waits at the end of the jetty.",
               closed: "The shared ship is sailing elsewhere. The jetty points out over open water.",
               cardName: "Greek ship",
-              cardArt: "assets/greek-drama/ship-card.webp"
+              cardArt: "assets/greek-drama/ship-card.webp",
+              backdrop: "assets/greek-drama/hoppycat-signal-jetty-ship-at-berth.webp",
+              focus: {
+                x: 90,
+                y: 50
+              }
             }
           },
           {
@@ -9233,6 +9249,12 @@
             backdrop: "assets/hoppycat-archive/hoppycat-goldfish-tank.webp"
           },
           "hoppycat-signal-jetty": {
+            stage: {
+              focus: {
+                x: 90,
+                y: 50
+              }
+            },
             name: "Signal Jetty",
             text: "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home.",
             persona: "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home. Describe this as a playful living place. Use the current story facts for progress.",
@@ -10973,6 +10995,10 @@
                 place: "willows-camp"
               }
             ],
+            scenery: {
+              open: "The mended canoe waits at the water's edge, with its paddle, coiled rope and folded sheet.",
+              backdrop: "assets/willows/landing-mended.webp"
+            },
             travelLabel: "Paddle the canoe home"
           },
           {
@@ -12410,6 +12436,7 @@
               }
             ],
             scenery: {
+              backdrop: "assets/shared/places/attic-lit-cottage.webp",
               open: "A narrow stair leads down to the cosy cottage.",
               closed: "The floorboards show no way downstairs.",
               cardArt: "assets/lonely-forest/cottage.png",
@@ -16911,6 +16938,7 @@
   var dockedNightBackdrops = {
     [art("city-gate-closed-day")]: art("city-gate-closed-night"),
     [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
+    [art("ajax-landing-ship-at-berth")]: art("ajax-landing-ship-at-berth-night"),
     [art("athens-harbor")]: art("athens-harbor-ship-at-berth-night"),
     [art("open-door-piraeus")]: art("piraeus-ship-at-berth-night")
   };
@@ -17403,6 +17431,7 @@
         reference: "assets/greek-drama/chthonic-shipmaster.png",
         nativeFacing: "left",
         poses: [
+          "attack",
           "hit",
           "guard"
         ]
@@ -17415,7 +17444,11 @@
         name: "The Bard",
         reference: "assets/greek-drama/chthonic-singer.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "greek-market-neighbor",
@@ -17425,7 +17458,11 @@
         name: "The Agora Neighbor",
         reference: "assets/greek-drama/chthonic-neighbor.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "greek-temple-attendant",
@@ -17435,7 +17472,11 @@
         name: "The Delphic Attendant",
         reference: "assets/greek-drama/chthonic-attendant.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "greek-ferryman",
@@ -17445,7 +17486,11 @@
         name: "The Lower Ferryman",
         reference: "assets/greek-drama/chthonic-ferryman.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "greek-helen-egypt",
@@ -17456,7 +17501,11 @@
         name: "Helen",
         reference: "assets/greek-drama/chthonic-helen.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "greek-menelaus-egypt",
@@ -17467,7 +17516,11 @@
         name: "Menelaus",
         reference: "assets/greek-drama/chthonic-menelaus.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "greek-electra-aeschylus",
@@ -17479,7 +17532,11 @@
         name: "Electra",
         reference: "assets/greek-drama/chthonic-electra.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "greek-orestes-aeschylus",
@@ -17576,6 +17633,7 @@
         reference: "assets/greek-drama/open-door-quay-host.webp",
         nativeFacing: "left",
         poses: [
+          "attack",
           "hit",
           "guard"
         ]
@@ -17602,7 +17660,11 @@
         name: "The Altar Keeper",
         reference: "assets/greek-drama/open-door-altar-keeper.webp",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "greek-household-witness",
@@ -17612,7 +17674,11 @@
         name: "Myrine of Argos",
         reference: "assets/greek-drama/myrine.webp",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "greek-ajax-tecmessa",
@@ -17622,7 +17688,11 @@
         name: "Tecmessa",
         reference: "assets/greek-drama/ajax-tecmessa.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "greek-ajax-teucer",
@@ -17632,7 +17702,11 @@
         name: "Teucer",
         reference: "assets/greek-drama/ajax-teucer.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "greek-ajax-odysseus",
@@ -17642,7 +17716,11 @@
         name: "Odysseus",
         reference: "assets/greek-drama/ajax-odysseus.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "hoppycat-tapi-lilt",
@@ -17736,7 +17814,11 @@
         name: "Glim Twice",
         reference: "assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "hoppycat-nix-fermata",
@@ -17746,7 +17828,11 @@
         name: "Nix Fermata",
         reference: "assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "hoppycat-hoppy-cat",
@@ -17756,7 +17842,11 @@
         name: "Hoppy Cat",
         reference: "assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "hoppycat-fable",
@@ -17766,7 +17856,11 @@
         name: "Fable",
         reference: "assets/hoppycat-archive/hoppycat-fable-cutout.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "hoppycat-phase-two",
@@ -17776,7 +17870,11 @@
         name: "Phase Two",
         reference: "assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "hoppycat-arc",
@@ -17786,7 +17884,11 @@
         name: "Arc",
         reference: "assets/hoppycat-archive/hoppycat-arc-cutout.png",
         nativeFacing: "left",
-        poses: []
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
       },
       {
         stem: "hoppycat-staticwashere",
@@ -17939,7 +18041,7 @@
   var stems = new Map(
     portraits.flatMap((i) => i.actorIds.map((id) => [id, i.stem]))
   );
-  var castCombatAssets = portraits.flatMap(
+  var castCombatAssets = cast_roster_default.identities.flatMap(
     (i) => i.poses.map((pose) => `assets/combat/${i.stem}-${pose}.webp`)
   );
   var castCombatFacings = (facing) => portraits.filter((i) => i.nativeFacing === facing).flatMap(
