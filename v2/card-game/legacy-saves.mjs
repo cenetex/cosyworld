@@ -18,6 +18,7 @@ import {
 } from "./pack-transport.mjs";
 import { installKnowledge } from "./knowledge.mjs";
 import { newTemperament } from "./pack-rules.mjs";
+import forest from "./forest.json" with { type: "json" };
 
 // The quest machinery was replaced by one want per avatar. Its saved records
 // are dropped; each avatar's want is installed again from authored data.
@@ -97,6 +98,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
   }
   upgradeSightings(s);
   installPacks(s);
+  reconcileContent(s);
   // A told lane keeps its id; its words follow the lane's current conditions.
   for (const fact of Object.values(s?.knowledge?.facts || {})) {
     const text = fact?.source?.kind === "lane" && laneText(fact.id);
@@ -111,6 +113,47 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
       ),
     );
   return s;
+}
+
+// A loaded save follows the current content. A retired crossing closes even
+// where the save had found it, every authored thing is present, and a thing
+// the content no longer defines leaves the world: whatever it held stays
+// with whoever, or wherever, held it.
+export function reconcileContent(s) {
+  if (!s?.items || typeof s.items !== "object") return;
+  for (const pack of packDefinitions)
+    for (const c of pack.crossings)
+      if (c.retired && s.crossings?.[c.id])
+        s.crossings[c.id].discovered = false;
+  const authored = structuredClone(forest.initialState.items);
+  for (const pack of packDefinitions)
+    for (const [id, item] of Object.entries(pack.items || {}))
+      authored[id] ??= { holder: item.holder, history: [] };
+  const fresh = newMemories();
+  for (const [id, item] of Object.entries(authored))
+    if (!Object.hasOwn(s.items, id)) {
+      s.items[id] = item;
+      if (s.memories) s.memories[id] ??= fresh[id];
+    }
+  const root = (id) => {
+    let holder = s.items[id]?.holder;
+    const seen = new Set([id]);
+    while (s.items[holder] && !seen.has(holder)) {
+      seen.add(holder);
+      holder = s.items[holder].holder;
+    }
+    return holder;
+  };
+  const gone = Object.keys(s.items).filter(
+    (id) => !Object.hasOwn(authored, id),
+  );
+  for (const id of gone) {
+    const keeper = root(id);
+    for (const item of Object.values(s.items))
+      if (item?.holder === id) item.holder = keeper;
+    delete s.items[id];
+    if (s.memories) delete s.memories[id];
+  }
 }
 
 // Earlier station links to the attic and carriage pass through the pond.

@@ -268,13 +268,15 @@ describe("the retired red thread", () => {
     expect(landing.crossings["hoppycat-garden-pond"].discovered).toBe(true);
   });
 
-  it("stays open where a save already found it", () => {
+  it("closes on load where a save had already found it", () => {
     const s = setup("pond");
     s.crossings[THREAD].discovered = true;
-    expect(moves(reload(s), "vale")).toContain(pack.entry);
+    const loaded = reload(s);
+    expect(loaded.crossings[THREAD].discovered).toBe(false);
+    expect(moves(loaded, "vale")).not.toContain(pack.entry);
   });
 
-  it("an earlier save keeps a found thread and teaches the lane to its visitors", () => {
+  it("an earlier save closes a found thread and teaches the lane to its visitors", () => {
     const s = setup("pond");
     s.crossings[THREAD].discovered = true;
     s.packs[pack.id].revision = 1;
@@ -285,7 +287,7 @@ describe("the retired red thread", () => {
     const bard = structuredClone(s.routeKnowledge["greek-rhapsode"]);
     const next = upgrade(s);
     expect(next.packs[pack.id].revision).toBe(2);
-    expect(next.crossings[THREAD].discovered).toBe(true);
+    expect(next.crossings[THREAD].discovered).toBe(false);
     for (const who of players)
       expect(knowsLane(next, who, "greek-piraeus", JETTY)).toBe(true);
     // The lane is learned as knowledge; it still opens only with a thing aboard.
@@ -296,7 +298,7 @@ describe("the retired red thread", () => {
       courses(act(reload(aboard), "vale", "move", "greek-ship"), "vale"),
     ).not.toContain(JETTY);
     expect(next.routeKnowledge["greek-rhapsode"]).toEqual(bard);
-    expect(moves(next, "vale")).toContain(pack.entry);
+    expect(moves(next, "vale")).not.toContain(pack.entry);
 
     // An earlier save that never found it loses nothing and gains no door.
     const unfound = setup("pond");

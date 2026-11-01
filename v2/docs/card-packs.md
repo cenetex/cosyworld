@@ -293,9 +293,9 @@ Course cards show only lanes the person knows. A lane can instead list
 hold, for everyone aboard, and knowing it opens nothing. The Piraeus–Signal
 Jetty lane opens with `pack_item_present` while a Hoppy Cat thing is aboard.
 Myrto knows every lane; through Talk she tells a gated lane together with its
-condition. Hoppy Cat revision 2 saves keep a red thread they had already
-found, and anyone who had been in Hoppy Cat learns the jetty lane as
-knowledge. In a new game every Hoppy Cat thing starts inside Hoppy Cat, so the
+condition. A retired crossing closes in every loaded save, including one that
+had already found it (shared rules 63), and anyone who had been in Hoppy Cat
+learns the jetty lane as knowledge. In a new game every Hoppy Cat thing starts inside Hoppy Cat, so the
 jetty waits for things scattered into other worlds.
 
 The ship place uses the existing place cards. At a dock, the ship card offers
