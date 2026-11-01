@@ -21,6 +21,7 @@ const files = [
   "shared.css",
   "toolbar.mjs",
   "world-name.mjs",
+  "avatar-world.mjs",
   "world-names.json",
   "inner-life.mjs",
   "toolbar.css",

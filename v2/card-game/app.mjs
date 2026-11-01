@@ -60,6 +60,13 @@ import {
   humanAvatars,
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
+import {
+  PLAYING_KEY,
+  SAVE_BASE,
+  avatarSlot,
+  createAvatarWorld,
+  otherAvatar,
+} from "./avatar-world.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
 import { forgetCovered, markWaking } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
@@ -129,18 +136,27 @@ const sharedSession = sharedWorldId
   ? await connectSharedWorld(sharedWorldId)
   : null;
 const sharedPlayback = createSharedPlaybackClock();
-const SAVE_KEY =
-  "cosyworld.reflected-shore.v1" +
-  (sharedSession
-    ? `.shared.${sharedWorldId}.${sharedSession.state.actor}`
-    : tableName && /^[a-z0-9-]{1,40}$/i.test(tableName)
-      ? `.${tableName}`
-      : startingPack
-        ? `.pack.${startingPack.id}`
-        : "");
+const localAvatar = otherAvatar(
+  new URLSearchParams(location.search).get("avatar"),
+);
+const SAVE_KEY = sharedSession
+  ? `${SAVE_BASE}.shared.${sharedWorldId}.${sharedSession.state.actor}`
+  : tableName && /^[a-z0-9-]{1,40}$/i.test(tableName)
+    ? `${SAVE_BASE}.${tableName}`
+    : avatarSlot(
+        localAvatar || "vale",
+        startingPack ? `${SAVE_BASE}.pack.${startingPack.id}` : SAVE_BASE,
+      );
+// Each avatar's new local world: Vale wakes in the attic, the others at home.
+const freshWorld = () =>
+  enableMotives(
+    localAvatar
+      ? createAvatarWorld(localAvatar, newRunSeed())
+      : createLandingWorld(startingPack),
+  );
 let world = sharedSession
     ? { ...sharedSession.state.world, playerActorId: sharedSession.state.actor }
-    : enableMotives(createLandingWorld(startingPack)),
+    : freshWorld(),
   selected = [],
   expandedHolders = new Set(),
   saveBlocked = false,
@@ -3617,7 +3633,7 @@ $("confirm-reset").onclick = () => {
   exchange.cancel();
   reveal.cancel();
   speechSounds.stop();
-  world = enableMotives(createLandingWorld(startingPack));
+  world = freshWorld();
   loadSeen(true);
   completedSpeech.clear();
   reviewing = false;
@@ -3998,6 +4014,18 @@ installSharedControls({
   notice,
 });
 installToolbar({ session: sharedSession, getWorld: () => world });
+// The root page resumes whichever avatar was played last.
+if (!tableName && !startingPack)
+  try {
+    localStorage.setItem(
+      PLAYING_KEY,
+      JSON.stringify(
+        sharedSession
+          ? { avatar: sharedSession.state.actor, world: sharedWorldId }
+          : { avatar: localAvatar || "vale" },
+      ),
+    );
+  } catch {}
 if (localRuntime()) {
   for (const id of ["owned-worlds-button", "shared-worlds-button"]) {
     const button = $(id);
