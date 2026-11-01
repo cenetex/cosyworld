@@ -1541,7 +1541,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 13,
+        revision: 14,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -16314,6 +16314,7 @@
       upgradeGreekThebesSave(s);
       upgradeGreekDistrictSave(s);
       upgradeGreekCithaeronSave(s);
+      upgradeGreekDistrictRoadsSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -16506,6 +16507,13 @@
     if (state && (state.phase > 2 || state.phase === 2 && !state.discovered))
       state.phase = 0;
     saved.revision = 10;
+  }
+  function upgradeGreekDistrictRoadsSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 14 || saved?.revision !== 13) return;
+    foldRetiredRoads(s);
+    saved.revision = 14;
   }
   function upgradeGreekCithaeronSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
