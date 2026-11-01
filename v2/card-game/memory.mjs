@@ -159,9 +159,7 @@ export function validMemories(world) {
               other === id ||
               profiles[other]?.kind !== "avatar" ||
               !seen ||
-              Object.keys(seen).some(
-                (key) => !SEEN_KEYS.includes(key),
-              ) ||
+              Object.keys(seen).some((key) => !SEEN_KEYS.includes(key)) ||
               !profiles[seen.place] ||
               profiles[seen.place].kind === "avatar" ||
               world.items[seen.place] ||

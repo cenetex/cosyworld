@@ -100,7 +100,13 @@
       })
     ];
   }
-  var fields = (o, names2) => o && typeof o === "object" && Object.keys(o).sort().join() === names2.split(" ").sort().join();
+  var sortedNames = /* @__PURE__ */ new Map();
+  var fields = (o, names2) => {
+    if (!o || typeof o !== "object") return o && false;
+    if (!sortedNames.has(names2))
+      sortedNames.set(names2, names2.split(" ").sort().join());
+    return Object.keys(o).sort().join() === sortedNames.get(names2);
+  };
   var validObservation = (o) => fields(o, "met trust strain held") && typeof o.met === "boolean" && Number.isInteger(o.held) && o.held >= 0 && o.held <= 3 && [o.trust, o.strain].every((n) => Number.isInteger(n) && n >= 0 && n <= 3);
   function validAction(action, goal) {
     if (!related(action, goal)) return false;
@@ -277,11 +283,16 @@
     reflectionRoutes: [
       {
         from: "attic",
-        to: "pond"
+        to: "pond",
+        requires: [
+          { kind: "item_present", item: "lamp", place: "attic" },
+          { kind: "not", condition: { kind: "light", item: "lamp", at: ["attic"], uncovered: true } }
+        ]
       },
       {
         from: "pond",
-        to: "attic"
+        to: "attic",
+        requires: [{ kind: "light", item: "lamp", at: ["pond"], uncovered: true }]
       }
     ],
     places: {
@@ -296,8 +307,13 @@
       attic: {
         sanctuary: true,
         name: "Mirror attic",
-        text: "A tall mirror stands dark and empty. Dust gathers along its frame.",
+        text: "A tall mirror shows only the warm attic. Dust gathers along its frame.",
         exits: [],
+        backdrop: "assets/shared/places/attic-dark.webp",
+        backdrops: [
+          { backdrop: "assets/attic/attic-lit.webp", requires: [{ kind: "light", item: "lamp", at: ["attic"], uncovered: true }] },
+          { backdrop: "assets/attic/attic-doused.webp", requires: [{ kind: "item_present", item: "lamp", place: "attic" }] }
+        ],
         stage: {
           focus: {
             x: 64,
@@ -508,7 +524,8 @@
       },
       items: {
         lamp: {
-          holder: "vale"
+          holder: "vale",
+          lit: true
         }
       },
       log: [
@@ -526,12 +543,12 @@
               id: "lamp",
               holder: "vale",
               fuel: 8,
-              lit: false
+              lit: true
             }
           ],
-          light: false,
+          light: true,
           speaker: "World",
-          text: "Vale stands alone in Mirror attic, holding an unlit lamp. The tall mirror stands dark and empty."
+          text: "Vale stands alone in Mirror attic, holding a lamp. Its light fills the room; the tall mirror shows only the attic."
         }
       ]
     }
@@ -772,7 +789,10 @@
   // v2/card-game/human-cast.mjs
   var humanAvatars = shared_cast_default.avatars;
   var humanAvatarIds = humanAvatars.map((a) => a.id);
-  var humanAvatar = (id) => humanAvatars.find((a) => a.id === id) || null;
+  var avatarById = /* @__PURE__ */ new Map();
+  for (const a of humanAvatars)
+    if (!avatarById.has(a.id)) avatarById.set(a.id, a);
+  var humanAvatar = (id) => avatarById.get(id) || null;
   var currentActor = (world) => world.playerActorId || "vale";
   var controlledByHuman = (world, id) => world.controlledActors ? world.controlledActors.includes(id) : id === "vale";
   var humanPresent = (world, id) => controlledByHuman(world, id) && (!world.presentActors || world.presentActors.includes(id));
@@ -10254,10 +10274,33 @@
         items: {
           "hoppycat-red-thread-spool": {
             name: "Red-Thread Spool",
-            text: "A warm spool washed up at Black pond, its loose thread trailing over the water. It catches only on relationships someone has chosen to carry forward.",
-            persona: "A warm spool washed up at Black pond, its loose thread trailing over the water toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
-            holder: "pond",
-            art: "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png"
+            text: "A warm spool left on the empty station's bench, its loose thread trailing toward the pond. It catches only on relationships someone has chosen to carry forward.",
+            persona: "A warm spool left on the empty station's bench, its loose thread trailing past the pond toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
+            holder: "station",
+            art: "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png",
+            requires: [
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "not",
+                    condition: {
+                      kind: "item_present",
+                      item: "oil",
+                      place: "station"
+                    }
+                  },
+                  {
+                    kind: "not",
+                    condition: {
+                      kind: "item_at",
+                      item: "hoppycat-red-thread-spool",
+                      place: "station"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "hoppycat-provenance-card": {
             name: "Blank Provenance Card",
@@ -13845,7 +13888,7 @@
             ok = keysOk(c, ["kind", "item", "place"]) && (owns2(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
             break;
           case "item_at":
-            ok = keysOk(c, ["kind", "item", "place"]) && owns2(items2, c.item) && owns2(places2, c.place);
+            ok = keysOk(c, ["kind", "item", "place"]) && owns2(items2, c.item) && anyPlace(c.place);
             break;
           case "met":
             ok = keysOk(c, ["kind", "actor"]) && owns2(avatars, c.actor);
@@ -13876,6 +13919,20 @@
         `${what} must use the closed condition vocabulary with valid references`
       );
     };
+    const savedCondition = (c) => ["any", "not"].includes(c?.kind) ? (c.conditions || [c.condition]).every(savedCondition) : [
+      "choice",
+      "choice_unset",
+      "flag",
+      "holding",
+      "item_at",
+      "item_near",
+      "item_present",
+      "shared_world",
+      "connected_humans",
+      "met",
+      "knows",
+      "daylight"
+    ].includes(c?.kind);
     const requirements = (cs, what, persistent = true) => {
       if (cs === void 0) return;
       check(
@@ -13886,19 +13943,7 @@
         cs.forEach((c) => {
           condition(c, what);
           check(
-            !persistent || [
-              "choice",
-              "choice_unset",
-              "flag",
-              "holding",
-              "item_at",
-              "item_near",
-              "shared_world",
-              "connected_humans",
-              "met",
-              "knows",
-              "daylight"
-            ].includes(c.kind),
+            !persistent || savedCondition(c),
             `${what} must use saved state or human presence conditions`
           );
         });
@@ -15031,8 +15076,8 @@
   ];
   if (observationProblems(packs_default.hub.observations, packs_default.hub).length || new Set(observations.map((d) => d.id)).size !== observations.length)
     throw new Error("Invalid card world observations.");
-  function observableStates(world, entityIds, definitions = observations) {
-    const visible = new Set(entityIds);
+  function observableStates(world, entityIds2, definitions = observations) {
+    const visible = new Set(entityIds2);
     return definitions.filter((d) => visible.has(d.entity)).flatMap((d) => {
       const source = d.source;
       const entity = source.kind === "actor_flag" ? world.actors[d.entity] : world.items[d.entity];
@@ -15053,7 +15098,9 @@
     throw new Error(
       `Invalid card world composition: ${compositionProblems.join("; ")}`
     );
-  var packDefinition = (id) => packDefinitions.find((p) => p.id === id) || null;
+  var packById = /* @__PURE__ */ new Map();
+  for (const p of packDefinitions) if (!packById.has(p.id)) packById.set(p.id, p);
+  var packDefinition = (id) => packById.get(id) || null;
   var merge = (field) => Object.fromEntries(
     packDefinitions.flatMap(
       (pack) => Object.entries(pack[field] || {}).map(([id, entity]) => [
@@ -15171,9 +15218,10 @@
   ].filter(Boolean);
   var packState = (world, id) => world.packs?.[id];
   function conditionsMet(world, packId, conditions = [], actor = null) {
-    return Boolean(world.packs?.[packId]) && conditions.every(
-      (condition) => conditionMet(world, condition, null, packId, actor)
-    );
+    if (!world.packs?.[packId]) return false;
+    for (const condition of conditions)
+      if (!conditionMet(world, condition, null, packId, actor)) return false;
+    return true;
   }
   function choiceText(choice, actor) {
     return choice.textTemplate === void 0 ? choice.text : choice.textTemplate.replaceAll(
@@ -15181,14 +15229,23 @@
       humanAvatar(actor)?.name || packPeople[actor]?.name || "An earlier traveler"
     );
   }
+  function rootOf(world, id) {
+    let holder = world.items[id].holder;
+    for (let step = 0; step < 32 && holder !== id; step++) {
+      if (!world.items[holder]) return holder;
+      holder = world.items[holder].holder;
+    }
+    holder = world.items[id].holder;
+    const seen = /* @__PURE__ */ new Set([id]);
+    while (world.items[holder] && !seen.has(holder)) {
+      seen.add(holder);
+      holder = world.items[holder].holder;
+    }
+    return holder;
+  }
   function entityActive(world, id) {
     if (world.items?.[id]) {
-      let holder = world.items[id].holder;
-      const seen = /* @__PURE__ */ new Set([id]);
-      while (world.items[holder] && !seen.has(holder)) {
-        seen.add(holder);
-        holder = world.items[holder].holder;
-      }
+      let holder = rootOf(world, id);
       if (humanAvatar(holder) && !humanPresent(world, holder)) return false;
       if (holder === BOARDY && !boardyActive(world)) return false;
     }
@@ -15203,15 +15260,13 @@
     if (!state || !conditionsMet(
       world,
       e.packId,
-      (e.requires || []).filter((c) => !saved || c.kind !== "connected_humans")
+      saved ? (e.requires || []).filter((c) => c.kind !== "connected_humans") : e.requires
     ) || !sectionAllows(world, pack, id, conditionsMet))
       return false;
     if (!pack.release || state.scope === "full") return true;
     if (pack.recital?.actor === id)
       return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place);
-    return [pack.release.places, pack.release.avatars, pack.release.items].some(
-      (ids3) => ids3.includes(id)
-    );
+    return pack.release.places.includes(id) || pack.release.avatars.includes(id) || pack.release.items.includes(id);
   }
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
@@ -15304,6 +15359,9 @@
       ...local.map((c) => committedChoiceText(world, pack, c))
     ].map((text2) => text2.slice(0, 240));
   }
+  var restGated = (requires = [], id) => requires.some(
+    (c) => c.kind === "item_at" ? c.item === id : restGated(c.conditions || (c.condition ? [c.condition] : []), id)
+  );
   function validatePackStates(world) {
     if (!record3(world.packs) || Object.keys(world.packs).sort().join() !== packDefinitions.map((p) => p.id).sort().join())
       return false;
@@ -15368,7 +15426,7 @@
         if (!entityEnabled(world, id, true) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns3(state.met, id)))
           return false;
       for (const [id, item] of Object.entries(pack.items || {}))
-        if (!entityEnabled(world, id, true) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0))
+        if (!entityEnabled(world, id, true) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)))
           return false;
     }
     return true;
@@ -15638,14 +15696,15 @@
       )
     );
   }
+  var profileKeys = Object.keys(profiles).sort().join();
+  var SEEN_KEYS = ["place", "turn", "seq"];
+  var EVENT_KINDS = ["event", "expression"];
   function validMemories(world) {
-    if (!world.memories || Object.keys(world.memories).sort().join() !== Object.keys(profiles).sort().join())
+    if (!world.memories || Object.keys(world.memories).sort().join() !== profileKeys)
       return false;
     return Object.entries(world.memories).every(([id, memory]) => {
       if (memory?.seen !== void 0 && (!memory.seen || typeof memory.seen !== "object" || Array.isArray(memory.seen) || profiles[id].kind !== "avatar" || Object.entries(memory.seen).some(
-        ([other, seen]) => other === id || profiles[other]?.kind !== "avatar" || !seen || Object.keys(seen).some(
-          (key) => !["place", "turn", "seq"].includes(key)
-        ) || !profiles[seen.place] || profiles[seen.place].kind === "avatar" || world.items[seen.place] || !Number.isSafeInteger(seen.turn) || seen.turn < 0 || seen.turn > world.turn || !Number.isSafeInteger(seen.seq) || seen.seq < 1 || seen.seq > world.eventSeq
+        ([other, seen]) => other === id || profiles[other]?.kind !== "avatar" || !seen || Object.keys(seen).some((key) => !SEEN_KEYS.includes(key)) || !profiles[seen.place] || profiles[seen.place].kind === "avatar" || world.items[seen.place] || !Number.isSafeInteger(seen.turn) || seen.turn < 0 || seen.turn > world.turn || !Number.isSafeInteger(seen.seq) || seen.seq < 1 || seen.seq > world.eventSeq
       )) || !validInnerLife(memory?.innerLife, world.turn) || !validLearning(world, id, memory?.learning, profiles) || !validReflections(world, id, memory?.reflections) || profiles[id].kind !== "avatar" && memory?.innerLife != null)
         return false;
       if (!memory || !Array.isArray(memory.events) || memory.events.length > MEMORY_LIMIT)
@@ -15661,7 +15720,7 @@
       if (memory.model !== void 0 && (typeof memory.model !== "string" || memory.model.length > 160))
         return false;
       return memory.events.every(
-        (event, index) => event && Number.isSafeInteger(event.seq) && event.seq > 0 && event.seq <= world.eventSeq && (!index || event.seq > memory.events[index - 1].seq) && Number.isSafeInteger(event.turn) && event.turn >= 0 && event.turn <= world.turn && ["event", "expression"].includes(event.kind) && typeof event.text === "string" && event.text.length <= 650
+        (event, index) => event && Number.isSafeInteger(event.seq) && event.seq > 0 && event.seq <= world.eventSeq && (!index || event.seq > memory.events[index - 1].seq) && Number.isSafeInteger(event.turn) && event.turn >= 0 && event.turn <= world.turn && EVENT_KINDS.includes(event.kind) && typeof event.text === "string" && event.text.length <= 650
       );
     });
   }
@@ -15764,13 +15823,13 @@
       ...company ? [`I'm staying with ${inline(s, company)} for a while.`] : []
     ];
   }
-  function validExperience(s, e, placeIds = null) {
+  function validExperience(s, e, placeIds2 = null) {
     const keys = ["kind", "turn", "other", "item", "place"];
     return Boolean(
-      e && typeof e === "object" && Object.keys(e).length === keys.length && Object.keys(e).every((k) => keys.includes(k)) && experienceKinds.includes(e.kind) && Number.isSafeInteger(e.turn) && e.turn >= 0 && e.turn <= s.turn && (e.other === null || Object.hasOwn(s.actors || {}, e.other)) && (e.item === null || Object.hasOwn(s.items || {}, e.item)) && (e.place === null || typeof e.place === "string" && e.place.length > 0 && e.place.length <= 40 && (!placeIds || placeIds.includes(e.place)))
+      e && typeof e === "object" && Object.keys(e).length === keys.length && Object.keys(e).every((k) => keys.includes(k)) && experienceKinds.includes(e.kind) && Number.isSafeInteger(e.turn) && e.turn >= 0 && e.turn <= s.turn && (e.other === null || Object.hasOwn(s.actors || {}, e.other)) && (e.item === null || Object.hasOwn(s.items || {}, e.item)) && (e.place === null || typeof e.place === "string" && e.place.length > 0 && e.place.length <= 40 && (!placeIds2 || placeIds2.includes(e.place)))
     );
   }
-  function validLife(s, placeIds = null) {
+  function validLife(s, placeIds2 = null) {
     const l = s.life;
     const whole4 = (n, max) => Number.isSafeInteger(n) && n >= 0 && n <= max;
     const actorIds2 = Object.keys(s.actors || {});
@@ -15780,7 +15839,7 @@
         ([item, a]) => itemIds.includes(item) && a && actorIds2.includes(a.from) && a.from !== id && whole4(a.turn, s.turn)
       ) && p.company && Object.entries(p.company).every(
         ([other, until]) => actorIds2.includes(other) && other !== id && whole4(until, s.turn + COMPANY_TURNS)
-      ) && Array.isArray(p.experiences) && p.experiences.length <= EXPERIENCE_LIMIT && p.experiences.every((e) => validExperience(s, e, placeIds))
+      ) && Array.isArray(p.experiences) && p.experiences.length <= EXPERIENCE_LIMIT && p.experiences.every((e) => validExperience(s, e, placeIds2))
     );
   }
 
@@ -15882,7 +15941,7 @@
   // v2/card-game/want-talk.mjs
   var authoredWant = (id) => forest_default.people[id]?.want || packPeople[id]?.want || null;
   var wantOf = (world, id) => world.actors?.[id]?.want || authoredWant(id);
-  var rootOf = (world, item) => {
+  var rootOf2 = (world, item) => {
     let holder = world.items[item]?.holder;
     const seen = /* @__PURE__ */ new Set([item]);
     while (world.items[holder] && !seen.has(holder)) {
@@ -15895,7 +15954,7 @@
   function met(world, id, want) {
     if (want.kind === "connect") return false;
     const here = world.actors[id].place;
-    if (want.kind === "item") return rootOf(world, want.target) === id;
+    if (want.kind === "item") return rootOf2(world, want.target) === id;
     if (want.kind === "place") return here === want.target;
     return world.actors[want.target]?.place === here;
   }
@@ -16565,6 +16624,14 @@
   })();
   var ids = Object.keys(things);
   var actorIds = [...Object.keys(forest_default.people), ...packActorIds];
+  var placeIds = Object.keys(places);
+  var sortedActorKeys = actorIds.slice().sort().join();
+  var sortedItemKeys = ids.slice().sort().join();
+  var castIds = /* @__PURE__ */ new Set([...actorIds, ...ids]);
+  var entityIds = /* @__PURE__ */ new Set([...castIds, ...placeIds]);
+  var holderIds = /* @__PURE__ */ new Set([...actorIds, ...placeIds]);
+  var LOG_KINDS = ["action", "dialogue", "narration", "input", "hint"];
+  var OUTCOMES = ["hit", "guarded", "yield", "sent-home"];
   var planReads = null;
   function planningReadsFor(world) {
     if (!planReads) return null;
@@ -16638,8 +16705,15 @@
         rememberRoutes(s, actor, visibleRouteEdges(s.actors[actor].place));
       }
   }
+  var SHORT_CHAIN = 32;
   function rootHolder(s, id) {
     let holder = s.items[id].holder;
+    for (let step = 0; step < SHORT_CHAIN; step++) {
+      if (!s.items[holder]) return holder;
+      if (holder === id) throw new Error("An item holds itself.");
+      holder = s.items[holder].holder;
+    }
+    holder = s.items[id].holder;
     const visited = /* @__PURE__ */ new Set([id]);
     while (s.items[holder]) {
       if (visited.has(holder)) throw new Error("An item holds itself.");
@@ -16651,11 +16725,10 @@
   var itemPlace2 = (s, id) => s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
   var carried = (s, actor) => ids.filter((id) => rootHolder(s, id) === actor);
   var covered = (s, id) => s.items.cloth.holder === id;
-  var shining = (s) => entityActive(s, "lamp") && s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
-  var reflectionOpen = (s, from = itemPlace2(s, "lamp")) => (
-    // Leaving the attic needs its own light; either shore can light the return.
-    shining(s) && (from === "attic" ? itemPlace2(s, "lamp") === "attic" : from === "pond" && ["attic", "pond"].includes(itemPlace2(s, "lamp")))
-  );
+  var reflectionsFrom = (s, from) => (forest_default.reflectionRoutes || []).filter(
+    (r) => r.from === from && r.requires.every((c) => conditionMet(s, c, null))
+  ).map((r) => r.to);
+  var reflectionOpen = (s, from = itemPlace2(s, "lamp")) => reflectionsFrom(s, from).length > 0;
   var baseSoundAt = (s, place) => entityActive(s, "bell") && s.items.bell.ringing > 0 && !covered(s, "bell") && itemPlace2(s, "bell") === place;
   var senses = { player: "vale", baseSoundAt, nameOf };
   var sensesFor = (s) => ({
@@ -16665,7 +16738,7 @@
   });
   var baseExits = (_s, place) => places[place].exits;
   var placeText = (s, place) => [
-    place === "attic" ? reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : "A tall mirror stands dark and empty. Dust gathers along its frame." : s.opening && place === "station" ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond." : places[place].text,
+    place === "attic" && reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : s.opening && place === "station" ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond." : places[place].text,
     ...crossingScenery(s, place, sensesFor(s)),
     ...transportScenery(s, place, nameOf),
     ...homeRescueExit(s, place) || pondRescueExit(s, place) ? [`A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`] : []
@@ -16686,7 +16759,7 @@
     return [
       .../* @__PURE__ */ new Set([
         ...baseExits(s, place),
-        ...reflectionOpen(s, place) && place === "attic" ? ["pond"] : reflectionOpen(s, place) && place === "pond" ? ["attic"] : [],
+        ...reflectionsFrom(s, place),
         ...crossingExits(s, place, actor, sensesFor(s)),
         ...transportExits(s, place, previous, actor),
         ...packExits(s, place, actor)
@@ -16859,7 +16932,7 @@
       )) || o.version === 1 && o.crossed && !s.locations?.attic.anchored || o.crossed && o.met.moth === void 0 || o.version === 2 && !o.crossed)
         fail();
     }
-    if (Object.keys(s.actors || {}).sort().join() !== actorIds.slice().sort().join() || Object.keys(s.items || {}).sort().join() !== ids.slice().sort().join())
+    if (Object.keys(s.actors || {}).sort().join() !== sortedActorKeys || Object.keys(s.items || {}).sort().join() !== sortedItemKeys)
       fail();
     if (s.invitedPlaces !== void 0 && (!s.invitedPlaces || typeof s.invitedPlaces !== "object" || Array.isArray(s.invitedPlaces) || Object.entries(s.invitedPlaces).some(
       ([actor, visits]) => !actorIds.includes(actor) || !Array.isArray(visits) || visits.length > Object.keys(places).length || new Set(visits).size !== visits.length || visits.some((place) => !Object.hasOwn(places, place))
@@ -16870,7 +16943,7 @@
       fail();
     if (!s.locations || typeof s.locations.attic?.anchored !== "boolean" || ![null, "hush"].includes(s.locations.pond?.answer))
       fail();
-    if (!s.peaceUntil || Object.keys(s.peaceUntil).sort().join() !== actorIds.slice().sort().join() || Object.values(s.peaceUntil).some(
+    if (!s.peaceUntil || Object.keys(s.peaceUntil).sort().join() !== sortedActorKeys || Object.values(s.peaceUntil).some(
       (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn + 3
     ) || !Array.isArray(s.standoffs) || s.standoffs.length > Math.floor(actorIds.length / 2))
       fail();
@@ -16906,11 +16979,7 @@
         fail();
     }
     for (const [id, item] of Object.entries(s.items)) {
-      if (![
-        ...actorIds,
-        ...Object.keys(places),
-        ...id === "cloth" ? ["lamp", "bell"] : []
-      ].includes(item.holder))
+      if (!holderIds.has(item.holder) && !(id === "cloth" && (item.holder === "lamp" || item.holder === "bell")))
         fail();
       if (entityActive(s, id) && (!entityActive(s, item.holder) || !entityActive(s, itemPlace2(s, id))))
         fail();
@@ -16964,19 +17033,18 @@
       "choose",
       "use"
     ];
+    const cast = castIds, entities2 = entityIds;
     for (const e of s.log) {
       if (e.seq !== void 0) {
         if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
           fail();
         seq = e.seq;
       }
-      if (e.kind !== void 0 && !["action", "dialogue", "narration", "input", "hint"].includes(
-        e.kind
-      ))
+      if (e.kind !== void 0 && !LOG_KINDS.includes(e.kind))
         fail();
-      if (e.witnesses !== void 0 && (!Array.isArray(e.witnesses) || e.witnesses.length > actorIds.length + ids.length || e.witnesses.some((id) => ![...actorIds, ...ids].includes(id))))
+      if (e.witnesses !== void 0 && (!Array.isArray(e.witnesses) || e.witnesses.length > actorIds.length + ids.length || e.witnesses.some((id) => !cast.has(id))))
         fail();
-      if (e.entityId != null && ![...actorIds, ...ids, ...Object.keys(places)].includes(e.entityId))
+      if (e.entityId != null && !entities2.has(e.entityId))
         fail();
       if (e.fromLocationId != null && !Object.hasOwn(places, e.fromLocationId))
         fail();
@@ -16988,7 +17056,7 @@
       if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
       if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
       if (e.verb != null && !verbs.includes(e.verb)) fail();
-      if (e.outcome !== void 0 && !["hit", "guarded", "yield", "sent-home"].includes(e.outcome) || e.droppedItemIds !== void 0 && (!Array.isArray(e.droppedItemIds) || e.droppedItemIds.some((id) => !ids.includes(id))))
+      if (e.outcome !== void 0 && !OUTCOMES.includes(e.outcome) || e.droppedItemIds !== void 0 && (!Array.isArray(e.droppedItemIds) || e.droppedItemIds.some((id) => !ids.includes(id))))
         fail();
       if (e.verb === "choose") {
         const pack = packDefinition(e.packId), choice = pack?.choices.find((c) => c.id === e.choiceId);
@@ -17004,24 +17072,22 @@
         fail();
       if (e.itemId != null && !ids.includes(e.itemId)) fail();
       if (e.receiveId != null && !ids.includes(e.receiveId)) fail();
-      if (e.verb === "want_met" !== (e.wantMet !== void 0) || e.wantMet !== void 0 && (!e.wantMet || Object.keys(e.wantMet).length !== 2 || !WANT_KINDS.includes(e.wantMet.kind) || !actorIds.includes(e.actorId) || (e.wantMet.kind === "connect" ? e.wantMet.target !== CONNECT_TARGET : ![...actorIds, ...ids, ...Object.keys(places)].includes(
-        e.wantMet.target
-      ))))
+      if (e.verb === "want_met" !== (e.wantMet !== void 0) || e.wantMet !== void 0 && (!e.wantMet || Object.keys(e.wantMet).length !== 2 || !WANT_KINDS.includes(e.wantMet.kind) || !actorIds.includes(e.actorId) || (e.wantMet.kind === "connect" ? e.wantMet.target !== CONNECT_TARGET : !entities2.has(e.wantMet.target))))
         fail();
-      if (e.targetId != null && ![...actorIds, ...ids, ...Object.keys(places)].includes(e.targetId))
+      if (e.targetId != null && !entities2.has(e.targetId))
         fail();
       if (e.light !== void 0 && typeof e.light !== "boolean") fail();
       if (e.cast !== void 0 && (!Array.isArray(e.cast) || e.cast.length > actorIds.length || new Set(e.cast).size !== e.cast.length || e.cast.some((id) => !actorIds.includes(id))))
         fail();
       if (e.items !== void 0 && (!Array.isArray(e.items) || e.items.length > ids.length || e.items.some(
-        (item) => !item || !ids.includes(item.id) || ![...actorIds, ...ids, ...Object.keys(places)].includes(
-          item.holder
-        )
+        (item) => !item || !ids.includes(item.id) || !entities2.has(item.holder)
       )))
         fail();
     }
+    freshlyValidated.add(s);
     return s;
   }
+  var freshlyValidated = /* @__PURE__ */ new WeakSet();
   function decodeSave(text2) {
     const s = JSON.parse(text2);
     upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
@@ -17557,27 +17623,30 @@
   }
 
   // v2/card-game/scene.mjs
-  var lampLitHere = (world, place) => shining(world) && itemPlace2(world, "lamp") === place;
-  var darkAttic = (world, id) => id === "attic" && world?.actors && !lampLitHere(world, id);
+  function stateBackdrop(world, id) {
+    const pack = packPlaces[id];
+    const place = pack || places[id];
+    if (!place?.backdrops || !(pack ? world?.packs : world?.actors)) return null;
+    const match = place.backdrops.find(
+      (b) => pack ? conditionsMet(world, pack.packId, b.requires) : b.requires.every((c) => conditionMet(world, c, null))
+    );
+    return match?.backdrop || null;
+  }
+  var baseBackdrop = (world, id) => packPlaces[id]?.backdrop || world?.actors && places[id]?.backdrop || null;
   function backdrop(id, world = null) {
-    if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
     const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
     const file = variant ? daylightBackdrop(world, id, variant) : placeBackdrop(world, id);
     return file ? `./${file}` : `./assets/${id}.png`;
   }
   function placeBackdrop(world, id) {
-    const place = packPlaces[id];
-    const state = world?.packs && place?.backdrops?.find(
-      (b) => conditionsMet(world, place.packId, b.requires)
-    );
-    return state?.backdrop || daylightBackdrop(world, id, place?.backdrop);
+    return stateBackdrop(world, id) || daylightBackdrop(world, id, baseBackdrop(world, id));
   }
   var visibleCrossing = (world, place) => crossings.find(
     (c) => c.from === place && (c.scenery?.overlay || c.scenery?.backdrop) && crossingOpen(world, c, senses)
   );
   function locationVariant(world, id) {
-    if (darkAttic(world, id)) return "dark";
-    const crossing = visibleCrossing(world, id)?.id || "base";
+    const hub2 = !packPlaces[id] && places[id]?.backdrops ? stateBackdrop(world, id) || baseBackdrop(world, id) : null;
+    const crossing = visibleCrossing(world, id)?.id || hub2?.replace(/^.*\/|\.\w+$/g, "") || "base";
     const weather = locationWeather(world, id);
     const variant = weather ? `${crossing}:${weather.variant}` : crossing;
     return locationDaylight(world, id)?.phase === "night" ? `${variant}:night` : variant;
