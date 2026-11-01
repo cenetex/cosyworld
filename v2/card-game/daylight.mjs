@@ -23,7 +23,10 @@ const darkMistBackdrops = {
   "willows-landing": willows("landing-ship-night"),
 };
 const nightBackdrops = {
+  "willows-landing": willows("landing-night"),
   "willows-camp": willows("camp-lit-night"),
+  "willows-thicket": willows("thicket-night"),
+  "willows-bank": willows("bank-night"),
   "greek-harbor": art("harbor-open-berth-night"),
   "greek-courtyard": art("courtyard-night"),
   "greek-well": art("market-well-night"),
@@ -81,6 +84,8 @@ const placeDescriptions = {
   "greek-ship": "aboard the Greek ship",
   "willows-landing": "on the Danube island",
   "willows-camp": "on the Danube island",
+  "willows-thicket": "at Willow Thicket",
+  "willows-bank": "at Crumbling Bank",
 };
 export const daylightAssets = [
   ...new Set([
@@ -122,8 +127,8 @@ export function locationDaylight(world, id) {
 }
 
 export function daylightBackdrop(world, id, file) {
-  if (Object.hasOwn(darkMistBackdrops, id))
-    return willowsMist(world) ? darkMistBackdrops[id] : file;
+  if (Object.hasOwn(darkMistBackdrops, id) && willowsMist(world))
+    return darkMistBackdrops[id];
   if (locationDaylight(world, id)?.phase !== "night") return file;
   return dockedNightBackdrops[file] || nightBackdrops[id] || file;
 }

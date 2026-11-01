@@ -1,0 +1,53 @@
+{
+  "willows-landing": {
+    "pack": "willows",
+    "signs": {
+      "willows-examine-hull": {
+        "day": "assets/willows/landing-uncanny.webp"
+      },
+      "willows-watch-otter": {
+        "day": "assets/willows/landing-otter.webp"
+      },
+      "willows-watch-boatman": {
+        "day": "assets/willows/landing-boatman.webp"
+      }
+    }
+  },
+  "willows-camp": {
+    "pack": "willows",
+    "signs": {
+      "willows-count-stores": {},
+      "willows-pace-willows": {},
+      "willows-pace-again": {
+        "night": "assets/willows/camp-closer.webp"
+      },
+      "willows-listen-tent": {
+        "night": "assets/willows/camp-tent-pressure.webp"
+      },
+      "willows-compare-signs": {}
+    }
+  },
+  "willows-thicket": {
+    "pack": "willows",
+    "signs": {
+      "willows-examine-hollows": {
+        "day": "assets/willows/thicket-hollows.webp"
+      },
+      "willows-look-up-willows": {
+        "night": "assets/willows/thicket-bronze.webp"
+      }
+    }
+  },
+  "willows-bank": {
+    "pack": "willows",
+    "signs": {
+      "willows-hear-humming": {
+        "day": "assets/willows/bank-humming.webp"
+      },
+      "willows-look-beneath-roots": {
+        "day": "assets/willows/bank-roots.webp",
+        "night": "assets/willows/bank-drowned.webp"
+      }
+    }
+  }
+}

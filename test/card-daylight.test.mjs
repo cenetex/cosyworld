@@ -284,14 +284,12 @@ describe("Willows night paintings", () => {
       "./assets/willows/landing.webp",
     );
     // Turn 24 is now a misty night at sea; turn 36 is a rainy night.
-    for (const clock of [
-      mistyDay,
-      at(36),
-      at(132),
-      at(120, "greek-harbor"),
-    ])
+    expect(backdrop("willows-landing", mistyDay)).toBe(
+      "./assets/willows/landing.webp",
+    );
+    for (const clock of [at(36), at(132), at(120, "greek-harbor")])
       expect(backdrop("willows-landing", clock)).toBe(
-        "./assets/willows/landing.webp",
+        "./assets/willows/landing-night.webp",
       );
     for (const clock of [darkMist, at(24), at(72), at(120, "pond", "sea")])
       expect(backdrop("willows-landing", clock)).toBe(
@@ -303,7 +301,12 @@ describe("Willows night paintings", () => {
     expect(locationDaylight(night, "willows-camp").description).toBe(
       "It is night on the Danube island.",
     );
-    expect(locationDaylight(night, "willows-thicket")).toBeNull();
-    expect(backdrop("willows-bank", night)).toBe("./assets/willows/bank.webp");
+    expect(locationDaylight(night, "willows-thicket").phase).toBe("night");
+    expect(backdrop("willows-thicket", night)).toBe(
+      "./assets/willows/thicket-night.webp",
+    );
+    expect(backdrop("willows-bank", night)).toBe(
+      "./assets/willows/bank-night.webp",
+    );
   });
 });

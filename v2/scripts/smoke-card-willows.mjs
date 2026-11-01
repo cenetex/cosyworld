@@ -14,6 +14,7 @@ import { summonTransport } from "../card-game/pack-transport.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { darkMist, isNight } from "../card-game/daylight.mjs";
 import { locationWeather } from "../card-game/weather.mjs";
+import images from "../card-game/image-variants.json" with { type: "json" };
 
 // The Willows mist rises beside the ship's rail only on a misty night while
 // the ship lies at Black Pond or sails between ports. Saves skip ahead on the
@@ -39,7 +40,19 @@ const clearNight = (world) =>
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+    ? {
+        executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+        args: [
+          "--use-gl=angle",
+          "--use-angle=swiftshader",
+          "--enable-unsafe-swiftshader",
+        ],
+      }
+    : {}),
+});
 const output = new URL("../../output/card-willows/", import.meta.url);
 await mkdir(output, { recursive: true });
 try {
@@ -234,6 +247,60 @@ try {
     assert.deepEqual(mediaFailures, []);
     assert(readingCounts[0] < 7);
     assert.equal(Math.max(...readingCounts), 7);
+    // Art follows the latest saved receipt, including base-only signs. Every
+    // source is checked after reload at both widths; missing art keeps base.
+    let artWorld = createWorld();
+    for (const [place, turn, sign, target, base] of [
+      ["landing", 0, "examine-hull", "landing-uncanny", "landing"],
+      ["landing", 2, "watch-otter", "landing-otter", "landing"],
+      ["landing", 4, "watch-boatman", "landing-boatman", "landing"],
+      ["camp", 6, "pace-willows", "camp", "camp"],
+      ["camp", 24, "pace-again", "camp-closer", "camp-lit-night"],
+      ["camp", 26, "listen-tent", "camp-tent-pressure", "camp-lit-night"],
+      ["camp", 28, "count-stores", "camp-lit-night", "camp-lit-night"],
+      ["thicket", 48, "examine-hollows", "thicket-hollows", "thicket"],
+      ["thicket", 72, "look-up-willows", "thicket-bronze", "thicket-night"],
+      ["thicket", 96, null, "thicket", "thicket"],
+      ["bank", 98, "hear-humming", "bank-humming", "bank"],
+      ["bank", 100, "look-beneath-roots", "bank-roots", "bank"],
+      ["bank", 120, null, "bank-drowned", "bank-night"],
+    ]) {
+      artWorld.actors.vale.place = `willows-${place}`;
+      artWorld.turn = artWorld.revision = turn;
+      if (sign) {
+        const result = play(
+          artWorld,
+          legalActions(artWorld).find((a) => a.choiceId === `willows-${sign}`),
+        );
+        assert(result.ok, result.error);
+        artWorld = result.state;
+      }
+      await resave(artWorld);
+      const file = `assets/willows/${target}.webp`;
+      const expected = images.images[file]?.stage
+        ? file
+        : `assets/willows/${base}.webp`;
+      await page.waitForFunction((file) => {
+        const img = document.querySelector("#backdrop");
+        return (
+          img?.complete &&
+          img.naturalWidth &&
+          new URL(img.src).pathname.endsWith(file)
+        );
+      }, expected);
+      await page.evaluate(async () => {
+        await document.querySelector("#backdrop").decode();
+        await new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        );
+      });
+      await page.screenshot({
+        path: new URL(`sign-${target}-${width}.png`, output).pathname,
+      });
+      assert.deepEqual((await saved()).packs.willows, artWorld.packs.willows);
+    }
+    assert.deepEqual(errors, []);
+    assert.deepEqual(mediaFailures, []);
     await page.close();
     console.log(`Willows browser play passed at ${width} × ${height}.`);
   }

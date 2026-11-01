@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DAYLIGHT_TURNS, locationDaylight } from "../v2/card-game/daylight.mjs";
-import { backdrop } from "../v2/card-game/scene.mjs";
+import { backdrop, placeBackdrop } from "../v2/card-game/scene.mjs";
+import imageVariants from "../v2/card-game/image-variants.json" with { type: "json" };
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
   hub,
@@ -17,6 +18,30 @@ const gate = (s) => backdrop("greek-gate", s);
 const night = (s) => ({ ...s, turn: DAYLIGHT_TURNS });
 
 describe("the Theban City Gate backdrop", () => {
+  it.each([
+    [0, "city-gate-day", "city-gate-closed-day"],
+    [DAYLIGHT_TURNS, "city-gate-night", "city-gate-closed-night"],
+  ])(
+    "keeps the base at turn %s if its state painting is unavailable",
+    (turn, open, closed) => {
+      const s = openingFixture("burial").decree;
+      s.turn = turn;
+      s.items["greek-decree"].holder = "greek-guard";
+      const published = { ...imageVariants.images };
+      const source = `assets/greek-drama/${open}.webp`;
+      delete published[source];
+      expect(placeBackdrop(s, "greek-gate", published)).toBe(
+        art(closed).slice(2),
+      );
+      published[source] = {};
+      expect(placeBackdrop(s, "greek-gate", published)).toBe(
+        art(closed).slice(2),
+      );
+      expect(gate(s)).toBe(art(open));
+      expect(s.items["greek-decree"].holder).toBe("greek-guard");
+    },
+  );
+
   it("is closed until the guard holds the decree at the gate", () => {
     const s = openingFixture("burial").decree;
     expect(s.items["greek-decree"].holder).toBe("greek-palace");
@@ -87,8 +112,13 @@ describe("the Theban City Gate backdrop", () => {
   });
 
   it("recognizes authored lighting without revealing an unseen night sign", () => {
-    const place = packPlaces["willows-thicket"];
-    const previous = place.backdrops;
+    const s = night(openingFixture("burial").decree);
+    const id = "test-night-place";
+    const place = (packPlaces[id] = {
+      name: "Test Clearing",
+      packId: "willows",
+      backdrop: "assets/willows/thicket.webp",
+    });
     try {
       place.backdrops = [
         {
@@ -99,24 +129,16 @@ describe("the Theban City Gate backdrop", () => {
           ],
         },
       ];
-      const s = night(openingFixture("burial").decree);
-      expect(locationDaylight(s, "willows-thicket")).toMatchObject({
+      expect(locationDaylight(s, id)).toMatchObject({
         phase: "night",
-        description: "It is night at Willow Thicket.",
+        description: "It is night at Test Clearing.",
       });
-      expect(backdrop("willows-thicket", s)).toBe(
-        "./assets/willows/thicket.webp",
-      );
+      expect(backdrop(id, s)).toBe("./assets/willows/thicket.webp");
       s.packs.willows.flags["willows-shapes-seen"] = true;
-      expect(backdrop("willows-thicket", s)).toBe(
-        "./assets/willows/thicket-night.webp",
-      );
-      expect(locationDaylight({ ...s, turn: 0 }, "willows-thicket").phase).toBe(
-        "day",
-      );
+      expect(backdrop(id, s)).toBe("./assets/willows/thicket-night.webp");
+      expect(locationDaylight({ ...s, turn: 0 }, id).phase).toBe("day");
     } finally {
-      if (previous === undefined) delete place.backdrops;
-      else place.backdrops = previous;
+      delete packPlaces[id];
     }
   });
 });

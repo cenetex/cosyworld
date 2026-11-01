@@ -24,6 +24,8 @@ import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { sceneChanges } from "./scene-cast.mjs";
+import imageVariants from "./image-variants.json" with { type: "json" };
+import { newestSignPainting } from "./sign-art.mjs";
 export { sceneChanges };
 
 // The lamp lights a place only while it shines there: held by someone in that
@@ -43,15 +45,26 @@ export function backdrop(id, world = null) {
   return file ? `./${file}` : `./assets/${id}.png`;
 }
 // A matching state painting is final, including its authored lighting.
+// Unpublished alternates leave the place's available painting intact.
 // Only the ordinary base painting falls through to the legacy night table.
-export function placeBackdrop(world, id) {
+export function placeBackdrop(world, id, published = imageVariants.images) {
   const place = packPlaces[id];
+  const sign = newestSignPainting(
+    world,
+    id,
+    locationDaylight(world, id)?.phase || "day",
+    published,
+  );
+  if (sign)
+    return sign.backdrop || daylightBackdrop(world, id, place?.backdrop);
   const state =
     world?.packs &&
     place?.backdrops?.find((b) =>
       conditionsMet(world, place.packId, b.requires),
     );
-  return state?.backdrop || daylightBackdrop(world, id, place?.backdrop);
+  return state && published[state.backdrop]?.stage
+    ? state.backdrop
+    : daylightBackdrop(world, id, place?.backdrop);
 }
 export function portrait(id, facing = null, world = null) {
   const human = avatarImage(world, id);
