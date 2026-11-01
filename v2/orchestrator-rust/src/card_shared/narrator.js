@@ -1614,6 +1614,22 @@
               "greek-road-athens-harbor"
             ],
             backdrop: "assets/greek-drama/athens-grand-agora.webp",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/open-door-agora.webp",
+                requires: [
+                  {
+                    kind: "flag",
+                    key: "greek-open-door-returned",
+                    value: true
+                  },
+                  {
+                    kind: "daylight",
+                    phase: "day"
+                  }
+                ]
+              }
+            ],
             persona: "The Agora is the great civic heart of Athens. Colonnades, public monuments and the high Acropolis give the city its scale. Theseus receives the mothers\u2019 petition at the herald\u2019s table. A road leads to the Piraeus quays. Streets lead to the harbor and the grove at Colonus."
           },
           "greek-piraeus": {
@@ -10826,6 +10842,17 @@
               "willows-bank"
             ],
             backdrop: "assets/willows/thicket.webp",
+            backdrops: [
+              {
+                backdrop: "assets/willows/thicket-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
             voice: 'Speak as the willows, many together: one to three very short sentences. Use we, us and our, never I. Rustle, lean, chatter and count: count the travellers, the paces, the leaves. Never explain and never give a reason. Never name what moves above us. Never address anyone. Examples: "Two of them. Two. We lean to count again." "We are nearer than at supper. We did not move. We are nearer." "Our leaves turn silver side up. Two. Still two."'
           },
           "willows-bank": {
@@ -10836,6 +10863,17 @@
               "willows-thicket"
             ],
             backdrop: "assets/willows/bank.webp",
+            backdrops: [
+              {
+                backdrop: "assets/willows/bank-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
             voice: `Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Examples: "A humming across the water. A steamer, far off. There are no steamers here." "Something turns below the roots. A log. It is a log." "The current turns him over. The marks are \u2014"`
           }
         },
@@ -17153,6 +17191,7 @@
     "willows-landing": willows("landing-ship-night")
   };
   var nightBackdrops = {
+    "willows-landing": willows("landing-night"),
     "willows-camp": willows("camp-lit-night"),
     "greek-harbor": art("harbor-open-berth-night"),
     "greek-courtyard": art("courtyard-night"),
@@ -17236,8 +17275,9 @@
     };
   }
   function daylightBackdrop(world, id, file) {
-    if (Object.hasOwn(darkMistBackdrops, id))
-      return willowsMist(world) ? darkMistBackdrops[id] : file;
+    if (Object.hasOwn(darkMistBackdrops, id)) {
+      if (willowsMist(world)) return darkMistBackdrops[id];
+    }
     if (locationDaylight(world, id)?.phase !== "night") return file;
     return dockedNightBackdrops[file] || nightBackdrops[id] || file;
   }

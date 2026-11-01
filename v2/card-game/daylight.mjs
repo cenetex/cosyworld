@@ -23,6 +23,7 @@ const darkMistBackdrops = {
   "willows-landing": willows("landing-ship-night"),
 };
 const nightBackdrops = {
+  "willows-landing": willows("landing-night"),
   "willows-camp": willows("camp-lit-night"),
   "greek-harbor": art("harbor-open-berth-night"),
   "greek-courtyard": art("courtyard-night"),
@@ -123,7 +124,7 @@ export function locationDaylight(world, id) {
 
 export function daylightBackdrop(world, id, file) {
   if (Object.hasOwn(darkMistBackdrops, id))
-    return willowsMist(world) ? darkMistBackdrops[id] : file;
+    if (willowsMist(world)) return darkMistBackdrops[id];
   if (locationDaylight(world, id)?.phase !== "night") return file;
   return dockedNightBackdrops[file] || nightBackdrops[id] || file;
 }
