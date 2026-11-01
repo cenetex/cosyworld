@@ -7,7 +7,6 @@ import {
   worldSeats,
   worldSlots,
 } from "../v2/card-game/avatar-menu.mjs";
-import { humanAvatars } from "../v2/card-game/human-cast.mjs";
 import { avatarSlot, deleteLocal } from "../v2/card-game/avatar-world.mjs";
 
 const mara = { id: "mara", name: "Mara" };

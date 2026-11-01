@@ -4,7 +4,6 @@ import vm from "node:vm";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
-  plan,
   decodeSave,
   encodeSave,
   exits,

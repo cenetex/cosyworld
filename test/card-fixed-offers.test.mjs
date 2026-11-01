@@ -6,7 +6,6 @@ import {
   encodeSave,
   expects,
   legalActions,
-  plan,
   play,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";

@@ -1,7 +1,5 @@
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import { locationWeather, WEATHER_TURNS } from "../v2/card-game/weather.mjs";
 import {
   createWorld,

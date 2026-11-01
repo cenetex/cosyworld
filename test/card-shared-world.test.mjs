@@ -11,8 +11,6 @@ import {
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { soundAt } from "../v2/card-game/pack-rules.mjs";
-import { wantCandidates } from "../v2/card-game/want.mjs";
-import { carried, rootHolder } from "../v2/card-game/world.mjs";
 import { humanAvatarIds, humanAvatars } from "../v2/card-game/human-cast.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 

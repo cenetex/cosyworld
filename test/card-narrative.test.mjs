@@ -23,7 +23,6 @@ import {
   silentLines,
   SILENT_TEXT,
 } from "../v2/card-game/narrative.mjs";
-import { enableMotives } from "../v2/card-game/motives.mjs";
 import { profiles } from "../v2/card-game/memory.mjs";
 import { sceneScript, currentScene } from "../v2/card-game/scene.mjs";
 

@@ -22,7 +22,6 @@ import {
   encodeSave,
   legalActions,
   play,
-  publishKnowledgeSpeech,
 } from "../v2/card-game/world.mjs";
 import {
   narrativeContext,

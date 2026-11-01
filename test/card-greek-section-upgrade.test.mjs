@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
-import { decodeSave, encodeSave, exits } from "../v2/card-game/world.mjs";
+import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import {
   entityActive,
   packDefinition,

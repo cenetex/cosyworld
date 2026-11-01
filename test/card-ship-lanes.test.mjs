@@ -3,7 +3,6 @@ import {
   createWorld,
   encodeSave,
   decodeSave,
-  legalActions,
   play,
   laneTalkFacts,
   publishKnowledgeSpeech,
