@@ -407,8 +407,7 @@
           text: a.text,
           place: a.home.id,
           home: a.home.id,
-          persona: a.text,
-          voice: "Speak briefly about this shared moment. The player chooses this avatar's actions.",
+          seed: a.seed,
           requires: [{ kind: "shared_world" }],
           portrait: a.image,
           standoffs: false,
@@ -1360,8 +1359,7 @@
           "personalQuests",
           "previousHomes",
           "standoffs",
-          "persona",
-          "voice",
+          "seed",
           "expression",
           "presentation",
           "tastes",
@@ -1383,8 +1381,8 @@
         `avatar ${id} personalQuests needs a boolean`
       );
       check(
-        textOk(a.name, 120) && textOk(a.text) && textOk(a.persona) && textOk(a.voice) && owns2(places2, a.place),
-        `avatar ${id} needs a name, text, persona, voice and a home place in this pack`
+        textOk(a.name, 120) && textOk(a.text) && textOk(a.seed, 120) && owns2(places2, a.place),
+        `avatar ${id} needs a name, text, one seed sentence and a home place in this pack`
       );
       check(
         a.expression === void 0 || EXPRESSION_TYPES.includes(a.expression),
@@ -2867,8 +2865,7 @@
       {
         kind: "avatar",
         name: a.name,
-        persona: a.persona,
-        voice: a.voice,
+        seed: a.seed,
         ...a.expression ? { expression: a.expression } : {}
       }
     ])

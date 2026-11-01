@@ -62,9 +62,7 @@ export const humanHomePack = {
         text: a.text,
         place: a.home.id,
         home: a.home.id,
-        persona: a.text,
-        voice:
-          "Speak briefly about this shared moment. The player chooses this avatar's actions.",
+        seed: a.seed,
         requires: [{ kind: "shared_world" }],
         portrait: a.image,
         standoffs: false,

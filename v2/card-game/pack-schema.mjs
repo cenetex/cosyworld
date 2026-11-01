@@ -572,8 +572,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "personalQuests",
         "previousHomes",
         "standoffs",
-        "persona",
-        "voice",
+        "seed",
         "expression",
         "presentation",
         "tastes",
@@ -597,10 +596,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     check(
       textOk(a.name, 120) &&
         textOk(a.text) &&
-        textOk(a.persona) &&
-        textOk(a.voice) &&
+        textOk(a.seed, 120) &&
         owns(places, a.place),
-      `avatar ${id} needs a name, text, persona, voice and a home place in this pack`,
+      `avatar ${id} needs a name, text, one seed sentence and a home place in this pack`,
     );
     check(
       a.expression === undefined || EXPRESSION_TYPES.includes(a.expression),

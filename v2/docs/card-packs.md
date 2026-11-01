@@ -24,7 +24,9 @@ npm run v2:card:pack:check   # fail if it is stale or invalid (part of v2:worldp
 ```
 
 The browser imports `packs.json`, and the Rust text route embeds the same file
-for personas, so ids and voices cannot drift between them. One validator
+for profiles, so ids and seeds cannot drift between them. Each avatar has one
+`seed` sentence, a name and a role such as "The Swede, a traveller on the
+river.", and no `persona` or `voice` ([seed sentences](card-table/seed-sentences.md)). One validator
 (`v2/card-game/pack-schema.mjs`) runs in the build and again when the table
 loads. It rejects unknown fields, unknown condition kinds, dangling ids and
 missing art with a reason naming the field.

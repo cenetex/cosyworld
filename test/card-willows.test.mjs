@@ -523,7 +523,7 @@ describe("The Willows", () => {
     expect(place.facts).toContain("Discoveries recorded so far: 5.");
   });
 
-  it("lets the places narrate, the willows count and the Swede hush", () => {
+  it("lets the places narrate and the willows count, with the Swede only a seed", () => {
     for (const id of ["willows-landing", "willows-camp", "willows-bank"]) {
       expect(pack.places[id].voice).toContain("first person");
       expect(pack.places[id].voice).toContain("Discoveries recorded so far");
@@ -536,8 +536,8 @@ describe("The Willows", () => {
       "authored places",
     );
     const swede = pack.avatars["willows-swede"];
-    for (const line of ["It's their sound.", "Hush!", "You fool."])
-      expect(swede.voice).toContain(line);
+    expect(swede.seed).toBe("The Swede, a traveller on the river.");
+    expect(swede.voice).toBeUndefined();
     expect(["item", "place", "person", "connect"]).toContain(swede.want.kind);
   });
 });
