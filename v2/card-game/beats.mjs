@@ -181,7 +181,9 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
     case "take":
       return caption("✋", `${a} took ${the(entry.itemId)}.`);
     case "drop":
-      return caption("✋", `${a} put down ${the(entry.itemId)}.`);
+      return entry.itemId
+        ? caption("✋", `${a} put down ${the(entry.itemId)}.`)
+        : caption("✋", entry.text);
     case "light":
       return caption("✦", `${a} lit ${the(entry.itemId)}.`);
     case "snuff":

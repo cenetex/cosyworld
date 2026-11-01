@@ -41,9 +41,17 @@ export function wantFact(world, id, nameOf) {
   if (want.kind === "person" && !world.actors[want.target]) return null;
   if (met(world, id, want)) return null;
   const name = nameOf(want.target);
-  if (want.kind === "item") return `I want ${article(name)}.`;
-  if (want.kind === "place") return `I want to be at ${name}.`;
-  return `I want to see ${name}.`;
+  const line =
+    want.kind === "item"
+      ? `I want ${article(name)}.`
+      : want.kind === "place"
+        ? `I want to be at ${name}.`
+        : `I want to see ${name}.`;
+  // Only the top quest is said; the rest of the stack is a count.
+  const more = world.actors[id].under?.length || 0;
+  return more
+    ? `${line} I have ${more === 1 ? "one other quest" : `${more} other quests`} too.`
+    : line;
 }
 
 // The player's own want, and the want of the person on either side of Talk.

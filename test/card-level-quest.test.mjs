@@ -75,7 +75,11 @@ describe("the level quest", () => {
     // and the lamp rests in the attic, so no drawn step is met on arrival.
     const plain = ({ step, ...want }) => want;
     const go = (s, target) => {
-      s.actors.vale.want = { ...plain(s.actors.vale.want), kind: "place", target };
+      s.actors.vale.want = {
+        ...plain(s.actors.vale.want),
+        kind: "place",
+        target,
+      };
       return act(s, (a) => a.kind === "move" && a.target === target);
     };
     s.items.lamp.holder = "attic";
@@ -92,7 +96,9 @@ describe("the level quest", () => {
       quest: { level: 3, left: 1 },
       step: { verb: "rest" },
     });
-    expect(questCaption(questCard(s))).toBe("Level III: Rest at The Hillside Sanctuary");
+    expect(questCaption(questCard(s))).toBe(
+      "Level III: Rest at The Hillside Sanctuary",
+    );
     expect(validateWorld(s)).toBe(s);
     // Being there is not enough: the long rest there raises the level.
     s.actors.vale.place = "greek-sanctuary";
@@ -112,8 +118,15 @@ describe("the level quest", () => {
     expect(s.actors.vale.xp).toBe(3);
     expect(levelOf(s, "vale")).toBe(3);
     expect(s.actors.vale.want?.quest).toBeUndefined();
-    expect(legalActions(s).some(dropQuest)).toBe(false);
-    expect(s.log.findLast((e) => e.verb === "drop")).toMatchObject({ actorId: "vale" });
+    // The ordinary quest beneath stays droppable; no level quest is left.
+    expect(
+      [s.actors.vale.want, ...(s.actors.vale.under || [])].some(
+        (w) => w?.quest,
+      ),
+    ).toBe(false);
+    expect(s.log.findLast((e) => e.verb === "drop")).toMatchObject({
+      actorId: "vale",
+    });
     expect(validateWorld(s)).toBe(s);
   });
 
@@ -148,7 +161,9 @@ describe("the level quest", () => {
           step: { verb: "rest" },
         });
         expect(
-          s.log.some((e) => e.seq > seq && e.verb === "want_met" && e.actorId === "vale"),
+          s.log.some(
+            (e) => e.seq > seq && e.verb === "want_met" && e.actorId === "vale",
+          ),
         ).toBe(true);
       }
       const quest = s.actors.vale.want?.quest;

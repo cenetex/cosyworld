@@ -4,7 +4,8 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 
 // The quest folds behind the player's avatar. A met quest stays, sealed,
-// until its player clears it; clearing shows the experience it brought.
+// until its player clears it; clearing shows the experience it brought. The
+// fold opens into the whole stack, where a quest can be pursued or dropped.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch({ headless: true });
@@ -124,9 +125,64 @@ try {
       0,
     );
     await gain.waitFor({ state: "detached" });
+    // A stack (#1831): the fold shows the top quest; opening it fans them all
+    // out; a quest beneath can be chosen and pursued, and any can be dropped.
+    await page.evaluate((key) => {
+      const s = JSON.parse(localStorage.getItem(key));
+      const vale = s.actors.vale;
+      vale.want = {
+        kind: "place",
+        target: "station",
+        since: s.turn,
+        refusals: 0,
+      };
+      vale.under = [
+        { kind: "person", target: "keeper", since: s.turn, refusals: 0 },
+      ];
+      localStorage.setItem(key, JSON.stringify(s));
+    }, key);
+    await page.reload();
+    await ready();
+    const saved = () =>
+      page.evaluate((key) => {
+        const vale = JSON.parse(localStorage.getItem(key)).actors.vale;
+        return [vale.want, ...(vale.under || [])].map((w) => w.target);
+      }, key);
+    const openFold = async () => {
+      await page.locator("#hand .quest-fold").focus();
+      await page.keyboard.press("Enter");
+      await page.locator("#hand .want-frame:not([hidden])").first().waitFor();
+    };
+    await openFold();
+    const fan = page.locator("#hand .want-frame:not([hidden])");
+    assert.equal(await fan.count(), 2, "the open fold fans out the stack");
+    const picked = page.locator('#hand .want-card[data-picked="true"]');
+    assert.equal(await picked.getAttribute("data-quest-id"), "quest:0");
+    assert.equal(
+      await page.locator('#card-actions [data-drop-quest="0"]').count(),
+      1,
+    );
+    assert.equal(
+      await page.locator("#card-actions [data-focus-quest]").count(),
+      0,
+    );
+    await page.locator('#hand .want-card[data-quest-id="quest:1"]').click();
+    assert.equal(await picked.getAttribute("data-quest-id"), "quest:1");
+    const pursue = page.locator('#card-actions [data-focus-quest="1"]');
+    await pursue.waitFor();
+    await page.screenshot({
+      path: new URL(`stack-${width}.png`, output).pathname,
+    });
+    await pursue.click();
+    await ready();
+    assert.deepEqual(await saved(), ["keeper", "station"], "pursued on top");
+    await openFold();
+    await page.locator('#card-actions [data-drop-quest="0"]').click();
+    await ready();
+    assert.deepEqual(await saved(), ["station"], "the top quest dropped");
     assert.deepEqual(errors, []);
     console.log(
-      `Quest fold, met seal, click to clear and +XP passed at ${width}px (${motion}).`,
+      `Quest fold, met seal, click to clear and +XP, stack fan, pursue and drop passed at ${width}px (${motion}).`,
     );
     await page.close();
   }

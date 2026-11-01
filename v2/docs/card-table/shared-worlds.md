@@ -232,10 +232,12 @@ contains the fact, so replay and every client agree.
 
 ## Quests in shared worlds
 
-Each avatar has one quest, as described in the
-[card guide](../../card-game/README.md#one-quest-per-avatar). Meeting it is a
-`want_met` event in the shared history, so every client and the journal agree
-on who met what. A quest ends where it is met; only a level quest leads back,
+Each avatar holds a stack of up to three quests, as described in the
+[card guide](../../card-game/README.md#a-quest-stack-per-avatar). New quests go
+on top and nothing wipes one already held. Meeting one is a `want_met` event in
+the shared history, so every client and the journal agree on who met what.
+Dropping a quest (`drop` naming it) and pursuing one from beneath (`focus`) are
+ordinary plays in the journal. A met quest's sealed card is each browser's own. A quest ends where it is met; only a level quest leads back,
 to the sanctuary the avatar last stood in, where a long rest raises the level
 ([rest and sanctuary](rest-and-sanctuary.md#level-quest)). Human rest counts that person's own turns;
 resident rest counts world rounds.

@@ -316,6 +316,7 @@ export function playLabel(action) {
   if (action?.kind === "accompany")
     return `Invite ${nameOf(action.target)} along`;
   if (action?.kind === "drop" && !action.item) return "Drop quest";
+  if (action?.kind === "focus") return "Pursue quest";
   if (action?.kind === "move" && action.item)
     return `Carry to ${nameOf(action.target)}`;
   return {
@@ -346,6 +347,7 @@ const progress = {
   attack: "striking",
   take: "taking",
   drop: "putting down",
+  focus: "choosing a quest",
   give: "giving",
   ask: "asking",
   trade: "trading",
