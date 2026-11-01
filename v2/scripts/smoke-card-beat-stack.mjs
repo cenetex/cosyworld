@@ -19,8 +19,15 @@ const output = process.env.BEAT_STACK_OUTPUT || "output/beat-stack";
 // Set to save start, middle and end frames of each step.
 const frames = process.env.BEAT_MOTION_FRAMES;
 // Step the stack and watch every frame of the move: the stack and the front
-// card keep their layout box, and the leaving card fades as a copy.
-async function watchStep(page, step, name) {
+// card keep their layout box, and the leaving card fades as a copy. Once it
+// settles, the front card takes clicks, and so does the card behind unless
+// the front is the visit's first beat (`behind: null`).
+async function watchStep(
+  page,
+  step,
+  name,
+  hits = { front: true, behind: true },
+) {
   await page.waitForFunction(
     () => !document.querySelector(".beat-ghost, .beat-card[data-motion]"),
   );
@@ -95,7 +102,11 @@ async function watchStep(page, step, name) {
   }));
   assert.equal(watch.boxes.length, 1, `${name}: no layout jump ${watch.boxes}`);
   assert.equal(watch.left, 0, `${name}: the move settles`);
-  assert.deepEqual(await stackHits(page), { front: true, behind: true });
+  assert.deepEqual(
+    await stackHits(page),
+    hits,
+    `${name}: the cards take clicks`,
+  );
   return watch;
 }
 let fixture = enableMotives(createWorld({ opening: true }));
@@ -278,10 +289,13 @@ try {
       await page.waitForTimeout(400);
       await page.screenshot({ path: `${output}/live-${width}-${motion}.png` });
       // Tap behind: back in time. Vale comes forward; the live count shows.
+      // Vale's line opens this visit to the pond: the first quest waits for
+      // the pond (#1768), so no earlier beat is left to sit behind it.
       const back = await watchStep(
         page,
         () => behind.click({ position: { x: 80, y: 8 } }),
         `back-${width}-${motion}`,
+        { front: true, behind: null },
       );
       assert.equal(await front(), "Vale");
       assert.equal(await words(), lines.vale);
@@ -292,18 +306,35 @@ try {
       );
       await page.waitForTimeout(400);
       await page.screenshot({ path: `${output}/back-${width}-${motion}.png` });
-      // ↑ steps further back while the stack has focus; ↓ comes forward.
-      const before = await page.locator("#live-line").textContent();
+      // ↑ at the visit's first beat stays put while the stack has focus.
       await page.locator("#dialogue-advance").focus();
       await page.keyboard.press("ArrowUp");
-      const deeper = await page.locator("#live-line").textContent();
-      if (deeper !== before) {
-        assert.match(deeper, /·\s*2/u);
-        await page.keyboard.press("ArrowDown");
-        await page.waitForFunction(() =>
-          /·\s*1/u.test(document.querySelector("#live-line").textContent),
-        );
-      }
+      await page.waitForTimeout(200);
+      assert.equal(
+        await front(),
+        "Vale",
+        "Nothing lies before the first beat.",
+      );
+      assert.match(
+        await page.locator("#live-line").textContent(),
+        /live\s*·\s*1/u,
+      );
+      // ↓ comes forward to live; tap behind to step back to Vale again.
+      await page.keyboard.press("ArrowDown");
+      await page.waitForFunction(
+        () => document.querySelector("#speaker").textContent === "Pip",
+      );
+      assert.equal(await page.locator("#live-line").isVisible(), false);
+      await page.waitForFunction(
+        () => !document.querySelector(".beat-ghost, .beat-card[data-motion]"),
+      );
+      await behind.click({ position: { x: 80, y: 8 } });
+      await page.waitForFunction(
+        () => document.querySelector("#speaker").textContent === "Vale",
+      );
+      await page.waitForFunction(
+        () => !document.querySelector(".beat-ghost, .beat-card[data-motion]"),
+      );
       // Tap front: forward in time, back to live.
       const forward = await watchStep(
         page,
