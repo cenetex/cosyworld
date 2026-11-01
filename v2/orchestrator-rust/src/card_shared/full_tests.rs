@@ -2839,11 +2839,11 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
         full_store::seed(&c, &id, &world, "hoppycat-garden-visitor", now()).unwrap();
         let mut world = full_store::world(&c, &id, now()).unwrap();
 
-        // Use the pack's custody rule, commit a story receipt, then return
-        // through the bridge using the current C-hosted rules.
+        // Use the pack's custody rule (taking the cup beside Hoppy Cat commits
+        // the welcome), then return through the bridge using the current
+        // C-hosted rules.
         for (kind, field, value) in [
             ("take", "item", "hoppycat-halfway-cup"),
-            ("choose", "choiceId", "hoppycat-welcome"),
             ("move", "target", "pond"),
         ] {
             let action = world.project(0).unwrap()["actions"]
