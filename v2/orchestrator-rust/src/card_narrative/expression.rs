@@ -26,7 +26,7 @@ fn symbols() -> &'static BTreeMap<String, String> {
 
 pub(super) fn direction(mode: Mode, own: &str) -> String {
     match mode {
-        Mode::Speech => "My next reply is one or two short sentences in my own voice. I speak only my next words. My voice samples show my style; the current scene supplies my facts.".into(),
+        Mode::Speech => "My next reply is one or two short sentences in my own voice. I speak only my next words. The current scene supplies my facts.".into(),
         Mode::Movement => format!("My next reply is one short description of {own}'s observable body language, beginning with {own}'s name. Use a small gesture of ears, eyes, head, paws, tail, or posture. Describe the gesture in plain third-person narration. The current scene supplies the facts. Keep world positions, custody, and outcomes as recorded."),
         Mode::Emoji => format!("My next reply contains two to five of these symbols only: {}. Choose symbols for my reaction to the current facts. Use their order to carry the meaning.", symbols().keys().cloned().collect::<Vec<_>>().join(" ")),
     }

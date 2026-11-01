@@ -12,8 +12,6 @@ use std::{collections::BTreeMap, sync::Mutex};
 pub(super) enum Section {
     /// Idiolect, grown persona and the speech direction.
     System,
-    /// Authored voice samples and their heading.
-    Samples,
     /// The scene line, this turn's events, travel, stance, listener and cue.
     Now,
     /// The entity's own facts, readings and poem lines.
@@ -31,9 +29,8 @@ pub(super) enum Section {
 }
 
 impl Section {
-    pub(super) const ALL: [Section; 9] = [
+    pub(super) const ALL: [Section; 8] = [
         Section::System,
-        Section::Samples,
         Section::Now,
         Section::Facts,
         Section::Directions,
@@ -46,7 +43,6 @@ impl Section {
     pub(super) fn label(self) -> &'static str {
         match self {
             Section::System => "system",
-            Section::Samples => "samples",
             Section::Now => "now",
             Section::Facts => "facts",
             Section::Directions => "directions",
@@ -279,7 +275,6 @@ impl Drop for Call<'_> {
             reasons = %reasons.join(","),
             tokens = b.total(),
             system = b.get(Section::System),
-            samples = b.get(Section::Samples),
             now = b.get(Section::Now),
             facts = b.get(Section::Facts),
             directions = b.get(Section::Directions),
@@ -302,13 +297,13 @@ mod tests {
     #[test]
     fn budgets_split_by_section_and_counters_hold_no_text() {
         let lines = vec![
-            (Section::Samples, "Vale: I keep the lamp low.".to_string()),
+            (Section::Facts, "Vale: I keep the lamp low.".to_string()),
             (Section::Now, "Just now: Vale rings the bell.".to_string()),
             (Section::Earlier, "Earlier: Vale: Hello.".to_string()),
         ];
         let budget = Budget::of("I am Vale.", &lines);
         assert_eq!(budget.get(Section::System), 3);
-        assert_eq!(budget.get(Section::Samples), 7);
+        assert_eq!(budget.get(Section::Facts), 7);
         assert_eq!(budget.get(Section::Earlier), 6);
         assert_eq!(budget.get(Section::Conversation), 0);
         assert_eq!(budget.total(), 3 + 7 + 8 + 6);

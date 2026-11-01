@@ -165,7 +165,7 @@ fn base_profiles() -> &'static Value {
                         "persona": entity.get("persona").unwrap_or(&entity["text"]),
                         "pack": pack["id"],
                     });
-                    for field in ["voice", "idiolect", "lines", "expression"] {
+                    for field in ["voice", "idiolect", "expression"] {
                         if let Some(value) = entity.get(field) { profile[field] = value.clone(); }
                     }
                     assert!(
@@ -1258,34 +1258,6 @@ fn idiolect(entity: &Entity, part: Part) -> String {
     text
 }
 
-/// Up to five authored lines in the entity's voice, rotated by turn so no
-/// single example dominates the reply.
-/// Every authored line for one entity; the copy check reads the whole pool.
-fn profile_lines(id: &str) -> Vec<String> {
-    profiles()[id]["lines"]
-        .as_array()
-        .map(|lines| {
-            lines
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::to_string)
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-/// Five of the entity's authored lines, rotated by turn, for the transcript.
-fn voice_lines(context: &Context, id: &str) -> Vec<String> {
-    let lines = profile_lines(id);
-    if lines.is_empty() {
-        return Vec::new();
-    }
-    let start = (context.turn % lines.len() as u64) as usize;
-    (0..lines.len().min(5))
-        .map(|offset| lines[(start + offset) % lines.len()].clone())
-        .collect()
-}
-
 /// Every entity this scene knows of: those present, their belongings, their
 /// trips and their wants. A reply that names anyone else is rejected.
 fn known(context: &Context) -> BTreeSet<String> {
@@ -1524,7 +1496,7 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         }
     }
     // Spoken lines are not replayed to a speaker (#1537): the voice comes
-    // from the authored idiolect and samples, and `repeat` reads the
+    // from the authored idiolect, and `repeat` reads the
     // speaker's own recent lines server-side. Reflection still sees them.
     for memory in &entity.memories {
         let text = memory.text.strip_prefix("World: ").unwrap_or(&memory.text);
@@ -1568,19 +1540,13 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     if let Some(poem) = &entity.poem {
         lines.extend(tagged(Section::Facts, recital::prompt_lines(poem)));
     }
-    let mut out = vec![(Section::Samples, "My voice samples:".to_string())];
-    for line in voice_lines(context, id) {
-        out.push((Section::Samples, format!("{own}: {line}")));
-    }
-    out.extend(tagged(
+    // No authored sample lines (#1537): the voice comes from the idiolect
+    // and the world, never from example utterances.
+    let mut out: Vec<(Section, String)> = tagged(
         Section::Now,
-        [
-            String::new(),
-            "Current scene:".to_string(),
-            scene,
-            String::new(),
-        ],
-    ));
+        ["Current scene:".to_string(), scene, String::new()],
+    )
+    .collect();
     if lines.is_empty() {
         out.push((Section::Now, String::new()));
     }
@@ -1663,8 +1629,7 @@ fn recent_own_lines(context: &Context, entity: &Entity) -> Vec<String> {
     lines.split_off(start)
 }
 
-/// A rejected reply gets fresh wording grounded in the scene. Removing the
-/// style examples on retry helps small models leave copied examples behind.
+/// A rejected reply gets fresh wording grounded in the scene.
 fn attempt_transcript(context: &Context, entity: &Entity, part: Part, attempt: u8) -> String {
     let prompt = transcript(context, entity, part);
     if attempt == 0
@@ -2020,7 +1985,6 @@ struct Check<'a> {
     limit: usize,
     sentences: usize,
     known: BTreeSet<String>,
-    examples: Vec<String>,
     /// The transcript's own lines (scene, awareness, recent talk), minus the
     /// entity's authored lines and cue. A reply that repeats a run of them,
     /// or one of their labels ("I remember:", "Holding:"), is a read-back of
@@ -2074,7 +2038,6 @@ impl<'a> Check<'a> {
             limit,
             sentences,
             known: known(context),
-            examples: profile_lines(&entity.id),
             brief,
             labels,
             recent: recent_own_lines(context, entity),
@@ -2273,17 +2236,6 @@ impl<'a> Check<'a> {
         let key = words(&kept).concat();
         let sharing = freely_spoken != kept;
         let earned_quote = recital::earned_quote(&kept, self.entity.poem.as_ref());
-        if !earned_quote
-            && self.examples.iter().any(|line| {
-                let example = words(line);
-                (!sharing && words(line).concat() == key)
-                    || words(&freely_spoken)
-                        .windows(6)
-                        .any(|run| example.windows(6).any(|other| other == run))
-            })
-        {
-            return Err("copied example");
-        }
         let repeats = key.is_empty()
             || self
                 .context
@@ -2514,13 +2466,6 @@ mod tests {
             assert!(bounded(words, 400), "{id}");
             assert!(words.contains("I'm") || words.contains("I am") || words.contains("me"));
             assert_no_instructions(words);
-
-            let lines = profile["lines"].as_array().unwrap();
-            assert!((3..=12).contains(&lines.len()), "{id}");
-            // Examples never address the player by name.
-            if id != "vale" {
-                assert!(lines.iter().all(|l| !l.as_str().unwrap().contains("Vale")));
-            }
         }
         let mut c = context();
         c.outcome = Some(solo_departure());
@@ -2587,14 +2532,6 @@ mod tests {
             ("Certainly! Here is Pip's line.", "assistant"),
             // Badger is nowhere in this scene, so no one can mention him.
             ("Grumpy Badger would hate this noise.", "unknown entity"),
-            (
-                "Oh, that's a lovely warm glow. Is it spoken for?",
-                "copied example",
-            ),
-            (
-                "My sleeves are borrowed, my opinions are not, you see.",
-                "copied example",
-            ),
         ] {
             assert_eq!(clean(raw), Err(reason), "{raw}");
         }
@@ -4525,8 +4462,8 @@ mod tests {
             .filter_map(|request| request["messages"][1]["content"].as_str())
             .filter(|text| text.ends_with("Vale:"))
             .collect();
-        assert!(vale[0].contains("My voice samples:"));
-        assert!(!vale[1].contains("My voice samples:"));
+        assert!(vale[0].starts_with("Current scene:"));
+        assert!(vale[1].starts_with("My next words are fresh"));
         assert!(vale[1].contains("unlit"));
         server.abort();
     }
@@ -4826,10 +4763,10 @@ mod tests {
                     .unwrap()
             })
             .collect();
-        assert!(prompts[0].starts_with("My voice samples:"));
+        assert!(prompts[0].starts_with("Current scene:"));
         let facts = prompts[0].split_once("Current scene:\n").unwrap().1;
         for retry in &prompts[1..] {
-            assert!(!retry.contains("My voice samples:"));
+            assert!(retry.starts_with("My next words are fresh"));
             assert_eq!(retry.split_once("Current scene:\n").unwrap().1, facts);
             assert!(retry.ends_with("Pip:"));
         }
