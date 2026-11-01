@@ -12,7 +12,7 @@ within) and the harbour (Piraeus, which took in Athens Harbor). Places in a
 district link directly. Two gate roads join the districts. The Sacred Way
 leads from Eleusis into the city while the mothers' petition is at Eleusis
 or in the Agora. The Long Walls lead from the Agora to Piraeus while the
-plea's olive branch is in the Agora. A gate closes again when its thing moves
+herald's truce is in the Agora. A gate closes again when its thing moves
 away, and it blocks only the way out: the way back is always open. These
 routes share Dione’s lasting invitation. Waiting at a port lets the empty ship complete its circuit.
 
@@ -39,31 +39,32 @@ person remains available, with their earlier conversations intact.
 
 The central episode adapts Euripides' _Suppliant Women_. It takes place after
 the attack on Thebes. The traveler's earlier action for Antigone remains true.
+Greek revision 15 plays it without story buttons: meeting someone tells
+their part, Waiting beside the right things does a deed, and giving
+someone a thing is the gift the story needs.
 
-1. At Eleusis, hear Aethra and the mothers. Hear Adrastus own his failed
-   expedition. Take their petition.
-2. At the Agora, place the petition before Theseus. Choose a witnessed
-   burial truce or support the city's recovery demand.
-3. Receive the matching report. The truce is an original alternative. The
-   armed recovery follows the play's account. Both reports establish the
-   return of the remains; the traveler hears this event from the messenger.
-4. At Piraeus, hear Thaleia's practical request. Take the basket and set it
-   beside the resting place. Carry the clean cloths to Eleusis.
-5. At Eleusis, place the cloths. The attendants perform the funeral. The urn
-   becomes available after this recorded rite. Take it and place it in the
-   mothers' care.
-6. Hear the further loss at the pyre. Evadne died despite Iphis's plea. The
-   children carry ashes and speak of vengeance. Aethra also names the
-   source play's closing oath and Athena's promise of another war.
-7. Choose a public burial pledge or an account centred on the living
-   families' needs. Aethra supplies their return list.
-8. Carry the list to Piraeus. Reserve the prepared berth for the listed
-   households, or keep a place for later guests as well. This records a
-   prepared berth, supplies and a promise of care.
+1. At Eleusis, meeting Aethra tells the mothers' request, and Adrastus owns
+   his failed expedition at the next play. Take their petition.
+2. At the Agora, give Theseus the petition. The city takes up the claim, and
+   the herald's truce (`greek-olive-branch`, which keeps the branch's ID)
+   appears in the Agora. The next play there hears the herald's return: the
+   remains reached Eleusis under witness.
+3. At Piraeus, meet Thaleia. Wait at the quay with the basket there. Carry
+   the clean cloths to Eleusis.
+4. At Eleusis, Wait with the cloths there. The attendants perform the
+   funeral and the urn appears. Give the urn to the Argive mother. Aethra
+   writes the Pyre Account and the households' return list.
+5. The next play hears the further loss at the pyre. Evadne died despite
+   Iphis's plea. The children carry ashes and speak of vengeance. Aethra
+   also names the source play's closing oath and Athena's promise of
+   another war.
+6. Give Thaleia the return list at Piraeus, with the basket resting at the
+   quay. She reserves the berth for the listed households.
 
-The civic response uses `greek-open-door-recovery=truce|force`. The later
-answer uses `greek-open-door-eleusis=pledge|care`. The berth uses
-`greek-open-door-berth=family|open`. These are separate decisions.
+The plea records `greek-open-door-recovery=truce` and the berth
+`greek-open-door-berth=family`. The armed recovery, the Eleusis pledge and
+the open berth were attitude forks; they are gone (the redesign's owner
+decision 2 lets a fork return as an item quest).
 
 The original adaptation moves the public hearing to the Agora. Thaleia,
 the quay work, the traveler's petition, the negotiated truce and the closing
@@ -83,12 +84,11 @@ _Oedipus at Colonus_, before the Theban brothers' deaths.
   daughters, Theseus's recovery of them, and Polyneices's failed appeal.
 - **The ending:** Oedipus entrusts his final place to Theseus. The daughters
   mourn and seek their return to Thebes. The king keeps his promise.
-- **A present choice:** carry the blank refuge tablet from the Agora.
-  Place it at the grove for a custom of welcome, or for an account of the
-  daughters' work of care.
+- **A present custom:** carry the refuge tablet from the Agora and Wait at
+  the grove with it. The keeper records the grove's welcome on it.
 
-`greek-open-door-colonus=custom|family` records the present choice. The
-player's gift and tablet are current deeds. The keeper's account is a named
+Meeting the keeper tells each part of the tale; Waiting beside the cup and
+honey is the offering. The player's gift and tablet are current deeds. The keeper's account is a named
 memory. The ending preserves the resting place entrusted to Theseus alone.
 
 The full Storr text and the Center for Hellenic Studies text support the
@@ -112,13 +112,12 @@ in their own generation.
   reported wonder of Iolaus's renewed youth.
 - **The prisoner:** hear Alcmene's claim, the city's rule for a captive
   taken alive, and Eurystheus's reply.
-- **The chosen ending:** hear the source ending, in which Alcmene orders
-  the captive away to die, or request a clearly named new telling in which
-  Demophon holds him for a public hearing. Both retain the daughter's loss.
+  The keeper tells the source ending with it: Alcmene orders the captive
+  away to die. The Marathon Record appears at the altar.
 
-`greek-open-door-marathon=alcmene|hearing` records which ending the traveler
-heard. The hearing is an original alternative within the remembered tale.
-The blanket is a present object with its actual holder and placement.
+Meeting the keeper tells each part; Waiting with the blanket at the altar is
+the present care. The blanket is a present object with its actual holder and
+placement.
 
 ## Return and verse
 
@@ -128,16 +127,11 @@ from a report, a prepared berth from an arrival, and a heard tale from a
 present deed. [`lore/bard-couplets.json`](lore/bard-couplets.json) keeps
 every exact couplet as lore; the Bard's prompt does not carry them.
 
-Each completed local story opens its own early report at Dione’s table.
-The report names the actual branch and adds a new couplet about telling it.
-The Agora report follows its recovery report; the other four follow their
-closing choices. Sharing one account leaves the other journeys available.
-Each local report can be shared once.
-
-After the Eleusis answer, Piraeus berth and both remembered tales are
-complete, the traveler can also share the full Open Door account. That
-existing choice gathers all five stories and closes any remaining early
-reports. Its receipt and earlier verses keep their place. Its couplet is:
+Each story ends with an outcome item: the herald's truce, the Funeral
+Account, Myrine's signed return list, the refuge tablet and the Marathon
+Record. Giving one to Dione is that story's report; it stays on her table and
+earns its couplet. With all five on her table, the next play there shares the
+full Open Door account. Its couplet is:
 
 > I brought those names beside her bread.  
 > We made room for the words they carried.
@@ -149,34 +143,22 @@ The six quest families are `story-quest-greek-open-door-eleusis`,
 
 Myrine of Argos is an original household representative. She helped the
 mothers at Eleusis. She speaks for her own household and the care she sees.
-She appears after the Eleusis closing choice.
+She appears after the ashes are in the mothers' care.
 
-Once a berth has been reserved, a traveler can agree at Eleusis to walk
-with her to Piraeus. One ordinary **Accompany** action takes them along
+Once a berth has been reserved, meeting her at Eleusis is her agreement to
+walk with a traveler to Piraeus. One ordinary **Accompany** action takes them along
 the shore path. Myrine’s position is saved. Another traveler from the same
 company can take up the agreed journey. She waits for company before
 leaving and remains at the quay after arriving.
 
-The berth policy changes the objects and work in her arrival scene:
+At the quay, give Myrine the basket. With it in her hands and the return
+list at Piraeus, she receives her household's reserved care. The arrival
+records `greek-homecoming-arrived`. Myrine signs the return list with her
+account of that care. A list carried away early can be returned to the quay
+before the arrival.
 
-- **The listed household:** take the quay basket and give it to Myrine.
-  With the basket in her hands and the return list at Piraeus, witness her
-  receive her household’s reserved care.
-- **Later guests too:** leave the basket at Piraeus for shared use. With
-  the list there, witness Myrine rest at the quay and offer to help Thaleia
-  receive later guests.
-
-Both choices require Myrine to be physically at Piraeus. The arrival
-records `greek-homecoming-arrived` and the matching care choice. Myrine
-signs the return list with her account of that care. The existing basket
-can be shared again through the ordinary Ask and Give actions. A list
-carried away early can be returned to the quay before the arrival scene.
-
-Take the signed list to Dione. Choose the earned basket stanza or berth
-stanza for the table’s reading. Dione reads the selected stanza, then
-Myrine’s written words from Piraeus. She answers what she has heard.
-The list is placed at the courtyard and the exchange earns a new couplet.
-Myrine remains at the quay; the carried list supplies her voice at the table.
+Give Dione the signed list. It stays on her table. Myrine remains at the
+quay; the carried list supplies her voice at the table.
 
 These scenes add three story families: `story-quest-greek-homecoming-return`,
 `-household` and `-witness`. Each early return keeps its own local story
@@ -190,15 +172,18 @@ in this follow-through; she represents the household whose care she claims.
 
 ## Saved facts and object care
 
-Every story action uses the shared choice vocabulary. `choose` records a
-branch, `set_flag` records a deed or heard report, and `place_item` requires
-the acting traveler to hold the object at the named place. Choice receipts
+Every story step fires from a fixed verb: `on: "meet"`, `on: "wait"` or
+`on: "give"`. The meetings are Talk in the redesign; each becomes
+`on: "talk"` when that trigger lands (#1611). `choose` records a branch,
+`set_flag` records a deed or heard report, and a gift places the thing at
+the named place. Choice receipts
 make each step repeatable through replay and unique within the history.
 
-Nine authored objects support the routes: the mothers' petition, clean
+Eleven authored objects support the routes: the mothers' petition, clean
 cloths, quay basket, funeral urn, return list, grove cup, grove honey,
-shelter blanket and refuge tablet. Source reports introduce the urn after
-the funeral and the return list after the mothers' closing answer. Myrine’s
+shelter blanket, refuge tablet, Pyre Account and Marathon Record. Source
+reports introduce the urn after the funeral and the return list after the
+ashes. Myrine’s
 arrival adds her signature to that same list. Its holder stays part of the
 world through the journey to Dione.
 

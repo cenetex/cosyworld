@@ -175,10 +175,9 @@ The ship sails authored lanes: Black Pond only to the Wine-Dark Harbor; the
 Wine-Dark Harbor to Piraeus and the Trojan camp landing. The lane between the
 Wine-Dark Harbor to Piraeus opens only while the Travel Provisions
 (`greek-provisions`, first at the harbour) are aboard; the way home from
-Piraeus is always open. The herald hands the
-Suppliant's Olive Branch (`greek-olive-branch`) to whoever registers the
-mothers' plea at the Agora. While it is in the Agora, the Long Walls open
-from the Agora to Piraeus.
+Piraeus is always open. Giving Theseus the mothers' petition brings the
+herald's truce (`greek-olive-branch`, the Open Door's Agora outcome) into the
+Agora. While it is in the Agora, the Long Walls open from the Agora to Piraeus.
 Its card uses `assets/greek-drama/olive-branch.webp`, the wool-bound branch
 painting documented in [the Argos art handoff](../../card-game/assets/greek-drama/argos-alternates-README.md).
 Piraeus Quays lies outside the Open Door section, so that lane reaches it in
@@ -253,7 +252,7 @@ node v2/scripts/smoke-card-theban-scenery.mjs
 node v2/scripts/smoke-card-greek-drama.mjs
 ```
 
-The Open Door tests cover every invitation, alternate endings, object care,
+The Open Door tests cover every invitation, the ordinary-verb steps, object care,
 shared authorship, earned verses, interrupted duties and the return to Dione.
 Browser journeys play all five places at desktop and phone widths, inspect
 cards and art, reload during the story and hear the earned Bard context.

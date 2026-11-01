@@ -147,6 +147,9 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                         // Greek revision 11: the Burial Account, Creon's Writ
                         // and the Guard's Tablet.
                         + 3
+                        // Greek revision 15: the Pyre Account and the
+                        // Marathon Record.
+                        + 2
                         + if version == engine::ELEVENTH_VERSION {
                             9
                         } else {

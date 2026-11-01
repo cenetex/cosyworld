@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   newKnowledge,
   installKnowledge,
@@ -468,7 +468,14 @@ describe("Talk publication and learned facts", () => {
 describe("authored topics keep their saved deed identity", () => {
   const pack = packDefinition("greek-drama");
   const originalTopics = pack.topics;
+  // The mothers' request now commits on meeting Aethra. These cases stand it
+  // in for a choice that commits through its Talk topic.
+  const mothers = pack.choices.find(
+    (c) => c.id === "greek-open-door-hear-mothers",
+  );
+  beforeEach(() => delete mothers.on);
   afterEach(() => {
+    mothers.on = "meet";
     if (originalTopics === undefined) delete pack.topics;
     else pack.topics = originalTopics;
   });

@@ -58,9 +58,6 @@ export function playOpenDoor(world, kind, fields = {}) {
   return result.state;
 }
 
-export const openDoorChoice = (world, id) =>
-  playOpenDoor(world, "choose", { choiceId: `greek-open-door-${id}` });
-
 export const openDoorWalk = (world, ...places) =>
   places.reduce(
     (state, id) =>
@@ -84,92 +81,112 @@ export function openDoorStart(branch = "exposure") {
   });
 }
 
-export function openDoorSteps({
-  recovery = "truce",
-  eleusis = "care",
-  berth = "family",
-  colonus = "custom",
-  marathon = "hearing",
-} = {}) {
+// The Open Door is played with ordinary cards. Meeting someone tells their
+// part of the story, Waiting with a thing at its place does the deed, and
+// each outcome given to Dione is that story's report.
+export function openDoorSteps() {
   const move = greekMoveSteps("greek-courtyard");
   const take = (id) => ({ kind: "take", item: `greek-${id}` });
-  const choose = (id) => ({
-    kind: "choose",
-    choiceId: `greek-open-door-${id}`,
+  const give = (id, to) => ({
+    kind: "give",
+    item: `greek-${id}`,
+    target: `greek-${to}`,
   });
+  const wait = { kind: "wait" };
+  const talk = (who, n = 1) =>
+    Array.from({ length: n }, () => ({ kind: "talk", target: `greek-${who}` }));
+  const dione = (...ids) => ids.map((id) => give(id, "baker"));
   return [
+    // Meeting Aethra on arrival tells the mothers' request; Adrastus speaks
+    // at the next play.
     ...move("harbor", "athens", "eleusis"),
-    choose("hear-mothers"),
-    choose("hear-adrastus"),
     take("burial-petition"),
     ...move("athens"),
-    choose("register-plea"),
-    // The plea's olive branch waits at the Agora; hands stay free.
-    { kind: "drop", item: "greek-olive-branch", target: "greek-athens" },
-    choose(`request-${recovery}`),
-    choose(`hear-${recovery}-report`),
+    give("burial-petition", "theseus"),
+    // The herald's truce now rests in the Agora; Theseus reads its return.
+    ...talk("theseus"),
     ...move("piraeus"),
-    choose("hear-quay"),
-    take("provision-basket"),
-    choose("set-provisions"),
+    wait,
     take("return-cloths"),
     ...move("athens", "eleusis"),
-    choose("lay-cloths"),
+    { kind: "drop", item: "greek-return-cloths", target: "greek-eleusis" },
+    wait,
     take("ash-urn"),
-    choose("lay-ashes"),
-    choose("hear-pyre"),
-    choose(`eleusis-${eleusis}`),
+    give("ash-urn", "argive-mother"),
     take("return-list"),
+    take("pyre-account"),
     ...move("athens", "piraeus"),
-    choose(`${berth}-berth`),
-    ...move("athens"),
+    give("return-list", "quay-host"),
+    // Myrine agrees on meeting at Eleusis and walks to the quay in company.
+    ...move("athens", "eleusis"),
+    ...myrineSteps.map((destination) => ({
+      kind: "accompany",
+      target: "greek-household-witness",
+      destination,
+    })),
+    take("provision-basket"),
+    give("provision-basket", "household-witness"),
+    take("return-list"),
+    ...greekMoveSteps("greek-piraeus")("athens"),
     take("refuge-tablet"),
-    ...move("colonus"),
-    choose("colonus-enter"),
-    take("grove-cup"),
-    take("grove-honey"),
-    choose("colonus-water"),
-    choose("colonus-daughters"),
-    choose("colonus-farewell"),
-    choose(`colonus-${colonus}`),
-    ...move("athens", "piraeus"),
+    ...greekMoveSteps("greek-athens")("colonus"),
+    wait,
+    ...talk("colonus-keeper", 2),
+    wait,
+    // Three hands are full: the first reports go home to Dione.
+    ...greekMoveSteps("greek-colonus")("athens", "harbor", "courtyard"),
+    ...dione("pyre-account", "return-list", "refuge-tablet"),
+    ...greekMoveSteps("greek-courtyard")("harbor", "piraeus"),
     take("shelter-blanket"),
-    ...move("athens", "marathon"),
-    choose("marathon-enter"),
-    choose("marathon-blanket"),
-    choose("marathon-daughter"),
-    choose("marathon-battle"),
-    choose("marathon-captive"),
-    choose(`marathon-${marathon}`),
-    ...move("athens", "harbor", "courtyard"),
-    choose("return-dione"),
+    ...greekMoveSteps("greek-piraeus")("athens", "marathon"),
+    { kind: "drop", item: "greek-shelter-blanket", target: "greek-marathon" },
+    wait,
+    ...talk("marathon-keeper", 3),
+    take("marathon-record"),
+    ...greekMoveSteps("greek-marathon")("athens"),
+    take("olive-branch"),
+    ...greekMoveSteps("greek-athens")("harbor", "courtyard"),
+    ...dione("olive-branch", "marathon-record"),
+    ...talk("baker"),
   ];
 }
 
-export function openDoorJourney(options) {
+// Myrine walks her authored path one road at a time, from Eleusis along the
+// Sacred Way and the Long Walls to Piraeus.
+export const myrineSteps =
+  packDefinition("greek-drama").avatars[
+    "greek-household-witness"
+  ].journey.path.slice(1);
+
+// The world before and after each step that commits a story choice.
+export function openDoorJourney(steps = openDoorSteps()) {
   let world = openDoorStart();
   const before = {},
     after = {};
-  for (const { kind, ...fields } of openDoorSteps(options)) {
-    if (fields.choiceId) before[fields.choiceId] = world;
+  for (const { kind, ...fields } of steps) {
+    const prior = world;
     world = playOpenDoor(world, kind, fields);
-    if (fields.choiceId) after[fields.choiceId] = world;
+    for (const id of Object.keys(world.packs["greek-drama"].receipts))
+      if (!(id in prior.packs["greek-drama"].receipts)) {
+        before[id] = prior;
+        after[id] = world;
+      }
   }
   return { world, before, after };
 }
 
 // The world just after the plea at the Agora. The petition and the
-// Suppliant’s olive branch rest there, so the Sacred Way and the Long Walls
-// both stand open.
+// herald's truce rest there, so the Sacred Way and the Long Walls both stand
+// open.
 let plea;
 export function openSeas() {
   if (!plea) {
     let world = openDoorStart();
     for (const { kind, ...fields } of openDoorSteps()) {
       world = playOpenDoor(world, kind, fields);
-      if (fields.choiceId === "greek-open-door-register-plea") break;
+      if (world.packs["greek-drama"].receipts["greek-open-door-register-plea"])
+        break;
     }
-    world.items["greek-olive-branch"].holder = "greek-athens";
     plea = world;
   }
   return structuredClone(plea);

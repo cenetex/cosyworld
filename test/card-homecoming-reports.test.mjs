@@ -12,24 +12,18 @@ import {
   openDoorJourney,
   openDoorStart,
   openDoorWalk,
+  playOpenDoor,
 } from "./helpers/open-door.mjs";
 
 const pack = packDefinition("greek-drama");
-const reported = (world) =>
-  legalActions(world).filter((a) =>
-    a.choiceId?.startsWith("greek-homecoming-report-"),
-  );
+const flags = (world) => world.packs["greek-drama"].flags;
+// Each Athenian outcome, the step that brings it, and the way home.
 const cases = [
-  ["agora-truce", "agora", 0, "hear-truce-report"],
-  ["agora-force", "agora", 1, "hear-recovery-report"],
-  ["eleusis-care", "eleusis", 0, "eleusis-care"],
-  ["eleusis-pledge", "eleusis", 1, "eleusis-pledge"],
-  ["piraeus-family", "piraeus", 0, "family-berth"],
-  ["piraeus-open", "piraeus", 1, "open-berth"],
-  ["colonus-custom", "colonus", 0, "colonus-custom"],
-  ["colonus-family", "colonus", 1, "colonus-family"],
-  ["marathon-hearing", "marathon", 0, "marathon-hearing"],
-  ["marathon-alcmene", "marathon", 1, "marathon-alcmene"],
+  ["agora-truce", "greek-olive-branch", "hear-truce-report"],
+  ["eleusis-pledge", "greek-pyre-account", "lay-ashes"],
+  ["piraeus-family", "greek-return-list", "homecoming-receive-family"],
+  ["colonus-custom", "greek-refuge-tablet", "colonus-custom"],
+  ["marathon-alcmene", "greek-marathon-record", "marathon-captive"],
 ];
 const homeward = {
   "greek-athens": ["harbor", "courtyard"],
@@ -38,70 +32,72 @@ const homeward = {
   "greek-colonus": ["athens", "harbor", "courtyard"],
   "greek-marathon": ["athens", "harbor", "courtyard"],
 };
-let journeys;
+const giveDione = (world, item) =>
+  legalActions(world).find(
+    (a) => a.kind === "give" && a.item === item && a.target === "greek-baker",
+  );
+let journey;
 beforeAll(() => {
-  journeys = [
-    openDoorJourney(),
-    openDoorJourney({
-      recovery: "recovery",
-      eleusis: "pledge",
-      berth: "open",
-      colonus: "family",
-      marathon: "alcmene",
-    }),
-  ];
+  journey = openDoorJourney();
 });
 
 describe("early Open Door reports", () => {
   it.each(cases)(
     "earns one truthful return verse for %s",
-    (ending, story, branch, completed) => {
-      let world = journeys[branch].after[`greek-open-door-${completed}`];
+    (ending, item, completed) => {
+      const step = completed.startsWith("homecoming-")
+        ? `greek-${completed}`
+        : `greek-open-door-${completed}`;
+      let world = structuredClone(journey.after[step]);
+      if (world.items[item].holder !== "vale")
+        world = playOpenDoor(world, "take", { item });
       world = openDoorWalk(world, ...homeward[world.actors.vale.place]);
       const id = `greek-homecoming-report-${ending}`;
-      const offers = reported(world).filter((a) =>
-        a.choiceId.startsWith(`greek-homecoming-report-${story}-`),
-      );
-      expect(offers.map((a) => a.choiceId)).toEqual([id]);
+      const story = ending.split("-")[0];
       const prior = recitalPoem(world, pack);
-      const result = play(world, offers[0]);
+      const result = play(world, giveDione(world, item));
       expect(result.ok, result.error).toBe(true);
       world = decodeSave(encodeSave(result.state));
-      expect(
-        world.packs["greek-drama"].flags[`greek-homecoming-${story}-reported`],
-      ).toBe(true);
-      expect(
-        world.packs["greek-drama"].flags["greek-open-door-returned"],
-      ).toBeUndefined();
+      expect(world.packs["greek-drama"].receipts[id]).toBe(world.turn);
+      expect(flags(world)[`greek-homecoming-${story}-reported`]).toBe(true);
+      expect(flags(world)["greek-open-door-returned"]).toBeUndefined();
+      expect(world.items[item].holder).toBe("greek-courtyard");
       const poem = recitalPoem(world, pack);
       expect(poem.stanzas).toHaveLength(prior.stanzas.length + 1);
       expect(poem.stanzas.at(-1).id).toBe(id);
       expect(poem.stanzas.slice(0, -1)).toEqual(prior.stanzas);
-      expect(
-        reported(world).some((a) =>
-          a.choiceId.startsWith(`greek-homecoming-report-${story}-`),
-        ),
-      ).toBe(false);
-      expect(play(world, offers[0]).ok).toBe(false);
+      // The account stays on her table: there is nothing to give again.
+      expect(giveDione(world, item)).toBeUndefined();
     },
   );
 
   it("opens a local report only after a completed story", () => {
-    expect(reported(openDoorStart())).toEqual([]);
+    const world = openDoorStart();
+    world.items["greek-pyre-account"].holder = "vale";
+    world.actors.vale.place = "greek-courtyard";
+    const result = play(world, giveDione(world, "greek-pyre-account"));
+    expect(
+      result.ok &&
+        result.state.packs["greek-drama"].receipts[
+          "greek-homecoming-report-eleusis-pledge"
+        ],
+    ).toBeFalsy();
   });
 
   it("lets the full account cover every local report", () => {
-    for (const { world } of journeys) {
-      expect(world.packs["greek-drama"].flags["greek-open-door-returned"]).toBe(
-        true,
-      );
-      expect(reported(world)).toEqual([]);
+    const { world } = journey;
+    expect(flags(world)["greek-open-door-returned"]).toBe(true);
+    for (const [ending] of cases)
       expect(
-        recitalPoem(world, pack).stanzas.some(
-          (v) => v.id === "greek-open-door-return-dione",
-        ),
-      ).toBe(true);
-    }
+        world.packs["greek-drama"].receipts[
+          `greek-homecoming-report-${ending}`
+        ],
+      ).toBeTruthy();
+    expect(
+      recitalPoem(world, pack).stanzas.some(
+        (v) => v.id === "greek-open-door-return-dione",
+      ),
+    ).toBe(true);
   });
 });
 

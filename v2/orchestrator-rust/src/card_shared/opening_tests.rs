@@ -81,7 +81,8 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
             );
         }
     }
-    // Greek revision 9 adds the Suppliant's Olive Branch at the Agora.
+    // Greek revision 9 adds the olive branch, now the herald's truce, at the
+    // Agora.
     items.insert(
         "greek-olive-branch".into(),
         json!({"holder": "greek-athens", "history": []}),
@@ -91,6 +92,9 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
         ("greek-burial-account", "greek-battlefield"),
         ("greek-creon-writ", "greek-palace"),
         ("greek-guard-tablet", "greek-gate"),
+        // Greek revision 15's Athenian outcomes wait the same way.
+        ("greek-pyre-account", "greek-eleusis"),
+        ("greek-marathon-record", "greek-marathon"),
     ] {
         items.insert(id.into(), json!({"holder": holder, "history": []}));
     }
