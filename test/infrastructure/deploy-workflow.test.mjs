@@ -466,12 +466,15 @@ describe("deploy workflow", () => {
     expect(quarantine).not.toContain("actions/cache/save");
     expect(build).not.toContain("rust-quarantine");
     // The blocking suite skips each quarantined test, which still exists.
-    const names = [
-      ...checkRust
-        .match(/QUARANTINED_TESTS=\(\n([\s\S]*?)\n\)/)[1]
-        .matchAll(/^\s+(\w+) # #\d+, fix by \d{4}-\d{2}-\d{2}$/gm),
-    ].map(([, name]) => name);
-    expect(names).toHaveLength(2);
+    // The list may be empty; every entry names its issue and fix-by date.
+    const entries = checkRust
+      .match(/^QUARANTINED_TESTS=\(\n([\s\S]*?)^\)$/m)[1]
+      .split("\n")
+      .filter((line) => line.trim());
+    const names = entries.map(
+      (line) => line.match(/^\s+(\w+) # #\d+, fix by \d{4}-\d{2}-\d{2}$/)?.[1],
+    );
+    expect(names).not.toContain(undefined);
     expect(checkRust).toContain('skips+=(--skip "$name")');
     const rustMain = readFileSync(
       new URL("../../v2/orchestrator-rust/src/main.rs", import.meta.url),
