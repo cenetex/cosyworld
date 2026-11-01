@@ -146,6 +146,7 @@ import {
   laneOfEdge,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
+import { installSpecials, validSeed } from "./pack-specials.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
 
@@ -212,7 +213,8 @@ const expectedTrustKeys = Object.fromEntries(
 );
 export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
-export function createWorld({ opening = false, packScopes = {} } = {}) {
+// A run seed draws each pack's specials once (pack-specials.mjs).
+export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   const world = {
     schema: 7,
     ...structuredClone(forest.initialState),
@@ -221,6 +223,8 @@ export function createWorld({ opening = false, packScopes = {} } = {}) {
     revision: 0,
     eventSeq: 1,
   };
+  if (seed != null && !validSeed(seed)) throw new Error("Choose a run seed.");
+  if (seed != null) world.run = { seed };
   if (opening) {
     const start = structuredClone(forest.opening);
     world.opening = start.discovery;
@@ -289,9 +293,17 @@ function installPacks(s) {
         if (other !== id) actor.trust[other] ??= 0;
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
+  for (const pack of packDefinitions) installSpecials(s, pack);
   installLife(s, travels);
   installRouteKnowledge(s);
   installWants(s);
+}
+// A world saved before runs had seeds takes one once, from its host.
+export function seedRun(s, seed) {
+  if (s.run || !validSeed(seed)) return s;
+  s.run = { seed };
+  installPacks(s);
+  return s;
 }
 // Travellers who learn the roads start from their home region's routes.
 function installRouteKnowledge(s) {
@@ -2335,6 +2347,8 @@ export function validateWorld(s) {
           visits.some((place) => !Object.hasOwn(places, place)),
       ))
   )
+    fail();
+  if (s.run !== undefined && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
     fail();
   if (!validPackState(s, sensesFor(s))) fail();
   if (

@@ -213,6 +213,8 @@ try {
   if (saved) {
     openingTable = false;
     world = enableMotives(decodeSave(saved));
+    // A save from before run seeds starts a new game (alpha).
+    if (!world.run) throw new Error("This save needs a fresh start.");
   }
 } catch (error) {
   openingTable = false;

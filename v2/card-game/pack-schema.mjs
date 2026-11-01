@@ -5,6 +5,7 @@ import { validFactText } from "./knowledge.mjs";
 
 import { EXPRESSION_TYPES } from "./expression.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
+import { RARITY_WEIGHTS } from "./pack-specials.mjs";
 
 export const PACK_SCHEMA_VERSION = 1;
 export const AUTHORED_TOPIC_LIMIT = 128;
@@ -78,6 +79,7 @@ export const CONDITION_KINDS = [
   "daylight",
   "weather",
   "ship_at",
+  "drawn",
 ];
 // The `ship_at` dock for a ship sailing between ports.
 export const AT_SEA = "@sea";
@@ -130,6 +132,33 @@ export function laneProblems(t) {
     if (!leaving.has(dock)) out.push(`dock ${dock} has no lane out`);
   }
   return out;
+}
+// A pack's specials pool: places, residents and things drawn once per run.
+// The entry stays core, and an anchor is a core place.
+function specialsProblems(pack) {
+  const sp = pack.specials,
+    pool = Array.isArray(sp?.pool) ? sp.pool : [],
+    ids = pool.map((e) => e?.id).filter(Boolean),
+    own = (id) => ["places", "avatars", "items"].some((k) => owns(pack[k], id));
+  const ok =
+    keysOk(sp, ["draw", "pool"]) &&
+    keysOk(sp.draw, ["places", "avatars", "items"]) &&
+    Object.values(sp.draw).every((n) => intOk(n, 0, 8)) &&
+    pool.length > 0 &&
+    pool.length <= 64 &&
+    new Set(ids).size === ids.length &&
+    !ids.includes(pack.entry) &&
+    pool.every(
+      (e) =>
+        Object.hasOwn(RARITY_WEIGHTS, e?.rarity) &&
+        (e.none === true
+          ? keysOk(e, ["none", "rarity"])
+          : keysOk(e, ["id", "rarity", "anchor"]) &&
+            own(e.id) &&
+            (e.anchor === undefined ||
+              (owns(pack.places, e.anchor) && !ids.includes(e.anchor)))),
+    );
+  return ok ? [] : ["specials needs a bounded draw and a pool of own entities"];
 }
 const keysOk = (o, allowed) =>
   record(o) && Object.keys(o).every((k) => allowed.includes(k));
@@ -264,6 +293,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "storyQuests",
       "topics",
       "situations",
+      "specials",
     ]),
     "has an unknown top-level field",
   );
@@ -860,6 +890,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "met":
           ok = keysOk(c, ["kind", "actor"]) && owns(avatars, c.actor);
           break;
+        case "drawn":
+          ok =
+            keysOk(c, ["kind", "id"]) &&
+            (pack.specials?.pool || []).some((e) => e?.id === c.id);
+          break;
         case "pack_item_present":
           ok =
             keysOk(c, ["kind", "pack", "place"]) &&
@@ -928,6 +963,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           "met",
           "knows",
           "daylight",
+          "drawn",
         ].includes(c?.kind);
   const requirements = (cs, what, persistent = true) => {
     if (cs === undefined) return;
@@ -1317,6 +1353,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "incompatible embodiments are active together",
     );
   }
+  if (pack.specials !== undefined) problems.push(...specialsProblems(pack));
   if (pack.release !== undefined) {
     const r = pack.release;
     check(

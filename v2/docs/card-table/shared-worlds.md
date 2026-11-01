@@ -177,6 +177,14 @@ world load records an explicit migration seed. It maps the old rooms and items
 onto the full game and keeps the old counters as migration evidence. Existing
 single-player saves continue through the normal save upgrader.
 
+## Run seeds and specials
+
+A world has one run seed, `world.run.seed`. Each pack's `specials` pool
+([design](../../../docs/design/small-worlds-alternates-specials.md)) is drawn from it once and saved as `packs[id].specials`; replay never
+draws again. Rust derives a shared world's seed from its ID (the first four
+bytes of SHA-256); a local New game makes one in the browser. A local save
+from before run seeds starts a new game.
+
 Migration preserves each held item, the lamp's state, and up to 80 saved
 exchanges with their original text and times. An avatar carrying more than the
 current limit keeps those items. That allowance shrinks as items are put down;

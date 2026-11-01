@@ -1,6 +1,7 @@
 import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
 import { boardyPack, BOARDY, boardyActive } from "./boardyai.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
+import { specialsAllow, validSpecials } from "./pack-specials.mjs";
 import { journeyNextPlace, validJourneyPlaces } from "./pack-journeys.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
@@ -317,7 +318,9 @@ function entityEnabled(world, id, saved = false) {
         ? (e.requires || []).filter((c) => c.kind !== "connected_humans")
         : e.requires,
     ) ||
-    !sectionAllows(world, pack, id, conditionsMet)
+    !sectionAllows(world, pack, id, conditionsMet) ||
+    // Saved custody of an undrawn special stays as it was.
+    (!saved && !specialsAllow(state, pack, id))
   )
     return false;
   if (!pack.release || state.scope === "full") return true;
@@ -684,6 +687,7 @@ export function validatePackStates(world) {
       !record(state) ||
       !validRecitals(world, pack) ||
       !validJourneyPlaces(world, pack) ||
+      !validSpecials(world, pack) ||
       state.revision !== pack.revision ||
       !["opening", "full"].includes(state.scope) ||
       Object.keys(state).sort().join() !==
@@ -696,6 +700,7 @@ export function validatePackStates(world) {
           "met",
           "scope",
           ...(pack.recital ? ["recitals"] : []),
+          ...(pack.specials && world.run ? ["specials"] : []),
         ]
           .sort()
           .join() ||

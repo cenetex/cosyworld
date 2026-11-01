@@ -8,8 +8,12 @@ export function landingPack(url) {
   return packDefinition(id);
 }
 
-export function createLandingWorld(pack = null) {
-  const world = createWorld({ opening: !pack });
+// New game draws its run seed here, outside the rules.
+export const newRunSeed = () =>
+  globalThis.crypto.getRandomValues(new Uint32Array(1))[0];
+
+export function createLandingWorld(pack = null, seed = newRunSeed()) {
+  const world = createWorld({ opening: !pack, seed });
   if (!pack) return world;
   world.actors.vale.place = pack.entry;
   // A retired crossing stays closed in a new game.

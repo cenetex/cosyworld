@@ -152,6 +152,8 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
           entityActive(s, id) &&
           objectPlace(s, id) === c.place,
       );
+    case "drawn":
+      return !!state?.specials?.includes(c.id);
     case "met":
       return !!state?.met && Object.hasOwn(state.met, c.actor);
     // The saved world clock: every DAYLIGHT_TURNS turns, day and night swap.
@@ -489,9 +491,9 @@ export function validPackState(s, senses) {
     const record = s.packs[pack.id];
     const fixtures = Object.entries(pack.fixtures || {});
     if (
-      !exactKeys(
-        record,
-        pack.choices
+      !exactKeys(record, [
+        ...(pack.specials && s.run ? ["specials"] : []),
+        ...(pack.choices
           ? [
               "revision",
               "sounds",
@@ -502,8 +504,8 @@ export function validPackState(s, senses) {
               "scope",
               ...(pack.recital ? ["recitals"] : []),
             ]
-          : ["revision", "sounds"],
-      ) ||
+          : ["revision", "sounds"]),
+      ]) ||
       record.revision !== pack.revision ||
       !exactKeys(
         record.sounds,
