@@ -25,10 +25,7 @@ import {
   learnLane,
 } from "../v2/card-game/pack-transport.mjs";
 import { openDoorStart, openSeas } from "./helpers/open-door.mjs";
-import {
-  upgradedActor,
-  upgradedItems,
-} from "./fixtures/card-upgraded-items.mjs";
+import { upgradedActor, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
 const docks = ["pond", "greek-harbor", "greek-piraeus"];
 const players = ["vale", "mara"];

@@ -500,9 +500,7 @@ export function packGiveChoice(world, action) {
         c.subject === action.target &&
         c.requires.some(
           (r) =>
-            r.kind === "holding" &&
-            r.role === "actor" &&
-            r.item === action.item,
+            r.kind === "holding" && r.role === "actor" && r.item === action.item,
         ) &&
         choiceFeasible(world, pack, c, action.actor, "give")
       )

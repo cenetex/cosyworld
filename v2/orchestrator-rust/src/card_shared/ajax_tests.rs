@@ -358,6 +358,14 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             ["greek-piraeus", "greek-sicily"],
             ["greek-aulis", "greek-greek-camp"],
             ["greek-scythian-crag", "greek-susa"],
+            // Greek revision 12 retires these Athenian places.
+            ["greek-athens", "greek-athens-harbor"],
+            ["greek-athens", "greek-jury-house"],
+            ["greek-attic-farm", "greek-divine-heights"],
+            ["greek-attic-farm", "greek-bird-wilderness"],
+            ["greek-colonus", "greek-underworld"],
+            ["greek-athens-harbor", "greek-ship"],
+            ["sea:greek-athens-harbor", "sea:greek-piraeus"],
         ];
         let walked = |edges: &Value| -> Vec<Value> { edges.as_array().unwrap().to_vec() };
         for (who, edges) in old.game["routeKnowledge"].as_object().unwrap() {
