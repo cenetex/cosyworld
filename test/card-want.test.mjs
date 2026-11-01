@@ -44,6 +44,16 @@ describe("one want per avatar", () => {
     expect([0, 1, 2, 3, 5, 6, 10].map(levelFor)).toEqual([1, 2, 2, 3, 3, 4, 5]);
   });
 
+  it("starts authored pack residents at their tier's first level", () => {
+    const s = createWorld();
+    expect(levelOf(s, "greek-creon")).toBe(50);
+    expect(s.actors["greek-creon"].xp).toBe(1225);
+    expect(levelOf(s, "greek-antigone")).toBe(20);
+    expect(levelOf(s, "greek-guard")).toBe(1);
+    expect(levelOf(s, "vale")).toBe(1);
+    expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
+  });
+
   it("meets an item want when the actor is its root holder", () => {
     const s = createWorld();
     s.items.lamp.holder = "moth";

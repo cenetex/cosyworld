@@ -684,6 +684,7 @@
   "avatars": {
     "greek-antigone": {
       "name": "Antigone",
+      "startLevel": 20,
       "text": "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
       "place": "greek-gate",
       "home": "greek-gate",
@@ -739,6 +740,7 @@
     },
     "greek-creon": {
       "name": "Creon",
+      "startLevel": 50,
       "text": "He receives petitions beside the posted decree. His attendants wait for clear instructions.",
       "place": "greek-palace",
       "home": "greek-palace",
@@ -957,6 +959,7 @@
     },
     "greek-helen-troy": {
       "name": "Helen",
+      "startLevel": 10,
       "text": "She checks the traveler's account against a witness tablet.",
       "place": "greek-troy-beach",
       "home": "greek-troy-beach",
@@ -1049,6 +1052,7 @@
     },
     "greek-electra-sophocles": {
       "name": "Electra",
+      "startLevel": 10,
       "text": "She has preserved an account of the household's losses.",
       "place": "greek-mycenae-palace",
       "home": "greek-mycenae-palace",
@@ -1072,6 +1076,7 @@
     },
     "greek-orestes-sophocles": {
       "name": "Orestes",
+      "startLevel": 10,
       "text": "He has come to hear his sister before committing himself.",
       "place": "greek-mycenae-palace",
       "home": "greek-mycenae-palace",
@@ -1247,6 +1252,7 @@
     },
     "greek-theseus": {
       "name": "Theseus",
+      "startLevel": 20,
       "text": "A petition table stands beside him. He waits for the mothers’ own account.",
       "place": "greek-athens",
       "home": "greek-athens",
@@ -1428,6 +1434,7 @@
     },
     "greek-ajax-odysseus": {
       "name": "Odysseus",
+      "startLevel": 30,
       "text": "Odysseus waits by the commanders’ tents. He can hear Teucer’s plea and speak for a former rival.",
       "place": "greek-greek-camp",
       "home": "greek-greek-camp",

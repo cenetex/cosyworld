@@ -123,6 +123,10 @@ facts from earlier releases keep their names; player-facing text says quest.
   place and Talk. Meeting a quest records a `want_met` history event and one
   experience point. Level is a rising curve of experience: 1, 3, 6, 10 points
   reach levels 2 to 5. Standoff strength and the scene read that level.
+  A pack resident may set `startLevel` (1–99) and begins with that level's
+  experience. Each pack starts a few residents at a tier's first level: one
+  Legendary (50), one Epic (30), two Rare (20) and three Uncommon (10), as far
+  as its cast allows. Player and human avatars start at level 1.
 - **Next.** The next quest is drawn deterministically from the world, seeded
   by the avatar and turn: items others hold nearby that the avatar values
   above what it carries, reachable places it has not visited, and known people

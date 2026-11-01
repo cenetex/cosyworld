@@ -55,6 +55,7 @@
   "avatars": {
     "willows-swede": {
       "name": "The Swede",
+      "startLevel": 50,
       "text": "A stolid canoe traveller with wind-reddened hands. Now and then he holds a hand to his ear and looks up at the willow tops.",
       "place": "willows-camp",
       "travels": false,

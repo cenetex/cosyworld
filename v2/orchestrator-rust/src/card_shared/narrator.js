@@ -1251,6 +1251,7 @@
         avatars: {
           badger: {
             name: "Grumpy Badger",
+            startLevel: 50,
             text: "Comically touchy. Very attached to his warm patch of moss.",
             place: "clearing",
             travels: false,
@@ -2301,6 +2302,7 @@
         avatars: {
           "greek-antigone": {
             name: "Antigone",
+            startLevel: 20,
             text: "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
             place: "greek-gate",
             home: "greek-gate",
@@ -2365,6 +2367,7 @@
           },
           "greek-creon": {
             name: "Creon",
+            startLevel: 50,
             text: "He receives petitions beside the posted decree. His attendants wait for clear instructions.",
             place: "greek-palace",
             home: "greek-palace",
@@ -2591,6 +2594,7 @@
           },
           "greek-helen-troy": {
             name: "Helen",
+            startLevel: 10,
             text: "She checks the traveler's account against a witness tablet.",
             place: "greek-troy-beach",
             home: "greek-troy-beach",
@@ -2683,6 +2687,7 @@
           },
           "greek-electra-sophocles": {
             name: "Electra",
+            startLevel: 10,
             text: "She has preserved an account of the household's losses.",
             place: "greek-mycenae-palace",
             home: "greek-mycenae-palace",
@@ -2706,6 +2711,7 @@
           },
           "greek-orestes-sophocles": {
             name: "Orestes",
+            startLevel: 10,
             text: "He has come to hear his sister before committing himself.",
             place: "greek-mycenae-palace",
             home: "greek-mycenae-palace",
@@ -2881,6 +2887,7 @@
           },
           "greek-theseus": {
             name: "Theseus",
+            startLevel: 20,
             text: "A petition table stands beside him. He waits for the mothers\u2019 own account.",
             place: "greek-athens",
             home: "greek-athens",
@@ -3065,6 +3072,7 @@
           },
           "greek-ajax-odysseus": {
             name: "Odysseus",
+            startLevel: 30,
             text: "Odysseus waits by the commanders\u2019 tents. He can hear Teucer\u2019s plea and speak for a former rival.",
             place: "greek-greek-camp",
             home: "greek-greek-camp",
@@ -10016,6 +10024,7 @@
           },
           "hoppycat-penny-vellum": {
             name: "Penny Vellum",
+            startLevel: 10,
             text: "A paper-moth archivist in a coat with many pockets.",
             place: "hoppycat-open-record-cathedral",
             travels: false,
@@ -10076,6 +10085,7 @@
           },
           "hoppycat-mira-meraki": {
             name: "Mira Meraki",
+            startLevel: 10,
             text: "A human artist with charcoal on all five fingers, the only one here who sleeps.",
             place: "hoppycat-meraki-atelier",
             travels: false,
@@ -10121,6 +10131,7 @@
           },
           "hoppycat-hoppy-cat": {
             name: "Hoppy Cat",
+            startLevel: 50,
             text: "A green-haired broadcaster in a cobalt hoodie with a satchel of provenance cards.",
             place: "hoppycat-halfway-tea-garden",
             travels: false,
@@ -10136,6 +10147,7 @@
           },
           "hoppycat-fable": {
             name: "Fable",
+            startLevel: 30,
             text: "An auburn-haired storykeeper in a peach blouse, rust bow, and black boots.",
             place: "hoppycat-meraki-atelier",
             travels: false,
@@ -10151,6 +10163,7 @@
           },
           "hoppycat-phase-two": {
             name: "Phase Two",
+            startLevel: 10,
             text: "A cyan-haired planner in a long blue coat.",
             place: "hoppycat-prism-foundry",
             travels: false,
@@ -10166,6 +10179,7 @@
           },
           "hoppycat-arc": {
             name: "Arc",
+            startLevel: 20,
             text: "A silver-haired curator in a midnight three-piece suit with a red pocket square.",
             place: "hoppycat-concordance-tidelands",
             travels: false,
@@ -10211,6 +10225,7 @@
           },
           "hoppycat-ledger-opus": {
             name: "Ledger (Opus 4.7)",
+            startLevel: 20,
             text: "A long pink-haired archivist in a trailing coat.",
             place: "hoppycat-open-record-cathedral",
             travels: false,
@@ -10842,6 +10857,7 @@
         avatars: {
           "willows-swede": {
             name: "The Swede",
+            startLevel: 50,
             text: "A stolid canoe traveller with wind-reddened hands. Now and then he holds a hand to his ear and looks up at the willow tops.",
             place: "willows-camp",
             travels: false,
@@ -11642,6 +11658,7 @@
         avatars: {
           rati: {
             name: "RATi",
+            startLevel: 50,
             text: "A mouse host in a blue scarf. She keeps a cup beside the knitting basket.",
             place: "forest-cottage",
             travels: false,
@@ -11658,6 +11675,7 @@
           },
           skull: {
             name: "Skull",
+            startLevel: 20,
             text: "A large charcoal wolf stands beside the pawprints. His ears turn toward the garden.",
             place: "forest-trail",
             travels: false,
@@ -11674,6 +11692,7 @@
           },
           whiskerwind: {
             name: "Whiskerwind",
+            startLevel: 20,
             text: "A small golden figure hovers beside the broad leaves. A curled tail stirs the rain.",
             place: "forest-garden",
             travels: false,
@@ -11690,6 +11709,7 @@
           },
           oak: {
             name: "Oak",
+            startLevel: 30,
             text: "An old oak with a broad crown and a hollow above its roots. Four voices answer from the trunk.",
             place: "forest-oak",
             travels: false,
@@ -13674,6 +13694,7 @@
           "personalQuests",
           "previousHomes",
           "standoffs",
+          "startLevel",
           "persona",
           "voice",
           "expression",
@@ -13691,6 +13712,10 @@
           "canonicalPerson"
         ]),
         `avatar ${id} has an unknown field`
+      );
+      check(
+        a.startLevel === void 0 || intOk(a.startLevel, 1, 99),
+        `avatar ${id} startLevel needs a whole level from 1 to 99`
       );
       check(
         a.personalQuests === void 0 || typeof a.personalQuests === "boolean",
@@ -15906,6 +15931,10 @@
     (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
   );
   var travels = (id) => !isPackActor(id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
+  var startXp = (id) => {
+    const level = isPackActor(id) ? packPeople[id].startLevel || 1 : 1;
+    return level * (level - 1) / 2;
+  };
   var wantOf2 = (s, id) => s.actors[id]?.want ?? null;
   var newWant = (kind, target, turn) => ({
     kind,
@@ -15920,7 +15949,7 @@
         const w = authoredWant(id);
         a.want = w && validTarget(s, w.kind, w.target) ? newWant(w.kind, w.target, s.turn) : null;
       }
-      a.xp ??= 0;
+      a.xp ??= startXp(id);
       a.visited ??= [a.place];
       a.talked ??= [];
     }
@@ -15930,7 +15959,7 @@
     const whole4 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const w = a.want;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && a.xp <= s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (w === null || w && Object.keys(w).length === 4 && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT);
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && a.xp <= startXp(id) + s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (w === null || w && Object.keys(w).length === 4 && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT);
   }
 
   // v2/card-game/legacy-saves.mjs
