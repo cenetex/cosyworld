@@ -95,7 +95,8 @@ shows "…", like any failed voice.
 
 When an avatar has enough XP for its next level and wakes from a long rest,
 the rules draw its level quest (#1583: F(n) steps, reaching further from home
-as n rises). It replaces the want on the quest card. After its last step
+as n rises). It goes on top of the quest stack, above the ordinary quests,
+which wait beneath it (#1831). After its last step
 comes the way back: a rest step at the last sanctuary the avatar stood in
 (`actor.sanctuary`, set whenever it is at one). The level rises when it wakes
 from a long rest there, not on arrival. An avatar always wakes into its level
@@ -103,7 +104,8 @@ quest at a sanctuary, so the fallback to its home for one that never stood in
 a sanctuary only covers states from before #1824. Ordinary quests never send
 anyone home. The dream that comes with
 the waking gets the quest as facts, so the model voices it; no line is
-authored. Dropping a level quest costs half the avatar's XP.
+authored. Dropping a level quest costs half the avatar's XP; dropping an
+ordinary quest costs nothing.
 
 ## Prior art
 

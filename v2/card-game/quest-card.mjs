@@ -1,7 +1,8 @@
-// The player's one quest, drawn as one card in the hand: its target's art
-// with the rules' own words for the want as the caption. Nothing here is
-// authored or decides anything; the rules own the want (want.mjs).
-import { CONNECT_TARGET, questSteps, wantOf } from "./want.mjs";
+// The player's quest stack, drawn as quest cards in the hand: each its
+// target's art with the rules' own words for the want as the caption.
+// Nothing here is authored or decides anything; the rules own the stack
+// (want.mjs).
+import { CONNECT_TARGET, questSteps, questsOf } from "./want.mjs";
 import { romanLevel, stepTier } from "./rarity.mjs";
 import {
   currentActor,
@@ -14,13 +15,12 @@ import {
 
 export const QUEST_CARD = "quest";
 
-// The current want of the player's avatar, or null. Its key changes when
-// the want is met, set aside or replaced.
-export function questCard(world, actor = currentActor(world)) {
-  const want = wantOf(world, actor);
-  if (!want) return null;
-  return {
+// Each quest in the player's stack, top first. A card's key changes when its
+// quest is met, set aside or moves on a step.
+export const questCards = (world, actor = currentActor(world)) =>
+  questsOf(world, actor).map((want, index) => ({
     key: `${actor}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}`,
+    index,
     actor,
     kind: want.kind,
     target: want.target === CONNECT_TARGET ? null : want.target,
@@ -29,8 +29,10 @@ export function questCard(world, actor = currentActor(world)) {
     level: want.quest?.level ?? null,
     left: want.quest?.left ?? 0,
     step: want.step ?? null,
-  };
-}
+  }));
+// The top quest, the one the folded card shows, or null.
+export const questCard = (world, actor = currentActor(world)) =>
+  questCards(world, actor)[0] ?? null;
 
 // The rules' words for the want; a target not yet uncovered is unnamed.
 export function questCaption(quest, covered = false) {
@@ -100,21 +102,37 @@ export function questVerb(world, quest, covered = false) {
 export const questTier = (quest) =>
   stepTier(quest.level ? questSteps(quest.level) : 1);
 
-// A quest whose key changed while the avatar gained experience was met.
-export const questMet = (before, after) =>
-  Boolean(
-    before &&
-      after &&
-      before.actor === after.actor &&
-      before.key !== after.key &&
-      after.xp > before.xp,
-  );
+// The quests shown before that the rules have since met: each left the
+// stack, or moved on a step, with a `want_met` event after `seq`.
+export function metQuests(before, world, seq) {
+  const live = new Set(questCards(world, before[0]?.actor).map((q) => q.key));
+  const gone = before.filter((q) => !live.has(q.key));
+  const met = [];
+  for (const e of world.log)
+    if (e.seq > seq && e.verb === "want_met") {
+      const i = gone.findIndex(
+        (q) =>
+          q.actor === e.actorId &&
+          q.kind === e.wantMet?.kind &&
+          (q.target ?? CONNECT_TARGET) === e.wantMet.target,
+      );
+      if (i >= 0) met.push(gone.splice(i, 1)[0]);
+    }
+  return met;
+}
 
-// The hand with the one quest card after the player's avatar and what it
-// carries. A hand never holds more than one.
-export function questHand(cards, world, quest = questCard(world)) {
-  const hand = cards.filter((id) => id !== QUEST_CARD);
-  if (!quest) return hand;
+// Hand ids for quest cards: met ones still sealed, then the stack top first.
+export const questId = (index, met = false) =>
+  `${QUEST_CARD}${met ? "-met" : ""}:${index}`;
+export const isQuestId = (id) =>
+  typeof id === "string" &&
+  (id.startsWith(`${QUEST_CARD}:`) || id.startsWith(`${QUEST_CARD}-met:`));
+
+// The hand with the quest cards after the player's avatar and what it
+// carries.
+export function questHand(cards, world, ids = []) {
+  const hand = cards.filter((id) => !isQuestId(id));
+  if (!ids.length) return hand;
   const actor = currentActor(world);
   let at = hand.indexOf(actor) + 1;
   while (
@@ -124,6 +142,6 @@ export function questHand(cards, world, quest = questCard(world)) {
     rootHolder(world, hand[at]) === actor
   )
     at++;
-  hand.splice(at, 0, QUEST_CARD);
+  hand.splice(at, 0, ...ids);
   return hand;
 }

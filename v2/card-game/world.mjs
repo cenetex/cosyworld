@@ -58,7 +58,9 @@ import {
   knownActors as readKnownActors,
   installWants,
   wake,
-  dropLevelQuest,
+  dropQuest,
+  focusQuest,
+  questsOf,
   levelOf,
   wantOf,
   travels,
@@ -595,10 +597,10 @@ const bundle = (s, item) => [
   ...(s.items.cloth.holder === item ? ["cloth"] : []),
 ];
 // An item is needed when it is, or carries, the actor's wanted item.
-const needed = (s, actor, item) => {
-  const want = wantOf(s, actor);
-  return want?.kind === "item" && bundle(s, item).includes(want.target);
-};
+const needed = (s, actor, item) =>
+  questsOf(s, actor).some(
+    (want) => want.kind === "item" && bundle(s, item).includes(want.target),
+  );
 export function willingToGive(s, owner, item, recipient = null) {
   return (
     !controlledByHuman(s, owner) &&
@@ -705,6 +707,7 @@ function wantAPI(s) {
       );
     },
     reachable: (actor) => reachable(s, actor),
+    places: () => Object.keys(places),
     home: homeOf,
     sanctuaries,
     player: (id) => id === currentActor(s) || controlledByHuman(s, id),
@@ -1217,11 +1220,6 @@ export function legalActions(s, actor = currentActor(s)) {
   ];
   // A sleeper's only play is to wait until the light changes.
   if (s.actors[actor].sleepUntil !== undefined) return out;
-  // A level quest can be dropped, at the cost of half the experience.
-  if (s.actors[actor].want?.quest)
-    out.push(
-      offer("drop", actor, null, null, `${nameOf(actor)} drops the quest.`, []),
-    );
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
     if (departureWaits(s, actor, to)) continue;
     // A course card aboard a docked ship sets the voyage for everyone aboard.
@@ -1538,6 +1536,31 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor));
+  // A player may drop any quest in its stack (a level quest costs half the
+  // experience), or pursue one from beneath, which brings it to the top.
+  if (actor === currentActor(s) || controlledByHuman(s, actor))
+    questsOf(s, actor).forEach((w, quest) => {
+      const drop = offer(
+        "drop",
+        actor,
+        null,
+        null,
+        `${nameOf(actor)} drops the quest.`,
+        [],
+      );
+      out.push({ ...drop, quest, key: `${drop.key}:${quest}` });
+      if (quest > 0) {
+        const focus = offer(
+          "focus",
+          actor,
+          null,
+          null,
+          `${nameOf(actor)} turns to another quest.`,
+          [],
+        );
+        out.push({ ...focus, quest, key: `${focus.key}:${quest}` });
+      }
+    });
   for (const action of out) {
     if (action.kind === "take" && things[s.items[action.item]?.holder])
       action.label = "Uncover";
@@ -1689,12 +1712,13 @@ function performPlay(s, a, round = null, settle = []) {
     conflict.guarding[a.actor] = false;
     if (a.actor === conflict.defender) conflict.answered = true;
   }
-  if (a.kind === "drop" && !a.item) {
-    dropLevelQuest(s, a.actor, wantAPI(s));
+  if ((a.kind === "drop" && !a.item) || a.kind === "focus") {
+    if (a.kind === "drop") dropQuest(s, a.actor, wantAPI(s), a.quest);
+    else focusQuest(s, a.actor, a.quest);
     addLog(s, "World", a.text, {
       kind: "action",
       actorId: a.actor,
-      verb: "drop",
+      verb: a.kind,
       witnesses,
     });
     return;
@@ -2279,7 +2303,7 @@ function wantPlan(s, actor) {
   while (s.items[s.items[top].holder]) top = s.items[top].holder;
   const spares = (kind) =>
     acts
-      .filter((a) => a.kind === kind && !needed(s, actor, a.item))
+      .filter((a) => a.kind === kind && a.item && !needed(s, actor, a.item))
       .sort(
         (x, y) =>
           valueOf(s, actor, x.item) - valueOf(s, actor, y.item) ||
@@ -2722,7 +2746,9 @@ export function validateWorld(s) {
       !validWant(s, id) ||
       a.visited.length > Object.keys(places).length ||
       a.visited.some((place) => !Object.hasOwn(places, place)) ||
-      (a.want?.kind === "place" && !Object.hasOwn(places, a.want.target))
+      questsOf(s, id).some(
+        (w) => w.kind === "place" && !Object.hasOwn(places, w.target),
+      )
     )
       fail();
   }
@@ -2820,6 +2846,7 @@ export function validateWorld(s) {
     "course",
     "take",
     "drop",
+    "focus",
     "give",
     "ask",
     "light",

@@ -517,8 +517,8 @@ export function foldRetiredRoads(s) {
     ];
   }
   for (const actor of Object.values(s.actors || {})) {
-    if (actor.want?.kind === "place")
-      actor.want.target = canonicalPlace(actor.want.target);
+    for (const want of [actor.want, ...(actor.under || [])])
+      if (want?.kind === "place") want.target = canonicalPlace(want.target);
     if (Array.isArray(actor.visited))
       actor.visited = [...new Set(actor.visited.map(canonicalPlace))];
   }

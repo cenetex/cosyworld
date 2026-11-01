@@ -3,6 +3,7 @@ import { boardyPack, BOARDY, boardyActive } from "./boardyai.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
 import { specialsAllow, validSpecials } from "./pack-specials.mjs";
 import { journeyNextPlace, validJourneyPlaces } from "./pack-journeys.mjs";
+import { pushQuest } from "./want.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
@@ -607,13 +608,15 @@ export function applyPackChoice(
         placeIds,
       );
       note(e.item);
-      // Whoever lost it wants it back: finding it is their quest.
-      world.actors[action.actor].want = {
+      // Whoever lost it wants it back: finding it is a story quest on top of
+      // their stack. Nothing they already hold is wiped (#1831).
+      pushQuest(world, action.actor, {
         kind: "item",
         target: e.item,
         since: world.turn,
         refusals: 0,
-      };
+        story: true,
+      });
     }
     if (e.kind === "choose") state.choices[e.key] = e.value;
     if (e.kind === "set_flag") state.flags[e.key] = e.value;

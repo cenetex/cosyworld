@@ -34,7 +34,7 @@ Two owner decisions (2026-11-01) are already fixed here:
 | Lonely Forest scarves | `forest-sew-scarf-*` (`on: "give"` with `retire_item` and `give_item`) | This is already "give X get Y" as data, written out eight times, one-shot, with two flags per traveller. |
 | Items | `greek-water-jar` (well), `greek-bread` (courtyard, flag-gated), `greek-provisions` (harbour, in play from the start), `greek-provision-basket` (Piraeus, a separate Open Door item) | Provisions are also spent by Helen's passage choices (`place_item` at the tomb), which takes them out of the economy for good. |
 | Item levels (#1726, open) | `startLevel` on items | It sets the tier only. No rule reads it. |
-| Wants (#1700, #1704, #1721) | `want.mjs`; quest card `quest-card.mjs` | One want per avatar: Hold, Be at, Talk with, Introduce. The quest card shows the target's art, or the card back while the target is unseen. |
+| Wants (#1700, #1704, #1721) | `want.mjs`; quest card `quest-card.mjs` | A stack of up to three wants per avatar (#1831): Hold, Be at, Talk with, Introduce. The quest card shows the target's art, or the card back while the target is unseen. |
 
 Missing: repetition (receipts make choices one-shot), a real out-of-play
 state (a retired thing needs a flag to hide), and renewal.

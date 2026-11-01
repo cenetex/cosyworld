@@ -1,7 +1,7 @@
 # Authored story quests
 
-> Retired. The rules no longer read `storyQuests`: each avatar now has one
-> quest, described in the [card guide](../card-game/README.md#one-quest-per-avatar).
+> Retired. The rules no longer read `storyQuests`: each avatar now holds a
+> stack of quests, described in the [card guide](../card-game/README.md#a-quest-stack-per-avatar).
 > Stories are told through pack choices. The mounted packs dropped their
 > `storyQuests` data in #1581; this page records the earlier format.
 
