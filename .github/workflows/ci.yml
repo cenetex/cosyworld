@@ -343,7 +343,7 @@ jobs:
           - mode: cards-ajax
             scripts: smoke-card-ajax
           - mode: cards-dialogue
-            scripts: smoke-card-dialogue-recovery smoke-card-silent-reply smoke-card-dialogue-timing smoke-card-movement smoke-card-beat-stack
+            scripts: smoke-card-dialogue-recovery smoke-card-silent-reply smoke-card-dialogue-timing smoke-card-movement smoke-card-beat-stack smoke-card-combat
           - mode: cards-quests
             scripts: smoke-card-shared-discovery smoke-card-bard-travel smoke-card-voice
     env:

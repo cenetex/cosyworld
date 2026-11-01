@@ -157,6 +157,7 @@ const files = [
   "beats.mjs",
   "combat-beats.mjs",
   "combat-view.mjs",
+  "combat-portraits.mjs",
   "app.mjs",
   "pack-landing.mjs",
   "pack-landings.json",

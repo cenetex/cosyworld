@@ -32,7 +32,6 @@ describe("stage portrait art directions", () => {
     for (const path of [
       "assets/lonely-forest/rati.png",
       "assets/shared/characters/vale.png",
-      "assets/moth.png",
     ])
       expect(portraitFraming(path)).toBe("standard");
   });
@@ -94,6 +93,12 @@ describe("stage portrait art directions", () => {
   );
 
   it("keeps the directional Keeper cutouts and frontal Badger poses", () => {
+    for (const path of [
+      "assets/moth.png",
+      "assets/keeper.png",
+      "assets/keeper-right.png",
+    ])
+      expect(portraitFraming(path)).toBe("wide");
     for (const direction of ["left", "right"])
       expect(flipStagePortrait(portrait("keeper", direction), direction)).toBe(
         false,

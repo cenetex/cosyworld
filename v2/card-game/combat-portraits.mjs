@@ -1,0 +1,127 @@
+// Combat keeps the wardrobe already on stage while the committed beats play.
+import variants from "./image-variants.json" with { type: "json" };
+import { humanAvatarIds } from "./human-cast.mjs";
+import { imageUrl } from "./images.mjs";
+import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
+
+const players = new Set(humanAvatarIds);
+const poses = ["guard", "attack", "hit"];
+export function combatPortrait(id, pose, source, facing) {
+  if (
+    !poses.includes(pose) ||
+    (!players.has(id) && !["moth", "keeper"].includes(id))
+  )
+    return null;
+  // The left-facing clock cannot be mirrored. Keep its authored right view.
+  if (id === "keeper" && facing === "right") return null;
+  const scarf = players.has(id) && source?.includes(`/${id}-scarf`);
+  const file = `assets/combat/${id}${scarf ? "-scarf" : ""}-${pose}.webp`;
+  return variants.images[file] ? `./${file}` : null;
+}
+
+export function showCombatPortrait(figure, source, pose) {
+  const image = figure.querySelector(".portrait-body > img");
+  if (!image || !source) return;
+  image.src = imageUrl(source);
+  image.dataset.source = source;
+  image.dataset.flip = String(flipStagePortrait(source, figure.dataset.facing));
+  figure.dataset.flip = image.dataset.flip;
+  figure.dataset.framing = portraitFraming(source);
+  figure.dataset.combatArt = pose;
+}
+
+export function createCombatPortraits(fighter) {
+  const originals = new Map(),
+    ready = new Set();
+  const capture = (id) => {
+    const figure = fighter(id),
+      image = figure?.querySelector(".portrait-body > img");
+    if (!image) return null;
+    if (!originals.has(figure))
+      originals.set(figure, {
+        id,
+        image,
+        src: image.getAttribute("src"),
+        source: image.dataset.source,
+        imageFlip: image.dataset.flip,
+        flip: figure.dataset.flip,
+        pose: figure.dataset.pose,
+        framing: figure.dataset.framing,
+        art: figure.dataset.combatArt,
+      });
+    return { figure, ...originals.get(figure) };
+  };
+  const restore = (figure, original) => {
+    original.image.src = original.src;
+    original.image.dataset.source = original.source;
+    original.image.dataset.flip = original.imageFlip;
+    figure.dataset.flip = original.flip;
+    figure.dataset.pose = original.pose;
+    figure.dataset.framing = original.framing;
+    if (original.art) figure.dataset.combatArt = original.art;
+    else delete figure.dataset.combatArt;
+  };
+  return {
+    async prepare(beats) {
+      const needed = new Set();
+      for (const beat of beats) {
+        for (const [id, pose] of [
+          [beat.actorId, beat.kind],
+          [beat.targetId, "hit"],
+          [beat.targetId, "guard"],
+        ]) {
+          const original = capture(id);
+          if (!original) continue;
+          const source = combatPortrait(
+            id,
+            pose,
+            original.source,
+            original.figure.dataset.facing,
+          );
+          if (source && !ready.has(source)) needed.add(source);
+        }
+      }
+      await Promise.all(
+        [...needed].map(
+          (source) =>
+            new Promise((resolve) => {
+              const image = new Image();
+              const timer = setTimeout(resolve, 1500);
+              image.onload = () => {
+                ready.add(source);
+                clearTimeout(timer);
+                resolve();
+              };
+              image.onerror = () => {
+                clearTimeout(timer);
+                resolve();
+              };
+              image.src = imageUrl(source);
+            }),
+        ),
+      );
+      for (const [figure, original] of originals)
+        if (players.has(original.id)) figure.dataset.framing = "wide";
+    },
+    pose(id, value) {
+      const original = capture(id);
+      if (!original) return;
+      const { figure } = original;
+      const pose = value === "beaten" ? "hit" : value;
+      const source = combatPortrait(
+        id,
+        pose,
+        original.source,
+        figure.dataset.facing,
+      );
+      if (source && ready.has(source)) showCombatPortrait(figure, source, pose);
+      else restore(figure, original);
+      if (players.has(id)) figure.dataset.framing = "wide";
+      figure.dataset.pose = value;
+    },
+    restore() {
+      for (const [figure, original] of originals) restore(figure, original);
+      originals.clear();
+    },
+  };
+}
