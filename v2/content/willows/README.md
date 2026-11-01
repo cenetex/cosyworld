@@ -50,6 +50,12 @@ and sheet to the landing, lay out the gear, set down the paddle, and choose
 the quiet way home. A sign can be out of reach on a given visit. The
 decisions and discoveries stay in the save.
 
+Past the landing the island is never dry. The camp, the thicket and the bank
+share one `willows` weather region (`v2/card-game/weather.json`): soft drizzle
+under low mist, or heavy river mist, changing every twelve turns. The landing
+keeps the open sky and time of day, so the boatman, the otter and the mended
+canoe stay clear.
+
 On the island the browser plays a quiet drone, the hum: two low detuned sine
 waves with a faint harmonic and a slow swell, louder deeper in and at night.
 It waits for a gesture, follows the music switch and volume, and falls silent

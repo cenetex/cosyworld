@@ -30,6 +30,10 @@ way back opens while the ship is at the pond or at sea in dark mist.
 
 - The landing shows the ship (`landing-ship-night.webp`) under the same rule
   (`willowsMist` in `daylight.mjs`).
+- On the island itself the camp, thicket and bank are always rainy or misty
+  (the `willows` region in `weather.json`, owner direction 2026-10-31); the
+  landing keeps ordinary weather. This is island weather, separate from the
+  crossing's deck mist.
 - The uncanny flicker is permanent at Willows places (`UNCANNY_PLACES` in
   `transitions.mjs`, client data outside the engine) and date-gated elsewhere,
   with every safety limit unchanged.

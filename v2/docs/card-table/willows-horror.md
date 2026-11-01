@@ -101,10 +101,13 @@ checklist instead of a place that might show you something.
   what they notice, so the narrator's arc is absent.
 - Thicket `persona`: "Keep the powers beyond the island distant and strange";
   the willows never speak as a crowd.
-- Nothing changes over time apart from the day and night paintings.
+- Apart from the day and night paintings, only the weather changes: the camp,
+  thicket and bank are always in drizzle or river mist (owner, 2026-10-31,
+  replacing mist at night only); the landing stays clear.
 - The ending is chores: lay out the sheet, rope and paddle, then
   `willows-choose-departure`.
-- No room music and no weather region.
+- No room music. The `willows` weather region covers every place but the
+  landing.
 - The night landing (`landing-ship-night.webp`) shows the warm lanterns of
   the Greek ship.
 - Item prompts in `art-prompts.json` stress a "much-handled, modest practical"

@@ -840,6 +840,12 @@ cards. Coasts, courtyards, open ground, groves, and shelters each have their own
 view of the regional weather. The Underworld has low mist above its water.
 The Greek ship has its own `sea` region wherever it lies: mist, rain, mist,
 rain, mist, then a clear spell, so a crossing feels like weather.
+The Willows camp, thicket and bank share a `willows` region that is never
+clear: an eight-period cycle of soft drizzle under low mist and heavy river
+mist, four periods to a day and night, so the mix shifts from one day to the
+next. Their `river` exposure keeps the rain light and the mist
+green-grey. The landing has no weather, so the boatman, the otter and the
+canoe read clearly there.
 The cycles and each place's region and exposure are data in `weather.json`.
 The rules commit only the weather word: dialogue facts read `Weather: rain.`,
 and the narrator's own words describe it.

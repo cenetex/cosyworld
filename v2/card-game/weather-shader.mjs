@@ -144,6 +144,8 @@ const exposures = {
     mistHeight: 0.3,
     tint: [0.72, 0.77, 0.83],
   },
+  // The Willows: a soft drizzle and low, green-grey river mist.
+  river: { rain: 0.35, slant: 0.04, mistHeight: 0.62, tint: [0.7, 0.78, 0.74] },
   underground: {
     rain: 0,
     slant: 0,
