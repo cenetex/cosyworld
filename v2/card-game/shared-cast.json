@@ -54,7 +54,7 @@
       "home": {
         "id": "theatre",
         "name": "Paper theatre",
-        "text": "A theatre unfolds from thick paper pages. Sage curtains open onto a forest cut from an unfinished story.",
+        "text": "A theatre unfolds from thick paper pages. Green curtains open onto a forest cut from an unfinished story.",
         "image": "assets/shared/places/theatre.png",
         "entrance": {
           "name": "Parted curtains",
@@ -95,9 +95,9 @@
       "id": "nell",
       "color": "yellow",
       "scarfColor": "violet",
-      "name": "Nell",
+      "name": "Iris",
       "title": "The Grafter",
-      "seed": "Nell, the Grafter.",
+      "seed": "Iris, the Grafter.",
       "pleasure": "Grow something surprising.",
       "text": "A bold gardener who experiments in unused places. She wants a garden across the platform. Shared space gives others a say in her plans.",
       "item": {
@@ -181,9 +181,9 @@
       "id": "orin",
       "color": "indigo",
       "scarfColor": "amber",
-      "name": "Orin",
+      "name": "Cass",
       "title": "The Game Maker",
-      "seed": "Orin, the Game Maker.",
+      "seed": "Cass, the Game Maker.",
       "pleasure": "Invite someone into a friendly game.",
       "text": "A warm, eager player who loves friendly contests and elaborate rules. He wants a game everyone can enjoy. His delight carries him toward extravagant wagers.",
       "item": {
@@ -209,9 +209,9 @@
       "id": "ada",
       "color": "violet",
       "scarfColor": "yellow",
-      "name": "Ada",
+      "name": "Sage",
       "title": "The Unpicker",
-      "seed": "Ada, the Unpicker.",
+      "seed": "Sage, the Unpicker.",
       "pleasure": "Find the seam and make a new possibility.",
       "text": "A brisk, mischievous craftswoman with a hand-powered chair. She wants to turn the old curtain into a sail. She weighs keeping a story against giving its cloth another use.",
       "item": {

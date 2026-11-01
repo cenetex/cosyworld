@@ -940,7 +940,7 @@ try {
       );
   }
   // Keep one reader in a menu while every queued scene reaches the browser.
-  // Closing it must reveal Vale, Mara and Nell in order, with partial letters.
+  // Closing it must reveal Vale, Mara and Iris in order, with partial letters.
   await mara.locator("#toolbar-menu-button").click();
   await mara.locator("#menu-button").click();
   holdReplies = false;
@@ -950,7 +950,7 @@ try {
   // Check after playback ends: a busy driver still proves each line animated in order.
   for (const page of [vale, mara]) {
     const expected = await Promise.all(
-      ["Vale", "Mara", "Nell"].map((speaker) =>
+      ["Vale", "Mara", "Iris"].map((speaker) =>
         expectSharedReveal(page, queueRequestStart, speaker),
       ),
     );
@@ -971,7 +971,7 @@ try {
     );
     assert.deepEqual(
       order,
-      ["Vale", "Mara", "Nell"],
+      ["Vale", "Mara", "Iris"],
       "shared readers see every queued speaker in order",
     );
   }

@@ -22,11 +22,11 @@ too.
 | `keeper` | The keeper of the empty station. | `v2/card-game/entity-profiles.json` |
 | `mara` | Mara, the Understudy. | `v2/card-game/shared-cast.json` |
 | `ash` | Ash, the Diver. | `v2/card-game/shared-cast.json` |
-| `nell` | Nell, the Grafter. | `v2/card-game/shared-cast.json` |
+| `nell` | Iris, the Grafter. | `v2/card-game/shared-cast.json` |
 | `tavi` | Tavi, the Kite Runner. | `v2/card-game/shared-cast.json` |
 | `rue` | Rue, the Conductor. | `v2/card-game/shared-cast.json` |
-| `orin` | Orin, the Game Maker. | `v2/card-game/shared-cast.json` |
-| `ada` | Ada, the Unpicker. | `v2/card-game/shared-cast.json` |
+| `orin` | Cass, the Game Maker. | `v2/card-game/shared-cast.json` |
+| `ada` | Sage, the Unpicker. | `v2/card-game/shared-cast.json` |
 | `boardyai` | BoardyAI, a connector who introduces people. | `v2/card-game/boardyai.json` |
 | `badger` | Grumpy Badger, a badger of the clearing. | `v2/content/badger-forest/card-world.json` |
 | `greek-antigone` | Antigone, daughter of Oedipus. | `v2/content/greek-drama/card-world.json` |

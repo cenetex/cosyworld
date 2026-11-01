@@ -55,27 +55,29 @@ describe("the Table (#1825)", () => {
   };
   it("seats each avatar as yours, here, away or open", () => {
     const seats = worldSeats(state);
-    expect(seats.map((s) => s.kind)).toEqual([
-      "you",
-      "human",
-      "away",
-      "open",
-      "open",
-      "open",
-      "open",
-      "open",
+    // Shown in initial order, R·A·T·V·M·I·C·S (#1846).
+    expect(seats.map((s) => s.name)).toEqual([
+      "Rue",
+      "Ash",
+      "Tavi",
+      "Vale",
+      "Mara",
+      "Iris",
+      "Cass",
+      "Sage",
     ]);
-    expect(seats.map((s) => s.id)).toEqual(humanAvatars.map((a) => a.id));
-    expect(seats[0].holder).toBe("You");
-    expect(seats[1].holder).toBe("Amber Heron");
-    expect(seats[3].holder).toBe("");
+    const kind = Object.fromEntries(seats.map((s) => [s.id, s.kind]));
+    expect(kind).toMatchObject({ vale: "you", mara: "human", ash: "away" });
+    expect(seats.filter((s) => s.kind === "open")).toHaveLength(5);
+    const holder = Object.fromEntries(seats.map((s) => [s.id, s.holder]));
+    expect(holder).toMatchObject({ vale: "You", mara: "Amber Heron", rue: "" });
   });
   it("lets the owner free every held seat but their own", () => {
     expect(
       worldSeats(state)
         .filter((s) => s.free)
         .map((s) => s.id),
-    ).toEqual([humanAvatars[1].id, humanAvatars[2].id]);
+    ).toEqual(["ash", "mara"]);
     expect(worldSeats({ ...state, owner: false }).some((s) => s.free)).toBe(
       false,
     );

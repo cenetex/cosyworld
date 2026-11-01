@@ -322,11 +322,11 @@ and show a scene error. Per-person and shared play budgets bound usage.
 | Vale   | Existing shore and mirror paths | Empty station and Mirror attic |
 | Mara   | Parted curtains                 | Paper theatre                  |
 | Ash    | Diving bell                     | Sunken belfry                  |
-| Nell   | Growing gate                    | Wild glasshouse                |
+| Iris   | Growing gate                    | Wild glasshouse                |
 | Tavi   | Wind path                       | Wind hill                      |
 | Rue    | Carriage door                   | Between-hours carriage         |
-| Orin   | Game-tile bridge                | Games pavilion                 |
-| Ada    | Open seam                       | Sail loft                      |
+| Cass   | Game-tile bridge                | Games pavilion                 |
+| Sage    | Open seam                       | Sail loft                      |
 
 Rue's carriage opens beside the pond while her route board is present there.
 Carrying the board inside the carriage opens the way back to the pond. The
@@ -348,8 +348,8 @@ The seven new human cutouts, items, and homes use the generated art under
 sources.
 
 The homes use natural wood, stone, paper, and mist with quiet complementary
-accents. Rue has close-cropped dark hair and a blue coat. Orin is tall and wiry,
-with auburn hair, spectacles, and an indigo waistcoat. Ada has white hair and a
+accents. Rue has close-cropped dark hair and a blue coat. Cass is tall and wiry,
+with auburn hair, spectacles, and an indigo waistcoat. Sage has white hair and a
 wooden wheelchair; Ash has a broad build and a grey beard.
 
 ## A way out of a stranded home

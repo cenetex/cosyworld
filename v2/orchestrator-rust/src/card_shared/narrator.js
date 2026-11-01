@@ -605,7 +605,7 @@
         home: {
           id: "theatre",
           name: "Paper theatre",
-          text: "A theatre unfolds from thick paper pages. Sage curtains open onto a forest cut from an unfinished story.",
+          text: "A theatre unfolds from thick paper pages. Green curtains open onto a forest cut from an unfinished story.",
           image: "assets/shared/places/theatre.png",
           entrance: {
             name: "Parted curtains",
@@ -646,9 +646,9 @@
         id: "nell",
         color: "yellow",
         scarfColor: "violet",
-        name: "Nell",
+        name: "Iris",
         title: "The Grafter",
-        seed: "Nell, the Grafter.",
+        seed: "Iris, the Grafter.",
         pleasure: "Grow something surprising.",
         text: "A bold gardener who experiments in unused places. She wants a garden across the platform. Shared space gives others a say in her plans.",
         item: {
@@ -732,9 +732,9 @@
         id: "orin",
         color: "indigo",
         scarfColor: "amber",
-        name: "Orin",
+        name: "Cass",
         title: "The Game Maker",
-        seed: "Orin, the Game Maker.",
+        seed: "Cass, the Game Maker.",
         pleasure: "Invite someone into a friendly game.",
         text: "A warm, eager player who loves friendly contests and elaborate rules. He wants a game everyone can enjoy. His delight carries him toward extravagant wagers.",
         item: {
@@ -760,9 +760,9 @@
         id: "ada",
         color: "violet",
         scarfColor: "yellow",
-        name: "Ada",
+        name: "Sage",
         title: "The Unpicker",
-        seed: "Ada, the Unpicker.",
+        seed: "Sage, the Unpicker.",
         pleasure: "Find the seam and make a new possibility.",
         text: "A brisk, mischievous craftswoman with a hand-powered chair. She wants to turn the old curtain into a sail. She weighs keeping a story against giving its cloth another use.",
         item: {
@@ -12186,9 +12186,9 @@
             art: "assets/lonely-forest/button-ash.png"
           },
           "forest-button-nell": {
-            name: "Nell's Yellow Button",
+            name: "Iris's Yellow Button",
             text: "A small yellow button with four thread holes.",
-            persona: "A small yellow button with four thread holes. It belongs to Nell.",
+            persona: "A small yellow button with four thread holes. It belongs to Iris.",
             holder: "forest-cottage",
             requires: [
               {
@@ -12243,9 +12243,9 @@
             art: "assets/lonely-forest/button-rue.png"
           },
           "forest-button-orin": {
-            name: "Orin's Indigo Button",
+            name: "Cass's Indigo Button",
             text: "A small indigo button with four thread holes.",
-            persona: "A small indigo button with four thread holes. It belongs to Orin.",
+            persona: "A small indigo button with four thread holes. It belongs to Cass.",
             holder: "forest-cottage",
             requires: [
               {
@@ -12262,9 +12262,9 @@
             art: "assets/lonely-forest/button-orin.png"
           },
           "forest-button-ada": {
-            name: "Ada's Violet Button",
+            name: "Sage's Violet Button",
             text: "A small violet button with four thread holes.",
-            persona: "A small violet button with four thread holes. It belongs to Ada.",
+            persona: "A small violet button with four thread holes. It belongs to Sage.",
             holder: "forest-cottage",
             requires: [
               {
@@ -12335,13 +12335,13 @@
             art: "assets/lonely-forest/scarf-blue.png"
           },
           "forest-scarf-nell": {
-            name: "Nell's Violet Scarf",
+            name: "Iris's Violet Scarf",
             tags: [
               "scarf"
             ],
             startLevel: 10,
             text: "A soft violet knitted scarf fastened with a yellow button.",
-            persona: "A soft violet knitted scarf RATi sewed for Nell. Nell's own yellow button fastens it.",
+            persona: "A soft violet knitted scarf RATi sewed for Iris. Iris's own yellow button fastens it.",
             holder: "forest-cottage",
             requires: [
               {
@@ -12388,12 +12388,12 @@
             art: "assets/lonely-forest/scarf-orange.png"
           },
           "forest-scarf-orin": {
-            name: "Orin's Amber Scarf",
+            name: "Cass's Amber Scarf",
             tags: [
               "scarf"
             ],
             text: "A soft amber knitted scarf fastened with a indigo button.",
-            persona: "A soft amber knitted scarf RATi sewed for Orin. Orin's own indigo button fastens it.",
+            persona: "A soft amber knitted scarf RATi sewed for Cass. Cass's own indigo button fastens it.",
             holder: "forest-cottage",
             requires: [
               {
@@ -12405,12 +12405,12 @@
             art: "assets/lonely-forest/scarf-amber.png"
           },
           "forest-scarf-ada": {
-            name: "Ada's Yellow Scarf",
+            name: "Sage's Yellow Scarf",
             tags: [
               "scarf"
             ],
             text: "A soft yellow knitted scarf fastened with a violet button.",
-            persona: "A soft yellow knitted scarf RATi sewed for Ada. Ada's own violet button fastens it.",
+            persona: "A soft yellow knitted scarf RATi sewed for Sage. Sage's own violet button fastens it.",
             holder: "forest-cottage",
             requires: [
               {
@@ -12746,8 +12746,8 @@
             at: "forest-cottage",
             on: "meet",
             for: "nell",
-            label: "Nell meets RATi",
-            text: "RATi looks at Nell's coat and finds a thread where a yellow button should be. Somewhere in the world, the button has gone.",
+            label: "Iris meets RATi",
+            text: "RATi looks at Iris's coat and finds a thread where a yellow button should be. Somewhere in the world, the button has gone.",
             requires: [],
             effects: [
               {
@@ -12809,8 +12809,8 @@
             at: "forest-cottage",
             on: "meet",
             for: "orin",
-            label: "Orin meets RATi",
-            text: "RATi looks at Orin's coat and finds a thread where a indigo button should be. Somewhere in the world, the button has gone.",
+            label: "Cass meets RATi",
+            text: "RATi looks at Cass's coat and finds a thread where a indigo button should be. Somewhere in the world, the button has gone.",
             requires: [],
             effects: [
               {
@@ -12830,8 +12830,8 @@
             at: "forest-cottage",
             on: "meet",
             for: "ada",
-            label: "Ada meets RATi",
-            text: "RATi looks at Ada's coat and finds a thread where a violet button should be. Somewhere in the world, the button has gone.",
+            label: "Sage meets RATi",
+            text: "RATi looks at Sage's coat and finds a thread where a violet button should be. Somewhere in the world, the button has gone.",
             requires: [],
             effects: [
               {
@@ -12959,7 +12959,7 @@
             at: "forest-cottage",
             for: "nell",
             label: "RATi sews your yellow button",
-            text: "Nell gives RATi the yellow button. She sews it into a violet scarf and wraps the scarf around Nell's neck.",
+            text: "Iris gives RATi the yellow button. She sews it into a violet scarf and wraps the scarf around Iris's neck.",
             requires: [
               {
                 kind: "flag",
@@ -13067,7 +13067,7 @@
             at: "forest-cottage",
             for: "orin",
             label: "RATi sews your indigo button",
-            text: "Orin gives RATi the indigo button. She sews it into a amber scarf and wraps the scarf around Orin's neck.",
+            text: "Cass gives RATi the indigo button. She sews it into a amber scarf and wraps the scarf around Cass's neck.",
             requires: [
               {
                 kind: "flag",
@@ -13103,7 +13103,7 @@
             at: "forest-cottage",
             for: "ada",
             label: "RATi sews your violet button",
-            text: "Ada gives RATi the violet button. She sews it into a yellow scarf and wraps the scarf around Ada's neck.",
+            text: "Sage gives RATi the violet button. She sews it into a yellow scarf and wraps the scarf around Sage's neck.",
             requires: [
               {
                 kind: "flag",
@@ -13257,7 +13257,7 @@
             id: "forest-button-nell",
             speaker: "rati",
             at: "forest-cottage",
-            text: "RATi says she would sew Nell's yellow button into a violet scarf, once Nell finds where it has gone.",
+            text: "RATi says she would sew Iris's yellow button into a violet scarf, once Iris finds where it has gone.",
             requires: [
               {
                 kind: "flag",
@@ -13311,7 +13311,7 @@
             id: "forest-button-orin",
             speaker: "rati",
             at: "forest-cottage",
-            text: "RATi says she would sew Orin's indigo button into a amber scarf, once Orin finds where it has gone.",
+            text: "RATi says she would sew Cass's indigo button into a amber scarf, once Cass finds where it has gone.",
             requires: [
               {
                 kind: "flag",
@@ -13329,7 +13329,7 @@
             id: "forest-button-ada",
             speaker: "rati",
             at: "forest-cottage",
-            text: "RATi says she would sew Ada's violet button into a yellow scarf, once Ada finds where it has gone.",
+            text: "RATi says she would sew Sage's violet button into a yellow scarf, once Sage finds where it has gone.",
             requires: [
               {
                 kind: "flag",

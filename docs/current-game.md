@@ -30,8 +30,8 @@ The Mac package embeds the same card files and uses the same release version.
 | Shared rules and current version | `v2/orchestrator-rust/src/card_shared/engine.rs` |
 | Public asset list | `v2/card-game/public-assets.mjs` |
 
-The forest has Vale, Pip, and the keeper. Shared avatars add Mara, Ash, Nell,
-Tavi, Rue, Orin, and Ada alongside Vale. The selected packs add Badger, the Wine-Dark Sea cast, and the
+The forest has Vale, Pip, and the keeper. Shared avatars add Mara, Ash, Iris,
+Tavi, Rue, Cass, and Sage alongside Vale. The selected packs add Badger, the Wine-Dark Sea cast, and the
 Hoppy Cat: February Third cast. Derive a full roster from these catalogs and their imports
 when doing character work; shared presence and discovery determine who appears
 in a particular saved world.

@@ -29,8 +29,10 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
 
 ## Model
 
-- **A player owns one of each avatar**: Vale, Mara, Ash, Nell, Tavi, Rue, Orin
-  and Ada, just as each world has one of each.
+- **A player owns one of each avatar**, shown by initial R·A·T·V·M·I·C·S:
+  Rue, Ash, Tavi, Vale, Mara, Iris, Cass and Sage, just as each world has one
+  of each (#1846). Iris, Cass and Sage were Nell, Orin and Ada; their ids
+  (`nell`, `orin`, `ada`), art and seat indices are unchanged.
 - **Each of a player's avatars is played in one world at a time**, local or
   shared. Moving to another shared world keeps the avatar the person took in
   the old one: their passkey is bound to it there, and they return as it
