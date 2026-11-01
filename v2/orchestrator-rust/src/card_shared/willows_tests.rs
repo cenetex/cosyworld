@@ -14,8 +14,9 @@ fn willows_upgrades_from_each_released_version() {
 fn willows_upgrades_version_eighteen_and_replays_observed_signs_custody_and_return() {
     let version = engine::EIGHTEENTH_VERSION;
     let (path, c, id, mut world) = upgraded_willows(version);
+    // The released save keeps its unlit lamp, and a dark lamp already opens
+    // the attic mirror (#1600), so the journey starts by stepping through.
     for (field, value) in [
-        ("kind", "light"),
         ("target", "pond"),
         ("target", "greek-ship"),
         ("target", "willows-landing"),

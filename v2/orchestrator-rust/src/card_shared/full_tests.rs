@@ -192,7 +192,7 @@ fn music_waits_for_each_avatars_first_committed_play_and_survives_reload() {
             full_store::snapshot(&c, &id, &user, now()).unwrap()["music_started"],
             false
         );
-        let action = home_action(&w, a, if a == 0 { "light" } else { "take" });
+        let action = home_action(&w, a, if a == 0 { "snuff" } else { "take" });
         full_store::commit(
             &c,
             &id,
@@ -260,7 +260,8 @@ fn first_ship_signal_unlocks_shared_round_trips_and_replays() {
     assert_eq!(w, before);
     w.game["actors"]["mara"]["place"] = json!("pond");
     full_store::seed(&c, &id, &w, "first-ship-signal", now()).unwrap();
-    for kind in ["cover", "take", "cover", "take"] {
+    // One cover and one uncover of the burning lamp call the ship (#1625).
+    for kind in ["cover", "take"] {
         assert_eq!(
             w.game["crossings"]["pond-greek-harbor"]["discovered"],
             false
@@ -2304,7 +2305,7 @@ fn released_quest_offers_are_dropped_by_the_upgrade_and_replay() {
 }
 
 #[test]
-fn lighting_the_lamp_meets_vales_want_once_and_replays() {
+fn dousing_the_held_lamp_meets_vales_want_once_and_replays() {
     let (_path, c, id) = fixture();
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     c.execute("DELETE FROM card_full_log", []).unwrap();
@@ -2313,7 +2314,8 @@ fn lighting_the_lamp_meets_vales_want_once_and_replays() {
     w.present = w.claimed;
     assert_eq!(w.game["actors"]["vale"]["want"]["target"], "lamp");
     full_store::seed(&c, &id, &w, "want-met", now()).unwrap();
-    let action = home_action(&w, 0, "light");
+    // Vale already holds the lamp, so the first play meets that want.
+    let action = home_action(&w, 0, "snuff");
     full_store::commit(
         &c,
         &id,
@@ -2495,7 +2497,7 @@ fn embedded_selected_cards_match_with_no_quest_plays() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|a| a["kind"] == "light")
+        .find(|a| a["kind"] == "snuff")
         .unwrap()
         .clone();
     w.apply(&json!({"op":"play", "actor":"vale", "action":action}))
