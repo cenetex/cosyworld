@@ -144,7 +144,10 @@ let world = sharedSession
   // The hand rests folded until a card is touched. Only a click outside
   // the card area, Escape, or a play folds it again; changing the
   // selection, deselecting included, never does. A held item stays raised.
-  rowCollapsed = true;
+  rowCollapsed = true,
+  // A click off the hand folds it with its selection and chosen play intact;
+  // the next tap on the hand only raises it again.
+  foldedChoice = false;
 // Name the save slot: table saves are keyed off the URL param, so a player
 // landing through a different link silently lands in a different slot.
 {
@@ -508,7 +511,15 @@ const playQueue = createPlayQueue({
     renderActions();
   },
 });
+// Strikes and journeys have the screen: the hand, locked through them
+// anyway, drops away the moment they start and rises once the scene is drawn.
+function syncHandDrop() {
+  const dock = document.querySelector(".play-dock");
+  dock.dataset.dropped = String(covering);
+  dock.inert = covering;
+}
 function updateCardCooldown() {
+  syncHandDrop();
   $("hand").dataset.cooling = String(cardsCooling);
   $("hand").setAttribute("aria-busy", String(selectionBlocked()));
   $("card-actions").setAttribute("aria-busy", String(selectionBlocked()));
@@ -1029,6 +1040,13 @@ function choose(id) {
     if (sharedSession) syncSharedLine();
     return;
   }
+  if (rowCollapsed && foldedChoice && selected.length) {
+    foldedChoice = false;
+    rowCollapsed = false;
+    render();
+    return;
+  }
+  foldedChoice = false;
   playQueue.clear();
   lastPlayAt = -Infinity;
   fresh.delete(id);
@@ -1090,7 +1108,8 @@ function commitAction(action, revision, renderedAt = -Infinity) {
     // Shared plays cancel through their own visible control.
     if (!sharedSession) playQueue.clear();
   } else {
-    // Playing is one of the two things that fold the hand.
+    // Playing is one of the things that fold the hand.
+    foldedChoice = false;
     rowCollapsed = true;
     playQueue.submit(action, revision);
   }
@@ -1247,6 +1266,7 @@ function cancelTravel() {
   trip++;
   cancelDiscovery();
   covering = false;
+  syncHandDrop();
   revealTravel();
   travelShown = Promise.resolve();
   $("travel").classList.remove("travelling");
@@ -1281,6 +1301,7 @@ async function travel(place, arrive, landed, kicker = "Travelling to") {
     revealTravel = resolve;
   });
   covering = true;
+  syncHandDrop();
   veil.classList.add("travelling");
   // The browser may start a CSS transition on a later frame. Wait for its
   // completion so each scene change stays covered at every rendering speed.
@@ -1640,8 +1661,9 @@ function renderActions(animate = false) {
     ? selectionName
     : "Card actions";
   panel.hidden = !actions.length;
+  // A folded row lies low even with a choice in it.
   document.querySelector(".play-dock").dataset.selected = String(
-    selected.length > 0,
+    selected.length > 0 && !rowCollapsed,
   );
   document.body.dataset.handExpanded = String(
     dragging.length > 0 || !rowCollapsed,
@@ -3411,13 +3433,14 @@ document.addEventListener("keydown", (e) => {
     selected = [];
     questOpen = false;
     expandedHolders.clear();
+    foldedChoice = false;
     rowCollapsed = true;
     render();
   }
 });
-// A click outside the card area folds the row. A held item stays raised and
-// is still held when the row opens again; Escape or a second tap lowers it.
-// Clicks on the dialogue, toolbar, dialogs and action buttons leave it be.
+// A click outside the card area folds the row and keeps the selection and any
+// chosen play; the next tap on the hand raises it as it was. Escape clears.
+// Beat taps fold it first (below); toolbar, dialogs and buttons leave it be.
 document.addEventListener("click", (e) => {
   const path = e.composedPath(),
     within = (selector) =>
@@ -3429,6 +3452,7 @@ document.addEventListener("click", (e) => {
     // hand opens from a card. A play folds the row from its own button, so
     // that click must not reopen it.
     if (selected.length && within(".play-dock") && !within("#card-actions")) {
+      foldedChoice = false;
       rowCollapsed = false;
       render();
     }
@@ -3438,13 +3462,32 @@ document.addEventListener("click", (e) => {
     within(".play-dock, .card-frame, dialog, .topbar, .dialogue, .world-menu")
   )
     return;
-  playQueue.clear();
-  if (!selectedHandItem(world, selected)) selected = [];
   questOpen = false;
+  foldHand();
+});
+function foldHand() {
+  foldedChoice = selected.length > 0;
   rowCollapsed = true;
   expandedHolders.clear();
   render();
-});
+}
+// A tap on the dialogue's beats while the hand is up only lowers the hand;
+// the beat steps on the next tap. Keyboard presses step at once.
+document.addEventListener(
+  "click",
+  (e) => {
+    if (
+      rowCollapsed ||
+      !e.detail ||
+      !e.target.closest?.("#dialogue-advance, #beat-behind")
+    )
+      return;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    foldHand();
+  },
+  { capture: true },
+);
 $("history-button").onclick = () => {
   renderLog(true);
   $("history-dialog").showModal();
