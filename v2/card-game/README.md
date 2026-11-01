@@ -166,6 +166,10 @@ and `test/card-want-talk.test.mjs` checks the Talk fact.
 
 Card faces contain the illustration and a small name. Tapping a card toggles
 its selection. Selecting a card or pair shows named actions in the row below.
+A selected card lifts and wears a white inner ring, apart from its tier border
+and the level-up glow, and the rest of the hand dims. At most one place is
+selected: choosing another place replaces it and keeps the selected person or
+item, so Pip + Station, then Pond, offers **Invite Pip along** to the Pond.
 Tapping an action button plays it. The current place leads the hand, followed
 by items lying there, avatars with their carried items, and travel destinations.
 Hover lifts a card and its preview stack together. The name shade reaches the
