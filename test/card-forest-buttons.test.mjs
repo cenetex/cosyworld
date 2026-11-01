@@ -115,6 +115,7 @@ describe("a button in each traveler's own colour", () => {
       target: BUTTON,
       since: world.turn,
       refusals: 0,
+      story: true,
     });
     validateWorld(reload(world));
     const xp = world.actors.vale.xp;
@@ -126,6 +127,26 @@ describe("a button in each traveler's own colour", () => {
       world.log.some((e) => e.verb === "want_met" && e.itemId === BUTTON),
     ).toBe(true);
     expect(world.actors.vale.want?.target).not.toBe(BUTTON);
+  });
+
+  it("puts the button quest on top without wiping an open level quest (#1831)", () => {
+    const start = attic();
+    start.actors.vale.want = {
+      kind: "person",
+      target: "keeper",
+      since: 0,
+      refusals: 0,
+      quest: { level: 2, left: 2 },
+    };
+    const world = act(start, "move", { target: COTTAGE });
+    expect(world.actors.vale.want).toMatchObject({
+      target: BUTTON,
+      story: true,
+    });
+    expect(world.actors.vale.under).toEqual([
+      expect.objectContaining({ quest: { level: 2, left: 2 } }),
+    ]);
+    validateWorld(reload(world));
   });
 
   it("lets RATi say she would sew it into a scarf", () => {

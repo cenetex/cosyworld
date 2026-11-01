@@ -1,4 +1,5 @@
 //! Multiplayer extends the existing authored card world and save format.
+use super::bindings;
 use super::{
     admit, capacity, db, full_store as store,
     full_world::{actor_id, actor_index, World},
@@ -105,8 +106,10 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
                 // The run seed names the world in the menu (avatar-menu.md).
                 let id = row["id"].as_str().unwrap_or_default().to_string();
                 row["seed"] = json!(store::name_seed(&c, &id)?);
-                if let Some(a) = row["actor"].as_u64().filter(|a| *a < 8) {
-                    row["actor"] = json!(actor_id(a as usize));
+                for key in ["actor", "bound"] {
+                    if let Some(a) = row[key].as_u64().filter(|a| *a < 8) {
+                        row[key] = json!(actor_id(a as usize));
+                    }
                 }
             }
             Ok(value)
@@ -154,6 +157,7 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
             params![id, a, u, time],
         )
         .map_err(sql_error)?;
+        bindings::claim(&tx, &id, &u, a)?;
         tx.commit().map_err(sql_error)?;
         Ok(json!({"id":id}))
     })
@@ -301,6 +305,35 @@ fn leave(
     }
     Ok(())
 }
+// The world's owner deletes an avatar: it starts over as a fresh starter, what
+// it held stays where it stood, and its place is free for anyone (#1825).
+fn reset(
+    c: &rusqlite::Connection,
+    id: &str,
+    u: &str,
+    w: &mut World,
+    b: &Command,
+    time: i64,
+) -> Result<Value> {
+    if !bindings::owner(c, id, u)? {
+        return Err("Only this world's owner can delete an avatar.".into());
+    }
+    let a = actor_index(b.avatar.as_deref().ok_or("Choose an avatar.")?)?;
+    let busy: i32 = c
+        .query_row(
+            "SELECT count(*) FROM card_full_plays WHERE world=? AND actor=? AND status IN ('working','playing')",
+            params![id, a],
+            |r| r.get(0),
+        )
+        .map_err(sql_error)?;
+    if busy > 0 {
+        return Err("That avatar's play is finishing. Try again in a moment.".into());
+    }
+    c.execute("UPDATE card_full_plays SET status='cancelled' WHERE world=? AND actor=? AND status IN ('waiting','retry')",params![id,a]).map_err(sql_error)?;
+    store::commit(c, id, w, json!({"op":"reset","actor":actor_id(a)}), time)?;
+    bindings::free(c, id, a)?;
+    store::snapshot(c, id, u, time)
+}
 // Move: an account's avatar is in one world, so it is released everywhere else
 // in the same transaction as its new claim (v2/docs/card-table/avatar-menu.md).
 fn leave_elsewhere(c: &rusqlite::Connection, id: &str, u: &str, a: usize, time: i64) -> Result<()> {
@@ -329,11 +362,15 @@ pub(super) fn run(
     let mut w = store::world(c, id, time)?;
     store::expire(c, id, &mut w, time)?;
     let member = super::store::member(c, id, u)?;
+    if b.op == "reset" {
+        return reset(c, id, u, &mut w, b, time);
+    }
     if b.op == "claim" {
         if member.is_some() {
             return Err("You already have an avatar in this world.".into());
         }
         let a = actor_index(b.avatar.as_deref().ok_or("Choose an avatar.")?)?;
+        bindings::claim(c, id, u, a)?;
         if b.moving {
             leave_elsewhere(c, id, u, a, time)?;
         }

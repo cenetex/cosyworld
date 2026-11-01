@@ -150,6 +150,27 @@ a world takes `avatar` (Vale by default) and the same `move` flag. A release
 is the ordinary `release` journal action, so replay is unchanged. A claim
 without `move` keeps the earlier behaviour.
 
+## One avatar per passkey per world
+
+A person's passkey binds them to the avatar they take in a shared world
+([#1825](https://github.com/cenetex/cosyworld/issues/1825)). The server keeps
+the binding in `card_bindings(world, actor, user)`, written by each new claim
+and by creating a world. Leave, release and Move keep it: the person always
+returns there as that avatar, and nobody else can claim it. A person bound in
+a world can claim only their own avatar there. When all eight avatars are
+bound the world is full: "This world is full." Bindings sit outside the
+journal, so old journals replay unchanged. The table was back-filled from
+the members at deploy; an avatar released before then was never recorded
+and can be claimed once by a newcomer.
+
+The world's owner (`card_tables.owner`) can delete an avatar from ☰. The
+delete is the journaled `reset` command, guard kind 13 (`CT_SHARED_RESET`): the
+rules put a fresh level-1 starter in that avatar's place (its starting place,
+experience, quest, memory, learning and routes), drop everything it held where
+it stood, and end any standoff it was in. The server then frees the binding
+and the claim, so anyone may take that avatar. Rules before the batch that
+added `reset` refuse it, so it is never journaled for them.
+
 ## Saving, replay, and earlier worlds
 
 Sharing validates the host's current save. It keeps the source browser save and
@@ -232,11 +253,14 @@ contains the fact, so replay and every client agree.
 
 ## Quests in shared worlds
 
-Each avatar has one quest, as described in the
-[card guide](../../card-game/README.md#one-quest-per-avatar). Meeting it is a
-`want_met` event in the shared history, so every client and the journal agree
-on who met what. A quest met away from home is followed by the way home; the
-station and attic are sanctuaries. Human rest counts that person's own turns;
+Each avatar holds a stack of up to three quests, as described in the
+[card guide](../../card-game/README.md#a-quest-stack-per-avatar). New quests go
+on top and nothing wipes one already held. Meeting one is a `want_met` event in
+the shared history, so every client and the journal agree on who met what.
+Dropping a quest (`drop` naming it) and pursuing one from beneath (`focus`) are
+ordinary plays in the journal. A met quest's sealed card is each browser's own. A quest ends where it is met; only a level quest leads back,
+to the sanctuary the avatar last stood in, where a long rest raises the level
+([rest and sanctuary](rest-and-sanctuary.md#level-quest)). Human rest counts that person's own turns;
 resident rest counts world rounds.
 
 The rules version that brings this model replaces collected, shared and story

@@ -177,6 +177,7 @@ impl World {
                 engine::SEVENTY_THIRD_VERSION,
                 engine::SEVENTY_FOURTH_VERSION,
                 engine::SEVENTY_FIFTH_VERSION,
+                engine::SEVENTY_SIXTH_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
@@ -285,6 +286,7 @@ impl World {
             engine::SEVENTY_THIRD_VERSION,
             engine::SEVENTY_FOURTH_VERSION,
             engine::SEVENTY_FIFTH_VERSION,
+            engine::SEVENTY_SIXTH_VERSION,
         ]
         .contains(&self.version.as_str())
         {
@@ -308,6 +310,19 @@ impl World {
                 next.claimed[a] = 0;
                 next.present[a] = 0;
                 (2, json!({}))
+            }
+            // The owner's delete: the avatar starts over (#1825). Rules that
+            // predate it refuse the request, so it is never journaled for them.
+            "reset" => {
+                let result = engine::reduce_pack(
+                    &self.version,
+                    self.pack.as_deref(),
+                    self.request("reset", a),
+                )?;
+                next.game = result["world"].clone();
+                next.claimed[a] = 0;
+                next.present[a] = 0;
+                (13, result)
             }
             "enter" => {
                 next.present[a] = 1;

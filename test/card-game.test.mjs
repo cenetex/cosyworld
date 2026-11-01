@@ -69,10 +69,10 @@ describe("the reflected shore card game", () => {
       wantMet: { kind: "item", target: "lamp" },
     });
     expect(s.actors.moth.xp).toBe(1);
-    // Met away from home, Pip's next want is the way home.
-    expect(s.actors.moth.want).toMatchObject({ kind: "place", target: "pond" });
+    // Met away from home, Pip rests right there with his next want.
+    expect(s.actors.moth.want).not.toMatchObject({ target: "pond" });
     s = act(s, "wait");
-    expect(s.actors.moth.place).toBe("pond");
+    expect(s.actors.moth.place).toBe("station");
     expect(s.items.lamp.holder).toBe("moth");
   });
 
@@ -303,7 +303,8 @@ describe("the reflected shore card game", () => {
         s = decodeSave(encodeSave(s));
       }
     }
-    expect(s.turn).toBe(4000);
+    // Every play spends a turn; a long rest at the sanctuary sleeps on.
+    expect(s.turn).toBeGreaterThanOrEqual(4000);
   }, 120_000);
 
   it("serves only the game assets and supports a clean browser reload", async () => {

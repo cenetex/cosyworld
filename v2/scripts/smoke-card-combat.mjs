@@ -34,6 +34,7 @@ function fixture(opponent) {
       resolve: { vale: 1, [opponent]: 4 },
       guarding: { vale: true, [opponent]: false },
       struck: { vale: true, [opponent]: true },
+      steppedBack: { vale: false, [opponent]: false },
     },
   ];
   return s;

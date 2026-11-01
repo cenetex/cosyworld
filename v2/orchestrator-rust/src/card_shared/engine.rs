@@ -13,7 +13,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/76";
+pub(super) const VERSION: &str = "full-card-world/77";
+pub(super) const SEVENTY_SIXTH_VERSION: &str = "full-card-world/76";
 pub(super) const SEVENTY_FIFTH_VERSION: &str = "full-card-world/75";
 pub(super) const SEVENTY_FOURTH_VERSION: &str = "full-card-world/74";
 pub(super) const SEVENTY_THIRD_VERSION: &str = "full-card-world/73";
@@ -88,7 +89,8 @@ pub(super) const FIFTH_VERSION: &str = "full-card-world/5";
 pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
 pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
 pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
-const SOURCE: &str = include_str!("engine-v76.js");
+const SOURCE: &str = include_str!("engine-v77.js");
+const SEVENTY_SIXTH_SOURCE: &str = include_str!("engine-v76.js");
 const SEVENTY_FIFTH_SOURCE: &str = include_str!("engine-v75.js");
 const SEVENTY_FOURTH_SOURCE: &str = include_str!("engine-v74.js");
 const SEVENTY_THIRD_SOURCE: &str = include_str!("engine-v73.js");
@@ -241,6 +243,7 @@ pub(super) fn historical(version: &str) -> bool {
             | SEVENTY_THIRD_VERSION
             | SEVENTY_FOURTH_VERSION
             | SEVENTY_FIFTH_VERSION
+            | SEVENTY_SIXTH_VERSION
     )
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
@@ -314,6 +317,7 @@ pub(super) fn reduce_pack(version: &str, pack: Option<&str>, request: Value) -> 
 fn source(version: &str) -> Option<&'static str> {
     Some(match version {
         VERSION => SOURCE,
+        SEVENTY_SIXTH_VERSION => SEVENTY_SIXTH_SOURCE,
         SEVENTY_FIFTH_VERSION => SEVENTY_FIFTH_SOURCE,
         SEVENTY_FOURTH_VERSION => SEVENTY_FOURTH_SOURCE,
         SEVENTY_THIRD_VERSION => SEVENTY_THIRD_SOURCE,

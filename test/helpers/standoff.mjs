@@ -6,9 +6,10 @@ import {
   standoffFor,
 } from "../../v2/card-game/world.mjs";
 
-// A standoff locks its room. A scripted walkthrough that means to move on or
-// handle items first talks its way out, which ends the standoff; a bystander
-// waits for the fighters to finish.
+// A standoff locks its room until both fighters stand down. A scripted
+// walkthrough that means to move on or handle items first talks its way out;
+// a resident opponent stands down in turn, which ends it. A bystander waits
+// for the fighters to finish.
 export function endStandoff(world, limit = 12) {
   for (let i = 0; i < limit; i++) {
     const actor = currentActor(world),

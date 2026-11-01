@@ -32,6 +32,7 @@ int32_t ct_item_place(const ct_world *world, int32_t item);
  * Room strings are authored IDs, independent of the legacy nine-room table. */
 #define CT_ROOM_ID_BYTES 128
 #define CT_SHARED_TEXT 12
+#define CT_SHARED_RESET 13
 typedef struct {
   int32_t claimed[CT_AVATARS];
   int32_t present[CT_AVATARS];

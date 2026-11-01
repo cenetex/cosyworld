@@ -1,29 +1,44 @@
 # Standoff endings
 
-Owner rule, 2026-10-31: a threat lasts only while someone fights.
+Owner rule, 2026-11-01, replacing the 2026-10-31 rule that any play but
+Strike or Brace ended a standoff: talking does not release a threat. A
+threat stays in force until both participants, the threatener and the
+threatened, have made a play other than Strike or Brace.
 
-- Strike (`attack`) and Brace (`guard`) are the only plays that keep a
-  standoff open. Any other play by either side ends it: Talk, Wait, Give,
-  Trade, travel, a quest drop. The rules log "X steps back from Y. The
-  standoff ends." and both sides get the usual three turns of peace.
-- A Brace played while the opponent's Brace still stands is a mutual
-  stand-down. A Brace stands from its play until that fighter's next play or
-  a strike on them, which is the existing `guarding` flag, so the check is
-  deterministic in local and shared play.
-- Handing over the demanded item is a Give, so it ends the standoff as well
-  as releasing the item.
-- Resident challengers that want the item strike at once (as on main), so
-  their old idle Wait no longer ends a resident threat before it starts.
+- Each standoff records `steppedBack` for both fighters. A fighter's play
+  sets it: true for any play but Strike (`attack`) or Brace (`guard`), false
+  for those two. The standoff ends when both are true, and the rules log
+  "X and Y both stand down. The standoff ends." Both sides then get the usual
+  three turns of peace.
+- One side's Talk or Wait alone leaves the threat and the room lock in force.
+  A Strike or Brace never counts, so two standing Braces no longer end it
+  (the old mutual stand-down is gone), and a fighter who stood down and then
+  strikes is back in the fight.
+- Bystanders' plays do not count.
+- Releasing the disputed item still settles a standoff at once (the release
+  rule from #1073). Handing over the demanded item is therefore still an
+  immediate way out, as the 2026-10-31 note recorded. Whether it should
+  instead count only as the giver's stand-down is open for the owner.
+- Defeat at zero resolve, a resident challenger setting the item aside, and
+  the fighters being parted still end a standoff as before.
+
+Residents answer in kind. A resident strikes while the other side is still in
+the fight (its latest play was a Strike or Brace, or it has not yet played),
+once blows have landed or when it is the challenger that wants the item.
+Once the other side stands down, the resident stands down too, so a
+standoff between a player and a resident ends in the round the player
+stands down. A threatened resident first answers as before: Talk if it
+outranks the challenger, otherwise Brace.
 
 This is a rules change (`engine` label). `perform()` wraps the play: it
-reads the standoff before the play and closes it afterwards when the play
-was not a Strike, or was a Brace against a standing Brace. The lander mints
-the next shared rules version, and released bundles keep replaying their
-journals unchanged.
+reads the standoff before the play and records the fighter's stance
+afterwards. Old saves with an open standoff gain `steppedBack` with nobody
+stood down. Released bundles keep replaying their journals unchanged.
 
-The no-deadlock test in `test/card-combat.test.mjs` runs seeded games where
-the player only ever Strikes or Braces during a standoff. Every standoff
-closes within ten turns.
+Two seeded long runs in `test/card-combat.test.mjs` check that standoffs
+close: one where the player mixes fighting with any other play, and one
+where the player always stands down at once. Every standoff closes within ten
+turns. A player who only ever Braces keeps a threat open by choice.
 
 ## Room lock
 
@@ -33,5 +48,5 @@ an item, Give, Trade, Ask or Cover. The threatened side may still Give the
 demanded item to the challenger, which ends the standoff. Arrivals are allowed
 and are then locked in. Bystanders keep Talk but cannot Strike. Residents stop
 wandering because their moves are not legal. The hand shows only the people,
-plus the demanded item for the threatened side. Talk, Wait and that Give are
-the ways out.
+plus the demanded item for the threatened side. The ways out are both sides
+standing down, that Give, or a defeat.

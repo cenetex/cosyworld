@@ -92,6 +92,10 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     if (s.locations?.pond?.answer === "call") s.locations.pond.answer = null;
     for (const entry of Array.isArray(s.log) ? s.log : [])
       if (entry?.verb === "refill") entry.verb = "refuel";
+    // An open standoff gains who has stood down; nobody has yet.
+    for (const c of Array.isArray(s.standoffs) ? s.standoffs : [])
+      if (c && !c.steppedBack && c.challenger && c.defender)
+        c.steppedBack = { [c.challenger]: false, [c.defender]: false };
     upgradeShoreRouteSave(s);
     upgradeBoardyStationSave(s);
     upgradeHoppyCatSeaSave(s);
@@ -559,8 +563,8 @@ export function foldRetiredRoads(s) {
     ];
   }
   for (const actor of Object.values(s.actors || {})) {
-    if (actor.want?.kind === "place")
-      actor.want.target = canonicalPlace(actor.want.target);
+    for (const want of [actor.want, ...(actor.under || [])])
+      if (want?.kind === "place") want.target = canonicalPlace(want.target);
     if (Array.isArray(actor.visited))
       actor.visited = [...new Set(actor.visited.map(canonicalPlace))];
   }

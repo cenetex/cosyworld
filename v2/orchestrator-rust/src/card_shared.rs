@@ -1,5 +1,8 @@
 #[cfg(test)]
 mod ajax_tests;
+mod bindings;
+#[cfg(test)]
+mod bindings_tests;
 #[cfg(test)]
 mod boardy_tests;
 #[cfg(test)]

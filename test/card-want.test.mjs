@@ -95,7 +95,7 @@ describe("one want per avatar", () => {
     expect(wantMet(s, "vale", { actor: "vale", target: "keeper" })).toBe(false);
   });
 
-  it("commits want_met, adds experience and sends the avatar home", () => {
+  it("commits want_met, adds experience and draws the next want where it is met", () => {
     let s = createWorld();
     s.actors.vale.want = newWant("place", "pond", 0);
     s = play(s, act(s, "move", { target: "pond" })).state;
@@ -104,17 +104,15 @@ describe("one want per avatar", () => {
     expect(s.actors.vale.xp).toBe(1);
     // The player's level waits for its level quest.
     expect(levelOf(s, "vale")).toBe(1);
-    // Vale's home is the attic, so the want after a trip is the way home.
-    expect(s.actors.vale.want).toMatchObject({
-      kind: "place",
-      target: "attic",
-    });
+    // An ordinary quest ends where it is met: no way home follows.
+    expect(s.actors.vale.want).not.toMatchObject({ target: "attic" });
+    expect(s.actors.vale.want.since).toBe(s.turn);
     expect(decodeSave(encodeSave(s)).actors.vale.want).toEqual(
       s.actors.vale.want,
     );
   });
 
-  it("rests at home after a want met there, then draws a real want", () => {
+  it("rests where a want is met, holding the next want", () => {
     let s = createWorld();
     s.actors.keeper.place = "station";
     s.actors.keeper.want = newWant("place", "station", 0);
@@ -126,6 +124,16 @@ describe("one want per avatar", () => {
     const next = s.actors.keeper.want;
     expect(next === null || next.target !== "station").toBe(true);
     expect(plan(s, "keeper").action.kind).toBe("wait");
+    // Away from home too: the resident rests right where its want is met.
+    // The pond is no sanctuary, so that rest leaves its defeats.
+    s.actors.keeper.want = newWant("place", "pond", s.turn);
+    delete s.actors.keeper.metTurn;
+    s.defeats = { keeper: 2 };
+    s = play(s, act(s, "wait")).state;
+    expect(s.actors.keeper.place).toBe("pond");
+    expect(s.actors.keeper.want?.target).not.toBe("station");
+    expect(plan(s, "keeper").action.kind).toBe("wait");
+    expect(s.defeats).toEqual({ keeper: 2 });
   });
 
   it("draws the next want from the world and the same turn draws the same want", () => {

@@ -299,6 +299,18 @@ body.local-app #scene-video-button {
   background: #d9534f;
   color: #fff;
 }
+/* The owner's delete for each avatar taken in this shared world. */
+.avatar-seats-heading {
+  display: grid;
+  padding: 10px 8px 4px;
+  border-top: 1px solid #ffffff1a;
+}
+.avatar-seats-heading small {
+  color: var(--muted);
+}
+.avatar-seat {
+  padding: 2px 8px;
+}
 .menu-tools {
   display: flex;
   border-top: 1px solid #ffffff1a;

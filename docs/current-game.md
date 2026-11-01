@@ -22,7 +22,7 @@ The Mac package embeds the same card files and uses the same release version.
 | Hoppy Cat card refresh | `v2/content/hoppycat-archive/card-world.json` and `CARD-REFRESH.md` |
 | Compiled card packs | `v2/card-game/packs.json`, built by `build-card-worldpacks.mjs` |
 | Runtime pack and avatar lookup | `v2/card-game/pack-registry.mjs` |
-| One quest per avatar: met, next, level | `v2/card-game/want.mjs`, driven by `world.mjs` |
+| A quest stack per avatar: met, next, drop, level | `v2/card-game/want.mjs`, driven by `world.mjs` |
 | Starter quests | `want` on each person in `forest.json` and each pack resident |
 | A person's quest in Talk context | `v2/card-game/want-talk.mjs`, used by `narrative.mjs` |
 | Learned facts and Talk topics | `v2/card-game/knowledge.mjs` and each card pack's `topics` |

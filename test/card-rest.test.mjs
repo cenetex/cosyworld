@@ -39,14 +39,14 @@ describe("rest and sanctuary", () => {
     expect(sanctuaries.every((id) => places[id])).toBe(true);
   });
 
-  it("clears one loss on a short rest away from a sanctuary", () => {
+  it("leaves a player's losses as they are on a Wait away from a sanctuary", () => {
     let s = createWorld();
     s.defeats = { vale: 2 };
     s = wait(s);
-    expect(s.defeats).toEqual({ vale: 1 });
+    expect(s.defeats).toEqual({ vale: 2 });
     expect(s.actors.vale.sleepUntil).toBeUndefined();
     s = wait(s);
-    expect(s.defeats).toEqual({});
+    expect(s.defeats).toEqual({ vale: 2 });
   });
 
   it("sleeps until the light changes at a sanctuary, then clears every loss", () => {
@@ -65,6 +65,21 @@ describe("rest and sanctuary", () => {
       rest: "long",
     });
     expect(s.actors.vale.xp).toBe(0);
+    expect(validateWorld(s)).toBe(s);
+  });
+
+  it("clears a resident's losses when it waits at a sanctuary, and only there", () => {
+    let s = createWorld();
+    s.actors.vale.place = "station";
+    s.actors.keeper.place = "attic";
+    s.actors.moth.place = "pond";
+    // Neither resident is after anything, so each waits where it is.
+    s.actors.keeper.want = s.actors.moth.want = null;
+    s.actors.keeper.metTurn = s.actors.moth.metTurn = 0;
+    s.defeats = { keeper: 2, moth: 2 };
+    s = wait(s);
+    expect(s.actors.keeper.place).toBe("attic");
+    expect(s.defeats).toEqual({ moth: 2 });
     expect(validateWorld(s)).toBe(s);
   });
 

@@ -66,6 +66,8 @@ describe("entity memories and model text", () => {
     world.items.lamp.lit = true;
     world.actors.keeper.place = "pond";
     world.items.bell.holder = "vale";
+    // The keeper heads home to the station; Vale's bell rides along.
+    world.actors.keeper.want = wantPlace("station");
     const next = act(world, "give", "bell", "keeper");
     const outcome = narrativeContext(next).outcome;
     expect(outcome.card).toMatchObject({
@@ -78,7 +80,7 @@ describe("entity memories and model text", () => {
       holder: "keeper",
       location: "station",
     });
-    // The bell was the keeper's want; met away from home, it heads home.
+    // The keeper carries the bell home.
     expect(
       outcome.avatars.find((actor) => actor.id === "keeper"),
     ).toMatchObject({

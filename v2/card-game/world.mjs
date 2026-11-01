@@ -57,8 +57,10 @@ import {
 import {
   knownActors as readKnownActors,
   installWants,
-  offerLevelQuest,
-  dropLevelQuest,
+  wake,
+  dropQuest,
+  focusQuest,
+  questsOf,
   levelOf,
   wantOf,
   travels,
@@ -582,6 +584,7 @@ export function wantText(want) {
   if (step?.verb === "bring")
     return `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`;
   if (step?.at) return `${verb} ${what} at ${nameOf(step.at)}`;
+  if (step?.verb === "rest") return `rest at ${what}`;
   if (step) return `${verb} ${what}`;
   if (want.kind === "item")
     return `hold ${want.lit === undefined ? "" : want.lit ? "the lit " : "the dark "}${nameOf(want.target)}`;
@@ -594,10 +597,10 @@ const bundle = (s, item) => [
   ...(s.items.cloth.holder === item ? ["cloth"] : []),
 ];
 // An item is needed when it is, or carries, the actor's wanted item.
-const needed = (s, actor, item) => {
-  const want = wantOf(s, actor);
-  return want?.kind === "item" && bundle(s, item).includes(want.target);
-};
+const needed = (s, actor, item) =>
+  questsOf(s, actor).some(
+    (want) => want.kind === "item" && bundle(s, item).includes(want.target),
+  );
 export function willingToGive(s, owner, item, recipient = null) {
   return (
     !controlledByHuman(s, owner) &&
@@ -704,6 +707,7 @@ function wantAPI(s) {
       );
     },
     reachable: (actor) => reachable(s, actor),
+    places: () => Object.keys(places),
     home: homeOf,
     sanctuaries,
     player: (id) => id === currentActor(s) || controlledByHuman(s, id),
@@ -1055,7 +1059,7 @@ function closeStandoff(s, c) {
   s.standoffs = s.standoffs.filter((entry) => entry !== c);
   for (const id of [c.challenger, c.defender]) s.peaceUntil[id] = s.turn + 3;
 }
-// Consecutive defeats per avatar. A win or a rest at home clears the count;
+// Consecutive defeats per avatar. A win or a rest at a sanctuary clears it;
 // the third defeat sends the loser home with empty hands.
 export const DEFEATS_TO_SEND_HOME = 3;
 // A loss at zero resolve. The first two drop the disputed item and fall back
@@ -1216,11 +1220,6 @@ export function legalActions(s, actor = currentActor(s)) {
   ];
   // A sleeper's only play is to wait until the light changes.
   if (s.actors[actor].sleepUntil !== undefined) return out;
-  // A level quest can be dropped, at the cost of half the experience.
-  if (s.actors[actor].want?.quest)
-    out.push(
-      offer("drop", actor, null, null, `${nameOf(actor)} drops the quest.`, []),
-    );
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
     if (departureWaits(s, actor, to)) continue;
     // A course card aboard a docked ship sets the voyage for everyone aboard.
@@ -1537,6 +1536,31 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor));
+  // A player may drop any quest in its stack (a level quest costs half the
+  // experience), or pursue one from beneath, which brings it to the top.
+  if (actor === currentActor(s) || controlledByHuman(s, actor))
+    questsOf(s, actor).forEach((w, quest) => {
+      const drop = offer(
+        "drop",
+        actor,
+        null,
+        null,
+        `${nameOf(actor)} drops the quest.`,
+        [],
+      );
+      out.push({ ...drop, quest, key: `${drop.key}:${quest}` });
+      if (quest > 0) {
+        const focus = offer(
+          "focus",
+          actor,
+          null,
+          null,
+          `${nameOf(actor)} turns to another quest.`,
+          [],
+        );
+        out.push({ ...focus, quest, key: `${focus.key}:${quest}` });
+      }
+    });
   for (const action of out) {
     if (action.kind === "take" && things[s.items[action.item]?.holder])
       action.label = "Uncover";
@@ -1618,10 +1642,10 @@ function trustGiver(s, recipient, item, giver) {
     (s.actors[recipient].trust[giver] || 0) + 1,
   );
 }
-// Wait is the only rest, and the player's own play. At a sanctuary it is a
-// long rest: the avatar sleeps until the light next changes, then wakes with
-// every loss cleared. Anywhere else it is a short rest that clears one loss.
-// Nobody rests in the middle of a standoff.
+// Wait is the only rest. Any Wait at a sanctuary, by a player or a resident,
+// clears every loss. A player's is a long rest: it sleeps until the light
+// next changes. A Wait anywhere else leaves losses as they are. Nobody rests
+// in the middle of a standoff.
 function rest(s, actor, here) {
   const a = s.actors[actor],
     losses = s.defeats?.[actor] || 0;
@@ -1629,42 +1653,40 @@ function rest(s, actor, here) {
     if (s.turn < a.sleepUntil) return null;
     delete a.sleepUntil;
     if (losses) delete s.defeats[actor];
-    offerLevelQuest(s, actor, wantAPI(s));
+    wake(s, actor, wantAPI(s));
     return "long";
   }
-  if (actor !== currentActor(s) || standoffFor(s, actor)) return null;
+  if (standoffFor(s, actor)) return null;
+  if (sanctuaries.includes(here) && losses) delete s.defeats[actor];
+  if (actor !== currentActor(s)) return null;
   if (sanctuaries.includes(here))
     a.sleepUntil = (Math.floor(s.turn / DAYLIGHT_TURNS) + 1) * DAYLIGHT_TURNS;
-  else if (losses > 1) s.defeats[actor] = losses - 1;
-  else if (losses) delete s.defeats[actor];
   return null;
 }
-// A standoff goes on only while someone strikes. Any other play by either
-// side ends it, and so does a Brace answering the other side's standing Brace.
+// A threat stays in force until both sides have stood down: each fighter's
+// latest play since it began is something other than Strike or Brace. One
+// side's Talk or Wait alone leaves it open, and a Strike or Brace takes that
+// fighter back into the fight.
 function perform(s, a, round = null, settle = []) {
   const conflict = standoffFor(s, a.actor),
     other = conflict && opponentOf(conflict, a.actor);
-  const mutual = a.kind === "guard" && conflict?.guarding[other];
   const result = performPlay(s, a, round, settle);
-  if (
-    conflict &&
-    s.standoffs.includes(conflict) &&
-    (mutual || !["guard", "attack"].includes(a.kind))
-  ) {
-    closeStandoff(s, conflict);
-    addLog(
-      s,
-      "World",
-      mutual
-        ? `${nameOf(a.actor)} and ${nameOf(other)} both stand down. The standoff ends.`
-        : `${nameOf(a.actor)} steps back from ${nameOf(other)}. The standoff ends.`,
-      {
-        kind: "narration",
-        actorId: a.actor,
-        targetId: other,
-        locationId: conflict.location,
-      },
-    );
+  if (conflict && s.standoffs.includes(conflict)) {
+    conflict.steppedBack[a.actor] = !["guard", "attack"].includes(a.kind);
+    if (conflict.steppedBack[a.actor] && conflict.steppedBack[other]) {
+      closeStandoff(s, conflict);
+      addLog(
+        s,
+        "World",
+        `${nameOf(a.actor)} and ${nameOf(other)} both stand down. The standoff ends.`,
+        {
+          kind: "narration",
+          actorId: a.actor,
+          targetId: other,
+          locationId: conflict.location,
+        },
+      );
+    }
   }
   return result;
 }
@@ -1686,12 +1708,13 @@ function performPlay(s, a, round = null, settle = []) {
     conflict.guarding[a.actor] = false;
     if (a.actor === conflict.defender) conflict.answered = true;
   }
-  if (a.kind === "drop" && !a.item) {
-    dropLevelQuest(s, a.actor, wantAPI(s));
+  if ((a.kind === "drop" && !a.item) || a.kind === "focus") {
+    if (a.kind === "drop") dropQuest(s, a.actor, wantAPI(s), a.quest);
+    else focusQuest(s, a.actor, a.quest);
     addLog(s, "World", a.text, {
       kind: "action",
       actorId: a.actor,
-      verb: "drop",
+      verb: a.kind,
       witnesses,
     });
     return;
@@ -1776,6 +1799,7 @@ function performPlay(s, a, round = null, settle = []) {
         resolve: { [a.actor]: 4, [a.target]: 4 },
         guarding: { [a.actor]: false, [a.target]: false },
         struck: { [a.actor]: false, [a.target]: false },
+        steppedBack: { [a.actor]: false, [a.target]: false },
       });
       break;
     case "guard":
@@ -2214,20 +2238,20 @@ function wantPlan(s, actor) {
           ? find("talk", (a) => a.target === other)
           : find("guard"),
       );
-    if (conflict.struck[other] || conflict.struck[actor])
-      return answer(find("attack", (a) => a.target === other));
-    // A challenger that wants the item strikes; any other play would end
-    // the standoff.
-    if (
+    // A resident strikes while the other side is still in the fight, once
+    // blows have landed or when it is the challenger that wants the item.
+    // Once the other side stands down it stands down too, which ends it.
+    const blows = conflict.struck[other] || conflict.struck[actor];
+    const presses =
       conflict.challenger === actor &&
       conflict.item &&
-      needed(s, actor, conflict.item)
-    )
+      needed(s, actor, conflict.item);
+    if (!conflict.steppedBack[other] && (blows || presses))
       return answer(find("attack", (a) => a.target === other));
     return idle();
   }
   if (!want) return idle();
-  if (resting(s, actor, homeOf(actor))) return idle();
+  if (resting(s, actor)) return idle();
   const go = (place) => {
     if (!travels(actor, s) || staysPut(actor, s)) return idle();
     const step = stepToward(s, actor, place);
@@ -2276,7 +2300,7 @@ function wantPlan(s, actor) {
   while (s.items[s.items[top].holder]) top = s.items[top].holder;
   const spares = (kind) =>
     acts
-      .filter((a) => a.kind === kind && !needed(s, actor, a.item))
+      .filter((a) => a.kind === kind && a.item && !needed(s, actor, a.item))
       .sort(
         (x, y) =>
           valueOf(s, actor, x.item) - valueOf(s, actor, y.item) ||
@@ -2434,13 +2458,11 @@ export function play(
     if (chosen.callShip) callTransport(next, from, true);
     if (chosen.action.kind !== "wait")
       perform(next, chosen.action, round, [id]);
+    else rest(next, id, from);
     rememberRoutes(next, id, visibleRouteEdges(next.actors[id].place));
     if (next.actors[id].place !== from)
       arriveRoamingRecitals(next, packDefinitions, id);
   }
-  // A resident resting at home clears a run of defeats.
-  for (const id of Object.keys(next.defeats || {}))
-    if (resting(next, id, homeOf(id))) delete next.defeats[id];
   if (exact.kind === "wait")
     waitForTransport(next, next.actors[actor].place, actor);
   for (const voyage of sailTransports(next)) {
@@ -2677,7 +2699,7 @@ export function validateWorld(s) {
       (c.item && rootHolder(s, c.item) !== c.defender)
     )
       fail();
-    for (const field of ["resolve", "guarding", "struck"])
+    for (const field of ["resolve", "guarding", "struck", "steppedBack"])
       if (
         !c[field] ||
         Object.keys(c[field]).sort().join() !== pair.slice().sort().join()
@@ -2690,7 +2712,8 @@ export function validateWorld(s) {
           c.resolve[id] < 1 ||
           c.resolve[id] > 4 ||
           typeof c.guarding[id] !== "boolean" ||
-          typeof c.struck[id] !== "boolean",
+          typeof c.struck[id] !== "boolean" ||
+          typeof c.steppedBack[id] !== "boolean",
       )
     )
       fail();
@@ -2710,6 +2733,7 @@ export function validateWorld(s) {
       a.crossed < 0 ||
       !Number.isSafeInteger(a.lastTalk) ||
       a.lastTalk > s.turn ||
+      (a.sanctuary !== undefined && !sanctuaries.includes(a.sanctuary)) ||
       (a.sleepUntil !== undefined &&
         (!Number.isSafeInteger(a.sleepUntil) ||
           a.sleepUntil < 0 ||
@@ -2720,7 +2744,9 @@ export function validateWorld(s) {
       !validWant(s, id) ||
       a.visited.length > Object.keys(places).length ||
       a.visited.some((place) => !Object.hasOwn(places, place)) ||
-      (a.want?.kind === "place" && !Object.hasOwn(places, a.want.target))
+      questsOf(s, id).some(
+        (w) => w.kind === "place" && !Object.hasOwn(places, w.target),
+      )
     )
       fail();
   }
@@ -2818,6 +2844,7 @@ export function validateWorld(s) {
     "course",
     "take",
     "drop",
+    "focus",
     "give",
     "ask",
     "light",
