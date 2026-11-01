@@ -9,7 +9,12 @@ import {
   retiredPlace,
   packPlaces,
   choiceText,
+  conditionsMet,
+  departed,
+  entityEnabled,
+  packEntity,
 } from "./pack-registry.mjs";
+import { sectionAllows } from "./pack-sections.mjs";
 import { authoredRouteEdges } from "./roaming-routes.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import {
@@ -51,6 +56,12 @@ export function forgetQuests(s) {
 export function upgradeSave(s, { installPacks, laneText = () => null }) {
   if (!s || ![6, 7].includes(s.schema))
     throw new Error("This save needs a fresh start.");
+  // Packs saved at an earlier revision follow their reworked story below.
+  const reworked = new Set(
+    packDefinitions
+      .filter((p) => (s.packs?.[p.id]?.revision ?? p.revision) < p.revision)
+      .map((p) => p.id),
+  );
   forgetQuests(s);
   if (s?.schema === 6) {
     // Schema 7 moved the Steam Clock into the world-pack state.
@@ -116,11 +127,16 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
   upgradeSightings(s);
   installPacks(s);
   reconcileContent(s);
+  reconcilePackProgress(s, reworked);
   // A told lane keeps its id; its words follow the lane's current conditions.
-  for (const fact of Object.values(s?.knowledge?.facts || {})) {
-    const text = fact?.source?.kind === "lane" && laneText(fact.id);
+  // A lane the ship no longer sails is forgotten (Greek revision 16).
+  for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
+    if (fact?.source?.kind !== "lane") continue;
+    const text = laneText(id);
     if (text) fact.text = text;
+    else if (reworked.size) forgetFact(s.knowledge, id);
   }
+  reconcileTopics(s, reworked);
   if (s?.schema === 7)
     installKnowledge(
       s,
@@ -174,6 +190,150 @@ export function reconcileContent(s) {
   forgetRetiredThings(s, new Set(gone));
 }
 
+// A story step the content no longer leads to leaves a save from an earlier
+// pack revision; a save at the current revision is checked as it stands.
+// Receipts
+// replay in order, as validation reads them; a step whose prerequisites
+// are no longer met leaves with its log line and recital, and the pack's
+// flags and choices are counted again from the steps that stay. Whoever and
+// whatever those flags held back goes home, and anyone standing in a place
+// they closed returns to the pack's entry. Greek revision 11 retired the
+// Theban refusal, which had opened the Open Door, so a world that went on to
+// Athens asked for a fresh start (2026-11-01).
+export function reconcilePackProgress(s, reworked) {
+  for (const pack of packDefinitions) {
+    const state = s.packs?.[pack.id];
+    if (
+      !reworked.has(pack.id) ||
+      !pack.choices ||
+      !state?.receipts ||
+      !state.flags ||
+      !state.choices
+    )
+      continue;
+    const kept = {},
+      choices = {},
+      flags = {};
+    const projection = {
+      ...s,
+      packs: { ...s.packs, [pack.id]: { ...state, choices, flags } },
+    };
+    const holds = (requires = []) =>
+      conditionsMet(
+        projection,
+        pack.id,
+        requires.filter((c) =>
+          ["choice", "choice_unset", "flag"].includes(c.kind),
+        ),
+      );
+    const receipts = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
+    for (const [id, turn] of receipts) {
+      const c = pack.choices.find((choice) => choice.id === id);
+      if (
+        !c ||
+        !holds(c.requires) ||
+        !holds(pack.places[c.at]?.requires) ||
+        !holds(packEntity(c.subject)?.requires) ||
+        !sectionAllows(projection, pack, c.at, conditionsMet) ||
+        !sectionAllows(projection, pack, c.subject, conditionsMet) ||
+        c.effects.some(
+          (e) => e.kind === "choose" && Object.hasOwn(choices, e.key),
+        )
+      )
+        continue;
+      kept[id] = turn;
+      for (const e of c.effects) {
+        if (e.kind === "choose") choices[e.key] = e.value;
+        if (e.kind === "set_flag") flags[e.key] = e.value;
+      }
+    }
+    // Only what a dropped step set leaves; any other record stays as saved
+    // and is checked as it stands.
+    const dropped = receipts.map(([id]) => id).filter((id) => !kept[id]);
+    for (const id of dropped) {
+      delete state.receipts[id];
+      delete state.recitals?.[id];
+      for (const e of pack.choices.find((c) => c.id === id)?.effects || []) {
+        const record = { choose: state.choices, set_flag: state.flags }[e.kind];
+        const now = e.kind === "choose" ? choices : flags;
+        if (record && !Object.hasOwn(now, e.key)) delete record[e.key];
+      }
+    }
+    if (dropped.length)
+      s.log = (s.log || []).filter(
+        (e) => !(e?.packId === pack.id && dropped.includes(e.choiceId)),
+      );
+    // Valid saves already meet everything below; a reworked pack may not.
+    for (const [id, avatar] of Object.entries(pack.avatars || {})) {
+      const a = s.actors?.[id];
+      // A journey not yet agreed starts from its first step.
+      if (a && avatar.journey && !kept[avatar.journey.after])
+        a.place = avatar.journey.path[0];
+      if (!a || entityEnabled(s, id, true) || departed(pack, state, id))
+        continue;
+      delete state.met[id];
+      if (a.place !== avatar.place && !avatar.previousHomes?.includes(a.place))
+        a.place = avatar.place;
+      Object.assign(a, { crossed: 0, lastTalk: -9 });
+      s.standoffs = (s.standoffs || []).filter(
+        (c) => c?.challenger !== id && c?.defender !== id,
+      );
+    }
+    for (const [id, item] of Object.entries(pack.items || {}))
+      if (s.items?.[id] && !entityEnabled(s, id, true)) {
+        for (const other of Object.values(s.items))
+          if (other?.holder === id) other.holder = s.items[id].holder;
+        Object.assign(s.items[id], { holder: item.holder, history: [] });
+      }
+    const closed = (id) =>
+      packEntity(id)?.packId === pack.id && !entityEnabled(s, id, true);
+    for (const [id, item] of Object.entries(s.items || {}))
+      if (closed(item?.holder) && entityEnabled(s, id, true))
+        item.holder = pack.entry;
+    for (const [id, a] of Object.entries(s.actors || {}))
+      if (
+        packEntity(a?.place)?.packId === pack.id &&
+        !entityEnabled(s, a.place, true) &&
+        entityEnabled(s, id, true)
+      )
+        a.place = pack.entry;
+  }
+}
+
+// A told topic of a reworked pack follows its current words and choice. One
+// the content retired, or gave another teller or place, is forgotten
+// (#1747 reworded Oak's night watch; Greek revision 15 retired a report).
+export function reconcileTopics(s, reworked) {
+  const k = s?.knowledge;
+  if (!k?.facts || typeof k.facts !== "object") return;
+  const topics = new Map(
+    packDefinitions.flatMap((pack) =>
+      (pack.topics || []).map((t) => [`${pack.id}:${t.id}`, t]),
+    ),
+  );
+  for (const [id, fact] of Object.entries(k.facts)) {
+    const told = fact?.source?.kind === "topic" && fact.source.topic;
+    if (!told || !reworked.has(told.packId)) continue;
+    const topic = topics.get(`${told.packId}:${told.id}`);
+    if (
+      topic?.id === id &&
+      topic.speaker === fact.source.actorId &&
+      topic.at === fact.source.locationId
+    ) {
+      fact.text = topic.text;
+      told.choiceId = topic.choiceId ?? null;
+      continue;
+    }
+    forgetFact(k, id);
+  }
+}
+function forgetFact(k, id) {
+  delete k.facts[id];
+  for (const known of Object.values(k.known || {})) delete known?.[id];
+  if (Array.isArray(k.pending))
+    k.pending = k.pending.filter((p) => p?.factId !== id);
+}
+
 // The journal keeps every moment that still names a living thing. A deed done
 // with a retired thing leaves, with what anyone learned from it; a moment it
 // only witnessed keeps the others.
@@ -189,6 +349,25 @@ export function forgetRetiredThings(s, retired) {
   for (const memory of Object.values(s.memories || {}))
     if (Array.isArray(memory?.learning))
       memory.learning = memory.learning.filter((lesson) => !names(lesson));
+  // A keepsake's attachment leaves with it; an experience keeps its moment.
+  for (const life of Object.values(s.life?.actors || {})) {
+    for (const id of retired) delete life?.attachments?.[id];
+    for (const e of Array.isArray(life?.experiences) ? life.experiences : [])
+      if (retired.has(e?.item)) e.item = null;
+  }
+  for (const c of Array.isArray(s.standoffs) ? s.standoffs : [])
+    if (retired.has(c?.item)) c.item = null;
+  // A wish for a retired thing is let go; the rest of the stack stays.
+  for (const a of Object.values(s.actors || {})) {
+    const quests = [a?.want, ...(a?.under || [])].filter(Boolean);
+    const kept = quests.filter(
+      (w) => !(w.kind === "item" && retired.has(w.target)),
+    );
+    if (kept.length === quests.length) continue;
+    a.want = kept[0] ?? null;
+    if (kept.length > 1) a.under = kept.slice(1);
+    else delete a.under;
+  }
   if (!Array.isArray(s.log)) return;
   s.log = s.log.flatMap((entry) => {
     if (
@@ -1061,7 +1240,8 @@ export function upgradeWillowsKitSave(s) {
 // Greek revision 11 sets the Market Well within the courtyard and retires the
 // Theban story buttons. Known steps the map lost become walkable paths; the
 // refusal branch and the invitation receipts leave the save. A refusal save
-// that went on to Athens no longer validates and starts fresh (alpha).
+// that went on to Athens loses the steps the refusal opened in
+// reconcilePackProgress.
 const THEBAN_RETIRED_CHOICES = [
   "prepare-permitted-burial",
   "decline-burial",

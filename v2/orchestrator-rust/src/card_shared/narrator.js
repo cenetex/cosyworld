@@ -15392,6 +15392,9 @@
   function upgradeSave(s, { installPacks: installPacks2, laneText = () => null }) {
     if (!s || ![6, 7].includes(s.schema))
       throw new Error("This save needs a fresh start.");
+    const reworked = new Set(
+      packDefinitions.filter((p) => (s.packs?.[p.id]?.revision ?? p.revision) < p.revision).map((p) => p.id)
+    );
     forgetQuests(s);
     if (s?.schema === 6) {
       upgradeSteamClockSave(s);
@@ -15446,10 +15449,14 @@
     upgradeSightings(s);
     installPacks2(s);
     reconcileContent(s);
-    for (const fact of Object.values(s?.knowledge?.facts || {})) {
-      const text2 = fact?.source?.kind === "lane" && laneText(fact.id);
+    reconcilePackProgress(s, reworked);
+    for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
+      if (fact?.source?.kind !== "lane") continue;
+      const text2 = laneText(id);
       if (text2) fact.text = text2;
+      else if (reworked.size) forgetFact(s.knowledge, id);
     }
+    reconcileTopics(s, reworked);
     if (s?.schema === 7)
       installKnowledge(
         s,
@@ -15497,6 +15504,105 @@
     }
     forgetRetiredThings(s, new Set(gone));
   }
+  function reconcilePackProgress(s, reworked) {
+    for (const pack of packDefinitions) {
+      const state = s.packs?.[pack.id];
+      if (!reworked.has(pack.id) || !pack.choices || !state?.receipts || !state.flags || !state.choices)
+        continue;
+      const kept = {}, choices = {}, flags = {};
+      const projection = {
+        ...s,
+        packs: { ...s.packs, [pack.id]: { ...state, choices, flags } }
+      };
+      const holds = (requires = []) => conditionsMet(
+        projection,
+        pack.id,
+        requires.filter(
+          (c) => ["choice", "choice_unset", "flag"].includes(c.kind)
+        )
+      );
+      const receipts = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
+      for (const [id, turn] of receipts) {
+        const c = pack.choices.find((choice) => choice.id === id);
+        if (!c || !holds(c.requires) || !holds(pack.places[c.at]?.requires) || !holds(packEntity(c.subject)?.requires) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || c.effects.some(
+          (e) => e.kind === "choose" && Object.hasOwn(choices, e.key)
+        ))
+          continue;
+        kept[id] = turn;
+        for (const e of c.effects) {
+          if (e.kind === "choose") choices[e.key] = e.value;
+          if (e.kind === "set_flag") flags[e.key] = e.value;
+        }
+      }
+      const dropped = receipts.map(([id]) => id).filter((id) => !kept[id]);
+      for (const id of dropped) {
+        delete state.receipts[id];
+        delete state.recitals?.[id];
+        for (const e of pack.choices.find((c) => c.id === id)?.effects || []) {
+          const record4 = { choose: state.choices, set_flag: state.flags }[e.kind];
+          const now = e.kind === "choose" ? choices : flags;
+          if (record4 && !Object.hasOwn(now, e.key)) delete record4[e.key];
+        }
+      }
+      if (dropped.length)
+        s.log = (s.log || []).filter(
+          (e) => !(e?.packId === pack.id && dropped.includes(e.choiceId))
+        );
+      for (const [id, avatar] of Object.entries(pack.avatars || {})) {
+        const a = s.actors?.[id];
+        if (a && avatar.journey && !kept[avatar.journey.after])
+          a.place = avatar.journey.path[0];
+        if (!a || entityEnabled(s, id, true) || departed(pack, state, id))
+          continue;
+        delete state.met[id];
+        if (a.place !== avatar.place && !avatar.previousHomes?.includes(a.place))
+          a.place = avatar.place;
+        Object.assign(a, { crossed: 0, lastTalk: -9 });
+        s.standoffs = (s.standoffs || []).filter(
+          (c) => c?.challenger !== id && c?.defender !== id
+        );
+      }
+      for (const [id, item] of Object.entries(pack.items || {}))
+        if (s.items?.[id] && !entityEnabled(s, id, true)) {
+          for (const other of Object.values(s.items))
+            if (other?.holder === id) other.holder = s.items[id].holder;
+          Object.assign(s.items[id], { holder: item.holder, history: [] });
+        }
+      const closed = (id) => packEntity(id)?.packId === pack.id && !entityEnabled(s, id, true);
+      for (const [id, item] of Object.entries(s.items || {}))
+        if (closed(item?.holder) && entityEnabled(s, id, true))
+          item.holder = pack.entry;
+      for (const [id, a] of Object.entries(s.actors || {}))
+        if (packEntity(a?.place)?.packId === pack.id && !entityEnabled(s, a.place, true) && entityEnabled(s, id, true))
+          a.place = pack.entry;
+    }
+  }
+  function reconcileTopics(s, reworked) {
+    const k = s?.knowledge;
+    if (!k?.facts || typeof k.facts !== "object") return;
+    const topics = new Map(
+      packDefinitions.flatMap(
+        (pack) => (pack.topics || []).map((t) => [`${pack.id}:${t.id}`, t])
+      )
+    );
+    for (const [id, fact] of Object.entries(k.facts)) {
+      const told = fact?.source?.kind === "topic" && fact.source.topic;
+      if (!told || !reworked.has(told.packId)) continue;
+      const topic = topics.get(`${told.packId}:${told.id}`);
+      if (topic?.id === id && topic.speaker === fact.source.actorId && topic.at === fact.source.locationId) {
+        fact.text = topic.text;
+        told.choiceId = topic.choiceId ?? null;
+        continue;
+      }
+      forgetFact(k, id);
+    }
+  }
+  function forgetFact(k, id) {
+    delete k.facts[id];
+    for (const known of Object.values(k.known || {})) delete known?.[id];
+    if (Array.isArray(k.pending))
+      k.pending = k.pending.filter((p) => p?.factId !== id);
+  }
   function forgetRetiredThings(s, retired) {
     if (!retired.size) return;
     const names2 = (lesson) => [
@@ -15508,6 +15614,23 @@
     for (const memory of Object.values(s.memories || {}))
       if (Array.isArray(memory?.learning))
         memory.learning = memory.learning.filter((lesson) => !names2(lesson));
+    for (const life of Object.values(s.life?.actors || {})) {
+      for (const id of retired) delete life?.attachments?.[id];
+      for (const e of Array.isArray(life?.experiences) ? life.experiences : [])
+        if (retired.has(e?.item)) e.item = null;
+    }
+    for (const c of Array.isArray(s.standoffs) ? s.standoffs : [])
+      if (retired.has(c?.item)) c.item = null;
+    for (const a of Object.values(s.actors || {})) {
+      const quests = [a?.want, ...a?.under || []].filter(Boolean);
+      const kept = quests.filter(
+        (w) => !(w.kind === "item" && retired.has(w.target))
+      );
+      if (kept.length === quests.length) continue;
+      a.want = kept[0] ?? null;
+      if (kept.length > 1) a.under = kept.slice(1);
+      else delete a.under;
+    }
     if (!Array.isArray(s.log)) return;
     s.log = s.log.flatMap((entry) => {
       if (!entry || retired.has(entry.itemId) || retired.has(entry.receiveId) || retired.has(entry.wantMet?.target))

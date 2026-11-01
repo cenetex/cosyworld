@@ -2896,3 +2896,23 @@ fn shared_run_seed_is_the_world_id_hash() {
     // SHA-256("abc") starts ba 78 16 bf.
     assert_eq!(super::full_world::run_seed("abc"), 0xba78_16bf);
 }
+
+// A refused save says where validation failed, so the host log of a 409
+// names the check without the world's contents (2026-11-01).
+#[test]
+fn a_refused_save_names_where_the_rules_refused_it() {
+    let request = json!({
+        "op":"validate", "world":{"schema":1}, "actor":"vale",
+        "claimed":["vale"], "present":["vale"]
+    });
+    let error = super::engine::reduce_pack(
+        super::engine::VERSION,
+        Some(super::content::current()),
+        request,
+    )
+    .unwrap_err();
+    assert!(
+        error.contains("fresh start") && error.contains("decodeSave:"),
+        "{error}"
+    );
+}
