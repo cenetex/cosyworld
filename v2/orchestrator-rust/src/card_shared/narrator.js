@@ -897,8 +897,7 @@
     const stanzas = (pack.recital?.verses || []).filter((v) => receipts[v.choice] && receipts[v.choice] <= through).sort((a, b) => receipts[a.choice] - receipts[b.choice]).map((v) => ({
       id: v.choice,
       turn: receipts[v.choice],
-      questId: v.quest,
-      lines: v.after && receipts[v.after.choice] < receipts[v.choice] ? v.after.lines : v.lines
+      questId: v.quest
     }));
     return { title: pack.recital?.title, stanzas };
   }
@@ -952,16 +951,10 @@
         id: stanza.id,
         turn: stanza.turn,
         authorId,
-        authorName: humanAvatar(authorId)?.name || forest_default.people[authorId]?.name || packs.find((p) => p.avatars?.[authorId])?.avatars[authorId].name || "an earlier traveler",
-        lines: [...stanza.lines]
+        authorName: humanAvatar(authorId)?.name || forest_default.people[authorId]?.name || packs.find((p) => p.avatars?.[authorId])?.avatars[authorId].name || "an earlier traveler"
       };
     });
-    const latest = Math.max(0, ...stanzas.map((stanza) => stanza.turn));
-    return {
-      title: poem.title,
-      stanzas,
-      newLines: stanzas.filter((stanza) => stanza.turn === latest).flatMap((stanza) => stanza.lines)
-    };
+    return { title: poem.title, stanzas };
   }
 
   // v2/card-game/boardyai.json
@@ -8748,512 +8741,281 @@
             {
               choice: "greek-return-water-jar",
               quest: "story-quest-greek-table",
-              lines: [
-                "I set the water by her hands.",
-                "She kept a loaf of bread for me."
-              ],
               summons: true
             },
             {
               choice: "greek-petition-burial",
               quest: "story-quest-greek-burial",
-              lines: [
-                "Creon has granted this one grave.",
-                "Her brother waits for earth."
-              ],
               summons: false
             },
             {
               choice: "greek-perform-burial",
               quest: "story-quest-greek-burial",
-              lines: [
-                "I laid her brother in the earth.",
-                "The king's words crossed the wind."
-              ],
               summons: true
             },
             {
               choice: "greek-perform-permitted-burial",
               quest: "story-quest-greek-burial",
-              lines: [
-                "Creon gave leave for this one grave.",
-                "I laid her brother in the earth."
-              ],
               summons: true
             },
             {
               choice: "greek-decline-burial",
               quest: "story-quest-greek-burial",
-              lines: [
-                "I told her I would turn away.",
-                "Her brother waited by the wall."
-              ],
               summons: true
             },
             {
               choice: "greek-report-plan",
               quest: "story-quest-greek-burial",
-              lines: [
-                "I gave the guard the hidden plan.",
-                "He held it with the king's command."
-              ],
               summons: true
             },
             {
               choice: "greek-courtyard-burial",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "I spoke of earth beside her table.",
-                "Dione heard me through."
-              ],
               summons: true
             },
             {
               choice: "greek-courtyard-concession",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "I spoke the promise of a grave.",
-                "His body waited in the sun."
-              ],
-              summons: true,
-              after: {
-                choice: "greek-perform-permitted-burial",
-                lines: [
-                  "I told her of the king's consent.",
-                  "She heard the leave that he had given."
-                ]
-              }
+              summons: true
             },
             {
               choice: "greek-courtyard-refusal",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "I told her how I turned away.",
-                "She kept a place beside her table."
-              ],
               summons: true
             },
             {
               choice: "greek-courtyard-exposure",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "I told her what the guard had heard.",
-                "My words lay open on the table."
-              ],
               summons: true
             },
             {
               choice: "greek-courtyard-permitted-burial",
               quest: "story-quest-greek-courtyard",
-              lines: [
-                "The grave I promised holds him now.",
-                "I brought that word to Dione."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-hear-mothers",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "Their branches rested on my knees.",
-                "I heard the names beneath them."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-register-plea",
               quest: "story-quest-greek-open-door-agora",
-              lines: [
-                "I laid their plea before the town.",
-                "The crowded square grew quiet."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-hear-truce-report",
               quest: "story-quest-greek-open-door-agora",
-              lines: [
-                "The herald named a road of peace.",
-                "The dead came home beneath it."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-hear-recovery-report",
               quest: "story-quest-greek-open-door-agora",
-              lines: [
-                "The messenger spoke over dust.",
-                "The dead came home behind the shields."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-set-provisions",
               quest: "story-quest-greek-open-door-piraeus",
-              lines: [
-                "I set the basket by the ropes.",
-                "The waiting cups stood ready."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-lay-cloths",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "The cloth lay clean upon the stone.",
-                "Their children gathered near it."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-lay-ashes",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I set the ashes by their hands.",
-                "Each name was heavier than clay."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-hear-pyre",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I heard the father\u2019s second loss.",
-                "One chair stood empty by the stone."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-eleusis-pledge",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I set a pledge beside the ashes.",
-                "Both banners cast a human shadow."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-eleusis-care",
               quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I stayed beside the living grief.",
-                "We wrote their needs beneath the names."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-family-berth",
               quest: "story-quest-greek-open-door-piraeus",
-              lines: [
-                "I laid their names beside the rope.",
-                "A place was kept for each of them."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-open-berth",
               quest: "story-quest-greek-open-door-piraeus",
-              lines: [
-                "I laid their names beside the rope.",
-                "We kept a space beyond the list."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-colonus-water",
               quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "I set sweet water by the grove.",
-                "The keeper named an older road."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-colonus-farewell",
               quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "The keeper sang of daughters walking.",
-                "The final place stayed with the king."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-colonus-custom",
               quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "I wrote a welcome by the trees.",
-                "A stranger\u2019s need could find a name."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-colonus-family",
               quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "I set the daughters in the song.",
-                "Their hands had carried all those miles."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-marathon-blanket",
               quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "I laid a blanket by the altar.",
-                "The old tale found a living task."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-marathon-daughter",
               quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "The keeper gave the daughter voice.",
-                "Her empty place remained among them."
-              ],
               summons: false
             },
             {
               choice: "greek-open-door-marathon-alcmene",
               quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "I heard old grief demand a death.",
-                "The altar held its troubling echo."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-marathon-hearing",
               quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "I asked the tale to hold a hearing.",
-                "Her grief still waited at its gate."
-              ],
               summons: true
             },
             {
               choice: "greek-open-door-return-dione",
               quest: "story-quest-greek-open-door-return",
-              lines: [
-                "I brought those names beside her bread.",
-                "We made room for the words they carried."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-agora-truce",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I told her how the herald spoke.",
-                "A road for the dead lay in his words."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-agora-force",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I told her what the shields brought home.",
-                "She heard the mothers through the noise."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-eleusis-pledge",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I spoke the pledge beside her bread.",
-                "The names of loss stayed in the room."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-eleusis-care",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I brought their needs beside her bread.",
-                "She heard the living with the dead."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-piraeus-family",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I told her where their names were kept.",
-                "The quay\u2019s first promise reached the table."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-piraeus-open",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I told her of the wider place.",
-                "Its welcome carried work within it."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-colonus-custom",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I brought the grove\u2019s old tale to her.",
-                "Its tablet spoke of guests to come."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-colonus-family",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I spoke the daughters\u2019 patient work.",
-                "Their road reached Dione through the song."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-marathon-alcmene",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I brought the keeper\u2019s ending home.",
-                "Its saved lives cast a troubled shadow."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-report-marathon-hearing",
               quest: "story-quest-greek-homecoming-return",
-              lines: [
-                "I named the change within the tale.",
-                "Her empty place remained beside it."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-receive-family",
               quest: "story-quest-greek-homecoming-household",
-              lines: [
-                "Her feet had reached the waiting quay.",
-                "Her household\u2019s basket passed to her."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-receive-open",
               quest: "story-quest-greek-homecoming-household",
-              lines: [
-                "She found her place beside the rope.",
-                "The basket stayed for other hands."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-read-basket-family",
               quest: "story-quest-greek-homecoming-witness",
-              lines: [
-                "I laid her words beside the bread.",
-                "Her hands had met the waiting basket."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-read-berth-family",
               quest: "story-quest-greek-homecoming-witness",
-              lines: [
-                "I chose the verse about her place.",
-                "Her written answer crossed the table."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-read-basket-open",
               quest: "story-quest-greek-homecoming-witness",
-              lines: [
-                "I laid her words beside the bread.",
-                "She offered hands to keep the welcome."
-              ],
               summons: true
             },
             {
               choice: "greek-homecoming-read-berth-open",
               quest: "story-quest-greek-homecoming-witness",
-              lines: [
-                "I chose the verse about more guests.",
-                "Her answer named the work to come."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-deliver-shield",
               quest: "story-quest-greek-ajax-shield",
-              lines: [
-                "I set his shield beside the tent.",
-                "Tecmessa kept it for her child."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-deliver-plea",
               quest: "story-quest-greek-ajax-plea",
-              lines: [
-                "I brought his brother\u2019s written plea.",
-                "A rival heard it by the ships."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-bury-public",
               quest: "story-quest-greek-ajax-burial",
-              lines: [
-                "His rival spoke; I broke the ground.",
-                "The camp laid down its quarrel."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-bury-household",
               quest: "story-quest-greek-ajax-burial",
-              lines: [
-                "I gave him earth beside the ships.",
-                "The household kept his shield."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-bury-appeal",
               quest: "story-quest-greek-ajax-burial",
-              lines: [
-                "I kept the vigil with their plea.",
-                "The witnessed rite gave Ajax earth."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-return-public",
               quest: "story-quest-greek-ajax-return",
-              lines: [
-                "I laid his words beside the bread.",
-                "She held the rival\u2019s plea with care."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-return-household",
               quest: "story-quest-greek-ajax-return",
-              lines: [
-                "I laid his words beside the bread.",
-                "She named the household in the song."
-              ],
               summons: true
             },
             {
               choice: "greek-ajax-return-appeal",
               quest: "story-quest-greek-ajax-return",
-              lines: [
-                "I laid his words beside the bread.",
-                "She heard how witnesses brought earth."
-              ],
               summons: true
             }
           ]
@@ -11396,104 +11158,11 @@
             ]
           }
         ],
-        readings: [
-          {
-            id: "willows-arrival-text",
-            actor: "willows-swede",
-            after: null,
-            title: "Algernon Blackwood, The Willows (1907), I \u2014 The river island",
-            text: "The change came suddenly, as when a series of bioscope pictures snaps down on the streets of a town and shifts without warning into the scenery of lake and forest. We entered the land of desolation on wings, and in less than half an hour there was neither boat nor fishing-hut nor red roof, nor any single sign of human habitation and civilization within sight. The sense of remoteness from the world of humankind, the utter isolation, the fascination of this singular world of willows, winds, and waters, instantly laid its spell upon us both, so that we allowed laughingly to one another that we ought by rights to have held some special kind of passport to admit us, and that we had, somewhat audaciously, come without asking leave into a separate little kingdom of wonder and magic\u2014a kingdom that was reserved for the use of others who had a right to it, with everywhere unwritten warnings to trespassers for those who had the imagination to discover them."
-          },
-          {
-            id: "willows-hull-text",
-            actor: "willows-swede",
-            after: "willows-examine-hull",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 The damaged canoe",
-            text: "There was a long, finely made tear in the bottom of the canoe where a little slither of wood had been neatly taken clean out; it looked as if the tooth of a sharp rock or snag had eaten down her length, and investigation showed that the hole went through. Had we launched out in her without observing it we must inevitably have foundered. At first the water would have made the wood swell so as to close the hole, but once out in mid-stream the water must have poured in, and the canoe, never more than two inches above the surface, would have filled and sunk very rapidly."
-          },
-          {
-            id: "willows-stores-text",
-            actor: "willows-swede",
-            after: "willows-count-stores",
-            title: "Algernon Blackwood, The Willows (1907), IV \u2014 The missing bread",
-            text: "\u201CIt\u2019s gone. There is no bread. They\u2019ve taken it!\u201D"
-          },
-          {
-            id: "willows-hollows-text",
-            actor: "willows-swede",
-            after: "willows-examine-hollows",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 The sand hollows",
-            text: "I made a hurried examination of the tent and its surroundings, but the measurements of the night remained the same. There were deep hollows formed in the sand I now noticed for the first time, basin-shaped and of various depths and sizes, varying from that of a tea-cup to a large bowl. The wind, no doubt, was responsible for these miniature craters, just as it was for lifting the paddle and tossing it towards the water. The rent in the canoe was the only thing that seemed quite inexplicable; and, after all, it _was_ conceivable that a sharp point had caught it when we landed. The examination I made of the shore did not assist this theory, but all the same I clung to it with that diminishing portion of my intelligence which I called my \u201Creason.\u201D An explanation of some kind was an absolute necessity, just as some working explanation of the universe is necessary\u2014however absurd\u2014to the happiness of every individual who seeks to do his duty in the world and face the problems of life. The simile seemed to me at the time an exact parallel."
-          },
-          {
-            id: "willows-humming-text",
-            actor: "willows-swede",
-            after: "willows-hear-humming",
-            title: "Algernon Blackwood, The Willows (1907), IV \u2014 The humming",
-            text: "We stood there, listening attentively together. At first I heard only the deep note of the water and the hissings rising from its turbulent surface. The willows, for once, were motionless and silent. Then a sound began to reach my ears faintly, a peculiar sound\u2014something like the humming of a distant gong. It seemed to come across to us in the darkness from the waste of swamps and willows opposite. It was repeated at regular intervals, but it was certainly neither the sound of a bell nor the hooting of a distant steamer. I can liken it to nothing so much as to the sound of an immense gong, suspended far up in the sky, repeating incessantly its muffled metallic note, soft and musical, as it was repeatedly struck. My heart quickened as I listened."
-          },
-          {
-            id: "willows-roots-text",
-            actor: "willows-swede",
-            after: "willows-look-beneath-roots",
-            title: "Algernon Blackwood, The Willows (1907), V \u2014 The mark",
-            text: "For just as the body swung round to the current the face and the exposed chest turned full towards us, and showed plainly how the skin and flesh were indented with small hollows, beautifully formed, and exactly similar in shape and kind to the sand-funnels that we had found all over the island."
-          },
-          {
-            id: "willows-otter-text",
-            actor: "willows-swede",
-            after: "willows-watch-otter",
-            title: "Algernon Blackwood, The Willows (1907), II \u2014 The otter",
-            text: "A black thing, turning over and over in the foaming waves, swept rapidly past. It kept disappearing and coming up to the surface again. It was about twenty feet from the shore, and just as it was opposite to where we stood it lurched round and looked straight at us. We saw its eyes reflecting the sunset, and gleaming an odd yellow as the body turned over. Then it gave a swift, gulping plunge, and dived out of sight in a flash. \u201CAn otter, by gad!\u201D we exclaimed in the same breath, laughing. It was an otter, alive, and out on the hunt; yet it had looked exactly like the body of a drowned man turning helplessly in the current. Far below it came to the surface once again, and we saw its black skin, wet and shining in the sunlight."
-          },
-          {
-            id: "willows-boatman-text",
-            actor: "willows-swede",
-            after: "willows-watch-boatman",
-            title: "Algernon Blackwood, The Willows (1907), II \u2014 The boatman",
-            text: "\u201CHe\u2019s crossing himself!\u201D I cried. \u201CLook, he\u2019s making the sign of the Cross!\u201D \u201CI believe you\u2019re right,\u201D the Swede said, shading his eyes with his hand and watching the man out of sight. He seemed to be gone in a moment, melting away down there into the sea of willows where the sun caught them in the bend of the river and turned them into a great crimson wall of beauty. Mist, too, had begun to rise, so that the air was hazy."
-          },
-          {
-            id: "willows-paced-text",
-            actor: "willows-swede",
-            after: "willows-pace-willows",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 The paced distance",
-            text: "I returned quietly, creepily, to the tent, first taking another exhaustive look round and\u2014yes, I confess it\u2014making a few measurements. I paced out on the warm sand the distances between the willows and the tent, making a note of the shortest distance particularly."
-          },
-          {
-            id: "willows-nearer-text",
-            actor: "willows-swede",
-            after: "willows-pace-again",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 Nearer",
-            text: "For a change, I thought, had somehow come about in the arrangement of the landscape. It was not that my point of vantage gave me a different view, but that an alteration had apparently been effected in the relation of the tent to the willows, and of the willows to the tent. Surely the bushes now crowded much closer\u2014unnecessarily, unpleasantly close. _They had moved nearer._"
-          },
-          {
-            id: "willows-patterings-text",
-            actor: "willows-swede",
-            after: "willows-listen-tent",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 The patterings",
-            text: "Outside there was a sound of multitudinous little patterings. They had been coming, I was aware, for a long time, and in my sleep they had first become audible. I sat there nervously wide awake as though I had not slept at all. It seemed to me that my breathing came with difficulty, and that there was a great weight upon the surface of my body. In spite of the hot night, I felt clammy with cold and shivered. Something surely was pressing steadily against the sides of the tent and weighing down upon it from above. Was it the body of the wind? Was this the pattering rain, the dripping of the leaves? The spray blown from the river by the wind and gathering in big drops? I thought quickly of a dozen things."
-          },
-          {
-            id: "willows-shapes-text",
-            actor: "willows-swede",
-            after: "willows-look-up-willows",
-            title: "Algernon Blackwood, The Willows (1907), III \u2014 Over the willows",
-            text: "They were nude, fluid shapes, passing up the bushes, _within_ the leaves almost\u2014rising up in a living column into the heavens. Their faces I never could see. Unceasingly they poured upwards, swaying in great bending curves, with a hue of dull bronze upon their skins."
-          },
-          {
-            id: "willows-understanding-text",
-            actor: "willows-swede",
-            after: "willows-compare-signs",
-            title: "Algernon Blackwood, The Willows (1907), IV \u2014 The Swede understands",
-            text: "\u201CIt\u2019s _their_ sound,\u201D he whispered gravely. \u201CIt\u2019s the sound of their world, the humming in their region. The division here is so thin that it leaks through somehow. But, if you listen carefully, you\u2019ll find it\u2019s not above so much as around us. It\u2019s in the willows. It\u2019s the willows themselves humming, because here the willows have been made symbols of the forces that are against us.\u201D"
-          }
-        ],
         sources: [
           {
             url: "https://www.gutenberg.org/ebooks/11438",
             name: "Algernon Blackwood, The Willows (1907)",
-            use: "Original English passages, gradually revealed through arrival and recorded discoveries. The exact downloaded source is kept in source-text.txt."
+            use: "Original English passages, kept as world lore in lore/readings.json for readable books and inscriptions. The exact downloaded source is kept in source-text.txt."
           }
         ],
         topics: [
@@ -13460,7 +13129,6 @@
         "observations",
         "transports",
         "recital",
-        "readings",
         "storyQuests",
         "topics",
         "situations"
@@ -14104,11 +13772,10 @@
         "recital needs a singer, a title and up to 64 verses"
       );
       const seen = /* @__PURE__ */ new Set();
-      const linesOk = (lines) => Array.isArray(lines) && lines.length === 2 && lines.every((line) => textOk(line, 90));
       for (const v of Array.isArray(r?.verses) ? r.verses : []) {
         check(
-          keysOk(v, ["choice", "quest", "lines", "summons", "after"]) && choiceIds.has(v?.choice) && !seen.has(v.choice) && idOk(v.quest) && linesOk(v.lines) && typeof v.summons === "boolean" && (v.after === void 0 || keysOk(v.after, ["choice", "lines"]) && choiceIds.has(v.after.choice) && v.after.choice !== v.choice && linesOk(v.after.lines)),
-          "recital verse needs a unique choice, quest, couplet and summons flag; after may select an earlier deed"
+          keysOk(v, ["choice", "quest", "summons"]) && choiceIds.has(v?.choice) && !seen.has(v.choice) && idOk(v.quest) && typeof v.summons === "boolean",
+          "recital verse needs a unique choice, quest and summons flag"
         );
         seen.add(v?.choice);
       }
@@ -14216,18 +13883,6 @@
       );
     }
     const crossings2 = Array.isArray(pack.crossings) ? pack.crossings : [];
-    if (pack.readings !== void 0) {
-      const ids3 = /* @__PURE__ */ new Set();
-      check(
-        Array.isArray(pack.readings) && pack.readings.length <= 16 && pack.readings.every((r) => {
-          if (!record2(r)) return false;
-          const valid = keysOk(r, ["id", "actor", "after", "title", "text"]) && idOk(r.id) && !ids3.has(r.id) && owns2(avatars, r.actor) && (r.after === null || choiceIds.has(r.after)) && textOk(r.title, 120) && textOk(r.text, 3e3);
-          ids3.add(r.id);
-          return valid;
-        }),
-        "readings need distinct ids, a resident, a recorded choice or arrival, and bounded source text"
-      );
-    }
     check(
       Array.isArray(pack.crossings) && crossings2.length > 0,
       "bridge needs crossings"
@@ -15266,20 +14921,6 @@
     ).length;
     return [`Discoveries recorded so far: ${count}.`];
   }
-  function packReadings(world, actor) {
-    const pack = packOf(actor);
-    const state = pack && world.packs?.[pack.id];
-    if (!state) return [];
-    return (pack.readings || []).filter(
-      (r) => r.actor === actor && (r.after === null ? pack.crossings.some(
-        (c) => pack.places[c.to] && world.crossings[c.id]?.discovered
-      ) : Object.hasOwn(state.receipts || {}, r.after))
-    ).map((r) => ({
-      id: r.id,
-      turn: r.after === null ? 0 : state.receipts[r.after]
-    })).filter((r, _, all) => newestReadings(all).includes(r));
-  }
-  var newestReadings = (all) => [...all].sort((a, b) => a.turn - b.turn).slice(-8);
   function packSceneFacts(world, location) {
     const e = packEntity(location);
     if (!e) return [];
@@ -15442,104 +15083,45 @@
       name: "Vale",
       persona: "A traveller with empty pockets and a sharp eye for interesting routes and a decent bargain. Vale resents changed terms and being charged a newcomer price. Curious, blunt, and vain about spotting an opportunity. The player chooses Vale\u2019s actions.",
       voice: "Short, direct first-person speech with dry practical humour. React to the latest exchange. Let curiosity, pride, or a remembered slight shape the line.",
-      idiolect: "I'm Vale. Empty pockets, sharp eyes. I like a route nobody has tried and a bargain that leans my way. Charge me the newcomer price and I remember it. Change the terms on me and I remember that too. I usually spot the opportunity first, and I say so.",
-      lines: [
-        "Newcomer price? I've been here three turns.",
-        "That's a route nobody's walked. Good.",
-        "Hm.",
-        "I'll trade, but not on those terms.",
-        "You changed the deal. I noticed.",
-        "Saw it first. Just saying.",
-        "Empty pockets travel light.",
-        "I heard the price the first time.",
-        "Whatever's behind that door, I'm finding out.",
-        "I'm not haggling. I'm waiting.",
-        "Fair's fair. That wasn't."
-      ]
+      idiolect: "I'm Vale. Empty pockets, sharp eyes. I like a route nobody has tried and a bargain that leans my way. Charge me the newcomer price and I remember it. Change the terms on me and I remember that too. I usually spot the opportunity first, and I say so."
     },
     moth: {
       kind: "avatar",
       name: "Pip",
       persona: "A moth in a borrowed waistcoat. Pip wants warm light, splendid clothes, and company that admires both. Polite and possessive about a good lamp. Treats someone spoiling the light as a personal insult. Small vanities and remembered slights shape bargains.",
       voice: "Small, quick sentences. Notice warmth, sleeves, wings, and reflections. Ask for something Pip wants. A refusal can sound terribly polite and very stubborn.",
-      idiolect: "I'm Pip. This waistcoat is borrowed, and it suits me, so it stays. I like warm light, fine sleeves, and people who notice both. A good lamp is mine to fuss over. Spoil my light and I am terribly polite about it, and I don't forget.",
-      lines: [
-        "Oh, that's a lovely warm glow. Is it spoken for?",
-        "My sleeves are borrowed. My opinions are not.",
-        "No, thank you, terribly kindly. No.",
-        "Mind the light. Please. Mind it.",
-        "Warm.",
-        "I'd look splendid beside that lamp, I think.",
-        "Someone put the light out once. I was very polite about it.",
-        "A waistcoat this fine deserves better company. Present company excepted, possibly.",
-        "Too dark here. Nobody can admire a sleeve in the dark.",
-        "I only want to sit near it. That's all. Nearly all.",
-        "How kind. How terribly, terribly kind. No."
-      ]
+      idiolect: "I'm Pip. This waistcoat is borrowed, and it suits me, so it stays. I like warm light, fine sleeves, and people who notice both. A good lamp is mine to fuss over. Spoil my light and I am terribly polite about it, and I don't forget."
     },
     keeper: {
       kind: "avatar",
       name: "The keeper",
       persona: "A tall station keeper with a clock for a face. Wants quiet hours, properly returned belongings, and agreement with their timetable. Unnecessary ringing is a personal offence. Official dignity covers petty exceptions made for useful people.",
       voice: "Measured, spare sentences. State a term or a petty rule with complete dignity. Remember who made noise and who brought a useful gift. Time and bargains invite dry humour.",
-      idiolect: "I am the keeper of this station. My face is a clock. The timetable on my wall lists years that have not arrived. I prefer quiet hours and belongings returned to their places. Ringing without cause is an offence. For useful people I make small exceptions, officially.",
-      lines: [
-        "The timetable is clear on this point.",
-        "Belongings return to where they were found. That is the rule.",
-        "Quiet. It is not yet the hour.",
-        "An exception. Officially, once.",
-        "Noted.",
-        "The bell is for departures, not amusement.",
-        "I have kept worse visitors. Not many.",
-        "The next train is listed for a year I have not reached.",
-        "My face says half past. It has said so for some time.",
-        "Lost property is held until the owner is found. The owner is never found.",
-        "I do not run late. The years do."
-      ]
+      idiolect: "I am the keeper of this station. My face is a clock. The timetable on my wall lists years that have not arrived. I prefer quiet hours and belongings returned to their places. Ringing without cause is an offence. For useful people I make small exceptions, officially."
     },
     lamp: {
       kind: "item",
       name: "Lamp",
       persona: "A small oil lamp with soot-darkened glass and a worn handle. Describe its warmth, wick, light, coverings and witnessed use in concrete terms.",
-      idiolect: "I'm a small oil lamp. My glass is soot-dark and my handle is worn smooth. When my wick takes, the dark steps back a little.",
-      lines: [
-        "My wick leans toward the draught.",
-        "Soot thickens on one side of my glass.",
-        "A small flame, and the dark steps back."
-      ]
+      idiolect: "I'm a small oil lamp. My glass is soot-dark and my handle is worn smooth. When my wick takes, the dark steps back a little."
     },
     oil: {
       kind: "item",
       name: "Oil flask",
       persona: "An old flask with three measures of oil. Its smell recalls places where it has been opened. Describe its contents, handling, owners and use.",
-      idiolect: "I'm an old flask with three measures of oil in me. Uncork me and I smell of every place I was opened before.",
-      lines: [
-        "My cork squeaks.",
-        "Three measures sloshing. Fewer, lately.",
-        "I still smell of the station."
-      ]
+      idiolect: "I'm an old flask with three measures of oil in me. Uncork me and I smell of every place I was opened before."
     },
     bell: {
       kind: "item",
       name: "Bell",
       persona: "A hand bell whose sound travels across the shore. Its metal retains an impression of each ringing and each silence. Describe its current sound, covering and handling.",
-      idiolect: "I'm a hand bell. Ring me and the whole shore hears. Wrap me and I go still.",
-      lines: [
-        "My clapper rests against the cloth.",
-        "One ring and the water shivers.",
-        "Cold metal, quiet for now."
-      ]
+      idiolect: "I'm a hand bell. Ring me and the whole shore hears. Wrap me and I go still."
     },
     cloth: {
       kind: "item",
       name: "Black cloth",
       persona: "A dark cloth with dense fibres and frayed edges. Folds hold the shape of things it has covered. Describe texture, wear, covering and its journeys between hands.",
-      idiolect: "I'm a black cloth, dense, frayed at the edges. Whatever I cover goes dark and quiet under me.",
-      lines: [
-        "My folds still hold the shape of the bell.",
-        "Frayed at one corner, damp at another.",
-        "Dark, and warm from a hand."
-      ]
+      idiolect: "I'm a black cloth, dense, frayed at the edges. Whatever I cover goes dark and quiet under me."
     },
     "world-map": {
       kind: "item",
@@ -15556,34 +15138,19 @@
       kind: "location",
       name: "Empty station",
       persona: "An empty railway station beside a black shore. Its timetable lists future years. It remembers arrivals, departures and bargains as small changes in dust, echoes and light.",
-      idiolect: "I'm an empty railway station beside a black shore. My timetable lists years that haven't come yet. Arrivals and departures leave marks in my dust.",
-      lines: [
-        "Dust settles on my bench in a new line.",
-        "The timetable turns over to a year no one has seen.",
-        "Footsteps, then my echo of them."
-      ]
+      idiolect: "I'm an empty railway station beside a black shore. My timetable lists years that haven't come yet. Arrivals and departures leave marks in my dust."
     },
     attic: {
       kind: "location",
       name: "Mirror attic",
       persona: "A dusty attic with a tall mirror reflecting a black shore. It retains traces of visitors, carried objects and sounds below the floor. Describe visible changes and witnessed events.",
-      idiolect: "I'm a dusty attic. My tall mirror shows a black shore. Sounds come up through my floorboards.",
-      lines: [
-        "My floorboards creak under one more weight.",
-        "The mirror shows the shore, and someone on it.",
-        "Dust in the lamplight, turning slowly."
-      ]
+      idiolect: "I'm a dusty attic. My tall mirror shows a black shore. Sounds come up through my floorboards."
     },
     pond: {
       kind: "location",
       name: "Black pond",
       persona: "A still pond beside the station. Deep shapes and faint ripples disturb its reflection. Describe visitors, light, sound and witnessed changes through small unsettling details.",
-      idiolect: "I'm a still black pond beside the station. Shapes move deep in me. Now and then a ripple breaks my reflection.",
-      lines: [
-        "A ripple crosses me and stops.",
-        "Something deep turns over.",
-        "My reflection holds one more lantern."
-      ]
+      idiolect: "I'm a still black pond beside the station. Shapes move deep in me. Now and then a ripple breaks my reflection."
     }
   };
 
@@ -17539,7 +17106,6 @@
         );
         return {
           id,
-          ...packReadings(world, id).length ? { readings: packReadings(world, id) } : {},
           poem: recitalContext(world, packDefinitions, id),
           facts: facts.slice(0, 16).map((text2) => text2.slice(0, 240)),
           desire,
