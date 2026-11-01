@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import {
   archiveLocal,
   avatarSlot,
+  deleteLocal,
   createAvatarWorld,
   localWorldName,
 } from "../v2/card-game/avatar-world.mjs";
@@ -37,4 +38,8 @@ it("keeps Vale in the original slot and names each local world", () => {
   archiveLocal("ash", storage);
   expect(localWorldName("ash", storage)).toBe(null);
   expect(store.has(`${avatarSlot("ash")}.bak`)).toBe(true);
+  storage.setItem(avatarSlot("ash"), encodeSave(createAvatarWorld("ash", 9)));
+  deleteLocal("ash", storage);
+  expect(localWorldName("ash", storage)).toBe(null);
+  expect(store.has(`${avatarSlot("ash")}.bak`)).toBe(false);
 });

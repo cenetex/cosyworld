@@ -51,7 +51,7 @@ Tapping a row opens its actions:
 
 | Avatar | Actions |
 | --- | --- |
-| In a world | **Play** (go there), **Move**, **Leave** |
+| In a world | **Play** (go there), **Move**, **Leave**, **Delete world** (local) |
 | In no world | **New world**, **Join** |
 
 - **Play** opens that world as that avatar.
@@ -61,6 +61,11 @@ Tapping a row opens its actions:
 - **Leave** asks once: "Leave *Hollowmere*? Vale's things stay there." In a
   shared world it releases the claim. In a local world it archives the save
   (`.bak`, as New game does today).
+- **Delete world** removes a local world's save and its backup. The button
+  turns red on the first tap ("Delete *Hollowmere*?") and deletes on the
+  second. The avatar is then not in a world; if it was the one being played,
+  the table opens the next avatar's world, or a fresh one. The server has no
+  world delete, so a shared world offers only Leave.
 - **New world** starts a local world for that avatar.
 - **Join** lists named worlds you own or were invited to that have room.
 
@@ -78,7 +83,8 @@ scares, Fast fights, OpenRouter, Backup (Save · Restore), Passkey (Add · Sign
 out) and Controls. It holds no world actions.
 
 The menu shows now, not a log: where each avatar is now. There is no list of
-past worlds, and no world-level delete. A world without your avatars is
+past worlds. Delete world (owner request, 2026-11-01) removes only local
+saves. A world without your avatars is
 reached only through Move or Join.
 
 ### Mockups
@@ -99,7 +105,7 @@ Desktop (1440 × 900):
 
 ### Words
 
-Play, Move, Leave, New world, Join, here, in *Name*, not in a world, Memory,
+Play, Move, Leave, Delete world, New world, Join, here, in *Name*, not in a world, Memory,
 Inner life, Invite, Settings. Gone: Worlds, Share, Your worlds, Continue as,
 Return to my game, Release this avatar, Leave this room, Refresh avatars,
 Claimed, "The reflected shore · N avatars available", the `?table=` warning
