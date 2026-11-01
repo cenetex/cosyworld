@@ -131,13 +131,6 @@ button:focus-visible {
 .build-info a {
   color: inherit;
 }
-.notice {
-  padding: 8px 16px;
-  margin: 0;
-  background: #564525;
-  font-size: 13px;
-  flex: none;
-}
 main {
   min-height: 0;
   display: flex;
@@ -1051,6 +1044,15 @@ body .card-frame:has(> .card.location:not([data-unrevealed="true"])) {
 .hand > .card-frame:not([hidden]) ~ .card-frame {
   margin-left: calc(var(--fan-overlap) * -1);
 }
+/* A raised or chosen card lies on top, so the card after it moves out from
+   under it instead of hiding the start of its name. */
+.hand
+  > .card-frame:is(
+    [data-raised="true"],
+    :has(> .card[data-selected="true"])
+  ):has(~ .card-frame:not([hidden])) {
+  margin-right: var(--fan-overlap);
+}
 body .hand > .card-frame {
   --fan-at: 0;
   rotate: calc(clamp(-4, var(--fan-at), 4) * 1.2deg);
@@ -1442,6 +1444,15 @@ body .card.want-card[data-met="true"] {
 /* A strike or journey drops the hand; its buttons leave with it. */
 .play-dock[data-dropped="true"] > .action-panel {
   display: none;
+}
+/* The action bar's status line: words only, never over the stage (#1725). */
+.play-status {
+  margin: 0 0 4px;
+  color: #f2e3c4;
+  font-size: 13px;
+  text-align: left;
+  text-shadow: 0 1px 3px #000;
+  overflow-wrap: anywhere;
 }
 #card-actions {
   display: flex;

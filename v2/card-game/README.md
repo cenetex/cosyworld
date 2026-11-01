@@ -284,7 +284,9 @@ upright at 2:3, the shape of the carved cover; an uncovered place keeps a wider,
 landscape-leaning card (4:5 on phones). The hand fans: each card overlaps the
 one before it and leans with its place in the row, and the chosen or hovered
 card comes to the front. Names stay clear of the next card's overlap and wrap
-rather than hide under it, and the hand leaves room for the outer cards' lean,
+rather than hide under it. The card after a chosen or open card moves out from
+under it, so a long name like "Road to Theban Courtyard" keeps its first
+letters. The hand leaves room for the outer cards' lean,
 the folded quest and a chosen card's lift, so nothing is clipped at its edges.
 Cards carry no count badges; opening a stack shows its cards. Tapping a card toggles
 its selection. Selecting a card or pair shows named actions in the row below.
@@ -307,16 +309,16 @@ On wide screens, the resting hand occupies two card widths at the right. Dialogu
 sits at the left. Selecting a card opens the hand across the screen and moves
 dialogue above it. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, cards fade out at an edge that hides more of the hand, and a sideways swipe stays inside the hand.
 Play stays available during an exchange. A play that has not resolved shows
-what the avatar is doing, as a rules caption from its kind: the button reads
-**Waiting…**, **Striking…** or **Travelling…** and the notice
-**Vale is waiting…**. In a local game tapping it again cancels it. Selecting another
+what the avatar is doing on its own button, as a rules caption from its kind:
+**Waiting…**, **Striking…** or **Travelling…**. In a local game tapping it again cancels it. Selecting another
 card clears the waiting play. Shared play waits for the player's current turn
 to finish, then checks the chosen action against the current table before
 sending it. There a second tap keeps the play; **Cancel play** withdraws it.
-The notice follows the player's own shared play: the same **Vale is waiting…**
-line while it is sent and played, a short **Played**, or **Not played** with
-the server's reason. A refusal stays until the next play and does not return on
-reload.
+The button keeps that caption while the shared play is sent and played.
+Nothing floats over the stage. Words the player must see, such as **Not played**
+with the server's reason, an unsaved world, a lost connection or a nudge, read
+on the action bar's status line above the hand. A refusal stays until the next
+play and does not return on reload.
 Selection, cancellation,
 drag pairing and keyboard navigation spend no turn; only a committed play does.
 The latest selected carried item appears in the player's avatar hand.
@@ -844,7 +846,7 @@ Run `node v2/scripts/smoke-card-combat.mjs` for a lost standoff at desktop, phon
 
 Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand and action row open together over 220 milliseconds; held items slide out from their owner. A play in the same place refreshes the cards as the hand lowers, with each name moving into its resting position. Travel changes the hand under the scene veil. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Memory keep the selected cards and open items, and Escape closes the active panel before lowering the hand. Only a click outside the card area (the stage or the dialogue's beats, not the toolbar or action row), Escape, or a play folds the hand to its resting row. A click outside keeps the selection and any chosen play; the next tap on the hand only raises it again as it was. A tap on the beats while the hand is up folds the hand without stepping the beat. Selecting, changing the pair and deselecting keep it open, as do the scroll arrows and empty hand space. A held item stays raised with its plays, and any tap on the folded hand opens it again. Short landscape screens keep the hand inside the viewport.
 
-A ready or pending play's buttons sit under the dialogue, above the hand. The hand never moves for them: the dialogue rises to make room, and nothing lies between the cards and the screen edge. Beside a resting hand on a wide screen, the buttons sit under the dialogue on the left. A strike or journey that drops the hand takes the buttons with it. The action bar's status line (#1725) belongs in the same spot. Captions name a thing with one article: "Vale took the Burial Decree". `node v2/scripts/smoke-card-action-spot.mjs` checks the spot at 1440, 390 and 844 px.
+A ready or pending play's buttons sit under the dialogue, above the hand. The hand never moves for them: the dialogue rises to make room, and nothing lies between the cards and the screen edge. Beside a resting hand on a wide screen, the buttons sit under the dialogue on the left. A strike or journey that drops the hand takes the buttons with it. The action bar's status line (#1725) sits in the same spot, above the buttons. Captions name a thing with one article: "Vale took the Burial Decree". `node v2/scripts/smoke-card-action-spot.mjs` checks the spot at 1440, 390 and 844 px.
 
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
 

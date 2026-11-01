@@ -5,7 +5,6 @@ import {
   cardPlay,
   playLabel,
   playProgress,
-  playProgressLine,
   playText,
 } from "../v2/card-game/cards.mjs";
 import {
@@ -90,7 +89,7 @@ describe("named card actions", () => {
     expect(action.kind).toBe("wait");
     expect(playLabel(action)).toBe("Wait");
     expect(hint).toBe("Vale waits one turn.");
-    expect(playProgressLine("vale", action)).toBe("Vale is waiting…");
+    expect(playProgress(action)).toBe("waiting");
     expect(playProgress({ kind: "attack" })).toBe("striking");
     expect(playProgress({ kind: "move", item: "lamp" })).toBe("carrying");
     expect(playProgress({ kind: "pack-choice" })).toBe("acting");
@@ -101,7 +100,7 @@ describe("named card actions", () => {
     const brace = { kind: "guard", actor: "moth", target: "vale" };
     expect(playLabel(strike)).toBe("Strike");
     expect(playLabel(brace)).toBe("Brace");
-    expect(playProgressLine("vale", strike)).toBe("Vale is striking…");
+    expect(playProgress(strike)).toBe("striking");
     expect(playText(strike)).toBe("Vale strikes the keeper.");
     expect(playText(brace)).toBe("Pip braces against Vale.");
   });

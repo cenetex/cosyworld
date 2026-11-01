@@ -8,6 +8,8 @@ export const humanAvatars = roster.avatars;
 const avatarName = (id) => humanAvatars.find((a) => a.id === id)?.name || id;
 const $ = (id) => document.getElementById(id);
 let modal;
+// The table's status line, for errors outside the shared-world dialog.
+let tableNotice = () => {};
 function ensureSharedStyle() {
   if (document.getElementById("shared-table-style")) return;
   const style = document.createElement("link");
@@ -43,10 +45,9 @@ function errorText(error) {
     : error.message;
 }
 function showError(error) {
-  const target = modal?.open ? $("shared-error") : $("notice");
-  if (!target) return;
-  target.hidden = false;
-  target.textContent = errorText(error);
+  if (!modal?.open) return tableNotice(errorText(error));
+  $("shared-error").hidden = false;
+  $("shared-error").textContent = errorText(error);
 }
 // A shared world belongs to everyone in it, so no one starts it over. A
 // rules refusal to load it means the world waits for an update.
@@ -440,6 +441,7 @@ export function installSharedControls({
   getWorld = () => null,
   notice,
 }) {
+  tableNotice = notice;
   ensureSharedStyle();
   const linkedWorld = () => {
     try {

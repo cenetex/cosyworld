@@ -125,12 +125,12 @@ try {
     }
   }
 
-  // Storage blocked: the opening still plays, with the unsaved-tab notice.
+  // Storage blocked: the opening still plays, with the unsaved-tab status line.
   const { context, page, errors } = await open("no-storage", profiles["low-end-360x740"], {
     blockStorage: true,
   });
   try {
-    assert.match(await page.locator("#notice").textContent(), /could not save the world/);
+    assert.match(await page.locator("#play-status").textContent(), /could not save the world/);
     assert.equal(await page.locator("#place-title").textContent(), "…");
     await revealCard(page, "vale");
     await revealCard(page, "attic");
