@@ -150,6 +150,15 @@ Move, Leave, Delete *Mara*, Avatars taken here, Players in this world,
 Claimed, "The reflected shore · N avatars available", the `?table=` warning
 and the "Your game saves in this browser" paragraph.
 
+## Later: the cast ledger
+
+Planning, not built (UI only, no engine change). An opt-in ☰ tool, beside
+Memory: each pack's residents as silhouettes until your avatar has talked with
+them, then as cards filled from journal facts the avatar witnessed: their want,
+home and temperament. Each pack shows a count ("Greece · 7 of 19 met"). It
+shows what is true now, not a log, and stays closed unless opened. A resident
+you have not reached is a silhouette, not a hint to go there.
+
 ## World names
 
 `v2/card-game/world-names.json` holds cosy, uncanny place names: whole names

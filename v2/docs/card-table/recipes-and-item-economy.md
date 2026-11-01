@@ -396,3 +396,22 @@ Forest) follows as data-only PRs.
 | Should Helen's passage spend provisions (`retire_item`)? | Yes, so the loop continues. |
 | Should oil and the lamp move to `renews`/`places` later? | Yes, in a later rules batch. It is the same pattern. |
 | Should combining give XP? | No. Only wants give XP. |
+
+## 10. Later: collectors, property and other worlds
+
+Planning, not built. Each reuses wants, `makes` and doorways.
+
+- **Collector (pack data).** A resident with a standing want for one of each
+  kind of item in a set (Animal Crossing's museum). Each item given is kept on
+  display at its home; meeting the whole want opens a doorway from a `beyond`
+  table. It needs a set-shaped want kind if `want.mjs` lacks one (engine,
+  small).
+- **Property (pack data).** A reward place that makes items: a quest reward
+  can be a place with a `makes` table whose output lands there on the world
+  clock (rent). Clock-driven production is cut for now, so property waits for
+  it.
+- **Other worlds' items (pack data).** A want can name an item native to
+  another world, so players trade and bring companions along. It is never the
+  only path for a solo player: the same want must also be met by something
+  the solo world can make or find. Cross-references
+  [ship voyages](../../../docs/design/ship-voyages-and-scattered-things.md).
