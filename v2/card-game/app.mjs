@@ -3948,6 +3948,7 @@ installSharedControls({
     if (saveBlocked) throw new Error("Open a valid saved game before sharing.");
     return encodeSave(world);
   },
+  getWorld: () => world,
   notice,
 });
 installToolbar({ session: sharedSession, getWorld: () => world });
