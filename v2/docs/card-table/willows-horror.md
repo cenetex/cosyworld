@@ -300,7 +300,6 @@ These are hard rules for every presentation change:
 
 ## Validation
 
-Rule changes run `test/card-willows.test.mjs`,
-`v2/orchestrator-rust/src/card_shared/willows_tests.rs` and
-`v2/scripts/smoke-card-willows.mjs`, then rebuild the shared engine and the
+Rule changes run `test/card-willows.test.mjs` and
+`v2/orchestrator-rust/src/card_shared/willows_tests.rs`, then rebuild the shared engine and the
 pack. During alpha, old saves may break.
