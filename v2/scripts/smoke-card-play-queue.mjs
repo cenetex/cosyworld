@@ -184,7 +184,7 @@ try {
           queue = [];
           await page.waitForFunction(
             () =>
-              document.querySelector("#notice").textContent ===
+              document.querySelector("#play-status").textContent ===
               "The table changed. Choose a current play.",
           );
           assert.equal(plays.length, 0);

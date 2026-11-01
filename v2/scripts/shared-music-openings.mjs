@@ -135,7 +135,7 @@ export async function checkSharedMusicOpenings(browser, origin) {
           source: document.querySelector("#room-music")?.src,
           paused: document.querySelector("#room-music")?.paused,
           status: document.querySelector("#music-status")?.textContent,
-          notice: document.querySelector("#notice")?.textContent,
+          playStatus: document.querySelector("#play-status")?.textContent,
         })),
       );
       throw error;

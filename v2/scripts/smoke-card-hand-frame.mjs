@@ -8,8 +8,8 @@ import { availableCards } from "../card-game/cards.mjs";
 
 // Hand cards wear no count badges, a chosen card has one white edge, the
 // first card and its folded quest stay inside the hand, the folded quest is
-// a full-size face-down card with a glowing tier line, and no name hides
-// under the next card in the fan.
+// a full-size face-down card with a glowing tier line, and no name, long
+// two-line ones included, hides under a card on either side in the fan.
 const output = new URL("../../output/card-hand-frame/", import.meta.url);
 await mkdir(output, { recursive: true });
 const server = createServer();
@@ -27,15 +27,21 @@ world.actors.vale.want = {
   refusals: 0,
 };
 
-const inspect = () => {
+const inspect = (longName) => {
   const hand = document.querySelector("#hand"),
     box = hand.getBoundingClientRect(),
     frames = [...hand.querySelectorAll(".card-frame:not([hidden])")],
-    z = (el) => parseInt(getComputedStyle(el).zIndex) || 0,
+    renamed = [],
     problems = [];
-  frames.forEach((frame, i) => {
+  frames.forEach((frame) => {
     const card = frame.querySelector(".card"),
       id = card.dataset.card || "quest";
+    // A long two-line name, like "Road to Theban Courtyard", on every card.
+    const name = card.querySelector(".name");
+    if (longName && name) {
+      renamed.push([name, name.textContent]);
+      name.textContent = longName;
+    }
     for (const el of frame.querySelectorAll("*"))
       if (
         !el.closest(".sr-only, .name, .quest-head") &&
@@ -62,16 +68,23 @@ const inspect = () => {
       )
         problems.push(`${id} numeral colour`);
     }
-    // A name ends before the next card begins, unless this card is in front.
-    const name = card.querySelector(".name"),
-      next = frames[i + 1];
-    if (name?.textContent && next && z(frame) <= z(next)) {
+    // Every line of a name is in view at both ends: no card on either side,
+    // a raised or chosen one included, covers it. The hand's edges and
+    // arrows may hide cards scrolled past them.
+    if (name?.textContent && name.checkVisibility()) {
       const range = document.createRange();
       range.selectNodeContents(name);
-      const over =
-        range.getBoundingClientRect().right -
-        next.querySelector(".card").getBoundingClientRect().left;
-      if (over > 1) problems.push(`${id} name under next ${over.toFixed(1)}`);
+      for (const line of range.getClientRects())
+        for (const x of [line.left + 1, line.right - 1]) {
+          const hit = document.elementFromPoint(x, line.top + line.height / 2);
+          if (x < box.left || x > box.right || hit?.closest(".hand-scroll"))
+            continue;
+          const over = hit?.closest(".card-frame");
+          if (over !== frame)
+            problems.push(
+              `${id} name under ${over?.querySelector(".card")?.dataset.card ?? hit?.className}`,
+            );
+        }
     }
   });
   // The first card and its folded quest, rotated, inside the hand's clip box.
@@ -80,6 +93,7 @@ const inspect = () => {
     if (el.checkVisibility() && (rect.left < box.left || rect.top < box.top))
       problems.push(`${el.className} clipped`);
   }
+  for (const [name, text] of renamed) name.textContent = text;
   return problems;
 };
 
@@ -114,9 +128,12 @@ try {
         document.querySelector("#hand").scrollLeft = 0;
         await new Promise(requestAnimationFrame);
       });
+      await page.mouse.move(0, 0);
       assert.deepEqual(await page.evaluate(inspect), [], `${width} ${state}`);
       const path = new URL(`${width}-${state}.png`, output).pathname;
       await page.screenshot({ path });
+      const long = await page.evaluate(inspect, "Road to Theban Courtyard");
+      assert.deepEqual(long, [], `${width} ${state} long names`);
     };
     await check("rest");
     // The folded quest is a card in Vale's stack: Vale's size, the carved

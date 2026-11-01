@@ -129,7 +129,6 @@ import {
   cardPlay,
   playLabel,
   playProgress,
-  playProgressLine,
   playText,
   cardActions,
   cardObservation,
@@ -237,12 +236,19 @@ function node(tag, text, className) {
   if (className) el.className = className;
   return el;
 }
+// Nothing floats over the stage. A failure the player must see (a refused
+// play, an unsaved world, a lost connection, a nudge) reads on the action
+// bar's status line above the hand; a pending play reads on its own button.
 function notice(text, playStatus = "") {
   // Saved speech failures use the small dialogue retry control.
   if (/^(The|Your) play is saved\./.test(text)) return;
-  $("notice").textContent = text;
-  $("notice").hidden = !text;
-  $("notice").dataset.playStatus = text ? playStatus : "";
+  const line = $("play-status");
+  line.textContent = text;
+  line.hidden = !text;
+  line.dataset.playStatus = text ? playStatus : "";
+  const panel = document.querySelector(".action-panel");
+  if (text) panel.hidden = false;
+  else panel.hidden = !$("card-actions").children.length;
 }
 const localBackups =
   localRuntime()?.backups && !sharedSession
@@ -515,7 +521,6 @@ function selectionBlocked() {
 // The player's latest shared play, from sending until the table settles it.
 let sharedPlay = null;
 let sharedSending = false;
-let sharedPlayTimer = 0;
 let sharedRefusal = null;
 let sharedNoticeSeen;
 function ownSharedEntry() {
@@ -523,18 +528,11 @@ function ownSharedEntry() {
     (entry) => entry.actor === currentActor(world),
   );
 }
-// A chosen play that has not resolved reads as what the avatar is doing.
-// The button of a chosen, unresolved play: "Waiting…".
+// The button of a chosen, unresolved play reads as what the avatar is
+// doing: "Waiting…".
 function progressLabel(action) {
   const verb = playProgress(action);
   return `${verb[0].toUpperCase()}${verb.slice(1)}…`;
-}
-function showQueuedPlay() {
-  const pending = playQueue.pending;
-  if (!pending) return false;
-  const text = playProgressLine(currentActor(world), pending.action);
-  if ($("notice").textContent !== text) notice(text, "queued");
-  return true;
 }
 const playQueue = createPlayQueue({
   ready: () =>
@@ -552,11 +550,7 @@ const playQueue = createPlayQueue({
     if (sharedSession) void submitSharedPlay(action);
     else performAction(action, revision);
   },
-  changed: (pending) => {
-    if (pending) showQueuedPlay();
-    else if (["sent", "playing"].includes(sharedPlay?.state))
-      notice(sharedPlayText[sharedPlay.state](sharedPlay), sharedPlay.state);
-    else notice("");
+  changed: () => {
     // Capture the hand before a queued play folds it; refresh progress labels
     // even when the hand's render key is unchanged.
     const handBefore = renderedHand;
@@ -589,8 +583,7 @@ function updateCardCooldown() {
       button.draggable =
         !button.disabled && !cardIsCovered(button.dataset.card);
   }
-  if (playQueue.pending)
-    queueMicrotask(() => playQueue.flush() || showQueuedPlay());
+  if (playQueue.pending) queueMicrotask(() => playQueue.flush());
 }
 const exchange = createExchange({
   prepare: prepareScene,
@@ -1764,7 +1757,7 @@ function renderActions(animate = false) {
   $("selection-name").textContent = selected.length
     ? selectionName
     : "Card actions";
-  panel.hidden = !actions.length;
+  panel.hidden = !actions.length && $("play-status").hidden;
   // A folded row lies low even with a choice in it.
   document.querySelector(".play-dock").dataset.selected = String(
     selected.length > 0 && !rowCollapsed,
@@ -1890,7 +1883,7 @@ function renderActions(animate = false) {
         .then(() => {
           if (actionPanelMotion !== motion) return;
           actionPanelMotion = null;
-          panel.hidden = !row.children.length;
+          panel.hidden = !row.children.length && $("play-status").hidden;
         })
         .catch(() => {});
     }
@@ -4002,30 +3995,21 @@ function resumeScene({ otherTab = false } = {}) {
     exchange.load(line ? [line] : []);
   } else render();
 }
-// Until it resolves, the player's own play reads as what their avatar is doing.
-const sharedPlayText = {
-  sending: ({ line }) => line,
-  sent: ({ line }) => line,
-  playing: ({ line }) => line,
-  played: ({ label }) => `Played: ${label}.`,
-  rejected: ({ label }, reason) => `Not played: ${label}. ${reason}`,
-};
+// Until it resolves, the player's own play reads on its button as what their
+// avatar is doing. Only a refusal or an unconfirmed send needs words.
+const refusalText = ({ label }, reason) => `Not played: ${label}. ${reason}`;
 function showSharedPlay(state, reason = "") {
   if (!sharedPlay) return;
-  clearTimeout(sharedPlayTimer);
   const play = sharedPlay;
   sharedPlay.state = state;
   if (state === "played" || state === "rejected") sharedPlay = null;
   if (state === "sending") sharedRefusal = null;
-  if (state === "rejected")
-    sharedRefusal = { reason, text: sharedPlayText.rejected(play, reason) };
-  if (state === "uncertain") notice(reason, state);
-  else if (state === "rejected" || !playQueue.pending)
-    notice(sharedPlayText[state](play, reason), state);
-  if (state === "played")
-    sharedPlayTimer = setTimeout(() => {
-      if ($("notice").dataset.playStatus === "played") notice("");
-    }, 2500);
+  const shown = $("play-status").dataset.playStatus;
+  if (state === "rejected") {
+    sharedRefusal = { reason, text: refusalText(play, reason) };
+    notice(sharedRefusal.text, state);
+  } else if (state === "uncertain") notice(reason, state);
+  else if (["rejected", "uncertain"].includes(shown)) notice("");
   renderActions();
 }
 // Follow the play's key through the room queue into the committed history.
@@ -4050,11 +4034,7 @@ function trackSharedPlay(value) {
   return false;
 }
 function withdrawSharedPlay(key) {
-  if (sharedPlay?.key === key) {
-    sharedPlay = null;
-    clearTimeout(sharedPlayTimer);
-    notice("");
-  }
+  if (sharedPlay?.key === key) sharedPlay = null;
   return sharedSession
     .command({ op: "cancel", key })
     .catch((error) => notice(error.message));
@@ -4096,7 +4076,6 @@ async function submitSharedPlay(action) {
     key: crypto.randomUUID(),
     actionKey: current.key,
     label: playLabel(current),
-    line: playProgressLine(currentActor(world), current),
     notice: sharedSession.state.notice || "",
   };
   showSharedPlay("sending");
@@ -4285,7 +4264,7 @@ installSceneVideo({
 if (sharedSession) {
   world = sharedWorld(sharedSession.state);
   sharedSession.subscribe(adoptShared, (message, recoveredFrom) => {
-    if (!recoveredFrom || $("notice").textContent === recoveredFrom) {
+    if (!recoveredFrom || $("play-status").textContent === recoveredFrom) {
       // A recovered connection restores a refusal with its play name.
       if (message && message === sharedRefusal?.reason)
         notice(sharedRefusal.text, "rejected");

@@ -364,10 +364,6 @@ export function playProgress(action) {
     ? "carrying"
     : progress[action?.kind] || "acting";
 }
-/** "Vale is waiting…" */
-export function playProgressLine(actor, action) {
-  return `${nameOf(actor)} is ${playProgress(action)}…`;
-}
 
 export function cardObservation(world, id) {
   const item = world.items[id];
