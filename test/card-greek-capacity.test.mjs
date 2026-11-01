@@ -28,7 +28,7 @@ import {
   agoraView,
   crowdedAgoraWorld,
 } from "./helpers/greek-capacity.mjs";
-import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
+import { branchItems, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
 // Colonus and Marathon now sit inside Athens, so only the Piraeus side
 // reaches the harbor without passing through the Agora.
@@ -244,6 +244,7 @@ describe("the side roads in earlier saved worlds", () => {
         );
       expect(restored.items).toEqual({
         ...upgradedItems(world.items),
+        ...branchItems,
         ...willowsItems,
         ...ajaxItems,
         "boardyai-calling-card": { holder: "station", history: [] },

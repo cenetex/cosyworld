@@ -18,7 +18,7 @@ import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
-import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
+import { branchItems, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
 const context = vm.createContext({});
 vm.runInContext(
@@ -75,6 +75,7 @@ describe("the household save upgrade", () => {
       );
       expect(after.items).toEqual({
         ...upgradedItems(before.items),
+        ...branchItems,
         ...willowsItems,
         ...ajaxItems,
         "boardyai-calling-card": { holder: "station", history: [] },

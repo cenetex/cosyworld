@@ -91,6 +91,132 @@
       "card": "assets/optimized/card/png/cloth-card.webp",
       "cardHash": "04c5b7bc38b5f7b9c98eb452b61fe22c0c29944efecc0535f0fc2c83c8f96b59"
     },
+    "assets/combat/ada-guard.webp": {
+      "sourceHash": "24b4af67d04e3de9fdd8ec51280761a6fd8203bd272210ca3bb441197298dbca",
+      "stage": "assets/combat/ada-guard.webp",
+      "stageHash": "24b4af67d04e3de9fdd8ec51280761a6fd8203bd272210ca3bb441197298dbca",
+      "card": "assets/optimized/card/webp/combat/ada-guard.webp",
+      "cardHash": "a49aea6cfac58a6131e84ddbf6a9577152ce8d27e8a7db295d3c5c20df040da9"
+    },
+    "assets/combat/ada-scarf-guard.webp": {
+      "sourceHash": "3f0556748a43241b081264ee2c675b1b3be7e5e137c46a5128b26d4f4c72a6eb",
+      "stage": "assets/combat/ada-scarf-guard.webp",
+      "stageHash": "3f0556748a43241b081264ee2c675b1b3be7e5e137c46a5128b26d4f4c72a6eb",
+      "card": "assets/optimized/card/webp/combat/ada-scarf-guard.webp",
+      "cardHash": "01b480c82670207446bfe5b3716ca25356b411828b5016fe4aa3aa18b508db63"
+    },
+    "assets/combat/ash-guard.webp": {
+      "sourceHash": "2b68f71534d67722a77f1f684aa5dcb96ba7fe120ed8ccaef3ad17197befdc6d",
+      "stage": "assets/combat/ash-guard.webp",
+      "stageHash": "2b68f71534d67722a77f1f684aa5dcb96ba7fe120ed8ccaef3ad17197befdc6d",
+      "card": "assets/optimized/card/webp/combat/ash-guard.webp",
+      "cardHash": "4b71e158746e9eaa8d572404b35e4d4545dad4778e65546d38b145dfaa673516"
+    },
+    "assets/combat/ash-scarf-guard.webp": {
+      "sourceHash": "6e619756e320b7728028ce26a449df285be856fa0a4f76379231eec0a6e85209",
+      "stage": "assets/combat/ash-scarf-guard.webp",
+      "stageHash": "6e619756e320b7728028ce26a449df285be856fa0a4f76379231eec0a6e85209",
+      "card": "assets/optimized/card/webp/combat/ash-scarf-guard.webp",
+      "cardHash": "9479b1bd6d905960abe89bf23efe837aebf2982e3fbb794fb3f4e9914e29b659"
+    },
+    "assets/combat/keeper-guard.webp": {
+      "sourceHash": "e144fbf594464786148a262fe04fb09e7551ad29b62beb08498c4ff44c110fd5",
+      "stage": "assets/combat/keeper-guard.webp",
+      "stageHash": "e144fbf594464786148a262fe04fb09e7551ad29b62beb08498c4ff44c110fd5",
+      "card": "assets/optimized/card/webp/combat/keeper-guard.webp",
+      "cardHash": "09ed8cbfc04aa90122cb0ff9a188ab6967068c536569817d13668136731d700a"
+    },
+    "assets/combat/mara-guard.webp": {
+      "sourceHash": "4a5dba05c0e9e3807799087c614eb475c4036cd201318a6ca26f07dd37d135db",
+      "stage": "assets/combat/mara-guard.webp",
+      "stageHash": "4a5dba05c0e9e3807799087c614eb475c4036cd201318a6ca26f07dd37d135db",
+      "card": "assets/optimized/card/webp/combat/mara-guard.webp",
+      "cardHash": "b3c324f8c6c9167ae529dc309067b6c521a805942cf2c010512a6576fa1daf1a"
+    },
+    "assets/combat/mara-scarf-guard.webp": {
+      "sourceHash": "0326deb14ea054dba5f4f274008ba0e2d3795ce8c00d9141969de8eda23e56f9",
+      "stage": "assets/combat/mara-scarf-guard.webp",
+      "stageHash": "0326deb14ea054dba5f4f274008ba0e2d3795ce8c00d9141969de8eda23e56f9",
+      "card": "assets/optimized/card/webp/combat/mara-scarf-guard.webp",
+      "cardHash": "d3851936813460af315eaf0995c762c2af2e021e257e84a5f9a7fa4df177a72e"
+    },
+    "assets/combat/moth-guard.webp": {
+      "sourceHash": "da54b5cd22a695646e53e8997fedc2aaf6bb9023f9c4faa651807097e04f4019",
+      "stage": "assets/combat/moth-guard.webp",
+      "stageHash": "da54b5cd22a695646e53e8997fedc2aaf6bb9023f9c4faa651807097e04f4019",
+      "card": "assets/optimized/card/webp/combat/moth-guard.webp",
+      "cardHash": "82e6b511940ccd4c080e7bab31015f26279a1b90417c597ff9340cbd7cf6e783"
+    },
+    "assets/combat/nell-guard.webp": {
+      "sourceHash": "dfa170c29df726ff82334eff2d741e68187ef61f796fc453e60b2e7ef2c8eaed",
+      "stage": "assets/combat/nell-guard.webp",
+      "stageHash": "dfa170c29df726ff82334eff2d741e68187ef61f796fc453e60b2e7ef2c8eaed",
+      "card": "assets/optimized/card/webp/combat/nell-guard.webp",
+      "cardHash": "4357ac282a12285be75dc99de843863bc69db289c63bd5a48af23ed37562a7e3"
+    },
+    "assets/combat/nell-scarf-guard.webp": {
+      "sourceHash": "b45739aa710971af9672aae72ca2f7e84a7420d0147df7590e669a56a72198d8",
+      "stage": "assets/combat/nell-scarf-guard.webp",
+      "stageHash": "b45739aa710971af9672aae72ca2f7e84a7420d0147df7590e669a56a72198d8",
+      "card": "assets/optimized/card/webp/combat/nell-scarf-guard.webp",
+      "cardHash": "c775f167b8092a972154a6368bd34016ba8c3b935f47bb371258b683fe1e80fb"
+    },
+    "assets/combat/orin-guard.webp": {
+      "sourceHash": "0d03d7df034f79b33d9f66eaae8ec1008cabb2b6dac92fd09cb8c36fdc5ab0a0",
+      "stage": "assets/combat/orin-guard.webp",
+      "stageHash": "0d03d7df034f79b33d9f66eaae8ec1008cabb2b6dac92fd09cb8c36fdc5ab0a0",
+      "card": "assets/optimized/card/webp/combat/orin-guard.webp",
+      "cardHash": "2ceb9f4c83a285c5909c7c3bad72fa87395a3e8a231a8bba628c9e4ec41bd514"
+    },
+    "assets/combat/orin-scarf-guard.webp": {
+      "sourceHash": "22f012a265fef3de3d85b36055144022ed207990423fd33ef8ec04c760542ed7",
+      "stage": "assets/combat/orin-scarf-guard.webp",
+      "stageHash": "22f012a265fef3de3d85b36055144022ed207990423fd33ef8ec04c760542ed7",
+      "card": "assets/optimized/card/webp/combat/orin-scarf-guard.webp",
+      "cardHash": "4c2df5aa3413833367d462473895e4201105418d63f028f5e741ce6a3666e32d"
+    },
+    "assets/combat/rue-guard.webp": {
+      "sourceHash": "c5838c91b73d2a76fc95b1b2b4fa9de2dc78691a3be7c39fa4ecd405091dfa49",
+      "stage": "assets/combat/rue-guard.webp",
+      "stageHash": "c5838c91b73d2a76fc95b1b2b4fa9de2dc78691a3be7c39fa4ecd405091dfa49",
+      "card": "assets/optimized/card/webp/combat/rue-guard.webp",
+      "cardHash": "080df367c7934ab5ea4a6fdcee3db220a4e913c956f6c326ff8f0d3303cd7197"
+    },
+    "assets/combat/rue-scarf-guard.webp": {
+      "sourceHash": "dc2cb9a0b5c6684d3ecc66e255a3013c0d0ad37a4aff0eecd51020eb00663cd7",
+      "stage": "assets/combat/rue-scarf-guard.webp",
+      "stageHash": "dc2cb9a0b5c6684d3ecc66e255a3013c0d0ad37a4aff0eecd51020eb00663cd7",
+      "card": "assets/optimized/card/webp/combat/rue-scarf-guard.webp",
+      "cardHash": "e3981b93e8934e3d0230c82491b62af7e5e5fd83e6d801931d1d1cf644ca420b"
+    },
+    "assets/combat/tavi-guard.webp": {
+      "sourceHash": "ca907cfaf9abd84f7dbae44a7150a3bd566355dceb5e4a8e41270aa9d07c1048",
+      "stage": "assets/combat/tavi-guard.webp",
+      "stageHash": "ca907cfaf9abd84f7dbae44a7150a3bd566355dceb5e4a8e41270aa9d07c1048",
+      "card": "assets/optimized/card/webp/combat/tavi-guard.webp",
+      "cardHash": "f81ff2f0307f31dd13fed2052f95c8eccb9cce76cc802e010b3952b4955854af"
+    },
+    "assets/combat/tavi-scarf-guard.webp": {
+      "sourceHash": "a4040a20524fe2cedad3d18c6d97db18fe72547b0481c531fd478e4ea289d8d9",
+      "stage": "assets/combat/tavi-scarf-guard.webp",
+      "stageHash": "a4040a20524fe2cedad3d18c6d97db18fe72547b0481c531fd478e4ea289d8d9",
+      "card": "assets/optimized/card/webp/combat/tavi-scarf-guard.webp",
+      "cardHash": "b1d7c662bbf48145e6fcc53120895700f0daf048f56f651316e36422717e7bba"
+    },
+    "assets/combat/vale-guard.webp": {
+      "sourceHash": "0b3d0ad4f79cd42a7f4ecf78001a60e0e9c96a79a835b177df75e80f014023d1",
+      "stage": "assets/combat/vale-guard.webp",
+      "stageHash": "0b3d0ad4f79cd42a7f4ecf78001a60e0e9c96a79a835b177df75e80f014023d1",
+      "card": "assets/optimized/card/webp/combat/vale-guard.webp",
+      "cardHash": "3857a3b86c8524832bd5f9ece1a67c94166543cbc00691ee552bdf57ccf190f4"
+    },
+    "assets/combat/vale-scarf-guard.webp": {
+      "sourceHash": "d1c7b8ff6e308716858fca3642555e73e7ceb8676a45d76948899e32e3acf576",
+      "stage": "assets/combat/vale-scarf-guard.webp",
+      "stageHash": "d1c7b8ff6e308716858fca3642555e73e7ceb8676a45d76948899e32e3acf576",
+      "card": "assets/optimized/card/webp/combat/vale-scarf-guard.webp",
+      "cardHash": "38e49be0f66afbfee1169afcc88442629933c3cf9f24ed222669f473e53f10e4"
+    },
     "assets/greek-drama/ajax-camp-day.webp": {
       "sourceHash": "846fd6875ded126c01eb4108247d5b94c5a0c6fbf2f9909ff42dafe21ebfbe77",
       "stage": "assets/greek-drama/ajax-camp-day.webp",
@@ -546,6 +672,62 @@
       "card": "assets/optimized/card/webp/greek-drama/homecoming-beach-night.webp",
       "cardHash": "dd9786e5416c3a9a349652ec1f4edcec17499fc902c065260e6f9d5858df9e37"
     },
+    "assets/greek-drama/house-atreus-farmhouse-night.webp": {
+      "sourceHash": "8e98904188e2ab1c49aceaa16290bb457b168e859b5c2762973b0fd3f47ae5e2",
+      "stage": "assets/greek-drama/house-atreus-farmhouse-night.webp",
+      "stageHash": "8e98904188e2ab1c49aceaa16290bb457b168e859b5c2762973b0fd3f47ae5e2",
+      "card": "assets/optimized/card/webp/greek-drama/house-atreus-farmhouse-night.webp",
+      "cardHash": "75dc304e5471a962e62208976f78bddd9ab66c7245a59eb4e68110719a2ee5a0"
+    },
+    "assets/greek-drama/house-atreus-farmhouse.webp": {
+      "sourceHash": "58204e5b87fa8378cb928e77588181b8411a1ab9fc72a1a7d27f24282cd09fd0",
+      "stage": "assets/greek-drama/house-atreus-farmhouse.webp",
+      "stageHash": "58204e5b87fa8378cb928e77588181b8411a1ab9fc72a1a7d27f24282cd09fd0",
+      "card": "assets/optimized/card/webp/greek-drama/house-atreus-farmhouse.webp",
+      "cardHash": "1a1c2ed8d0b5d433d3e909027c0360e075b1711e8508481d766fcfd23e1e0b40"
+    },
+    "assets/greek-drama/house-atreus-mycenae-night.webp": {
+      "sourceHash": "2bfc5eaae09d6640e42727a62b010f7d7db0348cbaf6f20f89227db2027a5779",
+      "stage": "assets/greek-drama/house-atreus-mycenae-night.webp",
+      "stageHash": "2bfc5eaae09d6640e42727a62b010f7d7db0348cbaf6f20f89227db2027a5779",
+      "card": "assets/optimized/card/webp/greek-drama/house-atreus-mycenae-night.webp",
+      "cardHash": "482880548a64a0d037758c62239bd9046da5ad5c7192769808a3f212efe4bc7d"
+    },
+    "assets/greek-drama/house-atreus-mycenae.webp": {
+      "sourceHash": "210d4d48bf0c4c17ea2e03edd046c13d86273313239313866fbbad3f17c8ef98",
+      "stage": "assets/greek-drama/house-atreus-mycenae.webp",
+      "stageHash": "210d4d48bf0c4c17ea2e03edd046c13d86273313239313866fbbad3f17c8ef98",
+      "card": "assets/optimized/card/webp/greek-drama/house-atreus-mycenae.webp",
+      "cardHash": "a076c5a0655a69c1c6cd58ee080bc09c3b708148362fdae52577654ca380bcd5"
+    },
+    "assets/greek-drama/house-atreus-palace-night.webp": {
+      "sourceHash": "a596ecc2a06574f5e726490f3e46a76cdaba5232229e7a9e59b240af6c6a8095",
+      "stage": "assets/greek-drama/house-atreus-palace-night.webp",
+      "stageHash": "a596ecc2a06574f5e726490f3e46a76cdaba5232229e7a9e59b240af6c6a8095",
+      "card": "assets/optimized/card/webp/greek-drama/house-atreus-palace-night.webp",
+      "cardHash": "bf104b175efed730afcbebaad484f98d5f1878c04dd0e55318e9d49ffd9f721d"
+    },
+    "assets/greek-drama/house-atreus-palace.webp": {
+      "sourceHash": "c88f0b48cea88c3127aeef62f9e9c250b57bad8f0e7d9a480da895075debdef9",
+      "stage": "assets/greek-drama/house-atreus-palace.webp",
+      "stageHash": "c88f0b48cea88c3127aeef62f9e9c250b57bad8f0e7d9a480da895075debdef9",
+      "card": "assets/optimized/card/webp/greek-drama/house-atreus-palace.webp",
+      "cardHash": "4c71e9a2a063b5e37744b66227b075c095e18e03ee32f89d48aa45bbf9facf44"
+    },
+    "assets/greek-drama/house-atreus-tomb-night.webp": {
+      "sourceHash": "7bedb3fc0a71dc9a3fc2b75f11d8f446715d70c1ba57517c3f309327a2ba1891",
+      "stage": "assets/greek-drama/house-atreus-tomb-night.webp",
+      "stageHash": "7bedb3fc0a71dc9a3fc2b75f11d8f446715d70c1ba57517c3f309327a2ba1891",
+      "card": "assets/optimized/card/webp/greek-drama/house-atreus-tomb-night.webp",
+      "cardHash": "ea685591a7de9e9f4289b1780643e76093f1f7f6353b95ead0321b62016466ad"
+    },
+    "assets/greek-drama/house-atreus-tomb.webp": {
+      "sourceHash": "fe9fa7064c46d04ca3a24857c8ae7cea0d4a14cfd0ed4cacc19a47501b49d43b",
+      "stage": "assets/greek-drama/house-atreus-tomb.webp",
+      "stageHash": "fe9fa7064c46d04ca3a24857c8ae7cea0d4a14cfd0ed4cacc19a47501b49d43b",
+      "card": "assets/optimized/card/webp/greek-drama/house-atreus-tomb.webp",
+      "cardHash": "5214319e5a4866f9df3fc09b8a92b80284fc85b1723fd996670f52c8928fd547"
+    },
     "assets/greek-drama/household-token.png": {
       "sourceHash": "e5a4d2daa5726d0c70fb0e5f08c02130aeaa3175309bb320a24d9fa7be871e6f",
       "stage": "assets/optimized/stage/png/greek-drama/household-token.webp",
@@ -594,6 +776,13 @@
       "stageHash": "a45d4756278f380dc11e2ebf828e80d71b6377804caa35e53f9aa607d864fe83",
       "card": "assets/optimized/card/png/greek-drama/oil-flask.webp",
       "cardHash": "592bb0c0244eea50b3321113a2f8f71f0b66d771c5dad7674fc25d30087ed3a7"
+    },
+    "assets/greek-drama/olive-branch.webp": {
+      "sourceHash": "e5dcbf33dfc6902ba18532e89515c8d669fa58742452ebeac138a86a588653e6",
+      "stage": "assets/greek-drama/olive-branch.webp",
+      "stageHash": "e5dcbf33dfc6902ba18532e89515c8d669fa58742452ebeac138a86a588653e6",
+      "card": "assets/optimized/card/webp/greek-drama/olive-branch.webp",
+      "cardHash": "9ecb0527f12921633ddebea21a0c9b418c6dd84c1d28100a644f17de49ea51dc"
     },
     "assets/greek-drama/open-door-adrastus.webp": {
       "sourceHash": "d8d915b76cd25d41b69a31e90f0d61795f34c342cc3f7c96f6da542c6a339ccd",

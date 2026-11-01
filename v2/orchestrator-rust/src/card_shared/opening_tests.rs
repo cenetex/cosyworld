@@ -79,6 +79,11 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
             );
         }
     }
+    // Greek revision 9 adds the Suppliant's Olive Branch at the Agora.
+    items.insert(
+        "greek-olive-branch".into(),
+        json!({"holder": "greek-athens", "history": []}),
+    );
     for field in ["items", "opening", "turn"] {
         assert_eq!(world.game[field], expected[field], "{field}");
     }

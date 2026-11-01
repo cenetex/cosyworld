@@ -120,6 +120,8 @@ export function openDoorSteps({
     take("burial-petition"),
     ...move("athens"),
     choose("register-plea"),
+    // The plea's olive branch waits at the Agora; hands stay free.
+    { kind: "drop", item: "greek-olive-branch", target: "greek-athens" },
     choose(`request-${recovery}`),
     choose(`hear-${recovery}-report`),
     ...move("piraeus"),
@@ -170,4 +172,20 @@ export function openDoorJourney(options) {
     if (fields.choiceId) after[fields.choiceId] = world;
   }
   return { world, before, after };
+}
+
+// The world just after the plea at the Agora, with the Suppliant’s
+// olive branch on the ship's deck: every Greek lane is open.
+let plea;
+export function openSeas() {
+  if (!plea) {
+    let world = openDoorStart();
+    for (const { kind, ...fields } of openDoorSteps()) {
+      world = playOpenDoor(world, kind, fields);
+      if (fields.choiceId === "greek-open-door-register-plea") break;
+    }
+    world.items["greek-olive-branch"].holder = "greek-ship";
+    plea = world;
+  }
+  return structuredClone(plea);
 }
