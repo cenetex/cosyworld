@@ -45,10 +45,8 @@ describe("the attic opening and saved pond journeys", () => {
       });
       expect(sceneCast(world)).toEqual(["vale", null]);
       expect(world.actors.moth.place).toBe("pond");
-      expect(world.actors.vale.want).toMatchObject({
-        kind: "item",
-        target: "lamp",
-      });
+      // The first quest waits for the Black Pond.
+      expect(world.actors.vale.want).toBeNull();
       expect(world.log[0]).toMatchObject({
         locationId: "attic",
         cast: ["vale"],
@@ -187,11 +185,13 @@ describe("the attic opening and saved pond journeys", () => {
     before.locations.attic.anchored = true;
     const restored = decodeSave(encodeSave(before));
     expect(restored).toEqual(before);
-    expect(restored.actors.vale.want).toMatchObject({ kind: "item", target: "lamp" });
+    expect(restored.actors.vale.want).toBeNull();
     expect(exits(restored, "station")).toEqual(["pond"]);
     const shore = act(restored, "move", "pond");
+    expect(shore.actors.vale.want).not.toBeNull();
     const attic = act(shore, "move", "attic");
-    expect(attic.actors.vale.xp).toBeGreaterThan(0);
+    // The quest drawn at the pond goes on, or was met on the way back.
+    expect(attic.actors.vale.want !== null || attic.actors.vale.xp > 0).toBe(true);
     expect(attic.opening.version).toBe(1);
     expect(attic.items.lamp.holder).toBe("vale");
     expect(attic.log[0]).toEqual(before.log[0]);

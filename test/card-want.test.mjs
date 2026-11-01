@@ -1,6 +1,7 @@
+import { questing } from "./helpers/first-quest.mjs";
 import { describe, expect, it } from "vitest";
 import {
-  createWorld,
+  createWorld as baseCreateWorld,
   decodeSave,
   encodeSave,
   legalActions,
@@ -8,6 +9,8 @@ import {
   play,
   validateWorld,
 } from "../v2/card-game/world.mjs";
+// Play here starts past the pond, where the first quest begins.
+const createWorld = (...args) => questing(baseCreateWorld(...args));
 import {
   levelFor,
   levelOf,
@@ -37,7 +40,10 @@ const metEvents = (s, actor) =>
 describe("one want per avatar", () => {
   it("installs the authored want on every hub avatar", () => {
     const s = createWorld();
-    expect(s.actors.moth.want).toEqual(newWant("item", "lamp", 0));
+    expect(s.actors.moth.want).toEqual({
+      ...newWant("item", "lamp", 0),
+      lit: true,
+    });
     expect(s.actors.keeper.want).toEqual(newWant("item", "bell", 0));
     expect(s.actors.vale.xp).toBe(0);
     expect(validateWorld(s)).toBe(s);
@@ -59,12 +65,24 @@ describe("one want per avatar", () => {
 
   it("meets an item want when the actor is its root holder", () => {
     const s = createWorld();
+    s.items.lamp.holder = "vale";
+    expect(wantMet(s, "vale")).toBe(true);
+    s.items.cloth.holder = "lamp";
+    expect(wantMet(s, "vale")).toBe(true);
+    s.items.lamp.holder = "station";
+    expect(wantMet(s, "vale")).toBe(false);
+  });
+
+  it("meets a lit item want only with the light uncovered in hand", () => {
+    const s = createWorld();
     s.items.lamp.holder = "moth";
+    s.items.lamp.lit = false;
+    expect(wantMet(s, "moth")).toBe(false);
+    s.items.lamp.lit = true;
     expect(wantMet(s, "moth")).toBe(true);
     s.items.cloth.holder = "lamp";
-    expect(wantMet(s, "moth")).toBe(true);
-    s.items.lamp.holder = "station";
     expect(wantMet(s, "moth")).toBe(false);
+    expect(validateWorld(s)).toBe(s);
   });
 
   it("meets a person want only through Talk in a shared place", () => {
@@ -224,9 +242,14 @@ describe("one want per avatar", () => {
     let world = dispatchShared({ op: "create" }).world;
     const ask = (op, actor, extra = {}) =>
       dispatchShared({ world, op, actor, claimed: players, present: players, ...extra });
+    // A player still on its way to the Black Pond holds no quest yet.
+    const waiting = (a) => !a.visited.includes("pond") && a.metTurn === undefined;
     const wantless = () =>
       Object.keys(world.actors).filter(
-        (id) => entityActive(world, id) && !world.actors[id].want,
+        (id) =>
+          entityActive(world, id) &&
+          !world.actors[id].want &&
+          !((id === "vale" || players.includes(id)) && waiting(world.actors[id])),
       );
     expect(wantless()).toEqual([]);
     let met = 0;

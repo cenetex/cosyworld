@@ -588,7 +588,7 @@ describe("JRPG scenes", () => {
     });
     expect(take.items.find((i) => i.id === "lamp")).toMatchObject({
       holder: "vale",
-      fuel: 8,
+      fuel: 12,
       lit: false,
     });
     expect(

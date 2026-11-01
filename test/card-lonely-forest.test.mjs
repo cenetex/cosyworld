@@ -39,6 +39,7 @@ import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
   currentScene,
   backdrop,
+  portrait,
   locationVariant,
   sceneCast,
   sceneStaging,
@@ -70,6 +71,7 @@ function act(world, kind, fields = {}) {
 const move = (world, target) => act(world, "move", { target });
 const take = (world, item) => act(world, "take", { item });
 const choose = (world, choiceId) => act(world, "choose", { choiceId });
+const CHARM = "forest-wolfprint-charm";
 function attic() {
   const world = enableMotives(createWorld());
   world.actors.vale.place = "attic";
@@ -83,6 +85,13 @@ function welcome() {
   let world = move(attic(), COTTAGE);
   world = act(world, "talk", { target: "rati" });
   return choose(world, "forest-stay-for-tea");
+}
+function charmAtOak() {
+  let world = move(welcome(), GARDEN);
+  world = choose(world, "forest-clear-drain");
+  world = move(world, TRAIL);
+  world = take(world, CHARM);
+  return move(world, OAK);
 }
 function chapter({
   path = "forest-clear-drain",
@@ -126,6 +135,9 @@ describe("Tea beneath the oak", () => {
     expect(sceneCast(world)).toContain("oak");
     expect(sceneStaging(world).actors.map((a) => a.id)).toEqual(["vale"]);
     expect(scene.background).toBe("./assets/lonely-forest/oak.png");
+    expect(portrait("oak", null, world)).toBe(
+      "./assets/lonely-forest/oakheart.webp",
+    );
     expect(scene.lines.some((line) => line.actorId === "oak")).toBe(true);
     expect(availableCards(world)).toContain("oak");
     expect(
@@ -137,6 +149,71 @@ describe("Tea beneath the oak", () => {
     pack.avatars.oak.presentation = "backdrop";
     delete pack.avatars.oak.travels;
     expect(packProblems(pack, hub).join(" ")).toMatch(/fixed backdrop/);
+  });
+
+  it("opens Oak's shortcut with the charm nearby and keeps the trail's return free", () => {
+    let world = move(move(welcome(), GARDEN), OAK);
+    expect(exits(world, OAK, "vale")).not.toContain(TRAIL);
+    expect(availableCards(world)).not.toContain(TRAIL);
+    world = move(world, GARDEN);
+    world = choose(world, "forest-clear-drain");
+    world = move(world, TRAIL);
+    world = take(world, CHARM);
+    world = move(world, OAK);
+    world = reload(world);
+    expect(exits(world, OAK, "vale")).toContain(TRAIL);
+    expect(availableCards(world)).toContain(TRAIL);
+    const stale = legalActions(world).find(
+      (a) => a.kind === "move" && a.target === TRAIL,
+    );
+
+    world = act(world, "drop", { item: CHARM });
+    expect(world.items[CHARM].holder).toBe(OAK);
+    world = move(world, TRAIL);
+    world = move(world, OAK);
+    world = take(world, CHARM);
+    world = move(world, TRAIL);
+    world = act(world, "drop", { item: CHARM });
+    expect(world.items[CHARM].holder).toBe(TRAIL);
+    world = move(world, OAK);
+    expect(exits(world, OAK, "vale")).not.toContain(TRAIL);
+    expect(play(world, stale).ok).toBe(false);
+
+    // The original garden route still lets a traveler recover the charm.
+    world = move(move(world, GARDEN), TRAIL);
+    world = take(world, CHARM);
+    world = move(world, OAK);
+    world = act(world, "give", { item: CHARM, target: "oak" });
+    expect(world.items[CHARM].holder).toBe("oak");
+    world = reload(world);
+    expect(exits(world, OAK, "vale")).toContain(TRAIL);
+    world = move(move(world, TRAIL), OAK);
+    expect(world.items[CHARM].holder).toBe("oak");
+  });
+
+  it("requires a shared charm holder to be present, but keeps a charm left at Oak", () => {
+    let world = dispatchShared({ op: "create", save: encodeSave(charmAtOak()) }).world;
+    world.actors.mara.place = OAK;
+    const command = (actor, present, fields = {}) =>
+      dispatchShared({
+        op: "view",
+        world,
+        actor,
+        claimed: ["vale", "mara"],
+        present,
+        ...fields,
+      });
+    expect(command("mara", ["mara"]).exits).not.toContain(TRAIL);
+    expect(command("mara", ["vale", "mara"]).exits).toContain(TRAIL);
+    const drop = command("vale", ["vale", "mara"]).actions.find(
+      (a) => a.kind === "drop" && a.item === CHARM,
+    );
+    expect(drop).toBeDefined();
+    const placed = command("vale", ["vale", "mara"], { op: "play", action: drop });
+    expect(placed.ok, placed.error).toBe(true);
+    world = reload(placed.world);
+    expect(world.items[CHARM].holder).toBe(OAK);
+    expect(command("mara", ["mara"]).exits).toContain(TRAIL);
   });
 
   it("validates the source cast, routes, choices and mirror crossing", () => {

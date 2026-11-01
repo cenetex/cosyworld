@@ -90,6 +90,7 @@ const groups = {
     "assets/hoppycat-archive/hoppycat-ledger-sonnet-cutout.png",
 
     "assets/lonely-forest/oak.png",
+    "assets/lonely-forest/oakheart.webp",
     "assets/badger-forest/badger-sleeping.png",
     "assets/badger-forest/badger-grumpy.png",
   ],

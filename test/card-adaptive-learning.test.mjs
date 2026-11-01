@@ -1,12 +1,15 @@
+import { questing } from "./helpers/first-quest.mjs";
 import { describe, it, expect } from "vitest";
 import {
-  createWorld,
+  createWorld as baseCreateWorld,
   expects,
   legalActions,
   play,
   encodeSave,
   decodeSave,
 } from "../v2/card-game/world.mjs";
+// Play here starts past the pond, where the first quest begins.
+const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import {
   reconsiderPlan,

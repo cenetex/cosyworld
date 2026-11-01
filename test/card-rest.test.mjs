@@ -58,7 +58,9 @@ describe("rest and sanctuary", () => {
     expect(s.turn).toBe(DAYLIGHT_TURNS);
     expect(s.actors.vale.sleepUntil).toBeUndefined();
     expect(s.defeats).toEqual({});
-    expect(s.log.findLast((e) => e.verb === "wait")).toMatchObject({
+    expect(
+      s.log.findLast((e) => e.verb === "wait" && e.actorId === "vale"),
+    ).toMatchObject({
       actorId: "vale",
       rest: "long",
     });
@@ -80,7 +82,9 @@ describe("rest and sanctuary", () => {
     s = wait(s);
     expect(s.actors.vale.sleepUntil).toBeUndefined();
     expect(s.defeats).toEqual({});
-    expect(s.log.findLast((e) => e.verb === "wait")).toMatchObject({
+    expect(
+      s.log.findLast((e) => e.verb === "wait" && e.actorId === "vale"),
+    ).toMatchObject({
       actorId: "vale",
       rest: "long",
     });

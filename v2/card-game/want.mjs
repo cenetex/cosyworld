@@ -15,6 +15,16 @@ import { packDiscovered } from "./pack-rules.mjs";
 import { authoredWant } from "./want-talk.mjs";
 
 export const WANT_KINDS = ["item", "place", "person", "connect"];
+// A level quest step may name a verb beyond the kind's own (hold, be at,
+// talk). State verbs are met when their condition holds after any play; act
+// verbs when that play by the avatar resolves (Give only when accepted). A
+// step names its other cards: `to` a person, `at` a place.
+export const STEP_VERBS = {
+  item: ["find", "give", "bring"],
+  person: ["meet", "threaten", "attack"],
+};
+const HOSTILE_LEVEL = 20; // Threaten and Attack join steps from Rare
+
 // A connect want introduces people: its one target is the connected humans.
 export const CONNECT_TARGET = "humans";
 // A want is set aside after this many refusals, or after a long spell with
@@ -93,8 +103,53 @@ function questStep(s, actor, api, quest, previous = null) {
     .map(([, entry]) => entry);
   if (!pool.length) return nextWant(s, actor, api, previous);
   const far = pool.slice(0, Math.ceil(pool.length / 2));
-  const [kind, target] = far[hash(`${actor}:${s.turn}`) % far.length].split(":");
-  return { ...newWant(kind, target, s.turn), quest };
+  const roll = hash(`${actor}:${s.turn}`);
+  const [kind, target] = far[roll % far.length].split(":");
+  const step = drawStep(s, actor, api, kind, target, quest.level, roll);
+  return { ...newWant(kind, target, s.turn), quest, ...(step ? { step } : {}) };
+}
+// A step's verb, drawn from the living world so quests interlock: an item
+// another known avatar wants to hold may be given or brought to them, and a
+// person on the way to a place may be met there. Finding needs no partner.
+export function drawStep(s, actor, api, kind, target, level, roll) {
+  const wanting =
+    kind === "item" &&
+    knownActors(s).find((id) => {
+      const w = id !== actor && s.actors[id]?.want;
+      return w && w.kind === "item" && !w.step && w.target === target;
+    });
+  const going = kind === "person" && s.actors[target]?.want;
+  const verbs =
+    kind === "item"
+      ? wanting
+        ? ["give", "bring", "find"]
+        : ["", "find"]
+      : kind === "person"
+        ? [
+            "",
+            "meet",
+            ...(level >= HOSTILE_LEVEL ? ["threaten", "attack"] : []),
+          ]
+        : [""];
+  const verb = verbs[Math.floor(roll / 7) % verbs.length];
+  // A step already true where the avatar stands is no step at all.
+  const here = s.actors[actor].place;
+  if (
+    !verb ||
+    (verb === "find" && placeOfItem(s, target) === here) ||
+    (verb === "meet" && s.actors[target]?.place === here)
+  )
+    return null;
+  if (verb === "give") return { verb, to: wanting };
+  if (verb === "bring")
+    return {
+      verb,
+      to: wanting,
+      at: api.home(wanting) || s.actors[wanting].place,
+    };
+  if (verb === "meet" && going?.kind === "place" && !going.step)
+    return { verb, at: going.target };
+  return { verb };
 }
 // On waking from a long rest with experience enough for the next level, the
 // player's level quest takes the place of its want.
@@ -136,7 +191,12 @@ export function installWants(s) {
       const w = authoredWant(id);
       a.want =
         w && validTarget(s, w.kind, w.target)
-          ? newWant(w.kind, w.target, s.turn)
+          ? {
+              ...newWant(w.kind, w.target, s.turn),
+              ...(w.kind === "item" && typeof w.lit === "boolean"
+                ? { lit: w.lit }
+                : {}),
+            }
           : null;
     }
     a.xp ??= startXp(id);
@@ -169,9 +229,7 @@ export function wantCandidates(s, actor, api, previous = null, wide = false) {
   // Only what can be reached from here: the open routes, or this place for
   // a resident who keeps to its scene.
   const reach = travels(actor, s) ? api.reachable(actor) : [];
-  const near = wide
-    ? { has: () => true }
-    : new Set([a.place, ...reach]);
+  const near = wide ? { has: () => true } : new Set([a.place, ...reach]);
   const items = Object.keys(s.items).filter((id) => {
     const owner = api.rootHolder(id);
     return (
@@ -243,17 +301,56 @@ export const introduced = (s, actor, talk) => {
 // A person want needs a Talk between the two; a connect want needs any Talk
 // in the connector's room while two connected humans are there with them.
 // The other kinds read custody and place.
-export function wantMet(s, actor, talk = null) {
+const placeOfItem = (s, item) => {
+  const root = rootOf(s, item);
+  return s.actors[root]?.place ?? root;
+};
+const together = (s, a, b) =>
+  Boolean(s.actors[b]) && s.actors[b].place === s.actors[a].place;
+function stepMet(s, actor, want, action) {
+  const { verb, to, at } = want.step,
+    me = s.actors[actor],
+    by = (kind) =>
+      action?.kind === kind &&
+      action.actor === actor &&
+      (kind === "give"
+        ? action.item === want.target && action.target === to && action.accepted
+        : action.target === want.target);
+  if (verb === "find") return placeOfItem(s, want.target) === me.place;
+  if (verb === "give") return by("give");
+  if (verb === "bring")
+    return (
+      rootOf(s, want.target) === actor &&
+      me.place === at &&
+      together(s, actor, to)
+    );
+  if (verb === "meet")
+    return together(s, actor, want.target) && (!at || me.place === at);
+  return by(verb); // threaten, attack: any outcome
+}
+export function wantMet(s, actor, talk = null, action = null) {
   const want = wantOf(s, actor);
   if (!want) return false;
+  if (want.step) return stepMet(s, actor, want, action);
   if (want.kind === "connect") return introduced(s, actor, talk);
-  if (want.kind === "item") return rootOf(s, want.target) === actor;
+  if (want.kind === "item") return holdsAsWanted(s, actor, want);
   if (want.kind === "place") return s.actors[actor].place === want.target;
   return Boolean(
     talk &&
       s.actors[want.target]?.place === s.actors[actor].place &&
       ((talk.actor === actor && talk.target === want.target) ||
         (talk.actor === want.target && talk.target === actor)),
+  );
+}
+// An item want may name the item's light: then it is met only in the
+// actor's own hands, lit (or dark) and uncovered, as a moth wants a flame.
+export function holdsAsWanted(s, actor, want) {
+  if (want.lit === undefined) return rootOf(s, want.target) === actor;
+  const item = s.items[want.target];
+  return (
+    item.holder === actor &&
+    Boolean(item.lit) === want.lit &&
+    !Object.values(s.items).some((i) => i.holder === want.target)
   );
 }
 function rootOf(s, id) {
@@ -296,7 +393,7 @@ export function settleWants(s, actors, api, action = null) {
       if (s.actors[other] && !a.talked.includes(other))
         a.talked = [...a.talked, other].slice(-64);
     }
-    if (!wantMet(s, id, talk)) continue;
+    if (!wantMet(s, id, talk, action)) continue;
     const want = a.want;
     a.level ??= levelFor(a.xp);
     a.xp += 1;
@@ -364,16 +461,44 @@ export function reviseStalledWants(s, actors, api) {
 }
 // A want left empty by an older rule set or a pack mounted later, on a
 // player or an unseen resident too, is drawn after a short rest.
+// A player holds no quest until the world's data says quests begin, such as
+// first arriving at a place; that first quest comes at once.
+export function awaitsFirstQuest(s, id, api) {
+  const begin = api.questsBeginAt,
+    a = s.actors[id];
+  if (!begin || !api.player(id) || a.metTurn !== undefined) return null;
+  return begin.kind === "arrived" && !a.visited.includes(begin.place)
+    ? "waiting"
+    : "ready";
+}
 export function fillWants(s, api, now = false) {
-  for (const [id, a] of Object.entries(s.actors))
+  for (const [id, a] of Object.entries(s.actors)) {
+    const first = awaitsFirstQuest(s, id, api);
+    if (first === "waiting") {
+      if (!a.xp && a.want && !a.want.quest) a.want = null;
+      continue;
+    }
     if (
       !a.want &&
       entityActive(s, id) &&
-      (now || s.turn - (a.metTurn ?? 0) >= CONTENT_TURNS)
+      (now || first === "ready" || s.turn - (a.metTurn ?? 0) >= CONTENT_TURNS)
     )
       a.want = nextWant(s, id, api);
+  }
 }
 
+const STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
+function validStep(s, w) {
+  const { verb, ...cards } = w.step;
+  const named = STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+  return (
+    Boolean(w.quest) &&
+    (STEP_VERBS[w.kind] || []).includes(verb) &&
+    Object.keys(cards).length === named.length &&
+    named.every((key) => typeof cards[key] === "string") &&
+    (!cards.to || (Object.hasOwn(s.actors, cards.to) && cards.to !== w.target))
+  );
+}
 export function validWant(s, id) {
   const a = s.actors[id];
   const whole = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
@@ -402,7 +527,14 @@ export function validWant(s, id) {
     Array.isArray(a.visited) &&
     (w === null ||
       (w &&
-        Object.keys(w).length === (w.quest === undefined ? 4 : 5) &&
+        Object.keys(w).length ===
+          4 +
+            (w.quest === undefined ? 0 : 1) +
+            (w.step === undefined ? 0 : 1) +
+            (w.lit === undefined ? 0 : 1) &&
+        (w.step === undefined || validStep(s, w)) &&
+        (w.lit === undefined ||
+          (w.kind === "item" && typeof w.lit === "boolean")) &&
         (w.quest === undefined ||
           (Object.keys(w.quest).length === 2 &&
             Number.isSafeInteger(w.quest.level) &&

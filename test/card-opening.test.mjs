@@ -42,20 +42,48 @@ const meetEveryone = () =>
   });
 
 describe("dousing the lamp in the attic", () => {
-  it("starts with one avatar, a lit carried lamp, and the lamp as Vale's want", () => {
+  it("brings the first quest on arrival at the Black Pond, and keeps it", () => {
+    let s = act(fresh(), "snuff");
+    expect(s.actors.vale.want).toBeNull();
+    s = act(s, "move", { target: "pond" });
+    expect(s.actors.vale.place).toBe("pond");
+    const first = s.actors.vale.want;
+    expect(first).not.toBeNull();
+    // A save already past the pond keeps its quest through later plays.
+    s = decodeSave(encodeSave(s));
+    s = act(s, "wait");
+    // Its quest is still there, or was met and its next one drawn in rest.
+    expect(s.actors.vale.want !== null || s.actors.vale.metTurn !== undefined).toBe(true);
+    expect(s.actors.vale.visited).toContain("pond");
+  });
+
+  it("starts with one avatar, a lit carried lamp, and no quest yet", () => {
     const s = fresh();
     expect(s.actors.vale.place).toBe("attic");
-    expect(s.items.lamp).toMatchObject({ holder: "vale", lit: true, fuel: 8 });
+    expect(s.items.lamp).toMatchObject({ holder: "vale", lit: true, fuel: 12 });
     expect(availableCards(s)).toEqual(["vale", "lamp", "attic"]);
     expect(sceneCast(s)).toEqual(["vale", null]);
     expect(exits(s, "attic")).toEqual([]);
     expect(exits(s, "station")).toEqual(["pond"]);
     expect(cardPlay(s, ["lamp"]).action.kind).toBe("snuff");
-    expect(s.actors.vale.want).toMatchObject({ kind: "item", target: "lamp" });
+    // The first quest comes at the Black Pond.
+    expect(s.actors.vale.want).toBeNull();
     expect(placeText(s, "attic")).toContain("Dust gathers");
     expect(JSON.stringify(narrativeContext(s))).not.toMatch(
       /keeper|moth|Pip|Oil flask|bell|cloth/,
     );
+  });
+
+  it("opens the mirror when the full lamp burns out by itself, with no douse", () => {
+    let s = fresh();
+    expect(exits(s, "attic")).toEqual([]);
+    // The attic Wait sleeps until the light changes: all twelve fuel burn.
+    s = act(s, "wait");
+    expect(s.log.some((e) => e.verb === "snuff")).toBe(false);
+    expect(s.items.lamp).toMatchObject({ holder: "vale", lit: false, fuel: 0 });
+    expect(s.turn).toBeGreaterThanOrEqual(12);
+    expect(exits(s, "attic")).toEqual(["pond"]);
+    expect(act(s, "move", { target: "pond" }).actors.vale.place).toBe("pond");
   });
 
   it("keeps the waiting cast and their wants in place while the first play is delayed", () => {
@@ -74,9 +102,8 @@ describe("dousing the lamp in the attic", () => {
     expect(knownActors(s)).toEqual(["vale"]);
     expect(s.memories.moth.events).toEqual([]);
     expect(s.memories.keeper.events).toEqual([]);
-    // Vale already holds the lamp, so the first play meets that want. The
-    // experience waits for a level quest; it does not raise the level.
-    expect(s.actors.vale.xp).toBeGreaterThanOrEqual(1);
+    // Vale holds no quest in the attic, so nothing is met there.
+    expect(s.actors.vale.xp).toBe(0);
     expect(levelOf(s, "vale")).toBe(1);
     // The lamp burned dry while everyone waited; its dark opens the mirror.
     expect(s.items.lamp).toMatchObject({ lit: false, fuel: 0 });
@@ -92,7 +119,7 @@ describe("dousing the lamp in the attic", () => {
     expect(lit.items.lamp).toMatchObject({
       holder: "vale",
       lit: false,
-      fuel: 8,
+      fuel: 12,
     });
     expect(lit.opening).toEqual({
       version: 1,
@@ -105,10 +132,9 @@ describe("dousing the lamp in the attic", () => {
     ).toEqual(["pond"]);
     expect(exits(lit, "attic")).toEqual(["pond"]);
     expect(levelOf(lit, "vale")).toBe(1);
-    const met = lit.log.find(
-      (e) => e.verb === "want_met" && e.actorId === "vale",
-    );
-    expect(met.wantMet).toEqual({ kind: "item", target: "lamp" });
+    expect(
+      lit.log.some((e) => e.verb === "want_met" && e.actorId === "vale"),
+    ).toBe(false);
     expect(turnOutcome(lit)).toMatchObject({
       card: { kind: "snuff" },
       avatars: [{ id: "vale", location: "attic", travel: null }],

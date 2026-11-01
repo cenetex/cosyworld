@@ -132,6 +132,12 @@ What happens next comes from the world rules in `want.mjs`, not from authored
 quest chains. The internal field stays `actor.want` so saves and the Talk
 facts from earlier releases keep their names; player-facing text says quest.
 
+- **First quest.** A player holds no quest at the start: the attic opening
+  has no quest card. The hub's `questsBeginAt` (`forest.json`,
+  `{ "kind": "arrived", "place": "pond" }`) holds back a player's first quest
+  until it first reaches the Black Pond, and that quest is drawn at once on
+  arrival. Residents hold their wants from the start, and a save already past
+  the pond keeps its quest.
 - **Met.** An item quest is met when the avatar is the item's root holder, a
   place quest when it stands there, and a person quest when the two share a
   place and Talk. Meeting a quest records a `want_met` history event and one
@@ -165,6 +171,19 @@ facts from earlier releases keep their names; player-facing text says quest.
   resume. A step with no way forward becomes another of the same level. Drop
   quest (a `drop` play with no item) gives it up for half the experience;
   the level stays. Residents level on experience alone.
+- **Step verbs.** A level quest step may carry `step: { verb, to?, at? }`
+  beyond its kind's own verb (hold, go to, talk), drawn from the living world
+  (`want.mjs` `STEP_VERBS`). State verbs hold after any play: **find** an item
+  by standing where it is, whoever holds it; **meet** a person by being
+  together, without a Talk; **bring** an item to a person at a place by
+  holding it there together. Act verbs are met when the avatar's own play
+  resolves: **give** only when accepted, **threaten** and **strike** (the attack play) whatever
+  the outcome, and only from Rare (level 20). Steps interlock with other
+  avatars' quests: an item another known avatar wants to hold may be given
+  or brought to them at home, meeting both quests in one play, and a person
+  on the way to a place may be met there. A step already true where the
+  avatar stands is not drawn. Steps come one at a time in order; nothing is
+  authored ahead.
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
   who learn the roads keep to the routes they know), then ask, trade their
   least valued spare, and threaten when bold enough by resentment, level or
@@ -325,6 +344,18 @@ card with its name on screen, and the top bar and dialogue stay inside the
 viewport. Some in-app browsers block storage. In that case the table plays a
 fresh opening in the tab and says the world cannot be saved; it does not refuse
 every card.
+
+## Oak and the Moonlit Trail
+
+Oak's avatar card and dialogue portrait show the gnarly oakheart. The Old Oak
+Tree keeps its broad landscape painting, and Oak remains part of that backdrop
+without a second figure on the stage.
+
+The Wolfprint Charm opens a path from Oak to the Moonlit Trail while the charm
+is at Oak: carried by someone present, put among the roots, or given to Oak.
+Taking it away closes that entrance. The return from the trail to Oak is always
+open. The garden path still opens after tending the drain or stones, so a first
+visitor can reach the charm on the trail before finding this shortcut.
 
 ## World packs and the Wine-Dark Sea
 
@@ -588,7 +619,7 @@ The Map of the Wood and the Wine-Dark Sea waits at the station too. It is an ord
 
 At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 
-The hub cast's tastes, home and item values live in `forest.json` under `people`, beside the pack residents' `tastes` and `values` in their card worlds. Each named avatar also has one authored `want`, `{ "kind": "item" | "place" | "person", "target": id }`, which names what it seeks first: Vale and Pip want the lamp, the keeper wants the bell. Pack residents with a `desire` carry a matching `want`, which the pack schema checks against the pack's and hub's items, places and avatars. The rules don't read `want` yet.
+The hub cast's tastes, home and item values live in `forest.json` under `people`, beside the pack residents' `tastes` and `values` in their card worlds. Each named avatar also has one authored `want`, `{ "kind": "item" | "place" | "person", "target": id }`, which names what it seeks first: Vale wants the lamp, Pip wants it lit (`"lit": true`), the keeper wants the bell. A lit item want is met only while the item is in the avatar's own hands, lit and uncovered; a resident holding it otherwise takes off the cover, then lights it, so a moth keeps its flame where the stage and the mirror can see it. Pack residents with a `desire` carry a matching `want`, which the pack schema checks against the pack's and hub's items, places and avatars. The rules don't read `want` yet.
 
 Situational worth is data too. A hub thing in `forest.json` may carry `valueRules`, and a person may carry `valueRules` keyed by item: each rule lists facts (`{ "item", "field", "min" | "max" }` or `{ "holds": item }`) and adds to the value or `set`s it. The empty lamp, the oil a dim lamp's holder needs, and the cloth the keeper wants while the bell rings are three such rules. A person's `grievances` list names the plays that offend them (`on`, partial action patterns) and the remembered `reason`; the keeper's ringing and Pip's spoiled light are two. A pack resident's `tastes.noise` is the same rule for a rung bell. The planner has no lamp special case: a resident in the lit attic waits until a play douses the lamp.
 

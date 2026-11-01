@@ -1,4 +1,5 @@
 {
+  "questsBeginAt": { "kind": "arrived", "place": "pond" },
   "homeGates": {
     "attic": {
       "item": "lamp",
@@ -75,14 +76,14 @@
     },
     "moth": {
       "name": "Pip",
-      "text": "A moth in a borrowed waistcoat. Seeks a lamp and a witness at the pond.",
+      "text": "A moth in a borrowed waistcoat. Seeks a lit lamp and a witness at the pond.",
       "tastes": {
         "likes": "Warm light and a splendid waistcoat",
         "sore": "Someone spoiling the light"
       },
       "home": "pond",
       "values": { "lamp": 12, "oil": 3, "bell": 1, "cloth": 6 },
-      "want": { "kind": "item", "target": "lamp" },
+      "want": { "kind": "item", "target": "lamp", "lit": true },
       "grievances": [
         { "kind": "light", "on": [{ "kind": "snuff" }, { "kind": "cover", "target": "lamp" }], "reason": "{actor} spoiled Pip's light." }
       ]
@@ -187,7 +188,7 @@
     "items": {
       "lamp": {
         "holder": "station",
-        "fuel": 8,
+        "fuel": 12,
         "lit": false,
         "history": []
       },
@@ -223,7 +224,7 @@
           {
             "id": "lamp",
             "holder": "station",
-            "fuel": 8,
+            "fuel": 12,
             "lit": false
           },
           {
@@ -274,7 +275,7 @@
           {
             "id": "lamp",
             "holder": "vale",
-            "fuel": 8,
+            "fuel": 12,
             "lit": true
           }
         ],
