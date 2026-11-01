@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { selectCard, stackHits } from "./card-browser-helpers.mjs";
+import { revealCard, selectCard, stackHits } from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -38,7 +38,11 @@ try {
       window.arrivals = [];
       const animate = Element.prototype.animate;
       Element.prototype.animate = function (...args) {
-        if (this.matches?.("#hand .card") && args[0][0]?.opacity === 0 && !args[1].pseudoElement)
+        if (
+          this.matches?.("#hand .card") &&
+          args[0][0]?.opacity === 0 &&
+          !args[1].pseudoElement
+        )
           window.arrivals.push(this.dataset.card);
         if (this.id === "unveil-take")
           window.flights.push({
@@ -110,7 +114,8 @@ try {
     const unveil = (id) =>
       page.waitForFunction(
         (id) =>
-          document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "true",
+          document.querySelector(`#hand [data-card="${id}"]`)?.dataset
+            .unrevealed === "true",
         id,
       );
     const finish = async () => {
@@ -196,28 +201,77 @@ try {
         await page.locator('#hand [data-card="vale"]').isDisabled(),
         false,
       );
-      const before = await state();
       const pond = page.locator('#hand [data-card="pond"]');
+      // The pond stacks face down behind the attic (#1780): it adds an edge
+      // to the location stack instead of arriving, and opening the stack
+      // brings it into the hand.
+      assert.equal(
+        await pond.isVisible(),
+        false,
+        "the pond waits behind the attic",
+      );
+      await page
+        .locator('#hand .card-frame[data-places="1"] > [data-card="attic"]')
+        .waitFor();
+      assert(
+        !(await page.evaluate(() => window.arrivals.includes("pond"))),
+        "a folded place does not arrive",
+      );
+      // The doused lamp stays in hand and offers Light until it is lowered.
+      assert.equal(
+        await page.locator('#card-actions [data-action="light"]').count(),
+        1,
+      );
+      await (await revealCard(page, "attic")).click();
+      await page
+        .locator('#hand [data-card="attic"][aria-expanded="true"]')
+        .waitFor();
+      const pressed = () =>
+        page.evaluate(() =>
+          [
+            ...document.querySelectorAll('#hand .card[aria-pressed="true"]'),
+          ].map((card) => card.dataset.card),
+        );
+      const held = await pressed();
+      assert(held.includes("lamp"), "opening the stack keeps the lamp raised");
+      const before = await state();
       assert.equal(await pond.locator(".card-back").isVisible(), true);
-      assert(await pond.locator(".card-back").evaluate((img) => img.complete && img.naturalWidth > 0));
-      const levelVisibility = () => pond.locator(".card-level").evaluateAll((marks) => marks.map((mark) => getComputedStyle(mark).visibility));
+      assert(
+        await pond
+          .locator(".card-back")
+          .evaluate((img) => img.complete && img.naturalWidth > 0),
+      );
+      const levelVisibility = () =>
+        pond
+          .locator(".card-level")
+          .evaluateAll((marks) =>
+            marks.map((mark) => getComputedStyle(mark).visibility),
+          );
       assert.deepEqual(await levelVisibility(), ["hidden", "hidden"]);
-      assert(await page.evaluate(() => window.arrivals.includes("pond")), "pond settles into the hand");
       await pond.click();
       assert.equal(await pond.getAttribute("aria-pressed"), "false");
       assert.equal(await pond.getAttribute("data-unrevealed"), "false");
       assert.equal(await pond.getAttribute("data-revealing"), "common");
       // A new card only glows; it carries no text badge.
-      assert.equal(await pond.evaluate((el) => getComputedStyle(el, "::after").content), "none");
+      assert.equal(
+        await pond.evaluate((el) => getComputedStyle(el, "::after").content),
+        "none",
+      );
       const lid = await pond.locator(".reveal-lid").evaluate((el) => ({
-        motion: el.getAnimations()[0].effect.getKeyframes()[0].transform ?? "fade",
+        motion:
+          el.getAnimations()[0].effect.getKeyframes()[0].transform ?? "fade",
         fit: getComputedStyle(el).objectFit,
       }));
       assert.equal(lid.fit, "contain");
-      assert.equal(lid.motion === "fade", motion === "reduce", JSON.stringify(lid));
+      assert.equal(
+        lid.motion === "fade",
+        motion === "reduce",
+        JSON.stringify(lid),
+      );
       // Once the lid has opened it stays gone for the rest of the reveal.
       const lateLid = await pond.locator(".reveal-lid").evaluate((lid) => {
-        for (const a of lid.getAnimations()) a.currentTime = a.effect.getComputedTiming().endTime + 1;
+        for (const a of lid.getAnimations())
+          a.currentTime = a.effect.getComputedTiming().endTime + 1;
         return getComputedStyle(lid).opacity;
       });
       assert.equal(lateLid, "0");
@@ -225,7 +279,12 @@ try {
       // with no layers or animations left, takes the next click itself. A
       // place widens first as it opens; tap once it holds still.
       await pond.evaluate((el) =>
-        Promise.all(el.closest(".card-frame").getAnimations().map((a) => a.finished)),
+        Promise.all(
+          el
+            .closest(".card-frame")
+            .getAnimations()
+            .map((a) => a.finished),
+        ),
       );
       await pond.click();
       assert.equal(await pond.getAttribute("data-revealing"), null);
@@ -233,13 +292,25 @@ try {
       const hits = await pond.evaluate((el) => {
         const box = el.getBoundingClientRect();
         return {
-          card: el.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 3)),
+          card: el.contains(
+            document.elementFromPoint(
+              box.left + box.width / 2,
+              box.top + box.height / 3,
+            ),
+          ),
           layers: el.querySelectorAll(".reveal-lid, .reveal-sheen").length,
           animations: el.getAnimations({ subtree: true }).length,
-          preserved: [...document.querySelectorAll("#hand *, .beat-stack *")].some((n) => getComputedStyle(n).transformStyle === "preserve-3d"),
+          preserved: [
+            ...document.querySelectorAll("#hand *, .beat-stack *"),
+          ].some((n) => getComputedStyle(n).transformStyle === "preserve-3d"),
         };
       });
-      assert.deepEqual(hits, { card: true, layers: 0, animations: 0, preserved: false });
+      assert.deepEqual(hits, {
+        card: true,
+        layers: 0,
+        animations: 0,
+        preserved: false,
+      });
       if (await page.locator("#speech-row").isVisible())
         assert.equal((await stackHits(page)).front, true);
       assert.deepEqual(await state(), before);
@@ -263,10 +334,7 @@ try {
           document.dispatchEvent(new Event("visibilitychange"));
         });
         await page.waitForTimeout(1800);
-        assert.equal(
-          await page.locator("#unveil-dialog[open]").count(),
-          0,
-        );
+        assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
         await page.evaluate(() => {
           Object.defineProperty(document, "hidden", {
             configurable: true,
@@ -283,11 +351,7 @@ try {
           .getAttribute("data-unrevealed"),
         "false",
       );
-      // The doused lamp stays in hand and offers Light until it is lowered.
-      assert.equal(
-        await page.locator('#card-actions [data-action="light"]').count(),
-        1,
-      );
+      assert.deepEqual(await pressed(), held);
       await page.keyboard.press("Escape");
       await page.locator(".action-panel").waitFor({ state: "hidden" });
       await selectCard(page, "pond");
@@ -298,8 +362,17 @@ try {
         "true",
       );
       assert.deepEqual(await levelVisibility(), ["visible", "visible"]);
-      assert.match(await pond.locator(".card-level").first().textContent(), /^[IVXLCDM]+$/);
-      assert(await pond.evaluate((el) => getComputedStyle(el).borderTopColor === getComputedStyle(el.querySelector(".card-level")).color));
+      assert.match(
+        await pond.locator(".card-level").first().textContent(),
+        /^[IVXLCDM]+$/,
+      );
+      assert(
+        await pond.evaluate(
+          (el) =>
+            getComputedStyle(el).borderTopColor ===
+            getComputedStyle(el.querySelector(".card-level")).color,
+        ),
+      );
       await page.keyboard.press("Escape");
       await selectCard(page, "pond");
       await page.locator("#card-actions .card-primary").click();
@@ -323,13 +396,9 @@ try {
       );
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       await page.keyboard.press("Escape");
-      await unveil("oil");
-      assert.equal(
-        await page.locator('#hand [data-card="oil"]').isVisible(),
-        false,
-      );
+      // The keeper's pack is private (#1791): his oil stays out of the hand.
+      assert.equal(await page.locator('#hand [data-card="oil"]').count(), 0);
       await selectCard(page, "keeper");
-      await page.locator('#hand [data-card="oil"]').click();
       await finish();
       if (motion === "reduce")
         assert.equal(await page.locator("#story-retry").isVisible(), true);
@@ -351,8 +420,13 @@ try {
       const saved = await state();
       await page.reload();
       await finish();
-      assert.equal(await page.locator('#hand [data-card="keeper"]').getAttribute("data-unrevealed"), "false");
-      assert.equal(await page.locator('#hand [data-card="oil"]').getAttribute("data-unrevealed"), "false");
+      assert.equal(
+        await page
+          .locator('#hand [data-card="keeper"]')
+          .getAttribute("data-unrevealed"),
+        "false",
+      );
+      assert.equal(await page.locator('#hand [data-card="oil"]').count(), 0);
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       assert.deepEqual(await page.evaluate(() => window.discoveries), []);
       assert.deepEqual(await state(), saved);
@@ -389,7 +463,7 @@ try {
       assert.deepEqual(errors, []);
       reports.push({ width, height, motion, ...events, passed: true });
       console.log(
-        `Card arrival, first-click reveal, skip, hit-testing, second-click selection, reload and reset passed at ${width}px (${motion}).`,
+        `Location stack, first-click reveal, skip, hit-testing, second-click selection, reload and reset passed at ${width}px (${motion}).`,
       );
     } finally {
       await page.close();
