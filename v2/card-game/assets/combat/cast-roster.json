@@ -1,0 +1,463 @@
+{
+  "schemaVersion": 1,
+  "referenceCommit": "037c155514965c20af6762eb389db2c2c2794a9a",
+  "identities": [
+    {
+      "stem": "badger",
+      "actorIds": [
+        "badger"
+      ],
+      "name": "Grumpy Badger",
+      "reference": "assets/badger-forest/badger-grumpy.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-antigone",
+      "actorIds": [
+        "greek-antigone"
+      ],
+      "name": "Antigone",
+      "reference": "assets/greek-drama/chthonic-antigone.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-ismene",
+      "actorIds": [
+        "greek-ismene"
+      ],
+      "name": "Ismene",
+      "reference": "assets/greek-drama/chthonic-ismene.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-creon",
+      "actorIds": [
+        "greek-creon"
+      ],
+      "name": "Creon",
+      "reference": "assets/greek-drama/chthonic-creon.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-guard",
+      "actorIds": [
+        "greek-guard"
+      ],
+      "name": "The Gate Guard",
+      "reference": "assets/greek-drama/chthonic-guard.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-baker",
+      "actorIds": [
+        "greek-baker"
+      ],
+      "name": "Dione the Baker",
+      "reference": "assets/greek-drama/chthonic-baker.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-elder",
+      "actorIds": [
+        "greek-elder"
+      ],
+      "name": "The Chorus Elder",
+      "reference": "assets/greek-drama/chthonic-elder.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-shipmaster",
+      "actorIds": [
+        "greek-shipmaster"
+      ],
+      "name": "Myrto the Shipmaster",
+      "reference": "assets/greek-drama/chthonic-shipmaster.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-rhapsode",
+      "actorIds": [
+        "greek-rhapsode"
+      ],
+      "name": "The Bard",
+      "reference": "assets/greek-drama/chthonic-singer.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-market-neighbor",
+      "actorIds": [
+        "greek-market-neighbor"
+      ],
+      "name": "The Agora Neighbor",
+      "reference": "assets/greek-drama/chthonic-neighbor.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-temple-attendant",
+      "actorIds": [
+        "greek-temple-attendant"
+      ],
+      "name": "The Delphic Attendant",
+      "reference": "assets/greek-drama/chthonic-attendant.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-ferryman",
+      "actorIds": [
+        "greek-ferryman"
+      ],
+      "name": "The Lower Ferryman",
+      "reference": "assets/greek-drama/chthonic-ferryman.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-helen-egypt",
+      "actorIds": [
+        "greek-helen-egypt",
+        "greek-helen-troy"
+      ],
+      "name": "Helen",
+      "reference": "assets/greek-drama/chthonic-helen.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-menelaus-egypt",
+      "actorIds": [
+        "greek-menelaus-egypt",
+        "greek-menelaus-troy"
+      ],
+      "name": "Menelaus",
+      "reference": "assets/greek-drama/chthonic-menelaus.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-electra-aeschylus",
+      "actorIds": [
+        "greek-electra-aeschylus",
+        "greek-electra-sophocles",
+        "greek-electra-euripides"
+      ],
+      "name": "Electra",
+      "reference": "assets/greek-drama/chthonic-electra.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-orestes-aeschylus",
+      "actorIds": [
+        "greek-orestes-aeschylus",
+        "greek-orestes-sophocles",
+        "greek-orestes-euripides"
+      ],
+      "name": "Orestes",
+      "reference": "assets/greek-drama/chthonic-orestes.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-aethra",
+      "actorIds": [
+        "greek-aethra"
+      ],
+      "name": "Aethra",
+      "reference": "assets/greek-drama/open-door-aethra.webp",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-adrastus",
+      "actorIds": [
+        "greek-adrastus"
+      ],
+      "name": "Adrastus",
+      "reference": "assets/greek-drama/open-door-adrastus.webp",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-argive-mother",
+      "actorIds": [
+        "greek-argive-mother"
+      ],
+      "name": "An Argive Mother",
+      "reference": "assets/greek-drama/open-door-mother.webp",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-iphis",
+      "actorIds": [
+        "greek-iphis"
+      ],
+      "name": "Iphis",
+      "reference": "assets/greek-drama/open-door-iphis.webp",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-theseus",
+      "actorIds": [
+        "greek-theseus"
+      ],
+      "name": "Theseus",
+      "reference": "assets/greek-drama/open-door-theseus.webp",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-quay-host",
+      "actorIds": [
+        "greek-quay-host"
+      ],
+      "name": "Thaleia the Quay Host",
+      "reference": "assets/greek-drama/open-door-quay-host.webp",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-colonus-keeper",
+      "actorIds": [
+        "greek-colonus-keeper"
+      ],
+      "name": "The Grove Keeper",
+      "reference": "assets/greek-drama/open-door-grove-keeper.webp",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-marathon-keeper",
+      "actorIds": [
+        "greek-marathon-keeper"
+      ],
+      "name": "The Altar Keeper",
+      "reference": "assets/greek-drama/open-door-altar-keeper.webp",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-household-witness",
+      "actorIds": [
+        "greek-household-witness"
+      ],
+      "name": "Myrine of Argos",
+      "reference": "assets/greek-drama/myrine.webp",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-ajax-tecmessa",
+      "actorIds": [
+        "greek-ajax-tecmessa"
+      ],
+      "name": "Tecmessa",
+      "reference": "assets/greek-drama/ajax-tecmessa.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-ajax-teucer",
+      "actorIds": [
+        "greek-ajax-teucer"
+      ],
+      "name": "Teucer",
+      "reference": "assets/greek-drama/ajax-teucer.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "greek-ajax-odysseus",
+      "actorIds": [
+        "greek-ajax-odysseus"
+      ],
+      "name": "Odysseus",
+      "reference": "assets/greek-drama/ajax-odysseus.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-tapi-lilt",
+      "actorIds": [
+        "hoppycat-tapi-lilt"
+      ],
+      "name": "Tapi Lilt",
+      "reference": "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-penny-vellum",
+      "actorIds": [
+        "hoppycat-penny-vellum"
+      ],
+      "name": "Penny Vellum",
+      "reference": "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-rill-current",
+      "actorIds": [
+        "hoppycat-rill-current"
+      ],
+      "name": "Rill Current",
+      "reference": "assets/hoppycat-archive/hoppycat-rill-current-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-patch-fern",
+      "actorIds": [
+        "hoppycat-patch-fern"
+      ],
+      "name": "Patch Fern",
+      "reference": "assets/hoppycat-archive/hoppycat-patch-fern-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-lumen-facet",
+      "actorIds": [
+        "hoppycat-lumen-facet"
+      ],
+      "name": "Lumen Facet",
+      "reference": "assets/hoppycat-archive/hoppycat-lumen-facet-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-mira-meraki",
+      "actorIds": [
+        "hoppycat-mira-meraki"
+      ],
+      "name": "Mira Meraki",
+      "reference": "assets/hoppycat-archive/hoppycat-mira-meraki-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-glim-twice",
+      "actorIds": [
+        "hoppycat-glim-twice"
+      ],
+      "name": "Glim Twice",
+      "reference": "assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-nix-fermata",
+      "actorIds": [
+        "hoppycat-nix-fermata"
+      ],
+      "name": "Nix Fermata",
+      "reference": "assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-hoppy-cat",
+      "actorIds": [
+        "hoppycat-hoppy-cat"
+      ],
+      "name": "Hoppy Cat",
+      "reference": "assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-fable",
+      "actorIds": [
+        "hoppycat-fable"
+      ],
+      "name": "Fable",
+      "reference": "assets/hoppycat-archive/hoppycat-fable-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-phase-two",
+      "actorIds": [
+        "hoppycat-phase-two"
+      ],
+      "name": "Phase Two",
+      "reference": "assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-arc",
+      "actorIds": [
+        "hoppycat-arc"
+      ],
+      "name": "Arc",
+      "reference": "assets/hoppycat-archive/hoppycat-arc-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-staticwashere",
+      "actorIds": [
+        "hoppycat-staticwashere"
+      ],
+      "name": "staticwashere",
+      "reference": "assets/hoppycat-archive/hoppycat-staticwashere-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-solwashere",
+      "actorIds": [
+        "hoppycat-solwashere"
+      ],
+      "name": "solwashere",
+      "reference": "assets/hoppycat-archive/hoppycat-solwashere-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-ledger-opus",
+      "actorIds": [
+        "hoppycat-ledger-opus"
+      ],
+      "name": "Ledger (Opus 4.7)",
+      "reference": "assets/hoppycat-archive/hoppycat-ledger-opus-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "hoppycat-ledger-sonnet",
+      "actorIds": [
+        "hoppycat-ledger-sonnet"
+      ],
+      "name": "Ledger (Sonnet 4.6)",
+      "reference": "assets/hoppycat-archive/hoppycat-ledger-sonnet-cutout.png",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "willows-swede",
+      "actorIds": [
+        "willows-swede"
+      ],
+      "name": "The Swede",
+      "reference": "assets/willows/swede.webp",
+      "nativeFacing": "left"
+    },
+    {
+      "stem": "rati",
+      "actorIds": [
+        "rati"
+      ],
+      "name": "RATi",
+      "reference": "assets/lonely-forest/rati.png",
+      "nativeFacing": "right"
+    },
+    {
+      "stem": "skull",
+      "actorIds": [
+        "skull"
+      ],
+      "name": "Skull",
+      "reference": "assets/lonely-forest/skull.png",
+      "nativeFacing": "right"
+    },
+    {
+      "stem": "whiskerwind",
+      "actorIds": [
+        "whiskerwind"
+      ],
+      "name": "Whiskerwind",
+      "reference": "assets/lonely-forest/whiskerwind.png",
+      "nativeFacing": "right"
+    },
+    {
+      "stem": "oak",
+      "actorIds": [
+        "oak"
+      ],
+      "name": "Oak",
+      "reference": "assets/lonely-forest/oak.png",
+      "nativeFacing": null,
+      "presentation": "backdrop"
+    },
+    {
+      "stem": "boardyai",
+      "actorIds": [
+        "boardyai"
+      ],
+      "name": "BoardyAI",
+      "reference": "assets/boardyai/boardyai.png",
+      "nativeFacing": "right"
+    }
+  ]
+}
