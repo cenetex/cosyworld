@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { sharedContentInput } from "./shared-content-input.mjs";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const output = new URL(
-  "../orchestrator-rust/src/card_shared/engine-v76.js",
+  "../orchestrator-rust/src/card_shared/engine-v77.js",
   import.meta.url,
 );
 const result = await build({

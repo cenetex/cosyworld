@@ -1213,6 +1213,966 @@
     });
   }
 
+  // v2/card-game/knowledge.mjs
+  var KNOWLEDGE_VERSION = 1;
+  var KNOWLEDGE_FACT_LIMIT = 256;
+  var KNOWLEDGE_PERSON_LIMIT = KNOWLEDGE_FACT_LIMIT;
+  var KNOWLEDGE_PENDING_LIMIT = 32;
+  var FACT_TEXT_LIMIT = 180;
+  var owns = (o, key) => typeof key === "string" && !!o && Object.hasOwn(o, key);
+  var record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+  var safeId = (v) => typeof v === "string" && v.length > 0 && v.length <= 160 && !["__proto__", "prototype", "constructor"].includes(v) && !/[\u0000-\u0020\u007f]/u.test(v);
+  var text = (v, limit) => typeof v === "string" && !!v.trim() && v.length <= limit && !/[\u0000-\u001f\u007f]/u.test(v);
+  var fields2 = (v, keys) => record(v) && Object.keys(v).length === keys.length && Object.keys(v).every((key) => keys.includes(key));
+  var whole = (v, max) => Number.isSafeInteger(v) && v >= 0 && v <= max;
+  var tokens = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
+  var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens).filter(Boolean);
+  var validFactText = (v) => text(v, FACT_TEXT_LIMIT) && /[.!?。！？]["'’”]?$/u.test(v.trim()) && sentences(v).length === 1 && sentences(v)[0].split(" ").length >= 3;
+  var FACT_FORMS = Object.fromEntries(
+    [
+      "me:i my:i mine:i myself:i your:you yours:you yourself:you is:be was:be ",
+      "am:be are:be were:be been:be m:be re:be has:have had:have ve:have ",
+      "does:do did:do goes:go went:go took:take gave:give chose:choose ",
+      "brought:bring threw:throw made:make saw:see found:find held:hold ",
+      "kept:keep told:tell sold:sell bought:buy caught:catch led:lead ",
+      "fought:fight rang:ring ran:run came:come said:say stole:steal hid:hide ",
+      "wrote:write drew:draw knew:know fell:fall sat:sit stood:stand ",
+      "sent:send lost:lose met:meet paid:pay struck:strike won:win woke:wake ",
+      "broke:break spoke:speak ate:eat drank:drink sang:sing swore:swear ",
+      "wore:wear tore:tear left:leave"
+    ].join("").split(" ").map((pair) => pair.split(":"))
+  );
+  var VOWELS = /* @__PURE__ */ new Set([..."aeiou"]);
+  var newKnowledge = () => ({
+    version: KNOWLEDGE_VERSION,
+    facts: {},
+    known: {},
+    pending: []
+  });
+  var knowsFact = (world, actor, id) => owns(world.knowledge?.facts, id) && owns(world.knowledge?.known?.[actor], id);
+  var compareFacts = (a, b) => b.source.turn - a.source.turn || b.source.eventSeq - a.source.eventSeq || a.id.localeCompare(b.id);
+  function remember(world, actor, fact, kind, teller, eventSeq, learnedTurn) {
+    const knowledge = world.knowledge;
+    if (knowsFact(world, actor, fact.id)) return false;
+    const known = knowledge.known[actor] ??= {};
+    known[fact.id] = { kind, teller, eventSeq, learnedTurn };
+    const ordered = Object.keys(known).sort(
+      (a, b) => known[b].learnedTurn - known[a].learnedTurn || known[b].eventSeq - known[a].eventSeq || a.localeCompare(b)
+    );
+    for (const id of ordered.slice(KNOWLEDGE_PERSON_LIMIT)) delete known[id];
+    knowledge.pending = knowledge.pending.filter(
+      (p) => knowsFact(world, p.speaker, p.factId)
+    );
+    return owns(known, fact.id);
+  }
+  function retainFact(world, fact) {
+    const knowledge = world.knowledge;
+    if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
+    const eventFacts = Object.values(knowledge.facts).filter((f) => f.source.kind !== "topic").sort(compareFacts);
+    if (Object.keys(knowledge.facts).length >= KNOWLEDGE_FACT_LIMIT) {
+      const old = eventFacts.at(-1);
+      if (!old) return null;
+      delete knowledge.facts[old.id];
+      for (const known of Object.values(knowledge.known)) delete known[old.id];
+      knowledge.pending = knowledge.pending.filter((p) => p.factId !== old.id);
+    }
+    knowledge.facts[fact.id] = fact;
+    return fact;
+  }
+  var newsVerbs = /* @__PURE__ */ new Set([
+    "give",
+    "trade",
+    "attack",
+    "threaten",
+    "accompany",
+    "choose"
+  ]);
+  function witnessKnowledge(world, entry, eligible = () => true, topics = []) {
+    if (!world.knowledge || entry.generated || entry.kind !== "action" && !entry.consequence || !newsVerbs.has(entry.verb) && !entry.consequence || !validFactText(entry.text) || !entry.seq || !world.actors[entry.actorId] || entry.verb === "choose" && topics.some(
+      (topic) => topic.packId === entry.packId && topic.choiceId === entry.choiceId
+    ))
+      return null;
+    const witnesses = [
+      .../* @__PURE__ */ new Set([
+        entry.actorId,
+        ...entry.cast || [],
+        ...entry.witnesses || []
+      ])
+    ].filter((id) => world.actors[id] && eligible(id)).sort();
+    const fact = retainFact(world, {
+      id: `event:${entry.seq}`,
+      text: entry.text.trim(),
+      source: {
+        kind: "event",
+        eventSeq: entry.seq,
+        turn: entry.turn,
+        actorId: entry.actorId,
+        locationId: entry.locationId,
+        witnesses,
+        topic: null
+      }
+    });
+    if (!fact) return null;
+    for (const actor of witnesses)
+      remember(world, actor, fact, "witnessed", null, entry.seq, entry.turn);
+    return fact;
+  }
+  function installKnowledge(world, eligible = () => true, topics = []) {
+    if (world.knowledge !== void 0) return world.knowledge;
+    world.knowledge = newKnowledge();
+    for (const entry of world.log || [])
+      witnessKnowledge(world, entry, eligible, topics);
+    return world.knowledge;
+  }
+  function knowledgeDisclosures(world, speakers, entities2, location, eventSeq = 0) {
+    const pending = (world.knowledge?.pending || []).filter(
+      (p) => p.locationId === location && speakers.includes(p.speaker) && entities2.includes(p.speaker) && entities2.includes(p.listener) && (!knowsFact(world, p.listener, p.factId) || p.commitChoice)
+    );
+    pending.sort(
+      (a, b) => Number(b.eventSeq === eventSeq) - Number(a.eventSeq === eventSeq) || b.eventSeq - a.eventSeq || a.factId.localeCompare(b.factId)
+    );
+    return pending.slice(0, 1).map((p) => ({
+      factId: p.factId,
+      speaker: p.speaker,
+      listener: p.listener,
+      eventSeq: p.eventSeq,
+      text: world.knowledge.facts[p.factId].text
+    }));
+  }
+  function knowledgeFacts(world, actor, nameOf2 = (id) => id, priority = [], relevant = []) {
+    const rank = (id) => priority.includes(id) ? 2 : relevant.includes(id) ? 1 : 0;
+    const known = world.knowledge?.known?.[actor] || {};
+    return Object.keys(known).map((id) => world.knowledge.facts[id]).filter(Boolean).sort((a, b) => rank(b.id) - rank(a.id) || compareFacts(a, b)).slice(0, 2).map((fact) => {
+      const memory = known[fact.id];
+      const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf2(memory.teller)} told me`;
+      const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
+      const place = fact.source.kind === "topic" ? null : fact.source.locationId;
+      const where = place && !fact.text.includes(nameOf2(place)) ? ` at ${nameOf2(place)}` : "";
+      const stale = fact.source.kind === "event" && age >= STALE_TURNS ? " Things may have changed since." : "";
+      return `${origin} this ${ageText(age)}${where}: ${fact.text}${stale}`.slice(
+        0,
+        240
+      );
+    });
+  }
+  var STALE_TURNS = 6;
+  var ageText = (turns) => turns <= 1 ? "just now" : turns < STALE_TURNS ? "a little while ago" : turns <= 20 ? "some time ago" : "long ago";
+  function validKnowledge(world, actors2, places2, topics = [], laneText = () => null) {
+    const k = world.knowledge;
+    if (k === void 0) return true;
+    if (!fields2(k, ["version", "facts", "known", "pending"]) || k.version !== KNOWLEDGE_VERSION || !record(k.facts) || Object.keys(k.facts).length > KNOWLEDGE_FACT_LIMIT || !record(k.known) || Object.keys(k.known).length > actors2.length || !Array.isArray(k.pending) || k.pending.length > KNOWLEDGE_PENDING_LIMIT)
+      return false;
+    for (const [id, fact] of Object.entries(k.facts)) {
+      if (!safeId(id) || !fields2(fact, ["id", "text", "source"]) || fact.id !== id || !validFactText(fact.text))
+        return false;
+      const s = fact.source;
+      if (!fields2(s, [
+        "kind",
+        "eventSeq",
+        "turn",
+        "actorId",
+        "locationId",
+        "witnesses",
+        "topic"
+      ]) || !["event", "topic", "ending", "lane"].includes(s.kind) || !whole(s.eventSeq, world.eventSeq) || s.eventSeq < 1 || !whole(s.turn, world.turn) || !actors2.includes(s.actorId) || !places2.includes(s.locationId) || !Array.isArray(s.witnesses) || s.witnesses.length > actors2.length || s.witnesses.some(
+        (a, i) => !actors2.includes(a) || i && s.witnesses[i - 1] >= a
+      ))
+        return false;
+      if (s.kind === "event") {
+        if (id !== `event:${s.eventSeq}` || s.topic !== null) return false;
+      } else if (s.kind === "lane") {
+        if (laneText(id) !== fact.text || s.topic !== null) return false;
+      } else if (s.kind === "ending") {
+        if (!/^ending:./u.test(id) || s.topic !== null) return false;
+      } else {
+        if (!fields2(s.topic, ["packId", "id", "choiceId"])) return false;
+        const topic = topics.find(
+          (t) => t.packId === s.topic.packId && t.id === s.topic.id
+        );
+        if (!topic || topic.id !== id || topic.text !== fact.text || topic.speaker !== s.actorId || topic.at !== s.locationId || (topic.choiceId ?? null) !== s.topic.choiceId || s.witnesses.length !== 1 || s.witnesses[0] !== s.actorId)
+          return false;
+      }
+    }
+    for (const [actor, known] of Object.entries(k.known)) {
+      if (!actors2.includes(actor) || !record(known) || Object.keys(known).length > KNOWLEDGE_PERSON_LIMIT)
+        return false;
+      for (const [id, m] of Object.entries(known)) {
+        const fact = k.facts[id];
+        if (!owns(k.facts, id) || !fields2(m, ["kind", "teller", "eventSeq", "learnedTurn"]) || !["witnessed", "heard"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "witnessed" ? m.teller !== null || !fact.source.witnesses.includes(actor) : !actors2.includes(m.teller) || m.teller === actor))
+          return false;
+      }
+    }
+    const pendingKeys = /* @__PURE__ */ new Set();
+    return k.pending.every((p) => {
+      if (!fields2(p, [
+        "factId",
+        "speaker",
+        "listener",
+        "eventSeq",
+        "turn",
+        "locationId",
+        "commitChoice"
+      ]) || !owns(k.facts, p.factId) || !actors2.includes(p.speaker) || !actors2.includes(p.listener) || p.speaker === p.listener || !knowsFact(world, p.speaker, p.factId) || !whole(p.eventSeq, world.eventSeq) || p.eventSeq < 1 || !whole(p.turn, world.turn) || typeof p.commitChoice !== "boolean" || !places2.includes(p.locationId))
+        return false;
+      const learned = k.known[p.speaker][p.factId];
+      if (learned.kind === "heard" && learned.learnedTurn >= p.turn) return false;
+      const fact = k.facts[p.factId];
+      if (p.commitChoice && (fact.source.kind !== "topic" || !fact.source.topic.choiceId || p.speaker !== fact.source.actorId || p.locationId !== fact.source.locationId))
+        return false;
+      const key = `${p.eventSeq}/${p.speaker}/${p.listener}`;
+      if (pendingKeys.has(key)) return false;
+      pendingKeys.add(key);
+      return true;
+    });
+  }
+
+  // v2/card-game/weather.json
+  var weather_default = {
+    turns: 12,
+    cycles: {
+      boeotia: ["clear", "cloud", "rain", "cloud", "mist", "clear"],
+      attica: ["clear", "clear", "cloud", "rain", "cloud", "mist"],
+      argolid: ["cloud", "clear", "clear", "mist", "cloud", "rain"],
+      phocis: ["mist", "cloud", "rain", "cloud", "clear", "clear"],
+      thessaly: ["cloud", "rain", "mist", "clear", "clear", "cloud"],
+      troad: ["mist", "cloud", "rain", "rain", "cloud", "clear"],
+      thrace: ["cloud", "mist", "rain", "cloud", "clear", "cloud"],
+      lemnos: ["clear", "mist", "cloud", "rain", "cloud", "clear"],
+      egypt: ["clear", "clear", "cloud", "clear", "mist", "clear"],
+      tauris: ["mist", "rain", "cloud", "clear", "cloud", "rain"],
+      sicily: ["clear", "cloud", "clear", "mist", "rain", "cloud"],
+      susa: ["clear", "clear", "cloud", "clear", "cloud", "rain"],
+      scythia: ["cloud", "rain", "mist", "cloud", "rain", "clear"],
+      heights: ["mist", "clear", "cloud", "mist", "clear", "cloud"],
+      underworld: ["mist"],
+      sea: ["mist", "rain", "mist", "rain", "mist", "clear"],
+      willows: ["rain", "mist", "rain", "rain", "mist", "mist", "rain", "mist"]
+    },
+    places: {
+      boeotia: {
+        coast: [
+          "greek-harbor",
+          "greek-aulis"
+        ],
+        court: [
+          "greek-courtyard",
+          "greek-well",
+          "greek-palace"
+        ],
+        open: [
+          "greek-gate",
+          "greek-battlefield",
+          "greek-road-thebes"
+        ],
+        grove: [
+          "greek-sanctuary",
+          "greek-cithaeron"
+        ]
+      },
+      attica: {
+        court: [
+          "greek-athens",
+          "greek-acropolis",
+          "greek-acharnae"
+        ],
+        coast: [
+          "greek-piraeus",
+          "greek-athens-harbor",
+          "greek-road-athens-harbor",
+          "greek-road-piraeus-eleusis"
+        ],
+        open: [
+          "greek-road-athens-piraeus",
+          "greek-road-athens-colonus",
+          "greek-road-athens-eleusis",
+          "greek-road-athens-marathon",
+          "greek-road-colonus-eleusis",
+          "greek-road-colonus-marathon",
+          "greek-assembly",
+          "greek-attic-farm",
+          "greek-marathon"
+        ],
+        shelter: [
+          "greek-demos-house",
+          "greek-thinkery",
+          "greek-jury-house"
+        ],
+        grove: [
+          "greek-festival",
+          "greek-colonus",
+          "greek-eleusis",
+          "greek-bird-wilderness"
+        ]
+      },
+      argolid: {
+        open: [
+          "greek-argolid-road",
+          "greek-argos-tomb"
+        ],
+        coast: [
+          "greek-argos-sanctuary"
+        ],
+        court: [
+          "greek-argos-palace",
+          "greek-mycenae-palace",
+          "greek-corinth",
+          "greek-troezen"
+        ],
+        shelter: [
+          "greek-argive-farm"
+        ]
+      },
+      phocis: {
+        court: [
+          "greek-delphi"
+        ],
+        open: [
+          "greek-road-sacred-way"
+        ]
+      },
+      thessaly: {
+        shelter: [
+          "greek-trachis"
+        ],
+        open: [
+          "greek-oeta"
+        ],
+        court: [
+          "greek-pherae"
+        ],
+        grove: [
+          "greek-thetis"
+        ]
+      },
+      troad: {
+        open: [
+          "greek-troy",
+          "greek-trojan-camp",
+          "greek-ajax-grave"
+        ],
+        coast: [
+          "greek-greek-camp",
+          "greek-troy-beach",
+          "greek-ajax-landing"
+        ],
+        shelter: [
+          "greek-ajax-household"
+        ]
+      },
+      thrace: {
+        coast: [
+          "greek-thrace"
+        ]
+      },
+      lemnos: {
+        shelter: [
+          "greek-lemnos"
+        ]
+      },
+      egypt: {
+        court: [
+          "greek-egypt-tomb"
+        ]
+      },
+      tauris: {
+        court: [
+          "greek-tauris"
+        ],
+        coast: [
+          "greek-road-black-sea"
+        ]
+      },
+      sicily: {
+        shelter: [
+          "greek-sicily"
+        ],
+        open: [
+          "greek-road-colonists"
+        ]
+      },
+      susa: {
+        court: [
+          "greek-susa"
+        ],
+        open: [
+          "greek-road-royal"
+        ]
+      },
+      scythia: {
+        open: [
+          "greek-scythian-crag"
+        ]
+      },
+      heights: {
+        open: [
+          "greek-divine-heights"
+        ]
+      },
+      underworld: {
+        underground: [
+          "greek-underworld"
+        ]
+      },
+      sea: {
+        coast: [
+          "greek-ship"
+        ]
+      },
+      willows: {
+        river: [
+          "willows-camp",
+          "willows-thicket",
+          "willows-bank"
+        ]
+      }
+    }
+  };
+
+  // v2/card-game/weather.mjs
+  var WEATHER_TURNS = weather_default.turns;
+  var locations = Object.fromEntries(
+    Object.entries(weather_default.places).flatMap(
+      ([region, exposures]) => Object.entries(exposures).flatMap(
+        ([exposure, ids3]) => ids3.map((id) => [id, { region, exposure }])
+      )
+    )
+  );
+  function regionWeather(world, region) {
+    const cycle = weather_default.cycles[region];
+    if (!cycle) return null;
+    const period = Math.floor(world.turn / WEATHER_TURNS);
+    return { region, period, condition: cycle[period % cycle.length] };
+  }
+  function locationWeather(world, id) {
+    const place = locations[id];
+    if (!place) return null;
+    const now = regionWeather(world, place.region);
+    return {
+      ...now,
+      exposure: place.exposure,
+      variant: `${now.condition}-${place.exposure}`
+    };
+  }
+
+  // v2/card-game/pack-transport.mjs
+  var TRANSPORT_VERSION = 3;
+  var PHASES = ["docked", "course", "sea", "arrived"];
+  var shipAt = (place) => Object.entries(transports).find(([, t]) => t.place === place) || null;
+  var passengers = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([, a]) => a);
+  var passengerIds = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([actor]) => actor).sort();
+  function lanesFrom(t, dock) {
+    const out = [];
+    for (const lane of t.lanes || []) {
+      if (lane.from === dock) out.push(lane.to);
+      else if (lane.to === dock && !lane.oneWay) out.push(lane.from);
+    }
+    return [...new Set(out)];
+  }
+  var seaEdge = (from, to) => [`sea:${from}`, `sea:${to}`];
+  var laneOfEdge = ([from, to]) => from?.startsWith("sea:") && to?.startsWith("sea:") ? [from.slice(4), to.slice(4)] : null;
+  var tables = null;
+  function laneTables() {
+    if (tables) return tables;
+    const all = Object.values(transports);
+    tables = {
+      edges: all.flatMap(
+        (t) => t.docks.flatMap(
+          (dock) => lanesFrom(t, dock).map((to) => seaEdge(dock, to))
+        )
+      ),
+      ports: new Set(all.flatMap((t) => t.docks.map(regionOf))),
+      shipmasters: new Set(all.map((t) => t.shipmaster).filter(Boolean))
+    };
+    return tables;
+  }
+  var laneEdges = () => laneTables().edges;
+  var regionOf = (dock) => packPlaces[dock]?.packId ?? null;
+  var homeOf = (actor) => {
+    const pack = packPeople[actor]?.packId ?? null;
+    return laneTables().ports.has(pack) ? pack : null;
+  };
+  var storyDock = (s, dock) => Boolean(packPlaces[dock]?.requires?.length) && entityActive(s, dock);
+  function knowsLane(s, actor, from, to) {
+    if (!actor || laneTables().shipmasters.has(actor)) return true;
+    const home = homeOf(actor);
+    if (regionOf(from) === home || regionOf(to) === home) return true;
+    const a = `sea:${from}`, b = `sea:${to}`;
+    if ((s.routeKnowledge?.[actor] || []).some(([x, y]) => x === a && y === b))
+      return true;
+    return storyDock(s, from) || storyDock(s, to);
+  }
+  function learnLane(s, actor, from, to) {
+    const t = Object.values(transports).find(
+      (t2) => lanesFrom(t2, from).includes(to)
+    );
+    if (!t || !s.actors[actor]) return false;
+    const edges = [seaEdge(from, to)];
+    if (lanesFrom(t, to).includes(from)) edges.push(seaEdge(to, from));
+    const key = ([x, y]) => `${x}>${y}`;
+    const known = new Map(
+      (s.routeKnowledge?.[actor] || []).map((edge) => [key(edge), edge])
+    );
+    const before = known.size;
+    for (const edge of edges) known.set(key(edge), edge);
+    if (known.size === before) return false;
+    s.routeKnowledge ??= {};
+    s.routeKnowledge[actor] = [...known.values()].sort(
+      (x, y) => key(x).localeCompare(key(y))
+    );
+    return true;
+  }
+  var laneGate = (t, from, to) => (t.lanes || []).find(
+    (lane) => lane.opensWith && (lane.from === from && lane.to === to || !lane.oneWay && lane.from === to && lane.to === from)
+  )?.opensWith ?? null;
+  var laneConditions = (from, to) => Object.values(transports).map((t) => laneGate(t, from, to)).find(Boolean) ?? null;
+  var openLanes = (s, t, dock, actor = null) => lanesFrom(t, dock).filter((to) => {
+    if (!entityActive(s, to)) return false;
+    const gate = laneGate(t, dock, to);
+    return gate ? conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
+  });
+  function laneReach(s, id, from, actor = null) {
+    const t = transports[id];
+    const seen = /* @__PURE__ */ new Set([from]), queue = [from];
+    for (let i = 0; i < queue.length; i++)
+      for (const next of openLanes(s, t, queue[i], actor))
+        if (!seen.has(next)) {
+          seen.add(next);
+          queue.push(next);
+        }
+    return queue.slice(1);
+  }
+  var read = (s, id) => {
+    const state = s.transports?.[id];
+    return state?.version === 2 ? upgradeTransportState(s, id, state) : state;
+  };
+  var freshState = (dock, turn = 0) => ({
+    version: TRANSPORT_VERSION,
+    phase: "docked",
+    dock,
+    destination: null,
+    riders: [],
+    since: turn,
+    recall: null
+  });
+  function installTransports(s) {
+    s.transports ??= {};
+    for (const [id, t] of Object.entries(transports))
+      s.transports[id] ??= freshState(t.at, s.turn || 0);
+  }
+  function transportUnlocked(s, id) {
+    const signals = crossings.filter((c) => c.transport === id && c.signal);
+    return !signals.length || signals.some((c) => s.crossings[c.id].discovered);
+  }
+  var shipDock = (s, id) => read(s, id)?.phase === "sea" ? null : read(s, id)?.dock ?? null;
+  var shipAtSea = (s, id) => read(s, id)?.phase === "sea";
+  function preserveTransportAccess(s) {
+    for (const id of Object.keys(transports)) {
+      if (transportUnlocked(s, id)) continue;
+      if (Object.entries(s.actors).some(
+        ([actor, state]) => state.place === transports[id].place && controlledByHuman(s, actor)
+      )) {
+        const signal = crossings.find((c) => c.transport === id && c.signal);
+        if (signal) s.crossings[signal.id].discovered = true;
+      }
+    }
+    return s;
+  }
+  var humanAboard = (s, t) => Object.entries(s.actors).some(
+    ([who, a]) => a.place === t.place && controlledByHuman(s, who)
+  );
+  function canDisembark(s, id, actor) {
+    const state = read(s, id);
+    return Boolean(
+      actor && state.phase === "arrived" && s.actors[actor]?.place === transports[id].place && state.riders.includes(actor)
+    );
+  }
+  function courseOptions(s, id, actor = null) {
+    const t = transports[id], state = read(s, id);
+    if (!["docked", "arrived"].includes(state.phase)) return [];
+    if (actor && s.actors[actor]?.place !== t.place) return [];
+    if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
+    return openLanes(s, t, state.dock, actor);
+  }
+  function transportExits(s, place, previous = null, actor = null) {
+    const found = shipAt(place);
+    if (!found) return [];
+    const [id, t] = found, state = read(s, id);
+    const aboard = actor && s.actors[actor]?.place === t.place;
+    if (previous !== null && previous !== void 0 || !aboard) {
+      if (t.docks.includes(previous)) return laneReach(s, id, previous, actor);
+      const from = state.phase === "sea" || state.phase === "course" ? state.destination : state.dock;
+      return [
+        ...state.phase === "sea" || state.phase === "course" || canDisembark(s, id, actor) ? [from] : [],
+        ...laneReach(s, id, from, actor)
+      ].filter((dock, i, all) => all.indexOf(dock) === i);
+    }
+    return [
+      ...canDisembark(s, id, actor) ? [state.dock] : [],
+      ...courseOptions(s, id, actor)
+    ];
+  }
+  function transportScenery(s, place, nameOf2) {
+    const found = shipAt(place);
+    if (!found) return [];
+    const state = read(s, found[0]);
+    if (state.phase === "sea")
+      return [`The ship is at sea, bound for ${nameOf2(state.destination)}.`];
+    if (state.phase === "course")
+      return [`The ship has set its course for ${nameOf2(state.destination)}.`];
+    if (state.phase === "arrived")
+      return [`The ship has arrived at ${nameOf2(state.dock)}.`];
+    return [`The ship is docked at ${nameOf2(state.dock)}.`];
+  }
+  var whole2 = (n) => Number.isSafeInteger(n) && n >= 0;
+  function validTransports(s) {
+    const saved = s.transports;
+    if (!saved || Array.isArray(saved) || Object.keys(saved).sort().join() !== Object.keys(transports).sort().join())
+      return false;
+    return Object.entries(transports).every(([id, t]) => {
+      const state = saved[id];
+      if (!state || Object.keys(state).sort().join() !== "destination,dock,phase,recall,riders,since,version" || state.version !== TRANSPORT_VERSION || !PHASES.includes(state.phase) || !t.docks.includes(state.dock) || !whole2(state.since) || state.since > (s.turn ?? 0) || !Array.isArray(state.riders) || new Set(state.riders).size !== state.riders.length || state.riders.some((a) => !s.actors[a]) || state.recall !== null && !t.docks.includes(state.recall))
+        return false;
+      const aboard = passengers(s, id).length;
+      if (!aboard && state.recall !== null && state.phase !== "sea") return false;
+      if (state.phase === "docked")
+        return state.destination === null && !state.riders.length;
+      if (state.phase === "arrived")
+        return state.destination === null && aboard > 0;
+      return !state.riders.length && lanesFrom(t, state.dock).includes(state.destination) && (state.phase === "sea" || aboard > 0);
+    });
+  }
+  function upgradeTransportState(s, id, state) {
+    const aboard = passengerIds(s, id);
+    const arrived = aboard.length > 0 && state.dock === state.destination;
+    return {
+      version: TRANSPORT_VERSION,
+      phase: arrived ? "arrived" : "docked",
+      dock: state.dock,
+      destination: null,
+      riders: arrived ? aboard : [],
+      since: s.turn || 0,
+      recall: aboard.length ? state.recall : null
+    };
+  }
+
+  // v2/card-game/pack-rules.mjs
+  var DAYLIGHT_TURNS = 24;
+  var crossingState = (s, id) => s.crossings?.[id];
+  var newCrossingState = (c) => c.signal ? { discovered: false, phase: 0, until: 0 } : { discovered: false };
+  var newPackRecord = (pack) => ({
+    revision: pack.revision,
+    ...pack.recital ? { recitals: {} } : {},
+    ...pack.choices ? {
+      choices: {},
+      flags: {},
+      receipts: {},
+      met: {},
+      scope: pack.release ? "opening" : "full"
+    } : {},
+    sounds: Object.fromEntries(
+      Object.keys(pack.fixtures || {}).map((id) => [id, 0])
+    )
+  });
+  function newTemperament(id) {
+    const t = packPeople[id]?.temperament;
+    return t ? { awake: !t.asleep, irritation: 0, wakeCause: null } : {};
+  }
+  var fixtureSounding = (s, id) => s.turn < (s.packs?.[packFixtures[id]?.packId]?.sounds?.[id] ?? 0);
+  var soundAt = (s, place, senses2) => senses2.baseSoundAt(s, place) || fixturesAt(place).some((f) => fixtureSounding(s, f.id));
+  function objectPlace(s, item) {
+    let holder = s.items[item]?.holder;
+    const seen = /* @__PURE__ */ new Set([item]);
+    while (s.items[holder]) {
+      if (seen.has(holder)) return null;
+      seen.add(holder);
+      holder = s.items[holder].holder;
+    }
+    return s.actors[holder]?.place || holder;
+  }
+  function conditionMet(s, c, senses2, packId = null, actor = null) {
+    const state = s.packs?.[packId];
+    switch (c.kind) {
+      case "sound":
+        return !!senses2 && c.at.some((place) => soundAt(s, place, senses2));
+      case "light":
+        return Boolean(
+          entityActive(s, c.item) && s.items[c.item]?.lit && s.items[c.item]?.fuel > 0 && c.at.includes(objectPlace(s, c.item)) && (!c.uncovered || !Object.values(s.items).some((i) => i.holder === c.item))
+        );
+      case "not":
+        return !conditionMet(s, c.condition, senses2, packId, actor);
+      case "any":
+        return c.conditions.some(
+          (r) => conditionMet(s, r, senses2, packId, actor)
+        );
+      case "choice":
+        return state?.choices?.[c.key] === c.value;
+      case "choice_unset":
+        return !!state && !Object.hasOwn(state.choices || {}, c.key);
+      case "flag":
+        return (state?.flags?.[c.key] ?? false) === c.value;
+      case "knows": {
+        const who = actor || senses2?.player || currentActor(s);
+        return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
+      }
+      case "holding":
+        return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
+      case "shared_world":
+        return sharedEnabled(s);
+      case "connected_humans":
+        return sharedEnabled(s) && humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum;
+      case "item_near": {
+        let holder = s.items[c.item]?.holder;
+        const seen = /* @__PURE__ */ new Set([c.item]);
+        while (s.items[holder] && !seen.has(holder)) {
+          seen.add(holder);
+          holder = s.items[holder].holder;
+        }
+        return (!controlledByHuman(s, holder) || humanPresent(s, holder)) && objectPlace(s, c.item) === c.place;
+      }
+      case "item_present":
+        return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
+      // Any thing tagged c.tag, carried by someone present at c.place.
+      case "tag_held":
+        return Object.keys(s.items).some((id) => {
+          const holder = s.items[id].holder;
+          return Boolean(packThings[id]?.tags?.includes(c.tag)) && entityActive(s, id) && s.actors[holder]?.place === c.place && (!controlledByHuman(s, holder) || humanPresent(s, holder));
+        });
+      case "item_at":
+        return s.items[c.item]?.holder === c.place;
+      // Any thing from that world in the place: carried there or resting there.
+      case "pack_item_present":
+        return Object.keys(s.items).some(
+          (id) => packThings[id]?.packId === c.pack && entityActive(s, id) && objectPlace(s, id) === c.place
+        );
+      case "drawn":
+        return !!state?.specials?.includes(c.id);
+      case "met":
+        return !!state?.met && Object.hasOwn(state.met, c.actor);
+      // The saved world clock: every DAYLIGHT_TURNS turns, day and night swap.
+      case "daylight":
+        return (Math.floor((s.turn || 0) / DAYLIGHT_TURNS) % 2 ? "night" : "day") === c.phase;
+      // The saved regional weather where c.place is.
+      case "weather":
+        return locationWeather(s, c.place)?.condition === c.condition;
+      // A seeded chance: true for `lasts` turns at a time, one window in
+      // `odds`, hashed from the run seed so every table agrees.
+      case "chance": {
+        let h = 2166136261;
+        const window = Math.floor((s.turn || 0) / c.lasts);
+        for (const ch of `${s.run?.seed ?? 0}:${c.key}:${window}`)
+          h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+        return h % c.odds === 0;
+      }
+      // A transport docked (or just arrived) at a port, or "@sea" between ports.
+      case "ship_at":
+        return c.dock === "@sea" ? shipAtSea(s, c.transport) : shipDock(s, c.transport) === c.dock;
+      default:
+        return false;
+    }
+  }
+  var signalReady = (s, c, senses2) => (c.signal?.while || []).every((r) => conditionMet(s, r, senses2, c.packId));
+  var windowOpen = (s, c) => !c.signal || (c.signal.opens === null ? crossingState(s, c.id)?.phase === c.signal.steps.length : s.turn < (crossingState(s, c.id)?.until ?? 0));
+  var crossingOpen = (s, c, senses2) => (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) && entityActive(s, c.from) && entityActive(s, c.to) && (c.transport ? transportUnlocked(s, c.transport) && shipDock(s, c.transport) === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId));
+  var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || senses2.humanActors?.includes(actor);
+  var crossingExits = (s, place, actor, senses2) => crossings.filter(
+    (c) => c.from === place && (mayCross(c, actor, senses2) || s.invitedPlaces?.[actor]?.includes(c.from) && (packPeople[actor]?.packId ?? null) === (packPlaces[c.to]?.packId ?? null)) && crossingOpen(s, c, senses2)
+  ).map((c) => c.transport ? transports[c.transport].place : c.to);
+  var packDiscovered = (s, packId) => crossings.some(
+    (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
+  );
+  var crossingScenery = (s, place, senses2) => crossings.filter((c) => c.from === place && c.scenery).map(
+    (c) => crossingOpen(s, c, senses2) ? c.scenery.open : c.scenery.closed
+  ).filter(Boolean);
+  var hasTemperament = (id) => Boolean(packPeople[id]?.temperament);
+  function variantOf(s, id) {
+    const a = packPeople[id];
+    if (!a?.temperament) return null;
+    const state = s.actors[id];
+    const name = !state.awake ? "asleep" : a.variants.irritated && state.irritation >= a.temperament.irritated ? "irritated" : "awake";
+    return {
+      name,
+      ...name === "irritated" ? a.variants.awake : {},
+      ...a.variants[name]
+    };
+  }
+  var exactKeys = (o, keys) => o && typeof o === "object" && !Array.isArray(o) && Object.keys(o).sort().join() === [...keys].sort().join();
+  var whole3 = (n, max) => Number.isSafeInteger(n) && n >= 0 && n <= max;
+  function validPackState(s, senses2) {
+    if (!validTransports(s) || !exactKeys(
+      s.crossings,
+      crossings.map((c) => c.id)
+    ) || !exactKeys(
+      s.packs,
+      packDefinitions.map((p) => p.id)
+    ))
+      return false;
+    for (const c of crossings) {
+      const state = s.crossings[c.id];
+      if (!c.signal) {
+        if (!exactKeys(state, ["discovered"])) return false;
+        if (typeof state.discovered !== "boolean") return false;
+        continue;
+      }
+      if (!exactKeys(state, ["discovered", "phase", "until"]) || typeof state.discovered !== "boolean" || !whole3(
+        state.phase,
+        c.signal.steps.length - (c.signal.opens === null ? 0 : 1)
+      ) || !whole3(
+        state.until,
+        c.signal.opens === null ? 0 : s.turn + c.signal.opens
+      ) || (state.until > 0 || c.signal.opens === null && state.phase === c.signal.steps.length) && !state.discovered || state.phase > 0 && !(senses2.humanActors || [senses2.player]).some(
+        (id) => s.actors[id]?.place === c.from
+      ))
+        return false;
+    }
+    for (const pack of packDefinitions) {
+      const record4 = s.packs[pack.id];
+      const fixtures = Object.entries(pack.fixtures || {});
+      if (!exactKeys(record4, [
+        ...pack.specials && s.run ? ["specials"] : [],
+        ...pack.choices ? [
+          "revision",
+          "sounds",
+          "choices",
+          "flags",
+          "receipts",
+          "met",
+          "scope",
+          ...pack.recital ? ["recitals"] : []
+        ] : ["revision", "sounds"]
+      ]) || record4.revision !== pack.revision || !exactKeys(
+        record4.sounds,
+        fixtures.map(([id]) => id)
+      ) || fixtures.some(
+        ([id, f]) => !whole3(record4.sounds[id], s.turn + f.sound.turns)
+      ))
+        return false;
+    }
+    for (const [id, a] of Object.entries(packPeople)) {
+      const state = s.actors[id];
+      if (!state) return false;
+      const t = a.temperament;
+      if (!t) {
+        if (["awake", "irritation", "wakeCause"].some((k) => k in state))
+          return false;
+        continue;
+      }
+      if (typeof state.awake !== "boolean" || !whole3(state.irritation, t.irritation) || ![null, "voice", "sound"].includes(state.wakeCause) || !state.awake && (state.wakeCause !== null || !t.asleep) || state.awake && state.wakeCause === null && t.asleep)
+        return false;
+    }
+    return validatePackStates(s);
+  }
+
+  // v2/card-game/want-talk.mjs
+  var authoredWant = (id) => forest_default.people[id]?.want || packPeople[id]?.want || null;
+  var wantOf = (world, id) => world.actors?.[id]?.want || authoredWant(id);
+  var rootOf = (world, item) => {
+    let holder = world.items[item]?.holder;
+    const seen = /* @__PURE__ */ new Set([item]);
+    while (world.items[holder] && !seen.has(holder)) {
+      seen.add(holder);
+      holder = world.items[holder].holder;
+    }
+    return holder;
+  };
+  var article = (name) => /^(the|a|an) /iu.test(name) ? name : `the ${name}`;
+  function met(world, id, want) {
+    if (want.kind === "connect") return false;
+    const here = world.actors[id].place;
+    if (want.kind === "item") return rootOf(world, want.target) === id;
+    if (want.kind === "place") return here === want.target;
+    return world.actors[want.target]?.place === here;
+  }
+  function wantFact(world, id, nameOf2) {
+    const want = wantOf(world, id);
+    if (want?.kind === "connect" && world.actors?.[id])
+      return "I want to introduce you to someone.";
+    if (!want || !world.actors?.[id] || !entityActive(world, want.target))
+      return null;
+    if (want.kind === "item" && !world.items[want.target]) return null;
+    if (want.kind === "person" && !world.actors[want.target]) return null;
+    if (met(world, id, want)) return null;
+    const name = nameOf2(want.target);
+    const line = want.kind === "item" ? `I want ${article(name)}.` : want.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`;
+    const more = world.actors[id].under?.length || 0;
+    return more ? `${line} I have ${more === 1 ? "one other quest" : `${more} other quests`} too.` : line;
+  }
+  var wantHeard = (world, played, id, player) => id === player || played?.verb === "talk" && [played.actorId, played.targetId].includes(id);
+
+  // v2/card-game/want.mjs
+  var WANT_KINDS = ["item", "place", "person", "connect"];
+  var STEP_VERBS = {
+    item: ["find", "give", "bring"],
+    person: ["meet", "threaten", "attack"],
+    place: ["rest"]
+  };
+  var CONNECT_TARGET = "humans";
+  var REFUSAL_LIMIT = 3;
+  var QUEST_LIMIT = 3;
+  var knownActors = (s) => [
+    .../* @__PURE__ */ new Set([
+      ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
+      ...s.controlledActors || []
+    ])
+  ].filter(
+    (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
+  );
+  var travels = (id, s = null) => !isPackActor(id) || freed(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
+  var levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
+  var questSteps = (level) => {
+    let [a, b] = [1, 1];
+    for (let i = 1; i < level; i++) [a, b] = [b, a + b];
+    return a;
+  };
+  var startXp = (id) => {
+    const level = isPackActor(id) ? packPeople[id].startLevel || 1 : 1;
+    return level * (level - 1) / 2;
+  };
+  var wantOf2 = (s, id) => s.actors[id]?.want ?? null;
+  var questsOf = (s, id) => {
+    const a = s.actors[id];
+    return a?.want ? [a.want, ...a.under || []] : [];
+  };
+  var newWant = (kind, target, turn) => ({
+    kind,
+    target,
+    since: turn,
+    refusals: 0
+  });
+  var validTarget = (s, kind, target) => kind === "item" ? Object.hasOwn(s.items, target) : kind === "person" ? Object.hasOwn(s.actors, target) : kind === "connect" ? target === CONNECT_TARGET : true;
+  function installWants(s) {
+    for (const [id, a] of Object.entries(s.actors)) {
+      if (!("want" in a)) {
+        const w = authoredWant(id);
+        a.want = w && validTarget(s, w.kind, w.target) ? {
+          ...newWant(w.kind, w.target, s.turn),
+          ...w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {}
+        } : null;
+      }
+      a.xp ??= startXp(id);
+      a.visited ??= [a.place];
+      a.talked ??= [];
+    }
+  }
+  var STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
+  function validStep(s, w) {
+    const { verb, ...cards } = w.step;
+    const named = STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+    return Boolean(w.quest) && (STEP_VERBS[w.kind] || []).includes(verb) && Object.keys(cards).length === named.length && named.every((key) => typeof cards[key] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target);
+  }
+  function validWant(s, id) {
+    const a = s.actors[id];
+    const whole4 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
+    const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
+    const quests = questsOf(s, id);
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(startXp(id) + s.turn * 8)) && a.xp <= startXp(id) + s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want)) && (a.under === void 0 || Array.isArray(a.under) && a.want !== null && a.under.length >= 1 && a.under.length < QUEST_LIMIT && a.under.every((w) => validQuest(s, id, w))) && quests.filter((w) => w.quest).length <= 1 && new Set(quests.filter((w) => !w.quest).map((w) => `${w.kind}:${w.target}`)).size === quests.filter((w) => !w.quest).length;
+  }
+  function validQuest(s, id, w) {
+    const whole4 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
+    return Boolean(
+      w && typeof w === "object" && Object.keys(w).length === 4 + (w.quest === void 0 ? 0 : 1) + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) && (w.step === void 0 || validStep(s, w)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && (w.story === void 0 || w.story === true && !w.quest) && (w.quest === void 0 || Object.keys(w.quest).length === 2 && Number.isSafeInteger(w.quest.level) && w.quest.level >= 2 && Number.isSafeInteger(w.quest.left) && w.quest.left >= 1 && w.quest.left <= questSteps(w.quest.level) + 1) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
+    );
+  }
+
   // v2/card-game/packs.json
   var packs_default = {
     schemaVersion: 1,
@@ -12465,219 +13425,6 @@
     ]
   };
 
-  // v2/card-game/knowledge.mjs
-  var KNOWLEDGE_VERSION = 1;
-  var KNOWLEDGE_FACT_LIMIT = 256;
-  var KNOWLEDGE_PERSON_LIMIT = KNOWLEDGE_FACT_LIMIT;
-  var KNOWLEDGE_PENDING_LIMIT = 32;
-  var FACT_TEXT_LIMIT = 180;
-  var owns = (o, key) => typeof key === "string" && !!o && Object.hasOwn(o, key);
-  var record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
-  var safeId = (v) => typeof v === "string" && v.length > 0 && v.length <= 160 && !["__proto__", "prototype", "constructor"].includes(v) && !/[\u0000-\u0020\u007f]/u.test(v);
-  var text = (v, limit) => typeof v === "string" && !!v.trim() && v.length <= limit && !/[\u0000-\u001f\u007f]/u.test(v);
-  var fields2 = (v, keys) => record(v) && Object.keys(v).length === keys.length && Object.keys(v).every((key) => keys.includes(key));
-  var whole = (v, max) => Number.isSafeInteger(v) && v >= 0 && v <= max;
-  var tokens = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
-  var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens).filter(Boolean);
-  var validFactText = (v) => text(v, FACT_TEXT_LIMIT) && /[.!?。！？]["'’”]?$/u.test(v.trim()) && sentences(v).length === 1 && sentences(v)[0].split(" ").length >= 3;
-  var FACT_FORMS = Object.fromEntries(
-    [
-      "me:i my:i mine:i myself:i your:you yours:you yourself:you is:be was:be ",
-      "am:be are:be were:be been:be m:be re:be has:have had:have ve:have ",
-      "does:do did:do goes:go went:go took:take gave:give chose:choose ",
-      "brought:bring threw:throw made:make saw:see found:find held:hold ",
-      "kept:keep told:tell sold:sell bought:buy caught:catch led:lead ",
-      "fought:fight rang:ring ran:run came:come said:say stole:steal hid:hide ",
-      "wrote:write drew:draw knew:know fell:fall sat:sit stood:stand ",
-      "sent:send lost:lose met:meet paid:pay struck:strike won:win woke:wake ",
-      "broke:break spoke:speak ate:eat drank:drink sang:sing swore:swear ",
-      "wore:wear tore:tear left:leave"
-    ].join("").split(" ").map((pair) => pair.split(":"))
-  );
-  var VOWELS = /* @__PURE__ */ new Set([..."aeiou"]);
-  var newKnowledge = () => ({
-    version: KNOWLEDGE_VERSION,
-    facts: {},
-    known: {},
-    pending: []
-  });
-  var knowsFact = (world, actor, id) => owns(world.knowledge?.facts, id) && owns(world.knowledge?.known?.[actor], id);
-  var compareFacts = (a, b) => b.source.turn - a.source.turn || b.source.eventSeq - a.source.eventSeq || a.id.localeCompare(b.id);
-  function remember(world, actor, fact, kind, teller, eventSeq, learnedTurn) {
-    const knowledge = world.knowledge;
-    if (knowsFact(world, actor, fact.id)) return false;
-    const known = knowledge.known[actor] ??= {};
-    known[fact.id] = { kind, teller, eventSeq, learnedTurn };
-    const ordered = Object.keys(known).sort(
-      (a, b) => known[b].learnedTurn - known[a].learnedTurn || known[b].eventSeq - known[a].eventSeq || a.localeCompare(b)
-    );
-    for (const id of ordered.slice(KNOWLEDGE_PERSON_LIMIT)) delete known[id];
-    knowledge.pending = knowledge.pending.filter(
-      (p) => knowsFact(world, p.speaker, p.factId)
-    );
-    return owns(known, fact.id);
-  }
-  function retainFact(world, fact) {
-    const knowledge = world.knowledge;
-    if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
-    const eventFacts = Object.values(knowledge.facts).filter((f) => f.source.kind !== "topic").sort(compareFacts);
-    if (Object.keys(knowledge.facts).length >= KNOWLEDGE_FACT_LIMIT) {
-      const old = eventFacts.at(-1);
-      if (!old) return null;
-      delete knowledge.facts[old.id];
-      for (const known of Object.values(knowledge.known)) delete known[old.id];
-      knowledge.pending = knowledge.pending.filter((p) => p.factId !== old.id);
-    }
-    knowledge.facts[fact.id] = fact;
-    return fact;
-  }
-  var newsVerbs = /* @__PURE__ */ new Set([
-    "give",
-    "trade",
-    "attack",
-    "threaten",
-    "accompany",
-    "choose"
-  ]);
-  function witnessKnowledge(world, entry, eligible = () => true, topics = []) {
-    if (!world.knowledge || entry.generated || entry.kind !== "action" && !entry.consequence || !newsVerbs.has(entry.verb) && !entry.consequence || !validFactText(entry.text) || !entry.seq || !world.actors[entry.actorId] || entry.verb === "choose" && topics.some(
-      (topic) => topic.packId === entry.packId && topic.choiceId === entry.choiceId
-    ))
-      return null;
-    const witnesses = [
-      .../* @__PURE__ */ new Set([
-        entry.actorId,
-        ...entry.cast || [],
-        ...entry.witnesses || []
-      ])
-    ].filter((id) => world.actors[id] && eligible(id)).sort();
-    const fact = retainFact(world, {
-      id: `event:${entry.seq}`,
-      text: entry.text.trim(),
-      source: {
-        kind: "event",
-        eventSeq: entry.seq,
-        turn: entry.turn,
-        actorId: entry.actorId,
-        locationId: entry.locationId,
-        witnesses,
-        topic: null
-      }
-    });
-    if (!fact) return null;
-    for (const actor of witnesses)
-      remember(world, actor, fact, "witnessed", null, entry.seq, entry.turn);
-    return fact;
-  }
-  function installKnowledge(world, eligible = () => true, topics = []) {
-    if (world.knowledge !== void 0) return world.knowledge;
-    world.knowledge = newKnowledge();
-    for (const entry of world.log || [])
-      witnessKnowledge(world, entry, eligible, topics);
-    return world.knowledge;
-  }
-  function knowledgeDisclosures(world, speakers, entities2, location, eventSeq = 0) {
-    const pending = (world.knowledge?.pending || []).filter(
-      (p) => p.locationId === location && speakers.includes(p.speaker) && entities2.includes(p.speaker) && entities2.includes(p.listener) && (!knowsFact(world, p.listener, p.factId) || p.commitChoice)
-    );
-    pending.sort(
-      (a, b) => Number(b.eventSeq === eventSeq) - Number(a.eventSeq === eventSeq) || b.eventSeq - a.eventSeq || a.factId.localeCompare(b.factId)
-    );
-    return pending.slice(0, 1).map((p) => ({
-      factId: p.factId,
-      speaker: p.speaker,
-      listener: p.listener,
-      eventSeq: p.eventSeq,
-      text: world.knowledge.facts[p.factId].text
-    }));
-  }
-  function knowledgeFacts(world, actor, nameOf2 = (id) => id, priority = [], relevant = []) {
-    const rank = (id) => priority.includes(id) ? 2 : relevant.includes(id) ? 1 : 0;
-    const known = world.knowledge?.known?.[actor] || {};
-    return Object.keys(known).map((id) => world.knowledge.facts[id]).filter(Boolean).sort((a, b) => rank(b.id) - rank(a.id) || compareFacts(a, b)).slice(0, 2).map((fact) => {
-      const memory = known[fact.id];
-      const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf2(memory.teller)} told me`;
-      const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
-      const place = fact.source.kind === "topic" ? null : fact.source.locationId;
-      const where = place && !fact.text.includes(nameOf2(place)) ? ` at ${nameOf2(place)}` : "";
-      const stale = fact.source.kind === "event" && age >= STALE_TURNS ? " Things may have changed since." : "";
-      return `${origin} this ${ageText(age)}${where}: ${fact.text}${stale}`.slice(
-        0,
-        240
-      );
-    });
-  }
-  var STALE_TURNS = 6;
-  var ageText = (turns) => turns <= 1 ? "just now" : turns < STALE_TURNS ? "a little while ago" : turns <= 20 ? "some time ago" : "long ago";
-  function validKnowledge(world, actors2, places2, topics = [], laneText = () => null) {
-    const k = world.knowledge;
-    if (k === void 0) return true;
-    if (!fields2(k, ["version", "facts", "known", "pending"]) || k.version !== KNOWLEDGE_VERSION || !record(k.facts) || Object.keys(k.facts).length > KNOWLEDGE_FACT_LIMIT || !record(k.known) || Object.keys(k.known).length > actors2.length || !Array.isArray(k.pending) || k.pending.length > KNOWLEDGE_PENDING_LIMIT)
-      return false;
-    for (const [id, fact] of Object.entries(k.facts)) {
-      if (!safeId(id) || !fields2(fact, ["id", "text", "source"]) || fact.id !== id || !validFactText(fact.text))
-        return false;
-      const s = fact.source;
-      if (!fields2(s, [
-        "kind",
-        "eventSeq",
-        "turn",
-        "actorId",
-        "locationId",
-        "witnesses",
-        "topic"
-      ]) || !["event", "topic", "ending", "lane"].includes(s.kind) || !whole(s.eventSeq, world.eventSeq) || s.eventSeq < 1 || !whole(s.turn, world.turn) || !actors2.includes(s.actorId) || !places2.includes(s.locationId) || !Array.isArray(s.witnesses) || s.witnesses.length > actors2.length || s.witnesses.some(
-        (a, i) => !actors2.includes(a) || i && s.witnesses[i - 1] >= a
-      ))
-        return false;
-      if (s.kind === "event") {
-        if (id !== `event:${s.eventSeq}` || s.topic !== null) return false;
-      } else if (s.kind === "lane") {
-        if (laneText(id) !== fact.text || s.topic !== null) return false;
-      } else if (s.kind === "ending") {
-        if (!/^ending:./u.test(id) || s.topic !== null) return false;
-      } else {
-        if (!fields2(s.topic, ["packId", "id", "choiceId"])) return false;
-        const topic = topics.find(
-          (t) => t.packId === s.topic.packId && t.id === s.topic.id
-        );
-        if (!topic || topic.id !== id || topic.text !== fact.text || topic.speaker !== s.actorId || topic.at !== s.locationId || (topic.choiceId ?? null) !== s.topic.choiceId || s.witnesses.length !== 1 || s.witnesses[0] !== s.actorId)
-          return false;
-      }
-    }
-    for (const [actor, known] of Object.entries(k.known)) {
-      if (!actors2.includes(actor) || !record(known) || Object.keys(known).length > KNOWLEDGE_PERSON_LIMIT)
-        return false;
-      for (const [id, m] of Object.entries(known)) {
-        const fact = k.facts[id];
-        if (!owns(k.facts, id) || !fields2(m, ["kind", "teller", "eventSeq", "learnedTurn"]) || !["witnessed", "heard"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "witnessed" ? m.teller !== null || !fact.source.witnesses.includes(actor) : !actors2.includes(m.teller) || m.teller === actor))
-          return false;
-      }
-    }
-    const pendingKeys = /* @__PURE__ */ new Set();
-    return k.pending.every((p) => {
-      if (!fields2(p, [
-        "factId",
-        "speaker",
-        "listener",
-        "eventSeq",
-        "turn",
-        "locationId",
-        "commitChoice"
-      ]) || !owns(k.facts, p.factId) || !actors2.includes(p.speaker) || !actors2.includes(p.listener) || p.speaker === p.listener || !knowsFact(world, p.speaker, p.factId) || !whole(p.eventSeq, world.eventSeq) || p.eventSeq < 1 || !whole(p.turn, world.turn) || typeof p.commitChoice !== "boolean" || !places2.includes(p.locationId))
-        return false;
-      const learned = k.known[p.speaker][p.factId];
-      if (learned.kind === "heard" && learned.learnedTurn >= p.turn) return false;
-      const fact = k.facts[p.factId];
-      if (p.commitChoice && (fact.source.kind !== "topic" || !fact.source.topic.choiceId || p.speaker !== fact.source.actorId || p.locationId !== fact.source.locationId))
-        return false;
-      const key = `${p.eventSeq}/${p.speaker}/${p.listener}`;
-      if (pendingKeys.has(key)) return false;
-      pendingKeys.add(key);
-      return true;
-    });
-  }
-
   // v2/card-game/pack-schema.mjs
   var PACK_SCHEMA_VERSION = 1;
   var AUTHORED_TOPIC_LIMIT = 128;
@@ -13827,642 +14574,6 @@
     return problems2;
   }
 
-  // v2/card-game/weather.json
-  var weather_default = {
-    turns: 12,
-    cycles: {
-      boeotia: ["clear", "cloud", "rain", "cloud", "mist", "clear"],
-      attica: ["clear", "clear", "cloud", "rain", "cloud", "mist"],
-      argolid: ["cloud", "clear", "clear", "mist", "cloud", "rain"],
-      phocis: ["mist", "cloud", "rain", "cloud", "clear", "clear"],
-      thessaly: ["cloud", "rain", "mist", "clear", "clear", "cloud"],
-      troad: ["mist", "cloud", "rain", "rain", "cloud", "clear"],
-      thrace: ["cloud", "mist", "rain", "cloud", "clear", "cloud"],
-      lemnos: ["clear", "mist", "cloud", "rain", "cloud", "clear"],
-      egypt: ["clear", "clear", "cloud", "clear", "mist", "clear"],
-      tauris: ["mist", "rain", "cloud", "clear", "cloud", "rain"],
-      sicily: ["clear", "cloud", "clear", "mist", "rain", "cloud"],
-      susa: ["clear", "clear", "cloud", "clear", "cloud", "rain"],
-      scythia: ["cloud", "rain", "mist", "cloud", "rain", "clear"],
-      heights: ["mist", "clear", "cloud", "mist", "clear", "cloud"],
-      underworld: ["mist"],
-      sea: ["mist", "rain", "mist", "rain", "mist", "clear"],
-      willows: ["rain", "mist", "rain", "rain", "mist", "mist", "rain", "mist"]
-    },
-    places: {
-      boeotia: {
-        coast: [
-          "greek-harbor",
-          "greek-aulis"
-        ],
-        court: [
-          "greek-courtyard",
-          "greek-well",
-          "greek-palace"
-        ],
-        open: [
-          "greek-gate",
-          "greek-battlefield",
-          "greek-road-thebes"
-        ],
-        grove: [
-          "greek-sanctuary",
-          "greek-cithaeron"
-        ]
-      },
-      attica: {
-        court: [
-          "greek-athens",
-          "greek-acropolis",
-          "greek-acharnae"
-        ],
-        coast: [
-          "greek-piraeus",
-          "greek-athens-harbor",
-          "greek-road-athens-harbor",
-          "greek-road-piraeus-eleusis"
-        ],
-        open: [
-          "greek-road-athens-piraeus",
-          "greek-road-athens-colonus",
-          "greek-road-athens-eleusis",
-          "greek-road-athens-marathon",
-          "greek-road-colonus-eleusis",
-          "greek-road-colonus-marathon",
-          "greek-assembly",
-          "greek-attic-farm",
-          "greek-marathon"
-        ],
-        shelter: [
-          "greek-demos-house",
-          "greek-thinkery",
-          "greek-jury-house"
-        ],
-        grove: [
-          "greek-festival",
-          "greek-colonus",
-          "greek-eleusis",
-          "greek-bird-wilderness"
-        ]
-      },
-      argolid: {
-        open: [
-          "greek-argolid-road",
-          "greek-argos-tomb"
-        ],
-        coast: [
-          "greek-argos-sanctuary"
-        ],
-        court: [
-          "greek-argos-palace",
-          "greek-mycenae-palace",
-          "greek-corinth",
-          "greek-troezen"
-        ],
-        shelter: [
-          "greek-argive-farm"
-        ]
-      },
-      phocis: {
-        court: [
-          "greek-delphi"
-        ],
-        open: [
-          "greek-road-sacred-way"
-        ]
-      },
-      thessaly: {
-        shelter: [
-          "greek-trachis"
-        ],
-        open: [
-          "greek-oeta"
-        ],
-        court: [
-          "greek-pherae"
-        ],
-        grove: [
-          "greek-thetis"
-        ]
-      },
-      troad: {
-        open: [
-          "greek-troy",
-          "greek-trojan-camp",
-          "greek-ajax-grave"
-        ],
-        coast: [
-          "greek-greek-camp",
-          "greek-troy-beach",
-          "greek-ajax-landing"
-        ],
-        shelter: [
-          "greek-ajax-household"
-        ]
-      },
-      thrace: {
-        coast: [
-          "greek-thrace"
-        ]
-      },
-      lemnos: {
-        shelter: [
-          "greek-lemnos"
-        ]
-      },
-      egypt: {
-        court: [
-          "greek-egypt-tomb"
-        ]
-      },
-      tauris: {
-        court: [
-          "greek-tauris"
-        ],
-        coast: [
-          "greek-road-black-sea"
-        ]
-      },
-      sicily: {
-        shelter: [
-          "greek-sicily"
-        ],
-        open: [
-          "greek-road-colonists"
-        ]
-      },
-      susa: {
-        court: [
-          "greek-susa"
-        ],
-        open: [
-          "greek-road-royal"
-        ]
-      },
-      scythia: {
-        open: [
-          "greek-scythian-crag"
-        ]
-      },
-      heights: {
-        open: [
-          "greek-divine-heights"
-        ]
-      },
-      underworld: {
-        underground: [
-          "greek-underworld"
-        ]
-      },
-      sea: {
-        coast: [
-          "greek-ship"
-        ]
-      },
-      willows: {
-        river: [
-          "willows-camp",
-          "willows-thicket",
-          "willows-bank"
-        ]
-      }
-    }
-  };
-
-  // v2/card-game/weather.mjs
-  var WEATHER_TURNS = weather_default.turns;
-  var locations = Object.fromEntries(
-    Object.entries(weather_default.places).flatMap(
-      ([region, exposures]) => Object.entries(exposures).flatMap(
-        ([exposure, ids3]) => ids3.map((id) => [id, { region, exposure }])
-      )
-    )
-  );
-  function regionWeather(world, region) {
-    const cycle = weather_default.cycles[region];
-    if (!cycle) return null;
-    const period = Math.floor(world.turn / WEATHER_TURNS);
-    return { region, period, condition: cycle[period % cycle.length] };
-  }
-  function locationWeather(world, id) {
-    const place = locations[id];
-    if (!place) return null;
-    const now = regionWeather(world, place.region);
-    return {
-      ...now,
-      exposure: place.exposure,
-      variant: `${now.condition}-${place.exposure}`
-    };
-  }
-
-  // v2/card-game/pack-transport.mjs
-  var TRANSPORT_VERSION = 3;
-  var PHASES = ["docked", "course", "sea", "arrived"];
-  var shipAt = (place) => Object.entries(transports).find(([, t]) => t.place === place) || null;
-  var passengers = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([, a]) => a);
-  var passengerIds = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([actor]) => actor).sort();
-  function lanesFrom(t, dock) {
-    const out = [];
-    for (const lane of t.lanes || []) {
-      if (lane.from === dock) out.push(lane.to);
-      else if (lane.to === dock && !lane.oneWay) out.push(lane.from);
-    }
-    return [...new Set(out)];
-  }
-  var seaEdge = (from, to) => [`sea:${from}`, `sea:${to}`];
-  var laneOfEdge = ([from, to]) => from?.startsWith("sea:") && to?.startsWith("sea:") ? [from.slice(4), to.slice(4)] : null;
-  var tables = null;
-  function laneTables() {
-    if (tables) return tables;
-    const all = Object.values(transports);
-    tables = {
-      edges: all.flatMap(
-        (t) => t.docks.flatMap(
-          (dock) => lanesFrom(t, dock).map((to) => seaEdge(dock, to))
-        )
-      ),
-      ports: new Set(all.flatMap((t) => t.docks.map(regionOf))),
-      shipmasters: new Set(all.map((t) => t.shipmaster).filter(Boolean))
-    };
-    return tables;
-  }
-  var laneEdges = () => laneTables().edges;
-  var regionOf = (dock) => packPlaces[dock]?.packId ?? null;
-  var homeOf = (actor) => {
-    const pack = packPeople[actor]?.packId ?? null;
-    return laneTables().ports.has(pack) ? pack : null;
-  };
-  var storyDock = (s, dock) => Boolean(packPlaces[dock]?.requires?.length) && entityActive(s, dock);
-  function knowsLane(s, actor, from, to) {
-    if (!actor || laneTables().shipmasters.has(actor)) return true;
-    const home = homeOf(actor);
-    if (regionOf(from) === home || regionOf(to) === home) return true;
-    const a = `sea:${from}`, b = `sea:${to}`;
-    if ((s.routeKnowledge?.[actor] || []).some(([x, y]) => x === a && y === b))
-      return true;
-    return storyDock(s, from) || storyDock(s, to);
-  }
-  function learnLane(s, actor, from, to) {
-    const t = Object.values(transports).find(
-      (t2) => lanesFrom(t2, from).includes(to)
-    );
-    if (!t || !s.actors[actor]) return false;
-    const edges = [seaEdge(from, to)];
-    if (lanesFrom(t, to).includes(from)) edges.push(seaEdge(to, from));
-    const key = ([x, y]) => `${x}>${y}`;
-    const known = new Map(
-      (s.routeKnowledge?.[actor] || []).map((edge) => [key(edge), edge])
-    );
-    const before = known.size;
-    for (const edge of edges) known.set(key(edge), edge);
-    if (known.size === before) return false;
-    s.routeKnowledge ??= {};
-    s.routeKnowledge[actor] = [...known.values()].sort(
-      (x, y) => key(x).localeCompare(key(y))
-    );
-    return true;
-  }
-  var laneGate = (t, from, to) => (t.lanes || []).find(
-    (lane) => lane.opensWith && (lane.from === from && lane.to === to || !lane.oneWay && lane.from === to && lane.to === from)
-  )?.opensWith ?? null;
-  var laneConditions = (from, to) => Object.values(transports).map((t) => laneGate(t, from, to)).find(Boolean) ?? null;
-  var openLanes = (s, t, dock, actor = null) => lanesFrom(t, dock).filter((to) => {
-    if (!entityActive(s, to)) return false;
-    const gate = laneGate(t, dock, to);
-    return gate ? conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
-  });
-  function laneReach(s, id, from, actor = null) {
-    const t = transports[id];
-    const seen = /* @__PURE__ */ new Set([from]), queue = [from];
-    for (let i = 0; i < queue.length; i++)
-      for (const next of openLanes(s, t, queue[i], actor))
-        if (!seen.has(next)) {
-          seen.add(next);
-          queue.push(next);
-        }
-    return queue.slice(1);
-  }
-  var read = (s, id) => {
-    const state = s.transports?.[id];
-    return state?.version === 2 ? upgradeTransportState(s, id, state) : state;
-  };
-  var freshState = (dock, turn = 0) => ({
-    version: TRANSPORT_VERSION,
-    phase: "docked",
-    dock,
-    destination: null,
-    riders: [],
-    since: turn,
-    recall: null
-  });
-  function installTransports(s) {
-    s.transports ??= {};
-    for (const [id, t] of Object.entries(transports))
-      s.transports[id] ??= freshState(t.at, s.turn || 0);
-  }
-  function transportUnlocked(s, id) {
-    const signals = crossings.filter((c) => c.transport === id && c.signal);
-    return !signals.length || signals.some((c) => s.crossings[c.id].discovered);
-  }
-  var shipDock = (s, id) => read(s, id)?.phase === "sea" ? null : read(s, id)?.dock ?? null;
-  var shipAtSea = (s, id) => read(s, id)?.phase === "sea";
-  function preserveTransportAccess(s) {
-    for (const id of Object.keys(transports)) {
-      if (transportUnlocked(s, id)) continue;
-      if (Object.entries(s.actors).some(
-        ([actor, state]) => state.place === transports[id].place && controlledByHuman(s, actor)
-      )) {
-        const signal = crossings.find((c) => c.transport === id && c.signal);
-        if (signal) s.crossings[signal.id].discovered = true;
-      }
-    }
-    return s;
-  }
-  var humanAboard = (s, t) => Object.entries(s.actors).some(
-    ([who, a]) => a.place === t.place && controlledByHuman(s, who)
-  );
-  function canDisembark(s, id, actor) {
-    const state = read(s, id);
-    return Boolean(
-      actor && state.phase === "arrived" && s.actors[actor]?.place === transports[id].place && state.riders.includes(actor)
-    );
-  }
-  function courseOptions(s, id, actor = null) {
-    const t = transports[id], state = read(s, id);
-    if (!["docked", "arrived"].includes(state.phase)) return [];
-    if (actor && s.actors[actor]?.place !== t.place) return [];
-    if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
-    return openLanes(s, t, state.dock, actor);
-  }
-  function transportExits(s, place, previous = null, actor = null) {
-    const found = shipAt(place);
-    if (!found) return [];
-    const [id, t] = found, state = read(s, id);
-    const aboard = actor && s.actors[actor]?.place === t.place;
-    if (previous !== null && previous !== void 0 || !aboard) {
-      if (t.docks.includes(previous)) return laneReach(s, id, previous, actor);
-      const from = state.phase === "sea" || state.phase === "course" ? state.destination : state.dock;
-      return [
-        ...state.phase === "sea" || state.phase === "course" || canDisembark(s, id, actor) ? [from] : [],
-        ...laneReach(s, id, from, actor)
-      ].filter((dock, i, all) => all.indexOf(dock) === i);
-    }
-    return [
-      ...canDisembark(s, id, actor) ? [state.dock] : [],
-      ...courseOptions(s, id, actor)
-    ];
-  }
-  function transportScenery(s, place, nameOf2) {
-    const found = shipAt(place);
-    if (!found) return [];
-    const state = read(s, found[0]);
-    if (state.phase === "sea")
-      return [`The ship is at sea, bound for ${nameOf2(state.destination)}.`];
-    if (state.phase === "course")
-      return [`The ship has set its course for ${nameOf2(state.destination)}.`];
-    if (state.phase === "arrived")
-      return [`The ship has arrived at ${nameOf2(state.dock)}.`];
-    return [`The ship is docked at ${nameOf2(state.dock)}.`];
-  }
-  var whole2 = (n) => Number.isSafeInteger(n) && n >= 0;
-  function validTransports(s) {
-    const saved = s.transports;
-    if (!saved || Array.isArray(saved) || Object.keys(saved).sort().join() !== Object.keys(transports).sort().join())
-      return false;
-    return Object.entries(transports).every(([id, t]) => {
-      const state = saved[id];
-      if (!state || Object.keys(state).sort().join() !== "destination,dock,phase,recall,riders,since,version" || state.version !== TRANSPORT_VERSION || !PHASES.includes(state.phase) || !t.docks.includes(state.dock) || !whole2(state.since) || state.since > (s.turn ?? 0) || !Array.isArray(state.riders) || new Set(state.riders).size !== state.riders.length || state.riders.some((a) => !s.actors[a]) || state.recall !== null && !t.docks.includes(state.recall))
-        return false;
-      const aboard = passengers(s, id).length;
-      if (!aboard && state.recall !== null && state.phase !== "sea") return false;
-      if (state.phase === "docked")
-        return state.destination === null && !state.riders.length;
-      if (state.phase === "arrived")
-        return state.destination === null && aboard > 0;
-      return !state.riders.length && lanesFrom(t, state.dock).includes(state.destination) && (state.phase === "sea" || aboard > 0);
-    });
-  }
-  function upgradeTransportState(s, id, state) {
-    const aboard = passengerIds(s, id);
-    const arrived = aboard.length > 0 && state.dock === state.destination;
-    return {
-      version: TRANSPORT_VERSION,
-      phase: arrived ? "arrived" : "docked",
-      dock: state.dock,
-      destination: null,
-      riders: arrived ? aboard : [],
-      since: s.turn || 0,
-      recall: aboard.length ? state.recall : null
-    };
-  }
-
-  // v2/card-game/pack-rules.mjs
-  var DAYLIGHT_TURNS = 24;
-  var crossingState = (s, id) => s.crossings?.[id];
-  var newCrossingState = (c) => c.signal ? { discovered: false, phase: 0, until: 0 } : { discovered: false };
-  var newPackRecord = (pack) => ({
-    revision: pack.revision,
-    ...pack.recital ? { recitals: {} } : {},
-    ...pack.choices ? {
-      choices: {},
-      flags: {},
-      receipts: {},
-      met: {},
-      scope: pack.release ? "opening" : "full"
-    } : {},
-    sounds: Object.fromEntries(
-      Object.keys(pack.fixtures || {}).map((id) => [id, 0])
-    )
-  });
-  function newTemperament(id) {
-    const t = packPeople[id]?.temperament;
-    return t ? { awake: !t.asleep, irritation: 0, wakeCause: null } : {};
-  }
-  var fixtureSounding = (s, id) => s.turn < (s.packs?.[packFixtures[id]?.packId]?.sounds?.[id] ?? 0);
-  var soundAt = (s, place, senses2) => senses2.baseSoundAt(s, place) || fixturesAt(place).some((f) => fixtureSounding(s, f.id));
-  function objectPlace(s, item) {
-    let holder = s.items[item]?.holder;
-    const seen = /* @__PURE__ */ new Set([item]);
-    while (s.items[holder]) {
-      if (seen.has(holder)) return null;
-      seen.add(holder);
-      holder = s.items[holder].holder;
-    }
-    return s.actors[holder]?.place || holder;
-  }
-  function conditionMet(s, c, senses2, packId = null, actor = null) {
-    const state = s.packs?.[packId];
-    switch (c.kind) {
-      case "sound":
-        return !!senses2 && c.at.some((place) => soundAt(s, place, senses2));
-      case "light":
-        return Boolean(
-          entityActive(s, c.item) && s.items[c.item]?.lit && s.items[c.item]?.fuel > 0 && c.at.includes(objectPlace(s, c.item)) && (!c.uncovered || !Object.values(s.items).some((i) => i.holder === c.item))
-        );
-      case "not":
-        return !conditionMet(s, c.condition, senses2, packId, actor);
-      case "any":
-        return c.conditions.some(
-          (r) => conditionMet(s, r, senses2, packId, actor)
-        );
-      case "choice":
-        return state?.choices?.[c.key] === c.value;
-      case "choice_unset":
-        return !!state && !Object.hasOwn(state.choices || {}, c.key);
-      case "flag":
-        return (state?.flags?.[c.key] ?? false) === c.value;
-      case "knows": {
-        const who = actor || senses2?.player || currentActor(s);
-        return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
-      }
-      case "holding":
-        return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
-      case "shared_world":
-        return sharedEnabled(s);
-      case "connected_humans":
-        return sharedEnabled(s) && humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum;
-      case "item_near": {
-        let holder = s.items[c.item]?.holder;
-        const seen = /* @__PURE__ */ new Set([c.item]);
-        while (s.items[holder] && !seen.has(holder)) {
-          seen.add(holder);
-          holder = s.items[holder].holder;
-        }
-        return (!controlledByHuman(s, holder) || humanPresent(s, holder)) && objectPlace(s, c.item) === c.place;
-      }
-      case "item_present":
-        return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
-      // Any thing tagged c.tag, carried by someone present at c.place.
-      case "tag_held":
-        return Object.keys(s.items).some((id) => {
-          const holder = s.items[id].holder;
-          return Boolean(packThings[id]?.tags?.includes(c.tag)) && entityActive(s, id) && s.actors[holder]?.place === c.place && (!controlledByHuman(s, holder) || humanPresent(s, holder));
-        });
-      case "item_at":
-        return s.items[c.item]?.holder === c.place;
-      // Any thing from that world in the place: carried there or resting there.
-      case "pack_item_present":
-        return Object.keys(s.items).some(
-          (id) => packThings[id]?.packId === c.pack && entityActive(s, id) && objectPlace(s, id) === c.place
-        );
-      case "drawn":
-        return !!state?.specials?.includes(c.id);
-      case "met":
-        return !!state?.met && Object.hasOwn(state.met, c.actor);
-      // The saved world clock: every DAYLIGHT_TURNS turns, day and night swap.
-      case "daylight":
-        return (Math.floor((s.turn || 0) / DAYLIGHT_TURNS) % 2 ? "night" : "day") === c.phase;
-      // The saved regional weather where c.place is.
-      case "weather":
-        return locationWeather(s, c.place)?.condition === c.condition;
-      // A seeded chance: true for `lasts` turns at a time, one window in
-      // `odds`, hashed from the run seed so every table agrees.
-      case "chance": {
-        let h = 2166136261;
-        const window = Math.floor((s.turn || 0) / c.lasts);
-        for (const ch of `${s.run?.seed ?? 0}:${c.key}:${window}`)
-          h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
-        return h % c.odds === 0;
-      }
-      // A transport docked (or just arrived) at a port, or "@sea" between ports.
-      case "ship_at":
-        return c.dock === "@sea" ? shipAtSea(s, c.transport) : shipDock(s, c.transport) === c.dock;
-      default:
-        return false;
-    }
-  }
-  var signalReady = (s, c, senses2) => (c.signal?.while || []).every((r) => conditionMet(s, r, senses2, c.packId));
-  var windowOpen = (s, c) => !c.signal || (c.signal.opens === null ? crossingState(s, c.id)?.phase === c.signal.steps.length : s.turn < (crossingState(s, c.id)?.until ?? 0));
-  var crossingOpen = (s, c, senses2) => (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) && entityActive(s, c.from) && entityActive(s, c.to) && (c.transport ? transportUnlocked(s, c.transport) && shipDock(s, c.transport) === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId));
-  var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || senses2.humanActors?.includes(actor);
-  var crossingExits = (s, place, actor, senses2) => crossings.filter(
-    (c) => c.from === place && (mayCross(c, actor, senses2) || s.invitedPlaces?.[actor]?.includes(c.from) && (packPeople[actor]?.packId ?? null) === (packPlaces[c.to]?.packId ?? null)) && crossingOpen(s, c, senses2)
-  ).map((c) => c.transport ? transports[c.transport].place : c.to);
-  var packDiscovered = (s, packId) => crossings.some(
-    (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
-  );
-  var crossingScenery = (s, place, senses2) => crossings.filter((c) => c.from === place && c.scenery).map(
-    (c) => crossingOpen(s, c, senses2) ? c.scenery.open : c.scenery.closed
-  ).filter(Boolean);
-  var hasTemperament = (id) => Boolean(packPeople[id]?.temperament);
-  function variantOf(s, id) {
-    const a = packPeople[id];
-    if (!a?.temperament) return null;
-    const state = s.actors[id];
-    const name = !state.awake ? "asleep" : a.variants.irritated && state.irritation >= a.temperament.irritated ? "irritated" : "awake";
-    return {
-      name,
-      ...name === "irritated" ? a.variants.awake : {},
-      ...a.variants[name]
-    };
-  }
-  var exactKeys = (o, keys) => o && typeof o === "object" && !Array.isArray(o) && Object.keys(o).sort().join() === [...keys].sort().join();
-  var whole3 = (n, max) => Number.isSafeInteger(n) && n >= 0 && n <= max;
-  function validPackState(s, senses2) {
-    if (!validTransports(s) || !exactKeys(
-      s.crossings,
-      crossings.map((c) => c.id)
-    ) || !exactKeys(
-      s.packs,
-      packDefinitions.map((p) => p.id)
-    ))
-      return false;
-    for (const c of crossings) {
-      const state = s.crossings[c.id];
-      if (!c.signal) {
-        if (!exactKeys(state, ["discovered"])) return false;
-        if (typeof state.discovered !== "boolean") return false;
-        continue;
-      }
-      if (!exactKeys(state, ["discovered", "phase", "until"]) || typeof state.discovered !== "boolean" || !whole3(
-        state.phase,
-        c.signal.steps.length - (c.signal.opens === null ? 0 : 1)
-      ) || !whole3(
-        state.until,
-        c.signal.opens === null ? 0 : s.turn + c.signal.opens
-      ) || (state.until > 0 || c.signal.opens === null && state.phase === c.signal.steps.length) && !state.discovered || state.phase > 0 && !(senses2.humanActors || [senses2.player]).some(
-        (id) => s.actors[id]?.place === c.from
-      ))
-        return false;
-    }
-    for (const pack of packDefinitions) {
-      const record4 = s.packs[pack.id];
-      const fixtures = Object.entries(pack.fixtures || {});
-      if (!exactKeys(record4, [
-        ...pack.specials && s.run ? ["specials"] : [],
-        ...pack.choices ? [
-          "revision",
-          "sounds",
-          "choices",
-          "flags",
-          "receipts",
-          "met",
-          "scope",
-          ...pack.recital ? ["recitals"] : []
-        ] : ["revision", "sounds"]
-      ]) || record4.revision !== pack.revision || !exactKeys(
-        record4.sounds,
-        fixtures.map(([id]) => id)
-      ) || fixtures.some(
-        ([id, f]) => !whole3(record4.sounds[id], s.turn + f.sound.turns)
-      ))
-        return false;
-    }
-    for (const [id, a] of Object.entries(packPeople)) {
-      const state = s.actors[id];
-      if (!state) return false;
-      const t = a.temperament;
-      if (!t) {
-        if (["awake", "irritation", "wakeCause"].some((k) => k in state))
-          return false;
-        continue;
-      }
-      if (typeof state.awake !== "boolean" || !whole3(state.irritation, t.irritation) || ![null, "voice", "sound"].includes(state.wakeCause) || !state.awake && (state.wakeCause !== null || !t.asleep) || state.awake && state.wakeCause === null && t.asleep)
-        return false;
-    }
-    return validatePackStates(s);
-  }
-
   // v2/card-game/pack-registry.mjs
   var owns3 = (o, key) => typeof key === "string" && !!o && Object.hasOwn(o, key);
   var record3 = (v) => v && typeof v === "object" && !Array.isArray(v);
@@ -14653,7 +14764,7 @@
       humanAvatar(actor)?.name || packPeople[actor]?.name || "An earlier traveler"
     );
   }
-  function rootOf(world, id) {
+  function rootOf2(world, id) {
     let holder = world.items[id].holder;
     for (let step = 0; step < 32 && holder !== id; step++) {
       if (!world.items[holder]) return holder;
@@ -14669,7 +14780,7 @@
   }
   function entityActive(world, id) {
     if (world.items?.[id]) {
-      let holder = rootOf(world, id);
+      let holder = rootOf2(world, id);
       if (humanAvatar(holder) && !humanPresent(world, holder)) return false;
       if (holder === BOARDY && !boardyActive(world)) return false;
     }
@@ -15261,105 +15372,6 @@
     );
   }
 
-  // v2/card-game/want-talk.mjs
-  var authoredWant = (id) => forest_default.people[id]?.want || packPeople[id]?.want || null;
-  var wantOf = (world, id) => world.actors?.[id]?.want || authoredWant(id);
-  var rootOf2 = (world, item) => {
-    let holder = world.items[item]?.holder;
-    const seen = /* @__PURE__ */ new Set([item]);
-    while (world.items[holder] && !seen.has(holder)) {
-      seen.add(holder);
-      holder = world.items[holder].holder;
-    }
-    return holder;
-  };
-  var article = (name) => /^(the|a|an) /iu.test(name) ? name : `the ${name}`;
-  function met(world, id, want) {
-    if (want.kind === "connect") return false;
-    const here = world.actors[id].place;
-    if (want.kind === "item") return rootOf2(world, want.target) === id;
-    if (want.kind === "place") return here === want.target;
-    return world.actors[want.target]?.place === here;
-  }
-  function wantFact(world, id, nameOf2) {
-    const want = wantOf(world, id);
-    if (want?.kind === "connect" && world.actors?.[id])
-      return "I want to introduce you to someone.";
-    if (!want || !world.actors?.[id] || !entityActive(world, want.target))
-      return null;
-    if (want.kind === "item" && !world.items[want.target]) return null;
-    if (want.kind === "person" && !world.actors[want.target]) return null;
-    if (met(world, id, want)) return null;
-    const name = nameOf2(want.target);
-    if (want.kind === "item") return `I want ${article(name)}.`;
-    if (want.kind === "place") return `I want to be at ${name}.`;
-    return `I want to see ${name}.`;
-  }
-  var wantHeard = (world, played, id, player) => id === player || played?.verb === "talk" && [played.actorId, played.targetId].includes(id);
-
-  // v2/card-game/want.mjs
-  var WANT_KINDS = ["item", "place", "person", "connect"];
-  var STEP_VERBS = {
-    item: ["find", "give", "bring"],
-    person: ["meet", "threaten", "attack"]
-  };
-  var CONNECT_TARGET = "humans";
-  var REFUSAL_LIMIT = 3;
-  var knownActors = (s) => [
-    .../* @__PURE__ */ new Set([
-      ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
-      ...s.controlledActors || []
-    ])
-  ].filter(
-    (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
-  );
-  var travels = (id, s = null) => !isPackActor(id) || freed(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
-  var levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
-  var questSteps = (level) => {
-    let [a, b] = [1, 1];
-    for (let i = 1; i < level; i++) [a, b] = [b, a + b];
-    return a;
-  };
-  var startXp = (id) => {
-    const level = isPackActor(id) ? packPeople[id].startLevel || 1 : 1;
-    return level * (level - 1) / 2;
-  };
-  var wantOf2 = (s, id) => s.actors[id]?.want ?? null;
-  var newWant = (kind, target, turn) => ({
-    kind,
-    target,
-    since: turn,
-    refusals: 0
-  });
-  var validTarget = (s, kind, target) => kind === "item" ? Object.hasOwn(s.items, target) : kind === "person" ? Object.hasOwn(s.actors, target) : kind === "connect" ? target === CONNECT_TARGET : true;
-  function installWants(s) {
-    for (const [id, a] of Object.entries(s.actors)) {
-      if (!("want" in a)) {
-        const w = authoredWant(id);
-        a.want = w && validTarget(s, w.kind, w.target) ? {
-          ...newWant(w.kind, w.target, s.turn),
-          ...w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {}
-        } : null;
-      }
-      a.xp ??= startXp(id);
-      a.visited ??= [a.place];
-      a.talked ??= [];
-    }
-  }
-  var STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
-  function validStep(s, w) {
-    const { verb, ...cards } = w.step;
-    const named = STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
-    return Boolean(w.quest) && (STEP_VERBS[w.kind] || []).includes(verb) && Object.keys(cards).length === named.length && named.every((key) => typeof cards[key] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target);
-  }
-  function validWant(s, id) {
-    const a = s.actors[id];
-    const whole4 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
-    const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
-    const w = a.want;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(startXp(id) + s.turn * 8)) && a.xp <= startXp(id) + s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (w === null || w && Object.keys(w).length === 4 + (w.quest === void 0 ? 0 : 1) + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) && (w.step === void 0 || validStep(s, w)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && (w.quest === void 0 || Object.keys(w.quest).length === 2 && Number.isSafeInteger(w.quest.level) && w.quest.level >= 2 && Number.isSafeInteger(w.quest.left) && w.quest.left >= 1 && w.quest.left <= questSteps(w.quest.level)) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT);
-  }
-
   // v2/card-game/legacy-saves.mjs
   var QUEST_FIELDS = [
     "quests",
@@ -15411,6 +15423,9 @@
       if (s.locations?.pond?.answer === "call") s.locations.pond.answer = null;
       for (const entry of Array.isArray(s.log) ? s.log : [])
         if (entry?.verb === "refill") entry.verb = "refuel";
+      for (const c of Array.isArray(s.standoffs) ? s.standoffs : [])
+        if (c && !c.steppedBack && c.challenger && c.defender)
+          c.steppedBack = { [c.challenger]: false, [c.defender]: false };
       upgradeShoreRouteSave(s);
       upgradeBoardyStationSave(s);
       upgradeHoppyCatSeaSave(s);
@@ -15772,8 +15787,8 @@
       ];
     }
     for (const actor of Object.values(s.actors || {})) {
-      if (actor.want?.kind === "place")
-        actor.want.target = canonicalPlace(actor.want.target);
+      for (const want of [actor.want, ...actor.under || []])
+        if (want?.kind === "place") want.target = canonicalPlace(want.target);
       if (Array.isArray(actor.visited))
         actor.visited = [...new Set(actor.visited.map(canonicalPlace))];
     }
@@ -16518,6 +16533,7 @@
     if (step?.verb === "bring")
       return `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`;
     if (step?.at) return `${verb} ${what} at ${nameOf(step.at)}`;
+    if (step?.verb === "rest") return `rest at ${what}`;
     if (step) return `${verb} ${what}`;
     if (want.kind === "item")
       return `hold ${want.lit === void 0 ? "" : want.lit ? "the lit " : "the dark "}${nameOf(want.target)}`;
@@ -16529,10 +16545,9 @@
     item,
     ...s.items.cloth.holder === item ? ["cloth"] : []
   ];
-  var needed = (s, actor, item) => {
-    const want = wantOf2(s, actor);
-    return want?.kind === "item" && bundle(s, item).includes(want.target);
-  };
+  var needed = (s, actor, item) => questsOf(s, actor).some(
+    (want) => want.kind === "item" && bundle(s, item).includes(want.target)
+  );
   function willingToGive(s, owner2, item, recipient = null) {
     return !controlledByHuman(s, owner2) && recipient !== null && !resentment(s, owner2, recipient) && !needed(s, owner2, item) && giftDecision(s, owner2, item, recipient).accepted;
   }
@@ -16675,20 +16690,22 @@
         (id) => s.actors[id].place !== c.location || s.peaceUntil[id] > s.turn
       ) || c.item && rootHolder(s, c.item) !== c.defender)
         fail();
-      for (const field of ["resolve", "guarding", "struck"])
+      for (const field of ["resolve", "guarding", "struck", "steppedBack"])
         if (!c[field] || Object.keys(c[field]).sort().join() !== pair.slice().sort().join())
           fail();
       if (pair.some(
-        (id) => !Number.isInteger(c.resolve[id]) || c.resolve[id] < 1 || c.resolve[id] > 4 || typeof c.guarding[id] !== "boolean" || typeof c.struck[id] !== "boolean"
+        (id) => !Number.isInteger(c.resolve[id]) || c.resolve[id] < 1 || c.resolve[id] > 4 || typeof c.guarding[id] !== "boolean" || typeof c.struck[id] !== "boolean" || typeof c.steppedBack[id] !== "boolean"
       ))
         fail();
     }
     for (const [id, a] of Object.entries(s.actors)) {
       if (!a.trust || Object.keys(a.trust).sort().join() !== expectedTrustKeys[id] || Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3))
         fail();
-      if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn || a.sleepUntil !== void 0 && (!Number.isSafeInteger(a.sleepUntil) || a.sleepUntil < 0 || a.sleepUntil > s.turn + DAYLIGHT_TURNS))
+      if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn || a.sanctuary !== void 0 && !sanctuaries.includes(a.sanctuary) || a.sleepUntil !== void 0 && (!Number.isSafeInteger(a.sleepUntil) || a.sleepUntil < 0 || a.sleepUntil > s.turn + DAYLIGHT_TURNS))
         fail();
-      if (!validWant(s, id) || a.visited.length > Object.keys(places).length || a.visited.some((place) => !Object.hasOwn(places, place)) || a.want?.kind === "place" && !Object.hasOwn(places, a.want.target))
+      if (!validWant(s, id) || a.visited.length > Object.keys(places).length || a.visited.some((place) => !Object.hasOwn(places, place)) || questsOf(s, id).some(
+        (w) => w.kind === "place" && !Object.hasOwn(places, w.target)
+      ))
         fail();
     }
     for (const [id, item] of Object.entries(s.items)) {
@@ -16733,6 +16750,7 @@
       "course",
       "take",
       "drop",
+      "focus",
       "give",
       "ask",
       "light",

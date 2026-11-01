@@ -111,9 +111,8 @@ fn only_the_owner_deletes_an_avatar() {
     assert_eq!(refused, "Only this world's owner can delete an avatar.");
 }
 
-// The reset op needs the batch's new rules bundle; released rules refuse it.
+// The reset op arrives in rules 77; earlier released rules refuse it.
 #[test]
-#[ignore = "needs the batch rules mint that adds the reset op"]
 fn the_owner_deletes_an_avatar_and_frees_its_place() {
     let (_path, mut c, id) = fixture();
     run(&mut c, &id, "ann", &body("claim", Some("mara"))).unwrap();
