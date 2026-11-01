@@ -21,7 +21,7 @@ A card pack is three files and some art. See [card packs](../../v2/docs/card-pac
 
 | Step | File or command | What it holds |
 | --- | --- | --- |
-| World | `v2/content/<id>/card-world.json` | `id`, `packId`, `revision`, `name`, `description`, `tone`, `entry`, `continuity`, `places`, `avatars`, `items`, `fixtures`, `routes`, `choices`, `sections`, `release`, `storyQuests`, `topics`, `situations`, `readings`, `observations`, `sources` |
+| World | `v2/content/<id>/card-world.json` | `id`, `packId`, `revision`, `name`, `description`, `tone`, `entry`, `continuity`, `places`, `avatars`, `items`, `fixtures`, `routes`, `choices`, `sections`, `release`, `storyQuests`, `topics`, `situations`, `observations`, `sources` |
 | Place | inside `places` | `name`, `text`, `persona` (speaks as the place), `exits`, `backdrop`, optional `art`, `music`, `road` (two fixed ends), `backdrops` (state variants: `backdrop` + closed `requires`; the first match supplies the final painting, with its own day/night conditions) |
 | Person | inside `avatars` | `name`, `text`, `place`, `home`, `persona`, `voice`, `tastes` (`likes`, `sore`, `reason`, `noise`), `desire`, `values` (what hub items are worth to them), `portrait`, `expression`, `travels`, `standoffs`, optional `temperament` |
 | Thing | inside `items` | `name`, `text`, `holder`, `persona`, `art` |

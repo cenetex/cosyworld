@@ -14,7 +14,7 @@ pub(super) enum Section {
     System,
     /// The scene line, this turn's events, travel, stance, listener and cue.
     Now,
-    /// The entity's own facts, readings and poem lines.
+    /// The entity's own facts and poem lines.
     Facts,
     /// Custody, observation and knowledge directions.
     Directions,

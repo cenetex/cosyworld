@@ -356,13 +356,12 @@ choices, source text and art.
 [Making the Willows creepier](card-table/willows-horror.md) is the design for
 its next horror pass.
 
-### Source readings
+### Source lore
 
-An optional `readings` list gives a resident exact source passages as the story
-unfolds. Each record has `id`, `actor`, `after`, `title` and `text`. `after`
-names a choice receipt; `null` reveals a passage on first entry. A pack can
-hold sixteen passages of up to 3,000 characters each; a resident carries its
-eight newest revealed passages into a scene. The browser sends the
-revealed ids and their turns. The server reads the exact text from its own
-catalog and gives those passages to that resident's dialogue. Saved receipts
-preserve the same knowledge after a reload and shared journal replay.
+Characters speak from world state alone; authored source text is never placed
+in a speech prompt. A pack keeps exact source passages as lore files beside
+its world, such as `v2/content/willows/lore/readings.json`, for a later pass
+to turn into readable books and inscriptions found in play. Rules 60 removed
+the older `readings` field, which handed revealed passages to a resident's
+dialogue; the Willows choices, flags and receipts that revealed them are
+unchanged.
