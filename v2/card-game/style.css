@@ -859,7 +859,7 @@ h2 {
 :root {
   --card-width: clamp(174px, 15.5vw, 224px);
   --card-height: clamp(224px, 31dvh, 310px);
-  --dock-height: calc(var(--card-height) * 0.75 + var(--hand-top));
+  --dock-height: calc(var(--card-height) * 0.75 + 12px);
   --hand-top: 26px;
   --hand-inline: calc(var(--card-height) * 0.12);
 }
@@ -946,7 +946,9 @@ body .dialogue[data-dropped="true"] {
   overflow-x: auto;
   overflow-y: hidden;
   /* Room for the outer cards' lean, the quest tab and a chosen card's lift,
-     which the hand's scroll box would otherwise clip. */
+     which the hand's scroll box would otherwise clip. The room rises above
+     the dock, so the cards still sit 12px under the dialogue. */
+  margin-top: calc(12px - var(--hand-top));
   padding: var(--hand-top) var(--hand-inline) 0;
   height: calc(var(--card-height) * 0.75 + var(--hand-top));
   transition: height 220ms ease-out;
@@ -1440,6 +1442,8 @@ body .card.want-card[data-met="true"] {
   flex-direction: column;
 }
 .play-dock > .action-panel {
+  position: relative; /* above the hand's top room, so buttons get taps */
+  z-index: 1;
   order: -1;
   padding-bottom: 4px;
 }
@@ -1614,7 +1618,7 @@ body .cast[data-count] {
   :root {
     --card-height: 176px;
     --card-width: 128px;
-    --dock-height: calc(132px + var(--hand-top));
+    --dock-height: 144px;
   }
 }
 @media (max-height: 440px) {
