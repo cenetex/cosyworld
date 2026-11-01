@@ -172,14 +172,24 @@ try {
       assert.equal(opening.turn, 0);
       assert.equal(opening.actors.vale.place, "attic");
       assert.equal(opening.items.lamp.lit, true);
-      assert.deepEqual(
-        {
-          kind: opening.actors.vale.want?.kind,
-          target: opening.actors.vale.want?.target,
-        },
-        { kind: "item", target: "lamp" },
-        "The opening gives Vale a quest for the lamp",
-      );
+      // The player's first quest waits for the Black Pond (#1768).
+      assert.equal(opening.actors.vale.want, null, "The attic holds no quest");
+      // Stage Vale past the pond with the quest of holding the lamp he holds.
+      await page.evaluate((key) => {
+        const s = JSON.parse(localStorage.getItem(key));
+        const vale = s.actors.vale;
+        vale.visited = [...new Set([...vale.visited, "pond"])];
+        vale.want = {
+          kind: "item",
+          target: "lamp",
+          since: s.turn,
+          refusals: 0,
+        };
+        localStorage.setItem(key, JSON.stringify(s));
+      }, key);
+      await page.reload();
+      await finish();
+      assert.equal(requests.length, 1, "Staging the quest asks for no speech");
       await selectCard(page, "lamp");
       await page.locator('#card-actions [data-action="snuff"]').click();
       await finish(); // The delayed request releases the hand after scene preparation.
