@@ -172,9 +172,12 @@ facts from earlier releases keep their names; player-facing text says quest.
   together, without a Talk; **bring** an item to a person at a place by
   holding it there together. Act verbs are met when the avatar's own play
   resolves: **give** only when accepted, **threaten** and **attack** whatever
-  the outcome, and only from Rare (level 20). Give and bring are drawn only
-  when another known avatar wants that item, and bring goes to that avatar's
-  home. Steps come one at a time in order; nothing is authored ahead.
+  the outcome, and only from Rare (level 20). Steps interlock with other
+  avatars' quests: an item another known avatar wants to hold may be given
+  or brought to them at home, meeting both quests in one play, and a person
+  on the way to a place may be met there. A step already true where the
+  avatar stands is not drawn. Steps come one at a time in order; nothing is
+  authored ahead.
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
   who learn the roads keep to the routes they know), then ask, trade their
   least valued spare, and threaten when bold enough by resentment, level or

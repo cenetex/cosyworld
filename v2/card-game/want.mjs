@@ -105,28 +105,42 @@ function questStep(s, actor, api, quest, previous = null) {
   const far = pool.slice(0, Math.ceil(pool.length / 2));
   const roll = hash(`${actor}:${s.turn}`);
   const [kind, target] = far[roll % far.length].split(":");
-  const step = questVerb(s, actor, api, kind, target, quest.level, roll);
+  const step = drawStep(s, actor, api, kind, target, quest.level, roll);
   return { ...newWant(kind, target, s.turn), quest, ...(step ? { step } : {}) };
 }
-// A step's verb, drawn from the living world: another avatar who wants the
-// item may be given it, or have it brought to their home.
-function questVerb(s, actor, api, kind, target, level, roll) {
-  const verbs = ["", ...(STEP_VERBS[kind] || [])].filter(
-    (v) => level >= HOSTILE_LEVEL || !["threaten", "attack"].includes(v),
-  );
+// A step's verb, drawn from the living world so quests interlock: an item
+// another known avatar wants to hold may be given or brought to them, and a
+// person on the way to a place may be met there. Finding needs no partner.
+export function drawStep(s, actor, api, kind, target, level, roll) {
   const wanting =
     kind === "item" &&
-    knownActors(s).find(
-      (id) =>
-        id !== actor &&
-        s.actors[id].want?.kind === "item" &&
-        s.actors[id].want.target === target,
-    );
+    knownActors(s).find((id) => {
+      const w = id !== actor && s.actors[id]?.want;
+      return w && w.kind === "item" && !w.step && w.target === target;
+    });
+  const going = kind === "person" && s.actors[target]?.want;
+  const verbs =
+    kind === "item"
+      ? wanting
+        ? ["give", "bring", "find"]
+        : ["", "find"]
+      : kind === "person"
+        ? ["", "meet", ...(level >= HOSTILE_LEVEL ? ["threaten", "attack"] : [])]
+        : [""];
   const verb = verbs[Math.floor(roll / 7) % verbs.length];
-  if (!verb || ((verb === "give" || verb === "bring") && !wanting)) return null;
+  // A step already true where the avatar stands is no step at all.
+  const here = s.actors[actor].place;
+  if (
+    !verb ||
+    (verb === "find" && placeOfItem(s, target) === here) ||
+    (verb === "meet" && s.actors[target]?.place === here)
+  )
+    return null;
   if (verb === "give") return { verb, to: wanting };
   if (verb === "bring")
     return { verb, to: wanting, at: api.home(wanting) || s.actors[wanting].place };
+  if (verb === "meet" && going?.kind === "place" && !going.step)
+    return { verb, at: going.target };
   return { verb };
 }
 // On waking from a long rest with experience enough for the next level, the
@@ -297,7 +311,8 @@ function stepMet(s, actor, want, action) {
     return (
       rootOf(s, want.target) === actor && me.place === at && together(s, actor, to)
     );
-  if (verb === "meet") return together(s, actor, want.target);
+  if (verb === "meet")
+    return together(s, actor, want.target) && (!at || me.place === at);
   return by(verb); // threaten, attack: any outcome
 }
 export function wantMet(s, actor, talk = null, action = null) {
@@ -435,7 +450,7 @@ export function fillWants(s, api, now = false) {
 const STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
 function validStep(s, w) {
   const { verb, ...cards } = w.step;
-  const named = STEP_CARDS[verb] || [];
+  const named = STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
   return (
     Boolean(w.quest) &&
     (STEP_VERBS[w.kind] || []).includes(verb) &&

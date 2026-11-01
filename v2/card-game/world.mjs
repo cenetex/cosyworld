@@ -537,6 +537,7 @@ export function wantText(want) {
   if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
   if (step?.verb === "bring")
     return `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`;
+  if (step?.at) return `${step.verb} ${what} at ${nameOf(step.at)}`;
   if (step) return `${step.verb} ${what}`;
   if (want.kind === "item") return `hold ${nameOf(want.target)}`;
   if (want.kind === "place") return `go to ${nameOf(want.target)}`;
