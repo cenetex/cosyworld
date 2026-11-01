@@ -48,6 +48,7 @@ try {
     {
       const world = enableMotives(createWorld());
       world.actors.vale.place = "greek-gate";
+      world.items["greek-shovel"].holder = "vale";
       world.crossings["pond-greek-harbor"].discovered = true;
       assert.equal(world.actors[singer].place, "greek-harbor");
       world.actors[singer].want = want("person", "vale");
@@ -123,8 +124,10 @@ try {
       await page.locator('[data-action="talk"]').click();
       await reachTurn(1);
       assert.equal((await saved()).actors[singer].place, "greek-road-thebes");
-      await selectCard(page, "greek-antigone");
-      await page.locator('[data-choice="greek-decline-burial"]').click();
+      // Handing the guard the shovel reports the plan.
+      await selectCard(page, "greek-shovel");
+      await selectCard(page, "greek-guard");
+      await page.locator('#card-actions [data-action="give"]').click();
       await reachTurn(2);
       // The Bard walks on into the city; its first step after the deed
       // records the verse's visit.
@@ -132,7 +135,7 @@ try {
       assert.equal(state.actors[singer].place, "greek-courtyard");
       assert.deepEqual(state.actors[singer].want, want("person", "vale"));
       assert.equal(
-        state.packs["greek-drama"].recitals["greek-decline-burial"].visit,
+        state.packs["greek-drama"].recitals["greek-report-plan"].visit,
         2,
       );
       await selectCard(page, "vale");
@@ -147,8 +150,8 @@ try {
       const poem = requests.at(-1).entities.find((e) => e.id === singer)?.poem;
       assert.equal(poem.stanzas.length, 1);
       // Couplet text is lore, never dialogue context.
-      assert.equal(poem.stanzas[0].id, "greek-decline-burial");
-      assert.equal(JSON.stringify(poem).includes("turn away"), false);
+      assert.equal(poem.stanzas[0].id, "greek-report-plan");
+      assert.equal(JSON.stringify(poem).includes("hidden plan"), false);
       assert.equal(poem.stanzas[0].authorName, "Vale");
       await page.screenshot({
         path: new URL(`legal-arrival-${width}.png`, output).pathname,

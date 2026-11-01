@@ -237,9 +237,11 @@ try {
       const visited = new Set(["greek-ship", "greek-harbor"]);
       for (const id of [
         "greek-courtyard",
+        // The Market Well lies within the courtyard and opens only onto it.
         "greek-well",
+        "greek-courtyard",
         "greek-palace",
-        "greek-well",
+        "greek-courtyard",
         "greek-gate",
         "greek-battlefield",
         "greek-gate",

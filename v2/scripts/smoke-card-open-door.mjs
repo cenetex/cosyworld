@@ -10,7 +10,6 @@ import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import {
   OPEN_DOOR_PLACES,
   openDoorAction,
-  openDoorInvitation,
   openDoorSteps,
 } from "../../test/helpers/open-door.mjs";
 import {
@@ -193,12 +192,10 @@ export async function checkOpenDoor(browser, origin) {
 
       await page.goto(`${origin}/?table=${table}`);
       await settle();
-      const invitation = openDoorInvitation(await state());
+      // The guard's tablet on Dione's table has opened the road to Eleusis.
       assert.ok(
-        invitation,
-        "Dione offers the next journey after the shared refusal",
+        (await state()).packs["greek-drama"].flags["greek-open-door-open"],
       );
-      await step({ kind: "choose", choiceId: invitation.choiceId });
       await step({ kind: "drop", item: "lamp", target: "greek-courtyard" });
       for (const action of openDoorSteps(options)) {
         await step(action);
