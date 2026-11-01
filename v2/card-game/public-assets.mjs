@@ -36,7 +36,7 @@ const files = [
   // Rest card paintings for issue #1849; the rest-card feature follows.
   "assets/rest/short-rest.webp",
   "assets/rest/long-rest.webp",
-  // Combat pose art is ready for client-side presentation integration.
+  // Combat pose art, chosen by combat-portraits.mjs.
   ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].flatMap(
     (id) =>
       ["", "-scarf"].flatMap((wardrobe) =>
@@ -59,7 +59,7 @@ const files = [
   "card-tiers.css",
   "card-reveal.mjs",
   "card-level-up.mjs",
-  // Willows sign alternates and notebook cards remain available before wiring.
+  // Willows sign alternates chosen by the willows pack.
   ...[
     "landing-otter",
     "landing-boatman",
@@ -72,6 +72,7 @@ const files = [
     "bank-roots",
     "bank-drowned",
   ].map((name) => `assets/willows/${name}.webp`),
+  // Notebook cards remain available before their items are wired.
   ...[
     "notebook-page-1",
     "notebook-page-2",
