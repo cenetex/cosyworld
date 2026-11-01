@@ -93,13 +93,13 @@ not create these credentials:
    ```
 
 4. **Runner image** (already deployed once): `cd infra/ci-runners && fly
-   deploy --ha=false` after changing the image. The machine starts, finds no
+deploy --ha=false` after changing the image. The machine starts, finds no
    JIT config, and stops, so `fly deploy` reports a state-change timeout. That
    is expected. Jobs can reach this app's own Machines API through the
    `/.fly/api` proxy, so they could start or stop other runner machines. They
    cannot reach any other app.
 5. Open a same-repo PR with `FLY_RUNNERS=on`. Compare the `Rust build and
-   tests` time with the hosted run. Check
+tests` time with the hosted run. Check
    `fly logs -a cosyworld-ci-dispatch`.
 
 ## Cost
@@ -108,12 +108,12 @@ Fly bills running machines per second. Prices are for `iad`
 ([Fly pricing](https://fly.io/docs/about/pricing/)), and GitHub-hosted
 runners cost nothing for this public repository.
 
-| Item | Rate | Monthly estimate |
-| --- | --- | --- |
-| Runner, `performance-8x` 16 GB | $0.344/h while a job runs | 100 runs/day × 6–10 min: **$100–170** |
-| Cache volume, 50 GB per machine | $0.15/GB | $7.50 per machine |
-| Stopped machine root filesystem | $0.15/GB | under $1 per machine |
-| Dispatcher, `shared-cpu-1x` 256 MB, always on | | about $2 |
+| Item                                          | Rate                      | Monthly estimate                      |
+| --------------------------------------------- | ------------------------- | ------------------------------------- |
+| Runner, `performance-8x` 16 GB                | $0.344/h while a job runs | 100 runs/day × 6–10 min: **$100–170** |
+| Cache volume, 50 GB per machine               | $0.15/GB                  | $7.50 per machine                     |
+| Stopped machine root filesystem               | $0.15/GB                  | under $1 per machine                  |
+| Dispatcher, `shared-cpu-1x` 256 MB, always on |                           | about $2                              |
 
 Begin with one machine. That costs about $10 a month fixed, plus usage.
 Concurrent jobs wait for it. Each extra machine (`fly scale count N -a
