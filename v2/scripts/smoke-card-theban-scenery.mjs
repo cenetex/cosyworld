@@ -180,6 +180,11 @@ try {
       await use("greek-ship");
       assert.equal((await state()).actors.vale.place, "greek-ship");
       await shot("aboard-ship");
+      // Aboard, the ship's own card shows the deck, not the Black Pond.
+      assert.match(
+        await card("greek-ship").locator(".art img").getAttribute("src"),
+        /ship-deck/,
+      );
       // The harbor card sets the course; a round at sea, then Disembark.
       await use("greek-harbor");
       assert.equal((await state()).transports["greek-ship"].phase, "sea");
@@ -222,6 +227,11 @@ try {
           await card("greek-ship").count(),
           dock === "greek-harbor" ? 1 : 0,
         );
+        if (dock === "greek-harbor")
+          assert.match(
+            await card("greek-ship").locator(".art img").getAttribute("src"),
+            /harbor-ship-at-berth/,
+          );
         await shot(file.replace(".webp", ""));
       }
       const visited = new Set(["greek-ship", "greek-harbor"]);
