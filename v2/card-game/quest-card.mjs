@@ -28,12 +28,17 @@ export function questCard(world, actor = currentActor(world)) {
     // A level quest: the level it leads to and the steps still to go.
     level: want.quest?.level ?? null,
     left: want.quest?.left ?? 0,
+    step: want.step ?? null,
   };
 }
 
 // The rules' words for the want; a target not yet uncovered is unnamed.
 export function questCaption(quest, covered = false) {
-  const words = wantText({ kind: quest.kind, target: quest.target });
+  const words = wantText({
+    kind: quest.kind,
+    target: quest.target,
+    ...(quest.step ? { step: quest.step } : {}),
+  });
   const shown =
     covered && quest.target ? words.replace(nameOf(quest.target), "…") : words;
   const caption = shown[0].toUpperCase() + shown.slice(1);

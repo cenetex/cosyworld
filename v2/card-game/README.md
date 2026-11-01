@@ -165,6 +165,16 @@ facts from earlier releases keep their names; player-facing text says quest.
   resume. A step with no way forward becomes another of the same level. Drop
   quest (a `drop` play with no item) gives it up for half the experience;
   the level stays. Residents level on experience alone.
+- **Step verbs.** A level quest step may carry `step: { verb, to?, at? }`
+  beyond its kind's own verb (hold, go to, talk), drawn from the living world
+  (`want.mjs` `STEP_VERBS`). State verbs hold after any play: **find** an item
+  by standing where it is, whoever holds it; **meet** a person by being
+  together, without a Talk; **bring** an item to a person at a place by
+  holding it there together. Act verbs are met when the avatar's own play
+  resolves: **give** only when accepted, **threaten** and **attack** whatever
+  the outcome, and only from Rare (level 20). Give and bring are drawn only
+  when another known avatar wants that item, and bring goes to that avatar's
+  home. Steps come one at a time in order; nothing is authored ahead.
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
   who learn the roads keep to the routes they know), then ask, trade their
   least valued spare, and threaten when bold enough by resentment, level or

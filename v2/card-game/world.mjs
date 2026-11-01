@@ -532,8 +532,14 @@ const hasSpace = (s, actor, id) =>
 // A want in words, for cards and history.
 export function wantText(want) {
   if (!want) return "nothing in particular";
+  const step = want.step,
+    what = nameOf(want.target);
+  if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
+  if (step?.verb === "bring")
+    return `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`;
+  if (step) return `${step.verb} ${what}`;
   if (want.kind === "item") return `hold ${nameOf(want.target)}`;
-  if (want.kind === "place") return `be at ${nameOf(want.target)}`;
+  if (want.kind === "place") return `go to ${nameOf(want.target)}`;
   if (want.kind === "connect") return "introduce two people";
   return `talk with ${nameOf(want.target)}`;
 }
@@ -1847,7 +1853,9 @@ function perform(s, a, round = null, settle = []) {
     s,
     wantActors(s, [a.actor, ...(s.actors[a.target] ? [a.target] : []), ...settle]),
     wantAPI(s),
-    a,
+    ["ask", "give", "trade"].includes(a.kind)
+      ? { ...a, accepted: requestAccepted }
+      : a,
   );
   // Resolved plays, and only those, can advance a crossing's signal.
   if (round)

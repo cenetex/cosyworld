@@ -67,11 +67,13 @@ describe("the level quest", () => {
     s = wait(s);
     expect(s.actors.vale.want.quest).toEqual({ level: 3, left: 2 });
     s.actors.vale.place = "attic";
-    s.actors.vale.want = { ...s.actors.vale.want, kind: "place", target: "pond" };
+    // Each step is pinned to a plain place step, whatever verb was drawn.
+    const plain = ({ step, ...want }) => want;
+    s.actors.vale.want = { ...plain(s.actors.vale.want), kind: "place", target: "pond" };
     s = act(s, (a) => a.kind === "move" && a.target === "pond");
     expect(s.actors.vale.want.quest).toEqual({ level: 3, left: 1 });
     expect(levelOf(s, "vale")).toBe(2);
-    s.actors.vale.want = { ...s.actors.vale.want, kind: "place", target: "attic" };
+    s.actors.vale.want = { ...plain(s.actors.vale.want), kind: "place", target: "attic" };
     s.items.lamp.holder = "vale";
     s.items.lamp.lit = true;
     s.items.lamp.fuel = 12;
