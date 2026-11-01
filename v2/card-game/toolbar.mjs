@@ -76,6 +76,7 @@ export function installToolbar({
   session,
   getWorld,
   allowShared = () => true,
+  stopSaving,
 }) {
   const toolbar = document.querySelector(".top-actions");
   toolbar.setAttribute("role", "group");
@@ -123,7 +124,13 @@ export function installToolbar({
     tools.querySelector("#shared-worlds-button"),
     tools.querySelector("#menu-button"),
   );
-  const seats = installAvatarMenu({ menu, session, getWorld, allowShared });
+  const seats = installAvatarMenu({
+    menu,
+    session,
+    getWorld,
+    allowShared,
+    stopSaving,
+  });
   document.body.append(menu);
   toolbar.append(menuButton);
 

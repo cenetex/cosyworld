@@ -4251,6 +4251,11 @@ installToolbar({
   session: sharedSession,
   getWorld: () => world,
   allowShared: () => !localRuntime(),
+  // Delete world on the world being played: nothing saves it again.
+  stopSaving: () => {
+    saveBlocked = true;
+    playQueue.clear();
+  },
 });
 // The root page resumes whichever avatar was played last.
 if (!tableName && !startingPack)
