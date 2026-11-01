@@ -2,8 +2,10 @@
 // gaze; the browser combines that gaze with this art metadata for its transform.
 // Keep this module in the presentation layer so saved rule bundles stay stable.
 import { rarityForms, rarityPortraitAssets } from "./rarity-portraits.mjs";
+import { castCombatFacings } from "./cast-combat-art.mjs";
 const groups = {
   right: [
+    ...castCombatFacings("right"),
     ...rarityPortraitAssets.filter((file) => file.startsWith("assets/combat/")),
     "assets/boardyai/boardyai.png",
     ...["rati", "skull", "whiskerwind"].map(
@@ -23,6 +25,7 @@ const groups = {
     ),
   ],
   left: [
+    ...castCombatFacings("left"),
     ...Object.values(rarityForms)
       .filter((form) => form.facing === "left")
       .map((form) => form.portrait),

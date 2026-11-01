@@ -9,7 +9,12 @@
       ],
       "name": "Grumpy Badger",
       "reference": "assets/badger-forest/badger-grumpy.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-antigone",
@@ -18,7 +23,12 @@
       ],
       "name": "Antigone",
       "reference": "assets/greek-drama/chthonic-antigone.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-ismene",
@@ -27,7 +37,12 @@
       ],
       "name": "Ismene",
       "reference": "assets/greek-drama/chthonic-ismene.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-creon",
@@ -36,7 +51,12 @@
       ],
       "name": "Creon",
       "reference": "assets/greek-drama/chthonic-creon.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-guard",
@@ -45,7 +65,12 @@
       ],
       "name": "The Gate Guard",
       "reference": "assets/greek-drama/chthonic-guard.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-baker",
@@ -54,7 +79,12 @@
       ],
       "name": "Dione the Baker",
       "reference": "assets/greek-drama/chthonic-baker.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-elder",
@@ -63,7 +93,12 @@
       ],
       "name": "The Chorus Elder",
       "reference": "assets/greek-drama/chthonic-elder.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-shipmaster",
@@ -72,7 +107,11 @@
       ],
       "name": "Myrto the Shipmaster",
       "reference": "assets/greek-drama/chthonic-shipmaster.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-rhapsode",
@@ -81,7 +120,8 @@
       ],
       "name": "The Bard",
       "reference": "assets/greek-drama/chthonic-singer.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "greek-market-neighbor",
@@ -90,7 +130,8 @@
       ],
       "name": "The Agora Neighbor",
       "reference": "assets/greek-drama/chthonic-neighbor.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "greek-temple-attendant",
@@ -99,7 +140,8 @@
       ],
       "name": "The Delphic Attendant",
       "reference": "assets/greek-drama/chthonic-attendant.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "greek-ferryman",
@@ -108,7 +150,8 @@
       ],
       "name": "The Lower Ferryman",
       "reference": "assets/greek-drama/chthonic-ferryman.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "greek-helen-egypt",
@@ -118,7 +161,8 @@
       ],
       "name": "Helen",
       "reference": "assets/greek-drama/chthonic-helen.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "greek-menelaus-egypt",
@@ -128,7 +172,8 @@
       ],
       "name": "Menelaus",
       "reference": "assets/greek-drama/chthonic-menelaus.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "greek-electra-aeschylus",
@@ -139,7 +184,8 @@
       ],
       "name": "Electra",
       "reference": "assets/greek-drama/chthonic-electra.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "greek-orestes-aeschylus",
@@ -150,7 +196,12 @@
       ],
       "name": "Orestes",
       "reference": "assets/greek-drama/chthonic-orestes.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-aethra",
@@ -159,7 +210,12 @@
       ],
       "name": "Aethra",
       "reference": "assets/greek-drama/open-door-aethra.webp",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-adrastus",
@@ -168,7 +224,12 @@
       ],
       "name": "Adrastus",
       "reference": "assets/greek-drama/open-door-adrastus.webp",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-argive-mother",
@@ -177,7 +238,12 @@
       ],
       "name": "An Argive Mother",
       "reference": "assets/greek-drama/open-door-mother.webp",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-iphis",
@@ -186,7 +252,12 @@
       ],
       "name": "Iphis",
       "reference": "assets/greek-drama/open-door-iphis.webp",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-theseus",
@@ -195,7 +266,12 @@
       ],
       "name": "Theseus",
       "reference": "assets/greek-drama/open-door-theseus.webp",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-quay-host",
@@ -204,7 +280,11 @@
       ],
       "name": "Thaleia the Quay Host",
       "reference": "assets/greek-drama/open-door-quay-host.webp",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-colonus-keeper",
@@ -213,7 +293,12 @@
       ],
       "name": "The Grove Keeper",
       "reference": "assets/greek-drama/open-door-grove-keeper.webp",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "greek-marathon-keeper",
@@ -222,7 +307,8 @@
       ],
       "name": "The Altar Keeper",
       "reference": "assets/greek-drama/open-door-altar-keeper.webp",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "greek-household-witness",
@@ -231,7 +317,8 @@
       ],
       "name": "Myrine of Argos",
       "reference": "assets/greek-drama/myrine.webp",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "greek-ajax-tecmessa",
@@ -240,7 +327,8 @@
       ],
       "name": "Tecmessa",
       "reference": "assets/greek-drama/ajax-tecmessa.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "greek-ajax-teucer",
@@ -249,7 +337,8 @@
       ],
       "name": "Teucer",
       "reference": "assets/greek-drama/ajax-teucer.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "greek-ajax-odysseus",
@@ -258,7 +347,8 @@
       ],
       "name": "Odysseus",
       "reference": "assets/greek-drama/ajax-odysseus.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "hoppycat-tapi-lilt",
@@ -267,7 +357,12 @@
       ],
       "name": "Tapi Lilt",
       "reference": "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "hoppycat-penny-vellum",
@@ -276,7 +371,12 @@
       ],
       "name": "Penny Vellum",
       "reference": "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "hoppycat-rill-current",
@@ -285,7 +385,12 @@
       ],
       "name": "Rill Current",
       "reference": "assets/hoppycat-archive/hoppycat-rill-current-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "hoppycat-patch-fern",
@@ -294,7 +399,12 @@
       ],
       "name": "Patch Fern",
       "reference": "assets/hoppycat-archive/hoppycat-patch-fern-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "hoppycat-lumen-facet",
@@ -303,7 +413,12 @@
       ],
       "name": "Lumen Facet",
       "reference": "assets/hoppycat-archive/hoppycat-lumen-facet-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "hoppycat-mira-meraki",
@@ -312,7 +427,12 @@
       ],
       "name": "Mira Meraki",
       "reference": "assets/hoppycat-archive/hoppycat-mira-meraki-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "hoppycat-glim-twice",
@@ -321,7 +441,8 @@
       ],
       "name": "Glim Twice",
       "reference": "assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "hoppycat-nix-fermata",
@@ -330,7 +451,8 @@
       ],
       "name": "Nix Fermata",
       "reference": "assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "hoppycat-hoppy-cat",
@@ -339,7 +461,8 @@
       ],
       "name": "Hoppy Cat",
       "reference": "assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "hoppycat-fable",
@@ -348,7 +471,8 @@
       ],
       "name": "Fable",
       "reference": "assets/hoppycat-archive/hoppycat-fable-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "hoppycat-phase-two",
@@ -357,7 +481,8 @@
       ],
       "name": "Phase Two",
       "reference": "assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "hoppycat-arc",
@@ -366,7 +491,8 @@
       ],
       "name": "Arc",
       "reference": "assets/hoppycat-archive/hoppycat-arc-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": []
     },
     {
       "stem": "hoppycat-staticwashere",
@@ -375,7 +501,12 @@
       ],
       "name": "staticwashere",
       "reference": "assets/hoppycat-archive/hoppycat-staticwashere-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "hoppycat-solwashere",
@@ -384,7 +515,12 @@
       ],
       "name": "solwashere",
       "reference": "assets/hoppycat-archive/hoppycat-solwashere-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "hoppycat-ledger-opus",
@@ -393,7 +529,12 @@
       ],
       "name": "Ledger (Opus 4.7)",
       "reference": "assets/hoppycat-archive/hoppycat-ledger-opus-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "hoppycat-ledger-sonnet",
@@ -402,7 +543,12 @@
       ],
       "name": "Ledger (Sonnet 4.6)",
       "reference": "assets/hoppycat-archive/hoppycat-ledger-sonnet-cutout.png",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "willows-swede",
@@ -411,7 +557,12 @@
       ],
       "name": "The Swede",
       "reference": "assets/willows/swede.webp",
-      "nativeFacing": "left"
+      "nativeFacing": "left",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "rati",
@@ -420,7 +571,12 @@
       ],
       "name": "RATi",
       "reference": "assets/lonely-forest/rati.png",
-      "nativeFacing": "right"
+      "nativeFacing": "right",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "skull",
@@ -429,7 +585,12 @@
       ],
       "name": "Skull",
       "reference": "assets/lonely-forest/skull.png",
-      "nativeFacing": "right"
+      "nativeFacing": "right",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "whiskerwind",
@@ -438,7 +599,12 @@
       ],
       "name": "Whiskerwind",
       "reference": "assets/lonely-forest/whiskerwind.png",
-      "nativeFacing": "right"
+      "nativeFacing": "right",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "oak",
@@ -448,7 +614,12 @@
       "name": "Oak",
       "reference": "assets/lonely-forest/oak.png",
       "nativeFacing": null,
-      "presentation": "backdrop"
+      "presentation": "backdrop",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     },
     {
       "stem": "boardyai",
@@ -457,7 +628,12 @@
       ],
       "name": "BoardyAI",
       "reference": "assets/boardyai/boardyai.png",
-      "nativeFacing": "right"
+      "nativeFacing": "right",
+      "poses": [
+        "attack",
+        "hit",
+        "guard"
+      ]
     }
   ]
 }

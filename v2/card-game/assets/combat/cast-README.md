@@ -9,8 +9,11 @@ residents, Badger and BoardyAI. Six Greek account aliases share their existing
 identity's artwork. The target is 150 new paintings, with no duplicated art for
 those aliases. Strike uses the existing `-attack.webp` filename convention.
 
-The first 94 paintings have been generated, reviewed and encoded. This draft
-does not yet claim that every target exists or is registered. The full target
+The first 94 paintings have been generated, reviewed and encoded. Each
+identity's `poses` in `cast-roster.json` lists its accepted files;
+`cast-combat-art.mjs` registers and serves those 91 portrait poses, and an
+actor without a painted pose keeps its neutral portrait. Oak's three backdrop
+edits are committed but not yet shown. The full target
 is 147 transparent portrait sprites plus three opaque Oak backdrop edits. `cast-roster.json` pins the canonical
 references, actor mappings and intended pose directions. The original 54
 combat paintings remain unchanged.
