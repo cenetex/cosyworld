@@ -1,6 +1,6 @@
 import { installInnerLife } from "./inner-life.mjs";
 import { imageUrl } from "./images.mjs";
-import { humanAvatars } from "./human-cast.mjs";
+import { currentActor, humanAvatar, humanAvatars } from "./human-cast.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { levelOf } from "./want.mjs";
 import { worldNameOf } from "./world-name.mjs";
@@ -54,6 +54,19 @@ export function onlinePlayers(state) {
     .sort(
       (a, b) => Number(b.self) - Number(a.self) || a.name.localeCompare(b.name),
     );
+}
+
+// In local play the one player is the avatar this world belongs to.
+export function localPlayer(world) {
+  const id = currentActor(world);
+  const avatar = humanAvatar(id) || humanAvatars[0];
+  return {
+    id: avatar.id,
+    name: avatar.name,
+    image: avatarImage(world, avatar.id),
+    level: levelOf(world, avatar.id),
+    self: true,
+  };
 }
 
 let refresh = () => {};
@@ -170,13 +183,7 @@ export function installToolbar({
     const local = getWorld();
     const players = session
       ? onlinePlayers(session.state)
-      : [
-          {
-            ...humanAvatars[0],
-            self: true,
-            level: levelOf(local, "vale"),
-          },
-        ];
+      : [localPlayer(local)];
     const name = worldNameOf(session ? session.state.world : local);
     const key = JSON.stringify([Boolean(reconnecting), players, name]);
     if (key === previous) return;
