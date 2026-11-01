@@ -1,9 +1,7 @@
 import { installInnerLife } from "./inner-life.mjs";
-import { imageUrl } from "./images.mjs";
 import { currentActor, humanAvatar, humanAvatars } from "./human-cast.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { levelOf } from "./want.mjs";
-import { worldNameOf } from "./world-name.mjs";
 import { installAvatarMenu } from "./avatar-menu.mjs";
 
 const icons = {
@@ -125,56 +123,20 @@ export function installToolbar({
     tools.querySelector("#shared-worlds-button"),
     tools.querySelector("#menu-button"),
   );
-  installAvatarMenu({ menu, session, getWorld, allowShared });
+  const seats = installAvatarMenu({ menu, session, getWorld, allowShared });
   document.body.append(menu);
   toolbar.append(menuButton);
 
+  // 👥 counts who is here and opens ☰, which lists them.
   const toggle = element("button", "players-button");
   toggle.id = "players-button";
   decorate(toggle, "players", "Players");
   const count = element("span", "player-count");
   count.setAttribute("aria-hidden", "true");
   toggle.append(count);
-  toggle.setAttribute("aria-haspopup", "dialog");
-  toggle.setAttribute("aria-controls", "players-dialog");
-  toggle.setAttribute("aria-expanded", "false");
+  toggle.setAttribute("popovertarget", menu.id);
+  toggle.setAttribute("aria-controls", menu.id);
   toolbar.append(toggle);
-
-  const dialog = element("dialog", "players-dialog");
-  dialog.id = "players-dialog";
-  dialog.setAttribute("aria-labelledby", "players-title");
-  dialog.setAttribute("aria-describedby", "players-summary");
-  const heading = element("div", "modal-heading");
-  const title = element("h2", "", "Players in this world");
-  title.id = "players-title";
-  const close = element("button", "players-close", "Close");
-  close.type = "button";
-  close.onclick = () => dialog.close();
-  heading.append(title, close);
-  const summary = element("p", "players-summary");
-  summary.id = "players-summary";
-  summary.setAttribute("role", "status");
-  const list = element("ul", "players-list");
-  list.setAttribute("aria-label", "Online players");
-  const hint = element(
-    "p",
-    "players-hint",
-    session
-      ? "These players are connected to this world."
-      : "Share this world to invite friends.",
-  );
-  dialog.append(heading, summary, list, hint);
-  document.body.append(dialog);
-  const changed = () => {
-    toggle.setAttribute("aria-expanded", String(dialog.open));
-    document.dispatchEvent(new Event("shared-dialog-change"));
-  };
-  toggle.onclick = () => {
-    refresh();
-    dialog.showModal();
-    changed();
-  };
-  dialog.addEventListener("close", changed);
   let previous = "";
   refresh = () => {
     const reconnecting =
@@ -184,8 +146,7 @@ export function installToolbar({
     const players = session
       ? onlinePlayers(session.state)
       : [localPlayer(local)];
-    const name = worldNameOf(session ? session.state.world : local);
-    const key = JSON.stringify([Boolean(reconnecting), players, name]);
+    const key = JSON.stringify([Boolean(reconnecting), players]);
     if (key === previous) return;
     previous = key;
     count.textContent = reconnecting ? "…" : String(players.length);
@@ -200,29 +161,7 @@ export function installToolbar({
           ? `Players, ${players.length} online in this world`
           : "Players, local world",
     );
-    summary.textContent = reconnecting
-      ? "Reconnecting… The player list will refresh when the connection returns."
-      : session
-        ? `${players.length} ${players.length === 1 ? "player" : "players"} online · ${name || "This world"}`
-        : `Local play · ${name || "Your world"}`;
-    list.replaceChildren();
-    if (reconnecting) return;
-    for (const player of players) {
-      const row = element("li", "player-row");
-      const portrait = element("img", "player-portrait");
-      portrait.decoding = "async";
-      portrait.loading = "lazy";
-      portrait.src = imageUrl(`/card-game/${player.image}`, "card");
-      portrait.alt = "";
-      const copy = element("div", "player-copy");
-      const name = element("strong", "player-name", player.name);
-      if (player.self) name.append(element("span", "player-you", "You"));
-      const details = element("span", "player-details");
-      details.append(element("span", "player-level", `Level ${player.level}`));
-      copy.append(name, details);
-      row.append(portrait, copy);
-      list.append(row);
-    }
+    seats();
   };
   refresh();
 }

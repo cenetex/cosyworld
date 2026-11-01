@@ -4271,8 +4271,6 @@ if (localRuntime()) {
     const button = $(id);
     if (button) button.hidden = true;
   }
-  const hint = document.querySelector(".players-hint");
-  if (hint) hint.hidden = true;
 }
 installSceneVideo({
   getWorld: () => world,
