@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "lonely-forest",
   "packId": "cosyworld.lonely-forest",
-  "revision": 2,
+  "revision": 3,
   "name": "Lonely Forest",
   "description": "Tea beneath the oak. A household task leads through the rain, along a watched path, and home with a story.",
   "tone": "Plain words, useful work, distinct personalities, and gradual discovery of a shared living mind. Warmth comes from the kettle, the hearth and care for returning travelers.",
@@ -422,126 +422,58 @@
   ],
   "choices": [
     {
-      "id": "forest-stay-for-tea",
-      "subject": "rati",
-      "at": "forest-cottage",
-      "label": "Stay for tea",
-      "text": "{actor} sets a cup beside the kettle. RATi moves the knitting basket closer to the fire.",
-      "textTemplate": "{actor} sets a cup beside the kettle. RATi moves the knitting basket closer to the fire.",
-      "requires": [
-        {
-          "kind": "met",
-          "actor": "rati"
-        }
-      ],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "forest-welcomed",
-          "value": true
-        }
-      ]
-    },
-    {
       "id": "forest-clear-drain",
       "subject": "forest-garden",
       "at": "forest-garden",
-      "label": "Clear the garden drain",
-      "text": "{actor} clears leaves from the drain. Water runs off the stepping stones.",
-      "textTemplate": "{actor} clears leaves from the drain. Water runs off the stepping stones.",
+      "label": "The garden drain",
+      "text": "Vale cleared the garden drain.",
+      "textTemplate": "{actor} cleared the garden drain.",
       "requires": [
         {
           "kind": "flag",
           "key": "forest-welcomed",
           "value": true
-        },
-        {
-          "kind": "choice_unset",
-          "key": "forest-garden-care"
         }
       ],
       "effects": [
-        {
-          "kind": "choose",
-          "key": "forest-garden-care",
-          "value": "drain"
-        },
         {
           "kind": "set_flag",
           "key": "forest-path-cleared",
           "value": true
         }
-      ]
-    },
-    {
-      "id": "forest-set-stones",
-      "subject": "forest-garden",
-      "at": "forest-garden",
-      "label": "Set the stepping stones",
-      "text": "{actor} sets the loose stones level with the path. The first footsteps leave clear marks in the wet soil.",
-      "textTemplate": "{actor} sets the loose stones level with the path. The first footsteps leave clear marks in the wet soil.",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "forest-welcomed",
-          "value": true
-        },
-        {
-          "kind": "choice_unset",
-          "key": "forest-garden-care"
-        }
       ],
-      "effects": [
-        {
-          "kind": "choose",
-          "key": "forest-garden-care",
-          "value": "stones"
-        },
-        {
-          "kind": "set_flag",
-          "key": "forest-path-cleared",
-          "value": true
-        }
-      ]
+      "on": "wait"
     },
     {
       "id": "forest-mark-pawprints",
       "subject": "skull",
       "at": "forest-trail",
-      "label": "Mark the pawprints",
-      "text": "{actor} places a small branch beside the pawprints toward home. Skull turns his ears toward the garden.",
-      "textTemplate": "{actor} places a small branch beside the pawprints toward home. Skull turns his ears toward the garden.",
+      "label": "Skull shows the pawprints",
+      "text": "Skull showed Vale the pawprints home.",
+      "textTemplate": "Skull showed {actor} the pawprints home.",
       "requires": [
         {
           "kind": "flag",
           "key": "forest-path-cleared",
           "value": true
-        },
-        {
-          "kind": "choice_unset",
-          "key": "forest-watch-style"
         }
       ],
       "effects": [
-        {
-          "kind": "choose",
-          "key": "forest-watch-style",
-          "value": "tracks"
-        },
         {
           "kind": "set_flag",
           "key": "forest-watch-shared",
           "value": true
         }
-      ]
+      ],
+      "on": "meet"
     },
     {
       "id": "forest-tell-hearth",
       "subject": "oak",
       "at": "forest-oak",
-      "label": "Tell Oak about the hearth",
-      "text": "Vale holds the Wolfprint Charm beside the hollow and tells Oak about the kettle and the hearth. Hollow repeats the word home. Leaf turns toward the cottage window.",
-      "textTemplate": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the kettle and the hearth. Hollow repeats the word home. Leaf turns toward the cottage window.",
+      "label": "Oak hears of the hearth",
+      "text": "Vale brought the Wolfprint Charm to Oak.",
+      "textTemplate": "{actor} brought the Wolfprint Charm to Oak.",
       "requires": [
         {
           "kind": "flag",
@@ -552,68 +484,24 @@
           "kind": "holding",
           "item": "forest-wolfprint-charm",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "forest-oak-story"
         }
       ],
       "effects": [
-        {
-          "kind": "choose",
-          "key": "forest-oak-story",
-          "value": "hearth"
-        },
         {
           "kind": "set_flag",
           "key": "forest-oak-heard",
           "value": true
         }
-      ]
-    },
-    {
-      "id": "forest-tell-path",
-      "subject": "oak",
-      "at": "forest-oak",
-      "label": "Tell Oak about the path",
-      "text": "Vale holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats the rain on the broad leaves.",
-      "textTemplate": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats the rain on the broad leaves.",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "forest-watch-shared",
-          "value": true
-        },
-        {
-          "kind": "holding",
-          "item": "forest-wolfprint-charm",
-          "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "forest-oak-story"
-        }
       ],
-      "effects": [
-        {
-          "kind": "choose",
-          "key": "forest-oak-story",
-          "value": "path"
-        },
-        {
-          "kind": "set_flag",
-          "key": "forest-oak-heard",
-          "value": true
-        }
-      ]
+      "on": "meet"
     },
     {
       "id": "forest-leave-charm",
       "subject": "rati",
       "at": "forest-cottage",
-      "label": "Leave the charm by the hearth",
-      "text": "{actor} lays the Wolfprint Charm beside the hearth. RATi sets a warm cup on the table. A pawprint marks the place to return.",
-      "textTemplate": "{actor} lays the Wolfprint Charm beside the hearth. RATi sets a warm cup on the table. A pawprint marks the place to return.",
+      "label": "RATi keeps the charm",
+      "text": "Vale gave RATi the Wolfprint Charm.",
+      "textTemplate": "{actor} gave RATi the Wolfprint Charm.",
       "requires": [
         {
           "kind": "flag",
@@ -621,13 +509,14 @@
           "value": true
         },
         {
+          "kind": "flag",
+          "key": "forest-homecoming-shared",
+          "value": false
+        },
+        {
           "kind": "holding",
           "item": "forest-wolfprint-charm",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "forest-homecoming"
         }
       ],
       "effects": [
@@ -637,24 +526,20 @@
           "place": "forest-cottage"
         },
         {
-          "kind": "choose",
-          "key": "forest-homecoming",
-          "value": "hearth"
-        },
-        {
           "kind": "set_flag",
           "key": "forest-homecoming-shared",
           "value": true
         }
-      ]
+      ],
+      "on": "give"
     },
     {
       "id": "forest-keep-charm",
       "subject": "rati",
       "at": "forest-cottage",
-      "label": "Keep the charm for the next journey",
-      "text": "{actor} keeps the Wolfprint Charm for the next journey. RATi sets a warm cup on the table. The iron carries the same small pawprint.",
-      "textTemplate": "{actor} keeps the Wolfprint Charm for the next journey. RATi sets a warm cup on the table. The iron carries the same small pawprint.",
+      "label": "Vale keeps the charm",
+      "text": "Vale kept the Wolfprint Charm for the next journey.",
+      "textTemplate": "{actor} kept the Wolfprint Charm for the next journey.",
       "requires": [
         {
           "kind": "flag",
@@ -662,35 +547,32 @@
           "value": true
         },
         {
+          "kind": "flag",
+          "key": "forest-homecoming-shared",
+          "value": false
+        },
+        {
           "kind": "holding",
           "item": "forest-wolfprint-charm",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "forest-homecoming"
         }
       ],
       "effects": [
-        {
-          "kind": "choose",
-          "key": "forest-homecoming",
-          "value": "traveler"
-        },
         {
           "kind": "set_flag",
           "key": "forest-homecoming-shared",
           "value": true
         }
-      ]
+      ],
+      "on": "wait"
     },
     {
       "id": "forest-hear-walkers-rati",
       "subject": "rati",
       "at": "forest-cottage",
       "label": "Hear RATi on the three walkers",
-      "text": "RATi tells Vale where the three walkers sleep. She tops up the kettle and points toward the oak.",
-      "textTemplate": "RATi tells {actor} where the three walkers sleep. She tops up the kettle and points toward the oak.",
+      "text": "RATi told Vale about the three walkers.",
+      "textTemplate": "RATi told {actor} about the three walkers.",
       "requires": [
         {
           "kind": "flag",
@@ -716,8 +598,8 @@
       "subject": "oak",
       "at": "forest-oak",
       "label": "Hear Root on the three walkers",
-      "text": "Root tells Vale about the three walkers. Leaf shakes a little rain onto the path.",
-      "textTemplate": "Root tells {actor} about the three walkers. Leaf shakes a little rain onto the path.",
+      "text": "Root told Vale about the three walkers.",
+      "textTemplate": "Root told {actor} about the three walkers.",
       "requires": [
         {
           "kind": "flag",
@@ -742,9 +624,9 @@
       "id": "forest-sit-watch",
       "subject": "skull",
       "at": "forest-trail",
-      "label": "Sit the evening watch with Skull",
-      "text": "Vale sits the evening watch beside Skull. He turns his head toward the oak, then settles with his back to its roots.",
-      "textTemplate": "{actor} sits the evening watch beside Skull. He turns his head toward the oak, then settles with his back to its roots.",
+      "label": "The evening watch",
+      "text": "Vale kept the evening watch with Skull.",
+      "textTemplate": "{actor} kept the evening watch with Skull.",
       "requires": [
         {
           "kind": "flag",
@@ -755,24 +637,16 @@
           "kind": "knows",
           "topics": ["forest-walkers-rati", "forest-walkers-oak"],
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "forest-evening-watch"
         }
       ],
       "effects": [
-        {
-          "kind": "choose",
-          "key": "forest-evening-watch",
-          "value": "kept"
-        },
         {
           "kind": "set_flag",
           "key": "forest-watch-kept",
           "value": true
         }
-      ]
+      ],
+      "on": "wait"
     },
     {
       "id": "forest-hide-button-vale",
@@ -1229,6 +1103,28 @@
         }
       ],
       "on": "give"
+    },
+    {
+      "id": "forest-stay-for-tea",
+      "subject": "rati",
+      "at": "forest-cottage",
+      "label": "RATi welcomes a traveler",
+      "text": "RATi welcomed Vale to the cottage.",
+      "textTemplate": "RATi welcomed {actor} to the cottage.",
+      "requires": [
+        {
+          "kind": "met",
+          "actor": "rati"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "forest-welcomed",
+          "value": true
+        }
+      ],
+      "on": "meet"
     }
   ],
   "topics": [

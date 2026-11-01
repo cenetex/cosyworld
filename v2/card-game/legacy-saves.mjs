@@ -98,6 +98,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     upgradeHoppyCatInteriorsSave(s);
     upgradeBoardingSave(s);
     upgradeForestButtonsSave(s);
+    upgradeForestRevisionSave(s);
     upgradeWillowsKitSave(s);
     upgradeGreekThebesSave(s);
     upgradeGreekDistrictSave(s);
@@ -912,6 +913,17 @@ export function upgradeForestButtonsSave(s) {
     forget(life);
   }
   saved.revision = 2;
+}
+
+// Lonely Forest revision 3 retires the story buttons and their fork keys.
+// A save moves to it as it is; one that holds a retired fork's deed asks
+// for a fresh start.
+export function upgradeForestRevisionSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "lonely-forest");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
+  saved.choices = {};
+  saved.revision = 3;
 }
 
 // Willows revision 2 drops the gear chain, ending, otter and boatman and
