@@ -689,6 +689,19 @@ function wantAPI(s) {
     carried: (actor) => carried(s, actor),
     rootHolder: (item) => rootHolder(s, item),
     valueOf: (actor, item) => valueOf(s, actor, item),
+    // A resident holding the item directly would give it, or take something
+    // the actor carries in trade. A human holder or a nested item may yet.
+    obtainable: (actor, item) => {
+      const owner = s.items[item].holder;
+      return (
+        !actorIds.includes(owner) ||
+        controlledByHuman(s, owner) ||
+        willingToGive(s, owner, item, actor) ||
+        carried(s, actor).some(
+          (give) => give !== item && tradeWilling(s, actor, give, item),
+        )
+      );
+    },
     reachable: (actor) => reachable(s, actor),
     home: homeOf,
     sanctuaries,
@@ -1600,7 +1613,36 @@ function rest(s, actor, here) {
   else if (losses) delete s.defeats[actor];
   return null;
 }
+// A standoff goes on only while someone strikes. Any other play by either
+// side ends it, and so does a Brace answering the other side's standing Brace.
 function perform(s, a, round = null, settle = []) {
+  const conflict = standoffFor(s, a.actor),
+    other = conflict && opponentOf(conflict, a.actor);
+  const mutual = a.kind === "guard" && conflict?.guarding[other];
+  const result = performPlay(s, a, round, settle);
+  if (
+    conflict &&
+    s.standoffs.includes(conflict) &&
+    (mutual || !["guard", "attack"].includes(a.kind))
+  ) {
+    closeStandoff(s, conflict);
+    addLog(
+      s,
+      "World",
+      mutual
+        ? `${nameOf(a.actor)} and ${nameOf(other)} both stand down. The standoff ends.`
+        : `${nameOf(a.actor)} steps back from ${nameOf(other)}. The standoff ends.`,
+      {
+        kind: "narration",
+        actorId: a.actor,
+        targetId: other,
+        locationId: conflict.location,
+      },
+    );
+  }
+  return result;
+}
+function performPlay(s, a, round = null, settle = []) {
   const who = nameOf(a.actor);
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
   const here = s.actors[a.actor].place;
@@ -2144,11 +2186,12 @@ function wantPlan(s, actor) {
       );
     if (conflict.struck[other] || conflict.struck[actor])
       return answer(find("attack", (a) => a.target === other));
+    // A challenger that wants the item strikes; any other play would end
+    // the standoff.
     if (
       conflict.challenger === actor &&
       conflict.item &&
-      needed(s, actor, conflict.item) &&
-      s.turn - conflict.opened >= 2
+      needed(s, actor, conflict.item)
     )
       return answer(find("attack", (a) => a.target === other));
     return idle();

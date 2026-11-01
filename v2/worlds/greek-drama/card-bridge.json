@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "shore-greek-drama",
   "pack": "greek-drama",
-  "description": "A shared ship sails authored lanes from Black Pond only to the Wine-Dark Harbor, and from there to Piraeus Quays and the Trojan camp landing. The lamp signal calls it to the pond.",
+  "description": "A shared ship sails authored lanes: from Black Pond only to the Wine-Dark Harbor, from there to Piraeus Quays, around the cape to Marathon Bay, and on the east sea to the Trojan camp landing and the Far Shores. The lamp signal calls it to the pond.",
   "crossings": [
     {
       "id": "pond-greek-harbor",
@@ -136,6 +136,102 @@
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
       }
+    },
+    {
+      "id": "greek-marathon-ship",
+      "from": "greek-marathon",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The Greek ship waits offshore.",
+        "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
+    },
+    {
+      "id": "greek-lemnos-ship",
+      "from": "greek-lemnos",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The Greek ship waits offshore.",
+        "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
+    },
+    {
+      "id": "greek-thrace-ship",
+      "from": "greek-thrace",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The Greek ship waits offshore.",
+        "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
+    },
+    {
+      "id": "greek-egypt-tomb-ship",
+      "from": "greek-egypt-tomb",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The Greek ship waits offshore.",
+        "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
+    },
+    {
+      "id": "greek-tauris-ship",
+      "from": "greek-tauris",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The Greek ship waits offshore.",
+        "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
+    },
+    {
+      "id": "greek-sicily-ship",
+      "from": "greek-sicily",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The Greek ship waits offshore.",
+        "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
     }
   ],
   "transports": {
@@ -146,7 +242,13 @@
         "greek-harbor",
         "greek-piraeus",
         "greek-ajax-landing",
-        "hoppycat-signal-jetty"
+        "hoppycat-signal-jetty",
+        "greek-marathon",
+        "greek-lemnos",
+        "greek-thrace",
+        "greek-egypt-tomb",
+        "greek-tauris",
+        "greek-sicily"
       ],
       "lanes": [
         {
@@ -171,8 +273,84 @@
           "oneWay": true
         },
         {
-          "from": "greek-harbor",
-          "to": "greek-ajax-landing"
+          "from": "greek-piraeus",
+          "to": "greek-marathon",
+          "oneWay": true,
+          "opensWith": [
+            {
+              "kind": "item_present",
+              "item": "greek-provisions",
+              "place": "greek-ship"
+            }
+          ]
+        },
+        {
+          "from": "greek-marathon",
+          "to": "greek-piraeus",
+          "oneWay": true
+        },
+        {
+          "from": "greek-marathon",
+          "to": "greek-ajax-landing",
+          "oneWay": true,
+          "opensWith": [
+            {
+              "kind": "item_present",
+              "item": "greek-provisions",
+              "place": "greek-ship"
+            }
+          ]
+        },
+        {
+          "from": "greek-ajax-landing",
+          "to": "greek-marathon",
+          "oneWay": true
+        },
+        {
+          "from": "greek-marathon",
+          "to": "greek-lemnos",
+          "oneWay": true,
+          "opensWith": [
+            {
+              "kind": "item_present",
+              "item": "greek-provisions",
+              "place": "greek-ship"
+            }
+          ]
+        },
+        {
+          "from": "greek-lemnos",
+          "to": "greek-marathon",
+          "oneWay": true
+        },
+        {
+          "from": "greek-marathon",
+          "to": "greek-sicily",
+          "oneWay": true,
+          "opensWith": [
+            {
+              "kind": "item_present",
+              "item": "greek-provisions",
+              "place": "greek-ship"
+            }
+          ]
+        },
+        {
+          "from": "greek-sicily",
+          "to": "greek-marathon",
+          "oneWay": true
+        },
+        {
+          "from": "greek-lemnos",
+          "to": "greek-thrace"
+        },
+        {
+          "from": "greek-lemnos",
+          "to": "greek-egypt-tomb"
+        },
+        {
+          "from": "greek-thrace",
+          "to": "greek-tauris"
         },
         {
           "from": "greek-piraeus",

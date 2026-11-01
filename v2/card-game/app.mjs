@@ -1584,7 +1584,7 @@ function queueDiscoveries() {
     .catch(() => {})
     .then(() => {
       if (version !== trip || saveBlocked) return;
-      const found = availableCards(world).filter((id) => !encountered.has(id));
+      const found = handAvailable().filter((id) => !encountered.has(id));
       if (!found.length) return;
       for (const id of found) {
         encountered.add(id);
@@ -1604,7 +1604,7 @@ function queueDiscoveries() {
 async function unveilNew() {
   if (saveBlocked) return;
   const rank = { avatar: 0, item: 1, location: 2 };
-  const found = availableCards(world)
+  const found = handAvailable()
     .filter((id) => !encountered.has(id))
     .sort((a, b) => rank[cardType(a)] - rank[cardType(b)]);
   if (!found.length) return;
@@ -1847,6 +1847,8 @@ function updateCardSelection(frame) {
     frame.replaceWith(questFrame(shownQuest));
     return;
   }
+  const tab = frame.querySelector(":scope > .quest-tab");
+  if (tab) syncQuestTab(tab);
   const button = frame.querySelector(".card"),
     id = button.dataset.card,
     raised =
@@ -1854,7 +1856,7 @@ function updateCardSelection(frame) {
     label = raised ? playLabel(cardPlay(world, selected).action) : "",
     held =
       people[id] || places[id]
-        ? availableCards(world).filter(
+        ? handAvailable().filter(
             (item) => things[item] && rootHolder(world, item) === id,
           )
         : [],
@@ -2044,7 +2046,7 @@ function card(id) {
     );
   }
   if (people[id] || places[id]) {
-    const held = availableCards(world).filter(
+    const held = handAvailable().filter(
       (item) => things[item] && rootHolder(world, item) === id,
     );
     if (held.length) {
@@ -2197,8 +2199,22 @@ function toggleQuest() {
   rowCollapsed = false;
   render();
 }
-// The folded quest: a tab in its tier colour behind the avatar's card. It
-// glows while a first quest is new or a met quest waits to be cleared.
+// The quest shows when the avatar's stack or the quest itself is open.
+const questShown = (quest) =>
+  Boolean(quest) && (questOpen || expandedHolders.has(quest.actor));
+// The folded quest's tab carries its glows: a pulse while a first quest is
+// new or a met quest waits to be cleared, a steady halo while it is near.
+// Once the quest card shows, the tab hides and the card glows instead.
+function syncQuestTab(tab) {
+  const quest = shownQuest;
+  tab.hidden = questShown(quest);
+  tab.dataset.glow =
+    metQuest || questFresh
+      ? "invite"
+      : !questCovered(quest) && questNear(world, quest)
+        ? "near"
+        : "none";
+}
 function questTab(quest) {
   const tab = node(
     "button",
@@ -2207,7 +2223,7 @@ function questTab(quest) {
   );
   tab.type = "button";
   tab.style.setProperty("--tier-color", questTier(quest).color);
-  tab.dataset.glow = String(Boolean(metQuest || questFresh));
+  syncQuestTab(tab);
   tab.setAttribute("aria-label", metQuest ? "Quest met: open it" : "Quest");
   tab.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -2359,6 +2375,15 @@ const litCarried = (actor) =>
   Object.keys(world.items).find(
     (id) => world.items[id].lit && rootHolder(world, id) === actor,
   ) || null;
+// Another avatar's pack is private. The hand shows only what the world has
+// shown of it: a light held up on stage, or the thing your want asks for.
+function privatelyCarried(id) {
+  const owner = things[id] ? rootHolder(world, id) : null;
+  if (!people[owner] || owner === currentActor(world)) return false;
+  return id !== litCarried(owner) && id !== shownQuest?.target;
+}
+const handAvailable = () =>
+  availableCards(world).filter((id) => !privatelyCarried(id));
 function renderHeldItem(figure, actor, itemId) {
   let preview = figure.querySelector(".portrait-held-item");
   figure.setAttribute(
@@ -3346,11 +3371,9 @@ function render() {
     if (!shownQuest && liveQuest && renderedHand) questFresh = true;
     shownQuest = liveQuest;
   }
-  const handCards = questHand(
-    stackPlaces(availableCards(world)),
-    world,
-    shownQuest,
-  );
+  // A new quest stops glowing once its card has been seen.
+  if (questShown(shownQuest)) questFresh = false;
+  const handCards = questHand(stackPlaces(handAvailable()), world, shownQuest);
   // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
     handCards,
@@ -4062,7 +4085,7 @@ function adoptShared(value) {
         : [];
     world = next;
     sharedWorldKey = key;
-    selectCards(selected.filter((id) => availableCards(world).includes(id)));
+    selectCards(selected.filter((id) => handAvailable().includes(id)));
     selectionRevision = world.revision;
     renderedHand = "";
     pendingSpeaker = null;

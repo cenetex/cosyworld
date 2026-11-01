@@ -13,6 +13,7 @@ import {
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
+import { courseToward } from "../v2/card-game/pack-transport.mjs";
 import { recitalPoem } from "../v2/card-game/pack-recital.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
@@ -321,10 +322,23 @@ describe("shared Ajax testimony", () => {
         )
           act("mara", "wait");
       }
-      if (target === "greek-harbor") {
-        // The course card, then one round at sea.
-        act("mara", "course", { target });
-        act("mara", "wait");
+      // Home from the landing: by Marathon Bay and Piraeus, one lane at a
+      // time, each a course card and a round at sea.
+      for (
+        let i = 0;
+        i < 24 &&
+        target === "greek-harbor" &&
+        !request("view", "mara").actions.some(
+          (a) => a.kind === "move" && a.target === target,
+        );
+        i++
+      ) {
+        const lane = courseToward(world, "greek-ship", target, "mara");
+        const course = request("view", "mara").actions.some(
+          (a) => a.kind === "course" && a.target === lane,
+        );
+        if (course) act("mara", "course", { target: lane });
+        else act("mara", "wait");
       }
       act("mara", "move", { target });
     }

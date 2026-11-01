@@ -2,10 +2,11 @@ import { imageUrl } from "./images.mjs";
 import { humanAvatars, currentActor } from "./human-cast.mjs";
 import { request } from "./shared-auth.mjs";
 import { worldName, worldNameOf } from "./world-name.mjs";
-import { archiveLocal, localWorldName } from "./avatar-world.mjs";
+import { archiveLocal, deleteLocal, localWorldName } from "./avatar-world.mjs";
 
 // ☰ lists the player's eight avatars and where each is now
-// (v2/docs/card-table/avatar-menu.md): Play, Move, Leave, New world, Join.
+// (v2/docs/card-table/avatar-menu.md): Play, Move, Leave, Delete world (local
+// only), New world, Join.
 const $ = (id) => document.getElementById(id);
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -154,19 +155,39 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
             act("Leave", async () => {
               await leave(avatar.id, place);
               if (!current) return location.reload();
-              // Go on as another avatar that is somewhere, or start Vale.
-              const next = humanAvatars.find(
-                (a) => a.id !== avatar.id && places[a.id],
-              );
-              const there = next && places[next.id];
-              location.href = there?.shared
-                ? sharedLink(there.shared)
-                : localLink(next?.id || "vale");
+              goOn(avatar, places, "vale");
             }),
           ],
         ),
       ),
+      // The server has no world delete, so a shared world offers only Leave.
+      ...(place.local ? [remove(avatar, place, current, places)] : []),
     ];
+  }
+  // Go on as another avatar that is somewhere, or start `fallback` afresh.
+  function goOn(avatar, places, fallback) {
+    const next = humanAvatars.find((a) => a.id !== avatar.id && places[a.id]);
+    const there = next && places[next.id];
+    location.href = there?.shared
+      ? sharedLink(there.shared)
+      : localLink(next?.id || fallback);
+  }
+  // Delete world asks with a second tap on the same, now red, button.
+  function remove(avatar, place, current, places) {
+    const button = act("Delete world", () => {
+      if (button.dataset.armed !== "true") {
+        button.dataset.armed = "true";
+        button.textContent = `Delete ${place.name || "this world"}?`;
+        return;
+      }
+      deleteLocal(avatar.id);
+      if (current) return goOn(avatar, places, avatar.id);
+      status.textContent = `${place.name || "The world"} is gone.`;
+      render();
+    });
+    button.classList.add("avatar-delete");
+    button.dataset.keepMenu = "true";
+    return button;
   }
   function render() {
     const now = here();

@@ -2381,7 +2381,11 @@ fn dousing_the_held_lamp_meets_vales_want_once_and_replays() {
     let mut w = World::create(None).unwrap();
     w.claimed = [1, 0, 0, 0, 0, 0, 0, 0];
     w.present = w.claimed;
-    assert_eq!(w.game["actors"]["vale"]["want"]["target"], "lamp");
+    // A player holds no quest before the Black Pond (#1768), so this test
+    // gives Vale the lamp want she used to start with.
+    assert!(w.game["actors"]["vale"]["want"].is_null());
+    w.game["actors"]["vale"]["want"] =
+        json!({"kind":"item","target":"lamp","since":0,"refusals":0});
     full_store::seed(&c, &id, &w, "want-met", now()).unwrap();
     // Vale already holds the lamp, so the first play meets that want.
     let action = home_action(&w, 0, "snuff");
@@ -2839,11 +2843,11 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
         full_store::seed(&c, &id, &world, "hoppycat-garden-visitor", now()).unwrap();
         let mut world = full_store::world(&c, &id, now()).unwrap();
 
-        // Use the pack's custody rule, commit a story receipt, then return
-        // through the bridge using the current C-hosted rules.
+        // Use the pack's custody rule (taking the cup beside Hoppy Cat commits
+        // the welcome), then return through the bridge using the current
+        // C-hosted rules.
         for (kind, field, value) in [
             ("take", "item", "hoppycat-halfway-cup"),
-            ("choose", "choiceId", "hoppycat-welcome"),
             ("move", "target", "pond"),
         ] {
             let action = world.project(0).unwrap()["actions"]

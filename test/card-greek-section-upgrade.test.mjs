@@ -78,6 +78,17 @@ describe("Greek section save upgrade", () => {
         "greek-piraeus-ship": { discovered: false },
         "greek-ajax-landing-ship": { discovered: false },
         "hoppycat-signal-jetty-ship": { discovered: false },
+        // Greek revision 16: the east sea's ports.
+        ...Object.fromEntries(
+          [
+            "greek-marathon",
+            "greek-lemnos",
+            "greek-thrace",
+            "greek-egypt-tomb",
+            "greek-tauris",
+            "greek-sicily",
+          ].map((id) => [`${id}-ship`, { discovered: false }]),
+        ),
         "hoppycat-pond-garden": { discovered: false },
         "hoppycat-garden-pond": { discovered: false },
         "attic-forest-cottage": { discovered: false },

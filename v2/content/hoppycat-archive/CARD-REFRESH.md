@@ -63,8 +63,13 @@ staticwashere keeps the jetty. The Red-Thread Spool starts at the empty station 
 is never drawn.
 
 Each run draws two of the other eight places, one resident and one thing.
-A drawn place brings its residents and things, and links to both the garden
-and the jetty, so a run is one loop of four places. The drawn resident and
+A drawn place brings its residents and things. Each of the eight is a place
+*within* the garden or the jetty (`within` in the pack data): it links only to
+that parent and does not count toward the parent's three links (the map rule).
+The Cathedral, the Greenhouse, the Foundry and the Atelier lie within the
+garden; the Belfry, the Tidelands, the Theatre and the Goldfish Tank lie
+within the jetty. Hoppy Cat revision 3 re-walks a known step between two of
+them through their parents. The drawn resident and
 thing come from undrawn places and wait in the garden. Every place, resident
 and thing is common. A story whose steps need undrawn places waits for a run
 that draws them. The pack's own landing (`?pack=hoppycat-archive`,

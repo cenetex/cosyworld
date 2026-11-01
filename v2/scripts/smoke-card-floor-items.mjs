@@ -19,7 +19,7 @@ const station = createWorld({ opening: true });
 station.actors.vale.place = "station";
 assert.deepEqual(
   sceneStaging(station, { currentState: true }).floorItems.map(({ id }) => id),
-  ["bell", "world-map"],
+  ["bell"],
 );
 const willows = createWorld({ opening: true });
 willows.actors.vale.place = "willows-camp";
@@ -250,7 +250,7 @@ try {
       .locator('#hand [data-card="bell"]')
       .waitFor({ state: "attached" });
     await ready();
-    await assertFloor(["bell", "world-map"], "station-start");
+    await assertFloor(["bell"], "station-start");
     // A fresh render puts every prop back on the same spot.
     const before = await propBoxes();
     await page.reload();
@@ -258,7 +258,7 @@ try {
       .locator('#hand [data-card="bell"]')
       .waitFor({ state: "attached" });
     await ready();
-    await assertFloor(["bell", "world-map"], "station-again");
+    await assertFloor(["bell"], "station-again");
     const after = await propBoxes();
     for (const [id, box] of Object.entries(before))
       box.forEach((value, index) =>

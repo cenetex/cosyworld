@@ -205,21 +205,43 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             assert_eq!(Some(&world), checkpointed.as_ref());
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-eleusis");
             super::sea_steps::assert_upgraded_ship(&world.game, &old.game);
-            // Greek revision 11 retires the invitation button; its receipt and
-            // log line leave the upgraded save.
-            let retired = "greek-open-door-invite-exposure";
+            // Greek revision 11 retires the invitation button, and revision 15
+            // the truce request and the Eleusis care fork: their receipts and
+            // log lines leave the upgraded save. An open berth passes to the
+            // family berth, the one that stays.
+            let retired = [
+                "greek-open-door-invite-exposure",
+                "greek-open-door-request-truce",
+                "greek-open-door-eleusis-care",
+            ];
+            let (open, family) = ("greek-open-door-open-berth", "greek-open-door-family-berth");
             let mut expected = old.game.clone();
+            let drama = &mut expected["packs"]["greek-drama"];
             for key in ["receipts", "recitals"] {
-                if let Some(record) = expected["packs"]["greek-drama"][key].as_object_mut() {
-                    record.remove(retired);
+                if let Some(record) = drama[key].as_object_mut() {
+                    for id in retired {
+                        record.remove(id);
+                    }
+                    if let Some(value) = record.remove(open) {
+                        record.insert(family.into(), value);
+                    }
                 }
             }
+            let choices = drama["choices"].as_object_mut().unwrap();
+            choices.remove("greek-open-door-eleusis");
+            choices.insert("greek-open-door-berth".into(), json!("family"));
             let log: Vec<Value> = expected["log"]
                 .as_array()
                 .unwrap()
                 .iter()
-                .filter(|e| e["choiceId"] != retired)
-                .cloned()
+                .filter(|e| !retired.iter().any(|id| e["choiceId"] == *id))
+                .map(|e| {
+                    let mut e = e.clone();
+                    if e["choiceId"] == open {
+                        e["choiceId"] = json!(family);
+                    }
+                    e
+                })
                 .collect();
             expected["log"] = Value::Array(log);
             for key in ["turn", "eventSeq", "log"] {
@@ -239,8 +261,6 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
                     expected["packs"]["greek-drama"][key]
                 );
             }
-            let receive = format!("choose:vale:greek-drama:greek-homecoming-receive-{policy}");
-            rejected(&c, &id, &mut world, "vale", json!({"key":receive}));
             let escort = format!("accompany:mara::{MYRINE}:greek-piraeus");
             rejected(&c, &id, &mut world, "mara", json!({"key":escort}));
             // Piraeus and Eleusis are joined through the city, by the Long
@@ -253,14 +273,10 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             ] {
                 play(&c, &id, &mut world, 0, &step(target));
             }
-            let agreement = play(
-                &c,
-                &id,
-                &mut world,
-                0,
-                &[("choiceId", "greek-homecoming-agree-journey")],
-            );
-            rejected(&c, &id, &mut world, "vale", agreement);
+            // Meeting Myrine at Eleusis is her agreement to walk.
+            assert!(world.game["packs"]["greek-drama"]["receipts"]
+                ["greek-homecoming-agree-journey"]
+                .is_number());
             for target in MYRINE_PATH {
                 play(&c, &id, &mut world, 0, &step(target));
             }
@@ -288,49 +304,38 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
                 Value::Null
             );
             rejected(&c, &id, &mut world, "mara", travel);
-            if policy == "family" {
-                rejected(
-                    &c,
-                    &id,
-                    &mut world,
-                    "mara",
-                    json!({"key":"choose:mara:greek-drama:greek-homecoming-receive-family"}),
-                );
-                play(
-                    &c,
-                    &id,
-                    &mut world,
-                    1,
-                    &[("kind", "take"), ("item", "greek-provision-basket")],
-                );
-                play(
-                    &c,
-                    &id,
-                    &mut world,
-                    1,
-                    &[
-                        ("kind", "give"),
-                        ("item", "greek-provision-basket"),
-                        ("target", MYRINE),
-                    ],
-                );
-                assert_eq!(
-                    world.game["items"]["greek-provision-basket"]["holder"],
-                    MYRINE
-                );
-            }
-            let arrival = play(
+            // Myrine arrives when she holds her household's basket at the
+            // quay, whichever berth the save once chose.
+            play(
                 &c,
                 &id,
                 &mut world,
                 1,
-                &[("choiceId", &format!("greek-homecoming-receive-{policy}"))],
+                &[("kind", "take"), ("item", "greek-provision-basket")],
+            );
+            let gift = play(
+                &c,
+                &id,
+                &mut world,
+                1,
+                &[
+                    ("kind", "give"),
+                    ("item", "greek-provision-basket"),
+                    ("target", MYRINE),
+                ],
+            );
+            assert_eq!(
+                world.game["items"]["greek-provision-basket"]["holder"],
+                MYRINE
             );
             assert_eq!(
                 world.game["packs"]["greek-drama"]["flags"]["greek-homecoming-arrived"],
                 true
             );
-            rejected(&c, &id, &mut world, "mara", arrival);
+            assert!(world.game["packs"]["greek-drama"]["receipts"]
+                ["greek-homecoming-receive-family"]
+                .is_number());
+            rejected(&c, &id, &mut world, "mara", gift);
             for _ in 0..32 {
                 if world.project(1).unwrap()["actions"]
                     .as_array()

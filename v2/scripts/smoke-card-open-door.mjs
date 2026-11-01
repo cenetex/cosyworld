@@ -16,29 +16,12 @@ import {
   clearSelection,
   selectCard,
   smokeWidths,
-  topicForChoice,
 } from "./card-browser-helpers.mjs";
 
 export async function checkOpenDoor(browser, origin) {
   const output = new URL("../../output/open-door/", import.meta.url);
   await mkdir(output, { recursive: true });
   for (const width of smokeWidths([1440, 390])) {
-    const options =
-      width === 1440
-        ? {
-            recovery: "truce",
-            eleusis: "care",
-            berth: "family",
-            colonus: "custom",
-            marathon: "hearing",
-          }
-        : {
-            recovery: "recovery",
-            eleusis: "pledge",
-            berth: "open",
-            colonus: "family",
-            marathon: "alcmene",
-          };
     const fixture = openingFixture("exposure").closed;
     const page = await browser.newPage({
       viewport: { width, height: width === 390 ? 844 : 900 },
@@ -159,30 +142,22 @@ export async function checkOpenDoor(browser, origin) {
             await step({ kind: "wait" });
         }
         const before = await state();
-        const topic = topicForChoice(fields.choiceId);
-        const action = topic
-          ? openDoorAction(before, "talk", { target: topic.speaker })
-          : openDoorAction(before, kind, fields);
-        const id = action.cards?.[0] || action.item || action.target || "vale";
+        const action = openDoorAction(before, kind, fields);
+        const cards = action.cards?.length
+          ? [...action.cards]
+          : [action.item || action.target || "vale"];
+        if (kind === "drop" && !cards.includes(fields.target))
+          cards.push(fields.target);
         await clearSelection(page);
-        await selectCard(page, id, { touch: width === 390 });
-        if (kind === "drop")
-          await selectCard(page, fields.target, { touch: width === 390 });
-        const selector = topic
-          ? `#card-actions [data-action="talk"]`
-          : fields.choiceId
-            ? `#card-actions [data-choice="${fields.choiceId}"]`
-            : `#card-actions [data-action="${kind}"]`;
-        await page.locator(selector).first().click();
+        for (const id of [...new Set(cards)])
+          await selectCard(page, id, { touch: width === 390 });
+        await page
+          .locator(`#card-actions [data-action="${kind}"]`)
+          .first()
+          .click();
         await settle();
         const after = await state();
         assert.equal(after.turn, before.turn + 1, `${kind} commits once`);
-        if (fields.choiceId)
-          assert.equal(
-            after.packs["greek-drama"].receipts[fields.choiceId],
-            after.turn,
-            fields.choiceId,
-          );
         if (kind === "move")
           assert.equal(after.actors.vale.place, fields.target);
         if (kind === "take")
@@ -197,33 +172,49 @@ export async function checkOpenDoor(browser, origin) {
         (await state()).packs["greek-drama"].flags["greek-open-door-open"],
       );
       await step({ kind: "drop", item: "lamp", target: "greek-courtyard" });
-      for (const action of openDoorSteps(options)) {
+      // Every story step is an ordinary play: a meeting, a Wait or a gift.
+      for (const action of openDoorSteps()) {
+        const prior = (await state()).packs["greek-drama"].receipts;
         await step(action);
-        if (action.choiceId === "greek-open-door-hear-mothers") {
-          // Aethra's story has no hand card; she says it in Talk.
+        const now = await state();
+        assert.equal(
+          legalActions(now).some(
+            (a) =>
+              a.kind === "choose" &&
+              /^greek-(open-door|homecoming)-/.test(a.choiceId),
+          ),
+          false,
+          "No story button is offered",
+        );
+        const done = Object.keys(now.packs["greek-drama"].receipts).filter(
+          (id) => !(id in prior),
+        );
+        if (done.includes("greek-open-door-hear-mothers")) {
+          // Aethra's story has no hand card; meeting her tells it.
           assert.equal(await page.locator("#hand [data-quest]").count(), 0);
           await page.screenshot({
             path: new URL(`eleusis-quest-${width}.png`, output).pathname,
             fullPage: true,
           });
         }
-        if (action.choiceId === "greek-open-door-hear-pyre")
+        if (done.includes("greek-open-door-hear-pyre"))
           await page.screenshot({
             path: new URL(`eleusis-rites-${width}.png`, output).pathname,
             fullPage: true,
           });
         if (
-          [
-            "greek-open-door-lay-ashes",
-            "greek-open-door-colonus-farewell",
-          ].includes(action.choiceId)
+          done.some((id) =>
+            [
+              "greek-open-door-lay-ashes",
+              "greek-open-door-colonus-farewell",
+            ].includes(id),
+          )
         ) {
-          const before = await state();
           await page.reload();
           await settle();
           assert.deepEqual(
             (await state()).packs["greek-drama"],
-            before.packs["greek-drama"],
+            now.packs["greek-drama"],
             "Reload keeps the scene's choices and witnesses",
           );
         }
@@ -296,7 +287,7 @@ export async function checkOpenDoor(browser, origin) {
       assert.deepEqual(errors, []);
       assert.deepEqual(failedAssets, []);
       console.log(
-        `Open Door: ${width}px, five places, ${options.recovery}, all stories, custody, reloads, and the Bard's quest passed.`,
+        `Open Door: ${width}px, five places, all stories by ordinary plays, custody, reloads, and the Bard's quest passed.`,
       );
     } finally {
       await page.close();

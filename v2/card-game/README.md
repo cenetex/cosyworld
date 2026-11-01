@@ -397,6 +397,10 @@ road, and the other end. Its entry card names the place ahead. Travelers can
 meet, wait and carry objects on the road. Myrine walks from Eleusis to Piraeus
 one road at a time, along the Sacred Way and the Long Walls.
 
+A place *within* another, such as a house in a quarter, names its parent in
+`within`. It links only to that parent and does not count toward the parent's
+links.
+
 A pack marks an old road or place `retired: true` to keep its ID for saved
 history. No exit leads onto it. A save that stands on a retired road
 continues at the road's first end; one at a retired place continues at the
@@ -565,9 +569,11 @@ the reflection. Leaving the attic requires the lamp in the attic, not shining
 (doused, dry or covered). Returning needs a lit, fueled, uncovered lamp at the pond. Both are
 `requires` data on `forest.json` `reflectionRoutes`; the attic's `backdrops`
 paint it lit, doused, or dark without the lamp; the stage dims those paintings only at night. The Black
-cloth in the lit attic also reveals stairs down to Cosy Cottage, with a matching
-painting. The cloth can lie in the room or travel with someone or something
-there. The cottage's
+cloth in the lit attic also reveals stairs down to Cosy Cottage. The two ways
+never open together: lit with the cloth offers only the cottage, lit without it
+offers neither, and dark offers only the pond. The lit attic keeps its lit
+painting, whose mirror shows only the room. The cloth can lie in the room or
+travel with someone or something there. The cottage's
 stairs back up stay open after either item leaves or the light goes out.
 A stranded traveler in the attic still finds a narrow rescue path to the pond
 when the lamp is out of reach. That escape is separate from the
@@ -620,7 +626,7 @@ Accompany requests use the companion's quest, the items carried by the requester
 
 Tastes shape prices; a remembered grievance raises a price, refuses company, or prompts a retreat. A quest item is worth more to the avatar that wants it, and nobody trades away its own quest item. Generated speech receives exact outcomes and witnessed grievances.
 
-The Map of the Wood and the Wine-Dark Sea waits at the station too. It is an ordinary hub item: it can be found, held, traded, wanted or left anywhere. A hub thing may name its own `art` (the card and stage image) and a `view` (a larger image). Once its card is uncovered and selected, the action row offers **Look**, a client-only overlay of the view: tap the image to zoom, tap outside it or press Escape to close. Look plays nothing and never reaches the rules. A save written before a hub item existed gains it at its `initialState` holder on load. Every load reconciles the save with the current content: a missing authored thing joins at its authored holder, a thing the content no longer defines leaves and whatever it held stays with its holder, and a retired crossing closes. A save that still cannot be read offers New game instead of an error. `npm run v2:card:world-map:smoke` opens the view at 1440 and 390 px.
+A hub thing may name its own `art` (the card and stage image) and a `view` (a larger image). Once its card is uncovered and selected, the action row offers **Look**, a client-only overlay of the view: tap the image to zoom, tap outside it or press Escape to close. Look plays nothing and never reaches the rules. A save written before a hub item existed gains it at its `initialState` holder on load. Every load reconciles the save with the current content: a missing authored thing joins at its authored holder, a thing the content no longer defines leaves and whatever it held stays with its holder, and a retired crossing closes. A save that still cannot be read offers New game instead of an error.
 
 At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 
@@ -731,9 +737,9 @@ Rejected requests (400, 422) and provider errors (5xx) add OpenRouter's message.
 
 Avatar cards offer Talk and Threaten. A threat opens a standoff between the two avatars and adds Brace and Strike to their cards. Each has four resolve. A strike removes two resolve between equal levels, three against a lower level, and one against a higher level. Brace softens the next hit by one, with a minimum of one damage, until that avatar's next play.
 
-Talk and item trades stay available during a standoff. Travel ends it; releasing the disputed item settles it. A resident challenger that sets the disputed item aside before any blow lets it go, which ends the standoff at the end of that round. At zero resolve, the losing avatar drops the disputed item (or an item the winner needs) and retreats along an open path. Both avatars get three turns to recover before another threat. Saved levels retain their combat effect.
+A standoff goes on only while someone strikes. Any play other than Strike or Brace, by either side, ends it: Talk, Wait, Give (handing over the demanded item is the natural way out), a trade, or travel. A Brace played while the other side is still braced (no play or strike of theirs since) is a mutual stand-down and ends it too. Releasing the disputed item settles it. A resident challenger that wants the item strikes; one that has set the item aside lets it go. The [standoff endings note](../../docs/design/standoff-endings.md) has the reasoning. At zero resolve, the losing avatar drops the disputed item (or an item the winner needs) and retreats along an open path. Both avatars get three turns to recover before another threat. Saved levels retain their combat effect.
 
-The cast braces, answers strikes, or leaves. Threats, hits, releases, and retreats enter witnessed memories. A threat also leaves a personal grievance. Earlier saves gain an empty standoff state.
+The cast braces, answers strikes, or steps back. Threats, hits, releases, and retreats enter witnessed memories. A threat also leaves a personal grievance. Earlier saves gain an empty standoff state.
 
 ### Repeated defeats
 

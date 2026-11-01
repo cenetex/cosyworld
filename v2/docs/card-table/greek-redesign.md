@@ -68,7 +68,7 @@ way the Theban gate does today. No step is a button.
 | Battlefield to the Cithaeron road | The battlefield's far route | The dead have burial rights: the rite that yields the Burial Account is done, or the Herald's Truce has reached the battlefield |
 | Cithaeron road to Eleusis | The road's far end | Open to anyone on the road |
 | Eleusis to the city | The Sacred Way through the Dipylon | The Suppliants' petition is delivered: the Dipylon's warden holds it |
-| City to the harbour | The Long Walls | The Open Door: Theseus has received the petition |
+| City to the harbour | The Long Walls | The Open Door: the Herald's Truce is in the Agora |
 
 This follows Euripides' *Suppliant Women*: the Argive dead go from the
 Theban battlefield to their mothers at Eleusis, and the mothers' plea goes on
@@ -343,6 +343,26 @@ The first PR after this doc:
 Choice ids, flags and receipts stay, so the Bard, the quest card and the Open
 Door read them unchanged. Alpha saves may break.
 
+## Open Door conversion
+
+Greek revision 15 follows the table above for the Open Door and the
+homecoming:
+
+- Talk rows commit `on: "meet"` until `on: "talk"` (#1611) lands. In play,
+  the next card played in the room tells the next part.
+- "Present" deeds are `on: "wait"` with `item_near`; Thaleia's berth also
+  needs the basket resting at the quay (`item_at`).
+- Gifts are `on: "give"`: the petition to Theseus, the urn to the Argive
+  mother, the return list to Thaleia, and each outcome to Dione.
+- New outcome items: the Pyre Account (`greek-pyre-account`) and the Marathon
+  Record (`greek-marathon-record`). The Herald's Truce keeps the olive
+  branch's ID, `greek-olive-branch`. It appears in the Agora with the plea,
+  and the Long Walls stay open only while it is there.
+- `return-dione` commits when all five outcomes are on Dione's table.
+- The save upgrade passes a deleted fork's receipt to the step that took it
+  in (for example the open berth to the family berth, and a reading to the
+  return-list gift), drops the rest, and counts the story's flags again.
+
 ## Owner decisions
 
 Recorded on #1732 (2026-11-01):
@@ -355,3 +375,12 @@ Recorded on #1732 (2026-11-01):
    chain is a live condition, like the Theban gate, not a lasting flag.
 4. **The Far Shores are one-place ship stops** on the east sea.
 5. **The Athens sort stands as written**, and the Juror's House goes.
+
+## East sea
+
+Greek revision 16 opens the east sea. Marathon Altar is also Marathon Bay,
+the far harbour of Athens. The ship rounds the cape from Piraeus, and from
+Marathon it sails to the Trojan camp landing, Lemnos and Sicily; Lemnos leads
+on to Thrace and Egypt, and Thrace to Tauris. The Wine-Dark Harbor's lane to
+the landing goes. A dock counts boarding the ship as one link, however many
+lanes the ship sails (owner, 2026-11-01).

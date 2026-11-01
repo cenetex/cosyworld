@@ -140,8 +140,6 @@ const files = [
   "assets/shared/characters/rue.png",
   "assets/shared/places/train.png",
   "assets/shared/items/routes.png",
-  "assets/shared/items/world-map.webp",
-  "assets/shared/items/world-map-full.webp",
   "assets/shared/characters/orin.png",
   "assets/shared/places/pavilion.png",
   "assets/shared/items/board.png",

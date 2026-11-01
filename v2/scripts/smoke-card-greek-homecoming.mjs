@@ -15,7 +15,6 @@ import {
   clearSelection,
   selectCard,
   smokeWidths,
-  topicForChoice,
 } from "./card-browser-helpers.mjs";
 
 const output = new URL("../../output/greek-homecoming/", import.meta.url);
@@ -27,13 +26,13 @@ let browser;
 try {
   browser = await chromium.launch({ headless: true });
   for (const width of smokeWidths([1440, 390])) {
-    const berth = width === 1440 ? "family" : "open";
-    const reading = width === 1440 ? "basket" : "berth";
-    // smoke-card-open-door walks the Open Door chapter in the browser, so
-    // this journey starts from a save just after the berth choice.
-    const steps = homecomingSteps({ berth, reading });
-    const start = steps.findIndex(
-      (a) => a.choiceId === `greek-open-door-${berth}-berth`,
+    // smoke-card-open-door walks the whole Open Door chapter in the browser,
+    // so this journey starts from a save just after Thaleia takes the list
+    // and ends when Myrine's signed list reaches Dione.
+    const steps = homecomingSteps();
+    const start = steps.findIndex((a) => a.target === "greek-quay-host");
+    const end = steps.findIndex(
+      (a) => a.item === "greek-return-list" && a.target === "greek-baker",
     );
     let world = openDoorStart();
     for (const { kind, ...fields } of steps.slice(0, start + 1))
@@ -147,32 +146,22 @@ try {
           await step({ kind: "wait" });
       }
       const before = await state();
-      const topic = topicForChoice(fields.choiceId);
-      const action = topic
-        ? openDoorAction(before, "talk", { target: topic.speaker })
-        : openDoorAction(before, kind, fields);
+      const action = openDoorAction(before, kind, fields);
       const cards = action.cards?.length
-        ? action.cards
+        ? [...action.cards]
         : [action.item || action.target || "vale"];
       if (kind === "drop" && !cards.includes(fields.target))
         cards.push(fields.target);
       await clearSelection(page);
       for (const id of [...new Set(cards)])
         await selectCard(page, id, { touch: width === 390 });
-      const selector = topic
-        ? `#card-actions [data-action="talk"]`
-        : fields.choiceId
-          ? `#card-actions [data-choice="${fields.choiceId}"]`
-          : `#card-actions [data-action="${kind}"]`;
-      await page.locator(selector).first().click();
+      await page
+        .locator(`#card-actions [data-action="${kind}"]`)
+        .first()
+        .click();
       await settle();
       const after = await state();
       assert.equal(after.turn, before.turn + 1, `${kind} commits once`);
-      if (fields.choiceId)
-        assert.equal(
-          after.packs["greek-drama"].receipts[fields.choiceId],
-          after.turn,
-        );
       if (kind === "accompany") {
         assert.equal(after.actors.vale.place, fields.destination);
         assert.equal(after.actors[fields.target].place, fields.destination);
@@ -182,21 +171,21 @@ try {
     try {
       await page.goto(`${origin}/?table=${table}`);
       await settle();
-      for (const action of steps.slice(start + 1)) {
+      for (const action of steps.slice(start + 1, end + 1)) {
+        const prior = (await state()).packs["greek-drama"].receipts;
         await step(action);
-        if (action.choiceId === `greek-homecoming-report-piraeus-${berth}`) {
-          const world = await state();
+        const now = await state();
+        const done = (id) =>
+          now.packs["greek-drama"].receipts[id] !== undefined &&
+          prior[id] === undefined;
+        if (done("greek-homecoming-report-eleusis-pledge")) {
           assert.notEqual(
-            world.packs["greek-drama"].flags["greek-open-door-colonus-done"],
-            true,
-          );
-          assert.notEqual(
-            world.packs["greek-drama"].flags["greek-open-door-marathon-done"],
+            now.packs["greek-drama"].flags["greek-open-door-marathon-done"],
             true,
           );
           await capture("early-dione-return");
         }
-        if (action.choiceId === "greek-homecoming-agree-journey") {
+        if (done("greek-homecoming-agree-journey")) {
           await capture("agreed-journey");
           assert.equal(
             await page.locator("#hand [data-quest]").count(),
@@ -205,19 +194,18 @@ try {
           );
           await capture("myrine-quest");
           await page.keyboard.press("Escape");
-          const before = await state();
           await page.reload();
           await settle();
           assert.deepEqual(
             (await state()).packs,
-            before.packs,
+            now.packs,
             "agreement survives reload",
           );
         }
         if (action.kind === "accompany") await capture("household-at-quay");
-        if (action.choiceId === `greek-homecoming-receive-${berth}`)
+        if (done("greek-homecoming-receive-family"))
           await capture("received-household");
-        if (action.choiceId === `greek-homecoming-read-${reading}-${berth}`)
+        if (done("greek-homecoming-report-piraeus-family"))
           await capture("dione-witness-reading");
       }
       const completed = await state();
@@ -238,7 +226,7 @@ try {
       assert.deepEqual(
         (await state()).packs,
         completed.packs,
-        "completed reading survives reload",
+        "the signed list survives reload",
       );
       assert.deepEqual(
         (await state()).log.filter((e) => e.verb === "want_met"),
@@ -254,7 +242,7 @@ try {
       assert.deepEqual(errors, []);
       assert.deepEqual(failedAssets, []);
       console.log(
-        `Homecoming: ${width}px, ${berth} care, ${reading} reading, early return, consent, real travel, custody, and reload passed.`,
+        `Homecoming: ${width}px, the household's care, early return, consent, real travel, custody, and the signed list passed.`,
       );
     } finally {
       await page.close();

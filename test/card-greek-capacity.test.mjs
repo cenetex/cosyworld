@@ -5,8 +5,6 @@ const willowsItems = Object.fromEntries(
     { holder: item.holder, history: [] },
   ]),
 );
-// A hub item added after these saves joins them at the station.
-willowsItems["world-map"] = { holder: "station", history: [] };
 const ajaxItems = Object.fromEntries(
   Object.entries(currentPackDefinition("greek-drama").items)
     .filter(([id]) => id.startsWith("greek-ajax-"))

@@ -44,3 +44,10 @@ export function archiveLocal(id, storage = globalThis.localStorage) {
   if (save) storage.setItem(`${slot}.bak`, save);
   storage.removeItem(slot);
 }
+
+// Delete world: the avatar's local save and its backup are gone.
+export function deleteLocal(id, storage = globalThis.localStorage) {
+  const slot = avatarSlot(id);
+  storage.removeItem(slot);
+  storage.removeItem(`${slot}.bak`);
+}
