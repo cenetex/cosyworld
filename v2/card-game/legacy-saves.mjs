@@ -59,6 +59,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     upgradeGreekAjaxSave(s);
     upgradeGreekOneRoadSave(s);
     upgradeGreekPassSave(s);
+    upgradeGreekShipSignalSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -76,6 +77,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     upgradeGreekAjaxSave(s);
     upgradeGreekOneRoadSave(s);
     upgradeGreekPassSave(s);
+    upgradeGreekShipSignalSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -279,6 +281,19 @@ export function upgradeGreekOneRoadSave(s) {
   joinDistantTowns(s, pack, saved);
   foldRetiredRoads(s);
   saved.revision = 8;
+}
+
+// Revision 10 calls the ship with one cover and uncover instead of two. A
+// saved phase past the new steps, or one that would now read as complete
+// without a found ship, starts the signal again.
+export function upgradeGreekShipSignalSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 10 || saved?.revision !== 9) return;
+  const state = s.crossings?.["pond-greek-harbor"];
+  if (state && (state.phase > 2 || (state.phase === 2 && !state.discovered)))
+    state.phase = 0;
+  saved.revision = 10;
 }
 
 // The Theban Harbor Road is again the only way between the harbor and Thebes.

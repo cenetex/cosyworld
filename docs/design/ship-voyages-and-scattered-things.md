@@ -54,6 +54,16 @@ step of the shortest lane path). The wait is a real crossing, not a jump. The
 lamp signal at Black Pond still calls the ship; while people are aboard, the
 call waits until the ship is empty.
 
+The signal is one cover and one uncover of the lit, fueled lamp with the Black
+cloth (Greek pack revision 10; it was two cycles before). The `while`
+conditions still hold throughout: the lamp burns at the pond and neither the
+pond nor the clearing is sounding. Covering never douses the lamp, so it cannot
+be mistaken for the attic douse. Only the player's own plays advance it; a
+resident's cover or uncover resets a partial signal. The revision 10 save step
+keeps a saved single cover and restarts any longer partial signal, because a
+saved two-step mark would otherwise read as complete. That step is a rules
+change, so it ships in a new shared rules version.
+
 ## Sea lanes
 
 The sea is an authored graph. Each dock lists **at most four lanes**. The

@@ -67,10 +67,9 @@ export function narrativeContractCases() {
   const signalStart = structuredClone(pond);
   signalStart.items.cloth.holder = "vale";
   signalStart.items.lamp.fuel = 12;
+  // One cover and one uncover of the lit lamp call the ship.
   const firstCover = playCard(signalStart, "cover", "cloth", "lamp");
-  const firstFlash = playCard(firstCover, "take", "cloth");
-  const secondCover = playCard(firstFlash, "cover", "cloth", "lamp");
-  const ship = playCard(secondCover, "take", "cloth");
+  const ship = playCard(firstCover, "take", "cloth");
   const aboard = playCard(ship, "move", null, "greek-ship");
   const harbor = sailTo(aboard, "greek-harbor");
   const road = playCard(harbor, "move", null, "greek-road-thebes");
@@ -102,8 +101,6 @@ export function narrativeContractCases() {
     ["return to echo's location", playCard(clearing, "move", null, "pond")],
     ["uncover bell", playCard(covered, "take", "cloth")],
     ["first lamp covering", firstCover],
-    ["first lamp flash", firstFlash],
-    ["second lamp covering", secondCover],
     ["ship summoned", ship],
     ["reload summoned ship", decodeSave(encodeSave(ship))],
     ["Steam Clock return bell", playCard(clearing, "ring", null, "clearing")],

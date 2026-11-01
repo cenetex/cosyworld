@@ -240,9 +240,11 @@ describe("the Theban release and its ship", () => {
     expect(entityActive(after, "greek-helen-troy")).toBe(false);
     expect(decodeSave(encodeSave(after))).toEqual(after);
   });
-  it("continues a genuine halfway signal without counting migration as a flash", () => {
+  it("restarts a halfway signal without counting migration as a flash", () => {
+    // Revision 10 needs one cover and uncover, so the old halfway mark of two
+    // steps would read as complete. It starts again; one cycle calls the ship.
     let s = decodeSave(JSON.stringify(legacy("halfway")));
-    expect(s.crossings["pond-greek-harbor"].phase).toBe(2);
+    expect(s.crossings["pond-greek-harbor"].phase).toBe(0);
     expect(locationOverlay(s, "pond")).toBeNull();
     s = act(s, "cover", { item: "cloth", target: "lamp" });
     expect(locationOverlay(s, "pond")).toBeNull();

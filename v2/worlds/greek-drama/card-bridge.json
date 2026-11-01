@@ -22,16 +22,6 @@
             "verb": "take",
             "item": "cloth",
             "from": "lamp"
-          },
-          {
-            "verb": "cover",
-            "item": "cloth",
-            "target": "lamp"
-          },
-          {
-            "verb": "take",
-            "item": "cloth",
-            "from": "lamp"
           }
         ],
         "consecutive": false,
