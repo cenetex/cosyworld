@@ -107,6 +107,34 @@ export function createCombatPortraits(fighter) {
       for (const [figure, original] of originals)
         if (players.has(original.id)) figure.dataset.framing = "wide";
     },
+    // Before the first frame the two fighters turn to face each other,
+    // whoever they were watching. The keeper's clock is never mirrored:
+    // he turns by his right-facing painting.
+    face(id, otherId) {
+      const figure = fighter(id),
+        other = fighter(otherId);
+      if (!capture(id) || !other) return;
+      const original = originals.get(figure);
+      const middle = (el) => {
+        const box = el.getBoundingClientRect();
+        return box.left + box.width / 2;
+      };
+      const facing = middle(other) > middle(figure) ? "right" : "left";
+      if (figure.dataset.facing === facing) return;
+      figure.dataset.facing = facing;
+      figure.style.setProperty(
+        "--lean",
+        facing === "right" ? ".35deg" : "-.35deg",
+      );
+      if (/^\.\/assets\/keeper(-right)?\.png$/u.test(original.source || "")) {
+        original.source = `./assets/keeper${facing === "right" ? "-right" : ""}.png`;
+        original.src = imageUrl(original.source);
+      }
+      original.flip = original.imageFlip = String(
+        flipStagePortrait(original.source, facing),
+      );
+      restore(figure, original);
+    },
     pose(id, value) {
       const original = capture(id);
       if (!original) return;

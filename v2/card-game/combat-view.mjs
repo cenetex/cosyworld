@@ -416,6 +416,10 @@ export function createCombatView({
     },
     async play(beats) {
       const mine = ++portraitRun;
+      for (const { actorId, targetId } of beats) {
+        portraits.face(actorId, targetId);
+        portraits.face(targetId, actorId);
+      }
       await portraits.prepare(beats);
       if (mine !== portraitRun) return false;
       speed = combatSpeed();
