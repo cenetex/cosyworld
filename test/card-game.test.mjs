@@ -303,7 +303,8 @@ describe("the reflected shore card game", () => {
         s = decodeSave(encodeSave(s));
       }
     }
-    expect(s.turn).toBe(4000);
+    // Every play spends a turn; a long rest at the sanctuary sleeps on.
+    expect(s.turn).toBeGreaterThanOrEqual(4000);
   }, 120_000);
 
   it("serves only the game assets and supports a clean browser reload", async () => {

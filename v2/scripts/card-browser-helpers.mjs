@@ -44,7 +44,9 @@ export async function clearSelection(page) {
   if (await page.locator('#hand .card[aria-pressed="true"]').count())
     await page.keyboard.press("Escape");
 }
-// A standoff locks its room, so a scripted walk talks its way out first.
+// A standoff locks its room until both fighters stand down, so a scripted
+// walk talks its way out first. A resident opponent answers a stand-down by
+// standing down in the same round, which ends it.
 export async function endStandoff(page, world, actor = "vale") {
   const fight = world.standoffs?.find((c) =>
     [c.challenger, c.defender].includes(actor),

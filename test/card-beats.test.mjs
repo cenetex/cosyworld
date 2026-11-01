@@ -293,6 +293,7 @@ describe("combat beats from the rules", () => {
         resolve: { vale: 1, moth: 4 },
         guarding: { vale: false, moth: false },
         struck: { vale: true, moth: true },
+        steppedBack: { vale: false, moth: false },
       },
     ];
     const before = s.log.length;
