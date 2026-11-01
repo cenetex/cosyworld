@@ -70,7 +70,7 @@ function island() {
     questPrograms: true,
     personalQuests: true,
   });
-  world = act(world, { kind: "light", item: "lamp" });
+  world = act(world, { kind: "snuff", item: "lamp" });
   world = move(world, "pond");
   expect(world.actors.vale.place).toBe("pond");
   world.crossings["pond-greek-harbor"].discovered = true;
@@ -232,7 +232,7 @@ describe("The Willows", () => {
       questPrograms: true,
       personalQuests: true,
     });
-    world = move(act(world, { kind: "light", item: "lamp" }), "pond");
+    world = move(act(world, { kind: "snuff", item: "lamp" }), "pond");
     world.crossings["pond-greek-harbor"].discovered = true;
     summonTransport(world, "greek-ship", "pond");
     world = move(world, "greek-ship");

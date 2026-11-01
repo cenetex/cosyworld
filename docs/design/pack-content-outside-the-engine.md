@@ -152,3 +152,13 @@ engine still receives one logical object, `{schemaVersion, hub, packs}`, with
 packs in sorted ID order. The content builder assembles it, and the hash
 covers the assembled bytes. Until step 5 lands, keep `pack-registry.mjs`
 importing the single `packs.json`. Changing that import changes the engine.
+
+## Hub reflections as data (#1600)
+
+The attic mirror was the last hard-coded crossing rule (`reflectionOpen`).
+Each `forest.json` `reflectionRoutes` entry now carries `requires`, written in
+the pack condition vocabulary (`light`, `not`, `item_present`) and read by the
+same `conditionMet`. The opening flips with data alone: the attic mirror
+opens while the lamp there is not shining, and the pond's way back opens while
+it shines at the pond. The rule change ships as one new rules version;
+released bundles replay older journals unchanged.

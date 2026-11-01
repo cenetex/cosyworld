@@ -31,13 +31,13 @@ const act = (world, kind, target) => {
 };
 
 describe("the attic opening and saved pond journeys", () => {
-  it("starts new local and shared worlds alone in the dark attic", () => {
+  it("starts new local and shared worlds alone in the lamplit attic", () => {
     for (const world of [
       createLandingWorld(),
       dispatchShared({ op: "create" }).world,
     ]) {
       expect(world.actors.vale.place).toBe("attic");
-      expect(world.items.lamp).toMatchObject({ holder: "vale", lit: false });
+      expect(world.items.lamp).toMatchObject({ holder: "vale", lit: true });
       expect(world.opening).toEqual({
         version: 1,
         crossed: false,
@@ -52,7 +52,7 @@ describe("the attic opening and saved pond journeys", () => {
       expect(world.log[0]).toMatchObject({
         locationId: "attic",
         cast: ["vale"],
-        light: false,
+        light: true,
       });
       expect(decodeSave(encodeSave(world))).toEqual(world);
       for (const avatar of humanAvatars.filter((a) => a.id !== "vale"))
@@ -88,7 +88,7 @@ describe("the attic opening and saved pond journeys", () => {
   it("keeps the attic reflection and its dry-lamp recovery on the pond", () => {
     let world = act(fresh(), "light");
     world = act(world, "move", "attic");
-    expect(exits(world, "attic")).toEqual(["pond"]);
+    expect(exits(world, "attic")).toEqual([]);
     world.items.lamp.fuel = 0;
     world.items.lamp.lit = false;
     world.items.cloth.holder = "pond";
@@ -99,15 +99,16 @@ describe("the attic opening and saved pond journeys", () => {
     expect(world.actors.vale.place).toBe("station");
   });
 
-  // The planner has no lamp special case: the dark mirror is no route, so
-  // it waits; once the lamp is lit by a play, the mirror is the way home.
-  it("plans the mirror return only once the carried lamp is lit", () => {
+  // The planner has no lamp special case: the lit mirror is no route, so
+  // it waits; once the lamp is doused by a play, the mirror is the way out.
+  it("plans the mirror departure only once the carried lamp is doused", () => {
     const world = fresh();
     world.actors.vale.place = "attic";
     world.actors.vale.want = wantPlace("pond");
+    world.items.lamp.lit = true;
     expect(plan(world).action.kind).toBe("wait");
-    const lit = act(world, "light");
-    expect(plan(lit).action).toMatchObject({ kind: "move", target: "pond" });
+    const dark = act(world, "snuff");
+    expect(plan(dark).action).toMatchObject({ kind: "move", target: "pond" });
   });
 
   it("keeps the cottage return and pond rescue after the attic light goes out", () => {
@@ -188,8 +189,7 @@ describe("the attic opening and saved pond journeys", () => {
     expect(restored).toEqual(before);
     expect(restored.actors.vale.want).toMatchObject({ kind: "item", target: "lamp" });
     expect(exits(restored, "station")).toEqual(["pond"]);
-    const lit = act(restored, "light");
-    const shore = act(lit, "move", "pond");
+    const shore = act(restored, "move", "pond");
     const attic = act(shore, "move", "attic");
     expect(attic.actors.vale.xp).toBeGreaterThan(0);
     expect(attic.opening.version).toBe(1);

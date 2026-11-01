@@ -37,20 +37,20 @@ const act = (s, kind, fields) => {
   return result.state;
 };
 const meetEveryone = () =>
-  act(act(act(fresh(), "light"), "move", { target: "pond" }), "move", {
+  act(act(act(fresh(), "snuff"), "move", { target: "pond" }), "move", {
     target: "station",
   });
 
-describe("the first light in the attic", () => {
-  it("starts with one avatar, an unlit carried lamp, and the lamp as Vale's want", () => {
+describe("dousing the lamp in the attic", () => {
+  it("starts with one avatar, a lit carried lamp, and the lamp as Vale's want", () => {
     const s = fresh();
     expect(s.actors.vale.place).toBe("attic");
-    expect(s.items.lamp).toMatchObject({ holder: "vale", lit: false, fuel: 8 });
+    expect(s.items.lamp).toMatchObject({ holder: "vale", lit: true, fuel: 8 });
     expect(availableCards(s)).toEqual(["vale", "lamp", "attic"]);
     expect(sceneCast(s)).toEqual(["vale", null]);
     expect(exits(s, "attic")).toEqual([]);
     expect(exits(s, "station")).toEqual(["pond"]);
-    expect(cardPlay(s, ["lamp"]).action.kind).toBe("light");
+    expect(cardPlay(s, ["lamp"]).action.kind).toBe("snuff");
     expect(s.actors.vale.want).toMatchObject({ kind: "item", target: "lamp" });
     expect(placeText(s, "attic")).toContain("Dust gathers");
     expect(JSON.stringify(narrativeContext(s))).not.toMatch(
@@ -78,19 +78,21 @@ describe("the first light in the attic", () => {
     expect(s.memories.keeper.events).toEqual([]);
     // Vale already holds the lamp, so the first play meets that want.
     expect(levelOf(s, "vale")).toBe(2);
-    s = act(s, "light");
+    // The lamp burned dry while everyone waited; its dark opens the mirror.
+    expect(s.items.lamp).toMatchObject({ lit: false, fuel: 0 });
+    expect(exits(s, "attic")).toEqual(["pond"]);
     expect(s.actors.vale.place).toBe("attic");
     expect(knownActors(s)).toEqual(["vale"]);
   });
 
   it("reveals a path card while Vale stays in the attic, then travels when it is played", () => {
     const before = fresh();
-    const lit = act(before, "light");
+    const lit = act(before, "snuff");
     expect(lit.actors.vale.place).toBe("attic");
     expect(lit.items.lamp).toMatchObject({
       holder: "vale",
-      lit: true,
-      fuel: 7,
+      lit: false,
+      fuel: 8,
     });
     expect(lit.opening).toEqual({
       version: 1,
@@ -108,7 +110,7 @@ describe("the first light in the attic", () => {
     );
     expect(met.wantMet).toEqual({ kind: "item", target: "lamp" });
     expect(turnOutcome(lit)).toMatchObject({
-      card: { kind: "light" },
+      card: { kind: "snuff" },
       avatars: [{ id: "vale", location: "attic", travel: null }],
     });
     expect(turnOutcome(lit).items.map((i) => i.id)).toEqual(["lamp"]);
@@ -202,14 +204,14 @@ describe("the first light in the attic", () => {
     expect(next.entities.find((e) => e.id === "attic").facts).toContain(
       "Paths visible now: none.",
     );
-    const lit = act(s, "light");
+    const lit = act(s, "snuff");
     expect(
       narrativeContext(lit).entities.find((e) => e.id === "attic").facts,
     ).toContain("An open passage is visible in the reflection.");
   });
 
   it("meets the keeper on reaching the station", () => {
-    let s = act(fresh(), "light");
+    let s = act(fresh(), "snuff");
     s = act(s, "move", { target: "pond" });
     expect(knownActors(s)).toEqual(["vale", "moth"]);
     const keeper = structuredClone(s.actors.keeper);
@@ -235,13 +237,13 @@ describe("the first light in the attic", () => {
     ).toBe(true);
   });
 
-  it("takes the lamp when lighting it and opens a pond path when its fuel runs out", () => {
-    let dropped = act(fresh(), "drop", { item: "lamp" });
+  it("takes the lamp when relighting it and opens the mirror when its fuel runs out", () => {
+    let dropped = act(act(fresh(), "drop", { item: "lamp" }), "snuff");
     dropped = act(dropped, "light");
     expect(dropped.items.lamp.holder).toBe("vale");
     expect(dropped.actors.vale.place).toBe("attic");
-    let s = act(fresh(), "light");
-    for (let i = 0; i < 9; i++) s = act(s, "wait");
+    let s = fresh();
+    for (let i = 0; i < 8; i++) s = act(s, "wait");
     expect(s.items.lamp.fuel).toBe(0);
     expect(s.opening.crossed).toBe(false);
     expect(knownActors(s)).toEqual(["vale"]);
@@ -251,7 +253,7 @@ describe("the first light in the attic", () => {
     expect(availableCards(s)).toContain("pond");
     expect(availableCards(s)).not.toContain("station");
     expect(cardPlay(s, ["pond"]).action.kind).toBe("move");
-    expect(placeText(s, "attic")).toContain("Dust gathers");
+    expect(placeText(s, "attic")).toContain("black shore");
     expect(s.actors.vale.place).toBe("attic");
   });
 
@@ -276,7 +278,7 @@ describe("the first light in the attic", () => {
       kind: "item",
       target: "bell",
     });
-    for (const s of [fresh(), act(fresh(), "light"), meetEveryone()])
+    for (const s of [fresh(), act(fresh(), "snuff"), meetEveryone()])
       expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 

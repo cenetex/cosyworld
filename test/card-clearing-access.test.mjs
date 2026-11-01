@@ -24,7 +24,7 @@ function act(s, kind, target) {
 }
 function pond() {
   let s = enableMotives(atticOpening());
-  s = act(act(s, "light"), "move", "pond");
+  s = act(act(s, "snuff"), "move", "pond");
   s.actors.moth.place = "attic";
   s.items.lamp.holder = "moth";
   s.items.bell.holder = "vale";
