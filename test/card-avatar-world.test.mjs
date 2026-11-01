@@ -12,6 +12,7 @@ import {
   legalActions,
 } from "../v2/card-game/world.mjs";
 import { worldName } from "../v2/card-game/world-name.mjs";
+import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
 
 it("starts another avatar's local world at its own home", () => {
   const world = decodeSave(encodeSave(createAvatarWorld("ash", 9)));
@@ -21,6 +22,28 @@ it("starts another avatar's local world at its own home", () => {
   expect(legalActions(world, "ash").map((a) => a.key)).toContain(
     "take:ash:float:",
   );
+});
+
+it("keeps the lamp in Vale's hand and leaves it in the attic for others", () => {
+  for (const world of [
+    createLandingWorld(null, 9),
+    createAvatarWorld("vale", 9),
+  ])
+    expect(world.items.lamp).toMatchObject({ holder: "vale", lit: true });
+  for (const id of ["tavi", "ash"]) {
+    const world = decodeSave(encodeSave(createAvatarWorld(id, 9)));
+    expect(world.actors.vale.place).toBe("attic");
+    expect(world.items.lamp).toMatchObject({
+      holder: "attic",
+      lit: true,
+      fuel: 12,
+    });
+    expect(world.log[0].items).toContainEqual(
+      expect.objectContaining({ id: "lamp", holder: "attic" }),
+    );
+    expect(world.log[0].text).not.toMatch(/holding/);
+    expect(JSON.stringify(world.memories)).not.toMatch(/holding a lamp/);
+  }
 });
 
 it("keeps Vale in the original slot and names each local world", () => {

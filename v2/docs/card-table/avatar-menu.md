@@ -152,7 +152,8 @@ hashes and replay do not change.
   one line: "Move Vale here?"
 - **Starts.** Vale's new local world opens in the attic. Every other avatar's
   new local world starts at that avatar's own home with their item, as in
-  shared play.
+  shared play. Vale waits in the attic there, and the lamp stays lit on the
+  attic floor where the player can find it.
 - **Local and shared together.** Moving an avatar into a shared world (Invite,
   Join or Move) archives that avatar's local save to `.bak`.
 - **Move** is a release in the old world and a claim in the new one. Both
