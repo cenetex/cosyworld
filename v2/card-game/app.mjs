@@ -62,13 +62,7 @@ import {
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
 import { seatActors } from "./human-cast.mjs";
-import {
-  PLAYING_KEY,
-  SAVE_BASE,
-  avatarSlot,
-  createAvatarWorld,
-  otherAvatar,
-} from "./avatar-world.mjs";
+import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
 import {
@@ -144,27 +138,17 @@ const sharedSession = sharedWorldId
   ? await connectSharedWorld(sharedWorldId)
   : null;
 const sharedPlayback = createSharedPlaybackClock();
-const localAvatar = otherAvatar(
-  new URLSearchParams(location.search).get("avatar"),
-);
 const SAVE_KEY = sharedSession
   ? `${SAVE_BASE}.shared.${sharedWorldId}.${sharedSession.state.actor}`
   : tableName && /^[a-z0-9-]{1,40}$/i.test(tableName)
     ? `${SAVE_BASE}.${tableName}`
-    : avatarSlot(
-        localAvatar || "vale",
-        startingPack ? `${SAVE_BASE}.pack.${startingPack.id}` : SAVE_BASE,
-      );
-// Each avatar's new local world: Vale wakes in the attic, the others at home.
-// Its travelers wear the local passkey's cosmetic upgrades (#1873).
+    : startingPack
+      ? `${SAVE_BASE}.pack.${startingPack.id}`
+      : SAVE_BASE;
+// A new local world: Vale wakes in the attic, the only avatar played locally
+// (#1892). Its travelers wear the local passkey's cosmetic upgrades (#1873).
 const freshWorld = () =>
-  wearLocalUpgrades(
-    enableMotives(
-      localAvatar
-        ? createAvatarWorld(localAvatar, newRunSeed())
-        : createLandingWorld(startingPack),
-    ),
-  );
+  wearLocalUpgrades(enableMotives(createLandingWorld(startingPack)));
 let world = sharedSession
     ? { ...sharedSession.state.world, playerActorId: sharedSession.state.actor }
     : freshWorld(),
@@ -4136,7 +4120,7 @@ if (!tableName && !startingPack)
       JSON.stringify(
         sharedSession
           ? { avatar: sharedSession.state.actor, world: sharedWorldId }
-          : { avatar: localAvatar || "vale" },
+          : { avatar: "vale" },
       ),
     );
   } catch {}

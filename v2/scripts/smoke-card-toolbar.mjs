@@ -223,11 +223,13 @@ try {
   await page.goto(origin);
   await page.locator("#players-button").click();
   await page.locator("#world-menu").waitFor({ state: "visible" });
-  // Solo play: the local world is the one slot, with Vale marked yours.
-  const solo = page.locator('.world-slot[data-current="true"]');
-  await solo.locator('[data-kind="you"]').waitFor({ state: "attached" });
-  assert.equal(await solo.locator('[data-kind="you"]').count(), 1);
-  assert.equal(await solo.locator('[data-kind="resident"]').count(), 7);
+  // Signed out, ☰ has no world UI at all, only its tools (#1892).
+  await page.locator("#history-button").waitFor({ state: "visible" });
+  assert(await page.locator(".world-slots").isHidden());
+  assert.doesNotMatch(
+    await page.locator("#world-menu").innerText(),
+    /on this device|New world/,
+  );
   console.log(
     "Toolbar: five screen sizes, keyboard, the world slots, presence, the owner's Free, and solo play passed.",
   );

@@ -50,21 +50,22 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
   person in one room would fill two of its four seats, would let one person
   trade with themselves past the consent rules, and would summon BoardyAI,
   who comes only for two people.
-- A signed-out player owns the avatars in this browser. Shared worlds need a
-  passkey; the menu asks for one when the player chooses a shared action.
+- **Signed out, the player plays Vale** in this browser's save, and ☰ has
+  no world UI: no slots, no + New world, no deck ([#1892](https://github.com/cenetex/cosyworld/issues/1892)).
+  Local play is its own passkey (#1846), so signing in neither uploads nor
+  lists that save: it waits, unchanged, for the next signed-out visit.
+  **Invite** on the local table is the one way to bring it online.
 
 ## The ☰ menu
 
 Redesigned in [#1877](https://github.com/cenetex/cosyworld/issues/1877).
 ☰ (and 👥, which counts who is here) opens one accordion of **world slots**:
 
-- **Signed in**, the slots are your shared worlds, up to eight per passkey
+- **Signed in only.** The slots are your shared worlds, up to eight per passkey
   (the server refuses a ninth: "You have 8 worlds."). A friend's world is
   listed, marked "a friend's world", only while one of your avatars sits
-  there, and it does not use one of your eight. **Signed out**, the slots are
-  your local worlds, one per avatar. Local play is its own passkey, so the
-  two lists never mix. The world being played is always the first slot,
-  open, even when it is local and you are signed in ("on this device").
+  there, and it does not use one of your eight. The shared world being
+  played is the first slot, open. At Vale's local table no slot is current.
 - **Each slot** is a header (the name, "a friend's world" or "invited", and
   a letter strip R·A·T·V·M·I·C·S) and one line of its eight seats, in colour
   only while someone is online there (only the world being played knows),
@@ -77,16 +78,14 @@ Redesigned in [#1877](https://github.com/cenetex/cosyworld/issues/1877).
 
 **Tap a grey seat** in a world its avatar may go to (its seat is free, and
 you hold no avatar there), then again to move it. A claim frees its
-old seat and carries its level (#1870). Moving out of a local world says what is lost on the first
-tap: "*Hollowmere* will be lost, with Mara's level and quest there. There is
-no way back to it." When the avatar being played leaves, the bare address
+old seat and carries its level (#1870). When the avatar being played leaves, the bare address
 opens with ☰ so the player picks what comes next.
 
 A tapped seat also shows its own actions under the line of seats:
 
 | Seat | Actions |
 | --- | --- |
-| Yours | **Play** (in another slot), **Release · start over** (shared) or **Delete world** (local); a second tap on the portrait adds **Step away** |
+| Yours | **Play** (in another slot), **Release · start over**; a second tap on the portrait adds **Step away** |
 | Another person's | its holder and level, and **Free** for the world's owner |
 | A resident | none |
 
@@ -95,7 +94,7 @@ A tapped seat also shows its own actions under the line of seats:
   world or a move. It shows after a second tap on your own portrait, with
   "Mara's level goes with Mara. Mara's things and quests stay in
   *Hollowmere*, and the seat there opens for someone else." It sends the
-  `release` command (a local world is archived to `.bak`), as Move to your
+  `release` command, as Move to your
   deck did before #1891.
 - **Release · start over** gives a shared seat back and starts the avatar
   over. The first tap turns it red: "Release *Mara* and start over?" and
@@ -103,12 +102,6 @@ A tapped seat also shows its own actions under the line of seats:
   and anyone may take Mara there." It sends `reset`.
 - **Free** (owner) asks "Free Ash?" and says "Free Ash: removes Amber
   Heron's hold and resets Ash."
-- **Delete world** removes a local world's save and its backup on a second
-  tap ("Delete *Hollowmere* and its progress?"). Deleting another avatar's
-  world only removes it from the menu. Deleting the world being played stops
-  its saves and opens a fresh world for the same avatar, as New game does,
-  never another avatar's world (owner bug, 2026-11-01).
-  `v2/scripts/smoke-card-delete-world.mjs` checks both.
 
 **A friend's link** (`/?world=…`) signs the person in, then opens their own
 table with ☰ open and the linked world as an extra slot marked "invited",
@@ -155,10 +148,11 @@ Desktop (1440 × 900):
 
 ### Words
 
-Play, Step away, Release · start over, Free, Delete world, + New world, Tap *Vale* again to bring
-*Vale* here, on this device, a friend's
+Play, Step away, Release · start over, Free, + New world, Tap *Vale* again to bring
+*Vale* here, a friend's
 world, invited, You, Memory, Inner life, Invite, Settings. Gone: Worlds,
-Share, Your worlds (`/?shared=1` opens the table), Continue as, Continue
+Share, Your worlds (`/?shared=1` opens the table), on this
+device, Delete world (local), `?avatar=`, Continue as, Continue
 shared world, Return to my game, Send to…, Join, Choose your
 avatar, Return as *Mara*, Move *Mara* here?, This world is full (panel), A
 place will open shortly, Leave, Refresh avatars, the avatar list under the
@@ -202,10 +196,11 @@ This is a presentation and ownership layer. Journals, world ids, bundle
 hashes and replay do not change.
 
 - **Local saves.** Vale's local world stays in the existing slot,
-  `cosyworld.reflected-shore.v1`, so current local games carry over. Each
-  other avatar gets `cosyworld.reflected-shore.v1.avatar.<id>`, holding a
-  save with `playerActorId` set. The rules already accept any human avatar
-  as the player. `?table=` stays a developer slot outside the menu.
+  `cosyworld.reflected-shore.v1`, so current local games carry over. It is
+  the only local world (#1892). Older per-avatar saves
+  (`cosyworld.reflected-shore.v1.avatar.<id>`) stay in storage, unreachable;
+  alpha saves are not migrated. `?table=` stays a developer slot outside the
+  menu.
 - **Shared worlds.** The avatar's world is the account's `card_members` row
   for that avatar. Today every Share claims Vale, so an account can hold Vale
   in several worlds. The newest is shown. The others stay untouched and are
@@ -213,12 +208,9 @@ hashes and replay do not change.
   unexpectedly, and no journal row is written on upgrade.
 - **Links.** A world link opens ☰ with that world as an invited slot; moving
   an avatar there frees its seat elsewhere (#1877).
-- **Starts.** Vale's new local world opens in the attic. Every other avatar's
-  new local world starts at that avatar's own home with their item, as in
-  shared play. Vale waits in the attic there, and the lamp stays lit on the
-  attic floor where the player can find it.
-- **Local and shared together.** Moving an avatar into a shared world (Invite
-  or a move in ☰) archives that avatar's local save to `.bak`.
+- **Starts.** Vale's local world opens in the attic.
+- **Local and shared together.** Invite moves Vale's local world online and
+  archives the local save to `.bak`.
 - **Move** is a release in the old world and a claim in the new one. Both
   are existing journal actions, so no rules or engine change is needed. The
   client can do this in two steps. The server makes it one transaction in the
@@ -246,6 +238,7 @@ The owner settled these on 2026-11-01 ([#1737](https://github.com/cenetex/cosywo
 
 1. Worlds are named by run seed, so a world keeps its name when shared.
 2. A world link for an avatar that is elsewhere asks "Move Vale here?"
-3. Non-Vale avatars start a local world at their own home.
+3. Non-Vale avatars started a local world at their own home (dropped by
+   #1892: only Vale plays locally).
 4. Extra shared claims stay until the player next moves that avatar.
 5. A player has at most one avatar in a world.

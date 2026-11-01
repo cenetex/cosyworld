@@ -169,6 +169,17 @@ try {
       "spare",
       { op: "claim", avatar: "vale" },
     ]);
+    // Signed in at Vale's local table, ☰ lists only the shared worlds: the
+    // local save is its own passkey, never an "on this device" slot (#1892).
+    await page.evaluate(() => localStorage.removeItem("cosyworld.playing"));
+    await page.goto(origin);
+    await page.locator("#toolbar-menu-button").click();
+    await menu.locator('.world-slot[data-slot="spare"]').waitFor();
+    assert.equal(
+      await menu.locator('.world-slot[data-current="true"]').count(),
+      0,
+    );
+    assert.doesNotMatch(await menu.innerText(), /on this device/);
     assert.deepEqual(errors, []);
     await page.close();
   }

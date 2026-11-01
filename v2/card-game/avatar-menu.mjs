@@ -114,11 +114,14 @@ export function worldSeats(state) {
   }));
 }
 
-// The slots this passkey shows now. Signed in: its own shared worlds (at most
-// eight), a friend's world only while one of its avatars sits there, and the
-// world a friend's link opened. Signed out: one local world per avatar. The
-// world being played comes first. Avatars in no slot are the deck.
-export function worldSlots({ shared, rows = [], here, invite = null, local }) {
+// The slots this passkey shows now: its own shared worlds (at most eight), a
+// friend's world only while one of its avatars sits there, and the world a
+// friend's link opened, with the world being played first. Avatars in no
+// slot are the deck. Signed out there are no slots: the player plays Vale
+// in this browser, and that local save is its own passkey, never a slot
+// (#1892, #1846).
+export function worldSlots({ shared, rows = [], here, invite = null }) {
+  if (!shared) return { slots: [], deck: [], canCreate: false };
   const slots = [];
   const sharedSlot = (row, held = row.held || [], from = row) => ({
     key: row.id,
@@ -134,64 +137,42 @@ export function worldSlots({ shared, rows = [], here, invite = null, local }) {
       from,
     ),
   });
-  if (shared) {
-    const owned = rows.filter((row) => row.owner).slice(0, 8);
-    const seated = rows.filter((row) => row.actor && !owned.includes(row));
-    slots.push(...[...owned, ...seated].map((row) => sharedSlot(row)));
-    if (invite && !slots.some((slot) => slot.shared === invite.id)) {
-      // The seat this passkey keeps there waits for its return (#1825).
-      const held = humanAvatars.map((a, i) =>
-        a.id !== invite.mine && (invite.claimed?.[i] || invite.bound?.[i])
-          ? 1
-          : 0,
-      );
-      const row = { ...invite, actor: null, bound: invite.mine || null };
-      row.full = held.every(Boolean);
-      slots.push({ ...sharedSlot(row, held, invite), invite: true });
-    }
-  } else
-    for (const avatar of byInitial(humanAvatars)) {
-      const name = avatar.id === here.actor ? null : local(avatar.id);
-      if (name !== null)
-        slots.push({
-          key: `local:${avatar.id}`,
-          local: true,
-          name,
-          mine: avatar.id,
-        });
-    }
-  const at = slots.findIndex(
-    (slot) => here.place.shared && slot.shared === here.place.shared,
-  );
-  const found = at < 0 ? null : slots.splice(at, 1)[0];
-  slots.unshift(
-    here.place.shared
-      ? {
-          key: here.place.shared,
-          shared: here.place.shared,
-          row: { actor: here.actor },
-          ...found,
-          name: here.place.name,
-          owner: Boolean(here.state?.owner),
-          mine: here.actor,
-          seats: worldSeats(here.state),
-          current: true,
-        }
-      : {
-          key: `local:${here.actor}`,
-          local: true,
-          name: here.place.name,
-          mine: here.actor,
-          current: true,
-        },
-  );
-  for (const slot of slots) slot.seats ??= seatsOf([], slot.mine, {});
+  const owned = rows.filter((row) => row.owner).slice(0, 8);
+  const seated = rows.filter((row) => row.actor && !owned.includes(row));
+  slots.push(...[...owned, ...seated].map((row) => sharedSlot(row)));
+  if (invite && !slots.some((slot) => slot.shared === invite.id)) {
+    // The seat this passkey keeps there waits for its return (#1825).
+    const held = humanAvatars.map((a, i) =>
+      a.id !== invite.mine && (invite.claimed?.[i] || invite.bound?.[i])
+        ? 1
+        : 0,
+    );
+    const row = { ...invite, actor: null, bound: invite.mine || null };
+    row.full = held.every(Boolean);
+    slots.push({ ...sharedSlot(row, held, invite), invite: true });
+  }
+  if (here.place.shared) {
+    const at = slots.findIndex((slot) => slot.shared === here.place.shared);
+    const found = at < 0 ? null : slots.splice(at, 1)[0];
+    slots.unshift({
+      key: here.place.shared,
+      shared: here.place.shared,
+      row: { actor: here.actor },
+      ...found,
+      name: here.place.name,
+      owner: Boolean(here.state?.owner),
+      mine: here.actor,
+      seats: worldSeats(here.state),
+      current: true,
+    });
+  }
   // The player is online in the world being played.
-  for (const seat of slots[0].seats)
-    if (seat.kind === "you") seat.online = true;
+  if (slots[0]?.current)
+    for (const seat of slots[0].seats)
+      if (seat.kind === "you") seat.online = true;
   const placed = new Set(slots.map((slot) => slot.mine));
   const deck = byInitial(humanAvatars).filter((a) => !placed.has(a.id));
-  const used = slots.filter((slot) => (shared ? slot.owner : slot.local));
+  const used = slots.filter((slot) => slot.owner);
   return { slots, deck, canCreate: used.length < 8 };
 }
 
@@ -473,6 +454,8 @@ export function installAvatarMenu({
     return box;
   }
   function render() {
+    // Signed out, ☰ has no world UI at all (#1892).
+    box.hidden = !shared;
     const view = worldSlots({
       shared,
       rows,

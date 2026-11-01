@@ -10,7 +10,8 @@ if (params.has("shared") || (local && params.has("world"))) {
   if (local) params.delete("world");
   history.replaceState(null, "", `${location.pathname}?${params}`);
 }
-// The bare address resumes the avatar played last (avatar-world.mjs).
+// The bare address resumes the shared world played last; otherwise it is
+// Vale's local table (avatar-world.mjs, #1892).
 let resume = null;
 try {
   if (!local && !params.size)
@@ -18,8 +19,6 @@ try {
 } catch {}
 if (resume?.world)
   location.replace(`/?world=${encodeURIComponent(resume.world)}`);
-else if (resume?.avatar && resume.avatar !== "vale")
-  location.replace(`/?avatar=${encodeURIComponent(resume.avatar)}`);
 else await import("./app.mjs");
 document.body.inert = false;
 showBuildInfo();
