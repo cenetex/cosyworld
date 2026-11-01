@@ -14,8 +14,11 @@ import { selectCard } from "./card-browser-helpers.mjs";
 export async function checkOpeningPoem(browser, origin) {
   const output = new URL("../../output/opening-poem/", import.meta.url);
   await mkdir(output, { recursive: true });
-  for (const width of [1200, 390, 320, 667]) {
-    for (const branch of ["burial", "concession", "refusal", "exposure"]) {
+  // Every branch runs at desktop width. Each smaller width runs one branch;
+  // test/card-opening-poem.test.mjs checks the poem of every branch.
+  const branches = ["burial", "concession", "refusal", "exposure"];
+  for (const [index, width] of [1200, 390, 320, 667].entries()) {
+    for (const branch of width === 1200 ? branches : [branches[index]]) {
       const fixtures = openingFixture(branch);
       const world = structuredClone(
         fixtures.beforeGraveReport || fixtures.returning,
