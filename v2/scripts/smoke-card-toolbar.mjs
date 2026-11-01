@@ -147,9 +147,11 @@ try {
       "resident",
     ]);
     assert.equal(await menu.locator(".table-online").count(), 3);
-    assert.match(
+    // The seats say who is here; the header carries no count (owner,
+    // 2026-11-01).
+    assert.doesNotMatch(
       await current.locator("summary").innerText(),
-      /3 here · 4 of 8 free/,
+      /here|free/,
     );
     assert.doesNotMatch(await menu.innerText(), /Black pond|Empty station/);
     // Each avatar shows once: no avatar list, no Send to… or Step away.

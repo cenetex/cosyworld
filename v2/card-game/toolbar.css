@@ -182,9 +182,9 @@ body.local-app #scene-video-button {
   text-align: right;
 }
 
-/* ☰ is an accordion of world slots, then the tools (avatar-menu.mjs). Each
-   world is one line of seats: yours is marked, other humans in colour, the
-   residents of unheld seats in grey, as on the board. */
+/* ☰ is an accordion of world slots and the deck, then the tools
+   (avatar-menu.mjs). Each panel is one line of the whole cast: your avatar
+   that lives there in colour, every other seat in grey. */
 .world-slots summary {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -198,7 +198,6 @@ body.local-app #scene-video-button {
   background: #dfc38d1c;
 }
 .world-slots summary small,
-.avatar-deck > small,
 .seat-note,
 .avatar-status {
   color: var(--muted);
@@ -213,18 +212,20 @@ body.local-app #scene-video-button {
   gap: 2px;
   font-size: 10px;
 }
-.slot-letters .letter-you {
+.slot-letters .letter-you,
+.slot-letters .letter-deck {
   color: var(--gold);
   font-weight: 700;
 }
-.slot-letters .letter-resident {
+.slot-letters .letter-resident,
+.slot-letters .letter-human,
+.slot-letters .letter-away {
   opacity: 0.4;
 }
 .world-menu summary .slot-target {
   grid-column: 1 / -1;
 }
 [data-target="true"] > summary,
-.avatar-deck[data-target="true"],
 .world-menu .slot-new[data-target="true"] {
   outline: 2px solid var(--gold);
   outline-offset: -2px;
@@ -254,16 +255,20 @@ body.local-app #scene-video-button {
   object-fit: cover;
   object-position: 50% 12%;
 }
-[data-kind="resident"] .seat-face img {
+[data-kind="resident"] .seat-face img,
+[data-kind="human"] .seat-face img,
+[data-kind="away"] .seat-face img {
   filter: grayscale(1) brightness(0.7);
 }
-.world-menu [data-kind="resident"] .seat-face:disabled {
+.world-menu [data-kind="resident"] .seat-face:disabled,
+.world-menu [data-kind="away"] .seat-face:disabled {
   opacity: 1;
 }
 [data-kind="you"] .seat-face img {
   border: 2px solid #f3ead6;
 }
-.world-menu .seat-face[aria-pressed="true"] img {
+.world-menu .seat-face[aria-pressed="true"] img,
+.world-menu .seat-face.slot-target img {
   outline: 2px solid var(--gold);
 }
 .table-online {
@@ -276,12 +281,24 @@ body.local-app #scene-video-button {
   background: #4ade80;
   box-shadow: 0 0 0 2px #0b0e16;
 }
-.avatar-deck {
-  padding: 6px 0 0;
-  border-radius: 7px;
-}
-.avatar-deck > small {
-  padding-inline: 8px;
+/* Panels open and fold smoothly where the browser can size to auto. */
+@media (prefers-reduced-motion: no-preference) {
+  .world-slots {
+    interpolate-size: allow-keywords;
+  }
+  .world-slot::details-content {
+    height: 0;
+    overflow: clip;
+    opacity: 0;
+    transition:
+      height 200ms ease,
+      opacity 200ms ease,
+      content-visibility 200ms allow-discrete;
+  }
+  .world-slot[open]::details-content {
+    height: auto;
+    opacity: 1;
+  }
 }
 .avatar-actions {
   display: flex;

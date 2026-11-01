@@ -79,15 +79,21 @@ export function leaveNote(avatar, place) {
 export const joinable = (row, avatar) =>
   !row.actor && (row.bound ? row.bound === avatar.id : !row.full);
 
-// A world's eight seats, as on the board: yours is marked, other humans are
-// in colour with a green dot while here, and an unheld seat is the resident
-// who lives there, in grey (#1846, #1866). The owner may free any held seat
-// but their own.
-function seatsOf(held, mine, { owner = false, online = [], holders = [] }) {
+// A world's eight seats: yours is marked, other humans have a green dot
+// while here, and an unheld seat is the resident who lives there (#1846,
+// #1866). Only your avatar there is in colour (owner, 2026-11-01). The seat
+// this passkey is bound to but has stepped away from is free for it, so it
+// shows as a resident too. The owner may free any held seat but their own.
+function seatsOf(
+  held,
+  mine,
+  { owner = false, online = [], holders = [] },
+  away = null,
+) {
   return byInitial(
     humanAvatars.map((avatar, index) => {
       const self = avatar.id === mine;
-      const human = !self && held[index] === 1;
+      const human = !self && avatar.id !== away && held[index] === 1;
       return {
         id: avatar.id,
         name: avatar.name,
@@ -126,7 +132,7 @@ export function worldSlots({ shared, rows = [], here, invite = null, local }) {
     owner: Boolean(row.owner),
     mine: row.actor || null,
     row,
-    seats: seatsOf(held, row.actor, from),
+    seats: seatsOf(held, row.actor, from, row.actor ? null : row.bound),
   });
   if (shared) {
     const owned = rows.filter((row) => row.owner).slice(0, 8);
@@ -227,6 +233,8 @@ export function installAvatarMenu({
   status.id = "avatar-status";
   status.setAttribute("role", "status");
   menu.prepend(box, status);
+  // Panels persist across redraws, so opening or folding one animates.
+  let panels = new Map();
   const phone = matchMedia("(max-width: 700px)");
   let rows = [],
     shared = Boolean(session),
@@ -234,6 +242,8 @@ export function installAvatarMenu({
     // The tapped seat: { id, slot }, where slot is null for the deck.
     chosen = null,
     opened = new Set(),
+    // A tap on an avatar folds the worlds it cannot go to, once.
+    refold = false,
     drawn = "";
   const here = () => {
     const world = getWorld();
@@ -267,29 +277,40 @@ export function installAvatarMenu({
     render();
   };
   // Moving out of a local world loses it, so that asks with a second tap.
+  async function go(button, avatar, from, run) {
+    if (from?.local && button.dataset.armed !== "true") {
+      button.dataset.armed = "true";
+      status.textContent = leaveNote(avatar, from);
+      return;
+    }
+    await run();
+  }
   function target(label, avatar, from, run, id) {
-    const button = act(
-      label,
-      async () => {
-        if (from?.local && button.dataset.armed !== "true") {
-          button.dataset.armed = "true";
-          status.textContent = leaveNote(avatar, from);
-          return;
-        }
-        await run();
-      },
-      id,
-    );
+    const button = act(label, () => go(button, avatar, from, run), id);
     button.classList.add("slot-target");
     return button;
   }
-  const toDeck = (avatar, from) =>
-    target("Move to your deck", avatar, from, async () => {
-      await leave(avatar.id, from);
-      if (from.current) return leaveHere();
-      chosen = null;
-      await load();
-    });
+  // The deck's grey copy of the tapped avatar moves it there.
+  function toDeck(face, avatar, from) {
+    face.disabled = false;
+    face.classList.add("slot-target");
+    face.setAttribute("aria-label", `Move ${avatar.name} to your deck`);
+    face.onclick = async () => {
+      face.disabled = true;
+      try {
+        await go(face, avatar, from, async () => {
+          await leave(avatar.id, from);
+          if (from.current) return leaveHere();
+          chosen = null;
+          await load();
+        });
+      } catch (error) {
+        status.textContent = error.message;
+      } finally {
+        face.disabled = false;
+      }
+    };
+  }
   const toWorld = (avatar, from, slot) =>
     target(`Move ${avatar.name} here`, avatar, from, async () => {
       await command(slot.shared, { op: "claim", avatar: avatar.id });
@@ -415,10 +436,12 @@ export function installAvatarMenu({
     portrait.alt = "";
     face.append(portrait, el("span", "seat-name", seat.name));
     if (seat.online) face.append(el("span", "table-online"));
-    // A resident lives there on its own; it has nothing to tap.
-    face.disabled = seat.kind === "resident";
+    // A resident lives there on its own, and an avatar elsewhere is tapped
+    // where it is; neither has anything to tap here.
+    face.disabled = seat.kind === "resident" || seat.kind === "away";
     face.onclick = () => {
       chosen = picked ? null : { id: seat.id, slot: slotKey };
+      refold = Boolean(chosen);
       status.textContent = "";
       render();
     };
@@ -440,54 +463,75 @@ export function installAvatarMenu({
     const targets = mine
       ? targetsFor(avatar, from, view, shared)
       : { deck: false, worlds: [], create: false };
+    // Tapping an avatar opens the places it can go and folds the worlds it
+    // cannot. Nothing else folds a panel; on a phone only one world is open.
+    if (refold && mine) {
+      const keep = new Set(targets.worlds);
+      if (from) keep.add(from.key);
+      if (targets.deck || !from) keep.add("deck");
+      for (const slot of view.slots)
+        if (!phone.matches && !keep.has(slot.key)) opened.delete(slot.key);
+      for (const key of keep)
+        if (!phone.matches || key === "deck") opened.add(key);
+    }
+    refold = false;
     // Presence ticks redraw only when something shown has changed.
     const key = JSON.stringify([view, chosen, [...opened], phone.matches]);
     if (key === drawn) return;
     drawn = key;
-    box.replaceChildren();
-    for (const slot of view.slots) {
-      const details = el("details", "world-slot");
-      details.dataset.slot = slot.key;
-      details.dataset.current = String(Boolean(slot.current));
+    const last = panels;
+    panels = new Map();
+    // One panel per world, and the deck in the same form.
+    const panel = (key, name, letters, label) => {
+      const details = last.get(key) || el("details", "world-slot");
+      panels.set(key, details);
+      details.dataset.slot = key;
+      details.removeAttribute("data-target");
       // On a phone only one world is open at a time.
-      if (phone.matches) details.name = "world-slot";
-      details.open = opened.has(slot.key);
+      details.name = phone.matches && key !== "deck" ? "world-slot" : "";
+      details.open = opened.has(key);
       details.ontoggle = () => {
-        if (details.open) opened.add(slot.key);
-        else opened.delete(slot.key);
+        if (details.open) opened.add(key);
+        else opened.delete(key);
       };
       const summary = el("summary");
-      const free = slot.seats.filter((s) => s.kind === "resident").length;
-      const humans = slot.seats.filter((s) => s.online).length;
-      const meta = slot.local
-        ? ["on this device"]
-        : [
-            slot.invite ? "invited" : !slot.owner && "a friend's world",
-            slot.current && `${humans} here`,
-            `${free} of 8 free`,
-          ];
-      summary.append(
-        el("strong", "", slot.name || "A world"),
-        el("small", "", meta.filter(Boolean).join(" · ")),
+      summary.append(el("strong", "", name));
+      if (label) summary.append(el("small", "", label));
+      const strip = el("span", "slot-letters");
+      strip.setAttribute("aria-hidden", "true");
+      for (const seat of letters)
+        strip.append(el("span", `letter-${seat.kind}`, seat.name[0]));
+      summary.append(strip);
+      details.replaceChildren(summary);
+      return details;
+    };
+    const nodes = [];
+    for (const slot of view.slots) {
+      const label = slot.local
+        ? "on this device"
+        : slot.invite
+          ? "invited"
+          : !slot.owner && "a friend's world";
+      const details = panel(
+        slot.key,
+        slot.name || "A world",
+        slot.seats,
+        label,
       );
-      const letters = el("span", "slot-letters");
-      letters.setAttribute("aria-hidden", "true");
-      for (const seat of slot.seats)
-        letters.append(el("span", `letter-${seat.kind}`, seat.name[0]));
-      summary.append(letters);
+      details.dataset.current = String(Boolean(slot.current));
       if (targets.worlds.includes(slot.key)) {
         details.dataset.target = "true";
-        summary.append(toWorld(avatar, from, slot));
+        details.firstChild.append(toWorld(avatar, from, slot));
       }
       const world = slot.current ? session?.state.world || getWorld() : null;
       const seats = el("ul", "slot-seats");
       seats.append(...slot.seats.map((s) => seatButton(slot.key, s, world)));
-      details.append(summary, seats);
+      details.append(seats);
       const seat =
         chosen?.slot === slot.key &&
         slot.seats.find((s) => s.id === chosen.id && s.kind !== "resident");
       if (seat) details.append(seatActions(slot, seat));
-      box.append(details);
+      nodes.push(details);
     }
     if (view.canCreate || !shared) {
       const fresh = act(
@@ -497,24 +541,35 @@ export function installAvatarMenu({
       );
       fresh.classList.add("slot-new");
       if (targets.create) fresh.dataset.target = "true";
-      box.append(fresh);
+      nodes.push(fresh);
     }
     if (view.deck.length || targets.deck) {
-      const deck = el("div", "avatar-deck");
-      deck.append(el("small", "", "Your deck · in no world"));
-      if (targets.deck) {
-        deck.dataset.target = "true";
-        deck.append(toDeck(avatar, from));
-      }
+      // The deck shows the whole cast like a world: avatars in no world in
+      // colour, the rest grey, and the tapped one's grey copy a target.
+      const seats = byInitial(humanAvatars).map((a) => ({
+        id: a.id,
+        name: a.name,
+        kind: view.deck.includes(a) ? "deck" : "away",
+      }));
+      const deck = panel("deck", "Your deck", seats);
+      deck.classList.add("avatar-deck");
+      if (targets.deck) deck.dataset.target = "true";
       const list = el("ul", "slot-seats");
-      list.append(
-        ...view.deck.map((a) =>
-          seatButton(null, { id: a.id, name: a.name, kind: "deck" }),
-        ),
-      );
+      for (const seat of seats) {
+        const item = seatButton(null, seat);
+        if (targets.deck && seat.id === avatar.id)
+          toDeck(item.firstChild, avatar, from);
+        list.append(item);
+      }
       deck.append(list);
-      box.append(deck);
+      nodes.push(deck);
     }
+    // Panels that stay are not re-inserted, so their transitions run.
+    nodes.forEach((node, i) => {
+      if (box.children[i] !== node)
+        box.insertBefore(node, box.children[i] || null);
+    });
+    while (box.children.length > nodes.length) box.lastChild.remove();
     if (mine && !status.textContent)
       status.textContent = `Tap where ${avatar.name} goes.`;
   }
@@ -527,7 +582,7 @@ export function installAvatarMenu({
     }
     const now = here();
     chosen = null;
-    opened = new Set([now.place.shared || `local:${now.actor}`]);
+    opened = new Set([now.place.shared || `local:${now.actor}`, "deck"]);
     status.textContent = "";
     redraw();
     load(stored(INVITE_KEY));

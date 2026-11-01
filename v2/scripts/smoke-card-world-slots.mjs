@@ -7,6 +7,8 @@ import { createWorld, encodeSave } from "../card-game/world.mjs";
 // ☰'s world slots (#1877): tapping one of your avatars lights the places it
 // can go (your deck, a slot with its seat free, + New world), and tapping
 // one moves it there. A friend's world shows while your avatar sits there.
+// The deck is a panel like a world: the whole cast, the avatars in no world
+// in colour, and the tapped avatar's grey copy moves it there.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -101,7 +103,10 @@ try {
     await page.locator("#toolbar-menu-button").click();
     const friend = menu.locator('.world-slot[data-slot="friend"]');
     await friend.waitFor();
-    assert.equal(await menu.locator(".world-slot").count(), 3);
+    assert.equal(
+      await menu.locator(".world-slot:not(.avatar-deck)").count(),
+      3,
+    );
     assert.match(
       await friend.locator("summary").innerText(),
       /a friend's world/,
@@ -111,17 +116,25 @@ try {
     await friend.locator("summary").click();
     if (width <= 390) {
       const open = await menu
-        .locator(".world-slot")
+        .locator(".world-slot:not(.avatar-deck)")
         .evaluateAll((slots) => slots.filter((slot) => slot.open).length);
       assert.equal(open, 1, "a phone opens one world at a time");
     }
     await friend.locator('[data-avatar="tavi"] button').click();
     const deck = menu.locator(".avatar-deck");
     assert.equal(await deck.getAttribute("data-target"), "true");
-    await deck.locator(".slot-target").click();
+    assert.equal(await deck.locator(".slot-seat").count(), 8);
+    const ghost = deck.locator('[data-avatar="tavi"]');
+    assert.equal(await ghost.getAttribute("data-kind"), "away");
+    await ghost.locator(".slot-target").click();
     await friend.waitFor({ state: "detached" });
     assert.deepEqual(commands.shift(), ["friend", { op: "release" }]);
-    assert.equal(await deck.locator('[data-avatar="tavi"]').count(), 1);
+    assert.equal(await ghost.getAttribute("data-kind"), "deck");
+    // Vale lives in the world being played, so the deck shows it grey.
+    assert.equal(
+      await deck.locator('[data-avatar="vale"]').getAttribute("data-kind"),
+      "away",
+    );
     // Your Tavi shows once; elsewhere Tavi's seat is a resident.
     assert.equal(
       await menu
@@ -137,10 +150,18 @@ try {
     await page.locator("#avatar-move").click();
     assert.deepEqual(
       await menu
-        .locator('.world-slot[data-target="true"]')
+        .locator('.world-slot:not(.avatar-deck)[data-target="true"]')
         .evaluateAll((slots) => slots.map((slot) => slot.dataset.slot)),
       ["spare"],
     );
+    if (width > 390)
+      // On a wide screen the worlds Vale cannot go to fold.
+      assert.deepEqual(
+        await menu
+          .locator(".world-slot[open]")
+          .evaluateAll((slots) => slots.map((slot) => slot.dataset.slot)),
+        ["here", "spare", "deck"],
+      );
     assert.equal(await deck.getAttribute("data-target"), "true");
     assert.equal(
       await page.locator("#avatar-new-world").getAttribute("data-target"),
