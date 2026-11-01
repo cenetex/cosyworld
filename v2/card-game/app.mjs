@@ -301,10 +301,13 @@ const shownLevels = new Map();
 const shownStageLevels = new Map();
 const coveredCards = new Set();
 let openingHeld = false;
-// The quest card on show, open to its progress, and glowing once met.
+// The quest card on show and whether it is open. A met quest stays, sealed,
+// until its player clears it (metQuest holds the experience it brought); a
+// first quest arrives glowing (questFresh). Both are this browser's only.
 let shownQuest = null,
   questOpen = false,
-  questGlowing = false;
+  metQuest = null,
+  questFresh = false;
 // Card art: a pack's own art, a hub item's authored art, or the forest card.
 const cardArt = (id) =>
   packMedia(id, "art") ||
@@ -358,6 +361,8 @@ function loadSeen(reset = false) {
   shownLevels.clear();
   shownStageLevels.clear();
   shownQuest = null;
+  metQuest = null;
+  questFresh = false;
   rememberCards();
 }
 loadSeen();
@@ -2024,6 +2029,7 @@ function card(id) {
       }
     }
   }
+  if (shownQuest?.actor === id) frame.prepend(questTab(shownQuest));
   el.dataset.unrevealed = String(cardIsCovered(id));
   const back = node("img", undefined, "card-back");
   back.src = imageUrl("./assets/card-back.webp", "card");
@@ -2065,8 +2071,14 @@ function questFrame(quest) {
   el.setAttribute("aria-pressed", String(questOpen));
   el.setAttribute(
     "aria-label",
-    `Quest: ${questCaption(quest, hidden)}${near ? ", near" : ""}`,
+    metQuest
+      ? `Quest met: ${questCaption(quest, hidden)}. Select to clear it.`
+      : `Quest: ${questCaption(quest, hidden)}${near ? ", near" : ""}`,
   );
+  if (metQuest) {
+    el.dataset.met = "true";
+    el.append(node("span", "✓", "quest-seal"));
+  }
   const head = node("span", undefined, "quest-head");
   head.append(
     node("span", verb, "quest-verb"),
@@ -2091,24 +2103,15 @@ function questFrame(quest) {
     ),
     head,
   );
-  el.addEventListener("click", () => {
-    if (selectionBlocked()) return;
-    if (rowCollapsed && foldedChoice && selected.length) {
-      foldedChoice = false;
-      rowCollapsed = false;
-      render();
-      return;
-    }
-    playQueue.clear();
-    questOpen = !questOpen;
-    selected = [];
-    expandedHolders.clear();
-    rowCollapsed = false;
-    render();
-  });
+  el.addEventListener("click", () =>
+    metQuest ? clearQuest(el, quest) : toggleQuest(),
+  );
   const frame = node("div", undefined, "card-frame want-frame");
   frame.dataset.want = quest.kind;
   frame.dataset.raised = String(questOpen);
+  // It folds behind the player's avatar until that stack or the quest opens.
+  frame.dataset.holder = quest.actor;
+  frame.hidden = !questOpen && !expandedHolders.has(quest.actor);
   // Steps still to come lie face down behind the card, as a stack.
   for (let i = Math.min(quest.left - 1, 3); i > 0; i--) {
     const edge = node("span", undefined, "quest-edge");
@@ -2119,14 +2122,69 @@ function questFrame(quest) {
   frame.append(el);
   return frame;
 }
-// A met quest glows once on its card, then the next quest takes its place.
-async function glowQuest() {
-  const button = $("hand").querySelector(".want-card");
-  if (button)
-    await glowCard(button, button.style.getPropertyValue("--tier-color"));
-  questGlowing = false;
+function toggleQuest() {
+  if (selectionBlocked()) return;
+  if (rowCollapsed && foldedChoice && selected.length) {
+    foldedChoice = false;
+    rowCollapsed = false;
+    render();
+    return;
+  }
+  playQueue.clear();
+  questOpen = !questOpen;
+  questFresh = false;
+  selected = [];
+  expandedHolders.clear();
+  rowCollapsed = false;
+  render();
+}
+// The folded quest: a tab in its tier colour behind the avatar's card. It
+// glows while a first quest is new or a met quest waits to be cleared.
+function questTab(quest) {
+  const tab = node(
+    "button",
+    quest.level ? romanLevel(quest.level) : "",
+    "quest-tab",
+  );
+  tab.type = "button";
+  tab.style.setProperty("--tier-color", questTier(quest).color);
+  tab.dataset.glow = String(Boolean(metQuest || questFresh));
+  tab.setAttribute("aria-label", metQuest ? "Quest met: open it" : "Quest");
+  tab.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleQuest();
+  });
+  return tab;
+}
+// Clearing a met quest shows the experience it brought rising from the card,
+// glows the avatar when it ends a level quest, then shows the next quest.
+// The rules granted that experience when the quest was met.
+function clearQuest(button, quest) {
+  if (selectionBlocked()) return;
+  const color = button.style.getPropertyValue("--tier-color"),
+    box = button.getBoundingClientRect(),
+    gain = node("span", `+${metQuest.xp} XP`, "quest-xp");
+  gain.style.setProperty("--tier-color", color);
+  gain.style.left = `${box.left + box.width / 2}px`;
+  gain.style.top = `${box.top + box.height / 4}px`;
+  document.body.append(gain);
+  const rise = gain.animate(
+    reducedMotion.matches
+      ? [{ opacity: 1 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }]
+      : [
+          { opacity: 0, translate: "-50% 0" },
+          { opacity: 1, translate: "-50% -16px", offset: 0.3 },
+          { opacity: 0, translate: "-50% -44px" },
+        ],
+    { duration: 1100, easing: "ease-out" },
+  );
+  rise.finished.catch(() => {}).then(() => gain.remove());
+  metQuest = null;
+  questOpen = false;
   shownQuest = questCard(world);
   render();
+  const avatar = $("hand").querySelector(`.card[data-card="${quest.actor}"]`);
+  if (quest.level && quest.left <= 1 && avatar) void glowCard(avatar, color);
 }
 // The stage frames each painting with its measured shape, so a resident
 // anchored to it stands on the same spot at every screen size.
@@ -3231,9 +3289,12 @@ function render() {
       if (people[id] || places[id]) expandedHolders.add(id);
     }
   const liveQuest = questCard(world);
-  if (!questGlowing) {
-    questGlowing = questMet(shownQuest, liveQuest);
-    if (!questGlowing) shownQuest = liveQuest;
+  if (!metQuest && questMet(shownQuest, liveQuest))
+    metQuest = { xp: liveQuest.xp - shownQuest.xp };
+  if (!metQuest) {
+    // A quest where there was none, such as the first at the pond, is new.
+    if (!shownQuest && liveQuest && renderedHand) questFresh = true;
+    shownQuest = liveQuest;
   }
   const handCards = questHand(availableCards(world), world, shownQuest);
   // Published speech can unlock cards and plays during the current turn.
@@ -3252,6 +3313,8 @@ function render() {
     rowCollapsed,
     shownQuest?.key,
     questOpen,
+    Boolean(metQuest),
+    questFresh,
   ]);
   if (handKey !== renderedHand) {
     const sameWorld =
@@ -3289,10 +3352,6 @@ function render() {
           id === QUEST_CARD ? questFrame(shownQuest) : card(id),
         ),
       );
-    if (questGlowing === true) {
-      questGlowing = "playing";
-      void glowQuest();
-    }
     $("hand").scrollLeft = samePlace ? scroll : 0;
     renderActions(animate);
     if (!sameWorld) playLevelUps();

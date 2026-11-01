@@ -1260,7 +1260,8 @@ body .card-frame[hidden] {
    It holds steady while the target is near: a soft halo, unlike the brief
    met glow. */
 body .card.want-card {
-  --screen-top: 13%;
+  /* The scene sits centred in the top 75% the hand shows. */
+  --screen-top: 17.5%;
   background:
     radial-gradient(
       ellipse 90% 55% at 50% 0%,
@@ -1299,10 +1300,75 @@ body .card.want-card[data-near="true"] {
   position: absolute;
   z-index: 2;
   top: var(--screen-top);
-  left: 8%;
-  width: 84%;
+  left: 2%;
+  width: 96%;
   aspect-ratio: 4 / 3;
   pointer-events: none;
+}
+/* The quest folds behind the player's avatar: a tab in its tier colour
+   peeks out at the top left, opposite the carried things. It glows while a
+   first quest is new or a met quest waits to be cleared. */
+.card-frame > .quest-tab {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  padding: 0 0 0 9px;
+  border: 2px solid var(--tier-color);
+  border-radius: 13px;
+  background: linear-gradient(var(--tier-color) 0 10px, #14161d 10px);
+  color: #10141a;
+  font: 9px/1 Georgia, serif;
+  letter-spacing: 0.06em;
+  text-align: left;
+  /* Kept within the hand's 12px top margin, which clips anything higher. */
+  transform: translate(-7px, -9px) rotate(-2deg);
+}
+.card-frame > .quest-tab[data-glow="true"] {
+  box-shadow: 0 0 12px 2px var(--tier-color);
+  animation: quest-invite 2.4s ease-in-out infinite alternate;
+}
+@keyframes quest-invite {
+  to {
+    box-shadow: 0 0 4px 0 var(--tier-color);
+  }
+}
+/* A met quest is sealed until its player clears it. */
+.quest-seal {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 33%;
+  width: calc(var(--card-height) * 0.17);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  translate: -50% 0;
+  rotate: -8deg;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fff8, var(--tier-color) 55%, #5b4c22);
+  box-shadow: 0 0 16px var(--tier-color), 0 3px 8px #000a;
+  color: #1a1408;
+  font: calc(var(--card-height) * 0.085) / 1 Georgia, serif;
+  pointer-events: none;
+}
+body .card.want-card[data-met="true"] {
+  box-shadow:
+    0 0 0 1px var(--tier-color),
+    0 0 24px color-mix(in srgb, var(--tier-color) 65%, transparent);
+}
+.quest-xp {
+  position: fixed;
+  z-index: 200;
+  translate: -50% 0;
+  color: var(--tier-color);
+  font: 600 18px/1 Georgia, serif;
+  text-shadow: 0 0 8px var(--tier-color), 0 2px 3px #000;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-frame > .quest-tab[data-glow="true"] {
+    animation: none;
+  }
 }
 /* Steps still to come: blank lids stacked behind the card. */
 .quest-edge {
