@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 15,
+  "revision": 16,
   "name": "The Wine-Dark Sea",
   "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -265,7 +265,7 @@
     },
     "greek-marathon": {
       "name": "Marathon Altar",
-      "text": "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. Country paths lead to Eleusis, Colonus and the farm.",
+      "text": "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. Country paths lead to Eleusis, Colonus and the farm. Ships call in the bay below.",
       "exits": ["greek-eleusis", "greek-colonus", "greek-attic-farm"],
       "backdrop": "assets/greek-drama/open-door-marathon.webp",
       "persona": "The keeper tells Euripides’s Children of Heracles as a separate tale under Demophon, son of Theseus, after Heracles’s death. The daughter, battle and captive king belong to that tale. The traveler’s blanket stays at the present altar for guests."
@@ -411,7 +411,7 @@
     "greek-corinth": {
       "name": "Corinthian Courtyard",
       "text": "A rented household opens onto the harbor road. Bundles stand ready beside the door.",
-      "exits": ["greek-argolid-road", "greek-troezen", "greek-road-colonists"],
+      "exits": ["greek-argolid-road", "greek-troezen"],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "A rented household opens onto the harbor road. Bundles stand ready beside the door."
     },
@@ -461,12 +461,7 @@
     "greek-troy": {
       "name": "The Trojan Walls",
       "text": "The city road runs between battered walls. Soldiers and displaced households share the remaining wells.",
-      "exits": [
-        "greek-greek-camp",
-        "greek-trojan-camp",
-        "greek-thrace",
-        "greek-road-royal"
-      ],
+      "exits": ["greek-greek-camp", "greek-trojan-camp"],
       "backdrop": "assets/greek-drama/trojan-walls-day.webp",
       "persona": "The city road runs between battered walls. Soldiers and displaced households share the remaining wells."
     },
@@ -475,7 +470,6 @@
       "text": "A speaker names the Trojan account after Ajax’s death. Tents stand above the ships. Teucer carries a burial plea to the commanders.",
       "exits": [
         "greek-troy",
-        "greek-lemnos",
         "greek-ajax-landing",
         "greek-ajax-household",
         "greek-ajax-grave"
@@ -507,14 +501,14 @@
     "greek-lemnos": {
       "name": "The Lemnian Cave",
       "text": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
-      "exits": ["greek-greek-camp"],
+      "exits": [],
       "backdrop": "assets/greek-drama/lemnian-cave-day.webp",
       "persona": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
     },
     "greek-thrace": {
       "name": "The Thracian Shore",
       "text": "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
-      "exits": ["greek-troy", "greek-road-black-sea"],
+      "exits": [],
       "backdrop": "assets/greek-drama/thracian-shore-day.webp",
       "persona": "A fleet waits beyond the breakers. Captive households search among the new arrivals."
     },
@@ -535,30 +529,32 @@
     "greek-tauris": {
       "name": "The Taurian Temple",
       "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
-      "exits": ["greek-road-black-sea", "greek-scythian-crag"],
+      "exits": [],
       "backdrop": "assets/greek-drama/tauris-shore-scene.webp",
       "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
     },
     "greek-sicily": {
       "name": "The Sicilian Cave",
       "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
-      "exits": ["greek-road-colonists"],
+      "exits": [],
       "backdrop": "assets/greek-drama/book-three-lemnos-day.webp",
       "persona": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
     },
     "greek-susa": {
       "name": "The Court at Susa",
       "text": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
-      "exits": ["greek-road-royal"],
+      "exits": ["greek-troy"],
       "backdrop": "assets/greek-drama/book-three-susa-day.webp",
-      "persona": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
+      "persona": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
+      "retired": true
     },
     "greek-scythian-crag": {
       "name": "The Scythian Crag",
       "text": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
       "exits": ["greek-tauris"],
       "backdrop": "assets/greek-drama/grove.svg",
-      "persona": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach."
+      "persona": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
+      "retired": true
     },
     "greek-divine-heights": {
       "name": "The Divine Heights",
@@ -587,7 +583,7 @@
     "greek-ship": {
       "name": "Greek ship",
       "text": "Water passes beneath the hull. The shipmaster watches the shores. Open ports wait beyond the rail.",
-      "persona": "A shared ship serving Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. Myrto’s lasting invitation adds the Trojan camp landing. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage. The Ajax visit is a named Trojan account after his death.",
+      "persona": "A shared ship. On the west sea it serves Black Pond, the Wine-Dark Harbor and Piraeus Quays; around the cape it reaches Marathon Bay. On the east sea it sails from Marathon to the Trojan camp landing and the Far Shores. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
       "exits": [],
       "backdrop": "assets/greek-drama/ship-deck.webp",
       "art": "assets/greek-drama/ship-card.webp",
@@ -741,7 +737,8 @@
       "persona": "A shared road between The Trojan Walls and The Court at Susa. The left end always leads to The Trojan Walls. The right end always leads to The Court at Susa. Royal messengers ride this road between the sea and the Persian court. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": ["greek-troy", "greek-susa"],
       "road": ["greek-troy", "greek-susa"],
-      "backdrop": "assets/greek-drama/royal-road.svg"
+      "backdrop": "assets/greek-drama/royal-road.svg",
+      "retired": true
     },
     "greek-road-black-sea": {
       "name": "The Black Sea Road",
@@ -749,7 +746,8 @@
       "persona": "A shared road between The Thracian Shore and The Taurian Temple. The left end always leads to The Thracian Shore. The right end always leads to The Taurian Temple. The road follows the cold northern coast. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": ["greek-thrace", "greek-tauris"],
       "road": ["greek-thrace", "greek-tauris"],
-      "backdrop": "assets/greek-drama/black-sea-road.svg"
+      "backdrop": "assets/greek-drama/black-sea-road.svg",
+      "retired": true
     },
     "greek-road-colonists": {
       "name": "The Colonists' Road",
@@ -757,7 +755,8 @@
       "persona": "A shared road between Corinthian Courtyard and The Sicilian Cave. The left end always leads to Corinthian Courtyard. The right end always leads to The Sicilian Cave. Corinthian settlers took this way west when they founded Syracuse. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": ["greek-corinth", "greek-sicily"],
       "road": ["greek-corinth", "greek-sicily"],
-      "backdrop": "assets/greek-drama/colonists-road.svg"
+      "backdrop": "assets/greek-drama/colonists-road.svg",
+      "retired": true
     },
     "greek-ajax-landing": {
       "name": "The Trojan Camp Landing",

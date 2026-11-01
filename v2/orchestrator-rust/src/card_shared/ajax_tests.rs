@@ -233,15 +233,26 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
             }
         }
         if target == "greek-harbor" {
-            // The course card, then one round at sea before Disembark.
-            play(
-                &c,
-                &id,
-                &mut world,
-                1,
-                &[("kind", "course"), ("target", target)],
-            );
-            play(&c, &id, &mut world, 1, &[("kind", "wait")]);
+            // Home from the landing by Marathon Bay and Piraeus: a course
+            // card, then a round at sea, for each lane.
+            for _ in 0..24 {
+                if action(&world, 1, &[("kind", "move"), ("target", target)]).is_some() {
+                    break;
+                }
+                let next = [target, "greek-piraeus", "greek-marathon"]
+                    .into_iter()
+                    .find(|to| action(&world, 1, &[("kind", "course"), ("target", to)]).is_some());
+                match next {
+                    Some(to) => play(
+                        &c,
+                        &id,
+                        &mut world,
+                        1,
+                        &[("kind", "course"), ("target", to)],
+                    ),
+                    None => play(&c, &id, &mut world, 1, &[("kind", "wait")]),
+                };
+            }
         }
         play(
             &c,
@@ -339,9 +350,6 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             "greek-road-athens-eleusis",
             "greek-road-thebes",
             "greek-road-sacred-way",
-            "greek-road-royal",
-            "greek-road-black-sea",
-            "greek-road-colonists",
         ];
         let along = |from: &str, to: &str| -> Option<&str> {
             let mut pair = [from, to];
@@ -350,7 +358,6 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
                 ["greek-courtyard", "greek-harbor"] => Some("greek-road-thebes"),
                 ["greek-athens", "greek-delphi"] => Some("greek-road-sacred-way"),
                 ["greek-delphi", "greek-trachis"] => Some("greek-oeta"),
-                ["greek-susa", "greek-troy"] => Some("greek-road-royal"),
                 _ => None,
             }
         };
@@ -386,6 +393,12 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             ["greek-athens", "greek-demos-house"],
             ["greek-athens", "greek-festival"],
             ["greek-eleusis", "greek-piraeus"],
+            // Greek revision 16 makes the Far Shores one-place ship stops.
+            ["greek-susa", "greek-troy"],
+            ["greek-greek-camp", "greek-lemnos"],
+            ["greek-thrace", "greek-troy"],
+            ["greek-scythian-crag", "greek-tauris"],
+            ["sea:greek-ajax-landing", "sea:greek-harbor"],
         ];
         let walked = |edges: &Value| -> Vec<Value> { edges.as_array().unwrap().to_vec() };
         for (who, edges) in old.game["routeKnowledge"].as_object().unwrap() {

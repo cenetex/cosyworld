@@ -7,8 +7,6 @@ import {
   localRoadEnds,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
-import { upgradeGreekOneRoadSave } from "../v2/card-game/legacy-saves.mjs";
-import { ajaxCamp } from "./helpers/greek-ajax.mjs";
 
 const pack = packDefinition("greek-drama");
 const places = pack.places;
@@ -40,18 +38,28 @@ function towns() {
 const ROADS = [
   ["greek-road-sacred-way", "greek-athens", "greek-delphi"],
   ["greek-oeta", "greek-delphi", "greek-trachis"],
-  ["greek-road-royal", "greek-troy", "greek-susa"],
-  ["greek-road-black-sea", "greek-thrace", "greek-tauris"],
-  ["greek-road-colonists", "greek-corinth", "greek-sicily"],
+];
+// Greek revision 16 makes the Far Shores one-place ship stops: their roads,
+// Susa and the Scythian Crag retire.
+const RETIRED = [
+  "greek-road-royal",
+  "greek-road-black-sea",
+  "greek-road-colonists",
+  "greek-susa",
+  "greek-scythian-crag",
+];
+const FAR_SHORES = [
+  "greek-lemnos",
+  "greek-thrace",
+  "greek-tauris",
+  "greek-sicily",
 ];
 const CUT = [
   ["greek-athens", "greek-delphi"],
   ["greek-delphi", "greek-trachis"],
-  ["greek-troy", "greek-susa"],
   ["greek-piraeus", "greek-tauris"],
   ["greek-piraeus", "greek-sicily"],
   ["greek-aulis", "greek-greek-camp"],
-  ["greek-susa", "greek-scythian-crag"],
 ];
 
 describe("purposeful Greek roads", () => {
@@ -77,7 +85,8 @@ describe("purposeful Greek roads", () => {
       );
       expect(between, `${a} and ${b} share one road`).toEqual([road]);
     }
-    expect(town["greek-scythian-crag"]).toBe(town["greek-tauris"]);
+    for (const id of RETIRED) expect(places[id].retired, id).toBe(true);
+    for (const id of FAR_SHORES) expect(places[id].exits, id).toEqual([]);
     expect(town["greek-pherae"]).toBe(town["greek-trachis"]);
     expect(town["greek-thetis"]).toBe(town["greek-trachis"]);
     expect(town["greek-aulis"]).toBe(town["greek-gate"]);
@@ -124,8 +133,7 @@ describe("purposeful Greek roads", () => {
       expect(exits(w, b, "vale")).toContain(road);
       expect(exits(w, road, "vale")).toEqual(expect.arrayContaining([a, b]));
     }
-    expect(exits(w, "greek-tauris", "vale")).toContain("greek-scythian-crag");
-    expect(exits(w, "greek-scythian-crag", "vale")).toEqual(["greek-tauris"]);
+    for (const id of FAR_SHORES) expect(exits(w, id, "vale"), id).toEqual([]);
   });
 });
 
@@ -174,49 +182,35 @@ describe("purposeful road save upgrade", () => {
       ["greek-road-sacred-way", "greek-delphi"],
       ["greek-delphi", "greek-oeta"],
       ["greek-oeta", "greek-trachis"],
-      ["greek-susa", "greek-road-royal"],
-      ["greek-road-royal", "greek-troy"],
       ["greek-trachis", "greek-oeta"],
       ["greek-gate", "greek-aulis"],
     ]);
-    for (const road of [
-      "greek-road-sacred-way",
-      "greek-road-royal",
-      "greek-road-black-sea",
-      "greek-road-colonists",
-    ])
-      expect(after.memories[road]).toBeTruthy();
+    expect(after.memories["greek-road-sacred-way"]).toBeTruthy();
     expect(after.log).toEqual(before.log);
   });
 
-  it("keeps a way home from Sicily and Tauris", () => {
+  it("keeps a way home from Sicily and Tauris by the east sea", () => {
     const before = releasedWorld();
     before.actors.vale.place = "greek-sicily";
     before.actors.mara.place = "greek-tauris";
     before.actors.ash.place = "greek-scythian-crag";
     const after = decodeSave(JSON.stringify(before));
-    // Sicily is on the Corinth side: the Colonists' Road leads home.
+    // The Far Shores are ship stops; the ship always sails home to Marathon.
     expect(after.actors.vale.place).toBe("greek-sicily");
-    expect(exits(after, "greek-sicily", "vale")).toEqual([
-      "greek-road-colonists",
-    ]);
-    // Without the Trojan invitation the ship does not call on that side.
-    // Travelers there go back the way they came.
-    expect(after.actors.mara.place).toBe("greek-piraeus");
-    expect(after.actors.ash.place).toBe("greek-aulis");
-  });
-
-  it("leaves Black Sea travelers in place once the Trojan landing is open", () => {
-    // A world where the Trojan invitation was accepted, set back one revision.
-    const after = ajaxCamp();
-    after.packs["greek-drama"].revision = 7;
-    after.packs["greek-drama"].scope = "full";
-    after.actors.mara.place = "greek-tauris";
-    upgradeGreekOneRoadSave(after);
-    expect(after.packs["greek-drama"].revision).toBe(8);
-    expect(after.actors.mara.place).toBe("greek-tauris");
-    expect(exits(after, "greek-tauris", "mara")).toContain(
-      "greek-road-black-sea",
-    );
+    expect(exits(after, "greek-sicily", "vale")).toEqual([]);
+    const home = (from, to) =>
+      pack.transports["greek-ship"].lanes.some(
+        (l) =>
+          !l.opensWith &&
+          ((l.from === from && l.to === to) ||
+            (!l.oneWay && l.from === to && l.to === from)),
+      );
+    expect(home("greek-sicily", "greek-marathon")).toBe(true);
+    expect(home("greek-tauris", "greek-thrace")).toBe(true);
+    expect(home("greek-thrace", "greek-lemnos")).toBe(true);
+    expect(home("greek-lemnos", "greek-marathon")).toBe(true);
+    expect(home("greek-ajax-landing", "greek-marathon")).toBe(true);
+    // The crag folds into the temple it stood above.
+    expect(after.actors.ash.place).not.toBe("greek-scythian-crag");
   });
 });

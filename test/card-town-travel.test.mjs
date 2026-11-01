@@ -212,9 +212,6 @@ describe("local town visits and road history", () => {
       "greek-oeta",
       "greek-road-athens-eleusis",
       "greek-road-athens-piraeus",
-      "greek-road-black-sea",
-      "greek-road-colonists",
-      "greek-road-royal",
       "greek-road-sacred-way",
       "greek-road-thebes",
     ]);

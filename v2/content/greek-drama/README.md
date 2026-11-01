@@ -171,8 +171,16 @@ single saved cover and starts any longer partial signal again.
 
 Completing the signal summons a shared ship. Its saved discovery keeps the
 boarding shores open through lamp changes, reloads and later voyages.
-The ship sails authored lanes: Black Pond only to the Wine-Dark Harbor; the
-Wine-Dark Harbor to Piraeus and the Trojan camp landing. The lane between the
+The ship sails authored lanes on two seas. On the west sea: Black Pond only
+to the Wine-Dark Harbor, and the Wine-Dark Harbor to Piraeus. Round the cape,
+Piraeus to Marathon Bay. On the east sea (Greek revision 16), Marathon Bay to
+the Trojan camp landing, the Lemnian Cave and the Sicilian Cave; the Lemnian
+Cave on to the Thracian Shore and Proteus's tomb in Egypt; the Thracian Shore
+on to the Taurian Temple. The Far Shores are one-place stops: their roads,
+the Court at Susa and the Scythian Crag retire. Every lane out of the
+Wine-Dark Harbor, Piraeus or Marathon opens only while the Travel Provisions
+are aboard, and every way back is always open. Boarding the ship is a dock's
+one link to the sea. The lane between the
 Wine-Dark Harbor to Piraeus opens only while the Travel Provisions
 (`greek-provisions`, first at the harbour) are aboard; the way home from
 Piraeus is always open. Giving Theseus the mothers' petition brings the

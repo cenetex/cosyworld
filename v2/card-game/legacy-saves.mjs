@@ -13,6 +13,7 @@ import {
 import { authoredRouteEdges } from "./roaming-routes.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import {
+  laneEdges,
   laneOfEdge,
   learnLane,
   passengers,
@@ -102,6 +103,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     upgradeGreekCithaeronSave(s);
     upgradeGreekDistrictRoadsSave(s);
     upgradeGreekOpenDoorSave(s);
+    upgradeGreekEastSeaSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -1047,4 +1049,22 @@ export function upgradeGreekOpenDoorSave(s) {
     k.pending = (k.pending || []).filter((p) => p.factId !== topic);
   }
   saved.revision = 15;
+}
+
+// Greek revision 16 opens the east sea. The ship rounds the cape to Marathon
+// Bay and sails on to the Trojan landing and the Far Shores, which become
+// one-place stops; their roads, Susa and the Scythian Crag retire. Known steps
+// become walkable paths, and a lane the ship no longer sails is forgotten.
+export function upgradeGreekEastSeaSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 16 || saved?.revision !== 15) return;
+  foldRetiredRoads(s);
+  const sailed = new Set(laneEdges().map((edge) => JSON.stringify(edge)));
+  for (const [actor, edges] of Object.entries(s.routeKnowledge || {}))
+    if (Array.isArray(edges))
+      s.routeKnowledge[actor] = edges.filter(
+        (edge) => !laneOfEdge(edge) || sailed.has(JSON.stringify(edge)),
+      );
+  saved.revision = 16;
 }
