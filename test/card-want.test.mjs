@@ -132,6 +132,29 @@ describe("one want per avatar", () => {
     expect(wantCandidates(s, "moth", api)).toEqual(pool);
   });
 
+  it("leaves out an item nobody would part with (#1781)", () => {
+    const s = createWorld();
+    s.actors.moth.place = "station";
+    s.actors.keeper.place = "station";
+    for (const id of ["oil", "bell", "cloth"]) s.items[id].holder = "keeper";
+    s.items.lamp.holder = "station";
+    s.actors.keeper.want = newWant("place", "attic", 0);
+    const api = {
+      carried: () => [],
+      rootHolder: (id) => s.items[id].holder,
+      valueOf: () => 5,
+      reachable: () => [],
+      obtainable: (_, id) => id === "cloth",
+    };
+    const pool = wantCandidates(s, "moth", api).filter((c) =>
+      c.startsWith("item:"),
+    );
+    // Empty-handed Pip can hope only for what the keeper would give.
+    expect(pool).toEqual(["item:cloth"]);
+    // With nothing near, the wide pool may still hold a mystery.
+    expect(wantCandidates(s, "moth", api, null, true)).toContain("item:oil");
+  });
+
   it("keeps an unseen resident's starter want until it has tried", () => {
     const s = createWorld();
     const id = "greek-antigone";
@@ -223,7 +246,14 @@ describe("one want per avatar", () => {
     const players = humanAvatarIds.slice(0, 4);
     let world = dispatchShared({ op: "create" }).world;
     const ask = (op, actor, extra = {}) =>
-      dispatchShared({ world, op, actor, claimed: players, present: players, ...extra });
+      dispatchShared({
+        world,
+        op,
+        actor,
+        claimed: players,
+        present: players,
+        ...extra,
+      });
     const wantless = () =>
       Object.keys(world.actors).filter(
         (id) => entityActive(world, id) && !world.actors[id].want,

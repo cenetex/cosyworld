@@ -288,8 +288,7 @@ describe("dousing the lamp in the attic", () => {
   });
 
   it("keeps meeting wants and trading through cooperative play after the opening", () => {
-    // Seed 42 starves Pip once the station map is gone (#1781).
-    for (const seedStart of [7, 43, 1729]) {
+    for (const seedStart of [7, 42, 1729]) {
       let s = meetEveryone(),
         seed = seedStart,
         trades = 0;

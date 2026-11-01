@@ -152,8 +152,10 @@ function hash(text) {
 }
 
 // Candidates: items held by others that the actor values above the least
-// valued thing it carries, known places it has not visited, and known people
-// it has not talked with. `api` supplies world reads owned by world.mjs.
+// valued thing it carries and could get by gift or trade, known places it has
+// not visited, and known people it has not talked with. An item nobody would
+// part with stays out of the near pool, so an empty-handed avatar's curiosity
+// can run dry and start over instead of circling a hoard (#1781). `api` supplies world reads owned by world.mjs.
 // With `wide`, nothing near is left, so anyone known and anything they hold
 // counts, seen or not and wherever they are: a want may be a mystery a while.
 export function wantCandidates(s, actor, api, previous = null, wide = false) {
@@ -183,7 +185,8 @@ export function wantCandidates(s, actor, api, previous = null, wide = false) {
         s.actors[owner].want?.kind === "item" &&
         s.actors[owner].want.target === id
       ) &&
-      api.valueOf(actor, id) > floor
+      api.valueOf(actor, id) > floor &&
+      (wide || !api.obtainable || api.obtainable(actor, id))
     );
   });
   // A place is wanted only while a route to it is open.

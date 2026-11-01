@@ -636,6 +636,19 @@ function wantAPI(s) {
     carried: (actor) => carried(s, actor),
     rootHolder: (item) => rootHolder(s, item),
     valueOf: (actor, item) => valueOf(s, actor, item),
+    // A resident holding the item directly would give it, or take something
+    // the actor carries in trade. A human holder or a nested item may yet.
+    obtainable: (actor, item) => {
+      const owner = s.items[item].holder;
+      return (
+        !actorIds.includes(owner) ||
+        controlledByHuman(s, owner) ||
+        willingToGive(s, owner, item, actor) ||
+        carried(s, actor).some(
+          (give) => give !== item && tradeWilling(s, actor, give, item),
+        )
+      );
+    },
     reachable: (actor) => reachable(s, actor),
     home: homeOf,
     sanctuaries,
