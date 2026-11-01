@@ -298,10 +298,35 @@ describe("deploy workflow", () => {
     );
     expect(check).not.toContain("Please bump the version");
     const deploys = workflow.match(/flyctl deploy --config [^\n]+/g);
-    expect(deploys).toHaveLength(3);
-    for (const deploy of deploys) {
+    expect(deploys).toHaveLength(4);
+    // Each rollout names the commit it serves; restore-dev serves .dev's.
+    const restoring = deploys.filter((deploy) => deploy.includes("DEV_SHA"));
+    expect(restoring).toEqual([
+      'flyctl deploy --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"',
+    ]);
+    for (const deploy of deploys.filter((d) => !restoring.includes(d))) {
       expect(deploy).toContain('--env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"');
     }
+  });
+
+  it("returns .dev to the newer main commit a tag deploy replaced", () => {
+    const restore = job("restore-dev", "lonelyforest-image");
+    expect(restore).toContain("needs: [primary-fly]");
+    expect(restore).toContain(
+      "if: startsWith(github.ref, 'refs/tags/') && needs.primary-fly.result == 'success'",
+    );
+    expect(restore).toContain("node scripts/last-dev-rollout.mjs");
+    // Only a commit ahead of the tag is restored, from its own image.
+    expect(restore).toContain('compare/${GITHUB_SHA}...${sha}');
+    expect(restore).toContain('if [ "$status" = ahead ]; then');
+    expect(restore).toContain('git checkout --quiet "$DEV_SHA"');
+    expect(restore).toContain(
+      'GITHUB_SHA="$DEV_SHA" exec node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev',
+    );
+    expect(restore).not.toContain("FLY_LONELYFOREST_API_TOKEN");
+    const outcome = job("deploy-outcome", "github-release");
+    expect(outcome).toContain("- restore-dev");
+    expect(outcome).toContain("needs.restore-dev.result == 'failure'");
   });
 
   it("keeps the pre-push hook to fast checks", () => {

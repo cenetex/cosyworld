@@ -514,6 +514,85 @@ jobs:
       - name: Verify primary card game
         run: node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
 
+  # The primary app is also .dev. A tag of a commit main has moved past rolled
+  # .dev back to it (v1.2.107 replaced 03b2082 at 03:29 on 2026-11-01), so
+  # "tag it from .dev" then named an old commit. Roll .dev forward again to
+  # the newer main commit it ran before this tag, from that commit's image.
+  restore-dev:
+    name: Return .dev to the main commit it ran
+    needs: [primary-fly]
+    if: startsWith(github.ref, 'refs/tags/') && needs.primary-fly.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      # The newest earlier rollout, leaving out this run, is what .dev ran.
+      # Only a newer commit on main is restored; an unreadable list keeps the
+      # tag, and the next main push deploys .dev as before.
+      - name: Find the commit .dev ran before this tag
+        id: previous
+        run: |
+          sha="$(node scripts/last-dev-rollout.mjs)"
+          status=""
+          if [ -n "$sha" ] && [ "$sha" != "$GITHUB_SHA" ]; then
+            status="$(gh api "repos/${GH_REPO}/compare/${GITHUB_SHA}...${sha}" --jq .status || true)"
+          fi
+          if [ "$status" = ahead ]; then
+            echo "sha=$sha" >> "$GITHUB_OUTPUT"
+            echo ".dev ran ${sha:0:7}, ahead of the tag; restoring it."
+          else
+            echo "Nothing newer to restore (${sha:0:7} ${status:-none})."
+          fi
+
+      # The smokes compare .dev with the files and commit it should serve.
+      - name: Check out the commit to restore
+        if: steps.previous.outputs.sha != ''
+        run: git checkout --quiet "$DEV_SHA"
+        env:
+          DEV_SHA: ${{ steps.previous.outputs.sha }}
+
+      - name: Setup flyctl
+        if: steps.previous.outputs.sha != ''
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Roll .dev forward
+        if: steps.previous.outputs.sha != ''
+        run: flyctl deploy --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"
+        env:
+          DEV_SHA: ${{ steps.previous.outputs.sha }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Verify .dev readiness and card game
+        if: steps.previous.outputs.sha != ''
+        env:
+          DEV_SHA: ${{ steps.previous.outputs.sha }}
+        run: |
+          for attempt in {1..13}; do
+            if node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev; then
+              GITHUB_SHA="$DEV_SHA" exec node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
+            fi
+            echo "::warning::.dev readiness attempt $attempt failed; retrying in 10 seconds"
+            sleep 10
+          done
+          echo ".dev readiness remained degraded after 120 seconds" >&2
+          exit 1
+
   # Copy the primary build into the Lonely Forest registry with separate
   # app tokens. A Lonely Forest-only release builds directly in its registry.
   lonelyforest-image:
@@ -677,6 +756,7 @@ jobs:
       - primary-image
       - primary-backup
       - primary-fly
+      - restore-dev
       - lonelyforest-image
       - lonelyforest-backup
       - lonelyforest-fly
@@ -700,6 +780,7 @@ jobs:
            contains(fromJSON('["failure","cancelled"]'), needs.primary-image.result) ||
            contains(fromJSON('["failure","cancelled"]'), needs.primary-backup.result) ||
            needs.primary-fly.result == 'failure' ||
+           needs.restore-dev.result == 'failure' ||
            contains(fromJSON('["failure","cancelled"]'), needs.lonelyforest-image.result) ||
            contains(fromJSON('["failure","cancelled"]'), needs.lonelyforest-backup.result) ||
            needs.lonelyforest-fly.result == 'failure'))
@@ -712,6 +793,7 @@ jobs:
           PRIMARY_IMAGE_RESULT: ${{ needs.primary-image.result }}
           PRIMARY_BACKUP_RESULT: ${{ needs.primary-backup.result }}
           PRIMARY_RESULT: ${{ needs.primary-fly.result }}
+          RESTORE_DEV_RESULT: ${{ needs.restore-dev.result }}
           LONELYFOREST_IMAGE_RESULT: ${{ needs.lonelyforest-image.result }}
           LONELYFOREST_BACKUP_RESULT: ${{ needs.lonelyforest-backup.result }}
           LONELYFOREST_RESULT: ${{ needs.lonelyforest-fly.result }}
@@ -726,6 +808,7 @@ jobs:
           - Primary image build: ${PRIMARY_IMAGE_RESULT}
           - Primary guards and backup: ${PRIMARY_BACKUP_RESULT}
           - Primary Fly deploy: ${PRIMARY_RESULT}
+          - .dev returned to main: ${RESTORE_DEV_RESULT}
           - Lonely Forest image build: ${LONELYFOREST_IMAGE_RESULT}
           - Lonely Forest guards and backup: ${LONELYFOREST_BACKUP_RESULT}
           - Lonely Forest Fly deploy: ${LONELYFOREST_RESULT}
