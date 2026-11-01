@@ -50,17 +50,11 @@ export function rememberLocalUpgrades(
   storage = globalThis.localStorage,
 ) {
   const saved = readLocal(storage);
-  let changed = false;
-  for (const id of humanAvatarIds) {
-    const before = Array.isArray(saved[id]) ? saved[id] : [];
-    const next = merged(before, upgradesOf(world, id));
-    if (next.length !== before.length) {
-      saved[id] = next;
-      changed = true;
-    }
-  }
+  for (const id of humanAvatarIds)
+    if (upgradesOf(world, id).length)
+      saved[id] = merged(saved[id] || [], upgradesOf(world, id));
   try {
-    if (changed) storage?.setItem(LOCAL_UPGRADES_KEY, JSON.stringify(saved));
+    storage?.setItem(LOCAL_UPGRADES_KEY, JSON.stringify(saved));
   } catch {
     /* The upgrade stays in this world's save. */
   }
