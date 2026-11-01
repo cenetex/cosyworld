@@ -57,6 +57,7 @@ it("reads the same reflection context as the narrative", () => {
     expect(reflectionContext(world, action)).toEqual({
       turn: told.turn,
       resting: told.resting,
+      ...(told.rest ? { rest: told.rest } : {}),
       entities: told.entities.map(({ id, memories }) => ({ id, memories })),
     });
   }

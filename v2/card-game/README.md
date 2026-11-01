@@ -641,7 +641,11 @@ The cast guards, responds to attacks, or leaves. Threats, hits, releases, and re
 
 ### Repeated defeats
 
-Each avatar counts its defeats in a row in `defeats`. A win or a rest at home clears the count. The same rule covers players and residents.
+Each avatar counts its defeats in a row in `defeats`. A win clears the count. A player's Wait away from a sanctuary is a short rest that takes one defeat off; a long rest at a sanctuary clears the count when the avatar wakes. A resident clears it by resting at home just after meeting a want. Nobody rests during a standoff.
+
+### Rest and sanctuary
+
+Each world has one sanctuary, marked `"sanctuary": true` on a place in its pack data (the Mirror attic for the reflected shore; the Willows and, for now, the badger forest have none). Wait is the only rest. The player's Wait at a sanctuary is a long rest: the avatar sleeps until the next light change (`actor.sleepUntil`), its only play is Wait until then, and on waking its defeats clear and the wait event carries `rest: "long"`, which makes a thought and a dream due. Solo play runs the world on until the sleeper wakes; in a shared world the others move the clock. A sanctuary allows Threaten but never Attack. Resting gives no experience. See the design note on [#1648](https://github.com/cenetex/cosyworld/issues/1648).
 
 - Defeats one and two: the loser drops the disputed item and retreats, as above.
 - Defeat three: the loser drops everything they carry where they fell, their own belonging included. Then they go home. Nothing goes home with them, and the count clears. An avatar without a reachable home retreats instead.

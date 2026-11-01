@@ -420,6 +420,9 @@ struct Context {
     /// The avatar who chose to wait this turn; only they may reflect.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     resting: Option<String>,
+    /// "long" when the resting avatar wakes from a long rest at a sanctuary.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rest: Option<String>,
     #[serde(default)]
     action: Option<String>,
     entities: Vec<Entity>,
@@ -490,6 +493,10 @@ fn valid(context: &Context) -> bool {
             .resting
             .as_ref()
             .is_none_or(|id| context.speakers.first() == Some(id))
+        && context
+            .rest
+            .as_deref()
+            .is_none_or(|rest| rest == "long" && context.resting.is_some())
         && context.entities.iter().all(|e| {
             profiles().get(&e.id).is_some()
                 && recital::valid(&e.id, e.poem.as_ref(), context.turn)
@@ -1155,6 +1162,10 @@ fn reflection_due(context: &Context, entity: &Entity) -> (bool, bool) {
         || context.resting.as_deref() != Some(entity.id.as_str())
     {
         return (false, false);
+    }
+    // Waking from a long rest always brings a thought and a dream.
+    if context.rest.as_deref() == Some("long") {
+        return (true, true);
     }
     let life = entity.inner_life.as_ref();
     let last = life.and_then(|l| l.thoughts.last()).map(|m| m.turn);
@@ -2672,6 +2683,21 @@ mod tests {
             }
             server.abort();
         }
+    }
+
+    #[test]
+    fn waking_from_a_long_rest_brings_a_thought_and_a_dream() {
+        let mut c = context();
+        c.turn = 24;
+        c.revision = 24;
+        c.rest = Some("long".into());
+        // A long rest belongs to the avatar who waited.
+        assert!(!valid(&c));
+        c.resting = Some(c.entities[0].id.clone());
+        assert!(valid(&c));
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        c.rest = Some("short".into());
+        assert!(!valid(&c));
     }
 
     #[test]

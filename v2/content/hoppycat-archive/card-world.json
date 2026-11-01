@@ -8,6 +8,7 @@
   "entry": "hoppycat-halfway-tea-garden",
   "places": {
     "hoppycat-halfway-tea-garden": {
+      "sanctuary": true,
       "name": "Halfway Tea Garden",
       "text": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table.",
       "persona": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table. Describe this as a playful living place. Use the current story facts for progress.",

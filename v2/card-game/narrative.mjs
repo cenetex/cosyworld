@@ -181,6 +181,7 @@ export function narrativeContext(world, action = null) {
     speakers,
     ids,
     resting,
+    rest,
   } = cast;
   const defeated =
     cast.defeat &&
@@ -250,6 +251,7 @@ export function narrativeContext(world, action = null) {
     focus,
     speakers,
     resting,
+    ...(rest ? { rest } : {}),
     ...(disclosures.length ? { disclosures } : {}),
     action:
       observeText(played?.text) ||

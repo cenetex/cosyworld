@@ -463,8 +463,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "requires",
         "road",
         "retired",
+        "sanctuary",
       ]),
       `place ${id} has an unknown field`,
+    );
+    check(
+      p.sanctuary === undefined || p.sanctuary === true,
+      `place ${id} sanctuary must be true when set`,
     );
     check(
       textOk(p.name, 120) && textOk(p.text) && textOk(p.persona),

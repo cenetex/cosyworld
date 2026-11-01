@@ -122,6 +122,7 @@
       "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
     },
     "greek-sanctuary": {
+      "sanctuary": true,
       "name": "The Hillside Sanctuary",
       "text": "Olive trees shade a small altar. A stone basin stands beneath its roof.",
       "exits": ["greek-courtyard", "greek-cithaeron"],
