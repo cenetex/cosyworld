@@ -16,7 +16,19 @@ await new Promise((done) => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({
+    headless: true,
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+      ? {
+          executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+          args: [
+            "--use-gl=angle",
+            "--use-angle=swiftshader",
+            "--enable-unsafe-swiftshader",
+          ],
+        }
+      : {}),
+  });
   for (const width of [1440, 390]) {
     const table = `greek-travel-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
@@ -156,6 +168,25 @@ try {
       "greek-courtyard",
     ]) {
       await step("move", target);
+      if (target === "greek-ship") {
+        await selectCard(page, "greek-olive-branch", { touch: width === 390 });
+        const art = page.locator(
+          '#hand [data-card="greek-olive-branch"] .art img',
+        );
+        await art.evaluate((img) => img.decode());
+        assert.match(await art.getAttribute("src"), /olive-branch\.webp/);
+        await page.evaluate(
+          () =>
+            new Promise((done) =>
+              requestAnimationFrame(() => requestAnimationFrame(done)),
+            ),
+        );
+        await page.screenshot({
+          path: new URL(`olive-branch-${width}.png`, output).pathname,
+          fullPage: true,
+        });
+        await page.keyboard.press("Escape");
+      }
       const road = packDefinition("greek-drama").places[target]?.road;
       if (road) {
         await selectCard(page, target, { touch: width === 390 });
