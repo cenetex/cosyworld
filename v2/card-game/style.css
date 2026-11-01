@@ -648,15 +648,6 @@ h2 {
 [hidden] {
   display: none !important;
 }
-@media (min-width: 1400px) {
-  .hand {
-    gap: 16px;
-  }
-  .card-frame {
-    flex-basis: 194px;
-    width: 194px;
-  }
-}
 @media (max-width: 700px) {
   .topbar {
     padding: 5px 10px;
@@ -706,27 +697,9 @@ h2 {
   .play-dock {
     padding: 0 8px 4px;
   }
-  .hand {
-    gap: 8px;
-  }
-  .card-frame {
-    flex-basis: 174px;
-    width: 174px;
-    height: 262px;
-  }
-  .card {
-    grid-template-rows: auto 66px auto auto 1fr auto;
-    padding: 7px 8px;
-  }
   .card .art svg {
     width: 34px;
     height: 42px;
-  }
-  .card .name {
-    font-size: 15px;
-  }
-  .card .state {
-    font-size: 11px;
   }
 }
 @media (max-height: 740px) {
@@ -886,7 +859,9 @@ h2 {
 :root {
   --card-width: clamp(174px, 15.5vw, 224px);
   --card-height: clamp(224px, 31dvh, 310px);
-  --dock-height: calc(var(--card-height) * 0.75 + 12px);
+  --dock-height: calc(var(--card-height) * 0.75 + var(--hand-top));
+  --hand-top: 26px;
+  --hand-inline: calc(var(--card-height) * 0.12);
 }
 body {
   background: #090d12;
@@ -970,12 +945,14 @@ body .dialogue[data-dropped="true"] {
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 12px 16px 0;
-  height: calc(var(--card-height) * 0.75 + 12px);
+  /* Room for the outer cards' lean, the quest tab and a chosen card's lift,
+     which the hand's scroll box would otherwise clip. */
+  padding: var(--hand-top) var(--hand-inline) 0;
+  height: calc(var(--card-height) * 0.75 + var(--hand-top));
   transition: height 220ms ease-out;
   scrollbar-width: none;
   scrollbar-color: #ad97744d transparent;
-  scroll-padding-inline: 5px;
+  scroll-padding-inline: var(--hand-inline);
   scroll-snap-type: x proximity;
   overscroll-behavior-x: contain;
 }
@@ -1086,35 +1063,30 @@ body .card-frame[data-raised="true"] {
   z-index: 3;
   transform: translateY(-10px);
 }
-/* A chosen card lifts higher and wears a white ring inside its edge: tiers
-   own the border and the level-up glow owns the shadow. The rest dims. */
+/* A chosen card lifts higher and wears one white edge over its tier border;
+   the level-up glow owns the shadow. The rest dims. */
 body .card-frame:has(> .card[data-selected="true"]) {
   z-index: 2;
   transform: translateY(-12px);
 }
-body .card::before {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  z-index: 3;
-  border: 2px solid #fffaf0;
-  border-radius: 10px;
-  box-shadow:
-    0 0 0 1px #0009,
-    inset 0 0 0 1px #0009;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.22s ease-out;
+body .card {
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  transition: outline-color 0.22s ease-out;
 }
-body .card[data-selected="true"]::before {
-  opacity: 1;
+body .card[data-selected="true"] {
+  outline-color: #fffaf0;
+}
+body .card:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
 }
 .hand:has(.card[data-selected="true"]) .card-frame:not([data-raised="true"]) {
   filter: saturate(0.45) brightness(0.6);
 }
 @media (prefers-reduced-motion: reduce) {
   body .card-frame,
-  body .card::before {
+  body .card {
     transition: none;
   }
 }
@@ -1138,13 +1110,6 @@ body .card {
 }
 body .card:hover {
   background: #181b22;
-}
-body .card[aria-pressed="true"] {
-  border-color: #f2dba6;
-  background: #181b22;
-  box-shadow:
-    0 0 0 1px #f2dba677,
-    0 0 22px #f2dba61a;
 }
 body .card .art {
   position: absolute;
@@ -1191,7 +1156,18 @@ body .card .name {
   color: #f2e3c4;
   white-space: normal;
   text-wrap: balance;
+  overflow-wrap: anywhere;
   text-shadow: 0 2px 5px #000;
+}
+/* A name stays clear of the next card's overlap in the fan. */
+.hand > .card-frame:has(~ .card-frame:not([hidden])) .card .name {
+  padding-right: calc(var(--fan-overlap) + 8px);
+}
+.hand > .card-frame:has(~ .card-frame:not([hidden])):is(:hover, :focus-within)
+  .card
+  .name,
+.hand > .card-frame:has(> .card[data-selected="true"]) .card .name {
+  padding-right: 8px;
 }
 /* Carry the label's shade to the card's edge, wherever the hand clips it. */
 body .card .name::after {
@@ -1246,17 +1222,14 @@ body .card-frame[hidden] {
   transform: translate(7px, -4px) rotate(3deg);
   pointer-events: none;
 }
-.held-preview:nth-child(2) {
-  transform: translate(12px, -6px) rotate(5deg);
-}
 .card-frame[data-expanded="true"] .held-preview {
   display: none;
 }
 .card-frame[data-holder] .card {
   border-color: #a48d6370;
 }
-/* The places you can go from here: blank edges behind the current place, and
-   their count. Opening the place fans them out like the hand. */
+/* The places you can go from here: blank edges behind the current place.
+   Opening the place fans them out like the hand. */
 .place-edge {
   position: absolute;
   inset: 0;
@@ -1269,22 +1242,7 @@ body .card-frame[hidden] {
     linear-gradient(#2a2118, #17110c);
   pointer-events: none;
 }
-.place-count {
-  position: absolute;
-  z-index: 2;
-  top: -7px;
-  right: -9px;
-  min-width: 22px;
-  padding: 2px 6px;
-  border: 1px solid #a48d63;
-  border-radius: 11px;
-  background: #17110c;
-  color: #e8d9b8;
-  font: 600 12px / 16px system-ui, sans-serif;
-  text-align: center;
-  pointer-events: none;
-}
-.card-frame[data-expanded="true"] :is(.place-edge, .place-count) {
+.card-frame[data-expanded="true"] .place-edge {
   display: none;
 }
 /* The quest card shows the player doing the verb with the target, standing
@@ -1337,23 +1295,23 @@ body .card.want-card[data-near="true"] {
   aspect-ratio: 4 / 3;
   pointer-events: none;
 }
-/* The quest folds behind the player's avatar: a tab in its tier colour
-   peeks out at the top left, opposite the carried things. It glows while a
-   first quest is new or a met quest waits to be cleared. */
+/* The quest folds behind the player's avatar: a plain tab in its tier
+   colour rises above the card's top left, opposite the carried thing. It
+   glows while a first quest is new or a met quest waits to be cleared. */
 .card-frame > .quest-tab {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 10px;
   z-index: 0;
-  padding: 0 0 0 9px;
-  border: 2px solid var(--tier-color);
-  border-radius: 13px;
-  background: linear-gradient(var(--tier-color) 0 10px, #14161d 10px);
-  color: #10141a;
-  font: 9px/1 Georgia, serif;
-  letter-spacing: 0.06em;
-  text-align: left;
-  /* Kept within the hand's 12px top margin, which clips anything higher. */
-  transform: translate(-7px, -9px) rotate(-2deg);
+  width: 38%;
+  min-height: 0;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px 7px 0 0;
+  background: var(--tier-color);
+  /* Kept within the hand's top margin, which clips anything higher. */
+  transform: translateY(-9px);
 }
 .card-frame > .quest-tab[data-glow="near"] {
   box-shadow: 0 0 12px 2px var(--tier-color);
@@ -1484,14 +1442,6 @@ body .card.want-card[data-met="true"] {
 .play-dock > .action-panel {
   order: -1;
   padding-bottom: 4px;
-}
-.play-dock > .action-panel:not([hidden]) {
-  animation: action-in 200ms ease-out;
-}
-@keyframes action-in {
-  from {
-    opacity: 0;
-  }
 }
 /* A strike or journey drops the hand; its buttons leave with it. */
 .play-dock[data-dropped="true"] > .action-panel {
@@ -1664,7 +1614,7 @@ body .cast[data-count] {
   :root {
     --card-height: 176px;
     --card-width: 128px;
-    --dock-height: 144px;
+    --dock-height: calc(132px + var(--hand-top));
   }
 }
 @media (max-height: 440px) {
@@ -1752,7 +1702,7 @@ body .line-controls button {
 }
 .play-dock[data-selected="true"] .hand,
 body[data-hand-expanded="true"] .hand {
-  height: calc(var(--card-height) + 16px);
+  height: calc(var(--card-height) + var(--hand-top) + 4px);
 }
 .play-dock[data-selected="true"] .card .name,
 body[data-hand-expanded="true"] .card .name {
@@ -1761,7 +1711,10 @@ body[data-hand-expanded="true"] .card .name {
 /* A resting hand shares the bottom edge with the dialogue on wide screens. */
 @media (min-width: 1100px) and (min-aspect-ratio: 3/2) {
   :root {
-    --resting-hand-width: calc(var(--card-width) * 2 + 46px);
+    /* Two upright cards, as the 2:3 frames are, inside the hand's padding. */
+    --resting-hand-width: calc(
+      var(--card-height) * 4 / 3 + 14px + var(--hand-inline) * 2
+    );
   }
   body[data-hand-expanded="false"] .play-dock {
     left: auto;

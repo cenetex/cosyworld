@@ -241,13 +241,8 @@ try {
           .locator(".card-back")
           .evaluate((img) => img.complete && img.naturalWidth > 0),
       );
-      const levelVisibility = () =>
-        pond
-          .locator(".card-level")
-          .evaluateAll((marks) =>
-            marks.map((mark) => getComputedStyle(mark).visibility),
-          );
-      assert.deepEqual(await levelVisibility(), ["hidden", "hidden"]);
+      // A place has no level of its own, so its card carries no numeral.
+      assert.equal(await pond.locator(".card-level").count(), 0);
       await pond.click();
       assert.equal(await pond.getAttribute("aria-pressed"), "false");
       assert.equal(await pond.getAttribute("data-unrevealed"), "false");
@@ -361,18 +356,7 @@ try {
           .getAttribute("aria-pressed"),
         "true",
       );
-      assert.deepEqual(await levelVisibility(), ["visible", "visible"]);
-      assert.match(
-        await pond.locator(".card-level").first().textContent(),
-        /^[IVXLCDM]+$/,
-      );
-      assert(
-        await pond.evaluate(
-          (el) =>
-            getComputedStyle(el).borderTopColor ===
-            getComputedStyle(el.querySelector(".card-level")).color,
-        ),
-      );
+      assert.equal(await pond.locator(".card-level").count(), 0);
       await page.keyboard.press("Escape");
       await selectCard(page, "pond");
       await page.locator("#card-actions .card-primary").click();
