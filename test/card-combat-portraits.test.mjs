@@ -35,8 +35,35 @@ describe("combat art on the current stage", () => {
   });
   it("leaves other actors and unsupported poses on their authored portraits", () => {
     expect(
-      combatPortrait("greek-guard", "guard", "guard.png", "left"),
+      combatPortrait("greek-ferryman", "guard", "ferryman.png", "left"),
     ).toBeNull();
     expect(combatPortrait("vale", "walk", "vale.png", "right")).toBeNull();
+  });
+});
+
+describe("combat art for the wider cast", () => {
+  it("serves painted poses by identity, shares them with aliases and falls back without one", () => {
+    const greek = combatPortrait(
+      "greek-antigone",
+      "attack",
+      "./assets/greek-drama/chthonic-antigone.png",
+      "left",
+    );
+    expect(greek).toBe("./assets/combat/greek-antigone-attack.webp");
+    expect(nativePortraitFacing(greek)).toBe("left");
+    expect(combatPortrait("greek-orestes-euripides", "hit", null, "left")).toBe(
+      "./assets/combat/greek-orestes-aeschylus-hit.webp",
+    );
+    const cat = combatPortrait("hoppycat-tapi-lilt", "guard", null, "right");
+    expect(cat).toBe("./assets/combat/hoppycat-tapi-lilt-guard.webp");
+    expect(nativePortraitFacing("./assets/combat/rati-attack.webp")).toBe(
+      "right",
+    );
+    // Unpainted poses and Oak's backdrop keep the neutral portrait.
+    expect(combatPortrait("greek-shipmaster", "attack", null, "left")).toBe(
+      null,
+    );
+    expect(combatPortrait("hoppycat-arc", "hit", null, "left")).toBe(null);
+    expect(combatPortrait("oak", "hit", null, "left")).toBe(null);
   });
 });

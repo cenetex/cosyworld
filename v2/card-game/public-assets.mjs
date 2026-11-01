@@ -5,6 +5,7 @@ import imageVariants from "./image-variants.json" with { type: "json" };
 import voiceCast from "./voices.json" with { type: "json" };
 import { daylightAssets } from "./daylight.mjs";
 import { rarityPortraitAssets } from "./rarity-portraits.mjs";
+import { castCombatAssets } from "./cast-combat-art.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
@@ -44,6 +45,9 @@ const files = [
   ...["keeper", "moth"].flatMap((id) =>
     ["attack", "hit"].map((pose) => `assets/combat/${id}-${pose}.webp`),
   ),
+  "cast-combat-art.mjs",
+  "assets/combat/cast-roster.json",
+  ...castCombatAssets,
   "rarity.mjs",
   "rarity-portraits.mjs",
   ...rarityPortraitAssets,
