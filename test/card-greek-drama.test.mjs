@@ -349,9 +349,10 @@ describe("Before the Burial", () => {
     const world = courtyard();
     expect(exits(world, WELL, "vale")).toEqual([COURTYARD]);
     expect(exits(world, COURTYARD, "vale")).toEqual(
-      expect.arrayContaining([WELL, PALACE, GATE, SANCTUARY]),
+      expect.arrayContaining([WELL, PALACE, GATE]),
     );
-    expect(exits(world, PALACE, "vale")).toEqual([COURTYARD]);
+    // The sanctuary lies beyond the palace: three links each.
+    expect(exits(world, PALACE, "vale")).toEqual([COURTYARD, SANCTUARY]);
   });
 
   it("buries with a shovel, cloth and oil on the battlefield, then yields the account", () => {
