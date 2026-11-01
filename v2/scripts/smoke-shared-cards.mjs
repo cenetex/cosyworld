@@ -182,7 +182,11 @@ async function expectStage(page, recent) {
       ) &&
       figures.every((figure) => {
         const rank = ids.indexOf(figure.dataset.avatar);
-        const scale = Math.sqrt([13, 8, 5, 3, 2, 1][rank] / 13);
+        let scale = Math.sqrt([13, 8, 5, 3, 2, 1][rank] / 13);
+        // Phones shrink wide-framed figures (Moth, Keeper) to 74% of their
+        // depth, capped at 93vw, so their arms stay inside the scene.
+        if (figure.dataset.framing === "wide" && innerWidth <= 700)
+          scale = Math.min(scale * 0.74, (innerWidth * 0.93) / height);
         return (
           Math.abs(figure.getBoundingClientRect().height / height - scale) <
           0.01
