@@ -254,7 +254,8 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   installLife(world, travels);
   installRouteKnowledge(world);
   installKnowledge(world);
-  // A new world starts with one want on every avatar.
+  // A new world starts with one want on every avatar but a player still
+  // waiting for its first quest.
   fillWants(world, wantAPI(world), true);
   rememberEvent(world, world.log[0]);
   return world;
@@ -649,6 +650,7 @@ function wantAPI(s) {
     home: homeOf,
     sanctuaries,
     player: (id) => id === currentActor(s) || controlledByHuman(s, id),
+    questsBeginAt: forest.questsBeginAt,
     placeOf: (item) => itemPlace(s, item),
     distance: (from, to, actor) =>
       from === to ? 0 : (routeBetween(s, from, to, actor)?.length ?? 0) - 1,

@@ -1,4 +1,5 @@
 {
+  "questsBeginAt": { "kind": "arrived", "place": "pond" },
   "homeGates": {
     "attic": {
       "item": "lamp",
