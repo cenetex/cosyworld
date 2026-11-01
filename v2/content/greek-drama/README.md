@@ -140,6 +140,8 @@ the Travel Provisions (`greek-provisions`, first at the harbour) are aboard.
 The lane between Piraeus and Athens Harbor opens only while the Suppliant's
 Olive Branch (`greek-olive-branch`) is aboard. The herald hands it to whoever
 registers the mothers' plea at the Agora.
+Its card uses `assets/greek-drama/olive-branch.webp`, the wool-bound branch
+painting documented in [the Argos art handoff](../../card-game/assets/greek-drama/argos-alternates-README.md).
 Piraeus Quays lies outside the Open Door section, so that lane reaches it in
 any save; its roads inland and its stories still wait for Dione's invitation.
 Boarding keeps the ship at its harbour. The first course
@@ -181,6 +183,20 @@ and grave tools. The scenery uses lossless WebP; the item PNGs keep their
 original alpha channels. The [art record](../../card-game/assets/greek-drama/trojan-shores-art-provenance.json)
 lists the selected sources, hashes, retained prompts and known provenance gaps.
 The paintings follow each place's existing access and story conditions.
+
+The onboard deck now selects the open-sea day or night painting only while
+the saved voyage is at sea. Docked, course and arrived states retain the
+coastal deck, and the boarding card retains its outside view. These are
+matched complete paintings from the ship art handoff.
+
+The four existing Atreid places use the matched House of Atreus paintings
+and their night counterparts. Their saved account requirements remain in
+force. All four share a stage focus of 31% across and 50% down, keeping the
+doorway visible on narrow phones. This prepares the art in the full-scope
+world; the Argos release and the planned folding into one House remain part
+of the small-worlds pilot. Crossroads and Corinth/Troezen still need their art.
+`smoke-card-painted-travel.mjs` checks the actual ship phases and all eight
+Argos paintings at desktop/phone widths, including the doorway and save reload.
 
 Card faces show large art and small names. Actions describe immediate deeds.
 Each story has one short line, which the cast uses in Talk. The Bard gives the growing poem.

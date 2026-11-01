@@ -9,6 +9,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { encodeSave, legalActions, nameOf, play } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
+import { combatPortrait } from "../card-game/combat-portraits.mjs";
 
 function fixture() {
   let s = enableMotives(atticOpening());
@@ -31,7 +32,7 @@ function fixture() {
       opened: s.turn - 1,
       answered: true,
       resolve: { vale: 1, moth: 4 },
-      guarding: { vale: false, moth: false },
+      guarding: { vale: true, moth: false },
       struck: { vale: true, moth: true },
     },
   ];
@@ -42,7 +43,10 @@ const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const output = new URL("../../output/combat/", import.meta.url);
 await mkdir(output, { recursive: true });
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+});
 const results = [];
 try {
   for (const [width, height, motion] of [
@@ -95,13 +99,39 @@ try {
     await page.waitForFunction(
       () => document.querySelectorAll("#cast .combat-pips").length === 2,
     );
+    assert.match(
+      await page
+        .locator('#cast [data-avatar="vale"] .portrait-body > img')
+        .getAttribute("data-source"),
+      /vale-guard\.webp$/,
+      "The saved standing guard selects its painting before another play",
+    );
     // Vale with Pip raised offers Guard during the standoff.
     await selectCard(page, "vale");
     await selectCard(page, "moth");
+    await page.evaluate(() => {
+      window.combatArt = [];
+      new MutationObserver(() => {
+        for (const image of document.querySelectorAll(
+          "#cast .portrait-body > img",
+        ))
+          window.combatArt.push(image.dataset.source);
+      }).observe(document.querySelector("#cast"), {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["data-source"],
+      });
+    });
     await page.locator("#card-actions button", { hasText: /^Guard/ }).click();
     // The telegraph and the rules line appear on stage before the new place.
     await page.locator("#combat-caption:not([hidden])").waitFor();
     report.telegraph = await page.locator("#combat-caption").textContent();
+    assert.match(
+      await page
+        .locator('#cast [data-avatar="vale"] .portrait-body > img')
+        .getAttribute("data-source"),
+      /vale-guard\.webp$/,
+    );
     await page.waitForFunction(() =>
       /loses 1 resolve/.test(
         document.querySelector("#combat-caption").textContent,
@@ -112,6 +142,24 @@ try {
       .last()
       .textContent();
     await page.locator("#defeat-dialog[open]").waitFor();
+    report.art = [...new Set(await page.evaluate(() => window.combatArt))];
+    for (const [id, pose] of [
+      ["vale", "guard"],
+      ["moth", "attack"],
+      ["vale", "hit"],
+    ]) {
+      const source = combatPortrait(
+        id,
+        pose,
+        `./assets/${id}.png`,
+        id === "vale" ? "right" : "left",
+      );
+      if (source)
+        assert.ok(
+          report.art.includes(source),
+          `${source} appeared in the committed combat beats`,
+        );
+    }
     assert.equal(
       await page
         .locator('#cast [data-avatar="vale"]')
@@ -140,7 +188,7 @@ try {
     await page.locator("#defeat-dialog [data-combat-continue]").click();
     if (motion === "reduce") {
       await page.waitForFunction(() =>
-        /You come to at /.test(document.querySelector(".dialogue").textContent),
+        /You came to at /.test(document.querySelector(".dialogue").textContent),
       );
     } else {
       await page.locator("#travel.travelling").waitFor();
@@ -188,6 +236,38 @@ try {
       () => document.documentElement.scrollWidth > window.innerWidth,
     );
     assert.equal(overflow, false, "No horizontal scroll");
+    report.cancelled = await page.evaluate(async () => {
+      const { createCombatView } = await import("/card-game/combat-view.mjs");
+      const before = [
+        ...document.querySelectorAll("#cast .portrait-body > img"),
+      ].map((image) => image.getAttribute("src"));
+      const view = createCombatView({
+        stage: document.querySelector("#stage"),
+        caption: document.querySelector("#combat-caption"),
+        announce: document.querySelector("#combat-announcement"),
+        dialog: document.querySelector("#defeat-dialog"),
+        reducedMotion: matchMedia("(prefers-reduced-motion: reduce)"),
+        revealLine() {},
+      });
+      const playing = view.play([
+        { kind: "guard", actorId: "vale", targetId: "keeper" },
+      ]);
+      view.cleanup();
+      const completed = await playing;
+      const after = [
+        ...document.querySelectorAll("#cast .portrait-body > img"),
+      ].map((image) => image.getAttribute("src"));
+      return (
+        completed === false &&
+        JSON.stringify(before) === JSON.stringify(after) &&
+        !document.querySelector("#stage").dataset.combat
+      );
+    });
+    assert.equal(
+      report.cancelled,
+      true,
+      "Cancelling during preload restores the stage without starting late beats",
+    );
     assert.deepEqual(report.errors, []);
     report.passed = true;
     await page.close();

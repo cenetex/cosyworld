@@ -1,0 +1,537 @@
+{
+  "created": "2026-11-01",
+  "generator": "OpenAI built-in image_gen.imagegen",
+  "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6",
+  "brief": "The owner’s final Willows sign and notebook brief, preserved in v2/content/willows/ART-BRIEF.md.",
+  "max_backdrop_bytes": 300000,
+  "encoding": {
+    "format": "WebP for scenery; original PNG for items",
+    "max_quality": 95,
+    "method": 6,
+    "pillow_webp_version": "1.6.0"
+  },
+  "assets": [
+    {
+      "id": "landing-otter",
+      "file": "landing-otter.webp",
+      "kind": "backdrop",
+      "optional": false,
+      "dimensions": [1672, 941],
+      "bytes": 298776,
+      "sha256": "0777a61632caca9b31658a97840d94eb389b885251007bc628ef06d84c78c2c8",
+      "quality": 80,
+      "opaque": true,
+      "original_png": {
+        "filename": "exec-b3d56073-c975-4682-b63a-7e2057bd4b85.png",
+        "sha256": "1ffb2319e981588e2428bba0ff256f4ac0151659cda5a7fcd7b4b91ea699d121",
+        "bytes": 3061151,
+        "mode": "RGB",
+        "dimensions": [1672, 941]
+      },
+      "generation_id": "exec-b3d56073-c975-4682-b63a-7e2057bd4b85",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/landing.webp",
+          "sha256": "589d52b6c0d24168c7f57952f2fae3aa6550726c7e1897eef7616979fff55804",
+          "dimensions": [1672, 941],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        }
+      ],
+      "processing": "Full native canvas encoded to WebP only; no resizing, crop, retouching, compositing or colour edits.",
+      "superseded_initial_output": {
+        "generation_id": "exec-9b82ef42-d8c1-4189-bead-329a9a2cc8c9",
+        "original_png": {
+          "filename": "exec-9b82ef42-d8c1-4189-bead-329a9a2cc8c9.png",
+          "sha256": "5cda04acc98b44507194d24468657e8abafe579b8f8a7a50810f80ba4b0b9acd",
+          "bytes": 3116174,
+          "mode": "RGB",
+          "dimensions": [1672, 941]
+        },
+        "encoded_sha256": "f61137dbe7e893af6665d4c687b65df255364831da11c337f397329a48f9f36e",
+        "encoded_bytes": 298042,
+        "reason": "Repositioned the added subject within the existing phone crop; camera and landscape remain unchanged."
+      },
+      "accepted_revision": {
+        "purpose": "Move only the added subject and its wake into the existing phone crop without changing the camera or landscape.",
+        "edit_target": {
+          "filename": "exec-9b82ef42-d8c1-4189-bead-329a9a2cc8c9.png",
+          "sha256": "5cda04acc98b44507194d24468657e8abafe579b8f8a7a50810f80ba4b0b9acd",
+          "bytes": 3116174,
+          "mode": "RGB",
+          "dimensions": [1672, 941]
+        },
+        "composition_reference": {
+          "repository_path": "v2/card-game/assets/willows/landing.webp",
+          "sha256": "589d52b6c0d24168c7f57952f2fae3aa6550726c7e1897eef7616979fff55804",
+          "dimensions": [1672, 941],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        },
+        "prompt_location": "sign-art-prompts.json: assets.landing-otter.accepted_revision"
+      }
+    },
+    {
+      "id": "landing-boatman",
+      "file": "landing-boatman.webp",
+      "kind": "backdrop",
+      "optional": false,
+      "dimensions": [1672, 941],
+      "bytes": 288970,
+      "sha256": "0f97c18fe7d64b3bc4b6c14a81a9be26f74e75530a8d41dc24b516fe62ba1311",
+      "quality": 80,
+      "opaque": true,
+      "original_png": {
+        "filename": "exec-6ea7a2fc-2c9b-4b15-a90f-c7cbed72fafa.png",
+        "sha256": "e23d8a641035db6ca2ba91fa0adb10d05ac68202160dcf60eeafe449d0be923a",
+        "bytes": 3038909,
+        "mode": "RGB",
+        "dimensions": [1672, 941]
+      },
+      "generation_id": "exec-6ea7a2fc-2c9b-4b15-a90f-c7cbed72fafa",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/landing.webp",
+          "sha256": "589d52b6c0d24168c7f57952f2fae3aa6550726c7e1897eef7616979fff55804",
+          "dimensions": [1672, 941],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        }
+      ],
+      "processing": "Full native canvas encoded to WebP only; no resizing, crop, retouching, compositing or colour edits.",
+      "superseded_initial_output": {
+        "generation_id": "exec-8c4deab4-eb58-406f-8081-ab711b77463b",
+        "original_png": {
+          "filename": "exec-8c4deab4-eb58-406f-8081-ab711b77463b.png",
+          "sha256": "7feff59da72789f8b6374988e99d23eeaf94db638c8711414008dae2680e772b",
+          "bytes": 3125187,
+          "mode": "RGB",
+          "dimensions": [1672, 941]
+        },
+        "encoded_sha256": "2d0fa8589d95e13d336bc1666697dde3b7303eac845ac977dc5158ee561d7b9e",
+        "encoded_bytes": 296374,
+        "reason": "Repositioned the added subject within the existing phone crop; camera and landscape remain unchanged."
+      },
+      "accepted_revision": {
+        "purpose": "Move only the added subject and its wake into the existing phone crop without changing the camera or landscape.",
+        "edit_target": {
+          "filename": "exec-19d6b6cf-ac0a-45b7-8926-a6eacd63dab6.png",
+          "sha256": "08a7b513831376760fc82cc93ddf3817cf60d666cd7a7239c2bb90ba1c25ea0e",
+          "bytes": 3092830,
+          "mode": "RGB",
+          "dimensions": [1672, 941]
+        },
+        "composition_reference": {
+          "repository_path": "v2/card-game/assets/willows/landing.webp",
+          "sha256": "589d52b6c0d24168c7f57952f2fae3aa6550726c7e1897eef7616979fff55804",
+          "dimensions": [1672, 941],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        },
+        "prompt_location": "sign-art-prompts.json: assets.landing-boatman.accepted_revision"
+      },
+      "framing_trials": [
+        {
+          "filename": "exec-77f182fc-133b-4bfc-89ce-687394a63658.png",
+          "sha256": "7f310e9ddce5216de3f071608461694712c5eab8111e1bc8101277225980651c",
+          "bytes": 2929778,
+          "mode": "RGB",
+          "dimensions": [1672, 941],
+          "outcome": "Rejected: boatman outside the left edge of the narrow phone crop."
+        },
+        {
+          "filename": "exec-19d6b6cf-ac0a-45b7-8926-a6eacd63dab6.png",
+          "sha256": "08a7b513831376760fc82cc93ddf3817cf60d666cd7a7239c2bb90ba1c25ea0e",
+          "bytes": 3092830,
+          "mode": "RGB",
+          "dimensions": [1672, 941],
+          "outcome": "Rejected: boatman behind the player in the narrow phone stage; exact edit target of final revision."
+        }
+      ]
+    },
+    {
+      "id": "landing-mended",
+      "file": "landing-mended.webp",
+      "kind": "backdrop",
+      "optional": false,
+      "dimensions": [1672, 941],
+      "bytes": 293238,
+      "sha256": "e972a87714f8f4a763053d4c937949da20a4db9393a2d83b2a1b66eec962cc22",
+      "quality": 77,
+      "opaque": true,
+      "original_png": {
+        "filename": "exec-d02d9036-ae1f-4dc1-a970-5fa0b1a897e5.png",
+        "sha256": "0f16cda63f65a04748d792a52ed5a70f8179c8b47809541595441766091f0196",
+        "bytes": 3255690,
+        "mode": "RGB",
+        "dimensions": [1672, 941]
+      },
+      "generation_id": "exec-d02d9036-ae1f-4dc1-a970-5fa0b1a897e5",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/landing.webp",
+          "sha256": "589d52b6c0d24168c7f57952f2fae3aa6550726c7e1897eef7616979fff55804",
+          "dimensions": [1672, 941],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        }
+      ],
+      "processing": "Full native canvas encoded to WebP only; no resizing, crop, retouching, compositing or colour edits."
+    },
+    {
+      "id": "camp-closer",
+      "file": "camp-closer.webp",
+      "kind": "backdrop",
+      "optional": false,
+      "dimensions": [1672, 941],
+      "bytes": 285094,
+      "sha256": "ad7a9b6d0f9b12b8ab212dc3dc67b53519d586add51bb0b9e8c3806e23598139",
+      "quality": 81,
+      "opaque": true,
+      "original_png": {
+        "filename": "exec-cc863cdc-236c-4bce-9d00-b685d6bf865a.png",
+        "sha256": "c1eb649f089b2fa000800f38c3df3ae1e542f731adf17c22ddea8e38617be4a0",
+        "bytes": 2924386,
+        "mode": "RGB",
+        "dimensions": [1672, 941]
+      },
+      "generation_id": "exec-cc863cdc-236c-4bce-9d00-b685d6bf865a",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/camp.webp",
+          "sha256": "b45b2f36bca38d187e277b57704bbb9a7600a087d9cb4dcb6406049c74e10314",
+          "dimensions": [1672, 941],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        },
+        {
+          "repository_path": "v2/card-game/assets/willows/camp-lit-night.webp",
+          "sha256": "3aeac8f45d6c1422f1ffb410a01a7709d607c25a4f9a4781e6fcef1ed41e2aef",
+          "dimensions": [1672, 941],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        }
+      ],
+      "processing": "Full native canvas encoded to WebP only; no resizing, crop, retouching, compositing or colour edits."
+    },
+    {
+      "id": "camp-tent-pressure",
+      "file": "camp-tent-pressure.webp",
+      "kind": "backdrop",
+      "optional": false,
+      "dimensions": [1672, 941],
+      "bytes": 292730,
+      "sha256": "5938acc5867e528865e208f9797cbb29684e312083226b1b5bdd0905db714073",
+      "quality": 84,
+      "opaque": true,
+      "original_png": {
+        "filename": "exec-2e4c3b71-b18d-479e-891e-350863a1d10b.png",
+        "sha256": "1a5eb03bc6dcd86a84785233c27d9ab3f80207c3a3739b78445cbf4b2c5a0651",
+        "bytes": 2748478,
+        "mode": "RGB",
+        "dimensions": [1672, 941]
+      },
+      "generation_id": "exec-2e4c3b71-b18d-479e-891e-350863a1d10b",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/camp-lit-night.webp",
+          "sha256": "3aeac8f45d6c1422f1ffb410a01a7709d607c25a4f9a4781e6fcef1ed41e2aef",
+          "dimensions": [1672, 941],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        }
+      ],
+      "processing": "Full native canvas encoded to WebP only; no resizing, crop, retouching, compositing or colour edits."
+    },
+    {
+      "id": "thicket-bronze",
+      "file": "thicket-bronze.webp",
+      "kind": "backdrop",
+      "optional": false,
+      "dimensions": [1672, 941],
+      "bytes": 279596,
+      "sha256": "c928438c7e78c987964c463da63315d9f8d4127e2473116427a078c3f67128e6",
+      "quality": 87,
+      "opaque": true,
+      "original_png": {
+        "filename": "exec-7539e0ad-573d-4672-b54d-bfc4e7a937ae.png",
+        "sha256": "8fb1906235233637385422345479c8f20bc8b642960a04cbab63c0aabd1a2234",
+        "bytes": 2726109,
+        "mode": "RGB",
+        "dimensions": [1672, 941]
+      },
+      "generation_id": "exec-7539e0ad-573d-4672-b54d-bfc4e7a937ae",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/thicket-night.webp",
+          "sha256": "d91e0177754a1b9a7ab728d59ce574bfa50068de8e44f0b11672239ce108406d",
+          "dimensions": [1672, 941],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        }
+      ],
+      "processing": "Full native canvas encoded to WebP only; no resizing, crop, retouching, compositing or colour edits."
+    },
+    {
+      "id": "thicket-hollows",
+      "file": "thicket-hollows.webp",
+      "kind": "backdrop",
+      "optional": true,
+      "dimensions": [1672, 941],
+      "bytes": 293348,
+      "sha256": "602ccfd7c1aebfda4fbdf9d9b331032220a90bb43f8f16a5d4928a3cecb02d28",
+      "quality": 78,
+      "opaque": true,
+      "original_png": {
+        "filename": "exec-6f066e24-da17-473e-8cfb-93e880119f31.png",
+        "sha256": "7a4013863a09d6f61df66e3ddff40a62e8805c85ee37e8074a426d133368a78f",
+        "bytes": 3413759,
+        "mode": "RGB",
+        "dimensions": [1672, 941]
+      },
+      "generation_id": "exec-6f066e24-da17-473e-8cfb-93e880119f31",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/thicket.webp",
+          "sha256": "ac2324c2edd0d98f8d7ecf11f3b30ccdd891261ba0b5514896305b41064cd95c",
+          "dimensions": [1672, 941],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        }
+      ],
+      "processing": "Full native canvas encoded to WebP only; no resizing, crop, retouching, compositing or colour edits."
+    },
+    {
+      "id": "bank-humming",
+      "file": "bank-humming.webp",
+      "kind": "backdrop",
+      "optional": false,
+      "dimensions": [1672, 941],
+      "bytes": 297678,
+      "sha256": "8ea42c17f0f7e69d464be3571631459799eec3008862276be4395e8d4e7a574e",
+      "quality": 83,
+      "opaque": true,
+      "original_png": {
+        "filename": "exec-0fcf6a64-7ea7-438e-ab8a-c3210d74daa9.png",
+        "sha256": "50db60381d8988ab2da364062d3d2bf13f92b2700bba40ed091ec60a6edd2276",
+        "bytes": 3008003,
+        "mode": "RGB",
+        "dimensions": [1672, 941]
+      },
+      "generation_id": "exec-0fcf6a64-7ea7-438e-ab8a-c3210d74daa9",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/bank.webp",
+          "sha256": "1b7d169860245febcaccad142b6ee7ecba37d8d302ff75e8128e6584bc07ca19",
+          "dimensions": [1672, 941],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        }
+      ],
+      "processing": "Full native canvas encoded to WebP only; no resizing, crop, retouching, compositing or colour edits."
+    },
+    {
+      "id": "bank-roots",
+      "file": "bank-roots.webp",
+      "kind": "backdrop",
+      "optional": false,
+      "dimensions": [1672, 941],
+      "bytes": 289146,
+      "sha256": "6cede0cfb2bd2dddfe95c6f48eef8e3aa69c32a34f0c800f2e39629ebbbcd886",
+      "quality": 80,
+      "opaque": true,
+      "original_png": {
+        "filename": "exec-1a5e4674-5492-4f5c-aa8c-40914178dce0.png",
+        "sha256": "8821500c64a76d0d29c7c0b81abc1bbc7171d7b51349ff28382ebac8f91d9ece",
+        "bytes": 3151062,
+        "mode": "RGB",
+        "dimensions": [1672, 941]
+      },
+      "generation_id": "exec-1a5e4674-5492-4f5c-aa8c-40914178dce0",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/bank.webp",
+          "sha256": "1b7d169860245febcaccad142b6ee7ecba37d8d302ff75e8128e6584bc07ca19",
+          "dimensions": [1672, 941],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        }
+      ],
+      "processing": "Full native canvas encoded to WebP only; no resizing, crop, retouching, compositing or colour edits."
+    },
+    {
+      "id": "bank-drowned",
+      "file": "bank-drowned.webp",
+      "kind": "backdrop",
+      "optional": false,
+      "dimensions": [1672, 941],
+      "bytes": 291886,
+      "sha256": "0e4a5f05ccbc424140f18275d65c5744c1befe499f9f3fb6d7eb0f758d38b8f3",
+      "quality": 89,
+      "opaque": true,
+      "original_png": {
+        "filename": "exec-cc7b3254-049b-4c1b-9a4f-f0898f29655f.png",
+        "sha256": "84cff8fcc5d6136338731d036e6a6ff1e589cd005871d1827abc051f26b653b8",
+        "bytes": 2680932,
+        "mode": "RGB",
+        "dimensions": [1672, 941]
+      },
+      "generation_id": "exec-cc7b3254-049b-4c1b-9a4f-f0898f29655f",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/bank-night.webp",
+          "sha256": "427b7e1e3c12c3c095f9d78a0ac9727f7ae224a1cd70cd45f93d7463924525ae",
+          "dimensions": [1672, 941],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        }
+      ],
+      "processing": "Full native canvas encoded to WebP only; no resizing, crop, retouching, compositing or colour edits."
+    },
+    {
+      "id": "notebook-page-1",
+      "file": "notebook-page-1.png",
+      "kind": "item",
+      "optional": false,
+      "dimensions": [1254, 1254],
+      "bytes": 2390749,
+      "sha256": "7d6771f8870edeeed2985d3a6663fa3126ad3b1eefbe9a94ea6faab9118c9d04",
+      "quality": null,
+      "opaque": false,
+      "original_png": {
+        "filename": "exec-104e67ff-c0d4-4144-a7f4-0634c87c291b.png",
+        "sha256": "7d6771f8870edeeed2985d3a6663fa3126ad3b1eefbe9a94ea6faab9118c9d04",
+        "bytes": 2390749,
+        "mode": "RGBA",
+        "dimensions": [1254, 1254]
+      },
+      "generation_id": "exec-104e67ff-c0d4-4144-a7f4-0634c87c291b",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/map.png",
+          "sha256": "d792e96b98f682a901f9022925bb3b42b12c916510c93690980cde4d614b3468",
+          "dimensions": [1254, 1254],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        }
+      ],
+      "processing": "Original generated PNG copied byte-for-byte; generated alpha preserved."
+    },
+    {
+      "id": "notebook-page-2",
+      "file": "notebook-page-2.png",
+      "kind": "item",
+      "optional": false,
+      "dimensions": [1254, 1254],
+      "bytes": 2381066,
+      "sha256": "ee719b1723b1decf783d680feb46400b0d5cbc76232a6ac23d6e20f328bcabe9",
+      "quality": null,
+      "opaque": false,
+      "original_png": {
+        "filename": "exec-a9f81bd7-1efd-4ebd-80a4-5744b86e335a.png",
+        "sha256": "ee719b1723b1decf783d680feb46400b0d5cbc76232a6ac23d6e20f328bcabe9",
+        "bytes": 2381066,
+        "mode": "RGBA",
+        "dimensions": [1254, 1254]
+      },
+      "generation_id": "exec-a9f81bd7-1efd-4ebd-80a4-5744b86e335a",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/notebook-page-1.png",
+          "sha256": "7d6771f8870edeeed2985d3a6663fa3126ad3b1eefbe9a94ea6faab9118c9d04",
+          "dimensions": [1254, 1254],
+          "reference_commit": null
+        }
+      ],
+      "processing": "Original generated PNG copied byte-for-byte; generated alpha preserved."
+    },
+    {
+      "id": "notebook-page-3",
+      "file": "notebook-page-3.png",
+      "kind": "item",
+      "optional": false,
+      "dimensions": [1254, 1254],
+      "bytes": 2281417,
+      "sha256": "ccfd5d4e7e38ad8c19c60171a3f9c3ac0b0f9e2b4b5f32c1fe51202602a45fee",
+      "quality": null,
+      "opaque": false,
+      "original_png": {
+        "filename": "exec-47e0f055-4715-42ad-9b71-cb6ac15d7fa0.png",
+        "sha256": "ccfd5d4e7e38ad8c19c60171a3f9c3ac0b0f9e2b4b5f32c1fe51202602a45fee",
+        "bytes": 2281417,
+        "mode": "RGBA",
+        "dimensions": [1254, 1254]
+      },
+      "generation_id": "exec-47e0f055-4715-42ad-9b71-cb6ac15d7fa0",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/notebook-page-1.png",
+          "sha256": "7d6771f8870edeeed2985d3a6663fa3126ad3b1eefbe9a94ea6faab9118c9d04",
+          "dimensions": [1254, 1254],
+          "reference_commit": null
+        }
+      ],
+      "processing": "Original generated PNG copied byte-for-byte; generated alpha preserved."
+    },
+    {
+      "id": "notebook-chapter",
+      "file": "notebook-chapter.png",
+      "kind": "item",
+      "optional": false,
+      "dimensions": [1254, 1254],
+      "bytes": 2590813,
+      "sha256": "d7d5191892dbc4f6ab9768b39a54582dd3250edefdf7820b0d7c4b5274276a6c",
+      "quality": null,
+      "opaque": false,
+      "original_png": {
+        "filename": "exec-0b9050f2-463d-426d-8ead-e1d68c635fad.png",
+        "sha256": "d7d5191892dbc4f6ab9768b39a54582dd3250edefdf7820b0d7c4b5274276a6c",
+        "bytes": 2590813,
+        "mode": "RGBA",
+        "dimensions": [1254, 1254]
+      },
+      "generation_id": "exec-0b9050f2-463d-426d-8ead-e1d68c635fad",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/notebook-page-1.png",
+          "sha256": "7d6771f8870edeeed2985d3a6663fa3126ad3b1eefbe9a94ea6faab9118c9d04",
+          "dimensions": [1254, 1254],
+          "reference_commit": null
+        },
+        {
+          "repository_path": "v2/card-game/assets/willows/rope.png",
+          "sha256": "00ed54fffb54e2535f44eadbe68c45c89b5ec4fd08d2f82852ccf3ade865f6ea",
+          "dimensions": [1254, 1254],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        }
+      ],
+      "processing": "Original generated PNG copied byte-for-byte; generated alpha preserved."
+    },
+    {
+      "id": "notebook-book",
+      "file": "notebook-book.png",
+      "kind": "item",
+      "optional": false,
+      "dimensions": [1254, 1254],
+      "bytes": 1817667,
+      "sha256": "ce080d6073cb3500a7ceac38f0d39fe42966e1da2bccf48aa1e2bc13a5daca52",
+      "quality": null,
+      "opaque": false,
+      "original_png": {
+        "filename": "exec-30581dd0-a2bc-490b-994a-6b688be26ffe.png",
+        "sha256": "ce080d6073cb3500a7ceac38f0d39fe42966e1da2bccf48aa1e2bc13a5daca52",
+        "bytes": 1817667,
+        "mode": "RGBA",
+        "dimensions": [1254, 1254]
+      },
+      "generation_id": "exec-30581dd0-a2bc-490b-994a-6b688be26ffe",
+      "references": [
+        {
+          "repository_path": "v2/card-game/assets/willows/sheet.png",
+          "sha256": "8eedda5b40290ae4ed32d2af1ad1a2a9dac9f3bf7a80701558d21b19fc60a4f0",
+          "dimensions": [1254, 1254],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        },
+        {
+          "repository_path": "v2/card-game/assets/willows/rope.png",
+          "sha256": "00ed54fffb54e2535f44eadbe68c45c89b5ec4fd08d2f82852ccf3ade865f6ea",
+          "dimensions": [1254, 1254],
+          "reference_commit": "8ef5d8eee3ac1f095dc6f16df274e9d968dd83e6"
+        },
+        {
+          "repository_path": "v2/card-game/assets/willows/notebook-page-1.png",
+          "sha256": "7d6771f8870edeeed2985d3a6663fa3126ad3b1eefbe9a94ea6faab9118c9d04",
+          "dimensions": [1254, 1254],
+          "reference_commit": null
+        }
+      ],
+      "processing": "Original generated PNG copied byte-for-byte; generated alpha preserved."
+    }
+  ]
+}
