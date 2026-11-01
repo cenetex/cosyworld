@@ -83,6 +83,7 @@ describe("Hoppy Cat refresh", () => {
   it("starts a valid garden save from the host or pack link and offers the way home", () => {
     for (const url of [
       "https://hoppy.lonelyforest.com/",
+      "https://hoppycat.lonelyforest.com/",
       "http://localhost/?pack=hoppycat-archive",
     ]) {
       const world = decodeSave(
