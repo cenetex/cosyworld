@@ -125,7 +125,8 @@ fn concurrent_writes_to_one_world_never_hit_the_lock_and_keep_each_play_once() {
         std::thread::spawn(move || {
             store::TEST_BUSY_TIMEOUT.set(Duration::from_millis(1));
             start.wait();
-            // An ordinary connection ends each scene early so the next play can start.
+            // An ordinary connection ends each scene early so the next play can
+            // start. It takes the world's write turn like any other writer.
             let clock = store::open_sqlite(&path, Duration::from_secs(5)).unwrap();
             let mut idle = 0;
             while playing.load(Ordering::SeqCst) || idle < 3 {
@@ -140,9 +141,13 @@ fn concurrent_writes_to_one_world_never_hit_the_lock_and_keep_each_play_once() {
                         if let Err(e) = full::finish_work(&app, &id, work, Ok(lines)) {
                             errors.lock().unwrap().push(format!("finish {key}: {e}"));
                         }
-                        clock
-                            .execute("UPDATE card_full_plays SET until_at=0 WHERE id=?", [&key])
-                            .unwrap();
+                        // The clock is a writer too: outside the turn it
+                        // starves behind back-to-back gated writes (#1756).
+                        full::in_write_turn(&app, || {
+                            clock
+                                .execute("UPDATE card_full_plays SET until_at=0 WHERE id=?", [&key])
+                        })
+                        .unwrap();
                     }
                     Ok(None) => {
                         if !playing.load(Ordering::SeqCst) {

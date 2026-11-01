@@ -84,6 +84,14 @@ fn writer(state: &AppState) -> Arc<Mutex<()>> {
 fn turn(gate: &Mutex<()>) -> MutexGuard<'_, ()> {
     gate.lock().unwrap_or_else(PoisonError::into_inner)
 }
+// Run one write in the world's turn. Tests that stand in for the clock or an
+// operator write through this, like every shared-world writer.
+#[cfg(test)]
+pub(super) fn in_write_turn<T>(state: &AppState, f: impl FnOnce() -> T) -> T {
+    let gate = writer(state);
+    let _turn = turn(&gate);
+    f()
+}
 async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
     reply(
         blocking(move || {
