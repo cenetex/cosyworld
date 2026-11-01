@@ -173,7 +173,10 @@ try {
       world = result.world;
       if (kind === "take") assert.deepEqual(project().exits, ["pond"]);
     }
-    await page.locator('#hand [data-card="pond"]').waitFor();
+    // The pond joins the location stack face down (#1780).
+    await page
+      .locator('#hand [data-card="pond"]')
+      .waitFor({ state: "attached" });
     await ready(page);
     await selectCard(page, "pond", { touch: width === 390 });
     await page.locator('#card-actions [data-action="move"]').click();
