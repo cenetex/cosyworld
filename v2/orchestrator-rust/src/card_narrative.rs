@@ -2867,7 +2867,7 @@ mod tests {
         value["entities"][3]["facts"] = json!([]);
         value["entities"][3]["poem"] = json!({
             "title":"Before the Burial",
-            "stanzas":[{"id":"greek-decline-burial","turn":1,"authorId":"vale","authorName":"Vale"}]
+            "stanzas":[{"id":"greek-report-plan","turn":1,"authorId":"vale","authorName":"Vale"}]
         });
         value["entities"][3]["memories"] = json!([]);
         serde_json::from_value(value).unwrap()
@@ -2911,7 +2911,7 @@ mod tests {
     }
 
     #[test]
-    fn authored_claims_follow_earned_burial_permission_refusal_and_exposure() {
+    fn authored_claims_follow_earned_burial_permission_and_report() {
         let packs: Value =
             serde_json::from_str(include_str!("../../card-game/packs.json")).unwrap();
         let recital = &packs["packs"]
@@ -2924,7 +2924,6 @@ mod tests {
             ("greek-perform-burial", true, false),
             ("greek-petition-burial", false, true),
             ("greek-perform-permitted-burial", true, true),
-            ("greek-decline-burial", false, false),
             ("greek-report-plan", false, false),
         ] {
             let mut c = bard_context();

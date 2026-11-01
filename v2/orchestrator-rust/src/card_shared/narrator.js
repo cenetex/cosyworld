@@ -16820,6 +16820,11 @@
     s.log = (s.log || []).filter(
       (e) => !(e.packId === pack.id && THEBAN_RETIRED_CHOICES.includes(e.choiceId))
     );
+    for (const fact of Object.values(s.knowledge?.facts || {})) {
+      const told = fact?.source?.kind === "topic" && fact.source.topic;
+      const topic = told?.packId === pack.id && (pack.topics || []).find((t) => t.id === told.id);
+      if (topic) told.choiceId = topic.choiceId ?? null;
+    }
     saved.revision = 11;
   }
 

@@ -91,6 +91,14 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
         "world-map".into(),
         json!({"holder": "station", "history": []}),
     );
+    // Greek revision 11's Theban outcomes wait unseen where their deeds are done.
+    for (id, holder) in [
+        ("greek-burial-account", "greek-battlefield"),
+        ("greek-creon-writ", "greek-palace"),
+        ("greek-guard-tablet", "greek-gate"),
+    ] {
+        items.insert(id.into(), json!({"holder": holder, "history": []}));
+    }
     for field in ["items", "opening", "turn"] {
         assert_eq!(world.game[field], expected[field], "{field}");
     }

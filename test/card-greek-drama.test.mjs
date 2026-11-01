@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 import { describe, expect, it } from "vitest";
@@ -462,6 +463,18 @@ describe("Before the Burial", () => {
       [WELL, COURTYARD],
       [COURTYARD, GATE],
     ]);
+  });
+
+  it("keeps a released decree that was heard through Talk", () => {
+    // Rules 21 told the decree as a Talk choice; revision 11 tells it on meeting.
+    const s = decodeSave(
+      readFileSync("test/fixtures/ajax-household-rules-21.json", "utf8"),
+    );
+    expect(s.packs[PACK].revision).toBe(11);
+    expect(s.knowledge.facts["greek-hear-decree"].source.topic.choiceId).toBe(
+      null,
+    );
+    expect(s.packs[PACK].receipts["greek-hear-decree"]).toBeTypeOf("number");
   });
 
   it("opens Dione's road for a revision 10 report told before the invitation", () => {

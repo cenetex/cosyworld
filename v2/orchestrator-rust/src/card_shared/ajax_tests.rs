@@ -353,6 +353,17 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
                 _ => None,
             }
         };
+        // Greek revision 11 sets the Market Well within the courtyard, so a
+        // step the well lost walks through the courtyard.
+        let within = |from: &str, to: &str| -> Option<&str> {
+            let mut pair = [from, to];
+            pair.sort();
+            matches!(
+                pair,
+                ["greek-gate", "greek-well"] | ["greek-palace", "greek-well"]
+            )
+            .then_some("greek-courtyard")
+        };
         let cut = [
             ["greek-piraeus", "greek-tauris"],
             ["greek-piraeus", "greek-sicily"],
@@ -371,6 +382,8 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
                     vec![]
                 } else if let Some(road) = along(from, to) {
                     vec![json!([from, road]), json!([road, to])]
+                } else if let Some(via) = within(from, to) {
+                    vec![json!([from, via]), json!([via, to])]
                 } else if from.starts_with("greek-road-") || to.starts_with("greek-road-") {
                     vec![]
                 } else {
@@ -499,7 +512,9 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
 #[test]
 fn ajax_shield_delivered_under_rules_twenty_one_stays_complete_after_upgrade() {
     // Saved by the released rules 21 code (main at 1348ab52), so this world
-    // is exactly what a rules 21 player could have had.
+    // is exactly what a rules 21 player could have had. It took the exposure
+    // branch at Thebes: a refusal save that went on to Athens starts fresh
+    // under Greek revision 11.
     let save = include_str!("../../../../test/fixtures/ajax-household-rules-21.json");
     // Load it with rules 21 too; current rules would upgrade it first.
     let mut old = World {
@@ -538,10 +553,14 @@ fn ajax_shield_delivered_under_rules_twenty_one_stays_complete_after_upgrade() {
         .is_none());
     let current = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(current.version, engine::VERSION);
-    assert_eq!(
-        current.game["packs"]["greek-drama"]["receipts"],
-        old.game["packs"]["greek-drama"]["receipts"]
-    );
+    // Greek revision 11 retires the Theban invitation buttons.
+    let mut receipts = old.game["packs"]["greek-drama"]["receipts"].clone();
+    receipts
+        .as_object_mut()
+        .unwrap()
+        .remove("greek-open-door-invite-exposure")
+        .unwrap();
+    assert_eq!(current.game["packs"]["greek-drama"]["receipts"], receipts);
     // The delivered shield stays a receipt; story quest records are dropped.
     assert!(current.game.get("quests").is_none());
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
