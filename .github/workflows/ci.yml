@@ -329,13 +329,13 @@ jobs:
           - mode: cards-shared
             scripts: smoke-shared-cards smoke-card-greek-capacity
           - mode: cards-ui
-            scripts: check-card-awakening smoke-card-unveil smoke-card-amnesia smoke-card-hand smoke-card-boardyai smoke-card-music smoke-card-music-network smoke-card-media-cache smoke-scene-video
+            scripts: check-card-awakening smoke-card-unveil smoke-card-world-map smoke-card-amnesia smoke-card-hand smoke-card-boardyai smoke-card-music smoke-card-music-network smoke-card-media-cache smoke-scene-video
           - mode: cards-routes
             scripts: smoke-card-narrative-contract smoke-card-home-rescue smoke-card-oil-return smoke-card-pond-access smoke-card-clearing-access smoke-card-pond-crossings smoke-shared-ship smoke-card-facing smoke-card-image-first smoke-card-toolbar smoke-card-learning smoke-shared-snapshot-order smoke-shared-play-status smoke-card-actions
           - mode: cards-drama
             scripts: smoke-card-greek-drama smoke-card-theban-scenery
           - mode: cards-weather
-            scripts: smoke-card-weather smoke-card-greek-travel smoke-card-ship-fade
+            scripts: smoke-card-weather smoke-card-greek-travel smoke-card-ship-fade smoke-card-painted-travel
           - mode: cards-open-door
             scripts: smoke-card-open-door
           - mode: cards-homecoming
@@ -343,7 +343,7 @@ jobs:
           - mode: cards-ajax
             scripts: smoke-card-ajax
           - mode: cards-dialogue
-            scripts: smoke-card-dialogue-recovery smoke-card-silent-reply smoke-card-dialogue-timing smoke-card-movement smoke-card-beat-stack
+            scripts: smoke-card-dialogue-recovery smoke-card-silent-reply smoke-card-dialogue-timing smoke-card-movement smoke-card-beat-stack smoke-card-combat
           - mode: cards-quests
             scripts: smoke-card-shared-discovery smoke-card-bard-travel smoke-card-voice
     env:

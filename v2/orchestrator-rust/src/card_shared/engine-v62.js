@@ -140,9 +140,9 @@
     memory.learning = [...memory.learning || [], trial].slice(-TRIAL_LIMIT);
   }
   function tieBreak(text2) {
-    let hash3 = 2166136261;
-    for (const c of text2) hash3 = Math.imul(hash3 ^ c.charCodeAt(0), 16777619);
-    return hash3 >>> 0;
+    let hash2 = 2166136261;
+    for (const c of text2) hash2 = Math.imul(hash2 ^ c.charCodeAt(0), 16777619);
+    return hash2 >>> 0;
   }
   function learnedPlan(world, actor, selected, actions, conditionsFor) {
     const goal = goalFor(world, actor, selected.action);
@@ -568,90 +568,6 @@
     const place = sectionPlace(pack, id);
     const section = pack.sections?.find((part) => part.places.includes(place));
     return !section || conditionsMet2(world, pack.id, section.requires);
-  }
-
-  // v2/card-game/pack-specials.mjs
-  var RARITY_WEIGHTS = {
-    common: 8,
-    uncommon: 4,
-    rare: 2,
-    epic: 1,
-    legendary: 0
-  };
-  var SPECIAL_KINDS = ["places", "avatars", "items"];
-  var validSeed = (n) => Number.isInteger(n) && n >= 0 && n <= 4294967295;
-  var kindOf = (pack, id) => SPECIAL_KINDS.find((kind) => Object.hasOwn(pack[kind] || {}, id));
-  function hash(text2) {
-    let h = 2166136261;
-    for (const ch of text2) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
-    return h;
-  }
-  var covers = /* @__PURE__ */ new Map();
-  function poolCover(pack) {
-    if (covers.has(pack)) return covers.get(pack);
-    const by = /* @__PURE__ */ new Map();
-    const add = (id, entry) => by.set(id, [...by.get(id) || [], entry]);
-    for (const { id } of pack.specials?.pool || []) {
-      if (!id) continue;
-      add(id, id);
-      if (kindOf(pack, id) !== "places") continue;
-      for (const kind of ["avatars", "items", "fixtures"])
-        for (const other of Object.keys(pack[kind] || {}))
-          if (sectionPlace(pack, other) === id) add(other, id);
-    }
-    covers.set(pack, by);
-    return by;
-  }
-  function drawSpecials(pack, seed) {
-    const drawn = [];
-    if (!pack.specials) return drawn;
-    const cover = poolCover(pack);
-    const brought = (id) => (cover.get(id) || []).some(
-      (entry) => entry !== id && drawn.includes(entry)
-    );
-    for (const kind of SPECIAL_KINDS) {
-      const pool = pack.specials.pool.filter(
-        (e) => e.none || kindOf(pack, e.id) === kind && !brought(e.id)
-      );
-      for (let slot = 0; slot < (pack.specials.draw[kind] || 0); slot++) {
-        const total = pool.reduce((n, e) => n + RARITY_WEIGHTS[e.rarity], 0);
-        if (!total) break;
-        let pick = hash(`${seed}:${pack.id}:${kind}:${slot}`) % total;
-        const index = pool.findIndex(
-          (e) => (pick -= RARITY_WEIGHTS[e.rarity]) < 0
-        );
-        const [entry] = pool.splice(index, 1);
-        if (!entry.none) drawn.push(entry.id);
-      }
-    }
-    return drawn;
-  }
-  function specialsAllow(state, pack, id) {
-    const by = pack.specials && poolCover(pack).get(id);
-    return !by || by.some((entry) => state?.specials?.includes(entry));
-  }
-  function installSpecials(world, pack) {
-    const state = world.packs[pack.id], pooled = (id) => pack.specials.pool.some((e) => e.id === id);
-    if (!pack.specials) delete state.specials;
-    if (!pack.specials || !world.run) return;
-    if (state.specials) {
-      state.specials = state.specials.filter(pooled);
-      return;
-    }
-    state.specials = drawSpecials(pack, world.run.seed);
-    for (const id of state.specials) {
-      const anchor = pack.specials.pool.find((e) => e.id === id).anchor || pack.entry;
-      if (kindOf(pack, id) === "avatars") world.actors[id].place = anchor;
-      if (kindOf(pack, id) === "items") world.items[id].holder = anchor;
-    }
-    for (const [id, actor] of Object.entries(world.actors))
-      if (!poolCover(pack).has(id) && !specialsAllow(state, pack, actor.place))
-        actor.place = pack.entry;
-  }
-  function validSpecials(world, pack) {
-    const list = world.packs[pack.id]?.specials;
-    if (!pack.specials || !world.run) return list === void 0;
-    return Array.isArray(list) && new Set(list).size === list.length && list.every((id) => pack.specials.pool.some((e) => e.id === id));
   }
 
   // v2/card-game/pack-journeys.mjs
@@ -1112,8 +1028,7 @@
     "pack_item_present",
     "daylight",
     "weather",
-    "ship_at",
-    "drawn"
+    "ship_at"
   ];
   var AT_SEA = "@sea";
   var WEATHER_CONDITIONS = ["clear", "cloud", "rain", "mist"];
@@ -1149,13 +1064,6 @@
       if (!leaving.has(dock)) out.push(`dock ${dock} has no lane out`);
     }
     return out;
-  }
-  function specialsProblems(pack) {
-    const sp = pack.specials, pool = Array.isArray(sp?.pool) ? sp.pool : [], ids3 = pool.map((e) => e?.id).filter(Boolean), own2 = (id) => ["places", "avatars", "items"].some((k) => owns2(pack[k], id));
-    const ok = keysOk(sp, ["draw", "pool"]) && keysOk(sp.draw, ["places", "avatars", "items"]) && Object.values(sp.draw).every((n) => intOk(n, 0, 8)) && pool.length > 0 && pool.length <= 64 && new Set(ids3).size === ids3.length && !ids3.includes(pack.entry) && pool.every(
-      (e) => Object.hasOwn(RARITY_WEIGHTS, e?.rarity) && (e.none === true ? keysOk(e, ["none", "rarity"]) : keysOk(e, ["id", "rarity", "anchor"]) && own2(e.id) && (e.anchor === void 0 || owns2(pack.places, e.anchor) && !ids3.includes(e.anchor)))
-    );
-    return ok ? [] : ["specials needs a bounded draw and a pool of own entities"];
   }
   var keysOk = (o, allowed) => record2(o) && Object.keys(o).every((k) => allowed.includes(k));
   var pointOk = (o) => keysOk(o, ["x", "y"]) && intOk(o.x, 0, 100) && intOk(o.y, 0, 100);
@@ -1231,8 +1139,7 @@
         "readings",
         "storyQuests",
         "topics",
-        "situations",
-        "specials"
+        "situations"
       ]),
       "has an unknown top-level field"
     );
@@ -1619,9 +1526,6 @@
           case "met":
             ok = keysOk(c, ["kind", "actor"]) && owns2(avatars, c.actor);
             break;
-          case "drawn":
-            ok = keysOk(c, ["kind", "id"]) && (pack.specials?.pool || []).some((e) => e?.id === c.id);
-            break;
           case "pack_item_present":
             ok = keysOk(c, ["kind", "pack", "place"]) && idOk(c.pack) && anyPlace(c.place);
             break;
@@ -1669,8 +1573,7 @@
               "connected_humans",
               "met",
               "knows",
-              "daylight",
-              "drawn"
+              "daylight"
             ].includes(c.kind),
             `${what} must use saved state or human presence conditions`
           );
@@ -1920,7 +1823,6 @@
         "incompatible embodiments are active together"
       );
     }
-    if (pack.specials !== void 0) problems2.push(...specialsProblems(pack));
     if (pack.release !== void 0) {
       const r = pack.release;
       check(
@@ -2644,8 +2546,6 @@
         return Object.keys(s.items).some(
           (id) => packThings[id]?.packId === c.pack && entityActive(s, id) && objectPlace(s, id) === c.place
         );
-      case "drawn":
-        return !!state?.specials?.includes(c.id);
       case "met":
         return !!state?.met && Object.hasOwn(state.met, c.actor);
       // The saved world clock: every DAYLIGHT_TURNS turns, day and night swap.
@@ -2838,9 +2738,9 @@
     for (const pack of packDefinitions) {
       const record4 = s.packs[pack.id];
       const fixtures = Object.entries(pack.fixtures || {});
-      if (!exactKeys(record4, [
-        ...pack.specials && s.run ? ["specials"] : [],
-        ...pack.choices ? [
+      if (!exactKeys(
+        record4,
+        pack.choices ? [
           "revision",
           "sounds",
           "choices",
@@ -2850,7 +2750,7 @@
           "scope",
           ...pack.recital ? ["recitals"] : []
         ] : ["revision", "sounds"]
-      ]) || record4.revision !== pack.revision || !exactKeys(
+      ) || record4.revision !== pack.revision || !exactKeys(
         record4.sounds,
         fixtures.map(([id]) => id)
       ) || fixtures.some(
@@ -3068,8 +2968,7 @@
       world,
       e.packId,
       (e.requires || []).filter((c) => !saved || c.kind !== "connected_humans")
-    ) || !sectionAllows(world, pack, id, conditionsMet) || // Saved custody of an undrawn special stays as it was.
-    !saved && !specialsAllow(state, pack, id))
+    ) || !sectionAllows(world, pack, id, conditionsMet))
       return false;
     if (!pack.release || state.scope === "full") return true;
     if (pack.recital?.actor === id)
@@ -3139,10 +3038,10 @@
     const here = world.actors[actor].place;
     const places2 = placeIds.filter((id) => id !== here && entityActive(world, id)).sort();
     if (!places2.length) return choice.at;
-    let hash3 = 2166136261;
+    let hash2 = 2166136261;
     for (const ch of `${choice.id}:${actor}:${world.turn}`)
-      hash3 = Math.imul(hash3 ^ ch.charCodeAt(0), 16777619) >>> 0;
-    return places2[hash3 % places2.length];
+      hash2 = Math.imul(hash2 ^ ch.charCodeAt(0), 16777619) >>> 0;
+    return places2[hash2 % places2.length];
   }
   function applyMeetingChoices(world, actor, placeIds) {
     const applied = [];
@@ -3226,7 +3125,7 @@
     for (const pack of packDefinitions) {
       if (!pack.choices) continue;
       const state = world.packs[pack.id];
-      if (!record3(state) || !validRecitals(world, pack) || !validJourneyPlaces(world, pack) || !validSpecials(world, pack) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== [
+      if (!record3(state) || !validRecitals(world, pack) || !validJourneyPlaces(world, pack) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== [
         "revision",
         "sounds",
         "choices",
@@ -3234,8 +3133,7 @@
         "receipts",
         "met",
         "scope",
-        ...pack.recital ? ["recitals"] : [],
-        ...pack.specials && world.run ? ["specials"] : []
+        ...pack.recital ? ["recitals"] : []
       ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record3) || Object.entries(state.met).some(
         ([id, turn]) => !owns3(pack.avatars, id) || !conditionsMet(
           world,
@@ -3803,7 +3701,7 @@
       a.talked ??= [];
     }
   }
-  function hash2(text2) {
+  function hash(text2) {
     let h = 2166136261;
     for (const c of text2) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
     return h;
@@ -3836,7 +3734,7 @@
   function nextWant(s, actor, api, previous = null) {
     const pool = wantCandidates(s, actor, api, previous);
     if (!pool.length) return null;
-    const [kind, target] = pool[hash2(`${actor}:${s.turn}`) % pool.length].split(":");
+    const [kind, target] = pool[hash(`${actor}:${s.turn}`) % pool.length].split(":");
     return newWant(kind, target, s.turn);
   }
   var introduced = (s, actor, talk) => {
@@ -4564,7 +4462,7 @@
     ])
   );
   var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
-  function createWorld({ opening = false, packScopes = {}, seed } = {}) {
+  function createWorld({ opening = false, packScopes = {} } = {}) {
     const world = {
       schema: 7,
       ...structuredClone(forest_default.initialState),
@@ -4573,8 +4471,6 @@
       revision: 0,
       eventSeq: 1
     };
-    if (seed != null && !validSeed(seed)) throw new Error("Choose a run seed.");
-    if (seed != null) world.run = { seed };
     if (opening) {
       const start = structuredClone(forest_default.opening);
       world.opening = start.discovery;
@@ -4602,6 +4498,11 @@
     s.crossings ??= {};
     s.packs ??= {};
     const fresh = newMemories();
+    for (const [id, item] of Object.entries(forest_default.initialState.items))
+      if (!Object.hasOwn(s.items, id)) {
+        s.items[id] = structuredClone(item);
+        s.memories[id] ??= fresh[id];
+      }
     for (const pack of packDefinitions) {
       for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
       if (s.packs[pack.id]) continue;
@@ -4631,16 +4532,9 @@
           if (other !== id) actor.trust[other] ??= 0;
       for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
     }
-    for (const pack of packDefinitions) installSpecials(s, pack);
     installLife(s, travels);
     installRouteKnowledge(s);
     installWants(s);
-  }
-  function seedRun(s, seed) {
-    if (s.run || !validSeed(seed)) return s;
-    s.run = { seed };
-    installPacks(s);
-    return s;
   }
   function installRouteKnowledge(s) {
     s.routeKnowledge ??= {};
@@ -5112,12 +5006,13 @@
         (id) => s.actors[id].place !== c.location
       );
       const released = c.item && rootHolder(s, c.item) !== c.defender;
-      if (separated || released) {
+      const forgone = c.item && !controlledByHuman(s, c.challenger) && !Object.values(c.struck).some(Boolean) && !needed(s, c.challenger, c.item);
+      if (separated || released || forgone) {
         closeStandoff(s, c);
         addLog(
           s,
           "World",
-          separated ? `${nameOf(c.challenger)} and ${nameOf(c.defender)} part. The standoff ends.` : `The ${nameOf(c.item)} changes hands. The standoff ends.`,
+          separated ? `${nameOf(c.challenger)} and ${nameOf(c.defender)} part. The standoff ends.` : released ? `The ${nameOf(c.item)} changes hands. The standoff ends.` : `${nameOf(c.challenger)} lets the ${nameOf(c.item)} go. The standoff ends.`,
           {
             kind: "narration",
             actorId: c.challenger,
@@ -6030,6 +5925,7 @@
       ),
       wantAPI(next)
     );
+    settleStandoffs(next);
     for (const [id, allowance] of Object.entries(
       next.sharedMigration?.inventoryAllowances || {}
     )) {
@@ -6090,8 +5986,6 @@
     if (s.invitedPlaces !== void 0 && (!s.invitedPlaces || typeof s.invitedPlaces !== "object" || Array.isArray(s.invitedPlaces) || Object.entries(s.invitedPlaces).some(
       ([actor, visits]) => !actorIds.includes(actor) || !Array.isArray(visits) || visits.length > Object.keys(places).length || new Set(visits).size !== visits.length || visits.some((place) => !Object.hasOwn(places, place))
     )))
-      fail();
-    if (s.run !== void 0 && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
       fail();
     if (!validPackState(s, sensesFor(s))) fail();
     if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)))
@@ -6578,7 +6472,6 @@
       throw new Error("Choose a world operation.");
     if (request.op === "create") {
       const world2 = request.save == null ? enableMotives(createWorld({ opening: true })) : importClientSave(request.save);
-      seedRun(world2, request.seed);
       if (!world2.sharedVersion) settleHomeItems(world2);
       enableShared(world2);
       delete world2.playerActorId;
@@ -6599,7 +6492,6 @@
     if (request.op === "upgrade") {
       if (request.from === "full-card-world/2")
         settleHomeItems(world, world.controlledActors);
-      seedRun(world, request.seed);
       world.revision += 1;
       validateWorld(world);
       return response(world);
@@ -6680,9 +6572,7 @@
       (key) => Array.isArray(legacy[key]) && legacy[key].length === 8
     ))
       throw new Error("This older shared world has an invalid save.");
-    const world = enableShared(
-      enableMotives(seedRun(createWorld(), request.seed))
-    );
+    const world = enableShared(enableMotives(createWorld()));
     const rooms = ["pond", ...humanAvatars.map((a) => a.home.id)];
     for (const [index, avatar] of humanAvatars.entries()) {
       const p = legacy.places[index], holder2 = legacy.holders[index];

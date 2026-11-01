@@ -384,6 +384,12 @@
       cloth: {
         name: "Black cloth",
         text: "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object."
+      },
+      "world-map": {
+        name: "Map of the Wood and the Wine-Dark Sea",
+        text: "A folded paper map, inked and washed in watercolour. The pond sits at its middle. Mist covers the edges.",
+        art: "assets/shared/items/world-map.webp",
+        view: "assets/shared/items/world-map-full.webp"
       }
     },
     initialState: {
@@ -448,6 +454,10 @@
         },
         cloth: {
           holder: "moth",
+          history: []
+        },
+        "world-map": {
+          holder: "station",
           history: []
         }
       },
@@ -1211,7 +1221,8 @@
         "lamp",
         "oil",
         "bell",
-        "cloth"
+        "cloth",
+        "world-map"
       ],
       observations: [
         {
@@ -1838,7 +1849,7 @@
             name: "Argive Palace",
             text: "A bronze door opens onto the royal court. Wax tablets list the household\u2019s dead and absent members.",
             exits: [],
-            backdrop: "assets/greek-drama/palace.svg",
+            backdrop: "assets/greek-drama/house-atreus-palace.webp",
             requires: [
               {
                 kind: "choice",
@@ -1846,13 +1857,30 @@
                 value: "aeschylus"
               }
             ],
-            persona: "A bronze door opens onto the royal court. Wax tablets list the household\u2019s dead and absent members."
+            persona: "A bronze door opens onto the royal court. Wax tablets list the household\u2019s dead and absent members.",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/house-atreus-palace-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
+            stage: {
+              focus: {
+                x: 31,
+                y: 50
+              }
+            }
           },
           "greek-argos-tomb": {
             name: "Agamemnon's Tomb",
             text: "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot.",
             exits: [],
-            backdrop: "assets/greek-drama/grove.svg",
+            backdrop: "assets/greek-drama/house-atreus-tomb.webp",
             requires: [
               {
                 kind: "choice",
@@ -1860,13 +1888,30 @@
                 value: "aeschylus"
               }
             ],
-            persona: "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot."
+            persona: "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot.",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/house-atreus-tomb-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
+            stage: {
+              focus: {
+                x: 31,
+                y: 50
+              }
+            }
           },
           "greek-mycenae-palace": {
             name: "Mycenaean Palace",
             text: "The palace rises above a worn approach. A woman waits where arriving servants can hear her.",
             exits: [],
-            backdrop: "assets/greek-drama/palace.svg",
+            backdrop: "assets/greek-drama/house-atreus-mycenae.webp",
             requires: [
               {
                 kind: "choice",
@@ -1874,13 +1919,30 @@
                 value: "sophocles"
               }
             ],
-            persona: "The palace rises above a worn approach. A woman waits where arriving servants can hear her."
+            persona: "The palace rises above a worn approach. A woman waits where arriving servants can hear her.",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/house-atreus-mycenae-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
+            stage: {
+              focus: {
+                x: 31,
+                y: 50
+              }
+            }
           },
           "greek-argive-farm": {
             name: "The Argive Farmhouse",
             text: "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest.",
             exits: [],
-            backdrop: "assets/greek-drama/courtyard.svg",
+            backdrop: "assets/greek-drama/house-atreus-farmhouse.webp",
             requires: [
               {
                 kind: "choice",
@@ -1888,7 +1950,24 @@
                 value: "euripides"
               }
             ],
-            persona: "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest."
+            persona: "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest.",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/house-atreus-farmhouse-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
+            stage: {
+              focus: {
+                x: 31,
+                y: 50
+              }
+            }
           },
           "greek-corinth": {
             name: "Corinthian Courtyard",
@@ -2133,7 +2212,37 @@
                 title: "Wine-Dark-3"
               }
             ],
-            musicMode: "random-per-visit"
+            musicMode: "random-per-visit",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/ship-deck-at-sea-night.webp",
+                requires: [
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "@sea"
+                  },
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              },
+              {
+                backdrop: "assets/greek-drama/ship-deck-at-sea-day.webp",
+                requires: [
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "@sea"
+                  },
+                  {
+                    kind: "daylight",
+                    phase: "day"
+                  }
+                ]
+              }
+            ]
           },
           "greek-athens-harbor": {
             name: "Athens Harbor",
@@ -3241,7 +3350,7 @@
             name: "The Suppliant\u2019s Olive Branch",
             text: "An olive branch bound with white wool, given at the Agora when the mothers\u2019 plea is registered. Ships sail between Piraeus and Athens Harbor while it is aboard.",
             holder: "greek-athens",
-            art: "assets/greek-drama/burial-petition.png",
+            art: "assets/greek-drama/olive-branch.webp",
             persona: "Describe the branch, its actual holder and its recorded use. The lane between Piraeus and Athens Harbor is open only while it is aboard the ship.",
             requires: [
               {
@@ -15632,6 +15741,17 @@
         "Dark, and warm from a hand."
       ]
     },
+    "world-map": {
+      kind: "item",
+      name: "Map of the Wood and the Wine-Dark Sea",
+      persona: "A folded paper map in ink and watercolour. The black pond sits at its middle, with the attic, the station, the forests, the willows and a wine-dark sea around it. Mist covers its edges. Describe its creases, its places and the hands that unfold it.",
+      idiolect: "I'm a paper map. Unfold me and the pond is in the middle. Past my edges there's only mist.",
+      lines: [
+        "My creases cross at the black pond.",
+        "Here be mists, says my corner.",
+        "Folded small, and soft at the folds."
+      ]
+    },
     station: {
       kind: "location",
       name: "Empty station",
@@ -16672,6 +16792,11 @@
     s.crossings ??= {};
     s.packs ??= {};
     const fresh = newMemories();
+    for (const [id, item] of Object.entries(forest_default.initialState.items))
+      if (!Object.hasOwn(s.items, id)) {
+        s.items[id] = structuredClone(item);
+        s.memories[id] ??= fresh[id];
+      }
     for (const pack of packDefinitions) {
       for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
       if (s.packs[pack.id]) continue;

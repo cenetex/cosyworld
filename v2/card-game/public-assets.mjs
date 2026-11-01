@@ -27,9 +27,41 @@ const files = [
   "boardyai.mjs",
   "boardyai.json",
   "assets/card-back.webp",
+  // Combat pose art is ready for client-side presentation integration.
+  ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].flatMap(
+    (id) =>
+      ["", "-scarf"].flatMap((wardrobe) =>
+        ["attack", "hit"].map(
+          (pose) => `assets/combat/${id}${wardrobe}-${pose}.webp`,
+        ),
+      ),
+  ),
+  ...["keeper", "moth"].flatMap((id) =>
+    ["attack", "hit"].map((pose) => `assets/combat/${id}-${pose}.webp`),
+  ),
   "rarity.mjs",
   "card-tiers.css",
   "card-reveal.mjs",
+  // Willows sign alternates and notebook cards remain available before wiring.
+  ...[
+    "landing-otter",
+    "landing-boatman",
+    "landing-mended",
+    "camp-closer",
+    "camp-tent-pressure",
+    "thicket-bronze",
+    "thicket-hollows",
+    "bank-humming",
+    "bank-roots",
+    "bank-drowned",
+  ].map((name) => `assets/willows/${name}.webp`),
+  ...[
+    "notebook-page-1",
+    "notebook-page-2",
+    "notebook-page-3",
+    "notebook-chapter",
+    "notebook-book",
+  ].map((name) => `assets/willows/${name}.png`),
   // Argos commissioned art: start
   "assets/greek-drama/house-atreus-palace.webp",
   "assets/greek-drama/house-atreus-tomb.webp",
@@ -98,6 +130,8 @@ const files = [
   "assets/shared/characters/rue.png",
   "assets/shared/places/train.png",
   "assets/shared/items/routes.png",
+  "assets/shared/items/world-map.webp",
+  "assets/shared/items/world-map-full.webp",
   "assets/shared/characters/orin.png",
   "assets/shared/places/pavilion.png",
   "assets/shared/items/board.png",
@@ -123,6 +157,7 @@ const files = [
   "beats.mjs",
   "combat-beats.mjs",
   "combat-view.mjs",
+  "combat-portraits.mjs",
   "app.mjs",
   "pack-landing.mjs",
   "pack-landings.json",

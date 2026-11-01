@@ -4,6 +4,11 @@
 import { nameOf } from "./world.mjs";
 import { scaresEnabled } from "./transitions.mjs";
 import {
+  combatPortrait,
+  createCombatPortraits,
+  showCombatPortrait,
+} from "./combat-portraits.mjs";
+import {
   BEAT_MS,
   MAX_RESOLVE,
   createBeatRunner,
@@ -40,11 +45,29 @@ export function installCombatSpeed(button) {
 // Fighters in a standoff here keep their resolve under them between plays.
 export function renderStandingResolve(cast, world, locationId) {
   const standing = new Map();
+  const guarding = new Set();
   for (const c of world.standoffs || [])
     if (c.location === locationId)
-      for (const id of [c.challenger, c.defender])
+      for (const id of [c.challenger, c.defender]) {
         standing.set(id, c.resolve?.[id] ?? MAX_RESOLVE);
+        if (c.guarding?.[id]) guarding.add(id);
+      }
   for (const figure of cast.children) {
+    delete figure.dataset.combatArt;
+    if (guarding.has(figure.dataset.avatar)) {
+      const source = figure.querySelector(".portrait-body > img")?.dataset
+        .source;
+      showCombatPortrait(
+        figure,
+        combatPortrait(
+          figure.dataset.avatar,
+          "guard",
+          source,
+          figure.dataset.facing,
+        ),
+        "guard",
+      );
+    }
     const value = standing.get(figure.dataset.avatar);
     let bar = figure.querySelector(":scope > .combat-pips");
     if (value === undefined) {
@@ -100,12 +123,14 @@ export function createCombatView({
   let animations = [],
     added = [],
     speed = 1,
-    cut = null;
+    cut = null,
+    portraitRun = 0;
   const reduced = () => reducedMotion.matches;
   // Painted stage residents keep their sprite; their beats use the caption.
   const fighter = (id) =>
     id ? stage.querySelector(`#cast [data-avatar="${CSS.escape(id)}"]`) : null;
   const bodyOf = (el) => el?.querySelector(".portrait-body") || el;
+  const portraits = createCombatPortraits(fighter);
   const track = (animation) => {
     animation.playbackRate = speed;
     animations.push(animation);
@@ -184,8 +209,7 @@ export function createCombatView({
     );
   };
   const pose = (id, value) => {
-    const el = fighter(id);
-    if (el) el.dataset.pose = value;
+    portraits.pose(id, value);
   };
   const pushIn = () => {
     if (cut) return;
@@ -221,7 +245,9 @@ export function createCombatView({
     if (!reduced()) {
       const back = [...scene, dim].map((el) =>
         el.animate(
-          el === dim ? [{ opacity: 1 }, { opacity: 0 }] : [{ scale: 1.08 }, { scale: 1 }],
+          el === dim
+            ? [{ opacity: 1 }, { opacity: 0 }]
+            : [{ scale: 1.08 }, { scale: 1 }],
           { duration: 220, easing: "ease-in-out" },
         ),
       );
@@ -267,6 +293,7 @@ export function createCombatView({
   const impact = (beat) => {
     const target = fighter(beat.targetId);
     if (!target) return;
+    pose(beat.targetId, beat.outcome === "guarded" ? "guard" : "hit");
     const body = bodyOf(target);
     if (reduced()) {
       target.classList.add("combat-outline");
@@ -274,9 +301,7 @@ export function createCombatView({
     }
     const attacker = fighter(beat.actorId)?.getBoundingClientRect();
     const t = target.getBoundingClientRect();
-    const away = attacker
-      ? Math.sign(t.x - attacker.x) || 1
-      : 1;
+    const away = attacker ? Math.sign(t.x - attacker.x) || 1 : 1;
     // Hit-stop: the target holds still for a moment, then recoils and
     // shakes with a decaying amplitude. One brightness flash, never red.
     animate(
@@ -335,8 +360,7 @@ export function createCombatView({
       return;
     }
     if (phase === "resolve") {
-      for (const el of stage.querySelectorAll(".combat-telegraph"))
-        el.remove();
+      for (const el of stage.querySelectorAll(".combat-telegraph")) el.remove();
       if (beat.kind === "attack") {
         fighter(beat.targetId)?.classList.remove("combat-reticle");
         return;
@@ -353,11 +377,7 @@ export function createCombatView({
       pose(beat.loserId, "beaten");
       fighter(beat.loserId)?.classList.add("combat-beaten");
       revealLine(beat.seq);
-      floatWord(
-        beat.loserId,
-        beat.sentHome ? "Sent home" : "Beaten",
-        "beaten",
-      );
+      floatWord(beat.loserId, beat.sentHome ? "Sent home" : "Beaten", "beaten");
       const summary = defeatSummary(beat);
       setCaption(
         beat.viewerLost
@@ -395,6 +415,9 @@ export function createCombatView({
       return Boolean(cut) || added.length > 0;
     },
     async play(beats) {
+      const mine = ++portraitRun;
+      await portraits.prepare(beats);
+      if (mine !== portraitRun) return false;
       speed = combatSpeed();
       stage.style.setProperty("--combat-speed", String(speed));
       stage.addEventListener("pointerdown", finishBeat);
@@ -429,7 +452,9 @@ export function createCombatView({
       await releaseCut();
     },
     cleanup() {
+      portraitRun++;
       runner.cancel();
+      portraits.restore();
       closeDefeat();
       for (const animation of animations) animation.cancel();
       animations = [];

@@ -24,6 +24,7 @@ describe("playing the world through cards", () => {
       "station",
       "lamp",
       "bell",
+      "world-map",
       "pond",
     ]);
     s = cards(s, "lamp");
