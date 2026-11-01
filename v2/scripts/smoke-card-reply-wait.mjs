@@ -22,8 +22,9 @@ const app = await readFile(
   "utf8",
 );
 // Pip must stay to answer here: a partner who walks away this turn speaks at
-// the destination. On this turn Pip leaves the station when Rue asks.
-const scenePlace = (actor) => (actor === "rue" ? "pond" : "station");
+// the destination. Pip stays at the pond, its home; at the station, which is
+// no sanctuary, a met want sends it home.
+const scenePlace = () => "pond";
 function fixture(actor) {
   const place = scenePlace(actor);
   const world = createWorld();

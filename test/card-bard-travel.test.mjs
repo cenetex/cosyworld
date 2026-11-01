@@ -80,7 +80,7 @@ describe("ordinary bard travel", () => {
   });
   it("takes one legal offscreen step each turn and stays at the place it wants", () => {
     let s = createWorld();
-    s.actors.vale.place = "attic";
+    s.actors.vale.place = "pond";
     s.actors[singer].place = "greek-argolid-road";
     wants(s, "greek-well");
     s.actors.keeper.place = "station";

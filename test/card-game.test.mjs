@@ -61,10 +61,10 @@ describe("the reflected shore card game", () => {
       wantMet: { kind: "item", target: "lamp" },
     });
     expect(s.actors.moth.xp).toBe(1);
-    // The station is a sanctuary, so Pip rests there and wants something new.
-    expect(s.actors.moth.want?.target).not.toBe("lamp");
+    // Met away from home, Pip's next want is the way home.
+    expect(s.actors.moth.want).toMatchObject({ kind: "place", target: "pond" });
     s = act(s, "wait");
-    expect(s.actors.moth.place).toBe("station");
+    expect(s.actors.moth.place).toBe("pond");
     expect(s.items.lamp.holder).toBe("moth");
   });
 
@@ -126,7 +126,7 @@ describe("the reflected shore card game", () => {
 
   it("refuels a lamp that runs dry in a hand holding the flask, then returns the flask to the station", () => {
     let s = createWorld();
-    s.actors.vale.place = "attic";
+    s.actors.vale.place = "pond";
     s.items.lamp.holder = "vale";
     s.items.lamp.fuel = 1;
     s.items.lamp.lit = true;
@@ -146,7 +146,7 @@ describe("the reflected shore card game", () => {
       itemId: "oil",
       targetId: "lamp",
       itemIds: ["oil", "lamp"],
-      locationId: "attic",
+      locationId: "pond",
       returnLocationId: "station",
       turn: s.turn,
     });

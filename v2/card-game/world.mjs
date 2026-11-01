@@ -124,6 +124,7 @@ import {
   calm,
   validPackState,
   conditionMet,
+  DAYLIGHT_TURNS,
 } from "./pack-rules.mjs";
 import {
   installTransports,
@@ -1129,6 +1130,8 @@ export function legalActions(s, actor = currentActor(s)) {
   const out = [
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
+  // A sleeper's only play is to wait until the light changes.
+  if (s.actors[actor].sleepUntil !== undefined) return out;
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
     if (departureWaits(s, actor, to)) continue;
     // A course card aboard a docked ship sets the voyage for everyone aboard.
@@ -1224,15 +1227,19 @@ export function legalActions(s, actor = currentActor(s)) {
           `${nameOf(actor)} guards against ${nameOf(other)}.`,
           [other],
         ),
-        offer(
-          "attack",
-          actor,
-          null,
-          other,
-          `${nameOf(actor)} attacks ${nameOf(other)}.`,
-          [other],
-        ),
       );
+      // A sanctuary allows a threat but never an attack.
+      if (!sanctuaries.includes(here))
+        out.push(
+          offer(
+            "attack",
+            actor,
+            null,
+            other,
+            `${nameOf(actor)} attacks ${nameOf(other)}.`,
+            [other],
+          ),
+        );
     } else if (
       !(sharedEnabled(s) && controlledByHuman(s, other)) &&
       !avoidsStandoffs(other) &&
@@ -1498,6 +1505,26 @@ function trustGiver(s, recipient, item, giver) {
     (s.actors[recipient].trust[giver] || 0) + 1,
   );
 }
+// Wait is the only rest, and the player's own play. At a sanctuary it is a
+// long rest: the avatar sleeps until the light next changes, then wakes with
+// every loss cleared. Anywhere else it is a short rest that clears one loss.
+// Nobody rests in the middle of a standoff.
+function rest(s, actor, here) {
+  const a = s.actors[actor],
+    losses = s.defeats?.[actor] || 0;
+  if (a.sleepUntil !== undefined) {
+    if (s.turn < a.sleepUntil) return null;
+    delete a.sleepUntil;
+    if (losses) delete s.defeats[actor];
+    return "long";
+  }
+  if (actor !== currentActor(s) || standoffFor(s, actor)) return null;
+  if (sanctuaries.includes(here))
+    a.sleepUntil = (Math.floor(s.turn / DAYLIGHT_TURNS) + 1) * DAYLIGHT_TURNS;
+  else if (losses > 1) s.defeats[actor] = losses - 1;
+  else if (losses) delete s.defeats[actor];
+  return null;
+}
 function perform(s, a, round = null, settle = []) {
   const who = nameOf(a.actor);
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
@@ -1517,6 +1544,7 @@ function perform(s, a, round = null, settle = []) {
     if (a.actor === conflict.defender) conflict.answered = true;
   }
   if (a.kind === "wait") {
+    const rested = rest(s, a.actor, here);
     const learningStart = beginLearning(s, a);
     if (a.actor === currentActor(s)) calm(s, here, a.actor);
     // Observing here may notice one of the place's signs.
@@ -1531,6 +1559,7 @@ function perform(s, a, round = null, settle = []) {
         actorId: a.actor,
         verb: "wait",
         witnesses,
+        ...(rested ? { rest: rested } : {}),
       });
       if (learningStart) recordLearning(s, a, learningStart, s.log.at(-1));
     }
@@ -2209,7 +2238,7 @@ export function play(
     if (next.actors[id].place !== from)
       arriveRoamingRecitals(next, packDefinitions, id);
   }
-  // Resting at home clears a run of defeats.
+  // A resident resting at home clears a run of defeats.
   for (const id of Object.keys(next.defeats || {}))
     if (resting(next, id, homeOf(id))) delete next.defeats[id];
   if (exact.kind === "wait")
@@ -2243,7 +2272,13 @@ export function play(
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
   validateWorld(next);
-  return { ok: true, state: next };
+  // Alone, the world runs on around a sleeper until the light changes.
+  let slept = next;
+  if (s.actors[actor].sleepUntil === undefined && !sharedEnabled(next))
+    while (slept.actors[actor].sleepUntil !== undefined)
+      slept = play(slept, legalActions(slept, actor)[0], slept.revision, actor)
+        .state;
+  return { ok: true, state: slept };
 }
 export function validateWorld(s) {
   const fail = () => {
@@ -2467,7 +2502,11 @@ export function validateWorld(s) {
       !Number.isSafeInteger(a.crossed) ||
       a.crossed < 0 ||
       !Number.isSafeInteger(a.lastTalk) ||
-      a.lastTalk > s.turn
+      a.lastTalk > s.turn ||
+      (a.sleepUntil !== undefined &&
+        (!Number.isSafeInteger(a.sleepUntil) ||
+          a.sleepUntil < 0 ||
+          a.sleepUntil > s.turn + DAYLIGHT_TURNS))
     )
       fail();
     if (
@@ -2650,6 +2689,8 @@ export function validateWorld(s) {
     if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
       fail();
     if (e.accepted !== undefined && typeof e.accepted !== "boolean") fail();
+    if (e.rest !== undefined && (e.rest !== "long" || e.verb !== "wait"))
+      fail();
     if (
       e.reason !== undefined &&
       (!REFUSED_VERBS.includes(e.verb) ||

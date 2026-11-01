@@ -83,7 +83,7 @@ function waitedThisTurn(world) {
   for (let i = world.log.length - 1; i >= 0; i--) {
     const entry = world.log[i];
     if (entry.turn !== world.turn) return false;
-    if (entry.verb === "wait" && entry.actorId === actor) return true;
+    if (entry.verb === "wait" && entry.actorId === actor) return entry;
   }
   return false;
 }
@@ -176,11 +176,12 @@ export function dialogueCast(world, action = null) {
     )
     .slice(0, 8);
   // Only the avatar who chose to wait turns inward this turn.
-  const resting =
+  const waited =
     speakers[0] === currentActor(world) &&
-    (played ? played.verb === "wait" : waitedThisTurn(world))
-      ? currentActor(world)
-      : null;
+    (played?.verb === "wait" ? played : !played && waitedThisTurn(world));
+  const resting = waited ? currentActor(world) : null;
+  // Waking from a long rest at a sanctuary brings a dream.
+  const rest = waited?.rest === "long" ? "long" : null;
   return {
     location,
     beforeFirstLight,
@@ -196,5 +197,6 @@ export function dialogueCast(world, action = null) {
     speakers,
     ids,
     resting,
+    rest,
   };
 }
