@@ -25,16 +25,24 @@ fn busy_timeout() -> Duration {
 pub(super) fn open_sqlite(path: &Path, busy_timeout: Duration) -> rusqlite::Result<Connection> {
     let c = Connection::open(path)?;
     c.busy_timeout(busy_timeout)?;
+    // Back-fill bindings only when their table is new: a write on every open
+    // would contend with the world's writers.
+    let new_bindings = c
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='card_bindings'",
+            [],
+            |_| Ok(()),
+        )
+        .optional()?
+        .is_none();
     c.execute_batch("
       CREATE TABLE IF NOT EXISTS card_tables(id TEXT PRIMARY KEY, owner TEXT NOT NULL, created INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS card_members(world TEXT NOT NULL, actor INTEGER NOT NULL, user TEXT NOT NULL, seen INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(world,actor), UNIQUE(world,user));
       CREATE TABLE IF NOT EXISTS card_checkpoints(world TEXT PRIMARY KEY, seq INTEGER NOT NULL, state TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS card_tables_owner ON card_tables(owner);
       CREATE INDEX IF NOT EXISTS card_members_user ON card_members(user);
-      -- A passkey's avatar in a world (bindings.rs). Current members are bound;
-      -- an avatar released before bindings existed was never recorded.
+      -- A passkey's avatar in a world (bindings.rs).
       CREATE TABLE IF NOT EXISTS card_bindings(world TEXT NOT NULL, actor INTEGER NOT NULL, user TEXT NOT NULL, PRIMARY KEY(world,actor), UNIQUE(world,user));
-      INSERT OR IGNORE INTO card_bindings(world,actor,user) SELECT world,actor,user FROM card_members;
       CREATE TABLE IF NOT EXISTS card_log(seq INTEGER PRIMARY KEY AUTOINCREMENT, world TEXT NOT NULL, command TEXT NOT NULL, at INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS card_log_world ON card_log(world,seq);
       CREATE TABLE IF NOT EXISTS card_plays(id TEXT PRIMARY KEY, world TEXT NOT NULL, actor INTEGER NOT NULL, user TEXT NOT NULL, room INTEGER NOT NULL, command TEXT NOT NULL, status TEXT NOT NULL, created INTEGER NOT NULL, until_at INTEGER NOT NULL DEFAULT 0, result TEXT NOT NULL DEFAULT '{}');
@@ -45,6 +53,14 @@ pub(super) fn open_sqlite(path: &Path, busy_timeout: Duration) -> rusqlite::Resu
       CREATE INDEX IF NOT EXISTS card_scenes_room ON card_scenes(world,room,seq);
       CREATE TABLE IF NOT EXISTS card_nudges(world TEXT NOT NULL, target INTEGER NOT NULL, sender INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY(world,target));
     ")?;
+    // Current members are bound; an avatar released before bindings existed
+    // was never recorded.
+    if new_bindings {
+        c.execute(
+            "INSERT OR IGNORE INTO card_bindings(world,actor,user) SELECT world,actor,user FROM card_members",
+            [],
+        )?;
+    }
     Ok(c)
 }
 fn err(e: impl std::fmt::Display) -> String {
