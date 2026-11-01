@@ -71,10 +71,12 @@ image generation; their prompts and source hashes are also in
 
 River Landing and River Camp share the saved world clock with the Greek
 places: every twenty-four accepted turns, day turns to night. At night the
-landing shows the Greek ship's lanterns in the backwater and the camp shows
-its lit fire under a dark sky. These two night paintings came from closed
-PR #1293; their prompts are in `art-prompts.json`. The thicket and the bank
-keep their single painting.
+camp shows its lit fire under a dark sky and the landing shows its night
+painting; in dark mist the landing shows the Greek ship's lanterns in the
+backwater instead. The thicket and the bank show their night paintings
+through place `backdrops` with a `daylight` night condition (#1622). The ship and lit-camp paintings came from closed PR
+#1293; their prompts are in `art-prompts.json`. The camp's fire-out painting
+waits for the owner to choose its flag.
 
 The uncanny flicker (`transitions.mjs`) runs at every Willows place all year,
 not only on Halloween, with the same limits: one cut of 140 ms per entry at

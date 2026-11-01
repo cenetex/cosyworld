@@ -160,6 +160,22 @@
         "greek-road-athens-harbor"
       ],
       "backdrop": "assets/greek-drama/athens-grand-agora.webp",
+      "backdrops": [
+        {
+          "backdrop": "assets/greek-drama/open-door-agora.webp",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-returned",
+              "value": true
+            },
+            {
+              "kind": "daylight",
+              "phase": "day"
+            }
+          ]
+        }
+      ],
       "persona": "The Agora is the great civic heart of Athens. Colonnades, public monuments and the high Acropolis give the city its scale. Theseus receives the mothers’ petition at the herald’s table. A road leads to the Piraeus quays. Streets lead to the harbor and the grove at Colonus."
     },
     "greek-piraeus": {
