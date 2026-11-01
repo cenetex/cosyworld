@@ -1,12 +1,16 @@
-import { createWorld } from "./world.mjs";
+import { createWorld, fillSeatWants } from "./world.mjs";
 import { enableMotives } from "./motives.mjs";
 
-// A shared world's owner can delete an avatar to free its place (#1825). The
+// A shared world's owner frees a seat, or its holder releases it (#1825). The
 // avatar starts over as a fresh level-1 starter at its starting place: its
 // level, experience, quest, memory, learning and routes go, and everything it
 // held is dropped where it stood. The world keeps the dropped things.
 export function resetAvatar(world, id) {
+  // The fresh record is a new shared world's, where it lives as a resident
+  // with a want (#1846).
   const fresh = enableMotives(createWorld({ opening: true }));
+  fresh.sharedVersion = 1;
+  fillSeatWants(fresh);
   const actor = world.actors[id];
   if (!actor || !fresh.actors[id]) throw new Error("Choose a human avatar.");
   const stood = actor.place;
@@ -37,6 +41,8 @@ export function resetAvatar(world, id) {
   );
   world.controlledActors = world.controlledActors.filter((a) => a !== id);
   world.presentActors = world.presentActors.filter((a) => a !== id);
+  if (world.heldActors)
+    world.heldActors = world.heldActors.filter((a) => a !== id);
   world.revision += 1;
   return world;
 }

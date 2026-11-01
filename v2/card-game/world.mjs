@@ -19,6 +19,8 @@ import {
   sharedEnabled,
   humanRoomAvailable,
   humanHomeGates,
+  heldByHuman,
+  residentAvatar,
 } from "./human-cast.mjs";
 export {
   currentActor,
@@ -688,6 +690,8 @@ function reachable(s, actor) {
   return [...seen].filter((id) => id !== from && !transportPlace(id)).sort();
 }
 const homeOf = (id) => tastes[id]?.home || humanAvatar(id)?.home?.id || null;
+// Avatars that became residents of a shared world (#1846) take a want at once.
+export const fillSeatWants = (s) => fillWants(s, wantAPI(s), true);
 function wantAPI(s) {
   return {
     carried: (actor) => carried(s, actor),
@@ -710,7 +714,7 @@ function wantAPI(s) {
     places: () => Object.keys(places),
     home: homeOf,
     sanctuaries,
-    player: (id) => id === currentActor(s) || controlledByHuman(s, id),
+    player: (id) => id === currentActor(s) || heldByHuman(s, id),
     questsBeginAt: forest.questsBeginAt,
     placeOf: (item) => itemPlace(s, item),
     distance: (from, to, actor) =>
@@ -2393,6 +2397,12 @@ export function play(
       "moth",
       "keeper",
       ...active.filter((id) => id === BOARDY && !controlledByHuman(next, id)),
+      // Avatars nobody steers here live as residents where they stand.
+      ...active.filter(
+        (id) =>
+          residentAvatar(next, id) &&
+          next.actors[id].place === next.actors[actor].place,
+      ),
       ...active.filter(
         (id) =>
           isPackActor(id) &&
@@ -2575,7 +2585,7 @@ export function validateWorld(s) {
       fail();
   }
   if (s.playerActorId !== undefined && !humanAvatar(s.playerActorId)) fail();
-  for (const field of ["controlledActors", "presentActors"]) {
+  for (const field of ["controlledActors", "presentActors", "heldActors"]) {
     if (
       s[field] !== undefined &&
       (!Array.isArray(s[field]) ||

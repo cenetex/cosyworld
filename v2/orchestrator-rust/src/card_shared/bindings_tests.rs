@@ -164,3 +164,17 @@ fn holders_are_named_without_their_account_id() {
     assert_eq!(view["holders"][0], serde_json::Value::Null);
     assert!(!view.to_string().contains(user));
 }
+
+// An avatar's level travels with it into its next seat (#1846).
+#[test]
+fn a_claim_carries_the_avatars_level() {
+    let mut w = World::create(None).unwrap();
+    w.apply(&serde_json::json!({"op":"claim","actor":"ash","progress":{"level":3,"xp":7}}))
+        .unwrap();
+    assert_eq!(w.game["actors"]["ash"]["xp"], 7);
+    assert_eq!(w.game["actors"]["ash"]["level"], 3);
+    let refused = w
+        .apply(&serde_json::json!({"op":"claim","actor":"rue","progress":{"xp":-1}}))
+        .unwrap_err();
+    assert!(refused.contains("Choose the avatar's level."), "{refused}");
+}

@@ -17,12 +17,15 @@ import {
   carried,
   publishKnowledgeSpeech,
   seedRun,
+  fillSeatWants,
 } from "./world.mjs";
 import {
   humanAvatars,
   humanAvatar,
   humanAvatarIds,
   roomHumanCount,
+  seatActors,
+  residentAvatar,
 } from "./human-cast.mjs";
 import { profiles } from "./memory.mjs";
 import { enableMotives } from "./motives.mjs";
@@ -48,9 +51,7 @@ function contextual(world, request) {
   if (present.some((id) => !claimed.includes(id)))
     throw new Error("A present avatar needs a claim.");
   world.playerActorId = actor;
-  world.controlledActors = claimed;
-  world.presentActors = present;
-  return world;
+  return seatActors(world, claimed, present);
 }
 function stored(world) {
   const result = structuredClone(world);
@@ -58,6 +59,7 @@ function stored(world) {
   delete result.playerActorId;
   delete result.controlledActors;
   delete result.presentActors;
+  delete result.heldActors;
   return result;
 }
 // The saved world with this request's actor, claims and presence.
@@ -70,6 +72,20 @@ export function load(request) {
 }
 function response(world, extra = {}) {
   return { ok: true, world: stored(world), ...extra };
+}
+// An avatar's level travels with it between worlds (#1846): the host passes
+// the level and experience it had where it was last seated.
+function carryProgress(actor, progress) {
+  if (progress == null) return;
+  const { level, xp } = progress;
+  const count = (n) => Number.isInteger(n) && n >= 0 && n <= 1_000_000;
+  if (!count(xp) || !(level === undefined || (count(level) && level >= 1)))
+    throw new Error("Choose the avatar's level.");
+  actor.xp = xp;
+  if (level === undefined) delete actor.level;
+  else actor.level = level;
+  // The least experience that level takes, so the rules' caps still hold.
+  actor.carried = Math.max(xp, level ? (level * (level - 1)) / 2 : 0);
 }
 function enableShared(world) {
   world.sharedVersion = 1;
@@ -107,6 +123,7 @@ function importClientSave(save) {
     "playerActorId",
     "controlledActors",
     "presentActors",
+    "heldActors",
     "claimed",
     "present",
   ])
@@ -128,12 +145,16 @@ export function dispatchShared(request) {
     delete world.playerActorId;
     delete world.controlledActors;
     delete world.presentActors;
+    delete world.heldActors;
     contextual(world, {
       ...request,
       actor: request.actor || "vale",
       claimed: ["vale"],
       present: ["vale"],
     });
+    // A fresh world's resident avatars take a want at once; an imported or
+    // upgraded one gives them wants at its next play.
+    if (request.save == null) fillSeatWants(world);
     validateWorld(world);
     return response(world, view(world, request.actor || "vale"));
   }
@@ -144,7 +165,7 @@ export function dispatchShared(request) {
     // Loading already moved the save onto the current rules: quest records
     // are dropped and each avatar holds one want.
     if (request.from === "full-card-world/2")
-      settleHomeItems(world, world.controlledActors);
+      settleHomeItems(world, world.heldActors);
     seedRun(world, request.seed);
     world.revision += 1;
     validateWorld(world);
@@ -154,6 +175,8 @@ export function dispatchShared(request) {
   if (request.op === "join") {
     if (!world.controlledActors.includes(actor))
       world.controlledActors.push(actor);
+    if (!world.heldActors.includes(actor)) world.heldActors.push(actor);
+    carryProgress(world.actors[actor], request.progress);
     enableShared(world);
     validateWorld(world);
     return response(world, view(world, actor));
@@ -226,11 +249,10 @@ export function dispatchShared(request) {
         (!scenic &&
           (!speaker ||
             world.actors[speaker].place !== room ||
+            // Every avatar in a shared world is present or a resident.
             (humanAvatar(speaker) &&
               !world.presentActors.includes(speaker) &&
-              !(
-                speaker === actor && world.controlledActors.includes(speaker)
-              )))) ||
+              !residentAvatar(world, speaker)))) ||
         typeof line.text !== "string" ||
         !line.text.trim() ||
         line.text.length > 600 ||

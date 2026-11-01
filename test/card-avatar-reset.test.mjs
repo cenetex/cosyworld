@@ -71,3 +71,20 @@ describe("an owner deletes an avatar from a shared world (#1825)", () => {
     expect(ask(world, "reset", "ash")).toEqual(ask(world, "reset", "ash"));
   });
 });
+
+describe("an avatar's level travels with it (#1846)", () => {
+  it("joins at the level and experience it had in its last seat", () => {
+    const world = along();
+    const joined = ask(world, "join", "ash", ["vale"], {
+      progress: { level: 3, xp: 7 },
+    }).world;
+    expect(joined.actors.ash.xp).toBe(7);
+    expect(levelOf(joined, "ash")).toBe(3);
+    const plain = ask(world, "join", "ash", ["vale"]).world;
+    expect(plain.actors.ash.xp).toBe(world.actors.ash.xp);
+    for (const progress of [{ xp: -1 }, { xp: 2, level: 0 }, { level: 2 }])
+      expect(() => ask(world, "join", "ash", ["vale"], { progress })).toThrow(
+        "Choose the avatar's level.",
+      );
+  });
+});

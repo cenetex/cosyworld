@@ -798,6 +798,13 @@
   var controlledByHuman = (world, id) => world.controlledActors ? world.controlledActors.includes(id) : id === "vale";
   var humanPresent = (world, id) => controlledByHuman(world, id) && (!world.presentActors || world.presentActors.includes(id));
   var sharedEnabled = (world) => world.sharedVersion === 1;
+  function seatActors(world, claimed, present) {
+    world.heldActors = [...claimed];
+    world.controlledActors = [...present];
+    world.presentActors = [...present];
+    return world;
+  }
+  var residentAvatar = (world, id) => sharedEnabled(world) && Boolean(humanAvatar(id)) && !controlledByHuman(world, id);
   var roomHumanCount = (world, place) => humanAvatarIds.filter(
     (id) => humanPresent(world, id) && world.actors[id]?.place === place
   ).length;
@@ -2164,7 +2171,8 @@
     const whole4 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const quests = questsOf(s, id);
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(startXp(id) + s.turn * 8)) && a.xp <= startXp(id) + s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want)) && (a.under === void 0 || Array.isArray(a.under) && a.want !== null && a.under.length >= 1 && a.under.length < QUEST_LIMIT && a.under.every((w) => validQuest(s, id, w))) && quests.filter((w) => w.quest).length <= 1 && new Set(quests.filter((w) => !w.quest).map((w) => `${w.kind}:${w.target}`)).size === quests.filter((w) => !w.quest).length;
+    const most = startXp(id) + (a.carried ?? 0) + s.turn * 8;
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want)) && (a.under === void 0 || Array.isArray(a.under) && a.want !== null && a.under.length >= 1 && a.under.length < QUEST_LIMIT && a.under.every((w) => validQuest(s, id, w))) && quests.filter((w) => w.quest).length <= 1 && new Set(quests.filter((w) => !w.quest).map((w) => `${w.kind}:${w.target}`)).size === quests.filter((w) => !w.quest).length;
   }
   function validQuest(s, id, w) {
     const whole4 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
@@ -14781,10 +14789,12 @@
   function entityActive(world, id) {
     if (world.items?.[id]) {
       let holder = rootOf2(world, id);
-      if (humanAvatar(holder) && !humanPresent(world, holder)) return false;
+      if (humanAvatar(holder) && !humanPresent(world, holder) && !residentAvatar(world, holder))
+        return false;
       if (holder === BOARDY && !boardyActive(world)) return false;
     }
-    if (humanAvatar(id) && !humanPresent(world, id)) return false;
+    if (humanAvatar(id) && !humanPresent(world, id) && !residentAvatar(world, id))
+      return false;
     return entityEnabled(world, id);
   }
   function entityEnabled(world, id, saved = false) {
@@ -16764,7 +16774,7 @@
         fail();
     }
     if (s.playerActorId !== void 0 && !humanAvatar(s.playerActorId)) fail();
-    for (const field of ["controlledActors", "presentActors"]) {
+    for (const field of ["controlledActors", "presentActors", "heldActors"]) {
       if (s[field] !== void 0 && (!Array.isArray(s[field]) || s[field].length > 8 || new Set(s[field]).size !== s[field].length || s[field].some((id) => !humanAvatar(id))))
         fail();
     }
@@ -17082,9 +17092,7 @@
     if (present.some((id) => !claimed.includes(id)))
       throw new Error("A present avatar needs a claim.");
     world.playerActorId = actor;
-    world.controlledActors = claimed;
-    world.presentActors = present;
-    return world;
+    return seatActors(world, claimed, present);
   }
   function load(request) {
     if (!request.world || typeof request.world !== "object")

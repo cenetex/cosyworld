@@ -29,7 +29,7 @@ each traveller's known parlour route.
 The seven new humans start in their homes with their signature items on the floor.
 Picking up the item opens the path to Black pond. Putting it down closes that
 path. At the pond, the item reveals the home's entrance when it rests there or
-is carried by a present human. Full destination cards disappear
+is carried by anyone standing there. Full destination cards disappear
 from the hand. The server checks room space again when a play reaches its turn.
 
 The existing Play buttons add an action to the room queue. A room holds four
@@ -149,6 +149,16 @@ as the new claim; a refused claim leaves the old worlds as they were. Creating
 a world takes `avatar` (Vale by default) and the same `move` flag. A release
 is the ordinary `release` journal action, so replay is unchanged. A claim
 without `move` keeps the earlier behaviour.
+
+## Away avatars live as residents
+
+Since rules 80 ([passkey v2](../../../docs/design/passkey-v2.md)) all eight
+avatars are in every shared world. A human steers an avatar only while
+present. An avatar whose holder is away, and one nobody holds, lives there as
+a resident: it is seen, keeps its things, and acts on its own wants when
+someone plays in its room. There is no server tick, so in a world where
+nobody is playing, nothing acts. A claim can carry the avatar's level and
+experience from its last seat (`progress` on the journaled `claim`).
 
 ## One avatar per passkey per world
 
@@ -359,7 +369,8 @@ route and the room lacks the resources to reopen its gate. A belonging on the
 floor or carried by a present helper keeps its usual role. A fueled lamp can be
 lit or uncovered; a dry lamp fills itself when someone holds it with an Oil
 flask available in the room. A belonging
-carried away or held by an absent player leaves the pond path available.
+carried away leaves the pond path available. Since rules 80 an away
+player's avatar stays as a resident, so what it holds still counts.
 Room capacity still applies to the destination.
 
 The same home-gate rule serves the attic and all seven visitor homes. Shared

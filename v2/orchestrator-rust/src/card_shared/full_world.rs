@@ -180,6 +180,7 @@ impl World {
                 engine::SEVENTY_SIXTH_VERSION,
                 engine::SEVENTY_SEVENTH_VERSION,
                 engine::SEVENTY_EIGHTH_VERSION,
+                engine::SEVENTY_NINTH_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
@@ -291,6 +292,7 @@ impl World {
             engine::SEVENTY_SIXTH_VERSION,
             engine::SEVENTY_SEVENTH_VERSION,
             engine::SEVENTY_EIGHTH_VERSION,
+            engine::SEVENTY_NINTH_VERSION,
         ]
         .contains(&self.version.as_str())
         {
@@ -301,11 +303,12 @@ impl World {
         let mut next = self.clone();
         let (kind, result) = match op {
             "claim" => {
-                let result = engine::reduce_pack(
-                    &self.version,
-                    self.pack.as_deref(),
-                    self.request("join", a),
-                )?;
+                // The avatar's level travels with it from its last seat (#1846).
+                let mut request = self.request("join", a);
+                if !command["progress"].is_null() {
+                    request["progress"] = command["progress"].clone();
+                }
+                let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
                 next.game = result["world"].clone();
                 next.claimed[a] = 1;
                 (1, result)
