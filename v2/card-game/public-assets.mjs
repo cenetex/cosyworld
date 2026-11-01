@@ -207,8 +207,9 @@ const files = [
 ];
 // A mounted pack can reuse an image already published by the card table.
 for (const file of packMediaFiles) if (!files.includes(file)) files.push(file);
-for (const { stage, card } of Object.values(imageVariants.images))
-  for (const file of [stage, card]) if (!files.includes(file)) files.push(file);
+for (const { stage, card, phone } of Object.values(imageVariants.images))
+  for (const file of [stage, card, phone])
+    if (file && !files.includes(file)) files.push(file);
 const types = {
   html: "text/html; charset=utf-8",
   css: "text/css; charset=utf-8",

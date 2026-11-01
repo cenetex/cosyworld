@@ -1207,7 +1207,7 @@ function cancelTravel() {
   entrances.clear();
   for (const figure of exits.keys()) {
     for (const animation of figure.getAnimations()) animation.cancel();
-    if (figure.dataset.removing) figure.remove();
+    if (figure.dataset.removing) dropFigure(figure);
   }
   exits.clear();
   renderedCast = "";
@@ -1938,12 +1938,16 @@ function renderStage(locationId) {
     ? "Someone"
     : mood?.alt || nameOf(stage.resident);
 }
+function dropFigure(figure) {
+  figure.remove();
+  releaseImages(figure);
+}
 function leaveFigure(figure, remove = false) {
   if (exits.has(figure)) return;
   if (remove) figure.dataset.removing = "true";
   figure.setAttribute("aria-hidden", "true");
   if (reducedMotion.matches || $("travel").classList.contains("travelling")) {
-    if (remove) figure.remove();
+    if (remove) dropFigure(figure);
     return;
   }
   const animation = figure.animate(
@@ -1960,7 +1964,7 @@ function leaveFigure(figure, remove = false) {
     .catch(() => {})
     .then(() => {
       if (exits.get(figure) !== task) return;
-      if (remove) figure.remove();
+      if (remove) dropFigure(figure);
       animation.cancel();
       exits.delete(figure);
     });
@@ -2421,6 +2425,7 @@ function renderScene() {
   ) {
     portraitBox.dataset.entity = portraitId || "";
     portraitBox.dataset.source = portraitSource;
+    releaseImages(portraitBox);
     portraitBox.replaceChildren();
     if (portraitId) {
       const image = node("img");
@@ -2508,6 +2513,7 @@ function renderScene() {
     if (behindButton.dataset.key !== behindKey) {
       behindButton.dataset.key = behindKey;
       const face = behindButton.querySelector(".beat-behind-portrait");
+      releaseImages(face);
       face.replaceChildren();
       const source = beatPortrait(behind.speakerId);
       if (source) {
@@ -2569,6 +2575,13 @@ function renderScene() {
   animateStack(direction, ghost);
 }
 // The art for a beat's speaker: a person, a place, or an item.
+// Dropping the address lets the browser free the decoded picture now rather
+// than whenever the node is collected.
+function releaseImages(root) {
+  if (!root) return;
+  for (const image of root.querySelectorAll("img"))
+    image.removeAttribute("src");
+}
 function beatPortrait(id) {
   if (!id) return "";
   return imageUrl(
@@ -2659,7 +2672,10 @@ function fadeGhost(ghost, to, duration) {
   if (!ghost) return;
   const from = getComputedStyle(ghost).opacity;
   ghost.style.opacity = "0";
-  const done = () => ghost.remove();
+  const done = () => {
+    ghost.remove();
+    releaseImages(ghost);
+  };
   ghost
     .animate([{ opacity: from }, { opacity: 0, ...to }], {
       duration,
@@ -2671,8 +2687,10 @@ function animateStack(direction, ghost) {
   const front = $("speech-row"),
     behind = $("beat-behind");
   if (!direction || front.hidden) {
-    ghost.front?.remove();
-    ghost.behind?.remove();
+    for (const copy of [ghost.front, ghost.behind]) {
+      copy?.remove();
+      releaseImages(copy);
+    }
     return;
   }
   const showBehind = !behind.hidden;
@@ -2841,9 +2859,15 @@ document.addEventListener("keydown", (event) => {
 }
 let renderedMemory = "";
 // Memory is opened on purpose: every remembered visit, newest first, as the
-// same beats the stack shows.
-function renderLog() {
+// same beats the stack shows. Closed, it holds no portraits at all.
+function renderLog(open = $("history-dialog").open) {
   const box = $("messages");
+  if (!open) {
+    releaseImages(box);
+    box.replaceChildren();
+    renderedMemory = "";
+    return;
+  }
   const visits = memoryVisits(shownWorld(), {
     viewer: currentActor(world),
     shared: Boolean(sharedSession),
@@ -3191,7 +3215,7 @@ document.addEventListener("click", (e) => {
   render();
 });
 $("history-button").onclick = () => {
-  renderLog();
+  renderLog(true);
   $("history-dialog").showModal();
   pauseSpeech();
   // The newest visit is first; the past is further down.
@@ -3209,6 +3233,7 @@ document
 document
   .querySelectorAll("dialog")
   .forEach((dialog) => dialog.addEventListener("close", pauseSpeech));
+$("history-dialog").addEventListener("close", () => renderLog(false));
 $("export-script").onclick = () => {
   const url = URL.createObjectURL(
     new Blob(

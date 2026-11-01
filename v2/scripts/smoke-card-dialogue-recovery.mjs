@@ -175,7 +175,13 @@ try {
       failed.log.some((e) => e.turn === failed.turn && e.kind === "action"),
       true,
     );
+    await page.evaluate(() =>
+      document.querySelector("#history-button").click(),
+    );
     assert.doesNotMatch(await page.locator("#messages").innerText(), /Turn \d/);
+    await page.evaluate(() =>
+      document.querySelector("#history-dialog").close(),
+    );
     // A reload keeps the failed turn's Retry instead of a hidden panel.
     await page.reload();
     await page.waitForFunction(
