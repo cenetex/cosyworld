@@ -7,8 +7,7 @@ Status: decided by the owner on #1648 (2026-11-01). It ships with level quests
 
 - **One sanctuary per world.** A sanctuary is a place property in pack data,
   `"sanctuary": true`. Each world has exactly one. The Willows has none,
-  because its camp is not safe at night ([Willows horror](willows-horror.md)),
-  and the one-place badger forest has none for now (see below).
+  because its camp is not safe at night ([Willows horror](willows-horror.md)).
   The ship is not a sanctuary. The engine never names a place.
 - **Wait is the only rest.** There is no Rest card. The Wait card (shown as
   Observe) keeps its one verb, `wait`, everywhere.
@@ -31,15 +30,15 @@ Status: decided by the owner on #1648 (2026-11-01). It ships with level quests
 | Greece | The Hillside Sanctuary |
 | Hoppycat | Halfway Tea Garden |
 | Lonely Forest | Cosy Cottage |
-| Badger forest | none for now (see below) |
+| Badger's glade | part of the Lonely Forest: the Cosy Cottage |
 | Willows | none |
 
 The hub picks the Mirror attic, Vale's warm home, over the Empty station. The
 station is where the keeper lives and where a table without the opening
 starts, so most hub play would sleep on every Wait. The opening starts in the
 attic, so a first Observe there sleeps the night, and the lamp burns down
-while Vale sleeps. The badger forest has no sanctuary for now: its one place
-is the clearing, where waiting is how the badger settles. Moving or adding a
+while Vale sleeps. Badger's glade, by the old Steam Clock, is a hidden part
+of the Lonely Forest, so it shares the Cosy Cottage. Moving or adding a
 sanctuary is a one-line pack change.
 
 A sanctuary is not marked on any map. A player finds out when a Wait there
