@@ -86,6 +86,8 @@ import {
   applyMeetingChoices,
   packGiveChoice,
   packWaitChoice,
+  applyDeparture,
+  departureWaits,
   choiceText,
   conditionsMet,
   validatePackLinks,
@@ -661,7 +663,7 @@ function wantActors(s, extra = []) {
     ...new Set([
       ...actorIds.filter(
         (id) =>
-          travels(id) &&
+          travels(id, s) &&
           entityActive(s, id) &&
           (!controlledByHuman(s, id) || humanPresent(s, id)),
       ),
@@ -1125,6 +1127,7 @@ export function legalActions(s, actor = currentActor(s)) {
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
+    if (departureWaits(s, actor, to)) continue;
     // A course card aboard a docked ship sets the voyage for everyone aboard.
     if (isCourse(s, here, to)) {
       const course = offer(
@@ -1153,7 +1156,8 @@ export function legalActions(s, actor = currentActor(s)) {
           canDisembark(s, crossing.transport, id)) &&
         id !== actor &&
         !controlledByHuman(s, id) &&
-        (!staysPut(id) || packJourneyDestination(s, id) === to) &&
+        (!staysPut(id, s) || packJourneyDestination(s, id) === to) &&
+        !departureWaits(s, id, to) &&
         s.actors[id].place === here,
     )) {
       const request = offer(
@@ -1471,6 +1475,7 @@ function travelParty(s, actors, destination) {
   )
     s.locations[from].anchored = true;
   markCrossed(s, from, destination);
+  for (const actor of actors) applyDeparture(s, actor, destination);
   for (const actor of actors) {
     if (through) s.actors[actor].crossed += 1;
     s.actors[actor].place = destination;
@@ -1991,7 +1996,7 @@ function wantPlan(s, actor) {
   if (!want) return idle();
   if (resting(s, actor, homeOf(actor))) return idle();
   const go = (place) => {
-    if (!travels(actor) || staysPut(actor)) return idle();
+    if (!travels(actor, s) || staysPut(actor, s)) return idle();
     const step = stepToward(s, actor, place);
     return step.action
       ? { action: step.action }
@@ -2063,7 +2068,7 @@ function wantPlan(s, actor) {
     trades.find((a) => !recent("trade", (e) => e.itemId === a.item));
   if (trade) return { action: trade };
   const bold =
-    travels(actor) &&
+    travels(actor, s) &&
     !avoidsStandoffs(actor) &&
     want.refusals >= 1 &&
     (resentment(s, actor, owner) > 0 ||

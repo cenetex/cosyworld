@@ -66,6 +66,11 @@ while that place's regional weather (`weather.mjs`) is the named condition:
 `{ "kind": "ship_at", "transport": "greek-ship", "dock": "pond" }` holds
 while that transport is docked at, or has just arrived at, that dock (not at
 sea). `"dock": "@sea"` holds while it sails between ports.
+`{ "kind": "chance", "key": "otter", "odds": 12, "lasts": 2 }` holds for one
+window of `lasts` turns in about `odds`, picked by a FNV-1a hash of the run
+seed, the key and the window, so every table agrees. A place's state
+`backdrops` use it for things that simply happen, such as the otter and the
+boatman at the Willows landing.
 `{ "kind": "any", "conditions": [ ... ] }` holds while any of two to four
 conditions holds (nested at most two deep, like `not`). The Willows
 crossings use all of these, so the island appears from the ship's rail only
@@ -197,6 +202,17 @@ Observes there (the `wait` play). Each Observe commits at most one feasible
 sign at the observer's place; its text is the World line. A FNV-1a hash of
 the run seed, the place and the pack's receipt count picks among the
 feasible signs, so each run notices them in its own order.
+
+A resident with `"travels": false` may list `stayUntil` conditions. While
+they hold, it travels like any traveller and can be invited along; when
+they stop holding, it keeps to wherever it is (the Swede and his kit).
+
+A choice with `"on": "depart"` has a resident as its subject. It commits when
+that resident takes a way out of the pack from the choice's place, and what it
+carries stays behind there. Its flag should hide the resident through its own
+`requires`: the resident has left the world for good, while the save, journal
+and shared views keep its record. A departure waits while the pack already
+has a receipt this turn. The Swede leaves this way when he takes the canoe.
 
 Canonical
 person identities prevent incompatible embodiments being active together.

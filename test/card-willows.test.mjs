@@ -17,6 +17,7 @@ import {
   packFacts,
   hub,
   validatePackDefinition,
+  entityActive,
 } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
@@ -46,7 +47,8 @@ function act(world, fields) {
   return result.state;
 }
 const move = (world, target) => act(world, { kind: "move", target });
-const choose = (world, id) => act(world, { choiceId: `willows-${id}` });
+const drop = (world, item) =>
+  act(world, { kind: "drop", item: `willows-${item}` });
 const seen = (world, id) =>
   Object.hasOwn(world.packs.willows.receipts, `willows-${id}`);
 // Observe (the Wait play) until this place's sign turns up. Each Observe
@@ -89,8 +91,8 @@ function island() {
   return world;
 }
 function discoveries() {
-  let world = observe(island(), "examine-hull");
-  world = move(world, "willows-camp");
+  let world = take(observe(island(), "examine-hull"), "provisions");
+  world = drop(move(world, "willows-camp"), "provisions");
   world = observe(world, "count-stores");
   world = act(world, { kind: "talk", target: "willows-swede" });
   world = move(world, "willows-thicket");
@@ -100,6 +102,15 @@ function discoveries() {
   world = observe(world, "look-beneath-roots");
   world = move(move(world, "willows-thicket"), "willows-camp");
   return observe(world, "compare-signs");
+}
+function kitHome(world) {
+  world.actors.vale.place = "willows-landing";
+  world = take(take(world, "sheet"), "provisions");
+  world = drop(drop(move(world, "willows-camp"), "sheet"), "provisions");
+  world = move(move(world, "willows-thicket"), "willows-bank");
+  world = take(take(world, "paddle"), "rope");
+  world = move(move(world, "willows-thicket"), "willows-camp");
+  return drop(drop(world, "paddle"), "rope");
 }
 
 describe("The Willows", () => {
@@ -196,6 +207,10 @@ describe("The Willows", () => {
   it("gives the four locations their voices and the Swede the one resident role", () => {
     expect(Object.keys(pack.avatars)).toEqual(["willows-swede"]);
     expect(Object.keys(pack.places)).toHaveLength(4);
+    const thicket = pack.places["willows-thicket"];
+    expect(thicket.road).toEqual(["willows-camp", "willows-bank"]);
+    expect(thicket.retired).toBeUndefined();
+    expect(pack.places["willows-camp"].exits).not.toContain("willows-bank");
     for (const id of Object.keys(pack.places)) {
       expect(packProfiles[id].kind).toBe("location");
       expect(packProfiles[id].persona).toContain("first person");
@@ -326,18 +341,19 @@ describe("The Willows", () => {
     );
     const saved = decodeSave(encodeSave(world));
     expect(saved.packs.willows).toEqual(world.packs.willows);
-    world = choose(saved, "choose-watch");
-    expect(world.packs.willows.choices["willows-response"]).toBe("watch");
-    expect(world.actors["willows-swede"].place).toBe("willows-camp");
+    expect(pack.choices.every((c) => c.on)).toBe(true);
+  });
+
+  it("frees the Swede and the canoe only while the whole kit is at camp", () => {
+    let world = kitHome(island());
+    const canoe = (w) => exits(w, "willows-landing", "vale").includes("pond");
+    const gone = structuredClone(world);
+    gone.items["willows-rope"].holder = "willows-bank";
+    expect(canoe(gone)).toBe(false);
     world = move(world, "willows-landing");
-    // Residents aboard may have sailed the ship on; the lamp calls it home.
-    summonTransport(world, "greek-ship", "pond");
-    expect(exits(mist(world), "willows-landing", "vale")).toContain(
-      "greek-ship",
-    );
-    expect(
-      decodeSave(encodeSave(world)).packs.willows.choices["willows-response"],
-    ).toBe("watch");
+    expect(canoe(world)).toBe(true);
+    expect(exits(world, "willows-landing", "willows-swede")).toContain("pond");
+    expect(move(world, "pond").actors.vale.place).toBe("pond");
   });
 
   it("poses the Swede from saved discoveries in local and shared play", () => {
@@ -369,8 +385,6 @@ describe("The Willows", () => {
     }).world;
     expect(sprite(shared)).toBe(sprite(world));
     expect(sprite(decodeSave(encodeSave(world)))).toBe(sprite(world));
-    world = choose(world, "choose-watch");
-    expect(sprite(world)).toBe("./assets/willows/swede-listening.webp");
     expect(residentPose(world, "vale")).toBeNull();
     expect(portrait("willows-swede")).toBe("./assets/willows/swede.webp");
 
@@ -379,44 +393,6 @@ describe("The Willows", () => {
       { portrait: "assets/willows/swede-seated.webp", at: "pond", scale: 2 },
     ];
     expect(packProblems(bad, hub).join(" ")).toContain("poses need");
-  });
-
-  it("requires carried gear for preparation and saves a choice to return", () => {
-    let world = discoveries();
-    world = take(take(world, "rope"), "sheet");
-    world = move(world, "willows-landing");
-    world = choose(world, "prepare-canoe");
-    for (const item of ["rope", "sheet"])
-      expect(world.items[`willows-${item}`].holder).toBe("willows-landing");
-    expect(
-      find(world, { choiceId: "willows-choose-departure" }),
-    ).toBeUndefined();
-    world = take(world, "paddle");
-    world = choose(world, "set-paddle");
-    const ready = decodeSave(encodeSave(world));
-    const stolen = structuredClone(ready);
-    stolen.items["willows-rope"].holder = "willows-swede";
-    expect(
-      find(stolen, { choiceId: "willows-choose-departure" }),
-    ).toBeUndefined();
-    world = choose(ready, "choose-departure");
-    expect(world.packs.willows.choices["willows-response"]).toBe("depart");
-    // A resident who boarded at the pond may have sailed the ship off while
-    // Vale was ashore, and with the rhapsode still on deck the lamp's call
-    // waits. The sea mist now returns every 48 turns, so the test brings the
-    // ship back to the pond itself before the next dark mist.
-    Object.assign(world.transports["greek-ship"], {
-      phase: "docked",
-      dock: "pond",
-      destination: null,
-      recall: null,
-    });
-    world = move(mist(world), "greek-ship");
-    world = move(move(mist(world), "willows-landing"), "willows-camp");
-    expect(find(world, { choiceId: "willows-choose-watch" })).toBeUndefined();
-    expect(decodeSave(encodeSave(world)).packs.willows).toEqual(
-      world.packs.willows,
-    );
   });
 
   it("mounts into an older save while preserving its items, places and discoveries", () => {
@@ -444,62 +420,65 @@ describe("The Willows", () => {
     }
     for (const c of pack.crossings) delete old.crossings[c.id];
     const mounted = decodeSave(JSON.stringify(old));
-    expect(mounted.packs.willows.revision).toBe(1);
+    expect(mounted.packs.willows.revision).toBe(2);
     for (const [id, item] of Object.entries(priorItems))
       expect(mounted.items[id]).toEqual(item);
     for (const [id, state] of Object.entries(priorPacks))
       expect(mounted.packs[id]).toEqual(state);
   });
 
-  it("shares discoveries and rejects a stale preparation when another human holds the rope", () => {
-    let world = dispatchShared({
+  it("lets the Swede leave the world with the canoe, for good", () => {
+    let world = move(kitHome(island()), "willows-landing");
+    let swede = world.actors["willows-swede"];
+    swede.place = "willows-landing";
+    swede.want = {
+      kind: "place",
+      target: "pond",
+      since: world.turn,
+      refusals: 0,
+    };
+    for (
+      let i = 0;
+      i < 8 && !world.packs.willows.flags["willows-swede-gone"];
+      i++
+    )
+      world = act(world, { kind: "wait" });
+    expect(world.packs.willows.flags["willows-swede-gone"]).toBe(true);
+    expect(entityActive(world, "willows-swede")).toBe(false);
+    expect(exits(world, "pond", "vale")).not.toContain("willows-landing");
+    const saved = decodeSave(encodeSave(world));
+    expect(saved.packs.willows).toEqual(world.packs.willows);
+    const shared = dispatchShared({
       op: "create",
-      save: encodeSave(discoveries()),
+      save: encodeSave(world),
     }).world;
-    const request = {
+    const view = dispatchShared({
+      op: "view",
+      world: shared,
       actor: "vale",
-      claimed: ["vale", "mara"],
-      present: ["vale", "mara"],
-    };
-    const sharedAct = (fields) => {
-      const view = dispatchShared({ op: "view", world, ...request });
-      const action = view.actions.find((a) =>
-        Object.entries(fields).every(([k, v]) => a[k] === v),
-      );
-      expect(action, JSON.stringify(fields)).toBeDefined();
-      const result = dispatchShared({ op: "play", world, ...request, action });
-      expect(result.ok).toBe(true);
-      world = result.world;
-      return action;
-    };
-    sharedAct({ kind: "take", item: "willows-rope" });
-    sharedAct({ kind: "take", item: "willows-sheet" });
-    sharedAct({ kind: "move", target: "willows-landing" });
-    const action = dispatchShared({
-      op: "view",
-      world,
-      ...request,
-    }).actions.find((a) => a.choiceId === "willows-prepare-canoe");
-    expect(action).toBeDefined();
-    const changed = structuredClone(world);
-    changed.items["willows-rope"].holder = "mara";
-    expect(
-      dispatchShared({ op: "play", world: changed, ...request, action }).ok,
-    ).toBe(false);
-    sharedAct({ choiceId: "willows-prepare-canoe" });
-    const mara = dispatchShared({
-      op: "view",
-      world,
-      ...request,
-      actor: "mara",
+      claimed: ["vale"],
+      present: ["vale"],
     });
-    expect(mara.world.packs.willows).toEqual(world.packs.willows);
-    expect(decodeSave(encodeSave(world)).packs.willows).toEqual(
-      world.packs.willows,
-    );
-    expect(
-      availableCards(dispatchShared({ op: "view", world, ...request }).world),
-    ).toContain("willows-landing");
+    expect(view.actions.some((a) => a.target === "willows-swede")).toBe(false);
+    for (let i = 0; i < 6; i++) world = act(world, { kind: "wait" });
+    expect(world.actors["willows-swede"].place).toBe("pond");
+  });
+
+  it("upgrades a revision 1 save: the ending and gear chain leave, the kit scatters", () => {
+    const old = discoveries();
+    const saved = old.packs.willows;
+    saved.revision = 1;
+    saved.receipts["willows-choose-watch"] = old.turn;
+    saved.choices["willows-response"] = "watch";
+    saved.flags["willows-gear-laid"] = true;
+    old.items["willows-rope"].holder = "willows-camp";
+    old.actors.vale.place = "willows-thicket";
+    const world = decodeSave(JSON.stringify(old));
+    expect(world.packs.willows.revision).toBe(2);
+    expect(world.packs.willows.choices).toEqual({});
+    expect(world.packs.willows.flags["willows-gear-laid"]).toBeUndefined();
+    expect(world.items["willows-rope"].holder).toBe("willows-bank");
+    expect(world.actors.vale.place).toBe("willows-thicket");
   });
 
   it("paces the willows nearer by night and keeps night signs to the dark", () => {
@@ -521,14 +500,7 @@ describe("The Willows", () => {
     world = move(world, "willows-thicket");
     world = observe(world, "look-up-willows");
     expect(world.packs.willows.flags["willows-shapes-seen"]).toBe(true);
-    // The otter and the boatman want daylight.
-    world = act(move(move(world, "willows-camp"), "willows-landing"), {
-      kind: "wait",
-    });
-    expect(seen(world, "watch-otter") || seen(world, "watch-boatman")).toBe(
-      false,
-    );
-    world = observe(clock(world, false), "watch-boatman");
+    world = move(move(world, "willows-camp"), "willows-landing");
     const place = narrativeContext(world).entities.find(
       (e) => e.id === "willows-landing",
     );

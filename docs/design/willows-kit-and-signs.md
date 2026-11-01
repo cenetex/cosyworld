@@ -4,9 +4,9 @@ Status: in progress, 2026-10-31. Issues #1626, #1629, #1581, #1622, #1575.
 
 ## Outcome
 
-The Willows has no story buttons. The island is three core places (landing,
-camp, bank); the thicket becomes the way between camp and bank. Two generic
-rules carry it, in steps:
+The Willows has no story buttons. The willow thicket stays a live road between
+camp and bank (`road: [camp, bank]`), a place to stand like the Greek roads.
+Two generic rules carry it, in steps:
 
 - **Observe finds signs (step 1, #1640).** A pack choice marked `"on": "wait"`
   is a sign. A human's Observe (the `wait` play) at that place commits one
@@ -15,8 +15,7 @@ rules carry it, in steps:
   stays, so the Swede's poses still follow it. Day signs: otter, boatman,
   pacing. Night: patterings, shapes, pacing again. Any time: hull, stores (with
   the Food Sack at camp), hollows, humming, roots, and comparing the signs with
-  the Swede. Step 2 moves the thicket's two signs (hollows, shapes) to the camp
-  and retires the otter and boatman signs (see step 3).
+  the Swede. Step 2 retires the otter and boatman signs (see step 4).
 - **A resident stays until (step 2).** `stayUntil` conditions free a resident
   that keeps to its scene. The Swede's are the Worn Paddle, Waterproof Sheet,
   Tent Rope and Food Sack all at the camp (`item_near`). The same four
@@ -45,11 +44,9 @@ readings.
 
 Step 1 keeps every id, receipt and flag. Step 2 is Willows revision 2. Step 3
 adds receipts only. `upgradeWillowsKitSave` removes the retired choices'
-receipts, flags and journal lines, the `willows-response` group, and the journal
-lines of the two signs that moved from the thicket to the camp. Kit still lying
-where revision 1 put it moves to its new place (sheet and sack at the landing,
-paddle and rope at the bank), and the thicket folds into the camp like any
-retired road.
+receipts, flags and journal lines and the `willows-response` group. Kit still
+lying where revision 1 put it moves to its new place (sheet and sack at the
+landing, paddle and rope at the bank). Anyone in the thicket stays there.
 
 ## Next
 
@@ -61,4 +58,5 @@ retired road.
    Read view; characters get facts about pages, never their text.
 3. Sign paintings: each sign shows an alternate of its place's painting while it
    is the place's newest sign (#1620's place backdrops); no alternate means the
-   base painting.
+   base painting. The hollows and the bronze shapes are thicket signs, so their
+   paintings (`thicket-hollows`, `thicket-bronze`) are thicket backdrops.

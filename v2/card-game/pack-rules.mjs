@@ -165,6 +165,15 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
     // The saved regional weather where c.place is.
     case "weather":
       return locationWeather(s, c.place)?.condition === c.condition;
+    // A seeded chance: true for `lasts` turns at a time, one window in
+    // `odds`, hashed from the run seed so every table agrees.
+    case "chance": {
+      let h = 2166136261;
+      const window = Math.floor((s.turn || 0) / c.lasts);
+      for (const ch of `${s.run?.seed ?? 0}:${c.key}:${window}`)
+        h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+      return h % c.odds === 0;
+    }
     // A transport docked (or just arrived) at a port, or "@sea" between ports.
     case "ship_at":
       return c.dock === "@sea"

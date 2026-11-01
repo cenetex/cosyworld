@@ -94,6 +94,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     upgradeHoppyCatSeaSave(s);
     upgradeBoardingSave(s);
     upgradeForestButtonsSave(s);
+    upgradeWillowsKitSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -823,5 +824,41 @@ export function upgradeForestButtonsSave(s) {
     for (const id of FOREST_RETIRED_ITEMS) delete life.attachments?.[id];
     forget(life);
   }
+  saved.revision = 2;
+}
+
+// Willows revision 2 drops the gear chain, ending, otter and boatman and
+// moves unmoved kit. The thicket stays the road between camp and bank.
+const WILLOWS_RETIRED_CHOICES = [
+  "willows-prepare-canoe",
+  "willows-set-paddle",
+  "willows-choose-departure",
+  "willows-choose-watch",
+  "willows-watch-otter",
+  "willows-watch-boatman",
+];
+const WILLOWS_KIT_WAS = {
+  "willows-paddle": "willows-landing",
+  "willows-sheet": "willows-camp",
+  "willows-rope": "willows-camp",
+  "willows-provisions": "willows-camp",
+};
+export function upgradeWillowsKitSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "willows");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 2 || saved?.revision !== 1) return;
+  for (const id of WILLOWS_RETIRED_CHOICES) {
+    delete saved.receipts[id];
+    if (saved.recitals) delete saved.recitals[id];
+  }
+  for (const flag of ["gear-laid", "paddle-laid", "otter-seen", "boatman-seen"])
+    delete saved.flags[`willows-${flag}`];
+  delete saved.choices["willows-response"];
+  s.log = (s.log || []).filter(
+    (e) =>
+      !(e.packId === pack.id && WILLOWS_RETIRED_CHOICES.includes(e.choiceId)),
+  );
+  for (const [id, was] of Object.entries(WILLOWS_KIT_WAS))
+    if (s.items[id]?.holder === was) s.items[id].holder = pack.items[id].holder;
   saved.revision = 2;
 }

@@ -80,6 +80,7 @@ export const CONDITION_KINDS = [
   "weather",
   "ship_at",
   "drawn",
+  "chance",
 ];
 // The `ship_at` dock for a ship sailing between ports.
 export const AT_SEA = "@sea";
@@ -597,6 +598,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "text",
         "place",
         "travels",
+        "stayUntil",
         "journey",
         "roamingQuest",
         "personalQuests",
@@ -650,6 +652,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         (a.roamingQuest === undefined ||
           (a.roamingQuest === "latest-completion" && a.travels !== false)),
       `avatar ${id} may only set travels or standoffs to false`,
+    );
+    // A resident who keeps to its scene may leave once these conditions hold.
+    check(
+      a.stayUntil === undefined || (a.travels === false && !a.journey),
+      `avatar ${id} stayUntil needs a resident that keeps to its scene`,
     );
     check(
       a.previousHomes === undefined ||
@@ -909,6 +916,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             anyPlace(c.place) &&
             WEATHER_CONDITIONS.includes(c.condition);
           break;
+        case "chance":
+          ok =
+            keysOk(c, ["kind", "key", "odds", "lasts"]) &&
+            idOk(c.key) &&
+            intOk(c.odds, 2, 1000) &&
+            intOk(c.lasts, 1, 24);
+          break;
         case "ship_at":
           ok =
             keysOk(c, ["kind", "transport", "dock"]) &&
@@ -966,6 +980,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           "knows",
           "daylight",
           "drawn",
+          "chance",
         ].includes(c?.kind);
   const requirements = (cs, what, persistent = true) => {
     if (cs === undefined) return;
@@ -1021,6 +1036,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       );
       requirements(d.requires, `avatar ${id} desire requires`);
     }
+    requirements(a.stayUntil, `avatar ${id} stayUntil`);
   }
   for (const [id, i] of Object.entries(items)) {
     check(
@@ -1076,6 +1092,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         (c.on === undefined ||
           c.on === "meet" ||
           c.on === "wait" ||
+          (c.on === "depart" && Boolean(avatars[c.subject])) ||
           (c.on === "give" &&
             (c.requires || []).some(
               (r) => r.kind === "holding" && r.role === "actor",

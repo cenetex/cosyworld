@@ -6,6 +6,7 @@ import { BOARDY, connectedHumans } from "./boardyai.mjs";
 import { humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
 import {
   entityActive,
+  freed,
   isPackActor,
   packOf,
   packPeople,
@@ -39,8 +40,9 @@ export const knownActors = (s) =>
         s.packs?.[packOf(id).id]?.met?.[id] !== undefined),
   );
 // Pack residents keep to their own scene unless their data lets them travel.
-export const travels = (id) =>
+export const travels = (id, s = null) =>
   !isPackActor(id) ||
+  freed(s, id) ||
   id === BOARDY ||
   humanAvatarIds.includes(id) ||
   packPeople[id]?.personalQuests === true ||
@@ -110,7 +112,7 @@ export function wantCandidates(s, actor, api, previous = null) {
   );
   // Only what can be reached from here: the open routes, or this place for
   // a resident who keeps to its scene.
-  const reach = travels(actor) ? api.reachable(actor) : [];
+  const reach = travels(actor, s) ? api.reachable(actor) : [];
   const near = new Set([a.place, ...reach]);
   const items = Object.keys(s.items).filter((id) => {
     const owner = api.rootHolder(id);
@@ -232,7 +234,9 @@ export function settleWants(s, actors, api, action = null) {
     const atRest =
       !home || a.place === home || api.sanctuaries.includes(a.place);
     a.want =
-      !atRest && travels(id) && !(want.kind === "place" && want.target === home)
+      !atRest &&
+      travels(id, s) &&
+      !(want.kind === "place" && want.target === home)
         ? newWant("place", home, s.turn)
         : nextWant(s, id, api, want);
   }
@@ -245,7 +249,7 @@ export function refuseWant(s, actor, item, api) {
   if (want?.kind !== "item" || want.target !== item) return;
   // A resident that keeps to its scene only tries while someone is there, so
   // its stall clock starts at the first real attempt, not when it was given.
-  if (want.refusals === 0 && !travels(actor)) want.since = s.turn;
+  if (want.refusals === 0 && !travels(actor, s)) want.since = s.turn;
   want.refusals += 1;
   if (want.refusals >= REFUSAL_LIMIT) giveUp(s, actor, api);
 }
@@ -264,7 +268,7 @@ export function reviseStalledWants(s, actors, api) {
     const want = wantOf(s, id);
     if (
       want &&
-      (travels(id) || want.refusals > 0) &&
+      (travels(id, s) || want.refusals > 0) &&
       s.turn - want.since >= STALL_TURNS
     )
       giveUp(s, id, api);
