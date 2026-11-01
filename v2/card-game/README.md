@@ -186,7 +186,7 @@ The hand holds people, items and places, and one quest card for the player's
 own quest (`quest-card.mjs`, client only). The card shows a small 4:3 scene
 (`quest-screen.mjs`): the player on the left doing the quest's verb with the
 target on the right, from the images the stage already uses, with attack and
-guard poses for Attack and Threaten. A place quest shows the player small in
+guard poses for Strike and Threaten. A place quest shows the player small in
 that place. The place's painting fades softly into the card, with no frame,
 and appears only for the place itself or when the step happens where the
 player stands; elsewhere the figures stand on the card's dark ground. An
