@@ -48,6 +48,11 @@ pub(super) fn router() -> Router<AppState> {
 struct Create {
     #[serde(default)]
     save: Option<String>,
+    // The avatar the host shares as, and whether it leaves its other worlds.
+    #[serde(default)]
+    avatar: Option<String>,
+    #[serde(default, rename = "move")]
+    moving: bool,
 }
 async fn blocking(f: impl FnOnce() -> Result<Value> + Send + 'static) -> Result<Value> {
     tokio::task::spawn_blocking(f)
@@ -115,14 +120,30 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
         let id = crate::random_hex(24);
         let time = now();
         let seed = super::full_world::run_seed(&id);
+        let a = actor_index(body.avatar.as_deref().unwrap_or("vale"))?;
+        if body.moving {
+            leave_elsewhere(&tx, &id, &u, a, time)?;
+        }
         let mut w = World::seeded(body.save.as_deref(), Some(seed))?;
         super::store::create(&tx, &id, &u, time)?;
         store::seed(&tx, &id, &w, "share-existing-card-world", time)?;
-        store::commit(&tx, &id, &mut w, json!({"op":"claim","actor":"vale"}), time)?;
-        store::commit(&tx, &id, &mut w, json!({"op":"enter","actor":"vale"}), time)?;
+        store::commit(
+            &tx,
+            &id,
+            &mut w,
+            json!({"op":"claim","actor":actor_id(a)}),
+            time,
+        )?;
+        store::commit(
+            &tx,
+            &id,
+            &mut w,
+            json!({"op":"enter","actor":actor_id(a)}),
+            time,
+        )?;
         tx.execute(
-            "INSERT INTO card_members(world,actor,user,seen) VALUES(?,0,?,?)",
-            params![id, u, time],
+            "INSERT INTO card_members(world,actor,user,seen) VALUES(?,?,?,?)",
+            params![id, a, u, time],
         )
         .map_err(sql_error)?;
         tx.commit().map_err(sql_error)?;
@@ -167,6 +188,9 @@ pub(super) struct Command {
     pub target: Option<String>,
     #[serde(default)]
     pub key: String,
+    // A claim with `move` releases this account's avatar in its other worlds.
+    #[serde(default, rename = "move")]
+    pub moving: bool,
 }
 async fn command(
     State(state): State<AppState>,
@@ -233,6 +257,60 @@ pub(super) fn command_as(
     tx.commit().map_err(sql_error)?;
     Ok(value)
 }
+// Leaving keeps the claim; releasing frees the avatar for someone else.
+fn leave(
+    c: &rusqlite::Connection,
+    id: &str,
+    w: &mut World,
+    a: usize,
+    op: &str,
+    time: i64,
+) -> Result<()> {
+    let busy: i32 = c
+        .query_row(
+            "SELECT count(*) FROM card_full_plays WHERE world=? AND actor=? AND status='working'",
+            params![id, a],
+            |r| r.get(0),
+        )
+        .map_err(sql_error)?;
+    if busy > 0 {
+        return Err("Your current play is finishing. Try again in a moment.".into());
+    }
+    c.execute("UPDATE card_full_plays SET status='cancelled' WHERE world=? AND actor=? AND status IN ('waiting','retry')",params![id,a]).map_err(sql_error)?;
+    store::commit(c, id, w, json!({"op":op,"actor":actor_id(a)}), time)?;
+    if op == "release" {
+        c.execute(
+            "DELETE FROM card_members WHERE world=? AND actor=?",
+            params![id, a],
+        )
+        .map_err(sql_error)?;
+    } else {
+        c.execute(
+            "UPDATE card_members SET seen=0 WHERE world=? AND actor=?",
+            params![id, a],
+        )
+        .map_err(sql_error)?;
+    }
+    Ok(())
+}
+// Move: an account's avatar is in one world, so it is released everywhere else
+// in the same transaction as its new claim (v2/docs/card-table/avatar-menu.md).
+fn leave_elsewhere(c: &rusqlite::Connection, id: &str, u: &str, a: usize, time: i64) -> Result<()> {
+    let mut q = c
+        .prepare("SELECT world FROM card_members WHERE user=? AND actor=? AND world<>?")
+        .map_err(sql_error)?;
+    let worlds = q
+        .query_map(params![u, a, id], |r| r.get::<_, String>(0))
+        .map_err(sql_error)?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(sql_error)?;
+    for other in worlds {
+        let mut w = store::world(c, &other, time)?;
+        store::expire(c, &other, &mut w, time)?;
+        leave(c, &other, &mut w, a, "release", time)?;
+    }
+    Ok(())
+}
 pub(super) fn run(
     c: &rusqlite::Connection,
     id: &str,
@@ -248,6 +326,9 @@ pub(super) fn run(
             return Err("You already have an avatar in this world.".into());
         }
         let a = actor_index(b.avatar.as_deref().ok_or("Choose an avatar.")?)?;
+        if b.moving {
+            leave_elsewhere(c, id, u, a, time)?;
+        }
         store::commit(
             c,
             id,
@@ -283,27 +364,7 @@ pub(super) fn run(
                     }
                 }
             }
-            "leave" | "release" => {
-                let busy:i32=c.query_row("SELECT count(*) FROM card_full_plays WHERE world=? AND actor=? AND status='working'",params![id,a],|r|r.get(0)).map_err(sql_error)?;
-                if busy > 0 {
-                    return Err("Your current play is finishing. Try again in a moment.".into());
-                }
-                c.execute("UPDATE card_full_plays SET status='cancelled' WHERE world=? AND actor=? AND status IN ('waiting','retry')",params![id,a]).map_err(sql_error)?;
-                store::commit(c, id, &mut w, json!({"op":b.op,"actor":actor_id(a)}), time)?;
-                if b.op == "release" {
-                    c.execute(
-                        "DELETE FROM card_members WHERE world=? AND actor=?",
-                        params![id, a],
-                    )
-                    .map_err(sql_error)?;
-                } else {
-                    c.execute(
-                        "UPDATE card_members SET seen=0 WHERE world=? AND actor=?",
-                        params![id, a],
-                    )
-                    .map_err(sql_error)?;
-                }
-            }
+            "leave" | "release" => leave(c, id, &mut w, a, &b.op, time)?,
             "play" => {
                 if b.key.len() < 16
                     || b.key.len() > 80

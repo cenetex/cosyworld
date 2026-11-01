@@ -1,6 +1,6 @@
 use super::{
     engine, full, full_store,
-    full_world::{self, actor_id, World},
+    full_world::{self, actor_id, actor_index, World},
     store, *,
 };
 use serde_json::json;
@@ -139,7 +139,47 @@ fn body(op: &str, avatar: Option<&str>) -> full::Command {
         action: Value::Null,
         target: None,
         key: String::new(),
+        moving: false,
     }
+}
+#[test]
+fn a_move_releases_the_avatar_in_its_other_worlds() {
+    let (_path, mut c, first) = fixture();
+    let second = "c".repeat(48);
+    store::create(&c, &second, "owner", now()).unwrap();
+    full_store::seed(
+        &c,
+        &second,
+        &World::create(None).unwrap(),
+        "test-create",
+        now(),
+    )
+    .unwrap();
+    let tx = c.transaction().unwrap();
+    full::run(&tx, &first, "u", &body("claim", Some("mara")), now()).unwrap();
+    // Without `move` an older client keeps both claims, as before.
+    full::run(&tx, &second, "u", &body("claim", Some("mara")), now()).unwrap();
+    full::run(&tx, &second, "u", &body("release", None), now()).unwrap();
+    let mut moving = body("claim", Some("mara"));
+    moving.moving = true;
+    full::run(&tx, &second, "u", &moving, now()).unwrap();
+    let rows: Vec<String> = tx
+        .prepare("SELECT world FROM card_members WHERE user='u'")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(rows, vec![second.clone()]);
+    let mara = actor_index("mara").unwrap();
+    assert_eq!(
+        full_store::world(&tx, &first, now()).unwrap().claimed[mara],
+        0
+    );
+    assert_eq!(
+        full_store::world(&tx, &second, now()).unwrap().claimed[mara],
+        1
+    );
 }
 fn claim(c: &mut rusqlite::Connection, id: &str, a: usize) {
     let tx = c

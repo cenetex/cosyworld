@@ -40,6 +40,7 @@ fn command(op: &str, key: &str) -> full::Command {
         action: Value::Null,
         target: None,
         key: key.into(),
+        moving: false,
     }
 }
 
