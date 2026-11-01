@@ -1,9 +1,58 @@
 //! A person's passkey binds them to the avatar they take in a shared world
-//! (#1825). The binding outlives Leave and Move: they always return as that
-//! avatar, and nobody else can claim it. Only the world's owner frees it, by
-//! deleting the avatar, which starts it over as a fresh starter.
+//! (#1825). The binding outlives Step away and Send to: they always return as
+//! that avatar, and nobody else can claim it. The world's owner can free it
+//! and the holder can release it; either starts it over as a fresh starter.
 use super::store::{sql_error, Result};
 use rusqlite::{params, Connection, OptionalExtension};
+use sha2::{Digest, Sha256};
+
+// The words of a holder's name, 64 of each. Frozen once released: changing or
+// reordering them renames every holder.
+const ADJECTIVES: &str =
+    "Amber Ashen Autumn Birch Bramble Briar Bronze Candle Cedar Cinder Clover \
+     Copper Coral Dappled Dawn Dusky Ember Fable Fennel Fern Frost Gentle Gilded \
+     Glimmer Hazel Heather Hollow Honey Ivory Juniper Lantern Linen Maple Meadow \
+     Mellow Misty Moss Nutmeg Oaken Pale Pebble Pine Plum Quiet Rain Rowan Russet \
+     Saffron Sable Silver Slate Snowy Sorrel Starlit Still Sunny Thistle Tidal \
+     Twilight Velvet Willow Winter Woolly Wren";
+const NOUNS: &str =
+    "Badger Beetle Bittern Bobcat Crane Cricket Crow Curlew Deer Dormouse Dove Eel \
+     Elk Ferret Finch Fox Frog Gannet Goose Hare Hedgehog Heron Ibis Jay Kestrel \
+     Kingfisher Lark Lynx Magpie Marten Mink Mole Moth Newt Nightjar Otter Owl \
+     Pheasant Pika Plover Puffin Quail Rabbit Raven Robin Rook Salmon Seal Shrew \
+     Skylark Snail Sparrow Squirrel Stoat Swallow Swan Swift Teal Thrush Toad Vole \
+     Weasel Wolf Woodcock";
+// A passkey holder's name, the same in every world for one person. It is a
+// hash of their account id, so other players never see the id itself.
+pub(super) fn holder_name(user: &str) -> String {
+    let d = Sha256::digest(format!("cosyworld holder name\0{user}").as_bytes());
+    let pick = |byte: u8, words: &'static str| {
+        words
+            .split_whitespace()
+            .nth(usize::from(byte) % 64)
+            .unwrap_or("Quiet")
+    };
+    format!("{} {}", pick(d[0], ADJECTIVES), pick(d[1], NOUNS))
+}
+// Who holds each of the eight avatars here, by holder name.
+pub(super) fn holders(c: &Connection, id: &str) -> Result<[Option<String>; 8]> {
+    let mut q = c
+        .prepare("SELECT actor,user FROM card_bindings WHERE world=?")
+        .map_err(sql_error)?;
+    let mut names: [Option<String>; 8] = Default::default();
+    for row in q
+        .query_map([id], |r| {
+            Ok((r.get::<_, usize>(0)?, r.get::<_, String>(1)?))
+        })
+        .map_err(sql_error)?
+    {
+        let (a, user) = row.map_err(sql_error)?;
+        if let Some(name) = names.get_mut(a) {
+            *name = Some(holder_name(&user));
+        }
+    }
+    Ok(names)
+}
 
 // The avatar this person is bound to in this world.
 pub(super) fn mine(c: &Connection, id: &str, user: &str) -> Result<Option<usize>> {

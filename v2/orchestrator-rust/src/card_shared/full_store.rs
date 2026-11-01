@@ -278,13 +278,14 @@ pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result
     let w = world(c, id, now)?;
     let actor = store::member(c, id, user)?;
     // Bound avatars belong to someone even while released; the owner may
-    // delete one to free its place (#1825).
+    // free one (#1825). `holders` names each holder without their id.
     let bound = super::bindings::bound(c, id)?;
+    let holders = super::bindings::holders(c, id)?;
     let owner = super::bindings::owner(c, id, user)?;
     let Some(a) = actor else {
         let mine = super::bindings::mine(c, id, user)?.map(actor_id);
         return Ok(
-            json!({"id":id,"actor":null,"claimed":w.claimed,"bound":bound,"mine":mine,"owner":owner,"now":now,"version":w.version}),
+            json!({"id":id,"actor":null,"claimed":w.claimed,"bound":bound,"holders":holders,"mine":mine,"owner":owner,"now":now,"version":w.version}),
         );
     };
     let a = usize::try_from(a)
@@ -327,7 +328,7 @@ pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result
         .and_then(|s| serde_json::from_str::<Value>(&s).ok())
         .and_then(|s| s["error"].as_str().map(str::to_owned));
     Ok(
-        json!({"id":id,"version":w.version,"actor":actor_id(a),"music_started":music_started,"claimed":w.claimed,"bound":bound,"owner":owner,"present":w.present,"world":projected["world"],"actions":projected["actions"],"exits":projected["exits"],"queue":if here{queue}else{vec![]},"history":history,"nudge":nudge.filter(|a|*a<8).map(actor_id),"now":now,"notice":notice}),
+        json!({"id":id,"version":w.version,"actor":actor_id(a),"music_started":music_started,"claimed":w.claimed,"bound":bound,"holders":holders,"owner":owner,"present":w.present,"world":projected["world"],"actions":projected["actions"],"exits":projected["exits"],"queue":if here{queue}else{vec![]},"history":history,"nudge":nudge.filter(|a|*a<8).map(actor_id),"now":now,"notice":notice}),
     )
 }
 pub(super) struct PlayRequest<'a> {
