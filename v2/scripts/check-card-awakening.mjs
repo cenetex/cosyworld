@@ -1,4 +1,4 @@
-import { selectCard } from "./card-browser-helpers.mjs";
+import { endStandoff, selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -167,8 +167,8 @@ try {
   await page.locator("#menu-button").click();
   await page.locator('[data-close="menu-dialog"]').click();
   // Vale's level waits for her level quest (#1583), so Pip, a level up, would
-  // pick a fight over the lamp at the pond. Level her with her experience so
-  // the ring sequence below stays the only thing under test.
+  // pick a fight over the lamp as soon as she reaches the pond. Level her with
+  // her experience so the walk there stays peaceful.
   await page.evaluate(() => {
     const key = "cosyworld.reflected-shore.v1.badger-check";
     const saved = JSON.parse(localStorage.getItem(key));
@@ -180,7 +180,13 @@ try {
   await play("pond");
   assert.equal((await state()).actors.vale.place, "pond");
   await play("bell");
-  await play("pond"); // Waiting is a real play and breaks the two-ring sequence.
+  // Pip, twice refused, still threatens over the lamp after the first ring,
+  // and the standoff locks the room. Talking it out is a real play and breaks
+  // the two-ring sequence; the truce keeps Pip quiet for the rings below.
+  await ready();
+  assert.ok(await endStandoff(page, await state()), "Pip threatens Vale");
+  await ready();
+  assert.equal((await state()).standoffs.length, 0);
   assert.equal((await state()).crossings["pond-clearing"].phase, 0);
   await play("bell");
   assert.equal((await state()).actors.vale.place, "pond");
@@ -201,9 +207,12 @@ try {
     const card = document
       .querySelector('#hand [data-card="vale"]')
       .getBoundingClientRect();
-    const label = document
-      .querySelector('#hand [data-card="vale"] .name')
-      .getBoundingClientRect();
+    // The name's letters, not its padded backing band, must stay in view.
+    const name = document.createRange();
+    name.selectNodeContents(
+      document.querySelector('#hand [data-card="vale"] .name'),
+    );
+    const label = name.getBoundingClientRect();
     return {
       dialogHeight: dialog.height,
       gap: card.top - dialog.bottom,
