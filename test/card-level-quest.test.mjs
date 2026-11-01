@@ -10,7 +10,7 @@ import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import {
   questCaption,
   questCard,
-  questProgress,
+  questTier,
 } from "../v2/card-game/quest-card.mjs";
 
 const act = (s, pick, actor = "vale") =>
@@ -45,7 +45,9 @@ describe("the level quest", () => {
     // The quest card shows the level quest in place of the want.
     const card = questCard(s);
     expect(questCaption(card)).toMatch(/^Level II: /);
-    expect(questProgress(s, { ...card, left: 3 })).toMatch(/3 steps to go$/);
+    // Its colour follows its F(n) steps: 1 is Common, 5 (level V) is Rare.
+    expect(questTier(card).id).toBe("common");
+    expect(questTier({ ...card, level: 5 }).id).toBe("rare");
     expect(validateWorld(s)).toBe(s);
   });
 

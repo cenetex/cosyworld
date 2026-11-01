@@ -19,6 +19,9 @@ const tiers = [
 export const levelTier = (level) =>
   tiers.findLast((tier) => level >= tier.minLevel) || tiers[0];
 export const rarityColor = (level) => levelTier(level).color;
+// A quest's tier by its F(n) step count: 1, 2-3, 5, 8, then 13 and more.
+export const stepTier = (steps) =>
+  tiers[steps >= 13 ? 4 : steps >= 8 ? 3 : steps >= 5 ? 2 : steps >= 2 ? 1 : 0];
 
 const numerals = [
   [1000, "M"],

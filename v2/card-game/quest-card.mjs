@@ -1,8 +1,8 @@
 // The player's one quest, drawn as one card in the hand: its target's art
 // with the rules' own words for the want as the caption. Nothing here is
 // authored or decides anything; the rules own the want (want.mjs).
-import { CONNECT_TARGET, wantOf } from "./want.mjs";
-import { romanLevel } from "./rarity.mjs";
+import { CONNECT_TARGET, questSteps, wantOf } from "./want.mjs";
+import { romanLevel, stepTier } from "./rarity.mjs";
 import {
   currentActor,
   exits,
@@ -66,32 +66,34 @@ export function questDistance(world, actor, to) {
   return null;
 }
 
-const away = (n) =>
-  n === null
-    ? "No way there known yet"
-    : n === 0
-      ? "Here"
-      : `${n} ${n === 1 ? "place" : "places"} away`;
-
-// What selecting the quest card shows: who holds the item, and how far.
-export function questProgress(world, quest, name = nameOf) {
-  const steps = quest.left > 1 ? `${quest.left} steps to go` : null;
-  const where = questWhere(world, quest, name);
-  return [where, steps].filter(Boolean).join(" · ");
-}
-function questWhere(world, quest, name) {
-  if (!quest.target) return "";
+// Near is within two moves along the routes this avatar can use now. The
+// card shows only near or far: never who holds the target or how many moves.
+export const NEAR_MOVES = 2;
+export function questNear(world, quest) {
+  if (!quest.target) return false;
   const { actor, kind, target } = quest;
-  if (kind === "place") return away(questDistance(world, actor, target));
-  const where =
-    kind === "item" ? itemPlace(world, target) : world.actors[target]?.place;
-  const holder = kind === "item" ? rootHolder(world, target) : null;
-  const held =
-    holder && world.actors[holder] ? `${name(holder)} holds it` : null;
-  return [held, away(questDistance(world, actor, where))]
-    .filter(Boolean)
-    .join(" · ");
+  const at =
+    kind === "place"
+      ? target
+      : kind === "item"
+        ? itemPlace(world, target)
+        : world.actors[target]?.place;
+  const moves = at ? questDistance(world, actor, at) : null;
+  return moves !== null && moves <= NEAR_MOVES;
 }
+
+// The quest's one short verb. An unvisited or covered place is discovered.
+export function questVerb(world, quest, covered = false) {
+  if (quest.kind === "item") return "Hold";
+  if (quest.kind === "person") return "Talk";
+  if (quest.kind === "connect") return "Introduce";
+  const seen = world.actors[quest.actor]?.visited || [];
+  return covered || !seen.includes(quest.target) ? "Discover" : "Be at";
+}
+
+// A quest's colour follows its size: the F(n) steps of its level.
+export const questTier = (quest) =>
+  stepTier(quest.level ? questSteps(quest.level) : 1);
 
 // A quest whose key changed while the avatar gained experience was met.
 export const questMet = (before, after) =>
