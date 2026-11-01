@@ -11,7 +11,13 @@ export const DEFEAT_MOVES = ["retreat", "sent-home"];
 export const MAX_RESOLVE = 4;
 const YIELDED = /after yielding to/u;
 // A name inside a sentence: "strikes the keeper", not "strikes The keeper".
-export const inSentence = (id) => nameOf(id).replace(/^The /u, "the ");
+const ARTICLE = /^(?:The|A|An) /u;
+export const inSentence = (id) =>
+  nameOf(id).replace(ARTICLE, (article) => article.toLowerCase());
+// A thing named with "the" once: "the lamp", "the Burial Decree", never
+// "the the Burial Decree".
+export const theName = (id) =>
+  ARTICLE.test(nameOf(id)) ? inSentence(id) : `the ${nameOf(id)}`;
 
 const holderRoot = (world, id) => {
   let holder = world.items?.[id]?.holder;
@@ -71,7 +77,7 @@ export function telegraphText(beat) {
     other = inSentence(beat.targetId);
   if (beat.kind === "threaten")
     return beat.itemId
-      ? `${who} eyes the ${nameOf(beat.itemId)}`
+      ? `${who} eyes ${theName(beat.itemId)}`
       : `${who} squares up to ${other}`;
   if (beat.kind === "guard") return `${who} braces against ${other}`;
   return `${who} strikes ${other}`;
@@ -201,7 +207,7 @@ export function defeatSummary(beat) {
   const you = beat.viewerLost;
   const loser = you ? "You" : nameOf(beat.loserId);
   const changes = beat.droppedItemIds.map(
-    (id) => `${loser} dropped the ${nameOf(id)}.`,
+    (id) => `${loser} dropped ${theName(id)}.`,
   );
   if (beat.lossCount) changes.push(`Standoffs lost: ${beat.lossCount} of 3.`);
   if (beat.sentHome) changes.push("Sent home.");
