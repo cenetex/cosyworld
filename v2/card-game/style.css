@@ -87,12 +87,6 @@ button:focus-visible {
   align-items: center;
   gap: 8px;
 }
-#turn {
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-  padding: 0 8px;
-}
 .top-actions button {
   font-size: 12px;
 }

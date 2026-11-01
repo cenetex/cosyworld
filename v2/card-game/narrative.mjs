@@ -9,7 +9,7 @@ import { dialogueCast, sceneChanges, speechMemories } from "./scene-cast.mjs";
 import { validReflection, saveReflection } from "./reflections.mjs";
 import { locationWeather } from "./weather.mjs";
 import { locationDaylight } from "./daylight.mjs";
-import { profiles, validInnerLife } from "./memory.mjs";
+import { profiles } from "./memory.mjs";
 import {
   entityActive,
   packEntity,
@@ -232,7 +232,6 @@ export function narrativeContext(world, action = null) {
     changes,
     focus,
     played,
-    target,
     speakers,
     ids,
     resting,

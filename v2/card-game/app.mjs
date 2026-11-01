@@ -97,7 +97,6 @@ import {
   people,
   things,
   nameOf,
-  addLog,
   covered,
   itemPlace,
   rootHolder,
@@ -192,28 +191,6 @@ let world = sharedSession
   }
 }
 let videoScene = null;
-const paths = {
-  lamp: '<path d="M18 25h28l4 29H14zM23 25v-9a9 9 0 0 1 18 0v9M12 55h40M24 47c-5-7 7-9 6-17 9 8 13 16 3 18"/>',
-  oil: '<path d="M24 8h16v12l8 10v24H16V30l8-10zM24 14h16M17 35h30M32 38c-12 12-2 17 2 12 3-4-2-9-2-12z"/>',
-  bell: '<path d="M12 47h40l-7-10V25a13 13 0 0 0-26 0v12zM26 49a6 6 0 0 0 12 0M29 11V6h6v5M8 23l-4-4M56 23l4-4"/>',
-  cloth:
-    '<path d="M10 16q19 7 41-6l4 37q-20 13-41 5zM20 19l3 31M34 18l3 31M47 15l2 29"/>',
-  station:
-    '<path d="M9 54V25l23-16 23 16v29M5 54h54M26 54V34h12v20M13 27h38M18 31v9M46 31v9"/>',
-  attic:
-    '<path d="M17 56V23a15 15 0 0 1 30 0v33zM22 51V24a10 10 0 0 1 20 0v27zM25 38l14-14M28 43l8-8"/>',
-  pond: '<ellipse cx="32" cy="40" rx="26" ry="13"/><path d="M15 40q17-18 34 0-17 18-34 0zM32 32v16M21 17l2 5M43 13l-2 6M32 7v11"/>',
-  vale: '<path d="M14 55l5-19 13-4 13 4 5 19zM22 20a10 10 0 1 0 20 0M16 20h32l-6-7H25l-3-5M27 38l5 8 5-8"/>',
-  moth: '<path d="M30 30C1 0 2 50 27 44M34 30C63 0 62 50 37 44M27 44c-14 20 7 12 5-4 0 17 21 23 5 4M32 27v22M28 27l-6-13M36 27l6-13"/>',
-  keeper:
-    '<circle cx="32" cy="21" r="14"/><path d="M32 10v12l8 4M22 35l-9 22h38l-9-22M27 40v14M37 40v14"/>',
-};
-function art(id) {
-  const media = packMedia(id);
-  return media
-    ? `<img src="${imageUrl(media, "card")}" alt="" decoding="async">`
-    : `<svg viewBox="0 0 64 64" aria-hidden="true">${paths[id] || '<path d="M20 12h24v40H20zM25 22h14M25 30h14M25 38h10"/>'}</svg>`;
-}
 // Beat captions keep their glyph as data; the table draws each one as line
 // art in the toolbar's style so no glyph falls back to a colour emoji.
 const beatIcons = {
@@ -1582,56 +1559,6 @@ $("unveil-dialog").addEventListener("cancel", (event) => {
   event.preventDefault();
   void takeDiscovered();
 });
-async function showDiscovered(id, version, announcement) {
-  const shown = card(id);
-  shown.hidden = false;
-  shown.removeAttribute("data-holder");
-  shown.dataset.raised = "false";
-  shown
-    .querySelectorAll(".held-preview, .sr-only")
-    .forEach((el) => el.remove());
-  const face = shown.querySelector(".card"),
-    display = node("span", undefined, face.className);
-  for (const attr of face.attributes)
-    if (attr.name.startsWith("data-"))
-      display.setAttribute(attr.name, attr.value);
-  display.append(...face.childNodes);
-  face.replaceWith(display);
-  shown
-    .querySelectorAll("[id]")
-    .forEach((element) => element.removeAttribute("id"));
-  await waitForScene(
-    [...shown.querySelectorAll("img")].map((img) => img.decode()),
-    1500,
-  );
-  while (
-    version === trip &&
-    (document.hidden ||
-      document.querySelector("dialog[open], .world-menu:popover-open"))
-  ) {
-    await new Promise((resolve) => {
-      wakeDiscovery = resolve;
-    });
-    wakeDiscovery = null;
-  }
-  if (version !== trip) return;
-  const dialog = $("unveil-dialog"),
-    button = $("unveil-take");
-  button.dataset.card = id;
-  button.setAttribute("aria-label", `${announcement} Add to hand.`);
-  button.replaceChildren(shown);
-  dialog.dataset.phase = "reveal";
-  dialog.dataset.direction = "discover";
-  dialog.setAttribute("aria-label", "New card discovered");
-  const finished = new Promise((resolve) => {
-    endDiscovery = resolve;
-  });
-  dialog.showModal();
-  $("discovery-announcement").textContent = announcement;
-  pauseSpeech();
-  armDiscovery(reducedMotion.matches ? 700 : 1400);
-  await finished;
-}
 function queueDiscoveries() {
   const version = trip;
   discoveryDone = discoveryDone
@@ -1653,49 +1580,6 @@ function queueDiscoveries() {
           void arriveCard(shown);
       }
     });
-}
-
-async function unveilNew() {
-  if (saveBlocked) return;
-  const rank = { avatar: 0, item: 1, location: 2 };
-  const found = availableCards(world)
-    .filter((id) => !encountered.has(id))
-    .sort((a, b) => rank[cardType(a)] - rank[cardType(b)]);
-  if (!found.length) return;
-  for (const id of found) {
-    encountered.add(id);
-    fresh.add(id);
-  }
-  rememberCards();
-  discoveryPending = true;
-  cardsCooling = true;
-  render();
-  const version = trip;
-  try {
-    await prepareStage();
-    for (const id of found) {
-      if (
-        document.hidden ||
-        document.querySelector("dialog[open], .world-menu:popover-open")
-      ) {
-        await new Promise((resolve) => {
-          wakeDiscovery = resolve;
-        });
-        wakeDiscovery = null;
-      }
-      if (version !== trip) return;
-      await showDiscovered(id, version, `${nameOf(id)} discovered.`);
-    }
-  } finally {
-    if (version === trip) {
-      discoveryPending = false;
-      if (!exchange.active) {
-        cardsCooling = false;
-        updateCardCooldown();
-        renderScene();
-      }
-    }
-  }
 }
 
 const figures = new Map();

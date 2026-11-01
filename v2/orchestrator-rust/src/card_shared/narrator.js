@@ -17527,7 +17527,6 @@
       changes,
       focus,
       played,
-      target,
       speakers,
       ids: ids3,
       resting: resting2,
