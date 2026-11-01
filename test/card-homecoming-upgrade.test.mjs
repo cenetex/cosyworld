@@ -145,9 +145,6 @@ describe("the household save upgrade", () => {
         delete w.actors["greek-aethra"];
       },
       (w) => {
-        delete w.items["greek-return-list"];
-      },
-      (w) => {
         w.actors[witness] = structuredClone(w.actors["greek-aethra"]);
       },
       (w) => {

@@ -177,6 +177,14 @@ world load records an explicit migration seed. It maps the old rooms and items
 onto the full game and keeps the old counters as migration evidence. Existing
 single-player saves continue through the normal save upgrader.
 
+## Run seeds and specials
+
+A world has one run seed, `world.run.seed`. Each pack's `specials` pool
+([design](../../../docs/design/small-worlds-alternates-specials.md)) is drawn from it once and saved as `packs[id].specials`; replay never
+draws again. Rust derives a shared world's seed from its ID (the first four
+bytes of SHA-256); a local New game makes one in the browser. A local save
+from before run seeds starts a new game.
+
 Migration preserves each held item, the lamp's state, and up to 80 saved
 exchanges with their original text and times. An avatar carrying more than the
 current limit keeps those items. That allowance shrinks as items are put down;
@@ -395,6 +403,19 @@ journey is her saved place on its path. If she was on the coast road, she and
 her companion continue at Piraeus, where she arrives. Visitors already on the
 Theban road in an earlier save stay there.
 
+## The Bard's poem as world facts
+
+Shared rules version 60 moves the Bard's 56 authored couplets out of the
+rules and prompts (#1537). Recital verses keep their choice, quest and
+`summons` flag; receipts, `recitals` records, the singer's travel and
+`claims` checks are unchanged. The pack schema now rejects couplet text in a
+recital verse, so the engine bytes change; v59 keeps its exact bundle for
+journals recorded with the older content. The couplets live intact in
+`v2/content/greek-drama/lore/bard-couplets.json`. The narrator's poem
+context carries the title and each stanza's id, turn and author, and the
+prompt says only "My poem … holds deeds by …". A follow-up turns the lore
+into readable book items.
+
 ## Learning from outcomes
 
 Shared rules version 19 records measured attempts for item and companionship
@@ -438,3 +459,13 @@ world journal, so checkpoint recovery and journal replay produce the same facts.
 
 Versions 2 through 17 retain their released interpreters. Loading an earlier
 world records an upgrade to version 18 with its prior progress and receipts.
+
+## Saves follow the current content
+
+Shared rules version 63 reconciles every loaded save with the current content.
+A missing authored thing joins at its authored holder, a thing the content no
+longer defines leaves the world with what it held kept by its holder, and a
+retired crossing closes even where the save had found it, so Black pond no
+longer leads to the Halfway Tea Garden. Loading an earlier world records an
+upgrade to version 63; versions 2 through 62 keep their released bytes. A save
+that still cannot be read gives the New game message, never a script error.

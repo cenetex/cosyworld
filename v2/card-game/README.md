@@ -19,6 +19,19 @@ keeps the useful ideas from the retired standalone engine, with its source
 revision for reference. Existing player saves use `world.mjs` and
 `legacy-saves.mjs`; keep their migrations with changes to the save format.
 
+### Allocation on the play path
+
+Each play runs the rules many thousands of times: `entityActive`,
+`rootHolder`, `carried` and `validateWorld`. Allocation there turns into
+garbage on every play, and phone browsers that build up enough of it kill the
+tab. Keep these paths free of per-call `Set`s, spread arrays and array
+literals. Build lookup sets and sorted key strings once, when the module
+loads, from the fixed catalog. Walk short holder chains without tracking
+visits, and track visits only for a chain long enough to hide a loop.
+`validateWorld` marks each world it accepts. `encodeSave` skips the check
+once for a marked world, the one a play just returned, and clears the mark.
+A decoded, imported or saved-again world is checked in full.
+
 ## Public assets
 
 `public-assets.mjs` defines the public files and their content types. It includes
@@ -32,8 +45,9 @@ npm run v2:card:music:build
 npm run v2:card:assets:build
 ```
 
-Stage images use full-size WebP copies. Hand cards and small portraits use
-512-pixel copies. Transparent parts keep their original alpha values. Authored
+Stage images use full-size WebP copies; viewports up to 640 pixels wide use
+copies that fit inside 960 pixels, which decode to about a third of the memory.
+Hand cards and small portraits use 512-pixel copies. Transparent parts keep their original alpha values. Authored
 image paths keep their identity in saves and rules.
 
 `media-manifest.json` records the SHA-256 of each published image and audio
@@ -123,6 +137,10 @@ facts from earlier releases keep their names; player-facing text says quest.
   place and Talk. Meeting a quest records a `want_met` history event and one
   experience point. Level is a rising curve of experience: 1, 3, 6, 10 points
   reach levels 2 to 5. Standoff strength and the scene read that level.
+  A pack resident may set `startLevel` (1–99) and begins with that level's
+  experience. Each pack starts a few residents at a tier's first level: one
+  Legendary (50), one Epic (30), two Rare (20) and three Uncommon (10), as far
+  as its cast allows. Player and human avatars start at level 1.
 - **Next.** The next quest is drawn deterministically from the world, seeded
   by the avatar and turn: items others hold nearby that the avatar values
   above what it carries, reachable places it has not visited, and known people
@@ -212,11 +230,13 @@ and page title show "…", and card labels, screen-reader text and stage alt tex
 leave it out. A new game's first line waits until its player uncovers both the
 avatar and its place; in shared play the room's lines wait the same way for
 each viewer. `speech-knowledge.mjs` removes covered items from every local
-speech request, so the dialogue service cannot name them. The first line is
+speech request, so the dialogue service cannot name them; a fact that
+mentioned one says "something I can't make out" instead. The first line is
 raw (#1600): the request is marked `waking`, and the service frames it with
 "I'm waking up." and only what is uncovered (the place, the holdings and,
-once the avatar's own card is uncovered, its name and idiolect). Until then
-it sends no system voice and cues "Me:". No line is scripted: if the model
+once the avatar's own card is uncovered, its name). The waking line never
+gets a system voice, so the idiolect's wants and bargains start on the next
+turn (#1665). The cue is "Me:" until the avatar's card is uncovered. No line is scripted: if the model
 gives no first line, the avatar shows the silent "…". This filter lives in the browser
 because it uses that browser's covered set. Rules-owned knowledge will replace
 it.
@@ -224,6 +244,9 @@ Borders use Signal's level-tier colours: Common 0–9, Uncommon 10–19, Rare 20
 Epic 30–49 and Legendary 50+. Selected cards show their exact level in faint,
 matching Roman numerals at both ends. These fixed bands use existing avatar
 levels; items and places currently have level 1. They do not change progression.
+When a shown card's level rises, it glows once from its old tier colour to the
+new one, lifts slightly and changes its numerals in place, in about a second;
+reduced motion shows the new level at once.
 No card face or hover text exposes quest checklists, hope fractions, Inspiration,
 fuel arithmetic, ringing deadlines, or ritual phases. Observable changes
 belong in the scene and art; hidden conditions never become a progress indicator.
@@ -241,6 +264,13 @@ Forest owns crossing mechanics. No new gate format is introduced here.
 Run `node v2/scripts/smoke-card-image-first.mjs` for real desktop, phone and
 short-landscape checks. It exercises keyboard, scrolling, selection, drag,
 ritual reload, visible state, travel and conversation without paid model calls.
+
+Run `node v2/scripts/smoke-card-devices.mjs` for Android phones, 130% text
+size, landscape, tablets and a Chromebook. The hand shows at least 70% of each
+card with its name on screen, and the top bar and dialogue stay inside the
+viewport. Some in-app browsers block storage. In that case the table plays a
+fresh opening in the tab and says the world cannot be saved; it does not refuse
+every card.
 
 ## World packs and the Wine-Dark Sea
 
@@ -339,8 +369,9 @@ through Rust validation without a paid model call.
 The Theban, Open Door and Ajax stories are told through pack choices: Talk,
 Give and Use plays whose effects the rules commit, with receipts saved in the
 pack state. There are no story quest cards or story quest records. The Bard's
-conversation holds the earned poem in order, and his verses follow the saved
-choice receipts. The [exact copy list](../content/greek-drama/OPENING-POEM.md),
+conversation names his poem and the travelers whose deeds it holds, in the
+order of the saved choice receipts. The couplet text is lore in the pack's
+`lore/` folder, not prompt text. The [exact copy list](../content/greek-drama/OPENING-POEM.md),
 the [Open Door guide](../content/greek-drama/OPEN-DOOR.md) and the
 [Ajax chapter guide](../content/greek-drama/AJAX.md) record the scenes.
 Packs no longer carry `storyQuests` or `situations`. A story choice is
@@ -405,15 +436,15 @@ are saved in `output/badger-check/`.
 
 Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Each avatar's voice, beliefs and fears give its request or response a personal reason.
 
-Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Hidden interaction rules stay in the simulation; each avatar's facts can include the quest line described in [One quest per avatar](#one-quest-per-avatar). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until the first light.
+Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Hidden interaction rules stay in the simulation; each avatar's facts can include the quest line described in [One quest per avatar](#one-quest-per-avatar). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until Vale first douses or relights the lamp in the attic, or leaves it.
 
-When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. A speech prompt shows the present rather than a transcript: it leaves out earlier table lines and remembered speech, and keeps one past line only when this turn's Talk is aimed at the speaker, the acting avatar's latest line that the speaker heard. A character's voice comes from its authored idiolect and rotated voice samples. The `repeat` check compares a reply with the speaker's last three spoken lines, which the service reads from its memories, its previous reply and the request's table lines without putting them in the prompt. Thought, persona and dream calls still read remembered speech ([#1537](https://github.com/cenetex/cosyworld/issues/1537)). The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action; social actions and travel can start an exchange, while ordinary object manipulation can remain silent. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the words to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, combat, travel and introductions retain their relevant speakers. The departure action stays in the source scene. Words are written after the move commits, so a departed avatar's line is recorded at the destination with that place's cast; a player left at the source never sees it, and the waiting portrait does not name them there. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
+When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. A speech prompt shows the present rather than a transcript: it leaves out earlier table lines and remembered speech, and keeps one past line only when this turn's Talk is aimed at the speaker, the acting avatar's latest line that the speaker heard. A character's voice comes from its authored idiolect, a short description in prose; prompts carry no authored example lines. The `repeat` check compares a reply with the speaker's last three spoken lines, which the service reads from its memories, its previous reply and the request's table lines without putting them in the prompt. Thought, persona and dream calls still read remembered speech ([#1537](https://github.com/cenetex/cosyworld/issues/1537)). The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action; social actions and travel can start an exchange, while ordinary object manipulation can remain silent. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the words to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, combat, travel and introductions retain their relevant speakers. The departure action stays in the source scene. Words are written after the move commits, so a departed avatar's line is recorded at the destination with that place's cast; a player left at the source never sees it, and the waiting portrait does not name them there. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
 
-Each server voice call writes one `card voice call` log record with the entity, part, attempt count, outcome (`spoken`, `untold`, `silent` or `cancelled`), each attempt's rejection reason, and approximate prompt tokens (characters / 4) for every section: `system`, `samples`, `now`, `facts`, `directions`, `memories`, `earlier`, `conversation` and `inner`. It never records prompt or reply text. `GET /meta` reports the same counters since the process started under `card_voice`. `npm run v2:voice:eval` builds every prompt for the narrative-contract scenes and a scripted station conversation, prints token and section statistics, and replays the recorded replies in `test/fixtures/card-voice-replies.json` through the validator. The eval also counts first-person possession and deed claims that the resolved turn does not support (`false_claim`); the live validator does not check those yet ([#1537](https://github.com/cenetex/cosyworld/issues/1537)).
+Each server voice call writes one `card voice call` log record with the entity, part, attempt count, outcome (`spoken`, `untold`, `silent` or `cancelled`), each attempt's rejection reason, and approximate prompt tokens (characters / 4) for every section: `system`, `now`, `facts`, `directions`, `memories`, `earlier`, `conversation` and `inner`. It never records prompt or reply text. `GET /meta` reports the same counters since the process started under `card_voice`. `npm run v2:voice:eval` builds every prompt for the narrative-contract scenes and a scripted station conversation, prints token and section statistics, and replays the recorded replies in `test/fixtures/card-voice-replies.json` through the validator. The eval also counts first-person possession and deed claims that the resolved turn does not support (`false_claim`); the live validator does not check those yet ([#1537](https://github.com/cenetex/cosyworld/issues/1537)).
 
-The dialogue is a depth stack of beats, not a chat log: the current beat in front and one earlier beat behind it ([dialogue beats](../docs/card-table/dialogue-beats.md)). Earlier visits are in the optional Memory panel. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the front card to finish a line, then tap again to bring the next speaker's beat in front. The hand pauses for up to 2.5 seconds while words are generated. A slow request can be replaced by another play. Once a complete reply arrives, the hand locks through scene preparation and every speaker, then becomes ready after the last reply. A blinking cursor marks the end. Tap the card behind, press ↑, scroll or swipe down to step back in time; tap the front card, press ↓ or swipe up to step forward, or use ● live. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Vale, Mara, Pip, the Keeper, Badger, and Dione speak with their original cloned voices when OpenRouter is connected. Settings toggles voices. Other speakers keep their soft, pitched voice sounds. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A spoken card play immediately shows its first speaker with a loading mark. The waiting portrait names whoever speaks next, in speaking order: after Talk or Ask, the player's avatar thinks first, then the reply partner thinks while a streamed reply is still being written. Shared play waits on the acting avatar. The browser saves complete text before playback begins. Fresh tables request an opening exchange: at turn 0 the browser asks `/card-game/text` for Vale's first line, with no action and Vale as the only speaker. The World narration from `forest.json` stays as the authored scene-setting event. If that request fails or times out, Vale shows the unsaved silent "…"; Retry dialogue asks the model again. A reload keeps the Retry dialogue control instead of asking again, and a save from another tab never starts a request in this one. Shared worlds have no browser opening line; their server publishes speech. Reloading resumes saved dialogue from the current turn. If the current turn's words failed before the reload, the dialogue panel keeps its Retry dialogue control. Action records remain in the saved world and scene export. A declined Give, Trade or Ask appears as a caption on the giver's beat and in Memory. Every Give and Trade sends its recorded answer as `accepted` in the resolved-turn record, so the cast can voice a refusal.
+The dialogue is a depth stack of beats, not a chat log: the current beat in front and one earlier beat behind it ([dialogue beats](../docs/card-table/dialogue-beats.md)). Earlier visits are in the optional Memory panel, which builds its portraits only while open and drops them when closed. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the front card to finish a line, then tap again to bring the next speaker's beat in front. The hand pauses for up to 2.5 seconds while words are generated. A slow request can be replaced by another play. Once a complete reply arrives, the hand locks through scene preparation and every speaker, then becomes ready after the last reply. A blinking cursor marks the end. Tap the card behind, press ↑, scroll or swipe down to step back in time; tap the front card, press ↓ or swipe up to step forward, or use ● live. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Vale, Mara, Pip, the Keeper, Badger, and Dione speak with their original cloned voices when OpenRouter is connected. Settings toggles voices. Other speakers keep their soft, pitched voice sounds. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A spoken card play immediately shows its first speaker with a loading mark. The waiting portrait names whoever speaks next, in speaking order: after Talk or Ask, the player's avatar thinks first, then the reply partner thinks while a streamed reply is still being written. Shared play waits on the acting avatar. The browser saves complete text before playback begins. Fresh tables request an opening exchange: at turn 0 the browser asks `/card-game/text` for Vale's first line, with no action and Vale as the only speaker. The World narration from `forest.json` stays as the authored scene-setting event. If that request fails or times out, Vale shows the unsaved silent "…"; Retry dialogue asks the model again. A reload keeps the Retry dialogue control instead of asking again, and a save from another tab never starts a request in this one. Shared worlds have no browser opening line; their server publishes speech. Reloading resumes saved dialogue from the current turn. If the current turn's words failed before the reload, the dialogue panel keeps its Retry dialogue control. Action records remain in the saved world and scene export. A declined Give, Trade or Ask appears as a caption on the giver's beat and in Memory. Every Give and Trade sends its recorded answer as `accepted` in the resolved-turn record, so the cast can voice a refusal.
 
-The stage holds up to three avatars. Vale stands in the foreground, with the other two farther back. The composition mirrors when Vale returns from the other side of a route. Seats and sizes stay fixed throughout an exchange. The speaker and listener face each other; another witness looks toward the speaker. The keeper has a separate right-facing cutout, so the clock face keeps its painted detail. A soft lean and light change mark the speaker. Carried item symbols follow recorded custody, including covered items. Things lying in the current place, whether put down or there from the start, stand on the painted floor as untappable props: the bare item cutout from the hand card, hand-sized beside the cast, behind the avatars and clear of the dialogue. Each keeps a stable spot from its id and the place. Wide screens show up to six; narrow and short ones show up to three. Every such thing keeps its hand card, and a prop leaves the stage as soon as someone takes it. Actual arrivals fade in together for an accepted accompany play. Quiet actions update the stage cast immediately to match the hand and current locations. Reduced motion uses still poses. The scene script exports each actor's position, depth, scale, facing, gaze, pose, travel companions, and carried items for each beat, plus the floor items and their spots. The browser uses `portrait-facing.mjs` to match each painted portrait to that gaze. This presentation-only map covers the human cast, pack portraits and Keeper variants; add new portrait files here with their native direction. Hand thumbnails keep their native artwork. A pack resident may list `poses`: each names a portrait in the pack, a place (`at`), saved conditions (`requires`), or both, and an optional stage `scale` from 0.3 to 1. The first pose that holds replaces the standing portrait on stage. Poses read committed state only, so local and shared tables show the same sprite; `portrait(id, null, world)` in `scene.mjs` returns its path, and `residentPose(world, id)` returns the chosen entry. The Swede sits by the fire at camp, listens at the bank and once the humming has been heard or the watch is chosen, and looks worried after the signs are shared. A pack place may list `backdrops` the same way: each names a backdrop in the pack and saved conditions (`requires`), and the first that holds replaces the place's `backdrop`. `placeBackdrop(world, id)` in `scene.mjs` returns it. State entries name their own lighting through `daylight` conditions; a matching painting is final, so the ordinary night table cannot erase an observed sign. Backdrop conditions use the same closed vocabulary as crossings, including weather and ship position. Crossing scenery takes priority; an unmatched base keeps the existing day/night fallback. A place whose backdrop conditions name daylight uses the saved clock for scene lighting and day/night crossfades, including before a sign is known; an unmatched sign keeps its ordinary painting.
+The stage holds up to three avatars. Vale stands in the foreground, with the other two farther back. The composition mirrors when Vale returns from the other side of a route. Seats and sizes stay fixed throughout an exchange. The speaker and listener face each other; another witness looks toward the speaker. The keeper has a separate right-facing cutout, so the clock face keeps its painted detail. A soft lean and light change mark the speaker. Carried item symbols follow recorded custody, including covered items. Things lying in the current place, whether put down or there from the start, stand on the painted floor as untappable props: the bare item cutout from the hand card, hand-sized beside the cast, behind the avatars and clear of the dialogue. Each keeps a stable spot from its id and the place. Wide screens show up to six; narrow and short ones show up to three. Every such thing keeps its hand card, and a prop leaves the stage as soon as someone takes it. Actual arrivals fade in together for an accepted accompany play. Quiet actions update the stage cast immediately to match the hand and current locations. Reduced motion uses still poses. The scene script exports each actor's position, depth, scale, facing, gaze, pose, travel companions, and carried items for each beat, plus the floor items and their spots. The browser uses `portrait-facing.mjs` to match each painted portrait to that gaze. This presentation-only map covers the human cast, pack portraits and Keeper variants; add new portrait files here with their native direction. Hand thumbnails keep their native artwork. A pack resident may list `poses`: each names a portrait in the pack, a place (`at`), saved conditions (`requires`), or both, and an optional stage `scale` from 0.3 to 1. The first pose that holds replaces the standing portrait on stage. Poses read committed state only, so local and shared tables show the same sprite; `portrait(id, null, world)` in `scene.mjs` returns its path, and `residentPose(world, id)` returns the chosen entry. The Swede sits by the fire at camp, listens at the bank and once the humming has been heard or the watch is chosen, and looks worried after the signs are shared. A pack place may list `backdrops` the same way: each names a backdrop in the pack and saved conditions (`requires`), and the first that holds replaces the place's `backdrop`. A hub place in `forest.json` may list `backdrops` too; the same lookup tests them against the forest rules, as for the lit or doused attic. `placeBackdrop(world, id)` in `scene.mjs` returns it. State entries name their own lighting through `daylight` conditions; a matching painting is final, so the ordinary night table cannot erase an observed sign. Backdrop conditions use the same closed vocabulary as crossings, including weather and ship position. Crossing scenery takes priority; an unmatched base keeps the existing day/night fallback. A place whose backdrop conditions name daylight uses the saved clock for scene lighting and day/night crossfades, including before a sign is known; an unmatched sign keeps its ordinary painting.
 
 A raised card keeps the current conversation in place. Playing a destination starts the new visit. Room memories and the previous response follow that visit; earlier visits stay available in Memory. While a Talk or Ask reply is pending, the waiting speaker's card is in front with Thinking and their committed actions; the card behind steps back to earlier beats and ● live returns to the wait, in local and shared play. Fresh dialogue waits for the backdrop, avatar images, and entrance motion to settle. The travel screen fully covers the source before the destination is drawn. Arrivals begin after that screen clears, and dialogue begins after the arrivals finish. Agreed companions enter together; independent followers enter a moment after Vale. Beat captions distinguish followers, companions and departures, including with reduced motion. The same order applies when reopening a saved game. Media waits have a time limit. A reset or a save update cancels the travel screen and its waiting entrances.
 
@@ -424,22 +455,22 @@ Schema 6 saves include location changes, favours and lasting memories. Earlier s
 ## Opening in Mirror attic
 
 New browser tables and shared worlds use `createWorld({ opening: true })`.
-Vale starts alone in the dark attic with an unlit lamp. The first purpose
-asks for light in the attic. The dark painting leaves the mirror empty.
-Lighting the lamp reveals the path through
-the mirror. Vale reaches Black pond by playing that path card, meets Pip,
+Vale starts alone in the lamplit attic with a lit lamp; the mirror shows only
+the room. Dousing the lamp reveals the Black Pond and the path through
+the mirror: leaving means choosing the dark (#1600). Vale reaches Black pond by playing that path card, meets Pip,
 and can follow the shore to Empty station and the keeper.
 
 Empty station connects to Black pond. Mirror attic connects to the pond through
-the reflection. Leaving the attic requires a lit, fueled, uncovered lamp in
-the attic. Returning from the pond accepts lamplight at either end. The Black
+the reflection. Leaving the attic requires the lamp in the attic, not shining
+(doused, dry or covered). Returning needs a lit, fueled, uncovered lamp at the pond. Both are
+`requires` data on `forest.json` `reflectionRoutes`; the attic's `backdrops`
+paint it lit, doused, or dark without the lamp. The Black
 cloth in the lit attic also reveals stairs down to Cosy Cottage, with a matching
 painting. The cloth can lie in the room or travel with someone or something
-there; covering the lamp blocks both ordinary attic routes. The cottage's
+there. The cottage's
 stairs back up stay open after either item leaves or the light goes out.
 A stranded traveler in the attic still finds a narrow rescue path to the pond
-when reachable lamp remedies have run out. An empty lamp needs the Oil flask in
-the attic; after use the flask waits at the station, so the path opens. That escape is separate from the
+when the lamp is out of reach. That escape is separate from the
 mirror and cottage gates.
 
 Each newly met card joins its stack covered until the first tap. Travel loads
@@ -481,21 +512,25 @@ turn and moves nothing. It records `accepted: false` and one reason: `grudge`,
 `needs-it` or `wants-something-else`. Ask and Accompany refusals commit the
 same codes. The log says only that the other side declines; the narrator brief
 passes the code to the cast, so the refuser's own line says why. Plans carry no
-reason text, and a player's Wait is an ordinary `wait` action entry. The
+reason text, and a player's Observe is an ordinary `wait` action entry. The
 residents' planner reads `expects(s, action)` to skip some offers it expects
 to be refused.
+
+Observe keeps the rules verb id `wait`. The journal, released rule bundles
+and saves still commit "Vale waits one turn."; `observe-words.mjs` shows it
+as "Vale observes." on the table and in the narrator brief.
 
 Accompany requests use the companion's quest, the items carried by the requester, favours, and grievances. An agreed trip moves both avatars and their belongings through the usual rules. A refusal leaves both in place for that exchange. The other cast member takes its own turn.
 
 Tastes shape prices; a remembered grievance raises a price, refuses company, or prompts a retreat. A quest item is worth more to the avatar that wants it, and nobody trades away its own quest item. Generated speech receives exact outcomes and witnessed grievances.
 
-The Map of the Wood and the Wine-Dark Sea waits at the station too. It is an ordinary hub item: it can be found, held, traded, wanted or left anywhere. A hub thing may name its own `art` (the card and stage image) and a `view` (a larger image). Once its card is uncovered and selected, the action row offers **Look**, a client-only overlay of the view: tap the image to zoom, tap outside it or press Escape to close. Look plays nothing and never reaches the rules. A save written before a hub item existed gains it at its `initialState` holder on load. `npm run v2:card:world-map:smoke` opens the view at 1440 and 390 px.
+The Map of the Wood and the Wine-Dark Sea waits at the station too. It is an ordinary hub item: it can be found, held, traded, wanted or left anywhere. A hub thing may name its own `art` (the card and stage image) and a `view` (a larger image). Once its card is uncovered and selected, the action row offers **Look**, a client-only overlay of the view: tap the image to zoom, tap outside it or press Escape to close. Look plays nothing and never reaches the rules. A save written before a hub item existed gains it at its `initialState` holder on load. Every load reconciles the save with the current content: a missing authored thing joins at its authored holder, a thing the content no longer defines leaves and whatever it held stays with its holder, and a retired crossing closes. A save that still cannot be read offers New game instead of an error. `npm run v2:card:world-map:smoke` opens the view at 1440 and 390 px.
 
 At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 
 The hub cast's tastes, home and item values live in `forest.json` under `people`, beside the pack residents' `tastes` and `values` in their card worlds. Each named avatar also has one authored `want`, `{ "kind": "item" | "place" | "person", "target": id }`, which names what it seeks first: Vale and Pip want the lamp, the keeper wants the bell. Pack residents with a `desire` carry a matching `want`, which the pack schema checks against the pack's and hub's items, places and avatars. The rules don't read `want` yet.
 
-Situational worth is data too. A hub thing in `forest.json` may carry `valueRules`, and a person may carry `valueRules` keyed by item: each rule lists facts (`{ "item", "field", "min" | "max" }` or `{ "holds": item }`) and adds to the value or `set`s it. The empty lamp, the oil a dim lamp's holder needs, and the cloth the keeper wants while the bell rings are three such rules. A person's `grievances` list names the plays that offend them (`on`, partial action patterns) and the remembered `reason`; the keeper's ringing and Pip's spoiled light are two. A pack resident's `tastes.noise` is the same rule for a rung bell. The planner has no lamp special case: a resident in the dark attic waits until a play lights the lamp.
+Situational worth is data too. A hub thing in `forest.json` may carry `valueRules`, and a person may carry `valueRules` keyed by item: each rule lists facts (`{ "item", "field", "min" | "max" }` or `{ "holds": item }`) and adds to the value or `set`s it. The empty lamp, the oil a dim lamp's holder needs, and the cloth the keeper wants while the bell rings are three such rules. A person's `grievances` list names the plays that offend them (`on`, partial action patterns) and the remembered `reason`; the keeper's ringing and Pip's spoiled light are two. A pack resident's `tastes.noise` is the same rule for a rung bell. The planner has no lamp special case: a resident in the lit attic waits until a play douses the lamp.
 
 ## Local play
 
@@ -516,7 +551,7 @@ estimate before the play, the observed result, and the exact event as evidence.
 The first estimate is unknown. Later estimates come from that avatar's results.
 
 The action chooser compares those results across legal requests, trades, gifts,
-conversations and waits. It gives less-tried approaches room to establish a
+conversations and observing. It gives less-tried approaches room to establish a
 record. Recent results matter more. A changed situation gets fresh exploration,
 with earlier results providing a small starting estimate. The same present
 world can therefore produce different choices for avatars with different past
@@ -531,8 +566,8 @@ later result with a 0.7 discount per step. A changed recorded situation or a
 completed goal ends that link. Human choices and resident choices use the same
 measurement path. Earlier lessons remain readable in existing saves.
 
-Solo and shared avatars reflect when they choose **Wait** after something new
-has happened to them. Other plays never start a reflection. A new thought
+Solo and shared avatars reflect when they choose **Observe** after something
+new has happened to them. Other plays never start a reflection. A new thought
 informs the persona revision. A dream may come with the thought, alongside the
 persona. Each accepted revision keeps its source events, previous persona and
 the model used for each part. Four revisions stay in the save. Thoughts stay at
@@ -675,7 +710,7 @@ Requests record the destination and the answer in the scene script. Both places,
 
 The dialogue service gives the model a plain account of every recorded trip and a direction for Vale's chosen action. Threats keep their pressure, attacks keep their commitment, and guards hold a defensive stance. A later player choice can change that stance. Separate trips to the same destination remain separate arrivals in avatar speech, item descriptions and location narration.
 
-Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, quiet departures, both mirror directions, reload and relighting at desktop and phone widths. Run `node v2/scripts/smoke-card-dialogue-timing.mjs` to check the first loading speaker, card locks through each reply, and the cast after quiet actions. Run `node v2/scripts/smoke-card-beat-stack.mjs` to check the beat stack at desktop and phone widths, with and without reduced motion: a new beat arriving in front, tapping behind to step back, tapping the front card to finish a line or step forward, the live count, and Memory. Run `node v2/scripts/smoke-card-movement.mjs` to check visible entrances, the travel screen, arrival beat captions, and reset during travel with fast and delayed replies. The card table still keeps its rules and inventory in the browser; `/card-game/text` only generates validated text and does not authorize movement.
+Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, quiet departures, both mirror directions (douse to leave, hold it lit at the pond to return), the lit and doused attic paintings, reload and relighting at desktop and phone widths. Run `node v2/scripts/smoke-card-dialogue-timing.mjs` to check the first loading speaker, card locks through each reply, and the cast after quiet actions. Run `node v2/scripts/smoke-card-beat-stack.mjs` to check the beat stack at desktop and phone widths, with and without reduced motion: a new beat arriving in front, tapping behind to step back, tapping the front card to finish a line or step forward, the live count, and Memory. Run `node v2/scripts/smoke-card-movement.mjs` to check visible entrances, the travel screen, arrival beat captions, and reset during travel with fast and delayed replies. The card table still keeps its rules and inventory in the browser; `/card-game/text` only generates validated text and does not authorize movement.
 
 Run `node v2/scripts/smoke-card-dialogue-recovery.mjs` to check visible service failures, same-turn retry, incomplete responses, later plays and reload at desktop and phone widths. It uses local fixture responses and makes no model calls.
 
@@ -721,7 +756,7 @@ with their own calls. Authored personas and voice profiles remain the roots of
 identity; current actions, possessions, travel and relationships come from the
 resolved simulation.
 
-An avatar reflects when it chooses Wait after a new witnessed event; the scene
+An avatar reflects when it chooses Observe after a new witnessed event; the scene
 names that avatar as `resting`. A reflection supplies a thought and an evolved
 persona. The thought and persona prompts also carry the avatar's hope, its wish
 and next step, from the life rules. Sleeping and waking state still comes from
@@ -743,14 +778,13 @@ Dreams and thoughts are marked as private impressions. They are separate from
 witnessed events and public conversation.
 
 Each voice receives a short first-person transcript and completes one plain-text
-line. Optional `idiolect` and `lines` profile fields supply style and examples;
-existing pack `persona` and `voice` fields remain supported. The server checks
+line. An optional `idiolect` profile field describes the voice in prose;
+profiles carry no example utterances ([#1537](https://github.com/cenetex/cosyworld/issues/1537)). Existing pack `persona` and `voice` fields remain supported. The server checks
 visible state, including lamp state, before accepting each line. Supplied quest
-facts remain part of the transcript. A bard receives the complete earned poem
-as structured context, with the newest lines marked separately. The poem data
-keeps its authored words and attribution. The bard speaks in its own voice and
-may quote, paraphrase, or comment on that context. Ordinary factual, custody,
-observation, and speech checks apply to local and shared replies.
+facts remain part of the transcript. A bard's poem context names its title
+and the travelers whose deeds it holds, with no authored verse text. The bard
+speaks in its own voice. Ordinary factual, custody, observation, and speech
+checks apply to local and shared replies.
 
 Hosted calls have a twelve-second limit and the scene has a twenty-two-second
 limit, with eight calls in flight. Replies are collected as they complete, then
@@ -809,6 +843,12 @@ cards. Coasts, courtyards, open ground, groves, and shelters each have their own
 view of the regional weather. The Underworld has low mist above its water.
 The Greek ship has its own `sea` region wherever it lies: mist, rain, mist,
 rain, mist, then a clear spell, so a crossing feels like weather.
+The Willows camp, thicket and bank share a `willows` region that is never
+clear: an eight-period cycle of soft drizzle under low mist and heavy river
+mist, four periods to a day and night, so the mix shifts from one day to the
+next. Their `river` exposure keeps the rain light and the mist
+green-grey. The landing has no weather, so the boatman, the otter and the
+canoe read clearly there.
 The cycles and each place's region and exposure are data in `weather.json`.
 The rules commit only the weather word: dialogue facts read `Weather: rain.`,
 and the narrator's own words describe it.

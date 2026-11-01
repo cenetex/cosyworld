@@ -1128,7 +1128,6 @@ describe("speech grounding in resolved card plays", () => {
     const start = together();
     start.actors.vale.place = start.actors.moth.place = "attic";
     start.items.lamp.holder = "moth";
-    start.items.lamp.lit = true;
     const outcome = turnOutcome(act(start, "move", null, "pond"));
     for (const id of ["vale", "moth"])
       expect(avatar(outcome, id).travel).toEqual({
@@ -1164,7 +1163,9 @@ describe("speech grounding in resolved card plays", () => {
     const outcome = turnOutcome(createWorld());
     expect(outcome.card.kind).toBe("arrive");
     expect(outcome.avatars).toHaveLength(3);
-    expect(outcome.items).toHaveLength(5);
+    // The forest's four things, the storybook map (#1621) and the Hoppy Cat
+    // spool at the station (#1641).
+    expect(outcome.items).toHaveLength(6);
     expect(avatar(outcome, "moth")).toMatchObject({
       location: "pond",
       travel: null,

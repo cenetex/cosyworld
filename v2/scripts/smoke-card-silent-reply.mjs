@@ -12,7 +12,9 @@ import {
 import { enableMotives } from "../card-game/motives.mjs";
 
 let fixture = enableMotives(createWorld({ opening: true }));
-for (const kind of ["light", "move"])
+// The opening starts lit: douse it to open the mirror, then relight it at
+// the pond (#1653).
+for (const kind of ["snuff", "move", "light"])
   fixture = play(
     fixture,
     legalActions(fixture).find(
@@ -85,7 +87,13 @@ try {
     }
     assert.equal(quiet, "moth");
     assert(shown.has("…"), `The stage never showed "…": ${[...shown]}`);
+    await page.evaluate(() =>
+      document.querySelector("#history-button").click(),
+    );
     assert.match(await page.textContent("#messages"), /Pip\s*…/u);
+    await page.evaluate(() =>
+      document.querySelector("#history-dialog").close(),
+    );
     await page.screenshot({ path: `output/silent-reply/silent-${width}.png` });
     const saved = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)),

@@ -1,4 +1,5 @@
 import { learningFacts } from "./learning.mjs";
+import { observeText } from "./observe-words.mjs";
 import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 import { wantFact, wantHeard } from "./want-talk.mjs";
@@ -16,7 +17,6 @@ import {
   packDefinitions,
   packFacts,
   packNarration,
-  packReadings,
   packSceneFacts,
   observableStates,
 } from "./pack-registry.mjs";
@@ -202,7 +202,7 @@ export function narrativeContext(world, action = null) {
           entry.witnesses?.includes(currentActor(world))),
     )
     .slice(-8)
-    .map((entry) => entry.text);
+    .map((entry) => observeText(entry.text));
   // A persona that minds noise reads a handled bell as a ring unless told
   // otherwise. Name the silence for those speakers when nothing rang.
   const bellHandled =
@@ -252,10 +252,8 @@ export function narrativeContext(world, action = null) {
     resting,
     ...(disclosures.length ? { disclosures } : {}),
     action:
-      played?.text ||
-      (world.turn
-        ? `${nameOf(currentActor(world))} waits and watches the cast.`
-        : null),
+      observeText(played?.text) ||
+      (world.turn ? `${nameOf(currentActor(world))} observes the cast.` : null),
     events,
     conversation,
     entities: ids.map((id) => {
@@ -442,9 +440,6 @@ export function narrativeContext(world, action = null) {
       );
       return {
         id,
-        ...(packReadings(world, id).length
-          ? { readings: packReadings(world, id) }
-          : {}),
         poem: recitalContext(world, packDefinitions, id),
         facts: facts.slice(0, 16).map((text) => text.slice(0, 240)),
         desire,

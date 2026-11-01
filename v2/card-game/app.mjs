@@ -1,7 +1,13 @@
 import { imageUrl } from "./images.mjs";
+import { observeText } from "./observe-words.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { arriveCard, finishReveal, revealCard } from "./card-reveal.mjs";
-import { landingPack, createLandingWorld } from "./pack-landing.mjs";
+import { levelUpCard } from "./card-level-up.mjs";
+import {
+  landingPack,
+  createLandingWorld,
+  newRunSeed,
+} from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
@@ -72,6 +78,7 @@ import {
   encodeSave,
   decodeSave,
   legalActions,
+  seedRun,
 } from "./world.mjs";
 import { packPlaces, packOf } from "./pack-registry.mjs";
 import { variantOf } from "./pack-rules.mjs";
@@ -207,18 +214,30 @@ const localBackups =
 // A table with no saved world, or a new visitor to a shared world, starts with
 // its opening cards covered.
 let openingTable = true;
+// In-app browsers and WebViews can block storage outright. The table then
+// plays a fresh world in this tab instead of refusing every card.
+let storageBlocked = false;
 try {
   await localBackups?.restore();
-  const saved = sharedSession ? null : localStorage.getItem(SAVE_KEY);
+  let saved = null;
+  try {
+    saved = sharedSession ? null : localStorage.getItem(SAVE_KEY);
+  } catch {
+    storageBlocked = true;
+  }
   if (saved) {
     openingTable = false;
-    world = enableMotives(decodeSave(saved));
+    // A save from before run seeds takes one once, as a shared world does.
+    world = enableMotives(seedRun(decodeSave(saved), newRunSeed()));
   }
 } catch (error) {
   openingTable = false;
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
 }
+const UNSAVED_NOTICE =
+  "This browser could not save the world. Keep this tab open to keep playing.";
+if (storageBlocked) notice(UNSAVED_NOTICE);
 const SEEN_KEY = `${SAVE_KEY}.seen`;
 // The revision whose words failed, so a reload keeps Retry instead of a blank
 // or hidden dialogue panel.
@@ -243,6 +262,8 @@ let encountered = new Set(),
   discoveryDone = Promise.resolve(),
   discoveryPending = false;
 const fresh = new Set();
+// The level each card last showed, so a rise plays on the card itself.
+const shownLevels = new Map();
 const coveredCards = new Set();
 let openingHeld = false;
 // Card art: a pack's own art, a hub item's authored art, or the forest card.
@@ -268,9 +289,12 @@ function loadSeen(reset = false) {
   let saved = [],
     opening = reset;
   coveredCards.clear();
+  let stored = null;
   try {
-    const stored = reset ? null : localStorage.getItem(SEEN_KEY);
-    opening ||= openingTable && stored === null;
+    stored = reset ? null : localStorage.getItem(SEEN_KEY);
+  } catch {}
+  opening ||= openingTable && stored === null;
+  try {
     saved = JSON.parse(stored || "[]");
     const covered = reset ? [] : JSON.parse(localStorage.getItem(`${SEEN_KEY}.covered`) || "[]");
     for (const id of Array.isArray(covered) ? covered : [])
@@ -286,19 +310,18 @@ function loadSeen(reset = false) {
   // keeps the cards its player has already uncovered.
   if (opening) for (const id of availableCards(world)) coveredCards.add(id);
   fresh.clear();
+  shownLevels.clear();
   rememberCards();
 }
 loadSeen();
 function save() {
-  if (saveBlocked || sharedSession) return;
+  if (saveBlocked || sharedSession || storageBlocked) return;
   try {
     const encoded = encodeSave(world);
     localStorage.setItem(SAVE_KEY, encoded);
     void localBackups?.queue(encoded);
   } catch {
-    notice(
-      "This browser could not save the world. Keep this tab open to keep playing.",
-    );
+    notice(UNSAVED_NOTICE);
   }
 }
 if (localBackups) {
@@ -715,9 +738,10 @@ function unlockSpeech() {
   speechSounds.unlock();
   characterSpeech.unlock();
 }
-document.addEventListener("pointerdown", unlockSpeech, {
-  capture: true,
-});
+// A touch grants audio permission on pointerup, not pointerdown, so Android
+// and iOS would otherwise stay silent until a second tap.
+for (const type of ["pointerdown", "pointerup"])
+  document.addEventListener(type, unlockSpeech, { capture: true });
 document.addEventListener("keydown", unlockSpeech, {
   capture: true,
 });
@@ -817,7 +841,8 @@ const unlockAudio = () => {
   music.unlock();
   hum.unlock();
 };
-document.addEventListener("pointerdown", unlockAudio, { capture: true });
+for (const type of ["pointerdown", "pointerup"])
+  document.addEventListener(type, unlockAudio, { capture: true });
 document.addEventListener("keydown", unlockAudio, { capture: true });
 document.addEventListener("visibilitychange", () => {
   music.setHidden(document.hidden);
@@ -1211,7 +1236,7 @@ function cancelTravel() {
   entrances.clear();
   for (const figure of exits.keys()) {
     for (const animation of figure.getAnimations()) animation.cancel();
-    if (figure.dataset.removing) figure.remove();
+    if (figure.dataset.removing) dropFigure(figure);
   }
   exits.clear();
   renderedCast = "";
@@ -1624,7 +1649,9 @@ function renderActions(animate = false) {
       button.dataset.queued = String(queued);
       if (sent && !queued) button.dataset.sent = sharedPlay.state;
       button.title =
-        queued && !sharedSession ? "Cancel this queued play" : action.text;
+        queued && !sharedSession
+          ? "Cancel this queued play"
+          : observeText(action.text);
       button.disabled = selectionBlocked();
       button.setAttribute("aria-pressed", String(queued));
       if (action.choiceId) {
@@ -1979,12 +2006,16 @@ function renderStage(locationId) {
     ? "Someone"
     : mood?.alt || nameOf(stage.resident);
 }
+function dropFigure(figure) {
+  figure.remove();
+  releaseImages(figure);
+}
 function leaveFigure(figure, remove = false) {
   if (exits.has(figure)) return;
   if (remove) figure.dataset.removing = "true";
   figure.setAttribute("aria-hidden", "true");
   if (reducedMotion.matches || $("travel").classList.contains("travelling")) {
-    if (remove) figure.remove();
+    if (remove) dropFigure(figure);
     return;
   }
   const animation = figure.animate(
@@ -2001,7 +2032,7 @@ function leaveFigure(figure, remove = false) {
     .catch(() => {})
     .then(() => {
       if (exits.get(figure) !== task) return;
-      if (remove) figure.remove();
+      if (remove) dropFigure(figure);
       animation.cancel();
       exits.delete(figure);
     });
@@ -2462,6 +2493,7 @@ function renderScene() {
   ) {
     portraitBox.dataset.entity = portraitId || "";
     portraitBox.dataset.source = portraitSource;
+    releaseImages(portraitBox);
     portraitBox.replaceChildren();
     if (portraitId) {
       const image = node("img");
@@ -2549,6 +2581,7 @@ function renderScene() {
     if (behindButton.dataset.key !== behindKey) {
       behindButton.dataset.key = behindKey;
       const face = behindButton.querySelector(".beat-behind-portrait");
+      releaseImages(face);
       face.replaceChildren();
       const source = beatPortrait(behind.speakerId);
       if (source) {
@@ -2610,6 +2643,13 @@ function renderScene() {
   animateStack(direction, ghost);
 }
 // The art for a beat's speaker: a person, a place, or an item.
+// Dropping the address lets the browser free the decoded picture now rather
+// than whenever the node is collected.
+function releaseImages(root) {
+  if (!root) return;
+  for (const image of root.querySelectorAll("img"))
+    image.removeAttribute("src");
+}
 function beatPortrait(id) {
   if (!id) return "";
   return imageUrl(
@@ -2700,7 +2740,10 @@ function fadeGhost(ghost, to, duration) {
   if (!ghost) return;
   const from = getComputedStyle(ghost).opacity;
   ghost.style.opacity = "0";
-  const done = () => ghost.remove();
+  const done = () => {
+    ghost.remove();
+    releaseImages(ghost);
+  };
   ghost
     .animate([{ opacity: from }, { opacity: 0, ...to }], {
       duration,
@@ -2712,8 +2755,10 @@ function animateStack(direction, ghost) {
   const front = $("speech-row"),
     behind = $("beat-behind");
   if (!direction || front.hidden) {
-    ghost.front?.remove();
-    ghost.behind?.remove();
+    for (const copy of [ghost.front, ghost.behind]) {
+      copy?.remove();
+      releaseImages(copy);
+    }
     return;
   }
   const showBehind = !behind.hidden;
@@ -2882,9 +2927,15 @@ document.addEventListener("keydown", (event) => {
 }
 let renderedMemory = "";
 // Memory is opened on purpose: every remembered visit, newest first, as the
-// same beats the stack shows.
-function renderLog() {
+// same beats the stack shows. Closed, it holds no portraits at all.
+function renderLog(open = $("history-dialog").open) {
   const box = $("messages");
+  if (!open) {
+    releaseImages(box);
+    box.replaceChildren();
+    renderedMemory = "";
+    return;
+  }
   const visits = memoryVisits(shownWorld(), {
     viewer: currentActor(world),
     shared: Boolean(sharedSession),
@@ -3021,6 +3072,7 @@ function render() {
     else $("hand").replaceChildren(...handCards.map(card));
     $("hand").scrollLeft = samePlace ? scroll : 0;
     renderActions(animate);
+    if (!sameWorld) playLevelUps();
     if (arriving) revealHandCard(renderedHandPlace, true, true);
     if (animate)
       for (const frame of $("hand").children) {
@@ -3067,6 +3119,16 @@ function render() {
       ?.focus({ preventScroll: true });
   }
   updateHandArrows();
+}
+function playLevelUps() {
+  for (const button of $("hand").querySelectorAll(".card[data-card]")) {
+    const id = button.dataset.card,
+      level = Number(button.dataset.level),
+      from = shownLevels.get(id);
+    shownLevels.set(id, level);
+    if (from < level && !cardIsCovered(id) && !button.closest(".card-frame").hidden)
+      void levelUpCard(button, from);
+  }
 }
 function revealHandCard(id, alignStart = false, instant = false) {
   const hand = $("hand"),
@@ -3232,7 +3294,7 @@ document.addEventListener("click", (e) => {
   render();
 });
 $("history-button").onclick = () => {
-  renderLog();
+  renderLog(true);
   $("history-dialog").showModal();
   pauseSpeech();
   // The newest visit is first; the past is further down.
@@ -3250,6 +3312,7 @@ document
 document
   .querySelectorAll("dialog")
   .forEach((dialog) => dialog.addEventListener("close", pauseSpeech));
+$("history-dialog").addEventListener("close", () => renderLog(false));
 $("export-script").onclick = () => {
   const url = URL.createObjectURL(
     new Blob(

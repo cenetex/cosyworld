@@ -3,10 +3,14 @@ import { mediaUrl } from "./media.mjs";
 
 const base = new URL("./", import.meta.url);
 const resolved = new Map();
+// Narrow screens paint the stage from a copy at most 960 px on its long side,
+// which decodes to a third of the full painting's memory.
+const narrow = globalThis.matchMedia?.("(max-width: 640px)");
 
 // Catalog paths keep their identity; each view chooses the image it needs.
 export function imageUrl(source, size = "stage") {
   if (typeof source !== "string" || !source) return source;
+  if (size === "stage" && narrow?.matches) size = "phone";
   const key = `${size}:${source}`;
   if (resolved.has(key)) return resolved.get(key);
   let url;
@@ -21,7 +25,10 @@ export function imageUrl(source, size = "stage") {
     : url.pathname.replace(/^\/card-game\//, "").replace(/^\//, "");
   const image = variants.images[path];
   if (!image) return mediaUrl(source);
-  const target = new URL(image[size === "card" ? "card" : "stage"], base);
+  const target = new URL(
+    image[size === "card" || size === "phone" ? size : "stage"],
+    base,
+  );
   target.search = url.search;
   target.hash = url.hash;
   const value = mediaUrl(target.href);

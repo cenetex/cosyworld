@@ -146,10 +146,9 @@ try {
       assert.equal(await page.locator("#story-retry").isVisible(), false);
       const poem = requests.at(-1).entities.find((e) => e.id === singer)?.poem;
       assert.equal(poem.stanzas.length, 1);
-      assert.deepEqual(poem.newLines, [
-        "I told her I would turn away.",
-        "Her brother waited by the wall.",
-      ]);
+      // Couplet text is lore, never dialogue context.
+      assert.equal(poem.stanzas[0].id, "greek-decline-burial");
+      assert.equal(JSON.stringify(poem).includes("turn away"), false);
       assert.equal(poem.stanzas[0].authorName, "Vale");
       await page.screenshot({
         path: new URL(`legal-arrival-${width}.png`, output).pathname,

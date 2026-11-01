@@ -27,7 +27,8 @@ try {
       present: ["vale", "mara"],
     };
     for (const fields of [
-      { kind: "light" },
+      // The opening starts lit; dousing opens the mirror (#1653).
+      { kind: "snuff" },
       { kind: "move", target: "pond" },
     ]) {
       const view = dispatchShared({ op: "view", world: seed, ...membership });

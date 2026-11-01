@@ -120,7 +120,8 @@ The blanket is a present object with its actual holder and placement.
 Each branch ending earns a short authored couplet. The Bard's saved recital
 records the traveler and the event order. The poem distinguishes a gift
 from a report, a prepared berth from an arrival, and a heard tale from a
-present deed. The main source keeps every exact couplet.
+present deed. [`lore/bard-couplets.json`](lore/bard-couplets.json) keeps
+every exact couplet as lore; the Bard's prompt does not carry them.
 
 Each completed local story opens its own early report at Dione’s table.
 The report names the actual branch and adds a new couplet about telling it.

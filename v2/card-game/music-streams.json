@@ -1,4 +1,14 @@
 {
+  "assets/music/agora-1.mp3": {
+    "file": "assets/music-stream/agora-1.mp3",
+    "offset": 71,
+    "sourceHash": "36e847559ea4e3438f4aab0eff4a3b779d48b01343c9cd0609bc5b0cbb24505a"
+  },
+  "assets/music/agora-2.mp3": {
+    "file": "assets/music-stream/agora-2.mp3",
+    "offset": 74,
+    "sourceHash": "9acfbe6c585b03c6304197ccdd1f3af1231ff723beb557daa8ea6e933b0fdebf"
+  },
   "assets/music/attic-1.mp3": {
     "file": "assets/music-stream/attic-1.mp3",
     "offset": 21274,
@@ -29,6 +39,11 @@
     "offset": 30391,
     "sourceHash": "60ac8870acb7c3cc71aff040bddd623b2b07a7413bf72390063fdedac1176722"
   },
+  "assets/music/greek-harbor-2.mp3": {
+    "file": "assets/music-stream/greek-harbor-2.mp3",
+    "offset": 91,
+    "sourceHash": "3b5ecd3be280df0771bad11d786559abb049d64f6645dab8f6b83127df5d4a53"
+  },
   "assets/music/greek-harbor.mp3": {
     "file": "assets/music-stream/greek-harbor.mp3",
     "offset": 24000,
@@ -58,6 +73,16 @@
     "file": "assets/music-stream/pond-2.mp3",
     "offset": 20801,
     "sourceHash": "5d9a1254fa729c9cda3ce0f3c46cf756d150f24199988557fa3ca2e94873bd96"
+  },
+  "assets/music/pond-3.mp3": {
+    "file": "assets/music-stream/pond-3.mp3",
+    "offset": 70,
+    "sourceHash": "5ba7ccc2d22a3b58e0c1c7b47e5505ec5ddd17af56d97b85bc46e03bf66975e0"
+  },
+  "assets/music/pond-4.mp3": {
+    "file": "assets/music-stream/pond-4.mp3",
+    "offset": 73,
+    "sourceHash": "9e5a5b898358dfd65bf2fba5f6645417c514044fb2f60ba8751a43ab9bc8968b"
   },
   "assets/music/rain-on-canvas.mp3": {
     "file": "assets/music-stream/rain-on-canvas.mp3",

@@ -85,6 +85,7 @@ import {
   applyPackChoice,
   applyMeetingChoices,
   packGiveChoice,
+  packWaitChoice,
   choiceText,
   conditionsMet,
   validatePackLinks,
@@ -119,6 +120,7 @@ import {
   disturb,
   calm,
   validPackState,
+  conditionMet,
 } from "./pack-rules.mjs";
 import {
   installTransports,
@@ -144,6 +146,7 @@ import {
   laneOfEdge,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
+import { installSpecials, validSeed } from "./pack-specials.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
 
@@ -174,6 +177,15 @@ const atticInterior = (() => {
 })();
 const ids = Object.keys(things);
 const actorIds = [...Object.keys(forest.people), ...packActorIds];
+// Fixed at load, so validation compares against these instead of rebuilding.
+const placeIds = Object.keys(places);
+const sortedActorKeys = actorIds.slice().sort().join();
+const sortedItemKeys = ids.slice().sort().join();
+const castIds = new Set([...actorIds, ...ids]);
+const entityIds = new Set([...castIds, ...placeIds]);
+const holderIds = new Set([...actorIds, ...placeIds]);
+const LOG_KINDS = ["action", "dialogue", "narration", "input", "hint"];
+const OUTCOMES = ["hit", "guarded", "yield", "sent-home"];
 let planReads = null;
 function planningReadsFor(world) {
   if (!planReads) return null;
@@ -201,7 +213,8 @@ const expectedTrustKeys = Object.fromEntries(
 );
 export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
-export function createWorld({ opening = false, packScopes = {} } = {}) {
+// A run seed draws each pack's specials once (pack-specials.mjs).
+export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   const world = {
     schema: 7,
     ...structuredClone(forest.initialState),
@@ -210,6 +223,8 @@ export function createWorld({ opening = false, packScopes = {} } = {}) {
     revision: 0,
     eventSeq: 1,
   };
+  if (seed != null && !validSeed(seed)) throw new Error("Choose a run seed.");
+  if (seed != null) world.run = { seed };
   if (opening) {
     const start = structuredClone(forest.opening);
     world.opening = start.discovery;
@@ -278,9 +293,17 @@ function installPacks(s) {
         if (other !== id) actor.trust[other] ??= 0;
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
+  for (const pack of packDefinitions) installSpecials(s, pack);
   installLife(s, travels);
   installRouteKnowledge(s);
   installWants(s);
+}
+// A world saved before runs had seeds takes one once, from its host.
+export function seedRun(s, seed) {
+  if (s.run || !validSeed(seed)) return s;
+  s.run = { seed };
+  installPacks(s);
+  return s;
 }
 // Travellers who learn the roads start from their home region's routes.
 function installRouteKnowledge(s) {
@@ -291,8 +314,17 @@ function installRouteKnowledge(s) {
       rememberRoutes(s, actor, visibleRouteEdges(s.actors[actor].place));
     }
 }
+// Holder chains are a few links deep, so the walk tracks visits only when a
+// chain runs long enough to hide a loop: the common case allocates nothing.
+const SHORT_CHAIN = 32;
 export function rootHolder(s, id) {
   let holder = s.items[id].holder;
+  for (let step = 0; step < SHORT_CHAIN; step++) {
+    if (!s.items[holder]) return holder;
+    if (holder === id) throw new Error("An item holds itself.");
+    holder = s.items[holder].holder;
+  }
+  holder = s.items[id].holder;
   const visited = new Set([id]);
   while (s.items[holder]) {
     if (visited.has(holder)) throw new Error("An item holds itself.");
@@ -311,12 +343,18 @@ export const shining = (s) =>
   s.items.lamp.lit &&
   s.items.lamp.fuel > 0 &&
   !covered(s, "lamp");
+// A reflection opens while its authored conditions hold (#1600). Forest data
+// opens the attic mirror once the lamp there is dark, and the pond's way back
+// while the lamp shines on the shore.
+const reflectionsFrom = (s, from) =>
+  (forest.reflectionRoutes || [])
+    .filter(
+      (r) =>
+        r.from === from && r.requires.every((c) => conditionMet(s, c, null)),
+    )
+    .map((r) => r.to);
 export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
-  // Leaving the attic needs its own light; either shore can light the return.
-  shining(s) &&
-  (from === "attic"
-    ? itemPlace(s, "lamp") === "attic"
-    : from === "pond" && ["attic", "pond"].includes(itemPlace(s, "lamp")));
+  reflectionsFrom(s, from).length > 0;
 // The bell is the shore's sound source: heard where it rests while it rings
 // uncovered. Packs add their own sounding fixtures through pack-rules.mjs.
 const baseSoundAt = (s, place) =>
@@ -333,10 +371,8 @@ export const sensesFor = (s) => ({
 const baseExits = (_s, place) => places[place].exits;
 export const placeText = (s, place) =>
   [
-    place === "attic"
-      ? reflectionOpen(s, place)
-        ? "A tall mirror opens onto a black shore. A path leads through the glass."
-        : "A tall mirror stands dark and empty. Dust gathers along its frame."
+    place === "attic" && reflectionOpen(s, place)
+      ? "A tall mirror opens onto a black shore. A path leads through the glass."
       : s.opening && place === "station"
         ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
         : places[place].text,
@@ -373,11 +409,7 @@ function ordinaryExits(s, place, actor, previous) {
   return [
     ...new Set([
       ...baseExits(s, place),
-      ...(reflectionOpen(s, place) && place === "attic"
-        ? ["pond"]
-        : reflectionOpen(s, place) && place === "pond"
-          ? ["attic"]
-          : []),
+      ...reflectionsFrom(s, place),
       ...crossingExits(s, place, actor, sensesFor(s)),
       ...transportExits(s, place, previous, actor),
       ...packExits(s, place, actor),
@@ -1431,9 +1463,11 @@ function travelParty(s, actors, destination) {
   const from = s.actors[actors[0]].place;
   const through = !baseExits(s, from).includes(destination);
   // The legal action approves the whole party before any carried key moves.
+  // Leaving the opening home anchors it, by its rescue path or through a
+  // mirror the doused lamp opened (#1600).
   if (
     homeGates[from]?.opening &&
-    homeRescueExit(s, from, actors[0]) === destination
+    (s.opening || homeRescueExit(s, from, actors[0]) === destination)
   )
     s.locations[from].anchored = true;
   markCrossed(s, from, destination);
@@ -1477,9 +1511,14 @@ function perform(s, a, round = null, settle = []) {
   if (a.kind === "wait") {
     const learningStart = beginLearning(s, a);
     if (a.actor === currentActor(s)) calm(s, here, a.actor);
+    // Observing here may notice one of the place's signs.
+    const sign = packWaitChoice(s, a.actor);
+    const text = sign
+      ? choiceText(applyPackChoice(s, sign, { mode: "wait" }), a.actor)
+      : a.text;
     // The player's wait is a committed play like any other.
-    if (learningStart || a.actor === currentActor(s)) {
-      addLog(s, "World", a.text, {
+    if (learningStart || sign || a.actor === currentActor(s)) {
+      addLog(s, "World", text, {
         kind: "action",
         actorId: a.actor,
         verb: "wait",
@@ -1642,7 +1681,7 @@ function perform(s, a, round = null, settle = []) {
           s,
           "lamp",
           "vale",
-          "Vale lifts the lamp as its light wakes the mirror.",
+          "Vale lifts the lamp.",
         );
       s.items.lamp.lit = true;
       remember(s, "lamp", a.text);
@@ -2080,7 +2119,7 @@ export function play(
   if (
     next.opening &&
     !next.locations.attic.anchored &&
-    exact.kind === "light" &&
+    ["light", "snuff"].includes(exact.kind) &&
     next.actors.vale.place === "attic"
   ) {
     next.locations.attic.anchored = true;
@@ -2288,10 +2327,10 @@ export function validateWorld(s) {
   if (
     Object.keys(s.actors || {})
       .sort()
-      .join() !== actorIds.slice().sort().join() ||
+      .join() !== sortedActorKeys ||
     Object.keys(s.items || {})
       .sort()
-      .join() !== ids.slice().sort().join()
+      .join() !== sortedItemKeys
   )
     fail();
   if (
@@ -2309,6 +2348,8 @@ export function validateWorld(s) {
       ))
   )
     fail();
+  if (s.run !== undefined && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
+    fail();
   if (!validPackState(s, sensesFor(s))) fail();
   if (
     !validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) ||
@@ -2325,8 +2366,7 @@ export function validateWorld(s) {
     fail();
   if (
     !s.peaceUntil ||
-    Object.keys(s.peaceUntil).sort().join() !==
-      actorIds.slice().sort().join() ||
+    Object.keys(s.peaceUntil).sort().join() !== sortedActorKeys ||
     Object.values(s.peaceUntil).some(
       (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn + 3,
     ) ||
@@ -2419,11 +2459,8 @@ export function validateWorld(s) {
 
   for (const [id, item] of Object.entries(s.items)) {
     if (
-      ![
-        ...actorIds,
-        ...Object.keys(places),
-        ...(id === "cloth" ? ["lamp", "bell"] : []),
-      ].includes(item.holder)
+      !holderIds.has(item.holder) &&
+      !(id === "cloth" && (item.holder === "lamp" || item.holder === "bell"))
     )
       fail();
     if (
@@ -2526,6 +2563,8 @@ export function validateWorld(s) {
     "choose",
     "use",
   ];
+  const cast = castIds,
+    entities = entityIds;
   for (const e of s.log) {
     if (e.seq !== undefined) {
       if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
@@ -2534,21 +2573,19 @@ export function validateWorld(s) {
     }
     if (
       e.kind !== undefined &&
-      !["action", "dialogue", "narration", "input", "hint"].includes(
-        e.kind,
-      )
+      !LOG_KINDS.includes(e.kind)
     )
       fail();
     if (
       e.witnesses !== undefined &&
       (!Array.isArray(e.witnesses) ||
         e.witnesses.length > actorIds.length + ids.length ||
-        e.witnesses.some((id) => ![...actorIds, ...ids].includes(id)))
+        e.witnesses.some((id) => !cast.has(id)))
     )
       fail();
     if (
       e.entityId != null &&
-      ![...actorIds, ...ids, ...Object.keys(places)].includes(e.entityId)
+      !entities.has(e.entityId)
     )
       fail();
     if (e.fromLocationId != null && !Object.hasOwn(places, e.fromLocationId))
@@ -2570,7 +2607,7 @@ export function validateWorld(s) {
     if (e.verb != null && !verbs.includes(e.verb)) fail();
     if (
       (e.outcome !== undefined &&
-        !["hit", "guarded", "yield", "sent-home"].includes(e.outcome)) ||
+        !OUTCOMES.includes(e.outcome)) ||
       (e.droppedItemIds !== undefined &&
         (!Array.isArray(e.droppedItemIds) ||
           e.droppedItemIds.some((id) => !ids.includes(id))))
@@ -2621,14 +2658,12 @@ export function validateWorld(s) {
           !actorIds.includes(e.actorId) ||
           (e.wantMet.kind === "connect"
             ? e.wantMet.target !== CONNECT_TARGET
-            : ![...actorIds, ...ids, ...Object.keys(places)].includes(
-                e.wantMet.target,
-              ))))
+            : !entities.has(e.wantMet.target))))
     )
       fail();
     if (
       e.targetId != null &&
-      ![...actorIds, ...ids, ...Object.keys(places)].includes(e.targetId)
+      !entities.has(e.targetId)
     )
       fail();
     if (e.light !== undefined && typeof e.light !== "boolean") fail();
@@ -2648,20 +2683,33 @@ export function validateWorld(s) {
           (item) =>
             !item ||
             !ids.includes(item.id) ||
-            ![...actorIds, ...ids, ...Object.keys(places)].includes(
-              item.holder,
-            ),
+            !entities.has(item.holder),
         ))
     )
       fail();
   }
+  freshlyValidated.add(s);
   return s;
 }
-export const encodeSave = (s) => JSON.stringify(validateWorld(s));
+// Rule results are validated before they return, so the save that follows
+// does not check the same world again. Saving spends the mark: a later save of
+// that object, and every decoded or imported save, is validated in full.
+const freshlyValidated = new WeakSet();
+export function encodeSave(s) {
+  if (!freshlyValidated.has(s)) validateWorld(s);
+  freshlyValidated.delete(s);
+  return JSON.stringify(s);
+}
 export function decodeSave(text) {
   const s = JSON.parse(text);
-  upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
-  validateWorld(s);
-  preserveTransportAccess(s);
+  try {
+    upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
+    validateWorld(s);
+    preserveTransportAccess(s);
+  } catch (error) {
+    // A save that cannot be read starts fresh; it never surfaces a crash.
+    if (error instanceof TypeError) return validateWorld(null);
+    throw error;
+  }
   return validateWorld(s);
 }

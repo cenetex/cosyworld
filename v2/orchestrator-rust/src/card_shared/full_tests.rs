@@ -192,7 +192,7 @@ fn music_waits_for_each_avatars_first_committed_play_and_survives_reload() {
             full_store::snapshot(&c, &id, &user, now()).unwrap()["music_started"],
             false
         );
-        let action = home_action(&w, a, if a == 0 { "light" } else { "take" });
+        let action = home_action(&w, a, if a == 0 { "snuff" } else { "take" });
         full_store::commit(
             &c,
             &id,
@@ -260,7 +260,8 @@ fn first_ship_signal_unlocks_shared_round_trips_and_replays() {
     assert_eq!(w, before);
     w.game["actors"]["mara"]["place"] = json!("pond");
     full_store::seed(&c, &id, &w, "first-ship-signal", now()).unwrap();
-    for kind in ["cover", "take", "cover", "take"] {
+    // One cover and one uncover of the burning lamp call the ship (#1625).
+    for kind in ["cover", "take"] {
         assert_eq!(
             w.game["crossings"]["pond-greek-harbor"]["discovered"],
             false
@@ -686,14 +687,9 @@ fn full_world_bard_visit_and_song_replay_from_the_journal() {
                 .unwrap();
             assert_eq!(stanza["authorId"], "vale");
             assert_eq!(stanza["authorName"], "Vale");
-            assert_eq!(
-                stanza["lines"],
-                json!([
-                    "I set the water by her hands.",
-                    "She kept a loaf of bread for me."
-                ])
-            );
-            assert_eq!(bard["poem"]["newLines"], stanza["lines"]);
+            // Couplet text is lore, not dialogue context.
+            assert!(stanza.get("lines").is_none());
+            assert!(bard["poem"].get("newLines").is_none());
         }
     }
     drop(c);
@@ -2309,7 +2305,7 @@ fn released_quest_offers_are_dropped_by_the_upgrade_and_replay() {
 }
 
 #[test]
-fn lighting_the_lamp_meets_vales_want_once_and_replays() {
+fn dousing_the_held_lamp_meets_vales_want_once_and_replays() {
     let (_path, c, id) = fixture();
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     c.execute("DELETE FROM card_full_log", []).unwrap();
@@ -2318,7 +2314,8 @@ fn lighting_the_lamp_meets_vales_want_once_and_replays() {
     w.present = w.claimed;
     assert_eq!(w.game["actors"]["vale"]["want"]["target"], "lamp");
     full_store::seed(&c, &id, &w, "want-met", now()).unwrap();
-    let action = home_action(&w, 0, "light");
+    // Vale already holds the lamp, so the first play meets that want.
+    let action = home_action(&w, 0, "snuff");
     full_store::commit(
         &c,
         &id,
@@ -2500,7 +2497,7 @@ fn embedded_selected_cards_match_with_no_quest_plays() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|a| a["kind"] == "light")
+        .find(|a| a["kind"] == "snuff")
         .unwrap()
         .clone();
     w.apply(&json!({"op":"play", "actor":"vale", "action":action}))
@@ -2819,4 +2816,10 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
         drop(c);
         std::fs::remove_file(path).unwrap();
     }
+}
+
+#[test]
+fn shared_run_seed_is_the_world_id_hash() {
+    // SHA-256("abc") starts ba 78 16 bf.
+    assert_eq!(super::full_world::run_seed("abc"), 0xba78_16bf);
 }

@@ -11,7 +11,9 @@ import {
 import { enableMotives } from "../card-game/motives.mjs";
 
 let fixture = enableMotives(createWorld({ opening: true }));
-for (const kind of ["light", "move"])
+// The opening starts lit: douse it to open the mirror, then relight it at
+// the pond (#1653).
+for (const kind of ["snuff", "move", "light"])
   fixture = play(
     fixture,
     legalActions(fixture).find(
@@ -175,7 +177,13 @@ try {
       failed.log.some((e) => e.turn === failed.turn && e.kind === "action"),
       true,
     );
+    await page.evaluate(() =>
+      document.querySelector("#history-button").click(),
+    );
     assert.doesNotMatch(await page.locator("#messages").innerText(), /Turn \d/);
+    await page.evaluate(() =>
+      document.querySelector("#history-dialog").close(),
+    );
     // A reload keeps the failed turn's Retry instead of a hidden panel.
     await page.reload();
     await page.waitForFunction(

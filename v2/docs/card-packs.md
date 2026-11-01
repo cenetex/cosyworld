@@ -74,6 +74,15 @@ The vocabulary also includes `light`, bounded `not`, and persistent pack
 `{ "kind": "daylight", "phase": "night" }`, which reads the saved world clock
 (day and night swap every 24 turns). Environmental
 senses belong on crossings; entity/choice requirements use persistent kinds.
+Entity requirements may also use `item_present`, and `any` or `not` whose
+leaves are all persistent kinds. `item_at` may name a hub place. A pack thing
+whose own requirements name where it rests (`item_at` on itself) is gated
+only while it lies there: the Hoppy Cat spool requires
+`any(not item_present oil station, not item_at spool station)`, so it shows at
+the station only while no oil is there, and a carried spool stays a normal
+thing everywhere. Set down at the station again, it is gated again; saves
+accept that, because a disabled thing that is gated on its resting place may
+have travelled and come back.
 To add another kind, update all three places together:
 `CONDITION_KINDS` and its shape check in `pack-schema.mjs`, its evaluation in
 `conditionMet` in `pack-rules.mjs`, and a test in `test/card-packs.test.mjs`.
@@ -181,6 +190,12 @@ Give is accepted, the choice text is the outcome, and nothing else moves.
 The Lonely Forest buttons use both rules (see
 `v2/content/lonely-forest/OPENING.md`).
 
+A choice with `"on": "wait"` is a sign a place shows to a human who
+Observes there (the `wait` play). Each Observe commits at most one feasible
+sign at the observer's place; its text is the World line. A FNV-1a hash of
+the run seed, the place and the pack's receipt count picks among the
+feasible signs, so each run notices them in its own order.
+
 Canonical
 person identities prevent incompatible embodiments being active together.
 Ordered receipts recompute saved choices/flags on loading.
@@ -278,9 +293,9 @@ Course cards show only lanes the person knows. A lane can instead list
 hold, for everyone aboard, and knowing it opens nothing. The Piraeus–Signal
 Jetty lane opens with `pack_item_present` while a Hoppy Cat thing is aboard.
 Myrto knows every lane; through Talk she tells a gated lane together with its
-condition. Hoppy Cat revision 2 saves keep a red thread they had already
-found, and anyone who had been in Hoppy Cat learns the jetty lane as
-knowledge. In a new game every Hoppy Cat thing starts inside Hoppy Cat, so the
+condition. A retired crossing closes in every loaded save, including one that
+had already found it (shared rules 63), and anyone who had been in Hoppy Cat
+learns the jetty lane as knowledge. In a new game every Hoppy Cat thing starts inside Hoppy Cat, so the
 jetty waits for things scattered into other worlds.
 
 The ship place uses the existing place cards. At a dock, the ship card offers
@@ -329,8 +344,7 @@ travels to the requested dock.
 
 `signal.while` contains conditions maintained through the sequence. The
 Greek bridge requires a burning lamp and quiet throughout
-cover → uncover → cover → uncover. The lamp needs enough oil for all four
-plays. Each completed signal recalls the ship to Black pond. The ship keeps
+cover → uncover. The lamp needs enough oil for both plays. Each completed signal recalls the ship to Black pond. The ship keeps
 waiting after the lamp goes out.
 
 Saves include `transports`, keyed by transport id, at version 3: `phase`
@@ -356,13 +370,12 @@ choices, source text and art.
 [Making the Willows creepier](card-table/willows-horror.md) is the design for
 its next horror pass.
 
-### Source readings
+### Source lore
 
-An optional `readings` list gives a resident exact source passages as the story
-unfolds. Each record has `id`, `actor`, `after`, `title` and `text`. `after`
-names a choice receipt; `null` reveals a passage on first entry. A pack can
-hold sixteen passages of up to 3,000 characters each; a resident carries its
-eight newest revealed passages into a scene. The browser sends the
-revealed ids and their turns. The server reads the exact text from its own
-catalog and gives those passages to that resident's dialogue. Saved receipts
-preserve the same knowledge after a reload and shared journal replay.
+Characters speak from world state alone; authored source text is never placed
+in a speech prompt. A pack keeps exact source passages as lore files beside
+its world, such as `v2/content/willows/lore/readings.json`, for a later pass
+to turn into readable books and inscriptions found in play. Rules 60 removed
+the older `readings` field, which handed revealed passages to a resident's
+dialogue; the Willows choices, flags and receipts that revealed them are
+unchanged.

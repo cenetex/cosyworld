@@ -23,7 +23,7 @@ function* scenes() {
     }).actions;
     let action, played;
     for (let i = 0; !played?.ok && i < options.length; i++) {
-      action = options[(step * 5 + i) % options.length];
+      action = options[(step * 7 + i) % options.length];
       try {
         played = dispatchShared({
           op: "play",

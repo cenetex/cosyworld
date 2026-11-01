@@ -19,8 +19,11 @@ const act = (s, kind, target) => {
   return result.state;
 };
 let fixture = enableMotives(createWorld({ opening: true }));
-fixture = act(fixture, "light");
+// The opening starts lit: douse it to open the mirror, then relight it at
+// the pond (#1653).
+fixture = act(fixture, "snuff");
 fixture = act(fixture, "move", "pond");
+fixture = act(fixture, "light");
 fixture.actors.moth.place = "attic";
 fixture.items.lamp.holder = "moth";
 fixture.items.bell.holder = "vale";

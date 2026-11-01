@@ -1,7 +1,8 @@
 //! The player's avatar wakes knowing nothing (#1600). The opening frame holds
 //! only what its player has uncovered: no name, place or holdings at first,
-//! and no idiolect until the avatar's own card is uncovered. The model finds
-//! its own first words; the usual checks still keep it in character.
+//! and no idiolect at all: the persona's wants and trades wait for the next
+//! turn (#1665). The model finds its own first words; the usual checks still
+//! keep it in character.
 use super::*;
 
 /// Whether this call is the avatar's raw waking frame.
@@ -14,9 +15,10 @@ pub(super) fn knows_self(context: &Context, id: &str) -> bool {
     !context.covered.iter().any(|c| c == id)
 }
 
-/// The system voice: nothing until the speaker's own card is uncovered.
+/// The system voice: none while waking, even once the speaker's own card is
+/// uncovered, so the persona's wants and bargains never shape the first line.
 pub(super) fn system(context: &Context, entity: &Entity, part: Part) -> String {
-    if applies(context, &entity.id, part) && !knows_self(context, &entity.id) {
+    if applies(context, &entity.id, part) {
         return String::new();
     }
     idiolect(entity, part)
@@ -99,8 +101,9 @@ mod tests {
         let c = waking(&[]);
         let vale = entity(&c, "vale");
         assert!(transcript(&c, vale).ends_with("Here: Empty station.\n\nVale:"));
-        // Once his card is uncovered, his own voice joins the frame.
-        assert!(!system(&c, vale, Part::Line).is_empty());
+        // His name joins the cue, but his persona waits past waking (#1665).
+        assert_eq!(system(&c, vale, Part::Line), "");
+        assert!(!system(&c, vale, Part::Thought).is_empty());
         // Outside the opening, the full scene frame is unchanged.
         let mut c = waking(&["station"]);
         c.waking = false;

@@ -50,12 +50,8 @@ function pond() {
   s.items.lamp.lit = true;
   s.items.lamp.fuel = 12;
   s.items.cloth.holder = "vale";
-  let next = s;
-  for (let i = 0; i < 2; i++) {
-    next = act(next, "cover", "lamp", "cloth");
-    next = act(next, "take", null, "cloth");
-  }
-  return next;
+  // Cover, then uncover, the lit lamp: the whole ship signal.
+  return act(act(s, "cover", "lamp", "cloth"), "take", null, "cloth");
 }
 function act(s, kind, target, item) {
   if (kind === "move" && item === null && needsVoyage(s, currentActor(s), target))
@@ -147,7 +143,7 @@ test("ship variant never leaks into another location", () => {
   const s = pond();
   for (const [id, variant] of [
     ["station", "base"],
-    ["attic", "dark"],
+    ["attic", "attic-dark"],
     ["clearing", "base"],
   ]) {
     assert.equal(locationVariant(s, id), variant);

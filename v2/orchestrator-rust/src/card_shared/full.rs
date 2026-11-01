@@ -79,7 +79,8 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
             .map_err(sql_error)?;
         let id = crate::random_hex(24);
         let time = now();
-        let mut w = World::create(body.save.as_deref())?;
+        let seed = super::full_world::run_seed(&id);
+        let mut w = World::seeded(body.save.as_deref(), Some(seed))?;
         super::store::create(&tx, &id, &u, time)?;
         store::seed(&tx, &id, &w, "share-existing-card-world", time)?;
         store::commit(&tx, &id, &mut w, json!({"op":"claim","actor":"vale"}), time)?;

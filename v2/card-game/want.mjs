@@ -49,6 +49,13 @@ export const travels = (id) =>
 // Level is a rising curve of experience: 0, 1, 3, 6, 10 ... points.
 export const levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
 export const levelOf = (s, id) => levelFor(s.actors[id]?.xp || 0);
+// A pack resident may start at an authored level, with the experience that
+// level takes, so its later level-ups stay on the same curve. Player and
+// human avatars always start at the bottom.
+export const startXp = (id) => {
+  const level = isPackActor(id) ? packPeople[id].startLevel || 1 : 1;
+  return (level * (level - 1)) / 2;
+};
 
 export const wantOf = (s, id) => s.actors[id]?.want ?? null;
 export const newWant = (kind, target, turn) => ({
@@ -76,7 +83,7 @@ export function installWants(s) {
           ? newWant(w.kind, w.target, s.turn)
           : null;
     }
-    a.xp ??= 0;
+    a.xp ??= startXp(id);
     a.visited ??= [a.place];
     a.talked ??= [];
   }
@@ -288,7 +295,7 @@ export function validWant(s, id) {
   return (
     Number.isSafeInteger(a.xp) &&
     a.xp >= 0 &&
-    a.xp <= s.turn * 8 &&
+    a.xp <= startXp(id) + s.turn * 8 &&
     (a.metTurn === undefined || whole(a.metTurn)) &&
     (a.gaveUp === undefined ||
       (a.gaveUp &&

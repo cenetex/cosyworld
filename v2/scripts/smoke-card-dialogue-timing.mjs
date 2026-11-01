@@ -15,7 +15,9 @@ import { enableMotives } from "../card-game/motives.mjs";
 
 function fixture(kind) {
   let world = enableMotives(createWorld({ opening: true }));
-  for (const kind of ["light", "move"])
+  // The opening starts lit: douse it to open the mirror, then relight it at
+  // the pond (#1653).
+  for (const kind of ["snuff", "move", "light"])
     world = play(
       world,
       legalActions(world).find(
@@ -227,7 +229,7 @@ try {
             await page.locator("#card-actions .card-primary").click();
             assert.equal(
               await page.locator("#card-actions .card-primary").innerText(),
-              "Queued: Wait",
+              "Queued: Observe",
             );
             assert.equal((await state()).turn, queuedTurn);
           }

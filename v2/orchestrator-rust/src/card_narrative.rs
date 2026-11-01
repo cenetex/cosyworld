@@ -33,8 +33,6 @@ mod expression;
 mod knowledge;
 #[path = "card_narrative/observations.rs"]
 mod observations;
-#[path = "card_narrative/readings.rs"]
-mod readings;
 #[path = "card_narrative/recital.rs"]
 pub(crate) mod recital;
 #[path = "card_narrative/reflection.rs"]
@@ -165,7 +163,7 @@ fn base_profiles() -> &'static Value {
                         "persona": entity.get("persona").unwrap_or(&entity["text"]),
                         "pack": pack["id"],
                     });
-                    for field in ["voice", "idiolect", "lines", "expression"] {
+                    for field in ["voice", "idiolect", "expression"] {
                         if let Some(value) = entity.get(field) { profile[field] = value.clone(); }
                     }
                     assert!(
@@ -299,8 +297,6 @@ struct Memory {
 struct Entity {
     id: String,
     facts: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    readings: Vec<readings::Reading>,
     #[serde(default)]
     poem: Option<recital::Poem>,
     desire: Option<Desire>,
@@ -497,7 +493,6 @@ fn valid(context: &Context) -> bool {
         && context.entities.iter().all(|e| {
             profiles().get(&e.id).is_some()
                 && recital::valid(&e.id, e.poem.as_ref(), context.turn)
-                && readings::valid(&e.id, &e.readings, context.turn)
                 && e.facts.len() <= 16
                 && e.facts.iter().all(|s| bounded(s, 240))
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
@@ -1258,34 +1253,6 @@ fn idiolect(entity: &Entity, part: Part) -> String {
     text
 }
 
-/// Up to five authored lines in the entity's voice, rotated by turn so no
-/// single example dominates the reply.
-/// Every authored line for one entity; the copy check reads the whole pool.
-fn profile_lines(id: &str) -> Vec<String> {
-    profiles()[id]["lines"]
-        .as_array()
-        .map(|lines| {
-            lines
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::to_string)
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-/// Five of the entity's authored lines, rotated by turn, for the transcript.
-fn voice_lines(context: &Context, id: &str) -> Vec<String> {
-    let lines = profile_lines(id);
-    if lines.is_empty() {
-        return Vec::new();
-    }
-    let start = (context.turn % lines.len() as u64) as usize;
-    (0..lines.len().min(5))
-        .map(|offset| lines[(start + offset) % lines.len()].clone())
-        .collect()
-}
-
 /// Every entity this scene knows of: those present, their belongings, their
 /// trips and their wants. A reply that names anyone else is rejected.
 fn known(context: &Context) -> BTreeSet<String> {
@@ -1338,14 +1305,6 @@ fn known(context: &Context) -> BTreeSet<String> {
     .into_iter()
     .chain(context.entities.iter().flat_map(|e| e.facts.iter()))
     .chain(context.disclosures.iter().map(|d| &d.text))
-    .chain(
-        context
-            .entities
-            .iter()
-            .filter_map(|e| e.poem.as_ref())
-            .flat_map(|poem| poem.stanzas.iter())
-            .flat_map(|stanza| stanza.lines.iter()),
-    )
     .map(String::as_str)
     .collect::<Vec<_>>()
     .join(" ");
@@ -1504,10 +1463,6 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         Section::Facts,
         entity.facts.iter().filter(|f| !restated(f)).cloned(),
     ));
-    lines.extend(tagged(
-        Section::Facts,
-        readings::facts(&entity.id, &entity.readings),
-    ));
     if part == Part::Line {
         lines.extend(tagged(
             Section::Directions,
@@ -1524,7 +1479,7 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         }
     }
     // Spoken lines are not replayed to a speaker (#1537): the voice comes
-    // from the authored idiolect and samples, and `repeat` reads the
+    // from the authored idiolect, and `repeat` reads the
     // speaker's own recent lines server-side. Reflection still sees them.
     for memory in &entity.memories {
         let text = memory.text.strip_prefix("World: ").unwrap_or(&memory.text);
@@ -1568,19 +1523,13 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     if let Some(poem) = &entity.poem {
         lines.extend(tagged(Section::Facts, recital::prompt_lines(poem)));
     }
-    let mut out = vec![(Section::Samples, "My voice samples:".to_string())];
-    for line in voice_lines(context, id) {
-        out.push((Section::Samples, format!("{own}: {line}")));
-    }
-    out.extend(tagged(
+    // No authored sample lines (#1537): the voice comes from the idiolect
+    // and the world, never from example utterances.
+    let mut out: Vec<(Section, String)> = tagged(
         Section::Now,
-        [
-            String::new(),
-            "Current scene:".to_string(),
-            scene,
-            String::new(),
-        ],
-    ));
+        ["Current scene:".to_string(), scene, String::new()],
+    )
+    .collect();
     if lines.is_empty() {
         out.push((Section::Now, String::new()));
     }
@@ -1663,8 +1612,7 @@ fn recent_own_lines(context: &Context, entity: &Entity) -> Vec<String> {
     lines.split_off(start)
 }
 
-/// A rejected reply gets fresh wording grounded in the scene. Removing the
-/// style examples on retry helps small models leave copied examples behind.
+/// A rejected reply gets fresh wording grounded in the scene.
 fn attempt_transcript(context: &Context, entity: &Entity, part: Part, attempt: u8) -> String {
     let prompt = transcript(context, entity, part);
     if attempt == 0
@@ -2020,7 +1968,6 @@ struct Check<'a> {
     limit: usize,
     sentences: usize,
     known: BTreeSet<String>,
-    examples: Vec<String>,
     /// The transcript's own lines (scene, awareness, recent talk), minus the
     /// entity's authored lines and cue. A reply that repeats a run of them,
     /// or one of their labels ("I remember:", "Holding:"), is a read-back of
@@ -2037,19 +1984,10 @@ impl<'a> Check<'a> {
     fn new(context: &'a Context, entity: &'a Entity, part: Part) -> Self {
         let (limit, sentences) = part.limits();
         let own = name(&entity.id);
-        let poem_lines = entity
-            .poem
-            .as_ref()
-            .map(recital::prompt_lines)
-            .unwrap_or_default();
         let brief: Vec<String> = transcript(context, entity, part)
             .lines()
             .map(str::trim)
-            .filter(|line| {
-                !line.is_empty()
-                    && !line.starts_with(&format!("{own}:"))
-                    && !poem_lines.iter().any(|poem| poem == line)
-            })
+            .filter(|line| !line.is_empty() && !line.starts_with(&format!("{own}:")))
             .map(str::to_string)
             .collect();
         let labels = brief
@@ -2074,7 +2012,6 @@ impl<'a> Check<'a> {
             limit,
             sentences,
             known: known(context),
-            examples: profile_lines(&entity.id),
             brief,
             labels,
             recent: recent_own_lines(context, entity),
@@ -2272,18 +2209,6 @@ impl<'a> Check<'a> {
         };
         let key = words(&kept).concat();
         let sharing = freely_spoken != kept;
-        let earned_quote = recital::earned_quote(&kept, self.entity.poem.as_ref());
-        if !earned_quote
-            && self.examples.iter().any(|line| {
-                let example = words(line);
-                (!sharing && words(line).concat() == key)
-                    || words(&freely_spoken)
-                        .windows(6)
-                        .any(|run| example.windows(6).any(|other| other == run))
-            })
-        {
-            return Err("copied example");
-        }
         let repeats = key.is_empty()
             || self
                 .context
@@ -2300,7 +2225,7 @@ impl<'a> Check<'a> {
                 .iter()
                 .chain(self.answered.iter())
                 .any(|line| words(line).concat() == key);
-        if repeats && !earned_quote && !sharing {
+        if repeats && !sharing {
             return Err("repeat");
         }
         // A character speaks as "I"; a line that names its speaker in the
@@ -2310,13 +2235,12 @@ impl<'a> Check<'a> {
         }
         let spoken = words(&freely_spoken);
         if self.labels.iter().any(|label| kept.contains(label))
-            || (!earned_quote
-                && self.brief.iter().any(|line| {
-                    let brief = words(line);
-                    spoken
-                        .windows(6)
-                        .any(|run| brief.windows(6).any(|other| other == run))
-                }))
+            || self.brief.iter().any(|line| {
+                let brief = words(line);
+                spoken
+                    .windows(6)
+                    .any(|run| brief.windows(6).any(|other| other == run))
+            })
         {
             return Err("echoed brief");
         }
@@ -2514,13 +2438,6 @@ mod tests {
             assert!(bounded(words, 400), "{id}");
             assert!(words.contains("I'm") || words.contains("I am") || words.contains("me"));
             assert_no_instructions(words);
-
-            let lines = profile["lines"].as_array().unwrap();
-            assert!((3..=12).contains(&lines.len()), "{id}");
-            // Examples never address the player by name.
-            if id != "vale" {
-                assert!(lines.iter().all(|l| !l.as_str().unwrap().contains("Vale")));
-            }
         }
         let mut c = context();
         c.outcome = Some(solo_departure());
@@ -2587,14 +2504,6 @@ mod tests {
             ("Certainly! Here is Pip's line.", "assistant"),
             // Badger is nowhere in this scene, so no one can mention him.
             ("Grumpy Badger would hate this noise.", "unknown entity"),
-            (
-                "Oh, that's a lovely warm glow. Is it spoken for?",
-                "copied example",
-            ),
-            (
-                "My sleeves are borrowed, my opinions are not, you see.",
-                "copied example",
-            ),
         ] {
             assert_eq!(clean(raw), Err(reason), "{raw}");
         }
@@ -2873,6 +2782,7 @@ mod tests {
 
     /// A provider that answers each stem with plain text and records requests.
     const EARNED_VERSE: &str = "I told her I would turn away. Her brother waited by the wall.";
+    const POEM_FACT: &str = "My poem Before the Burial holds deeds by Vale.";
 
     fn bard_context() -> Context {
         let mut value = serde_json::to_value(context()).unwrap();
@@ -2884,16 +2794,14 @@ mod tests {
         value["entities"][3]["facts"] = json!([]);
         value["entities"][3]["poem"] = json!({
             "title":"Before the Burial",
-            "stanzas":[{"id":"greek-decline-burial","turn":1,"authorId":"vale","authorName":"Vale",
-                "lines":["I told her I would turn away.","Her brother waited by the wall."]}],
-            "newLines":["I told her I would turn away.","Her brother waited by the wall."]
+            "stanzas":[{"id":"greek-decline-burial","turn":1,"authorId":"vale","authorName":"Vale"}]
         });
         value["entities"][3]["memories"] = json!([]);
         serde_json::from_value(value).unwrap()
     }
 
     #[test]
-    fn earned_poem_is_context_for_free_speech_and_keeps_its_authored_data() {
+    fn poem_context_names_its_travellers_without_couplet_text() {
         let c = bard_context();
         let check = Check::new(&c, &c.entities[3], Part::Line);
         assert!(!idiolect(&c.entities[3], Part::Line).contains("sing an earned couplet"));
@@ -2913,15 +2821,15 @@ mod tests {
         );
         let retry = attempt_transcript(&c, &c.entities[3], Part::Line, 1);
         assert!(retry.starts_with("My next words are fresh"));
-        assert!(retry.contains("My earned poem: Before the Burial"));
-        assert!(retry.contains(&format!("These are the new lines: {EARNED_VERSE}")));
+        assert!(retry.contains(POEM_FACT));
+        assert!(!retry.contains("Her brother waited by the wall."));
         assert!(recital::valid(
             "greek-rhapsode",
             c.entities[3].poem.as_ref(),
             c.turn
         ));
         let mut altered = bard_context();
-        altered.entities[3].poem.as_mut().unwrap().stanzas[0].lines[0] = "An invented deed.".into();
+        altered.entities[3].poem.as_mut().unwrap().stanzas[0].id = "greek-invented-deed".into();
         assert!(!recital::valid(
             "greek-rhapsode",
             altered.entities[3].poem.as_ref(),
@@ -2946,18 +2854,11 @@ mod tests {
             ("greek-decline-burial", false, false),
             ("greek-report-plan", false, false),
         ] {
-            let verse = recital["verses"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|verse| verse["choice"] == choice)
-                .unwrap();
             let mut c = bard_context();
             c.entities[3].poem = Some(
                 serde_json::from_value(json!({
                     "title":recital["title"], "stanzas":[{"id":choice,"turn":1,
-                        "authorId":"vale","authorName":"Vale","lines":verse["lines"]}],
-                    "newLines":verse["lines"]
+                        "authorId":"vale","authorName":"Vale"}]
                 }))
                 .unwrap(),
             );
@@ -2970,7 +2871,7 @@ mod tests {
             );
             assert_eq!(
                 check
-                    .clean("Creon gave leave for this one grave.", true)
+                    .clean("The king gave permission for this one grave.", true)
                     .is_ok(),
                 permitted,
                 "{choice}"
@@ -2978,19 +2879,11 @@ mod tests {
             assert!(check
                 .clean("I wonder what that choice will mean tomorrow.", true)
                 .is_ok());
-            let earned = verse["lines"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|line| line.as_str().unwrap())
-                .collect::<Vec<_>>()
-                .join(" ");
-            assert_eq!(check.clean(&earned, true), Ok(earned.clone()), "{choice}");
         }
     }
 
     #[test]
-    fn full_poem_context_keeps_more_than_eight_stanzas_and_240_characters() {
+    fn full_poem_context_names_every_traveller_and_no_couplet() {
         let packs: Value =
             serde_json::from_str(include_str!("../../card-game/packs.json")).unwrap();
         let recital = &packs["packs"]
@@ -3000,17 +2893,30 @@ mod tests {
             .find(|pack| pack["id"] == "greek-drama")
             .unwrap()["recital"];
         let verses = recital["verses"].as_array().unwrap();
-        let stanzas: Vec<_> = verses.iter().enumerate().map(|(i,verse)| json!({
-            "id":verse["choice"],"turn":i+1,"authorId":"vale","authorName":"Vale","lines":verse["lines"]
-        })).collect();
-        let poem: recital::Poem = serde_json::from_value(json!({"title":recital["title"],"stanzas":stanzas,"newLines":verses.last().unwrap()["lines"]})).unwrap();
-        assert!(poem.stanzas.len() > 8);
+        let names = ["Vale", "Mara", "an earlier traveler"];
+        let stanzas: Vec<_> = verses
+            .iter()
+            .enumerate()
+            .map(|(i, verse)| {
+                let name = names[i % 3];
+                json!({"id":verse["choice"],"turn":i+1,"authorId":null,"authorName":name})
+            })
+            .collect();
+        let poem: recital::Poem =
+            serde_json::from_value(json!({"title":recital["title"],"stanzas":stanzas})).unwrap();
         assert!(recital::valid("greek-rhapsode", Some(&poem), 100));
-        let prompt = recital::prompt_lines(&poem).join("\n");
-        assert!(prompt.len() > 240);
-        for stanza in &poem.stanzas {
-            for line in &stanza.lines {
-                assert!(prompt.contains(line));
+        let prompt = recital::prompt_lines(&poem);
+        assert_eq!(
+            prompt,
+            ["My poem Before the Burial holds deeds by Vale, Mara, an earlier traveler."]
+        );
+        let lore: Value = serde_json::from_str(include_str!(
+            "../../content/greek-drama/lore/bard-couplets.json"
+        ))
+        .unwrap();
+        for verse in lore["verses"].as_object().unwrap().values() {
+            for line in verse["lines"].as_array().unwrap() {
+                assert!(!prompt[0].contains(line.as_str().unwrap()));
             }
         }
     }
@@ -3100,7 +3006,7 @@ mod tests {
         assert!(bard.iter().all(|request| request["messages"][1]["content"]
             .as_str()
             .unwrap()
-            .contains(EARNED_VERSE)));
+            .contains(POEM_FACT)));
         server.abort();
     }
 
@@ -3153,11 +3059,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repeated_talk_accepts_a_voluntary_earned_quote_locally_and_shared() {
+    async fn repeated_talk_accepts_fresh_bard_words_locally_and_shared() {
+        // Repeating an old verse is an ordinary repeat now; fresh words pass.
+        const FRESH: &str = "I hear a hard choice in those lines.";
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
         let provider = plain_provider(seen.clone(), |_, stem| {
             if stem == format!("{}:", name("greek-rhapsode")) {
-                EARNED_VERSE.into()
+                FRESH.into()
             } else {
                 "I am listening again.".into()
             }
@@ -3190,8 +3098,8 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(local["entries"][1]["text"], EARNED_VERSE);
-        assert!(published.lock().unwrap().join(" ").contains(EARNED_VERSE));
+        assert_eq!(local["entries"][1]["text"], FRESH);
+        assert!(published.lock().unwrap().join(" ").contains(FRESH));
         let shared = shared_lines(
             &test_config(address),
             &serde_json::to_value(&c).unwrap(),
@@ -3200,7 +3108,7 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(shared["entries"][1]["text"], EARNED_VERSE);
+        assert_eq!(shared["entries"][1]["text"], FRESH);
         assert_eq!(seen.lock().unwrap().len(), 4);
         server.abort();
     }
@@ -3406,7 +3314,7 @@ mod tests {
             .iter()
             .map(|request| request["messages"][1]["content"].as_str().unwrap())
             .collect();
-        assert!(prompts.iter().all(|prompt| prompt.contains(EARNED_VERSE)));
+        assert!(prompts.iter().all(|prompt| prompt.contains(POEM_FACT)));
         assert_eq!(
             prompts[0].split_once("Current scene:").unwrap().1,
             prompts[1].split_once("Current scene:").unwrap().1
@@ -4525,8 +4433,8 @@ mod tests {
             .filter_map(|request| request["messages"][1]["content"].as_str())
             .filter(|text| text.ends_with("Vale:"))
             .collect();
-        assert!(vale[0].contains("My voice samples:"));
-        assert!(!vale[1].contains("My voice samples:"));
+        assert!(vale[0].starts_with("Current scene:"));
+        assert!(vale[1].starts_with("My next words are fresh"));
         assert!(vale[1].contains("unlit"));
         server.abort();
     }
@@ -4826,10 +4734,10 @@ mod tests {
                     .unwrap()
             })
             .collect();
-        assert!(prompts[0].starts_with("My voice samples:"));
+        assert!(prompts[0].starts_with("Current scene:"));
         let facts = prompts[0].split_once("Current scene:\n").unwrap().1;
         for retry in &prompts[1..] {
-            assert!(!retry.contains("My voice samples:"));
+            assert!(retry.starts_with("My next words are fresh"));
             assert_eq!(retry.split_once("Current scene:\n").unwrap().1, facts);
             assert!(retry.ends_with("Pip:"));
         }

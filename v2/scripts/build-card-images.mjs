@@ -17,7 +17,19 @@ const settings = Object.freeze({
   alphaQuality: 100,
   cardWidth: 512,
   effort: 6,
+  phoneSize: 960,
 });
+// Phone stages fit inside phoneSize on their longer side. Adding this size
+// left the stage and card encodes alone, so their bytes are still reused.
+const encodeKeys = ["quality", "alphaQuality", "cardWidth", "effort"];
+const pick = (value) =>
+  JSON.stringify(encodeKeys.map((key) => value?.[key] ?? null));
+const phoneFit = {
+  width: settings.phoneSize,
+  height: settings.phoneSize,
+  fit: "inside",
+  withoutEnlargement: true,
+};
 const hash = (body) => createHash("sha256").update(body).digest("hex");
 const files = publicAssets
   .map(({ file }) => file)
@@ -45,7 +57,8 @@ async function writeChanged(file, body) {
 }
 async function sameAlpha(source, target, width) {
   const original = sharp(source);
-  if (width) original.resize({ width, withoutEnlargement: true });
+  if (typeof width === "object") original.resize(width);
+  else if (width) original.resize({ width, withoutEnlargement: true });
   const before = await original.ensureAlpha().raw().toBuffer();
   const after = await sharp(target).ensureAlpha().raw().toBuffer();
   if (before.length !== after.length)
@@ -56,7 +69,8 @@ async function sameAlpha(source, target, width) {
 const records = {};
 let pngBytes = 0,
   stagePngBytes = 0,
-  cardBytes = 0;
+  cardBytes = 0,
+  phoneBytes = 0;
 let old;
 try {
   old = JSON.parse(await readFile(manifestFile, "utf8"));
@@ -72,8 +86,9 @@ if (
   );
 
 const settingsMatch =
-  old?.version === 1 &&
-  JSON.stringify(old.settings) === JSON.stringify(settings);
+  old?.version === 1 && pick(old.settings) === pick(settings);
+const phoneMatch =
+  settingsMatch && old.settings.phoneSize === settings.phoneSize;
 let next = 0,
   encoded = 0,
   reusedCount = 0;
@@ -166,14 +181,48 @@ async function build() {
         await sameAlpha(source, cardBody, settings.cardWidth);
     }
     cardBytes += cardBody.length;
+    const phone = await phoneVariant(file, source, metadata, stage, stageBody);
+    phoneBytes += phone.body.length;
     records[file] = {
       sourceHash,
       stage,
       stageHash: hash(stageBody),
       card,
       cardHash: hash(cardBody),
+      phone: phone.path,
+      phoneHash: hash(phone.body),
     };
   }
+}
+// A painting larger than phoneSize gets a smaller stage for narrow screens:
+// a 1672x941 scene decodes to about 6 MB, its phone copy to about 2 MB.
+async function phoneVariant(file, source, metadata, stage, stageBody) {
+  if (Math.max(metadata.width, metadata.height) <= settings.phoneSize)
+    return { path: stage, body: stageBody };
+  const path = pathFor(file, "phone");
+  const saved = old?.images?.[file];
+  let body = null;
+  if (check || (phoneMatch && !reencode && saved?.phone === path)) {
+    try {
+      body = await readFile(new URL(path, root));
+    } catch {}
+    if (body && hash(body) !== saved?.phoneHash) body = null;
+    if (check && (!body || saved.phone !== path))
+      throw new Error(`Image phone output changed: ${path}`);
+  }
+  if (!body) {
+    body = await sharp(source).resize(phoneFit).webp(settings).toBuffer();
+    await writeChanged(path, body);
+  }
+  const result = await sharp(body).metadata();
+  const scale = settings.phoneSize / Math.max(metadata.width, metadata.height);
+  if (
+    result.width !== Math.round(metadata.width * scale) ||
+    result.height !== Math.round(metadata.height * scale)
+  )
+    throw new Error(`Image phone dimensions changed: ${path}`);
+  if (metadata.hasAlpha) await sameAlpha(source, body, phoneFit);
+  return { path, body };
 }
 await Promise.all(Array.from({ length: 2 }, build));
 const manifest = {
@@ -210,5 +259,5 @@ if (check && index !== updated)
   );
 if (!check && index !== updated) await writeFile(indexFile, updated);
 console.log(
-  `Card image variants ${check ? "current" : "built"}: ${files.length} sources${check ? "" : ` (${reusedCount} reused, ${encoded} encoded)`}; PNG stage bytes ${pngBytes} -> ${stagePngBytes}; card bytes ${cardBytes}.`,
+  `Card image variants ${check ? "current" : "built"}: ${files.length} sources${check ? "" : ` (${reusedCount} reused, ${encoded} encoded)`}; PNG stage bytes ${pngBytes} -> ${stagePngBytes}; card bytes ${cardBytes}; phone bytes ${phoneBytes}.`,
 );

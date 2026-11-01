@@ -208,11 +208,13 @@ async function expectStage(page, recent) {
 }
 const names = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
 let seed = enableMotives(createWorld({ opening: true }));
-for (const kind of ["light", "move"]) {
+// The opening starts lit (#1653): douse the lamp to open the mirror, cross to
+// the pond, then relight it there so the progressed save carries a lit lamp.
+for (const kind of ["snuff", "move", "light"]) {
   const action = legalActions(seed).find(
     (a) => a.kind === kind && (kind !== "move" || a.target === "pond"),
   );
-  assert(action, "the attic opening lights its lamp and crosses to the pond");
+  assert(action, `the attic opening can ${kind} on its way to the pond`);
   const result = play(seed, action);
   assert(result.ok);
   seed = result.state;

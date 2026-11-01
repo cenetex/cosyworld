@@ -48,6 +48,8 @@ export function crossfadeImage(img, source, { duration = CROSSFADE_MS } = {}) {
     .catch(() => {})
     .finally(() => {
       ghost.remove();
+      // The faded painting's decoded pixels go now, not at collection.
+      ghost.removeAttribute("src");
       if (fading.get(img) === ghost) fading.delete(img);
     });
 }

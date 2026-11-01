@@ -1,3 +1,4 @@
+import { observeText } from "./observe-words.mjs";
 import {
   currentActor,
   people,
@@ -18,7 +19,7 @@ import {
 
 import { levelOf, knownActors } from "./want.mjs";
 import { packPlaces, packPeople } from "./pack-registry.mjs";
-import { variantOf, crossingOpen } from "./pack-rules.mjs";
+import { variantOf, crossingOpen, conditionMet } from "./pack-rules.mjs";
 import { locationWeather } from "./weather.mjs";
 import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
@@ -32,10 +33,24 @@ export { sceneChanges };
 export const lampLitHere = (world, place) =>
   shining(world) && itemPlace(world, "lamp") === place;
 // Pack art lives in the pack's own asset folder and is named by its data.
-const darkAttic = (world, id) =>
-  id === "attic" && world?.actors && !lampLitHere(world, id);
+// A place's state backdrops name saved conditions; the first that holds wins
+// (#1600, #1620). Pack places test them in their own pack, hub places such as
+// the lit or doused attic in the forest rules.
+function stateBackdrop(world, id) {
+  const pack = packPlaces[id];
+  const place = pack || places[id];
+  if (!place?.backdrops || !(pack ? world?.packs : world?.actors)) return null;
+  const match = place.backdrops.find((b) =>
+    pack
+      ? conditionsMet(world, pack.packId, b.requires)
+      : b.requires.every((c) => conditionMet(world, c, null)),
+  );
+  return match?.backdrop || null;
+}
+// A hub place's own backdrop applies only to a live world.
+const baseBackdrop = (world, id) =>
+  packPlaces[id]?.backdrop || (world?.actors && places[id]?.backdrop) || null;
 export function backdrop(id, world = null) {
-  if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
   const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
   const file = variant
     ? daylightBackdrop(world, id, variant)
@@ -45,13 +60,10 @@ export function backdrop(id, world = null) {
 // A matching state painting is final, including its authored lighting.
 // Only the ordinary base painting falls through to the legacy night table.
 export function placeBackdrop(world, id) {
-  const place = packPlaces[id];
-  const state =
-    world?.packs &&
-    place?.backdrops?.find((b) =>
-      conditionsMet(world, place.packId, b.requires),
-    );
-  return state?.backdrop || daylightBackdrop(world, id, place?.backdrop);
+  return (
+    stateBackdrop(world, id) ||
+    daylightBackdrop(world, id, baseBackdrop(world, id))
+  );
 }
 export function portrait(id, facing = null, world = null) {
   const human = avatarImage(world, id);
@@ -102,8 +114,15 @@ const visibleCrossing = (world, place) =>
       crossingOpen(world, c, senses),
   );
 export function locationVariant(world, id) {
-  if (darkAttic(world, id)) return "dark";
-  const crossing = visibleCrossing(world, id)?.id || "base";
+  // A hub place with state backdrops names its variant after the painting.
+  const hub =
+    !packPlaces[id] && places[id]?.backdrops
+      ? stateBackdrop(world, id) || baseBackdrop(world, id)
+      : null;
+  const crossing =
+    visibleCrossing(world, id)?.id ||
+    hub?.replace(/^.*\/|\.\w+$/g, "") ||
+    "base";
   const weather = locationWeather(world, id);
   const variant = weather ? `${crossing}:${weather.variant}` : crossing;
   return locationDaylight(world, id)?.phase === "night"
@@ -726,7 +745,7 @@ export function sceneScript(world) {
       fromLocationId: e.fromLocationId || null,
       weather: locationWeather({ turn: e.turn }, e.locationId),
       daylight: locationDaylight({ turn: e.turn }, e.locationId),
-      text: e.text,
+      text: observeText(e.text),
       verb: e.verb || null,
       itemId: e.itemId || null,
       targetId: e.targetId || null,

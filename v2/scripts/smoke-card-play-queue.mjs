@@ -156,14 +156,14 @@ try {
         const open = await layout();
         assert(open.dialogue.bottom <= open.hand.y + 1);
         await play.click();
-        assert.equal(await play.innerText(), "Queued: Wait");
+        assert.equal(await play.innerText(), "Queued: Observe");
         assert.equal(await play.isDisabled(), false);
         assert.equal(plays.length, 0);
         // A second tap keeps the queued play; cancelling has its own control.
         await play.click();
-        assert.equal(await play.innerText(), "Queued: Wait");
+        assert.equal(await play.innerText(), "Queued: Observe");
         await page.locator("#card-actions [data-cancel-play]").click();
-        assert.equal(await play.innerText(), "Wait");
+        assert.equal(await play.innerText(), "Observe");
         await play.click();
         await page.keyboard.press("Escape");
         await selectCard(page, "lamp");
@@ -203,10 +203,10 @@ try {
           // A second choice made while the first request is in flight survives its reply.
           assert.equal(await play.isDisabled(), false);
           await play.click();
-          assert.equal(await play.innerText(), "Queued: Wait");
+          assert.equal(await play.innerText(), "Queued: Observe");
           await heldReply();
           await page.waitForTimeout(1100);
-          assert.equal(await play.innerText(), "Queued: Wait");
+          assert.equal(await play.innerText(), "Queued: Observe");
           assert.equal(plays.length, 1);
           queue = [];
           await page.waitForFunction(

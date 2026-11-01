@@ -40,6 +40,7 @@
   "avatars": {
     "rati": {
       "name": "RATi",
+      "startLevel": 50,
       "text": "A mouse host in a blue scarf. She keeps a cup beside the knitting basket.",
       "place": "forest-cottage",
       "travels": false,
@@ -56,6 +57,7 @@
     },
     "skull": {
       "name": "Skull",
+      "startLevel": 20,
       "text": "A large charcoal wolf stands beside the pawprints. His ears turn toward the garden.",
       "place": "forest-trail",
       "travels": false,
@@ -72,6 +74,7 @@
     },
     "whiskerwind": {
       "name": "Whiskerwind",
+      "startLevel": 20,
       "text": "A small golden figure hovers beside the broad leaves. A curled tail stirs the rain.",
       "place": "forest-garden",
       "travels": false,
@@ -88,6 +91,7 @@
     },
     "oak": {
       "name": "Oak",
+      "startLevel": 30,
       "text": "An old oak with a broad crown and a hollow above its roots. Four voices answer from the trunk.",
       "place": "forest-oak",
       "travels": false,

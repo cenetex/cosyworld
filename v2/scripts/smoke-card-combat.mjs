@@ -15,7 +15,7 @@ function fixture() {
   let s = enableMotives(atticOpening());
   s = play(
     s,
-    legalActions(s).find((a) => a.kind === "light"),
+    legalActions(s).find((a) => a.kind === "snuff"),
   ).state;
   s.actors.moth.place = "pond";
   s = play(
@@ -210,7 +210,13 @@ try {
       () => !document.querySelector("#travel.travelling"),
     );
     // Each fighter's step and the defeat join Memory as beats.
+    await page.evaluate(() =>
+      document.querySelector("#history-button").click(),
+    );
     const log = await page.locator("#messages").textContent();
+    await page.evaluate(() =>
+      document.querySelector("#history-dialog").close(),
+    );
     assert.match(log, /Pip lunged at Vale\./);
     assert.match(log, /Vale was beaten and (sent home|fell back to )/);
     assert.match(log, /You came to at /);

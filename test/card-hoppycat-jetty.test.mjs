@@ -16,6 +16,7 @@ import {
 } from "../v2/card-game/pack-transport.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
 import {
+  entityActive,
   hub,
   packDefinition,
   packDefinitions,
@@ -169,19 +170,27 @@ describe("the Signal Jetty lane", () => {
 
 describe("the way in", () => {
   // Every other Hoppy Cat thing starts inside the archive, behind the jetty
-  // lane it would open. The spool waits at Black pond so a new game can sail.
+  // lane it would open. The spool lies at the empty station, and shows there
+  // only while the station holds no oil.
   const SPOOL = "hoppycat-red-thread-spool";
-  it("starts the spool at Black pond, where a player takes it aboard", () => {
+  const takeSpool = (s) =>
+    ask(s, "vale").actions.find((a) => a.kind === "take" && a.item === SPOOL);
+  const atStation = (oilHolder, keeperAt = "pond") => {
+    const s = setup("pond");
+    for (const who of players) s.actors[who].place = "station";
+    s.actors.keeper.place = keeperAt;
+    s.items.oil.holder = oilHolder;
+    return reload(s);
+  };
+  it("starts the spool at the station, where a player takes it aboard", () => {
     const fresh = createWorld();
     const outside = Object.keys(pack.items).filter(
       (id) => !pack.places[fresh.items[id].holder],
     );
     expect(outside).toEqual([SPOOL]);
-    expect(fresh.items[SPOOL].holder).toBe("pond");
-    let s = setup("pond");
-    const take = ask(s, "vale").actions.find(
-      (a) => a.kind === "take" && a.item === SPOOL,
-    );
+    expect(fresh.items[SPOOL].holder).toBe("station");
+    let s = atStation("pond");
+    const take = takeSpool(s);
     expect(take).toBeDefined();
     s = reload(ask(s, "vale", "play", { action: take }).world);
     expect(s.items[SPOOL].holder).toBe("vale");
@@ -190,6 +199,33 @@ describe("the way in", () => {
     summonTransport(s, "greek-ship", "greek-piraeus");
     s = act(reload(s), "vale", "move", "greek-ship");
     expect(courses(s, "vale")).toContain(JETTY);
+  });
+
+  it("hides the spool at the station while oil is there", () => {
+    expect(takeSpool(atStation("station"))).toBeUndefined();
+    // Carried oil counts: the keeper brings it home.
+    expect(takeSpool(atStation("keeper", "station"))).toBeUndefined();
+    expect(takeSpool(atStation("keeper"))).toBeDefined();
+    expect(takeSpool(atStation("pond"))).toBeDefined();
+  });
+
+  it("keeps a held spool, and hides it again once set down by the oil", () => {
+    let s = atStation("pond");
+    s = reload(ask(s, "vale", "play", { action: takeSpool(s) }).world);
+    s.items.oil.holder = "station";
+    s = reload(s);
+    expect(s.items[SPOOL].holder).toBe("vale");
+    expect(entityActive(s, SPOOL)).toBe(true);
+    const drop = ask(s, "vale").actions.find(
+      (a) => a.kind === "drop" && a.item === SPOOL,
+    );
+    expect(drop).toBeDefined();
+    s = reload(ask(s, "vale", "play", { action: drop }).world);
+    expect(s.items[SPOOL].holder).toBe("station");
+    expect(entityActive(s, SPOOL)).toBe(false);
+    expect(takeSpool(s)).toBeUndefined();
+    s.items.oil.holder = "pond";
+    expect(takeSpool(reload(s))).toBeDefined();
   });
 
   it("puts the spool on the garden table in a Hoppy Cat landing", () => {
@@ -232,13 +268,15 @@ describe("the retired red thread", () => {
     expect(landing.crossings["hoppycat-garden-pond"].discovered).toBe(true);
   });
 
-  it("stays open where a save already found it", () => {
+  it("closes on load where a save had already found it", () => {
     const s = setup("pond");
     s.crossings[THREAD].discovered = true;
-    expect(moves(reload(s), "vale")).toContain(pack.entry);
+    const loaded = reload(s);
+    expect(loaded.crossings[THREAD].discovered).toBe(false);
+    expect(moves(loaded, "vale")).not.toContain(pack.entry);
   });
 
-  it("an earlier save keeps a found thread and teaches the lane to its visitors", () => {
+  it("an earlier save closes a found thread and teaches the lane to its visitors", () => {
     const s = setup("pond");
     s.crossings[THREAD].discovered = true;
     s.packs[pack.id].revision = 1;
@@ -249,7 +287,7 @@ describe("the retired red thread", () => {
     const bard = structuredClone(s.routeKnowledge["greek-rhapsode"]);
     const next = upgrade(s);
     expect(next.packs[pack.id].revision).toBe(2);
-    expect(next.crossings[THREAD].discovered).toBe(true);
+    expect(next.crossings[THREAD].discovered).toBe(false);
     for (const who of players)
       expect(knowsLane(next, who, "greek-piraeus", JETTY)).toBe(true);
     // The lane is learned as knowledge; it still opens only with a thing aboard.
@@ -260,7 +298,7 @@ describe("the retired red thread", () => {
       courses(act(reload(aboard), "vale", "move", "greek-ship"), "vale"),
     ).not.toContain(JETTY);
     expect(next.routeKnowledge["greek-rhapsode"]).toEqual(bard);
-    expect(moves(next, "vale")).toContain(pack.entry);
+    expect(moves(next, "vale")).not.toContain(pack.entry);
 
     // An earlier save that never found it loses nothing and gains no door.
     const unfound = setup("pond");

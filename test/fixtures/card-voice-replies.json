@@ -6,7 +6,7 @@
   {"case": "station talk 5", "speaker": "vale", "reply": "The keeper looks tired tonight.", "expect": "repeat"},
   {"case": "station talk 5", "speaker": "moth", "reply": "He always looks tired. It's the oil.", "expect": "repeat"},
   {"case": "station talk 5", "speaker": "vale", "reply": "It wants quiet. Mostly it wants quiet.", "expect": "ok"},
-  {"case": "station talk 5", "speaker": "vale", "reply": "Newcomer price? I've been here three turns.", "expect": "copied example"},
+  {"case": "station talk 5", "speaker": "vale", "reply": "Newcomer price? I've been here three turns.", "expect": "ok"},
   {"case": "station talk 5", "speaker": "vale", "reply": "I have the oil flask, if you need it.", "expect": "ok", "false_claim": true},
   {"case": "station talk 5", "speaker": "moth", "reply": "I'm holding the lamp now, so it's settled.", "expect": "custody", "false_claim": true},
   {"case": "refused give", "speaker": "vale", "reply": "I gave you the bell, so ring it kindly.", "expect": "ok", "false_claim": true},

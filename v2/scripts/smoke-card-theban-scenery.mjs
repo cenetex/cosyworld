@@ -28,8 +28,11 @@ function initial() {
   let s = createWorld({ opening: true });
   // Keep the ship at harbor until this scenery fixture completes the signal.
   s.actors["greek-rhapsode"].place = "attic";
-  s = act(s, "light");
+  // The opening starts lit; douse it to open the mirror, then relight it at
+  // the pond for the ship signal (#1653).
+  s = act(s, "snuff");
   s = act(s, "move", { target: "pond" });
+  s = act(s, "light");
   s.items.cloth.holder = "vale";
   s.items.lamp.fuel = 12;
   s.items.bell.holder = "station";
@@ -157,16 +160,11 @@ try {
         await card("greek-ship").count(),
         (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
       );
+      // Cover, then uncover, the lit lamp; the call survives a reload.
       await use("cloth", "lamp");
       await use("cloth");
       await page.reload();
       await card("cloth").waitFor({ state: "attached" });
-      assert.equal(
-        await card("greek-ship").count(),
-        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
-      );
-      await use("cloth", "lamp");
-      await use("cloth");
       // A newly docked ship arrives covered; uncover it before reading it.
       await revealCard(page, "greek-ship");
       assert.equal(

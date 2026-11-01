@@ -6,7 +6,7 @@ fn shared_reflections_survive_restart_and_journal_rebuild_with_private_views() {
     claim(&mut c, &id, 0);
     claim(&mut c, &id, 1);
     let mut w = full_store::world(&c, &id, now()).unwrap();
-    let action = home_action(&w, 0, "light");
+    let action = home_action(&w, 0, "snuff");
     full_store::commit(
         &c,
         &id,
@@ -40,7 +40,7 @@ fn shared_reflections_survive_restart_and_journal_rebuild_with_private_views() {
         .map(|m| m["seq"].clone())
         .collect();
     let entry = json!({"id":"vale","model":"voice-model","reflection":{
-        "thought":"The light gave me a reason to look closer.","persona":"I am learning to take care with borrowed things.",
+        "thought":"The dark gave me a reason to look closer.","persona":"I am learning to take care with borrowed things.",
         "evidence":evidence,
         "models":{"thought":"thought-model","persona":"persona-model"}
     }});
@@ -99,13 +99,13 @@ fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
 fn publication_keeps_reflection_private_after_disconnect_and_duplicate_finish() {
     let (path, mut c, id) = fixture();
     claim(&mut c, &id, 0);
-    let mut lit = full_store::world(&c, &id, now()).unwrap();
-    let light = home_action(&lit, 0, "light");
+    let mut doused = full_store::world(&c, &id, now()).unwrap();
+    let snuff = home_action(&doused, 0, "snuff");
     full_store::commit(
         &c,
         &id,
-        &mut lit,
-        json!({"op":"play","actor":"vale","action":light}),
+        &mut doused,
+        json!({"op":"play","actor":"vale","action":snuff}),
         now(),
     )
     .unwrap();
@@ -342,7 +342,7 @@ fn shared_interpreter_keeps_absent_players_out_of_witnessed_memory() {
         w.apply(&json!({"op":"claim","actor":actor})).unwrap();
     }
     w.apply(&json!({"op":"enter","actor":"vale"})).unwrap();
-    let action = home_action(&w, 0, "light");
+    let action = home_action(&w, 0, "snuff");
     w.apply(&json!({"op":"play","actor":"vale","action":action}))
         .unwrap();
     let room = w.room(0).unwrap().to_string();
