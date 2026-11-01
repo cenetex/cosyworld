@@ -12,6 +12,12 @@ full suite (`ci.yml`) runs only by hand and does not block a release (see
 the primary app and `cosyworld-lonelyforest` from the tagged commit, and create
 a GitHub release only after both deployments succeed.
 
+The primary app is also `.dev`. When main has moved past the tagged commit,
+the tag rollout would leave `.dev` on that older commit, so the
+`Return .dev to the main commit it ran` job then rolls `.dev` forward to the
+newer commit it ran before the tag, from that commit's existing
+`deploy-<sha>` image, and runs the same readiness and card-game smokes.
+
 A main push runs one job, `Deploy main to .dev`, so it waits for one runner
 rather than five in a row. The job:
 
