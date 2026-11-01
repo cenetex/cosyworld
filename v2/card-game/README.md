@@ -191,7 +191,7 @@ card edge, so a raised card clipped by the folded row shows no stray art.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 On wide screens, the resting hand occupies two card widths at the right. Dialogue
 sits at the left. Selecting a card opens the hand across the screen and moves
-dialogue above it. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, and a sideways swipe stays inside the hand.
+dialogue above it. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, cards fade out at an edge that hides more of the hand, and a sideways swipe stays inside the hand.
 Play stays available during an exchange. A waiting play shows **Queued** and
 the notice names what it waits for: an earlier play, the arrival, the cards or
 an open menu. In a local game tapping it again cancels it. Selecting another

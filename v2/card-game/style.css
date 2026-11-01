@@ -968,6 +968,40 @@ main {
 .hand-next {
   right: -12px;
 }
+/* Cards past either edge fade out instead of meeting a hard cut. The arrows
+   are siblings of the hand, so the mask never dims them. */
+.hand {
+  --hand-fade: 44px;
+}
+.hand[data-fade] {
+  --fade-start: 0px;
+  --fade-end: 0px;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--fade-start),
+    #000 calc(100% - var(--fade-end)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--fade-start),
+    #000 calc(100% - var(--fade-end)),
+    transparent
+  );
+}
+.hand[data-fade~="start"] {
+  --fade-start: var(--hand-fade);
+}
+.hand[data-fade~="end"] {
+  --fade-end: var(--hand-fade);
+}
+@media (max-width: 700px) {
+  .hand {
+    --hand-fade: 28px;
+  }
+}
 /* Keep the chosen card at the position set by revealHandCard. */
 .hand:has(.card-frame[data-raised="true"]) {
   scroll-snap-type: none;
