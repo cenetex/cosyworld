@@ -27,9 +27,42 @@ const files = [
   "boardyai.mjs",
   "boardyai.json",
   "assets/card-back.webp",
+  // Combat pose art is ready for client-side presentation integration.
+  ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].flatMap(
+    (id) =>
+      ["", "-scarf"].flatMap((wardrobe) =>
+        ["attack", "hit"].map(
+          (pose) => `assets/combat/${id}${wardrobe}-${pose}.webp`,
+        ),
+      ),
+  ),
+  ...["keeper", "moth"].flatMap((id) =>
+    ["attack", "hit"].map((pose) => `assets/combat/${id}-${pose}.webp`),
+  ),
   "rarity.mjs",
   "card-tiers.css",
   "card-reveal.mjs",
+  "card-level-up.mjs",
+  // Willows sign alternates and notebook cards remain available before wiring.
+  ...[
+    "landing-otter",
+    "landing-boatman",
+    "landing-mended",
+    "camp-closer",
+    "camp-tent-pressure",
+    "thicket-bronze",
+    "thicket-hollows",
+    "bank-humming",
+    "bank-roots",
+    "bank-drowned",
+  ].map((name) => `assets/willows/${name}.webp`),
+  ...[
+    "notebook-page-1",
+    "notebook-page-2",
+    "notebook-page-3",
+    "notebook-chapter",
+    "notebook-book",
+  ].map((name) => `assets/willows/${name}.png`),
   // Argos commissioned art: start
   "assets/greek-drama/house-atreus-palace.webp",
   "assets/greek-drama/house-atreus-tomb.webp",
@@ -42,8 +75,6 @@ const files = [
   "assets/greek-drama/olive-branch.webp",
   // Argos commissioned art: end
   "assets/greek-drama/harbor-day.webp",
-  "assets/greek-drama/city-gate-closed-day.webp",
-  "assets/greek-drama/city-gate-closed-night.webp",
   "assets/greek-drama/ship-deck-twilight.webp",
   "assets/greek-drama/ship-deck-at-sea-day.webp",
   "assets/greek-drama/ship-deck-at-sea-night.webp",
@@ -100,6 +131,8 @@ const files = [
   "assets/shared/characters/rue.png",
   "assets/shared/places/train.png",
   "assets/shared/items/routes.png",
+  "assets/shared/items/world-map.webp",
+  "assets/shared/items/world-map-full.webp",
   "assets/shared/characters/orin.png",
   "assets/shared/places/pavilion.png",
   "assets/shared/items/board.png",
@@ -125,6 +158,7 @@ const files = [
   "beats.mjs",
   "combat-beats.mjs",
   "combat-view.mjs",
+  "combat-portraits.mjs",
   "app.mjs",
   "pack-landing.mjs",
   "pack-landings.json",
@@ -141,6 +175,7 @@ const files = [
   "weather.css",
   "portrait-facing.mjs",
   "cards.mjs",
+  "observe-words.mjs",
   "lessons.mjs",
   "motives.mjs",
   "life.mjs",
@@ -163,6 +198,7 @@ const files = [
   "pack-schema.mjs",
   "pack-registry.mjs",
   "pack-sections.mjs",
+  "pack-specials.mjs",
   "pack-journeys.mjs",
   "pack-recital.mjs",
   "pack-rules.mjs",
@@ -207,8 +243,9 @@ const files = [
 ];
 // A mounted pack can reuse an image already published by the card table.
 for (const file of packMediaFiles) if (!files.includes(file)) files.push(file);
-for (const { stage, card } of Object.values(imageVariants.images))
-  for (const file of [stage, card]) if (!files.includes(file)) files.push(file);
+for (const { stage, card, phone } of Object.values(imageVariants.images))
+  for (const file of [stage, card, phone])
+    if (file && !files.includes(file)) files.push(file);
 const types = {
   html: "text/html; charset=utf-8",
   css: "text/css; charset=utf-8",

@@ -6,7 +6,9 @@
 import { observableStates } from "./pack-registry.mjs";
 import { nameOf } from "./world.mjs";
 
-export const UNKNOWN_THING = "something still covered";
+// A covered thing reaches the speaker as something sensed but unnamed. The
+// table's own word "covered" stays out of speech (#1665).
+export const UNKNOWN_THING = "something I can't make out";
 
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 

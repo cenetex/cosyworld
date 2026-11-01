@@ -24,7 +24,7 @@ Companion documents:
 - `ENG.md` — architecture and engineering priorities.
 - `ECONOMY.md` — Orbs, shared media funding, the avatar-NFT bridge, and the read-only legacy receipt archive.
 - `AI.md` — AI gateway, payer modes, media pipeline, and combat design in detail.
-- `docs/backlog/community-art-evolution.md` — shipped slice, production gaps, and acceptance invariants for the image-only Orb economy.
+- `docs/archive/backlog/community-art-evolution.md` — shipped slice, production gaps, and acceptance invariants for the image-only Orb economy.
 
 ## What CosyWorld Is
 
@@ -120,7 +120,7 @@ slice.
 
 A combined design for the first three, a rhythm of rest, inspiration, wishes,
 and lasting attachments, is planned in
-[Living between quests](../../backlog/generated-world-core.md#living-between-quests).
+[Living between quests](../backlog/generated-world-core.md#living-between-quests).
 
 A first time-based slice would establish server-owned time and a persisted
 prophecy snapshot before adding transport. Server time must decide legal

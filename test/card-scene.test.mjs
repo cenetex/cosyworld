@@ -150,7 +150,7 @@ describe("JRPG scenes", () => {
     // Pip wants the pond, so it follows Vale there or agrees to come along.
     s.actors.moth.want = wantPlace("pond");
     s.items.lamp.holder = "vale";
-    s.items.lamp.lit = true;
+    s.items.lamp.lit = false;
     const followed = act(s, "move", null, "pond");
     expect(movementCaption(followed)).toContain(
       "Pip follows from Mirror attic.",
@@ -167,7 +167,7 @@ describe("JRPG scenes", () => {
     const shared = play(s, invite).state;
     expect(movementCaption(shared)).toContain("Pip travels with Vale.");
     const waiting = atticOpening();
-    waiting.items.lamp.lit = true;
+    waiting.items.lamp.lit = false;
     waiting.locations.attic.anchored = true;
     expect(movementCaption(act(waiting, "move", null, "pond"))).toBe(
       "Pip is waiting here.",

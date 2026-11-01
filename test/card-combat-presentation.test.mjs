@@ -27,7 +27,7 @@ const act = (s, kind, target) => {
 // Vale and Pip share the pond; Pip has the upper hand in an open standoff.
 const atPond = (resolve = { vale: 1, moth: 4 }) => {
   let s = enableMotives(atticOpening());
-  s = act(s, "light");
+  s = act(s, "snuff");
   s.actors.moth.place = "pond";
   s = act(s, "move", "pond");
   s.standoffs = [
@@ -100,7 +100,7 @@ describe("combat beats from today's rule lines", () => {
 
   it("opens a standoff with full resolve and an eyed item", () => {
     let s = enableMotives(atticOpening());
-    s = act(s, "light");
+    s = act(s, "snuff");
     s.actors.moth.place = "pond";
     s.items.cloth.holder = "moth";
     s = act(s, "move", "pond");
@@ -113,7 +113,7 @@ describe("combat beats from today's rule lines", () => {
 
   it("ignores plays with no standoff", () => {
     const s = enableMotives(atticOpening());
-    expect(combatBeats(s, act(s, "light"), { viewer: "vale" })).toEqual([]);
+    expect(combatBeats(s, act(s, "snuff"), { viewer: "vale" })).toEqual([]);
   });
 });
 

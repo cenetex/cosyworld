@@ -22,16 +22,6 @@
             "verb": "take",
             "item": "cloth",
             "from": "lamp"
-          },
-          {
-            "verb": "cover",
-            "item": "cloth",
-            "target": "lamp"
-          },
-          {
-            "verb": "take",
-            "item": "cloth",
-            "from": "lamp"
           }
         ],
         "consecutive": false,
@@ -173,7 +163,17 @@
           ]
         },
         { "from": "greek-harbor", "to": "greek-ajax-landing" },
-        { "from": "greek-athens-harbor", "to": "greek-piraeus" },
+        {
+          "from": "greek-athens-harbor",
+          "to": "greek-piraeus",
+          "opensWith": [
+            {
+              "kind": "item_present",
+              "item": "greek-olive-branch",
+              "place": "greek-ship"
+            }
+          ]
+        },
         {
           "from": "greek-piraeus",
           "to": "hoppycat-signal-jetty",

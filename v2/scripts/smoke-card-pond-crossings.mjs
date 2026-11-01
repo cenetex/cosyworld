@@ -122,26 +122,20 @@ try {
         await card("greek-ship").count(),
         (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
       );
+      // Cover the lit lamp, then uncover it: the whole signal.
       await pair("cloth", "lamp");
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 1);
-      await use("cloth");
-      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
       if (reloadHalfway) {
         await page.reload();
         await ready();
-        assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
+        assert.equal((await state()).crossings["pond-greek-harbor"].phase, 1);
       }
       assert.equal(
         await card("greek-ship").count(),
         (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
       );
-      await pair("cloth", "lamp");
-      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 3);
-      assert.equal(
-        await card("greek-ship").count(),
-        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
-      );
       await use("cloth");
+      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
       assert.equal(await card("greek-ship").count(), 1);
     };
     const load = async (save) => {

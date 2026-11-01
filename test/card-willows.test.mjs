@@ -14,7 +14,6 @@ import { enableMotives } from "../v2/card-game/motives.mjs";
 import {
   packDefinitions,
   packProfiles,
-  packReadings,
   packFacts,
   hub,
   validatePackDefinition,
@@ -48,6 +47,16 @@ function act(world, fields) {
 }
 const move = (world, target) => act(world, { kind: "move", target });
 const choose = (world, id) => act(world, { choiceId: `willows-${id}` });
+const seen = (world, id) =>
+  Object.hasOwn(world.packs.willows.receipts, `willows-${id}`);
+// Observe (the Wait play) until this place's sign turns up. Each Observe
+// notices at most one sign, in the run's seeded order.
+function observe(world, id) {
+  for (let i = 0; i < 16 && !seen(world, id); i++)
+    world = act(world, { kind: "wait" });
+  expect(seen(world, id), id).toBe(true);
+  return world;
+}
 const take = (world, item) =>
   act(world, { kind: "take", item: `willows-${item}` });
 // Wait out the saved world clock until night and mist beside the ship's rail.
@@ -70,7 +79,7 @@ function island() {
     questPrograms: true,
     personalQuests: true,
   });
-  world = act(world, { kind: "light", item: "lamp" });
+  world = act(world, { kind: "snuff", item: "lamp" });
   world = move(world, "pond");
   expect(world.actors.vale.place).toBe("pond");
   world.crossings["pond-greek-harbor"].discovered = true;
@@ -80,21 +89,21 @@ function island() {
   return world;
 }
 function discoveries() {
-  let world = choose(island(), "examine-hull");
+  let world = observe(island(), "examine-hull");
   world = move(world, "willows-camp");
-  world = choose(world, "count-stores");
+  world = observe(world, "count-stores");
   world = act(world, { kind: "talk", target: "willows-swede" });
   world = move(world, "willows-thicket");
-  world = choose(world, "examine-hollows");
+  world = observe(world, "examine-hollows");
   world = move(world, "willows-bank");
-  world = choose(world, "hear-humming");
-  world = choose(world, "look-beneath-roots");
+  world = observe(world, "hear-humming");
+  world = observe(world, "look-beneath-roots");
   world = move(move(world, "willows-thicket"), "willows-camp");
-  return choose(world, "compare-signs");
+  return observe(world, "compare-signs");
 }
 
 describe("The Willows", () => {
-  it("reveals exact source passages to the Swede through the recorded story", () => {
+  it("keeps the source passages as world lore, out of every speech prompt", () => {
     const normalize = (s) => s.replace(/\s+/g, " ").trim();
     const original = normalize(
       readFileSync(
@@ -102,30 +111,22 @@ describe("The Willows", () => {
         "utf8",
       ),
     );
-    for (const reading of pack.readings)
+    const lore = JSON.parse(
+      readFileSync(
+        new URL("../v2/content/willows/lore/readings.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    expect(lore.source.author).toBe("Algernon Blackwood");
+    expect(lore.readings).toHaveLength(13);
+    for (const reading of lore.readings)
       expect(original).toContain(normalize(reading.text));
-    const fresh = createWorld();
-    expect(packReadings(fresh, "willows-swede")).toEqual([]);
-    let world = island();
-    expect(packReadings(world, "willows-swede").map((r) => r.id)).toEqual([
-      "willows-arrival-text",
-    ]);
-    world = choose(world, "examine-hull");
-    expect(packReadings(world, "willows-swede").map((r) => r.id)).toEqual([
-      "willows-arrival-text",
-      "willows-hull-text",
-    ]);
-    world = discoveries();
-    const revealed = packReadings(world, "willows-swede");
-    expect(revealed).toHaveLength(7);
-    expect(
-      packReadings(decodeSave(encodeSave(world)), "willows-swede"),
-    ).toEqual(revealed);
-    expect(
-      narrativeContext(world).entities.find((e) => e.id === "willows-swede")
-        .readings,
-    ).toEqual(revealed);
-    expect(packReadings(world, "vale")).toEqual([]);
+    expect(pack.readings).toBeUndefined();
+    // Characters speak from world state; the passages never reach dialogue.
+    const context = JSON.stringify(narrativeContext(discoveries()));
+    expect(context).not.toContain('"readings"');
+    for (const reading of lore.readings)
+      expect(context).not.toContain(reading.text.slice(0, 60));
   });
 
   it("shares the ship side passage while preserving riders, dock and pending recall", () => {
@@ -190,9 +191,6 @@ describe("The Willows", () => {
       dock: "pond",
       recall: null,
     });
-    expect(packReadings(world, "willows-swede").map((r) => r.id)).toEqual([
-      "willows-arrival-text",
-    ]);
   });
 
   it("gives the four locations their voices and the Swede the one resident role", () => {
@@ -232,7 +230,7 @@ describe("The Willows", () => {
       questPrograms: true,
       personalQuests: true,
     });
-    world = move(act(world, { kind: "light", item: "lamp" }), "pond");
+    world = move(act(world, { kind: "snuff", item: "lamp" }), "pond");
     world.crossings["pond-greek-harbor"].discovered = true;
     summonTransport(world, "greek-ship", "pond");
     world = move(world, "greek-ship");
@@ -313,18 +311,21 @@ describe("The Willows", () => {
     expect(packFacts(world, "willows-landing")).toEqual([]);
     world = move(move(world, "willows-camp"), "willows-thicket");
     world = move(world, "willows-bank");
-    // The bank is a place that might show something, not a checklist.
+    // Observe finds signs; no observation is a story button.
+    expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
+    world = act(world, { kind: "wait" });
     expect(
-      find(world, { choiceId: "willows-look-beneath-roots" }),
-    ).toBeDefined();
-    expect(find(world, { choiceId: "willows-hear-humming" })).toBeDefined();
+      ["hear-humming", "look-beneath-roots"].some((id) => seen(world, id)),
+    ).toBe(true);
+    expect(world.log.findLast((e) => e.verb === "wait").text).toMatch(
+      /humming|drowned man/,
+    );
     world = discoveries();
     expect(packFacts(world, "willows-swede").join(" ")).toContain(
       "compared the canoe damage",
     );
     const saved = decodeSave(encodeSave(world));
     expect(saved.packs.willows).toEqual(world.packs.willows);
-    expect(find(saved, { choiceId: "willows-compare-signs" })).toBeUndefined();
     world = choose(saved, "choose-watch");
     expect(world.packs.willows.choices["willows-response"]).toBe("watch");
     expect(world.actors["willows-swede"].place).toBe("willows-camp");
@@ -353,8 +354,8 @@ describe("The Willows", () => {
     expect(sprite(away)).toBe("./assets/willows/swede.webp");
     away.actors["willows-swede"].place = "willows-bank";
     expect(sprite(away)).toBe("./assets/willows/swede-listening.webp");
-    world = choose(move(world, "willows-thicket"), "examine-hollows");
-    world = choose(move(world, "willows-bank"), "hear-humming");
+    world = observe(move(world, "willows-thicket"), "examine-hollows");
+    world = observe(move(world, "willows-bank"), "hear-humming");
     expect(sprite(world)).toBe("./assets/willows/swede-listening.webp");
     world = discoveries();
     expect(sprite(world)).toBe("./assets/willows/swede-worried.webp");
@@ -507,35 +508,31 @@ describe("The Willows", () => {
     };
     // The mist lands the player at night; the pacing starts by day.
     let world = move(clock(island(), false), "willows-camp");
-    expect(find(world, { choiceId: "willows-pace-again" })).toBeUndefined();
-    expect(find(world, { choiceId: "willows-listen-tent" })).toBeUndefined();
-    expect(
-      find(night(world), { choiceId: "willows-pace-willows" }),
-    ).toBeUndefined();
-    world = choose(world, "pace-willows");
+    world = observe(world, "pace-willows");
+    expect(seen(world, "pace-again") || seen(world, "listen-tent")).toBe(false);
     expect(packFacts(world, "willows-camp").join(" ")).toContain(
       "eleven paces",
     );
-    expect(find(world, { choiceId: "willows-pace-again" })).toBeUndefined();
-    world = choose(decodeSave(encodeSave(night(world))), "pace-again");
-    world = choose(world, "listen-tent");
+    world = observe(decodeSave(encodeSave(night(world))), "pace-again");
+    world = observe(world, "listen-tent");
     const facts = packFacts(world, "willows-camp").join(" ");
     expect(facts).toContain("nine paces");
     expect(facts).toContain("where by day there were eleven");
-    expect(packReadings(world, "willows-swede").map((r) => r.id)).toEqual(
-      expect.arrayContaining(["willows-paced-text", "willows-nearer-text"]),
-    );
     world = move(world, "willows-thicket");
-    world = choose(world, "look-up-willows");
+    world = observe(world, "look-up-willows");
     expect(world.packs.willows.flags["willows-shapes-seen"]).toBe(true);
-    // The otter wants the low sun; the boatman passes at any hour.
-    world = move(move(world, "willows-camp"), "willows-landing");
-    expect(find(world, { choiceId: "willows-watch-otter" })).toBeUndefined();
-    world = choose(world, "watch-boatman");
+    // The otter and the boatman want daylight.
+    world = act(move(move(world, "willows-camp"), "willows-landing"), {
+      kind: "wait",
+    });
+    expect(seen(world, "watch-otter") || seen(world, "watch-boatman")).toBe(
+      false,
+    );
+    world = observe(clock(world, false), "watch-boatman");
     const place = narrativeContext(world).entities.find(
       (e) => e.id === "willows-landing",
     );
-    expect(place.facts).toContain("Discoveries recorded so far: 5.");
+    expect(place.facts.join(" ")).toMatch(/Discoveries recorded so far: \d/);
   });
 
   it("lets the places narrate, the willows count and the Swede hush", () => {
@@ -554,16 +551,5 @@ describe("The Willows", () => {
     for (const line of ["It's their sound.", "Hush!", "You fool."])
       expect(swede.voice).toContain(line);
     expect(["item", "place", "person", "connect"]).toContain(swede.want.kind);
-    // The Swede carries at most eight newest passages into a scene.
-    let world = discoveries();
-    world = clock(world, true);
-    world = choose(world, "listen-tent");
-    world = choose(world, "choose-watch");
-    world = move(world, "willows-thicket");
-    world = choose(world, "look-up-willows");
-    const readings = packReadings(world, "willows-swede");
-    expect(readings).toHaveLength(8);
-    expect(readings.map((r) => r.id)).not.toContain("willows-arrival-text");
-    expect(readings.map((r) => r.id).at(-1)).toBe("willows-understanding-text");
   });
 });

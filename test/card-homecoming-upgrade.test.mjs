@@ -6,6 +6,8 @@ const willowsItems = Object.fromEntries(
     { holder: item.holder, history: [] },
   ]),
 );
+// A hub item added after these saves joins them at the station.
+willowsItems["world-map"] = { holder: "station", history: [] };
 const ajaxItems = Object.fromEntries(
   Object.entries(currentPackDefinition("greek-drama").items)
     .filter(([id]) => id.startsWith("greek-ajax-"))
@@ -16,7 +18,7 @@ import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
-import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
+import { branchItems, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
 const context = vm.createContext({});
 vm.runInContext(
@@ -73,6 +75,7 @@ describe("the household save upgrade", () => {
       );
       expect(after.items).toEqual({
         ...upgradedItems(before.items),
+        ...branchItems,
         ...willowsItems,
         ...ajaxItems,
         "boardyai-calling-card": { holder: "station", history: [] },
@@ -140,9 +143,6 @@ describe("the household save upgrade", () => {
     for (const change of [
       (w) => {
         delete w.actors["greek-aethra"];
-      },
-      (w) => {
-        delete w.items["greek-return-list"];
       },
       (w) => {
         w.actors[witness] = structuredClone(w.actors["greek-aethra"]);

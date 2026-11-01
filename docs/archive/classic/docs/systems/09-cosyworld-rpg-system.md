@@ -503,7 +503,7 @@ Friendly labels now map to stable SRD 5.2.1 actions or explicit non-action
 operations in the compiled registry. The same authoritative envelopes drive
 the browser, terminal, inspector, and submission endpoint; see
 [the action-system design](04-action-system.md) and
-[the implementation ledger](../../../../backlog/srd-action-card-foundation.md).
+[the implementation ledger](../../../backlog/srd-action-card-foundation.md).
 [ADR 0005](../../../../decisions/0005-thresholds-trails-and-strict-referee.md)
 separates topology, legibility, access, and safety and versions the target
 discovery procedures. Existing v1 journal records keep their historical

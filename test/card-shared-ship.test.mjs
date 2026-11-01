@@ -66,9 +66,8 @@ describe("shared ship boarding", () => {
     for (const actor of players) s.actors[actor].place = "pond";
     Object.assign(s.items.lamp, { holder: "vale", lit: true, fuel: 12 });
     s.items.cloth.holder = "vale";
+    // One cover and one uncover of the lit lamp call the ship.
     for (const [kind, item] of [
-      ["cover", "cloth"],
-      ["take", "cloth"],
       ["cover", "cloth"],
       ["take", "cloth"],
     ]) {

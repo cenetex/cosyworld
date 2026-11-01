@@ -21,14 +21,13 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
-import { learnLane } from "../v2/card-game/pack-transport.mjs";
 import {
   backdrop,
   locationOverlay,
   travelCard,
 } from "../v2/card-game/scene.mjs";
 import { createServer } from "../v2/card-game/serve.mjs";
-import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
+import { branchItems, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 const pack = packDefinition("greek-drama");
 const openingPlaces = [
   "greek-harbor",
@@ -138,18 +137,16 @@ describe("the Theban release and its ship", () => {
     s = act(s, "choose", { choiceId: "greek-open-door-invite-refusal" });
     // Black Pond sails only to the Wine-Dark Harbor. The way on to Athens
     // needs the Travel Provisions aboard, which open the lane to Piraeus;
-    // the Athens-Piraeus road walks on from the quay. Myrto has told Vale
-    // the lane from Athens Harbor back to Piraeus.
+    // the Athens-Piraeus road walks on from the quay.
     expect(reachable(s)).toHaveLength(9);
     s.items["greek-provisions"].holder = "greek-ship";
-    learnLane(s, "vale", "greek-piraeus", "greek-athens-harbor");
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     expect(reachable(s)).toHaveLength(16);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     for (const start of openDoorPlaces) {
       const trip = structuredClone(s);
-      trip.transports["greek-ship"].dock = "greek-athens-harbor";
+      trip.transports["greek-ship"].dock = "greek-piraeus";
       const seen = new Set([start]);
       for (const id of seen)
         for (const to of exits(trip, id, "vale"))
@@ -214,6 +211,7 @@ describe("the Theban release and its ship", () => {
         "board",
         "boardyai-calling-card",
         "can",
+        "greek-olive-branch",
         "float",
         "kite",
         "mask",
@@ -224,6 +222,7 @@ describe("the Theban release and its ship", () => {
         ...Object.keys(packDefinition("hoppycat-archive").items),
         ...Object.keys(packDefinition("willows").items),
         ...Object.keys(packDefinition("lonely-forest").items),
+        "world-map",
       ].sort(),
     );
     expect(after.memories).toMatchObject(before.memories);
@@ -241,9 +240,11 @@ describe("the Theban release and its ship", () => {
     expect(entityActive(after, "greek-helen-troy")).toBe(false);
     expect(decodeSave(encodeSave(after))).toEqual(after);
   });
-  it("continues a genuine halfway signal without counting migration as a flash", () => {
+  it("restarts a halfway signal without counting migration as a flash", () => {
+    // Revision 10 needs one cover and uncover, so the old halfway mark of two
+    // steps would read as complete. It starts again; one cycle calls the ship.
     let s = decodeSave(JSON.stringify(legacy("halfway")));
-    expect(s.crossings["pond-greek-harbor"].phase).toBe(2);
+    expect(s.crossings["pond-greek-harbor"].phase).toBe(0);
     expect(locationOverlay(s, "pond")).toBeNull();
     s = act(s, "cover", { item: "cloth", target: "lamp" });
     expect(locationOverlay(s, "pond")).toBeNull();

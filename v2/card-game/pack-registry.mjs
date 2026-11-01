@@ -1,6 +1,7 @@
 import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
 import { boardyPack, BOARDY, boardyActive } from "./boardyai.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
+import { specialsAllow, validSpecials } from "./pack-specials.mjs";
 import { journeyNextPlace, validJourneyPlaces } from "./pack-journeys.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
@@ -98,8 +99,9 @@ if (compositionProblems.length)
   throw new Error(
     `Invalid card world composition: ${compositionProblems.join("; ")}`,
   );
-export const packDefinition = (id) =>
-  packDefinitions.find((p) => p.id === id) || null;
+const packById = new Map();
+for (const p of packDefinitions) if (!packById.has(p.id)) packById.set(p.id, p);
+export const packDefinition = (id) => packById.get(id) || null;
 
 const merge = (field) =>
   Object.fromEntries(
@@ -238,7 +240,11 @@ export const packNames = Object.fromEntries(
 export const packMediaFiles = [
   ...new Set(
     packDefinitions.flatMap((pack) => [
-      ...Object.values(pack.places).flatMap((p) => [p.backdrop, p.art]),
+      ...Object.values(pack.places).flatMap((p) => [
+        p.backdrop,
+        p.art,
+        ...(p.backdrops || []).map((b) => b.backdrop),
+      ]),
       ...Object.values(pack.items || {}).map((i) => i.art),
       ...pack.crossings.flatMap((c) => [
         c.scenery?.overlay,
@@ -256,12 +262,10 @@ export const packMediaFiles = [
 
 export const packState = (world, id) => world.packs?.[id];
 export function conditionsMet(world, packId, conditions = [], actor = null) {
-  return (
-    Boolean(world.packs?.[packId]) &&
-    conditions.every((condition) =>
-      evaluateCondition(world, condition, null, packId, actor),
-    )
-  );
+  if (!world.packs?.[packId]) return false;
+  for (const condition of conditions)
+    if (!evaluateCondition(world, condition, null, packId, actor)) return false;
+  return true;
 }
 export function choiceText(choice, actor) {
   return choice.textTemplate === undefined
@@ -274,14 +278,25 @@ export function choiceText(choice, actor) {
       );
 }
 
+// The item's outermost holder, or the first repeated item when holders loop.
+// Short chains, the usual case, are walked without tracking visits.
+function rootOf(world, id) {
+  let holder = world.items[id].holder;
+  for (let step = 0; step < 32 && holder !== id; step++) {
+    if (!world.items[holder]) return holder;
+    holder = world.items[holder].holder;
+  }
+  holder = world.items[id].holder;
+  const seen = new Set([id]);
+  while (world.items[holder] && !seen.has(holder)) {
+    seen.add(holder);
+    holder = world.items[holder].holder;
+  }
+  return holder;
+}
 export function entityActive(world, id) {
   if (world.items?.[id]) {
-    let holder = world.items[id].holder;
-    const seen = new Set([id]);
-    while (world.items[holder] && !seen.has(holder)) {
-      seen.add(holder);
-      holder = world.items[holder].holder;
-    }
+    let holder = rootOf(world, id);
     if (humanAvatar(holder) && !humanPresent(world, holder)) return false;
     if (holder === BOARDY && !boardyActive(world)) return false;
   }
@@ -299,9 +314,13 @@ function entityEnabled(world, id, saved = false) {
     !conditionsMet(
       world,
       e.packId,
-      (e.requires || []).filter((c) => !saved || c.kind !== "connected_humans"),
+      saved
+        ? (e.requires || []).filter((c) => c.kind !== "connected_humans")
+        : e.requires,
     ) ||
-    !sectionAllows(world, pack, id, conditionsMet)
+    !sectionAllows(world, pack, id, conditionsMet) ||
+    // Saved custody of an undrawn special stays as it was.
+    (!saved && !specialsAllow(state, pack, id))
   )
     return false;
   if (!pack.release || state.scope === "full") return true;
@@ -310,8 +329,10 @@ function entityEnabled(world, id, saved = false) {
       (roamingQuestActor(id) || !!recitalVisit(world, pack)) &&
       entityEnabled(world, world.actors[id].place)
     );
-  return [pack.release.places, pack.release.avatars, pack.release.items].some(
-    (ids) => ids.includes(id),
+  return (
+    pack.release.places.includes(id) ||
+    pack.release.avatars.includes(id) ||
+    pack.release.items.includes(id)
   );
 }
 export function packExits(world, place, actor = null) {
@@ -469,6 +490,24 @@ export function packGiveChoice(world, action) {
         return { packId: pack.id, choiceId: c.id, actor: action.actor };
   return null;
 }
+// Choices marked "on": "wait" are what a human traveler notices by Observing
+// (the `wait` play) at their place. One feasible sign commits per Observe; the
+// run seed and the signs already seen pick which, so each run has its order.
+export function packWaitChoice(world, actor) {
+  if (!controlledByHuman(world, actor)) return null;
+  const signs = packDefinitions.flatMap((pack) =>
+    (pack.choices || [])
+      .filter((c) => choiceFeasible(world, pack, c, actor, "wait"))
+      .map((c) => ({ packId: pack.id, choiceId: c.id, actor })),
+  );
+  if (!signs.length) return null;
+  const place = world.actors[actor].place,
+    seen = Object.keys(packState(world, signs[0].packId).receipts).length;
+  let hash = 2166136261;
+  for (const ch of `${world.run?.seed ?? 0}:${place}:${seen}`)
+    hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return signs[hash % signs.length];
+}
 export function applyPackChoice(
   world,
   action,
@@ -570,30 +609,6 @@ export function packNarration(world, id) {
   ).length;
   return [`Discoveries recorded so far: ${count}.`];
 }
-// Source text enters a resident's knowledge through saved story receipts.
-export function packReadings(world, actor) {
-  const pack = packOf(actor);
-  const state = pack && world.packs?.[pack.id];
-  if (!state) return [];
-  return (pack.readings || [])
-    .filter(
-      (r) =>
-        r.actor === actor &&
-        (r.after === null
-          ? pack.crossings.some(
-              (c) => pack.places[c.to] && world.crossings[c.id]?.discovered,
-            )
-          : Object.hasOwn(state.receipts || {}, r.after)),
-    )
-    .map((r) => ({
-      id: r.id,
-      turn: r.after === null ? 0 : state.receipts[r.after],
-    }))
-    .filter((r, _, all) => newestReadings(all).includes(r));
-}
-// A resident remembers at most its eight newest passages, in story order.
-const newestReadings = (all) =>
-  [...all].sort((a, b) => a.turn - b.turn).slice(-8);
 export function packSceneFacts(world, location) {
   const e = packEntity(location);
   if (!e) return [];
@@ -624,6 +639,13 @@ export function packSceneFacts(world, location) {
     ...local.map((c) => committedChoiceText(world, pack, c)),
   ].map((text) => text.slice(0, 240));
 }
+// True when a thing's own conditions name where it rests.
+const restGated = (requires = [], id) =>
+  requires.some((c) =>
+    c.kind === "item_at"
+      ? c.item === id
+      : restGated(c.conditions || (c.condition ? [c.condition] : []), id),
+  );
 export function validatePackStates(world) {
   if (
     !record(world.packs) ||
@@ -641,6 +663,7 @@ export function validatePackStates(world) {
       !record(state) ||
       !validRecitals(world, pack) ||
       !validJourneyPlaces(world, pack) ||
+      !validSpecials(world, pack) ||
       state.revision !== pack.revision ||
       !["opening", "full"].includes(state.scope) ||
       Object.keys(state).sort().join() !==
@@ -653,6 +676,7 @@ export function validatePackStates(world) {
           "met",
           "scope",
           ...(pack.recital ? ["recitals"] : []),
+          ...(pack.specials && world.run ? ["specials"] : []),
         ]
           .sort()
           .join() ||
@@ -751,11 +775,14 @@ export function validatePackStates(world) {
       )
         return false;
     // Presence-gated things keep their saved place while their humans are away.
+    // A thing gated on where it rests may have travelled and come back to
+    // that place.
     for (const [id, item] of Object.entries(pack.items || {}))
       if (
         !entityEnabled(world, id, true) &&
         (world.items[id]?.holder !== item.holder ||
-          world.items[id]?.history?.length !== 0)
+          (world.items[id]?.history?.length !== 0 &&
+            !restGated(item.requires, id)))
       )
         return false;
   }

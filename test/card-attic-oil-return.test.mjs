@@ -51,8 +51,10 @@ describe("an oil flask trapped behind the attic gate", () => {
       locationId: "attic",
       returnLocationId: "station",
     });
-    next = commit(next, "light", { item: "lamp" });
+    // The full lamp is still dark, so the mirror stays open until it is lit.
     expect(exits(next, "attic", "vale")).toContain("pond");
+    next = commit(next, "light", { item: "lamp" });
+    expect(exits(next, "attic", "vale")).not.toContain("pond");
   });
 
   it.each(["fuel", "reachable oil", "helper inside"])("keeps ordinary %s recovery in use", (kind) => {

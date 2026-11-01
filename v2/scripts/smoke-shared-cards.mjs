@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { selectCard } from "./card-browser-helpers.mjs";
+import {
+  clearSelection,
+  revealCard,
+  selectCard,
+} from "./card-browser-helpers.mjs";
 import { mkdtemp, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -178,7 +182,11 @@ async function expectStage(page, recent) {
       ) &&
       figures.every((figure) => {
         const rank = ids.indexOf(figure.dataset.avatar);
-        const scale = Math.sqrt([13, 8, 5, 3, 2, 1][rank] / 13);
+        let scale = Math.sqrt([13, 8, 5, 3, 2, 1][rank] / 13);
+        // Phones shrink wide-framed figures (Moth, Keeper) to 74% of their
+        // depth, capped at 93vw, so their arms stay inside the scene.
+        if (figure.dataset.framing === "wide" && innerWidth <= 700)
+          scale = Math.min(scale * 0.74, (innerWidth * 0.93) / height);
         return (
           Math.abs(figure.getBoundingClientRect().height / height - scale) <
           0.01
@@ -204,11 +212,13 @@ async function expectStage(page, recent) {
 }
 const names = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
 let seed = enableMotives(createWorld({ opening: true }));
-for (const kind of ["light", "move"]) {
+// The opening starts lit (#1653): douse the lamp to open the mirror, cross to
+// the pond, then relight it there so the progressed save carries a lit lamp.
+for (const kind of ["snuff", "move", "light"]) {
   const action = legalActions(seed).find(
     (a) => a.kind === kind && (kind !== "move" || a.target === "pond"),
   );
-  assert(action, "the attic opening lights its lamp and crosses to the pond");
+  assert(action, `the attic opening can ${kind} on its way to the pond`);
   const result = play(seed, action);
   assert(result.ok);
   seed = result.state;
@@ -302,6 +312,20 @@ async function dismissDiscoveries(page) {
     await take.click();
     await delay(180);
   }
+}
+// A viewer hears the room only once they have uncovered their own avatar
+// and the place it stands in (#1575), so a new visitor taps both first.
+async function wake(page) {
+  const { actor, world } = await snapshot(page);
+  for (const id of [actor, world.actors[actor].place])
+    await until(async () => {
+      const card = page.locator(`#hand [data-card="${id}"]`);
+      if (!(await card.count())) return true;
+      if ((await card.getAttribute("data-unrevealed")) !== "true") return true;
+      await revealCard(page, id);
+      return false;
+    }, `${actor} uncovers ${id}`);
+  await clearSelection(page);
 }
 async function expectSharedReveal(page, requestStart, speaker = "Vale") {
   let expected;
@@ -522,6 +546,7 @@ try {
     "the original station remains connected",
   );
   await dismissDiscoveries(vale);
+  await wake(vale);
   const requestStart = requests.length;
   await selectCard(vale, "moth");
   await vale.getByRole("button", { name: "Talk", exact: true }).click();
@@ -730,6 +755,7 @@ try {
   );
   assert.equal((await snapshot(vale)).world.revision, beforeForgery);
   for (const page of [vale, mara]) {
+    await wake(page);
     await catchUpWithStack(page);
     await catchUpWithLive(page);
   }

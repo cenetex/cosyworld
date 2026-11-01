@@ -37,6 +37,8 @@ try {
     opening.actors.vale.place = "attic";
     opening.items.lamp.holder = "attic";
     opening.items.lamp.fuel = 0;
+    // The opening starts lit (#1653); a dry lamp cannot stay lit.
+    opening.items.lamp.lit = false;
     const seen = [
       ...Object.keys(places),
       ...Object.keys(things),

@@ -13,6 +13,10 @@ const groups = {
       (id) => [
         `assets/shared/characters/${id}.png`,
         `assets/shared/characters/${id}-scarf.png`,
+        ...["guard", "attack", "hit"].flatMap((pose) => [
+          `assets/combat/${id}-${pose}.webp`,
+          `assets/combat/${id}-scarf-${pose}.webp`,
+        ]),
       ],
     ),
   ],
@@ -22,6 +26,11 @@ const groups = {
     ),
     "assets/moth.png",
     "assets/keeper.png",
+    ...["moth", "keeper"].flatMap((id) =>
+      ["guard", "attack", "hit"].map(
+        (pose) => `assets/combat/${id}-${pose}.webp`,
+      ),
+    ),
     "assets/greek-drama/myrine.webp",
     ...["tecmessa", "teucer", "odysseus"].map(
       (name) => `assets/greek-drama/ajax-${name}.png`,
@@ -91,10 +100,16 @@ export function flipStagePortrait(cutout, facing) {
   return Boolean(native && native !== "front" && native !== facing);
 }
 
-// Broad animal silhouettes keep their whole face inside a narrow scene.
+// Broad silhouettes keep their whole face and arms inside a narrow scene.
 const widePortraits = new Set([
   "assets/lonely-forest/skull.png",
   "assets/lonely-forest/whiskerwind.png",
+  "assets/moth.png",
+  "assets/keeper.png",
+  "assets/keeper-right.png",
+  ...Object.keys(portraitFacings).filter((file) =>
+    file.startsWith("assets/combat/"),
+  ),
 ]);
 export const portraitFraming = (cutout) =>
   widePortraits.has(cutout.replace(/^\.\//, "")) ? "wide" : "standard";

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
@@ -45,11 +45,34 @@ describe("card image streaming", () => {
     expect(imageUrl(null)).toBeNull();
   });
 
-  it("publishes every variant and keeps the preload on the exact scene URL", async () => {
+  it("paints narrow screens from the phone-sized stage", async () => {
+    const source = "assets/station.png";
+    const { phone, stage } = variants.images[source];
+    expect(phone).not.toBe(stage);
+    const meta = await sharp(await bytes(phone)).metadata();
+    expect(Math.max(meta.width, meta.height)).toBe(960);
+    vi.resetModules();
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    try {
+      const narrow = await import("../v2/card-game/images.mjs");
+      expect(new URL(narrow.imageUrl(`./${source}`)).pathname).toMatch(
+        new RegExp(`${phone}$`),
+      );
+      expect(new URL(narrow.imageUrl(`./${source}`, "card")).pathname).toMatch(
+        new RegExp(`${variants.images[source].card}$`),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    }
+  });
+
+  it("publishes every variant and preloads no unused portrait", async () => {
     const files = new Set(publicAssets.map(({ file }) => file));
     for (const image of Object.values(variants.images)) {
       expect(files.has(image.stage)).toBe(true);
       expect(files.has(image.card)).toBe(true);
+      expect(files.has(image.phone)).toBe(true);
     }
     const index = await bytes("index.html");
     const marked = index
@@ -58,8 +81,7 @@ describe("card image streaming", () => {
         /<!-- card-image-preload:start -->([\s\S]*?)<!-- card-image-preload:end -->/,
       );
     expect(marked).not.toBeNull();
-    const preload = new URL(marked[1].match(/href="([^\"]+)"/)[1], root);
-    expect(preload.href).toBe(imageUrl("./assets/keeper-right.png"));
+    expect(marked[1]).not.toMatch(/rel="preload"/);
   });
 
   for (const source of [

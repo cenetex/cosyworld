@@ -53,11 +53,12 @@ try {
             : "There is time to look around.",
       })),
     });
+    // The opening starts lit (#1653), so the first play douses the lamp.
     let heldLight;
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
       requests.push(input);
-      if (input.outcome.card.kind === "light" && !heldLight) {
+      if (input.outcome.card.kind === "snuff" && !heldLight) {
         heldLight = { route, input };
         return;
       }
@@ -170,7 +171,7 @@ try {
       );
       assert.equal(opening.turn, 0);
       assert.equal(opening.actors.vale.place, "attic");
-      assert.equal(opening.items.lamp.lit, false);
+      assert.equal(opening.items.lamp.lit, true);
       assert.deepEqual(
         {
           kind: opening.actors.vale.want?.kind,
@@ -180,7 +181,7 @@ try {
         "The opening gives Vale a quest for the lamp",
       );
       await selectCard(page, "lamp");
-      await page.locator('#card-actions [data-action="light"]').click();
+      await page.locator('#card-actions [data-action="snuff"]').click();
       await finish(); // The delayed request releases the hand after scene preparation.
       assert(heldLight);
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
@@ -191,7 +192,7 @@ try {
         kind: "item",
         target: "lamp",
       });
-      await playCards("snuff", ["lamp"]);
+      await playCards("light", ["lamp"]);
       // A replaced slow reply keeps the met quest in the saved history.
       assert.ok(
         await page.evaluate(
@@ -215,20 +216,20 @@ try {
         key,
       );
       assert(
-        !saved.log.some((line) => line.text === reaction("light")),
+        !saved.log.some((line) => line.text === reaction("snuff")),
         "Stale dialogue stays out of the current turn",
       );
       await playCards("wait", ["attic"]);
       await playCards("drop", ["lamp", "attic"]);
       await playCards("take", ["lamp"]);
       if (width === 390) {
-        // A quick first Light reply also crosses the discovery and quest cues.
+        // A quick first Put out reply also crosses the discovery and quest cues.
         await page.locator("#toolbar-menu-button").click();
         await page.locator("#menu-button").click();
         await page.locator("#new-game").click();
         await page.locator("#confirm-reset").click();
         await finish();
-        await playCards("light", ["lamp"]);
+        await playCards("snuff", ["lamp"]);
       }
       if (width < 700) {
         // Step back through the beat stack to Vale's long reply.
@@ -269,7 +270,7 @@ try {
       });
       assert.deepEqual(errors, []);
       console.log(
-        `Opening, Light replacement, quest completion, Stay, Put down and Take speech passed in ${type} at ${width}px.`,
+        `Opening, Put out replacement, quest completion, Stay, Put down and Take speech passed in ${type} at ${width}px.`,
       );
     } finally {
       await page.close();

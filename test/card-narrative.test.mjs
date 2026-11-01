@@ -15,6 +15,7 @@ import {
   turnOutcome,
   applyGeneratedText,
   createNarrator,
+  requestNarrative,
   silentSpeakers,
   silentLines,
   SILENT_TEXT,
@@ -551,6 +552,71 @@ describe("entity memories and model text", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("reports a 429 as not retryable with its Retry-After", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response("{}", { status: 429, headers: { "retry-after": "10" } }),
+      ),
+    );
+    await expect(requestNarrative({ speakers: [] })).rejects.toMatchObject({
+      retryable: false,
+      retryAfter: 10_000,
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("never retries a 429 and holds the next request for its Retry-After", async () => {
+    vi.useFakeTimers();
+    let world = createWorld();
+    const status = vi.fn();
+    const busy = Object.assign(new Error("busy"), {
+      retryable: false,
+      retryAfter: 10_000,
+    });
+    const request = vi
+      .fn()
+      .mockRejectedValueOnce(busy)
+      .mockImplementation(async (context) => response(context));
+    const narrator = createNarrator({
+      getWorld: () => world,
+      apply: (next) => {
+        world = next;
+      },
+      status,
+      request,
+    });
+    narrator.changed();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(status).toHaveBeenLastCalledWith("retry", busy);
+    expect(narrator.retry()).toBe(true);
+    await vi.advanceTimersByTimeAsync(4_000);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(status).toHaveBeenLastCalledWith("pending");
+    await vi.advanceTimersByTimeAsync(1_001);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(status).toHaveBeenLastCalledWith("ready");
+  });
+
+  it("keeps one request in flight for an unchanged scene", async () => {
+    vi.useFakeTimers();
+    const request = vi.fn(() => new Promise(() => {}));
+    const narrator = createNarrator({
+      getWorld: createWorld,
+      apply: vi.fn(),
+      status: vi.fn(),
+      request,
+    });
+    narrator.changed();
+    narrator.changed();
+    narrator.changed();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(request).toHaveBeenCalledTimes(1);
+    narrator.invalidate();
+  });
+
   it("releases a stalled transport within thirty seconds and accepts the next scene", async () => {
     vi.useFakeTimers();
     let world = createWorld();
@@ -1062,7 +1128,6 @@ describe("speech grounding in resolved card plays", () => {
     const start = together();
     start.actors.vale.place = start.actors.moth.place = "attic";
     start.items.lamp.holder = "moth";
-    start.items.lamp.lit = true;
     const outcome = turnOutcome(act(start, "move", null, "pond"));
     for (const id of ["vale", "moth"])
       expect(avatar(outcome, id).travel).toEqual({
@@ -1098,7 +1163,9 @@ describe("speech grounding in resolved card plays", () => {
     const outcome = turnOutcome(createWorld());
     expect(outcome.card.kind).toBe("arrive");
     expect(outcome.avatars).toHaveLength(3);
-    expect(outcome.items).toHaveLength(4);
+    // The forest's four things, the storybook map (#1621) and the Hoppy Cat
+    // spool at the station (#1641).
+    expect(outcome.items).toHaveLength(6);
     expect(avatar(outcome, "moth")).toMatchObject({
       location: "pond",
       travel: null,

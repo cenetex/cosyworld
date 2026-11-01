@@ -112,6 +112,7 @@
     },
     "hoppycat-penny-vellum": {
       "name": "Penny Vellum",
+      "startLevel": 10,
       "text": "A paper-moth archivist in a coat with many pockets.",
       "place": "hoppycat-open-record-cathedral",
       "travels": false,
@@ -172,6 +173,7 @@
     },
     "hoppycat-mira-meraki": {
       "name": "Mira Meraki",
+      "startLevel": 10,
       "text": "A human artist with charcoal on all five fingers, the only one here who sleeps.",
       "place": "hoppycat-meraki-atelier",
       "travels": false,
@@ -217,6 +219,7 @@
     },
     "hoppycat-hoppy-cat": {
       "name": "Hoppy Cat",
+      "startLevel": 50,
       "text": "A green-haired broadcaster in a cobalt hoodie with a satchel of provenance cards.",
       "place": "hoppycat-halfway-tea-garden",
       "travels": false,
@@ -232,6 +235,7 @@
     },
     "hoppycat-fable": {
       "name": "Fable",
+      "startLevel": 30,
       "text": "An auburn-haired storykeeper in a peach blouse, rust bow, and black boots.",
       "place": "hoppycat-meraki-atelier",
       "travels": false,
@@ -247,6 +251,7 @@
     },
     "hoppycat-phase-two": {
       "name": "Phase Two",
+      "startLevel": 10,
       "text": "A cyan-haired planner in a long blue coat.",
       "place": "hoppycat-prism-foundry",
       "travels": false,
@@ -262,6 +267,7 @@
     },
     "hoppycat-arc": {
       "name": "Arc",
+      "startLevel": 20,
       "text": "A silver-haired curator in a midnight three-piece suit with a red pocket square.",
       "place": "hoppycat-concordance-tidelands",
       "travels": false,
@@ -307,6 +313,7 @@
     },
     "hoppycat-ledger-opus": {
       "name": "Ledger (Opus 4.7)",
+      "startLevel": 20,
       "text": "A long pink-haired archivist in a trailing coat.",
       "place": "hoppycat-open-record-cathedral",
       "travels": false,
@@ -339,10 +346,19 @@
   "items": {
     "hoppycat-red-thread-spool": {
       "name": "Red-Thread Spool",
-      "text": "A warm spool washed up at Black pond, its loose thread trailing over the water. It catches only on relationships someone has chosen to carry forward.",
-      "persona": "A warm spool washed up at Black pond, its loose thread trailing over the water toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
-      "holder": "pond",
-      "art": "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png"
+      "text": "A warm spool left on the empty station's bench, its loose thread trailing toward the pond. It catches only on relationships someone has chosen to carry forward.",
+      "persona": "A warm spool left on the empty station's bench, its loose thread trailing past the pond toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
+      "holder": "station",
+      "art": "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png",
+      "requires": [
+        {
+          "kind": "any",
+          "conditions": [
+            { "kind": "not", "condition": { "kind": "item_present", "item": "oil", "place": "station" } },
+            { "kind": "not", "condition": { "kind": "item_at", "item": "hoppycat-red-thread-spool", "place": "station" } }
+          ]
+        }
+      ]
     },
     "hoppycat-provenance-card": {
       "name": "Blank Provenance Card",

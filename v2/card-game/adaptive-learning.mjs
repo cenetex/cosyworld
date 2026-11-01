@@ -12,7 +12,7 @@ const approach = (kind) =>
     trade: "trading",
     give: "giving",
     talk: "talking",
-    wait: "waiting",
+    wait: "observing",
     accompany: "inviting",
   })[kind];
 const goalKey = (g) => [g.kind, g.target, g.item, g.destination].join(":");
@@ -272,7 +272,7 @@ export function trialFacts(world, actor, nameOf) {
     if (a.kind === "talk") return `talking with ${nameOf(a.target)}`;
     if (a.kind === "accompany")
       return `inviting ${nameOf(a.target)} to ${nameOf(a.destination)}`;
-    return "waiting";
+    return "observing";
   };
   return [
     `I tried ${describe(trial.action)} while seeking ${purpose}. ${result} ${earlier}`,
@@ -288,10 +288,13 @@ export function trialFacts(world, actor, nameOf) {
     }),
   ];
 }
-const fields = (o, names) =>
-  o &&
-  typeof o === "object" &&
-  Object.keys(o).sort().join() === names.split(" ").sort().join();
+const sortedNames = new Map();
+const fields = (o, names) => {
+  if (!o || typeof o !== "object") return o && false;
+  if (!sortedNames.has(names))
+    sortedNames.set(names, names.split(" ").sort().join());
+  return Object.keys(o).sort().join() === sortedNames.get(names);
+};
 const validObservation = (o) =>
   fields(o, "met trust strain held") &&
   typeof o.met === "boolean" &&

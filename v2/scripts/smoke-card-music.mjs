@@ -1,5 +1,5 @@
 import { checkSharedMusicOpenings } from "./shared-music-openings.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
@@ -77,7 +77,7 @@ try {
   await page.waitForTimeout(500);
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await page.locator('[data-close="menu-dialog"]').click();
-  // Lighting the lamp starts the attic music and reveals the pond path.
+  // Dousing the lit lamp starts the attic music and reveals the pond path.
   await playCard("lamp");
   await page.waitForFunction(() =>
     document.querySelector('#hand [data-card="pond"]'),
@@ -218,9 +218,17 @@ try {
     );
     await check();
   }
-  // The mirror trip checks the attic playlist and the way back.
+  // The mirror trip checks the attic playlist and the way back: the lamp
+  // lit at the pond opens the way up, and dousing it opens the way down.
+  // The doused lamp stays raised after its play; lower it before each step.
+  await clearSelection(page);
+  await playCard("lamp");
+  await clearSelection(page);
   await travel("attic");
   console.log("Attic tracks played");
+  await clearSelection(page);
+  await playCard("lamp");
+  await clearSelection(page);
   await travel("pond");
   console.log("Pond tracks played");
   await travel("station");
@@ -288,12 +296,8 @@ try {
   ship.items.lamp.holder = ship.items.cloth.holder = "vale";
   ship.items.lamp.lit = true;
   ship.items.lamp.fuel = 12;
-  for (const cards of [
-    ["cloth", "lamp"],
-    ["cloth"],
-    ["cloth", "lamp"],
-    ["cloth"],
-  ]) {
+  // Cover, then uncover, the lit lamp: the whole ship signal.
+  for (const cards of [["cloth", "lamp"], ["cloth"]]) {
     const result = play(ship, cardPlay(ship, cards).action);
     assert(result.ok, result.error);
     ship = result.state;

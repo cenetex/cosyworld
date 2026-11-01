@@ -5,6 +5,7 @@ import { validFactText } from "./knowledge.mjs";
 
 import { EXPRESSION_TYPES } from "./expression.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
+import { RARITY_WEIGHTS } from "./pack-specials.mjs";
 
 export const PACK_SCHEMA_VERSION = 1;
 export const AUTHORED_TOPIC_LIMIT = 128;
@@ -78,6 +79,7 @@ export const CONDITION_KINDS = [
   "daylight",
   "weather",
   "ship_at",
+  "drawn",
 ];
 // The `ship_at` dock for a ship sailing between ports.
 export const AT_SEA = "@sea";
@@ -130,6 +132,33 @@ export function laneProblems(t) {
     if (!leaving.has(dock)) out.push(`dock ${dock} has no lane out`);
   }
   return out;
+}
+// A pack's specials pool: places, residents and things drawn once per run.
+// The entry stays core, and an anchor is a core place.
+function specialsProblems(pack) {
+  const sp = pack.specials,
+    pool = Array.isArray(sp?.pool) ? sp.pool : [],
+    ids = pool.map((e) => e?.id).filter(Boolean),
+    own = (id) => ["places", "avatars", "items"].some((k) => owns(pack[k], id));
+  const ok =
+    keysOk(sp, ["draw", "pool"]) &&
+    keysOk(sp.draw, ["places", "avatars", "items"]) &&
+    Object.values(sp.draw).every((n) => intOk(n, 0, 8)) &&
+    pool.length > 0 &&
+    pool.length <= 64 &&
+    new Set(ids).size === ids.length &&
+    !ids.includes(pack.entry) &&
+    pool.every(
+      (e) =>
+        Object.hasOwn(RARITY_WEIGHTS, e?.rarity) &&
+        (e.none === true
+          ? keysOk(e, ["none", "rarity"])
+          : keysOk(e, ["id", "rarity", "anchor"]) &&
+            own(e.id) &&
+            (e.anchor === undefined ||
+              (owns(pack.places, e.anchor) && !ids.includes(e.anchor)))),
+    );
+  return ok ? [] : ["specials needs a bounded draw and a pool of own entities"];
 }
 const keysOk = (o, allowed) =>
   record(o) && Object.keys(o).every((k) => allowed.includes(k));
@@ -260,10 +289,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "observations",
       "transports",
       "recital",
-      "readings",
       "storyQuests",
       "topics",
       "situations",
+      "specials",
     ]),
     "has an unknown top-level field",
   );
@@ -426,6 +455,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "voice",
         "exits",
         "backdrop",
+        "backdrops",
         "art",
         "music",
         "musicMode",
@@ -451,6 +481,22 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `place ${id} exits must name other places in this pack`,
     );
     media(p.backdrop, `place ${id} backdrop`);
+    // State backdrops: the first entry whose saved conditions hold replaces
+    // the backdrop, like a resident's poses. They change presentation only.
+    if (p.backdrops !== undefined)
+      check(
+        Array.isArray(p.backdrops) &&
+          p.backdrops.length > 0 &&
+          p.backdrops.length <= 8 &&
+          p.backdrops.every(
+            (b) =>
+              keysOk(b, ["backdrop", "requires"]) &&
+              mediaPathOk(pack.id, b.backdrop) &&
+              Array.isArray(b.requires) &&
+              b.requires.length > 0,
+          ),
+        `place ${id} backdrops need a backdrop in this pack and saved conditions`,
+      );
     if (p.road !== undefined)
       check(
         Array.isArray(p.road) &&
@@ -556,6 +602,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "personalQuests",
         "previousHomes",
         "standoffs",
+        "startLevel",
         "persona",
         "voice",
         "expression",
@@ -573,6 +620,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "canonicalPerson",
       ]),
       `avatar ${id} has an unknown field`,
+    );
+    check(
+      a.startLevel === undefined || intOk(a.startLevel, 1, 99),
+      `avatar ${id} startLevel needs a whole level from 1 to 99`,
     );
     check(
       a.personalQuests === undefined || typeof a.personalQuests === "boolean",
@@ -838,10 +889,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
             owns(items, c.item) &&
-            owns(places, c.place);
+            anyPlace(c.place);
           break;
         case "met":
           ok = keysOk(c, ["kind", "actor"]) && owns(avatars, c.actor);
+          break;
+        case "drawn":
+          ok =
+            keysOk(c, ["kind", "id"]) &&
+            (pack.specials?.pool || []).some((e) => e?.id === c.id);
           break;
         case "pack_item_present":
           ok =
@@ -893,6 +949,26 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `${what} must use the closed condition vocabulary with valid references`,
     );
   };
+  // Saved state, or `any`/`not` over saved state, such as a thing that
+  // shows only while no other thing is in the same place.
+  const savedCondition = (c) =>
+    ["any", "not"].includes(c?.kind)
+      ? (c.conditions || [c.condition]).every(savedCondition)
+      : [
+          "choice",
+          "choice_unset",
+          "flag",
+          "holding",
+          "item_at",
+          "item_near",
+          "item_present",
+          "shared_world",
+          "connected_humans",
+          "met",
+          "knows",
+          "daylight",
+          "drawn",
+        ].includes(c?.kind);
   const requirements = (cs, what, persistent = true) => {
     if (cs === undefined) return;
     check(
@@ -903,26 +979,16 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       cs.forEach((c) => {
         condition(c, what);
         check(
-          !persistent ||
-            [
-              "choice",
-              "choice_unset",
-              "flag",
-              "holding",
-              "item_at",
-              "item_near",
-              "shared_world",
-              "connected_humans",
-              "met",
-              "knows",
-              "daylight",
-            ].includes(c.kind),
+          !persistent || savedCondition(c),
           `${what} must use saved state or human presence conditions`,
         );
       });
   };
-  for (const [id, p] of Object.entries(places))
+  for (const [id, p] of Object.entries(places)) {
     requirements(p.requires, `place ${id} requires`);
+    for (const b of Array.isArray(p.backdrops) ? p.backdrops : [])
+      requirements(b?.requires, `place ${id} backdrop requires`, false);
+  }
   for (const [id, a] of Object.entries(avatars)) {
     requirements(a.requires, `avatar ${id} requires`);
     for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
@@ -1011,6 +1077,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         idOk(c.id) &&
         (c.on === undefined ||
           c.on === "meet" ||
+          c.on === "wait" ||
           (c.on === "give" &&
             (c.requires || []).some(
               (r) => r.kind === "holding" && r.role === "actor",
@@ -1061,9 +1128,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on === "meet";
       if (e.kind === "give_item")
         valid =
-          keysOk(e, ["kind", "item"]) &&
-          owns(items, e.item) &&
-          c.on !== "meet";
+          keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on !== "meet";
       if (e.kind === "retire_item")
         valid =
           keysOk(e, ["kind", "item"]) &&
@@ -1223,24 +1288,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "recital needs a singer, a title and up to 64 verses",
     );
     const seen = new Set();
-    const linesOk = (lines) =>
-      Array.isArray(lines) &&
-      lines.length === 2 &&
-      lines.every((line) => textOk(line, 90));
+    // Couplet text is lore (content/<pack>/lore), never part of the rules.
     for (const v of Array.isArray(r?.verses) ? r.verses : []) {
       check(
-        keysOk(v, ["choice", "quest", "lines", "summons", "after"]) &&
+        keysOk(v, ["choice", "quest", "summons"]) &&
           choiceIds.has(v?.choice) &&
           !seen.has(v.choice) &&
           idOk(v.quest) &&
-          linesOk(v.lines) &&
-          typeof v.summons === "boolean" &&
-          (v.after === undefined ||
-            (keysOk(v.after, ["choice", "lines"]) &&
-              choiceIds.has(v.after.choice) &&
-              v.after.choice !== v.choice &&
-              linesOk(v.after.lines))),
-        "recital verse needs a unique choice, quest, couplet and summons flag; after may select an earlier deed",
+          typeof v.summons === "boolean",
+        "recital verse needs a unique choice, quest and summons flag",
       );
       seen.add(v?.choice);
     }
@@ -1292,6 +1348,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "incompatible embodiments are active together",
     );
   }
+  if (pack.specials !== undefined) problems.push(...specialsProblems(pack));
   if (pack.release !== undefined) {
     const r = pack.release;
     check(
@@ -1382,27 +1439,6 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
   }
   const crossings = Array.isArray(pack.crossings) ? pack.crossings : [];
-  if (pack.readings !== undefined) {
-    const ids = new Set();
-    check(
-      Array.isArray(pack.readings) &&
-        pack.readings.length <= 16 &&
-        pack.readings.every((r) => {
-          if (!record(r)) return false;
-          const valid =
-            keysOk(r, ["id", "actor", "after", "title", "text"]) &&
-            idOk(r.id) &&
-            !ids.has(r.id) &&
-            owns(avatars, r.actor) &&
-            (r.after === null || choiceIds.has(r.after)) &&
-            textOk(r.title, 120) &&
-            textOk(r.text, 3000);
-          ids.add(r.id);
-          return valid;
-        }),
-      "readings need distinct ids, a resident, a recorded choice or arrival, and bounded source text",
-    );
-  }
   check(
     Array.isArray(pack.crossings) && crossings.length > 0,
     "bridge needs crossings",

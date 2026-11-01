@@ -8,6 +8,12 @@ import {
 } from "./fixtures/card-narrative-contexts.mjs";
 
 describe("browser dialogue history contract", () => {
+  it("profiles describe a voice in prose, with no authored example lines", () => {
+    // Characters speak from the world state (#1537), not from samples.
+    for (const [id, profile] of Object.entries(profiles))
+      expect(profile.lines, id).toBeUndefined();
+  });
+
   it.each(narrativeContractCases())(
     "keeps avatar history valid after $name",
     ({ context }) => {

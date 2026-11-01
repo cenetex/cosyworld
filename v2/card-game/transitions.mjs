@@ -6,7 +6,9 @@ import variants from "./image-variants.json" with { type: "json" };
 
 // A painting that changes while the place stays fades out over the new one:
 // slowly as night falls or lifts, briefly for anything else (a lamp, a crossing
-// opening). Travel keeps its veil and cuts.
+// opening). Travel keeps its veil and cuts. A card that joins the hand where
+// the player stays (the ship docking) fades in.
+export const CARD_ARRIVE_MS = 700;
 export const CROSSFADE_MS = 4000;
 export const CHANGE_FADE_MS = 900;
 
@@ -46,8 +48,42 @@ export function crossfadeImage(img, source, { duration = CROSSFADE_MS } = {}) {
     .catch(() => {})
     .finally(() => {
       ghost.remove();
+      // The faded painting's decoded pixels go now, not at collection.
+      ghost.removeAttribute("src");
       if (fading.get(img) === ghost) fading.delete(img);
     });
+}
+
+// A painted layer that comes and goes where the player stays (the ship
+// drawing up at Black Pond) fades instead of jumping. It never takes clicks.
+const showing = new WeakMap();
+export function fadeLayer(el, show, { duration = CHANGE_FADE_MS } = {}) {
+  const shown = showing.get(el) ?? !el.hidden;
+  if (shown === show) return;
+  showing.set(el, show);
+  for (const motion of el.getAnimations()) motion.cancel();
+  el.style.opacity = "";
+  if (!duration) {
+    el.hidden = !show;
+    return;
+  }
+  el.hidden = false;
+  const ready = show ? el.decode().catch(() => {}) : Promise.resolve();
+  if (show) el.style.opacity = "0";
+  ready.then(() => {
+    if (showing.get(el) !== show) return;
+    el.style.opacity = "";
+    const fade = el.animate(
+      { opacity: show ? [0, 1] : [1, 0] },
+      { duration, easing: "ease-in-out", fill: "forwards" },
+    );
+    fade.finished
+      .then(() => {
+        if (!show) el.hidden = true;
+        fade.cancel();
+      })
+      .catch(() => {});
+  });
 }
 
 // Halloween: on some entries to a place, one figure or the painting itself is

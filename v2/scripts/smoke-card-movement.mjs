@@ -14,15 +14,21 @@ import {
 import { enableMotives } from "../card-game/motives.mjs";
 
 function fixture(kind) {
-  // The waiting resident is met on the first trip from the lit attic.
+  // The waiting resident is met on the first trip from the attic. Dousing
+  // the lamp opens the mirror; lighting it at the pond opens the way back.
   const start =
     kind === "resident" ? atticOpening() : createWorld({ opening: true });
   let s = enableMotives(start);
   s = play(
     s,
-    legalActions(s).find((a) => a.kind === "light"),
+    legalActions(s).find((a) => a.kind === "snuff"),
   ).state;
   for (const target of kind === "resident" ? [] : ["pond", "attic"]) {
+    if (target === "attic")
+      s = play(
+        s,
+        legalActions(s).find((a) => a.kind === "light"),
+      ).state;
     const move = legalActions(s).find(
       (action) => action.kind === "move" && action.target === target,
     );
@@ -34,6 +40,8 @@ function fixture(kind) {
   s.actors.moth.place = kind === "resident" ? "pond" : "attic";
   s.items.lamp.holder = "vale";
   s.items.lamp.fuel = 8;
+  // A doused lamp in the attic keeps the mirror open.
+  s.items.lamp.lit = false;
   return s;
 }
 
@@ -184,12 +192,13 @@ try {
         );
         assert.equal(saved.turn, 0);
         assert.equal(saved.actors.vale.place, "attic");
-        assert.equal(saved.items.lamp.lit, false);
+        // New openings start with the lamp lit.
+        assert.equal(saved.items.lamp.lit, true);
         assert.equal(
           await page.locator("#backdrop").getAttribute("src"),
           await page.evaluate(async () =>
             (await import("/card-game/images.mjs")).imageUrl(
-              "./assets/shared/places/attic-dark.webp",
+              "./assets/attic/attic-lit.webp",
             ),
           ),
         );

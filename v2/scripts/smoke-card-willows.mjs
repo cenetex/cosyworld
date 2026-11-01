@@ -47,10 +47,13 @@ try {
     [1440, 900],
     [390, 844],
   ]) {
+    // The opening starts lit: douse it to open the mirror, then relight it at
+    // the pond (#1653).
     let seed = enableMotives(createWorld({ opening: true }));
     for (const fields of [
-      { kind: "light", item: "lamp" },
+      { kind: "snuff", item: "lamp" },
       { kind: "move", target: "pond" },
+      { kind: "light", item: "lamp" },
     ]) {
       const action = legalActions(seed).find((a) =>
         Object.entries(fields).every(([k, v]) => a[k] === v),
@@ -67,7 +70,7 @@ try {
       viewport: { width, height },
       reducedMotion: "reduce",
     });
-    const readingCounts = [];
+    const loreRequests = [];
     const errors = [],
       mediaFailures = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -89,8 +92,7 @@ try {
     // The browser smoke checks controls and layout. Server tests check the rules.
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
-      const swede = input.entities.find((e) => e.id === "willows-swede");
-      if (swede) readingCounts.push(swede.readings?.length || 0);
+      loreRequests.push(input.entities.some((e) => "readings" in e));
       return route.fulfill({
         json: {
           revision: input.revision,
@@ -128,6 +130,14 @@ try {
     };
     const move = (target) => click(target, '[data-action="move"]');
     const choose = (place, id) => click(place, `[data-choice="willows-${id}"]`);
+    // Observe at a place until it shows this sign.
+    const observe = async (place, id) => {
+      for (let i = 0; i < 16; i++) {
+        if ((await saved()).packs.willows.receipts[`willows-${id}`]) return;
+        await click(place, '[data-action="wait"]');
+      }
+      assert.fail(`Observe never found ${id}`);
+    };
     const willowsCards = () =>
       page.locator('#hand [data-card="willows-landing"]').count();
     const resave = async (world, card = null) => {
@@ -160,9 +170,9 @@ try {
       await page.locator("#backdrop").getAttribute("src"),
       /landing-ship-night\.webp/,
     );
-    await choose("willows-landing", "examine-hull");
+    await observe("willows-landing", "examine-hull");
     await move("willows-camp");
-    await choose("willows-camp", "count-stores");
+    await observe("willows-camp", "count-stores");
     await click("willows-swede", '[data-action="talk"]');
     const portrait = page
       .locator('#cast [data-avatar="willows-swede"] img')
@@ -190,10 +200,10 @@ try {
       path: new URL(`camp-${width}.png`, output).pathname,
     });
     await move("willows-thicket");
-    await choose("willows-thicket", "examine-hollows");
+    await observe("willows-thicket", "examine-hollows");
     await move("willows-bank");
-    await choose("willows-bank", "hear-humming");
-    await choose("willows-bank", "look-beneath-roots");
+    await observe("willows-bank", "hear-humming");
+    await observe("willows-bank", "look-beneath-roots");
     await page.keyboard.press("Escape");
     await page.screenshot({
       path: new URL(`bank-${width}.png`, output).pathname,
@@ -201,7 +211,7 @@ try {
     await move("willows-thicket");
     await move("willows-camp");
     await pose("swede-listening");
-    await choose("willows-swede", "compare-signs");
+    await observe("willows-camp", "compare-signs");
     await pose("swede-worried");
     await choose("willows-swede", "choose-watch");
     await pose("swede-listening");
@@ -232,8 +242,9 @@ try {
     );
     assert.deepEqual(errors, []);
     assert.deepEqual(mediaFailures, []);
-    assert(readingCounts[0] < 7);
-    assert.equal(Math.max(...readingCounts), 7);
+    // Source passages are lore, never part of a speech request.
+    assert(loreRequests.length > 0);
+    assert(!loreRequests.includes(true));
     await page.close();
     console.log(`Willows browser play passed at ${width} × ${height}.`);
   }

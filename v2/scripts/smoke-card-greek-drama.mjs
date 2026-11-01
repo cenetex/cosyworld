@@ -34,7 +34,8 @@ let fixture = enableMotives(
 );
 // Keep the first ship signal part of this story fixture's legal journey.
 fixture.actors["greek-rhapsode"].place = "attic";
-fixture = commit(fixture, "light");
+// The opening starts lit; douse it to open the mirror (#1653).
+fixture = commit(fixture, "snuff");
 fixture = commit(fixture, "move", "pond");
 fixture.items.cloth.holder = "vale";
 fixture.items.lamp.fuel = 12;
@@ -146,15 +147,14 @@ try {
     const signalShip = async () => {
       const s = await state();
       assert.ok(
-        s.items.lamp.fuel >= 6,
+        s.items.lamp.fuel >= 4,
         "the lamp has enough oil for the signal",
       );
       if (!(await state()).items.lamp.lit) await playCard("lamp");
-      for (let i = 0; i < 2; i++) {
-        await pair("cloth", "lamp");
-        await playCard("cloth");
-      }
-      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 4);
+      // Cover the lit lamp, then uncover it: the whole ship signal.
+      await pair("cloth", "lamp");
+      await playCard("cloth");
+      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
     };
     const travel = async (id) => {
       const before = await state();

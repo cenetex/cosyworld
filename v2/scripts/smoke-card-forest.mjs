@@ -169,10 +169,11 @@ try {
       const initial = await state();
       assert.equal(initial.turn, 0);
       assert.equal(initial.actors.vale.place, "attic");
-      assert.equal(initial.items.lamp.lit, false);
+      // The opening starts lit; dousing the lamp opens the mirror (#1653).
+      assert.equal(initial.items.lamp.lit, true);
       assert.ok(
         legalActions(initial).some(
-          (a) => a.kind === "light" && a.item === "lamp",
+          (a) => a.kind === "snuff" && a.item === "lamp",
         ),
       );
       assert.ok(
@@ -181,8 +182,9 @@ try {
         ),
       );
       await shot("fresh-attic");
-      await step("light", { item: "lamp" });
+      await step("snuff", { item: "lamp" });
       await step("move", { target: "pond" });
+      await step("light", { item: "lamp" });
       await step("accompany", { target: "moth", destination: "attic" });
       const litAttic = await state();
       assert.equal(litAttic.actors.vale.place, "attic");

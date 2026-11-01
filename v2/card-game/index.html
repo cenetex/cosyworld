@@ -7,6 +7,10 @@
     <meta name="theme-color" content="#14151d" />
     <meta name="cosy-story-budget-ms" content="30000" />
     <title>CosyWorld</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314151d'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23f2c46d'/%3E%3C/svg%3E"
+    />
     <link rel="stylesheet" href="./style.css" />
     <link rel="stylesheet" href="./weather.css" />
     <link rel="stylesheet" href="./toolbar.css" />
@@ -15,13 +19,6 @@
     <link rel="stylesheet" href="./combat.css" />
     <link rel="stylesheet" href="./card-tiers.css" />
     <!-- card-image-preload:start -->
-    <link
-      rel="preload"
-      as="image"
-      href="./assets/optimized/stage/png/keeper-right.webp?v=8dd96fb5ed6da2fa4f6fe152880af53cf2576ccc5f54c7a9c7a089959f790e58"
-      fetchpriority="high"
-      data-card-preload="keeper"
-    />
     <!-- card-image-preload:end -->
     <script type="module" src="./entry.mjs"></script>
   </head>
@@ -204,6 +201,13 @@
     </main>
     <dialog id="unveil-dialog" class="unveil" aria-label="New card discovered">
       <button id="unveil-take" type="button" autofocus></button>
+    </dialog>
+    <dialog id="item-view" class="item-view" aria-label="Item view">
+      <div class="item-view-tools">
+        <button id="item-view-zoom" type="button">Enlarge</button>
+        <button id="item-view-close" type="button" autofocus>Close</button>
+      </div>
+      <img id="item-view-image" alt="" draggable="false" />
     </dialog>
     <span
       id="discovery-announcement"

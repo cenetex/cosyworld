@@ -321,7 +321,7 @@ describe("songs that follow the player", () => {
     expect(level()).toBeCloseTo(0.3);
     ended();
     await advance(1000);
-    expect(audio.src).toMatch(/pond-1\.mp3/);
+    expect(audio.src).toMatch(/pond-3\.mp3/);
   });
 
   it("waits for a fresh play in a new game", async () => {

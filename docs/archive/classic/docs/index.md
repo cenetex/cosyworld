@@ -128,72 +128,72 @@ describe the dealt action hand, ADR 0015 governs the card table.
 
 ### Feeds the card table
 
-- **[Generated World Core](../../../backlog/generated-world-core.md)** — make the
+- **[Generated World Core](../../backlog/generated-world-core.md)** — make the
   prototype general, grow the world through quests, then port the general rules into the
   kernel and journal.
-- **[Resident Drive Autonomy](../../../backlog/resident-drive-autonomy.md)** — A/L/I drive
+- **[Resident Drive Autonomy](../../backlog/resident-drive-autonomy.md)** — A/L/I drive
   patterns, which map directly to target hands.
-- **[Quest Grammar and Return](../../../backlog/quest-grammar-and-return.md)** — focal
+- **[Quest Grammar and Return](../../backlog/quest-grammar-and-return.md)** — focal
   operations that become quest-program builders.
-- **[Thresholds, Trails, and the Strict Referee](../../../backlog/thresholds-trails-and-strict-referee.md)** —
+- **[Thresholds, Trails, and the Strict Referee](../../backlog/thresholds-trails-and-strict-referee.md)** —
   Gates, Hazards, and Leads on location cards.
-- **[Player Journal as a Semantic Chronicle](../../../backlog/player-journal-semantic-chronicle.md)** —
+- **[Player Journal as a Semantic Chronicle](../../backlog/player-journal-semantic-chronicle.md)** —
   story beats, object memory, and places that recount events.
-- **[Void Vision Quests](../../../backlog/void-vision-quests.md)** — budgeted programs
+- **[Void Vision Quests](../../backlog/void-vision-quests.md)** — budgeted programs
   that dim rather than fail.
-- **[Fiction Frontier](../../../backlog/fiction-frontier.md)** — every state change gets
+- **[Fiction Frontier](../../backlog/fiction-frontier.md)** — every state change gets
   a scene line.
 
 ### Shared world and `/classic`
 
-- **[Card-Composed Character Creation](../../../backlog/card-composed-character-creation.md)** — *historical; collection
+- **[Card-Composed Character Creation](../../backlog/card-composed-character-creation.md)** — *historical; collection
   cards conflict with ADR 0015's cards-as-entities rule* —
   account-owned Species, Class, and Origin cards, classless level-zero arrival,
   first-action Class reveal, world discovery, new-tale lifecycle, and migration
   from compound campaign choices.
-- **[SRD Action-Card Foundation](../../../backlog/srd-action-card-foundation.md)** —
+- **[SRD Action-Card Foundation](../../backlog/srd-action-card-foundation.md)** —
   dependency-ordered work for rules-bound cards, authoritative zones, scene
   composition, loadouts, and pack extensions.
-- **[Fiction Frontier](../../../backlog/fiction-frontier.md)** — authored transcript
+- **[Fiction Frontier](../../backlog/fiction-frontier.md)** — authored transcript
   coverage, client-confirmed beat exposure, and prose-quality gates.
-- **[Player Journal as a Semantic Chronicle](../../../backlog/player-journal-semantic-chronicle.md)** —
+- **[Player Journal as a Semantic Chronicle](../../backlog/player-journal-semantic-chronicle.md)** —
   deterministic story-beat projection, causal event grouping, consistent
   player copy, and truthful disclosure behaviour.
 - **[Journal Storybook Pages](../../../../v2/docs/journal-storybook-pages.md)** —
   rest-authored first-person prose, long-rest illustrations, avatar style, and
   provenance-ready personal artifacts.
-- **[Seventh-Visit Operating Queue](../../../backlog/seventh-visit-operating-queue.md)** —
+- **[Seventh-Visit Operating Queue](../../backlog/seventh-visit-operating-queue.md)** —
   the bounded production-trust, authority, and first-campaign delivery waves,
   with portfolio gates and backlog-state rules.
-- **[Holy Land Integration Playtest](../../../backlog/holy-land-integration-playtest.md)** —
+- **[Holy Land Integration Playtest](../../backlog/holy-land-integration-playtest.md)** —
   legal-action reachability, generated pilgrimage-road presentation, and
   direct-avatar continuity boundaries found in the first end-to-end journey.
-- **[Thresholds, Trails, and the Strict Referee](../../../backlog/thresholds-trails-and-strict-referee.md)** —
+- **[Thresholds, Trails, and the Strict Referee](../../backlog/thresholds-trails-and-strict-referee.md)** —
   dependency-ordered Discovery Slot, Lead, Gate, Hazard, Pressure, trail, and
   recovery work following ADR 0005, with per-slice scope and acceptance for
   everything that has not shipped.
-- **[Rest, Travel, and Weariness](../../../backlog/rest-travel-and-weariness.md)** —
+- **[Rest, Travel, and Weariness](../../backlog/rest-travel-and-weariness.md)** —
   graded recovery, expedition Fatigue, short-rest cadence and the Spent
   survival hand, prepared frontier camps, and recovery reachability.
-- **[Quest Grammar and Return](../../../backlog/quest-grammar-and-return.md)** —
+- **[Quest Grammar and Return](../../backlog/quest-grammar-and-return.md)** —
   the code-to-vision diagnosis and dependency-ordered foundation for Hearth,
   Sign, Venture, Challenge, Discover, and Return across avatars, items, and
   locations.
-- **[World Topology and Composition Joins](../../../backlog/world-topology-and-composition-joins.md)** —
+- **[World Topology and Composition Joins](../../backlog/world-topology-and-composition-joins.md)** —
   the cross-pack `routes` primitive, pack gateways, open/gated/earned access,
   reachability and sink gates, pack-native generated descendants, the Holy Land
   regional mesh, and the playtest evidence that motivated them.
-- **[Avatar Lifecycle and the Rescue Run](../../../backlog/avatar-lifecycle-and-rescue.md)** —
+- **[Avatar Lifecycle and the Rescue Run](../../backlog/avatar-lifecycle-and-rescue.md)** —
   controller-neutral lifecycle from presence through Death or Return, the birth
   draught, the two-body cascade, carrying downed bodies, and Fading paused in
   sanctuary.
-- **[Combat, Encounters, and Range](../../../backlog/combat-encounters-and-range.md)** —
+- **[Combat, Encounters, and Range](../../backlog/combat-encounters-and-range.md)** —
   chat-first combat, the avatar-rail encounter tracker, the unresolved fate-tag
   decision, and the three-band range protocol.
-- **[Community Art Evolution](../../../backlog/community-art-evolution.md)** — pooled
+- **[Community Art Evolution](../../backlog/community-art-evolution.md)** — pooled
   Orb funding, immutable reference assets, bounded scene composition, the
   per-generation publication gate, and the unexplored art lifecycle.
-- **[Resident Drive Autonomy](../../../backlog/resident-drive-autonomy.md)** — the shipped
+- **[Resident Drive Autonomy](../../backlog/resident-drive-autonomy.md)** — the shipped
   A/L/I drive vocabulary, future compatibility projection, unified ranking,
   belief-grounded binding, pack authoring, and attention-bubble questions.
 

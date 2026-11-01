@@ -11,10 +11,12 @@ The renderer flips Vale and Pip on their image layer. The keeper selects the pai
 ## Smaller images
 
 The PNG files are the art sources. The image builder makes full-size WebP scene
-files and 512-pixel-wide card files under `assets/optimized/`. It uses quality 88
-and alpha quality 100. Scene files keep the source dimensions and exact alpha
-values. Cards keep the same shape at their smaller size. Existing WebP scene
-files keep their published bytes.
+files, 512-pixel-wide card files, and phone scene files that fit inside 960
+pixels under `assets/optimized/`. It uses quality 88 and alpha quality 100.
+Scene files keep the source dimensions and exact alpha values. Cards and phone
+scenes keep the same shape at their smaller size. Existing WebP scene files
+keep their published bytes. An image no larger than 960 pixels uses its scene
+file as its phone file.
 
 Build the images, then update their content hashes and the Rust asset list:
 
@@ -36,5 +38,5 @@ preload with `npm run v2:card:images:check`. CI and the Docker build run only
 this check.
 
 `image-variants.json` records the source and output hashes. The browser's
-`images.mjs` selects the scene or card file, then adds its content hash through
+`images.mjs` selects the scene, phone scene, or card file, then adds its content hash through
 `media.mjs`. Catalogs and portrait-facing records use the authored image paths.

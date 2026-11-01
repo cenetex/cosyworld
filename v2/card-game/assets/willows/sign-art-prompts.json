@@ -1,0 +1,126 @@
+{
+  "generator": "image_gen.imagegen",
+  "assets": [
+    {
+      "id": "landing-otter",
+      "file": "landing-otter.webp",
+      "references": ["landing.webp"],
+      "transparent_background": false,
+      "prompt": "Use case: precise-object-edit. Asset type: Willows game place alternate, target 1672×941 landscape. Image 1 is the exact edit target. Keep its entire camera, horizon, perspective, framing, shoreline, willow masses, cloud shapes, sunlight, fine brush texture and painterly style fixed, so the result crossfades as one local change in this same scene. Preserve full source frame and aspect ratio; no crop, zoom, camera shift, new composition, titles, borders or watermarks. Opaque painting. Primary request: A black wet otter rolling in the current twenty feet out, turning like a drowned man, one yellow eye catching the low sun. Add this one small, distant creature in the existing river current at the proper scale, with subtle wake and physically matched low-sun light. Leave the canoe and every existing shore object unchanged. It remains an otter; the resemblance to a drowned man is its unsettling rolling posture, not an extra human body.",
+      "accepted_revision": {
+        "references": [
+          "exec-9b82ef42-d8c1-4189-bead-329a9a2cc8c9.png",
+          "landing.webp"
+        ],
+        "transparent_background": false,
+        "prompt": "Use case: precise-object-edit. Asset type: 1672×941 opaque game landscape; a single phone-framing correction. Image 1 is the finished alternate to edit. Image 2 is the unmodified landscape for repairing only the old subject location. Move the EXISTING small rolling otter and its tiny wake horizontally left, from around x1100 to a new centre at approximately x880, keeping the same y≈396, exact apparent size, same rolling posture and one yellow eye. The whole animal should fit within x820–945. Remove the otter and wake from the old position and restore ordinary river there, using Image 2 only as the unchanged original water reference. Coordinates are on the full 1672×941 painting. This movement places the added sign inside the existing phone crop; it must NOT move, crop, zoom or resize the camera or whole picture. Keep every cloud, sun, horizon, distant hill, willow, shore contour, foreground canoe, branch, pebble and reflection outside those tiny affected river patches unchanged. Keep original sunset exposure, painterly brushwork and complete canvas. Exactly one instance of the subject; no new objects or marks, no text or frame."
+      }
+    },
+    {
+      "id": "landing-boatman",
+      "file": "landing-boatman.webp",
+      "references": ["landing.webp"],
+      "transparent_background": false,
+      "prompt": "Use case: precise-object-edit. Asset type: Willows game place alternate, target 1672×941 landscape. Image 1 is the exact edit target. Keep its entire camera, horizon, perspective, framing, shoreline, willow masses, cloud shapes, sunlight, fine brush texture and painterly style fixed, so the result crossfades as one local change in this same scene. Preserve full source frame and aspect ratio; no crop, zoom, camera shift, new composition, titles, borders or watermarks. Opaque painting. Primary request: Far shore at sunset: a man standing in a flat boat swept downstream, one arm raised making the sign of the Cross toward the island. Add only this small distant flat boat and the standing man's clear but understated gesture near the far shore, with a modest wake. Preserve the entire foreground canoe, banks and all existing lighting and landmarks exactly.",
+      "accepted_revision": {
+        "references": [
+          "exec-19d6b6cf-ac0a-45b7-8926-a6eacd63dab6.png",
+          "landing.webp"
+        ],
+        "transparent_background": false,
+        "prompt": "Edit the first attached painting. Make exactly one small compositional correction: move the entire distant flat boat and its standing boatman LEFT by about one full boat length in the image. The man should end up in the open river just left of the canvas centre, around 42% of the full image width, above the right-hand end of the overturned foreground canoe. Keep the boat at the same distance from the far shore and at the same vertical level. The man must still be standing with one arm raised making the sign of the Cross toward the island. Keep the small boat, human scale, dusk lighting, and understated painterly realism. Erase the previous central boat cleanly and restore natural river waves there; show only ONE boat and ONE man. Preserve the exact original camera, 1672×941 landscape canvas, horizon, sun, cloud forms, willow silhouettes, foreground overturned canoe, shoreline, roots and water composition. Do not pan, zoom, crop, enlarge the man, or add anything else. The second attachment is the clean original landing painting for composition reference. Opaque full painting, no text or border."
+      }
+    },
+    {
+      "id": "landing-mended",
+      "file": "landing-mended.webp",
+      "references": ["landing.webp"],
+      "transparent_background": false,
+      "prompt": "Use case: precise-object-edit. Asset type: Willows game place alternate, target 1672×941 landscape. Image 1 is the exact edit target. Keep its entire camera, horizon, perspective, framing, shoreline, willow masses, cloud shapes, sunlight, fine brush texture and painterly style fixed, so the result crossfades as one local change in this same scene. Preserve full source frame and aspect ratio; no crop, zoom, camera shift, new composition, titles, borders or watermarks. Opaque painting. Primary request: The canoe turned upright and mended at the water’s edge, paddle laid across it, rope coiled, sheet folded, ready to launch. Change only the existing overturned foreground canoe into the same canoe upright, repaired and set immediately at this same water's edge, with the specified paddle, coiled rope and folded sheet. Keep the canoe's identity, weathered wood and scale. All landforms, horizon, willows, sky, water beyond the small affected area and sunset exposure stay unchanged."
+    },
+    {
+      "id": "camp-closer",
+      "file": "camp-closer.webp",
+      "references": ["camp.webp", "camp-lit-night.webp"],
+      "transparent_background": false,
+      "prompt": "Use case: precise-object-edit. Asset type: Willows game scene alternate, 1672×941 opaque landscape painting. Keep the exact source camera, horizon, perspective, full framing, ground landmarks and painterly brush texture. This must crossfade as a change within the same place. No crop, zoom, new camera, labels, border or watermark. Image 1 (camp.webp) is the exact composition to edit. Image 2 is only the reference for this same camp's existing cool night sky and warm lit-campfire exposure. Primary request: Night camp: the willow ring stands visibly nearer the tent than by day, branches leaning over the fire. Bring only the surrounding willow ring inward, narrowing the open space and river gap, with a few branches leaning over the existing fire. Change daylight to precisely the night lighting of Image 2. Keep the tent, its ordinary unpressed canvas, all poles, guy ropes, pot, campfire, supplies, foreground log and stones in their exact positions and sizes. The campfire remains lit; do not add a portable lamp or change its state. Preserve the distant horizon and camera."
+    },
+    {
+      "id": "camp-tent-pressure",
+      "file": "camp-tent-pressure.webp",
+      "references": ["camp-lit-night.webp"],
+      "transparent_background": false,
+      "prompt": "Use case: precise-object-edit. Asset type: Willows game scene alternate, 1672×941 opaque landscape painting. Keep the exact source camera, horizon, perspective, full framing, ground landmarks and painterly brush texture. This must crossfade as a change within the same place. No crop, zoom, new camera, labels, border or watermark. Image 1 is the exact edit target. Primary request: Night camp: the tent canvas sagging inward as if pressed from above, faint wet patter marks on the sand around it. Change only the existing tent canvas to a clear but restrained inward depression from pressure above, and add faint wet patter marks immediately around the tent. Preserve every branch, tent pole, guy rope, campfire, pot, supply object and foreground feature. Keep the exact existing blue night exposure and warm lit campfire. No visible creature, hand, footprint anatomy, portable lamp, or added light."
+    },
+    {
+      "id": "thicket-bronze",
+      "file": "thicket-bronze.webp",
+      "references": ["thicket-night.webp"],
+      "transparent_background": false,
+      "prompt": "Use case: precise-object-edit. Asset type: Willows game scene alternate, 1672×941 opaque landscape painting. Keep the exact source camera, horizon, perspective, full framing, ground landmarks and painterly brush texture. This must crossfade as a change within the same place. No crop, zoom, new camera, labels, border or watermark. Image 1 is the exact edit target. Primary request: Night thicket: dim fluid shapes of dull bronze pouring upward through the willow tops in a bending column; no faces. Add only the dim, bending ascent of ambiguous fluid dull-bronze forms above and through the existing willow tops, with gaps so the original leaves still read. Not a solid sculpture, not fire, not a bright glow, no faces or distinct bodies. Keep the path, sand hollows, river gap, leaves, horizon and cool night lighting fixed."
+    },
+    {
+      "id": "thicket-hollows",
+      "file": "thicket-hollows.webp",
+      "references": ["thicket.webp"],
+      "transparent_background": false,
+      "prompt": "Use case: precise-object-edit. Asset type: Willows game scene alternate, 1672×941 opaque landscape painting. Keep the exact source camera, horizon, perspective, full framing, ground landmarks and painterly brush texture. This must crossfade as a change within the same place. No crop, zoom, new camera, labels, border or watermark. Image 1 is the exact edit target. Primary request: Many smooth basin-shaped hollows, cup to bowl sized, pressed into the sand between the roots. Add further small smooth rounded hollows to the exposed existing sand among the roots and along the track, at proper cup-to-bowl scale, matching the source's already present hollows. Only this sand detail changes. Preserve all willow branches and leaves, river opening, horizon, evening light, existing stones, camera and exact composition."
+    },
+    {
+      "id": "bank-humming",
+      "file": "bank-humming.webp",
+      "references": ["bank.webp"],
+      "transparent_background": false,
+      "prompt": "Use case: precise-object-edit. Asset type: Willows game scene alternate, 1672×941 opaque landscape painting. Image 1 is the exact edit target. Preserve its full camera, horizon, perspective, composition, exposed bank and roots, willow positions, sky structure and painterly brush texture. This must crossfade as one local change in this same scene. No crop, zoom, close-up reframing, border, lettering or watermark. Primary request: Dusk over the far willows: a faint shimmer in the air above them, as if the sky hums; water strangely still near the bank. Add only a very faint atmospheric vibration above the far willow islands and a small unnaturally smooth patch of water next to this existing foreground bank. Keep the turbulent main river, driftwood, shore landmarks and sunset lighting fixed. The shimmer is subtle air distortion, not a creature, symbol, beam, aurora, portal or visible musical notation."
+    },
+    {
+      "id": "bank-roots",
+      "file": "bank-roots.webp",
+      "references": ["bank.webp"],
+      "transparent_background": false,
+      "prompt": "Use case: precise-object-edit. Asset type: Willows game scene alternate, 1672×941 opaque landscape painting. Image 1 is the exact edit target. Preserve its full camera, horizon, perspective, composition, exposed bank and roots, willow positions, sky structure and painterly brush texture. This must crossfade as one local change in this same scene. No crop, zoom, close-up reframing, border, lettering or watermark. Primary request: Close on the bare roots over the flood: a pale shape caught beneath them in the current. Preserve the source's wide camera exactly; 'close on' means make the existing bare-root area the subject of the change, not zooming the painting. Add one small, partially obscured pale shape immediately beneath the existing exposed roots at the waterline, caught in the current. Keep it ambiguous, with much hidden by roots and water, no graphic injury or blood. Leave every other feature and the original evening exposure unchanged."
+    },
+    {
+      "id": "bank-drowned",
+      "file": "bank-drowned.webp",
+      "references": ["bank-night.webp"],
+      "transparent_background": false,
+      "prompt": "Use case: precise-object-edit. Asset type: Willows game scene alternate, 1672×941 opaque landscape painting. Image 1 is the exact edit target. Preserve its full camera, horizon, perspective, composition, exposed bank and roots, willow positions, sky structure and painterly brush texture. This must crossfade as one local change in this same scene. No crop, zoom, close-up reframing, border, lettering or watermark. Primary request: Night climax: a drowned man turned face-up in the roots, skin marked with small smooth hollows like the sand funnels. In the existing waterline directly beneath the exposed roots, add one appropriately scaled drowned man lying face-up and partly caught by those roots, much of his body under the dark water. Pale face and a few shallow, smooth round depressions visible on exposed skin, quietly uncanny and non-graphic: no blood, open wounds, decay or dismemberment. Retain the exact existing night exposure, river, driftwood, banks and framing; do not add a lamp or spotlight."
+    },
+    {
+      "id": "notebook-page-1",
+      "file": "notebook-page-1.png",
+      "references": ["map.png"],
+      "transparent_background": true,
+      "prompt": "Use case: stylized-concept. Asset type: Willows inventory item, exactly 1254×1254 PNG with genuine transparent alpha around one complete object. Image 1 is a material and painterly item-style reference, not the object to reproduce. Primary request: A single torn notebook page, pencil handwriting, a small sketch of a canoe on a sand spit. Render one worn cream field-notebook leaf from the early 1900s, gently angled and slightly curled, with soft fibrous torn edges, graphite cursive handwriting and a small clear pencil sketch of the canoe and sand spit. Match the reference's tactile warm paper grain and gouache/ink illustration finish, muted grey and ochre, soft upper-left illumination. The handwriting is small incidental manuscript texture, not a large title or invented label. Keep the entire page inside the square with comfortable breathing room. No map copied from reference, no extra objects, no scenery outside the paper, no card border, no colored backdrop, no fake checkerboard, no opaque background or shadow box."
+    },
+    {
+      "id": "notebook-page-2",
+      "file": "notebook-page-2.png",
+      "references": ["notebook-page-1.png"],
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit. Asset type: Willows inventory page, exactly 1254×1254 PNG with genuine transparent background. Image 1 is the exact paper object to edit, the first page in this same notebook family. Preserve its paper scale, angle, warm grain, pencil-and-painterly finish, tears, folds, soft upper-left light and comfortable transparent margins. The opaque paper must stay one complete object on true alpha; keep clean anti-aliased edges without colored halos, no backdrop, checkerboard, frame or extra props. Change only the pencil sketch and incidental pencil handwriting on the page. Primary request: A single torn notebook page, pencil handwriting, a sketch of willow tops against the sky. Replace the canoe/river sketch with delicate graphite willow tops silhouetted against a lightly indicated sky, with no canoe or boat. Keep some small cursive field notes, not a title or readable label. This is the second leaf of the same physical notebook."
+    },
+    {
+      "id": "notebook-page-3",
+      "file": "notebook-page-3.png",
+      "references": ["notebook-page-1.png"],
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit. Asset type: Willows inventory page, exactly 1254×1254 PNG with genuine transparent background. Image 1 is the exact paper object to edit, the first page in this same notebook family. Preserve its paper scale, angle, warm grain, pencil-and-painterly finish, tears, folds, soft upper-left light and comfortable transparent margins. The opaque paper must stay one complete object on true alpha; keep clean anti-aliased edges without colored halos, no backdrop, checkerboard, frame or extra props. Change only the pencil sketch and incidental pencil handwriting on the page. Primary request: A single torn notebook page, pencil handwriting, a sketch of round hollows in sand. Replace the canoe/river sketch with a graphite study of several smooth round cup-to-bowl hollows in sandy ground among a few small roots; make the round basin shapes clearly distinguish this leaf. The hollows are drawn on the intact paper, not holes punched through the sheet. Keep small cursive field notes without a title. No boat, monster or body. This is the third leaf of the same physical notebook."
+    },
+    {
+      "id": "notebook-chapter",
+      "file": "notebook-chapter.png",
+      "references": ["notebook-page-1.png", "rope.png"],
+      "transparent_background": true,
+      "prompt": "Use case: stylized-concept. Asset type: Willows inventory item, exactly 1254×1254 PNG with genuine transparent background. Image 1 defines the paper, pencil marks, texture and painted finish of this notebook family; Image 2 defines simple natural flax-fibre material, use a fine thread rather than full-size rope. Primary request: Three notebook pages stitched together with thread, river-damp edges. Show exactly three warm cream field-notebook leaves, visibly layered with their lower/right edges offset enough to count, lightly stitched together along one side by simple flax thread. Match Image 1's worn torn paper and early-1900s graphite field notes, with restrained damp grey-brown tide marks along the edges. Soft upper-left light and the existing tactile painterly item style. Keep the complete object within the square with comfortable transparent margins, clean alpha edges with no colored halos. No separate book cover, extra props, backdrop, frame, title or watermark."
+    },
+    {
+      "id": "notebook-book",
+      "file": "notebook-book.png",
+      "references": ["sheet.png", "rope.png", "notebook-page-1.png"],
+      "transparent_background": true,
+      "prompt": "Use case: stylized-concept. Asset type: Willows inventory item, exactly 1254×1254 PNG with genuine transparent background. Image 1 is the exact reference for dark worn oilcloth material and painterly finish; Image 2 defines natural flax string; Image 3 defines warm worn page edges. These are style/material references, not objects to reproduce literally. Primary request: The Traveller’s Notebook: a worn oilcloth-bound field notebook tied with string, 1900s. One small closed rectangular field notebook in a modest three-quarter view, dark olive-grey oilcloth covers with rubbed corners, a few warm paper edges visible, tied with simple slender natural string. Quiet, practical early-1900s construction, no modern spiral or plastic. Match the existing Willows inventory painting style and soft upper-left illumination. Entire object inside the square with comfortable transparent margins; clean genuine alpha, no colored edge halo. No lettering on cover, title, frame, scenery, extra props, background, checkerboard or shadow box."
+    }
+  ]
+}

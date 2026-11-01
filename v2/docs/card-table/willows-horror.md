@@ -48,7 +48,7 @@ Quotes are from `v2/content/willows/source-text.txt`.
 | Supper as reason against knowing | `willows-supper` topic and situation |
 | Sand hollows | `willows-examine-hollows` in the thicket |
 | Humming, drowned man with matching hollows | `willows-hear-humming`, `willows-look-beneath-roots` at the bank |
-| "It's _their_ sound" | `willows-understanding-text` reading |
+| "It's _their_ sound" | `willows-understanding-text` passage in `lore/readings.json` |
 | The Swede with his map | `willows-map`, `willows-channels` |
 | No careless noise | `willows-muffled-bell` situation |
 
@@ -101,10 +101,13 @@ checklist instead of a place that might show you something.
   what they notice, so the narrator's arc is absent.
 - Thicket `persona`: "Keep the powers beyond the island distant and strange";
   the willows never speak as a crowd.
-- Nothing changes over time apart from the day and night paintings.
+- Apart from the day and night paintings, only the weather changes: the camp,
+  thicket and bank are always in drizzle or river mist (owner, 2026-10-31,
+  replacing mist at night only); the landing stays clear.
 - The ending is chores: lay out the sheet, rope and paddle, then
   `willows-choose-departure`.
-- No room music and no weather region.
+- No room music. The `willows` weather region covers every place but the
+  landing.
 - The night landing (`landing-ship-night.webp`) shows the warm lanterns of
   the Greek ship.
 - Item prompts in `art-prompts.json` stress a "much-handled, modest practical"

@@ -1,0 +1,885 @@
+{
+  "created": "2026-10-31",
+  "purpose": "Attack and hit reaction portraits for client-only combat presentation",
+  "max_source_bytes": 300000,
+  "encoding": {
+    "format": "webp",
+    "alphaQuality": 100,
+    "effort": 6,
+    "smartSubsample": true
+  },
+  "assets": [
+    {
+      "id": "ada-attack",
+      "file": "ada-attack.webp",
+      "character": "Ada",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ada.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-fa515d41-f12f-4278-a72f-1fd6355ab02f",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 81,
+      "bytes": 292386,
+      "sha256": "45506784ed80e38574ba65138cb9d034bd4b22d0c2ed390b934f30841405d633",
+      "original_png_sha256": "a8c97d22953117c2ca238fe7ae5ceee30d1c3111496d411fcec9c259257ca420",
+      "original_png_bytes": 2558930,
+      "alpha_sha256": "66148ec884a623e8c4a2b57d05c0766ff32e5fb859e19594a1ff7c0cd8f34d2b",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "ada-hit",
+      "file": "ada-hit.webp",
+      "character": "Ada",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ada.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-fc074023-9a74-44a7-b37f-b25d929ac51f",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 75,
+      "bytes": 296898,
+      "sha256": "919d42d79c08c48264208ca994218ffbc06f4bf633e79fbefac8980407d26ed6",
+      "original_png_sha256": "4765f1b808a53f6cc60785fe75c8fda1a4fb52db7df55f62044a45ef42d8c279",
+      "original_png_bytes": 2772556,
+      "alpha_sha256": "1a08c9eeaeacce525711a04f0c18987bf56677ff692683ef032a0a41bb716455",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "ada-scarf-attack",
+      "file": "ada-scarf-attack.webp",
+      "character": "Ada",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ada-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-8ebbdacf-0e83-46f4-af46-34d840276380",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 83,
+      "bytes": 296994,
+      "sha256": "b39d0c727343a1c5167f20b18c38342f74cf5d59695bfad2124e1ceb3253ada5",
+      "original_png_sha256": "bbe5ee136f4c21e4573a5e8686b1ba0e59028f231cc00508a88f58923825e821",
+      "original_png_bytes": 2515489,
+      "alpha_sha256": "723e5662bb65d4d7a1375126fc4126db3a920f268fdb5fbea5448e56e5adc786",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "ada-attack",
+        "generation_id": "exec-fa515d41-f12f-4278-a72f-1fd6355ab02f",
+        "original_png_sha256": "a8c97d22953117c2ca238fe7ae5ceee30d1c3111496d411fcec9c259257ca420"
+      }
+    },
+    {
+      "id": "ada-scarf-hit",
+      "file": "ada-scarf-hit.webp",
+      "character": "Ada",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ada-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-ef6fc486-4a5a-46fb-ab8e-0dcd17585924",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 79,
+      "bytes": 289416,
+      "sha256": "4f46d53ed929b01ba975704b8b94184d44ea8e2f3a2d9263aa24b5433cd58ebe",
+      "original_png_sha256": "9becf06516237fd241468eedd7f3cba2dd1bef02d50f472dd42adf354c159f73",
+      "original_png_bytes": 2668355,
+      "alpha_sha256": "8d4a7abc5a7852817413f4145d5fc4aadcb3a1fdc93d22883c924cb1a81ca44b",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "ada-hit",
+        "generation_id": "exec-fc074023-9a74-44a7-b37f-b25d929ac51f",
+        "original_png_sha256": "4765f1b808a53f6cc60785fe75c8fda1a4fb52db7df55f62044a45ef42d8c279"
+      }
+    },
+    {
+      "id": "ash-attack",
+      "file": "ash-attack.webp",
+      "character": "Ash",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ash.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-e71ea1e9-738f-454c-a6c1-0b3ae1dc8376",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 86,
+      "bytes": 294066,
+      "sha256": "a58ab17b6c4608e5965bd71907a0c66e1dee0a9bd5eb84c910c1120e7f1c7d19",
+      "original_png_sha256": "80aacd40746564feffccd1da597c2c9fbc73280e7f65219873b3a452ad76a4ea",
+      "original_png_bytes": 2405203,
+      "alpha_sha256": "abb7e860615c1434082c15405b439f445a35382d2b90baead1895a6ce2015366",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "ash-hit",
+      "file": "ash-hit.webp",
+      "character": "Ash",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ash.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-d67e70e1-edbb-40da-81e3-fa8d52cf8fe0",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 86,
+      "bytes": 297670,
+      "sha256": "2a3fd3492c118dff97376250a4bfa9a8c94e6d76da147c8844ceae18176ffcb3",
+      "original_png_sha256": "c20bb054901b0ddb88380d28a31c9b6df6e01f68ef3f3afe377dd92901394747",
+      "original_png_bytes": 2480759,
+      "alpha_sha256": "68d9a7d9418397d4143b2cc3d18781f6fc2bfa6161c2063c9ac51a5be8104129",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "ash-scarf-attack",
+      "file": "ash-scarf-attack.webp",
+      "character": "Ash",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ash-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-c855214b-4a42-4f6b-adbb-a6daf4e5222e",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 293896,
+      "sha256": "33929c94961a7d89042c54dacdab991506d5fc09b383586232ee3e52194eb72a",
+      "original_png_sha256": "3729972ba6b97a3d2ad3b09d24017832d4bf7ee0daed054637bf6f7f99a01a26",
+      "original_png_bytes": 2356750,
+      "alpha_sha256": "42f58f6aee6b901a805f55c2c6b3e7ece69fb619af24ddd8f128a7d3f11b1275",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "ash-attack",
+        "generation_id": "exec-e71ea1e9-738f-454c-a6c1-0b3ae1dc8376",
+        "original_png_sha256": "80aacd40746564feffccd1da597c2c9fbc73280e7f65219873b3a452ad76a4ea"
+      }
+    },
+    {
+      "id": "ash-scarf-hit",
+      "file": "ash-scarf-hit.webp",
+      "character": "Ash",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/ash-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-c856db14-fa94-4fd1-bad9-29237c47b045",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 87,
+      "bytes": 296804,
+      "sha256": "8e30be1676ed85eb62e06f0f9a0715a3e151d8e9b7827219666bb43904bb12c2",
+      "original_png_sha256": "c315d20e31c43fa7bb9efcb7c5d6588778037f6b96e14cef4c15e0ce67486131",
+      "original_png_bytes": 2462011,
+      "alpha_sha256": "35db8f92bdc14be0fbafbc62bb872e311eccedf0320fd1ab357bf7aab0d3dde0",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "ash-hit",
+        "generation_id": "exec-d67e70e1-edbb-40da-81e3-fa8d52cf8fe0",
+        "original_png_sha256": "c20bb054901b0ddb88380d28a31c9b6df6e01f68ef3f3afe377dd92901394747"
+      }
+    },
+    {
+      "id": "keeper-attack",
+      "file": "keeper-attack.webp",
+      "character": "Keeper",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/keeper.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-b1442ee4-fe68-4c6f-adab-07282f825cae",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 200944,
+      "sha256": "626c7d42e15841255fac0373ac000d4079bad081b2647a315e9d272982c0a724",
+      "original_png_sha256": "482665ec1a8eab19a37054098e47e3bf3df4fe98fde4297fb15492760bd592ed",
+      "original_png_bytes": 1877458,
+      "alpha_sha256": "52cc286e62962facf23d0abeee923d207c2e5f1a5f591440eea154771b160bba",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "keeper-hit",
+      "file": "keeper-hit.webp",
+      "character": "Keeper",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/keeper.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-57abc275-218a-463a-8128-64b40532ed8b",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 212138,
+      "sha256": "ac10202ca29c384b5a06fd94f37512edb0535bbb93dce9cbee682769568d1141",
+      "original_png_sha256": "bdfafa876146c204598efbdbaaf827dc2776979e07dc72d49667655c6a6090a9",
+      "original_png_bytes": 1974135,
+      "alpha_sha256": "ae2eade33d038054f98b7b9755784c1cf9a503cf5bec3a0326bbbf171f2aeac2",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "mara-attack",
+      "file": "mara-attack.webp",
+      "character": "Mara",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/mara.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-6c7f3ca9-db92-4e7e-972d-0a16c7fa5b12",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 85,
+      "bytes": 295164,
+      "sha256": "89a8bcf93c2690d4d8418530b65cb1374dd46c6b923adf472c3429ff4131709f",
+      "original_png_sha256": "36bdfc85571ba5edfce75c424976c681529dc48d87cc0d99bdb26d3f07215235",
+      "original_png_bytes": 2370629,
+      "alpha_sha256": "4ca28e0764a445befd97d7081e54fe3a541382b397e3f5aad649ee21642fc950",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "mara-hit",
+      "file": "mara-hit.webp",
+      "character": "Mara",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/mara.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-9b208835-1549-44dd-a0b5-c8b6144fdbb2",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 295990,
+      "sha256": "2e59d5df7a17435fa8151e349016a24545922ceea8eb5b38d3fdd79eb4a99b06",
+      "original_png_sha256": "55aef979ead8716f821db7f219648e06dd384b5d57e91213c1b878a899c9e6cd",
+      "original_png_bytes": 2316010,
+      "alpha_sha256": "a090e62bf7fc8a46c468bbc7481185c941ea0777a2a77ec4fd98e5833177847a",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "mara-scarf-attack",
+      "file": "mara-scarf-attack.webp",
+      "character": "Mara",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/mara-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-a1d3888b-4a88-47be-8fd8-64757eefd4a4",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 292748,
+      "sha256": "e8e12eed13337487143d39043d6cd7ba28527903e1061ec51f0bef3a391827aa",
+      "original_png_sha256": "3cb82df3a82bfbb251f45f52e7001879c1556cb9e1bee0b3b289a195442ddbba",
+      "original_png_bytes": 2353612,
+      "alpha_sha256": "093913d9aaf007d18aae5ec3326568342025c5e93222878e6d2f82e2979205ff",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "mara-attack",
+        "generation_id": "exec-6c7f3ca9-db92-4e7e-972d-0a16c7fa5b12",
+        "original_png_sha256": "36bdfc85571ba5edfce75c424976c681529dc48d87cc0d99bdb26d3f07215235"
+      }
+    },
+    {
+      "id": "mara-scarf-hit",
+      "file": "mara-scarf-hit.webp",
+      "character": "Mara",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/mara-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-d0d81de0-f440-4506-a9a4-bb01bbf6c02d",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 286718,
+      "sha256": "4a7628c190607cb28dec9efc4e61176e854daa61f7917f808af5a6199afb8569",
+      "original_png_sha256": "b3b96c71d8b27ab777b9e36edf151fbdcb7c97a11ecbb48cb23a0e4f21ed3a13",
+      "original_png_bytes": 2315855,
+      "alpha_sha256": "9a3c4f72daeaac79a730fb3f1c1740f4779da75c23a4de9341749de0271e54be",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "mara-hit",
+        "generation_id": "exec-9b208835-1549-44dd-a0b5-c8b6144fdbb2",
+        "original_png_sha256": "55aef979ead8716f821db7f219648e06dd384b5d57e91213c1b878a899c9e6cd"
+      }
+    },
+    {
+      "id": "moth-attack",
+      "file": "moth-attack.webp",
+      "character": "Pip",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/moth.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-713b5b4b-f65e-4aa3-873e-561a3603a508",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 82,
+      "bytes": 298146,
+      "sha256": "a9b231a01380959a4244031cf9aa2a36b535e673948195b5082e0114669a01c7",
+      "original_png_sha256": "22cdce97ce8c9a6f4d40bc7bf9c1e2d589eeecb3eea1308379383169ff8ea2e3",
+      "original_png_bytes": 2491719,
+      "alpha_sha256": "a5af70d98a5f1be76827ce19102c7ba400745f0ab4e9c6d067cf56001a6e408a",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "moth-hit",
+      "file": "moth-hit.webp",
+      "character": "Pip",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/moth.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-8b55b2ef-22e2-4ba9-a509-cb6ab09ffc91",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 82,
+      "bytes": 291018,
+      "sha256": "835555cc46e3deb54890346c4bc8ab9be0fb1b718d16900e6c49493e4e295e47",
+      "original_png_sha256": "93a3ffa9769393bd52b66c60e44dd45f394c5fde15598cd5fab399123f9c5580",
+      "original_png_bytes": 2483252,
+      "alpha_sha256": "adf7aebc653542c4e035f24e12719d16902f49d5df841b05867a90f0d0c7bb53",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "nell-attack",
+      "file": "nell-attack.webp",
+      "character": "Nell",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/nell.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-e04926fe-3e47-4f03-acc6-317533982323",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 85,
+      "bytes": 298542,
+      "sha256": "861cc8bc9e2644bd227f693989f33780751ffd7c0ac2ef3c6762529391ea912f",
+      "original_png_sha256": "0ffdeff4babc5a8228effe9c0ee367ab27efcf79a4e83e0e19edcf032653c974",
+      "original_png_bytes": 2533868,
+      "alpha_sha256": "da364afd4aa2e4efdf28a85dad274429513af24aa7be776d5c84cbd29ab01ca1",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "nell-hit",
+      "file": "nell-hit.webp",
+      "character": "Nell",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/nell.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-9fa8f4a4-79c8-49b8-a993-caa656d55484",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 298386,
+      "sha256": "6bf1a44db45dcacd85785284642825ff6c10915709a36cfad01e2af46c05f8be",
+      "original_png_sha256": "e257a4619fa7fe702b2d8b63271ca1cc986a9143c82e81515ab6930321f2377a",
+      "original_png_bytes": 2398036,
+      "alpha_sha256": "d4b292df6f7825375ca5284f2f96f4437445921bfdf07d47e61843bd45cdc09e",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "nell-scarf-attack",
+      "file": "nell-scarf-attack.webp",
+      "character": "Nell",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/nell-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-9ee2c055-72c0-4a79-a665-34a5f39b1a6c",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 86,
+      "bytes": 290848,
+      "sha256": "14d7fc42cd10141a0a2f2925286b2a52b9acaecc56202820c357b8f335ba182c",
+      "original_png_sha256": "55cad351236263008850e4984e9481059e1961311af07ad7d75f8dd0447dfedb",
+      "original_png_bytes": 2463531,
+      "alpha_sha256": "a68ee1b76868ad91710fba1df31a0ead3ff425fefd48721cbf733f987a7b9151",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "nell-attack",
+        "generation_id": "exec-e04926fe-3e47-4f03-acc6-317533982323",
+        "original_png_sha256": "0ffdeff4babc5a8228effe9c0ee367ab27efcf79a4e83e0e19edcf032653c974"
+      }
+    },
+    {
+      "id": "nell-scarf-hit",
+      "file": "nell-scarf-hit.webp",
+      "character": "Nell",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/nell-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-9ef87132-2e94-4c66-a98f-0bc348fbdbdf",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 87,
+      "bytes": 292660,
+      "sha256": "f56912c51a66ef190ce43f51563dcac2e2f3c15528db6c240a65f16045e75b10",
+      "original_png_sha256": "46004ce0ea2a92327f68ecc807c4b030028f09eef3d4435e0ef7ca5c8ea1ec15",
+      "original_png_bytes": 2389951,
+      "alpha_sha256": "6e9bacaec4b7ac7f1903e7573df52cc38007e0f32ef668d39a771a35d0865f7c",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "nell-hit",
+        "generation_id": "exec-9fa8f4a4-79c8-49b8-a993-caa656d55484",
+        "original_png_sha256": "e257a4619fa7fe702b2d8b63271ca1cc986a9143c82e81515ab6930321f2377a"
+      }
+    },
+    {
+      "id": "orin-attack",
+      "file": "orin-attack.webp",
+      "character": "Orin",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/orin.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-f8a360d8-8b1e-4ecb-a71c-2b9b2fdb83ec",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 271696,
+      "sha256": "e46933054a4197c53abebd95431a6a710a4d75e8c0c1a4609009d39b44e31ee8",
+      "original_png_sha256": "5cca575a1300a02dd1292fd22f7a2f4aa1d1d9915a2812b2bb1b35f0ac914ab0",
+      "original_png_bytes": 2202609,
+      "alpha_sha256": "f8ac12eac7cd3ae76cdb1bc10299e3117a3ece5954d98398e2b7dc66a9da7bc0",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "orin-hit",
+      "file": "orin-hit.webp",
+      "character": "Orin",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/orin.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-860a5b06-1450-4699-95b7-acd3c6db01b0",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 278576,
+      "sha256": "8cda0aa74b2e0f24818ca2ab78d436b74130469b9f3bd6bb8b9f8ab48195b579",
+      "original_png_sha256": "e1343f38e331518308f83210c7e1114166f91bd93f847b80643a79dbb6bce46a",
+      "original_png_bytes": 2294773,
+      "alpha_sha256": "950db238dfd5dda48840e39bb1bf4c4513575743642592adbece42eb1a9209ca",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "orin-scarf-attack",
+      "file": "orin-scarf-attack.webp",
+      "character": "Orin",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/orin-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-07897423-5adb-4cb6-9246-b8229741dab4",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 235814,
+      "sha256": "cb9522a88d4bb256ca807267f54ee2e1e58eab153b04031c214fd99e4f0066e6",
+      "original_png_sha256": "199da93f3535fa8ecfaa85a8fed5bc475cbe7fb03a09ff0ddc7f148cb4daf2b2",
+      "original_png_bytes": 2143583,
+      "alpha_sha256": "1fe8a4cf6e628cec76e2ae524bf04d80ec9e58c4a60c5eaa5a80ba3ade4ad778",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "orin-attack",
+        "generation_id": "exec-f8a360d8-8b1e-4ecb-a71c-2b9b2fdb83ec",
+        "original_png_sha256": "5cca575a1300a02dd1292fd22f7a2f4aa1d1d9915a2812b2bb1b35f0ac914ab0"
+      }
+    },
+    {
+      "id": "orin-scarf-hit",
+      "file": "orin-scarf-hit.webp",
+      "character": "Orin",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/orin-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-ff7d434d-b692-4e45-8dc9-10da7ccb03b2",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 255658,
+      "sha256": "289197381900b3d0ea476002fb79ffa67a76c7530a24288515f2e59d9a75e286",
+      "original_png_sha256": "d41014e95b97751f5114a73f51884bbf3d876d91f9a8fb2f164d8d7435ff15d9",
+      "original_png_bytes": 2250382,
+      "alpha_sha256": "7f3d83bbfe4c1a88e2a60d6ee88bc048aa9992f323f90c656b23b913c2997ba0",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "orin-hit",
+        "generation_id": "exec-860a5b06-1450-4699-95b7-acd3c6db01b0",
+        "original_png_sha256": "e1343f38e331518308f83210c7e1114166f91bd93f847b80643a79dbb6bce46a"
+      }
+    },
+    {
+      "id": "rue-attack",
+      "file": "rue-attack.webp",
+      "character": "Rue",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/rue.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-2f1cf22f-b296-4361-a0b5-93eaaab87e2a",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 225710,
+      "sha256": "4248c08e494051a71b764eb822ca2163815f1be37ac3b9de9bfb40b703b85df3",
+      "original_png_sha256": "206a518ba917dad397c085ab3bc4bf49154cbd659a9816a031e50d9174d2726a",
+      "original_png_bytes": 2039201,
+      "alpha_sha256": "e837218f2617da6c6812d1c6cbc83d9a99f813346c7bf7a0051abb30045715e4",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "rue-hit",
+      "file": "rue-hit.webp",
+      "character": "Rue",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/rue.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-03f57aa7-f8ea-4e68-82ea-a878a2339345",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 210380,
+      "sha256": "4aea87bb0048870ee5e8df2908c194e5db958fcc3f2cc33c8bb938ec731a541d",
+      "original_png_sha256": "4d8559888c71621d9c4604792c7e64bd2fcebc3845f76261a68f53bc1c0d07dd",
+      "original_png_bytes": 2022122,
+      "alpha_sha256": "10de4c9d9de3695272a52bedf41a4ec6929ecd327a0018beddeab6906607dd27",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "rue-scarf-attack",
+      "file": "rue-scarf-attack.webp",
+      "character": "Rue",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/rue-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-0365f3f3-98e4-45c8-bd8e-a6b676389cd1",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 204362,
+      "sha256": "b891c9107595c6e9ba9e806aa82fd57f1062a3a307e0781e8d6033e97ec9d1c0",
+      "original_png_sha256": "99e688b77784b3b88c14615f7cf5f14785fa4b38b90a783f4773ebf38ac08f39",
+      "original_png_bytes": 2015413,
+      "alpha_sha256": "a126a23a1337a83718e895211a53601e9068d8c1771b56603a3c3b1518983672",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "rue-attack",
+        "generation_id": "exec-2f1cf22f-b296-4361-a0b5-93eaaab87e2a",
+        "original_png_sha256": "206a518ba917dad397c085ab3bc4bf49154cbd659a9816a031e50d9174d2726a"
+      }
+    },
+    {
+      "id": "rue-scarf-hit",
+      "file": "rue-scarf-hit.webp",
+      "character": "Rue",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/rue-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-ed0978fd-ae18-4cce-90aa-1471efed67e4",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 215180,
+      "sha256": "0806fb4dd2d218bf9fba9d5f816309ec04a32b5cc491658190ac5c6eea0fcde0",
+      "original_png_sha256": "07886364d0649fc1b30e3fc07b75ecc446efd02b7b7deac846ff1694c45a1dc5",
+      "original_png_bytes": 2062462,
+      "alpha_sha256": "a0b29efdbb1a1e9d4ae740a83fee233ec1e88dd4a41c4bd1a12b293d6df54fad",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "rue-hit",
+        "generation_id": "exec-03f57aa7-f8ea-4e68-82ea-a878a2339345",
+        "original_png_sha256": "4d8559888c71621d9c4604792c7e64bd2fcebc3845f76261a68f53bc1c0d07dd"
+      }
+    },
+    {
+      "id": "tavi-attack",
+      "file": "tavi-attack.webp",
+      "character": "Tavi",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/tavi.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-913cabbc-ca4b-42ee-b9a4-06a3975315b6",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 297090,
+      "sha256": "45abd84bacec57d8c1d2fd0344c46eaf35ce0f4b491fdbf151604777c6dc328b",
+      "original_png_sha256": "21b9bcb6dbc6bb5f85237424cccfde7d4ae3915defce37232ba7742dbc5771b9",
+      "original_png_bytes": 2290748,
+      "alpha_sha256": "9df9c6c62309098aeb047ede70ce2cbc5d380615321a2873e49f01bfeae36cb0",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "tavi-hit",
+      "file": "tavi-hit.webp",
+      "character": "Tavi",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/tavi.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-025aaa12-b9d2-4249-b22f-14dc8291ef82",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 292832,
+      "sha256": "2fe586cc5769bd58df763651555a57aa2f5b04071d62fb70b73958e7365a55ba",
+      "original_png_sha256": "b0496aa72d38361593848ba016fc4a47223a401c4be3a3089d82f8b7ec86dab5",
+      "original_png_bytes": 2306560,
+      "alpha_sha256": "fa8feffd1e13522862947459186377420a444545924c7d4e7d16846cda0bec13",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "tavi-scarf-attack",
+      "file": "tavi-scarf-attack.webp",
+      "character": "Tavi",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/tavi-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-4fca1388-c6d8-4be1-abaf-9e7a632f3fef",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 276268,
+      "sha256": "d9ca1cc6a534aebb595340a8bf3b06723931280f7bee2915820a1f923af0df75",
+      "original_png_sha256": "b47e094daa7136ea35b694d998caa31d4ca733b363a4d76f76026028964b1892",
+      "original_png_bytes": 2267745,
+      "alpha_sha256": "ad0e6b3ac87b28426ddf483e1d451ab712eb5ee6f874ccad82c4d70cec13b0a1",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "tavi-attack",
+        "generation_id": "exec-913cabbc-ca4b-42ee-b9a4-06a3975315b6",
+        "original_png_sha256": "21b9bcb6dbc6bb5f85237424cccfde7d4ae3915defce37232ba7742dbc5771b9"
+      }
+    },
+    {
+      "id": "tavi-scarf-hit",
+      "file": "tavi-scarf-hit.webp",
+      "character": "Tavi",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/tavi-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-d44b4b21-7fd4-4b98-89d3-8383261f5547",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 282228,
+      "sha256": "0d2fc8ca50b146f70d7377dd685da2b9b9d5a5a0ac36a470b434ccc8a23f7ed7",
+      "original_png_sha256": "33282759336c573d1e519f11b9dc7e7061eab9c9a1de04a6d298b5a055d7ecd7",
+      "original_png_bytes": 2294198,
+      "alpha_sha256": "357bbf584f21b167cce4a4a1274522bbe13c00a21fdd92b1c413436c0fe0167f",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "tavi-hit",
+        "generation_id": "exec-025aaa12-b9d2-4249-b22f-14dc8291ef82",
+        "original_png_sha256": "b0496aa72d38361593848ba016fc4a47223a401c4be3a3089d82f8b7ec86dab5"
+      }
+    },
+    {
+      "id": "vale-attack",
+      "file": "vale-attack.webp",
+      "character": "Vale",
+      "pose": "attack",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/vale.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-74335f6e-7b0e-4e4c-922b-758d78a3bbc9",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 196360,
+      "sha256": "b5d863609adaba585435df1fbdc110c602351baa4d374f0e84b2c576b0eb13d0",
+      "original_png_sha256": "4c719c7e36dfc19521f2d91527f5b72220cc82d565d578c4ad94a32fd85c1cb6",
+      "original_png_bytes": 2009998,
+      "alpha_sha256": "4ae178538e3580ae2ff383e3f50f779ec264c500debd98e1bef2f96bff747b34",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "vale-hit",
+      "file": "vale-hit.webp",
+      "character": "Vale",
+      "pose": "hit",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/vale.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-8ffa71c4-cc38-4132-ac00-4188fbca34b1",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 220730,
+      "sha256": "4642854948b727a4f2be5020d308a08e8b78f57686cdc292741c79369704d6dc",
+      "original_png_sha256": "e7c6e32791b3ac12cfea34d86fce6103f4e6a7db0fb0e7442509663bda8c3ef9",
+      "original_png_bytes": 2083610,
+      "alpha_sha256": "f251ce6d9874ecdea3897ae8e15956810fca63977b10be792720b0fc72f6b8f5",
+      "alpha_preserved_exactly": true
+    },
+    {
+      "id": "vale-scarf-attack",
+      "file": "vale-scarf-attack.webp",
+      "character": "Vale",
+      "pose": "attack",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/vale-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-49f1bf42-07ac-43bd-9b06-64d680675766",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 205690,
+      "sha256": "fba4801e823fc6f1966e4bb272db318ea7307849979716f545442c982d18ff6d",
+      "original_png_sha256": "5ced99e2f65c7c0ec2568b3489c6b1b2884077b73d1a1db6aa50be00be9f1dc7",
+      "original_png_bytes": 2051376,
+      "alpha_sha256": "334b03f776e43654ea8eeb21f7e6863f1efdf96e4af86384e37dd4125d301a52",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "vale-attack",
+        "generation_id": "exec-74335f6e-7b0e-4e4c-922b-758d78a3bbc9",
+        "original_png_sha256": "4c719c7e36dfc19521f2d91527f5b72220cc82d565d578c4ad94a32fd85c1cb6"
+      }
+    },
+    {
+      "id": "vale-scarf-hit",
+      "file": "vale-scarf-hit.webp",
+      "character": "Vale",
+      "pose": "hit",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/13fb21b10cf4eadcece496585e0c94eeab2c03e5/v2/card-game/assets/shared/characters/vale-scarf.png",
+      "reference_commit": "13fb21b10cf4eadcece496585e0c94eeab2c03e5",
+      "generation_id": "exec-87c2fd7a-c419-4581-955f-68c9d9080baf",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "quality": 88,
+      "bytes": 205180,
+      "sha256": "7e728b3c0410c66a39c1bf6d4fa48faa2257a43bf5db63ae6aebb01905d4401d",
+      "original_png_sha256": "66b50ec316e8c105531a69f8a1bc7adb4c9b7be786845f1fa6403f9d551eb8b8",
+      "original_png_bytes": 2089076,
+      "alpha_sha256": "db9962aa50ec85352da1549114dbc3b95ada450fd25cbec795458eee47115ab6",
+      "alpha_preserved_exactly": true,
+      "edit_target_asset": {
+        "id": "vale-hit",
+        "generation_id": "exec-8ffa71c4-cc38-4132-ac00-4188fbca34b1",
+        "original_png_sha256": "e7c6e32791b3ac12cfea34d86fce6103f4e6a7db0fb0e7442509663bda8c3ef9"
+      }
+    }
+  ]
+}

@@ -123,9 +123,13 @@ npm run v2:card:pack:check
 
 ## The crossing
 
-At quiet Black Pond, cover and uncover the fueled, lit Lamp with Black cloth
-twice. The signal counts each resolved action. Its conditions require a lit,
-fueled lamp at the pond and quiet at both the pond and clearing.
+At quiet Black Pond, cover the fueled, lit Lamp with Black cloth, then uncover
+it. The signal counts each resolved action. Its conditions require a lit,
+fueled lamp at the pond and quiet at both the pond and clearing. Covering hides
+the flame without putting it out, so it is never a douse. Residents who cover
+or uncover the lamp break a partial signal and never complete one. Pack
+revision 10 shortened the signal from two cycles to one; an older save keeps a
+single saved cover and starts any longer partial signal again.
 
 Completing the signal summons a shared ship. Its saved discovery keeps the
 boarding shores open through lamp changes, reloads and later voyages.
@@ -133,6 +137,11 @@ The ship sails authored lanes: Black Pond only to the Wine-Dark Harbor; the
 Wine-Dark Harbor to Piraeus and the Trojan camp landing; Athens Harbor to
 Piraeus. The lane between the Wine-Dark Harbor and Piraeus opens only while
 the Travel Provisions (`greek-provisions`, first at the harbour) are aboard.
+The lane between Piraeus and Athens Harbor opens only while the Suppliant's
+Olive Branch (`greek-olive-branch`) is aboard. The herald hands it to whoever
+registers the mothers' plea at the Agora.
+Its card uses `assets/greek-drama/olive-branch.webp`, the wool-bound branch
+painting documented in [the Argos art handoff](../../card-game/assets/greek-drama/argos-alternates-README.md).
 Piraeus Quays lies outside the Open Door section, so that lane reaches it in
 any save; its roads inland and its stories still wait for Dione's invitation.
 Boarding keeps the ship at its harbour. The first course
@@ -161,6 +170,12 @@ The Ajax chapter adds day and night camp paintings, Tecmessa, Teucer,
 Odysseus and the shield. Its [art record](../../card-game/assets/greek-drama/AJAX-ART.md)
 lists the retained sources and prompt records.
 
+The Theban City Gate shows its closed day or night painting
+(`city-gate-closed-day.webp`, `city-gate-closed-night.webp`) unless the Gate
+Guard holds the Burial Decree at the gate. Then it shows the open gate. The
+state backdrop uses the same `holding` and `item_near` conditions as the
+battlefield road.
+
 Trojan Shores adds matching day and night paintings for Aulis Anchorage,
 the Trojan Walls, the Trojan Night Camp and the Homecoming Beach. Sixteen inventory objects gain their own transparent
 paintings, including the separate witness accounts, petitions, cloths, vessels
@@ -168,6 +183,20 @@ and grave tools. The scenery uses lossless WebP; the item PNGs keep their
 original alpha channels. The [art record](../../card-game/assets/greek-drama/trojan-shores-art-provenance.json)
 lists the selected sources, hashes, retained prompts and known provenance gaps.
 The paintings follow each place's existing access and story conditions.
+
+The onboard deck now selects the open-sea day or night painting only while
+the saved voyage is at sea. Docked, course and arrived states retain the
+coastal deck, and the boarding card retains its outside view. These are
+matched complete paintings from the ship art handoff.
+
+The four existing Atreid places use the matched House of Atreus paintings
+and their night counterparts. Their saved account requirements remain in
+force. All four share a stage focus of 31% across and 50% down, keeping the
+doorway visible on narrow phones. This prepares the art in the full-scope
+world; the Argos release and the planned folding into one House remain part
+of the small-worlds pilot. Crossroads and Corinth/Troezen still need their art.
+`smoke-card-painted-travel.mjs` checks the actual ship phases and all eight
+Argos paintings at desktop/phone widths, including the doorway and save reload.
 
 Card faces show large art and small names. Actions describe immediate deeds.
 Each story has one short line, which the cast uses in Talk. The Bard gives the growing poem.

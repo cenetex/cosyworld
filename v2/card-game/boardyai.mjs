@@ -9,10 +9,11 @@ export const connectedHumans = (world) =>
     : [];
 export const boardyActive = (world) => connectedHumans(world).length >= 2;
 
+// Facts only: where Boardy's home is and where each human was last seen.
+// His temperament lives in the persona, not in authored first-person lines.
 export function boardyFacts(world, nameOf) {
   const here = world.actors[BOARDY].place;
   return [
-    "I like meeting the people who travel here, and I rest at home between journeys.",
     "My home is BoardyAI's Parlour. My calling card opens its door at Empty station, held or left there.",
     ...connectedHumans(world).map((id) =>
       world.actors[id].place === here

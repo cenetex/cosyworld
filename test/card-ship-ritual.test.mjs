@@ -67,8 +67,9 @@ function act(s, kind, item, target) {
 }
 const cover = (s) => act(s, "cover", "cloth", "lamp");
 const uncover = (s) => act(s, "take", "cloth");
+// One cover and one uncover of the burning lamp are the whole signal.
 const cycle = (s) => uncover(cover(s));
-const summon = (s) => cycle(cycle(s));
+const summon = cycle;
 const reload = (s) => decodeSave(encodeSave(s));
 function visible(s, yes) {
   assert.equal(greekShipPresent(s), yes);
@@ -111,22 +112,21 @@ test("lighting the lamp alone never summons a ship", () => {
   assert.equal(shipSignalPhase(s), 0);
   visible(s, false);
 });
-test("a burning lamp summons the ship after cover, uncover, cover, uncover", () => {
+test("a burning lamp summons the ship after one cover and uncover", () => {
   let s = pond();
   visible(s, false);
   for (const [fn, phase] of [
     [cover, 1],
     [uncover, 2],
-    [cover, 3],
-    [uncover, 4],
   ]) {
     s = fn(s);
     assert.equal(shipSignalPhase(s), phase);
-    visible(s, phase === 4);
+    visible(s, phase === 2);
   }
   assert.equal(s.items.cloth.holder, "vale");
+  // Covering hides the flame; it never douses the lamp.
   assert.equal(s.items.lamp.lit, true);
-  assert.equal(s.items.lamp.fuel, 8);
+  assert.equal(s.items.lamp.fuel, 10);
   assert.equal(
     s.log.filter((e) => /first flash|once more|signal complete/i.test(e.text))
       .length,
@@ -135,16 +135,15 @@ test("a burning lamp summons the ship after cover, uncover, cover, uncover", () 
 });
 test("actual card pairs cover, then the Black cloth card uncovers", () => {
   let s = pond();
-  for (let i = 0; i < 2; i++) {
-    const c = cardPlay(s, ["cloth", "lamp"]).action;
-    assert.equal(c.kind, "cover");
-    s = play(s, c).state;
-    const u = cardPlay(s, ["cloth"]).action;
-    assert.equal(u.kind, "take");
-    assert.equal(u.item, "cloth");
-    assert.equal(playLabel(u), "Uncover");
-    s = play(s, u).state;
-  }
+  const c = cardPlay(s, ["cloth", "lamp"]).action;
+  assert.equal(c.kind, "cover");
+  s = play(s, c).state;
+  visible(s, false);
+  const u = cardPlay(s, ["cloth"]).action;
+  assert.equal(u.kind, "take");
+  assert.equal(u.item, "cloth");
+  assert.equal(playLabel(u), "Uncover");
+  s = play(s, u).state;
   visible(s, true);
 });
 test("two covers without the corresponding uncovers cannot count", () => {
@@ -160,11 +159,12 @@ test("uncovering a lamp already covered in a legacy save is not a complete cycle
   s.items.cloth.holder = "lamp";
   s = uncover(s);
   assert.equal(shipSignalPhase(s), 0);
-  s = cycle(s);
-  assert.equal(shipSignalPhase(s), 2);
   visible(s, false);
+  // A fresh cover and uncover after it is the whole signal.
+  s = cycle(s);
+  visible(s, true);
 });
-test("covering an unlit lamp twice does not count", () => {
+test("covering and uncovering an unlit lamp does not count", () => {
   const s = summon(pond({ lit: false }));
   assert.equal(shipSignalPhase(s), 0);
   visible(s, false);
@@ -186,19 +186,17 @@ test("each partial phase survives reload without granting an extra flash", () =>
   for (const [fn, phase] of [
     [cover, 1],
     [uncover, 2],
-    [cover, 3],
-    [uncover, 4],
   ]) {
     s = fn(s);
     const before = encodeSave(s);
     s = reload(s);
     assert.equal(encodeSave(s), before);
     assert.equal(shipSignalPhase(s), phase);
-    visible(s, phase === 4);
+    visible(s, phase === 2);
   }
 });
 test("inspection never advances the signal or spends fuel", () => {
-  const s = cycle(pond()),
+  const s = cover(pond()),
     before = encodeSave(s);
   for (let i = 0; i < 20; i++) {
     availableCards(s);
@@ -213,15 +211,16 @@ test("a rejected stale-revision uncover cannot advance a saved signal", () => {
   let s = cover(pond());
   const a = cardPlay(s, ["cloth"]).action,
     revision = s.revision;
-  s = cover(uncover(s));
+  // Waiting keeps the cover in place but moves the world past the card's revision.
+  s = act(s, "wait");
   const before = encodeSave(s);
   assert.equal(play(s, a, revision).ok, false);
   assert.equal(encodeSave(s), before);
-  assert.equal(shipSignalPhase(s), 3);
+  assert.equal(shipSignalPhase(s), 1);
   visible(s, false);
 });
 test("generated dialogue cannot summon the ship or increment the ritual", () => {
-  const s = cycle(pond()),
+  const s = cover(pond()),
     ctx = narrativeContext(s);
   const written = applyGeneratedText(s, ctx, {
     revision: ctx.revision,
@@ -231,26 +230,26 @@ test("generated dialogue cannot summon the ship or increment the ritual", () => 
       text: "A ship has arrived after a second flash.",
     })),
   });
-  assert.equal(shipSignalPhase(written), 2);
+  assert.equal(shipSignalPhase(written), 1);
   visible(written, false);
 });
 test("waiting between flashes preserves progress but continues fuel consumption", () => {
-  let s = cycle(pond());
+  let s = cover(pond());
   s = act(s, "wait");
-  assert.equal(shipSignalPhase(s), 2);
-  s = cycle(s);
+  assert.equal(shipSignalPhase(s), 1);
+  s = uncover(s);
   visible(s, true);
-  assert.equal(s.items.lamp.fuel, 7);
+  assert.equal(s.items.lamp.fuel, 9);
 });
 test("putting out the lamp resets a partial signal", () => {
-  let s = cycle(pond());
+  let s = cover(pond());
   s = act(s, "snuff", "lamp");
   assert.equal(shipSignalPhase(s), 0);
-  s = cycle(s);
+  s = uncover(s);
   visible(s, false);
 });
 test("running dry before the last uncover resets the signal", () => {
-  for (const fuel of [1, 2, 3]) {
+  for (const fuel of [1]) {
     const s = summon(pond({ fuel }));
     assert.equal(s.items.lamp.fuel, 0);
     assert.equal(shipSignalPhase(s), 0);
@@ -258,7 +257,7 @@ test("running dry before the last uncover resets the signal", () => {
   }
 });
 test("a ship stays after the final uncover uses the last fuel", () => {
-  let s = summon(pond({ fuel: 4 }));
+  let s = summon(pond({ fuel: 2 }));
   assert.equal(s.items.lamp.fuel, 0);
   assert.equal(s.items.lamp.lit, false);
   visible(s, true);
@@ -268,12 +267,13 @@ test("a ship stays after the final uncover uses the last fuel", () => {
   assert.equal(s.actors.vale.place, "greek-ship");
 });
 test("leaving the pond interrupts a half-completed ritual", () => {
-  let s = cycle(pond());
+  let s = cover(pond());
   s = act(s, "move", null, "station");
   assert.equal(shipSignalPhase(s), 0);
   s = act(s, "move", null, "pond");
-  s = cycle(s);
-  assert.equal(shipSignalPhase(s), 2);
+  // The cloth is still on the lamp; lifting it is not a whole signal.
+  s = uncover(s);
+  assert.equal(shipSignalPhase(s), 0);
   visible(s, false);
 });
 test("a summoned ship waits through bells and changes to the lamp", () => {
@@ -353,6 +353,24 @@ test("earlier saves get an unsummoned pond and keep their history and belongings
   assert.deepEqual(s.memories, old.memories);
   visible(s, false);
 });
+test("a revision 9 save keeps one cover and restarts longer marks", () => {
+  // Revision 9 counted four steps. Only a single cover still means the same.
+  for (const [phase, discovered, kept] of [
+    [1, false, 1],
+    [2, false, 0],
+    [2, true, 2],
+    [3, true, 0],
+    [4, true, 0],
+  ]) {
+    const old = pond();
+    old.packs["greek-drama"].revision = 9;
+    Object.assign(old.crossings["pond-greek-harbor"], { phase, discovered });
+    const s = decodeSave(JSON.stringify(old));
+    assert.equal(s.packs["greek-drama"].revision, 10);
+    assert.equal(shipSignalPhase(s), kept);
+    assert.equal(s.crossings["pond-greek-harbor"].discovered, discovered);
+  }
+});
 test("invalid saved signal phases fail validation", () => {
   for (const value of [-1, 5, 2.5, "3", null, {}, []]) {
     const s = pond();
@@ -362,7 +380,7 @@ test("invalid saved signal phases fail validation", () => {
   }
 });
 test("the narration does not expose a partial ritual or claim a ship is present", () => {
-  const s = cycle(pond()),
+  const s = cover(pond()),
     ctx = narrativeContext(s),
     facts = ctx.entities.find((e) => e.id === "pond").facts;
   assert(
@@ -378,8 +396,9 @@ test("the narration does not expose a partial ritual or claim a ship is present"
 import { newWant } from "../v2/card-game/want.mjs";
 test("the ship crossing preserves a want met beside a resident Vale has not met", () => {
   let s = atticOpening();
-  s = act(s, "light", "lamp");
+  s = act(s, "snuff", "lamp");
   s = act(s, "move", null, "pond");
+  s = act(s, "light", "lamp");
   s.items.cloth.holder = "pond";
   // Pip takes the oil beside the keeper, out of sight of Vale's signal.
   s.actors.moth.place = "station";
@@ -410,7 +429,7 @@ test("filling the lamp supplies enough oil for lighting and the whole ritual", (
   assert.equal(s.items.oil.holder, "station");
   s = act(s, "light", "lamp");
   s = summon(s);
-  assert.equal(s.items.lamp.fuel, 7);
+  assert.equal(s.items.lamp.fuel, 9);
   visible(s, true);
 });
 
@@ -660,7 +679,8 @@ test("older completed signals become a waiting ship and retain their history", (
     delete old.transports;
     delete old.memories["greek-ship"];
     const s = decodeSave(JSON.stringify(old));
-    assert.equal(shipSignalPhase(s), phase);
+    // Revision 10 has two steps: one cover survives, later marks start again.
+    assert.equal(shipSignalPhase(s), phase === 1 ? 1 : 0);
     visible(s, phase === 4);
     assert.deepEqual(s.log, old.log);
     // The save upgrade drops the old flask's dose count; one flask fills one lamp.

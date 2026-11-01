@@ -118,7 +118,8 @@ try {
     // The opening cards start covered; the helper uncovers, then selects.
     await selectCard(page, "vale");
     await selectCard(page, "lamp");
-    await page.locator('#card-actions button[data-action="light"]').click();
+    // The opening starts lit; dousing the lamp is its first play (#1653).
+    await page.locator('#card-actions button[data-action="snuff"]').click();
     await page.waitForFunction(
       () =>
         document

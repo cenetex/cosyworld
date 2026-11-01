@@ -11,8 +11,10 @@ line in Talk context. The same line remains through each branch.
 | Burial | Her brother waits for earth.    |
 | Return | What words will you bring home? |
 
-Card lines live in `v2/card-game/quest-cards.mjs`. The poem lives in the
-Greek pack's `recital` descriptor in `card-world.json`.
+Card lines live in `v2/card-game/quest-cards.mjs`. The poem's verses, their
+deeds and summons live in the Greek pack's `recital` descriptor in
+`card-world.json`. The couplet text lives in
+[`lore/bard-couplets.json`](lore/bard-couplets.json), keyed by verse choice.
 
 ## Meeting the bard
 
@@ -24,15 +26,20 @@ he is away from the player. Doors, route knowledge, and sea passage shape his
 journey. A blocked route creates a shared help card. He stays after arrival
 until a later quest completion gives him a new destination.
 
-His conversation context carries the whole earned poem, including verses
-earned while he travels. Each verse names the traveler whose deed earned it.
-He speaks in his own voice and can quote an earned verse again when it fits.
+His conversation context names the poem and the travelers whose deeds it
+holds, including verses earned while he travels. It carries no couplet text:
+he speaks in his own voice from world state.
 
 Permission earns a verse while the burial quest remains open. Reporting
 permission completes the return quest. A later burial opens that return
 again, with the same card line, so Dione can hear about the finished grave.
 
 ## Exact verses
+
+The Bard no longer sings these couplets. They are lore, kept intact in
+`lore/bard-couplets.json`; a follow-up makes them readable book items in the
+world. The permission report used its alternate couplet when the permitted
+burial came first.
 
 | Earned deed                     | Couplet                                                                     |
 | ------------------------------- | --------------------------------------------------------------------------- |
@@ -55,12 +62,11 @@ The song follows the durable choice receipts. An early permission report
 keeps its words after a later burial. Returning the water late places its
 verse later in the song. Each branch keeps its own outcome and report.
 
-The bard receives the full earned poem as context, with the newest lines marked
-separately. He chooses his own words and may quote, paraphrase, or reflect on
-the poem. Authored `recital.claims` links factual phrases to the earned choices
-that support them. The same speech check reads this metadata for every pack.
-Authored stanza text and attribution remain saved; ordinary story,
-observation, and custody checks ground his spoken response.
+The bard's prompt holds one fact: the poem's title and the travelers whose
+deeds it holds. He chooses his own words. Authored `recital.claims` links
+factual phrases to the earned choices that support them. The same speech
+check reads this metadata for every pack. Ordinary story, observation, and
+custody checks ground his spoken response.
 
 The pack save keeps a `recitals` record beside its choice receipts. Each
 verse records the acting human or AI and the bard's visit turn when known.

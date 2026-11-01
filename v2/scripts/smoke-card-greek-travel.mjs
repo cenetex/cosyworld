@@ -5,11 +5,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { encodeSave, legalActions } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
-import { learnLane } from "../card-game/pack-transport.mjs";
-import {
-  openDoorStart,
-  openDoorAction,
-} from "../../test/helpers/open-door.mjs";
+import { openDoorAction, openSeas } from "../../test/helpers/open-door.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 
@@ -20,20 +16,32 @@ await new Promise((done) => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({
+    headless: true,
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+      ? {
+          executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+          args: [
+            "--use-gl=angle",
+            "--use-angle=swiftshader",
+            "--enable-unsafe-swiftshader",
+          ],
+        }
+      : {}),
+  });
   for (const width of [1440, 390]) {
     const table = `greek-travel-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
-    const fixture = openDoorStart();
+    // After the plea at the Agora, the Suppliant's Olive Branch rides on deck.
+    const fixture = openSeas();
     fixture.playerActorId = "mara";
     fixture.sharedVersion = 1;
     fixture.controlledActors = ["vale", "mara"];
     fixture.presentActors = ["mara"];
     fixture.actors.mara.place = "greek-athens-harbor";
-    // Black Pond sails only to the Wine-Dark Harbor. Mara has heard the
-    // lane from Athens Harbor to Piraeus; the Travel Provisions on deck open
-    // the lane on to the Wine-Dark Harbor.
-    learnLane(fixture, "mara", "greek-athens-harbor", "greek-piraeus");
+    // Black Pond sails only to the Wine-Dark Harbor. The olive branch on
+    // deck opens the lane between Athens Harbor and Piraeus; the Travel
+    // Provisions on deck open the lane on to the Wine-Dark Harbor.
     if (fixture.items["greek-provisions"].holder !== "greek-ship")
       throw new Error("The opening fixture keeps the provisions aboard.");
     const page = await browser.newPage({
@@ -160,6 +168,25 @@ try {
       "greek-courtyard",
     ]) {
       await step("move", target);
+      if (target === "greek-ship") {
+        await selectCard(page, "greek-olive-branch", { touch: width === 390 });
+        const art = page.locator(
+          '#hand [data-card="greek-olive-branch"] .art img',
+        );
+        await art.evaluate((img) => img.decode());
+        assert.match(await art.getAttribute("src"), /olive-branch\.webp/);
+        await page.evaluate(
+          () =>
+            new Promise((done) =>
+              requestAnimationFrame(() => requestAnimationFrame(done)),
+            ),
+        );
+        await page.screenshot({
+          path: new URL(`olive-branch-${width}.png`, output).pathname,
+          fullPage: true,
+        });
+        await page.keyboard.press("Escape");
+      }
       const road = packDefinition("greek-drama").places[target]?.road;
       if (road) {
         await selectCard(page, target, { touch: width === 390 });

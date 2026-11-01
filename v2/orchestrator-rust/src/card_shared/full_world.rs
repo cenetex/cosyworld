@@ -1,6 +1,7 @@
 use super::{cast, content, engine, store::Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -32,9 +33,22 @@ pub(super) fn actor_index(id: &str) -> Result<usize> {
         .find(|a| actor_id(*a) == id)
         .ok_or_else(|| "Choose one of the eight avatars.".into())
 }
+// A shared world's run seed: the first four bytes of the SHA-256 of its ID.
+// Rules that draw specials read it from create, migrate and upgrade.
+pub(super) fn run_seed(id: &str) -> u32 {
+    let d = Sha256::digest(id.as_bytes());
+    u32::from_be_bytes([d[0], d[1], d[2], d[3]])
+}
 impl World {
     pub fn create(save: Option<&str>) -> Result<Self> {
-        let result = engine::reduce(json!({"op":"create","save":save}))?;
+        Self::seeded(save, None)
+    }
+    pub fn seeded(save: Option<&str>, seed: Option<u32>) -> Result<Self> {
+        let mut request = json!({"op":"create","save":save});
+        if let Some(seed) = seed {
+            request["seed"] = json!(seed);
+        }
+        let result = engine::reduce(request)?;
         Ok(Self {
             version: engine::VERSION.into(),
             game: result["world"].clone(),
@@ -146,6 +160,10 @@ impl World {
                 engine::FIFTY_SIXTH_VERSION,
                 engine::FIFTY_SEVENTH_VERSION,
                 engine::FIFTY_EIGHTH_VERSION,
+                engine::FIFTY_NINTH_VERSION,
+                engine::SIXTIETH_VERSION,
+                engine::SIXTY_FIRST_VERSION,
+                engine::SIXTY_SECOND_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
@@ -159,6 +177,10 @@ impl World {
             let mut request = self.request("upgrade", 0);
             request["from"] = json!(self.version);
             request["to"] = json!(target);
+            // Earlier rules ignore the seed; older records carry none.
+            if command["seed"].is_u64() {
+                request["seed"] = command["seed"].clone();
+            }
             // Rules that take content record the revision they upgraded onto.
             let pack = engine::takes_content(target)
                 .then(|| {
@@ -233,6 +255,10 @@ impl World {
             engine::FIFTY_SIXTH_VERSION,
             engine::FIFTY_SEVENTH_VERSION,
             engine::FIFTY_EIGHTH_VERSION,
+            engine::FIFTY_NINTH_VERSION,
+            engine::SIXTIETH_VERSION,
+            engine::SIXTY_FIRST_VERSION,
+            engine::SIXTY_SECOND_VERSION,
         ]
         .contains(&self.version.as_str())
         {
