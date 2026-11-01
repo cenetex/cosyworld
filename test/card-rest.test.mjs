@@ -68,6 +68,21 @@ describe("rest and sanctuary", () => {
     expect(validateWorld(s)).toBe(s);
   });
 
+  it("clears a resident's losses when it waits at a sanctuary, and only there", () => {
+    let s = createWorld();
+    s.actors.vale.place = "station";
+    s.actors.keeper.place = "attic";
+    s.actors.moth.place = "pond";
+    // Neither resident is after anything, so each waits where it is.
+    s.actors.keeper.want = s.actors.moth.want = null;
+    s.actors.keeper.metTurn = s.actors.moth.metTurn = 0;
+    s.defeats = { keeper: 2, moth: 2 };
+    s = wait(s);
+    expect(s.actors.keeper.place).toBe("attic");
+    expect(s.defeats).toEqual({ moth: 2 });
+    expect(validateWorld(s)).toBe(s);
+  });
+
   it("keeps a shared sleeper to Wait until the light changes", () => {
     let s = createWorld();
     s.sharedVersion = 1;

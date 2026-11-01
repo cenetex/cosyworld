@@ -47,10 +47,10 @@ nobody has found yet; that is fine (mystery over reachability).
 
 ## Sleep
 
-A rest is the player's own play, in solo and shared play alike. Residents idle
-with Wait all the time, so their Waits rest nobody; a resident rests where it
-meets a want, holding the next one, and that rest clears its losses (#1824). Nobody rests
-in the middle of a standoff.
+Sleep is the player's own play, in solo and shared play alike. Residents idle
+with Wait all the time, so their Waits put nobody to sleep. A resident still
+rests where it meets a want, holding the next one (#1824). Nobody rests in the
+middle of a standoff.
 
 1. The player's Wait at a sanctuary sets `actor.sleepUntil` to the next light
    change.
@@ -73,11 +73,14 @@ without `rest` mean what they always meant.
 ## Losses
 
 Three straight losses still send an avatar home with nothing in hand, and a
-win still clears the count (#1505). The old reset, "resting within three turns
-of a met want", now applies only to residents, wherever the want was met. For a player:
+win still clears the count (#1505). Players and residents share one rule
+(owner, 2026-11-01): any Wait at a sanctuary clears the count, at any time,
+whether or not a want was just met. A resident's rest where it met a want
+clears nothing unless that place is a sanctuary. For a player:
 
-- a short rest (Wait away from a sanctuary) takes one loss off the count;
-- a long rest clears the count when the avatar wakes.
+- a long rest at a sanctuary clears the count as the avatar falls asleep, and
+  waking finds it clear;
+- a short rest (Wait away from a sanctuary) takes one loss off the count.
 
 ## Dreams
 

@@ -760,7 +760,7 @@ The cast braces, answers strikes, or steps back. Threats, hits, releases, and re
 
 ### Repeated defeats
 
-Each avatar counts its defeats in a row in `defeats`. A win clears the count. A player's Wait away from a sanctuary is a short rest that takes one defeat off; a long rest at a sanctuary clears the count when the avatar wakes. A resident clears it by resting where it just met a want. Nobody rests during a standoff.
+Each avatar counts its defeats in a row in `defeats`. A win clears the count. A player's Wait away from a sanctuary is a short rest that takes one defeat off; any Wait at a sanctuary clears it, for players and residents alike and at any time; for a player that Wait is a long rest. A resident's rest where it just met a want clears nothing unless that place is a sanctuary. Nobody rests during a standoff.
 
 ### Rest and sanctuary
 
