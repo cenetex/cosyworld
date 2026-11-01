@@ -2155,6 +2155,10 @@ function returnToLive() {
   renderScene();
   if (!$("dialogue-advance").hidden) $("dialogue-advance").focus();
 }
+const litCarried = (actor) =>
+  Object.keys(world.items).find(
+    (id) => world.items[id].lit && rootHolder(world, id) === actor,
+  ) || null;
 function renderHeldItem(figure, actor, itemId) {
   let preview = figure.querySelector(".portrait-held-item");
   figure.setAttribute(
@@ -2381,7 +2385,13 @@ function renderScene() {
     image.dataset.source = actor.cutout;
     image.dataset.flip = String(flipStagePortrait(actor.cutout, actor.facing));
     figure.dataset.flip = image.dataset.flip;
-    renderHeldItem(figure, actor, id === currentActor(world) ? handItem : null);
+    // A raised hand card shows in the player's hand; otherwise a figure
+    // carrying a lit light holds it up, as Vale wakes holding the lamp.
+    renderHeldItem(
+      figure,
+      actor,
+      (id === currentActor(world) && handItem) || litCarried(id),
+    );
     figure.classList.toggle(
       "active",
       scene.activeSpeaker === id && !resolvedBeat,

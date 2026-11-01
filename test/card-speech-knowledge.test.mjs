@@ -19,6 +19,19 @@ describe("speech knows only uncovered cards (#1575)", () => {
     expect(limited.speakers).toEqual(["vale"]);
     expect(limited.entities.map(({ id }) => id)).toContain(limited.location);
     expect(limited.outcome.avatars[0].holding).toEqual([]);
+    // Vale still knows the covered thing in his hand gives light.
+    const vale = limited.entities.find(({ id }) => id === "vale");
+    expect(vale.facts).toContain("Holding: something shining I can't make out.");
+    expect(limited.events[0]).toMatch(/holding something shining I can't/);
+  });
+
+  it("blurs a cloth-covered lamp without calling it a light", () => {
+    const s = fresh();
+    s.items.cloth.holder = "lamp";
+    const limited = forgetCovered(s, narrativeContext(s), (id) => id !== "vale");
+    const vale = limited.entities.find(({ id }) => id === "vale");
+    expect(vale.facts[0]).toMatch(/^Holding: something I can't make out/);
+    expect(JSON.stringify(limited)).not.toMatch(/shining|lamp|cloth/i);
   });
 
   it("leaves the request untouched once the lamp is uncovered", () => {
