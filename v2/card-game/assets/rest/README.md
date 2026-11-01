@@ -25,6 +25,17 @@ The artwork is shared across world packs. Keep the future card title, amber or s
 
 Generation used the built-in image tool. [prompts.json](prompts.json) preserves the full prompts. [provenance.json](provenance.json) records original and encoded hashes, dimensions and encoding settings. Original PNGs are represented by their hashes; the committed WebPs preserve the complete composition without resizing or creative changes.
 
-## Delivery status
+## Delivery and validation
 
-Source paintings are complete. Public registration, smaller variants and the final validation record are being prepared on this branch.
+Both sources are registered in `public-assets.mjs`, with the following generated versions:
+
+| Painting | Full source | Card | Phone |
+| --- | --- | --- | --- |
+| Short Rest | 1024 × 1536; 285,814 bytes | 512 × 768; 110,084 bytes | 640 × 960; 142,828 bytes |
+| Long Rest | 1024 × 1536; 277,582 bytes | 512 × 768; 103,818 bytes | 640 × 960; 131,192 bytes |
+
+The card and phone versions use the official image builder's quality-88 settings. `image-variants.json` and `media-manifest.json` include all six new files. Every pre-existing record and asset remains unchanged.
+
+Local validation ran the unmodified official image and asset builders, including both `--check` modes, in an isolated fixture containing the two new sources. The actual public registry was evaluated to preserve its complete ordering. Existing manifest entries were retained byte-for-byte. The full paintings and card derivatives were visually reviewed.
+
+A full repository checkout and local browser run were unavailable in this environment (the shell network proxy and Chromium installation were unavailable). The fixture checks do not stand in for the complete repository test suite; the PR's GitHub checks provide that evidence. This is an art handoff, not a test of the pending rest-card gameplay.

@@ -40,6 +40,7 @@ import {
   REFUSED_VERBS,
 } from "./world.mjs";
 import { knownActors, wantOf } from "./want.mjs";
+import { forgetUnfound, groundedInner } from "./speech-knowledge.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 
 // A refusal reaches the brief as its committed code; the refuser's line
@@ -189,6 +190,37 @@ export function sceneryDue(turn) {
   return turn % 4 === offset;
 }
 
+// An avatar does not retell its own earlier deed ("I threatened the Keeper
+// over the Bell") unless this Talk tells it (#1850).
+function pastDeedsAside(world, id, telling) {
+  const known = world.knowledge?.known?.[id];
+  if (!known) return world;
+  const keep = Object.fromEntries(
+    Object.entries(known).filter(([factId]) => {
+      const source = world.knowledge.facts[factId]?.source;
+      return (
+        telling.includes(factId) ||
+        source?.kind !== "event" ||
+        source.actorId !== id ||
+        source.turn >= world.turn
+      );
+    }),
+  );
+  const knowledge = {
+    ...world.knowledge,
+    known: { ...world.knowledge.known, [id]: keep },
+  };
+  return { ...world, knowledge };
+}
+
+// A persona that names an item its avatar was never near stays out.
+function groundedLife(world, id) {
+  const life = world.memories[id].innerLife;
+  if (!life?.persona || groundedInner(world, id, life.persona))
+    return life || null;
+  return { ...life, persona: null };
+}
+
 export function narrativeContext(world, action = null) {
   const cast = dialogueCast(world, action);
   const {
@@ -216,6 +248,8 @@ export function narrativeContext(world, action = null) {
     location,
     playedEntry(world)?.seq,
   );
+  const told = (id) =>
+    disclosures.filter((d) => d.speaker === id).map((d) => d.factId);
   const events = world.log
     .filter(
       (entry) =>
@@ -265,7 +299,7 @@ export function narrativeContext(world, action = null) {
             ...new Set([actorId, ...(witnesses || []), ...(cast || [])]),
           ],
         }));
-  return {
+  return forgetUnfound(world, {
     revision: world.revision,
     turn: world.turn,
     outcome: turnOutcome(world),
@@ -310,10 +344,10 @@ export function narrativeContext(world, action = null) {
         ...(dreamt ? [dreamt] : []),
         ...(want ? [want] : []),
         ...knowledgeFacts(
-          world,
+          pastDeedsAside(world, id, told(id)),
           id,
           nameOf,
-          disclosures.filter((d) => d.speaker === id).map((d) => d.factId),
+          told(id),
         ),
         ...(id === BOARDY ? boardyFacts(world, nameOf) : []),
         ...recitalFacts(world, packDefinitions, id),
@@ -486,13 +520,13 @@ export function narrativeContext(world, action = null) {
         previous: beforeFirstLight ? null : world.memories[id].text,
         ...(kind === "avatar"
           ? {
-              inner_life: world.memories[id].innerLife || null,
+              inner_life: groundedLife(world, id),
               hope: null,
             }
           : {}),
       };
     }),
-  };
+  });
 }
 
 export function applyGeneratedReflections(world, context, response) {

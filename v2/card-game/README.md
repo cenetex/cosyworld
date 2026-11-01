@@ -284,7 +284,9 @@ upright at 2:3, the shape of the carved cover; an uncovered place keeps a wider,
 landscape-leaning card (4:5 on phones). The hand fans: each card overlaps the
 one before it and leans with its place in the row, and the chosen or hovered
 card comes to the front. Names stay clear of the next card's overlap and wrap
-rather than hide under it, and the hand leaves room for the outer cards' lean,
+rather than hide under it. The card after a chosen or open card moves out from
+under it, so a long name like "Road to Theban Courtyard" keeps its first
+letters. The hand leaves room for the outer cards' lean,
 the folded quest and a chosen card's lift, so nothing is clipped at its edges.
 Cards carry no count badges; opening a stack shows its cards. Tapping a card toggles
 its selection. Selecting a card or pair shows named actions in the row below.
@@ -307,16 +309,16 @@ On wide screens, the resting hand occupies two card widths at the right. Dialogu
 sits at the left. Selecting a card opens the hand across the screen and moves
 dialogue above it. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, cards fade out at an edge that hides more of the hand, and a sideways swipe stays inside the hand.
 Play stays available during an exchange. A play that has not resolved shows
-what the avatar is doing, as a rules caption from its kind: the button reads
-**Waiting…**, **Striking…** or **Travelling…** and the notice
-**Vale is waiting…**. In a local game tapping it again cancels it. Selecting another
+what the avatar is doing on its own button, as a rules caption from its kind:
+**Waiting…**, **Striking…** or **Travelling…**. In a local game tapping it again cancels it. Selecting another
 card clears the waiting play. Shared play waits for the player's current turn
 to finish, then checks the chosen action against the current table before
 sending it. There a second tap keeps the play; **Cancel play** withdraws it.
-The notice follows the player's own shared play: the same **Vale is waiting…**
-line while it is sent and played, a short **Played**, or **Not played** with
-the server's reason. A refusal stays until the next play and does not return on
-reload.
+The button keeps that caption while the shared play is sent and played.
+Nothing floats over the stage. Words the player must see, such as **Not played**
+with the server's reason, an unsaved world, a lost connection or a nudge, read
+on the action bar's status line above the hand. A refusal stays until the next
+play and does not return on reload.
 Selection, cancellation,
 drag pairing and keyboard navigation spend no turn; only a committed play does.
 The latest selected carried item appears in the player's avatar hand.
@@ -585,7 +587,7 @@ Every avatar, item, and location has a profile in `entity-profiles.json` and a s
 
 Speech receives visible facts, current wants, and witnessed results. Item and place profiles describe appearance; an avatar profile is one seed sentence. Hidden interaction rules stay in the simulation; each avatar's facts can include the quest line described in [A quest stack per avatar](#a-quest-stack-per-avatar). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until Vale first douses or relights the lamp in the attic, or leaves it.
 
-When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. A speech prompt shows the present rather than a transcript: it leaves out earlier table lines and remembered speech, and keeps one past line only when this turn's Talk is aimed at the speaker, the acting avatar's latest line that the speaker heard. A character's voice comes from its seed sentence, its facts and its own inner life; prompts carry no authored description or example lines. The `repeat` check compares a reply with the speaker's last three spoken lines, which the service reads from its memories, its previous reply and the request's table lines without putting them in the prompt. Thought, persona and dream calls still read remembered speech ([#1537](https://github.com/cenetex/cosyworld/issues/1537)). The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action; social actions and travel can start an exchange, while ordinary object manipulation can remain silent. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the words to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, combat, travel and introductions retain their relevant speakers. The departure action stays in the source scene. Words are written after the move commits, so a departed avatar's line is recorded at the destination with that place's cast; a player left at the source never sees it, and the waiting portrait does not name them there. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
+When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. A speech prompt shows the present rather than a transcript: it leaves out earlier table lines and remembered speech, and keeps one past line only when this turn's Talk is aimed at the speaker, the acting avatar's latest line that the speaker heard. A character's voice comes from its seed sentence, its facts and its own inner life; prompts carry no authored description or example lines. The `repeat` check compares a reply with the speaker's last three spoken lines, which the service reads from its memories, its previous reply and the request's table lines without putting them in the prompt. Thought, persona and dream calls still read remembered speech ([#1537](https://github.com/cenetex/cosyworld/issues/1537)). Facts name only what the speaker has found: a quest or trial target it has not talked with, visited, or (in the browser) uncovered reads as "someone I haven't met yet", an avatar does not retell its own earlier deed unless this Talk tells it, and a persona naming an item kind the avatar was never near is left out. The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action; social actions and travel can start an exchange, while ordinary object manipulation can remain silent. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the words to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, combat, travel and introductions retain their relevant speakers. The departure action stays in the source scene. Words are written after the move commits, so a departed avatar's line is recorded at the destination with that place's cast; a player left at the source never sees it, and the waiting portrait does not name them there. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
 
 Each server voice call writes one `card voice call` log record with the entity, part, attempt count, outcome (`spoken`, `untold`, `silent` or `cancelled`), each attempt's rejection reason, and approximate prompt tokens (characters / 4) for every section: `system`, `now`, `facts`, `directions`, `memories`, `earlier`, `conversation` and `inner`. It never records prompt or reply text. `GET /meta` reports the same counters since the process started under `card_voice`. `npm run v2:voice:eval` builds every prompt for the narrative-contract scenes and a scripted station conversation, prints token and section statistics, and replays the recorded replies in `test/fixtures/card-voice-replies.json` through the validator. The eval also counts first-person possession and deed claims that the resolved turn does not support (`false_claim`); the live validator does not check those yet ([#1537](https://github.com/cenetex/cosyworld/issues/1537)).
 
@@ -688,9 +690,12 @@ The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and
 
 Open **Menu → Inner life** to read your avatar's inner life as a short chain:
 **I'm** (the authored name and title, "I'm Vale. The Lamplighter."), **I'm
-becoming** (the newest reflection and thoughts) and **I dream** (recent
-dreams), closed by the avatar's name. Lines that read as an assistant talking
-about the scene are hidden. Measured attempts guide the planner and stay in
+becoming** (one current intention: the newest grounded thought, else the
+persona) and **I dream** (recent dreams), closed by the avatar's name. Lines
+that read as an assistant talking about the scene are hidden, and so are
+lines that are not first person, break their quotes, or name an item kind
+the avatar was never near ("my compass is ready"). A quest target the
+avatar has not found reads as "someone I haven't met yet". Measured attempts guide the planner and stay in
 the save; the panel does not show them. Each avatar keeps up to 32 completed plays for item and
 companionship goals. The record includes the goal, the chosen action, the
 estimate before the play, the observed result, and the exact event as evidence.
@@ -720,7 +725,11 @@ the model used for each part. Four revisions stay in the save. Thoughts stay at
 least six turns apart. A dream needs two thoughts since the last dream and at
 least 24 turns since it. These gaps apply in both modes. Shared publication commits the
 reflection with its speech through the world journal. Retrying the publication
-keeps its original play identity.
+keeps its original play identity. The server rejects a thought, persona or
+dream that is not first person, carries a `," she called` tag, or names an
+item kind the scene does not know ("my compass is ready"). It also leaves a
+kept thought or dream that names such a thing out of later prompts, so a
+retired item in an old save does not return.
 
 The server sends a player their own inner life and lessons. Resident inner life
 stays in the simulation. Other characters' public words remain on their cards.
@@ -844,7 +853,7 @@ Run `node v2/scripts/smoke-card-combat.mjs` for a lost standoff at desktop, phon
 
 Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand and action row open together over 220 milliseconds; held items slide out from their owner. A play in the same place refreshes the cards as the hand lowers, with each name moving into its resting position. Travel changes the hand under the scene veil. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Memory keep the selected cards and open items, and Escape closes the active panel before lowering the hand. Only a click outside the card area (the stage or the dialogue's beats, not the toolbar or action row), Escape, or a play folds the hand to its resting row. A click outside keeps the selection and any chosen play; the next tap on the hand only raises it again as it was. A tap on the beats while the hand is up folds the hand without stepping the beat. Selecting, changing the pair and deselecting keep it open, as do the scroll arrows and empty hand space. A held item stays raised with its plays, and any tap on the folded hand opens it again. Short landscape screens keep the hand inside the viewport.
 
-A ready or pending play's buttons sit under the dialogue, above the hand. The hand never moves for them: the dialogue rises to make room, and nothing lies between the cards and the screen edge. Beside a resting hand on a wide screen, the buttons sit under the dialogue on the left. A strike or journey that drops the hand takes the buttons with it. The action bar's status line (#1725) belongs in the same spot. Captions name a thing with one article: "Vale took the Burial Decree". `node v2/scripts/smoke-card-action-spot.mjs` checks the spot at 1440, 390 and 844 px.
+A ready or pending play's buttons sit under the dialogue, above the hand. The hand never moves for them: the dialogue rises to make room, and nothing lies between the cards and the screen edge. Beside a resting hand on a wide screen, the buttons sit under the dialogue on the left. A strike or journey that drops the hand takes the buttons with it. The action bar's status line (#1725) sits in the same spot, above the buttons. Captions name a thing with one article: "Vale took the Burial Decree". `node v2/scripts/smoke-card-action-spot.mjs` checks the spot at 1440, 390 and 844 px.
 
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
 

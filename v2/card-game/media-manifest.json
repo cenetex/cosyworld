@@ -1,5 +1,7 @@
 {
   "assets/card-back.webp": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
+  "assets/rest/short-rest.webp": "061729cfd13b522f484185c365d375192d7220ff79bc150d2ef2800fa3427e5e",
+  "assets/rest/long-rest.webp": "9cd6aea86be840fd030bfaf584c8b4f6c30641bbb104090840f92fb6d50a6a0e",
   "assets/combat/vale-attack.webp": "b5d863609adaba585435df1fbdc110c602351baa4d374f0e84b2c576b0eb13d0",
   "assets/combat/vale-hit.webp": "4642854948b727a4f2be5020d308a08e8b78f57686cdc292741c79369704d6dc",
   "assets/combat/vale-scarf-attack.webp": "fba4801e823fc6f1966e4bb272db318ea7307849979716f545442c982d18ff6d",
@@ -1618,6 +1620,10 @@
   "assets/optimized/stage/png/pond.webp": "a5958bca0a48780b86a7850f4b132a7d05a8a151e61d9988559bbf4584483ed0",
   "assets/optimized/card/png/pond.webp": "d5978146fba1928ea2952d73a8945027f10b2b8f7b2a2d221c8fa8ff9bae17e8",
   "assets/optimized/phone/png/pond.webp": "a74d766a9cee2393404d2ddd253ccbbffa7f1fa28e5907a01d40c52f282b6293",
+  "assets/optimized/card/webp/rest/long-rest.webp": "82ae1cc4112659494cdfb4f9f90a7fae1d214c1f3dbd7ad2295098a78f8df41d",
+  "assets/optimized/phone/webp/rest/long-rest.webp": "720400f1af6a5b436f65adb1dfe78894c39b5fbb04259a8078162232ce247a06",
+  "assets/optimized/card/webp/rest/short-rest.webp": "08cfa9f67a3eec18007a5ecd7e93344963c44e2f5c0820e70be9af9083a9890f",
+  "assets/optimized/phone/webp/rest/short-rest.webp": "0d2b50defdcb3098af2b821292be9bf6ee38e340470a2c304f06c922abe6c5fb",
   "assets/optimized/stage/png/shared/characters/ada-scarf.webp": "24b184bb70823012daa2bfdc117377bdd92e633b3d1a1a7040f7ea584fb321e9",
   "assets/optimized/card/png/shared/characters/ada-scarf.webp": "4173aed72cdc67ef7b773d6422cf82bad01dc3ad05a43373fac4f1caf2cc1dcf",
   "assets/optimized/phone/png/shared/characters/ada-scarf.webp": "9d081cf228d63595e64295a19582eea41e1724694ced8e59e9569c47574d6ff2",

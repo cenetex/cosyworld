@@ -1075,7 +1075,7 @@ try {
     );
     await until(
       async () =>
-        !(await page.locator("#notice").textContent()).includes(
+        !(await page.locator("#play-status").textContent()).includes(
           "Failed to fetch",
         ),
       "connection notice clears after recovery",
@@ -1128,7 +1128,7 @@ try {
     const bounds = await retry.boundingBox();
     assert(bounds.width <= 32 && bounds.height <= 32);
     assert.doesNotMatch(
-      await vale.locator("#notice").innerText(),
+      await vale.locator("#play-status").innerText(),
       /play is saved|503/i,
     );
     const before = (await snapshot(vale)).world;

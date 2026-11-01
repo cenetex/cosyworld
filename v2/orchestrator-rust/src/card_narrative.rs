@@ -29,6 +29,9 @@ mod custody;
 mod dream;
 #[path = "card_narrative/expression.rs"]
 mod expression;
+#[path = "card_narrative/grounding.rs"]
+mod grounding;
+use grounding::{dialogue_tag, first_person, grounded, invents_item};
 #[path = "card_narrative/knowledge.rs"]
 mod knowledge;
 #[path = "card_narrative/observations.rs"]
@@ -1565,10 +1568,16 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         let fresh = |m: &&InnerMoment, turns: u64| {
             part != Part::Line || context.turn <= m.turn.saturating_add(turns)
         };
-        if let Some(thought) = life.thoughts.last().filter(|m| fresh(m, THOUGHT_GAP)) {
+        let known = known(context);
+        let kept = |m: &&InnerMoment| grounded(&m.text, &known);
+        if let Some(thought) = life
+            .thoughts
+            .last()
+            .filter(|m| fresh(m, THOUGHT_GAP) && kept(m))
+        {
             lines.push((Section::Inner, format!("On my mind: {}", thought.text)));
         }
-        if let Some(dream) = life.dreams.last().filter(|m| fresh(m, 2)) {
+        if let Some(dream) = life.dreams.last().filter(|m| fresh(m, 2) && kept(m)) {
             lines.push((Section::Inner, format!("I dreamed: {}", dream.text)));
         }
     }
@@ -2311,9 +2320,7 @@ impl<'a> Check<'a> {
         // A line wrapped in its own dialogue tag (`hit you back," I say,
         // keeping my hand…`) leaves a stray quote or tags its speaker.
         let marks = kept.matches(['"', '\u{201c}', '\u{201d}']).count();
-        if kind(&self.entity.id, "avatar")
-            && (marks % 2 == 1 || [",\" I ", ",\u{201d} I "].iter().any(|t| kept.contains(t)))
-        {
+        if kind(&self.entity.id, "avatar") && (marks % 2 == 1 || dialogue_tag(&kept)) {
             return Err("narration tag");
         }
         let spoken = words(&freely_spoken);
@@ -2326,6 +2333,17 @@ impl<'a> Check<'a> {
             })
         {
             return Err("echoed brief");
+        }
+        // Inner life is the avatar's own first person, about things the
+        // scene knows: no narrator ("Myrto is a practical sort") and no
+        // invented item ("my compass is ready") (#1850).
+        if self.part != Part::Line && kind(&self.entity.id, "avatar") {
+            if !first_person(&kept) {
+                return Err("third person");
+            }
+            if invents_item(&kept, &self.known) {
+                return Err("unknown item");
+            }
         }
         Ok(kept)
     }
@@ -2657,6 +2675,22 @@ mod tests {
         ] {
             assert_eq!(thought.clean(raw, true), Err("echoed brief"), "{raw}");
         }
+        // Inner life is first person about known things (#1850).
+        for (raw, reason) in [
+            (
+                "Myrto, the shipmaster, is a practical sort.",
+                "third person",
+            ),
+            ("My compass is ready.", "unknown item"),
+            ("The map's right here, I know it.", "unknown item"),
+            (
+                "Over here first,\u{201d} she called. I go.",
+                "narration tag",
+            ),
+        ] {
+            assert_eq!(thought.clean(raw, true), Err(reason), "{raw}");
+        }
+        assert!(thought.clean("I hold my breath and wait.", true).is_ok());
         // A word emphasised mid-sentence keeps its word; directions still go.
         assert_eq!(
             clean("The rhythmic *click* of boots reaches my sleeves."),

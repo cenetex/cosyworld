@@ -1,4 +1,5 @@
-// The player's own shared play says whether it is queued, sent, played or refused.
+// The player's own shared play shows on its button while sent and playing,
+// and a refusal names its reason on the action bar's status line.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -95,8 +96,10 @@ async function check(width) {
       });
     },
   );
+  // Nothing floats over the stage: a pending play reads on its button, and
+  // only a refusal takes the action bar's status line.
   const status = () =>
-    page.locator("#notice").evaluate((element) => ({
+    page.locator("#play-status").evaluate((element) => ({
       text: element.hidden ? "" : element.textContent,
       state: element.dataset.playStatus,
     }));
@@ -104,12 +107,19 @@ async function check(width) {
     page.waitForFunction(
       (text) =>
         text === ""
-          ? document.querySelector("#notice").hidden
-          : document.querySelector("#notice").textContent === text,
+          ? document.querySelector("#play-status").hidden
+          : document.querySelector("#play-status").textContent === text,
       text,
     );
   const wait = page.locator('#card-actions [data-action="wait"]');
   const cancel = page.locator("#card-actions [data-cancel-play]");
+  const sent = (state) =>
+    page.waitForFunction(
+      (state) =>
+        document.querySelector('#card-actions [data-action="wait"]')?.dataset
+          .sent === state,
+      state,
+    );
   // A sent play leaves the hand; selecting Vale again shows its pill.
   const chooseWait = async () => {
     if (!(await wait.isVisible()))
@@ -119,23 +129,23 @@ async function check(width) {
   try {
     await page.goto(`${origin}/?world=status`);
     await page.waitForFunction(() => document.body.inert === false);
+    assert.equal(await page.locator("#notice").count(), 0, "no notice box");
 
     // Sent for the round, then playing, then committed.
     await chooseWait();
     await wait.click();
-    await waitFor("Vale is waiting…");
-    assert.equal((await status()).state, "sent");
-    assert.equal(await cancel.isVisible(), true);
+    await cancel.waitFor();
     await chooseWait();
+    await sent("sent");
     assert.equal(await wait.innerText(), "Waiting…");
+    assert.equal((await status()).text, "");
     // A second choice waits for the first; it cancels with its own control.
     await wait.click();
-    await waitFor("Vale is waiting…");
     assert.equal(await wait.innerText(), "Waiting…");
     await page.waitForTimeout(400);
     assert.equal(keys.length, 1);
     await cancel.click();
-    await waitFor("Vale is waiting…");
+    await sent("sent");
     assert.equal(await wait.innerText(), "Waiting…");
     assert.deepEqual(cancels, []);
     assert.equal(queue.length, 1);
@@ -143,20 +153,19 @@ async function check(width) {
       path: resolve(output, `sent-${width}.png`),
     });
     queue[0].status = "working";
-    await page.waitForFunction(
-      () => document.querySelector("#notice").dataset.playStatus === "playing",
-    );
-    assert.equal((await status()).text, "Vale is waiting…");
+    await sent("playing");
+    assert.equal((await status()).text, "");
     commit();
-    await waitFor("Played: Wait.");
-    assert.equal((await status()).state, "played");
-    await waitFor("");
+    await page.waitForFunction(
+      () => !document.querySelector("#card-actions [data-sent]"),
+    );
+    assert.equal((await status()).text, "");
     assert.equal(world.turn, 1);
 
     // A refused play names its reason and stays until the next play.
     await chooseWait();
     await wait.click();
-    await waitFor("Vale is waiting…");
+    await cancel.waitFor();
     queue = [];
     notice = refusal;
     await waitFor(`Not played: Wait. ${refusal}`);
@@ -168,7 +177,7 @@ async function check(width) {
     });
     await chooseWait();
     await wait.click();
-    await waitFor("Vale is waiting…");
+    await waitFor("");
 
     // The visible control withdraws the queued play.
     await cancel.click();

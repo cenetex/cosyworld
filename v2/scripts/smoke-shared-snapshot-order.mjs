@@ -116,22 +116,19 @@ async function checkPlayRecovery(width, scenario) {
         ? "Not played: Wait. Choose a current play."
         : "The connection paused. Check the table, then try again.";
     await page.waitForFunction(
-      (text) => document.querySelector("#notice").textContent === text,
+      (text) => document.querySelector("#play-status").textContent === text,
       expected,
     );
     releasePolls = true;
-    if (["accepted", "accepted-poll-error"].includes(scenario))
+    // A recovered play that is queued or played retires the cue; its button
+    // shows the pending play.
+    if (["accepted", "accepted-poll-error", "queued"].includes(scenario))
       await page.waitForFunction(
-        () => document.querySelector("#notice").hidden,
-      );
-    else if (scenario === "queued")
-      await page.waitForFunction(
-        () =>
-          document.querySelector("#notice").textContent === "Vale is waiting…",
+        () => document.querySelector("#play-status").hidden,
       );
     else if (scenario === "new-notice")
       await page.waitForFunction(
-        (text) => document.querySelector("#notice").textContent === text,
+        (text) => document.querySelector("#play-status").textContent === text,
         otherNotice,
       );
     await page.waitForTimeout(2200);
@@ -143,18 +140,21 @@ async function checkPlayRecovery(width, scenario) {
     );
     assert.equal(world.turn, scenario === "validation" ? 0 : 1);
     if (unaccepted || scenario === "validation")
-      assert.equal(await page.locator("#notice").textContent(), expected);
+      assert.equal(await page.locator("#play-status").textContent(), expected);
     if (scenario === "new-notice")
-      assert.equal(await page.locator("#notice").textContent(), otherNotice);
+      assert.equal(
+        await page.locator("#play-status").textContent(),
+        otherNotice,
+      );
     if (scenario.startsWith("unaccepted-retry")) {
       const validation = scenario.endsWith("validation");
       await page.locator('#card-actions [data-action="wait"]').click();
       await page.waitForFunction(
         (validation) =>
           validation
-            ? document.querySelector("#notice").textContent ===
+            ? document.querySelector("#play-status").textContent ===
               "Not played: Wait. Choose a current play."
-            : document.querySelector("#notice").hidden,
+            : document.querySelector("#play-status").hidden,
         validation,
       );
       failAfterRetry = true;
@@ -162,12 +162,14 @@ async function checkPlayRecovery(width, scenario) {
       assert(pollFailed);
       if (validation)
         assert.equal(
-          await page.locator("#notice").textContent(),
+          await page.locator("#play-status").textContent(),
           "Not played: Wait. Choose a current play.",
         );
       else
         assert(
-          await page.locator("#notice").evaluate((element) => element.hidden),
+          await page
+            .locator("#play-status")
+            .evaluate((element) => element.hidden),
           "A successful new play retires its earlier retry cue.",
         );
       assert.equal(keys.length, 2);

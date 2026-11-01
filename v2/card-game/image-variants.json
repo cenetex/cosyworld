@@ -4121,6 +4121,24 @@
       "phone": "assets/optimized/phone/png/pond.webp",
       "phoneHash": "a74d766a9cee2393404d2ddd253ccbbffa7f1fa28e5907a01d40c52f282b6293"
     },
+    "assets/rest/long-rest.webp": {
+      "sourceHash": "9cd6aea86be840fd030bfaf584c8b4f6c30641bbb104090840f92fb6d50a6a0e",
+      "stage": "assets/rest/long-rest.webp",
+      "stageHash": "9cd6aea86be840fd030bfaf584c8b4f6c30641bbb104090840f92fb6d50a6a0e",
+      "card": "assets/optimized/card/webp/rest/long-rest.webp",
+      "cardHash": "82ae1cc4112659494cdfb4f9f90a7fae1d214c1f3dbd7ad2295098a78f8df41d",
+      "phone": "assets/optimized/phone/webp/rest/long-rest.webp",
+      "phoneHash": "720400f1af6a5b436f65adb1dfe78894c39b5fbb04259a8078162232ce247a06"
+    },
+    "assets/rest/short-rest.webp": {
+      "sourceHash": "061729cfd13b522f484185c365d375192d7220ff79bc150d2ef2800fa3427e5e",
+      "stage": "assets/rest/short-rest.webp",
+      "stageHash": "061729cfd13b522f484185c365d375192d7220ff79bc150d2ef2800fa3427e5e",
+      "card": "assets/optimized/card/webp/rest/short-rest.webp",
+      "cardHash": "08cfa9f67a3eec18007a5ecd7e93344963c44e2f5c0820e70be9af9083a9890f",
+      "phone": "assets/optimized/phone/webp/rest/short-rest.webp",
+      "phoneHash": "0d2b50defdcb3098af2b821292be9bf6ee38e340470a2c304f06c922abe6c5fb"
+    },
     "assets/shared/characters/ada-scarf.png": {
       "sourceHash": "401bf9cc37ba4bb8ebcfaae2fa45b9e3126e197d1a6e482da7bf006b63b98c8f",
       "stage": "assets/optimized/stage/png/shared/characters/ada-scarf.webp",

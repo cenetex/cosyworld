@@ -141,22 +141,3 @@ button.shared-play-avatar:focus-visible {
   padding: 6px 12px;
   font-size: 13px;
 }
-
-#notice {
-  position: fixed;
-  z-index: 11;
-  top: 64px;
-  inset-inline: 16px;
-  width: fit-content;
-  max-width: calc(100vw - 32px);
-  margin-inline: auto;
-  border-radius: 6px;
-  background: #332c20f2;
-  box-shadow: 0 4px 18px #0006;
-  pointer-events: none;
-}
-@media (max-width: 700px) {
-  #notice {
-    top: 56px;
-  }
-}
