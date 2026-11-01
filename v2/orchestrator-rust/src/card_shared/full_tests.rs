@@ -693,10 +693,11 @@ fn full_world_bard_visit_and_song_replay_from_the_journal() {
     w.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
     w.game["actors"]["vale"]["place"] = json!("greek-courtyard");
     w.game["items"]["greek-water-jar"]["holder"] = json!("vale");
-    // The Bard has no want of its own yet, so it stays content in the
+    // Every avatar now holds a want (#1700), and the Bard's would take it
+    // off along the roads. Clearing it keeps the Bard content in the
     // courtyard while Vale's deeds enter its song.
     w.game["actors"]["greek-rhapsode"]["place"] = json!("greek-courtyard");
-    assert!(w.game["actors"]["greek-rhapsode"]["want"].is_null());
+    w.game["actors"]["greek-rhapsode"]["want"] = json!(null);
     full_store::seed(&c, &id, &w, "bard-test", now()).unwrap();
     for op in ["claim", "enter"] {
         full_store::commit(&c, &id, &mut w, json!({"op":op,"actor":"vale"}), now()).unwrap();

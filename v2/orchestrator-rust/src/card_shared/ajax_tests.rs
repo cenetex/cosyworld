@@ -473,6 +473,12 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             }
             let mut saved = saved.clone();
             saved.as_object_mut().unwrap().remove("progress");
+            // Greek revision 12 retired the Underworld Landing into Colonus.
+            for field in ["place", "home"] {
+                if saved[field] == "greek-underworld" {
+                    saved[field] = json!("greek-colonus");
+                }
+            }
             for field in ["want", "xp", "visited", "talked", "metTurn", "gaveUp"] {
                 retained.as_object_mut().unwrap().remove(field);
                 saved.as_object_mut().unwrap().remove(field);
