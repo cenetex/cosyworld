@@ -31,7 +31,17 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
 
 - **A player owns one of each avatar**: Vale, Mara, Ash, Nell, Tavi, Rue, Orin
   and Ada, just as each world has one of each.
-- **Each of a player's avatars is in at most one world**, local or shared.
+- **Each of a player's avatars is played in one world at a time**, local or
+  shared. Moving to another shared world keeps the avatar the person took in
+  the old one: their passkey is bound to it there, and they return as it
+  (#1825).
+- **Nobody takes over an avatar.** In a shared world an avatar belongs to the
+  passkey that took it, even after Leave. A friend's link shows it "Taken";
+  a person bound there sees only "Return as *Mara*"; with all eight taken the
+  world is full ("This world is full"). The world's owner can free a place:
+  ☰ lists "Avatars taken here" with **Delete *Mara***, which asks with a
+  second tap and starts that avatar over as a fresh level-1 starter that
+  leaves everything where it stood.
 - **A player has at most one avatar in a world.** The server already enforces
   this (`card_members` holds one row per account and world). Two avatars of one
   person in one room would fill two of its four seats, would let one person
@@ -60,8 +70,10 @@ Tapping a row opens its actions:
   "*The Quiet Ferry* keeps Mara's things." Moving out of a local world warns
   first: "*Hollowmere* will be lost, with Mara's level and quest there. There
   is no way back to it."
-- **Leave** asks once: "Leave *Hollowmere*? Vale's things stay there." In a
-  shared world it releases the claim. In a local world it archives the save
+- **Leave** asks once. In a shared world: "Leave *Hollowmere*? Vale stays
+  yours there, with Vale's things." It releases the claim and keeps the
+  binding. The full-room screen offers **Leave** in place of the old "Release
+  this avatar". In a local world it archives the save
   (`.bak`, as New game does today), and the menu offers no way back to it, so
   it asks with the same warning as Move (#1825).
 - **Delete world** removes a local world's save and its backup. The button
@@ -70,7 +82,8 @@ Tapping a row opens its actions:
   the table opens the next avatar's world, or a fresh one. The server has no
   world delete, so a shared world offers only Leave.
 - **New world** starts a local world for that avatar.
-- **Join** lists named worlds you own or were invited to that have room.
+- **Join** lists named worlds you own or were invited to that have room, and
+  worlds where this person returns as that avatar.
 
 A friend's link opens "Join *Lanternfall*": your free avatars first, then
 avatars that are elsewhere ("in *The Quiet Ferry* · move"), then avatars taken
