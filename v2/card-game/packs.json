@@ -10289,7 +10289,7 @@
               "value": true
             }
           ],
-          "on": "meet"
+          "on": "talk"
         },
         {
           "id": "forest-tell-hearth",
@@ -10317,7 +10317,7 @@
               "value": true
             }
           ],
-          "on": "meet"
+          "on": "talk"
         },
         {
           "id": "forest-leave-charm",
@@ -10951,7 +10951,7 @@
               "value": true
             }
           ],
-          "on": "meet"
+          "on": "talk"
         }
       ],
       "topics": [

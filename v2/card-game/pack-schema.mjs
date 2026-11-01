@@ -1146,6 +1146,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           c.on === "meet" ||
           c.on === "wait" ||
           (c.on === "depart" && Boolean(avatars[c.subject])) ||
+          (c.on === "talk" && Boolean(avatars[c.subject])) ||
           (c.on === "give" &&
             (c.requires || []).some(
               (r) => r.kind === "holding" && r.role === "actor",

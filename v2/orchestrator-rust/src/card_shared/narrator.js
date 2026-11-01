@@ -1530,7 +1530,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 16,
+        revision: 17,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -1587,8 +1587,7 @@
               "greek-road-thebes",
               "greek-well",
               "greek-palace",
-              "greek-gate",
-              "greek-sanctuary"
+              "greek-gate"
             ],
             backdrop: "assets/greek-drama/courtyard-day.webp",
             persona: "Bread cools beneath a cloth. An empty place remains at the common table."
@@ -1599,6 +1598,7 @@
             exits: [
               "greek-courtyard"
             ],
+            within: "greek-courtyard",
             backdrop: "assets/greek-drama/market-well-day.webp",
             persona: "Water jars stand beside the well. Neighbors lower their voices when palace servants pass."
           },
@@ -1606,7 +1606,8 @@
             name: "Theban Palace Forecourt",
             text: "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
             exits: [
-              "greek-courtyard"
+              "greek-courtyard",
+              "greek-sanctuary"
             ],
             backdrop: "assets/greek-drama/palace-day.webp",
             persona: "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders."
@@ -1675,7 +1676,7 @@
             name: "The Hillside Sanctuary",
             text: "Olive trees shade a small altar. A stone basin stands beneath its roof.",
             exits: [
-              "greek-courtyard"
+              "greek-palace"
             ],
             backdrop: "assets/greek-drama/sanctuary-dawn.webp",
             persona: "Olive trees shade a small altar. A stone basin stands beneath its roof."
@@ -11504,7 +11505,7 @@
                 value: true
               }
             ],
-            on: "meet"
+            on: "talk"
           },
           {
             id: "forest-tell-hearth",
@@ -11532,7 +11533,7 @@
                 value: true
               }
             ],
-            on: "meet"
+            on: "talk"
           },
           {
             id: "forest-leave-charm",
@@ -12166,7 +12167,7 @@
                 value: true
               }
             ],
-            on: "meet"
+            on: "talk"
           }
         ],
         topics: [
@@ -13392,7 +13393,7 @@
           "workId",
           "on",
           "for"
-        ]) && idOk(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "depart" && Boolean(avatars[c.subject]) || c.on === "give" && (c.requires || []).some(
+        ]) && idOk(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "depart" && Boolean(avatars[c.subject]) || c.on === "talk" && Boolean(avatars[c.subject]) || c.on === "give" && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor"
         ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && !choiceIds.has(c.id) && own.includes(c.subject) && owns2(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
         `choice ${c.id} is invalid`
@@ -15397,6 +15398,7 @@
       upgradeGreekDistrictRoadsSave(s);
       upgradeGreekOpenDoorSave(s);
       upgradeGreekEastSeaSave(s);
+      upgradeGreekThreeLinksSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -15607,6 +15609,13 @@
     if (state && (state.phase > 2 || state.phase === 2 && !state.discovered))
       state.phase = 0;
     saved.revision = 10;
+  }
+  function upgradeGreekThreeLinksSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 17 || saved?.revision !== 16) return;
+    foldRetiredRoads(s);
+    saved.revision = 17;
   }
   function upgradeGreekDistrictRoadsSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
@@ -17274,9 +17283,665 @@
     ]
   );
 
+  // v2/card-game/assets/combat/cast-roster.json
+  var cast_roster_default = {
+    schemaVersion: 1,
+    referenceCommit: "037c155514965c20af6762eb389db2c2c2794a9a",
+    identities: [
+      {
+        stem: "badger",
+        actorIds: [
+          "badger"
+        ],
+        name: "Grumpy Badger",
+        reference: "assets/badger-forest/badger-grumpy.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-antigone",
+        actorIds: [
+          "greek-antigone"
+        ],
+        name: "Antigone",
+        reference: "assets/greek-drama/chthonic-antigone.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-ismene",
+        actorIds: [
+          "greek-ismene"
+        ],
+        name: "Ismene",
+        reference: "assets/greek-drama/chthonic-ismene.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-creon",
+        actorIds: [
+          "greek-creon"
+        ],
+        name: "Creon",
+        reference: "assets/greek-drama/chthonic-creon.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-guard",
+        actorIds: [
+          "greek-guard"
+        ],
+        name: "The Gate Guard",
+        reference: "assets/greek-drama/chthonic-guard.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-baker",
+        actorIds: [
+          "greek-baker"
+        ],
+        name: "Dione the Baker",
+        reference: "assets/greek-drama/chthonic-baker.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-elder",
+        actorIds: [
+          "greek-elder"
+        ],
+        name: "The Chorus Elder",
+        reference: "assets/greek-drama/chthonic-elder.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-shipmaster",
+        actorIds: [
+          "greek-shipmaster"
+        ],
+        name: "Myrto the Shipmaster",
+        reference: "assets/greek-drama/chthonic-shipmaster.png",
+        nativeFacing: "left",
+        poses: [
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-rhapsode",
+        actorIds: [
+          "greek-rhapsode"
+        ],
+        name: "The Bard",
+        reference: "assets/greek-drama/chthonic-singer.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "greek-market-neighbor",
+        actorIds: [
+          "greek-market-neighbor"
+        ],
+        name: "The Agora Neighbor",
+        reference: "assets/greek-drama/chthonic-neighbor.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "greek-temple-attendant",
+        actorIds: [
+          "greek-temple-attendant"
+        ],
+        name: "The Delphic Attendant",
+        reference: "assets/greek-drama/chthonic-attendant.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "greek-ferryman",
+        actorIds: [
+          "greek-ferryman"
+        ],
+        name: "The Lower Ferryman",
+        reference: "assets/greek-drama/chthonic-ferryman.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "greek-helen-egypt",
+        actorIds: [
+          "greek-helen-egypt",
+          "greek-helen-troy"
+        ],
+        name: "Helen",
+        reference: "assets/greek-drama/chthonic-helen.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "greek-menelaus-egypt",
+        actorIds: [
+          "greek-menelaus-egypt",
+          "greek-menelaus-troy"
+        ],
+        name: "Menelaus",
+        reference: "assets/greek-drama/chthonic-menelaus.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "greek-electra-aeschylus",
+        actorIds: [
+          "greek-electra-aeschylus",
+          "greek-electra-sophocles",
+          "greek-electra-euripides"
+        ],
+        name: "Electra",
+        reference: "assets/greek-drama/chthonic-electra.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "greek-orestes-aeschylus",
+        actorIds: [
+          "greek-orestes-aeschylus",
+          "greek-orestes-sophocles",
+          "greek-orestes-euripides"
+        ],
+        name: "Orestes",
+        reference: "assets/greek-drama/chthonic-orestes.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-aethra",
+        actorIds: [
+          "greek-aethra"
+        ],
+        name: "Aethra",
+        reference: "assets/greek-drama/open-door-aethra.webp",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-adrastus",
+        actorIds: [
+          "greek-adrastus"
+        ],
+        name: "Adrastus",
+        reference: "assets/greek-drama/open-door-adrastus.webp",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-argive-mother",
+        actorIds: [
+          "greek-argive-mother"
+        ],
+        name: "An Argive Mother",
+        reference: "assets/greek-drama/open-door-mother.webp",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-iphis",
+        actorIds: [
+          "greek-iphis"
+        ],
+        name: "Iphis",
+        reference: "assets/greek-drama/open-door-iphis.webp",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-theseus",
+        actorIds: [
+          "greek-theseus"
+        ],
+        name: "Theseus",
+        reference: "assets/greek-drama/open-door-theseus.webp",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-quay-host",
+        actorIds: [
+          "greek-quay-host"
+        ],
+        name: "Thaleia the Quay Host",
+        reference: "assets/greek-drama/open-door-quay-host.webp",
+        nativeFacing: "left",
+        poses: [
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-colonus-keeper",
+        actorIds: [
+          "greek-colonus-keeper"
+        ],
+        name: "The Grove Keeper",
+        reference: "assets/greek-drama/open-door-grove-keeper.webp",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "greek-marathon-keeper",
+        actorIds: [
+          "greek-marathon-keeper"
+        ],
+        name: "The Altar Keeper",
+        reference: "assets/greek-drama/open-door-altar-keeper.webp",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "greek-household-witness",
+        actorIds: [
+          "greek-household-witness"
+        ],
+        name: "Myrine of Argos",
+        reference: "assets/greek-drama/myrine.webp",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "greek-ajax-tecmessa",
+        actorIds: [
+          "greek-ajax-tecmessa"
+        ],
+        name: "Tecmessa",
+        reference: "assets/greek-drama/ajax-tecmessa.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "greek-ajax-teucer",
+        actorIds: [
+          "greek-ajax-teucer"
+        ],
+        name: "Teucer",
+        reference: "assets/greek-drama/ajax-teucer.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "greek-ajax-odysseus",
+        actorIds: [
+          "greek-ajax-odysseus"
+        ],
+        name: "Odysseus",
+        reference: "assets/greek-drama/ajax-odysseus.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "hoppycat-tapi-lilt",
+        actorIds: [
+          "hoppycat-tapi-lilt"
+        ],
+        name: "Tapi Lilt",
+        reference: "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "hoppycat-penny-vellum",
+        actorIds: [
+          "hoppycat-penny-vellum"
+        ],
+        name: "Penny Vellum",
+        reference: "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "hoppycat-rill-current",
+        actorIds: [
+          "hoppycat-rill-current"
+        ],
+        name: "Rill Current",
+        reference: "assets/hoppycat-archive/hoppycat-rill-current-cutout.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "hoppycat-patch-fern",
+        actorIds: [
+          "hoppycat-patch-fern"
+        ],
+        name: "Patch Fern",
+        reference: "assets/hoppycat-archive/hoppycat-patch-fern-cutout.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "hoppycat-lumen-facet",
+        actorIds: [
+          "hoppycat-lumen-facet"
+        ],
+        name: "Lumen Facet",
+        reference: "assets/hoppycat-archive/hoppycat-lumen-facet-cutout.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "hoppycat-mira-meraki",
+        actorIds: [
+          "hoppycat-mira-meraki"
+        ],
+        name: "Mira Meraki",
+        reference: "assets/hoppycat-archive/hoppycat-mira-meraki-cutout.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "hoppycat-glim-twice",
+        actorIds: [
+          "hoppycat-glim-twice"
+        ],
+        name: "Glim Twice",
+        reference: "assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "hoppycat-nix-fermata",
+        actorIds: [
+          "hoppycat-nix-fermata"
+        ],
+        name: "Nix Fermata",
+        reference: "assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "hoppycat-hoppy-cat",
+        actorIds: [
+          "hoppycat-hoppy-cat"
+        ],
+        name: "Hoppy Cat",
+        reference: "assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "hoppycat-fable",
+        actorIds: [
+          "hoppycat-fable"
+        ],
+        name: "Fable",
+        reference: "assets/hoppycat-archive/hoppycat-fable-cutout.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "hoppycat-phase-two",
+        actorIds: [
+          "hoppycat-phase-two"
+        ],
+        name: "Phase Two",
+        reference: "assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "hoppycat-arc",
+        actorIds: [
+          "hoppycat-arc"
+        ],
+        name: "Arc",
+        reference: "assets/hoppycat-archive/hoppycat-arc-cutout.png",
+        nativeFacing: "left",
+        poses: []
+      },
+      {
+        stem: "hoppycat-staticwashere",
+        actorIds: [
+          "hoppycat-staticwashere"
+        ],
+        name: "staticwashere",
+        reference: "assets/hoppycat-archive/hoppycat-staticwashere-cutout.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "hoppycat-solwashere",
+        actorIds: [
+          "hoppycat-solwashere"
+        ],
+        name: "solwashere",
+        reference: "assets/hoppycat-archive/hoppycat-solwashere-cutout.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "hoppycat-ledger-opus",
+        actorIds: [
+          "hoppycat-ledger-opus"
+        ],
+        name: "Ledger (Opus 4.7)",
+        reference: "assets/hoppycat-archive/hoppycat-ledger-opus-cutout.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "hoppycat-ledger-sonnet",
+        actorIds: [
+          "hoppycat-ledger-sonnet"
+        ],
+        name: "Ledger (Sonnet 4.6)",
+        reference: "assets/hoppycat-archive/hoppycat-ledger-sonnet-cutout.png",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "willows-swede",
+        actorIds: [
+          "willows-swede"
+        ],
+        name: "The Swede",
+        reference: "assets/willows/swede.webp",
+        nativeFacing: "left",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "rati",
+        actorIds: [
+          "rati"
+        ],
+        name: "RATi",
+        reference: "assets/lonely-forest/rati.png",
+        nativeFacing: "right",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "skull",
+        actorIds: [
+          "skull"
+        ],
+        name: "Skull",
+        reference: "assets/lonely-forest/skull.png",
+        nativeFacing: "right",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "whiskerwind",
+        actorIds: [
+          "whiskerwind"
+        ],
+        name: "Whiskerwind",
+        reference: "assets/lonely-forest/whiskerwind.png",
+        nativeFacing: "right",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "oak",
+        actorIds: [
+          "oak"
+        ],
+        name: "Oak",
+        reference: "assets/lonely-forest/oak.png",
+        nativeFacing: null,
+        presentation: "backdrop",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      },
+      {
+        stem: "boardyai",
+        actorIds: [
+          "boardyai"
+        ],
+        name: "BoardyAI",
+        reference: "assets/boardyai/boardyai.png",
+        nativeFacing: "right",
+        poses: [
+          "attack",
+          "hit",
+          "guard"
+        ]
+      }
+    ]
+  };
+
+  // v2/card-game/cast-combat-art.mjs
+  var portraits = cast_roster_default.identities.filter(
+    (i) => i.presentation !== "backdrop"
+  );
+  var stems = new Map(
+    portraits.flatMap((i) => i.actorIds.map((id) => [id, i.stem]))
+  );
+  var castCombatAssets = portraits.flatMap(
+    (i) => i.poses.map((pose) => `assets/combat/${i.stem}-${pose}.webp`)
+  );
+  var castCombatFacings = (facing) => portraits.filter((i) => i.nativeFacing === facing).flatMap(
+    (i) => i.poses.map((pose) => `assets/combat/${i.stem}-${pose}.webp`)
+  );
+
   // v2/card-game/portrait-facing.mjs
   var groups = {
     right: [
+      ...castCombatFacings("right"),
       ...rarityPortraitAssets.filter((file) => file.startsWith("assets/combat/")),
       "assets/boardyai/boardyai.png",
       ...["rati", "skull", "whiskerwind"].map(
@@ -17296,6 +17961,7 @@
       )
     ],
     left: [
+      ...castCombatFacings("left"),
       ...Object.values(rarityForms).filter((form) => form.facing === "left").map((form) => form.portrait),
       ...["swede", "swede-listening", "swede-worried", "swede-seated"].map(
         (name) => `assets/willows/${name}.webp`

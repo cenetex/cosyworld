@@ -500,7 +500,9 @@ export function packGiveChoice(world, action) {
         c.subject === action.target &&
         c.requires.some(
           (r) =>
-            r.kind === "holding" && r.role === "actor" && r.item === action.item,
+            r.kind === "holding" &&
+            r.role === "actor" &&
+            r.item === action.item,
         ) &&
         choiceFeasible(world, pack, c, action.actor, "give")
       )
@@ -556,6 +558,20 @@ export function applyDeparture(world, actor, to) {
   applyPackChoice(world, leaving, { mode: "depart" });
   for (const item of Object.values(world.items))
     if (item.holder === actor) item.holder = world.actors[actor].place;
+}
+// Choices marked "on": "talk" are the effect of a traveler's Talk with their
+// subject. They are never offered as cards.
+export function packTalkChoice(world, action) {
+  if (!controlledByHuman(world, action.actor)) return null;
+  for (const pack of packDefinitions)
+    for (const c of pack.choices || [])
+      if (
+        c.on === "talk" &&
+        c.subject === action.target &&
+        choiceFeasible(world, pack, c, action.actor, "talk")
+      )
+        return { packId: pack.id, choiceId: c.id, actor: action.actor };
+  return null;
 }
 export function applyPackChoice(
   world,
