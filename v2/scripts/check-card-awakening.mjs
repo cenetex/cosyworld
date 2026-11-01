@@ -130,7 +130,21 @@ try {
   await page.screenshot({ path: "output/badger-check/desktop-asleep.png" });
   const before = (await state()).turn;
   await page.locator('[data-card="badger"]').focus();
+  // The badger arrives covered: the first press uncovers it, and a press
+  // during the reveal only finishes it, so wait before selecting.
   await page.keyboard.press("Enter");
+  await page.waitForFunction(
+    () =>
+      document.querySelector('[data-card="badger"]')?.dataset.unrevealed ===
+        "false" &&
+      !document.querySelector('[data-card="badger"]')?.dataset.revealing,
+  );
+  await page.locator('[data-card="badger"]').focus();
+  await page.keyboard.press("Enter");
+  assert.equal(
+    await page.locator('[data-card="badger"]').getAttribute("aria-pressed"),
+    "true",
+  );
   assert.equal((await state()).turn, before);
   await page.keyboard.press("Escape");
   assert.equal(
