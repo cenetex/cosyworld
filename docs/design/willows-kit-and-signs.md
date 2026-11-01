@@ -1,4 +1,4 @@
-# The Willows: a scattered kit, Observed signs and the notebook
+# The Willows: a scattered kit, signs found by waiting and the notebook
 
 Status: in progress, 2026-10-31. Issues #1626, #1629, #1581, #1622, #1575.
 

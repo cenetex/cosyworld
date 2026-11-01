@@ -9,8 +9,8 @@ Status: decided by the owner on #1648 (2026-11-01). It ships with level quests
   `"sanctuary": true`. Each world has exactly one. The Willows has none,
   because its camp is not safe at night ([Willows horror](willows-horror.md)).
   The ship is not a sanctuary. The engine never names a place.
-- **Wait is the only rest.** There is no Rest card. The Wait card (shown as
-  Observe) keeps its one verb, `wait`, everywhere.
+- **Wait is the only rest.** There is no Rest card. The Wait card keeps its one
+  verb, `wait`, everywhere.
 - **Long rest.** Wait at a sanctuary puts the avatar to sleep until the next
   light change (the next multiple of `DAYLIGHT_TURNS` on the world clock).
   While it sleeps, Wait is its only play. When it wakes, every loss is
@@ -36,7 +36,7 @@ Status: decided by the owner on #1648 (2026-11-01). It ships with level quests
 The hub picks the Mirror attic, Vale's warm home, over the Empty station. The
 station is where the keeper lives and where a table without the opening
 starts, so most hub play would sleep on every Wait. The opening starts in the
-attic, so a first Observe there sleeps the night, and the lamp burns down
+attic, so a first Wait there sleeps the night, and the lamp burns down
 while Vale sleeps. Badger's glade, by the old Steam Clock, is a hidden part
 of the Lonely Forest, so it shares the Cosy Cottage. Moving or adding a
 sanctuary is a one-line pack change.
@@ -105,5 +105,5 @@ authored. Dropping a level quest costs half the avatar's XP.
 | #313 (classic soft-lock) | Rest never waits on a counter the player cannot see. |
 | #492 (classic sanctuary) | Nothing harmful starts in a sanctuary: no attacks there. |
 | #1505, #1540 | Three losses send you home; a win clears the count. |
-| #1630 | The Wait card reads Observe; the verb stays `wait`. |
+| #1630 | The Wait card read Observe; #1718 restored Wait. The verb stays `wait`. |
 | #1467 | Dreams come from Wait; the long rest makes one due. |
