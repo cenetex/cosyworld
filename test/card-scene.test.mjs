@@ -350,6 +350,21 @@ describe("JRPG scenes", () => {
     });
     expect(reply.actors.map((a) => a.scale)).toEqual([1, 0.84, 0.76]);
   });
+  it("turns fighters in a standoff toward each other over the speaker", () => {
+    const s = gathered();
+    dialogue(s, "keeper");
+    const place = s.actors.vale.place;
+    s.standoffs = [{ challenger: "vale", defender: "moth", location: place }];
+    const stage = sceneStaging(s);
+    expect(stage.actors.find((a) => a.id === "vale")).toMatchObject({
+      gazeTargetId: "moth",
+      facing: "right",
+    });
+    expect(stage.actors.find((a) => a.id === "moth")).toMatchObject({
+      gazeTargetId: "vale",
+      facing: "left",
+    });
+  });
   it("mirrors the whole composition at a scene entrance", () => {
     const s = gathered();
     dialogue(s, "vale", {

@@ -10,6 +10,8 @@ export const COMBAT_VERBS = ["threaten", "guard", "attack"];
 export const DEFEAT_MOVES = ["retreat", "sent-home"];
 export const MAX_RESOLVE = 4;
 const YIELDED = /after yielding to/u;
+// A name inside a sentence: "lunges at the keeper", not "at The keeper".
+export const inSentence = (id) => nameOf(id).replace(/^The /u, "the ");
 
 const holderRoot = (world, id) => {
   let holder = world.items?.[id]?.holder;
@@ -66,7 +68,7 @@ export function outcomeWord(beat) {
 
 export function telegraphText(beat) {
   const who = nameOf(beat.actorId),
-    other = nameOf(beat.targetId);
+    other = inSentence(beat.targetId);
   if (beat.kind === "threaten")
     return beat.itemId
       ? `${who} eyes the ${nameOf(beat.itemId)}`
@@ -204,11 +206,13 @@ export function defeatSummary(beat) {
   if (beat.lossCount) changes.push(`Standoffs lost: ${beat.lossCount} of 3.`);
   if (beat.sentHome) changes.push("Sent home.");
   else if (beat.moved)
-    changes.push(`${loser} fell back from ${nameOf(beat.fromLocationId)}.`);
+    changes.push(`${loser} fell back from ${inSentence(beat.fromLocationId)}.`);
   return {
-    title: you ? `${winner} drove you off` : `${winner} drove ${loser} off`,
+    title: you
+      ? `${winner} drove you off`
+      : `${winner} drove ${inSentence(beat.loserId)} off`,
     changes,
-    arrival: `You come to at ${nameOf(beat.locationId)}`,
+    arrival: `You come to at ${inSentence(beat.locationId)}`,
   };
 }
 

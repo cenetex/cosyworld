@@ -98,6 +98,22 @@ export function revealCard(button, options = {}) {
         ),
       );
   }
+  // A place opens from the upright lid to its wider card as the lid lifts.
+  const frame = button.closest(".card-frame");
+  if (!plan.crossfade && frame && button.classList.contains("location")) {
+    const to = frame.offsetWidth,
+      from = Math.round((frame.offsetHeight * 2) / 3);
+    if (to - from > 1)
+      animations.push(
+        frame.animate(
+          [
+            { width: `${from}px`, flexBasis: `${from}px` },
+            { width: `${to}px`, flexBasis: `${to}px` },
+          ],
+          { duration: Math.round(plan.ms * 0.5), easing: ease },
+        ),
+      );
+  }
   if (plan.sheen) {
     const sheen = document.createElement("span");
     sheen.className = "reveal-sheen";

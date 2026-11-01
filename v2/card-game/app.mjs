@@ -9,8 +9,11 @@ import {
   questCaption,
   questHand,
   questMet,
-  questProgress,
+  questNear,
+  questTier,
+  questVerb,
 } from "./quest-card.mjs";
+import { questScreen } from "./quest-screen.mjs";
 import {
   landingPack,
   createLandingWorld,
@@ -81,6 +84,7 @@ import {
   nameOf,
   addLog,
   covered,
+  itemPlace,
   rootHolder,
   play,
   encodeSave,
@@ -514,10 +518,15 @@ const playQueue = createPlayQueue({
 });
 // Strikes and journeys have the screen: the hand, locked through them
 // anyway, drops away the moment they start and rises once the scene is drawn.
+// The dialogue sinks with it to a strip at the foot of the stage, so the
+// fighters stay in view, and rises for the speech that follows.
 function syncHandDrop() {
-  const dock = document.querySelector(".play-dock");
+  const dock = document.querySelector(".play-dock"),
+    dialogue = document.querySelector(".dialogue");
   dock.dataset.dropped = String(covering);
   dock.inert = covering;
+  dialogue.dataset.dropped = String(covering);
+  dialogue.inert = covering;
 }
 function updateCardCooldown() {
   syncHandDrop();
@@ -1782,7 +1791,7 @@ function renderActions(animate = false) {
   $("play-readout").textContent = selected.length
     ? `${selectionName}. ${actions.map(playLabel).join(". ") || hint}`
     : questOpen && shownQuest
-      ? questWords(shownQuest)
+      ? questCaption(shownQuest, questCovered(shownQuest))
       : "";
 }
 function updateCardSelection(frame) {
@@ -2010,57 +2019,60 @@ function card(id) {
   }
   return frame;
 }
-// The quest card: the want's target drawn as the card, the rules' words as
-// its name, and how far it is once selected. It plays nothing.
+// The quest card: a small screen showing the player doing the quest's verb
+// with its target, with only the verb, the level and the tier colour as
+// words. It glows while the target is near and plays nothing.
 const questCovered = (quest) => !quest.target || cardIsCovered(quest.target);
-const questWords = (quest) =>
-  [
-    questCaption(quest, questCovered(quest)),
-    questProgress(world, quest, (id) =>
-      cardIsCovered(id) ? "Someone" : nameOf(id),
-    ),
-  ]
-    .filter(Boolean)
-    .join(". ");
+const questArt = {
+  url: (src) => imageUrl(src, "card"),
+  portrait: (id) => portrait(id, null, world),
+  thing: (id) => cardArt(id),
+  place: (id) =>
+    packPlaces[id]?.art && world.actors[currentActor(world)]?.place !== id
+      ? packMedia(id, "art")
+      : backdrop(id, world),
+};
 function questFrame(quest) {
-  const target = quest.target,
-    hidden = questCovered(quest),
-    type = hidden ? "item" : cardType(target),
-    tier = levelTier(cardLevel(world, quest.actor));
-  const el = node("button", undefined, `card ${type} want-card`);
+  const hidden = questCovered(quest),
+    tier = questTier(quest),
+    verb = questVerb(world, quest, hidden),
+    near = !hidden && questNear(world, quest),
+    here = world.actors[quest.actor].place;
+  const el = node("button", undefined, "card want-card");
   el.type = "button";
   el.dataset.want = quest.kind;
   el.dataset.tier = tier.id;
+  el.dataset.near = String(near);
   el.style.setProperty("--tier-color", tier.color);
   el.disabled = selectionBlocked();
   el.setAttribute("aria-pressed", String(questOpen));
-  el.setAttribute("aria-label", `Quest: ${questWords(quest)}`);
-  const graphic = node("span", undefined, "art"),
-    img = node("img");
-  img.decoding = "async";
-  img.alt = "";
-  img.draggable = false;
-  img.src = imageUrl(
-    hidden
-      ? "./assets/card-back.webp"
-      : type === "item"
-        ? cardArt(target)
-        : type === "avatar"
-          ? portrait(target, null, world)
-          : packPlaces[target]?.art
-            ? packMedia(target, "art")
-            : backdrop(target, world),
-    "card",
+  el.setAttribute(
+    "aria-label",
+    `Quest: ${questCaption(quest, hidden)}${near ? ", near" : ""}`,
   );
-  if (type === "avatar" && !hidden) frameFigure(img);
-  graphic.append(img);
-  const progress = questProgress(world, quest, (id) =>
-    cardIsCovered(id) ? "Someone" : nameOf(id),
+  const head = node("span", undefined, "quest-head");
+  head.append(
+    node("span", verb, "quest-verb"),
+    node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
   );
+  const target = quest.target,
+    targetPlace =
+      quest.kind === "item"
+        ? itemPlace(world, target)
+        : world.actors[target]?.place;
   el.append(
-    graphic,
-    node("span", questCaption(quest, hidden), "name"),
-    node("span", progress, "want-progress"),
+    questScreen(
+      {
+        verb,
+        actor: quest.actor,
+        kind: quest.kind,
+        target,
+        covered: hidden,
+        here: !hidden && targetPlace === here ? here : null,
+      },
+      questArt,
+    ),
+    head,
   );
   el.addEventListener("click", () => {
     if (selectionBlocked()) return;
@@ -2080,6 +2092,13 @@ function questFrame(quest) {
   const frame = node("div", undefined, "card-frame want-frame");
   frame.dataset.want = quest.kind;
   frame.dataset.raised = String(questOpen);
+  // Steps still to come lie face down behind the card, as a stack.
+  for (let i = Math.min(quest.left - 1, 3); i > 0; i--) {
+    const edge = node("span", undefined, "quest-edge");
+    edge.style.setProperty("--i", String(i));
+    edge.style.setProperty("--tier-color", tier.color);
+    frame.append(edge);
+  }
   frame.append(el);
   return frame;
 }
@@ -3231,11 +3250,12 @@ function render() {
     if (animate)
       for (const frame of $("hand").children)
         if (!frame.hidden) {
-          const rect = frame.getBoundingClientRect();
+          const rect = frame.getBoundingClientRect(),
+            name = frame.querySelector(".name"); // the quest card has none
           before.set(frame.querySelector(".card").dataset.card ?? QUEST_CARD, {
             left: rect.left,
             top: rect.top,
-            nameBottom: getComputedStyle(frame.querySelector(".name")).bottom,
+            nameBottom: name && getComputedStyle(name).bottom,
           });
         }
     for (const motion of handMotions.values()) motion.cancel();
@@ -3285,8 +3305,8 @@ function render() {
             opacity: [before.has(id) ? 1 : 0.3, 1],
           });
         const name = frame.querySelector(".name"),
-          nameBottom = getComputedStyle(name).bottom;
-        if (before.has(id) && previous.nameBottom !== nameBottom)
+          nameBottom = name && getComputedStyle(name).bottom;
+        if (name && before.has(id) && previous.nameBottom !== nameBottom)
           moveHandPart(`name:${id}`, name, {
             bottom: [previous.nameBottom, nameBottom],
           });
@@ -3345,8 +3365,16 @@ function revealHandCard(id, alignStart = false, instant = false) {
     behavior: instant || reducedMotion.matches ? "instant" : "smooth",
   });
 }
+// The fan: each shown card leans by its distance from the row's middle.
+function fanHand() {
+  const shown = [...$("hand").children].filter((frame) => !frame.hidden);
+  shown.forEach((frame, i) =>
+    frame.style.setProperty("--fan-at", String(i - (shown.length - 1) / 2)),
+  );
+}
 // Arrows beside the hand reach cards past either edge.
 function updateHandArrows() {
+  fanHand();
   const hand = $("hand"),
     overflow = hand.scrollWidth > hand.clientWidth + 2,
     first = hand.querySelector(".card-frame:not([hidden])");

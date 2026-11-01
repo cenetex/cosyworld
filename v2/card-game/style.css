@@ -932,6 +932,33 @@ main {
   transform: translateY(calc(100% - 28px));
   opacity: 0.6;
 }
+/* The dialogue sinks with the hand to just above its sliver, below the
+   fighters; beside a resting hand it sinks to a strip. Reduced motion fades
+   it out and back in place. */
+body .dialogue {
+  transition:
+    translate 280ms ease-in-out,
+    opacity 280ms ease-in-out;
+}
+body .dialogue[data-dropped="true"] {
+  translate: 0 calc(var(--dock-height) - 34px);
+  opacity: 0.85;
+}
+.dialogue .beat-behind {
+  transition: opacity 280ms ease-in-out;
+}
+.dialogue[data-dropped="true"] .beat-behind {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  body .dialogue {
+    transition: opacity 280ms ease-in-out;
+  }
+  :root body[data-hand-expanded] .dialogue[data-dropped="true"] {
+    translate: none;
+    opacity: 0;
+  }
+}
 .hand-wrap {
   position: relative;
   pointer-events: auto;
@@ -939,7 +966,7 @@ main {
 .hand {
   display: flex;
   justify-content: safe center;
-  gap: 14px;
+  gap: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
@@ -1020,17 +1047,43 @@ main {
 .hand-wrap::after {
   display: none;
 }
+/* Avatars and things stand upright at 2:3, the carved back's shape. An
+   uncovered place keeps the wider, landscape-leaning card; on phones it
+   leans the same way at 4:5. */
 body .card-frame {
+  --frame-width: calc(var(--card-height) * 2 / 3);
   position: relative;
-  flex: 0 0 var(--card-width);
-  width: var(--card-width);
+  flex: 0 0 var(--frame-width);
+  width: var(--frame-width);
   height: var(--card-height);
   scroll-snap-align: start;
   transition:
     transform 0.22s ease-out,
     filter 0.22s ease-out;
 }
+body .card-frame:has(> .card.location:not([data-unrevealed="true"])) {
+  --frame-width: max(var(--card-width), calc(var(--card-height) * 0.8));
+}
+/* The hand fans: each card overlaps the one before it and leans with its
+   place in the row (--fan-at, set by fanHand), the chosen card on top. */
+.hand {
+  --fan-overlap: calc(var(--card-height) * 0.14);
+}
+.hand > .card-frame:not([hidden]) ~ .card-frame {
+  margin-left: calc(var(--fan-overlap) * -1);
+}
+body .hand > .card-frame {
+  --fan-at: 0;
+  rotate: calc(clamp(-4, var(--fan-at), 4) * 1.2deg);
+  top: calc(min(var(--fan-at) * var(--fan-at), 16) * 0.5px);
+  transform-origin: 50% 120%;
+}
+body .hand > .card-frame:hover,
+body .hand > .card-frame:focus-within {
+  z-index: 2;
+}
 body .card-frame[data-raised="true"] {
+  z-index: 3;
   transform: translateY(-10px);
 }
 /* A chosen card lifts higher and wears a white ring inside its edge: tiers
@@ -1067,7 +1120,7 @@ body .card[data-selected="true"]::before {
 }
 /* Lift the full stack while the face keeps its shadow on the same layer. */
 #hand:not([aria-busy="true"]) .card-frame:has(> .card:hover) {
-  top: -2px;
+  translate: 0 -2px;
 }
 body .card {
   position: relative;
@@ -1202,22 +1255,117 @@ body .card-frame[hidden] {
 .card-frame[data-holder] .card {
   border-color: #a48d6370;
 }
-/* The quest card shows how far its target is once selected. */
-.want-card .want-progress {
-  position: absolute;
-  inset: 8px 8px auto;
-  z-index: 2;
-  display: none;
-  padding: 4px 8px;
-  border-radius: 8px;
-  background: #0b0e14d9;
-  color: var(--tier-color);
-  font:
-    12px/1.3 Georgia,
-    serif;
+/* The quest card shows the player doing the verb with the target, standing
+   in the place's painting feathered into the card, or on its dark ground.
+   It holds steady while the target is near: a soft halo, unlike the brief
+   met glow. */
+body .card.want-card {
+  --screen-top: 13%;
+  background:
+    radial-gradient(
+      ellipse 90% 55% at 50% 0%,
+      color-mix(in srgb, var(--tier-color) 20%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(#171a23, #0f1218);
 }
-.want-card[aria-pressed="true"] .want-progress:not(:empty) {
-  display: block;
+body .card.want-card[data-near="true"] {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--tier-color) 70%, transparent),
+    0 0 18px 3px color-mix(in srgb, var(--tier-color) 45%, transparent),
+    0 6px 20px #0006;
+}
+.quest-head {
+  position: absolute;
+  inset: 7px 10px auto;
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--tier-color);
+  pointer-events: none;
+}
+.quest-verb {
+  font: 600 calc(var(--card-height) * 0.042) / 1 system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.quest-level {
+  font: calc(var(--card-height) * 0.064) / 1 Georgia, serif;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 6px var(--tier-color);
+}
+.quest-screen {
+  position: absolute;
+  z-index: 2;
+  top: var(--screen-top);
+  left: 8%;
+  width: 84%;
+  aspect-ratio: 4 / 3;
+  pointer-events: none;
+}
+/* Steps still to come: blank lids stacked behind the card. */
+.quest-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  translate: calc(var(--i) * 6px) calc(var(--i) * -4px);
+  rotate: calc(var(--i) * 1.5deg);
+  border: 1px solid color-mix(in srgb, var(--tier-color) 50%, #333);
+  background:
+    repeating-linear-gradient(45deg, #ffffff07 0 3px, transparent 3px 6px),
+    linear-gradient(#2a2118, #17110c);
+  pointer-events: none;
+}
+.quest-screen img {
+  position: absolute;
+  max-width: none;
+}
+.quest-ground {
+  inset: -6% -9%;
+  width: 118%;
+  height: 112%;
+  object-fit: cover;
+  -webkit-mask-image: radial-gradient(ellipse 50% 50%, #000 55%, transparent);
+  mask-image: radial-gradient(ellipse 50% 50%, #000 55%, transparent);
+}
+.quest-screen[data-back="true"] .quest-back {
+  left: 50%;
+  height: 100%;
+  translate: -50% 0;
+  border-radius: 6px;
+}
+.quest-figure,
+.quest-thing,
+.quest-back.quest-right {
+  bottom: 3%;
+  height: 92%;
+  width: auto;
+  translate: -50% 0;
+  filter: drop-shadow(0 3px 4px #000a);
+}
+.quest-figure[data-flip="true"] {
+  scale: -1 1;
+}
+.quest-left {
+  left: 30%;
+}
+.quest-right {
+  left: 70%;
+}
+.quest-alone {
+  left: 50%;
+  height: 58%;
+}
+.quest-thing {
+  left: 64%;
+  bottom: 30%;
+  height: 34%;
+}
+.quest-back.quest-right {
+  bottom: 12%;
+  height: 64%;
+  border-radius: 4px;
 }
 .action-panel {
   pointer-events: auto;
@@ -1327,7 +1475,7 @@ body .cast[data-count] {
     padding-inline: 16px;
   }
   .hand {
-    gap: 10px;
+    --fan-overlap: calc(var(--card-height) * 0.2);
   }
   body .card .name {
     font-size: 16px;
@@ -1484,6 +1632,9 @@ body[data-hand-expanded="true"] .card .name {
   body[data-hand-expanded="false"] .play-dock {
     left: auto;
     width: calc(var(--resting-hand-width) + 44px);
+  }
+  body[data-hand-expanded="false"] .dialogue[data-dropped="true"] {
+    translate: 0 calc(100% - 38px);
   }
   body[data-hand-expanded="false"] .dialogue {
     left: 22px;

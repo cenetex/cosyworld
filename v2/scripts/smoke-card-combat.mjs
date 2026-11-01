@@ -126,14 +126,34 @@ try {
     // The hand drops away, untappable, as soon as the play commits.
     assert.deepEqual(
       await page.evaluate(() => {
-        const dock = document.querySelector(".play-dock");
-        return [dock.dataset.dropped, dock.inert];
+        const dock = document.querySelector(".play-dock"),
+          dialogue = document.querySelector(".dialogue");
+        return [dock.dataset.dropped, dock.inert, dialogue.dataset.dropped];
       }),
-      ["true", true],
-      "The hand is down before the strikes resolve",
+      ["true", true, "true"],
+      "The hand and the dialogue are down before the strikes resolve",
     );
     // The telegraph and the rules line appear on stage before the new place.
     await page.locator("#combat-caption:not([hidden])").waitFor();
+    // From the first combat frame the two fighters face each other.
+    assert.deepEqual(
+      await page.evaluate(() =>
+        ["vale", "moth"].map((id, i, pair) => {
+          const at = (who) => {
+            const box = document
+              .querySelector(`#cast [data-avatar="${who}"]`)
+              .getBoundingClientRect();
+            return box.left + box.width / 2;
+          };
+          const toward = at(pair[1 - i]) > at(id) ? "right" : "left";
+          const facing = document.querySelector(`#cast [data-avatar="${id}"]`)
+            .dataset.facing;
+          return facing === toward;
+        }),
+      ),
+      [true, true],
+      "The fighters face each other before the first strike",
+    );
     report.telegraph = await page.locator("#combat-caption").textContent();
     assert.match(
       await page
@@ -234,6 +254,11 @@ try {
       await page.locator('.play-dock[data-dropped="false"]').count(),
       1,
       "The hand rises once the new place is drawn",
+    );
+    assert.equal(
+      await page.locator('.dialogue[data-dropped="false"]').count(),
+      1,
+      "The dialogue rises with the hand",
     );
     assert.equal(
       await page.locator("#combat-caption:not([hidden])").count(),

@@ -2281,6 +2281,14 @@ impl<'a> Check<'a> {
         if kind(&self.entity.id, "avatar") && mentions(&freely_spoken, &own) {
             return Err("self-narration");
         }
+        // A line wrapped in its own dialogue tag (`hit you back," I say,
+        // keeping my hand…`) leaves a stray quote or tags its speaker.
+        let marks = kept.matches(['"', '\u{201c}', '\u{201d}']).count();
+        if kind(&self.entity.id, "avatar")
+            && (marks % 2 == 1 || [",\" I ", ",\u{201d} I "].iter().any(|t| kept.contains(t)))
+        {
+            return Err("narration tag");
+        }
         let spoken = words(&freely_spoken);
         if self.labels.iter().any(|label| kept.contains(label))
             || self.brief.iter().any(|line| {
@@ -2590,6 +2598,12 @@ mod tests {
                 "Yes, the keeper polished the brass bell twice.",
                 "echoed brief",
             ),
+            // Observed on .dev, 2026-10-31: a first-person dialogue tag.
+            (
+                "\"You hit me and I hit back,\" I say, keeping my hand near the door.",
+                "narration tag",
+            ),
+            ("\"Stay,\" I say, \"and listen.\"", "narration tag"),
         ] {
             assert_eq!(clean(raw), Err(reason), "{raw}");
         }

@@ -14,7 +14,8 @@ import {
   questDistance,
   questHand,
   questMet,
-  questProgress,
+  questNear,
+  questVerb,
 } from "../v2/card-game/quest-card.mjs";
 
 describe("the quest card", () => {
@@ -26,16 +27,28 @@ describe("the quest card", () => {
     expect(questCaption(quest, true)).toBe("Hold …");
   });
 
-  it("shows who holds the item and how far, and the steps to a place", () => {
+  it("shows only near or far, never who holds the target or how far", () => {
     const s = createWorld();
     const quest = questCard(s);
     s.items.lamp.holder = "moth";
     s.actors.moth.place = s.actors.vale.place;
-    expect(questProgress(s, quest)).toBe(`Pip holds it · Here`);
+    expect(questNear(s, quest)).toBe(true);
     const place = { ...quest, kind: "place", target: s.actors.vale.place };
-    expect(questProgress(s, place)).toBe("Here");
+    expect(questNear(s, place)).toBe(true);
     const exit = legalActions(s).find((a) => a.kind === "move");
     expect(questDistance(s, "vale", exit.target)).toBe(1);
+    expect(questNear(s, { ...place, target: exit.target })).toBe(true);
+    expect(questNear(s, { ...quest, kind: "connect", target: null })).toBe(false);
+  });
+
+  it("names the quest with one short verb", () => {
+    const s = createWorld();
+    const quest = questCard(s);
+    expect(questVerb(s, quest)).toBe("Hold");
+    expect(questVerb(s, { ...quest, kind: "person", target: "moth" })).toBe("Talk");
+    const here = { ...quest, kind: "place", target: s.actors.vale.place };
+    expect(questVerb(s, here)).toBe("Go to");
+    expect(questVerb(s, here, true)).toBe("Discover");
   });
 
   it("places one quest card after the player's avatar and belongings", () => {
@@ -68,7 +81,7 @@ describe("the quest card", () => {
       );
       if (quest) {
         expect(questCaption(quest)).toMatch(/^[A-Z]/);
-        expect(typeof questProgress(s, quest)).toBe("string");
+        expect(typeof questNear(s, quest)).toBe("boolean");
       }
     }
     expect(validateWorld(s)).toBe(s);

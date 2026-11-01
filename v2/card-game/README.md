@@ -183,10 +183,21 @@ facts from earlier releases keep their names; player-facing text says quest.
   connect quests. BoardyAI is inspired by [Boardy](https://x.com/boardyai).
 
 The hand holds people, items and places, and one quest card for the player's
-own quest (`quest-card.mjs`, client only). It shows the target's art with the
-rules' words for the quest (`wantText`), covered until the player uncovers the
-target. Selecting it shows who holds the item and how many places away it is;
-it plays nothing. A met quest glows once in the player's tier colour and the
+own quest (`quest-card.mjs`, client only). The card shows a small 4:3 scene
+(`quest-screen.mjs`): the player on the left doing the quest's verb with the
+target on the right, from the images the stage already uses, with attack and
+guard poses for Attack and Threaten. A place quest shows the player small in
+that place. The place's painting fades softly into the card, with no frame,
+and appears only for the place itself or when the step happens where the
+player stands; elsewhere the figures stand on the card's dark ground. An
+unknown target shows a small carved card back in its slot, and an unknown
+place shows the back alone. The card names
+nothing: only one short verb (Hold, Talk, Go to, Discover, Introduce), the
+level numeral of a level quest and its tier colour, which follows the quest's
+F(n) steps (1 Common, 2–3 Uncommon, 5 Rare, 8 Epic, 13+ Legendary). It never
+shows who holds the target or how far it is; it glows softly and steadily
+while the target is within two moves. Steps still to come lie face down behind
+the screen. It plays nothing. A met quest glows once in its tier colour and the
 next quest takes its place. There is never more than one quest card, and no
 card for anyone else's quest. Another person's quest reaches the player only
 through Talk:
@@ -206,7 +217,11 @@ and `test/card-want-talk.test.mjs` checks the Talk fact.
 
 ## Image-first presentation
 
-Card faces contain the illustration and a small name. Tapping a card toggles
+Card faces contain the illustration and a small name. People and things stand
+upright at 2:3, the shape of the carved cover; an uncovered place keeps a wider,
+landscape-leaning card (4:5 on phones). The hand fans: each card overlaps the
+one before it and leans with its place in the row, and the chosen or hovered
+card comes to the front. Tapping a card toggles
 its selection. Selecting a card or pair shows named actions in the row below.
 A selected card lifts and wears a white inner ring, apart from its tier border
 and the level-up glow, and the rest of the hand dims. At most one place is
@@ -250,6 +265,8 @@ game's opening cards, such as Vale, the lamp and the attic, start covered too, a
 do a new visitor's first cards in a shared world; a table this browser already
 knows keeps the cards its player has uncovered. The first tap uncovers a card
 without selecting it or spending a turn; subsequent taps select it normally.
+A place widens from the upright cover to its wider card as the lid lifts;
+with reduced motion it crossfades.
 An uncovered new card glows in its tier colour and carries no text badge.
 Covered cards cannot be dragged or paired. Each browser remembers which cards
 are still covered, including after a reload.
@@ -720,7 +737,7 @@ When the loser is the current player, the entry also sets `world.arrival`. A los
 
 ### Seeing a fight
 
-A standoff play is shown beat by beat before the new world is drawn. Each beat opens with a telegraph above the actor (a warning sign for Threaten, a shield for Guard, crossed blades for Attack) and a stage caption such as "Pip lunges at Vale…". The stage pushes in and dims. An attacker lunges, the target holds for a short hit-stop, recoils, shakes once and brightens once (no red). Resolve pips under each fighter drain with a lagging ghost, an outcome word ("−2 resolve", "Guarded −1", "Yields") rises over the target, and the step joins the beat stack and Memory as that fighter's beat. Fighters in an open standoff keep their pips between plays. The hand drops to a sliver the moment the strikes or the travel screen begin, cannot be tapped while down, and rises once the new scene is drawn. In shared play another player's strike or move drops it only while those beats lock the hand anyway. Reduced motion lowers and raises it without the slide.
+A standoff play is shown beat by beat before the new world is drawn. Each beat opens with a telegraph above the actor (a warning sign for Threaten, a shield for Guard, crossed blades for Attack) and a stage caption such as "Pip lunges at Vale…". Before the first frame the two fighters turn to face each other, whoever they were watching, and fighters in an open standoff keep facing each other between plays. The stage pushes in and dims. An attacker lunges, the target holds for a short hit-stop, recoils, shakes once and brightens once (no red). Resolve pips under each fighter drain with a lagging ghost, an outcome word ("−2 resolve", "Guarded −1", "Yields") rises over the target, and the step joins the beat stack and Memory as that fighter's beat. Fighters in an open standoff keep their pips between plays. The hand drops to a sliver the moment the strikes or the travel screen begin, cannot be tapped while down, and rises once the new scene is drawn. In shared play another player's strike or move drops it only while those beats lock the hand anyway. Reduced motion lowers and raises it without the slide. The dialogue sinks with it, below the fighters (a strip at its foot beside a resting desktop hand), and rises with it for the speech that follows; reduced motion fades it out and back instead. Plain talk never lowers it. Captions lowercase a name's leading article mid-sentence ("Vale lunges at the keeper…").
 
 Published Guard, attack and hit paintings follow those beats and preserve the player's plain or scarf wardrobe. A committed guard keeps its raised-arm portrait until consumed or cleared. Beat images preload before playback; unavailable art keeps the existing portrait. The Keeper uses his unmirrored right-facing neutral portrait when the scene faces him right, since his combat paintings face left. Combatants fit inside the phone frame throughout a beat; Pip and the Keeper keep that framing between plays too. Carried props stay in their cards while combat arms are raised, and the normal portrait and framing return when playback ends or is cancelled.
 

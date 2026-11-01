@@ -13,6 +13,7 @@ import {
   MAX_RESOLVE,
   createBeatRunner,
   defeatSummary,
+  inSentence,
   outcomeWord,
   telegraphText,
 } from "./combat-beats.mjs";
@@ -382,7 +383,7 @@ export function createCombatView({
       setCaption(
         beat.viewerLost
           ? `${summary.title}.`
-          : `${nameOf(beat.loserId)} yields to ${nameOf(beat.winnerId)}.`,
+          : `${nameOf(beat.loserId)} yields to ${inSentence(beat.winnerId)}.`,
       );
     }
   };
@@ -416,6 +417,10 @@ export function createCombatView({
     },
     async play(beats) {
       const mine = ++portraitRun;
+      for (const { actorId, targetId } of beats) {
+        portraits.face(actorId, targetId);
+        portraits.face(targetId, actorId);
+      }
       await portraits.prepare(beats);
       if (mine !== portraitRun) return false;
       speed = combatSpeed();
