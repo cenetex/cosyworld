@@ -265,15 +265,10 @@ try {
   });
   await vale.reload();
   assert.ok(!(await view(vale)).exits.includes("greek-athens"));
-  // Walk the Piraeus side with the four other people still in Agora.
-  // Colonus and Marathon sit inside Athens, so they wait behind the Agora.
-  for (const destination of [
-    "eleusis",
-    "piraeus",
-    "harbor",
-    "piraeus",
-    "eleusis",
-  ]) {
+  // Walk the Piraeus side with the four other people still in Agora. The
+  // countryside, Eleusis included, reaches the harbor only through the city,
+  // so it waits behind the Agora.
+  for (const destination of ["piraeus", "harbor", "piraeus"]) {
     const state = await view(vale);
     assert.ok(!state.exits.includes("greek-athens"));
     await move(`greek-${destination}`);
@@ -283,7 +278,7 @@ try {
       assert.equal(next.world.actors[id].place, "greek-athens");
   }
   evidence.checks.push({
-    name: "Eleusis and Piraeus connect to the harbor around four present people in Agora",
+    name: "Piraeus connects to the harbor around four present people in Agora",
     passed: true,
   });
   await move("greek-road-athens-piraeus");
@@ -296,12 +291,14 @@ try {
   assert.equal(arrived.world.actors.vale.place, "greek-athens");
   await command(tavi, { op: "enter" });
   assert.equal((await view(tavi)).world.presentActors.includes("tavi"), false);
-  await step("move", "greek-road-athens-piraeus");
+  // The Long Walls open from the Agora only beside the olive branch, so Vale
+  // leaves by the Eleusis road, which is always open.
+  await step("move", "greek-road-athens-eleusis");
   await command(tavi, { op: "enter" });
   assert.equal((await view(tavi)).world.presentActors.includes("tavi"), true);
   presentPages.add(tavi);
   assert.ok(!(await view(vale)).exits.includes("greek-athens"));
-  await step("move", "greek-piraeus");
+  await step("move", "greek-eleusis");
   evidence.checks.push({
     name: "leave restores road; full room delays re-entry; freed place admits re-entry",
     passed: true,
@@ -323,7 +320,7 @@ try {
     turn: replayed.world.turn,
   });
   console.log(
-    "Agora capacity: five passkeys, four side routes, room limit, leave/rejoin, reload, and server replay passed.",
+    "Agora capacity: five passkeys, the Piraeus side route, room limit, leave/rejoin, reload, and server replay passed.",
   );
 } finally {
   await writeFile(
