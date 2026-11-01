@@ -271,12 +271,13 @@ describe("Tea beneath the oak", () => {
       world.items.bell.holder = "attic";
       world.items.cloth.holder = holder;
       const restored = reload(world);
+      // Lit with the cloth: only the cottage; the mirror shows only the room.
       expect(exits(restored, "attic", "vale")).toEqual([COTTAGE]);
+      expect(reflectionOpen(restored, "attic")).toBe(false);
       expect(availableCards(restored)).toContain(COTTAGE);
-      expect(backdrop("attic", restored)).toBe(
-        "./assets/shared/places/attic-stairs.webp",
-      );
-      expect(locationVariant(restored, "attic")).toBe("attic-forest-cottage");
+      expect(availableCards(restored)).not.toContain("pond");
+      expect(backdrop("attic", restored)).toBe("./assets/attic/attic-lit.webp");
+      expect(locationVariant(restored, "attic")).toBe("attic-lit");
       const next = move(restored, COTTAGE);
       expect(next.actors.vale.place).toBe(COTTAGE);
       expect(next.items.cloth.holder).toBe(holder);
@@ -303,8 +304,10 @@ describe("Tea beneath the oak", () => {
       const restored = reload(world);
       const dark = ["unlit", "empty", "covered"].includes(condition);
       expect(reflectionOpen(restored, "attic")).toBe(dark);
-      expect(exits(restored, "attic", "vale")).not.toContain(COTTAGE);
+      // Dark (doused here, or the lamp gone): only the pond.
+      expect(exits(restored, "attic", "vale")).toEqual(["pond"]);
       expect(availableCards(restored)).not.toContain(COTTAGE);
+      expect(availableCards(restored)).toContain("pond");
       expect(backdrop("attic", restored)).toBe(
         dark
           ? "./assets/attic/attic-doused.webp"
@@ -328,7 +331,10 @@ describe("Tea beneath the oak", () => {
     );
     world.items.cloth.holder = "pond";
     const restored = reload(world);
+    // Lit without the cloth: neither way.
     expect(exits(restored, "attic", "vale")).toEqual([]);
+    expect(availableCards(restored)).not.toContain(COTTAGE);
+    expect(availableCards(restored)).not.toContain("pond");
     expect(backdrop("attic", restored)).toBe("./assets/attic/attic-lit.webp");
     expect(locationVariant(restored, "attic")).toBe("attic-lit");
     expect(placeText(restored, "attic")).toContain("Dust gathers");

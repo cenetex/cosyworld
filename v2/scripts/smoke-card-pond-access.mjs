@@ -237,6 +237,32 @@ try {
     await ready();
     assert.equal(await card("pond").count(), 0);
     await painted("attic-lit");
+    // Lit with the cloth here, the stack holds only the cottage stairs and
+    // the mirror still shows only the room.
+    const clothed = await state();
+    clothed.items.cloth.holder = "attic";
+    await page.evaluate(
+      ({ key, value }) => {
+        localStorage.setItem(key, value);
+        window.dispatchEvent(
+          new StorageEvent("storage", { key, newValue: value }),
+        );
+      },
+      { key, value: encodeSave(clothed) },
+    );
+    await card("forest-cottage").waitFor({ state: "attached" });
+    await ready();
+    assert.equal(await card("pond").count(), 0);
+    assert.equal(
+      await page
+        .locator("#hand .card-frame[data-places]")
+        .getAttribute("data-places"),
+      "1",
+    );
+    await painted("attic-lit");
+    await page.reload();
+    await ready();
+    assert.equal(await card("pond").count(), 0);
     await page.reload();
     await ready();
     await selectCard(page, "lamp");

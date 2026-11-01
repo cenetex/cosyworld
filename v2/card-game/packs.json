@@ -12145,7 +12145,6 @@
           "scenery": {
             "open": "A narrow stair leads down to the cosy cottage.",
             "closed": "The floorboards show no way downstairs.",
-            "backdrop": "assets/shared/places/attic-stairs.webp",
             "cardArt": "assets/lonely-forest/cottage.png",
             "cardName": "Cosy Cottage",
             "focus": {
