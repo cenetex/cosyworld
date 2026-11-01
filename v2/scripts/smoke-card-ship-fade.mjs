@@ -6,8 +6,9 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { encodeSave } from "../card-game/world.mjs";
+import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
+import { summonTransport } from "../card-game/pack-transport.mjs";
 import { openDoorStart } from "../../test/helpers/open-door.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
@@ -31,7 +32,16 @@ try {
     fixture.controlledActors = ["vale", "mara"];
     fixture.presentActors = ["mara"];
     fixture.actors.mara.place = place;
-    fixture.transports["greek-ship"].dock = away;
+    // The Open Door fixture can catch the ship at sea with the Bard aboard,
+    // bound for the harbor. Land its riders there and dock the empty ship at
+    // the far port through the rules: setting only `dock` leaves a ship at
+    // sea already at its destination, which the save check rejects, and the
+    // page then plays a fresh world instead.
+    for (const a of Object.values(fixture.actors))
+      if (a.place === "greek-ship") a.place = "greek-harbor";
+    summonTransport(fixture, "greek-ship", away);
+    assert.equal(fixture.transports["greek-ship"].dock, away);
+    decodeSave(encodeSave(fixture));
     const page = await browser.newPage({
       viewport: { width: 1280, height: 800 },
     });
@@ -66,12 +76,17 @@ try {
         ];
         return { dock: t.phase === "sea" ? null : t.dock };
       }, key);
-    // Samples every frame after a play: the opacity each layer showed. Slow CI
-    // renderers draw few frames, so check for a mid-fade sample, not a count.
+    // Samples every frame after a play, until the play has rendered and its
+    // fades have settled: the opacity each layer showed. Slow CI renderers
+    // draw few frames, so check for a mid-fade sample, not a count.
     const watch = () =>
       page.evaluate(() => {
-        const seen = (window.__fade = { overlay: [], card: [], ghost: [] });
-        const t0 = performance.now();
+        const seen = (window.__fade = {
+          overlay: [],
+          card: [],
+          ghost: [],
+          stop: false,
+        });
         const tick = () => {
           const overlay = document.querySelector("#location-overlay");
           if (overlay && !overlay.hidden)
@@ -83,17 +98,51 @@ try {
             seen.card.push(+getComputedStyle(card).opacity);
           const ghost = document.querySelector(".backdrop-fading");
           if (ghost) seen.ghost.push(+getComputedStyle(ghost).opacity);
-          if (performance.now() - t0 < 2500) requestAnimationFrame(tick);
+          if (!seen.stop) requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
       });
     const wait = async () => {
       await page.keyboard.press("Escape");
       await selectCard(page, "mara");
+      const shown = await page
+        .locator("#hand")
+        .getAttribute("data-presented-revision");
       await watch();
       await page.locator('#card-actions [data-action="wait"]').first().click();
-      await page.waitForTimeout(2700);
-      return page.evaluate(() => window.__fade);
+      // Settled: the hand shows the play's revision, the overlay has no fade
+      // running or waiting on its image (fadeLayer holds opacity 0 inline
+      // while it decodes), and no berth crossfade ghost remains.
+      // Bounded, so a play that never renders or a fade that never ends
+      // fails here with its reason instead of holding the CI shard.
+      await page
+        .waitForFunction(
+          (shown) => {
+            if (
+              document.querySelector("#hand")?.dataset.presentedRevision ===
+              shown
+            )
+              return false;
+            const overlay = document.querySelector("#location-overlay");
+            if (
+              overlay &&
+              (overlay.getAnimations().length || overlay.style.opacity)
+            )
+              return false;
+            return !document.querySelector(".backdrop-fading");
+          },
+          shown,
+          { timeout: 25_000 },
+        )
+        .catch((error) => {
+          throw new Error(
+            `Wait after revision ${shown} never settled within 25 s: the hand did not present a new revision, or the ship overlay or berth crossfade kept fading. ${error.message}`,
+          );
+        });
+      return page.evaluate(() => {
+        window.__fade.stop = true;
+        return window.__fade;
+      });
     };
     await page.goto(`${origin}/?table=${table}`);
     await page.waitForSelector("#hand .card");
