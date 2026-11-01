@@ -4,21 +4,17 @@ import {
   moveTransport,
 } from "../v2/card-game/pack-transport.mjs";
 import { crossings, packDefinition } from "../v2/card-game/pack-registry.mjs";
-import { crossingOpen, fixtureSounding } from "../v2/card-game/pack-rules.mjs";
+import { crossingOpen } from "../v2/card-game/pack-rules.mjs";
 import { senses } from "../v2/card-game/world.mjs";
 const gate = (id) => crossings.find((c) => c.id === id);
 const greekShipPresent = (s) =>
   crossingOpen(s, gate("pond-greek-harbor"), senses);
 const shipSignalPhase = (s) => s.crossings["pond-greek-harbor"].phase;
-const clearingReturnOpen = (s) =>
-  crossingOpen(s, gate("clearing-pond"), senses);
-const clockRinging = (s) => fixtureSounding(s, "steam-clock");
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import {
-  createWorld,
   legalActions,
   exits,
   play,

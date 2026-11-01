@@ -2,7 +2,6 @@ import { newWant } from "../v2/card-game/want.mjs";
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it } from "vitest";
 import {
-  createWorld,
   play,
   legalActions,
   exits,

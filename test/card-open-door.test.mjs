@@ -6,7 +6,6 @@ import {
   encodeSave,
   exits,
   legalActions,
-  play,
 } from "../v2/card-game/world.mjs";
 import {
   entityActive,

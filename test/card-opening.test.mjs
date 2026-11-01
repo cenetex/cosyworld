@@ -8,7 +8,6 @@ import {
   encodeSave,
   decodeSave,
   placeText,
-  validateWorld,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { knownActors, levelOf } from "../v2/card-game/want.mjs";

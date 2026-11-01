@@ -28,7 +28,7 @@ import {
   travelCard,
 } from "../v2/card-game/scene.mjs";
 import { createServer } from "../v2/card-game/serve.mjs";
-import { branchItems, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
+import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 const pack = packDefinition("greek-drama");
 const openingPlaces = [
   "greek-harbor",

@@ -2,12 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import {
-  addLog,
-  createWorld,
-  encodeSave,
-  people,
-} from "../card-game/world.mjs";
+import { addLog, createWorld, encodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { profiles } from "../card-game/memory.mjs";

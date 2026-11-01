@@ -20,7 +20,7 @@ import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
-import { playOpenDoor, openDoorWalk } from "./helpers/open-door.mjs";
+import { openDoorWalk } from "./helpers/open-door.mjs";
 import {
   agoraVisitors,
   agoraView,

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   createWorld,
   decodeSave,
-  encodeSave,
   exits,
 } from "../v2/card-game/world.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";

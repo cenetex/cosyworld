@@ -7,7 +7,6 @@ import {
   accompanyDecision,
   encodeSave,
   decodeSave,
-  validateWorld,
   itemPlace,
   rootHolder,
 } from "../v2/card-game/world.mjs";

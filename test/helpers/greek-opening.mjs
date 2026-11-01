@@ -4,7 +4,6 @@ import {
 } from "../../v2/card-game/pack-transport.mjs";
 import { atticOpening } from "../fixtures/card-attic-opening.mjs";
 import {
-  createWorld,
   currentActor,
   legalActions,
   play,

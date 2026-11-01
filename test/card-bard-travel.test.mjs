@@ -46,14 +46,6 @@ function act(s, kind = "wait", fields = {}, actor = "vale") {
   expect(decodeSave(encodeSave(result.state))).toEqual(result.state);
   return result.state;
 }
-function shared() {
-  const s = createWorld();
-  s.sharedVersion = 1;
-  s.controlledActors = [...humanAvatarIds];
-  s.presentActors = [...humanAvatarIds];
-  s.actors.vale.place = "station";
-  return s;
-}
 describe("ordinary bard travel", () => {
   it("starts at the active harbor and preserves an introduced bard's saved place", () => {
     const fresh = createWorld();
