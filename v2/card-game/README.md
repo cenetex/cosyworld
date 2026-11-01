@@ -19,6 +19,19 @@ keeps the useful ideas from the retired standalone engine, with its source
 revision for reference. Existing player saves use `world.mjs` and
 `legacy-saves.mjs`; keep their migrations with changes to the save format.
 
+### Allocation on the play path
+
+Each play runs the rules many thousands of times: `entityActive`,
+`rootHolder`, `carried` and `validateWorld`. Allocation there turns into
+garbage on every play, and phone browsers that build up enough of it kill the
+tab. Keep these paths free of per-call `Set`s, spread arrays and array
+literals. Build lookup sets and sorted key strings once, when the module
+loads, from the fixed catalog. Walk short holder chains without tracking
+visits, and track visits only for a chain long enough to hide a loop.
+`validateWorld` marks each world it accepts. `encodeSave` skips the check
+once for a marked world, the one a play just returned, and clears the mark.
+A decoded, imported or saved-again world is checked in full.
+
 ## Public assets
 
 `public-assets.mjs` defines the public files and their content types. It includes

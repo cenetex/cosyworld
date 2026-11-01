@@ -137,11 +137,14 @@ export function validInnerLife(life, turn) {
   );
 }
 
+// Fixed at load; validation runs on every play, so these are built once.
+const profileKeys = Object.keys(profiles).sort().join();
+const SEEN_KEYS = ["place", "turn", "seq"];
+const EVENT_KINDS = ["event", "expression"];
 export function validMemories(world) {
   if (
     !world.memories ||
-    Object.keys(world.memories).sort().join() !==
-      Object.keys(profiles).sort().join()
+    Object.keys(world.memories).sort().join() !== profileKeys
   )
     return false;
   return Object.entries(world.memories).every(([id, memory]) => {
@@ -157,7 +160,7 @@ export function validMemories(world) {
               profiles[other]?.kind !== "avatar" ||
               !seen ||
               Object.keys(seen).some(
-                (key) => !["place", "turn", "seq"].includes(key),
+                (key) => !SEEN_KEYS.includes(key),
               ) ||
               !profiles[seen.place] ||
               profiles[seen.place].kind === "avatar" ||
@@ -229,7 +232,7 @@ export function validMemories(world) {
         Number.isSafeInteger(event.turn) &&
         event.turn >= 0 &&
         event.turn <= world.turn &&
-        ["event", "expression"].includes(event.kind) &&
+        EVENT_KINDS.includes(event.kind) &&
         typeof event.text === "string" &&
         event.text.length <= 650,
     );

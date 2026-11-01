@@ -2,8 +2,10 @@ import cast from "./shared-cast.json" with { type: "json" };
 
 export const humanAvatars = cast.avatars;
 export const humanAvatarIds = humanAvatars.map((a) => a.id);
-export const humanAvatar = (id) =>
-  humanAvatars.find((a) => a.id === id) || null;
+// The first avatar per id, as find would return, without a closure per call.
+const avatarById = new Map();
+for (const a of humanAvatars) if (!avatarById.has(a.id)) avatarById.set(a.id, a);
+export const humanAvatar = (id) => avatarById.get(id) || null;
 export const currentActor = (world) => world.playerActorId || "vale";
 export const controlledByHuman = (world, id) =>
   world.controlledActors ? world.controlledActors.includes(id) : id === "vale";
