@@ -57,8 +57,13 @@ export function narrativeContractCases() {
   const secondRing = playCard(echoed, "ring", "bell");
   const clearing = playCard(secondRing, "move", null, "clearing");
   const opening = enableMotives(atticOpening());
-  const lit = playCard(opening, "light", "lamp");
-  const pond = playCard(lit, "move", null, "pond");
+  // The opening starts lit; dousing opens the mirror, relit on the shore.
+  const doused = playCard(opening, "snuff", "lamp");
+  const pond = playCard(
+    playCard(doused, "move", null, "pond"),
+    "light",
+    "lamp",
+  );
   const signalStart = structuredClone(pond);
   signalStart.items.cloth.holder = "vale";
   signalStart.items.lamp.fuel = 12;
@@ -86,7 +91,7 @@ export function narrativeContractCases() {
   const helen = playCard(egypt, "move", null, "greek-egypt-tomb");
   const worlds = [
     ["opening", opening],
-    ["first light", lit],
+    ["first dousing", doused],
     ["arrival at pond", pond],
     ["first ring", echoed],
     ["cover bell after echo", covered],

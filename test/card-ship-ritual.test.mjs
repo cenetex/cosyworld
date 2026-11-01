@@ -378,8 +378,9 @@ test("the narration does not expose a partial ritual or claim a ship is present"
 import { newWant } from "../v2/card-game/want.mjs";
 test("the ship crossing preserves a want met beside a resident Vale has not met", () => {
   let s = atticOpening();
-  s = act(s, "light", "lamp");
+  s = act(s, "snuff", "lamp");
   s = act(s, "move", null, "pond");
+  s = act(s, "light", "lamp");
   s.items.cloth.holder = "pond";
   // Pip takes the oil beside the keeper, out of sight of Vale's signal.
   s.actors.moth.place = "station";

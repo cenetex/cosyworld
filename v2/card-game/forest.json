@@ -11,11 +11,16 @@
   "reflectionRoutes": [
     {
       "from": "attic",
-      "to": "pond"
+      "to": "pond",
+      "requires": [
+        { "kind": "item_present", "item": "lamp", "place": "attic" },
+        { "kind": "not", "condition": { "kind": "light", "item": "lamp", "at": ["attic"], "uncovered": true } }
+      ]
     },
     {
       "from": "pond",
-      "to": "attic"
+      "to": "attic",
+      "requires": [{ "kind": "light", "item": "lamp", "at": ["pond"], "uncovered": true }]
     }
   ],
   "places": {
@@ -30,7 +35,7 @@
     "attic": {
       "sanctuary": true,
       "name": "Mirror attic",
-      "text": "A tall mirror stands dark and empty. Dust gathers along its frame.",
+      "text": "A tall mirror shows only the warm attic. Dust gathers along its frame.",
       "exits": [],
       "stage": {
         "focus": {
@@ -232,7 +237,8 @@
     },
     "items": {
       "lamp": {
-        "holder": "vale"
+        "holder": "vale",
+        "lit": true
       }
     },
     "log": [
@@ -250,12 +256,12 @@
             "id": "lamp",
             "holder": "vale",
             "fuel": 8,
-            "lit": false
+            "lit": true
           }
         ],
-        "light": false,
+        "light": true,
         "speaker": "World",
-        "text": "Vale stands alone in Mirror attic, holding an unlit lamp. The tall mirror stands dark and empty."
+        "text": "Vale stands alone in Mirror attic, holding a lamp. Its light fills the room; the tall mirror shows only the attic."
       }
     ]
   }

@@ -18,10 +18,13 @@ const act = (s, kind, target) => {
   assert.ok(result.ok);
   return result.state;
 };
+// The opening starts lit; dousing the lamp opens the attic mirror (#1600).
 let fixture = enableMotives(createWorld({ opening: true }));
-fixture = act(fixture, "light");
+assert.equal(fixture.items.lamp.lit, true);
+fixture = act(fixture, "snuff");
 fixture = act(fixture, "move", "pond");
 fixture.items.lamp.holder = "moth";
+fixture.items.lamp.lit = true;
 fixture.items.lamp.fuel = 8;
 fixture = act(fixture, "wait");
 const save = encodeSave(fixture);
@@ -183,20 +186,30 @@ try {
     await selectCard(page, "attic");
     await page.locator("#card-actions .card-primary").click();
     await ready();
+    // Held lit at the pond, the lamp brought Vale back into its light.
     assert.equal((await state()).actors.vale.place, "attic");
     assert.equal(
       await card("attic").locator(".name").innerText(),
       "Mirror attic",
     );
+    assert.equal(await card("pond").count(), 0);
+    // Dousing it shows the Black Pond in the glass and the way out.
     await selectCard(page, "lamp");
     await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal((await state()).items.lamp.lit, false);
+    await card("pond").waitFor({ state: "attached" });
+    await page.reload();
+    await ready();
+    assert.equal(await card("pond").count(), 1);
+    assert.equal((await state()).actors.vale.place, "attic");
+    // Relighting shuts the mirror again; dousing reopens it.
+    await selectCard(page, "lamp");
+    await page.locator("#card-actions .card-primary").click();
+    await ready();
     assert.equal(await card("pond").count(), 0);
     await page.reload();
     await ready();
-    assert.equal(await card("pond").count(), 0);
-    assert.equal((await state()).actors.vale.place, "attic");
     await selectCard(page, "lamp");
     await page.locator("#card-actions .card-primary").click();
     await ready();
@@ -206,7 +219,7 @@ try {
     assert.equal((await state()).actors.vale.place, "pond");
     assert.deepEqual(errors, []);
     console.log(
-      `Mirror access in both directions, Pip keeping the lamp at the pond, burn-out and carried-away closing, reload and relighting passed at ${width}px.`,
+      `Douse to leave, lit at the pond to return, Pip keeping the lamp at the pond, burn-out and carried-away closing, reload and relighting passed at ${width}px.`,
     );
     await page.close();
   }

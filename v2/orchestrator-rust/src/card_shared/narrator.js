@@ -277,11 +277,16 @@
     reflectionRoutes: [
       {
         from: "attic",
-        to: "pond"
+        to: "pond",
+        requires: [
+          { kind: "item_present", item: "lamp", place: "attic" },
+          { kind: "not", condition: { kind: "light", item: "lamp", at: ["attic"], uncovered: true } }
+        ]
       },
       {
         from: "pond",
-        to: "attic"
+        to: "attic",
+        requires: [{ kind: "light", item: "lamp", at: ["pond"], uncovered: true }]
       }
     ],
     places: {
@@ -296,7 +301,7 @@
       attic: {
         sanctuary: true,
         name: "Mirror attic",
-        text: "A tall mirror stands dark and empty. Dust gathers along its frame.",
+        text: "A tall mirror shows only the warm attic. Dust gathers along its frame.",
         exits: [],
         stage: {
           focus: {
@@ -498,7 +503,8 @@
       },
       items: {
         lamp: {
-          holder: "vale"
+          holder: "vale",
+          lit: true
         }
       },
       log: [
@@ -516,12 +522,12 @@
               id: "lamp",
               holder: "vale",
               fuel: 8,
-              lit: false
+              lit: true
             }
           ],
-          light: false,
+          light: true,
           speaker: "World",
-          text: "Vale stands alone in Mirror attic, holding an unlit lamp. The tall mirror stands dark and empty."
+          text: "Vale stands alone in Mirror attic, holding a lamp. Its light fills the room; the tall mirror shows only the attic."
         }
       ]
     }
@@ -16570,10 +16576,10 @@
   var carried = (s, actor) => ids.filter((id) => rootHolder(s, id) === actor);
   var covered = (s, id) => s.items.cloth.holder === id;
   var shining = (s) => entityActive(s, "lamp") && s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
-  var reflectionOpen = (s, from = itemPlace2(s, "lamp")) => (
-    // Leaving the attic needs its own light; either shore can light the return.
-    shining(s) && (from === "attic" ? itemPlace2(s, "lamp") === "attic" : from === "pond" && ["attic", "pond"].includes(itemPlace2(s, "lamp")))
-  );
+  var reflectionsFrom = (s, from) => (forest_default.reflectionRoutes || []).filter(
+    (r) => r.from === from && r.requires.every((c) => conditionMet(s, c, null))
+  ).map((r) => r.to);
+  var reflectionOpen = (s, from = itemPlace2(s, "lamp")) => reflectionsFrom(s, from).length > 0;
   var baseSoundAt = (s, place) => entityActive(s, "bell") && s.items.bell.ringing > 0 && !covered(s, "bell") && itemPlace2(s, "bell") === place;
   var senses = { player: "vale", baseSoundAt, nameOf };
   var sensesFor = (s) => ({
@@ -16583,7 +16589,7 @@
   });
   var baseExits = (_s, place) => places[place].exits;
   var placeText = (s, place) => [
-    place === "attic" ? reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : "A tall mirror stands dark and empty. Dust gathers along its frame." : s.opening && place === "station" ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond." : places[place].text,
+    place === "attic" && reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : s.opening && place === "station" ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond." : places[place].text,
     ...crossingScenery(s, place, sensesFor(s)),
     ...transportScenery(s, place, nameOf),
     ...homeRescueExit(s, place) || pondRescueExit(s, place) ? [`A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`] : []
@@ -16604,7 +16610,7 @@
     return [
       .../* @__PURE__ */ new Set([
         ...baseExits(s, place),
-        ...reflectionOpen(s, place) && place === "attic" ? ["pond"] : reflectionOpen(s, place) && place === "pond" ? ["attic"] : [],
+        ...reflectionsFrom(s, place),
         ...crossingExits(s, place, actor, sensesFor(s)),
         ...transportExits(s, place, previous, actor),
         ...packExits(s, place, actor)

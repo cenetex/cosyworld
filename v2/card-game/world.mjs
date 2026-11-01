@@ -119,6 +119,7 @@ import {
   disturb,
   calm,
   validPackState,
+  conditionMet,
 } from "./pack-rules.mjs";
 import {
   installTransports,
@@ -305,12 +306,18 @@ export const shining = (s) =>
   s.items.lamp.lit &&
   s.items.lamp.fuel > 0 &&
   !covered(s, "lamp");
+// A reflection opens while its authored conditions hold (#1600). Forest data
+// opens the attic mirror once the lamp there is dark, and the pond's way back
+// while the lamp shines on the shore.
+const reflectionsFrom = (s, from) =>
+  (forest.reflectionRoutes || [])
+    .filter(
+      (r) =>
+        r.from === from && r.requires.every((c) => conditionMet(s, c, null)),
+    )
+    .map((r) => r.to);
 export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
-  // Leaving the attic needs its own light; either shore can light the return.
-  shining(s) &&
-  (from === "attic"
-    ? itemPlace(s, "lamp") === "attic"
-    : from === "pond" && ["attic", "pond"].includes(itemPlace(s, "lamp")));
+  reflectionsFrom(s, from).length > 0;
 // The bell is the shore's sound source: heard where it rests while it rings
 // uncovered. Packs add their own sounding fixtures through pack-rules.mjs.
 const baseSoundAt = (s, place) =>
@@ -327,10 +334,8 @@ export const sensesFor = (s) => ({
 const baseExits = (_s, place) => places[place].exits;
 export const placeText = (s, place) =>
   [
-    place === "attic"
-      ? reflectionOpen(s, place)
-        ? "A tall mirror opens onto a black shore. A path leads through the glass."
-        : "A tall mirror stands dark and empty. Dust gathers along its frame."
+    place === "attic" && reflectionOpen(s, place)
+      ? "A tall mirror opens onto a black shore. A path leads through the glass."
       : s.opening && place === "station"
         ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
         : places[place].text,
@@ -367,11 +372,7 @@ function ordinaryExits(s, place, actor, previous) {
   return [
     ...new Set([
       ...baseExits(s, place),
-      ...(reflectionOpen(s, place) && place === "attic"
-        ? ["pond"]
-        : reflectionOpen(s, place) && place === "pond"
-          ? ["attic"]
-          : []),
+      ...reflectionsFrom(s, place),
       ...crossingExits(s, place, actor, sensesFor(s)),
       ...transportExits(s, place, previous, actor),
       ...packExits(s, place, actor),
@@ -1416,9 +1417,11 @@ function travelParty(s, actors, destination) {
   const from = s.actors[actors[0]].place;
   const through = !baseExits(s, from).includes(destination);
   // The legal action approves the whole party before any carried key moves.
+  // Leaving the opening home anchors it, by its rescue path or through a
+  // mirror the doused lamp opened (#1600).
   if (
     homeGates[from]?.opening &&
-    homeRescueExit(s, from, actors[0]) === destination
+    (s.opening || homeRescueExit(s, from, actors[0]) === destination)
   )
     s.locations[from].anchored = true;
   markCrossed(s, from, destination);
@@ -1627,7 +1630,7 @@ function perform(s, a, round = null, settle = []) {
           s,
           "lamp",
           "vale",
-          "Vale lifts the lamp as its light wakes the mirror.",
+          "Vale lifts the lamp.",
         );
       s.items.lamp.lit = true;
       remember(s, "lamp", a.text);
@@ -2065,7 +2068,7 @@ export function play(
   if (
     next.opening &&
     !next.locations.attic.anchored &&
-    exact.kind === "light" &&
+    ["light", "snuff"].includes(exact.kind) &&
     next.actors.vale.place === "attic"
   ) {
     next.locations.attic.anchored = true;

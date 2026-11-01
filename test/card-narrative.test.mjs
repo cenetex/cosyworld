@@ -1128,7 +1128,6 @@ describe("speech grounding in resolved card plays", () => {
     const start = together();
     start.actors.vale.place = start.actors.moth.place = "attic";
     start.items.lamp.holder = "moth";
-    start.items.lamp.lit = true;
     const outcome = turnOutcome(act(start, "move", null, "pond"));
     for (const id of ["vale", "moth"])
       expect(avatar(outcome, id).travel).toEqual({

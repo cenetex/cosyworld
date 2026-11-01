@@ -130,7 +130,7 @@ describe("the full world shared by human avatars", () => {
     let world = enableMotives(createWorld({ opening: true }));
     world = play(
       world,
-      legalActions(world).find((a) => a.kind === "light"),
+      legalActions(world).find((a) => a.kind === "snuff"),
     ).state;
     world = play(
       world,

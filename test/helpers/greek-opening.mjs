@@ -49,8 +49,11 @@ export function openingFixture(
     places.forEach((p) =>
       greekTravelTargets(world.actors.vale.place, `greek-${p}`).forEach(move),
     );
-  act("light");
+  // The opening starts lit: douse to cross, then the shore lamp is lit again
+  // (#1600). Setting it keeps the released turn count of this long fixture.
+  act("snuff");
   move("pond");
+  world.items.lamp.lit = true;
   world.items.cloth.holder = "vale";
   world.items.oil.holder = "greek-harbor";
   world.items.lamp.fuel = 12;
