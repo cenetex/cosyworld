@@ -290,8 +290,6 @@ try {
     await page.keyboard.press("Escape");
     const remote = meeting();
     remote.items.lamp.holder = "keeper";
-    // The Keeper holds the lit Lamp up on stage, so the hand may show it.
-    remote.items.lamp.lit = true;
     await page.evaluate(
       ({ key, save }) => {
         localStorage.setItem(key, save);
@@ -308,12 +306,7 @@ try {
       true,
       "a storage update refreshes the holder even at the same world revision",
     );
-    // Pip's pack is private until Vale's want names the cloth.
     await load(meeting());
-    assert.equal(await card("cloth").count(), 0);
-    const wanting = meeting();
-    wanting.actors.vale.want = { kind: "item", target: "cloth", since: 0, refusals: 0 };
-    await load(wanting);
     assert.equal(await card("lamp").isVisible(), false);
     assert.equal(await card("cloth").isVisible(), false);
     assert.equal(await card("bell").isVisible(), false);
@@ -346,9 +339,7 @@ try {
     await selectCard(page, "lamp");
     assert.deepEqual(await labels(), ["Trade Lamp for Black cloth"]);
     assert.equal(await page.locator('.card[aria-pressed="true"]').count(), 2);
-    assert.deepEqual(await state(), { ...before, actors: {
-      ...before.actors, vale: { ...before.actors.vale, want: wanting.actors.vale.want },
-    } });
+    assert.deepEqual(await state(), before);
     await shot("trade");
     await page.locator("#card-actions button").click();
     assert.equal(await card("vale").isDisabled(), false);
@@ -381,8 +372,7 @@ try {
       await selectCard(page, "vale");
       await card("vale").dragTo(card("moth"));
       assert.equal(await card("lamp").isVisible(), true);
-      // Pip's own stack stays closed: his cloth is private.
-      assert.equal(await card("cloth").count(), 0);
+      assert.equal(await card("cloth").isVisible(), true);
       assert.equal((await state()).turn, 0);
       await page.keyboard.press("Escape");
     }
