@@ -16,9 +16,9 @@ describe("leaving a world", () => {
       "Hollowmere will be lost, with Mara's level and quest there. There is no way back to it.",
     );
   });
-  it("keeps a shared world's things for the avatar's return", () => {
+  it("takes the level along and frees the seat in a shared world (#1846)", () => {
     expect(leaveNote(mara, { shared: "w1", name: "The Quiet Ferry" })).toBe(
-      "The Quiet Ferry keeps Mara's things.",
+      "Mara's level goes with Mara. Mara's things and quests stay in The Quiet Ferry, and the seat there opens for someone else.",
     );
   });
   it("says nothing when the avatar is in no world", () => {

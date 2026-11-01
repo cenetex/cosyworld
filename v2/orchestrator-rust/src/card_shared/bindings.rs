@@ -4,6 +4,7 @@
 //! and the holder can release it; either starts it over as a fresh starter.
 use super::store::{sql_error, Result};
 use rusqlite::{params, Connection, OptionalExtension};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 // The words of a holder's name, 64 of each. Frozen once released: changing or
@@ -129,4 +130,76 @@ pub(super) fn free(c: &Connection, id: &str, a: usize) -> Result<()> {
     )
     .map_err(sql_error)?;
     Ok(())
+}
+// Who holds this avatar's seat here.
+pub(super) fn holder(c: &Connection, id: &str, a: usize) -> Result<Option<String>> {
+    c.query_row(
+        "SELECT user FROM card_bindings WHERE world=? AND actor=?",
+        params![id, a],
+        |r| r.get(0),
+    )
+    .optional()
+    .map_err(sql_error)
+}
+// The other worlds where this person holds this avatar's seat or claim.
+pub(super) fn seats_elsewhere(
+    c: &Connection,
+    id: &str,
+    user: &str,
+    a: usize,
+) -> Result<Vec<String>> {
+    let mut q = c
+        .prepare(
+            "SELECT world FROM card_bindings WHERE user=?1 AND actor=?2 AND world<>?3
+             UNION SELECT world FROM card_members WHERE user=?1 AND actor=?2 AND world<>?3",
+        )
+        .map_err(sql_error)?;
+    let worlds = q
+        .query_map(params![user, a, id], |r| r.get::<_, String>(0))
+        .map_err(sql_error)?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(sql_error)?;
+    Ok(worlds)
+}
+// An avatar's level travels with it (#1846). Between seats it is kept here;
+// the next claim takes it. Rules before 80 cannot take it, so it waits.
+pub(super) fn carries_progress(version: &str) -> bool {
+    version
+        .rsplit('/')
+        .next()
+        .and_then(|n| n.parse::<u32>().ok())
+        .is_some_and(|n| n >= 80)
+}
+pub(super) fn save_progress(c: &Connection, user: &str, a: usize, progress: &Value) -> Result<()> {
+    c.execute(
+        "INSERT OR REPLACE INTO card_avatar_progress(user,actor,progress) VALUES(?,?,?)",
+        params![user, a, progress.to_string()],
+    )
+    .map_err(sql_error)?;
+    Ok(())
+}
+pub(super) fn take_progress(c: &Connection, user: &str, a: usize) -> Result<Option<Value>> {
+    let saved: Option<String> = c
+        .query_row(
+            "SELECT progress FROM card_avatar_progress WHERE user=? AND actor=?",
+            params![user, a],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(sql_error)?;
+    c.execute(
+        "DELETE FROM card_avatar_progress WHERE user=? AND actor=?",
+        params![user, a],
+    )
+    .map_err(sql_error)?;
+    Ok(saved.and_then(|s| serde_json::from_str(&s).ok()))
+}
+// The level and experience an avatar has in a world's state.
+pub(super) fn progress_of(game: &Value, actor: &str) -> Value {
+    let a = &game["actors"][actor];
+    let mut p = serde_json::json!({ "xp": a["xp"].as_u64().unwrap_or(0) });
+    if let Some(level) = a["level"].as_u64() {
+        p["level"] = level.into();
+    }
+    p
 }

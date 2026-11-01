@@ -148,29 +148,29 @@ fn body(op: &str, avatar: Option<&str>) -> full::Command {
         moving: false,
     }
 }
+// An avatar is in one world at a time (#1846): a claim elsewhere empties its
+// old seat, which starts over, and its level goes with it.
 #[test]
-fn a_move_releases_the_avatar_in_its_other_worlds() {
-    let (_path, mut c, first) = fixture();
-    let second = "c".repeat(48);
-    store::create(&c, &second, "owner", now()).unwrap();
-    full_store::seed(
-        &c,
-        &second,
-        &World::create(None).unwrap(),
-        "test-create",
-        now(),
-    )
-    .unwrap();
+fn a_claim_elsewhere_frees_the_old_seat_and_carries_the_level() {
+    let path =
+        std::env::temp_dir().join(format!("full-card-world-{}.sqlite", crate::random_hex(12)));
+    let mut c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let (first, second) = ("b".repeat(48), "c".repeat(48));
+    // Mara has grown in the first world.
+    let mut grown = World::create(None).unwrap();
+    grown.game["actors"]["mara"]["carried"] = 6.into();
+    grown.game["actors"]["mara"]["xp"] = 6.into();
+    grown.game["actors"]["mara"]["level"] = 3.into();
+    for (id, w) in [(&first, grown), (&second, World::create(None).unwrap())] {
+        store::create(&c, id, "owner", now()).unwrap();
+        full_store::seed(&c, id, &w, "test-create", now()).unwrap();
+    }
     let tx = c.transaction().unwrap();
     full::run(&tx, &first, "u", &body("claim", Some("mara")), now()).unwrap();
-    // Without `move` an older client keeps both claims, as before.
     full::run(&tx, &second, "u", &body("claim", Some("mara")), now()).unwrap();
-    full::run(&tx, &second, "u", &body("release", None), now()).unwrap();
-    let mut moving = body("claim", Some("mara"));
-    moving.moving = true;
-    full::run(&tx, &second, "u", &moving, now()).unwrap();
     let rows: Vec<String> = tx
-        .prepare("SELECT world FROM card_members WHERE user='u'")
+        .prepare("SELECT world FROM card_bindings WHERE user='u'")
         .unwrap()
         .query_map([], |r| r.get(0))
         .unwrap()
@@ -178,14 +178,17 @@ fn a_move_releases_the_avatar_in_its_other_worlds() {
         .collect();
     assert_eq!(rows, vec![second.clone()]);
     let mara = actor_index("mara").unwrap();
-    assert_eq!(
-        full_store::world(&tx, &first, now()).unwrap().claimed[mara],
-        0
-    );
-    assert_eq!(
-        full_store::world(&tx, &second, now()).unwrap().claimed[mara],
-        1
-    );
+    let old = full_store::world(&tx, &first, now()).unwrap();
+    assert_eq!((old.claimed[mara], old.present[mara]), (0, 0));
+    assert_eq!(old.game["actors"]["mara"]["xp"], 0);
+    let new = full_store::world(&tx, &second, now()).unwrap();
+    assert_eq!(new.claimed[mara], 1);
+    assert_eq!(new.game["actors"]["mara"]["xp"], 6);
+    assert_eq!(new.game["actors"]["mara"]["level"], 3);
+    // Freed by the owner, Mara keeps her level for her next seat.
+    full::run(&tx, &second, "owner", &body("reset", Some("mara")), now()).unwrap();
+    let kept = super::bindings::take_progress(&tx, "u", mara).unwrap();
+    assert_eq!(kept, Some(serde_json::json!({"xp":6,"level":3})));
 }
 fn claim(c: &mut rusqlite::Connection, id: &str, a: usize) {
     let tx = c

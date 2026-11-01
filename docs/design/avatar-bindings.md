@@ -11,10 +11,15 @@ Owner rules, 2026-11-01 (#1825): no takeover.
   passkey's hold). It starts over as a fresh level-1 starter, drops what it
   held where it stood, and its place is free.
 - The holder can **Release** their own avatar the same way: they give the
-  seat back and lose their progress there.
-- Release became Leave, now **Step away**; Move is now **Send to…**. Sending
-  keeps the old world's binding, so an avatar is played in one world at a
-  time rather than kept in one world.
+  seat back, and its quests and things stay there.
+- Release became Leave, now **Step away**, which keeps the binding. Move is
+  now **Send to…**.
+- Since #1846 an avatar is in one world at a time. Any claim of an avatar
+  empties its seats elsewhere: each starts over through the same `reset`.
+  The avatar's level and experience go with it. Between seats they are kept
+  in `card_avatar_progress(user, actor)`, written whenever a seat empties
+  (Send, Release, Free), and the next claim journals them as `progress`
+  (rules 80 and later).
 - Each holder shows under a holder name ("Amber Heron"), a hash of their
   account id over frozen word lists, the same in every world. Ban is not
   built: a person can make many passkeys.

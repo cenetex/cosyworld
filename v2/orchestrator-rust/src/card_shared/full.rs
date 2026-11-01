@@ -49,10 +49,12 @@ pub(super) fn router() -> Router<AppState> {
 struct Create {
     #[serde(default)]
     save: Option<String>,
-    // The avatar the host shares as, and whether it leaves its other worlds.
+    // The avatar the host shares as. `move` is accepted from older clients;
+    // every claim now leaves the avatar's other worlds (#1846).
     #[serde(default)]
     avatar: Option<String>,
     #[serde(default, rename = "move")]
+    #[allow(dead_code)]
     moving: bool,
 }
 async fn blocking(f: impl FnOnce() -> Result<Value> + Send + 'static) -> Result<Value> {
@@ -132,19 +134,12 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
         let time = now();
         let seed = super::full_world::run_seed(&id);
         let a = actor_index(body.avatar.as_deref().unwrap_or("vale"))?;
-        if body.moving {
-            leave_elsewhere(&tx, &id, &u, a, time)?;
-        }
+        leave_elsewhere(&tx, &id, &u, a, time)?;
         let mut w = World::seeded(body.save.as_deref(), Some(seed))?;
         super::store::create(&tx, &id, &u, time)?;
         store::seed(&tx, &id, &w, "share-existing-card-world", time)?;
-        store::commit(
-            &tx,
-            &id,
-            &mut w,
-            json!({"op":"claim","actor":actor_id(a)}),
-            time,
-        )?;
+        let claim = claim_command(&tx, &w, &u, a)?;
+        store::commit(&tx, &id, &mut w, claim, time)?;
         store::commit(
             &tx,
             &id,
@@ -202,8 +197,10 @@ pub(super) struct Command {
     pub target: Option<String>,
     #[serde(default)]
     pub key: String,
-    // A claim with `move` releases this account's avatar in its other worlds.
+    // Accepted from older clients; every claim now leaves the avatar's other
+    // worlds (#1846).
     #[serde(default, rename = "move")]
+    #[allow(dead_code)]
     pub moving: bool,
 }
 async fn command(
@@ -338,6 +335,13 @@ fn reset(
     if mine != Some(a) && !bindings::owner(c, id, u)? {
         return Err("Only this world's owner can free an avatar.".into());
     }
+    vacate(c, id, w, a, time)?;
+    store::snapshot(c, id, u, time)
+}
+// A seat empties: it starts over for whoever takes that avatar here next,
+// what the avatar held stays where it stood, and its holder keeps its level
+// for the avatar's next seat (#1846).
+fn vacate(c: &rusqlite::Connection, id: &str, w: &mut World, a: usize, time: i64) -> Result<()> {
     let busy: i32 = c
         .query_row(
             "SELECT count(*) FROM card_full_plays WHERE world=? AND actor=? AND status IN ('working','playing')",
@@ -349,27 +353,41 @@ fn reset(
         return Err("That avatar's play is finishing. Try again in a moment.".into());
     }
     c.execute("UPDATE card_full_plays SET status='cancelled' WHERE world=? AND actor=? AND status IN ('waiting','retry')",params![id,a]).map_err(sql_error)?;
+    let holder = bindings::holder(c, id, a)?;
+    let progress = bindings::progress_of(&w.game, actor_id(a));
     store::commit(c, id, w, json!({"op":"reset","actor":actor_id(a)}), time)?;
-    bindings::free(c, id, a)?;
-    store::snapshot(c, id, u, time)
+    if let Some(holder) = holder {
+        bindings::save_progress(c, &holder, a, &progress)?;
+    }
+    bindings::free(c, id, a)
 }
-// Move: an account's avatar is in one world, so it is released everywhere else
-// in the same transaction as its new claim (v2/docs/card-table/avatar-menu.md).
+// An avatar is in one world at a time (#1846): a claim empties its seats in
+// every other world, in the same transaction, and takes its level along.
+// Rules that cannot reset a seat release the claim and its binding instead.
 fn leave_elsewhere(c: &rusqlite::Connection, id: &str, u: &str, a: usize, time: i64) -> Result<()> {
-    let mut q = c
-        .prepare("SELECT world FROM card_members WHERE user=? AND actor=? AND world<>?")
-        .map_err(sql_error)?;
-    let worlds = q
-        .query_map(params![u, a, id], |r| r.get::<_, String>(0))
-        .map_err(sql_error)?
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(sql_error)?;
-    for other in worlds {
+    for other in bindings::seats_elsewhere(c, id, u, a)? {
         let mut w = store::world(c, &other, time)?;
         store::expire(c, &other, &mut w, time)?;
-        leave(c, &other, &mut w, a, "release", time)?;
+        if vacate(c, &other, &mut w, a, time).is_err() {
+            let mut w = store::world(c, &other, time)?;
+            if w.claimed[a] == 1 {
+                leave(c, &other, &mut w, a, "release", time)?;
+            }
+            bindings::free(c, &other, a)?;
+        }
     }
     Ok(())
+}
+// The claim command, with the avatar's level from its last seat when these
+// rules can take it.
+fn claim_command(c: &rusqlite::Connection, w: &World, u: &str, a: usize) -> Result<Value> {
+    let mut command = json!({"op":"claim","actor":actor_id(a)});
+    if bindings::carries_progress(&w.version) {
+        if let Some(progress) = bindings::take_progress(c, u, a)? {
+            command["progress"] = progress;
+        }
+    }
+    Ok(command)
 }
 pub(super) fn run(
     c: &rusqlite::Connection,
@@ -390,16 +408,9 @@ pub(super) fn run(
         }
         let a = actor_index(b.avatar.as_deref().ok_or("Choose an avatar.")?)?;
         bindings::claim(c, id, u, a)?;
-        if b.moving {
-            leave_elsewhere(c, id, u, a, time)?;
-        }
-        store::commit(
-            c,
-            id,
-            &mut w,
-            json!({"op":"claim","actor":actor_id(a)}),
-            time,
-        )?;
+        leave_elsewhere(c, id, u, a, time)?;
+        let claim = claim_command(c, &w, u, a)?;
+        store::commit(c, id, &mut w, claim, time)?;
         c.execute(
             "INSERT INTO card_members(world,actor,user,seen) VALUES(?,?,?,?)",
             params![id, a, u, time],
