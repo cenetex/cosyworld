@@ -2050,6 +2050,12 @@ function questFrame(quest) {
   );
   el.addEventListener("click", () => {
     if (selectionBlocked()) return;
+    if (rowCollapsed && foldedChoice && selected.length) {
+      foldedChoice = false;
+      rowCollapsed = false;
+      render();
+      return;
+    }
     playQueue.clear();
     questOpen = !questOpen;
     selected = [];
