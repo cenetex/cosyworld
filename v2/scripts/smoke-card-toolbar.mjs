@@ -35,6 +35,18 @@ function snapshot() {
     version: "full-card-world/3",
     claimed,
     present,
+    bound: [1, 1, 1, 1, 0, 0, 0, 0],
+    holders: [
+      null,
+      "Sage Swift",
+      "Amber Heron",
+      "Quiet Fox",
+      null,
+      null,
+      null,
+      null,
+    ],
+    owner: true,
     now: Date.now(),
     queue: [],
     history: [],
@@ -115,7 +127,7 @@ try {
     assert.equal(await menu.locator(".avatar-row").count(), 8);
     assert.match(
       await menu.locator('[data-here="true"]').innerText(),
-      /^Vale[\s\S]*here[\s\S]*Move[\s\S]*Leave$/,
+      /^Vale[\s\S]*here[\s\S]*Send to…[\s\S]*Step away[\s\S]*Release$/,
     );
     await page.screenshot({
       path: new URL(`menu-${width}.png`, output).pathname,
@@ -126,57 +138,52 @@ try {
     // A real pointer press outside the popover performs light dismissal.
     await page.mouse.click(5, 100);
     await menu.waitFor({ state: "hidden" });
-    await toggle.focus();
-    await page.keyboard.press("Enter");
-    const dialog = page.locator("#players-dialog");
-    await page.waitForFunction(
-      () => document.querySelector("#players-dialog").open,
-    );
-    assert.equal(await dialog.locator(".player-row").count(), 3);
+    // 👥 opens the same ☰, whose Table shows each seat and who is here.
+    await toggle.click();
+    await menu.waitFor({ state: "visible" });
+    const seats = menu.locator(".table-seat");
+    assert.equal(await seats.count(), 8);
+    const kinds = () =>
+      seats.evaluateAll((rows) => rows.map((row) => row.dataset.kind));
+    assert.deepEqual(await kinds(), [
+      "you",
+      "human",
+      "human",
+      "away",
+      "open",
+      "open",
+      "open",
+      "open",
+    ]);
+    assert.match(await seats.nth(1).innerText(), /Mara\s+Sage Swift · Level 1/);
+    assert.match(await seats.nth(0).innerText(), /Vale\s+You · Level 1/);
+    assert.equal(await menu.locator(".table-online").count(), 3);
     assert.match(
-      await dialog.locator(".player-row").first().innerText(),
-      /Vale.*You\s+Level 1/s,
+      await menu.innerText(),
+      /3 humans here now · 4 of 8 seats free/,
     );
-    assert.match(await dialog.innerText(), /Mara\s+Level 1/);
-    assert.doesNotMatch(await dialog.innerText(), /Black pond|Empty station/);
-    assert.equal(await dialog.locator(".player-location").count(), 0);
+    assert.doesNotMatch(await menu.innerText(), /Black pond|Empty station/);
+    // The owner frees a seat with a second tap.
+    const free = seats.nth(2).locator("button");
+    assert.equal(await free.innerText(), "Free Ash");
     await page.screenshot({
-      path: new URL(`players-${width}.png`, output).pathname,
+      path: new URL(`table-${width}.png`, output).pathname,
     });
     if (width === 1440) {
-      world.actors.mara.place = "pond";
-      await page.waitForTimeout(1500);
-      assert.match(await dialog.innerText(), /Mara\s+Level 1/);
-      assert.doesNotMatch(await dialog.innerText(), /Black pond|Empty station/);
+      await free.click();
+      assert.equal(await free.innerText(), "Free Ash?");
+      assert.match(
+        await menu.locator(".avatar-status").innerText(),
+        /removes Amber Heron's hold and resets Ash/,
+      );
       present[2] = 0;
       await page.waitForFunction(
-        () => document.querySelectorAll(".player-row").length === 2,
+        () => document.querySelectorAll(".table-online").length === 2,
       );
       assert.match(await toggle.getAttribute("aria-label"), /2 online/);
-      offline = true;
-      await page.waitForFunction(() =>
-        document
-          .querySelector("#players-summary")
-          .textContent.includes("Reconnecting"),
-      );
-      assert.equal(await dialog.locator(".player-row").count(), 0);
-      offline = false;
-      await page.waitForFunction(
-        () => document.querySelectorAll(".player-row").length === 2,
-      );
-      present[1] = 0;
-      await page.waitForFunction(
-        () => document.querySelectorAll(".player-row").length === 1,
-      );
-      assert.match(await dialog.innerText(), /1 player online/);
     }
     await page.keyboard.press("Escape");
-    await page.waitForFunction(
-      () =>
-        document.activeElement?.id === "players-button" &&
-        document.activeElement.getAttribute("aria-expanded") === "false",
-    );
-    assert.equal(await toggle.getAttribute("aria-expanded"), "false");
+    await menu.waitFor({ state: "hidden" });
     for (const [button, target] of [
       ["menu-button", "menu-dialog"],
       ["history-button", "history-dialog"],
@@ -198,12 +205,10 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.goto(origin);
   await page.locator("#players-button").click();
-  assert.match(
-    await page.locator("#players-dialog").innerText(),
-    /Local play.*Share this world to invite friends/s,
-  );
+  await page.locator("#world-menu").waitFor({ state: "visible" });
+  assert.equal(await page.locator(".table-seat").count(), 0);
   console.log(
-    "Toolbar: five screen sizes, keyboard, player movement, presence, connection recovery, and solo play passed.",
+    "Toolbar: five screen sizes, keyboard, the Table, presence, the owner's Free, and solo play passed.",
   );
 } finally {
   await browser.close();

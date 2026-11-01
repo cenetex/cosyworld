@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   joinable,
   leaveNote,
-  ownedSeats,
+  worldSeats,
 } from "../v2/card-game/avatar-menu.mjs";
 import { humanAvatars } from "../v2/card-game/human-cast.mjs";
 
@@ -43,14 +43,45 @@ describe("worlds an avatar can go to (#1825)", () => {
   });
 });
 
-describe("the owner's delete (#1825)", () => {
-  it("lists each avatar taken in the world, for the owner only", () => {
-    const bound = [1, 0, 1, 0, 0, 0, 0, 0];
-    expect(ownedSeats({ owner: true, bound }).map((a) => a.id)).toEqual([
-      humanAvatars[0].id,
-      humanAvatars[2].id,
+describe("the Table (#1825)", () => {
+  const state = {
+    actor: "vale",
+    owner: true,
+    bound: [1, 1, 1, 0, 0, 0, 0, 0],
+    claimed: [1, 1, 0, 0, 0, 0, 0, 0],
+    present: [1, 1, 0, 0, 0, 0, 0, 0],
+    holders: [null, "Amber Heron", "Quiet Fox", null, null, null, null, null],
+    world: { actors: {} },
+  };
+  it("seats each avatar as yours, here, away or open", () => {
+    const seats = worldSeats(state);
+    expect(seats.map((s) => s.kind)).toEqual([
+      "you",
+      "human",
+      "away",
+      "open",
+      "open",
+      "open",
+      "open",
+      "open",
     ]);
-    expect(ownedSeats({ owner: false, bound })).toEqual([]);
-    expect(ownedSeats(null)).toEqual([]);
+    expect(seats.map((s) => s.id)).toEqual(humanAvatars.map((a) => a.id));
+    expect(seats[0].holder).toBe("You");
+    expect(seats[1].holder).toBe("Amber Heron");
+    expect(seats[3].holder).toBe("");
+  });
+  it("lets the owner free every held seat but their own", () => {
+    expect(
+      worldSeats(state)
+        .filter((s) => s.free)
+        .map((s) => s.id),
+    ).toEqual([humanAvatars[1].id, humanAvatars[2].id]);
+    expect(worldSeats({ ...state, owner: false }).some((s) => s.free)).toBe(
+      false,
+    );
+  });
+  it("shows no Table outside a shared seat", () => {
+    expect(worldSeats(null)).toEqual([]);
+    expect(worldSeats({ ...state, actor: null })).toEqual([]);
   });
 });

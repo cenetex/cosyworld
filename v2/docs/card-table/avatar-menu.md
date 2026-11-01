@@ -36,12 +36,13 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
   the old one: their passkey is bound to it there, and they return as it
   (#1825).
 - **Nobody takes over an avatar.** In a shared world an avatar belongs to the
-  passkey that took it, even after Leave. A friend's link shows it "Taken";
-  a person bound there sees only "Return as *Mara*"; with all eight taken the
-  world is full ("This world is full"). The world's owner can free a place:
-  ☰ lists "Avatars taken here" with **Delete *Mara***, which asks with a
-  second tap and starts that avatar over as a fresh level-1 starter that
-  leaves everything where it stood.
+  passkey that took it, even after Step away. A friend's link shows it
+  "Taken"; a person bound there sees only "Return as *Mara*"; with all eight
+  taken the world is full ("This world is full"). The world's owner can
+  **Free *Mara*** from the Table, and the holder can **Release** their own
+  avatar. Each asks with a second tap and starts that avatar over as a fresh
+  level-1 starter that leaves everything where it stood
+  ([avatar bindings](../../../docs/design/avatar-bindings.md)).
 - **A player has at most one avatar in a world.** The server already enforces
   this (`card_members` holds one row per account and world). Two avatars of one
   person in one room would fill two of its four seats, would let one person
@@ -52,35 +53,45 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
 
 ## The ☰ menu
 
-☰ lists the eight avatars. Each row shows the portrait, the name and where
-the avatar is now: "in *Hollowmere*" or "not in a world". The avatar you are
-playing is marked **here**. A tool row sits underneath: Memory, Inner life,
-Invite, Settings.
+In a shared world ☰ opens on **the Table**: the world's eight avatars as
+seats, with the world's name and "2 humans here now · 3 of 8 seats free".
+Your seat is in colour and marked "You · Level 1". Another person's seat is
+grey with their holder name and level ("Sage Swift · Level 1") and a green
+dot while they are here now. An open seat is a card back. As the owner you
+see **Free *Mara*** under each held seat; the first tap turns it red and says
+"Free Mara: removes Sage Swift's hold and resets Mara." 👥 counts who is here
+and opens the same ☰; the separate "Players in this world" dialog is gone.
+
+Below the Table, ☰ lists your eight avatars. Each row shows the portrait,
+the name and where the avatar is now: "in *Hollowmere*" or "not in a world".
+The avatar you are playing is marked **here**. A tool row sits underneath:
+Memory, Inner life, Invite, Settings.
 
 Tapping a row opens its actions:
 
 | Avatar | Actions |
 | --- | --- |
-| In a world | **Play** (go there), **Move**, **Leave**, **Delete world** (local) |
+| In a world | **Play** (go there), **Send to…**, **Step away**, **Delete world** (local) or **Release** (shared) |
 | In no world | **New world**, **Join** |
 
 - **Play** opens that world as that avatar.
-- **Move** lists the worlds you know by name (local, owned, joined) and **New
-  world**. A world that already holds another of your avatars is not listed.
-  "*The Quiet Ferry* keeps Mara's things." Moving out of a local world warns
-  first: "*Hollowmere* will be lost, with Mara's level and quest there. There
-  is no way back to it."
-- **Leave** asks once. In a shared world: "Leave *Hollowmere*? Vale stays
-  yours there, with Vale's things." It releases the claim and keeps the
-  binding. The full-room screen offers **Leave** in place of the old "Release
-  this avatar". In a local world it archives the save
-  (`.bak`, as New game does today), and the menu offers no way back to it, so
-  it asks with the same warning as Move (#1825).
+- **Send to…** (was Move) lists the worlds you know by name (local, owned,
+  joined) and **New world**. A world that already holds another of your
+  avatars is not listed. "*The Quiet Ferry* keeps Mara's things." Sending an
+  avatar out of a local world warns first: "*Hollowmere* will be lost, with
+  Mara's level and quest there. There is no way back to it."
+- **Step away** (was Leave) asks once. In a shared world: "Vale stays yours
+  there, with Vale's things." It releases the claim and keeps the binding.
+  In a local world it archives the save (`.bak`, as New game does today), and
+  the menu offers no way back to it, so it asks with the same warning as
+  Send to (#1825).
+- **Release** gives a shared seat back. The first tap turns it red: "Release
+  *Mara* from *Hollowmere*?" and "Mara's level and things in Hollowmere are
+  lost, and anyone may take Mara there." The second tap resets Mara there.
 - **Delete world** removes a local world's save and its backup. The button
-  turns red on the first tap ("Delete *Hollowmere* and its progress?") and deletes on the
-  second. The avatar is then not in a world; if it was the one being played,
-  the table opens the next avatar's world, or a fresh one. The server has no
-  world delete, so a shared world offers only Leave.
+  turns red on the first tap ("Delete *Hollowmere* and its progress?") and
+  deletes on the second. The avatar is then not in a world; if it was the one
+  being played, the table opens the next avatar's world, or a fresh one.
 - **New world** starts a local world for that avatar.
 - **Join** lists named worlds you own or were invited to that have room, and
   worlds where this person returns as that avatar.
@@ -92,8 +103,6 @@ in that world. Choosing one that is elsewhere moves it.
 **Invite** shares the current world. For a local world it first moves the
 world online (passkey), then shows the link.
 
-👥 keeps its job and gains the name: "3 here · *Hollowmere*".
-
 **Settings** is a small separate panel: Voices, Music and volume, Flashes and
 scares, Fast fights, OpenRouter, Backup (Save · Restore), Passkey (Add · Sign
 out) and Controls. It holds no world actions.
@@ -101,7 +110,11 @@ out) and Controls. It holds no world actions.
 The menu shows now, not a log: where each avatar is now. There is no list of
 past worlds. Delete world (owner request, 2026-11-01) removes only local
 saves. A world without your avatars is
-reached only through Move or Join.
+reached only through Send to or Join.
+
+Not built yet from the Table mockup: your hand under the Table with the
+quest folded behind your avatar, and grey for the world's own cards on the
+stage and in the hand.
 
 ### Mockups
 
@@ -121,9 +134,11 @@ Desktop (1440 × 900):
 
 ### Words
 
-Play, Move, Leave, Delete world, New world, Join, here, in *Name*, not in a world, Memory,
-Inner life, Invite, Settings. Gone: Worlds, Share, Your worlds, Continue as,
+Play, Send to…, Step away, Release, Free, Delete world, New world, Join,
+here, You, in *Name*, not in a world, open seat, Memory, Inner life, Invite,
+Settings. Gone: Worlds, Share, Your worlds, Continue as,
 Return to my game, Release this avatar, Leave this room, Refresh avatars,
+Move, Leave, Delete *Mara*, Avatars taken here, Players in this world,
 Claimed, "The reflected shore · N avatars available", the `?table=` warning
 and the "Your game saves in this browser" paragraph.
 

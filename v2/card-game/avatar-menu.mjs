@@ -3,10 +3,13 @@ import { humanAvatars, currentActor } from "./human-cast.mjs";
 import { request } from "./shared-auth.mjs";
 import { worldName, worldNameOf } from "./world-name.mjs";
 import { archiveLocal, deleteLocal, localWorldName } from "./avatar-world.mjs";
+import { levelOf } from "./want.mjs";
+import { avatarImage } from "./scarves.mjs";
 
 // ☰ lists the player's eight avatars and where each is now
-// (v2/docs/card-table/avatar-menu.md): Play, Move, Leave, Delete world (local
-// only), New world, Join.
+// (v2/docs/card-table/avatar-menu.md): Play, Send to…, Step away, Delete
+// world (local) or Release (shared), New world, Join. In a shared world the
+// Table above it shows who holds each of the world's avatars.
 const $ = (id) => document.getElementById(id);
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -72,10 +75,26 @@ export function leaveNote(avatar, place) {
 export const joinable = (row, avatar) =>
   !row.actor && (row.bound ? row.bound === avatar.id : !row.full);
 
-// The world owner's delete, for each avatar someone took in this world.
-export function ownedSeats(state) {
-  if (!state?.owner || !Array.isArray(state.bound)) return [];
-  return humanAvatars.filter((a, index) => state.bound[index] === 1);
+// The Table: this shared world's eight avatars as seats. Yours is in colour;
+// another person's is grey with their holder name, and a green dot while
+// they are here; an open seat is a card back. The owner may free any seat
+// but their own.
+export function worldSeats(state) {
+  if (!state?.actor) return [];
+  return humanAvatars.map((avatar, index) => {
+    const self = avatar.id === state.actor;
+    const held = state.bound?.[index] === 1 || state.claimed?.[index] === 1;
+    const online = state.present?.[index] === 1 && state.claimed?.[index] === 1;
+    const kind = self ? "you" : !held ? "open" : online ? "human" : "away";
+    return {
+      id: avatar.id,
+      name: avatar.name,
+      kind,
+      holder: self ? "You" : held ? state.holders?.[index] || "Someone" : "",
+      level: levelOf(state.world, avatar.id),
+      free: Boolean(state.owner) && held && !self,
+    };
+  });
 }
 
 export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
@@ -84,7 +103,9 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
   const status = el("p", "avatar-status");
   status.id = "avatar-status";
   status.setAttribute("role", "status");
-  menu.prepend(list, status);
+  const seatList = el("ul", "table-seats");
+  seatList.setAttribute("aria-label", "Avatars in this world");
+  menu.prepend(seatList, list, status);
   const dialog = el("dialog", "avatar-dialog");
   dialog.id = "avatar-dialog";
   document.body.append(dialog);
@@ -132,7 +153,7 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
       },
       "avatar-new-world",
     );
-    ask(`Move ${avatar.name}`, leaveNote(avatar, place), [
+    ask(`Send ${avatar.name} to…`, leaveNote(avatar, place), [
       ...targets.map((row) =>
         act(worldName(row.seed) || "A world", async () => {
           await request(`/card-game/shared/worlds/${row.id}/command`, {
@@ -165,15 +186,15 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
                 : localLink(avatar.id);
             }),
           ]),
-      act("Move", () => move(avatar, place), current ? "avatar-move" : ""),
-      act("Leave", () =>
+      act("Send to…", () => move(avatar, place), current ? "avatar-move" : ""),
+      act("Step away", () =>
         ask(
-          `Leave ${place.name || "this world"}?`,
+          `Step away from ${place.name || "this world"}?`,
           place.local
             ? leaveNote(avatar, place)
             : `${avatar.name} stays yours there, with ${avatar.name}'s things.`,
           [
-            act("Leave", async () => {
+            act("Step away", async () => {
               await leave(avatar.id, place);
               if (!current) return location.reload();
               goOn(avatar, places, "vale");
@@ -181,8 +202,10 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
           ],
         ),
       ),
-      // The server has no world delete, so a shared world offers only Leave.
-      ...(place.local ? [remove(avatar, place, current, places)] : []),
+      // The server has no world delete; a shared world offers Release.
+      place.local
+        ? remove(avatar, place, current, places)
+        : giveUp(avatar, place, current, places),
     ];
   }
   // Go on as another avatar that is somewhere, or start `fallback` afresh.
@@ -210,28 +233,109 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
     button.dataset.keepMenu = "true";
     return button;
   }
-  // The owner deletes an avatar with a second tap; it starts over as a fresh
-  // starter and its place is free for anyone.
-  function seat(avatar) {
-    const name = worldNameOf(session.state.world) || "this world";
-    const button = act(`Delete ${avatar.name}`, async () => {
+  // A red button that asks with a second tap, then runs.
+  function twoTap(label, armed, note, run) {
+    const button = act(label, async () => {
       if (button.dataset.armed !== "true") {
         button.dataset.armed = "true";
-        button.textContent = `Delete ${avatar.name} from ${name}?`;
-        status.textContent = `${avatar.name} starts over at level 1 and leaves everything where they stand.`;
+        button.textContent = armed;
+        status.textContent = note;
         return;
       }
-      await request(`/card-game/shared/worlds/${session.id}/command`, {
-        op: "reset",
-        avatar: avatar.id,
-      });
-      location.reload();
+      await run();
     });
     button.classList.add("avatar-delete");
     button.dataset.keepMenu = "true";
-    const row = el("li", "avatar-seat");
-    row.append(button);
-    return row;
+    return button;
+  }
+  const reset = (worldId, avatar) =>
+    request(`/card-game/shared/worlds/${worldId}/command`, {
+      op: "reset",
+      avatar,
+    });
+  // Release: the holder gives up their avatar in a shared world. It starts
+  // over, and its place there is free for anyone (#1825).
+  function giveUp(avatar, place, current, places) {
+    const name = place.name || "this world";
+    return twoTap(
+      "Release",
+      `Release ${avatar.name} from ${name}?`,
+      `${avatar.name}'s level and things in ${name} are lost, and anyone may take ${avatar.name} there.`,
+      async () => {
+        await reset(place.shared, avatar.id);
+        if (current) goOn(avatar, places, avatar.id);
+        else location.reload();
+      },
+    );
+  }
+  // The owner frees an avatar someone holds: their hold ends and it starts
+  // over as a fresh starter, free for anyone.
+  function seat(row) {
+    const item = el("li", "table-seat");
+    item.dataset.avatar = row.id;
+    item.dataset.kind = row.kind;
+    const card = el("div", "table-card");
+    if (row.kind !== "open") {
+      const portrait = el("img");
+      portrait.src = imageUrl(
+        `/card-game/${avatarImage(session.state.world, row.id)}`,
+        "card",
+      );
+      portrait.alt = "";
+      card.append(portrait);
+    }
+    if (row.kind === "human" || row.kind === "you") {
+      const dot = el("span", "table-online");
+      dot.setAttribute("aria-label", "here now");
+      card.append(dot);
+    }
+    const strip = el("span", "table-strip");
+    strip.append(
+      el("strong", "", row.name),
+      el(
+        "small",
+        "",
+        row.kind === "open"
+          ? "open seat"
+          : `${row.holder} · Level ${row.level}`,
+      ),
+    );
+    card.append(strip);
+    item.append(card);
+    if (row.free)
+      item.append(
+        twoTap(
+          `Free ${row.name}`,
+          `Free ${row.name}?`,
+          `Free ${row.name}: removes ${row.holder}'s hold and resets ${row.name}.`,
+          async () => {
+            await reset(session.id, row.id);
+            location.reload();
+          },
+        ),
+      );
+    return item;
+  }
+  let seatKey = "";
+  function renderSeats() {
+    const rows = session ? worldSeats(session.state) : [];
+    const key = JSON.stringify(rows);
+    if (key === seatKey) return;
+    seatKey = key;
+    seatList.replaceChildren();
+    if (!rows.length) return;
+    const heading = el("li", "avatar-seats-heading");
+    const here = rows.filter((r) => r.kind === "human" || r.kind === "you");
+    const open = rows.filter((r) => r.kind === "open").length;
+    heading.append(
+      el("strong", "", worldNameOf(session.state.world) || "This world"),
+      el(
+        "small",
+        "",
+        `${here.length} ${here.length === 1 ? "human" : "humans"} here now · ${open} of 8 seats free`,
+      ),
+    );
+    seatList.append(heading, ...rows.map(seat));
   }
   function render() {
     const now = here();
@@ -270,15 +374,8 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
       }
       list.append(row);
     }
-    const seats = session ? ownedSeats(session.state) : [];
-    if (seats.length) {
-      const heading = el("li", "avatar-seats-heading");
-      heading.append(
-        el("strong", "", "Avatars taken here"),
-        el("small", "", "As this world's owner you can free a place."),
-      );
-      list.append(heading, ...seats.map(seat));
-    }
+    seatKey = "";
+    renderSeats();
   }
   menu.addEventListener("toggle", () => {
     if (!menu.matches(":popover-open")) return;
@@ -293,4 +390,8 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
         })
         .catch(() => {});
   });
+  // Presence changes while ☰ is open refresh who is here.
+  return () => {
+    if (menu.matches(":popover-open")) renderSeats();
+  };
 }

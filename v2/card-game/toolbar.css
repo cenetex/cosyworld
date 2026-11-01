@@ -128,71 +128,6 @@ body.local-app #scene-video-button {
   background: transparent;
   font-size: 12px;
 }
-.players-summary {
-  color: #b7c7bb;
-}
-.players-list {
-  list-style: none;
-  padding: 0;
-  margin: 18px 0;
-}
-.player-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 0;
-  border-bottom: 1px solid #ded1b314;
-}
-.player-row:last-child {
-  border-bottom: 0;
-}
-.player-portrait {
-  flex: none;
-  width: 48px;
-  height: 56px;
-  object-fit: contain;
-  border-radius: 10px;
-  background: #e1d2af09;
-}
-.player-copy {
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-}
-.player-name {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 14px;
-}
-.player-you {
-  color: #a5b5aa;
-  font-size: 10px;
-  font-weight: 400;
-  border: 1px solid #a5b5aa33;
-  border-radius: 4px;
-  padding: 2px 5px;
-}
-.player-location {
-  color: #b9b8b7;
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-.player-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 9px;
-  align-items: baseline;
-}
-.player-level {
-  color: var(--gold);
-  font-size: 12px;
-  white-space: nowrap;
-}
-.players-dialog .players-hint {
-  color: #aaa8a5;
-  font-size: 12px;
-}
 @media (max-width: 1050px) {
   .topbar .brand span {
     display: none;
@@ -299,17 +234,77 @@ body.local-app #scene-video-button {
   background: #d9534f;
   color: #fff;
 }
-/* The owner's delete for each avatar taken in this shared world. */
+/* The Table: the shared world's eight seats. Yours in colour, others grey. */
+.table-seats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 8px 8px 10px;
+  list-style: none;
+  border-bottom: 1px solid #ffffff1a;
+}
 .avatar-seats-heading {
   display: grid;
-  padding: 10px 8px 4px;
-  border-top: 1px solid #ffffff1a;
+  grid-column: 1 / -1;
 }
-.avatar-seats-heading small {
+.avatar-seats-heading small,
+.table-strip small {
   color: var(--muted);
 }
-.avatar-seat {
-  padding: 2px 8px;
+.table-seat {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.table-card {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border: 1px solid #44444c;
+  border-radius: 10px;
+  background: #2b2c33;
+}
+.table-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 12%;
+  filter: grayscale(1) brightness(0.8);
+}
+[data-kind="you"] .table-card {
+  border: 2px solid #f3ead6;
+}
+[data-kind="you"] .table-card img {
+  filter: none;
+}
+[data-kind="open"] .table-card {
+  border-style: dashed;
+  background: repeating-linear-gradient(45deg, #1f2230 0 8px, #191b26 8px 16px);
+}
+.table-online {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 0 2px #0b0e16;
+}
+.table-strip {
+  position: absolute;
+  inset: auto 0 0;
+  display: grid;
+  padding: 14px 6px 5px;
+  background: linear-gradient(transparent, #080a10eb 45%);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.world-menu .table-seat .avatar-act {
+  min-height: 32px;
+  padding: 4px 6px;
+  font-size: 11px;
 }
 .menu-tools {
   display: flex;
