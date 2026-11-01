@@ -53,6 +53,12 @@ item's physical place. It follows custody through covered items and their
 carrier. Hub and pack items can use this crossing condition. An item on the
 floor and an item held by someone in that room satisfy the same condition.
 
+`{ "kind": "tag_held", "tag": "scarf", "place": "attic" }` holds while someone
+in the place carries an active pack thing whose `tags` list names that tag. A
+human must be present. Things on the floor do not count. A pack item may list
+up to four `tags`. Lonely Forest tags its eight sewn scarves `scarf`, so any
+traveler's scarf opens the lit attic stairs, as the Black cloth does.
+
 `{ "kind": "pack_item_present", "pack": "hoppycat-archive", "place": "greek-ship" }`
 holds while any thing from that pack is in the place: resting there, or
 carried by someone present there.

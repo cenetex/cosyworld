@@ -71,6 +71,7 @@ export const CONDITION_KINDS = [
   "item_at",
   "item_present",
   "item_near",
+  "tag_held",
   "shared_world",
   "connected_humans",
   "met",
@@ -912,6 +913,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             owns(items, c.item) &&
             anyPlace(c.place);
           break;
+        case "tag_held":
+          ok =
+            keysOk(c, ["kind", "tag", "place"]) &&
+            idOk(c.tag) &&
+            anyPlace(c.place);
+          break;
         case "item_present":
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
@@ -1076,7 +1083,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "art",
         "requires",
         "startLevel",
+        "tags",
       ]) &&
+        (i.tags === undefined ||
+          (Array.isArray(i.tags) &&
+            i.tags.length >= 1 &&
+            i.tags.length <= 4 &&
+            i.tags.every(idOk))) &&
         textOk(i.name, 120) &&
         textOk(i.text) &&
         textOk(i.persona) &&
