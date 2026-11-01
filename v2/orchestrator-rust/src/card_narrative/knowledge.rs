@@ -47,7 +47,11 @@ pub(super) fn valid(context: &Context) -> bool {
 }
 
 pub(super) fn directions(context: &Context, id: &str) -> Vec<String> {
-    let cast: Vec<String> = context.entities.iter().map(|e| super::name(&e.id)).collect();
+    let cast: Vec<String> = context
+        .entities
+        .iter()
+        .map(|e| super::name(&e.id))
+        .collect();
     context
         .disclosures
         .iter()
@@ -79,7 +83,8 @@ fn spoken(text: &str, speaker: &str, listener: &str, cast: &[String]) -> String 
         // Another named subject's verb is told in the past too.
         let other = cast.iter().filter(|n| start && !n.is_empty()).find(|n| {
             rest.starts_with(n.as_str())
-                && !rest[n.len()..].starts_with(|c: char| c.is_alphanumeric() || c == '\'' || c == '’')
+                && !rest[n.len()..]
+                    .starts_with(|c: char| c.is_alphanumeric() || c == '\'' || c == '’')
                 && n.as_str() != speaker
                 && n.as_str() != listener
         });
@@ -147,9 +152,7 @@ fn past(verb: &str, person: &str) -> String {
         "has" | "have" => return "had".into(),
         "does" => return "did".into(),
         "goes" => return "went".into(),
-        _ if !verb.ends_with('s') || verb.ends_with("ss") || verb.len() <= 2 => {
-            return verb.into()
-        }
+        _ if !verb.ends_with('s') || verb.ends_with("ss") || verb.len() <= 2 => return verb.into(),
         _ => {}
     }
     let base = agree(verb, true);
@@ -174,7 +177,7 @@ fn past(verb: &str, person: &str) -> String {
         && !"wxy".contains(chars[n - 1])
         && vowel(&chars[n - 2])
         && !vowel(&chars[n - 3])
-        && chars.iter().filter(|c| vowel(*c)).count() == 1
+        && chars.iter().filter(|c| vowel(c)).count() == 1
     {
         format!("{base}{}ed", chars[n - 1])
     } else {
@@ -502,8 +505,15 @@ mod tests {
     fn a_told_deed_is_past_so_it_never_reads_as_this_beat() {
         let context = vale_saw("The keeper attacks Vale. Vale drops the Bell.");
         let prompt = directions(&context, "vale").join(" ");
-        assert!(prompt.contains("The keeper attacked me. I dropped the Bell."), "{prompt}");
-        assert!(delivered(&context, "vale", "The keeper attacked me. I dropped the bell."));
+        assert!(
+            prompt.contains("The keeper attacked me. I dropped the Bell."),
+            "{prompt}"
+        );
+        assert!(delivered(
+            &context,
+            "vale",
+            "The keeper attacked me. I dropped the bell."
+        ));
         for (verb, told) in [
             ("gives", "gave"),
             ("carries", "carried"),

@@ -1482,14 +1482,22 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             _ => None,
         };
         // The play itself, once, in the present for the two it joins.
-        if let ("give", Some(item), Some(target)) =
-            (card.kind.as_str(), card.item.as_deref(), card.target.as_deref())
-        {
+        if let ("give", Some(item), Some(target)) = (
+            card.kind.as_str(),
+            card.item.as_deref(),
+            card.target.as_deref(),
+        ) {
             let actor = context.acting_avatar.as_deref().unwrap_or("vale");
             if card.accepted != Some(false) && id == actor {
-                lines.push((Section::Now, format!("I'm handing {} {}.", name(target), name(item))));
+                lines.push((
+                    Section::Now,
+                    format!("I'm handing {} {}.", name(target), name(item)),
+                ));
             } else if card.accepted != Some(false) && id == target {
-                lines.push((Section::Now, format!("{} is handing me {}.", name(actor), name(item))));
+                lines.push((
+                    Section::Now,
+                    format!("{} is handing me {}.", name(actor), name(item)),
+                ));
             }
         }
         if let (Some(stance), Some(target)) = (stance, card.target.as_deref()) {
@@ -2636,7 +2644,10 @@ mod tests {
             ),
             ("\"Stay,\" I say, \"and listen.\"", "narration tag"),
             // Observed on .dev, 2026-11-01: an earlier give told as this beat.
-            ("I give the Lamp to Pip. I'll keep the course steady.", "stage action"),
+            (
+                "I give the Lamp to Pip. I'll keep the course steady.",
+                "stage action",
+            ),
             ("Fine. I take the bell.", "stage action"),
         ] {
             assert_eq!(clean(raw), Err(reason), "{raw}");
