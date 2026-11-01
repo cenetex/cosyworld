@@ -18,6 +18,13 @@ describe("fast check smoke selection", () => {
       expect(existsSync(`v2/scripts/${smoke}.mjs`), smoke).toBe(true);
   });
 
+  it("runs a journey the full suite splits by width one width per job", () => {
+    const checks = { "smoke-card-ajax@1440": 1, "smoke-card-ajax@390": 1 };
+    expect(
+      selectSmokes(["v2/scripts/smoke-card-ajax.mjs"], config, checks),
+    ).toEqual(["smoke-card-ajax@1440", "smoke-card-ajax@390"]);
+  });
+
   it("chooses smokes by changed path, with a core default", () => {
     expect(pick("docs/release.md")).toEqual(config.default);
     expect(pick("v2/card-game/dialogue.mjs")).toContain(
