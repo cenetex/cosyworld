@@ -35,7 +35,6 @@ const TOWNS = {
     // by a route that needs the guard to hold the decree there. No road.
     "greek-battlefield",
     "greek-aulis",
-    "greek-cithaeron",
   ],
   athens: [
     "greek-athens",
@@ -135,8 +134,12 @@ describe("the map rule", () => {
       const [a, b] = packPlaces[id].road;
       expect(packPlaces[id].exits, id).toEqual([a, b]);
       expect(town(a), `${id} stays inside ${town(a)}`).not.toBe(town(b));
+      // A gated end leads onto its road by a route instead of an exit.
       for (const end of [a, b])
-        expect(packPlaces[end].exits, `${end} leads onto ${id}`).toContain(id);
+        expect(
+          steps.some(([from, to]) => from === end && to === id),
+          `${end} leads onto ${id}`,
+        ).toBe(true);
       const key = [town(a), town(b)].sort().join("|");
       expect(pairs.get(key), `${key} has two roads`).toBeUndefined();
       pairs.set(key, id);

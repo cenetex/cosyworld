@@ -45,7 +45,12 @@ battlefield can always walk back in. If the guard gives the decree away or
 leaves his post, the gate closes. A petition needs the decree in hand and
 returns it to the palace, so a petitioner carries it back to the guard
 afterwards. The battlefield is a Theban place just outside the walls, so by
-the map rule it links directly to the gate and has no road of its own.
+the map rule it links directly to the gate. Beyond it the Cithaeron road
+leads over the mountain to Eleusis. From the battlefield it opens while a
+Theban account (the Burial Account, Creon's Writ or the Guard's Tablet) is
+at the battlefield or on Dione's table in the courtyard, and closes when that
+account moves away. The way back from Eleusis is always open. The road is in
+the Open Door, so it opens with Dione's report.
 
 Three short story cards follow the opening. The Bard carries its growing
 poem. Finishing a quest brings him to the next room the player enters.

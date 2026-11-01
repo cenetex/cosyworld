@@ -161,7 +161,11 @@ describe("Greek ports and fixed roads", () => {
     "keeps the two ends of %s in the same order from either direction",
     (id, road) => {
       for (const from of road.road) {
-        let w = shared(from);
+        // A gated road opens from its end once a story has opened it.
+        let w = shared(
+          from,
+          pack.routes.some((r) => r.to === id),
+        );
         const other = road.road.find((end) => end !== from);
         expect(travelCard(ask(w, "vale").world, id).name).toBe(
           `Road to ${pack.places[other].name}`,

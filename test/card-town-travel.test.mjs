@@ -191,7 +191,11 @@ describe("local town visits and road history", () => {
         .filter(([, p]) => p.road.some((end) => attic.includes(end)))
         .map(([id]) => id)
         .sort(),
-    ).toEqual(["greek-road-athens-piraeus", "greek-road-sacred-way"]);
+    ).toEqual([
+      "greek-cithaeron",
+      "greek-road-athens-piraeus",
+      "greek-road-sacred-way",
+    ]);
     expect(exits(w, "greek-athens", "vale")).toEqual(
       expect.arrayContaining(["greek-road-athens-piraeus", "greek-colonus"]),
     );
@@ -200,6 +204,7 @@ describe("local town visits and road history", () => {
     );
     expect(exits(w, "greek-piraeus", "vale")).toContain("greek-eleusis");
     expect(roads.map(([id]) => id).sort()).toEqual([
+      "greek-cithaeron",
       "greek-oeta",
       "greek-road-athens-piraeus",
       "greek-road-black-sea",

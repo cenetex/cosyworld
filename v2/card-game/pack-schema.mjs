@@ -514,7 +514,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             (end, i) =>
               owns(places, end) &&
               p.exits[i] === end &&
-              (p.retired === true || places[end].exits.includes(id)),
+              (p.retired === true ||
+                places[end].exits.includes(id) ||
+                // A gated end leads onto its road by a route.
+                (pack.routes || []).some((r) => r.from === end && r.to === id)),
           ) &&
           p.exits.length === 2,
         `road ${id} needs two fixed ends with a return path`,
