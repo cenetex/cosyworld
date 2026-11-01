@@ -57,6 +57,8 @@ import {
 import {
   knownActors as readKnownActors,
   installWants,
+  offerLevelQuest,
+  dropLevelQuest,
   levelOf,
   wantOf,
   travels,
@@ -637,6 +639,10 @@ function wantAPI(s) {
     reachable: (actor) => reachable(s, actor),
     home: homeOf,
     sanctuaries,
+    player: (id) => id === currentActor(s) || controlledByHuman(s, id),
+    placeOf: (item) => itemPlace(s, item),
+    distance: (from, to, actor) =>
+      from === to ? 0 : (routeBetween(s, from, to, actor)?.length ?? 0) - 1,
     log: (actor, want) =>
       addLog(
         s,
@@ -1132,6 +1138,11 @@ export function legalActions(s, actor = currentActor(s)) {
   ];
   // A sleeper's only play is to wait until the light changes.
   if (s.actors[actor].sleepUntil !== undefined) return out;
+  // A level quest can be dropped, at the cost of half the experience.
+  if (s.actors[actor].want?.quest)
+    out.push(
+      offer("drop", actor, null, null, `${nameOf(actor)} drops the quest.`, []),
+    );
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
     if (departureWaits(s, actor, to)) continue;
     // A course card aboard a docked ship sets the voyage for everyone aboard.
@@ -1516,6 +1527,7 @@ function rest(s, actor, here) {
     if (s.turn < a.sleepUntil) return null;
     delete a.sleepUntil;
     if (losses) delete s.defeats[actor];
+    offerLevelQuest(s, actor, wantAPI(s));
     return "long";
   }
   if (actor !== currentActor(s) || standoffFor(s, actor)) return null;
@@ -1542,6 +1554,16 @@ function perform(s, a, round = null, settle = []) {
   if (conflict) {
     conflict.guarding[a.actor] = false;
     if (a.actor === conflict.defender) conflict.answered = true;
+  }
+  if (a.kind === "drop" && !a.item) {
+    dropLevelQuest(s, a.actor, wantAPI(s));
+    addLog(s, "World", a.text, {
+      kind: "action",
+      actorId: a.actor,
+      verb: "drop",
+      witnesses,
+    });
+    return;
   }
   if (a.kind === "wait") {
     const rested = rest(s, a.actor, here);

@@ -296,6 +296,7 @@ export function playLabel(action) {
     return `Ask ${nameOf(action.target)} for ${nameOf(action.item)}`;
   if (action?.kind === "accompany")
     return `Invite ${nameOf(action.target)} along`;
+  if (action?.kind === "drop" && !action.item) return "Drop quest";
   if (action?.kind === "move" && action.item)
     return `Carry to ${nameOf(action.target)}`;
   return {

@@ -49,9 +49,19 @@ export const travels = (id, s = null) =>
   packPeople[id]?.personalQuests === true ||
   packPeople[id]?.roamingQuest !== undefined;
 
-// Level is a rising curve of experience: 0, 1, 3, 6, 10 ... points.
+// Experience reaches each level on a rising curve: 0, 1, 3, 6, 10 ... points.
+// The quest is the threshold (#1583): a player's level rises only through its
+// level quest, which a long rest brings once experience reaches the next
+// level. Residents, whose time is not their own, level on experience alone.
 export const levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
-export const levelOf = (s, id) => levelFor(s.actors[id]?.xp || 0);
+export const levelOf = (s, id) =>
+  s.actors[id]?.level ?? levelFor(s.actors[id]?.xp || 0);
+// The quest for level n has F(n) steps: 1, 1, 2, 3, 5, 8 ...
+export const questSteps = (level) => {
+  let [a, b] = [1, 1];
+  for (let i = 1; i < level; i++) [a, b] = [b, a + b];
+  return a;
+};
 // A pack resident may start at an authored level, with the experience that
 // level takes, so its later level-ups stay on the same curve. Player and
 // human avatars always start at the bottom.
@@ -61,6 +71,49 @@ export const startXp = (id) => {
 };
 
 export const wantOf = (s, id) => s.actors[id]?.want ?? null;
+// One step of a level quest: a want from the whole known world, among the
+// half furthest from home, so higher levels reach further.
+function questStep(s, actor, api, quest, previous = null) {
+  const home = api.home(actor) || s.actors[actor].place;
+  const away = (entry) => {
+    const [kind, target] = entry.split(":");
+    const at =
+      kind === "item"
+        ? api.placeOf(target)
+        : kind === "person"
+          ? s.actors[target].place
+          : target;
+    // Somewhere with no known way there is the furthest of all.
+    const steps = api.distance(home, at, actor);
+    return steps < 0 ? 64 : steps;
+  };
+  const pool = wantCandidates(s, actor, api, previous, true)
+    .map((entry) => [away(entry), entry])
+    .sort((x, y) => y[0] - x[0] || (x[1] < y[1] ? -1 : 1))
+    .map(([, entry]) => entry);
+  if (!pool.length) return nextWant(s, actor, api, previous);
+  const far = pool.slice(0, Math.ceil(pool.length / 2));
+  const [kind, target] = far[hash(`${actor}:${s.turn}`) % far.length].split(":");
+  return { ...newWant(kind, target, s.turn), quest };
+}
+// On waking from a long rest with experience enough for the next level, the
+// player's level quest takes the place of its want.
+export function offerLevelQuest(s, actor, api) {
+  const a = s.actors[actor];
+  a.level ??= levelFor(a.xp);
+  if (a.want?.quest || levelFor(a.xp) <= a.level) return null;
+  const level = a.level + 1;
+  a.want = questStep(s, actor, api, { level, left: questSteps(level) });
+  return a.want;
+}
+// Dropping a level quest costs half the avatar's experience; its ordinary
+// wants resume.
+export function dropLevelQuest(s, actor, api) {
+  const a = s.actors[actor];
+  a.xp = Math.floor(a.xp / 2);
+  a.gaveUp = { target: a.want.target, turn: s.turn };
+  a.want = nextWant(s, actor, api, a.want);
+}
 export const newWant = (kind, target, turn) => ({
   kind,
   target,
@@ -245,10 +298,23 @@ export function settleWants(s, actors, api, action = null) {
     }
     if (!wantMet(s, id, talk)) continue;
     const want = a.want;
+    a.level ??= levelFor(a.xp);
     a.xp += 1;
     a.metTurn = s.turn;
     met.push({ actorId: id, want });
     api.log(id, want);
+    if (want.quest?.left > 1) {
+      a.want = questStep(
+        s,
+        id,
+        api,
+        { ...want.quest, left: want.quest.left - 1 },
+        want,
+      );
+      continue;
+    }
+    if (want.quest) a.level = want.quest.level;
+    else if (!api.player(id)) a.level = Math.max(a.level, levelFor(a.xp));
     const home = api.home(id);
     const atRest =
       !home || a.place === home || api.sanctuaries.includes(a.place);
@@ -276,7 +342,10 @@ export function refuseWant(s, actor, item, api) {
 function giveUp(s, actor, api) {
   const a = s.actors[actor];
   a.gaveUp = { target: a.want.target, turn: s.turn };
-  a.want = nextWant(s, actor, api, a.want);
+  // A level quest with no way forward becomes another of the same level.
+  a.want = a.want.quest
+    ? questStep(s, actor, api, a.want.quest, a.want)
+    : nextWant(s, actor, api, a.want);
 }
 // A cast want with no way forward for a long spell is set aside. A resident
 // that keeps to its scene acts only when someone is there, so time spent
@@ -317,6 +386,10 @@ export function validWant(s, id) {
   return (
     Number.isSafeInteger(a.xp) &&
     a.xp >= 0 &&
+    (a.level === undefined ||
+      (Number.isSafeInteger(a.level) &&
+        a.level >= 1 &&
+        a.level <= levelFor(startXp(id) + s.turn * 8))) &&
     a.xp <= startXp(id) + s.turn * 8 &&
     (a.metTurn === undefined || whole(a.metTurn)) &&
     (a.gaveUp === undefined ||
@@ -329,7 +402,14 @@ export function validWant(s, id) {
     Array.isArray(a.visited) &&
     (w === null ||
       (w &&
-        Object.keys(w).length === 4 &&
+        Object.keys(w).length === (w.quest === undefined ? 4 : 5) &&
+        (w.quest === undefined ||
+          (Object.keys(w.quest).length === 2 &&
+            Number.isSafeInteger(w.quest.level) &&
+            w.quest.level >= 2 &&
+            Number.isSafeInteger(w.quest.left) &&
+            w.quest.left >= 1 &&
+            w.quest.left <= questSteps(w.quest.level))) &&
         WANT_KINDS.includes(w.kind) &&
         typeof w.target === "string" &&
         validTarget(s, w.kind, w.target) &&
