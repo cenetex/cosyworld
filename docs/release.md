@@ -80,6 +80,18 @@ with `.dev train`, which is how that script tells a `dev` dispatch from a
 production one. A pending train is replaced only by a later train, which
 reports for it (#1044).
 
+## Deploy timings
+
+`npm run deploy:timings` (`scripts/deploy-timings.mjs`, needs an
+authenticated `gh`) reads recent Deploy runs (`--limit 30` by default) and
+prints, for tags, promotions, dispatches, and `.dev` trains, the p50 and p90
+wall time, the wait before the first job started, how often the Production
+Rust gate reused a CI run, how often the image was reused rather than built
+(an image step under two minutes), and each run's critical path. Every
+Deploy run adds the same one-line summary for itself to its run summary
+(`Report production deployment outcome`). Pick speedups from its numbers,
+and put before and after numbers in the pull request.
+
 ## Superseding production deploys
 
 A production run is about 12 minutes, most of it gates. When production runs
