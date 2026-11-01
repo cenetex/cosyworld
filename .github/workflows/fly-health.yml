@@ -29,9 +29,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # The checks need only their scripts. A full checkout is about 920 MB
+      # of art and took about 40 of each run's 50 seconds, every 15 minutes.
       - name: Checkout
         id: checkout
         uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            scripts
+            v2/scripts
 
       - name: Setup Node
         id: node
@@ -72,9 +78,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # The checks need only their scripts. A full checkout is about 920 MB
+      # of art and took about 40 of each run's 50 seconds, every 15 minutes.
       - name: Checkout
         id: checkout
         uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            scripts
+            v2/scripts
 
       - name: Setup Node
         id: node
