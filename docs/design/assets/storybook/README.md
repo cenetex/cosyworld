@@ -4,7 +4,7 @@ Watercolor reference plates of the live cast, kept from the retired
 `storybook/` explainer, "The World That Remembered" (#936, `71ecebb5`). They
 illustrate one real living-world run and serve as reference art for the
 read-aloud retelling in
-[the world chronicle](../../../backlog/player-journal-semantic-chronicle.md#world-chronicle).
+[the world chronicle](../../../archive/backlog/player-journal-semantic-chronicle.md#world-chronicle).
 
 | File | Shows |
 |---|---|

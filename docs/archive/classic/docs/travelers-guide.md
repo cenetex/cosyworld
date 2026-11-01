@@ -270,7 +270,7 @@ Versioned Lead, Gate, Hazard, Pressure, and Anchor descriptors now exist, and
 the kernel owns conditional Gate transitions. Broader player procedures,
 Pressure scenes, materialized discoveries, author inspection, and content
 proof remain dependency-ordered in
-[Thresholds, Trails, and the Strict Referee](../../../backlog/thresholds-trails-and-strict-referee.md).
+[Thresholds, Trails, and the Strict Referee](../../backlog/thresholds-trails-and-strict-referee.md).
 
 ## Items And Loot
 
@@ -307,7 +307,7 @@ remains: retreat to an Anchor, rest if possible, Camp, accept aid, defend,
 flee, or call for rescue.
 
 The exact short-rest refresh and cadence remain a decision in
-[Rest, Travel, and Weariness](../../../backlog/rest-travel-and-weariness.md). Do not
+[Rest, Travel, and Weariness](../../backlog/rest-travel-and-weariness.md). Do not
 assume the playtest rule is live until that decision and its migration ship.
 
 ## Challenge Without A Forced Answer

@@ -15,7 +15,7 @@ Replicate models. Hoppycat, Lantern Keeper, and Elysium use the built-in image
 tool with the existing identity art and proposed style boards. Each sample
 awaits approval.
 
-The [Reflected Shore migration backlog](../../backlog/reflected-shore-worldpack-migration.md)
+The [Reflected Shore migration backlog](../../archive/backlog/reflected-shore-worldpack-migration.md)
 preserves the four-of-each content plan, proposed crossings, and delivery checks.
 The creator will integrate after multiplayer testing and art approval.
 

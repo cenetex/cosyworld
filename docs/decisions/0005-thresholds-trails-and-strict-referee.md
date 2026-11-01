@@ -319,7 +319,7 @@ inspectable.
 
 ## References
 
-- [Thresholds, trails, and the strict referee backlog](../backlog/thresholds-trails-and-strict-referee.md)
+- [Thresholds, trails, and the strict referee backlog](../archive/backlog/thresholds-trails-and-strict-referee.md)
 - [CosyWorld RPG System Bible](../archive/classic/docs/systems/09-cosyworld-rpg-system.md)
 - [SRD-backed action and collectible system](../archive/classic/docs/systems/04-action-system.md)
 - [ADR 0004: rest grades and expedition depth](0004-rest-grades-and-expedition-depth.md)
