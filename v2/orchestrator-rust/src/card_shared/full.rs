@@ -236,14 +236,13 @@ async fn command(
     }
     reply(result)
 }
-// A refused world names itself and where the rules refused it, so a 409 is
-// diagnosable from the host log. Only the world ID and rule text are logged.
+// A refused world names itself and the rules' reason, which says where a
+// save failed validation, so a 409 is diagnosable from the host log. Only the
+// world ID and rule text are logged.
 fn logged(id: &str, f: impl FnOnce() -> Result<Value>) -> Result<Value> {
-    super::engine::take_reason();
     let result = f();
     if let Err(error) = &result {
-        let reason = super::engine::take_reason();
-        tracing::warn!(world = %id, %error, reason = reason.as_deref().unwrap_or(""), "shared world request refused");
+        tracing::warn!(world = %id, %error, "shared world request refused");
     }
     result
 }

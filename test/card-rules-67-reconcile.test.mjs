@@ -137,3 +137,21 @@ describe("pack progress reconcile", () => {
     }
   });
 });
+
+describe("a refused shared save", () => {
+  it("names where the rules refused it, and nothing of the world", async () => {
+    await import("../v2/card-game/shared-world-entry.mjs");
+    const world = structuredClone(fixture.world);
+    world.items.lamp.holder = "nowhere";
+    const reply = JSON.parse(
+      globalThis.cardShared(
+        JSON.stringify({ op: "validate", world, ...context() }),
+      ),
+    );
+    expect(reply.ok).toBe(false);
+    expect(reply.error).toMatch(
+      /^This save needs a fresh start\..*\(validateWorld:\d+ < decodeSave:\d+/,
+    );
+    expect(reply.error).not.toMatch(/nowhere|lamp/);
+  });
+});

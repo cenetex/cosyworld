@@ -12,18 +12,23 @@ globalThis.cardShared = (json) => {
   try {
     return JSON.stringify(dispatchShared(JSON.parse(json)));
   } catch (error) {
-    // The host logs where the rules refused: function names and bundle
-    // lines only, never the world's contents.
+    // A refused save names where the rules refused it, for the host log:
+    // function names and bundle lines only, never the world's contents.
+    const where = String(error.stack || "")
+      .split("\n")
+      .map((line) => /^\s*at (\S+) \(.*?:(\d+)(?::\d+)?\)$/u.exec(line))
+      .filter((frame) => frame && frame[1] !== "fail")
+      .slice(0, 4)
+      .map(([, name, line]) => `${name}:${line}`)
+      .join(" < ");
+    const message =
+      error.message || "The world could not resolve this request.";
     return JSON.stringify({
       ok: false,
-      error: error.message || "The world could not resolve this request.",
-      reason: String(error.stack || "")
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.startsWith("at "))
-        .slice(0, 6)
-        .join(" < ")
-        .slice(0, 400),
+      error:
+        where && /fresh start/u.test(message)
+          ? `${message} (${where})`
+          : message,
     });
   }
 };
