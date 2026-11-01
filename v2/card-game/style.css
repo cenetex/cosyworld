@@ -1630,10 +1630,12 @@ body .cast[data-count] {
     ) {
     max-height: 144vw;
   }
+  /* Short phones keep 380px of the busts in view, but never lift them above
+     the back row, whose heads sit 14% down the stage. */
   body .cast[data-shared="true"]:not([data-count="1"]):not([data-count="2"]) {
     --bust-drop: clamp(
       0%,
-      min(calc((var(--cast-count) - 2) * 12%), calc(100% - 380px)),
+      min(calc((var(--cast-count) - 2) * 12%), max(calc(100% - 380px), 16%)),
       42%
     );
   }
@@ -1645,6 +1647,13 @@ body .cast[data-count] {
   body .cast[data-shared="true"] .portrait[data-depth="back"] {
     left: calc(10% + var(--stage-x) * 0.8);
     bottom: calc(86% - var(--stage-size));
+  }
+  /* A wide figure is drawn shorter, so lift its feet to keep its head on
+     the back row instead of below the foreground busts. */
+  body
+    .cast[data-shared="true"]
+    .portrait[data-depth="back"][data-framing="wide"] {
+    bottom: calc(86% - min(calc(var(--stage-size) * 0.74), 93vw));
   }
   body .dialogue {
     bottom: calc(var(--dock-height) + 2px);
