@@ -97,9 +97,10 @@ pull request checks.
 
 ### Full suite
 
-The full suite (`ci.yml`, about 12 minutes on idle runners) runs only by hand, and only before
-a production release: the latest main commit to be tagged needs a green full
-run (`gh workflow run ci.yml --ref main`). Do not run it after batches.
+The full suite (`ci.yml`, about 12 minutes on idle runners) runs only by hand
+(`gh workflow run ci.yml --ref main`) and does not block a release: tag the
+commit `.dev` serves as in [release operations](../docs/release.md#cutting-a-release),
+and file failures as issues. Do not run it after batches.
 `image-build.yml`, `local-desktop.yml`, and `pages.yml` also run only by
 dispatch. `deploy.yml` deploys .dev on every main push and runs the production
 gates on tags.

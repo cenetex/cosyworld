@@ -26,8 +26,12 @@ on:
         default: ""
         type: string
 
+# Main pushes (.dev) and production runs (v* tags, dispatches) queue in
+# separate groups. GitHub keeps one pending run per group, so a shared group
+# let a main push replace a waiting tag deploy. Both roll out the primary app;
+# scripts/serialize-primary-rollout.sh keeps those rollouts apart.
 concurrency:
-  group: deploy-${{ github.repository }}
+  group: deploy-${{ github.repository }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'dev' || 'production' }}
   cancel-in-progress: false
 
 permissions:
@@ -131,9 +135,11 @@ jobs:
           COSYWORLD_RELEASE_TARGET_CACHE: ${{ runner.temp }}/release-target
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-      - name: Yield to a newer main commit before the rollout
+      # Waits while a production deploy is queued or running, then yields if
+      # main moved. Production waits for .dev runs past this step.
+      - name: Wait for production deploys
         if: steps.impact.outputs.deploy == 'true'
-        run: bash scripts/yield-superseded-deploy.sh check
+        run: bash scripts/serialize-primary-rollout.sh dev
 
       - name: Roll out .dev
         id: rollout
@@ -293,6 +299,7 @@ jobs:
     permissions:
       contents: read
       checks: read
+      actions: read
     env:
       CI: true
       RUST_TEST_THREADS: "2"
@@ -302,9 +309,9 @@ jobs:
         with:
           fetch-depth: 1
 
-      # A manual main CI run, required before a tag, runs the same Rust tests
-      # and lint. Reuse its result for this exact commit; run the checks here
-      # only when CI did not run them, was cancelled, or failed.
+      # A manual CI run on this exact commit runs the same Rust tests and lint.
+      # Reuse its result; run the checks here when CI did not run them (at
+      # once when no CI run exists for the commit), was cancelled, or failed.
       - name: Reuse CI Rust checks for this commit
         id: ci
         env:
@@ -322,9 +329,11 @@ jobs:
         with:
           node-version: "24"
 
+      # Restore only: CI saves this cache daily, and a per-tag save cost a
+      # minute and 2 GB of the 10 GB cache budget for a key nothing reuses.
       - name: Restore Cargo build cache
         if: steps.ci.outputs.reuse != 'true'
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/.cargo/registry/index
@@ -340,6 +349,46 @@ jobs:
         if: steps.ci.outputs.reuse != 'true'
         run: bash v2/scripts/check-rust.sh test
 
+  # Lint runs beside the tests, not after them. Clippy builds in its own empty
+  # target directory, so it needs no Cargo cache and shares nothing with the
+  # test build; in sequence it added about two minutes to every release.
+  production-rust-lint:
+    name: Production Rust architecture and lint
+    needs: [deployment-impact, release-owner]
+    if: >-
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true' &&
+      (github.event_name != 'push' || startsWith(github.ref, 'refs/tags/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: read
+    env:
+      CI: true
+    steps:
+      - name: Checkout committed release
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Reuse CI Rust checks for this commit
+        id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/await-ci-rust.mjs >> "$GITHUB_OUTPUT"
+
+      - name: Setup Rust
+        if: steps.ci.outputs.reuse != 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        if: steps.ci.outputs.reuse != 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
       - name: Check Rust architecture
         if: steps.ci.outputs.reuse != 'true'
         run: |
@@ -348,8 +397,10 @@ jobs:
 
   production-gate:
     name: V2 production deployment gate
-    if: ${{ always() }}
-    needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate]
+    # A main push deploys from dev-deploy, which needs no gate, so it skips
+    # this job instead of holding a runner to report that.
+    if: ${{ always() && (github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')) }}
+    needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate, production-rust-lint]
     runs-on: ubuntu-latest
     steps:
       - name: Verify required production gates passed
@@ -359,6 +410,7 @@ jobs:
           OWNS_RELEASE: ${{ needs.release-owner.outputs.owns }}
           NODE_RESULT: ${{ needs.production-node-gate.result }}
           RUST_RESULT: ${{ needs.production-rust-gate.result }}
+          RUST_LINT_RESULT: ${{ needs.production-rust-lint.result }}
           FULL_RELEASE: ${{ (github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')) }}
         run: |
           if [ "$DEPLOY" != true ]; then
@@ -376,6 +428,7 @@ jobs:
           fi
           test "$NODE_RESULT" = success
           test "$RUST_RESULT" = success
+          test "$RUST_LINT_RESULT" = success
 
   # The image builds while the gates run. Building does not touch the running
   # app; only primary-fly replaces it, after the gates and backup pass.
@@ -423,9 +476,18 @@ jobs:
        (github.event_name == 'workflow_dispatch' &&
         (inputs.target == 'both' || inputs.target == 'primary')))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Wait for a .dev rollout to finish
+        run: bash scripts/serialize-primary-rollout.sh production
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -477,9 +539,18 @@ jobs:
       needs.production-gate.result == 'success' &&
       needs.primary-backup.result == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Wait for a .dev rollout to finish
+        run: bash scripts/serialize-primary-rollout.sh production
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -513,6 +584,85 @@ jobs:
 
       - name: Verify primary card game
         run: node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
+
+  # The primary app is also .dev. A tag of a commit main has moved past rolled
+  # .dev back to it (v1.2.107 replaced 03b2082 at 03:29 on 2026-11-01), so
+  # "tag it from .dev" then named an old commit. Roll .dev forward again to
+  # the newer main commit it ran before this tag, from that commit's image.
+  restore-dev:
+    name: Return .dev to the main commit it ran
+    needs: [primary-fly]
+    if: startsWith(github.ref, 'refs/tags/') && needs.primary-fly.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      # The newest earlier rollout, leaving out this run, is what .dev ran.
+      # Only a newer commit on main is restored; an unreadable list keeps the
+      # tag, and the next main push deploys .dev as before.
+      - name: Find the commit .dev ran before this tag
+        id: previous
+        run: |
+          sha="$(node scripts/last-dev-rollout.mjs)"
+          status=""
+          if [ -n "$sha" ] && [ "$sha" != "$GITHUB_SHA" ]; then
+            status="$(gh api "repos/${GH_REPO}/compare/${GITHUB_SHA}...${sha}" --jq .status || true)"
+          fi
+          if [ "$status" = ahead ]; then
+            echo "sha=$sha" >> "$GITHUB_OUTPUT"
+            echo ".dev ran ${sha:0:7}, ahead of the tag; restoring it."
+          else
+            echo "Nothing newer to restore (${sha:0:7} ${status:-none})."
+          fi
+
+      # The smokes compare .dev with the files and commit it should serve.
+      - name: Check out the commit to restore
+        if: steps.previous.outputs.sha != ''
+        run: git checkout --quiet "$DEV_SHA"
+        env:
+          DEV_SHA: ${{ steps.previous.outputs.sha }}
+
+      - name: Setup flyctl
+        if: steps.previous.outputs.sha != ''
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Roll .dev forward
+        if: steps.previous.outputs.sha != ''
+        run: flyctl deploy --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"
+        env:
+          DEV_SHA: ${{ steps.previous.outputs.sha }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Verify .dev readiness and card game
+        if: steps.previous.outputs.sha != ''
+        env:
+          DEV_SHA: ${{ steps.previous.outputs.sha }}
+        run: |
+          for attempt in {1..13}; do
+            if node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev; then
+              GITHUB_SHA="$DEV_SHA" exec node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
+            fi
+            echo "::warning::.dev readiness attempt $attempt failed; retrying in 10 seconds"
+            sleep 10
+          done
+          echo ".dev readiness remained degraded after 120 seconds" >&2
+          exit 1
 
   # Copy the primary build into the Lonely Forest registry with separate
   # app tokens. A Lonely Forest-only release builds directly in its registry.
@@ -677,13 +827,14 @@ jobs:
       - primary-image
       - primary-backup
       - primary-fly
+      - restore-dev
       - lonelyforest-image
       - lonelyforest-backup
       - lonelyforest-fly
-    # A queued run that a newer run in the deploy concurrency group replaced
-    # (a version tag on the same commit, or a later main push) is cancelled
-    # and owns nothing; the newer run reports for it (#1044). A main run that
-    # a newer main commit superseded cancels itself the same way.
+    # A queued run that a newer run in its concurrency group replaced (a
+    # later main push for main, a later tag or dispatch for production) is
+    # cancelled and owns nothing; the newer run reports for it (#1044). A
+    # main run that a newer main commit superseded cancels itself the same way.
     if: ${{ !cancelled() }}
     permissions:
       contents: read
@@ -700,6 +851,7 @@ jobs:
            contains(fromJSON('["failure","cancelled"]'), needs.primary-image.result) ||
            contains(fromJSON('["failure","cancelled"]'), needs.primary-backup.result) ||
            needs.primary-fly.result == 'failure' ||
+           needs.restore-dev.result == 'failure' ||
            contains(fromJSON('["failure","cancelled"]'), needs.lonelyforest-image.result) ||
            contains(fromJSON('["failure","cancelled"]'), needs.lonelyforest-backup.result) ||
            needs.lonelyforest-fly.result == 'failure'))
@@ -712,6 +864,7 @@ jobs:
           PRIMARY_IMAGE_RESULT: ${{ needs.primary-image.result }}
           PRIMARY_BACKUP_RESULT: ${{ needs.primary-backup.result }}
           PRIMARY_RESULT: ${{ needs.primary-fly.result }}
+          RESTORE_DEV_RESULT: ${{ needs.restore-dev.result }}
           LONELYFOREST_IMAGE_RESULT: ${{ needs.lonelyforest-image.result }}
           LONELYFOREST_BACKUP_RESULT: ${{ needs.lonelyforest-backup.result }}
           LONELYFOREST_RESULT: ${{ needs.lonelyforest-fly.result }}
@@ -726,6 +879,7 @@ jobs:
           - Primary image build: ${PRIMARY_IMAGE_RESULT}
           - Primary guards and backup: ${PRIMARY_BACKUP_RESULT}
           - Primary Fly deploy: ${PRIMARY_RESULT}
+          - .dev returned to main: ${RESTORE_DEV_RESULT}
           - Lonely Forest image build: ${LONELYFOREST_IMAGE_RESULT}
           - Lonely Forest guards and backup: ${LONELYFOREST_BACKUP_RESULT}
           - Lonely Forest Fly deploy: ${LONELYFOREST_RESULT}
