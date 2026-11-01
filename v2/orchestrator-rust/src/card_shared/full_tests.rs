@@ -2381,7 +2381,11 @@ fn dousing_the_held_lamp_meets_vales_want_once_and_replays() {
     let mut w = World::create(None).unwrap();
     w.claimed = [1, 0, 0, 0, 0, 0, 0, 0];
     w.present = w.claimed;
-    assert_eq!(w.game["actors"]["vale"]["want"]["target"], "lamp");
+    // A player holds no quest before the Black Pond (#1768), so this test
+    // gives Vale the lamp want she used to start with.
+    assert!(w.game["actors"]["vale"]["want"].is_null());
+    w.game["actors"]["vale"]["want"] =
+        json!({"kind":"item","target":"lamp","since":0,"refusals":0});
     full_store::seed(&c, &id, &w, "want-met", now()).unwrap();
     // Vale already holds the lamp, so the first play meets that want.
     let action = home_action(&w, 0, "snuff");
