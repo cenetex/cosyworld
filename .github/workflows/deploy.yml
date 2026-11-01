@@ -35,14 +35,18 @@ on:
 
 # Shows a train in the run list, where scripts/serialize-primary-rollout.sh
 # reads it: a `dev` dispatch is otherwise indistinguishable from production.
-run-name: ${{ (github.event_name == 'schedule' || inputs.target == 'dev') && format('.dev train {0}', github.sha) || format('Deploy {0}', github.ref_name) }}
+# A production run's name ends with its target, which
+# scripts/supersede-production-deploy.mjs reads; a tag deploys both apps.
+run-name: ${{ (github.event_name == 'schedule' || inputs.target == 'dev') && format('.dev train {0}', github.sha) || format('Deploy {0} to {1}', github.ref_name, inputs.target || 'both') }}
 
-# .dev trains and production runs (v* tags, dispatches) queue in separate
-# groups. GitHub keeps one pending run per group, so a shared group let a main
-# push replace a waiting tag deploy. Both roll out the primary app;
+# .dev trains queue in one group. Production runs (v* tags, dispatches) get a
+# group each, so a newer release never waits behind a whole older run:
+# scripts/supersede-production-deploy.mjs cancels an older run still in its
+# gates and serializes the Fly rollouts themselves. Nothing here cancels a
+# run in progress. Trains and production both roll out the primary app;
 # scripts/serialize-primary-rollout.sh keeps those rollouts apart.
 concurrency:
-  group: deploy-${{ github.repository }}-${{ (github.event_name == 'schedule' || inputs.target == 'dev') && 'dev' || 'production' }}
+  group: deploy-${{ github.repository }}-${{ (github.event_name == 'schedule' || inputs.target == 'dev') && 'dev' || format('production-{0}', github.run_id) }}
   cancel-in-progress: false
 
 permissions:
@@ -232,9 +236,21 @@ jobs:
     needs: deployment-impact
     if: needs.deployment-impact.outputs.deploy == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Reads other Deploy runs and cancels older ones this run supersedes.
+      actions: write
     outputs:
       owns: ${{ steps.ownership.outputs.owns }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts
+
+      # A newer tag or dispatch supersedes an older production run: cancel
+      # an older run that has not started a Fly rollout, and stop this run
+      # when a run that supersedes it is already active.
       - name: Yield a superseded main deployment
         id: ownership
         env:
@@ -242,8 +258,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           if [ "$GITHUB_EVENT_NAME" != "push" ] || [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "owns=true" >> "$GITHUB_OUTPUT"
-            echo "Explicit deployment owns its committed target."
+            node scripts/supersede-production-deploy.mjs start
             exit 0
           fi
           main_sha="$(gh api "repos/${GH_REPO}/git/ref/heads/main" --jq .object.sha)"
@@ -505,6 +520,13 @@ jobs:
         with:
           node-version: "24"
 
+      # The snapshot must follow any other production rollout of this app.
+      - name: Wait for other production rollouts
+        run: node scripts/supersede-production-deploy.mjs wait primary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -553,6 +575,8 @@ jobs:
     permissions:
       contents: read
       actions: read
+    outputs:
+      deployed: ${{ steps.deploy.outcome == 'success' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -568,16 +592,29 @@ jobs:
         with:
           node-version: "24"
 
+      # Waits for an older production rollout of this app, then skips this
+      # rollout when a newer production run supersedes this one.
+      - name: Yield to a newer production deploy
+        id: claim
+        run: node scripts/supersede-production-deploy.mjs claim primary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+
       - name: Setup flyctl
+        if: steps.claim.outputs.superseded != 'true'
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy primary Fly app
+        id: deploy
+        if: steps.claim.outputs.superseded != 'true'
         run: flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
         env:
           RELEASE_IMAGE: ${{ needs.primary-image.outputs.image }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Verify primary readiness and persistence
+        if: steps.claim.outputs.superseded != 'true'
         run: |
           # A fresh process may take a moment to report healthy persistence
           # after a rolling deploy; retry for two minutes before failing.
@@ -594,6 +631,7 @@ jobs:
           done
 
       - name: Verify primary card game
+        if: steps.claim.outputs.superseded != 'true'
         run: node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
 
   # The primary app is also .dev. A tag of a commit main has moved past rolled
@@ -603,7 +641,7 @@ jobs:
   restore-dev:
     name: Return .dev to the main commit it ran
     needs: [primary-fly]
-    if: startsWith(github.ref, 'refs/tags/') && needs.primary-fly.result == 'success'
+    if: startsWith(github.ref, 'refs/tags/') && needs.primary-fly.result == 'success' && needs.primary-fly.outputs.deployed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -729,6 +767,9 @@ jobs:
         (inputs.target == 'both' || inputs.target == 'lonelyforest')))
     runs-on: ubuntu-latest
     environment: lonelyforest-production
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Checkout committed release
         uses: actions/checkout@v7
@@ -737,6 +778,13 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: "24"
+
+      # The snapshot must follow any other production rollout of this app.
+      - name: Wait for other production rollouts
+        run: node scripts/supersede-production-deploy.mjs wait lonelyforest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
 
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
@@ -781,9 +829,14 @@ jobs:
         (inputs.target == 'both' || inputs.target == 'lonelyforest')))
     runs-on: ubuntu-latest
     environment: lonelyforest-production
-    concurrency:
-      group: deploy-lonelyforest-production
-      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      deployed: ${{ steps.deploy.outcome == 'success' }}
+    # No job concurrency group: GitHub keeps one pending job per group and
+    # cancels the rest, whatever their commit. The claim step serializes
+    # Lonely Forest rollouts instead.
     steps:
       - name: Checkout committed release
         uses: actions/checkout@v7
@@ -793,10 +846,22 @@ jobs:
         with:
           node-version: "24"
 
+      # Waits for an older production rollout of this app, then skips this
+      # rollout when a newer production run supersedes this one.
+      - name: Yield to a newer production deploy
+        id: claim
+        run: node scripts/supersede-production-deploy.mjs claim lonelyforest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+
       - name: Setup flyctl
+        if: steps.claim.outputs.superseded != 'true'
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy Lonely Forest
+        id: deploy
+        if: steps.claim.outputs.superseded != 'true'
         run: |
           for attempt in 1 2; do
             if flyctl deploy --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"; then
@@ -813,6 +878,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
       - name: Verify Lonely Forest readiness and persistence
+        if: steps.claim.outputs.superseded != 'true'
         run: |
           for attempt in {1..13}; do
             if node v2/scripts/smoke-deployed-readiness.mjs https://lonelyforest.com; then
@@ -826,6 +892,7 @@ jobs:
           done
 
       - name: Verify Lonely Forest card game
+        if: steps.claim.outputs.superseded != 'true'
         run: node v2/scripts/smoke-deployed-card-game.mjs https://lonelyforest.com https://www.lonelyforest.com https://cosyworld-lonelyforest.fly.dev
 
   deploy-outcome:
@@ -917,8 +984,8 @@ jobs:
         if: >-
           (needs.dev-deploy.result == 'success' &&
            needs.dev-deploy.outputs.rolled-out == 'true') ||
-          (needs.primary-fly.result == 'success' &&
-           needs.lonelyforest-fly.result == 'success')
+          (needs.primary-fly.outputs.deployed == 'true' &&
+           needs.lonelyforest-fly.outputs.deployed == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -946,7 +1013,11 @@ jobs:
   github-release:
     name: Create GitHub release
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    # A tag superseded by a newer release before its rollouts gets no release.
+    if: >-
+      startsWith(github.ref, 'refs/tags/') &&
+      needs.primary-fly.outputs.deployed == 'true' &&
+      needs.lonelyforest-fly.outputs.deployed == 'true'
     needs: [production-gate, primary-fly, lonelyforest-fly]
     permissions:
       contents: write

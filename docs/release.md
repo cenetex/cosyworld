@@ -66,10 +66,12 @@ The train job:
 A train deploys the commit it started on even if main moves meanwhile; the
 next train takes the rest.
 
-Trains and production runs (tags and production dispatches) queue in
-separate concurrency groups. GitHub keeps one pending run per group, so when
-they shared one, a main push replaced a waiting tag deploy (v1.2.107, run
-41266788580). Both roll out the primary app, so
+Trains queue in one concurrency group; each production run (a tag or a
+production dispatch) has a group of its own, and production runs order
+themselves ([Superseding production deploys](#superseding-production-deploys)).
+GitHub keeps one pending run per group, so when trains and production shared
+one, a main push replaced a waiting tag deploy (v1.2.107, run 41266788580).
+Both roll out the primary app, so
 `scripts/serialize-primary-rollout.sh` keeps them apart: a train waits before
 its rollout while any production run is active, and the production backup
 and rollout wait for a train already past that point. Production never waits
@@ -77,6 +79,43 @@ on a waiting train, so neither can deadlock. The workflow's `run-name` starts
 with `.dev train`, which is how that script tells a `dev` dispatch from a
 production one. A pending train is replaced only by a later train, which
 reports for it (#1044).
+
+## Superseding production deploys
+
+A production run is about 12 minutes, most of it gates. When production runs
+shared one queue, a newer release waited for the whole older run and then
+deployed over it: v1.2.114 (run 41341888137) waited 11 minutes behind an
+older promotion (run 41341734000). Now every production run starts at once,
+and `scripts/supersede-production-deploy.mjs` orders them:
+
+- **Which run wins.** The later run supersedes the earlier one, so the
+  owner's last tag or dispatch is what ships. A promotion (a `promote/*`
+  dispatch) is the exception: it never supersedes a run whose commit it does
+  not contain, so a tag always beats a scheduled promotion. The run name ends
+  with its target (`Deploy v1.2.114 to both`); a run supersedes another only
+  for the apps it deploys.
+- **At the start** (`Confirm committed release still owns production`), a run
+  cancels each older run it supersedes and covers whose Fly rollout jobs have
+  not started, that is, one still in its gates, image build, guards, or
+  backup. All of those are safe to stop: they do not touch the running apps,
+  and an interrupted snapshot is recoverable. A run that an active run
+  already supersedes stops itself before its gates.
+- **Before each rollout** (`Yield to a newer production deploy`, the step
+  right before `flyctl deploy`), a run skips the rollout and its smokes when
+  a newer run that may still deploy that app exists, or already deployed it.
+  Otherwise it waits while an older run is rolling out that app (for a tag's
+  primary app, until its `.dev` restore finishes), then deploys.
+- **Before each backup**, a run waits for any other rollout of that app, so
+  the snapshot follows it.
+
+Nothing cancels a job that has started a rollout or a `.dev` restore: a run
+whose rollout job is queued or running is never cancelled, and the newer run
+waits for just that job, about three minutes. The rollout claim and the
+start check read the same run list, so two runs cannot both deploy one app
+at once: the older run's claim sees the newer run and yields, and a newer
+run created after the older claim passed sees the older rollout job running
+and waits. A run skipped this way reports success but deploys nothing; a
+superseded tag gets no GitHub release, and its tracking issues stay open.
 
 The image job compiles the release binary on the runner, in the Dockerfile's own
 `cargo-chef` toolchain image, with a release target restored from the GitHub
@@ -248,7 +287,8 @@ trains, and `scripts/promote-train.mjs` picks what to promote:
 - only when it is ahead of the commit Lonely Forest's `/meta` reports, so a
   train deploys to production at most once and never rolls a release back;
 - never a commit whose production run already failed, and never while
-  another production run is queued or running.
+  another production run is queued or running. A tag pushed after the
+  dispatch supersedes the promotion run, which yields before its rollout.
 
 The primary app is `.dev`, so it already runs every train; promotion deploys
 only Lonely Forest. It creates a `promote/<sha>` branch at the train's commit

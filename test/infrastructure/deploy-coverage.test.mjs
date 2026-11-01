@@ -65,11 +65,36 @@ describe("exactly one actor owns the release lever", () => {
 
   it("workflow concurrency serializes release actors without self-rejection", () => {
     // .dev trains and production runs queue apart, so a train can never
-    // replace a waiting tag deploy.
+    // replace a waiting tag deploy. Each production run has its own group,
+    // so a newer release never waits behind a whole older run; the
+    // supersede script serializes the Fly rollouts instead.
     expect(deployWorkflow).toContain(
-      "group: deploy-${{ github.repository }}-${{ (github.event_name == 'schedule' || inputs.target == 'dev') && 'dev' || 'production' }}\n  cancel-in-progress: false",
+      "group: deploy-${{ github.repository }}-${{ (github.event_name == 'schedule' || inputs.target == 'dev') && 'dev' || format('production-{0}', github.run_id) }}\n  cancel-in-progress: false",
     );
     expect(deployWorkflow).not.toContain("actions/runs?status=");
+    expect(deployWorkflow).not.toContain("group: deploy-lonelyforest-production");
+  });
+
+  it("a newer production run supersedes an older one only before its rollouts", () => {
+    expect(deployWorkflow).toContain("format('Deploy {0} to {1}', github.ref_name, inputs.target || 'both')");
+    expect(deployWorkflow).toContain("node scripts/supersede-production-deploy.mjs start");
+    for (const [app, step] of [
+      ["primary", "- name: Deploy primary Fly app"],
+      ["lonelyforest", "- name: Deploy Lonely Forest\n"],
+    ]) {
+      const claim = deployWorkflow.indexOf(`supersede-production-deploy.mjs claim ${app}`);
+      const wait = deployWorkflow.indexOf(`supersede-production-deploy.mjs wait ${app}`);
+      expect(claim).toBeGreaterThan(-1);
+      expect(wait).toBeGreaterThan(-1);
+      // The claim is the last check before the rollout, and the backup
+      // waits for other rollouts of the same app.
+      expect(claim).toBeLessThan(deployWorkflow.indexOf(step));
+      expect(deployWorkflow.indexOf(step) - claim).toBeLessThan(600);
+      expect(wait).toBeLessThan(deployWorkflow.indexOf("Create rollback backup", wait));
+    }
+    expect(deployWorkflow).toContain(
+      "needs.primary-fly.result == 'success' && needs.primary-fly.outputs.deployed == 'true'",
+    );
   });
 
   it("a merge that produces no successful deploy opens a loud tracking issue", () => {
