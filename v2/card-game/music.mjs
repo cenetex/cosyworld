@@ -11,6 +11,14 @@ export const roomTracks = {
   ],
   "greek-harbor": [
     { file: "greek-harbor.mp3", title: "Wine Dark Sea — Wine-Dark Harbor" },
+    {
+      file: "greek-harbor-2.mp3",
+      title: "Wine Dark Sea — Wine-Dark Harbor II",
+    },
+  ],
+  "greek-athens": [
+    { file: "agora-1.mp3", title: "Wine, Black Sea" },
+    { file: "agora-2.mp3", title: "Wine, Black Sea II" },
   ],
   "greek-courtyard": [
     { file: "greek-courtyard.mp3", title: "Wine Dark Sea — Theban Courtyard" },
@@ -59,6 +67,8 @@ export const roomTracks = {
   pond: [
     { file: "pond-1.mp3", title: "Quiet Night" },
     { file: "pond-2.mp3", title: "Something Below the Surface" },
+    { file: "pond-3.mp3", title: "Open Intervals" },
+    { file: "pond-4.mp3", title: "Open Intervals II" },
   ],
   station: [
     { file: "station-1.mp3", title: "Wheels on the Track" },

@@ -65,3 +65,23 @@ for River Camp in The Willows. The game serves the original audio bytes.
 `willows-provenance.json` records their source names and SHA-256 hashes.
 River Camp chooses one during the day when music is idle. Each song follows
 the player until it ends.
+
+## Black Pond, the agora, and the harbor — October 31, 2026
+
+The project owner made these five songs in their Suno account and supplied
+them on 2026-10-31. Open Intervals joins Black pond. Two variations of Wine,
+Black Sea become the Athenian Agora (`greek-athens`) playlist. A second
+Wine-Dark Harbor arrangement joins the harbor beside the original.
+
+The supplied M4A containers hold Opus audio, which older Safari and iOS do not
+play reliably. FFmpeg 9.0.2 made MP3 copies with `libmp3lame -q:a 2` at 48 kHz
+stereo. A fixed gain brought each to -16.0 LUFS integrated, matching
+`pond-1.mp3` (-16.1 LUFS). Only a display title tag is kept.
+
+| File               | Supplied filename                         | Suno source                                                                       | Duration | Gain    | Source SHA-256                                                     | MP3 SHA-256                                                        |
+| ------------------ | ----------------------------------------- | --------------------------------------------------------------------------------- | -------- | ------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| pond-3.mp3         | Open Intervals.m4a                        | [Open Intervals](https://suno.com/song/9dea79f0-11af-4177-bef0-d16aa095158b)      | 3:00     | +1.2 dB | `9a9b0dff6cfc50072f277927af36556a653e2cbbc7935dcb598a9a513dff864d` | `5ba7ccc2d22a3b58e0c1c7b47e5505ec5ddd17af56d97b85bc46e03bf66975e0` |
+| pond-4.mp3         | Open Intervals-2.m4a                      | [Open Intervals II](https://suno.com/song/87e78599-98b3-4833-bdfb-0bcac7ad4fc7)   | 3:33     | +1.3 dB | `ec4125f65087add3faa9950c5db2fc67b059a856bb9571d2b269112611ed0d74` | `9e5a5b898358dfd65bf2fba5f6645417c514044fb2f60ba8751a43ab9bc8968b` |
+| agora-1.mp3        | Wine, Black Sea-3.m4a                     | [Wine, Black Sea](https://suno.com/song/7612f431-99ca-4dee-9d6e-e308061ae13d)     | 3:58     | -0.8 dB | `ae20d76c6f281b6a8947b117ae774be6a735904bd05ef97ea89e78f410c38608` | `36e847559ea4e3438f4aab0eff4a3b779d48b01343c9cd0609bc5b0cbb24505a` |
+| agora-2.mp3        | Wine, Black Sea-4.m4a                     | [Wine, Black Sea II](https://suno.com/song/3e836c73-5073-4989-8c24-2d5d583a799e)  | 3:34     | -0.5 dB | `3a6b9708b628946f12a4b641f93f99b89a024beda1c72061454b727033b4d6bb` | `9acfbe6c585b03c6304197ccdd1f3af1231ff723beb557daa8ea6e933b0fdebf` |
+| greek-harbor-2.mp3 | Wine Dark Sea - 02 - Wine-Dark Harbor.m4a | [Wine-Dark Harbor II](https://suno.com/song/4f7cd1fa-d06e-46dc-9654-94b11e547b41) | 3:48     | -0.5 dB | `ccf64154f6c239e7b12ed6935afa51100708c07d1d450ccbdf5023b990b4e756` | `3b5ecd3be280df0771bad11d786559abb049d64f6645dab8f6b83127df5d4a53` |
