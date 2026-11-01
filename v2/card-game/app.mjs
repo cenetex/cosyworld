@@ -1584,7 +1584,7 @@ function queueDiscoveries() {
     .catch(() => {})
     .then(() => {
       if (version !== trip || saveBlocked) return;
-      const found = availableCards(world).filter((id) => !encountered.has(id));
+      const found = handAvailable().filter((id) => !encountered.has(id));
       if (!found.length) return;
       for (const id of found) {
         encountered.add(id);
@@ -1604,7 +1604,7 @@ function queueDiscoveries() {
 async function unveilNew() {
   if (saveBlocked) return;
   const rank = { avatar: 0, item: 1, location: 2 };
-  const found = availableCards(world)
+  const found = handAvailable()
     .filter((id) => !encountered.has(id))
     .sort((a, b) => rank[cardType(a)] - rank[cardType(b)]);
   if (!found.length) return;
@@ -1854,7 +1854,7 @@ function updateCardSelection(frame) {
     label = raised ? playLabel(cardPlay(world, selected).action) : "",
     held =
       people[id] || places[id]
-        ? availableCards(world).filter(
+        ? handAvailable().filter(
             (item) => things[item] && rootHolder(world, item) === id,
           )
         : [],
@@ -2044,7 +2044,7 @@ function card(id) {
     );
   }
   if (people[id] || places[id]) {
-    const held = availableCards(world).filter(
+    const held = handAvailable().filter(
       (item) => things[item] && rootHolder(world, item) === id,
     );
     if (held.length) {
@@ -2359,6 +2359,15 @@ const litCarried = (actor) =>
   Object.keys(world.items).find(
     (id) => world.items[id].lit && rootHolder(world, id) === actor,
   ) || null;
+// Another avatar's pack is private. The hand shows only what the world has
+// shown of it: a light held up on stage, or the thing your want asks for.
+function privatelyCarried(id) {
+  const owner = things[id] ? rootHolder(world, id) : null;
+  if (!people[owner] || owner === currentActor(world)) return false;
+  return id !== litCarried(owner) && id !== shownQuest?.target;
+}
+const handAvailable = () =>
+  availableCards(world).filter((id) => !privatelyCarried(id));
 function renderHeldItem(figure, actor, itemId) {
   let preview = figure.querySelector(".portrait-held-item");
   figure.setAttribute(
@@ -3347,7 +3356,7 @@ function render() {
     shownQuest = liveQuest;
   }
   const handCards = questHand(
-    stackPlaces(availableCards(world)),
+    stackPlaces(handAvailable()),
     world,
     shownQuest,
   );
@@ -4062,7 +4071,7 @@ function adoptShared(value) {
         : [];
     world = next;
     sharedWorldKey = key;
-    selectCards(selected.filter((id) => availableCards(world).includes(id)));
+    selectCards(selected.filter((id) => handAvailable().includes(id)));
     selectionRevision = world.revision;
     renderedHand = "";
     pendingSpeaker = null;
