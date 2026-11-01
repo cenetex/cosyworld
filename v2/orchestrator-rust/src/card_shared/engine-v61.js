@@ -1263,6 +1263,7 @@
           "voice",
           "exits",
           "backdrop",
+          "backdrops",
           "art",
           "music",
           "musicMode",
@@ -1286,6 +1287,13 @@
         `place ${id} exits must name other places in this pack`
       );
       media(p.backdrop, `place ${id} backdrop`);
+      if (p.backdrops !== void 0)
+        check(
+          Array.isArray(p.backdrops) && p.backdrops.length > 0 && p.backdrops.length <= 8 && p.backdrops.every(
+            (b) => keysOk(b, ["backdrop", "requires"]) && mediaPathOk(pack.id, b.backdrop) && Array.isArray(b.requires) && b.requires.length > 0
+          ),
+          `place ${id} backdrops need a backdrop in this pack and saved conditions`
+        );
       if (p.road !== void 0)
         check(
           Array.isArray(p.road) && p.road.length === 2 && new Set(p.road).size === 2 && p.road.every(
@@ -1571,8 +1579,11 @@
           );
         });
     };
-    for (const [id, p] of Object.entries(places2))
+    for (const [id, p] of Object.entries(places2)) {
       requirements(p.requires, `place ${id} requires`);
+      for (const b of Array.isArray(p.backdrops) ? p.backdrops : [])
+        requirements(b?.requires, `place ${id} backdrop requires`, false);
+    }
     for (const [id, a] of Object.entries(avatars)) {
       requirements(a.requires, `avatar ${id} requires`);
       for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
@@ -2903,7 +2914,11 @@
   var packMediaFiles = [
     ...new Set(
       packDefinitions.flatMap((pack) => [
-        ...Object.values(pack.places).flatMap((p) => [p.backdrop, p.art]),
+        ...Object.values(pack.places).flatMap((p) => [
+          p.backdrop,
+          p.art,
+          ...(p.backdrops || []).map((b) => b.backdrop)
+        ]),
         ...Object.values(pack.items || {}).map((i) => i.art),
         ...pack.crossings.flatMap((c) => [
           c.scenery?.overlay,
@@ -4483,11 +4498,6 @@
     s.crossings ??= {};
     s.packs ??= {};
     const fresh = newMemories();
-    for (const [id, item] of Object.entries(forest_default.initialState.items))
-      if (!Object.hasOwn(s.items, id)) {
-        s.items[id] = structuredClone(item);
-        s.memories[id] ??= fresh[id];
-      }
     for (const pack of packDefinitions) {
       for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
       if (s.packs[pack.id]) continue;
@@ -4991,13 +5001,12 @@
         (id) => s.actors[id].place !== c.location
       );
       const released = c.item && rootHolder(s, c.item) !== c.defender;
-      const forgone = c.item && !controlledByHuman(s, c.challenger) && !Object.values(c.struck).some(Boolean) && !needed(s, c.challenger, c.item);
-      if (separated || released || forgone) {
+      if (separated || released) {
         closeStandoff(s, c);
         addLog(
           s,
           "World",
-          separated ? `${nameOf(c.challenger)} and ${nameOf(c.defender)} part. The standoff ends.` : released ? `The ${nameOf(c.item)} changes hands. The standoff ends.` : `${nameOf(c.challenger)} lets the ${nameOf(c.item)} go. The standoff ends.`,
+          separated ? `${nameOf(c.challenger)} and ${nameOf(c.defender)} part. The standoff ends.` : `The ${nameOf(c.item)} changes hands. The standoff ends.`,
           {
             kind: "narration",
             actorId: c.challenger,
@@ -5910,7 +5919,6 @@
       ),
       wantAPI(next)
     );
-    settleStandoffs(next);
     for (const [id, allowance] of Object.entries(
       next.sharedMigration?.inventoryAllowances || {}
     )) {

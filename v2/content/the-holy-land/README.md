@@ -107,4 +107,4 @@ reallocating them.
 The compact action hand, deterministic fallback waypoint naming, and
 direct-avatar reaction context remain runtime concerns rather than pack
 authority. Their playtest contracts are tracked in
-[`docs/backlog/holy-land-integration-playtest.md`](../../../docs/backlog/holy-land-integration-playtest.md).
+[`docs/archive/backlog/holy-land-integration-playtest.md`](../../../docs/archive/backlog/holy-land-integration-playtest.md).

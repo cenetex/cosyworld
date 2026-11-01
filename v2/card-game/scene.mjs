@@ -37,8 +37,21 @@ const darkAttic = (world, id) =>
 export function backdrop(id, world = null) {
   if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
   const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-  const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
+  const file = variant
+    ? daylightBackdrop(world, id, variant)
+    : placeBackdrop(world, id);
   return file ? `./${file}` : `./assets/${id}.png`;
+}
+// A matching state painting is final, including its authored lighting.
+// Only the ordinary base painting falls through to the legacy night table.
+export function placeBackdrop(world, id) {
+  const place = packPlaces[id];
+  const state =
+    world?.packs &&
+    place?.backdrops?.find((b) =>
+      conditionsMet(world, place.packId, b.requires),
+    );
+  return state?.backdrop || daylightBackdrop(world, id, place?.backdrop);
 }
 export function portrait(id, facing = null, world = null) {
   const human = avatarImage(world, id);

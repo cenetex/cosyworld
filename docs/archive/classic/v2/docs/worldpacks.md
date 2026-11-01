@@ -837,7 +837,7 @@ NFT may recover one durable autonomous actor through the separate adapter;
 item and location ownership have no runtime meaning.
 
 See [the action and collectible architecture](../../docs/systems/04-action-system.md)
-and [implementation backlog](../../../../backlog/srd-action-card-foundation.md).
+and [implementation backlog](../../../backlog/srd-action-card-foundation.md).
 
 ## Threshold descriptors
 

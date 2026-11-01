@@ -3335,7 +3335,7 @@ window.addEventListener("storage", (event) => {
     rowCollapsed = true;
     saveBlocked = false;
     notice("The world was updated in another tab.");
-    resumeScene();
+    resumeScene({ otherTab: true });
   } catch {
     saveBlocked = true;
     notice(
@@ -3377,7 +3377,8 @@ function showOpeningSilence() {
   render();
   exchange.load(silence.lines);
 }
-function resumeScene() {
+// A save written by another tab never starts a request here: that tab asks.
+function resumeScene({ otherTab = false } = {}) {
   if (sharedSession) {
     render();
     syncSharedLine();
@@ -3391,8 +3392,9 @@ function resumeScene() {
     render();
     return;
   }
-  if (openingWordsDue()) {
-    // A new game asks the dialogue model for Vale's first line.
+  if (openingWordsDue() && !otherTab && !wordsFailedOnLoad()) {
+    // A new game asks the dialogue model for Vale's first line. A reload
+    // after it failed offers Retry instead of asking again.
     lineSeq = null;
     storyStatus = "pending";
     exchange.begin();
@@ -3414,6 +3416,7 @@ function resumeScene() {
     lineSeq = null;
     storyStatus = "retry";
     render();
+    showOpeningSilence();
     return;
   }
   if (!saveBlocked && hasCurrentWords()) {

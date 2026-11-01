@@ -697,13 +697,19 @@ export async function requestNarrative(
     body: JSON.stringify(context),
     signal,
   });
-  if (!response.ok)
+  if (!response.ok) {
+    // A 429 is never retried: the next request waits out its Retry-After.
+    const wait = Number(response.headers.get("retry-after"));
     throw Object.assign(
       new Error(`Story service returned ${response.status}.`),
       {
-        retryable: response.status === 429 || response.status >= 500,
+        retryable: response.status >= 500,
+        ...(response.status === 429
+          ? { retryAfter: Number.isFinite(wait) && wait > 0 ? wait * 1000 : 0 }
+          : {}),
       },
     );
+  }
   if (!response.headers.get("content-type")?.includes("text/event-stream"))
     return response.json();
   const reader = response.body.getReader();
@@ -790,7 +796,7 @@ async function boundedRequest(request, context, signal, progress, timeout) {
   }
 }
 const RETRY_DELAY = 750;
-function retryPause(signal) {
+function retryPause(signal, delay = RETRY_DELAY) {
   return new Promise((resolve, reject) => {
     const finish = () => {
       clearTimeout(timer);
@@ -799,7 +805,7 @@ function retryPause(signal) {
       else resolve();
     };
     const abort = () => finish();
-    const timer = setTimeout(finish, RETRY_DELAY);
+    const timer = setTimeout(finish, delay);
     signal.addEventListener("abort", abort, { once: true });
     if (signal.aborted) finish();
   });
@@ -826,6 +832,9 @@ export function createNarrator({
     pending = null,
     failed = null,
     running = false,
+    // A 429's Retry-After: no request leaves before this time.
+    holdUntil = 0,
+    asking = null,
     controller,
     reflectionController;
   async function write(context, version, signal) {
@@ -902,6 +911,8 @@ export function createNarrator({
         }
         return;
       } catch (error) {
+        if (error?.retryAfter !== undefined)
+          holdUntil = Math.max(holdUntil, Date.now() + error.retryAfter);
         if (signal.aborted || version !== ticket) return;
         preview(null);
         if (
@@ -925,6 +936,9 @@ export function createNarrator({
         status("pending");
         const revision = getWorld().revision;
         try {
+          if (Date.now() < holdUntil)
+            await retryPause(controller.signal, holdUntil - Date.now());
+          if (version !== ticket) continue;
           const context = limit(narrativeContext(getWorld(), action));
           started(context);
           await write(context, version, controller.signal);
@@ -938,9 +952,14 @@ export function createNarrator({
       }
     } finally {
       running = false;
+      asking = null;
     }
   }
   function changed(action = null) {
+    // One request per turn: the same unchanged scene is already being asked.
+    const revision = getWorld().revision;
+    if (asking?.revision === revision && asking.action === action) return;
+    asking = { revision, action };
     reflectionController?.abort();
     failed = null;
     pending = { action, version: ++ticket };
@@ -961,6 +980,7 @@ export function createNarrator({
     },
     invalidate() {
       reflectionController?.abort();
+      asking = null;
       ticket += 1;
       pending = null;
       failed = null;

@@ -3,11 +3,11 @@
 **Epic**: [#586](https://github.com/cenetex/cosyworld/issues/586)
 
 **Status**: Product contract accepted in
-[ADR 0005](../decisions/0005-thresholds-trails-and-strict-referee.md).
+[ADR 0005](../../decisions/0005-thresholds-trails-and-strict-referee.md).
 Discovery authority v1 is specified by
-[`discovery-authority-v1.schema.json`](../../v2/schemas/discovery-authority-v1.schema.json);
+[`discovery-authority-v1.schema.json`](../../../v2/schemas/discovery-authority-v1.schema.json);
 the shared Lead/Gate/Hazard/Pressure contract is specified by
-[`threshold-descriptors-v1.schema.json`](../../v2/schemas/threshold-descriptors-v1.schema.json).
+[`threshold-descriptors-v1.schema.json`](../../../v2/schemas/threshold-descriptors-v1.schema.json).
 Player procedures and runtime enforcement remain dependency-ordered below, and
 the unshipped slices carry their scope and acceptance in
 [Open slice detail](#open-slice-detail).

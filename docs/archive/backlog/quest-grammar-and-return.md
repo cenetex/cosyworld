@@ -252,7 +252,7 @@ This backlog does not duplicate:
 
 - [#586](https://github.com/cenetex/cosyworld/issues/586), which owns the
   strict-referee primitives for Leads, Gates, Hazards, Pressure, and evidence;
-- [ADR 0005](../decisions/0005-thresholds-trails-and-strict-referee.md),
+- [ADR 0005](../../decisions/0005-thresholds-trails-and-strict-referee.md),
   [#589](https://github.com/cenetex/cosyworld/issues/589), and
   [#601](https://github.com/cenetex/cosyworld/issues/601), which established
   kernel Gate transitions and the unified v2 discovery procedure;
