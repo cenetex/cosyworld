@@ -459,7 +459,7 @@
       items: {
         lamp: {
           holder: "station",
-          fuel: 8,
+          fuel: 12,
           lit: false,
           history: []
         },
@@ -495,7 +495,7 @@
             {
               id: "lamp",
               holder: "station",
-              fuel: 8,
+              fuel: 12,
               lit: false
             },
             {
@@ -546,7 +546,7 @@
             {
               id: "lamp",
               holder: "vale",
-              fuel: 8,
+              fuel: 12,
               lit: true
             }
           ],

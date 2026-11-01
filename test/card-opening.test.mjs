@@ -45,7 +45,7 @@ describe("dousing the lamp in the attic", () => {
   it("starts with one avatar, a lit carried lamp, and the lamp as Vale's want", () => {
     const s = fresh();
     expect(s.actors.vale.place).toBe("attic");
-    expect(s.items.lamp).toMatchObject({ holder: "vale", lit: true, fuel: 8 });
+    expect(s.items.lamp).toMatchObject({ holder: "vale", lit: true, fuel: 12 });
     expect(availableCards(s)).toEqual(["vale", "lamp", "attic"]);
     expect(sceneCast(s)).toEqual(["vale", null]);
     expect(exits(s, "attic")).toEqual([]);
@@ -56,6 +56,18 @@ describe("dousing the lamp in the attic", () => {
     expect(JSON.stringify(narrativeContext(s))).not.toMatch(
       /keeper|moth|Pip|Oil flask|bell|cloth/,
     );
+  });
+
+  it("opens the mirror when the full lamp burns out by itself, with no douse", () => {
+    let s = fresh();
+    expect(exits(s, "attic")).toEqual([]);
+    // The attic Wait sleeps until the light changes: all twelve fuel burn.
+    s = act(s, "wait");
+    expect(s.log.some((e) => e.verb === "snuff")).toBe(false);
+    expect(s.items.lamp).toMatchObject({ holder: "vale", lit: false, fuel: 0 });
+    expect(s.turn).toBeGreaterThanOrEqual(12);
+    expect(exits(s, "attic")).toEqual(["pond"]);
+    expect(act(s, "move", { target: "pond" }).actors.vale.place).toBe("pond");
   });
 
   it("keeps the waiting cast and their wants in place while the first play is delayed", () => {
@@ -92,7 +104,7 @@ describe("dousing the lamp in the attic", () => {
     expect(lit.items.lamp).toMatchObject({
       holder: "vale",
       lit: false,
-      fuel: 8,
+      fuel: 12,
     });
     expect(lit.opening).toEqual({
       version: 1,
