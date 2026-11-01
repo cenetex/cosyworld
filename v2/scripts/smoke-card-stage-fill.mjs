@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { encodeSave, places } from "../card-game/world.mjs";
+import { encodeSave, places, validateWorld } from "../card-game/world.mjs";
 import { openDoorStart } from "../../test/helpers/open-door.mjs";
 
 const output = new URL("../../output/stage-fill/", import.meta.url);
@@ -17,6 +17,9 @@ const seeds = Object.keys(places).flatMap((place) => {
   const world = openDoorStart();
   world.actors.vale.place = place;
   try {
+    // encodeSave trusts a world the rules just validated, so check the moved
+    // avatar in full before saving it.
+    validateWorld(world);
     return [[place, encodeSave(world)]];
   } catch {
     return [];

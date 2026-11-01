@@ -154,12 +154,12 @@ try {
       );
       await ready();
       assert.equal((await state()).actors.vale.place, "attic");
-      assert.equal((await state()).items.lamp.lit, false);
+      assert.equal((await state()).items.lamp.lit, true);
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
-      // The unlit attic is dark, with no shore in the mirror.
+      // The lamplit attic shows only the room in the mirror (#1653).
       assert.equal(
         await backdrop(),
-        await stage("./assets/shared/places/attic-dark.webp"),
+        await stage("./assets/attic/attic-lit.webp"),
       );
       // The opening hand starts covered; a first tap uncovers without selecting.
       const covered = () =>
@@ -187,7 +187,11 @@ try {
       await unveil("pond");
       await finish();
       assert.equal((await state()).actors.vale.place, "attic");
-      assert.equal(await backdrop(), await stage("./assets/attic.png"));
+      // Dousing the lamp shows the Black Pond in the glass.
+      assert.equal(
+        await backdrop(),
+        await stage("./assets/attic/attic-doused.webp"),
+      );
       assert.equal(
         await page.locator('#hand [data-card="vale"]').isDisabled(),
         false,
@@ -274,9 +278,9 @@ try {
           .getAttribute("data-unrevealed"),
         "false",
       );
-      // The lit lamp stays in hand and offers Put out until it is lowered.
+      // The doused lamp stays in hand and offers Light until it is lowered.
       assert.equal(
-        await page.locator('#card-actions [data-action="snuff"]').count(),
+        await page.locator('#card-actions [data-action="light"]').count(),
         1,
       );
       await page.keyboard.press("Escape");
@@ -354,7 +358,7 @@ try {
       await page.locator("#confirm-reset").click();
       await ready();
       assert.equal((await state()).actors.vale.place, "attic");
-      assert.equal((await state()).items.lamp.lit, false);
+      assert.equal((await state()).items.lamp.lit, true);
       assert.deepEqual(await covered(), opening);
       await selectCard(page, "lamp");
       await page.locator("#card-actions .card-primary").click();
