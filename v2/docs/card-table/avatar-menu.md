@@ -3,7 +3,7 @@
 Design for [#1737](https://github.com/cenetex/cosyworld/issues/1737). The menu
 is organised around the player's avatars. Every world has a name.
 
-## Today
+## Before #1737
 
 | Screen | What the player sees |
 | --- | --- |
@@ -38,11 +38,11 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
   the old one: their passkey is bound to it there, and they return as it
   (#1825).
 - **Nobody takes over an avatar.** In a shared world an avatar belongs to the
-  passkey that took it, even after Step away. A friend's link shows it
-  "Taken"; a person bound there sees only "Return as *Mara*"; with all eight
-  taken the world is full ("This world is full"). The world's owner can
-  **Free *Mara*** from the Table, and the holder can **Release** their own
-  avatar. Each asks with a second tap and starts that avatar over as a fresh
+  passkey that took it, even after it steps away to the deck. Its seat there
+  shows in colour for everyone else, and the person bound to it sees it free
+  for that avatar only. With all eight taken nobody new can join. The world's
+  owner can **Free *Mara*** and the holder can **Release** their own avatar.
+  Each asks with a second tap and starts that avatar over as a fresh
   level-1 starter that leaves everything where it stood
   ([avatar bindings](../../../docs/design/avatar-bindings.md)).
 - **A player has at most one avatar in a world.** The server already enforces
@@ -55,58 +55,64 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
 
 ## The ☰ menu
 
-In a shared world ☰ opens on **the Table**: the world's eight avatars as
-seats, with the world's name and "2 humans here now · 3 of 8 seats free".
-Your seat is in colour and marked "You · Level 1". Another person's seat is
-grey with their holder name and level ("Sable Swift · Level 1") and a green
-dot while they are here now. An open seat is a card back. As the owner you
-see **Free *Mara*** under each held seat; the first tap turns it red and says
-"Free Mara: removes Sable Swift's hold and resets Mara." 👥 counts who is here
-and opens the same ☰; the separate "Players in this world" dialog is gone.
+Redesigned in [#1877](https://github.com/cenetex/cosyworld/issues/1877).
+☰ (and 👥, which counts who is here) opens one accordion of **world slots**:
 
-Below the Table, ☰ lists your eight avatars. Each row shows the portrait,
-the name and where the avatar is now: "in *Hollowmere*" or "not in a world".
-The avatar you are playing is marked **here**. A tool row sits underneath:
-Memory, Inner life, Invite, Settings.
+- **Signed in**, the slots are your shared worlds, up to eight per passkey
+  (the server refuses a ninth: "You have 8 worlds."). A friend's world is
+  listed, marked "a friend's world", only while one of your avatars sits
+  there, and it does not use one of your eight. **Signed out**, the slots are
+  your local worlds, one per avatar. Local play is its own passkey, so the
+  two lists never mix. The world being played is always the first slot,
+  open, even when it is local and you are signed in ("on this device").
+- **Each slot** is a header (the name, "3 here · 4 of 8 free", and a letter
+  strip R·A·T·V·M·I·C·S) and one line of its eight seats, as on the board:
+  your one avatar there is marked yours, other humans are in colour with a
+  green dot while here, and the residents of unheld seats are in grey. On a
+  phone only one slot is open at a time, and the tools (Memory, Inner life,
+  Invite, Settings) stay pinned at the bottom.
+- **+ New world** follows the slots while one is free. Signed in it makes a
+  shared world; signed out a local one. On the world being played locally,
+  it is the table's own New game ("Start a fresh world?").
+- **Your deck** lists your avatars that are in no world.
 
-Tapping a row opens its actions:
+Each avatar appears once. **Tap one of your avatars** (in a slot or the deck)
+and the places it can go light up: your deck ("Move to your deck"), every
+slot whose seat for it is free and that holds none of your avatars ("Move
+*Vale* here"), and + New world. Tap one to move it there. A claim anywhere
+frees its old seat and carries its level (#1870). Moving out of a local
+world asks with a second tap, because that world is lost: "*Hollowmere* will
+be lost, with Mara's level and quest there. There is no way back to it."
+Moving to the deck releases a shared seat and keeps the binding, or archives
+a local save (`.bak`). When the avatar being played leaves, the bare address
+opens with ☰ so the player picks what comes next.
 
-| Avatar | Actions |
+The tapped seat also shows its own actions under the line of seats:
+
+| Seat | Actions |
 | --- | --- |
-| In a world | **Play** (go there), **Send to…**, **Step away**, **Delete world** (local) or **Release** (shared) |
-| In no world | **New world**, **Join** |
+| Yours | **Play** (in another slot), **Release** (shared) or **Delete world** (local) |
+| Another person's | its holder and level, and **Free** for the world's owner |
+| A resident | none |
 
-- **Play** opens that world as that avatar.
-- **Send to…** (was Move) lists the worlds you know by name (local, owned,
-  joined) and **New world**. A world that already holds another of your
-  avatars is not listed. "Mara's level goes with Mara. Mara's things and
-  quests stay in *The Quiet Ferry*, and the seat there opens for someone
-  else." Every claim moves the avatar (#1846). Sending an
-  avatar out of a local world warns first: "*Hollowmere* will be lost, with
-  Mara's level and quest there. There is no way back to it."
-- **Step away** (was Leave) asks once. In a shared world: "Vale stays yours
-  there, with Vale's things." It releases the claim and keeps the binding.
-  In a local world it archives the save (`.bak`, as New game does today), and
-  the menu offers no way back to it, so it asks with the same warning as
-  Send to (#1825).
 - **Release** gives a shared seat back. The first tap turns it red: "Release
   *Mara* from *Hollowmere*?" and "Mara keeps their level. Their things and
-  quests stay in Hollowmere, and anyone may take Mara there." The second tap
-  resets Mara's seat there.
-- **Delete world** removes a local world's save and its backup. The button
-  turns red on the first tap ("Delete *Hollowmere* and its progress?") and
-  deletes on the second. The avatar is then not in a world. Deleting another
-  avatar's world only removes it from the menu. Deleting the world being
-  played stops its saves and opens a fresh world for the same avatar, as New
-  game does, never another avatar's world (owner bug, 2026-11-01).
+  quests stay in Hollowmere, and anyone may take Mara there."
+- **Free** (owner) asks "Free Ash?" and says "Free Ash: removes Amber
+  Heron's hold and resets Ash."
+- **Delete world** removes a local world's save and its backup on a second
+  tap ("Delete *Hollowmere* and its progress?"). Deleting another avatar's
+  world only removes it from the menu. Deleting the world being played stops
+  its saves and opens a fresh world for the same avatar, as New game does,
+  never another avatar's world (owner bug, 2026-11-01).
   `v2/scripts/smoke-card-delete-world.mjs` checks both.
-- **New world** starts a local world for that avatar.
-- **Join** lists named worlds you own or were invited to that have room, and
-  worlds where this person returns as that avatar.
 
-A friend's link opens "Join *Lanternfall*": your free avatars first, then
-avatars that are elsewhere ("in *The Quiet Ferry* · move"), then avatars taken
-in that world. Choosing one that is elsewhere moves it.
+**A friend's link** (`/?world=…`) signs the person in, then opens their own
+table with ☰ open and the linked world as an extra slot marked "invited",
+with its seats. Tapping an avatar lights that slot when its seat is free (a
+person bound there sees their own avatar's seat free). There are no separate
+join, "Return as", full-world or full-room panels. A full room waits at the
+table: "Your room is full. Your avatar and belongings are saved."
 
 **Invite** shares the current world. For a local world it first moves the
 world online (passkey), then shows the link.
@@ -116,15 +122,16 @@ scares, Fast fights, OpenRouter, Backup (Save · Restore), Passkey (Add · Sign
 out) and Controls. It holds no world actions.
 
 The menu shows now, not a log: where each avatar is now. There is no list of
-past worlds. Delete world (owner request, 2026-11-01) removes only local
-saves. A world without your avatars is
-reached only through Send to or Join.
+past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` taps an
+avatar, checks the lit targets and moves it, at 390 and 1440 pixels.
 
-Not built yet from the Table mockup: your hand under the Table with the
-quest folded behind your avatar, and grey for the world's own cards on the
-stage and in the hand.
+Vale tapped in the world being played, with the deck, a free slot and + New
+world lit:
 
-### Mockups
+![Phone: Vale's targets](avatar-menu/slots-move-390.jpg)
+![Desktop: Vale's targets](avatar-menu/slots-move-1440.jpg)
+
+### #1737 mockups (replaced by the slots above)
 
 Phone (390 × 844):
 
@@ -142,13 +149,15 @@ Desktop (1440 × 900):
 
 ### Words
 
-Play, Send to…, Step away, Release, Free, Delete world, New world, Join,
-here, You, in *Name*, not in a world, open seat, Memory, Inner life, Invite,
-Settings. Gone: Worlds, Share, Your worlds, Continue as,
-Return to my game, Release this avatar, Leave this room, Refresh avatars,
-Move, Leave, Delete *Mara*, Avatars taken here, Players in this world,
-Claimed, "The reflected shore · N avatars available", the `?table=` warning
-and the "Your game saves in this browser" paragraph.
+Play, Release, Free, Delete world, + New world, Your deck, Move to your
+deck, Move *Vale* here, Tap where *Vale* goes, on this device, a friend's
+world, invited, You, Memory, Inner life, Invite, Settings. Gone: Worlds,
+Share, Your worlds (`/?shared=1` opens the table), Continue as, Continue
+shared world, Return to my game, Send to…, Step away, Join, Choose your
+avatar, Return as *Mara*, Move *Mara* here?, This world is full (panel), A
+place will open shortly, Leave, Refresh avatars, the avatar list under the
+seats, Release this avatar, Leave this room, Players in this world, Claimed,
+open seat, "The reflected shore · N avatars available".
 
 ## Later: the cast ledger
 
@@ -196,20 +205,20 @@ hashes and replay do not change.
   in several worlds. The newest is shown. The others stay untouched and are
   released only when the player next moves that avatar. Nothing disappears
   unexpectedly, and no journal row is written on upgrade.
-- **Links.** Opening a world link while that avatar is in another world asks
-  one line: "Move Vale here?"
+- **Links.** A world link opens ☰ with that world as an invited slot; moving
+  an avatar there frees its seat elsewhere (#1877).
 - **Starts.** Vale's new local world opens in the attic. Every other avatar's
   new local world starts at that avatar's own home with their item, as in
   shared play. Vale waits in the attic there, and the lamp stays lit on the
   attic floor where the player can find it.
-- **Local and shared together.** Moving an avatar into a shared world (Invite,
-  Join or Move) archives that avatar's local save to `.bak`.
+- **Local and shared together.** Moving an avatar into a shared world (Invite
+  or a move in ☰) archives that avatar's local save to `.bak`.
 - **Move** is a release in the old world and a claim in the new one. Both
   are existing journal actions, so no rules or engine change is needed. The
   client can do this in two steps. The server makes it one transaction in the
   third PR, so a full room or a lost race cannot leave the avatar in no world.
 - **Alpha saves.** Nothing is nuked. Old `.shared` links in local storage are
-  read once to find Vale's shared world and then ignored.
+  ignored; the account's world list is the only source (#1877).
 
 ## Plan
 
