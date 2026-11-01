@@ -122,7 +122,7 @@ try {
         attributeFilter: ["data-source"],
       });
     });
-    await page.locator("#card-actions button", { hasText: /^Guard/ }).click();
+    await page.locator("#card-actions button", { hasText: /^Brace/ }).click();
     // The hand drops away, untappable, as soon as the play commits.
     assert.deepEqual(
       await page.evaluate(() => {
@@ -246,7 +246,7 @@ try {
     await page.evaluate(() =>
       document.querySelector("#history-dialog").close(),
     );
-    assert.match(log, /Pip lunged at Vale\./);
+    assert.match(log, /Pip struck Vale\./);
     assert.match(log, /Vale was beaten and (sent home|fell back to )/);
     assert.match(log, /You came to at /);
     assert.equal(await page.locator(".combat-dim").count(), 0);

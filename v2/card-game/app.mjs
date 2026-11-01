@@ -123,6 +123,7 @@ import {
   playLabel,
   playProgress,
   playProgressLine,
+  playText,
   cardActions,
   cardObservation,
 } from "./cards.mjs";
@@ -1719,7 +1720,7 @@ function renderActions(animate = false) {
       button.title =
         queued && !sharedSession
           ? "Cancel this play"
-          : action.text;
+          : playText(action);
       button.disabled = selectionBlocked();
       button.setAttribute("aria-pressed", String(queued));
       if (action.choiceId) {
