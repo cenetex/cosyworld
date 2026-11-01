@@ -77,7 +77,8 @@ world = applyGeneratedText(world, context, {
           reflection: {
             thought: "I expected an easy gift. A fair offer may help.",
             persona: "I am learning to listen before asking again.",
-            dream: "A little boat carried a gift across the pond.",
+            // Inner-life lines are first person (#1850).
+            dream: "I dreamt a little boat carried a gift across the pond.",
           },
         }
       : {}),
@@ -162,7 +163,9 @@ try {
       await dialog.waitFor();
       const text = await dialog.innerText();
       assert(text.includes("I'm Vale. The Lamplighter."));
-      assert(text.includes("learning to listen"));
+      // "I'm becoming" is one intention: the newest thought, not the persona.
+      assert(text.includes("A fair offer may help."));
+      assert(!text.includes("learning to listen"));
       assert(text.includes("little boat"));
       // Measured attempts guide the planner; the panel never shows them.
       assert(!text.includes("measured attempt"));
