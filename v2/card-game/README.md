@@ -720,7 +720,11 @@ the model used for each part. Four revisions stay in the save. Thoughts stay at
 least six turns apart. A dream needs two thoughts since the last dream and at
 least 24 turns since it. These gaps apply in both modes. Shared publication commits the
 reflection with its speech through the world journal. Retrying the publication
-keeps its original play identity.
+keeps its original play identity. The server rejects a thought, persona or
+dream that is not first person, carries a `," she called` tag, or names an
+item kind the scene does not know ("my compass is ready"). It also leaves a
+kept thought or dream that names such a thing out of later prompts, so a
+retired item in an old save does not return.
 
 The server sends a player their own inner life and lessons. Resident inner life
 stays in the simulation. Other characters' public words remain on their cards.
