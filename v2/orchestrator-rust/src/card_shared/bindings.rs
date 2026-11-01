@@ -204,38 +204,25 @@ pub(super) fn carries_upgrades(version: &str) -> bool {
         .is_some_and(|n| n >= 81)
 }
 pub(super) fn upgrades(c: &Connection, user: &str, a: usize) -> Result<Vec<String>> {
-    let mut q = c
-        .prepare(
-            "SELECT upgrade FROM card_avatar_upgrades WHERE user=? AND actor=? ORDER BY upgrade",
-        )
-        .map_err(sql_error)?;
+    let sql = "SELECT upgrade FROM card_avatar_upgrades WHERE user=? AND actor=? ORDER BY upgrade";
+    let mut q = c.prepare(sql).map_err(sql_error)?;
     let rows = q
-        .query_map(params![user, a], |r| r.get::<_, String>(0))
-        .map_err(sql_error)?
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(sql_error);
-    rows
+        .query_map(params![user, a], |r| r.get(0))
+        .map_err(sql_error)?;
+    rows.collect::<std::result::Result<_, _>>()
+        .map_err(sql_error)
 }
 // Keep every upgrade the rules gave this avatar in a world's state.
-pub(super) fn record_upgrades(
-    c: &Connection,
-    user: &str,
-    a: usize,
-    game: &Value,
-    actor: &str,
-) -> Result<()> {
+pub(super) fn record_upgrades(c: &Connection, user: &str, a: usize, game: &Value) -> Result<()> {
+    let actor = super::full_world::actor_id(a);
     for upgrade in game["actors"][actor]["upgrades"]
         .as_array()
         .into_iter()
         .flatten()
     {
-        if let Some(upgrade) = upgrade.as_str() {
-            c.execute(
-                "INSERT OR IGNORE INTO card_avatar_upgrades(user,actor,upgrade) VALUES(?,?,?)",
-                params![user, a, upgrade],
-            )
+        let sql = "INSERT OR IGNORE INTO card_avatar_upgrades(user,actor,upgrade) VALUES(?,?,?)";
+        c.execute(sql, params![user, a, upgrade.as_str()])
             .map_err(sql_error)?;
-        }
     }
     Ok(())
 }
