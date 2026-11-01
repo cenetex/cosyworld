@@ -686,8 +686,8 @@ place chooses the next song. A quiet place lets the player hear the landscape.
 Mute and hidden tabs pause the same song for a later resume. River Camp chooses
 one of four supplied acid jazz songs during the day. An active camp song keeps
 playing through dusk and night. Run `node v2/scripts/smoke-card-music-network.mjs`
-for the throttled request and first-sound checks, and
-`node v2/scripts/smoke-card-music-follow.mjs` for songs that follow travel.
+for the throttled request and first-sound checks. `test/card-music.test.mjs`
+covers songs that follow travel.
 
 Room music starts with the first accepted card play in a new game. In a shared world, each avatar starts in silence until their own first accepted play, such as picking up or using their item. The saved play journal keeps that choice across reloads. The opening scene and menu wait for that play. Starting another new game resets this wait and keeps the saved music and volume settings.
 
