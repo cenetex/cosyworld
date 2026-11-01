@@ -1,0 +1,63 @@
+name: Promote
+
+# Production follows .dev by about one train. Twice an hour, between .dev
+# trains, promote the newest train that passed its .dev checks and stayed
+# live on .dev for the soak to Lonely Forest. scripts/promote-train.mjs picks
+# the train and dispatches deploy.yml with target=lonelyforest on a
+# promote/<sha> branch, so the production gates and backup run as for any
+# release. Set the COSYWORLD_HOLD_PRODUCTION repository variable to `on` to
+# pause the schedule; a manual run still promotes. See docs/release.md.
+on:
+  schedule:
+    - cron: "22,52 * * * *"
+  workflow_dispatch:
+    inputs:
+      now:
+        description: Promote the newest passing train without waiting for the soak
+        required: false
+        default: true
+        type: boolean
+      dry_run:
+        description: Report the train that would be promoted without deploying
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: promote-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    name: Promote the soaked .dev train
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' || vars.COSYWORLD_HOLD_PRODUCTION != 'on')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # Creates and clears promote/<sha> branches.
+      contents: write
+      # Reads Deploy runs and dispatches deploy.yml.
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Promote
+        shell: bash
+        run: node scripts/promote-train.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COSYWORLD_PROMOTE_SOAK_MINUTES: ${{ vars.COSYWORLD_PROMOTE_SOAK_MINUTES || '20' }}
+          COSYWORLD_PROMOTE_NOW: ${{ github.event_name == 'workflow_dispatch' && inputs.now }}
+          COSYWORLD_PROMOTE_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
