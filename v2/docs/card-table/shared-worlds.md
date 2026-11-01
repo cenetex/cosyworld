@@ -235,8 +235,9 @@ contains the fact, so replay and every client agree.
 Each avatar has one quest, as described in the
 [card guide](../../card-game/README.md#one-quest-per-avatar). Meeting it is a
 `want_met` event in the shared history, so every client and the journal agree
-on who met what. A quest met away from home is followed by the way home; the
-station and attic are sanctuaries. Human rest counts that person's own turns;
+on who met what. A quest ends where it is met; only a level quest leads back,
+to the sanctuary the avatar last stood in, where a long rest raises the level
+([rest and sanctuary](rest-and-sanctuary.md#level-quest)). Human rest counts that person's own turns;
 resident rest counts world rounds.
 
 The rules version that brings this model replaces collected, shared and story

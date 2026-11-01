@@ -325,7 +325,8 @@ describe("card standoffs", () => {
   it("carries the threat, guard and combat facts into each witness's model context", () => {
     const start = meeting();
     start.items.bell.holder = "station";
-    // The keeper comes from the pond for the bell lying at the station.
+    // The keeper, rested, comes from the pond for the bell at the station.
+    delete start.actors.keeper.metTurn;
     start.actors.keeper.want = {
       kind: "item",
       target: "bell",

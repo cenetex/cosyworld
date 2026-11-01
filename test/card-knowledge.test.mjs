@@ -539,7 +539,12 @@ describe("authored topics keep their saved deed identity", () => {
       refusals: 0,
     };
     // The roaming Bard stays at Marathon this turn instead of walking in.
-    world.actors["greek-rhapsode"].want.target = "greek-marathon";
+    world.actors["greek-rhapsode"].want = {
+      kind: "place",
+      target: "greek-marathon",
+      since: world.turn,
+      refusals: 0,
+    };
     const wait = legalActions(world).find((a) => a.kind === "wait");
     world = play(world, wait).state;
     expect(

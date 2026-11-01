@@ -57,7 +57,7 @@ import {
 import {
   knownActors as readKnownActors,
   installWants,
-  offerLevelQuest,
+  wake,
   dropLevelQuest,
   levelOf,
   wantOf,
@@ -582,6 +582,7 @@ export function wantText(want) {
   if (step?.verb === "bring")
     return `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`;
   if (step?.at) return `${verb} ${what} at ${nameOf(step.at)}`;
+  if (step?.verb === "rest") return `rest at ${what}`;
   if (step) return `${verb} ${what}`;
   if (want.kind === "item")
     return `hold ${want.lit === undefined ? "" : want.lit ? "the lit " : "the dark "}${nameOf(want.target)}`;
@@ -1629,7 +1630,7 @@ function rest(s, actor, here) {
     if (s.turn < a.sleepUntil) return null;
     delete a.sleepUntil;
     if (losses) delete s.defeats[actor];
-    offerLevelQuest(s, actor, wantAPI(s));
+    wake(s, actor, wantAPI(s));
     return "long";
   }
   if (actor !== currentActor(s) || standoffFor(s, actor)) return null;
@@ -2227,7 +2228,7 @@ function wantPlan(s, actor) {
     return idle();
   }
   if (!want) return idle();
-  if (resting(s, actor, homeOf(actor))) return idle();
+  if (resting(s, actor)) return idle();
   const go = (place) => {
     if (!travels(actor, s) || staysPut(actor, s)) return idle();
     const step = stepToward(s, actor, place);
@@ -2438,9 +2439,9 @@ export function play(
     if (next.actors[id].place !== from)
       arriveRoamingRecitals(next, packDefinitions, id);
   }
-  // A resident resting at home clears a run of defeats.
+  // A resident resting where it met a want clears a run of defeats.
   for (const id of Object.keys(next.defeats || {}))
-    if (resting(next, id, homeOf(id))) delete next.defeats[id];
+    if (!wantAPI(next).player(id) && resting(next, id)) delete next.defeats[id];
   if (exact.kind === "wait")
     waitForTransport(next, next.actors[actor].place, actor);
   for (const voyage of sailTransports(next)) {
@@ -2710,6 +2711,7 @@ export function validateWorld(s) {
       a.crossed < 0 ||
       !Number.isSafeInteger(a.lastTalk) ||
       a.lastTalk > s.turn ||
+      (a.sanctuary !== undefined && !sanctuaries.includes(a.sanctuary)) ||
       (a.sleepUntil !== undefined &&
         (!Number.isSafeInteger(a.sleepUntil) ||
           a.sleepUntil < 0 ||

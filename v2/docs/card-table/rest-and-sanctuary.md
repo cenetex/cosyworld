@@ -43,14 +43,13 @@ sanctuary is a one-line pack change.
 
 A sanctuary is not marked on any map. A player finds out when a Wait there
 sleeps until the light changes. Some sanctuaries sit behind gates or sea lanes
-nobody has found yet; that is fine (mystery over reachability). The way-home
-want still ends early at a sanctuary, as before.
+nobody has found yet; that is fine (mystery over reachability).
 
 ## Sleep
 
 A rest is the player's own play, in solo and shared play alike. Residents idle
-with Wait all the time, so their Waits rest nobody; a resident still clears its
-losses by resting at home just after meeting a want, as before. Nobody rests
+with Wait all the time, so their Waits rest nobody; a resident rests where it
+meets a want, holding the next one, and that rest clears its losses (#1824). Nobody rests
 in the middle of a standoff.
 
 1. The player's Wait at a sanctuary sets `actor.sleepUntil` to the next light
@@ -74,8 +73,8 @@ without `rest` mean what they always meant.
 ## Losses
 
 Three straight losses still send an avatar home with nothing in hand, and a
-win still clears the count (#1505). The old reset, "resting at home within
-three turns of a met want", now applies only to residents. For a player:
+win still clears the count (#1505). The old reset, "resting within three turns
+of a met want", now applies only to residents, wherever the want was met. For a player:
 
 - a short rest (Wait away from a sanctuary) takes one loss off the count;
 - a long rest clears the count when the avatar wakes.
@@ -93,7 +92,13 @@ shows "…", like any failed voice.
 
 When an avatar has enough XP for its next level and wakes from a long rest,
 the rules draw its level quest (#1583: F(n) steps, reaching further from home
-as n rises). It replaces the want on the quest card. The dream that comes with
+as n rises). It replaces the want on the quest card. After its last step
+comes the way back: a rest step at the last sanctuary the avatar stood in
+(`actor.sanctuary`, set whenever it is at one). The level rises when it wakes
+from a long rest there, not on arrival. An avatar always wakes into its level
+quest at a sanctuary, so the fallback to its home for one that never stood in
+a sanctuary only covers states from before #1824. Ordinary quests never send
+anyone home. The dream that comes with
 the waking gets the quest as facts, so the model voices it; no line is
 authored. Dropping a level quest costs half the avatar's XP.
 
