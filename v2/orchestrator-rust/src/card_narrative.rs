@@ -4165,12 +4165,13 @@ mod tests {
             }
             match stem {
                 "Vale:" => {
-                    assert!(system.starts_with("I'm Vale."));
+                    // An avatar's system voice is its seed sentence (#1673).
+                    assert!(system.starts_with("I am Vale, the Lamplighter."));
                     assert!(user.contains("Holding the lamp."));
                     "Vale: What would you trade for this lamp, Pip?".into()
                 }
                 "Pip:" => {
-                    assert!(system.contains("borrowed"));
+                    assert!(system.starts_with("I am Pip, a moth."));
                     "\"Bring that lamp to the pond, Vale. I will carry the cloth.\"".into()
                 }
                 _ => stem_reply(stem),

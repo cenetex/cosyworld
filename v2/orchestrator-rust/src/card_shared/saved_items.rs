@@ -18,3 +18,19 @@ pub(super) fn upgraded_field(game: &Value, field: &str) -> Value {
         game[field].clone()
     }
 }
+
+/// Willows revision 2 moves the Swede's unmoved kit (#1692): the sheet and
+/// sack to the landing, the paddle and rope to the bank. A save from Willows
+/// revision 1 expects these new places.
+pub(super) fn willows_kit_moved(items: &mut Value) {
+    for (id, was, now) in [
+        ("willows-paddle", "willows-landing", "willows-bank"),
+        ("willows-sheet", "willows-camp", "willows-landing"),
+        ("willows-rope", "willows-camp", "willows-bank"),
+        ("willows-provisions", "willows-camp", "willows-landing"),
+    ] {
+        if items[id]["holder"] == was {
+            items[id]["holder"] = Value::from(now);
+        }
+    }
+}

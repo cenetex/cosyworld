@@ -142,7 +142,8 @@ try {
         function sample() {
           if (!window.movementCheck.active) return;
           const hand = document.querySelector("#hand"),
-            placeCard = hand.querySelector(".location"),
+            // A quest for a place is a location card too (#1704); skip it.
+            placeCard = hand.querySelector(".location:not(.want-card)"),
             bounds = hand.getBoundingClientRect(),
             place = placeCard.getBoundingClientRect();
           window.movementCheck.frames.push({

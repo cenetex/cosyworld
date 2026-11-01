@@ -227,7 +227,10 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         world.game["packs"]["hoppycat-archive"]["revision"],
         super::full_tests::pack_revision("hoppycat-archive")
     );
-    assert_eq!(world.game["packs"]["willows"]["revision"], 1);
+    assert_eq!(
+        world.game["packs"]["willows"]["revision"],
+        super::full_tests::pack_revision("willows")
+    );
     assert!(world.game["knowledge"].is_object());
     assert_eq!(world.version, engine::VERSION);
 

@@ -393,10 +393,22 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
         // BoardyAI revision 2 carries his card from the pond to the station door.
         let mut saved = old.game.clone();
         saved["items"] = super::saved_items::upgraded(&saved["items"]);
+        super::saved_items::willows_kit_moved(&mut saved["items"]);
         saved["items"]["boardyai-calling-card"]["holder"] = json!("station");
         super::sea_steps::assert_upgraded_ship(&current.game, &old.game);
+        // The upgrade draws Hoppy Cat's specials, and a drawn thing waits at
+        // its anchor in the Hoppy Cat core (#1622).
+        let drawn = current.game["packs"]["hoppycat-archive"]["specials"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
         for field in ["items", "peaceUntil"] {
             for (key, value) in saved[field].as_object().unwrap() {
+                if field == "items" && drawn.iter().any(|id| id.as_str() == Some(key.as_str())) {
+                    let holder = current.game["items"][key]["holder"].as_str().unwrap();
+                    assert!(holder.starts_with("hoppycat-"), "{key} waits at {holder}");
+                    continue;
+                }
                 // Lonely Forest revision 2 retires these three things.
                 if [
                     "forest-story-button",
@@ -421,6 +433,12 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
         for (id, saved) in old.game["actors"].as_object().unwrap() {
             let mut retained = current.game["actors"][id].clone();
             if id == "vale" {
+                retained["place"] = saved["place"].clone();
+            }
+            // Drawing Hoppy Cat's specials brings a drawn resident to its
+            // anchor and sends anyone in an undrawn place to the garden (#1622).
+            let hoppy = |place: &Value| place.as_str().is_some_and(|p| p.starts_with("hoppycat-"));
+            if hoppy(&saved["place"]) && hoppy(&retained["place"]) {
                 retained["place"] = saved["place"].clone();
             }
             let mut saved = saved.clone();
