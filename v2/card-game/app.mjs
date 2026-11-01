@@ -72,6 +72,7 @@ import { forgetCovered, markWaking } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic } from "./music.mjs";
 import { createHum } from "./hum.mjs";
+import { createSfx } from "./sfx.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
@@ -98,6 +99,7 @@ import {
   decodeSave,
   legalActions,
   seedRun,
+  exits as placeExits,
 } from "./world.mjs";
 import { packPlaces, packOf } from "./pack-registry.mjs";
 import { variantOf } from "./pack-rules.mjs";
@@ -873,6 +875,15 @@ hum.setEnabled(musicEnabled);
 hum.setVolume(musicVolume);
 hum.setHidden(document.hidden);
 hum.setStarted(musicHasStarted());
+// The bell and later world effects use the same switch and volume.
+const sfx = createSfx();
+sfx.setEnabled(musicEnabled);
+sfx.setVolume(musicVolume);
+sfx.setHidden(document.hidden);
+function ringHeard() {
+  const place = world.actors[currentActor(world)].place;
+  sfx.watch(world.log, place, placeExits(world, place));
+}
 function humRoom() {
   const place = world.actors[currentActor(world)].place;
   // The saved world clock, so unlit places such as the thicket darken too.
@@ -893,6 +904,7 @@ $("music-toggle").onclick = () => {
   musicEnabled = !musicEnabled;
   music.setEnabled(musicEnabled);
   hum.setEnabled(musicEnabled);
+  sfx.setEnabled(musicEnabled);
   if (musicEnabled) music.unlock();
   saveMusicSettings();
 };
@@ -900,11 +912,13 @@ $("music-volume").oninput = (event) => {
   musicVolume = Number(event.target.value) / 100;
   music.setVolume(musicVolume);
   hum.setVolume(musicVolume);
+  sfx.setVolume(musicVolume);
   saveMusicSettings();
 };
 const unlockAudio = () => {
   music.unlock();
   hum.unlock();
+  sfx.unlock();
 };
 for (const type of ["pointerdown", "pointerup"])
   document.addEventListener(type, unlockAudio, { capture: true });
@@ -912,14 +926,17 @@ document.addEventListener("keydown", unlockAudio, { capture: true });
 document.addEventListener("visibilitychange", () => {
   music.setHidden(document.hidden);
   hum.setHidden(document.hidden);
+  sfx.setHidden(document.hidden);
 });
 window.addEventListener("pagehide", () => {
   music.setHidden(true);
   hum.setHidden(true);
+  sfx.setHidden(true);
 });
 window.addEventListener("pageshow", () => {
   music.setHidden(document.hidden);
   hum.setHidden(document.hidden);
+  sfx.setHidden(document.hidden);
 });
 const narrator = createNarrator({
   getWorld: () => world,
@@ -3344,6 +3361,7 @@ function render() {
   renderPlayers();
   music.setStarted(musicHasStarted());
   hum.setStarted(musicHasStarted());
+  ringHeard();
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
   music.setRoom(

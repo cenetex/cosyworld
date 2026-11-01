@@ -214,6 +214,7 @@ const files = [
   "packs.json",
   "music.mjs",
   "hum.mjs",
+  "sfx.mjs",
   "entity-profiles.json",
   ...new Set(
     Object.values(roomTracks)
