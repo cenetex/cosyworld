@@ -966,7 +966,7 @@ body .dialogue[data-dropped="true"] {
 .hand {
   display: flex;
   justify-content: safe center;
-  gap: 14px;
+  gap: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
@@ -1047,17 +1047,43 @@ body .dialogue[data-dropped="true"] {
 .hand-wrap::after {
   display: none;
 }
+/* Avatars and things stand upright at 2:3, the carved back's shape. An
+   uncovered place keeps the wider, landscape-leaning card; on phones it
+   leans the same way at 4:5. */
 body .card-frame {
+  --frame-width: calc(var(--card-height) * 2 / 3);
   position: relative;
-  flex: 0 0 var(--card-width);
-  width: var(--card-width);
+  flex: 0 0 var(--frame-width);
+  width: var(--frame-width);
   height: var(--card-height);
   scroll-snap-align: start;
   transition:
     transform 0.22s ease-out,
     filter 0.22s ease-out;
 }
+body .card-frame:has(> .card.location:not([data-unrevealed="true"])) {
+  --frame-width: max(var(--card-width), calc(var(--card-height) * 0.8));
+}
+/* The hand fans: each card overlaps the one before it and leans with its
+   place in the row (--fan-at, set by fanHand), the chosen card on top. */
+.hand {
+  --fan-overlap: calc(var(--card-height) * 0.14);
+}
+.hand > .card-frame:not([hidden]) ~ .card-frame {
+  margin-left: calc(var(--fan-overlap) * -1);
+}
+body .hand > .card-frame {
+  --fan-at: 0;
+  rotate: calc(clamp(-4, var(--fan-at), 4) * 1.2deg);
+  top: calc(min(var(--fan-at) * var(--fan-at), 16) * 0.5px);
+  transform-origin: 50% 120%;
+}
+body .hand > .card-frame:hover,
+body .hand > .card-frame:focus-within {
+  z-index: 2;
+}
 body .card-frame[data-raised="true"] {
+  z-index: 3;
   transform: translateY(-10px);
 }
 /* A chosen card lifts higher and wears a white ring inside its edge: tiers
@@ -1094,7 +1120,7 @@ body .card[data-selected="true"]::before {
 }
 /* Lift the full stack while the face keeps its shadow on the same layer. */
 #hand:not([aria-busy="true"]) .card-frame:has(> .card:hover) {
-  top: -2px;
+  translate: 0 -2px;
 }
 body .card {
   position: relative;
@@ -1354,7 +1380,7 @@ body .cast[data-count] {
     padding-inline: 16px;
   }
   .hand {
-    gap: 10px;
+    --fan-overlap: calc(var(--card-height) * 0.2);
   }
   body .card .name {
     font-size: 16px;
