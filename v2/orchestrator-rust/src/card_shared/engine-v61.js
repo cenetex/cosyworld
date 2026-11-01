@@ -1582,7 +1582,7 @@
     for (const [id, p] of Object.entries(places2)) {
       requirements(p.requires, `place ${id} requires`);
       for (const b of Array.isArray(p.backdrops) ? p.backdrops : [])
-        requirements(b?.requires, `place ${id} backdrop requires`);
+        requirements(b?.requires, `place ${id} backdrop requires`, false);
     }
     for (const [id, a] of Object.entries(avatars)) {
       requirements(a.requires, `avatar ${id} requires`);
