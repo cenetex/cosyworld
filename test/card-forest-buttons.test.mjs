@@ -388,16 +388,10 @@ describe("cosmetic upgrades travel with the traveler (#1873)", () => {
     }).world;
     expect(again.actors.mara.upgrades).toEqual(["scarf"]);
     expect(again.actors.mara.xp).toBe(3);
+    const join = (progress) =>
+      dispatchShared({ op: "join", world, actor: "mara", progress, ...people });
     for (const upgrades of ["scarf", ["Scarf"], [1]])
-      expect(() =>
-        dispatchShared({
-          op: "join",
-          world,
-          actor: "mara",
-          progress: { upgrades },
-          ...people,
-        }),
-      ).toThrow("Choose the avatar's upgrades.");
+      expect(() => join({ upgrades })).toThrow("Choose the avatar's upgrades.");
     // A freed seat starts over for its next holder.
     const reset = dispatchShared({
       op: "reset",
