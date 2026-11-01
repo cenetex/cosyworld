@@ -272,11 +272,19 @@ describe("a button in each traveler's own colour", () => {
     expect(reload(world).packs[PACK].revision).toBe(3);
   });
 
-  // Revision 3 keeps no upgrade for a retired fork's deed.
-  it("asks a save holding a retired fork for a fresh start", () => {
+  // A retired fork's deed passes to the step that took it in (2026-11-01:
+  // a shared world that had set the stones could not open on revision 3).
+  it("moves a save holding a retired fork onto the step that replaced it", () => {
     const text = fixture("forest-revision-1-garden.json")
       .replaceAll("forest-clear-drain", "forest-set-stones")
       .replace('"forest-garden-care":"drain"', '"forest-garden-care":"stones"');
-    expect(() => decodeSave(text)).toThrow(/fresh start/);
+    const turn = JSON.parse(text).packs[PACK].receipts["forest-set-stones"];
+    const world = decodeSave(text);
+    const state = world.packs[PACK];
+    expect(state.receipts["forest-set-stones"]).toBeUndefined();
+    expect(state.receipts["forest-clear-drain"]).toBe(turn);
+    expect(state.flags["forest-path-cleared"]).toBe(true);
+    expect(JSON.stringify(world.log)).not.toContain("forest-set-stones");
+    expect(reload(world).packs[PACK].revision).toBe(3);
   });
 });

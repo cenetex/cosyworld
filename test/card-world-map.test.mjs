@@ -42,4 +42,31 @@ describe("the retired storybook map", () => {
     expect(loaded.items["world-map"]).toBeUndefined();
     expect(loaded).toEqual(decodeSave(encodeSave(createWorld())));
   });
+
+  // 2026-11-01: every shared world that had seen the map at the station
+  // asked for a fresh start, because its journal and lessons still named it.
+  it("leaves a journal and lessons that named it", () => {
+    const s = JSON.parse(oldSave("vale"));
+    // The opening moment saw the map; a later deed was done with it.
+    const moment = s.log[0];
+    moment.witnesses = ["vale", "world-map"];
+    moment.items.push({ id: "world-map", holder: "vale" });
+    s.log.push({ ...moment, seq: 2, verb: "drop", itemId: "world-map" });
+    s.eventSeq = 2;
+    const lesson = {
+      version: 2,
+      seq: 1,
+      turn: 0,
+      goal: { kind: "ask", target: "moth", item: "bell", destination: null },
+      action: { kind: "give", target: "moth", item: "world-map" },
+    };
+    s.memories.moth.learning = [lesson];
+    const loaded = decodeSave(JSON.stringify(s));
+    expect(JSON.stringify(loaded.log)).not.toContain("world-map");
+    expect(loaded.log).toHaveLength(1);
+    expect(loaded.log[0].witnesses).toEqual(["vale"]);
+    expect(loaded.log[0].items.map((i) => i.id)).toEqual(["lamp", "bell"]);
+    expect(loaded.memories.moth.learning).toEqual([]);
+    expect(decodeSave(encodeSave(loaded))).toEqual(loaded);
+  });
 });

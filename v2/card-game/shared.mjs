@@ -37,14 +37,32 @@ function button(text, action) {
   };
   return element;
 }
+function errorText(error) {
+  return error.name === "NotAllowedError"
+    ? "The passkey step was closed. You can try again."
+    : error.message;
+}
 function showError(error) {
   const target = modal?.open ? $("shared-error") : $("notice");
   if (!target) return;
   target.hidden = false;
-  target.textContent =
-    error.name === "NotAllowedError"
-      ? "The passkey step was closed. You can try again."
-      : error.message;
+  target.textContent = errorText(error);
+}
+// A shared world belongs to everyone in it, so no one starts it over. A
+// rules refusal to load it means the world waits for an update.
+const WORLD_UPDATE =
+  "This world is waiting for an update. Everything in it is kept. Try again soon.";
+const PAUSED = "The world is taking a moment. Everything in it is kept.";
+export function sharedError(error) {
+  return /fresh start|New game/.test(error?.message || "")
+    ? new Error(WORLD_UPDATE, { cause: error })
+    : error;
+}
+function openFailure(error) {
+  return ["TypeError", "TimeoutError", "AbortError"].includes(error?.name) ||
+    !error?.message
+    ? PAUSED
+    : errorText(error);
 }
 function panel(title, description, closable = true) {
   if (!modal) {
@@ -175,7 +193,9 @@ export async function connectSharedWorld(id) {
       `/card-game/shared/worlds/${id}${command === undefined ? "" : "/command"}`,
       command,
       headers,
-    ),
+    ).catch((error) => {
+      throw sharedError(error);
+    }),
   );
   let value;
   const initial = await new Promise((resolve) => {
@@ -287,13 +307,11 @@ export async function connectSharedWorld(id) {
         }),
       );
     };
+    // One message: why the world did not open, and that it is kept.
     authenticate(enter, false).catch((error) => {
-      panel(
-        "Open this world",
-        "The world is taking a moment. Your saved game is safe.",
-        false,
-      ).append(button("Try again", () => authenticate(enter, false)));
-      showError(error);
+      panel("Open this world", openFailure(error), false).append(
+        button("Try again", () => authenticate(enter, false)),
+      );
     });
   });
   let state = initial,

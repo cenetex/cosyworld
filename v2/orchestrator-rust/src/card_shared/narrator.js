@@ -15453,6 +15453,38 @@
       delete s.items[id];
       if (s.memories) delete s.memories[id];
     }
+    forgetRetiredThings(s, new Set(gone));
+  }
+  function forgetRetiredThings(s, retired) {
+    if (!retired.size) return;
+    const names2 = (lesson) => [
+      lesson?.item,
+      lesson?.goal?.item,
+      lesson?.action?.item,
+      lesson?.action?.receive
+    ].some((id) => retired.has(id));
+    for (const memory of Object.values(s.memories || {}))
+      if (Array.isArray(memory?.learning))
+        memory.learning = memory.learning.filter((lesson) => !names2(lesson));
+    if (!Array.isArray(s.log)) return;
+    s.log = s.log.flatMap((entry) => {
+      if (!entry || retired.has(entry.itemId) || retired.has(entry.receiveId) || retired.has(entry.wantMet?.target))
+        return entry ? [] : [entry];
+      const next = { ...entry };
+      if (retired.has(next.entityId)) delete next.entityId;
+      if (retired.has(next.targetId)) delete next.targetId;
+      if (Array.isArray(next.witnesses))
+        next.witnesses = next.witnesses.filter((id) => !retired.has(id));
+      if (Array.isArray(next.items))
+        next.items = next.items.filter(
+          (item) => !retired.has(item?.id) && !retired.has(item?.holder)
+        );
+      if (Array.isArray(next.droppedItemIds))
+        next.droppedItemIds = next.droppedItemIds.filter(
+          (id) => !retired.has(id)
+        );
+      return [next];
+    });
   }
   function upgradeShoreRouteSave(s) {
     const moved = /* @__PURE__ */ new Set(["attic", "train"]);
@@ -16035,10 +16067,44 @@
     }
     saved.revision = 2;
   }
+  var FOREST_FORKS = {
+    "forest-set-stones": "forest-clear-drain",
+    "forest-tell-path": "forest-tell-hearth"
+  };
   function upgradeForestRevisionSave(s) {
     const pack = packDefinitions.find((p) => p.id === "lonely-forest");
     const saved = s.packs?.[pack?.id];
     if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
+    const renamed = {};
+    for (const [was, now] of Object.entries(FOREST_FORKS)) {
+      const turn = saved.receipts?.[was];
+      if (turn === void 0) continue;
+      delete saved.receipts[was];
+      if (saved.recitals) {
+        if (saved.recitals[was] && !Object.hasOwn(saved.receipts, now))
+          saved.recitals[now] ??= saved.recitals[was];
+        delete saved.recitals[was];
+      }
+      if (Object.hasOwn(saved.receipts, now)) continue;
+      saved.receipts[now] = turn;
+      renamed[was] = now;
+    }
+    s.log = (s.log || []).flatMap((entry) => {
+      if (entry?.packId !== pack.id || !Object.hasOwn(FOREST_FORKS, entry.choiceId))
+        return [entry];
+      const now = renamed[entry.choiceId];
+      if (!now) return [];
+      return [
+        {
+          ...entry,
+          choiceId: now,
+          text: choiceText(
+            pack.choices.find((c) => c.id === now),
+            entry.actorId
+          )
+        }
+      ];
+    });
     saved.choices = {};
     saved.revision = 3;
   }
