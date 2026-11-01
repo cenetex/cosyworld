@@ -35,6 +35,10 @@ off-topic line no longer loses the deed. One choice per turn still holds: if
 a meeting or an `on: "talk"` choice already took the turn's receipt, the
 topic is told and its choice waits for a later Talk.
 
+The choice's World line logs just after the Talk, but the scene still treats
+the Talk as the play: the fact it reserved leads the disclosures, ahead of a
+newer one a resident reserved later in the same turn.
+
 ## Engine
 
 This changes `world.mjs`, `pack-registry.mjs` and `pack-schema.mjs`, so it
