@@ -91,12 +91,33 @@
       "card": "assets/optimized/card/png/cloth-card.webp",
       "cardHash": "04c5b7bc38b5f7b9c98eb452b61fe22c0c29944efecc0535f0fc2c83c8f96b59"
     },
+    "assets/combat/ada-attack.webp": {
+      "sourceHash": "45506784ed80e38574ba65138cb9d034bd4b22d0c2ed390b934f30841405d633",
+      "stage": "assets/combat/ada-attack.webp",
+      "stageHash": "45506784ed80e38574ba65138cb9d034bd4b22d0c2ed390b934f30841405d633",
+      "card": "assets/optimized/card/webp/combat/ada-attack.webp",
+      "cardHash": "e22f80c6628cd19b1894099c43709ebb07da5a8e469e7d7dea02fb0059800ab1"
+    },
     "assets/combat/ada-guard.webp": {
       "sourceHash": "24b4af67d04e3de9fdd8ec51280761a6fd8203bd272210ca3bb441197298dbca",
       "stage": "assets/combat/ada-guard.webp",
       "stageHash": "24b4af67d04e3de9fdd8ec51280761a6fd8203bd272210ca3bb441197298dbca",
       "card": "assets/optimized/card/webp/combat/ada-guard.webp",
       "cardHash": "a49aea6cfac58a6131e84ddbf6a9577152ce8d27e8a7db295d3c5c20df040da9"
+    },
+    "assets/combat/ada-hit.webp": {
+      "sourceHash": "919d42d79c08c48264208ca994218ffbc06f4bf633e79fbefac8980407d26ed6",
+      "stage": "assets/combat/ada-hit.webp",
+      "stageHash": "919d42d79c08c48264208ca994218ffbc06f4bf633e79fbefac8980407d26ed6",
+      "card": "assets/optimized/card/webp/combat/ada-hit.webp",
+      "cardHash": "6e5c9fc0dc8682584c024f598e9e2f9993bdd8a54b7d11d751d36f3e30ece0e2"
+    },
+    "assets/combat/ada-scarf-attack.webp": {
+      "sourceHash": "b39d0c727343a1c5167f20b18c38342f74cf5d59695bfad2124e1ceb3253ada5",
+      "stage": "assets/combat/ada-scarf-attack.webp",
+      "stageHash": "b39d0c727343a1c5167f20b18c38342f74cf5d59695bfad2124e1ceb3253ada5",
+      "card": "assets/optimized/card/webp/combat/ada-scarf-attack.webp",
+      "cardHash": "43349e3e3ed0cf4e02b82b32bf5a6ebbacd2591e7d0effc8ff0f9bafa9807c1f"
     },
     "assets/combat/ada-scarf-guard.webp": {
       "sourceHash": "3f0556748a43241b081264ee2c675b1b3be7e5e137c46a5128b26d4f4c72a6eb",
@@ -105,12 +126,40 @@
       "card": "assets/optimized/card/webp/combat/ada-scarf-guard.webp",
       "cardHash": "01b480c82670207446bfe5b3716ca25356b411828b5016fe4aa3aa18b508db63"
     },
+    "assets/combat/ada-scarf-hit.webp": {
+      "sourceHash": "4f46d53ed929b01ba975704b8b94184d44ea8e2f3a2d9263aa24b5433cd58ebe",
+      "stage": "assets/combat/ada-scarf-hit.webp",
+      "stageHash": "4f46d53ed929b01ba975704b8b94184d44ea8e2f3a2d9263aa24b5433cd58ebe",
+      "card": "assets/optimized/card/webp/combat/ada-scarf-hit.webp",
+      "cardHash": "f2005245763d628e30e0c66f094fc3a9e611bfc226519876a90bcead35cf9639"
+    },
+    "assets/combat/ash-attack.webp": {
+      "sourceHash": "a58ab17b6c4608e5965bd71907a0c66e1dee0a9bd5eb84c910c1120e7f1c7d19",
+      "stage": "assets/combat/ash-attack.webp",
+      "stageHash": "a58ab17b6c4608e5965bd71907a0c66e1dee0a9bd5eb84c910c1120e7f1c7d19",
+      "card": "assets/optimized/card/webp/combat/ash-attack.webp",
+      "cardHash": "f0b69d0a82e8a5cbabf9d5e271fdcd1a59aeb678c3d9905b68bd6b20915af202"
+    },
     "assets/combat/ash-guard.webp": {
       "sourceHash": "2b68f71534d67722a77f1f684aa5dcb96ba7fe120ed8ccaef3ad17197befdc6d",
       "stage": "assets/combat/ash-guard.webp",
       "stageHash": "2b68f71534d67722a77f1f684aa5dcb96ba7fe120ed8ccaef3ad17197befdc6d",
       "card": "assets/optimized/card/webp/combat/ash-guard.webp",
       "cardHash": "4b71e158746e9eaa8d572404b35e4d4545dad4778e65546d38b145dfaa673516"
+    },
+    "assets/combat/ash-hit.webp": {
+      "sourceHash": "2a3fd3492c118dff97376250a4bfa9a8c94e6d76da147c8844ceae18176ffcb3",
+      "stage": "assets/combat/ash-hit.webp",
+      "stageHash": "2a3fd3492c118dff97376250a4bfa9a8c94e6d76da147c8844ceae18176ffcb3",
+      "card": "assets/optimized/card/webp/combat/ash-hit.webp",
+      "cardHash": "4460042aa5f939437aa4221aa4b5c10b74606a1dd781dc1765eef0fb3e20dd18"
+    },
+    "assets/combat/ash-scarf-attack.webp": {
+      "sourceHash": "33929c94961a7d89042c54dacdab991506d5fc09b383586232ee3e52194eb72a",
+      "stage": "assets/combat/ash-scarf-attack.webp",
+      "stageHash": "33929c94961a7d89042c54dacdab991506d5fc09b383586232ee3e52194eb72a",
+      "card": "assets/optimized/card/webp/combat/ash-scarf-attack.webp",
+      "cardHash": "681941e4862ca3d589e50cfa8ff39d27557a7e32d7200926b9248a5bc779e688"
     },
     "assets/combat/ash-scarf-guard.webp": {
       "sourceHash": "6e619756e320b7728028ce26a449df285be856fa0a4f76379231eec0a6e85209",
@@ -119,12 +168,40 @@
       "card": "assets/optimized/card/webp/combat/ash-scarf-guard.webp",
       "cardHash": "9479b1bd6d905960abe89bf23efe837aebf2982e3fbb794fb3f4e9914e29b659"
     },
+    "assets/combat/ash-scarf-hit.webp": {
+      "sourceHash": "8e30be1676ed85eb62e06f0f9a0715a3e151d8e9b7827219666bb43904bb12c2",
+      "stage": "assets/combat/ash-scarf-hit.webp",
+      "stageHash": "8e30be1676ed85eb62e06f0f9a0715a3e151d8e9b7827219666bb43904bb12c2",
+      "card": "assets/optimized/card/webp/combat/ash-scarf-hit.webp",
+      "cardHash": "b414a1d808511554a5c7777734b682b1828fb77f64a7b327f1bdf00db839401b"
+    },
+    "assets/combat/keeper-attack.webp": {
+      "sourceHash": "626c7d42e15841255fac0373ac000d4079bad081b2647a315e9d272982c0a724",
+      "stage": "assets/combat/keeper-attack.webp",
+      "stageHash": "626c7d42e15841255fac0373ac000d4079bad081b2647a315e9d272982c0a724",
+      "card": "assets/optimized/card/webp/combat/keeper-attack.webp",
+      "cardHash": "1d5ff652cf3d842dc955ed102955fdd10d02c6a400bd5d156e29f6c5ec85d69e"
+    },
     "assets/combat/keeper-guard.webp": {
       "sourceHash": "e144fbf594464786148a262fe04fb09e7551ad29b62beb08498c4ff44c110fd5",
       "stage": "assets/combat/keeper-guard.webp",
       "stageHash": "e144fbf594464786148a262fe04fb09e7551ad29b62beb08498c4ff44c110fd5",
       "card": "assets/optimized/card/webp/combat/keeper-guard.webp",
       "cardHash": "09ed8cbfc04aa90122cb0ff9a188ab6967068c536569817d13668136731d700a"
+    },
+    "assets/combat/keeper-hit.webp": {
+      "sourceHash": "ac10202ca29c384b5a06fd94f37512edb0535bbb93dce9cbee682769568d1141",
+      "stage": "assets/combat/keeper-hit.webp",
+      "stageHash": "ac10202ca29c384b5a06fd94f37512edb0535bbb93dce9cbee682769568d1141",
+      "card": "assets/optimized/card/webp/combat/keeper-hit.webp",
+      "cardHash": "07d50a67d57bf66dd6dc5f060e1d947723a1c8de69e25bfbe76f5cdd0c899972"
+    },
+    "assets/combat/mara-attack.webp": {
+      "sourceHash": "89a8bcf93c2690d4d8418530b65cb1374dd46c6b923adf472c3429ff4131709f",
+      "stage": "assets/combat/mara-attack.webp",
+      "stageHash": "89a8bcf93c2690d4d8418530b65cb1374dd46c6b923adf472c3429ff4131709f",
+      "card": "assets/optimized/card/webp/combat/mara-attack.webp",
+      "cardHash": "577e5699b02e07ee73715b52d489080bbe01333ad91e9e9f121259611f4906be"
     },
     "assets/combat/mara-guard.webp": {
       "sourceHash": "4a5dba05c0e9e3807799087c614eb475c4036cd201318a6ca26f07dd37d135db",
@@ -133,12 +210,40 @@
       "card": "assets/optimized/card/webp/combat/mara-guard.webp",
       "cardHash": "b3c324f8c6c9167ae529dc309067b6c521a805942cf2c010512a6576fa1daf1a"
     },
+    "assets/combat/mara-hit.webp": {
+      "sourceHash": "2e59d5df7a17435fa8151e349016a24545922ceea8eb5b38d3fdd79eb4a99b06",
+      "stage": "assets/combat/mara-hit.webp",
+      "stageHash": "2e59d5df7a17435fa8151e349016a24545922ceea8eb5b38d3fdd79eb4a99b06",
+      "card": "assets/optimized/card/webp/combat/mara-hit.webp",
+      "cardHash": "ba5226766899b50b108028866a866cee24636df4cb680c993fa17975924cb708"
+    },
+    "assets/combat/mara-scarf-attack.webp": {
+      "sourceHash": "e8e12eed13337487143d39043d6cd7ba28527903e1061ec51f0bef3a391827aa",
+      "stage": "assets/combat/mara-scarf-attack.webp",
+      "stageHash": "e8e12eed13337487143d39043d6cd7ba28527903e1061ec51f0bef3a391827aa",
+      "card": "assets/optimized/card/webp/combat/mara-scarf-attack.webp",
+      "cardHash": "f788605fcf6f9a42cf81fc7c748fc9b07b455638b3ec585d5782f74c406708fe"
+    },
     "assets/combat/mara-scarf-guard.webp": {
       "sourceHash": "0326deb14ea054dba5f4f274008ba0e2d3795ce8c00d9141969de8eda23e56f9",
       "stage": "assets/combat/mara-scarf-guard.webp",
       "stageHash": "0326deb14ea054dba5f4f274008ba0e2d3795ce8c00d9141969de8eda23e56f9",
       "card": "assets/optimized/card/webp/combat/mara-scarf-guard.webp",
       "cardHash": "d3851936813460af315eaf0995c762c2af2e021e257e84a5f9a7fa4df177a72e"
+    },
+    "assets/combat/mara-scarf-hit.webp": {
+      "sourceHash": "4a7628c190607cb28dec9efc4e61176e854daa61f7917f808af5a6199afb8569",
+      "stage": "assets/combat/mara-scarf-hit.webp",
+      "stageHash": "4a7628c190607cb28dec9efc4e61176e854daa61f7917f808af5a6199afb8569",
+      "card": "assets/optimized/card/webp/combat/mara-scarf-hit.webp",
+      "cardHash": "a492de3994cf9f04168f659c76c14c8d08026d54709514ab74feac5d5b758913"
+    },
+    "assets/combat/moth-attack.webp": {
+      "sourceHash": "a9b231a01380959a4244031cf9aa2a36b535e673948195b5082e0114669a01c7",
+      "stage": "assets/combat/moth-attack.webp",
+      "stageHash": "a9b231a01380959a4244031cf9aa2a36b535e673948195b5082e0114669a01c7",
+      "card": "assets/optimized/card/webp/combat/moth-attack.webp",
+      "cardHash": "a72b7e860ea6a2f327c031453302797f40b638a001b4248339c97007092e5fd4"
     },
     "assets/combat/moth-guard.webp": {
       "sourceHash": "da54b5cd22a695646e53e8997fedc2aaf6bb9023f9c4faa651807097e04f4019",
@@ -147,12 +252,40 @@
       "card": "assets/optimized/card/webp/combat/moth-guard.webp",
       "cardHash": "82e6b511940ccd4c080e7bab31015f26279a1b90417c597ff9340cbd7cf6e783"
     },
+    "assets/combat/moth-hit.webp": {
+      "sourceHash": "835555cc46e3deb54890346c4bc8ab9be0fb1b718d16900e6c49493e4e295e47",
+      "stage": "assets/combat/moth-hit.webp",
+      "stageHash": "835555cc46e3deb54890346c4bc8ab9be0fb1b718d16900e6c49493e4e295e47",
+      "card": "assets/optimized/card/webp/combat/moth-hit.webp",
+      "cardHash": "1f34ce751886b2a4d5570d7d5451d84decdde6b5abe374ad7705719d39c82475"
+    },
+    "assets/combat/nell-attack.webp": {
+      "sourceHash": "861cc8bc9e2644bd227f693989f33780751ffd7c0ac2ef3c6762529391ea912f",
+      "stage": "assets/combat/nell-attack.webp",
+      "stageHash": "861cc8bc9e2644bd227f693989f33780751ffd7c0ac2ef3c6762529391ea912f",
+      "card": "assets/optimized/card/webp/combat/nell-attack.webp",
+      "cardHash": "640534490b41b093b50356a7e2ae41bded6b245d349438284b37732ce5719058"
+    },
     "assets/combat/nell-guard.webp": {
       "sourceHash": "dfa170c29df726ff82334eff2d741e68187ef61f796fc453e60b2e7ef2c8eaed",
       "stage": "assets/combat/nell-guard.webp",
       "stageHash": "dfa170c29df726ff82334eff2d741e68187ef61f796fc453e60b2e7ef2c8eaed",
       "card": "assets/optimized/card/webp/combat/nell-guard.webp",
       "cardHash": "4357ac282a12285be75dc99de843863bc69db289c63bd5a48af23ed37562a7e3"
+    },
+    "assets/combat/nell-hit.webp": {
+      "sourceHash": "6bf1a44db45dcacd85785284642825ff6c10915709a36cfad01e2af46c05f8be",
+      "stage": "assets/combat/nell-hit.webp",
+      "stageHash": "6bf1a44db45dcacd85785284642825ff6c10915709a36cfad01e2af46c05f8be",
+      "card": "assets/optimized/card/webp/combat/nell-hit.webp",
+      "cardHash": "c9cc7378e421d08829345b3564d5db3d6d4d41938a200e4f24ba7c314eef2f6d"
+    },
+    "assets/combat/nell-scarf-attack.webp": {
+      "sourceHash": "14d7fc42cd10141a0a2f2925286b2a52b9acaecc56202820c357b8f335ba182c",
+      "stage": "assets/combat/nell-scarf-attack.webp",
+      "stageHash": "14d7fc42cd10141a0a2f2925286b2a52b9acaecc56202820c357b8f335ba182c",
+      "card": "assets/optimized/card/webp/combat/nell-scarf-attack.webp",
+      "cardHash": "acfd03422a9678a90389c8c60f535c9b1805ad6758033c44b18fb6f6b05b0906"
     },
     "assets/combat/nell-scarf-guard.webp": {
       "sourceHash": "b45739aa710971af9672aae72ca2f7e84a7420d0147df7590e669a56a72198d8",
@@ -161,12 +294,40 @@
       "card": "assets/optimized/card/webp/combat/nell-scarf-guard.webp",
       "cardHash": "c775f167b8092a972154a6368bd34016ba8c3b935f47bb371258b683fe1e80fb"
     },
+    "assets/combat/nell-scarf-hit.webp": {
+      "sourceHash": "f56912c51a66ef190ce43f51563dcac2e2f3c15528db6c240a65f16045e75b10",
+      "stage": "assets/combat/nell-scarf-hit.webp",
+      "stageHash": "f56912c51a66ef190ce43f51563dcac2e2f3c15528db6c240a65f16045e75b10",
+      "card": "assets/optimized/card/webp/combat/nell-scarf-hit.webp",
+      "cardHash": "d4bfd74d54a17a234a5c9b6c185f0eb58f5f368d1ccb14e118f73e87a01e8cba"
+    },
+    "assets/combat/orin-attack.webp": {
+      "sourceHash": "e46933054a4197c53abebd95431a6a710a4d75e8c0c1a4609009d39b44e31ee8",
+      "stage": "assets/combat/orin-attack.webp",
+      "stageHash": "e46933054a4197c53abebd95431a6a710a4d75e8c0c1a4609009d39b44e31ee8",
+      "card": "assets/optimized/card/webp/combat/orin-attack.webp",
+      "cardHash": "08c3eccba38f522a55192c462658187e9b845c209451394e256a72c5186c4af5"
+    },
     "assets/combat/orin-guard.webp": {
       "sourceHash": "0d03d7df034f79b33d9f66eaae8ec1008cabb2b6dac92fd09cb8c36fdc5ab0a0",
       "stage": "assets/combat/orin-guard.webp",
       "stageHash": "0d03d7df034f79b33d9f66eaae8ec1008cabb2b6dac92fd09cb8c36fdc5ab0a0",
       "card": "assets/optimized/card/webp/combat/orin-guard.webp",
       "cardHash": "2ceb9f4c83a285c5909c7c3bad72fa87395a3e8a231a8bba628c9e4ec41bd514"
+    },
+    "assets/combat/orin-hit.webp": {
+      "sourceHash": "8cda0aa74b2e0f24818ca2ab78d436b74130469b9f3bd6bb8b9f8ab48195b579",
+      "stage": "assets/combat/orin-hit.webp",
+      "stageHash": "8cda0aa74b2e0f24818ca2ab78d436b74130469b9f3bd6bb8b9f8ab48195b579",
+      "card": "assets/optimized/card/webp/combat/orin-hit.webp",
+      "cardHash": "db40fbd35717df4f09f9e7db4ea92c0f36e569ee2228cce5a1ccb2fd8da49dcb"
+    },
+    "assets/combat/orin-scarf-attack.webp": {
+      "sourceHash": "cb9522a88d4bb256ca807267f54ee2e1e58eab153b04031c214fd99e4f0066e6",
+      "stage": "assets/combat/orin-scarf-attack.webp",
+      "stageHash": "cb9522a88d4bb256ca807267f54ee2e1e58eab153b04031c214fd99e4f0066e6",
+      "card": "assets/optimized/card/webp/combat/orin-scarf-attack.webp",
+      "cardHash": "2677c033c70edbcff1fb5fbe2aa7f3b63b5e32130b4b9d5d5755347155da1aba"
     },
     "assets/combat/orin-scarf-guard.webp": {
       "sourceHash": "22f012a265fef3de3d85b36055144022ed207990423fd33ef8ec04c760542ed7",
@@ -175,12 +336,40 @@
       "card": "assets/optimized/card/webp/combat/orin-scarf-guard.webp",
       "cardHash": "4c2df5aa3413833367d462473895e4201105418d63f028f5e741ce6a3666e32d"
     },
+    "assets/combat/orin-scarf-hit.webp": {
+      "sourceHash": "289197381900b3d0ea476002fb79ffa67a76c7530a24288515f2e59d9a75e286",
+      "stage": "assets/combat/orin-scarf-hit.webp",
+      "stageHash": "289197381900b3d0ea476002fb79ffa67a76c7530a24288515f2e59d9a75e286",
+      "card": "assets/optimized/card/webp/combat/orin-scarf-hit.webp",
+      "cardHash": "3e0610456875747759f9f3a645951ae5737c885cfa2fd4915a6992fbb1a9c6e3"
+    },
+    "assets/combat/rue-attack.webp": {
+      "sourceHash": "4248c08e494051a71b764eb822ca2163815f1be37ac3b9de9bfb40b703b85df3",
+      "stage": "assets/combat/rue-attack.webp",
+      "stageHash": "4248c08e494051a71b764eb822ca2163815f1be37ac3b9de9bfb40b703b85df3",
+      "card": "assets/optimized/card/webp/combat/rue-attack.webp",
+      "cardHash": "005a3491ecfb823609979fb61f40eccbf2b8eb03ff3b1d851bfb19274347f0d8"
+    },
     "assets/combat/rue-guard.webp": {
       "sourceHash": "c5838c91b73d2a76fc95b1b2b4fa9de2dc78691a3be7c39fa4ecd405091dfa49",
       "stage": "assets/combat/rue-guard.webp",
       "stageHash": "c5838c91b73d2a76fc95b1b2b4fa9de2dc78691a3be7c39fa4ecd405091dfa49",
       "card": "assets/optimized/card/webp/combat/rue-guard.webp",
       "cardHash": "080df367c7934ab5ea4a6fdcee3db220a4e913c956f6c326ff8f0d3303cd7197"
+    },
+    "assets/combat/rue-hit.webp": {
+      "sourceHash": "4aea87bb0048870ee5e8df2908c194e5db958fcc3f2cc33c8bb938ec731a541d",
+      "stage": "assets/combat/rue-hit.webp",
+      "stageHash": "4aea87bb0048870ee5e8df2908c194e5db958fcc3f2cc33c8bb938ec731a541d",
+      "card": "assets/optimized/card/webp/combat/rue-hit.webp",
+      "cardHash": "9f7b4be89d63dbe60564a19dee5595b3646071cbe14942d5834969ac58c6aa1d"
+    },
+    "assets/combat/rue-scarf-attack.webp": {
+      "sourceHash": "b891c9107595c6e9ba9e806aa82fd57f1062a3a307e0781e8d6033e97ec9d1c0",
+      "stage": "assets/combat/rue-scarf-attack.webp",
+      "stageHash": "b891c9107595c6e9ba9e806aa82fd57f1062a3a307e0781e8d6033e97ec9d1c0",
+      "card": "assets/optimized/card/webp/combat/rue-scarf-attack.webp",
+      "cardHash": "01bd4eaab714d3100bcd0e129de9df0631c96682e2dee97d0faae29510210670"
     },
     "assets/combat/rue-scarf-guard.webp": {
       "sourceHash": "dc2cb9a0b5c6684d3ecc66e255a3013c0d0ad37a4aff0eecd51020eb00663cd7",
@@ -189,12 +378,40 @@
       "card": "assets/optimized/card/webp/combat/rue-scarf-guard.webp",
       "cardHash": "e3981b93e8934e3d0230c82491b62af7e5e5fd83e6d801931d1d1cf644ca420b"
     },
+    "assets/combat/rue-scarf-hit.webp": {
+      "sourceHash": "0806fb4dd2d218bf9fba9d5f816309ec04a32b5cc491658190ac5c6eea0fcde0",
+      "stage": "assets/combat/rue-scarf-hit.webp",
+      "stageHash": "0806fb4dd2d218bf9fba9d5f816309ec04a32b5cc491658190ac5c6eea0fcde0",
+      "card": "assets/optimized/card/webp/combat/rue-scarf-hit.webp",
+      "cardHash": "2647e7fa7a356dac5b03031e15f08c971cc3f25dc9610f050f24f5288f9e2f30"
+    },
+    "assets/combat/tavi-attack.webp": {
+      "sourceHash": "45abd84bacec57d8c1d2fd0344c46eaf35ce0f4b491fdbf151604777c6dc328b",
+      "stage": "assets/combat/tavi-attack.webp",
+      "stageHash": "45abd84bacec57d8c1d2fd0344c46eaf35ce0f4b491fdbf151604777c6dc328b",
+      "card": "assets/optimized/card/webp/combat/tavi-attack.webp",
+      "cardHash": "4b4be636ac17281f8fe0171450077c5aff60aa38114b71643ffbcb7078141356"
+    },
     "assets/combat/tavi-guard.webp": {
       "sourceHash": "ca907cfaf9abd84f7dbae44a7150a3bd566355dceb5e4a8e41270aa9d07c1048",
       "stage": "assets/combat/tavi-guard.webp",
       "stageHash": "ca907cfaf9abd84f7dbae44a7150a3bd566355dceb5e4a8e41270aa9d07c1048",
       "card": "assets/optimized/card/webp/combat/tavi-guard.webp",
       "cardHash": "f81ff2f0307f31dd13fed2052f95c8eccb9cce76cc802e010b3952b4955854af"
+    },
+    "assets/combat/tavi-hit.webp": {
+      "sourceHash": "2fe586cc5769bd58df763651555a57aa2f5b04071d62fb70b73958e7365a55ba",
+      "stage": "assets/combat/tavi-hit.webp",
+      "stageHash": "2fe586cc5769bd58df763651555a57aa2f5b04071d62fb70b73958e7365a55ba",
+      "card": "assets/optimized/card/webp/combat/tavi-hit.webp",
+      "cardHash": "bda413479bd7fee9903362babb92c1c78e2ea748239d359625d4f2ba717db664"
+    },
+    "assets/combat/tavi-scarf-attack.webp": {
+      "sourceHash": "d9ca1cc6a534aebb595340a8bf3b06723931280f7bee2915820a1f923af0df75",
+      "stage": "assets/combat/tavi-scarf-attack.webp",
+      "stageHash": "d9ca1cc6a534aebb595340a8bf3b06723931280f7bee2915820a1f923af0df75",
+      "card": "assets/optimized/card/webp/combat/tavi-scarf-attack.webp",
+      "cardHash": "4e86bfc064f14619aedafc5c39454bbd7548c42f175c4ced8c61ecbd109c31ee"
     },
     "assets/combat/tavi-scarf-guard.webp": {
       "sourceHash": "a4040a20524fe2cedad3d18c6d97db18fe72547b0481c531fd478e4ea289d8d9",
@@ -203,6 +420,20 @@
       "card": "assets/optimized/card/webp/combat/tavi-scarf-guard.webp",
       "cardHash": "b1d7c662bbf48145e6fcc53120895700f0daf048f56f651316e36422717e7bba"
     },
+    "assets/combat/tavi-scarf-hit.webp": {
+      "sourceHash": "0d2fc8ca50b146f70d7377dd685da2b9b9d5a5a0ac36a470b434ccc8a23f7ed7",
+      "stage": "assets/combat/tavi-scarf-hit.webp",
+      "stageHash": "0d2fc8ca50b146f70d7377dd685da2b9b9d5a5a0ac36a470b434ccc8a23f7ed7",
+      "card": "assets/optimized/card/webp/combat/tavi-scarf-hit.webp",
+      "cardHash": "ac5e167133e1594a8ade31eda6e2b03cfe04f0f3d55b92038af84cf81379f216"
+    },
+    "assets/combat/vale-attack.webp": {
+      "sourceHash": "b5d863609adaba585435df1fbdc110c602351baa4d374f0e84b2c576b0eb13d0",
+      "stage": "assets/combat/vale-attack.webp",
+      "stageHash": "b5d863609adaba585435df1fbdc110c602351baa4d374f0e84b2c576b0eb13d0",
+      "card": "assets/optimized/card/webp/combat/vale-attack.webp",
+      "cardHash": "7dcab079916cc290eda95e28b200455425cd7105a19168960c00bcc200a3829f"
+    },
     "assets/combat/vale-guard.webp": {
       "sourceHash": "0b3d0ad4f79cd42a7f4ecf78001a60e0e9c96a79a835b177df75e80f014023d1",
       "stage": "assets/combat/vale-guard.webp",
@@ -210,12 +441,33 @@
       "card": "assets/optimized/card/webp/combat/vale-guard.webp",
       "cardHash": "3857a3b86c8524832bd5f9ece1a67c94166543cbc00691ee552bdf57ccf190f4"
     },
+    "assets/combat/vale-hit.webp": {
+      "sourceHash": "4642854948b727a4f2be5020d308a08e8b78f57686cdc292741c79369704d6dc",
+      "stage": "assets/combat/vale-hit.webp",
+      "stageHash": "4642854948b727a4f2be5020d308a08e8b78f57686cdc292741c79369704d6dc",
+      "card": "assets/optimized/card/webp/combat/vale-hit.webp",
+      "cardHash": "69701b1273733be827b2a4ec3c6a8901e7652ea0108f1cb1ca91497cdb830650"
+    },
+    "assets/combat/vale-scarf-attack.webp": {
+      "sourceHash": "fba4801e823fc6f1966e4bb272db318ea7307849979716f545442c982d18ff6d",
+      "stage": "assets/combat/vale-scarf-attack.webp",
+      "stageHash": "fba4801e823fc6f1966e4bb272db318ea7307849979716f545442c982d18ff6d",
+      "card": "assets/optimized/card/webp/combat/vale-scarf-attack.webp",
+      "cardHash": "959dd08e43505de0b84df43dddb60c7256639118fbd583133989c67a7a166c88"
+    },
     "assets/combat/vale-scarf-guard.webp": {
       "sourceHash": "d1c7b8ff6e308716858fca3642555e73e7ceb8676a45d76948899e32e3acf576",
       "stage": "assets/combat/vale-scarf-guard.webp",
       "stageHash": "d1c7b8ff6e308716858fca3642555e73e7ceb8676a45d76948899e32e3acf576",
       "card": "assets/optimized/card/webp/combat/vale-scarf-guard.webp",
       "cardHash": "38e49be0f66afbfee1169afcc88442629933c3cf9f24ed222669f473e53f10e4"
+    },
+    "assets/combat/vale-scarf-hit.webp": {
+      "sourceHash": "7e728b3c0410c66a39c1bf6d4fa48faa2257a43bf5db63ae6aebb01905d4401d",
+      "stage": "assets/combat/vale-scarf-hit.webp",
+      "stageHash": "7e728b3c0410c66a39c1bf6d4fa48faa2257a43bf5db63ae6aebb01905d4401d",
+      "card": "assets/optimized/card/webp/combat/vale-scarf-hit.webp",
+      "cardHash": "2106ec97d71ac466572637388f8ab71c8bcc59d8499e7840be11a13f32c74254"
     },
     "assets/greek-drama/ajax-camp-day.webp": {
       "sourceHash": "846fd6875ded126c01eb4108247d5b94c5a0c6fbf2f9909ff42dafe21ebfbe77",
