@@ -94,7 +94,7 @@ describe("seeded specials", () => {
   it("validates the pool", () => {
     const mounted = packDefinitions.flatMap((p) => Object.keys(p.places));
     const problems = (s) =>
-      packProblems({ ...hoppy, specials: s }, hub, mounted).filter((p) =>
+      packProblems({ ...hoppy, routes: [], specials: s }, hub, mounted).filter((p) =>
         p.startsWith("specials"),
       );
     expect(problems(specials)).toEqual([]);

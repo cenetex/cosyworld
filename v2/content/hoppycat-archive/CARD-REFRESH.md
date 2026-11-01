@@ -50,6 +50,22 @@ receipt. Later steps read those receipts. The seed, spool, clapper, and launch
 card stay where the player places them. The performer credits include Piper
 on flute and drums.
 
+## A small world
+
+Hoppy Cat is a small world (#1622). Its core is the Halfway Tea Garden and
+the Signal Jetty, joined directly. Hoppy Cat and Tapi Lilt live in the garden;
+staticwashere keeps the jetty. The Red-Thread Spool starts at the empty station and
+is never drawn.
+
+Each run draws two of the other eight places, one resident and one thing.
+A drawn place brings its residents and things, and links to both the garden
+and the jetty, so a run is one loop of four places. The drawn resident and
+thing come from undrawn places and wait in the garden. Every place, resident
+and thing is common. A story whose steps need undrawn places waits for a run
+that draws them. The pack's own landing (`?pack=hoppycat-archive`,
+`hoppy.lonelyforest.com`) opens the whole archive, so all three stories can
+be finished there.
+
 ## Research checked on 28 October 2026
 
 Three research agents covered the public lore, places and objects, and the
