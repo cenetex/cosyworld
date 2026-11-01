@@ -172,6 +172,10 @@ facts from earlier releases keep their names; player-facing text says quest.
   resume. A step with no way forward becomes another of the same level. Drop
   quest (a `drop` play with no item) gives it up for half the experience;
   the level stays. Residents level on experience alone.
+- **One world each.** Level, experience and quests belong to an avatar in
+  one world (#1825). A new world starts the avatar at level 1 with its
+  starter quest, and the old world keeps its progress. The packs mounted in a
+  world (Greek, Willows, Hoppy Cat) are part of it and share that progress.
 - **Step verbs.** A level quest step may carry `step: { verb, to?, at? }`
   beyond its kind's own verb (hold, go to, talk), drawn from the living world
   (`want.mjs` `STEP_VERBS`). State verbs hold after any play: **find** an item

@@ -55,6 +55,17 @@ export function placesOf(rows, here) {
   return places;
 }
 
+// What leaving a world costs. A local world left or replaced is gone for
+// good, with the avatar's level and quest there (#1825); a shared world keeps
+// the avatar's things for its return.
+export function leaveNote(avatar, place) {
+  const name = place?.name || "This world";
+  if (!place) return "";
+  return place.local
+    ? `${name} will be lost, with ${avatar.name}'s level and quest there. There is no way back to it.`
+    : `${name} keeps ${avatar.name}'s things.`;
+}
+
 export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
   const list = el("ul", "avatar-list");
   list.setAttribute("aria-label", "Your avatars");
@@ -109,24 +120,20 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
       },
       "avatar-new-world",
     );
-    ask(
-      `Move ${avatar.name}`,
-      place?.name ? `${place.name} keeps ${avatar.name}'s things.` : "",
-      [
-        ...targets.map((row) =>
-          act(worldName(row.seed) || "A world", async () => {
-            await request(`/card-game/shared/worlds/${row.id}/command`, {
-              op: "claim",
-              avatar: avatar.id,
-              move: true,
-            });
-            archiveLocal(avatar.id);
-            location.href = sharedLink(row.id);
-          }),
-        ),
-        fresh,
-      ],
-    );
+    ask(`Move ${avatar.name}`, leaveNote(avatar, place), [
+      ...targets.map((row) =>
+        act(worldName(row.seed) || "A world", async () => {
+          await request(`/card-game/shared/worlds/${row.id}/command`, {
+            op: "claim",
+            avatar: avatar.id,
+            move: true,
+          });
+          archiveLocal(avatar.id);
+          location.href = sharedLink(row.id);
+        }),
+      ),
+      fresh,
+    ]);
   }
   function actions(avatar, place, current, places) {
     if (!place)
@@ -150,7 +157,9 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
       act("Leave", () =>
         ask(
           `Leave ${place.name || "this world"}?`,
-          `${avatar.name}'s things stay there.`,
+          place.local
+            ? leaveNote(avatar, place)
+            : `${avatar.name}'s things stay there.`,
           [
             act("Leave", async () => {
               await leave(avatar.id, place);
@@ -177,7 +186,7 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
     const button = act("Delete world", () => {
       if (button.dataset.armed !== "true") {
         button.dataset.armed = "true";
-        button.textContent = `Delete ${place.name || "this world"}?`;
+        button.textContent = `Delete ${place.name || "this world"} and its progress?`;
         return;
       }
       deleteLocal(avatar.id);
