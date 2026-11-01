@@ -121,6 +121,9 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
     }
     case "holding":
       return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
+    // A one-way cosmetic upgrade the traveler carries between worlds (#1873).
+    case "upgraded":
+      return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));
     case "shared_world":
       return sharedEnabled(s);
     case "connected_humans":

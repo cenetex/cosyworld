@@ -187,7 +187,11 @@ Effects are choose, set_flag, custody-checked place_item, and three item
 moves. `give_item` hands a pack item to the acting avatar. `retire_item`
 needs the actor to hold the item; it returns the item, unseen, to its
 authored holder with an empty history. `hide_item` belongs only to a
-meeting choice.
+meeting choice. `{"kind":"upgrade","upgrade":"scarf"}`, on a choice with
+`for`, adds a one-way cosmetic upgrade to the acting traveler's `upgrades`
+set. `{"kind":"upgraded","upgrade":"scarf","role":"actor"}` holds while the
+acting traveler has it. Upgrades follow the traveler into every world, per
+passkey ([cosmetic upgrades](../../docs/design/cosmetic-upgrades.md)).
 
 A choice with `"for": "<human avatar>"` is offered only to that traveler.
 A choice with `"on": "meet"` is never offered as a card. The rules apply it

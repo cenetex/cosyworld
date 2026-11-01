@@ -20,6 +20,13 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { portrait } from "../v2/card-game/scene.mjs";
+import {
+  LOCAL_UPGRADES_KEY,
+  avatarImage,
+  rememberLocalUpgrades,
+  wearLocalUpgrades,
+} from "../v2/card-game/scarves.mjs";
 
 const PACK = "lonely-forest";
 const COTTAGE = "forest-cottage";
@@ -51,7 +58,7 @@ function attic() {
   world.items.lamp.fuel = 12;
   return world;
 }
-const meetRati = () => act(attic(), "move", { target: COTTAGE });
+const meetRati = (world = attic()) => act(world, "move", { target: COTTAGE });
 const fixture = (name) =>
   readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
 
@@ -307,5 +314,116 @@ describe("a button in each traveler's own colour", () => {
     expect(state.flags["forest-path-cleared"]).toBe(true);
     expect(JSON.stringify(world.log)).not.toContain("forest-set-stones");
     expect(reload(world).packs[PACK].revision).toBe(3);
+  });
+});
+
+// Cosmetic upgrades are one-way, per passkey, and follow the traveler into
+// every world (#1873). RATi's scarf is the first.
+const SCARF_ART = "assets/shared/characters/vale-scarf.png";
+// Meet RATi, find the button, and give it back for the scarf.
+function sewn() {
+  let world = meetRati();
+  world.actors.vale.place = world.items[BUTTON].holder;
+  world = act(world, "take", { item: BUTTON });
+  world.actors.vale.place = COTTAGE;
+  return act(world, "give", { item: BUTTON, target: "rati" });
+}
+const memory = (data = new Map()) => ({
+  getItem: (k) => data.get(k) ?? null,
+  setItem: (k, v) => data.set(k, String(v)),
+});
+
+describe("cosmetic upgrades travel with the traveler (#1873)", () => {
+  it("records the scarf upgrade when RATi sews the traveler's own button", () => {
+    const world = sewn();
+    expect(world.actors.vale.upgrades).toEqual(["scarf"]);
+    expect(world.items[SCARF].holder).toBe("vale");
+    expect(reload(world).actors.vale.upgrades).toEqual(["scarf"]);
+    validateWorld(reload(world));
+    // The portrait reads the set, so it stays after the scarf is given away.
+    world.items[SCARF].holder = "mara";
+    expect(avatarImage(world, "vale")).toBe(SCARF_ART);
+    expect(portrait("vale", null, world)).toBe(`./${SCARF_ART}`);
+    expect(avatarImage(world, "mara")).toBe(
+      "assets/shared/characters/mara.png",
+    );
+  });
+
+  it("hides no button for a traveler who already wears the scarf", () => {
+    const start = attic();
+    start.actors.vale.upgrades = ["scarf"];
+    const world = meetRati(start);
+    const state = world.packs[PACK];
+    expect(state.flags["forest-button-vale-hidden"]).toBeUndefined();
+    expect(state.receipts["forest-hide-button-vale"]).toBeUndefined();
+    expect(world.items[BUTTON].holder).toBe(COTTAGE);
+    expect(world.actors.vale.want?.target).not.toBe(BUTTON);
+    expect(world.items[SCARF].holder).toBe(COTTAGE);
+    expect(avatarImage(world, "vale")).toBe(SCARF_ART);
+  });
+
+  it("joins a shared world wearing its upgrades, without a scarf item", () => {
+    const world = dispatchShared({ op: "create" }).world;
+    const people = { claimed: ["vale", "mara"], present: ["vale", "mara"] };
+    const joined = dispatchShared({
+      op: "join",
+      world,
+      actor: "mara",
+      progress: { upgrades: ["scarf"] },
+      ...people,
+    }).world;
+    expect(joined.actors.mara.upgrades).toEqual(["scarf"]);
+    expect(joined.actors.mara.xp).toBe(world.actors.mara.xp);
+    expect(joined.items["forest-scarf-mara"].holder).not.toBe("mara");
+    expect(avatarImage(joined, "mara")).toBe(
+      "assets/shared/characters/mara-scarf.png",
+    );
+    // Upgrades only grow, and a level may come with them.
+    const again = dispatchShared({
+      op: "join",
+      world: joined,
+      actor: "mara",
+      progress: { level: 2, xp: 3, upgrades: [] },
+      ...people,
+    }).world;
+    expect(again.actors.mara.upgrades).toEqual(["scarf"]);
+    expect(again.actors.mara.xp).toBe(3);
+    const join = (progress) =>
+      dispatchShared({ op: "join", world, actor: "mara", progress, ...people });
+    for (const upgrades of ["scarf", ["Scarf"], [1]])
+      expect(() => join({ upgrades })).toThrow("Choose the avatar's upgrades.");
+    // A freed seat starts over for its next holder.
+    const reset = dispatchShared({
+      op: "reset",
+      world: joined,
+      actor: "mara",
+      ...people,
+    }).world;
+    expect(reset.actors.mara.upgrades).toBeUndefined();
+  });
+
+  it("keeps the local passkey's upgrades between local worlds", () => {
+    const storage = memory();
+    rememberLocalUpgrades(sewn(), storage);
+    expect(JSON.parse(storage.getItem(LOCAL_UPGRADES_KEY))).toEqual({
+      vale: ["scarf"],
+    });
+    const next = wearLocalUpgrades(attic(), storage);
+    expect(next.actors.vale.upgrades).toEqual(["scarf"]);
+    expect(next.actors.mara.upgrades).toBeUndefined();
+    expect(meetRati(next).items[BUTTON].holder).toBe(COTTAGE);
+    // A broken store reads as no upgrades.
+    storage.setItem(LOCAL_UPGRADES_KEY, "{not json");
+    expect(wearLocalUpgrades(attic(), storage).actors.vale.upgrades).toBe(
+      undefined,
+    );
+  });
+
+  it("does not carry local upgrades into a passkey's shared world", () => {
+    const local = sewn();
+    const shared = dispatchShared({ op: "create", save: encodeSave(local) });
+    expect(shared.world.actors.vale.upgrades).toBeUndefined();
+    // The shared world keeps its own things; only the passkey set is dropped.
+    expect(shared.world.items[SCARF].holder).toBe("vale");
   });
 });

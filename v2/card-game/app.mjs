@@ -70,6 +70,7 @@ import {
   otherAvatar,
 } from "./avatar-world.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
+import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
 import {
   forgetCovered,
   forgetUnfound,
@@ -156,11 +157,14 @@ const SAVE_KEY = sharedSession
         startingPack ? `${SAVE_BASE}.pack.${startingPack.id}` : SAVE_BASE,
       );
 // Each avatar's new local world: Vale wakes in the attic, the others at home.
+// Its travelers wear the local passkey's cosmetic upgrades (#1873).
 const freshWorld = () =>
-  enableMotives(
-    localAvatar
-      ? createAvatarWorld(localAvatar, newRunSeed())
-      : createLandingWorld(startingPack),
+  wearLocalUpgrades(
+    enableMotives(
+      localAvatar
+        ? createAvatarWorld(localAvatar, newRunSeed())
+        : createLandingWorld(startingPack),
+    ),
   );
 let world = sharedSession
     ? { ...sharedSession.state.world, playerActorId: sharedSession.state.actor }
@@ -276,7 +280,9 @@ try {
   if (saved) {
     openingTable = false;
     // A save from before run seeds takes one once, as a shared world does.
-    world = enableMotives(seedRun(decodeSave(saved), newRunSeed()));
+    world = wearLocalUpgrades(
+      enableMotives(seedRun(decodeSave(saved), newRunSeed())),
+    );
   }
 } catch (error) {
   openingTable = false;
@@ -407,6 +413,7 @@ function save() {
   try {
     const encoded = encodeSave(world);
     localStorage.setItem(SAVE_KEY, encoded);
+    rememberLocalUpgrades(world);
     void localBackups?.queue(encoded);
   } catch {
     notice(UNSAVED_NOTICE);

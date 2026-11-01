@@ -208,6 +208,14 @@ pub(super) fn commit(
         let Ok(a) = actor_index(command["actor"].as_str().unwrap_or_default()) else {
             return Ok(result);
         };
+        // The holder's passkey keeps any upgrade the play gave (#1873).
+        let kept = super::bindings::holder(c, id, a).and_then(|holder| match holder {
+            Some(user) => super::bindings::record_upgrades(c, &user, a, &w.game),
+            None => Ok(()),
+        });
+        if let Err(error) = kept {
+            tracing::error!(error = %error, "could not keep an avatar's upgrades")
+        }
         let mut scene = w.request("context", a);
         scene["action"] = command["action"].clone();
         match super::narrator::context(&scene) {
