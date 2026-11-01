@@ -107,10 +107,8 @@ const widePortraits = new Set([
   "assets/moth.png",
   "assets/keeper.png",
   "assets/keeper-right.png",
-  ...["moth", "keeper"].flatMap((id) =>
-    ["guard", "attack", "hit"].map(
-      (pose) => `assets/combat/${id}-${pose}.webp`,
-    ),
+  ...Object.keys(portraitFacings).filter((file) =>
+    file.startsWith("assets/combat/"),
   ),
 ]);
 export const portraitFraming = (cutout) =>

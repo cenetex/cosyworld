@@ -100,6 +100,8 @@ export function createCombatPortraits(fighter) {
             }),
         ),
       );
+      for (const [figure, original] of originals)
+        if (players.has(original.id)) figure.dataset.framing = "wide";
     },
     pose(id, value) {
       const original = capture(id);
@@ -114,6 +116,7 @@ export function createCombatPortraits(fighter) {
       );
       if (source && ready.has(source)) showCombatPortrait(figure, source, pose);
       else restore(figure, original);
+      if (players.has(id)) figure.dataset.framing = "wide";
       figure.dataset.pose = value;
     },
     restore() {

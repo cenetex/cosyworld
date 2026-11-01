@@ -3,6 +3,10 @@
 .portrait[data-combat-art] .portrait-held-item {
   visibility: hidden;
 }
+.stage[data-combat="true"] .portrait,
+.portrait[data-combat-art] {
+  transition: none;
+}
 .portrait[data-pose="threaten"] .portrait-body {
   transform: translateY(-3px) scale(1.03);
 }

@@ -18,6 +18,7 @@ describe("combat art on the current stage", () => {
           existsSync(new URL(`../v2/card-game/${result}`, import.meta.url)),
         ).toBe(true);
         expect(nativePortraitFacing(result)).toBe("right");
+      expect(portraitFraming(result)).toBe("wide");
         // A standing guard remains in the same wardrobe when another beat starts.
         expect(combatPortrait(id, "guard", result, "right")).toBe(result);
       }
