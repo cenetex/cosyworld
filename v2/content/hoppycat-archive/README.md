@@ -38,6 +38,18 @@ The primary quest is **Ring in February Third**. Players inspect a corrected
 record, plant one bounded context seed, choose an unfinished prism's final
 facet, restore the bell's authority to pause, and tie the chosen red thread.
 
+The card table has no story buttons. Each deed follows an ordinary play:
+
+- **Meeting:** a resident commits it when a traveler shares the room with it
+  while holding its thing, such as the Halfway Cup beside Hoppy Cat or the
+  prism beside Lumen. Sol's credits need only a meeting. These become
+  `on: "talk"` once Talk has its own trigger (#1611).
+- **Give:** the seed to Patch, the spool and clapper to Nix, and the
+  checklist to Static. Each thing then rests in that place.
+- **Wait:** in the belfry with Nix, and at the theatre for the evening.
+
+Short rule captions record each deed; the model voices the scene.
+
 The GitHub observation index in `v2/worlds/hoppycat/github-index.json` is still
 non-authoritative. It tells curators when the public source landscape changes;
 it cannot add a room, actor, item, quest fact, or journal event automatically.

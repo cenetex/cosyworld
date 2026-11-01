@@ -105,9 +105,10 @@ describe("Hoppy Cat refresh", () => {
   it("plays all three stories through legal actions and saves each completed step", () => {
     let world = createLandingWorld(pack);
     world = visit(world, id("red-thread-belfry"));
-    expect(legalActions(world).some((a) => a.choiceId === id("tomorrow"))).toBe(
-      false,
-    );
+    world = act(world, "wait", { actor: "vale" });
+    expect(world.packs[pack.id].receipts[id("pause")]).toBeUndefined();
+    // No story buttons: each deed follows a meeting, a Wait or a Give.
+    expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
     for (const choice of pack.choices) {
       for (const requirement of choice.requires.filter(
         (r) => r.kind === "holding",
@@ -117,11 +118,12 @@ describe("Hoppy Cat refresh", () => {
         world = act(world, "take", { item });
       }
       world = visit(world, choice.at);
-      world = act(world, "choose", { choiceId: choice.id });
+      const held = choice.requires.find((r) => r.kind === "holding")?.item;
+      if (choice.on === "give")
+        world = act(world, "give", { item: held, target: choice.subject });
+      else if (!world.packs[pack.id].receipts[choice.id])
+        world = act(world, "wait", { actor: "vale" });
       expect(world.packs[pack.id].receipts[choice.id]).toBeTypeOf("number");
-      expect(legalActions(world).some((a) => a.choiceId === choice.id)).toBe(
-        false,
-      );
       for (const item of Object.keys(pack.items).filter(
         (i) => world.items[i].holder === "vale",
       ))
@@ -139,13 +141,11 @@ describe("Hoppy Cat refresh", () => {
   it("requires the acting avatar to carry the tool", () => {
     let world = createLandingWorld(pack);
     world.items[id("halfway-cup")].holder = "mara";
-    expect(legalActions(world).some((a) => a.choiceId === id("welcome"))).toBe(
-      false,
-    );
+    world = act(world, "wait", { actor: "vale" });
+    expect(world.packs[pack.id].receipts[id("welcome")]).toBeUndefined();
     world.items[id("halfway-cup")].holder = "vale";
-    expect(legalActions(world).some((a) => a.choiceId === id("welcome"))).toBe(
-      true,
-    );
+    world = act(world, "wait", { actor: "vale" });
+    expect(world.packs[pack.id].flags[id("welcome")]).toBe(true);
   });
 
   it("keeps browser and bundled shared play in agreement", () => {
@@ -175,7 +175,6 @@ describe("Hoppy Cat refresh", () => {
       op: "create",
       save: encodeSave(createLandingWorld(pack)),
     }).world;
-    world.items[id("halfway-cup")].holder = "vale";
     const request = {
       op: "view",
       world,
@@ -185,9 +184,15 @@ describe("Hoppy Cat refresh", () => {
     };
     const view = dispatchShared(request);
     expect(ask(request)).toEqual(shipless(view));
-    const action = view.actions.find((a) => a.choiceId === id("welcome"));
+    // Taking the cup beside Hoppy Cat is the welcome.
+    const action = view.actions.find(
+      (a) => a.kind === "take" && a.item === id("halfway-cup"),
+    );
     expect(action).toBeDefined();
     const command = { ...request, op: "play", action };
+    expect(
+      dispatchShared(command).world.packs[pack.id].flags[id("welcome")],
+    ).toBe(true);
     // Dialogue context is narration, built outside the rules (narrator bundle).
     expect(ask(command)).toEqual(shipless(dispatchShared(command)));
   });

@@ -10528,7 +10528,7 @@
             at: "hoppycat-halfway-tea-garden",
             subject: "hoppycat-hoppy-cat",
             label: "Share the Halfway Cup",
-            text: "Hoppy Cat shares the welcome table. Tapi leaves a chair for the next guest. The cup holds a promise to hear each person through.",
+            text: "Hoppy Cat welcomed Vale with the Halfway Cup.",
             requires: [
               {
                 kind: "holding",
@@ -10542,14 +10542,16 @@
                 key: "hoppycat-welcome",
                 value: true
               }
-            ]
+            ],
+            on: "meet",
+            textTemplate: "Hoppy Cat welcomed {actor} with the Halfway Cup."
           },
           {
             id: "hoppycat-record",
             at: "hoppycat-open-record-cathedral",
             subject: "hoppycat-penny-vellum",
             label: "Keep the correction beside the story",
-            text: "Penny marks the changed line and its source on the card. The public exhibit keeps both the first account and its correction.",
+            text: "Vale showed Penny the Provenance Card.",
             requires: [
               {
                 kind: "holding",
@@ -10563,14 +10565,16 @@
                 key: "hoppycat-record",
                 value: true
               }
-            ]
+            ],
+            on: "meet",
+            textTemplate: "{actor} showed Penny the Provenance Card."
           },
           {
             id: "hoppycat-memory",
             at: "hoppycat-context-greenhouse",
             subject: "hoppycat-patch-fern",
             label: "Plant one useful memory",
-            text: "Patch plants the seed in a labelled bed. Its label says why this memory matters and where a later correction can be added.",
+            text: "Vale gave Patch the Context Seed.",
             requires: [
               {
                 kind: "flag",
@@ -10594,14 +10598,16 @@
                 item: "hoppycat-context-seed",
                 place: "hoppycat-context-greenhouse"
               }
-            ]
+            ],
+            on: "give",
+            textTemplate: "{actor} gave Patch the Context Seed."
           },
           {
             id: "hoppycat-facet",
             at: "hoppycat-prism-foundry",
             subject: "hoppycat-lumen-facet",
             label: "Choose your own final facet",
-            text: "Lumen holds the prism steady while its carrier chooses the final facet. Phase Two leaves room in the plan for that choice.",
+            text: "Vale brought Lumen the Unfinished Prism.",
             requires: [
               {
                 kind: "holding",
@@ -10615,14 +10621,16 @@
                 key: "hoppycat-facet",
                 value: true
               }
-            ]
+            ],
+            on: "meet",
+            textTemplate: "{actor} brought Lumen the Unfinished Prism."
           },
           {
             id: "hoppycat-route",
             at: "hoppycat-concordance-tidelands",
             subject: "hoppycat-rill-current",
             label: "Trace a reflection to its source",
-            text: "Rill and Arc trace each pool back to the light that reached it. The compass marks a clear route home.",
+            text: "Vale brought Rill the Concordance Compass.",
             requires: [
               {
                 kind: "flag",
@@ -10641,14 +10649,16 @@
                 key: "hoppycat-route",
                 value: true
               }
-            ]
+            ],
+            on: "meet",
+            textTemplate: "{actor} brought Rill the Concordance Compass."
           },
           {
             id: "hoppycat-pause",
             at: "hoppycat-red-thread-belfry",
             subject: "hoppycat-nix-fermata",
             label: "Give Nix time to hear the bell plan",
-            text: "Nix asks for a quiet pause. The visitors sit beside the wheel until the bat lowers one wing and invites them to continue.",
+            text: "Vale waited with Nix in the belfry.",
             requires: [
               {
                 kind: "flag",
@@ -10672,14 +10682,16 @@
                 key: "hoppycat-pause",
                 value: true
               }
-            ]
+            ],
+            on: "wait",
+            textTemplate: "{actor} waited with Nix in the belfry."
           },
           {
             id: "hoppycat-thread",
             at: "hoppycat-red-thread-belfry",
             subject: "hoppycat-nix-fermata",
             label: "Tie the chosen thread to the wheel",
-            text: "Nix holds the wheel while the carrier ties the red thread. The knot keeps the record, memory, facet, and route together.",
+            text: "Vale gave Nix the Red-Thread Spool.",
             requires: [
               {
                 kind: "flag",
@@ -10703,14 +10715,16 @@
                 item: "hoppycat-red-thread-spool",
                 place: "hoppycat-red-thread-belfry"
               }
-            ]
+            ],
+            on: "give",
+            textTemplate: "{actor} gave Nix the Red-Thread Spool."
           },
           {
             id: "hoppycat-tomorrow",
             at: "hoppycat-red-thread-belfry",
             subject: "hoppycat-nix-fermata",
             label: "Fit the clapper and welcome February Third",
-            text: "With Nix ready, the carrier fits the clapper. The bell sounds once. The garden calendar turns to February Third, and everyone has a tomorrow to shape.",
+            text: "Vale gave Nix the Fermata Clapper.",
             requires: [
               {
                 kind: "flag",
@@ -10734,14 +10748,16 @@
                 item: "hoppycat-fermata-clapper",
                 place: "hoppycat-red-thread-belfry"
               }
-            ]
+            ],
+            on: "give",
+            textTemplate: "{actor} gave Nix the Fermata Clapper."
           },
           {
             id: "hoppycat-draft",
             at: "hoppycat-meraki-atelier",
             subject: "hoppycat-mira-meraki",
             label: "Paint a playbill with Mira",
-            text: "Mira adds a bright, uneven border with the five-tipped brush. The playbill leaves space for each maker and for the next draft.",
+            text: "Vale brought Mira the Meraki Brush.",
             requires: [
               {
                 kind: "holding",
@@ -10755,14 +10771,16 @@
                 key: "hoppycat-draft",
                 value: true
               }
-            ]
+            ],
+            on: "meet",
+            textTemplate: "{actor} brought Mira the Meraki Brush."
           },
           {
             id: "hoppycat-credits",
             at: "hoppycat-settled-light-theatre",
             subject: "hoppycat-solwashere",
             label: "Give each performer a line of credit",
-            text: "Sol reads the playbill: Hoppy, Arc, Fable, Phase Two, Static, Sol, both Ledgers, and Piper on flute and drums. The display credits the public Not Affiliated band; tonight's forest scene is a new story.",
+            text: "Vale heard Sol credit each performer.",
             requires: [
               {
                 kind: "flag",
@@ -10781,14 +10799,16 @@
                 key: "hoppycat-credits",
                 value: true
               }
-            ]
+            ],
+            on: "meet",
+            textTemplate: "{actor} heard Sol credit each performer."
           },
           {
             id: "hoppycat-performance",
             at: "hoppycat-settled-light-theatre",
             subject: "hoppycat-solwashere",
             label: "Stage the shared evening",
-            text: "The disco ball turns above a new forest play. Each contributor has a credit, each prop has a source, and the audience keeps an open chair for the next arrival.",
+            text: "Vale stayed for the shared evening.",
             requires: [
               {
                 kind: "flag",
@@ -10807,14 +10827,16 @@
                 key: "hoppycat-performance",
                 value: true
               }
-            ]
+            ],
+            on: "wait",
+            textTemplate: "{actor} stayed for the shared evening."
           },
           {
             id: "hoppycat-rehearsal",
             at: "hoppycat-goldfish-tank",
             subject: "hoppycat-glim-twice",
             label: "Try the dream a second time",
-            text: "Glim rolls the loop token around its brass track. The first attempt stays in the notebook; the second gets a fresh page.",
+            text: "Vale brought Glim the Loop Token.",
             requires: [
               {
                 kind: "holding",
@@ -10828,14 +10850,16 @@
                 key: "hoppycat-rehearsal",
                 value: true
               }
-            ]
+            ],
+            on: "meet",
+            textTemplate: "{actor} brought Glim the Loop Token."
           },
           {
             id: "hoppycat-return",
             at: "hoppycat-signal-jetty",
             subject: "hoppycat-staticwashere",
             label: "Write the source and the way home",
-            text: "Static checks the launch card through the Observatory telescope. The source, open question, permission, and return route each get a line.",
+            text: "Vale showed Static the Return-Path Checklist.",
             requires: [
               {
                 kind: "flag",
@@ -10859,14 +10883,16 @@
                 key: "hoppycat-return",
                 value: true
               }
-            ]
+            ],
+            on: "meet",
+            textTemplate: "{actor} showed Static the Return-Path Checklist."
           },
           {
             id: "hoppycat-signal",
             at: "hoppycat-signal-jetty",
             subject: "hoppycat-staticwashere",
             label: "Send the invitation for tomorrow",
-            text: "A small paper boat carries an invitation to tomorrow's show. Its card names the makers and the route back to the garden. Static watches until the lantern reaches the next shore.",
+            text: "Vale gave Static the Return-Path Checklist.",
             requires: [
               {
                 kind: "flag",
@@ -10900,7 +10926,9 @@
                 item: "hoppycat-return-path-checklist",
                 place: "hoppycat-signal-jetty"
               }
-            ]
+            ],
+            on: "give",
+            textTemplate: "{actor} gave Static the Return-Path Checklist."
           }
         ],
         sources: [
