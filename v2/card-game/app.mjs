@@ -3147,13 +3147,18 @@ function revealHandCard(id, alignStart = false, instant = false) {
   if (!frame || frame.hidden) return;
   const left = frame.offsetLeft - hand.offsetLeft,
     right = left + frame.offsetWidth,
-    visibleLeft = hand.scrollLeft + 16,
-    visibleRight = hand.scrollLeft + hand.clientWidth - 16;
+    // Keep the revealed card clear of the faded edges.
+    margin = Math.max(
+      16,
+      parseFloat(getComputedStyle(hand).getPropertyValue("--hand-fade")) || 0,
+    ),
+    visibleLeft = hand.scrollLeft + margin,
+    visibleRight = hand.scrollLeft + hand.clientWidth - margin;
   const target =
     alignStart || left < visibleLeft
-      ? left - 16
+      ? left - margin
       : right > visibleRight
-        ? right - hand.clientWidth + 16
+        ? right - hand.clientWidth + margin
         : hand.scrollLeft;
   hand.scrollTo({
     left: target,
@@ -3175,6 +3180,13 @@ function updateHandArrows() {
   $("hand-previous").disabled = hand.scrollLeft <= Math.max(0, start) + 1;
   $("hand-next").disabled =
     hand.scrollLeft + hand.clientWidth >= hand.scrollWidth - 2;
+  // Fade only the edges that hide more cards.
+  const fade = [
+    overflow && !$("hand-previous").disabled && "start",
+    overflow && !$("hand-next").disabled && "end",
+  ].filter(Boolean);
+  if (fade.length) hand.dataset.fade = fade.join(" ");
+  else delete hand.dataset.fade;
 }
 for (const [id, direction] of [
   ["hand-previous", -1],
