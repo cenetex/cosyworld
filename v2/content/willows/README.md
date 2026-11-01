@@ -86,5 +86,5 @@ accessibility rules.
 
 `test/card-hum.test.mjs` covers the drone. `test/card-willows.test.mjs` covers discovery, custody, old saves, the two
 responses and shared play. The Rust Willows tests cover upgrades from released
-rules versions 16 and 17 and journal replay. `v2/scripts/smoke-card-willows.mjs` checks the
-play path at desktop and phone sizes.
+rules versions 16 and 17 and journal replay. Play the changed path by hand at desktop and
+phone sizes with `npm run play:cards`.
