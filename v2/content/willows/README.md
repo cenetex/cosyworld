@@ -35,15 +35,18 @@ ship lies at the pond or is at sea. The ship shows at the landing only then.
 A traveller still on the island when the mist lifts, or when the ship docks
 at another port, waits there until both hold again.
 
-Examine the canoe and count the food. Study the sand hollows, listen at the
-bank, and look beneath the roots. Greet the Swede, then compare the signs.
-Choose to keep watch with him, or take the rope and sheet to the landing,
-lay out the gear, set down the paddle, and choose the quiet way home.
-Other discoveries stand alone: watch the otter (landing, by day), watch the
-boatman (landing), pace out the willows (camp, by day) and pace it again
-(camp, by night, once paced), lie still in the tent (camp, by night) and look
-up at the willow tops (thicket, by night). A sign can be out of reach on a
-given visit. The decisions and discoveries stay in the save.
+Observe (the Wait play) at a place to notice its signs, one per Observe, in
+an order seeded by the run; there are no observation buttons. By day: the
+otter and the boatman (landing) and pacing out the willows (camp). By night:
+pacing it again and the patterings on the tent (camp) and the shapes over the
+willow tops (thicket). At any hour: the slit hull (landing), the missing
+bread (camp, with the food sack there), the hollows (thicket), the humming
+and the drowned man (bank), and, with the Swede at camp once the hull, bread
+and roots are known, comparing the signs. Each sign keeps its flag, so the
+Swede's poses follow it. Then choose to keep watch with him, or take the rope
+and sheet to the landing, lay out the gear, set down the paddle, and choose
+the quiet way home. A sign can be out of reach on a given visit. The
+decisions and discoveries stay in the save.
 
 On the island the browser plays a quiet drone, the hum: two low detuned sine
 waves with a faint harmonic and a slow swell, louder deeper in and at night.
@@ -77,6 +80,9 @@ most, a 40% chance, 30 seconds apart, no brightening, and none under reduced
 motion or with Flashes and scares off.
 
 ## Design
+
+[The kit and the signs](../../../docs/design/willows-kit-and-signs.md) holds
+the Observe signs and the planned scattered kit and notebook.
 
 [Making the Willows creepier](../../docs/card-table/willows-horror.md) holds the
 planned horror pass: missing book motifs, a rewritten Swede, the hum and

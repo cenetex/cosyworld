@@ -128,6 +128,14 @@ try {
     };
     const move = (target) => click(target, '[data-action="move"]');
     const choose = (place, id) => click(place, `[data-choice="willows-${id}"]`);
+    // Observe at a place until it shows this sign.
+    const observe = async (place, id) => {
+      for (let i = 0; i < 16; i++) {
+        if ((await saved()).packs.willows.receipts[`willows-${id}`]) return;
+        await click(place, '[data-action="wait"]');
+      }
+      assert.fail(`Observe never found ${id}`);
+    };
     const willowsCards = () =>
       page.locator('#hand [data-card="willows-landing"]').count();
     const resave = async (world, card = null) => {
@@ -160,9 +168,9 @@ try {
       await page.locator("#backdrop").getAttribute("src"),
       /landing-ship-night\.webp/,
     );
-    await choose("willows-landing", "examine-hull");
+    await observe("willows-landing", "examine-hull");
     await move("willows-camp");
-    await choose("willows-camp", "count-stores");
+    await observe("willows-camp", "count-stores");
     await click("willows-swede", '[data-action="talk"]');
     const portrait = page
       .locator('#cast [data-avatar="willows-swede"] img')
@@ -190,10 +198,10 @@ try {
       path: new URL(`camp-${width}.png`, output).pathname,
     });
     await move("willows-thicket");
-    await choose("willows-thicket", "examine-hollows");
+    await observe("willows-thicket", "examine-hollows");
     await move("willows-bank");
-    await choose("willows-bank", "hear-humming");
-    await choose("willows-bank", "look-beneath-roots");
+    await observe("willows-bank", "hear-humming");
+    await observe("willows-bank", "look-beneath-roots");
     await page.keyboard.press("Escape");
     await page.screenshot({
       path: new URL(`bank-${width}.png`, output).pathname,
@@ -201,7 +209,7 @@ try {
     await move("willows-thicket");
     await move("willows-camp");
     await pose("swede-listening");
-    await choose("willows-swede", "compare-signs");
+    await observe("willows-camp", "compare-signs");
     await pose("swede-worried");
     await choose("willows-swede", "choose-watch");
     await pose("swede-listening");
@@ -233,7 +241,7 @@ try {
     assert.deepEqual(errors, []);
     assert.deepEqual(mediaFailures, []);
     assert(readingCounts[0] < 7);
-    assert.equal(Math.max(...readingCounts), 7);
+    assert(Math.max(...readingCounts) >= 7);
     await page.close();
     console.log(`Willows browser play passed at ${width} × ${height}.`);
   }

@@ -11,7 +11,7 @@ fn willows_upgrades_from_each_released_version() {
 }
 
 #[test]
-fn willows_upgrades_version_eighteen_and_replays_discoveries_custody_and_return() {
+fn willows_upgrades_version_eighteen_and_replays_observed_signs_custody_and_return() {
     let version = engine::EIGHTEENTH_VERSION;
     let (path, c, id, mut world) = upgraded_willows(version);
     for (field, value) in [
@@ -19,18 +19,18 @@ fn willows_upgrades_version_eighteen_and_replays_discoveries_custody_and_return(
         ("target", "pond"),
         ("target", "greek-ship"),
         ("target", "willows-landing"),
-        ("choiceId", "willows-examine-hull"),
+        ("observe", "willows-examine-hull"),
         ("target", "willows-camp"),
-        ("choiceId", "willows-count-stores"),
+        ("observe", "willows-count-stores"),
         ("target", "willows-swede"),
         ("target", "willows-thicket"),
-        ("choiceId", "willows-examine-hollows"),
+        ("observe", "willows-examine-hollows"),
         ("target", "willows-bank"),
-        ("choiceId", "willows-hear-humming"),
-        ("choiceId", "willows-look-beneath-roots"),
+        ("observe", "willows-hear-humming"),
+        ("observe", "willows-look-beneath-roots"),
         ("target", "willows-thicket"),
         ("target", "willows-camp"),
-        ("choiceId", "willows-compare-signs"),
+        ("observe", "willows-compare-signs"),
         ("item", "willows-rope"),
         ("item", "willows-sheet"),
         ("target", "willows-landing"),
@@ -68,6 +68,40 @@ fn willows_upgrades_version_eighteen_and_replays_discoveries_custody_and_return(
                 )
                 .unwrap();
             }
+        }
+        // Observe (the Wait play) notices one sign at a time.
+        if field == "observe" {
+            for _ in 0..16 {
+                if world.game["packs"]["willows"]["receipts"]
+                    .get(value)
+                    .is_some()
+                {
+                    break;
+                }
+                let view = world.project(0).unwrap();
+                let wait = view["actions"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|a| a["kind"] == "wait")
+                    .unwrap()
+                    .clone();
+                full_store::commit(
+                    &c,
+                    &id,
+                    &mut world,
+                    json!({"op":"play","actor":"vale","action":wait}),
+                    now(),
+                )
+                .unwrap();
+            }
+            assert!(
+                world.game["packs"]["willows"]["receipts"]
+                    .get(value)
+                    .is_some(),
+                "{value}"
+            );
+            continue;
         }
         let view = world.project(0).unwrap();
         let action = view["actions"]
