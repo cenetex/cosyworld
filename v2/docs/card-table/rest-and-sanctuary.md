@@ -106,6 +106,14 @@ the waking gets the quest as facts, so the model voices it; no line is
 authored. Dropping a level quest costs half the avatar's XP; dropping an
 ordinary quest costs nothing.
 
+## Later: a visit's length
+
+Planning, not built (pack data and quest tuning, no new rule). A visit should
+meet one want in 10 to 20 minutes and then point home: the want met leaves the
+avatar near enough to its last sanctuary that a long rest is the natural next
+play. Tune want reach and level quest length in pack data so a session has a
+clear stopping point. Nothing punishes stopping or rewards staying longer.
+
 ## Prior art
 
 | Source | Kept |

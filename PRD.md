@@ -28,6 +28,27 @@ claims, saves, queues, and upgrades.
 - Give players time to read, browse, and choose.
 - Preserve saved progress and each world's accepted history.
 
+## What we avoid
+
+These rules apply to every pack and feature. The
+[later ideas](docs/design/later-ideas-from-other-games.md) note records where
+they came from.
+
+- **No penalty for absence.** No streaks, daily logins, withering crops,
+  residents who leave, relationship decay, guilt messages or pull
+  notifications. A world waits for its players.
+- **No single good/evil meter.** What residents think of you comes from what
+  they witnessed, one person at a time.
+- **No paid reputation resets, real-money items or auction house.**
+- **No loot floods, stat affixes or pity timers.** Rarity is the level system:
+  avatars, items and places level up.
+- **No hand-written evolution chains or scripted moral set-pieces.** Growth
+  comes from generic rules and wants met.
+- **No one-time events.** A festival recurs; a scene that happens once and is
+  gone is not built.
+- **No trade-only gates for solo players.** Anything another world or player
+  can bring must also have a path a solo player can find.
+
 Use the [card guide](v2/card-game/README.md) for current behavior and GitHub
 issues for proposed work. Earlier plans are in the
 [planning archive](docs/archive/backlog/README.md). Earlier product

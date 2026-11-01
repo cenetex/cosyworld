@@ -69,3 +69,25 @@ Each successful invitation records the destination in the companion's saved
 visited places. This allows their saved position in that region after reload.
 Later movement still uses the current doors, tokens, transport and room rules.
 Refused and stale invitations keep positions and visited-place memory intact.
+
+## Later: company that stays
+
+Planning, not built. These keep the invite rules above: a resident moves with
+a human only through an agreed Accompany, never by following uninvited.
+
+- **A companion whose want is met (pack data, small engine change).** A
+  resident with nothing left to want can agree to a standing invite: it keeps
+  saying yes to the inviter's next trips until it or the inviter ends it. It
+  warns about the place ahead from its own visited places and facts, and
+  reacts in Talk to the inviter's deeds it witnessed. Following without an
+  invite does not fit: it would move a resident by someone else's play. The
+  lasting invite needs one engine field on the companion (who it travels
+  with) and one Accompany answer; warnings and reactions are dialogue from
+  facts. Witnessed reputation, built separately as an engine change, supplies
+  the deeds.
+- **Shared XP (engine, a later rules batch).** A companion present when its
+  inviter meets a want earns a share of that want's XP. XP still only goes up
+  and still comes only from wants met.
+- **Marriage (pack data on the same field).** A want aimed at a person, met
+  by a lasting invite with them. Either side can end the invite; nothing is
+  lost when it ends and nothing decays while apart.

@@ -254,6 +254,14 @@ same painting. They never change a rule.
 
 (The flag key is a placeholder; #1614 names the real one.)
 
+### Later: found variants
+
+Planning, not built (presentation and art, no rule change). When an abandoned
+player avatar becomes a resident, a seeded draw from `world.run.seed` and the
+avatar id can give it a rare painted variant of its portrait. It is found by
+meeting that resident, never farmed, bought or rerolled, and it changes no
+rule, level or want.
+
 ### Merges and travel roads are content
 
 - A road that becomes a travel painting is marked `retired`, and its ends get
