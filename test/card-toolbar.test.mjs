@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { onlinePlayers } from "../v2/card-game/toolbar.mjs";
+import { localPlayer, onlinePlayers } from "../v2/card-game/toolbar.mjs";
+import { createAvatarWorld } from "../v2/card-game/avatar-world.mjs";
 
 function snapshot() {
   return {
@@ -54,5 +55,24 @@ describe("players in the shared world", () => {
     state.world.actors.vale.place = "new-place";
     expect(onlinePlayers(state)[1]).not.toHaveProperty("location");
     expect(onlinePlayers(state)[1]).not.toHaveProperty("home");
+  });
+});
+
+describe("the player in a local world", () => {
+  it("is the avatar the world belongs to, with that avatar's level", () => {
+    const world = createAvatarWorld("mara", 7);
+    world.actors.mara.level = 3;
+    world.actors.vale.level = 1;
+    expect(localPlayer(world)).toMatchObject({
+      id: "mara",
+      name: "Mara",
+      level: 3,
+      self: true,
+    });
+  });
+  it("is Vale in Vale's original save", () => {
+    const world = createAvatarWorld("vale", 7);
+    delete world.playerActorId;
+    expect(localPlayer(world)).toMatchObject({ id: "vale", name: "Vale" });
   });
 });
