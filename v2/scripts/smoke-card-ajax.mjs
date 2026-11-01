@@ -3,11 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import {
-  currentActor,
-  encodeSave,
-  legalActions,
-} from "../card-game/world.mjs";
+import { currentActor, encodeSave, legalActions } from "../card-game/world.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
@@ -66,8 +62,12 @@ export async function checkAjax(browser, origin) {
     process.env.COSYWORLD_AJAX_EVIDENCE ||
     new URL("../../output/ajax/", import.meta.url).pathname;
   await mkdir(output, { recursive: true });
+  // Each route is walked once, on desktop mouse or phone touch.
+  // test/card-greek-ajax.test.mjs checks every route's rules; this walk
+  // checks the clicks, reload, images and layout.
+  const routes = { 1440: ["public", "appeal"], 390: ["household"] };
   for (const width of smokeWidths([1440, 390])) {
-    for (const route of ["public", "household", "appeal"]) {
+    for (const route of routes[width]) {
       const page = await browser.newPage({
         viewport: { width, height: width === 390 ? 844 : 900 },
         reducedMotion: "reduce",
@@ -173,7 +173,11 @@ export async function checkAjax(browser, origin) {
           for (let n = 0; n < 12 && kind === "move"; n++) {
             const world = await state();
             if (!needsVoyage(world, currentActor(world), fields.target)) break;
-            const next = nextVoyagePlay(world, currentActor(world), fields.target);
+            const next = nextVoyagePlay(
+              world,
+              currentActor(world),
+              fields.target,
+            );
             await step(next.target ? next : { kind: next.kind });
           }
           current = { kind, ...fields };
