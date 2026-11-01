@@ -11094,30 +11094,21 @@
         schemaVersion: 1,
         id: "willows",
         packId: "cosyworld.willows",
-        revision: 1,
+        revision: 2,
         name: "The Willows",
         description: "A small island in the flooded Danube. The Swede keeps camp while the river and the willows gather around him.",
-        tone: "Quiet cosmic horror grounded in ordinary camping work, river sounds and damaged gear. The places narrate in the first person and explain each change away until the reasons run out; the willows speak together and only count. The Swede knows early and says little. Discoveries and choices follow their recorded world facts.",
+        tone: "Quiet cosmic horror grounded in ordinary camping work, river sounds and damaged gear. The places narrate in the first person and explain each change away until the reasons run out; the willows speak together and only count. The Swede knows early and says little. Signs come from Observing at a place; leaving comes from the kit back at camp.",
         entry: "willows-landing",
         continuity: {
           startingEra: "willows-island",
-          policy: "The traveller joins the Swede on the island. The locations tell the landscape's side of the story. Discovered signs belong to the recorded choices. The response records a decision to return or keep watch; the river mist remains available for later visits.",
-          groups: [
-            {
-              key: "willows-response",
-              options: [
-                "depart",
-                "watch"
-              ],
-              initial: "uncommitted"
-            }
-          ]
+          policy: "The traveller joins the Swede on the island. The places tell the landscape's side of the story through the signs Observe finds. The Swede's kit is scattered; when the Worn Paddle, Waterproof Sheet, Tent Rope and Food Sack are all at the camp, the canoe is mended and he and the traveller can leave by it.",
+          groups: []
         },
         places: {
           "willows-landing": {
             name: "River Landing",
-            text: "An upturned canoe rests above the backwater. A paddle lies on the sand. Beyond the low willows, the Danube carries whole pieces of bank downstream.",
-            persona: "A sand spit above the backwater where the upturned canoe lies, with the flooded Danube racing past beyond the low willows. I am the landing and speak in the first person, as the traveller who keeps noticing things and keeps finding reasons for them. The canoe is fixed scenery; its slit and any preparation become known only through recorded discoveries. The Greek ship is reached through river mist beside the backwater; describe that crossing when its action is used.",
+            text: "An upturned canoe rests above the backwater, a fine slit along its hull. Beyond the low willows, the Danube carries whole pieces of bank downstream.",
+            persona: "A sand spit above the backwater where the upturned canoe lies, with the flooded Danube racing past beyond the low willows. I am the landing and speak in the first person, as the traveller who keeps noticing things and keeps finding reasons for them. The canoe is fixed scenery; it is mended only while the whole kit is back at the camp. The Greek ship is reached through river mist beside the backwater.",
             exits: [
               "willows-camp"
             ],
@@ -11158,8 +11149,8 @@
           },
           "willows-camp": {
             name: "River Camp",
-            text: "A canvas tent shelters a food sack and a small cooking pot. The Swede watches the willow tops beyond the fire. A sandy path leads to the canoe.",
-            persona: "A canvas tent, a food sack and a small pot beside a low fire, ringed by willows on a sandy rise. I am the camp and speak in the first person, as the traveller who measures, counts and explains. The Swede is the one resident. Supplies are those named in the current facts; their condition and any paced distances follow recorded discoveries.",
+            text: "A canvas tent stands on a sandy rise beside a low fire. The Swede watches the willow tops. Through one gap lies the canoe; through the willows, the crumbling bank.",
+            persona: "A canvas tent beside a low fire, ringed by willows on a sandy rise. I am the camp and speak in the first person, as the traveller who measures, counts and explains. The Swede is the one resident. The kit he needs to leave is whatever the current facts place here; paced distances follow recorded discoveries.",
             exits: [
               "willows-landing",
               "willows-thicket"
@@ -11251,7 +11242,11 @@
                 ]
               }
             ],
-            voice: 'Speak as the willows, many together: one to three very short sentences. Use we, us and our, never I. Rustle, lean, chatter and count: count the travellers, the paces, the leaves. Never explain and never give a reason. Never name what moves above us. Never address anyone. Examples: "Two of them. Two. We lean to count again." "We are nearer than at supper. We did not move. We are nearer." "Our leaves turn silver side up. Two. Still two."'
+            voice: 'Speak as the willows, many together: one to three very short sentences. Use we, us and our, never I. Rustle, lean, chatter and count: count the travellers, the paces, the leaves. Never explain and never give a reason. Never name what moves above us. Never address anyone. Examples: "Two of them. Two. We lean to count again." "We are nearer than at supper. We did not move. We are nearer." "Our leaves turn silver side up. Two. Still two."',
+            road: [
+              "willows-camp",
+              "willows-bank"
+            ]
           },
           "willows-bank": {
             name: "Crumbling Bank",
@@ -11329,16 +11324,6 @@
             portrait: "assets/willows/swede.webp",
             poses: [
               {
-                portrait: "assets/willows/swede-listening.webp",
-                requires: [
-                  {
-                    kind: "choice",
-                    key: "willows-response",
-                    value: "watch"
-                  }
-                ]
-              },
-              {
                 portrait: "assets/willows/swede-worried.webp",
                 requires: [
                   {
@@ -11376,10 +11361,8 @@
               noise: "{actor} rang a bell beside the river camp."
             },
             values: {
-              "willows-paddle": 8,
-              "willows-map": 7,
-              "willows-rope": 6,
-              "willows-sheet": 6
+              "willows-map": 6,
+              "willows-pipe": 8
             },
             want: {
               kind: "place",
@@ -11389,63 +11372,92 @@
               items: [],
               location: null,
               avatars: []
-            }
+            },
+            stayUntil: [
+              {
+                kind: "item_near",
+                item: "willows-paddle",
+                place: "willows-camp"
+              },
+              {
+                kind: "item_near",
+                item: "willows-sheet",
+                place: "willows-camp"
+              },
+              {
+                kind: "item_near",
+                item: "willows-rope",
+                place: "willows-camp"
+              },
+              {
+                kind: "item_near",
+                item: "willows-provisions",
+                place: "willows-camp"
+              }
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "willows-swede-gone",
+                value: false
+              }
+            ]
           }
         },
         items: {
           "willows-paddle": {
             name: "Worn Paddle",
             text: "One wooden paddle remains beside the canoe. Its blade has been scraped strangely thin.",
-            persona: "A long wooden canoe paddle with a blade worn thin. It can be carried and laid beside the canoe. Its condition is a clue in the hull discovery.",
-            holder: "willows-landing",
+            persona: "A long wooden canoe paddle with a blade scraped strangely thin. Part of the Swede's kit; it belongs at the camp.",
+            holder: "willows-bank",
             art: "assets/willows/paddle.png"
           },
           "willows-map": {
             name: "River Map",
-            text: "The Danube divides into more channels than this creased map can show.",
-            persona: "A creased paper river map of the Danube below Pressburg, with channels and sandbanks marked in ink.",
+            text: "A creased Danube map. In the margin, in pencil: unwritten warnings to trespassers.",
+            persona: "A creased paper river map of the Danube below Pressburg. A pencilled note runs down its margin.",
             holder: "willows-camp",
             art: "assets/willows/map.png"
           },
           "willows-rope": {
             name: "Tent Rope",
-            text: "A spare length of rope lies coiled beside the tent.",
-            persona: "A spare coil of sound hemp rope. The preparation action uses it together with the waterproof sheet at the landing.",
-            holder: "willows-camp",
+            text: "A spare coil of hemp rope from the Swede's tent.",
+            persona: "A spare coil of sound hemp rope. Part of the Swede's kit; it belongs at the camp.",
+            holder: "willows-bank",
             art: "assets/willows/rope.png"
           },
           "willows-sheet": {
             name: "Waterproof Sheet",
-            text: "A folded waterproof sheet keeps the camping gear above the damp sand.",
-            persona: "A folded dark waterproof camping sheet. The preparation action lays it beneath the canoe, together with rope.",
-            holder: "willows-camp",
+            text: "A folded waterproof sheet, stiff with river damp.",
+            persona: "A folded dark waterproof camping sheet. Part of the Swede's kit; it belongs at the camp.",
+            holder: "willows-landing",
             art: "assets/willows/sheet.png"
           },
           "willows-provisions": {
             name: "Food Sack",
             text: "A canvas sack holds oatmeal, potatoes, onions and tea. Its tied mouth smells faintly of smoke.",
-            persona: "A canvas food sack holding the remaining camp provisions: oatmeal, potatoes, onions and tea. Counting the stores records the missing bread. Actual custody follows the current world facts.",
-            holder: "willows-camp",
+            persona: "A canvas food sack holding oatmeal, potatoes, onions and tea. Part of the Swede's kit; it belongs at the camp.",
+            holder: "willows-landing",
             art: "assets/willows/provisions.png"
           },
           "willows-pot": {
             name: "Stew Pot",
-            text: "An iron pot carries the smell of onions and yesterday's stew.",
-            persona: "A small black iron stew-pot, cold enough to carry. The smell of camp cooking clings to it.",
+            text: "An iron stew pot. Scratched inside the lid: There is no bread.",
+            persona: "A small black iron stew pot from the camp. Words are scratched inside its lid.",
             holder: "willows-camp",
             art: "assets/willows/pot.png"
           },
           "willows-spoon": {
             name: "Wooden Spoon",
-            text: "The long handle has darkened with years of cooking over open fires.",
-            persona: "A plain wooden cooking spoon with a long, smoke-darkened handle.",
+            text: "A long wooden spoon. Burnt into the handle: a kingdom of wonder and magic.",
+            persona: "A plain wooden cooking spoon. Words are burnt into its smoke-darkened handle.",
             holder: "willows-camp",
             art: "assets/willows/spoon.png"
           },
           "willows-pipe": {
             name: "The Swede's Pipe",
-            text: "A worn briar pipe. The Swede turns it in his fingers while he listens.",
-            persona: "The Swede's well-used briar pipe. Its holder is supplied by the world facts.",
+            text: "The Swede's worn briar pipe. Scratched around the bowl: It's their sound.",
+            persona: "The Swede's well-used briar pipe. Words are scratched around its bowl.",
             holder: "willows-swede",
             art: "assets/willows/pipe.png"
           }
@@ -11455,9 +11467,8 @@
             id: "willows-examine-hull",
             subject: "willows-landing",
             at: "willows-landing",
-            on: "wait",
             label: "Examine the canoe",
-            text: "A fine slit runs the length of the canoe, as though a snag had eaten down her. The steering paddle is gone; the other is scraped thin. A snag. It must have been a snag.",
+            text: "A fine slit runs the length of the canoe, as though a snag had eaten down her. The steering paddle is gone. A snag. It must have been a snag.",
             summary: "The canoe has a fine slit in its hull. The steering paddle is missing, and the remaining paddle is scraped thin.",
             requires: [],
             effects: [
@@ -11466,13 +11477,13 @@
                 key: "willows-hull-seen",
                 value: true
               }
-            ]
+            ],
+            on: "wait"
           },
           {
             id: "willows-count-stores",
             subject: "willows-camp",
             at: "willows-camp",
-            on: "wait",
             label: "Count the camp supplies",
             text: "The food sack is lighter than it was. Oatmeal and tea for another morning. The bread is gone, and the space where it lay is strangely clean.",
             summary: "The camp stores were counted. Oatmeal and tea remain; the bread is missing.",
@@ -11489,13 +11500,13 @@
                 key: "willows-stores-counted",
                 value: true
               }
-            ]
+            ],
+            on: "wait"
           },
           {
             id: "willows-examine-hollows",
             subject: "willows-thicket",
             at: "willows-thicket",
-            on: "wait",
             label: "Examine the sand hollows",
             text: "Hollows in the sand between our roots, smooth and round, cup to bowl. Pressed from above. We count them. We count them again.",
             summary: "Smooth round hollows were found in the sand between the willow roots.",
@@ -11506,13 +11517,13 @@
                 key: "willows-hollows-seen",
                 value: true
               }
-            ]
+            ],
+            on: "wait"
           },
           {
             id: "willows-hear-humming",
             subject: "willows-bank",
             at: "willows-bank",
-            on: "wait",
             label: "Listen across the river",
             text: "A humming across the water, like a gong hung far up in the sky. A steamer, far off. There are no steamers here.",
             summary: "A metallic humming was heard across the river and through the sand beneath the bank.",
@@ -11523,13 +11534,13 @@
                 key: "willows-humming-heard",
                 value: true
               }
-            ]
+            ],
+            on: "wait"
           },
           {
             id: "willows-look-beneath-roots",
             subject: "willows-bank",
             at: "willows-bank",
-            on: "wait",
             label: "Look beneath the roots",
             text: "Something turns below my roots. A drowned man. The current swings him round, and his skin is marked with small smooth hollows, like the sand.",
             summary: "A drowned man caught below the roots bears hollows like those found in the sand.",
@@ -11540,57 +11551,13 @@
                 key: "willows-mark-seen",
                 value: true
               }
-            ]
-          },
-          {
-            id: "willows-watch-otter",
-            subject: "willows-landing",
-            at: "willows-landing",
-            on: "wait",
-            label: "Watch the thing in the current",
-            text: "Something black rolls in the current twenty feet out, turning like a drowned man. It looks straight at me with odd yellow eyes, then plunges. An otter.",
-            summary: "Something rolled in the current like a drowned man, looked across with yellow eyes and dived: an otter.",
-            requires: [
-              {
-                kind: "daylight",
-                phase: "day"
-              }
             ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "willows-otter-seen",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "willows-watch-boatman",
-            subject: "willows-landing",
-            at: "willows-landing",
-            on: "wait",
-            label: "Watch the far shore",
-            text: "A man in a flat boat sweeps down the far shore. He shouts something the wind takes, crosses himself toward the island, and is gone among the willows.",
-            summary: "A boatman swept down the far shore, shouted into the wind and made the sign of the Cross toward the island.",
-            requires: [
-              {
-                kind: "daylight",
-                phase: "day"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "willows-boatman-seen",
-                value: true
-              }
-            ]
+            on: "wait"
           },
           {
             id: "willows-pace-willows",
             subject: "willows-camp",
             at: "willows-camp",
-            on: "wait",
             label: "Pace out the willows",
             text: "Eleven paces over the warm sand, from the tent door to the nearest willow. I count them aloud.",
             summary: "Paced by day: eleven paces from the tent door to the nearest willow.",
@@ -11606,13 +11573,13 @@
                 key: "willows-willows-paced",
                 value: true
               }
-            ]
+            ],
+            on: "wait"
           },
           {
             id: "willows-pace-again",
             subject: "willows-camp",
             at: "willows-camp",
-            on: "wait",
             label: "Pace it again",
             text: "Nine paces from the tent door to the nearest willow. I counted twice. The sand between is smooth.",
             summary: "Paced again at night: nine paces from the tent door to the nearest willow, where by day there were eleven.",
@@ -11633,13 +11600,13 @@
                 key: "willows-willows-nearer",
                 value: true
               }
-            ]
+            ],
+            on: "wait"
           },
           {
             id: "willows-listen-tent",
             subject: "willows-camp",
             at: "willows-camp",
-            on: "wait",
             label: "Lie still in the tent",
             text: "Little patterings come and go around the tent, multitudinous. The canvas sags inward, as if a weight pressed on it from above. Rain. The leaves dripping.",
             summary: "At night, little patterings circled the tent and a weight pressed the canvas from above.",
@@ -11655,13 +11622,13 @@
                 key: "willows-patterings-heard",
                 value: true
               }
-            ]
+            ],
+            on: "wait"
           },
           {
             id: "willows-look-up-willows",
             subject: "willows-thicket",
             at: "willows-thicket",
-            on: "wait",
             label: "Look up at the willow tops",
             text: "Shapes pour upward through our tops in a slow bending column, dull bronze, into the dark. Their faces never show. We lean. We count.",
             summary: "At night, shapes poured upward through the willow tops in a bronze column; no faces showed.",
@@ -11677,13 +11644,13 @@
                 key: "willows-shapes-seen",
                 value: true
               }
-            ]
+            ],
+            on: "wait"
           },
           {
             id: "willows-compare-signs",
             subject: "willows-swede",
             at: "willows-camp",
-            on: "wait",
             label: "Compare the strange signs",
             text: "The Swede hears out the slit hull, the missing bread and the marks beneath the roots. He lays his hands flat on his knees. The fire crackles between us.",
             summary: "The Swede and the traveller compared the canoe damage, the missing bread and the marks beneath the roots.",
@@ -11714,156 +11681,23 @@
                 key: "willows-signs-shared",
                 value: true
               }
-            ]
-          },
-          {
-            id: "willows-prepare-canoe",
-            subject: "willows-landing",
-            at: "willows-landing",
-            label: "Lay out the canoe gear",
-            text: "The traveller spreads the waterproof sheet beneath the canoe and lays the spare rope along its side. The damaged hull is ready for careful work above the wet sand.",
-            textTemplate: "{actor} spreads the waterproof sheet beneath the canoe and lays the spare rope along its side. The damaged hull is ready for careful work above the wet sand.",
-            summary: "The waterproof sheet and spare rope were laid at the canoe for work on its damaged hull.",
-            requires: [
-              {
-                kind: "flag",
-                key: "willows-hull-seen",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "willows-sheet",
-                role: "actor"
-              },
-              {
-                kind: "holding",
-                item: "willows-rope",
-                role: "actor"
-              }
             ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "willows-sheet",
-                place: "willows-landing"
-              },
-              {
-                kind: "place_item",
-                item: "willows-rope",
-                place: "willows-landing"
-              },
-              {
-                kind: "set_flag",
-                key: "willows-gear-laid",
-                value: true
-              }
-            ]
+            on: "wait"
           },
           {
-            id: "willows-set-paddle",
-            subject: "willows-landing",
-            at: "willows-landing",
-            label: "Lay the paddle by the canoe",
-            text: "The traveller sets the worn paddle beside the canoe, within reach of the rope and waterproof sheet. The backwater reflects a quiet shore beyond the moving river.",
-            textTemplate: "{actor} sets the worn paddle beside the canoe, within reach of the rope and waterproof sheet. The backwater reflects a quiet shore beyond the moving river.",
-            summary: "The remaining paddle was laid beside the canoe.",
-            requires: [
-              {
-                kind: "flag",
-                key: "willows-gear-laid",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "willows-paddle",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "willows-paddle",
-                place: "willows-landing"
-              },
-              {
-                kind: "set_flag",
-                key: "willows-paddle-laid",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "willows-choose-departure",
-            subject: "willows-landing",
-            at: "willows-landing",
-            label: "Choose the quiet way home",
-            text: "The traveller chooses the river mist back to the Greek ship. The gear lies ready beside the canoe. Across the river, a long strip of silver leaves turns toward the landing.",
-            textTemplate: "{actor} chooses the river mist back to the Greek ship. The gear lies ready beside the canoe. Across the river, a long strip of silver leaves turns toward the landing.",
-            summary: "The traveller chose the river mist back to the ship after sharing the discoveries with the Swede and laying out the canoe gear.",
-            requires: [
-              {
-                kind: "flag",
-                key: "willows-signs-shared",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "willows-gear-laid",
-                value: true
-              },
-              {
-                kind: "item_at",
-                item: "willows-rope",
-                place: "willows-landing"
-              },
-              {
-                kind: "item_at",
-                item: "willows-sheet",
-                place: "willows-landing"
-              },
-              {
-                kind: "item_at",
-                item: "willows-paddle",
-                place: "willows-landing"
-              },
-              {
-                kind: "flag",
-                key: "willows-paddle-laid",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "willows-response",
-                value: "depart"
-              }
-            ]
-          },
-          {
-            id: "willows-choose-watch",
+            id: "willows-swede-departs",
             subject: "willows-swede",
-            at: "willows-camp",
-            label: "Keep watch with the Swede",
-            text: "The traveller chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
-            textTemplate: "{actor} chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
-            summary: "The traveller chose to keep watch beside the Swede after they shared the strange discoveries.",
-            requires: [
-              {
-                kind: "met",
-                actor: "willows-swede"
-              },
-              {
-                kind: "flag",
-                key: "willows-signs-shared",
-                value: true
-              }
-            ],
+            at: "willows-landing",
+            label: "The Swede takes the canoe",
+            on: "depart",
+            text: "The Swede pushes the mended canoe off the sand and paddles into the main stream without looking back. The willows close over the place where he went.",
+            summary: "The Swede took the mended canoe and left the island. He is gone, and the canoe with him.",
+            requires: [],
             effects: [
               {
-                kind: "choose",
-                key: "willows-response",
-                value: "watch"
+                kind: "set_flag",
+                key: "willows-swede-gone",
+                value: true
               }
             ]
           }
@@ -11893,7 +11727,7 @@
         ],
         bridge: {
           id: "greek-ship-willows",
-          description: "On a misty night, while the Greek ship lies at Black Pond or sails between ports, river mist beside its rail opens onto a small Danube island. The same dark mist keeps a path back to the deck; when it lifts or the ship docks at another port, the island and the deck lose each other until the ship lies at the pond or sails again on a misty night."
+          description: "On a misty night, while the Greek ship lies at Black Pond or sails between ports, river mist beside its rail opens onto a small Danube island and keeps a path back. Once the Swede's kit is all back at his camp, the mended canoe also runs between the landing and Black Pond, for anyone."
         },
         values: {
           "willows-swede": {
@@ -11978,6 +11812,76 @@
               open: "Beyond the quiet backwater, river mist parts onto the Greek ship's deck."
             },
             travelLabel: "Return to the ship"
+          },
+          {
+            id: "willows-landing-pond",
+            from: "willows-landing",
+            to: "pond",
+            travelers: "any",
+            travel: "downriver in the mended canoe",
+            requires: [
+              {
+                kind: "flag",
+                key: "willows-swede-gone",
+                value: false
+              },
+              {
+                kind: "item_near",
+                item: "willows-paddle",
+                place: "willows-camp"
+              },
+              {
+                kind: "item_near",
+                item: "willows-sheet",
+                place: "willows-camp"
+              },
+              {
+                kind: "item_near",
+                item: "willows-rope",
+                place: "willows-camp"
+              },
+              {
+                kind: "item_near",
+                item: "willows-provisions",
+                place: "willows-camp"
+              }
+            ],
+            travelLabel: "Paddle the canoe home"
+          },
+          {
+            id: "pond-willows-landing",
+            from: "pond",
+            to: "willows-landing",
+            travelers: "any",
+            travel: "upriver in the mended canoe",
+            requires: [
+              {
+                kind: "flag",
+                key: "willows-swede-gone",
+                value: false
+              },
+              {
+                kind: "item_near",
+                item: "willows-paddle",
+                place: "willows-camp"
+              },
+              {
+                kind: "item_near",
+                item: "willows-sheet",
+                place: "willows-camp"
+              },
+              {
+                kind: "item_near",
+                item: "willows-rope",
+                place: "willows-camp"
+              },
+              {
+                kind: "item_near",
+                item: "willows-provisions",
+                place: "willows-camp"
+              }
+            ],
+            travelLabel: "Paddle to the Willows"
           }
         ]
       },
@@ -14068,6 +13972,7 @@
           "text",
           "place",
           "travels",
+          "stayUntil",
           "journey",
           "roamingQuest",
           "personalQuests",
@@ -14114,6 +14019,10 @@
       check(
         [a.travels, a.standoffs].every((v) => v === void 0 || v === false) && (a.roamingQuest === void 0 || a.roamingQuest === "latest-completion" && a.travels !== false),
         `avatar ${id} may only set travels or standoffs to false`
+      );
+      check(
+        a.stayUntil === void 0 || a.travels === false && !a.journey,
+        `avatar ${id} stayUntil needs a resident that keeps to its scene`
       );
       check(
         a.previousHomes === void 0 || a.roamingQuest && Array.isArray(a.previousHomes) && a.previousHomes.length <= 8 && a.previousHomes.every((p) => owns2(places2, p)),
@@ -14336,6 +14245,7 @@
         );
         requirements(d.requires, `avatar ${id} desire requires`);
       }
+      requirements(a.stayUntil, `avatar ${id} stayUntil`);
     }
     for (const [id, i] of Object.entries(items2)) {
       check(
@@ -14373,7 +14283,7 @@
           "workId",
           "on",
           "for"
-        ]) && idOk(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "give" && (c.requires || []).some(
+        ]) && idOk(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "depart" && Boolean(avatars[c.subject]) || c.on === "give" && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor"
         ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && !choiceIds.has(c.id) && own.includes(c.subject) && owns2(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
         `choice ${c.id} is invalid`
@@ -15513,6 +15423,7 @@
   var isPackPlace = (id) => Object.hasOwn(packPlaces, id);
   var packOf = (id) => packDefinition(entities[id]?.packId);
   var roamingQuestActor = (id) => packPeople[id]?.roamingQuest === "latest-completion";
+  var freed = (world, id) => !!world && Array.isArray(packPeople[id]?.stayUntil) && conditionsMet(world, packPeople[id].packId, packPeople[id].stayUntil, id);
   var fixturesAt = (place) => Object.entries(packFixtures).filter(([, f]) => f.at === place).map(([id, f]) => ({ id, ...f }));
   var packProfiles = Object.fromEntries([
     ...Object.entries(packThings).map(([id, item]) => [
@@ -15659,6 +15570,9 @@
       return domains.includes(home) && domains.includes(target) && crossings.filter((c) => c.transport === id).every((c) => c.travelers === "any");
     });
   }
+  var departed = (pack, state, id) => (pack.choices || []).some(
+    (c) => c.on === "depart" && c.subject === id && owns3(state.receipts, c.id)
+  );
   function committedChoiceText(world, pack, choice) {
     if (choice.summary) return choice.summary;
     const actor = world.log?.find(
@@ -15729,7 +15643,7 @@
         ...pack.recital ? ["recitals"] : [],
         ...pack.specials && world.run ? ["specials"] : []
       ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record3) || Object.entries(state.met).some(
-        ([id, turn]) => !owns3(pack.avatars, id) || !conditionsMet(
+        ([id, turn]) => !owns3(pack.avatars, id) || !departed(pack, state, id) && !conditionsMet(
           world,
           pack.id,
           (pack.avatars[id]?.requires || []).filter(
@@ -15774,7 +15688,7 @@
       if (!equals(choices, state.choices) || !equals(flags, state.flags))
         return false;
       for (const [id, actor] of Object.entries(pack.avatars))
-        if (!entityEnabled(world, id, true) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns3(state.met, id)))
+        if (!entityEnabled(world, id, true) && !departed(pack, state, id) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns3(state.met, id)))
           return false;
       for (const [id, item] of Object.entries(pack.items || {}))
         if (!entityEnabled(world, id, true) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)))
@@ -16251,7 +16165,7 @@
   ].filter(
     (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
   );
-  var travels = (id) => !isPackActor(id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
+  var travels = (id, s = null) => !isPackActor(id) || freed(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
   var startXp = (id) => {
     const level = isPackActor(id) ? packPeople[id].startLevel || 1 : 1;
     return level * (level - 1) / 2;
@@ -16339,6 +16253,7 @@
       upgradeHoppyCatSeaSave(s);
       upgradeBoardingSave(s);
       upgradeForestButtonsSave(s);
+      upgradeWillowsKitSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -16910,6 +16825,38 @@
       for (const id of FOREST_RETIRED_ITEMS) delete life.attachments?.[id];
       forget(life);
     }
+    saved.revision = 2;
+  }
+  var WILLOWS_RETIRED_CHOICES = [
+    "willows-prepare-canoe",
+    "willows-set-paddle",
+    "willows-choose-departure",
+    "willows-choose-watch",
+    "willows-watch-otter",
+    "willows-watch-boatman"
+  ];
+  var WILLOWS_KIT_WAS = {
+    "willows-paddle": "willows-landing",
+    "willows-sheet": "willows-camp",
+    "willows-rope": "willows-camp",
+    "willows-provisions": "willows-camp"
+  };
+  function upgradeWillowsKitSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "willows");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 2 || saved?.revision !== 1) return;
+    for (const id of WILLOWS_RETIRED_CHOICES) {
+      delete saved.receipts[id];
+      if (saved.recitals) delete saved.recitals[id];
+    }
+    for (const flag of ["gear-laid", "paddle-laid", "otter-seen", "boatman-seen"])
+      delete saved.flags[`willows-${flag}`];
+    delete saved.choices["willows-response"];
+    s.log = (s.log || []).filter(
+      (e) => !(e.packId === pack.id && WILLOWS_RETIRED_CHOICES.includes(e.choiceId))
+    );
+    for (const [id, was] of Object.entries(WILLOWS_KIT_WAS))
+      if (s.items[id]?.holder === was) s.items[id].holder = pack.items[id].holder;
     saved.revision = 2;
   }
 
