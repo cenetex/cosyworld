@@ -44,6 +44,7 @@ const files = [
   "rarity-portraits.mjs",
   ...rarityPortraitAssets,
   "quest-card.mjs",
+  "quest-screen.mjs",
   "card-tiers.css",
   "card-reveal.mjs",
   "card-level-up.mjs",

@@ -1255,22 +1255,117 @@ body .card-frame[hidden] {
 .card-frame[data-holder] .card {
   border-color: #a48d6370;
 }
-/* The quest card shows how far its target is once selected. */
-.want-card .want-progress {
-  position: absolute;
-  inset: 8px 8px auto;
-  z-index: 2;
-  display: none;
-  padding: 4px 8px;
-  border-radius: 8px;
-  background: #0b0e14d9;
-  color: var(--tier-color);
-  font:
-    12px/1.3 Georgia,
-    serif;
+/* The quest card shows the player doing the verb with the target, standing
+   in the place's painting feathered into the card, or on its dark ground.
+   It holds steady while the target is near: a soft halo, unlike the brief
+   met glow. */
+body .card.want-card {
+  --screen-top: 13%;
+  background:
+    radial-gradient(
+      ellipse 90% 55% at 50% 0%,
+      color-mix(in srgb, var(--tier-color) 20%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(#171a23, #0f1218);
 }
-.want-card[aria-pressed="true"] .want-progress:not(:empty) {
-  display: block;
+body .card.want-card[data-near="true"] {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--tier-color) 70%, transparent),
+    0 0 18px 3px color-mix(in srgb, var(--tier-color) 45%, transparent),
+    0 6px 20px #0006;
+}
+.quest-head {
+  position: absolute;
+  inset: 7px 10px auto;
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--tier-color);
+  pointer-events: none;
+}
+.quest-verb {
+  font: 600 calc(var(--card-height) * 0.042) / 1 system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.quest-level {
+  font: calc(var(--card-height) * 0.064) / 1 Georgia, serif;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 6px var(--tier-color);
+}
+.quest-screen {
+  position: absolute;
+  z-index: 2;
+  top: var(--screen-top);
+  left: 8%;
+  width: 84%;
+  aspect-ratio: 4 / 3;
+  pointer-events: none;
+}
+/* Steps still to come: blank lids stacked behind the card. */
+.quest-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  translate: calc(var(--i) * 6px) calc(var(--i) * -4px);
+  rotate: calc(var(--i) * 1.5deg);
+  border: 1px solid color-mix(in srgb, var(--tier-color) 50%, #333);
+  background:
+    repeating-linear-gradient(45deg, #ffffff07 0 3px, transparent 3px 6px),
+    linear-gradient(#2a2118, #17110c);
+  pointer-events: none;
+}
+.quest-screen img {
+  position: absolute;
+  max-width: none;
+}
+.quest-ground {
+  inset: -6% -9%;
+  width: 118%;
+  height: 112%;
+  object-fit: cover;
+  -webkit-mask-image: radial-gradient(ellipse 50% 50%, #000 55%, transparent);
+  mask-image: radial-gradient(ellipse 50% 50%, #000 55%, transparent);
+}
+.quest-screen[data-back="true"] .quest-back {
+  left: 50%;
+  height: 100%;
+  translate: -50% 0;
+  border-radius: 6px;
+}
+.quest-figure,
+.quest-thing,
+.quest-back.quest-right {
+  bottom: 3%;
+  height: 92%;
+  width: auto;
+  translate: -50% 0;
+  filter: drop-shadow(0 3px 4px #000a);
+}
+.quest-figure[data-flip="true"] {
+  scale: -1 1;
+}
+.quest-left {
+  left: 30%;
+}
+.quest-right {
+  left: 70%;
+}
+.quest-alone {
+  left: 50%;
+  height: 58%;
+}
+.quest-thing {
+  left: 64%;
+  bottom: 30%;
+  height: 34%;
+}
+.quest-back.quest-right {
+  bottom: 12%;
+  height: 64%;
+  border-radius: 4px;
 }
 .action-panel {
   pointer-events: auto;
