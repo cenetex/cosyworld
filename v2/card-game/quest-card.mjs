@@ -88,7 +88,7 @@ export function questVerb(world, quest, covered = false) {
   if (quest.kind === "person") return "Talk";
   if (quest.kind === "connect") return "Introduce";
   const seen = world.actors[quest.actor]?.visited || [];
-  return covered || !seen.includes(quest.target) ? "Discover" : "Be at";
+  return covered || !seen.includes(quest.target) ? "Discover" : "Go to";
 }
 
 // A quest's colour follows its size: the F(n) steps of its level.

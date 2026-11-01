@@ -47,7 +47,7 @@ describe("the quest card", () => {
     expect(questVerb(s, quest)).toBe("Hold");
     expect(questVerb(s, { ...quest, kind: "person", target: "moth" })).toBe("Talk");
     const here = { ...quest, kind: "place", target: s.actors.vale.place };
-    expect(questVerb(s, here)).toBe("Be at");
+    expect(questVerb(s, here)).toBe("Go to");
     expect(questVerb(s, here, true)).toBe("Discover");
   });
 

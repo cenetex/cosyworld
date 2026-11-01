@@ -2050,12 +2050,6 @@ function questFrame(quest) {
     node("span", verb, "quest-verb"),
     node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
   );
-  // Steps still to come lie face down behind the screen.
-  for (let i = Math.min(quest.left - 1, 4); i > 0; i--) {
-    const edge = node("span", undefined, "quest-edge");
-    edge.style.setProperty("--i", String(i));
-    el.append(edge);
-  }
   const target = quest.target,
     targetPlace =
       quest.kind === "item"
@@ -2093,6 +2087,13 @@ function questFrame(quest) {
   const frame = node("div", undefined, "card-frame want-frame");
   frame.dataset.want = quest.kind;
   frame.dataset.raised = String(questOpen);
+  // Steps still to come lie face down behind the card, as a stack.
+  for (let i = Math.min(quest.left - 1, 3); i > 0; i--) {
+    const edge = node("span", undefined, "quest-edge");
+    edge.style.setProperty("--i", String(i));
+    edge.style.setProperty("--tier-color", tier.color);
+    frame.append(edge);
+  }
   frame.append(el);
   return frame;
 }

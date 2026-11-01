@@ -1202,9 +1202,10 @@ body .card-frame[hidden] {
 .card-frame[data-holder] .card {
   border-color: #a48d6370;
 }
-/* The quest card: a small screen, like an old television, showing the
-   player doing the verb with the target. It holds steady while the target
-   is near: a soft halo, unlike the brief met glow. */
+/* The quest card shows the player doing the verb with the target, standing
+   in the place's painting feathered into the card, or on its dark ground.
+   It holds steady while the target is near: a soft halo, unlike the brief
+   met glow. */
 body .card.want-card {
   --screen-top: 13%;
   background:
@@ -1241,53 +1242,45 @@ body .card.want-card[data-near="true"] {
   letter-spacing: 0.08em;
   text-shadow: 0 0 6px var(--tier-color);
 }
-.quest-screen,
-.quest-edge {
+.quest-screen {
   position: absolute;
+  z-index: 2;
   top: var(--screen-top);
   left: 8%;
   width: 84%;
   aspect-ratio: 4 / 3;
-  border-radius: 13px / 16px;
-}
-.quest-screen {
-  z-index: 2;
-  overflow: hidden;
-  background: radial-gradient(ellipse at 50% 60%, #262b36, #0b0d12 80%);
-  box-shadow:
-    0 0 0 2px #0f1218,
-    0 0 0 3px color-mix(in srgb, var(--tier-color) 55%, transparent),
-    0 4px 12px #000a;
   pointer-events: none;
 }
-/* The glass: a faint sheen and dark corners. */
-.quest-screen::after {
-  content: "";
+/* Steps still to come: blank lids stacked behind the card. */
+.quest-edge {
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  background:
-    linear-gradient(155deg, #ffffff1f, transparent 32%),
-    radial-gradient(ellipse at 50% 50%, transparent 58%, #000a 100%);
-}
-.quest-edge {
-  z-index: 1;
-  translate: calc(var(--i) * 4px) calc(var(--i) * -4px);
+  border-radius: 13px;
+  translate: calc(var(--i) * 6px) calc(var(--i) * -4px);
+  rotate: calc(var(--i) * 1.5deg);
   border: 1px solid color-mix(in srgb, var(--tier-color) 50%, #333);
   background:
     repeating-linear-gradient(45deg, #ffffff07 0 3px, transparent 3px 6px),
     linear-gradient(#2a2118, #17110c);
+  pointer-events: none;
 }
 .quest-screen img {
   position: absolute;
   max-width: none;
 }
-.quest-ground,
-.quest-screen[data-back="true"] .quest-back {
-  inset: 0;
-  width: 100%;
-  height: 100%;
+.quest-ground {
+  inset: -6% -9%;
+  width: 118%;
+  height: 112%;
   object-fit: cover;
+  -webkit-mask-image: radial-gradient(ellipse 50% 50%, #000 55%, transparent);
+  mask-image: radial-gradient(ellipse 50% 50%, #000 55%, transparent);
+}
+.quest-screen[data-back="true"] .quest-back {
+  left: 50%;
+  height: 100%;
+  translate: -50% 0;
+  border-radius: 6px;
 }
 .quest-figure,
 .quest-thing,

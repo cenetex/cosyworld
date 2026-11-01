@@ -180,14 +180,16 @@ facts from earlier releases keep their names; player-facing text says quest.
   connect quests. BoardyAI is inspired by [Boardy](https://x.com/boardyai).
 
 The hand holds people, items and places, and one quest card for the player's
-own quest (`quest-card.mjs`, client only). The card is a small 4:3 screen,
-like an old television (`quest-screen.mjs`): the player on the left doing the
-quest's verb with the target on the right, from the images the stage already
-uses, with attack and guard poses for Attack and Threaten. A place quest shows
-the player small in that painting; an unknown target shows the carved back in
-its slot, and an unknown place fills the screen with it. The ground is the
-painting only when the step happens where the player stands. The card names
-nothing: only one short verb (Hold, Talk, Be at, Discover, Introduce), the
+own quest (`quest-card.mjs`, client only). The card shows a small 4:3 scene
+(`quest-screen.mjs`): the player on the left doing the quest's verb with the
+target on the right, from the images the stage already uses, with attack and
+guard poses for Attack and Threaten. A place quest shows the player small in
+that place. The place's painting fades softly into the card, with no frame,
+and appears only for the place itself or when the step happens where the
+player stands; elsewhere the figures stand on the card's dark ground. An
+unknown target shows a small carved card back in its slot, and an unknown
+place shows the back alone. The card names
+nothing: only one short verb (Hold, Talk, Go to, Discover, Introduce), the
 level numeral of a level quest and its tier colour, which follows the quest's
 F(n) steps (1 Common, 2–3 Uncommon, 5 Rare, 8 Epic, 13+ Legendary). It never
 shows who holds the target or how far it is; it glows softly and steadily
