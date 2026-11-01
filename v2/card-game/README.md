@@ -203,7 +203,11 @@ and `test/card-want-talk.test.mjs` checks the Talk fact.
 
 ## Image-first presentation
 
-Card faces contain the illustration and a small name. Tapping a card toggles
+Card faces contain the illustration and a small name. People and things stand
+upright at 2:3, the shape of the carved cover; an uncovered place keeps a wider,
+landscape-leaning card (4:5 on phones). The hand fans: each card overlaps the
+one before it and leans with its place in the row, and the chosen or hovered
+card comes to the front. Tapping a card toggles
 its selection. Selecting a card or pair shows named actions in the row below.
 A selected card lifts and wears a white inner ring, apart from its tier border
 and the level-up glow, and the rest of the hand dims. At most one place is
@@ -247,6 +251,8 @@ game's opening cards, such as Vale, the lamp and the attic, start covered too, a
 do a new visitor's first cards in a shared world; a table this browser already
 knows keeps the cards its player has uncovered. The first tap uncovers a card
 without selecting it or spending a turn; subsequent taps select it normally.
+A place widens from the upright cover to its wider card as the lid lifts;
+with reduced motion it crossfades.
 An uncovered new card glows in its tier colour and carries no text badge.
 Covered cards cannot be dragged or paired. Each browser remembers which cards
 are still covered, including after a reload.

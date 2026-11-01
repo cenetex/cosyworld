@@ -3327,8 +3327,16 @@ function revealHandCard(id, alignStart = false, instant = false) {
     behavior: instant || reducedMotion.matches ? "instant" : "smooth",
   });
 }
+// The fan: each shown card leans by its distance from the row's middle.
+function fanHand() {
+  const shown = [...$("hand").children].filter((frame) => !frame.hidden);
+  shown.forEach((frame, i) =>
+    frame.style.setProperty("--fan-at", String(i - (shown.length - 1) / 2)),
+  );
+}
 // Arrows beside the hand reach cards past either edge.
 function updateHandArrows() {
+  fanHand();
   const hand = $("hand"),
     overflow = hand.scrollWidth > hand.clientWidth + 2,
     first = hand.querySelector(".card-frame:not([hidden])");
