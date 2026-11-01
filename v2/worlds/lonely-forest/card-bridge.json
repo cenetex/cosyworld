@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "shore-lonely-forest",
   "pack": "lonely-forest",
-  "description": "The Black cloth in the lamplit attic reveals stairs down to the cottage. The cottage keeps a free stair back to the attic.",
+  "description": "The Black cloth or a traveler's scarf in the lamplit attic reveals stairs down to the cottage. The cottage keeps a free stair back to the attic.",
   "crossings": [
     {
       "id": "attic-forest-cottage",
@@ -19,9 +19,19 @@
           "uncovered": true
         },
         {
-          "kind": "item_present",
-          "item": "cloth",
-          "place": "attic"
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "item_present",
+              "item": "cloth",
+              "place": "attic"
+            },
+            {
+              "kind": "tag_held",
+              "tag": "scarf",
+              "place": "attic"
+            }
+          ]
         }
       ],
       "scenery": {

@@ -11295,6 +11295,9 @@
           },
           "forest-scarf-vale": {
             name: "Vale's White Scarf",
+            tags: [
+              "scarf"
+            ],
             startLevel: 50,
             text: "A soft white knitted scarf fastened with a black button.",
             persona: "A soft white knitted scarf RATi sewed for Vale. Vale's own black button fastens it.",
@@ -11310,6 +11313,9 @@
           },
           "forest-scarf-mara": {
             name: "Mara's Green Scarf",
+            tags: [
+              "scarf"
+            ],
             startLevel: 20,
             text: "A soft green knitted scarf fastened with a red button.",
             persona: "A soft green knitted scarf RATi sewed for Mara. Mara's own red button fastens it.",
@@ -11325,6 +11331,9 @@
           },
           "forest-scarf-ash": {
             name: "Ash's Blue Scarf",
+            tags: [
+              "scarf"
+            ],
             startLevel: 20,
             text: "A soft blue knitted scarf fastened with a orange button.",
             persona: "A soft blue knitted scarf RATi sewed for Ash. Ash's own orange button fastens it.",
@@ -11340,6 +11349,9 @@
           },
           "forest-scarf-nell": {
             name: "Nell's Violet Scarf",
+            tags: [
+              "scarf"
+            ],
             startLevel: 10,
             text: "A soft violet knitted scarf fastened with a yellow button.",
             persona: "A soft violet knitted scarf RATi sewed for Nell. Nell's own yellow button fastens it.",
@@ -11355,6 +11367,9 @@
           },
           "forest-scarf-tavi": {
             name: "Tavi's Red Scarf",
+            tags: [
+              "scarf"
+            ],
             startLevel: 10,
             text: "A soft red knitted scarf fastened with a green button.",
             persona: "A soft red knitted scarf RATi sewed for Tavi. Tavi's own green button fastens it.",
@@ -11370,6 +11385,9 @@
           },
           "forest-scarf-rue": {
             name: "Rue's Orange Scarf",
+            tags: [
+              "scarf"
+            ],
             text: "A soft orange knitted scarf fastened with a blue button.",
             persona: "A soft orange knitted scarf RATi sewed for Rue. Rue's own blue button fastens it.",
             holder: "forest-cottage",
@@ -11384,6 +11402,9 @@
           },
           "forest-scarf-orin": {
             name: "Orin's Amber Scarf",
+            tags: [
+              "scarf"
+            ],
             text: "A soft amber knitted scarf fastened with a indigo button.",
             persona: "A soft amber knitted scarf RATi sewed for Orin. Orin's own indigo button fastens it.",
             holder: "forest-cottage",
@@ -11398,6 +11419,9 @@
           },
           "forest-scarf-ada": {
             name: "Ada's Yellow Scarf",
+            tags: [
+              "scarf"
+            ],
             text: "A soft yellow knitted scarf fastened with a violet button.",
             persona: "A soft yellow knitted scarf RATi sewed for Ada. Ada's own violet button fastens it.",
             holder: "forest-cottage",
@@ -12453,7 +12477,7 @@
         ],
         bridge: {
           id: "shore-lonely-forest",
-          description: "The Black cloth in the lamplit attic reveals stairs down to the cottage. The cottage keeps a free stair back to the attic."
+          description: "The Black cloth or a traveler's scarf in the lamplit attic reveals stairs down to the cottage. The cottage keeps a free stair back to the attic."
         },
         crossings: [
           {
@@ -12473,9 +12497,19 @@
                 uncovered: true
               },
               {
-                kind: "item_present",
-                item: "cloth",
-                place: "attic"
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "item_present",
+                    item: "cloth",
+                    place: "attic"
+                  },
+                  {
+                    kind: "tag_held",
+                    tag: "scarf",
+                    place: "attic"
+                  }
+                ]
               }
             ],
             scenery: {
@@ -12776,6 +12810,7 @@
     "item_at",
     "item_present",
     "item_near",
+    "tag_held",
     "shared_world",
     "connected_humans",
     "met",
@@ -13304,6 +13339,9 @@
           case "item_near":
             ok = keysOk(c, ["kind", "item", "place"]) && owns2(items2, c.item) && anyPlace(c.place);
             break;
+          case "tag_held":
+            ok = keysOk(c, ["kind", "tag", "place"]) && idOk(c.tag) && anyPlace(c.place);
+            break;
           case "item_present":
             ok = keysOk(c, ["kind", "item", "place"]) && (owns2(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
             break;
@@ -13418,8 +13456,9 @@
           "holder",
           "art",
           "requires",
-          "startLevel"
-        ]) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns2(places2, i.holder) || owns2(avatars, i.holder) || hub2?.places?.includes(i.holder)),
+          "startLevel",
+          "tags"
+        ]) && (i.tags === void 0 || Array.isArray(i.tags) && i.tags.length >= 1 && i.tags.length <= 4 && i.tags.every(idOk)) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns2(places2, i.holder) || owns2(avatars, i.holder) || hub2?.places?.includes(i.holder)),
         `item ${id} is invalid`
       );
       check(
@@ -14369,6 +14408,12 @@
       }
       case "item_present":
         return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
+      // Any thing tagged c.tag, carried by someone present at c.place.
+      case "tag_held":
+        return Object.keys(s.items).some((id) => {
+          const holder = s.items[id].holder;
+          return Boolean(packThings[id]?.tags?.includes(c.tag)) && entityActive(s, id) && s.actors[holder]?.place === c.place && (!controlledByHuman(s, holder) || humanPresent(s, holder));
+        });
       case "item_at":
         return s.items[c.item]?.holder === c.place;
       // Any thing from that world in the place: carried there or resting there.

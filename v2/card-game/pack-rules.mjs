@@ -142,6 +142,17 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
     }
     case "item_present":
       return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
+    // Any thing tagged c.tag, carried by someone present at c.place.
+    case "tag_held":
+      return Object.keys(s.items).some((id) => {
+        const holder = s.items[id].holder;
+        return (
+          Boolean(packThings[id]?.tags?.includes(c.tag)) &&
+          entityActive(s, id) &&
+          s.actors[holder]?.place === c.place &&
+          (!controlledByHuman(s, holder) || humanPresent(s, holder))
+        );
+      });
     case "item_at":
       return s.items[c.item]?.holder === c.place;
     // Any thing from that world in the place: carried there or resting there.
