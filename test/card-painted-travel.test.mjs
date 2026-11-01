@@ -25,10 +25,15 @@ describe("painted sea phases", () => {
         expect(backdrop("greek-ship", decodeSave(encodeSave(world)))).toBe(
           art(file),
         );
-        // The boarding card remains the outside view of the ship.
-        world.actors.vale.place = "pond";
+        // From shore the card shows the ship at that mooring: the Black Pond
+        // card at the pond, the berth painting at the Wine-Dark Harbor.
+        world.actors.vale.place = phase === "docked" ? "pond" : "greek-harbor";
         if (phase === "docked")
-          expect(travelCard(world, "greek-ship").art).not.toMatch(/ship-deck/);
+          expect(travelCard(world, "greek-ship").art).toBe(art("ship-card"));
+        if (phase === "arrived")
+          expect(travelCard(world, "greek-ship").art).toBe(
+            art(`harbor-ship-at-berth${night ? "-night" : ""}`),
+          );
       },
     );
 });

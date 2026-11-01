@@ -282,6 +282,12 @@ let shownQuest = null,
 const cardArt = (id) =>
   packMedia(id, "art") ||
   (things[id]?.art ? `./${things[id].art}` : `./assets/${id}-card.png`);
+// A place's authored art is its outside view; aboard or inside, its card
+// shows the scene there, so the ship's card follows its voyage and the hour.
+const placeCardArt = (id) =>
+  packPlaces[id]?.art && world.actors[currentActor(world)]?.place !== id
+    ? packMedia(id, "art")
+    : backdrop(id, world);
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
 // The screen names a card only once its player has uncovered it (#1575).
 const knownName = (id, unknown = "…") =>
@@ -1818,8 +1824,7 @@ function card(id) {
       ? cardArt(id)
       : type === "avatar"
         ? portrait(id, null, world)
-        : crossingFace?.art ||
-          (packPlaces[id]?.art ? packMedia(id, "art") : backdrop(id, world)),
+        : crossingFace?.art || placeCardArt(id),
     "card",
   );
   img.alt = "";

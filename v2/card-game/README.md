@@ -326,6 +326,12 @@ also tests the destination cards, a reload on the road and waiting for the ship.
 Athens Harbor shows the ship at its berth when it is docked there, and open
 water while the ship travels elsewhere.
 
+The ship's card follows the same paintings. Aboard, it shows the stage
+backdrop: the deck at a port, or open sea by day or night. From a mooring
+with a berth painting (the Wine-Dark Harbor, Athens Harbor, Piraeus) it shows
+the ship at that berth, lit for the hour. Black Pond, the Trojan camp landing
+and the Hoppycat jetty keep the authored Black Pond card.
+
 The ship sails authored sea lanes, at most four from each port. Black Pond
 has one lane, to the Wine-Dark Harbor. The Wine-Dark Harbor has
 lanes to Piraeus and the Trojan camp landing. The Piraeus lane opens only
