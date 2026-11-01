@@ -466,11 +466,12 @@ describe("Before the Burial", () => {
   });
 
   it("keeps a released decree that was heard through Talk", () => {
-    // Rules 21 told the decree as a Talk choice; revision 11 tells it on meeting.
+    // Rules 21 told the decree as a Talk choice; revision 11 tells it on
+    // meeting, and later revisions keep that.
     const s = decodeSave(
       readFileSync("test/fixtures/ajax-household-rules-21.json", "utf8"),
     );
-    expect(s.packs[PACK].revision).toBe(11);
+    expect(s.packs[PACK].revision).toBeGreaterThanOrEqual(11);
     expect(s.knowledge.facts["greek-hear-decree"].source.topic.choiceId).toBe(
       null,
     );
