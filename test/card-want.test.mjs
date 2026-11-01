@@ -18,6 +18,9 @@ import {
   REFUSAL_LIMIT,
   STALL_TURNS,
 } from "../v2/card-game/want.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
+import { entityActive } from "../v2/card-game/pack-registry.mjs";
 
 const act = (s, kind, fields = {}, actor = "vale") => {
   const a = legalActions(s, actor).find(
@@ -204,4 +207,33 @@ describe("one want per avatar", () => {
       target: "lamp",
     });
   });
+
+  it("keeps one want on every active avatar through a long shared run", () => {
+    const players = humanAvatarIds.slice(0, 4);
+    let world = dispatchShared({ op: "create" }).world;
+    const ask = (op, actor, extra = {}) =>
+      dispatchShared({ world, op, actor, claimed: players, present: players, ...extra });
+    const wantless = () =>
+      Object.keys(world.actors).filter(
+        (id) => entityActive(world, id) && !world.actors[id].want,
+      );
+    expect(wantless()).toEqual([]);
+    let met = 0;
+    for (let t = 0; t < 300; t++) {
+      const actor = players[t % players.length];
+      const actions = ask("view", actor).actions.filter(
+        (a) => a.kind !== "attack",
+      );
+      // A play the rules reject leaves the world as it was.
+      try {
+        const result = ask("play", actor, {
+          action: actions[(t * 7919) % actions.length],
+        });
+        if (result.ok) world = result.world;
+      } catch {}
+      met = world.log.filter((e) => e.verb === "want_met").length || met;
+      if (t % 25 === 24) expect(wantless(), `turn ${world.turn}`).toEqual([]);
+    }
+    expect(met).toBeGreaterThan(0);
+  }, 60000);
 });
