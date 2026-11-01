@@ -364,14 +364,30 @@ export function reviseStalledWants(s, actors, api) {
 }
 // A want left empty by an older rule set or a pack mounted later, on a
 // player or an unseen resident too, is drawn after a short rest.
+// A player holds no quest until the world's data says quests begin, such as
+// first arriving at a place; that first quest comes at once.
+export function awaitsFirstQuest(s, id, api) {
+  const begin = api.questsBeginAt,
+    a = s.actors[id];
+  if (!begin || !api.player(id) || a.metTurn !== undefined) return null;
+  return begin.kind === "arrived" && !a.visited.includes(begin.place)
+    ? "waiting"
+    : "ready";
+}
 export function fillWants(s, api, now = false) {
-  for (const [id, a] of Object.entries(s.actors))
+  for (const [id, a] of Object.entries(s.actors)) {
+    const first = awaitsFirstQuest(s, id, api);
+    if (first === "waiting") {
+      if (!a.xp && a.want && !a.want.quest) a.want = null;
+      continue;
+    }
     if (
       !a.want &&
       entityActive(s, id) &&
-      (now || s.turn - (a.metTurn ?? 0) >= CONTENT_TURNS)
+      (now || first === "ready" || s.turn - (a.metTurn ?? 0) >= CONTENT_TURNS)
     )
       a.want = nextWant(s, id, api);
+  }
 }
 
 export function validWant(s, id) {

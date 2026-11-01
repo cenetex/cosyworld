@@ -1,15 +1,18 @@
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { rest } from "./fixtures/card-rest.mjs";
+import { questing } from "./helpers/first-quest.mjs";
 import { describe, it, expect, vi, afterEach } from "vitest";
 afterEach(() => vi.useRealTimers());
 import {
-  createWorld,
+  createWorld as baseCreateWorld,
   addLog,
   legalActions,
   play,
   encodeSave,
   decodeSave,
 } from "../v2/card-game/world.mjs";
+// Play here starts past the pond, where the first quest begins.
+const createWorld = (...args) => questing(baseCreateWorld(...args));
 import {
   narrativeContext,
   turnOutcome,

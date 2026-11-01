@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { setImmediate as yieldToRunner } from "node:timers/promises";
+import { questing } from "./helpers/first-quest.mjs";
 import { describe, expect, it } from "vitest";
 import {
-  createWorld,
+  createWorld as baseCreateWorld,
   legalActions,
   matchingActions,
   play,
@@ -17,6 +18,8 @@ import {
   encodeSave,
   decodeSave,
 } from "../v2/card-game/world.mjs";
+// Play here starts past the pond, where the first quest begins.
+const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { createServer } from "../v2/card-game/serve.mjs";
 import { roomTracks } from "../v2/card-game/music.mjs";
 

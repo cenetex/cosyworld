@@ -1,6 +1,7 @@
+import { questing } from "./helpers/first-quest.mjs";
 import { describe, expect, it } from "vitest";
 import {
-  createWorld,
+  createWorld as baseCreateWorld,
   decodeSave,
   encodeSave,
   legalActions,
@@ -8,6 +9,8 @@ import {
   play,
   validateWorld,
 } from "../v2/card-game/world.mjs";
+// Play here starts past the pond, where the first quest begins.
+const createWorld = (...args) => questing(baseCreateWorld(...args));
 import {
   levelFor,
   levelOf,
@@ -224,9 +227,14 @@ describe("one want per avatar", () => {
     let world = dispatchShared({ op: "create" }).world;
     const ask = (op, actor, extra = {}) =>
       dispatchShared({ world, op, actor, claimed: players, present: players, ...extra });
+    // A player still on its way to the Black Pond holds no quest yet.
+    const waiting = (a) => !a.visited.includes("pond") && a.metTurn === undefined;
     const wantless = () =>
       Object.keys(world.actors).filter(
-        (id) => entityActive(world, id) && !world.actors[id].want,
+        (id) =>
+          entityActive(world, id) &&
+          !world.actors[id].want &&
+          !((id === "vale" || players.includes(id)) && waiting(world.actors[id])),
       );
     expect(wantless()).toEqual([]);
     let met = 0;

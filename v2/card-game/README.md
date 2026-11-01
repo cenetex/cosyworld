@@ -132,6 +132,12 @@ What happens next comes from the world rules in `want.mjs`, not from authored
 quest chains. The internal field stays `actor.want` so saves and the Talk
 facts from earlier releases keep their names; player-facing text says quest.
 
+- **First quest.** A player holds no quest at the start: the attic opening
+  has no quest card. The hub's `questsBeginAt` (`forest.json`,
+  `{ "kind": "arrived", "place": "pond" }`) holds back a player's first quest
+  until it first reaches the Black Pond, and that quest is drawn at once on
+  arrival. Residents hold their wants from the start, and a save already past
+  the pond keeps its quest.
 - **Met.** An item quest is met when the avatar is the item's root holder, a
   place quest when it stands there, and a person quest when the two share a
   place and Talk. Meeting a quest records a `want_met` history event and one
