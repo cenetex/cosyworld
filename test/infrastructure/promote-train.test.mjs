@@ -109,6 +109,7 @@ describe("promotion reads Deploy runs", () => {
   const job = (conclusion, rollout = "success") => [
     {
       name: "Deploy main to .dev",
+      status: "completed",
       conclusion,
       completed_at: "2026-11-01T00:10:00Z",
       steps: [
@@ -132,6 +133,10 @@ describe("promotion reads Deploy runs", () => {
     expect(trainRollout(run, job("failure")).passed).toBe(false);
     expect(trainRollout(run, job("cancelled", "skipped"))).toBeNull();
     expect(trainRollout(run, [])).toBeNull();
+    // A train still running its rollout job does not count yet.
+    expect(
+      trainRollout(run, [{ ...job("success")[0], status: "in_progress" }]),
+    ).toBeNull();
   });
 
   it("tells trains from production runs", () => {

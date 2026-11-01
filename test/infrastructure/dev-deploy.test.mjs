@@ -65,6 +65,18 @@ describe("a .dev train compares with the commit .dev runs", () => {
     expect(seen).toEqual([8, 7]);
   });
 
+  it("counts a running train once its rollout job finished", async () => {
+    const train = { id: 9, status: "in_progress", display_title: `.dev train ${"9".repeat(40)}`, head_sha: "9".repeat(40) };
+    const deploy = (status) => [
+      { name: "Deploy main to .dev", status, steps: [step("Roll out .dev", "success")] },
+      { name: "Production Rust gate", status: "in_progress", steps: [] },
+    ];
+    const find = (status) =>
+      lastRollout({ runs: [train, ...runs.slice(1)], currentRunId: 10, jobsFor: async (id) => (id === 9 ? deploy(status) : jobs[id]) });
+    expect(await find("completed")).toBe("9".repeat(40));
+    expect(await find("in_progress")).toBe("7".repeat(40));
+  });
+
   it("counts release-path rollouts and skips the current run", async () => {
     const base = await lastRollout({
       runs: runs.slice(3),

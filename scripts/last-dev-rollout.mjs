@@ -28,14 +28,19 @@ export function rolledOut(jobs) {
   );
 }
 
-// Runs arrive newest first. Deploy runs share one concurrency group, so the
-// newest completed run with a successful rollout is what the app runs.
+// Runs arrive newest first; the newest completed run with a successful
+// rollout is what the app runs. A train keeps running its Rust checks after
+// its rollout job finishes, so a running train counts once that job is done.
 export async function lastRollout({ runs, jobsFor, currentRunId }) {
   for (const run of runs) {
     if (String(run.id) === String(currentRunId)) continue;
-    if (run.status !== 'completed') continue;
     if (!/^[0-9a-f]{40}$/.test(run.head_sha ?? '')) continue;
-    if (rolledOut(await jobsFor(run.id))) return run.head_sha;
+    if (run.status !== 'completed' && !String(run.display_title ?? '').startsWith('.dev train ')) continue;
+    let jobs = (await jobsFor(run.id)) ?? [];
+    if (run.status !== 'completed') {
+      jobs = jobs.filter((job) => job.name === ROLLOUT_STEPS[0].job && job.status === 'completed');
+    }
+    if (rolledOut(jobs)) return run.head_sha;
   }
   return '';
 }

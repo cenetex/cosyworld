@@ -313,13 +313,18 @@ jobs:
 
   production-rust-gate:
     name: Production Rust gate
-    needs: [deployment-impact, release-owner]
+    needs: [dev-deploy, deployment-impact, release-owner]
     # The .dev train deploys without this gate; the fast check still checks
-    # main. Tags and production dispatches keep it.
+    # main. Tags and production dispatches keep it. A train that rolled out
+    # runs it after its rollout, off the .dev path, so the promotion of that
+    # train and a tag that only bumps its version reuse the result
+    # (scripts/await-ci-rust.mjs) instead of running it again.
     if: >-
-      needs.deployment-impact.outputs.deploy == 'true' &&
-      needs.release-owner.outputs.owns == 'true' &&
-      (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))
+      !cancelled() &&
+      ((needs.deployment-impact.outputs.deploy == 'true' &&
+        needs.release-owner.outputs.owns == 'true' &&
+        (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))) ||
+       (needs.dev-deploy.result == 'success' && needs.dev-deploy.outputs.rolled-out == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -335,9 +340,10 @@ jobs:
         with:
           fetch-depth: 1
 
-      # A manual CI run on this exact commit runs the same Rust tests and lint.
-      # Reuse its result; run the checks here when CI did not run them (at
-      # once when no CI run exists for the commit), was cancelled, or failed.
+      # A manual CI run or a .dev train's gate on this commit (or on the
+      # commit a release only bumps the version of) runs the same Rust tests
+      # and lint. Reuse its result; run the checks here when none ran them,
+      # or they were cancelled or failed.
       - name: Reuse CI Rust checks for this commit
         id: ci
         env:
@@ -380,11 +386,14 @@ jobs:
   # test build; in sequence it added about two minutes to every release.
   production-rust-lint:
     name: Production Rust architecture and lint
-    needs: [deployment-impact, release-owner]
+    needs: [dev-deploy, deployment-impact, release-owner]
+    # Like the Rust gate, a train that rolled out runs it after its rollout.
     if: >-
-      needs.deployment-impact.outputs.deploy == 'true' &&
-      needs.release-owner.outputs.owns == 'true' &&
-      (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))
+      !cancelled() &&
+      ((needs.deployment-impact.outputs.deploy == 'true' &&
+        needs.release-owner.outputs.owns == 'true' &&
+        (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))) ||
+       (needs.dev-deploy.result == 'success' && needs.dev-deploy.outputs.rolled-out == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

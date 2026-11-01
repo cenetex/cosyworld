@@ -62,6 +62,13 @@ The train job:
    already has one, so a rerun skips the build.
 4. Waits while a production deploy is queued or running, then rolls out and
    verifies `.dev`.
+5. After a successful rollout, runs the **Production Rust gate** and
+   **Production Rust architecture and lint** jobs on the train's commit.
+   `.dev` does not wait for them and their result does not change it; they
+   exist so the promotion of that train, and a release that only bumps its
+   version, reuse a passed Rust gate instead of running it again (about
+   5 to 7 minutes each). The run stays open while they run, so a manual
+   `dev` dispatch meanwhile waits up to about 7 minutes for them.
 
 A train deploys the commit it started on even if main moves meanwhile; the
 next train takes the rest.
@@ -203,7 +210,8 @@ full-suite failure as an issue and fix it in parallel.
 2. Confirm the tag run's **Production Rust gate** will pass. It runs
    `bash v2/scripts/check-rust.sh test`, the same command as CI's **Rust
    build and tests** job; pull request fast checks do not run it. Find a
-   green **Rust build and tests** job on that commit, or on a branch head
+   green **Rust build and tests** job, or a green **Production Rust gate**
+   from the `.dev` train, on that commit, or on a branch head
    whose tree differs from it only in version files
    (`git diff --stat <head> <commit>`). If none exists, run
    `gh workflow run ci.yml --ref main` and wait for its Rust jobs. Fix any
@@ -226,8 +234,11 @@ full-suite failure as an issue and fix it in parallel.
    directly on the tested commit (1.2.106 shipped this way), then merge the
    PR so main carries the version.
 5. Watch: `gh run watch "$(gh run list --workflow deploy.yml --branch vX.Y.Z --limit 1 --json databaseId --jq '.[0].databaseId')"`.
-   The Rust gate reuses a CI run on the tag commit when one exists and runs
-   its checks itself, at once, when none does.
+   The Rust gate and lint reuse passed checks (a CI run, or a `.dev`
+   train's gate jobs) on the tag commit, or on its first parent when the tag
+   commit changes only version lines in the version files
+   (`scripts/await-ci-rust.mjs`), waiting while those run. They run the
+   checks themselves, at once, when none exist, and again when they failed.
 6. Smoke: both `/meta` endpoints report `X.Y.Z` and the tag commit, and the
    GitHub release exists.
 
@@ -300,8 +311,10 @@ failed gate stops the deploy and opens the usual tracking issue. The run does
 not compile the image again: it copies the `deploy-<sha>` image the `.dev`
 train built for that commit (the image `.dev` ran during the soak) into the
 Lonely Forest registry by digest, and builds only when no such image exists.
-That cuts a promotion from about 13 minutes to about 10; the Production Rust
-gate (about 7 minutes) is then its longest path. Each
+That cuts a promotion from about 13 minutes to about 10. The train already
+ran the Rust gate and lint on that commit (see [.dev trains](#dev-trains)), so
+the promotion reuses them, and its longest path becomes the Lonely Forest
+backup (about 3 minutes) and rollout (about 2.5). Each
 promotion clears the earlier `promote/*` branches.
 
 Promotion needs no new secret. The workflow's `GITHUB_TOKEN` creates the
