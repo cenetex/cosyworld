@@ -88,7 +88,7 @@ The card table comes first. The numbered priorities below serve the shared runti
 ### Card table first
 
 - **Generalize before extending.** The prototype's first site is scaffolding. No rule may name an entity, and new content comes from generators and pack data, not authored puzzles or per-item powers. See ADR 0015.
-- **Make the prototype general.** Entity registries in world state, the site as seed data, the scripted layer removed, any avatar as a player, and property tests over random seeds. This is phase 1 of `docs/backlog/generated-world-core.md`.
+- **Make the prototype general.** Entity registries in world state, the site as seed data, the scripted layer removed, any avatar as a player, and property tests over random seeds. This is phase 1 of `docs/archive/backlog/generated-world-core.md`.
 - **Grow the world through quests.** Places make items when their quests are met, doorway steps of avatar quests open places, and long-abandoned players become residents. Every reward is promised first so other quests can require it, and claim keys and a level-based budget bound growth. Keep the world live: every avatar progresses within a bounded number of plays.
 - **Give it gates.** Run `writing-register.mjs` over `v2/card-game/` copy. Add a browser smoke for single cards, pairs, dragging, reload, and phone width to `./v2/mvp.sh check`.
 - **Then port.** A golden trace of the general rules, then kernel actions that create entities, consented exchange, kernel quests, and growth tables in packs. Shared card features run the same authored rules on the server in bounded C QuickJS and record each operation in the journal. Native or reward-bearing features require their authoritative C boundary and replay tests.
@@ -126,7 +126,7 @@ Implements PRD "Now" #4, from the live economy audit:
 
 ### 4. Media pipeline
 
-Durable `media_jobs`/`media_assets` (idempotent, contributor-attributed, intent-typed) replacing the current inline Replicate community-card worker. First intents: `avatar_card_art`, `item_card_art`, `location_card_art`; scene media remains system-funded. Provider order: OpenRouter image models → Replicate (already integrated) → deterministic placeholder. Generated media attached to a shared card is public world media. Schemas and backlog: `AI.md`, `docs/backlog/community-art-evolution.md`.
+Durable `media_jobs`/`media_assets` (idempotent, contributor-attributed, intent-typed) replacing the current inline Replicate community-card worker. First intents: `avatar_card_art`, `item_card_art`, `location_card_art`; scene media remains system-funded. Provider order: OpenRouter image models → Replicate (already integrated) → deterministic placeholder. Generated media attached to a shared card is public world media. Schemas and backlog: `AI.md`, `docs/archive/backlog/community-art-evolution.md`.
 
 ### 5. Moderation and abuse hardening
 

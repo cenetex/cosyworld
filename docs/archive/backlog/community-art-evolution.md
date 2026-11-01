@@ -22,7 +22,7 @@ Orbs exist to help the community make shared images. They do not pay for Chat or
 Every eligible generated collectible has one community generation available at each authoritative level. The pooled Orb price is exactly the level. A level-3 location therefore needs three community contributions in total, not three from every player. Funding never changes ownership, access, mechanics, rarity, success, or level.
 
 For locations, the authoritative level is defined by
-[Location Classes, Development Projects, and Buildings](../location-development.md):
+[Location Classes, Development Projects, and Buildings](../../location-development.md):
 only unique credited development-project completions advance it. Chat volume,
 service jobs, model activity, and art funding never do. A cairned location with
 no completed identity building is **Unsettled** and does not advertise a

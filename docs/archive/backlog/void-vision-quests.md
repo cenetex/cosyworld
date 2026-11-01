@@ -129,7 +129,7 @@ All claim-keyed for idempotency. Circuit state is journaled contract state
   gates as all speech.
 - **Installed Facet** — through an explicit civic project, becomes a bounded
   device (route compass, memory lens, voice console) per
-  [ADR 0007](../decisions/0007-model-bindings-and-item-devices.md). A token
+  [ADR 0007](../../decisions/0007-model-bindings-and-item-devices.md). A token
   never becomes a building and never implies ownership of its avatar.
 
 The waking ladder ends at Attuned. Installation is the civic branch, not the
@@ -219,9 +219,9 @@ token and location reflect on the recorded change.
 
 - Epic: the quest-grammar epic (#639) — the Circuit is the first composed
   tale using Hearth, Venture, Discover, and Return as literal quest halves.
-- [Location development](../location-development.md) — the founder-selection
+- [Location development](../../location-development.md) — the founder-selection
   and leveling contracts this work enforces.
-- [ADR 0007](../decisions/0007-model-bindings-and-item-devices.md) — tokens
+- [ADR 0007](../../decisions/0007-model-bindings-and-item-devices.md) — tokens
   become model-backed instruments, never fake residents.
-- [Context-dominant prompting](../../v2/docs/context-dominant-prompting.md) —
+- [Context-dominant prompting](../../../v2/docs/context-dominant-prompting.md) —
   token voice is evidence the model continues, never instructions it follows.

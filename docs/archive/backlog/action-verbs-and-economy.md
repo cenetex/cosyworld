@@ -10,12 +10,12 @@ authorize or imply full SRD 5.2.1 compatibility.
 
 **Related architecture**:
 
-- [SRD-Backed Action and Collectible System](../archive/classic/docs/systems/04-action-system.md)
-- [CosyWorld RPG System Bible](../archive/classic/docs/systems/09-cosyworld-rpg-system.md)
+- [SRD-Backed Action and Collectible System](../classic/docs/systems/04-action-system.md)
+- [CosyWorld RPG System Bible](../classic/docs/systems/09-cosyworld-rpg-system.md)
 - Generated-place lifecycle contract (dedicated document pending)
-- [ADR-001: SRD 5.2.1 Action-Card Profile](../decisions/001-srd-action-card-profile.md)
-- [ADR 0002: the action hand is authoritative state](../decisions/0002-action-hand-is-authoritative-state.md)
-- [ADR 0005: thresholds, trails, and the strict referee](../decisions/0005-thresholds-trails-and-strict-referee.md)
+- [ADR-001: SRD 5.2.1 Action-Card Profile](../../decisions/001-srd-action-card-profile.md)
+- [ADR 0002: the action hand is authoritative state](../../decisions/0002-action-hand-is-authoritative-state.md)
+- [ADR 0005: thresholds, trails, and the strict referee](../../decisions/0005-thresholds-trails-and-strict-referee.md)
 
 The current rules substrate is sounder than its vocabulary. Stable rule
 bindings, targets, resolvers, traces, and stale-offer rejection exist, but

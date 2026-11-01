@@ -5,7 +5,7 @@ another's, so every mounted room belongs to one walkable world and a campaign
 ending can open a road instead of terminating.
 
 **Status**: Groomed 2026-07-26 and 2026-07-27. This document was cited as
-`docs/backlog/world-topology-and-composition-joins.md` by the WT tickets from
+`docs/archive/backlog/world-topology-and-composition-joins.md` by the WT tickets from
 the day they were filed but was never actually written; it is reconstructed
 here from those issues and their playtest evidence, 2026-07-30. Direction, not
 committed scope.
@@ -37,9 +37,9 @@ document.
 
 **Related architecture**:
 
-- [The CosyWorld Pact](../cosyworld-pact.md) — "One World, One Truth" and
+- [The CosyWorld Pact](../../cosyworld-pact.md) — "One World, One Truth" and
   "Home Holds" constrain what a join may do.
-- [How to Design a Worldpack](../archive/classic/docs/worldpacks/how-to-design-a-worldpack.md)
+- [How to Design a Worldpack](../classic/docs/worldpacks/how-to-design-a-worldpack.md)
 - [Thresholds, Trails, And The Strict Referee](thresholds-trails-and-strict-referee.md)
   — owns Leads, Gates, Anchors, and Scout forays over this topology.
 - `CLAUDE.md`: *"Cross-pack topology belongs in composition data rather than

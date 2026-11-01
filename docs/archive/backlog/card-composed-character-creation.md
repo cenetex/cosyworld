@@ -600,7 +600,7 @@ media replacement
 **Scope**: durable canonical registry, active-world hydration, ownership
 fencing, and capacity release
 
-**Depends on**: [ADR 0003](../decisions/0003-one-canonical-world.md)
+**Depends on**: [ADR 0003](../../decisions/0003-one-canonical-world.md)
 
 #### What to do
 

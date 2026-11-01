@@ -1,7 +1,7 @@
 # Generated world core
 
-Status: **Planning**. Law: [ADR 0015](../decisions/0015-a-generated-world-seen-through-cards.md).
-Prototype design: [Avatars, items, and locations](../design/avatar-simulation-redesign.md).
+Status: **Planning**. Law: [ADR 0015](../../decisions/0015-a-generated-world-seen-through-cards.md).
+Prototype design: [Avatars, items, and locations](../../design/avatar-simulation-redesign.md).
 
 CosyWorld's core is a world players live in, built from general rules and
 generators and seen through the card table. This document plans how the card
@@ -233,7 +233,7 @@ at one place.
 
 Status: **Planning**, proposed 2026-10-21 from a design review. Nothing here
 is built. It answers three proposals under "Card-table Direction Under Review"
-in the [PRD](../../PRD.md): a fulfilled phase, rewards for meaningful novelty,
+in the [PRD](../../../PRD.md): a fulfilled phase, rewards for meaningful novelty,
 and a quest cadence.
 
 Today a finished quest is replaced at once: `advanceQuests` clears the quest
@@ -361,8 +361,8 @@ to the core.
 ## Open questions
 
 - How phase 2b's offers map onto the pending offers in
-  [transfer consent](../transfer-consent.md), and its pace rule onto the
-  [scene concurrency policy](../concurrency-policy.md).
+  [transfer consent](../../transfer-consent.md), and its pace rule onto the
+  [scene concurrency policy](../../concurrency-policy.md).
 - Whether places, items, or residents ever leave the world, and how history
   survives that.
 - Where generated places get art: pack pools, generated images, or plain cards.

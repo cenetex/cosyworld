@@ -2,7 +2,7 @@
 
 Status: playable local slice. Updated October 17, 2026. The source findings and game references are in [the research notes](avatar-item-location-research.md).
 
-The general rules here (custody, reach, exchange, target hands, consent, the cast planner, and the quest generator) are the core. The first site's places, avatars, item powers, light-gated path, and authored quest programs are generated scaffolding. [ADR 0015](../decisions/0015-a-generated-world-seen-through-cards.md) makes the core a generated world and story an optional layer. [Generated world core](../backlog/generated-world-core.md) plans removing the scripted layer.
+The general rules here (custody, reach, exchange, target hands, consent, the cast planner, and the quest generator) are the core. The first site's places, avatars, item powers, light-gated path, and authored quest programs are generated scaffolding. [ADR 0015](../decisions/0015-a-generated-world-seen-through-cards.md) makes the core a generated world and story an optional layer. [Generated world core](../archive/backlog/generated-world-core.md) plans removing the scripted layer.
 
 CosyWorld is a whimsical cosmic horror world built from three kinds of thing: avatars, items, and locations. The player guides one avatar through card plays. Other avatars pursue their own target hands. Cards make the world tangible. The scene shows what the cast notices, says, and does.
 
