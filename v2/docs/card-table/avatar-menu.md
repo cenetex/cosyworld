@@ -79,7 +79,9 @@ Tapping a row opens its actions:
 - **Play** opens that world as that avatar.
 - **Send to…** (was Move) lists the worlds you know by name (local, owned,
   joined) and **New world**. A world that already holds another of your
-  avatars is not listed. "*The Quiet Ferry* keeps Mara's things." Sending an
+  avatars is not listed. "Mara's level goes with Mara. Mara's things and
+  quests stay in *The Quiet Ferry*, and the seat there opens for someone
+  else." Every claim moves the avatar (#1846). Sending an
   avatar out of a local world warns first: "*Hollowmere* will be lost, with
   Mara's level and quest there. There is no way back to it."
 - **Step away** (was Leave) asks once. In a shared world: "Vale stays yours
@@ -88,8 +90,9 @@ Tapping a row opens its actions:
   the menu offers no way back to it, so it asks with the same warning as
   Send to (#1825).
 - **Release** gives a shared seat back. The first tap turns it red: "Release
-  *Mara* from *Hollowmere*?" and "Mara's level and things in Hollowmere are
-  lost, and anyone may take Mara there." The second tap resets Mara there.
+  *Mara* from *Hollowmere*?" and "Mara keeps their level. Their things and
+  quests stay in Hollowmere, and anyone may take Mara there." The second tap
+  resets Mara's seat there.
 - **Delete world** removes a local world's save and its backup. The button
   turns red on the first tap ("Delete *Hollowmere* and its progress?") and
   deletes on the second. The avatar is then not in a world. Deleting another

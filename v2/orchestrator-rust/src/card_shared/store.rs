@@ -43,6 +43,8 @@ pub(super) fn open_sqlite(path: &Path, busy_timeout: Duration) -> rusqlite::Resu
       CREATE INDEX IF NOT EXISTS card_members_user ON card_members(user);
       -- A passkey's avatar in a world (bindings.rs).
       CREATE TABLE IF NOT EXISTS card_bindings(world TEXT NOT NULL, actor INTEGER NOT NULL, user TEXT NOT NULL, PRIMARY KEY(world,actor), UNIQUE(world,user));
+      -- An avatar's level between seats (bindings.rs).
+      CREATE TABLE IF NOT EXISTS card_avatar_progress(user TEXT NOT NULL, actor INTEGER NOT NULL, progress TEXT NOT NULL, PRIMARY KEY(user,actor));
       CREATE TABLE IF NOT EXISTS card_log(seq INTEGER PRIMARY KEY AUTOINCREMENT, world TEXT NOT NULL, command TEXT NOT NULL, at INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS card_log_world ON card_log(world,seq);
       CREATE TABLE IF NOT EXISTS card_plays(id TEXT PRIMARY KEY, world TEXT NOT NULL, actor INTEGER NOT NULL, user TEXT NOT NULL, room INTEGER NOT NULL, command TEXT NOT NULL, status TEXT NOT NULL, created INTEGER NOT NULL, until_at INTEGER NOT NULL DEFAULT 0, result TEXT NOT NULL DEFAULT '{}');

@@ -165,14 +165,24 @@ experience from its last seat (`progress` on the journaled `claim`).
 A person's passkey binds them to the avatar they take in a shared world
 ([#1825](https://github.com/cenetex/cosyworld/issues/1825)). The server keeps
 the binding in `card_bindings(world, actor, user)`, written by each new claim
-and by creating a world. Step away (`leave`/`release`) and Send to (Move)
-keep it: the person always
+and by creating a world. Step away (`leave`/`release`) keeps it: the person
+always
 returns there as that avatar, and nobody else can claim it. A person bound in
 a world can claim only their own avatar there. When all eight avatars are
 bound the world is full: "This world is full." Bindings sit outside the
 journal, so old journals replay unchanged. The table was back-filled from
 the members at deploy; an avatar released before then was never recorded
 and can be claimed once by a newcomer.
+
+An avatar is in one world at a time (#1846). A claim of an avatar, from Send
+to or a friend's link, empties that person's seats for it in every other
+world in the same transaction. Each old seat goes through the journaled
+`reset`, so it starts over for whoever takes it next and what the avatar held
+stays there. Worlds whose rules predate `reset` release the claim and the
+binding instead. The avatar's level and experience are kept in
+`card_avatar_progress(user, actor)`. They are written whenever a seat empties
+through Send, Release or Free, and taken by the next claim, which journals
+them as `progress`.
 
 The world's owner (`card_tables.owner`) can **Free** a held avatar from the
 Table in ☰, and the holder can **Release** their own. Both are the journaled

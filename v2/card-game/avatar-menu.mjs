@@ -65,14 +65,14 @@ export function placesOf(rows, here) {
 }
 
 // What leaving a world costs. A local world left or replaced is gone for
-// good, with the avatar's level and quest there (#1825); a shared world keeps
-// the avatar's things for its return.
+// good, with the avatar's level and quest there (#1825). Leaving a shared
+// world takes the avatar's level along and frees its seat there (#1846).
 export function leaveNote(avatar, place) {
   const name = place?.name || "This world";
   if (!place) return "";
   return place.local
     ? `${name} will be lost, with ${avatar.name}'s level and quest there. There is no way back to it.`
-    : `${name} keeps ${avatar.name}'s things.`;
+    : `${avatar.name}'s level goes with ${avatar.name}. ${avatar.name}'s things and quests stay in ${name}, and the seat there opens for someone else.`;
 }
 
 // A shared world this avatar can go to: one this person holds no avatar in,
@@ -284,7 +284,7 @@ export function installAvatarMenu({
     return twoTap(
       "Release",
       `Release ${avatar.name} from ${name}?`,
-      `${avatar.name}'s level and things in ${name} are lost, and anyone may take ${avatar.name} there.`,
+      `${avatar.name} keeps their level. Their things and quests stay in ${name}, and anyone may take ${avatar.name} there.`,
       async () => {
         await reset(place.shared, avatar.id);
         if (current) goOn(avatar, places, avatar.id);
