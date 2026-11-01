@@ -207,7 +207,8 @@ try {
       assert.equal(await pond.getAttribute("aria-pressed"), "false");
       assert.equal(await pond.getAttribute("data-unrevealed"), "false");
       assert.equal(await pond.getAttribute("data-revealing"), "common");
-      assert.equal(await pond.evaluate((el) => getComputedStyle(el, "::after").content), '"New card"');
+      // A new card only glows; it carries no text badge.
+      assert.equal(await pond.evaluate((el) => getComputedStyle(el, "::after").content), "none");
       const lid = await pond.locator(".reveal-lid").evaluate((el) => ({
         motion: el.getAnimations()[0].effect.getKeyframes()[0].transform ?? "fade",
         fit: getComputedStyle(el).objectFit,

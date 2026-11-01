@@ -4,6 +4,7 @@ import { packMediaFiles } from "./pack-registry.mjs";
 import imageVariants from "./image-variants.json" with { type: "json" };
 import voiceCast from "./voices.json" with { type: "json" };
 import { daylightAssets } from "./daylight.mjs";
+import { rarityPortraitAssets } from "./rarity-portraits.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
@@ -40,6 +41,8 @@ const files = [
     ["attack", "hit"].map((pose) => `assets/combat/${id}-${pose}.webp`),
   ),
   "rarity.mjs",
+  "rarity-portraits.mjs",
+  ...rarityPortraitAssets,
   "quest-card.mjs",
   "card-tiers.css",
   "card-reveal.mjs",
@@ -176,7 +179,6 @@ const files = [
   "weather.css",
   "portrait-facing.mjs",
   "cards.mjs",
-  "observe-words.mjs",
   "lessons.mjs",
   "motives.mjs",
   "life.mjs",

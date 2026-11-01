@@ -12,7 +12,8 @@ describe("card level presentation", () => {
     [10, 19, "uncommon", "#8cdcff"],
     [20, 29, "rare", "#be82ff"],
     [30, 49, "epic", "#ffc85a"],
-    [50, 144, "legendary", "#fff082"],
+    [50, 99, "legendary", "#fff082"],
+    [100, 144, "mythic", "#ff9ce6"],
   ])(
     "keeps levels %i through %i in one Signal colour",
     (from, to, id, color) => {
@@ -33,7 +34,7 @@ describe("card level presentation", () => {
     expect(cardLevel(world, "attic")).toBe(1);
     world.actors.vale.xp = 5050;
     expect(cardLevel(world, "vale")).toBe(101);
-    expect(levelTier(cardLevel(world, "vale")).id).toBe("legendary");
+    expect(levelTier(cardLevel(world, "vale")).id).toBe("mythic");
     expect(world.actors.vale.xp).toBe(5050);
   });
 

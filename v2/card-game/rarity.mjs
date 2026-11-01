@@ -1,6 +1,6 @@
 export { levelOf as cardLevel } from "./want.mjs";
 
-// Signal's canonical palette: cenetex/signal@815ad69/shared/mining.h.
+// The first five tiers use Signal's palette: cenetex/signal@815ad69/shared/mining.h.
 // Fixed level bands keep a card's colour independent of population or discovery.
 const tiers = [
   [0, "Common", "#c8dce6"],
@@ -8,6 +8,7 @@ const tiers = [
   [20, "Rare", "#be82ff"],
   [30, "Epic", "#ffc85a"],
   [50, "Legendary", "#fff082"],
+  [100, "Mythic", "#ff9ce6"],
 ].map(([minLevel, label, color]) => ({
   id: label.toLowerCase(),
   label,

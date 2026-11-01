@@ -508,7 +508,9 @@ export function renderSharedQueue(
     const canWithdraw =
       entry.actor === state.actor && entry.status === "waiting";
     const returnsLive = entry.actor === liveActor && needsLive && onLive;
-    const label = `${avatarName(entry.actor)} · ${entry.status === "waiting" ? "next" : entry.status === "working" ? "playing" : "reading"}`;
+    // Other players' plays are private until they resolve: name the player
+    // and what the table is doing with it, never the play itself.
+    const label = `${avatarName(entry.actor)} is ${entry.status === "waiting" ? "thinking" : entry.status === "working" ? "playing" : "reading"}…`;
     const face = returnsLive
       ? button("", onLive)
       : canWithdraw

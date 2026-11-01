@@ -1,8 +1,10 @@
 // Native directions in the painted files. Stage positions supply the intended
 // gaze; the browser combines that gaze with this art metadata for its transform.
 // Keep this module in the presentation layer so saved rule bundles stay stable.
+import { rarityForms, rarityPortraitAssets } from "./rarity-portraits.mjs";
 const groups = {
   right: [
+    ...rarityPortraitAssets.filter((file) => file.startsWith("assets/combat/")),
     "assets/boardyai/boardyai.png",
     ...["rati", "skull", "whiskerwind"].map(
       (name) => `assets/lonely-forest/${name}.png`,
@@ -21,6 +23,9 @@ const groups = {
     ),
   ],
   left: [
+    ...Object.values(rarityForms)
+      .filter((form) => form.facing === "left")
+      .map((form) => form.portrait),
     ...["swede", "swede-listening", "swede-worried", "swede-seated"].map(
       (name) => `assets/willows/${name}.webp`,
     ),
@@ -64,6 +69,9 @@ const groups = {
     ].map((name) => `assets/greek-drama/open-door-${name}.webp`),
   ],
   front: [
+    ...Object.values(rarityForms)
+      .filter((form) => form.facing === "front")
+      .map((form) => form.portrait),
     "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
     "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",
     "assets/hoppycat-archive/hoppycat-rill-current-cutout.png",

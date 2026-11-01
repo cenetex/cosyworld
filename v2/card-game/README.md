@@ -151,6 +151,17 @@ facts from earlier releases keep their names; player-facing text says quest.
   anyone known, or what they hold, will do, reachable or not. A new world
   draws one for every avatar without an authored `want`; a quest left empty
   by an older rule set or a pack mounted later is drawn after a short rest.
+- **Level quest.** The quest is the threshold (#1583). A player's
+  experience still rises with every quest met, but its level (`actor.level`)
+  rises only through a level quest. Waking from a long rest at a sanctuary
+  with experience enough for the next level brings that quest in the dream:
+  the scene tells the model the quest as a fact, and the quest card shows it
+  in place of the ordinary quest. The quest for level n has F(n) steps
+  (1, 1, 2, 3, 5 ...), each drawn from the whole known world among the half
+  furthest from home; the last step raises the level and ordinary quests
+  resume. A step with no way forward becomes another of the same level. Drop
+  quest (a `drop` play with no item) gives it up for half the experience;
+  the level stays. Residents level on experience alone.
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
   who learn the roads keep to the routes they know), then ask, trade their
   least valued spare, and threaten when bold enough by resentment, level or
@@ -206,15 +217,16 @@ Arrival starts the hand at the new current place. Selection keeps its scroll pos
 On wide screens, the resting hand occupies two card widths at the right. Dialogue
 sits at the left. Selecting a card opens the hand across the screen and moves
 dialogue above it. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, cards fade out at an edge that hides more of the hand, and a sideways swipe stays inside the hand.
-Play stays available during an exchange. A waiting play shows **Queued** and
-the notice names what it waits for: an earlier play, the arrival, the cards or
-an open menu. In a local game tapping it again cancels it. Selecting another
+Play stays available during an exchange. A play that has not resolved shows
+what the avatar is doing, as a rules caption from its kind: the button reads
+**Waiting…**, **Attacking…** or **Travelling…** and the notice
+**Vale is waiting…**. In a local game tapping it again cancels it. Selecting another
 card clears the waiting play. Shared play waits for the player's current turn
 to finish, then checks the chosen action against the current table before
 sending it. There a second tap keeps the play; **Cancel play** withdraws it.
-The notice follows the player's own shared play: **Sending**, **Sent** while it
-waits for the round, **Playing**, a short **Played**, or **Not played** with the
-server's reason. A refusal stays until the next play and does not return on
+The notice follows the player's own shared play: the same **Vale is waiting…**
+line while it is sent and played, a short **Played**, or **Not played** with
+the server's reason. A refusal stays until the next play and does not return on
 reload.
 Selection, cancellation,
 drag pairing and keyboard navigation spend no turn; only a committed play does.
@@ -235,6 +247,7 @@ game's opening cards, such as Vale, the lamp and the attic, start covered too, a
 do a new visitor's first cards in a shared world; a table this browser already
 knows keeps the cards its player has uncovered. The first tap uncovers a card
 without selecting it or spending a turn; subsequent taps select it normally.
+An uncovered new card glows in its tier colour and carries no text badge.
 Covered cards cannot be dragged or paired. Each browser remembers which cards
 are still covered, including after a reload.
 
@@ -532,13 +545,9 @@ turn and moves nothing. It records `accepted: false` and one reason: `grudge`,
 `needs-it` or `wants-something-else`. Ask and Accompany refusals commit the
 same codes. The log says only that the other side declines; the narrator brief
 passes the code to the cast, so the refuser's own line says why. Plans carry no
-reason text, and a player's Observe is an ordinary `wait` action entry. The
+reason text, and a player's Wait is an ordinary `wait` action entry. The
 residents' planner reads `expects(s, action)` to skip some offers it expects
 to be refused.
-
-Observe keeps the rules verb id `wait`. The journal, released rule bundles
-and saves still commit "Vale waits one turn."; `observe-words.mjs` shows it
-as "Vale observes." on the table and in the narrator brief.
 
 Accompany requests use the companion's quest, the items carried by the requester, favours, and grievances. An agreed trip moves both avatars and their belongings through the usual rules. A refusal leaves both in place for that exchange. The other cast member takes its own turn.
 
@@ -571,7 +580,7 @@ estimate before the play, the observed result, and the exact event as evidence.
 The first estimate is unknown. Later estimates come from that avatar's results.
 
 The action chooser compares those results across legal requests, trades, gifts,
-conversations and observing. It gives less-tried approaches room to establish a
+conversations and waits. It gives less-tried approaches room to establish a
 record. Recent results matter more. A changed situation gets fresh exploration,
 with earlier results providing a small starting estimate. The same present
 world can therefore produce different choices for avatars with different past
@@ -586,7 +595,7 @@ later result with a 0.7 discount per step. A changed recorded situation or a
 completed goal ends that link. Human choices and resident choices use the same
 measurement path. Earlier lessons remain readable in existing saves.
 
-Solo and shared avatars reflect when they choose **Observe** after something
+Solo and shared avatars reflect when they choose **Wait** after something
 new has happened to them. Other plays never start a reflection. A new thought
 informs the persona revision. A dream may come with the thought, alongside the
 persona. Each accepted revision keeps its source events, previous persona and
@@ -706,7 +715,7 @@ When the loser is the current player, the entry also sets `world.arrival`. A los
 
 ### Seeing a fight
 
-A standoff play is shown beat by beat before the new world is drawn. Each beat opens with a telegraph above the actor (a warning sign for Threaten, a shield for Guard, crossed blades for Attack) and a stage caption such as "Pip lunges at Vale…". The stage pushes in and dims. An attacker lunges, the target holds for a short hit-stop, recoils, shakes once and brightens once (no red). Resolve pips under each fighter drain with a lagging ghost, an outcome word ("−2 resolve", "Guarded −1", "Yields") rises over the target, and the step joins the beat stack and Memory as that fighter's beat. Fighters in an open standoff keep their pips between plays.
+A standoff play is shown beat by beat before the new world is drawn. Each beat opens with a telegraph above the actor (a warning sign for Threaten, a shield for Guard, crossed blades for Attack) and a stage caption such as "Pip lunges at Vale…". The stage pushes in and dims. An attacker lunges, the target holds for a short hit-stop, recoils, shakes once and brightens once (no red). Resolve pips under each fighter drain with a lagging ghost, an outcome word ("−2 resolve", "Guarded −1", "Yields") rises over the target, and the step joins the beat stack and Memory as that fighter's beat. Fighters in an open standoff keep their pips between plays. The hand drops to a sliver the moment the strikes or the travel screen begin, cannot be tapped while down, and rises once the new scene is drawn. In shared play another player's strike or move drops it only while those beats lock the hand anyway. Reduced motion lowers and raises it without the slide.
 
 Published Guard, attack and hit paintings follow those beats and preserve the player's plain or scarf wardrobe. A committed guard keeps its raised-arm portrait until consumed or cleared. Beat images preload before playback; unavailable art keeps the existing portrait. The Keeper uses his unmirrored right-facing neutral portrait when the scene faces him right, since his combat paintings face left. Combatants fit inside the phone frame throughout a beat; Pip and the Keeper keep that framing between plays too. Carried props stay in their cards while combat arms are raised, and the normal portrait and framing return when playback ends or is cancelled.
 
@@ -716,7 +725,7 @@ Tapping the stage finishes the current beat; its outcome text still shows. Setti
 
 Run `node v2/scripts/smoke-card-combat.mjs` for a lost standoff at desktop, phone and reduced motion.
 
-Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand and action row open together over 220 milliseconds; held items slide out from their owner. A play in the same place refreshes the cards as the hand lowers, with each name moving into its resting position. Travel changes the hand under the scene veil. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Memory keep the selected cards and open items, and Escape closes the active panel before lowering the hand. Only a click outside the card area (the stage, not the dialogue, toolbar or action row), Escape, or a play folds the hand to its resting row. Selecting, changing the pair and deselecting keep it open, as do the scroll arrows and empty hand space. A held item stays raised with its plays, and any tap on the folded hand opens it again. Short landscape screens keep the hand inside the viewport.
+Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand and action row open together over 220 milliseconds; held items slide out from their owner. A play in the same place refreshes the cards as the hand lowers, with each name moving into its resting position. Travel changes the hand under the scene veil. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Memory keep the selected cards and open items, and Escape closes the active panel before lowering the hand. Only a click outside the card area (the stage or the dialogue's beats, not the toolbar or action row), Escape, or a play folds the hand to its resting row. A click outside keeps the selection and any chosen play; the next tap on the hand only raises it again as it was. A tap on the beats while the hand is up folds the hand without stepping the beat. Selecting, changing the pair and deselecting keep it open, as do the scroll arrows and empty hand space. A held item stays raised with its plays, and any tap on the folded hand opens it again. Short landscape screens keep the hand inside the viewport.
 
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
 
@@ -782,7 +791,7 @@ with their own calls. The only authored identity is one seed sentence, such as
 possessions, travel, wants and relationships come from the resolved simulation,
 and the rest of who an avatar is grows in its inner life.
 
-An avatar reflects when it chooses Observe after a new witnessed event; the scene
+An avatar reflects when it chooses Wait after a new witnessed event; the scene
 names that avatar as `resting`. A reflection supplies a thought and an evolved
 persona. The thought and persona prompts also carry the avatar's hope, its wish
 and next step, from the life rules. Sleeping and waking state still comes from

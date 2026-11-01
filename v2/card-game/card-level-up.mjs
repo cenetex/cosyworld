@@ -24,6 +24,61 @@ const rest = "0 6px 20px #0006";
 const shine = (color, size) =>
   `0 0 0 1px ${color}cc, 0 0 ${size}px ${color}99, ${rest}`;
 
+// The old form stays visible until both pictures are decoded. Loading a save
+// never calls this: the renderer asks only after observing a tier crossing.
+export function transformPortrait(
+  image,
+  previous,
+  { reduced = reduceMotion(), frame = null } = {},
+) {
+  const source = image?.getAttribute("src");
+  if (!image || !previous || previous === source || reduced)
+    return Promise.resolve(false);
+  const old = image.cloneNode(false),
+    motions = [];
+  old.src = previous;
+  frame?.(old);
+  old.removeAttribute("id");
+  old.removeAttribute("data-source");
+  old.setAttribute("aria-hidden", "true");
+  old.classList.add("portrait-transforming");
+  old.style.pointerEvents = "none";
+  if (getComputedStyle(image).position === "static")
+    Object.assign(old.style, { position: "absolute", inset: "0" });
+  image.after(old);
+  image.style.opacity = "0";
+  return Promise.all([image.decode(), old.decode()])
+    .then(async () => {
+      if (!image.isConnected || image.getAttribute("src") !== source)
+        return false;
+      image.style.opacity = "";
+      for (const [element, from, to] of [
+        [image, 0, 1],
+        [old, 1, 0],
+      ])
+        motions.push(
+          element.animate(
+            [
+              { opacity: from },
+              { opacity: from, offset: 0.25 },
+              { opacity: to, offset: 0.75 },
+              { opacity: to },
+            ],
+            { duration: LEVEL_UP_MS, easing: "ease-in-out", fill: "both" },
+          ),
+        );
+      await Promise.allSettled(motions.map((motion) => motion.finished));
+      return true;
+    })
+    .catch(() => false)
+    .finally(() => {
+      for (const motion of motions) motion.cancel();
+      image.style.opacity = "";
+      old.remove();
+      old.removeAttribute("src");
+    });
+}
+
 // A met quest card swells once in its own tier colour before the next
 // quest takes its place. Resolves at rest; reduced motion skips it.
 export function glowCard(button, color, options = {}) {
@@ -49,6 +104,12 @@ export function levelUpCard(button, from, options = {}) {
     reduced: options.reduced ?? reduceMotion(),
   });
   if (!plan) return Promise.resolve(false);
+  if (options.previousPortrait)
+    void transformPortrait(
+      button.querySelector(".art > img"),
+      options.previousPortrait,
+      options,
+    );
   const { ms, from: a, to: b, glow } = plan;
   const ease = "cubic-bezier(.3,.6,.3,1)";
   const resting = button.dataset.selected === "true" ? 0.6 : 0;
