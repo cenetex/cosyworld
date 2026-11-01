@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  afterDelete,
   joinable,
   leaveNote,
   worldSeats,
 } from "../v2/card-game/avatar-menu.mjs";
 import { humanAvatars } from "../v2/card-game/human-cast.mjs";
+import { avatarSlot, deleteLocal } from "../v2/card-game/avatar-world.mjs";
 
 const mara = { id: "mara", name: "Mara" };
 
@@ -85,5 +87,36 @@ describe("the Table (#1825)", () => {
   it("shows no Table outside a shared seat", () => {
     expect(worldSeats(null)).toEqual([]);
     expect(worldSeats({ ...state, actor: null })).toEqual([]);
+  });
+});
+
+describe("Delete world (owner bug 2026-11-01)", () => {
+  const storage = (entries) => {
+    const map = new Map(Object.entries(entries));
+    return {
+      getItem: (key) => (map.has(key) ? map.get(key) : null),
+      removeItem: (key) => map.delete(key),
+      keys: () => [...map.keys()],
+    };
+  };
+  it("removes the world and its backup, and only that avatar's", () => {
+    const slot = avatarSlot("mara");
+    const kept = avatarSlot("ash");
+    const store = storage({
+      [slot]: "a",
+      [`${slot}.bak`]: "b",
+      [kept]: "c",
+    });
+    deleteLocal("mara", store);
+    expect(store.keys()).toEqual([kept]);
+  });
+  it("starts the world being played afresh for the same avatar", () => {
+    expect(afterDelete(mara, true)).toBe("/?avatar=mara");
+    expect(afterDelete({ id: "vale", name: "Vale" }, true)).toBe(
+      "/?avatar=vale",
+    );
+  });
+  it("stays in the menu when another avatar's world is deleted", () => {
+    expect(afterDelete(mara, false)).toBe(null);
   });
 });

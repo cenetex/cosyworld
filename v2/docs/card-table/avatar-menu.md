@@ -92,8 +92,11 @@ Tapping a row opens its actions:
   lost, and anyone may take Mara there." The second tap resets Mara there.
 - **Delete world** removes a local world's save and its backup. The button
   turns red on the first tap ("Delete *Hollowmere* and its progress?") and
-  deletes on the second. The avatar is then not in a world; if it was the one
-  being played, the table opens the next avatar's world, or a fresh one.
+  deletes on the second. The avatar is then not in a world. Deleting another
+  avatar's world only removes it from the menu. Deleting the world being
+  played stops its saves and opens a fresh world for the same avatar, as New
+  game does, never another avatar's world (owner bug, 2026-11-01).
+  `v2/scripts/smoke-card-delete-world.mjs` checks both.
 - **New world** starts a local world for that avatar.
 - **Join** lists named worlds you own or were invited to that have room, and
   worlds where this person returns as that avatar.

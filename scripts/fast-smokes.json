@@ -35,6 +35,10 @@
     {
       "paths": "^v2/card-game/toolbar",
       "smokes": ["smoke-card-toolbar"]
+    },
+    {
+      "paths": "^v2/card-game/(avatar-menu|avatar-world)",
+      "smokes": ["smoke-card-delete-world", "smoke-card-toolbar"]
     }
   ]
 }

@@ -104,7 +104,20 @@ export function worldSeats(state) {
   return byInitial(seats);
 }
 
-export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
+// Where Delete world leaves the player (#1793, owner bug 2026-11-01): the
+// world being played gives way to a fresh one for the same avatar, as New
+// game does, never another avatar's world, which may be a shared world that
+// does not open. Deleting another world stays in the menu.
+export const afterDelete = (avatar, current) =>
+  current ? localLink(avatar.id) : null;
+
+export function installAvatarMenu({
+  menu,
+  session,
+  getWorld,
+  allowShared,
+  stopSaving = () => {},
+}) {
   const list = el("ul", "avatar-list");
   list.setAttribute("aria-label", "Your avatars");
   const status = el("p", "avatar-status");
@@ -231,8 +244,12 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
         button.textContent = `Delete ${place.name || "this world"} and its progress?`;
         return;
       }
+      // The world being played stops saving first, so nothing writes it
+      // back before the page leaves.
+      if (current) stopSaving();
       deleteLocal(avatar.id);
-      if (current) return goOn(avatar, places, avatar.id);
+      const next = afterDelete(avatar, current);
+      if (next) return location.replace(next);
       status.textContent = `${place.name || "The world"} is gone.`;
       render();
     });
