@@ -902,5 +902,14 @@ export function upgradeGreekThebesSave(s) {
     (e) =>
       !(e.packId === pack.id && THEBAN_RETIRED_CHOICES.includes(e.choiceId)),
   );
+  // Meeting the guard now tells the decree, so its account no longer names a
+  // Talk choice. A told account follows its topic's current choice (#1755).
+  for (const fact of Object.values(s.knowledge?.facts || {})) {
+    const told = fact?.source?.kind === "topic" && fact.source.topic;
+    const topic =
+      told?.packId === pack.id &&
+      (pack.topics || []).find((t) => t.id === told.id);
+    if (topic) told.choiceId = topic.choiceId ?? null;
+  }
   saved.revision = 11;
 }

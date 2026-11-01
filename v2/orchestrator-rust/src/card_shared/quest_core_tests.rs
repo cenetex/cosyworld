@@ -195,9 +195,12 @@ fn quest_core_talk_disclosure_retries_the_original_scene_and_replays_accepted_le
     assert!(interrupted.game["knowledge"]["known"]["vale"]
         .get("greek-hear-decree")
         .is_none());
-    assert!(interrupted.game["packs"]["greek-drama"]["receipts"]
-        .get("greek-hear-decree")
-        .is_none());
+    // Meeting the guard tells the decree as the Talk is played (Greek
+    // revision 11); only the heard fact waits for the published speech.
+    assert_eq!(
+        interrupted.game["packs"]["greek-drama"]["receipts"]["greek-hear-decree"],
+        played_turn
+    );
     full::finish_work(&app, &id, work, Err("The voice needs another try.".into())).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), interrupted);
     full::run(

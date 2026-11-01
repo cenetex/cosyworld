@@ -144,6 +144,9 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                         // The Lonely Forest: the Wolfprint Charm and eight
                         // buttons and scarves.
                         + 17
+                        // Greek revision 11: the Burial Account, Creon's Writ
+                        // and the Guard's Tablet.
+                        + 3
                         + if version == engine::ELEVENTH_VERSION {
                             9
                         } else {

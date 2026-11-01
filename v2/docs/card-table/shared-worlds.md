@@ -481,3 +481,7 @@ retired crossing closes even where the save had found it, so Black pond no
 longer leads to the Halfway Tea Garden. Loading an earlier world records an
 upgrade to version 63; versions 2 through 62 keep their released bytes. A save
 that still cannot be read gives the New game message, never a script error.
+
+Shared rules version 69 keeps Greek revision 10 saves whose guard told the
+decree through Talk. Revision 11 tells the decree on meeting, so the saved
+account no longer names a Talk choice; the upgrade lets it follow its topic.
