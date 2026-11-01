@@ -351,6 +351,7 @@
   "items": {
     "hoppycat-red-thread-spool": {
       "name": "Red-Thread Spool",
+      "startLevel": 50,
       "text": "A warm spool left on the empty station's bench, its loose thread trailing toward the pond. It catches only on relationships someone has chosen to carry forward.",
       "persona": "A warm spool left on the empty station's bench, its loose thread trailing past the pond toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
       "holder": "station",
@@ -374,6 +375,7 @@
     },
     "hoppycat-unfinished-prism": {
       "name": "Unfinished Prism",
+      "startLevel": 10,
       "text": "A many-sided glass beginning whose final facet must be chosen by the person whose light passes through it.",
       "persona": "A many-sided glass beginning whose final facet must be chosen by the person whose light passes through it.",
       "holder": "hoppycat-prism-foundry",
@@ -381,6 +383,7 @@
     },
     "hoppycat-context-seed": {
       "name": "Context Seed",
+      "startLevel": 10,
       "text": "A labeled grain containing one useful memory and no claim to contain the whole past.",
       "persona": "A labeled grain containing one useful memory and no claim to contain the whole past.",
       "holder": "hoppycat-open-record-cathedral",
@@ -388,6 +391,7 @@
     },
     "hoppycat-concordance-compass": {
       "name": "Concordance Compass",
+      "startLevel": 20,
       "text": "Its needles point separately toward source custody, event evidence, and the nearest declared interpretation.",
       "persona": "Its needles point separately toward source custody, event evidence, and the nearest declared interpretation.",
       "holder": "hoppycat-concordance-tidelands",
@@ -395,6 +399,7 @@
     },
     "hoppycat-meraki-brush": {
       "name": "Five-Finger Meraki Brush",
+      "startLevel": 20,
       "text": "A soft brush split into five imperfect tips, made for leaving attention visible in the final image.",
       "persona": "A soft brush split into five imperfect tips, made for leaving attention visible in the final image.",
       "holder": "hoppycat-meraki-atelier",
@@ -402,6 +407,7 @@
     },
     "hoppycat-loop-token": {
       "name": "Goldfish Loop Token",
+      "startLevel": 10,
       "text": "A brass ring stamped DREAM, ACHIEVE, and REPEAT, with the last word pointing back to the first.",
       "persona": "A brass ring stamped DREAM, ACHIEVE, and REPEAT, with the last word pointing back to the first.",
       "holder": "hoppycat-goldfish-tank",
@@ -409,6 +415,7 @@
     },
     "hoppycat-fermata-clapper": {
       "name": "Fermata Clapper",
+      "startLevel": 30,
       "text": "The missing heart of the February Third bell. It remains silent whenever its holder asks for time.",
       "persona": "The missing heart of the February Third bell. It remains silent whenever its holder asks for time.",
       "holder": "hoppycat-settled-light-theatre",

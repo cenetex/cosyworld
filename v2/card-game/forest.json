@@ -108,11 +108,13 @@
   "things": {
     "lamp": {
       "name": "Lamp",
+      "startLevel": 50,
       "text": "An oil lamp with soot-darkened glass. Burns one fuel each turn, even under a cloth.",
       "valueRules": [{ "when": [{ "item": "lamp", "field": "fuel", "max": 0 }], "add": -5 }]
     },
     "oil": {
       "name": "Oil flask",
+      "startLevel": 10,
       "text": "Fills an empty lamp to twelve on its own when one hand holds both. Then it waits full again at the station.",
       "refuels": "lamp",
       "returnsTo": "station",
@@ -122,14 +124,17 @@
     },
     "bell": {
       "name": "Bell",
+      "startLevel": 20,
       "text": "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound."
     },
     "cloth": {
       "name": "Black cloth",
+      "startLevel": 20,
       "text": "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object."
     },
     "world-map": {
       "name": "Map of the Wood and the Wine-Dark Sea",
+      "startLevel": 30,
       "text": "A folded paper map, inked and washed in watercolour. The pond sits at its middle. Mist covers the edges.",
       "art": "assets/shared/items/world-map.webp",
       "view": "assets/shared/items/world-map-full.webp"

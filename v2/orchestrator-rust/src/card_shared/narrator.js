@@ -380,11 +380,13 @@
     things: {
       lamp: {
         name: "Lamp",
+        startLevel: 50,
         text: "An oil lamp with soot-darkened glass. Burns one fuel each turn, even under a cloth.",
         valueRules: [{ when: [{ item: "lamp", field: "fuel", max: 0 }], add: -5 }]
       },
       oil: {
         name: "Oil flask",
+        startLevel: 10,
         text: "Fills an empty lamp to twelve on its own when one hand holds both. Then it waits full again at the station.",
         refuels: "lamp",
         returnsTo: "station",
@@ -394,14 +396,17 @@
       },
       bell: {
         name: "Bell",
+        startLevel: 20,
         text: "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound."
       },
       cloth: {
         name: "Black cloth",
+        startLevel: 20,
         text: "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object."
       },
       "world-map": {
         name: "Map of the Wood and the Wine-Dark Sea",
+        startLevel: 30,
         text: "A folded paper map, inked and washed in watercolour. The pond sits at its middle. Mist covers the edges.",
         art: "assets/shared/items/world-map.webp",
         view: "assets/shared/items/world-map-full.webp"
@@ -3327,6 +3332,7 @@
           },
           "greek-shovel": {
             name: "Burial Shovel",
+            startLevel: 10,
             text: "A short iron shovel with soil caught beneath the blade.",
             holder: "greek-gate",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
@@ -3334,6 +3340,7 @@
           },
           "greek-decree": {
             name: "The Burial Decree",
+            startLevel: 50,
             text: "A public copy forbids burial of the brother left outside the city.",
             holder: "greek-palace",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
@@ -3355,6 +3362,7 @@
           },
           "greek-olive-branch": {
             name: "The Suppliant\u2019s Olive Branch",
+            startLevel: 30,
             text: "An olive branch bound with white wool, given at the Agora when the mothers\u2019 plea is registered. Ships sail between Piraeus and Athens Harbor while it is aboard.",
             holder: "greek-athens",
             art: "assets/greek-drama/olive-branch.webp",
@@ -3369,6 +3377,7 @@
           },
           "greek-egypt-testimony": {
             name: "The Egyptian Witness Tablet",
+            startLevel: 10,
             text: "The account records Helen's stay in Egypt and distinguishes her from the phantom sent to Troy.",
             holder: "greek-egypt-tomb",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
@@ -3439,6 +3448,7 @@
           },
           "greek-burial-petition": {
             name: "The Mothers\u2019 Petition",
+            startLevel: 20,
             text: "An olive branch lies across a tablet bearing the mothers\u2019 request. Aethra has left room for the city\u2019s answer.",
             holder: "greek-eleusis",
             art: "assets/greek-drama/burial-petition.png",
@@ -3486,6 +3496,7 @@
           },
           "greek-ash-urn": {
             name: "The Funeral Urn",
+            startLevel: 10,
             text: "A covered urn holds ashes entrusted to the mothers after the recorded recovery and funeral. Its clay is cool.",
             holder: "greek-eleusis",
             art: "assets/greek-drama/ash-urn.png",
@@ -3585,6 +3596,7 @@
           },
           "greek-ajax-shield": {
             name: "Ajax\u2019s Shield",
+            startLevel: 20,
             text: "Ajax\u2019s shield waits to be carried to Tecmessa\u2019s household for Eurysaces.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
@@ -10196,6 +10208,7 @@
         items: {
           "hoppycat-red-thread-spool": {
             name: "Red-Thread Spool",
+            startLevel: 50,
             text: "A warm spool left on the empty station's bench, its loose thread trailing toward the pond. It catches only on relationships someone has chosen to carry forward.",
             persona: "A warm spool left on the empty station's bench, its loose thread trailing past the pond toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
             holder: "station",
@@ -10233,6 +10246,7 @@
           },
           "hoppycat-unfinished-prism": {
             name: "Unfinished Prism",
+            startLevel: 10,
             text: "A many-sided glass beginning whose final facet must be chosen by the person whose light passes through it.",
             persona: "A many-sided glass beginning whose final facet must be chosen by the person whose light passes through it.",
             holder: "hoppycat-prism-foundry",
@@ -10240,6 +10254,7 @@
           },
           "hoppycat-context-seed": {
             name: "Context Seed",
+            startLevel: 10,
             text: "A labeled grain containing one useful memory and no claim to contain the whole past.",
             persona: "A labeled grain containing one useful memory and no claim to contain the whole past.",
             holder: "hoppycat-open-record-cathedral",
@@ -10247,6 +10262,7 @@
           },
           "hoppycat-concordance-compass": {
             name: "Concordance Compass",
+            startLevel: 20,
             text: "Its needles point separately toward source custody, event evidence, and the nearest declared interpretation.",
             persona: "Its needles point separately toward source custody, event evidence, and the nearest declared interpretation.",
             holder: "hoppycat-concordance-tidelands",
@@ -10254,6 +10270,7 @@
           },
           "hoppycat-meraki-brush": {
             name: "Five-Finger Meraki Brush",
+            startLevel: 20,
             text: "A soft brush split into five imperfect tips, made for leaving attention visible in the final image.",
             persona: "A soft brush split into five imperfect tips, made for leaving attention visible in the final image.",
             holder: "hoppycat-meraki-atelier",
@@ -10261,6 +10278,7 @@
           },
           "hoppycat-loop-token": {
             name: "Goldfish Loop Token",
+            startLevel: 10,
             text: "A brass ring stamped DREAM, ACHIEVE, and REPEAT, with the last word pointing back to the first.",
             persona: "A brass ring stamped DREAM, ACHIEVE, and REPEAT, with the last word pointing back to the first.",
             holder: "hoppycat-goldfish-tank",
@@ -10268,6 +10286,7 @@
           },
           "hoppycat-fermata-clapper": {
             name: "Fermata Clapper",
+            startLevel: 30,
             text: "The missing heart of the February Third bell. It remains silent whenever its holder asks for time.",
             persona: "The missing heart of the February Third bell. It remains silent whenever its holder asks for time.",
             holder: "hoppycat-settled-light-theatre",
@@ -11408,6 +11427,7 @@
         items: {
           "willows-paddle": {
             name: "Worn Paddle",
+            startLevel: 20,
             text: "One wooden paddle remains beside the canoe. Its blade has been scraped strangely thin.",
             persona: "A long wooden canoe paddle with a blade scraped strangely thin. Part of the Swede's kit; it belongs at the camp.",
             holder: "willows-bank",
@@ -11415,6 +11435,7 @@
           },
           "willows-map": {
             name: "River Map",
+            startLevel: 30,
             text: "A creased Danube map. In the margin, in pencil: unwritten warnings to trespassers.",
             persona: "A creased paper river map of the Danube below Pressburg. A pencilled note runs down its margin.",
             holder: "willows-camp",
@@ -11422,6 +11443,7 @@
           },
           "willows-rope": {
             name: "Tent Rope",
+            startLevel: 10,
             text: "A spare coil of hemp rope from the Swede's tent.",
             persona: "A spare coil of sound hemp rope. Part of the Swede's kit; it belongs at the camp.",
             holder: "willows-bank",
@@ -11436,6 +11458,7 @@
           },
           "willows-provisions": {
             name: "Food Sack",
+            startLevel: 10,
             text: "A canvas sack holds oatmeal, potatoes, onions and tea. Its tied mouth smells faintly of smoke.",
             persona: "A canvas food sack holding oatmeal, potatoes, onions and tea. Part of the Swede's kit; it belongs at the camp.",
             holder: "willows-landing",
@@ -11443,6 +11466,7 @@
           },
           "willows-pot": {
             name: "Stew Pot",
+            startLevel: 20,
             text: "An iron stew pot. Scratched inside the lid: There is no bread.",
             persona: "A small black iron stew pot from the camp. Words are scratched inside its lid.",
             holder: "willows-camp",
@@ -11450,6 +11474,7 @@
           },
           "willows-spoon": {
             name: "Wooden Spoon",
+            startLevel: 10,
             text: "A long wooden spoon. Burnt into the handle: a kingdom of wonder and magic.",
             persona: "A plain wooden cooking spoon. Words are burnt into its smoke-darkened handle.",
             holder: "willows-camp",
@@ -11457,6 +11482,7 @@
           },
           "willows-pipe": {
             name: "The Swede's Pipe",
+            startLevel: 50,
             text: "The Swede's worn briar pipe. Scratched around the bowl: It's their sound.",
             persona: "The Swede's well-used briar pipe. Words are scratched around its bowl.",
             holder: "willows-swede",
@@ -12005,6 +12031,7 @@
         items: {
           "forest-wolfprint-charm": {
             name: "Wolfprint Charm",
+            startLevel: 30,
             text: "A cool iron charm bears a careful pawprint.",
             persona: "A cool iron charm bears a careful pawprint.",
             holder: "forest-trail",
@@ -12012,6 +12039,7 @@
           },
           "forest-button-vale": {
             name: "Vale's Black Button",
+            startLevel: 10,
             text: "A small black button with four thread holes.",
             persona: "A small black button with four thread holes. It belongs to Vale.",
             holder: "forest-cottage",
@@ -12164,6 +12192,7 @@
           },
           "forest-scarf-vale": {
             name: "Vale's White Scarf",
+            startLevel: 50,
             text: "A soft white knitted scarf fastened with a black button.",
             persona: "A soft white knitted scarf RATi sewed for Vale. Vale's own black button fastens it.",
             holder: "forest-cottage",
@@ -12178,6 +12207,7 @@
           },
           "forest-scarf-mara": {
             name: "Mara's Green Scarf",
+            startLevel: 20,
             text: "A soft green knitted scarf fastened with a red button.",
             persona: "A soft green knitted scarf RATi sewed for Mara. Mara's own red button fastens it.",
             holder: "forest-cottage",
@@ -12192,6 +12222,7 @@
           },
           "forest-scarf-ash": {
             name: "Ash's Blue Scarf",
+            startLevel: 20,
             text: "A soft blue knitted scarf fastened with a orange button.",
             persona: "A soft blue knitted scarf RATi sewed for Ash. Ash's own orange button fastens it.",
             holder: "forest-cottage",
@@ -12206,6 +12237,7 @@
           },
           "forest-scarf-nell": {
             name: "Nell's Violet Scarf",
+            startLevel: 10,
             text: "A soft violet knitted scarf fastened with a yellow button.",
             persona: "A soft violet knitted scarf RATi sewed for Nell. Nell's own yellow button fastens it.",
             holder: "forest-cottage",
@@ -12220,6 +12252,7 @@
           },
           "forest-scarf-tavi": {
             name: "Tavi's Red Scarf",
+            startLevel: 10,
             text: "A soft red knitted scarf fastened with a green button.",
             persona: "A soft red knitted scarf RATi sewed for Tavi. Tavi's own green button fastens it.",
             holder: "forest-cottage",
@@ -14256,8 +14289,20 @@
     }
     for (const [id, i] of Object.entries(items2)) {
       check(
-        keysOk(i, ["name", "text", "persona", "holder", "art", "requires"]) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns2(places2, i.holder) || owns2(avatars, i.holder) || hub2?.places?.includes(i.holder)),
+        keysOk(i, [
+          "name",
+          "text",
+          "persona",
+          "holder",
+          "art",
+          "requires",
+          "startLevel"
+        ]) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns2(places2, i.holder) || owns2(avatars, i.holder) || hub2?.places?.includes(i.holder)),
         `item ${id} is invalid`
+      );
+      check(
+        i.startLevel === void 0 || intOk(i.startLevel, 1, 99),
+        `item ${id} startLevel needs a whole level from 1 to 99`
       );
       media(i.art, `item ${id} art`);
       requirements(i.requires, `item ${id} requires`);

@@ -140,7 +140,10 @@ facts from earlier releases keep their names; player-facing text says quest.
   A pack resident may set `startLevel` (1–99) and begins with that level's
   experience. Each pack starts a few residents at a tier's first level: one
   Legendary (50), one Epic (30), two Rare (20) and three Uncommon (10), as far
-  as its cast allows. Player and human avatars start at level 1.
+  as its cast allows. Player and human avatars start at level 1. An item, in a
+  pack or the hub's `forest.json`, may set the same `startLevel`; its card
+  shows that level and tier with the same numeral and border. Items do not gain
+  levels yet, and an item's level changes no rule.
 - **Next.** The next quest is drawn deterministically from the world, seeded
   by the avatar and turn: items others hold nearby that the avatar values
   above what it carries, reachable places it has not visited, and known people

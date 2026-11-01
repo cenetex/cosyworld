@@ -1,4 +1,12 @@
-export { levelOf as cardLevel } from "./want.mjs";
+import { levelOf } from "./want.mjs";
+import { things } from "./world.mjs";
+
+// An item keeps the level its pack or the hub authors (startLevel, as for
+// avatars); items do not gain levels yet (#1583). Everyone else shows the
+// level their experience gives.
+export const itemLevel = (id) => things[id]?.startLevel || 1;
+export const cardLevel = (world, id) =>
+  Object.hasOwn(things, id) ? itemLevel(id) : levelOf(world, id);
 
 // Signal's canonical palette: cenetex/signal@815ad69/shared/mining.h.
 // Fixed level bands keep a card's colour independent of population or discovery.
