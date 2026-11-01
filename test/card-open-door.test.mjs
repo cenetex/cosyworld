@@ -19,6 +19,7 @@ import {
   OPEN_DOOR_PLACES,
   openDoorJourney,
   openDoorStart,
+  openDoorSteps,
   openDoorWalk,
   playOpenDoor,
 } from "./helpers/open-door.mjs";
@@ -200,9 +201,11 @@ describe("the Open Door", () => {
       expect(state(world).choices["greek-theban-response"]).toBe(branch);
       expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
       world = openDoorWalk(reload(world), "harbor", "athens");
-      expect(exits(world, "greek-athens", "vale")).toEqual(
-        expect.arrayContaining(["greek-road-athens-piraeus", "greek-colonus"]),
-      );
+      // The Long Walls stay shut until the plea's olive branch is in the
+      // Agora; the Sacred Way leads out to the countryside.
+      expect(exits(world, "greek-athens", "vale")).toEqual([
+        "greek-road-athens-eleusis",
+      ]);
       expect(entityActive(world, "greek-thinkery")).toBe(false);
       expect(entityActive(world, "greek-argolid-road")).toBe(false);
       for (let count = 0; count < 3; count++) world = reload(world);
@@ -214,19 +217,22 @@ describe("the Open Door", () => {
   );
 
   it("keeps the five roads open through a return to the Theban table", () => {
+    // Through the plea: the petition rests in the Agora, which keeps the
+    // Sacred Way open, and so does the olive branch for the Long Walls.
     let world = openDoorStart();
+    const steps = openDoorSteps();
+    for (const { kind, ...fields } of steps.slice(
+      0,
+      steps.findIndex((step) => step.kind === "drop") + 1,
+    ))
+      world = playOpenDoor(world, kind, fields);
     world = openDoorWalk(
       world,
-      "harbor",
-      "athens",
-      "piraeus",
-      "athens",
       "colonus",
-      "athens",
+      "marathon",
       "eleusis",
       "athens",
-      "marathon",
-      "athens",
+      "piraeus",
       "harbor",
       "courtyard",
     );
@@ -241,7 +247,7 @@ describe("the Open Door", () => {
     world = openDoorWalk(
       world,
       "harbor",
-      "athens",
+      "piraeus",
       "harbor",
       "courtyard",
       "gate",

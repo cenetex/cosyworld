@@ -193,19 +193,24 @@ describe("local town visits and road history", () => {
         .sort(),
     ).toEqual([
       "greek-cithaeron",
+      "greek-road-athens-eleusis",
       "greek-road-athens-piraeus",
       "greek-road-sacred-way",
     ]);
+    // The Long Walls open from the Agora only with the olive branch there.
     expect(exits(w, "greek-athens", "vale")).toEqual(
-      expect.arrayContaining(["greek-road-athens-piraeus", "greek-colonus"]),
+      expect.arrayContaining(["greek-road-athens-eleusis", "greek-assembly"]),
     );
     expect(exits(w, "greek-colonus", "vale")).toEqual(
-      expect.arrayContaining(["greek-athens", "greek-marathon"]),
+      expect.arrayContaining(["greek-eleusis", "greek-marathon"]),
     );
-    expect(exits(w, "greek-piraeus", "vale")).toContain("greek-eleusis");
+    expect(exits(w, "greek-piraeus", "vale")).toEqual([
+      "greek-road-athens-piraeus",
+    ]);
     expect(roads.map(([id]) => id).sort()).toEqual([
       "greek-cithaeron",
       "greek-oeta",
+      "greek-road-athens-eleusis",
       "greek-road-athens-piraeus",
       "greek-road-black-sea",
       "greek-road-colonists",

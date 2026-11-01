@@ -106,7 +106,8 @@ the Sacred Way joins the Agora and Delphi, the Oeta Road joins Delphi and
 Trachis, the Royal Road joins Troy and Susa, the Black Sea Road joins Thrace and
 Tauris, and the Colonists' Road joins Corinth and Sicily. Troy is reached by
 ship at the Trojan landing. The Greek ship serves Piraeus, the Wine-Dark
-Harbor, Black Pond and the invited Trojan landing.
+Harbor, Black Pond and the invited Trojan landing. Athens is three districts
+joined by two gate roads; see [The Open Door](OPEN-DOOR.md).
 
 A pack retires a place with `retired: true` and one exit, the place that took
 it in. No exit or route leads to it. A save upgrade moves anyone and anything
@@ -176,7 +177,8 @@ Wine-Dark Harbor to Piraeus opens only while the Travel Provisions
 (`greek-provisions`, first at the harbour) are aboard; the way home from
 Piraeus is always open. The herald hands the
 Suppliant's Olive Branch (`greek-olive-branch`) to whoever registers the
-mothers' plea at the Agora.
+mothers' plea at the Agora. While it is in the Agora, the Long Walls open
+from the Agora to Piraeus.
 Its card uses `assets/greek-drama/olive-branch.webp`, the wool-bound branch
 painting documented in [the Argos art handoff](../../card-game/assets/greek-drama/argos-alternates-README.md).
 Piraeus Quays lies outside the Open Door section, so that lane reaches it in

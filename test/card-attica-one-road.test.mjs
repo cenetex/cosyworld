@@ -21,7 +21,6 @@ const cut = [
   "greek-road-athens-colonus",
   "greek-road-colonus-marathon",
   "greek-road-piraeus-eleusis",
-  "greek-road-athens-eleusis",
   "greek-road-athens-marathon",
   "greek-road-colonus-eleusis",
 ];
@@ -95,20 +94,25 @@ describe("one road in Attica", () => {
     expect(pack.sections[0].places).not.toEqual(
       expect.arrayContaining([cut[0]]),
     );
+    // The Eleusis road returned as the Sacred Way between two districts.
+    expect(pack.places["greek-road-athens-eleusis"].retired).toBeUndefined();
     expect(pack.avatars["greek-household-witness"].journey.path).toEqual([
       "greek-eleusis",
+      "greek-road-athens-eleusis",
+      "greek-athens",
+      "greek-road-athens-piraeus",
       "greek-piraeus",
     ]);
   });
 
   it("moves an earlier visit off a cut road and repairs known routes", () => {
     const before = rules25((world) => {
-      world.actors.vale.place = "greek-road-athens-eleusis";
+      world.actors.vale.place = "greek-road-athens-colonus";
       world.actors.mara.place = "greek-road-colonus-marathon";
       world.items.lamp.holder = "greek-road-colonus-eleusis";
       world.routeKnowledge.vale = [
-        ["greek-athens", "greek-road-athens-eleusis"],
-        ["greek-road-athens-eleusis", "greek-eleusis"],
+        ["greek-athens", "greek-road-athens-colonus"],
+        ["greek-road-athens-colonus", "greek-colonus"],
         ["greek-colonus", "greek-road-colonus-marathon"],
         ["greek-road-colonus-marathon", "greek-marathon"],
       ];
@@ -121,20 +125,22 @@ describe("one road in Attica", () => {
     expect(current.log).toEqual(before.log);
     for (const id of cut)
       expect(current.memories[id]).toEqual(before.memories[id]);
-    // Every known step is a live exit or route, and Athens to Eleusis now
-    // passes through Piraeus.
+    // Every known step is a live exit or route, and Athens to Colonus now
+    // passes along the Sacred Way and through Eleusis.
     const authored = new Set(authoredRouteEdges().map((e) => e.join(">")));
     for (const edge of current.routeKnowledge.vale)
       expect(authored.has(edge.join(">")), edge.join(">")).toBe(true);
     expect(current.routeKnowledge.vale).toEqual(
       expect.arrayContaining([
-        ["greek-athens", "greek-road-athens-piraeus"],
-        ["greek-road-athens-piraeus", "greek-piraeus"],
-        ["greek-piraeus", "greek-eleusis"],
+        ["greek-athens", "greek-road-athens-eleusis"],
+        ["greek-road-athens-eleusis", "greek-eleusis"],
+        ["greek-eleusis", "greek-colonus"],
         ["greek-colonus", "greek-marathon"],
       ]),
     );
-    expect(exits(current, "greek-athens", "vale")).toContain("greek-colonus");
+    expect(exits(current, "greek-athens", "vale")).toContain(
+      "greek-road-athens-eleusis",
+    );
     for (const id of cut) expect(entityActive(current, id)).toBe(false);
     expect(decodeSave(encodeSave(current))).toEqual(current);
   });
@@ -166,7 +172,7 @@ describe("one road in Attica", () => {
     expect(decodeSave(encodeSave(current))).toEqual(current);
   });
 
-  it("starts an agreed journey at Eleusis straight to Piraeus", () => {
+  it("starts an agreed journey at Eleusis along the Sacred Way", () => {
     const current = decodeSave(JSON.stringify(agreedAtRevision7()));
     expect(current.actors["greek-household-witness"].place).toBe(
       "greek-eleusis",
@@ -176,7 +182,7 @@ describe("one road in Attica", () => {
         (a) =>
           a.kind === "accompany" &&
           a.target === "greek-household-witness" &&
-          a.destination === "greek-piraeus",
+          a.destination === "greek-road-athens-eleusis",
       ),
     ).toBe(true);
   });

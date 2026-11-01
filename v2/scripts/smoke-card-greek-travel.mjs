@@ -32,7 +32,8 @@ try {
   for (const width of [1440, 390]) {
     const table = `greek-travel-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
-    // After the plea at the Agora, the Suppliant's Olive Branch rides on deck.
+    // After the plea, the petition and the Suppliant's Olive Branch rest in
+    // the Agora, so the Sacred Way and the Long Walls stand open.
     const fixture = openSeas();
     fixture.playerActorId = "mara";
     fixture.sharedVersion = 1;
@@ -148,16 +149,19 @@ try {
       path: new URL(`athens-empty-${width}.png`, output).pathname,
       fullPage: true,
     });
-    // Mara walks to Piraeus and comes back by the town road, then the ship
-    // takes her home from Piraeus to the Wine-Dark Harbor.
+    let branchSeen = false;
+    // Mara walks the Long Walls to Piraeus and back, the Sacred Way to the
+    // countryside and back, then the ship takes her home from Piraeus.
     for (const target of [
       "greek-road-athens-piraeus",
       "greek-piraeus",
-      "greek-eleusis",
-      "greek-piraeus",
       "greek-road-athens-piraeus",
       "greek-athens",
+      "greek-road-athens-eleusis",
+      "greek-eleusis",
       "greek-colonus",
+      "greek-eleusis",
+      "greek-road-athens-eleusis",
       "greek-athens",
       "greek-road-athens-piraeus",
       "greek-piraeus",
@@ -167,7 +171,9 @@ try {
       "greek-courtyard",
     ]) {
       await step("move", target);
-      if (target === "greek-ship") {
+      // The olive branch rests in the Agora, where it opens the Long Walls.
+      if (target === "greek-athens" && !branchSeen) {
+        branchSeen = true;
         await selectCard(page, "greek-olive-branch", { touch: width === 390 });
         const art = page.locator(
           '#hand [data-card="greek-olive-branch"] .art img',
@@ -237,7 +243,7 @@ try {
     }
     assert.deepEqual(errors, []);
     console.log(
-      `Greek travel: ${width}px, Mara first, roads between their ends, direct town visits, the Agora, reload, and return passed.`,
+      `Greek travel: ${width}px, Mara first, roads between their ends, both Athenian gates, reload, and return passed.`,
     );
     await page.close();
   }

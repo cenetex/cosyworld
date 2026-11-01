@@ -1,5 +1,6 @@
 import {
   localRoadEnds,
+  packDefinition,
   packPlaces,
 } from "../../v2/card-game/pack-registry.mjs";
 
@@ -14,8 +15,7 @@ export function greekTravelTargets(from, to) {
   // From Piraeus an idle ship sails its first lane, to the Wine-Dark Harbor.
   if (from === "greek-piraeus" && to === "greek-harbor")
     return ["greek-ship", to];
-  // The Athens Harbor lane needs the olive branch aboard, so Athens is
-  // walked by the Athens–Piraeus Road.
+  // Athens is walked from Piraeus along the Long Walls.
   if (from === "greek-harbor" && to === "greek-athens")
     return ["greek-ship", "greek-piraeus", "greek-road-athens-piraeus", to];
   if (from === "greek-athens" && to === "greek-harbor")
@@ -23,7 +23,13 @@ export function greekTravelTargets(from, to) {
   return walk(from, to) || [to];
 }
 
-// The shortest walk over the pack's live exits, skipping retired roads.
+// The shortest walk over the pack's live exits and gated routes, skipping
+// retired roads and places. A gate's live condition decides at play time.
+const routes = packDefinition("greek-drama").routes;
+const nextPlaces = (here) => [
+  ...(packPlaces[here]?.exits || []),
+  ...routes.filter((r) => r.from === here).map((r) => r.to),
+];
 function walk(from, to) {
   const queue = [[from]],
     seen = new Set([from]);
@@ -31,8 +37,12 @@ function walk(from, to) {
     const path = queue.shift(),
       here = path.at(-1);
     if (here === to) return path.slice(1);
-    for (const next of packPlaces[here]?.exits || [])
-      if (!seen.has(next) && !localRoadEnds(next)) {
+    for (const next of nextPlaces(here))
+      if (
+        !seen.has(next) &&
+        !localRoadEnds(next) &&
+        !packPlaces[next]?.retired
+      ) {
         seen.add(next);
         queue.push([...path, next]);
       }

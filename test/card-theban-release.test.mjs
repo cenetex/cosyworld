@@ -154,6 +154,15 @@ describe("the Theban release and its ship", () => {
       trip.transports["greek-ship"].dock = "greek-piraeus";
       // Vale sailed in, so she knows the lane home from Piraeus.
       learnLane(trip, "vale", "greek-harbor", "greek-piraeus");
+      // The Long Walls lead home from the city once the plea's olive branch
+      // is in the Agora; the mothers' petition there keeps the Sacred Way
+      // open from Eleusis.
+      Object.assign(trip.packs[pack.id].flags, {
+        "greek-open-door-mothers-heard": true,
+        "greek-open-door-plea-registered": true,
+      });
+      for (const id of ["greek-burial-petition", "greek-olive-branch"])
+        trip.items[id].holder = "greek-athens";
       const seen = new Set([start]);
       for (const id of seen)
         for (const to of exits(trip, id, "vale"))
