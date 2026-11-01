@@ -2233,6 +2233,20 @@
       "card": "assets/optimized/card/png/shared/items/shears.webp",
       "cardHash": "dc8c5100f22eb715090b47e733b8c77581bb83a94f81edf613c2cec0cdaf22ac"
     },
+    "assets/shared/items/world-map-full.webp": {
+      "sourceHash": "f4553151e30e81e0632fe441df095b567f11e2ad29e2d18cfc68465abc96c0a7",
+      "stage": "assets/shared/items/world-map-full.webp",
+      "stageHash": "f4553151e30e81e0632fe441df095b567f11e2ad29e2d18cfc68465abc96c0a7",
+      "card": "assets/optimized/card/webp/shared/items/world-map-full.webp",
+      "cardHash": "1fb2198936cd412f6614d9cc9c37f5e223e8129d56a83e5c0eb3c4f4fa24ec59"
+    },
+    "assets/shared/items/world-map.webp": {
+      "sourceHash": "dca4fc5ea276ece44462f8fec148b2c703dc7cdc69d5f39b07f2d0b8ed57a313",
+      "stage": "assets/shared/items/world-map.webp",
+      "stageHash": "dca4fc5ea276ece44462f8fec148b2c703dc7cdc69d5f39b07f2d0b8ed57a313",
+      "card": "assets/optimized/card/webp/shared/items/world-map.webp",
+      "cardHash": "d23f818fe18bc678ac0be58d4e12941acd8572565960fc529c938c13838d5b9f"
+    },
     "assets/shared/places/attic-dark.webp": {
       "sourceHash": "0d8404b94403ea9d5473547b4f3474325e9696e12816e7419a70ec6d1e3e2683",
       "stage": "assets/shared/places/attic-dark.webp",

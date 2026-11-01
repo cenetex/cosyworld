@@ -384,6 +384,12 @@
       cloth: {
         name: "Black cloth",
         text: "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object."
+      },
+      "world-map": {
+        name: "Map of the Wood and the Wine-Dark Sea",
+        text: "A folded paper map, inked and washed in watercolour. The pond sits at its middle. Mist covers the edges.",
+        art: "assets/shared/items/world-map.webp",
+        view: "assets/shared/items/world-map-full.webp"
       }
     },
     initialState: {
@@ -448,6 +454,10 @@
         },
         cloth: {
           holder: "moth",
+          history: []
+        },
+        "world-map": {
+          holder: "station",
           history: []
         }
       },
@@ -1127,7 +1137,8 @@
         "lamp",
         "oil",
         "bell",
-        "cloth"
+        "cloth",
+        "world-map"
       ],
       observations: [
         {
@@ -15530,6 +15541,17 @@
         "Dark, and warm from a hand."
       ]
     },
+    "world-map": {
+      kind: "item",
+      name: "Map of the Wood and the Wine-Dark Sea",
+      persona: "A folded paper map in ink and watercolour. The black pond sits at its middle, with the attic, the station, the forests, the willows and a wine-dark sea around it. Mist covers its edges. Describe its creases, its places and the hands that unfold it.",
+      idiolect: "I'm a paper map. Unfold me and the pond is in the middle. Past my edges there's only mist.",
+      lines: [
+        "My creases cross at the black pond.",
+        "Here be mists, says my corner.",
+        "Folded small, and soft at the folds."
+      ]
+    },
     station: {
       kind: "location",
       name: "Empty station",
@@ -16570,6 +16592,11 @@
     s.crossings ??= {};
     s.packs ??= {};
     const fresh = newMemories();
+    for (const [id, item] of Object.entries(forest_default.initialState.items))
+      if (!Object.hasOwn(s.items, id)) {
+        s.items[id] = structuredClone(item);
+        s.memories[id] ??= fresh[id];
+      }
     for (const pack of packDefinitions) {
       for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
       if (s.packs[pack.id]) continue;
