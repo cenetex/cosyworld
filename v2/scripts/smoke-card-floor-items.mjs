@@ -12,9 +12,9 @@ const output = new URL("../../output/floor-props/", import.meta.url);
 await mkdir(output, { recursive: true });
 
 // The rules place the bell and the storybook map at the station from the
-// start, and the willows camp
-// holds more things than the floor shows. Boardy's calling card waits there too,
-// but it shows only while BoardyAI does, with two connected humans.
+// start. Boardy's calling card waits there too, but it shows only while
+// BoardyAI does, with two connected humans. Since the Swede's kit is
+// scattered (#1692), the willows camp floor holds the map, pot and spoon.
 const station = createWorld({ opening: true });
 station.actors.vale.place = "station";
 assert.deepEqual(
@@ -23,9 +23,9 @@ assert.deepEqual(
 );
 const willows = createWorld({ opening: true });
 willows.actors.vale.place = "willows-camp";
-assert.equal(
-  sceneStaging(willows, { currentState: true }).floorItems.length,
-  6,
+assert.deepEqual(
+  sceneStaging(willows, { currentState: true }).floorItems.map(({ id }) => id),
+  ["willows-map", "willows-pot", "willows-spoon"],
 );
 // A crowded station floor for the browser: four camp things set down beside
 // the bell.
