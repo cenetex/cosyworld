@@ -1263,7 +1263,6 @@
           "voice",
           "exits",
           "backdrop",
-          "backdrops",
           "art",
           "music",
           "musicMode",
@@ -1287,13 +1286,6 @@
         `place ${id} exits must name other places in this pack`
       );
       media(p.backdrop, `place ${id} backdrop`);
-      if (p.backdrops !== void 0)
-        check(
-          Array.isArray(p.backdrops) && p.backdrops.length > 0 && p.backdrops.length <= 8 && p.backdrops.every(
-            (b) => keysOk(b, ["backdrop", "requires"]) && mediaPathOk(pack.id, b.backdrop) && Array.isArray(b.requires) && b.requires.length > 0
-          ),
-          `place ${id} backdrops need a backdrop in this pack and saved conditions`
-        );
       if (p.road !== void 0)
         check(
           Array.isArray(p.road) && p.road.length === 2 && new Set(p.road).size === 2 && p.road.every(
@@ -1579,11 +1571,8 @@
           );
         });
     };
-    for (const [id, p] of Object.entries(places2)) {
+    for (const [id, p] of Object.entries(places2))
       requirements(p.requires, `place ${id} requires`);
-      for (const b of Array.isArray(p.backdrops) ? p.backdrops : [])
-        requirements(b?.requires, `place ${id} backdrop requires`);
-    }
     for (const [id, a] of Object.entries(avatars)) {
       requirements(a.requires, `avatar ${id} requires`);
       for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
@@ -2914,11 +2903,7 @@
   var packMediaFiles = [
     ...new Set(
       packDefinitions.flatMap((pack) => [
-        ...Object.values(pack.places).flatMap((p) => [
-          p.backdrop,
-          p.art,
-          ...(p.backdrops || []).map((b) => b.backdrop)
-        ]),
+        ...Object.values(pack.places).flatMap((p) => [p.backdrop, p.art]),
         ...Object.values(pack.items || {}).map((i) => i.art),
         ...pack.crossings.flatMap((c) => [
           c.scenery?.overlay,
@@ -3847,7 +3832,7 @@
       s.log = s.log.filter((e) => e?.kind !== "quest" && !QUEST_VERBS.includes(e?.verb)).map(({ questPlan, consequence, questKey, ...e }) => e);
     migrateLife(s);
   }
-  function upgradeSave(s, { installPacks: installPacks2 }) {
+  function upgradeSave(s, { installPacks: installPacks2, laneText = () => null }) {
     if (!s || ![6, 7].includes(s.schema))
       throw new Error("This save needs a fresh start.");
     forgetQuests(s);
@@ -3860,6 +3845,7 @@
       upgradeGreekTownSave(s);
       upgradeGreekAjaxSave(s);
       upgradeGreekOneRoadSave(s);
+      upgradeGreekPassSave(s);
       s.schema = 7;
       installPacks2(s);
     } else if (s?.schema === 7 && s.packs && typeof s.packs === "object" && s.crossings && typeof s.crossings === "object") {
@@ -3870,6 +3856,7 @@
       upgradeGreekTownSave(s);
       upgradeGreekAjaxSave(s);
       upgradeGreekOneRoadSave(s);
+      upgradeGreekPassSave(s);
       installPacks2(s);
     }
     if (s?.schema === 7) {
@@ -3886,6 +3873,10 @@
     }
     upgradeSightings(s);
     installPacks2(s);
+    for (const fact of Object.values(s?.knowledge?.facts || {})) {
+      const text2 = fact?.source?.kind === "lane" && laneText(fact.id);
+      if (text2) fact.text = text2;
+    }
     if (s?.schema === 7)
       installKnowledge(
         s,
@@ -4091,6 +4082,15 @@
     s.standoffs = (s.standoffs || []).filter(
       (conflict) => !localRoadEnds(conflict.location)
     );
+  }
+  function upgradeGreekPassSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 9 || saved?.revision !== 8) return;
+    const id = "greek-olive-branch";
+    s.items[id] ??= { holder: pack.items[id].holder, history: [] };
+    s.memories[id] ??= newMemories()[id];
+    saved.revision = 9;
   }
   function upgradeGreekAjaxSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
@@ -6124,7 +6124,7 @@
   }
   function decodeSave(text2) {
     const s = JSON.parse(text2);
-    upgradeSave(s, { actorIds, installPacks });
+    upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
     validateWorld(s);
     preserveTransportAccess(s);
     return validateWorld(s);
