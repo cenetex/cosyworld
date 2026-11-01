@@ -4,8 +4,7 @@ Dione's table opens the stories of five places: the Athenian Agora, Piraeus
 Quays, Colonus Grove, Eleusinian Sanctuary and Marathon Altar. Piraeus Quays
 lies outside the section: a ship with the Travel Provisions aboard reaches it
 from the Wine-Dark Harbor in any save, but its roads inland and Thaleia's
-work wait for the invitation. The ship reaches Athens Harbor from Piraeus. City streets lead straight from Athens
-Harbor into the grand Athenian Agora. Roads join towns, not the places
+work wait for the invitation. Athens Harbor has joined Piraeus. Roads join towns, not the places
 inside a town. One road, the Athens–Piraeus Road, joins the two Attic towns.
 It is a shared scene with two fixed ends. Colonus and Marathon are direct
 visits from the Agora, and Eleusis is a direct visit from Piraeus. These

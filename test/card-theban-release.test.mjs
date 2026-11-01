@@ -21,6 +21,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
+import { learnLane } from "../v2/card-game/pack-transport.mjs";
 import {
   backdrop,
   locationOverlay,
@@ -121,7 +122,9 @@ describe("the Theban release and its ship", () => {
         // Piraeus Quays lies outside every section; a ship with the Travel
         // Provisions aboard reaches it.
         "greek-piraeus",
-        ...sectionPlaces.filter((id) => id !== "greek-road-athens-harbor"),
+        ...sectionPlaces.filter(
+          (id) => !retired(id) && id !== "greek-road-athens-harbor",
+        ),
       ].sort(),
     );
     expect(entityActive(s, "greek-athens")).toBe(false);
@@ -145,12 +148,14 @@ describe("the Theban release and its ship", () => {
     expect(reachable(s)).toHaveLength(9);
     s.items["greek-provisions"].holder = "greek-ship";
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
-    expect(reachable(s)).toHaveLength(16);
+    expect(reachable(s)).toHaveLength(15);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     for (const start of openDoorPlaces) {
       const trip = structuredClone(s);
       trip.transports["greek-ship"].dock = "greek-piraeus";
+      // Vale sailed in, so she knows the lane home from Piraeus.
+      learnLane(trip, "vale", "greek-harbor", "greek-piraeus");
       const seen = new Set([start]);
       for (const id of seen)
         for (const to of exits(trip, id, "vale"))
@@ -236,11 +241,15 @@ describe("the Theban release and its ship", () => {
     // Quest records leave the history; every other event stays as it was.
     expect(after.log).toEqual(
       before.log
-        .filter((e) => e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""))
+        .filter(
+          (e) => e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""),
+        )
         .map(({ questPlan, consequence, questKey, ...e }) => e),
     );
     expect(after.quests).toBeUndefined();
-    expect(Object.values(after.actors).every((a) => !("progress" in a))).toBe(true);
+    expect(Object.values(after.actors).every((a) => !("progress" in a))).toBe(
+      true,
+    );
     expect(after.actors.vale.place).toBe("greek-egypt-tomb");
     expect(after.items["greek-egypt-testimony"].holder).toBe("vale");
     expect(entityActive(after, "greek-athens")).toBe(true);

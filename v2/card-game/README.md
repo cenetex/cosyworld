@@ -311,11 +311,11 @@ saved world. Once summoned, it remains available for later crossings.
 
 After a public Theban response, Dione offers the next journey at her table.
 Accepting opens **The Open Door**: the Athenian Agora, Colonus Grove,
-Eleusinian Sanctuary, Marathon Altar and Athens Harbor, and the stories at
+Eleusinian Sanctuary and Marathon Altar, and the stories at
 Piraeus Quays. The invitation opens the roads for every traveler in the
 shared world. Piraeus Quays itself lies outside the Open Door: a ship with the
 Travel Provisions aboard reaches it, and its roads inland open with the
-invitation. Athens Harbor connects directly to the grand Agora through city streets.
+invitation. Athens Harbor has joined Piraeus.
 
 Roads separate towns, and places inside a town link directly. Between two
 towns there is exactly one road or a sea lane, and every walkable road has its
@@ -333,20 +333,18 @@ road, and the other end. Its entry card names the place ahead. Travelers can
 meet, wait and carry objects on the road. Myrine walks from Eleusis to Piraeus
 in one Accompany play.
 
-A pack marks an old road `retired: true` to keep its ID for saved history.
-No exit leads onto a retired road. A save that stands on one continues at
-the road's first end.
+A pack marks an old road or place `retired: true` to keep its ID for saved
+history. No exit leads onto it. A save that stands on a retired road
+continues at the road's first end; one at a retired place continues at the
+place's one exit, the place that took it in.
 
-Run `npm run v2:card:travel:smoke` for desktop and phone trips through Athens
-Harbor, the Agora, the Athens–Piraeus Road, Piraeus and the return to Dione. The check
+Run `npm run v2:card:travel:smoke` for desktop and phone trips through
+Piraeus, the Athens–Piraeus Road, the Agora and the return to Dione. The check
 also tests the destination cards, a reload on the road and waiting for the ship.
-
-Athens Harbor shows the ship at its berth when it is docked there, and open
-water while the ship travels elsewhere.
 
 The ship's card follows the same paintings. Aboard, it shows the stage
 backdrop: the deck at a port, or open sea by day or night. From a mooring
-with a berth painting (the Wine-Dark Harbor, Athens Harbor, Piraeus) it shows
+with a berth painting (the Wine-Dark Harbor, Piraeus) it shows
 the ship at that berth, lit for the hour. Black Pond, the Trojan camp landing
 and the Hoppycat jetty keep the authored Black Pond card.
 
@@ -354,7 +352,7 @@ The ship sails authored sea lanes, at most four from each port. Black Pond
 has one lane, to the Wine-Dark Harbor. The Wine-Dark Harbor has
 lanes to Piraeus and the Trojan camp landing. The Piraeus lane opens only
 while the Travel Provisions are aboard, carried by anyone on deck or resting
-there. Athens Harbor and Piraeus share a lane. Aboard a docked ship, the other place cards are course cards. The
+there. Two one-way lanes keep the way home from Piraeus always open. Aboard a docked ship, the other place cards are course cards. The
 first course played sets the voyage for everyone aboard; the ship then spends
 one world round at sea. On arrival the only Disembark card is that port, and
 someone who boarded there cannot step straight back. Passengers who stay
@@ -952,8 +950,8 @@ know its lanes; people from the forest know the Black Pond lanes; Myrto the
 shipmaster knows every lane. Everyone aboard learns the lane they sail. A
 lane that a thing aboard opens (`opensWith` in the pack bridge) is a course
 card for everyone on deck while the thing is there, whoever knows it. At a
-port or aboard, Talk can tell a lane as a fact ("Ships for Athens Harbor leave
-from Piraeus Quays."), and the listener learns it only when the published
+port or aboard, Talk can tell a lane as a fact ("Ships for Piraeus Quays leave
+from the Wine-Dark Harbor."), and the listener learns it only when the published
 speech says it. A gated lane is told with what opens it ("…only with Travel
 Provisions aboard."). A story choice that is ready at the port is told first, so a
 new lane never holds up an authored scene. Lanes are saved as `sea:` edges in route knowledge.

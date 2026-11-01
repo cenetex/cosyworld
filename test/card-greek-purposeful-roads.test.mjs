@@ -87,7 +87,7 @@ describe("purposeful Greek roads", () => {
   it("makes every inter-town step in Greece a road or a sea lane", () => {
     const town = towns();
     for (const [id, place] of Object.entries(places)) {
-      if (isRoad(id) || id === "greek-ship") continue;
+      if (isRoad(id) || id === "greek-ship" || place.retired) continue;
       for (const next of place.exits || [])
         if (!isRoad(next))
           expect(town[next], `${id} -> ${next}`).toBe(town[id]);
@@ -166,7 +166,9 @@ describe("purposeful road save upgrade", () => {
       ["greek-gate", "greek-aulis"],
     ];
     const after = decodeSave(JSON.stringify(before));
-    expect(after.packs["greek-drama"].revision).toBe(11);
+    expect(after.packs["greek-drama"].revision).toBe(
+      packDefinition("greek-drama").revision,
+    );
     expect(after.routeKnowledge.vale).toEqual([
       ["greek-athens", "greek-road-sacred-way"],
       ["greek-road-sacred-way", "greek-delphi"],

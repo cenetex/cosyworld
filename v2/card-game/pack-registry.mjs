@@ -129,7 +129,18 @@ const localRoads = new Map(
     .map(([id, place]) => [id, place.road]),
 );
 export const localRoadEnds = (id) => localRoads.get(id) || null;
-export const canonicalPlace = (id) => localRoadEnds(id)?.[0] || id;
+// A retired place that is not a road folds into its one exit, the place that
+// took it in.
+const retiredPlaces = new Map(
+  Object.entries(packPlaces)
+    .filter(([, place]) => place.retired === true && !place.road)
+    .map(([id, place]) => [id, place.exits[0]]),
+);
+export const retiredPlace = (id) => retiredPlaces.has(id);
+export const canonicalPlace = (id) => {
+  const end = localRoadEnds(id)?.[0] || id;
+  return retiredPlaces.get(end) || end;
+};
 export const transports = merge("transports");
 export const packPeople = merge("avatars");
 export const packFixtures = merge("fixtures");
@@ -310,7 +321,7 @@ export function entityActive(world, id) {
   return entityEnabled(world, id);
 }
 function entityEnabled(world, id, saved = false) {
-  if (localRoads.has(id)) return false;
+  if (localRoads.has(id) || retiredPlaces.has(id)) return false;
   const e = packEntity(id);
   if (!e) return true;
   const pack = packDefinition(e.packId),
@@ -489,7 +500,9 @@ export function packGiveChoice(world, action) {
         c.subject === action.target &&
         c.requires.some(
           (r) =>
-            r.kind === "holding" && r.role === "actor" && r.item === action.item,
+            r.kind === "holding" &&
+            r.role === "actor" &&
+            r.item === action.item,
         ) &&
         choiceFeasible(world, pack, c, action.actor, "give")
       )

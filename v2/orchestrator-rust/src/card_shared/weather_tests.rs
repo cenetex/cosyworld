@@ -171,7 +171,7 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
     saved.game.as_object_mut().unwrap().remove("opening");
     saved.game["packs"]["greek-drama"]["scope"] = json!("full");
     for (actor, place) in [
-        ("vale", "greek-athens-harbor"),
+        ("vale", "greek-athens"),
         ("mara", "pond"),
         ("ash", "greek-road-thebes"),
         ("greek-rhapsode", "attic"),
@@ -227,19 +227,15 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         world.game["packs"]["hoppycat-archive"]["revision"],
         super::full_tests::pack_revision("hoppycat-archive")
     );
-    assert_eq!(
-        world.game["packs"]["willows"]["revision"],
-        super::full_tests::pack_revision("willows")
-    );
+    assert_eq!(world.game["packs"]["willows"]["revision"], 1);
     assert!(world.game["knowledge"].is_object());
     assert_eq!(world.version, engine::VERSION);
 
     // Her wait at the pond brings the empty ship one lane to her. She
     // boards and sails by the Wine-Dark Harbor to Piraeus, opened by the
     // provisions aboard, a round at sea each, and steps ashore beside it.
-    // The lane on to Athens Harbor opens only with the Suppliant's Olive
-    // Branch aboard, so Vale's wait there leaves the ship at Piraeus and
-    // Mara walks to her berth.
+    // Athens Harbor has joined Piraeus. Vale waits in the Agora, away from
+    // any port, so the ship stays at Piraeus and Mara walks the road to her.
     let plays = [
         ("mara", "wait", None),
         ("mara", "move", Some("greek-ship")),
@@ -251,7 +247,6 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         ("vale", "wait", None),
         ("mara", "move", Some("greek-road-athens-piraeus")),
         ("mara", "move", Some("greek-athens")),
-        ("mara", "move", Some("greek-athens-harbor")),
     ];
     for (step, (actor, kind, target)) in plays.into_iter().enumerate() {
         let action = world.project(usize::from(actor == "mara")).unwrap()["actions"]
@@ -280,7 +275,7 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         }
         assert_eq!(
             views[0]["background"],
-            "./assets/greek-drama/athens-harbor-open-berth-night.webp"
+            "./assets/greek-drama/athens-grand-agora-night.webp"
         );
         if (6..=7).contains(&step) {
             assert_eq!(

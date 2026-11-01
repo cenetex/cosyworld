@@ -39,19 +39,14 @@ const TOWNS = {
   ],
   athens: [
     "greek-athens",
-    "greek-athens-harbor",
     "greek-assembly",
     "greek-acropolis",
     "greek-demos-house",
     "greek-thinkery",
-    "greek-jury-house",
     "greek-festival",
     "greek-attic-farm",
     "greek-colonus",
     "greek-acharnae",
-    "greek-divine-heights",
-    "greek-bird-wilderness",
-    "greek-underworld",
     "greek-marathon",
   ],
   piraeus: ["greek-piraeus", "greek-eleusis"],
@@ -101,7 +96,10 @@ const walkableRoad = (id) =>
   Array.isArray(packPlaces[id]?.road) && !localRoadEnds(id);
 // Town places: not a road of any kind and not a ship.
 const live = (id) =>
-  Boolean(packPlaces[id]) && !docks.has(id) && !packPlaces[id].road;
+  Boolean(packPlaces[id]) &&
+  !docks.has(id) &&
+  !packPlaces[id].road &&
+  !packPlaces[id].retired;
 const roads = Object.keys(packPlaces).filter(walkableRoad);
 // Every authored step: place exits and story routes. An old road that a
 // direct local link has replaced is that direct link.
@@ -151,7 +149,9 @@ describe("the map rule", () => {
     // and the Tea Garden thread are crossings, not exits.
     const back = new Set(steps.map(([from, to]) => `${from}>${to}`));
     for (const [id, place] of Object.entries(packPlaces))
-      for (const to of localRoadEnds(id) ? [] : place.exits || [])
+      for (const to of localRoadEnds(id) || place.retired
+        ? []
+        : place.exits || [])
         if (!localRoadEnds(to))
           expect(back.has(`${to}>${id}`), `${id} -> ${to}`).toBe(true);
   });

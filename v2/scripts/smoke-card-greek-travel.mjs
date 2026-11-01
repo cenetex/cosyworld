@@ -38,10 +38,9 @@ try {
     fixture.sharedVersion = 1;
     fixture.controlledActors = ["vale", "mara"];
     fixture.presentActors = ["mara"];
-    fixture.actors.mara.place = "greek-athens-harbor";
-    // Black Pond sails only to the Wine-Dark Harbor. The olive branch on
-    // deck opens the lane between Athens Harbor and Piraeus; the Travel
-    // Provisions on deck open the lane on to the Wine-Dark Harbor.
+    fixture.actors.mara.place = "greek-athens";
+    // Black Pond sails only to the Wine-Dark Harbor. The Travel Provisions
+    // on deck open the lane between Piraeus and the Wine-Dark Harbor.
     if (fixture.items["greek-provisions"].holder !== "greek-ship")
       throw new Error("The opening fixture keeps the provisions aboard.");
     const page = await browser.newPage({
@@ -143,16 +142,15 @@ try {
     await settle();
     assert.match(
       await page.locator("#backdrop").getAttribute("src"),
-      /athens-harbor-open-berth(?:-night)?\.webp/,
+      /athens-grand-agora(?:-night)?\.webp/,
     );
     await page.screenshot({
       path: new URL(`athens-empty-${width}.png`, output).pathname,
       fullPage: true,
     });
     // Mara walks to Piraeus and comes back by the town road, then the ship
-    // takes her from Athens Harbor home by Piraeus to the Wine-Dark Harbor.
+    // takes her home from Piraeus to the Wine-Dark Harbor.
     for (const target of [
-      "greek-athens",
       "greek-road-athens-piraeus",
       "greek-piraeus",
       "greek-eleusis",
@@ -161,7 +159,8 @@ try {
       "greek-athens",
       "greek-colonus",
       "greek-athens",
-      "greek-athens-harbor",
+      "greek-road-athens-piraeus",
+      "greek-piraeus",
       "greek-ship",
       "greek-harbor",
       "greek-road-thebes",
@@ -203,7 +202,6 @@ try {
       }
       if (
         [
-          "greek-athens-harbor",
           "greek-road-athens-piraeus",
           "greek-athens",
           "greek-piraeus",
@@ -239,7 +237,7 @@ try {
     }
     assert.deepEqual(errors, []);
     console.log(
-      `Greek travel: ${width}px, Mara first, roads between their ends, direct town visits, empty Athens berth, reload, and return passed.`,
+      `Greek travel: ${width}px, Mara first, roads between their ends, direct town visits, the Agora, reload, and return passed.`,
     );
     await page.close();
   }

@@ -6,7 +6,10 @@ import {
   entityActive,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
-import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
+import {
+  upgradedActor,
+  upgradedItems,
+} from "./fixtures/card-upgraded-items.mjs";
 
 const context = vm.createContext({});
 vm.runInContext(
@@ -83,10 +86,12 @@ describe("Greek section save upgrade", () => {
         "attic-forest-cottage": { discovered: false },
         "forest-cottage-attic": { discovered: false },
       });
-      for (const [id, { progress, ...actor }] of Object.entries(before.actors)) {
+      for (const [id, { progress, ...actor }] of Object.entries(
+        before.actors,
+      )) {
         // Quest progress is dropped; the rest of the avatar survives.
         expect(after.actors[id].progress).toBeUndefined();
-        expect(after.actors[id]).toMatchObject(actor);
+        expect(after.actors[id]).toMatchObject(upgradedActor(actor));
         for (const other of Object.keys(after.actors).filter(
           (key) => !before.actors[key],
         ))
@@ -115,7 +120,9 @@ describe("Greek section save upgrade", () => {
         ([key]) => !before.items[key],
       ))
         expect(after.items[id]).toEqual({ holder: item.holder, history: [] });
-      expect(entityActive(after, "greek-athens-harbor")).toBe(scope === "full");
+      // Athens Harbor has joined Piraeus in every scope.
+      expect(entityActive(after, "greek-athens-harbor")).toBe(false);
+      expect(entityActive(after, "greek-thinkery")).toBe(scope === "full");
       expect(entityActive(after, "greek-egypt-tomb")).toBe(false);
       expect(entityActive(after, "greek-mycenae-palace")).toBe(false);
       expect(decodeSave(encodeSave(after))).toEqual(after);

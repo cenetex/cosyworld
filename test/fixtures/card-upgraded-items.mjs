@@ -1,3 +1,5 @@
+import { canonicalPlace } from "../../v2/card-game/pack-registry.mjs";
+
 // Save upgrades drop the old flask's dose count; one flask now fills one lamp.
 export function upgradedItems(items) {
   const next = structuredClone(items);
@@ -19,3 +21,11 @@ export const branchItems = {
   ...thebanItems,
 };
 
+// Greek revision 12 retires places; a resident of one lives where it was
+// taken in.
+export function upgradedActor(actor) {
+  const next = { ...actor };
+  for (const field of ["place", "home"])
+    if (next[field]) next[field] = canonicalPlace(next[field]);
+  return next;
+}

@@ -10,12 +10,12 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
-import { backdrop, locationVariant } from "../v2/card-game/scene.mjs";
 import {
   entityActive,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
 
+const greekRevision = packDefinition("greek-drama").revision;
 function releasedRoad(road, version = 16) {
   const context = vm.createContext({});
   vm.runInContext(
@@ -54,9 +54,11 @@ function releasedRoad(road, version = 16) {
 }
 
 describe("local town visits and road history", () => {
+  // Athens Harbor has joined Piraeus: its old road folds into the quays.
+  const quay = ["greek-road-athens-harbor", "greek-piraeus", "greek-road-athens-piraeus"];
   it.each([
-    ["greek-road-athens-harbor", "greek-athens-harbor", "greek-athens", 16],
-    ["greek-road-athens-harbor", "greek-athens-harbor", "greek-athens", 17],
+    [...quay, 16],
+    [...quay, 17],
   ])(
     "continues a released visit on %s inside its town",
     (road, port, town, version) => {
@@ -113,7 +115,7 @@ describe("local town visits and road history", () => {
       expect(current.actors.mara.place).toBe(road);
       expect(current.items.lamp.holder).toBe(road);
       expect(current.routeKnowledge.vale).toEqual(known);
-      expect(current.packs["greek-drama"].revision).toBe(11);
+      expect(current.packs["greek-drama"].revision).toBe(greekRevision);
       expect(exits(current, road, "vale")).toEqual([
         "greek-harbor",
         "greek-courtyard",
@@ -132,7 +134,7 @@ describe("local town visits and road history", () => {
       ["greek-harbor", road],
     ];
     const current = decodeSave(JSON.stringify(before));
-    expect(current.packs["greek-drama"].revision).toBe(11);
+    expect(current.packs["greek-drama"].revision).toBe(greekRevision);
     expect(current.routeKnowledge.vale).toEqual([
       ["greek-harbor", road],
       [road, "greek-courtyard"],
@@ -166,7 +168,7 @@ describe("local town visits and road history", () => {
     const current = decodeSave(JSON.stringify(before));
     expect(current.actors.mara.want).toMatchObject({
       kind: "place",
-      target: "greek-athens-harbor",
+      target: "greek-piraeus",
     });
     expect(current.quests).toBeUndefined();
     expect(decodeSave(encodeSave(current))).toEqual(current);
@@ -183,7 +185,6 @@ describe("local town visits and road history", () => {
       "greek-colonus",
       "greek-eleusis",
       "greek-marathon",
-      "greek-athens-harbor",
     ];
     expect(
       roads
@@ -207,7 +208,7 @@ describe("local town visits and road history", () => {
       "greek-road-sacred-way",
       "greek-road-thebes",
     ]);
-    expect(exits(w, "greek-athens-harbor", "vale")).toContain("greek-athens");
+    expect(entityActive(w, "greek-athens-harbor")).toBe(false);
   });
 
   it("the Wine-Dark Harbor reaches Thebes only by the Theban Harbor Road", () => {
@@ -242,19 +243,4 @@ describe("local town visits and road history", () => {
       .map(([, p]) => p.backdrop || p.art);
     expect(new Set(paintings).size).toBe(paintings.length);
   });
-});
-
-it("changes the Athens berth painting with the shared ship's dock", () => {
-  const w = createWorld({ packScopes: { "greek-drama": "full" } });
-  w.crossings["pond-greek-harbor"].discovered = true;
-  w.transports["greek-ship"].dock = "pond";
-  expect(backdrop("greek-athens-harbor", w)).toBe(
-    "./assets/greek-drama/athens-harbor-open-berth.webp",
-  );
-  const empty = locationVariant(w, "greek-athens-harbor");
-  w.transports["greek-ship"].dock = "greek-athens-harbor";
-  expect(backdrop("greek-athens-harbor", w)).toBe(
-    "./assets/greek-drama/athens-harbor.webp",
-  );
-  expect(locationVariant(w, "greek-athens-harbor")).not.toBe(empty);
 });

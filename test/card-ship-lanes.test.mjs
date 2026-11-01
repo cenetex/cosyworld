@@ -63,7 +63,7 @@ describe("knowing a lane is personal", () => {
       true,
     );
     for (const [from, to] of [
-      ["greek-athens-harbor", "greek-piraeus"],
+      ["greek-harbor", "greek-piraeus"],
       ["greek-harbor", "greek-ajax-landing"],
     ])
       expect(knowsLane(s, "greek-shipmaster", from, to)).toBe(true);
@@ -74,24 +74,18 @@ describe("knowing a lane is personal", () => {
   it("everyone who sails a lane learns it, both ways", () => {
     let s = dispatchShared({ op: "create", save: encodeSave(openSeas()) })
       .world;
-    for (const id of players) s.actors[id].place = "greek-athens-harbor";
-    summonTransport(s, "greek-ship", "greek-athens-harbor");
+    for (const id of players) s.actors[id].place = "greek-piraeus";
+    summonTransport(s, "greek-ship", "greek-piraeus");
     s = reload(s);
     s = act(s, "vale", "move", "greek-ship");
     s = act(s, "mara", "move", "greek-ship");
-    // The olive branch on deck opens the lane for both, known or not.
-    expect(courses(s, "vale")).toEqual(["greek-piraeus"]);
-    expect(knowsLane(s, "mara", "greek-athens-harbor", "greek-piraeus")).toBe(
-      false,
-    );
-    s = act(s, "vale", "course", "greek-piraeus");
+    // The ship always sails home from Piraeus, for both, known or not.
+    expect(courses(s, "vale")).toEqual(["greek-harbor"]);
+    expect(knowsLane(s, "mara", "greek-piraeus", "greek-harbor")).toBe(false);
+    s = act(s, "vale", "course", "greek-harbor");
     s = act(s, "mara", "wait");
-    expect(knowsLane(s, "mara", "greek-athens-harbor", "greek-piraeus")).toBe(
-      true,
-    );
-    expect(knowsLane(s, "mara", "greek-piraeus", "greek-athens-harbor")).toBe(
-      true,
-    );
+    expect(knowsLane(s, "mara", "greek-piraeus", "greek-harbor")).toBe(true);
+    expect(knowsLane(s, "mara", "greek-harbor", "greek-piraeus")).toBe(true);
   });
 
   it("the Travel Provisions aboard open the Wine-Dark Harbor to Piraeus lane for everyone on deck", () => {
@@ -128,12 +122,12 @@ describe("knowing a lane is personal", () => {
     expect(knowsLane(s, "vale", "greek-harbor", "greek-piraeus")).toBe(true);
     // The quay lies outside the Open Door; its road inland stays closed.
     expect(ask(s, "vale").exits).not.toContain("greek-road-athens-piraeus");
-    // While Mara holds them aboard the lane home stays open; left on the
-    // quay, they close it.
+    // The lane home from Piraeus stays open, even with the provisions
+    // left on the quay.
     expect(courses(s, "mara")).toEqual(["greek-harbor"]);
     s.items["greek-provisions"].holder = "greek-piraeus";
     s = reload(s);
-    expect(courses(s, "mara")).toEqual([]);
+    expect(courses(s, "mara")).toEqual(["greek-harbor"]);
   });
 
   it("Myrto tells a lane through Talk; only published speech puts it on the chart", () => {
