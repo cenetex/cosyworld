@@ -127,8 +127,12 @@ facts from earlier releases keep their names; player-facing text says quest.
   by the avatar and turn: items others hold nearby that the avatar values
   above what it carries, reachable places it has not visited, and known people
   it has not talked with. A quest met away from home is followed by the way
-  home; at home the avatar rests a few turns before the next one. With nothing
-  left to want it stays content for a while, then its curiosity starts over.
+  home; at home the avatar rests a few turns while it holds the next one.
+  Every active avatar, players and unseen residents too, always holds one
+  quest: with nothing near left, its curiosity starts over at once, and then
+  anyone known, or what they hold, will do, reachable or not. A new world
+  draws one for every avatar without an authored `want`; a quest left empty
+  by an older rule set or a pack mounted later is drawn after a short rest.
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
   who learn the roads keep to the routes they know), then ask, trade their
   least valued spare, and threaten when bold enough by resentment, level or
@@ -495,7 +499,7 @@ At the station, Vale can take the bell. The Keeper values the bell more than the
 
 The hub cast's tastes, home and item values live in `forest.json` under `people`, beside the pack residents' `tastes` and `values` in their card worlds. Each named avatar also has one authored `want`, `{ "kind": "item" | "place" | "person", "target": id }`, which names what it seeks first: Vale and Pip want the lamp, the keeper wants the bell. Pack residents with a `desire` carry a matching `want`, which the pack schema checks against the pack's and hub's items, places and avatars. The rules don't read `want` yet.
 
-Situational worth is data too. A hub thing in `forest.json` may carry `valueRules`, and a person may carry `valueRules` keyed by item: each rule lists facts (`{ "item", "field", "min" | "max" }` or `{ "holds": item }`) and adds to the value or `set`s it. The empty lamp, the oil a dim lamp's holder needs, and the cloth the keeper wants while the bell rings are three such rules. A person's `grievances` list names the plays that offend them (`on`, partial action patterns) and the remembered `reason`; the keeper's ringing and Pip's spoiled light are two. A pack resident's `tastes.noise` is the same rule for a rung bell. The planner has no lamp special case: a resident in the dark attic waits until a play lights the lamp.
+Situational worth is data too. A hub thing in `forest.json` may carry `valueRules`, and a person may carry `valueRules` keyed by item: each rule lists facts (`{ "item", "field", "min" | "max" }` or `{ "holds": item }`) and adds to the value or `set`s it. The empty lamp, the oil a dim lamp's holder needs, and the cloth the keeper wants while the bell rings are three such rules. A person's `grievances` list names the plays that offend them (`on`, partial action patterns) and the remembered `reason`; the keeper's ringing and Pip's spoiled light are two. A pack resident's `tastes.noise` is the same rule for a rung bell. A cast avatar in the dark attic that holds a lamp with fuel lights it to open the way out; the player's own hand makes that play.
 
 ## Local play
 
