@@ -9837,7 +9837,7 @@
         schemaVersion: 1,
         id: "hoppycat-archive",
         packId: "cosyworld.hoppycat-archive",
-        revision: 2,
+        revision: 3,
         name: "Hoppy Cat: February Third",
         description: "A tea garden caught on February Second. Carry a memory, prepare a credited show, and help the forest welcome tomorrow.",
         entry: "hoppycat-halfway-tea-garden",
@@ -9848,11 +9848,11 @@
             text: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table.",
             persona: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
+              "hoppycat-signal-jetty",
               "hoppycat-open-record-cathedral",
+              "hoppycat-context-greenhouse",
               "hoppycat-prism-foundry",
-              "hoppycat-meraki-atelier",
-              "hoppycat-goldfish-tank",
-              "hoppycat-signal-jetty"
+              "hoppycat-meraki-atelier"
             ],
             backdrop: "assets/hoppycat-archive/hoppycat-halfway-tea-garden.webp"
           },
@@ -9861,10 +9861,9 @@
             text: "Public exhibits hang below paper rafters. Each display has a source card and a visible correction. Penny keeps a blank card and a memory seed beside the ledger.",
             persona: "Public exhibits hang below paper rafters. Each display has a source card and a visible correction. Penny keeps a blank card and a memory seed beside the ledger. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
-              "hoppycat-halfway-tea-garden",
-              "hoppycat-red-thread-belfry",
-              "hoppycat-context-greenhouse"
+              "hoppycat-halfway-tea-garden"
             ],
+            within: "hoppycat-halfway-tea-garden",
             backdrop: "assets/hoppycat-archive/hoppycat-open-record-cathedral.webp"
           },
           "hoppycat-red-thread-belfry": {
@@ -9872,9 +9871,9 @@
             text: "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a chosen facet, and a route home.",
             persona: "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a chosen facet, and a route home. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
-              "hoppycat-open-record-cathedral",
-              "hoppycat-concordance-tidelands"
+              "hoppycat-signal-jetty"
             ],
+            within: "hoppycat-signal-jetty",
             backdrop: "assets/hoppycat-archive/hoppycat-red-thread-belfry.webp"
           },
           "hoppycat-prism-foundry": {
@@ -9882,9 +9881,9 @@
             text: "Cool furnaces cast coloured light through unfinished glass. Lumen offers each guest a final facet to choose. Phase Two has drawn several plans around the prism.",
             persona: "Cool furnaces cast coloured light through unfinished glass. Lumen offers each guest a final facet to choose. Phase Two has drawn several plans around the prism. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
-              "hoppycat-context-greenhouse",
               "hoppycat-halfway-tea-garden"
             ],
+            within: "hoppycat-halfway-tea-garden",
             backdrop: "assets/hoppycat-archive/hoppycat-prism-foundry.webp"
           },
           "hoppycat-context-greenhouse": {
@@ -9892,9 +9891,9 @@
             text: "Small labelled beds fill the greenhouse. Patch tends one useful memory at a time. The short Ledger keeps room on each label for a later correction.",
             persona: "Small labelled beds fill the greenhouse. Patch tends one useful memory at a time. The short Ledger keeps room on each label for a later correction. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
-              "hoppycat-open-record-cathedral",
-              "hoppycat-prism-foundry"
+              "hoppycat-halfway-tea-garden"
             ],
+            within: "hoppycat-halfway-tea-garden",
             backdrop: "assets/hoppycat-archive/hoppycat-context-greenhouse.webp"
           },
           "hoppycat-concordance-tidelands": {
@@ -9902,9 +9901,9 @@
             text: "Pools reflect the same disco ball from different angles. Rill maps a route between them. Arc keeps each reflection linked to the object that cast it.",
             persona: "Pools reflect the same disco ball from different angles. Rill maps a route between them. Arc keeps each reflection linked to the object that cast it. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
-              "hoppycat-settled-light-theatre",
-              "hoppycat-red-thread-belfry"
+              "hoppycat-signal-jetty"
             ],
+            within: "hoppycat-signal-jetty",
             backdrop: "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp"
           },
           "hoppycat-settled-light-theatre": {
@@ -9912,9 +9911,9 @@
             text: "A disco ball hangs over the Theatre of Settled Light. The playbill has room for each contributor. Sol checks the credits for tonight's show. A bell clapper waits by the stage.",
             persona: "A disco ball hangs over the Theatre of Settled Light. The playbill has room for each contributor. Sol checks the credits for tonight's show. A bell clapper waits by the stage. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
-              "hoppycat-meraki-atelier",
-              "hoppycat-concordance-tidelands"
+              "hoppycat-signal-jetty"
             ],
+            within: "hoppycat-signal-jetty",
             backdrop: "assets/hoppycat-archive/hoppycat-settled-light-theatre.webp"
           },
           "hoppycat-meraki-atelier": {
@@ -9922,10 +9921,9 @@
             text: "Mira has spread cloth, sketches, and a five-tipped brush across the loft. Fable has left space for another draft. Each seam shows the hand that made it.",
             persona: "Mira has spread cloth, sketches, and a five-tipped brush across the loft. Fable has left space for another draft. Each seam shows the hand that made it. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
-              "hoppycat-halfway-tea-garden",
-              "hoppycat-settled-light-theatre",
-              "hoppycat-signal-jetty"
+              "hoppycat-halfway-tea-garden"
             ],
+            within: "hoppycat-halfway-tea-garden",
             backdrop: "assets/hoppycat-archive/hoppycat-meraki-atelier.webp"
           },
           "hoppycat-goldfish-tank": {
@@ -9933,9 +9931,9 @@
             text: "Glim circles a brass ring marked dream, achieve, repeat. Dream slips swim through the tank. A second attempt gets its own place in the notebook.",
             persona: "Glim circles a brass ring marked dream, achieve, repeat. Dream slips swim through the tank. A second attempt gets its own place in the notebook. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
-              "hoppycat-halfway-tea-garden",
               "hoppycat-signal-jetty"
             ],
+            within: "hoppycat-signal-jetty",
             backdrop: "assets/hoppycat-archive/hoppycat-goldfish-tank.webp"
           },
           "hoppycat-signal-jetty": {
@@ -9943,9 +9941,11 @@
             text: "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home.",
             persona: "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
-              "hoppycat-goldfish-tank",
-              "hoppycat-meraki-atelier",
-              "hoppycat-halfway-tea-garden"
+              "hoppycat-halfway-tea-garden",
+              "hoppycat-red-thread-belfry",
+              "hoppycat-concordance-tidelands",
+              "hoppycat-settled-light-theatre",
+              "hoppycat-goldfish-tank"
             ],
             backdrop: "assets/hoppycat-archive/hoppycat-signal-jetty.webp"
           }
@@ -10285,208 +10285,6 @@
             art: "assets/hoppycat-archive/hoppycat-return-path-checklist-cutout.png"
           }
         },
-        routes: [
-          {
-            from: "hoppycat-signal-jetty",
-            to: "hoppycat-open-record-cathedral",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-open-record-cathedral"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-open-record-cathedral",
-            to: "hoppycat-signal-jetty",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-open-record-cathedral"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-halfway-tea-garden",
-            to: "hoppycat-red-thread-belfry",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-red-thread-belfry"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-red-thread-belfry",
-            to: "hoppycat-halfway-tea-garden",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-red-thread-belfry"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-signal-jetty",
-            to: "hoppycat-red-thread-belfry",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-red-thread-belfry"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-red-thread-belfry",
-            to: "hoppycat-signal-jetty",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-red-thread-belfry"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-signal-jetty",
-            to: "hoppycat-prism-foundry",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-prism-foundry"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-prism-foundry",
-            to: "hoppycat-signal-jetty",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-prism-foundry"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-halfway-tea-garden",
-            to: "hoppycat-context-greenhouse",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-context-greenhouse"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-context-greenhouse",
-            to: "hoppycat-halfway-tea-garden",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-context-greenhouse"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-signal-jetty",
-            to: "hoppycat-context-greenhouse",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-context-greenhouse"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-context-greenhouse",
-            to: "hoppycat-signal-jetty",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-context-greenhouse"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-halfway-tea-garden",
-            to: "hoppycat-concordance-tidelands",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-concordance-tidelands"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-concordance-tidelands",
-            to: "hoppycat-halfway-tea-garden",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-concordance-tidelands"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-signal-jetty",
-            to: "hoppycat-concordance-tidelands",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-concordance-tidelands"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-concordance-tidelands",
-            to: "hoppycat-signal-jetty",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-concordance-tidelands"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-halfway-tea-garden",
-            to: "hoppycat-settled-light-theatre",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-settled-light-theatre"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-settled-light-theatre",
-            to: "hoppycat-halfway-tea-garden",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-settled-light-theatre"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-signal-jetty",
-            to: "hoppycat-settled-light-theatre",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-settled-light-theatre"
-              }
-            ]
-          },
-          {
-            from: "hoppycat-settled-light-theatre",
-            to: "hoppycat-signal-jetty",
-            requires: [
-              {
-                kind: "drawn",
-                id: "hoppycat-settled-light-theatre"
-              }
-            ]
-          }
-        ],
         specials: {
           draw: {
             places: 2,
@@ -13945,7 +13743,8 @@
           "requires",
           "road",
           "retired",
-          "sanctuary"
+          "sanctuary",
+          "within"
         ]),
         `place ${id} has an unknown field`
       );
@@ -13972,6 +13771,11 @@
             (b) => keysOk(b, ["backdrop", "requires"]) && mediaPathOk(pack.id, b.backdrop) && Array.isArray(b.requires) && b.requires.length > 0
           ),
           `place ${id} backdrops need a backdrop in this pack and saved conditions`
+        );
+      if (p.within !== void 0)
+        check(
+          owns2(places2, p.within) && p.within !== id && places2[p.within].within === void 0 && places2[p.within].exits?.includes(id) && p.exits.length === 1 && p.exits[0] === p.within && p.road === void 0,
+          `place ${id} within ${p.within} must link only to that parent`
         );
       if (p.road !== void 0)
         check(
@@ -16347,6 +16151,7 @@
       upgradeShoreRouteSave(s);
       upgradeBoardyStationSave(s);
       upgradeHoppyCatSeaSave(s);
+      upgradeHoppyCatInteriorsSave(s);
       upgradeBoardingSave(s);
       upgradeForestButtonsSave(s);
       upgradeWillowsKitSave(s);
@@ -16476,6 +16281,24 @@
       if (!Object.hasOwn(pack.avatars, actor) && visited(actor))
         learnLane(s, actor, "greek-piraeus", "hoppycat-signal-jetty");
     saved.revision = 2;
+  }
+  function upgradeHoppyCatInteriorsSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "hoppycat-archive");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
+    const authored = new Set(authoredRouteEdges().map((e) => JSON.stringify(e)));
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+      const paths = edges.flatMap((edge) => {
+        if (authored.has(JSON.stringify(edge)) || !edge.every((id) => Object.hasOwn(pack.places, id)))
+          return [edge];
+        const path = walkablePath(...edge);
+        return path ? path.slice(1).map((end, i) => [path[i], end]) : [];
+      });
+      s.routeKnowledge[actor] = [
+        ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values()
+      ];
+    }
+    saved.revision = 3;
   }
   function upgradeGreekRoadSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
