@@ -140,6 +140,16 @@ UTF-8 text in this order: stream, newline, sequence, newline, previous hash,
 newline, exact payload text. The payload is JSON with `set`, `remove`, and
 `splice` operations. The snapshot supplies the chain's starting cursor.
 
+## Moving an avatar
+
+An account's avatar is in one world at a time
+([#1737](https://github.com/cenetex/cosyworld/issues/1737)). A `claim` command with `"move": true`
+releases that account's avatar in every other world, in the same transaction
+as the new claim; a refused claim leaves the old worlds as they were. Creating
+a world takes `avatar` (Vale by default) and the same `move` flag. A release
+is the ordinary `release` journal action, so replay is unchanged. A claim
+without `move` keeps the earlier behaviour.
+
 ## Saving, replay, and earlier worlds
 
 Sharing validates the host's current save. It keeps the source browser save and
