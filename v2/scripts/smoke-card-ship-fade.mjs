@@ -6,8 +6,9 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { encodeSave } from "../card-game/world.mjs";
+import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
+import { summonTransport } from "../card-game/pack-transport.mjs";
 import { openDoorStart } from "../../test/helpers/open-door.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
@@ -31,7 +32,16 @@ try {
     fixture.controlledActors = ["vale", "mara"];
     fixture.presentActors = ["mara"];
     fixture.actors.mara.place = place;
-    fixture.transports["greek-ship"].dock = away;
+    // The Open Door fixture can catch the ship at sea with the Bard aboard,
+    // bound for the harbor. Land its riders there and dock the empty ship at
+    // the far port through the rules: setting only `dock` leaves a ship at
+    // sea already at its destination, which the save check rejects, and the
+    // page then plays a fresh world instead.
+    for (const a of Object.values(fixture.actors))
+      if (a.place === "greek-ship") a.place = "greek-harbor";
+    summonTransport(fixture, "greek-ship", away);
+    assert.equal(fixture.transports["greek-ship"].dock, away);
+    decodeSave(encodeSave(fixture));
     const page = await browser.newPage({
       viewport: { width: 1280, height: 800 },
     });
