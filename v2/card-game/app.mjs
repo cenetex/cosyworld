@@ -330,7 +330,10 @@ const selfKnown = () =>
 function rememberCards() {
   try {
     localStorage.setItem(SEEN_KEY, JSON.stringify([...encountered]));
-    localStorage.setItem(`${SEEN_KEY}.covered`, JSON.stringify([...coveredCards]));
+    localStorage.setItem(
+      `${SEEN_KEY}.covered`,
+      JSON.stringify([...coveredCards]),
+    );
   } catch {}
 }
 function loadSeen(reset = false) {
@@ -344,7 +347,9 @@ function loadSeen(reset = false) {
   opening ||= openingTable && stored === null;
   try {
     saved = JSON.parse(stored || "[]");
-    const covered = reset ? [] : JSON.parse(localStorage.getItem(`${SEEN_KEY}.covered`) || "[]");
+    const covered = reset
+      ? []
+      : JSON.parse(localStorage.getItem(`${SEEN_KEY}.covered`) || "[]");
     for (const id of Array.isArray(covered) ? covered : [])
       if (people[id] || things[id] || places[id]) coveredCards.add(id);
   } catch {}
@@ -526,10 +531,7 @@ const playQueue = createPlayQueue({
   changed: (pending) => {
     if (pending) showQueuedPlay();
     else if (["sent", "playing"].includes(sharedPlay?.state))
-      notice(
-        sharedPlayText[sharedPlay.state](sharedPlay),
-        sharedPlay.state,
-      );
+      notice(sharedPlayText[sharedPlay.state](sharedPlay), sharedPlay.state);
     else notice("");
     // Capture the hand before a queued play folds it; refresh progress labels
     // even when the hand's render key is unchanged.
@@ -560,7 +562,8 @@ function updateCardCooldown() {
   )) {
     button.disabled = selectionBlocked();
     if (button.dataset.card)
-      button.draggable = !button.disabled && !cardIsCovered(button.dataset.card);
+      button.draggable =
+        !button.disabled && !cardIsCovered(button.dataset.card);
   }
   if (playQueue.pending)
     queueMicrotask(() => playQueue.flush() || showQueuedPlay());
@@ -1044,6 +1047,24 @@ function keepHeldSelection(before, action = null) {
   expandedHolders.clear();
   if (expanded) expandedHolders.add(actor);
 }
+// The places you can go from here stack face down behind the current place,
+// as held things stack behind their holder; opening the stack fans them out.
+const placeHere = () => world.actors[currentActor(world)].place;
+const stackedPlace = (id) => Boolean(places[id]) && id !== placeHere();
+function stackPlaces(cards) {
+  const here = placeHere(),
+    hand = cards.filter((id) => !stackedPlace(id));
+  let at = hand.indexOf(here) + 1;
+  while (
+    at > 0 &&
+    at < hand.length &&
+    things[hand[at]] &&
+    rootHolder(world, hand[at]) === here
+  )
+    at++;
+  hand.splice(at || hand.length, 0, ...cards.filter(stackedPlace));
+  return hand;
+}
 function selectCards(cards) {
   for (const id of selected)
     if (people[id] && !cards.includes(id)) expandedHolders.delete(id);
@@ -1053,7 +1074,8 @@ function selectCards(cards) {
     if (
       places[id] &&
       !cards.includes(id) &&
-      !cards.some((card) => things[card] && rootHolder(world, card) === id)
+      !cards.some((card) => things[card] && rootHolder(world, card) === id) &&
+      !(id === placeHere() && cards.some(stackedPlace))
     )
       expandedHolders.delete(id);
   selected = cards;
@@ -1091,6 +1113,7 @@ function choose(id) {
       selected.filter(
         (cardId) =>
           cardId !== id &&
+          !(id === placeHere() && stackedPlace(cardId)) &&
           (!things[cardId] || rootHolder(world, cardId) !== id),
       ),
     );
@@ -1481,8 +1504,10 @@ function showItemView(id) {
   pauseSpeech();
 }
 $("item-view").addEventListener("click", (event) => {
-  const dialog = $("item-view"), image = $("item-view-image");
-  if (![image, $("item-view-zoom")].includes(event.target)) return dialog.close();
+  const dialog = $("item-view"),
+    image = $("item-view-image");
+  if (![image, $("item-view-zoom")].includes(event.target))
+    return dialog.close();
   const zoomed = dialog.dataset.zoomed !== "true",
     { width, height } = image.getBoundingClientRect(),
     offsetX = event.target === image ? event.offsetX : width / 2,
@@ -1570,7 +1595,8 @@ function queueDiscoveries() {
       render();
       for (const id of found) {
         const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
-        if (shown && !shown.closest(".card-frame").hidden) void arriveCard(shown);
+        if (shown && !shown.closest(".card-frame").hidden)
+          void arriveCard(shown);
       }
     });
 }
@@ -1723,9 +1749,7 @@ function renderActions(animate = false) {
       button.dataset.queued = String(queued);
       if (sent && !queued) button.dataset.sent = sharedPlay.state;
       button.title =
-        queued && !sharedSession
-          ? "Cancel this play"
-          : playText(action);
+        queued && !sharedSession ? "Cancel this play" : playText(action);
       button.disabled = selectionBlocked();
       button.setAttribute("aria-pressed", String(queued));
       if (action.choiceId) {
@@ -1767,7 +1791,9 @@ function renderActions(animate = false) {
   // An open level quest can be dropped, at the cost of half the experience.
   const drop =
     questOpen &&
-    legalActions(world).find((action) => action.kind === "drop" && !action.item);
+    legalActions(world).find(
+      (action) => action.kind === "drop" && !action.item,
+    );
   if (drop) {
     const button = node("button", "Drop quest", "card-action");
     button.type = "button";
@@ -1831,7 +1857,9 @@ function updateCardSelection(frame) {
         ? availableCards(world).filter(
             (item) => things[item] && rootHolder(world, item) === id,
           )
-        : [];
+        : [],
+    stack =
+      id === placeHere() ? availableCards(world).filter(stackedPlace) : [];
   frame.dataset.raised = String(raised);
   button.setAttribute("aria-pressed", String(raised));
   button.dataset.selected = String(selected.includes(id));
@@ -1840,7 +1868,7 @@ function updateCardSelection(frame) {
     frame.hidden = places[frame.dataset.holder]
       ? !expandedHolders.has(frame.dataset.holder)
       : !raised && !expandedHolders.has(frame.dataset.holder);
-  if (held.length) {
+  if (held.length || stack.length) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
@@ -1849,7 +1877,8 @@ function updateCardSelection(frame) {
     (label ? ` ${label}.` : "") +
     (held.length
       ? ` ${places[id] ? "Contains" : "Carries"} ${held.map(nameOf).join(", ")}. Select to show these cards.`
-      : "");
+      : "") +
+    stackLabel(stack);
 }
 const handMotions = new Map();
 function moveHandPart(key, element, frames, duration = 220) {
@@ -1870,7 +1899,8 @@ function card(id) {
     selected.includes(id) || Boolean(places[id] && expandedHolders.has(id));
   const chosen = raised ? cardPlay(world, selected) : null;
   const el = node("button", undefined, `card ${type}`);
-  const level = cardLevel(world, id), tier = levelTier(level);
+  const level = cardLevel(world, id),
+    tier = levelTier(level);
   el.dataset.level = String(level);
   el.dataset.tier = tier.id;
   el.dataset.selected = String(selected.includes(id));
@@ -1880,7 +1910,10 @@ function card(id) {
   el.dataset.card = id;
   el.disabled = selectionBlocked();
   el.setAttribute("aria-pressed", String(raised));
-  el.setAttribute("aria-label", `${def.name}, ${type}, ${tier.label}, level ${level}`);
+  el.setAttribute(
+    "aria-label",
+    `${def.name}, ${type}, ${tier.label}, level ${level}`,
+  );
   el.setAttribute("aria-describedby", `card-detail-${id}`);
   const graphic = node("span", undefined, "art");
   const img = node("img");
@@ -1923,10 +1956,7 @@ function card(id) {
       el.dataset.covered = "true";
       const cloth = node("img", undefined, "object-cover");
       cloth.decoding = "async";
-      cloth.src = imageUrl(
-        cardArt(covering),
-        "card",
-      );
+      cloth.src = imageUrl(cardArt(covering), "card");
       cloth.alt = "";
       graphic.append(cloth);
     }
@@ -1939,7 +1969,11 @@ function card(id) {
   if (hidden) observation.textContent = "";
   el.append(graphic, node("span", hidden ? "" : def.name, "name"), observation);
   for (const end of ["top", "bottom"]) {
-    const numeral = node("span", romanLevel(level), `card-level card-level-${end}`);
+    const numeral = node(
+      "span",
+      romanLevel(level),
+      `card-level card-level-${end}`,
+    );
     numeral.setAttribute("aria-hidden", "true");
     el.append(numeral);
   }
@@ -1981,9 +2015,7 @@ function card(id) {
     ) {
       playQueue.clear();
       rowCollapsed = false;
-      selectCards(
-        places[dragging[0]] && places[id] ? [id] : [dragging[0], id],
-      );
+      selectCards(places[dragging[0]] && places[id] ? [id] : [dragging[0], id]);
       selectionRevision = world.revision;
       render();
     }
@@ -1993,8 +2025,15 @@ function card(id) {
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
   frame.append(el);
-  const holder = things[id] ? rootHolder(world, id) : null;
-  if (people[holder] || places[holder]) {
+  const holder = things[id]
+    ? rootHolder(world, id)
+    : stackedPlace(id)
+      ? placeHere()
+      : null;
+  if (stackedPlace(id)) {
+    frame.dataset.holder = holder;
+    frame.hidden = !expandedHolders.has(holder);
+  } else if (people[holder] || places[holder]) {
     frame.dataset.holder = holder;
     frame.hidden = places[holder]
       ? !expandedHolders.has(holder)
@@ -2013,7 +2052,8 @@ function card(id) {
       frame.dataset.expanded = String(expandedHolders.has(id));
       el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
       const named = held.filter((item) => !cardIsCovered(item)).map(nameOf);
-      if (named.length < held.length) named.push(`${held.length - named.length} covered`);
+      if (named.length < held.length)
+        named.push(`${held.length - named.length} covered`);
       if (!hidden)
         observation.textContent += ` ${places[id] ? "Contains" : "Carries"} ${named.join(", ")}. Select to show these cards.`;
       for (const item of held.slice(0, 2)) {
@@ -2029,6 +2069,21 @@ function card(id) {
       }
     }
   }
+  const stack =
+    id === placeHere() ? availableCards(world).filter(stackedPlace) : [];
+  if (stack.length) {
+    frame.dataset.places = String(stack.length);
+    frame.dataset.expanded = String(expandedHolders.has(id));
+    el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
+    if (!hidden) observation.textContent += stackLabel(stack);
+    // Blank edges: how many ways on, not where they lead.
+    for (let i = Math.min(stack.length, 3); i > 0; i--) {
+      const edge = node("span", undefined, "place-edge");
+      edge.style.setProperty("--i", String(i));
+      frame.prepend(edge);
+    }
+    frame.append(node("span", String(stack.length), "place-count"));
+  }
   if (shownQuest?.actor === id) frame.prepend(questTab(shownQuest));
   el.dataset.unrevealed = String(cardIsCovered(id));
   const back = node("img", undefined, "card-back");
@@ -2042,6 +2097,10 @@ function card(id) {
   }
   return frame;
 }
+const stackLabel = (stack) =>
+  stack.length
+    ? ` ${stack.length} ${stack.length === 1 ? "way" : "ways"} on. Select to show ${stack.length === 1 ? "it" : "them"}.`
+    : "";
 // The quest card: a small screen showing the player doing the quest's verb
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near and plays nothing.
@@ -2326,10 +2385,7 @@ function renderHeldItem(figure, actor, itemId) {
     const images = [itemId, covering].filter(Boolean).map((id, index) => {
       const image = node("img", undefined, index ? "object-cover" : "");
       image.decoding = "async";
-      image.src = imageUrl(
-        cardArt(id),
-        "card",
-      );
+      image.src = imageUrl(cardArt(id), "card");
       image.alt = "";
       image.draggable = false;
       return image;
@@ -2366,10 +2422,7 @@ function renderFloorItems(items) {
           ...[id, cover].filter(Boolean).map((art, index) => {
             const image = node("img", undefined, index ? "object-cover" : "");
             image.decoding = "async";
-            image.src = imageUrl(
-              cardArt(art),
-              "card",
-            );
+            image.src = imageUrl(cardArt(art), "card");
             image.alt = "";
             image.draggable = false;
             return image;
@@ -2427,7 +2480,8 @@ function renderScene() {
   });
   img.alt = coveredCards.has(scene.locationId)
     ? ""
-    : stageOf(world, scene.locationId).alt || placeText(world, scene.locationId);
+    : stageOf(world, scene.locationId).alt ||
+      placeText(world, scene.locationId);
   if (scene.weather) img.alt += ` Weather: ${scene.weather.condition}.`;
   if (scene.daylight) img.alt += ` ${scene.daylight.description}`;
   img.dataset.locationVariant = scene.variant;
@@ -2528,7 +2582,9 @@ function renderScene() {
     image.fetchPriority = "high";
     if (image.getAttribute("src") !== source) image.src = source;
     if (!reviewing && crossedPortraitTier(id, from, level))
-      void transformPortrait(image, previous, { reduced: reducedMotion.matches });
+      void transformPortrait(image, previous, {
+        reduced: reducedMotion.matches,
+      });
     image.dataset.source = actor.cutout;
     image.dataset.flip = String(flipStagePortrait(actor.cutout, actor.facing));
     figure.dataset.flip = image.dataset.flip;
@@ -2778,10 +2834,7 @@ function renderScene() {
       ...(front?.actions || []).map((action) => {
         const item = node("span", undefined, "beat-caption");
         item.dataset.kind = action.kind;
-        item.append(
-          beatIcon(action.icon),
-          node("span", action.text),
-        );
+        item.append(beatIcon(action.icon), node("span", action.text));
         return item;
       }),
     );
@@ -3250,10 +3303,7 @@ function renderLog(open = $("history-dialog").open) {
         for (const action of beat.actions) {
           const caption = node("p", undefined, "beat-caption");
           caption.dataset.kind = action.kind;
-          caption.append(
-            beatIcon(action.icon),
-            node("span", action.text),
-          );
+          caption.append(beatIcon(action.icon), node("span", action.text));
           body.append(caption);
         }
         item.append(face, body);
@@ -3296,7 +3346,11 @@ function render() {
     if (!shownQuest && liveQuest && renderedHand) questFresh = true;
     shownQuest = liveQuest;
   }
-  const handCards = questHand(availableCards(world), world, shownQuest);
+  const handCards = questHand(
+    stackPlaces(availableCards(world)),
+    world,
+    shownQuest,
+  );
   // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
     handCards,
@@ -3408,7 +3462,11 @@ function playLevelUps() {
       level = Number(button.dataset.level),
       from = shownLevels.get(id);
     shownLevels.set(id, level);
-    if (from < level && !cardIsCovered(id) && !button.closest(".card-frame").hidden)
+    if (
+      from < level &&
+      !cardIsCovered(id) &&
+      !button.closest(".card-frame").hidden
+    )
       void levelUpCard(button, from, {
         frame: frameFigure,
         previousPortrait: crossedPortraitTier(id, from, level)

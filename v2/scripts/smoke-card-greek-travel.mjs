@@ -193,6 +193,7 @@ try {
         await page.keyboard.press("Escape");
       }
       const road = packDefinition("greek-drama").places[target]?.road;
+      // A road's two ends stack behind it and fan out in road order.
       if (road) {
         await selectCard(page, target, { touch: width === 390 });
         const visibleOrder = await page
@@ -204,7 +205,7 @@ try {
                 .filter((id) => ids.includes(id)),
             ["mara", road[0], target, road[1]],
           );
-        assert.deepEqual(visibleOrder, ["mara", road[0], target, road[1]]);
+        assert.deepEqual(visibleOrder, ["mara", target, road[0], road[1]]);
       }
       if (
         [
@@ -243,7 +244,7 @@ try {
     }
     assert.deepEqual(errors, []);
     console.log(
-      `Greek travel: ${width}px, Mara first, roads between their ends, both Athenian gates, reload, and return passed.`,
+      `Greek travel: ${width}px, Mara first, roads with their ends stacked behind, both Athenian gates, reload, and return passed.`,
     );
     await page.close();
   }
