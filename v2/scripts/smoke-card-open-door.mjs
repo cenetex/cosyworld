@@ -16,13 +16,14 @@ import {
 import {
   clearSelection,
   selectCard,
+  smokeWidths,
   topicForChoice,
 } from "./card-browser-helpers.mjs";
 
 export async function checkOpenDoor(browser, origin) {
   const output = new URL("../../output/open-door/", import.meta.url);
   await mkdir(output, { recursive: true });
-  for (const width of [1440, 390]) {
+  for (const width of smokeWidths([1440, 390])) {
     const options =
       width === 1440
         ? {

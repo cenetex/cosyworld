@@ -97,7 +97,7 @@ pull request checks.
 
 ### Full suite
 
-The full suite (`ci.yml`, about 40 minutes) runs only by hand, and only before
+The full suite (`ci.yml`, about 12 minutes on idle runners) runs only by hand, and only before
 a production release: the latest main commit to be tagged needs a green full
 run (`gh workflow run ci.yml --ref main`). Do not run it after batches.
 `image-build.yml`, `local-desktop.yml`, and `pages.yml` also run only by
@@ -106,9 +106,12 @@ gates on tags.
 
 The full suite is the final cross-platform authority. It uses Node 24 and stable Rust
 for lint, tests, content, kernel, Rust builds, browser and composition smokes,
-and guide checks. Browser journeys run in parallel groups from one shared
-debug binary; keep each group near ten minutes and add a new journey script to
-a group in `ci.yml`. No full-suite run is cancelled. Known flaky tests listed in `QUARANTINED_TESTS` in
+and guide checks. Browser journeys run in parallel shards from one shared
+debug binary. `scripts/plan-browser-shards.mjs` packs the measured checks in
+`scripts/browser-shards.json` into shards of about six minutes; add a new
+journey there with its duration, and split a long journey by width with
+`smokeWidths` from `v2/scripts/card-browser-helpers.mjs`. Each run takes about
+20 runners, so runs dispatched together queue for GitHub's concurrency limit. No full-suite run is cancelled. Known flaky tests listed in `QUARANTINED_TESTS` in
 `v2/scripts/check-rust.sh` run in the non-blocking `Quarantined Rust tests`
 job; each has an issue and a fix-by date. Main saves one Cargo cache per UTC day, right after
 compiling. A local suite
