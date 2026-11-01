@@ -143,12 +143,14 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   story quest. An avatar holds one level quest at a time. Any quest in the
   stack is met when its condition holds, not only the top one, and a met
   quest leaves the stack; the next is drawn only when the stack is empty.
-- **Drop and Pursue.** A player may drop any quest in its stack with the
-  `drop` play naming it (`quest`, its index; no item). Dropping an ordinary
-  quest costs nothing, and its target stays out of mind a while; dropping a
-  level quest costs half the experience and keeps the level. Dropping the
-  last quest draws another at once. A **focus** play (Pursue quest) brings a
-  quest from beneath to the top. Both are plays, and each takes a turn.
+- **Choose and drop.** In the open fan, choosing a quest beneath the top
+  brings it to the top with a **focus** play naming it (`quest`, its index).
+  Focus is journaled like any play, but it takes no turn: the world does not
+  move on. The top quest offers **Drop quest**, the `drop` play with that
+  index and no item; the rules accept a drop at any index. Dropping an
+  ordinary quest costs nothing, and its target stays out of mind a while;
+  dropping a level quest costs half the experience and keeps the level.
+  Dropping the last quest draws another at once, and a drop takes a turn.
 
 - **First quest.** A player holds no quest at the start: the attic opening
   has no quest card. The hub's `questsBeginAt` (`forest.json`,
@@ -251,10 +253,9 @@ the card, showing the card back. It plays nothing. The top quest folds behind th
 a full-size card in its stack: face down, showing the carved card back, leaning
 out to the top left with a glowing line in its tier colour along its edge.
 Choosing the folded card fans the whole stack out, top first, and so does
-opening the avatar's stack. In the open fan one quest is chosen (the top at
-first); tapping another chooses it instead, and tapping the chosen one folds
-the fan. The chosen quest offers Drop quest, and one from beneath also offers
-Pursue quest. The rules remove a met quest at once; the browser keeps its card,
+opening the avatar's stack. In the open fan the top quest is chosen and
+offers Drop quest. Tapping a quest beneath brings it to the top, with no turn
+taken, and tapping the chosen one folds the fan. The rules remove a met quest at once; the browser keeps its card,
 sealed, in the fan, and the folded line glows until its player taps the card
 to clear it. Any met card can be cleared, in any order; clearing shows the one
 point of experience it brought rising from the card (a still label with

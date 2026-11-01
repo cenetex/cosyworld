@@ -126,7 +126,8 @@ try {
     );
     await gain.waitFor({ state: "detached" });
     // A stack (#1831): the fold shows the top quest; opening it fans them all
-    // out; a quest beneath can be chosen and pursued, and any can be dropped.
+    // out; choosing a quest beneath brings it to the top without a turn, and
+    // only the top quest offers Drop quest.
     await page.evaluate((key) => {
       const s = JSON.parse(localStorage.getItem(key));
       const vale = s.actors.vale;
@@ -145,8 +146,12 @@ try {
     await ready();
     const saved = () =>
       page.evaluate((key) => {
-        const vale = JSON.parse(localStorage.getItem(key)).actors.vale;
-        return [vale.want, ...(vale.under || [])].map((w) => w.target);
+        const s = JSON.parse(localStorage.getItem(key));
+        const vale = s.actors.vale;
+        return {
+          turn: s.turn,
+          targets: [vale.want, ...(vale.under || [])].map((w) => w.target),
+        };
       }, key);
     const openFold = async () => {
       await page.locator("#hand .quest-fold").focus();
@@ -165,24 +170,43 @@ try {
     assert.equal(
       await page.locator("#card-actions [data-focus-quest]").count(),
       0,
+      "no Pursue button",
     );
+    const { turn } = await saved();
     await page.locator('#hand .want-card[data-quest-id="quest:1"]').click();
-    assert.equal(await picked.getAttribute("data-quest-id"), "quest:1");
-    const pursue = page.locator('#card-actions [data-focus-quest="1"]');
-    await pursue.waitFor();
+    await page.waitForFunction(
+      (key) =>
+        JSON.parse(localStorage.getItem(key)).actors.vale.want.target ===
+        "keeper",
+      key,
+    );
+    assert.deepEqual(
+      await saved(),
+      { turn, targets: ["keeper", "station"] },
+      "the chosen quest on top, no turn taken",
+    );
+    assert.equal(await fan.count(), 2, "the fan stays open");
+    assert.equal(await picked.getAttribute("data-quest-id"), "quest:0");
+    const drop = page.locator('#card-actions [data-drop-quest="0"]');
+    await drop.waitFor();
+    assert.equal(
+      await page.locator("#card-actions [data-drop-quest]").count(),
+      1,
+      "only the top quest offers Drop",
+    );
     await page.screenshot({
       path: new URL(`stack-${width}.png`, output).pathname,
     });
-    await pursue.click();
+    await drop.click();
     await ready();
-    assert.deepEqual(await saved(), ["keeper", "station"], "pursued on top");
-    await openFold();
-    await page.locator('#card-actions [data-drop-quest="0"]').click();
-    await ready();
-    assert.deepEqual(await saved(), ["station"], "the top quest dropped");
+    assert.deepEqual(
+      (await saved()).targets,
+      ["station"],
+      "the top quest dropped",
+    );
     assert.deepEqual(errors, []);
     console.log(
-      `Quest fold, met seal, click to clear and +XP, stack fan, pursue and drop passed at ${width}px (${motion}).`,
+      `Quest fold, met seal, click to clear and +XP, stack fan, choose and drop passed at ${width}px (${motion}).`,
     );
     await page.close();
   }

@@ -72,7 +72,7 @@ describe("the quest stack", () => {
     expect(validateWorld(reload(s))).toBeTruthy();
   });
 
-  it("offers a Drop for every quest and a Pursue for each beneath the top", () => {
+  it("offers a Drop for every quest and a focus for each beneath the top", () => {
     const s = createWorld();
     s.actors.vale.under = [newWant("place", "pond", 0)];
     const drops = legalActions(s).filter((a) => a.kind === "drop" && !a.item);
@@ -107,11 +107,17 @@ describe("the quest stack", () => {
     expect(validateWorld(reload(s))).toBeTruthy();
   });
 
-  it("brings a chosen quest to the top", () => {
+  it("brings a chosen quest to the top without taking a turn", () => {
     let s = createWorld();
     s.actors.vale.under = [newWant("place", "pond", 0), story("bell")];
+    const before = structuredClone(s);
     s = act(s, (a) => a.kind === "focus" && a.quest === 2);
     expect(targets(s)).toEqual(["bell", "lamp", "pond"]);
+    // Only picking a card: the turn holds and nobody else moves.
+    expect(s.turn).toBe(before.turn);
+    expect(s.revision).toBe(before.revision + 1);
+    for (const id of Object.keys(before.actors))
+      expect(s.actors[id].place).toBe(before.actors[id].place);
     expect(s.log.findLast((e) => e.actorId === "vale")).toMatchObject({
       verb: "focus",
     });

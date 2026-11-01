@@ -1537,7 +1537,8 @@ export function legalActions(s, actor = currentActor(s)) {
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor));
   // A player may drop any quest in its stack (a level quest costs half the
-  // experience), or pursue one from beneath, which brings it to the top.
+  // experience), or choose one from beneath, which brings it to the top
+  // without taking a turn.
   if (actor === currentActor(s) || controlledByHuman(s, actor))
     questsOf(s, actor).forEach((w, quest) => {
       const drop = offer(
@@ -1708,9 +1709,8 @@ function performPlay(s, a, round = null, settle = []) {
     conflict.guarding[a.actor] = false;
     if (a.actor === conflict.defender) conflict.answered = true;
   }
-  if ((a.kind === "drop" && !a.item) || a.kind === "focus") {
-    if (a.kind === "drop") dropQuest(s, a.actor, wantAPI(s), a.quest);
-    else focusQuest(s, a.actor, a.quest);
+  if (a.kind === "drop" && !a.item) {
+    dropQuest(s, a.actor, wantAPI(s), a.quest);
     addLog(s, "World", a.text, {
       kind: "action",
       actorId: a.actor,
@@ -2367,6 +2367,20 @@ export function play(
     };
   const next = structuredClone(s);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
+  // Choosing which quest is on top is only picking a card: it is journaled
+  // like a play, but no turn passes and the world does not move on.
+  if (exact.kind === "focus") {
+    next.revision += 1;
+    focusQuest(next, actor, exact.quest);
+    addLog(next, "World", exact.text, {
+      kind: "action",
+      actorId: actor,
+      verb: "focus",
+      witnesses: [actor],
+    });
+    validateWorld(next);
+    return { ok: true, state: next };
+  }
   // Crossings open before the play decide whether a signal refreshes them.
   const round = beginRound(s, sensesFor(s));
   next.turn += 1;
