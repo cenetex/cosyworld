@@ -725,7 +725,7 @@ describe("deploy workflow", () => {
     expect(outcome).toContain("gh api --paginate");
     expect(outcome).toContain("compare/${sha}...${GITHUB_SHA}");
     expect(outcome).toMatch(
-      /needs\.primary-fly\.result == 'success' &&\s+needs\.lonelyforest-fly\.result == 'success'\)/,
+      /needs\.primary-fly\.outputs\.deployed == 'true' &&\s+needs\.lonelyforest-fly\.outputs\.deployed == 'true'\)/,
     );
   });
 
