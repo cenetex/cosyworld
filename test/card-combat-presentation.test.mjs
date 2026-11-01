@@ -113,10 +113,10 @@ describe("combat beats from today's rule lines", () => {
 
   it("lowercases a name's article inside a caption", () => {
     const beat = { kind: "attack", actorId: "keeper", targetId: "vale" };
-    expect(telegraphText(beat)).toBe("The keeper lunges at Vale");
+    expect(telegraphText(beat)).toBe("The keeper strikes Vale");
     expect(
       telegraphText({ ...beat, actorId: "vale", targetId: "keeper" }),
-    ).toBe("Vale lunges at the keeper");
+    ).toBe("Vale strikes the keeper");
   });
 
   it("ignores plays with no standoff", () => {

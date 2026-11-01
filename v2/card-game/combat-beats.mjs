@@ -10,7 +10,7 @@ export const COMBAT_VERBS = ["threaten", "guard", "attack"];
 export const DEFEAT_MOVES = ["retreat", "sent-home"];
 export const MAX_RESOLVE = 4;
 const YIELDED = /after yielding to/u;
-// A name inside a sentence: "lunges at the keeper", not "at The keeper".
+// A name inside a sentence: "strikes the keeper", not "strikes The keeper".
 export const inSentence = (id) => nameOf(id).replace(/^The /u, "the ");
 
 const holderRoot = (world, id) => {
