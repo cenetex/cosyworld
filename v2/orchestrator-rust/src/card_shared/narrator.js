@@ -14409,7 +14409,8 @@
       scythia: ["cloud", "rain", "mist", "cloud", "rain", "clear"],
       heights: ["mist", "clear", "cloud", "mist", "clear", "cloud"],
       underworld: ["mist"],
-      sea: ["mist", "rain", "mist", "rain", "mist", "clear"]
+      sea: ["mist", "rain", "mist", "rain", "mist", "clear"],
+      willows: ["rain", "mist", "rain", "rain", "mist", "mist", "rain", "mist"]
     },
     places: {
       boeotia: {
@@ -14579,6 +14580,13 @@
       sea: {
         coast: [
           "greek-ship"
+        ]
+      },
+      willows: {
+        river: [
+          "willows-camp",
+          "willows-thicket",
+          "willows-bank"
         ]
       }
     }

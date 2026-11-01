@@ -49,6 +49,22 @@ describe("regional Greece weather", () => {
     expect(locationWeather(world, "pond")).toBeNull();
   });
 
+  it("keeps the Willows rainy or misty, apart from the landing", () => {
+    const seen = { day: new Set(), night: new Set() };
+    for (let turn = 0; turn < WEATHER_TURNS * 16; turn++) {
+      const phase = Math.floor(turn / (WEATHER_TURNS * 2)) % 2 ? "night" : "day";
+      for (const id of ["willows-camp", "willows-thicket", "willows-bank"]) {
+        const weather = locationWeather({ turn }, id);
+        expect(weather.exposure, id).toBe("river");
+        expect(["rain", "mist"], id).toContain(weather.condition);
+        seen[phase].add(weather.condition);
+      }
+      expect(locationWeather({ turn }, "willows-landing")).toBeNull();
+    }
+    expect([...seen.day].sort()).toEqual(["mist", "rain"]);
+    expect([...seen.night].sort()).toEqual(["mist", "rain"]);
+  });
+
   it("holds through a weather period and advances on an accepted play", () => {
     let world = createWorld();
     world.actors.vale.place = "greek-courtyard";
