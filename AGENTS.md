@@ -27,8 +27,9 @@ Keep each branch small: at most 400 hand-written lines changed against main.
 The pre-push hook enforces this budget; see `.github/AGENT.md`.
 
 The fast check (`fast-check.yml`, about five minutes) runs on every PR and
-every main push. Merge in batches of 2-3 PRs and wait for main's fast check to
-go green before the next batch. The full suite (`ci.yml`) runs only by hand
+every main push. Merges do not deploy: a `.dev` train ships main every 30
+minutes (`docs/release.md#delivery-schedule`), so land batches just before a
+train leaves and wait for main's fast check to go green before the next batch. The full suite (`ci.yml`) runs only by hand
 and does not block a release; see `.github/AGENT.md`.
 
 Pull requests do not bump the version. Between releases, main and `.dev` carry

@@ -2,48 +2,81 @@
 
 Deployments are handled by `.github/workflows/deploy.yml`.
 
-## Continuous deploys
+## Delivery schedule
 
-Pushes to `main` deploy only the primary `cosyworld` Fly app, as soon as its
-image is built, without the production gate or a primary backup; bugs on `.dev` are fixed
-forward. Every main push also runs the fast check (`fast-check.yml`). The
-full suite (`ci.yml`) runs only by hand and does not block a release (see
-[Cutting a Release](#cutting-a-release)). Tags matching `v*` rerun the production gate, deploy both
-the primary app and `cosyworld-lonelyforest` from the tagged commit, and create
-a GitHub release only after both deployments succeed.
+Merges are expected all day, so `.dev` and production change on a schedule
+rather than once per merge:
+
+1. **Merge windows.** Pull requests merge to main whenever they are reviewed
+   and their fast check is green. A merge deploys nothing by itself. The
+   lander should land a batch shortly before a train leaves (at `:07` and
+   `:37` past the hour) so the batch ships together and the next window
+   starts clean.
+2. **`.dev` train, every 30 minutes.** The scheduled `Deploy` run deploys
+   main's head to `.dev` only when main has moved since `.dev`'s last
+   rollout, and only when production inputs changed. Its run summary names
+   the train's commit and lists the pull requests it carries, so each drop
+   is labelled.
+3. **Production.** When the owner says "tag it from `.dev`", release the
+   commit the last train shipped ([Cutting a Release](#cutting-a-release)).
+   Automatic promotion of the previous train is planned separately.
+
+Owner controls:
+
+- **Deploy `.dev` now:** `gh workflow run deploy.yml --ref main -f target=dev`
+  runs a train at once, for an urgent fix.
+- **Pause the train:** set the `COSYWORLD_DEV_TRAIN` repository variable to
+  `off` (`gh variable set COSYWORLD_DEV_TRAIN --body off`); delete it to
+  resume. The `dev` dispatch still works while paused.
+- **Change the cadence:** edit the `schedule` cron line in
+  `.github/workflows/deploy.yml`. GitHub can start scheduled runs several
+  minutes late, so keep the interval at 15 minutes or more.
+
+CI follows the same budget. The fast check (`fast-check.yml`, about five
+minutes) runs on each pull request and each main push. The full suite
+(`ci.yml`) runs only by hand; run it on a train's commit, not per pull
+request, when a release needs it.
+
+## .dev trains
+
+A train runs one job, `Deploy main to .dev`, without the production gate or a
+primary backup; bugs on `.dev` are fixed forward. Tags matching `v*` rerun the
+production gate, deploy both the primary app and `cosyworld-lonelyforest`
+from the tagged commit, and create a GitHub release only after both
+deployments succeed.
 
 The primary app is also `.dev`. When main has moved past the tagged commit,
 the tag rollout would leave `.dev` on that older commit, so the
-`Return .dev to the main commit it ran` job then rolls `.dev` forward to the
-newer commit it ran before the tag, from that commit's existing
-`deploy-<sha>` image, and runs the same readiness and card-game smokes.
+`Return .dev to the main commit it ran` job then rolls `.dev` back to the
+last train's commit, from that commit's existing `deploy-<sha>` image, and
+runs the same readiness and card-game smokes. It deploys nothing new.
 
-A main push runs one job, `Deploy main to .dev`, so it waits for one runner
-rather than five in a row. The job:
+The train job:
 
-1. Yields if main has already moved past its commit.
-2. Compares the commit with the one the primary app last rolled out, read
-   from earlier Deploy runs (`scripts/last-dev-rollout.mjs`), and stops when
-   only docs, tests, tooling, or release versions changed. Comparing with the
-   live commit, not the previous push, means a docs-only commit still deploys
-   a code commit whose run was superseded.
-3. Builds the image while a watcher checks main every 15 seconds. When main
-   moves, the run cancels itself (`scripts/yield-superseded-deploy.sh`) and
-   the newer run, waiting in the deploy concurrency group, starts at once.
-   Only main-push runs yield; tag and dispatch runs never do.
-4. Waits while a production deploy is queued or running, checks ownership
-   once more, then rolls out and verifies `.dev`. Nothing cancels a run
-   after this point.
+1. Compares main's head with the commit the primary app last rolled out,
+   read from earlier Deploy runs (`scripts/last-dev-rollout.mjs`), and stops
+   when main has not moved or only docs, tests, tooling, or release versions
+   changed.
+2. Writes the train summary (`scripts/dev-train-summary.sh`).
+3. Builds the image, or reuses the `deploy-<sha>` image when that commit
+   already has one, so a rerun skips the build.
+4. Waits while a production deploy is queued or running, then rolls out and
+   verifies `.dev`.
 
-Main runs and production runs (tags and dispatches) queue in separate
-concurrency groups. GitHub keeps one pending run per group, so when they
-shared one, a main push replaced a waiting tag deploy (v1.2.107, run
+A train deploys the commit it started on even if main moves meanwhile; the
+next train takes the rest.
+
+Trains and production runs (tags and production dispatches) queue in
+separate concurrency groups. GitHub keeps one pending run per group, so when
+they shared one, a main push replaced a waiting tag deploy (v1.2.107, run
 41266788580). Both roll out the primary app, so
-`scripts/serialize-primary-rollout.sh` keeps them apart: a `.dev` run waits
-before its rollout while any production run is active, and the production
-backup and rollout wait for a `.dev` run already past that point. Production
-never waits on a waiting `.dev` run, so neither can deadlock. A main run is
-still replaced only by a later main push, which reports for it (#1044).
+`scripts/serialize-primary-rollout.sh` keeps them apart: a train waits before
+its rollout while any production run is active, and the production backup
+and rollout wait for a train already past that point. Production never waits
+on a waiting train, so neither can deadlock. The workflow's `run-name` starts
+with `.dev train`, which is how that script tells a `dev` dispatch from a
+production one. A pending train is replaced only by a later train, which
+reports for it (#1044).
 
 The image job compiles the release binary on the runner, in the Dockerfile's own
 `cargo-chef` toolchain image, with a release target restored from the GitHub
@@ -57,7 +90,7 @@ The first deploy of each UTC day saves the target again, after `.dev` is live.
 A failed warm build retries once from an empty target. Tags and dispatches
 skip this cache and compile inside the Dockerfile as before, unless an image
 for that commit already exists; only those builds write the registry build
-cache, so a main push no longer replaces their dependency layers.
+cache, so a train no longer replaces their dependency layers.
 
 The repository keeps 10 GB of Actions caches and evicts the least recently
 used. The release target is about 2.3 GB, the CI Cargo cache about 2 GB, and
