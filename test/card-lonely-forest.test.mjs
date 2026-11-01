@@ -72,6 +72,7 @@ const move = (world, target) => act(world, "move", { target });
 const take = (world, item) => act(world, "take", { item });
 const wait = (world) => act(world, "wait", { actor: "vale" });
 const CHARM = "forest-wolfprint-charm";
+const talk = (world, target) => act(world, "talk", { target });
 function attic() {
   const world = enableMotives(createWorld());
   world.actors.vale.place = "attic";
@@ -81,8 +82,8 @@ function attic() {
   world.items.lamp.fuel = 12;
   return world;
 }
-// Talk with RATi after arriving is the welcome (on meet until #1611's
-// on: "talk"); the arrival itself hides Vale's button.
+// Talk with RATi after arriving is the welcome; the arrival itself hides
+// Vale's button.
 function welcome() {
   const world = move(attic(), COTTAGE);
   return act(world, "talk", { target: "rati" });
@@ -90,18 +91,18 @@ function welcome() {
 function charmAtOak() {
   let world = move(welcome(), GARDEN);
   world = wait(world);
-  world = move(world, TRAIL);
+  world = talk(move(world, TRAIL), "skull");
   world = take(world, CHARM);
-  return move(world, OAK);
+  return talk(move(world, OAK), "oak");
 }
 // Carry the charm past Oak and home to RATi's hearth.
 function homeWithCharm() {
   let world = move(welcome(), GARDEN);
   world = wait(world);
-  world = move(world, TRAIL);
+  world = talk(move(world, TRAIL), "skull");
   world = take(world, "forest-wolfprint-charm");
   world = move(world, GARDEN);
-  world = move(world, OAK);
+  world = talk(move(world, OAK), "oak");
   world = reload(world);
   world = move(world, GARDEN);
   return move(world, COTTAGE);
@@ -443,9 +444,11 @@ describe("Tea beneath the oak", () => {
     world = wait(world);
     expect(exits(world, GARDEN, "vale")).toContain(TRAIL);
     world = move(world, TRAIL);
+    expect(state(world).flags["forest-watch-shared"]).toBeUndefined();
+    world = talk(world, "skull");
     expect(state(world).flags["forest-watch-shared"]).toBe(true);
     // Oak hears the account only from a traveler carrying the charm.
-    world = move(move(world, GARDEN), OAK);
+    world = talk(move(move(world, GARDEN), OAK), "oak");
     expect(state(world).flags["forest-oak-heard"]).toBeUndefined();
     expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
   });

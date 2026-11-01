@@ -7,7 +7,10 @@ Status: design, 2026-10-31. Issue #1581.
 A pack choice can fire from a fixed Talk instead of a named button. "Stay for
 tea" is the first one: a human traveler's Talk with RATi in the cottage, once
 they have met her, commits `forest-stay-for-tea` and sets `forest-welcomed`.
-No tea button appears.
+No tea button appears. Skull's pawprint watch (`forest-mark-pawprints`) and
+Oak's account while the traveler holds the charm (`forest-tell-hearth`) move
+from `on: "meet"` to `on: "talk"` too. The keep-the-charm ending stays an
+`on: "wait"` play at the hearth: waiting there with the charm is the deed.
 
 ## Rule
 

@@ -18,9 +18,10 @@ the model voices it from the committed facts.
 1. Talk to RATi in the cottage. That play is her welcome.
 2. Wait in the garden. The traveler clears the drain, and the Moonlit Trail
    opens.
-3. Go to Skull on the trail. Meeting him shares the pawprint watch. Take the
-   Wolfprint Charm.
-4. Carry the charm to Oak. Meeting Oak while holding it records the account.
+3. Go to Skull on the trail. Talking with him shares the pawprint watch.
+   Take the Wolfprint Charm.
+4. Carry the charm to Oak. Talking with Oak while holding it records the
+   account.
 5. Home at the cottage, end the visit one of two ways:
    - Give RATi the charm. It stays by the hearth.
    - Wait at the hearth with RATi while holding the charm. The traveler
@@ -35,9 +36,8 @@ counts when someone present carries it, when it lies among the roots or
 when Oak holds it. Once the charm stays by the hearth, Oak's way closes, and
 the garden path to the trail stays open.
 
-The welcome and the two meetings commit when the traveler shares a room
-with the resident (`on: "meet"`). When Talk gets its own trigger (#1611),
-each becomes `on: "talk"`. A later visitor meets the completed work.
+The welcome, the watch and the account commit at the traveler's Talk with
+the resident (`on: "talk"`). A later visitor meets the completed work.
 
 ## A button in your own colour
 
