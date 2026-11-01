@@ -82,7 +82,11 @@ smoke serves the static card game; smokes that start the Rust server run only
 in the full suite. A new PR run cancels the PR's older run; main runs are
 never cancelled. Each job reads its runner label from the `FAST_CHECK_RUNNER`
 repository variable (default `ubuntu-latest`), so moving to the Fly runner
-(#1565) needs no workflow edit.
+(#1565) needs no workflow edit. While a production deploy (a `v*` tag or a
+dispatch of `deploy.yml`) is queued or running, the plan job waits, for up to
+15 minutes, before the other fast-check jobs ask for runners
+(`scripts/yield-to-production-deploy.sh`), so the deploy is not queued behind
+pull request checks.
 
 ### Landing
 
