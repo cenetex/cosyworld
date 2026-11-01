@@ -6,6 +6,7 @@ import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
+import { UNKNOWN_PERSON } from "../card-game/speech-knowledge.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -151,11 +152,13 @@ try {
       .flatMap((input) => input.entities)
       .filter((entity) => entity.id === "boardyai")
       .at(-1);
-    // Talk carries one quest line, not quest titles.
+    // Talk carries one quest line, not quest titles. BoardyAI has not met
+    // Mara, so his line keeps her unnamed (#1850).
     assert(
-      told.facts.some((fact) => fact === "I want to see Mara."),
-      "BoardyAI's Talk context names his quest",
+      told.facts.some((fact) => fact === `I want to see ${UNKNOWN_PERSON}.`),
+      "BoardyAI's Talk context carries his quest",
     );
+    assert(!told.facts.some((fact) => fact.includes("Mara")));
     assert(!told.facts.some((fact) => fact.startsWith("What I want most now")));
     const settle = async () => {
       for (let i = 0; i < 180; i++) {
