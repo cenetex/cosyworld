@@ -25,5 +25,13 @@ The no-deadlock test in `test/card-combat.test.mjs` runs seeded games where
 the player only ever Strikes or Braces during a standoff. Every standoff
 closes within ten turns.
 
-Next: the room lock. While a standoff is open, nobody present leaves or
-changes items. It ships separately with its fixture updates.
+## Room lock
+
+While a standoff is open, its room is locked (`roomLocked` in
+`legalActions`). Nobody present can Move, Accompany, set a Course, Take, Drop
+an item, Give, Trade, Ask or Cover. The threatened side may still Give the
+demanded item to the challenger, which ends the standoff. Arrivals are allowed
+and are then locked in. Bystanders keep Talk but cannot Strike. Residents stop
+wandering because their moves are not legal. The hand shows only the people,
+plus the demanded item for the threatened side. Talk, Wait and that Give are
+the ways out.

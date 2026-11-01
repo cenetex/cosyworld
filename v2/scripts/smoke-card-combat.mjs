@@ -95,6 +95,19 @@ try {
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
     await page.locator('#hand [data-card="moth"]').waitFor();
+    // Under threat the room is locked: no place cards and no items but the
+    // demanded Lamp, which Vale may still hand over.
+    assert.deepEqual(
+      [
+        ...new Set(
+          await page.$$eval("#hand [data-card]", (cards) =>
+            cards.map((card) => card.dataset.card),
+          ),
+        ),
+      ].sort(),
+      ["lamp", "moth", "vale"],
+      "Under threat the hand holds only the fighters and the demanded item",
+    );
     // Standing resolve shows under both fighters before the play.
     await page.waitForFunction(
       () => document.querySelectorAll("#cast .combat-pips").length === 2,

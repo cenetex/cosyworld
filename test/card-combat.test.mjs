@@ -46,7 +46,7 @@ const meeting = () => {
 };
 
 describe("card standoffs", () => {
-  it("opens combat with a threat and keeps dialogue and item plays available", () => {
+  it("opens combat with a threat and locks the room's travel and item plays", () => {
     let s = meeting();
     expect(avatarPlays(s, "moth").map((a) => a.kind)).toEqual([
       "talk",
@@ -68,8 +68,9 @@ describe("card standoffs", () => {
       "attack",
     ]);
     expect(cardPlay(s, ["moth"]).action.kind).toBe("talk");
-    expect(cardPlay(s, ["lamp"]).action.kind).toBe("ask");
-    expect(legalActions(s).some((a) => a.kind === "move")).toBe(true);
+    // Nobody in a standoff's room leaves or changes items until it ends.
+    expect(cardPlay(s, ["lamp"]).action).toBeFalsy();
+    expect(legalActions(s).some((a) => a.kind === "move")).toBe(false);
     expect(s.log.some((e) => e.verb === "attack")).toBe(false);
   });
   it("ends a threat when either side answers with words", () => {
@@ -164,22 +165,33 @@ describe("card standoffs", () => {
     );
     validateWorld(after);
   });
-  it("settles an item demand through a trade while combat is open", () => {
-    let s = createWorld();
-    s.actors.moth.place = "station";
+  it("settles an item demand by handing it over, the one item play left", () => {
+    let s = meeting();
     s.items.lamp.holder = "vale";
-    s = act(s, "threaten", "moth");
-    const trade = cardPlay(s, ["lamp", "cloth"]).action;
-    expect(trade.kind).toBe("trade");
-    s = play(s, trade).state;
-    expect(s.items.cloth.holder).toBe("vale");
-    expect(narrativeContext(s).outcome).toMatchObject({
-      card: { kind: "trade", target: "moth", item: "lamp", receive: "cloth" },
-      items: expect.arrayContaining([
-        { id: "cloth", holder: "vale", location: "station" },
-        { id: "lamp", holder: "moth", location: "station" },
-      ]),
-    });
+    s.items.cloth.holder = "moth";
+    s.actors.vale.place = "station";
+    s.standoffs = [
+      {
+        challenger: "moth",
+        defender: "vale",
+        location: "station",
+        item: "lamp",
+        opened: s.turn,
+        answered: true,
+        resolve: { moth: 4, vale: 4 },
+        guarding: { moth: false, vale: false },
+        struck: { moth: false, vale: false },
+      },
+    ];
+    // While the room is locked, handing over the demanded item is the one
+    // item play left, and it ends the standoff.
+    expect(
+      legalActions(s).filter((a) =>
+        ["give", "trade", "drop", "ask"].includes(a.kind),
+      ),
+    ).toEqual([expect.objectContaining({ kind: "give", item: "lamp" })]);
+    s = act(s, "give", "moth", "lamp");
+    expect(s.items.lamp.holder).not.toBe("vale");
     expect(s.standoffs).toEqual([]);
     expect(s.log.some((e) => e.verb === "attack")).toBe(false);
   });
@@ -214,11 +226,35 @@ describe("card standoffs", () => {
       ),
     ).toBe(true);
   });
-  it("ends a standoff when either avatar travels and keeps items with their owner", () => {
+  it("reopens travel once a Talk ends the standoff and keeps items with their owner", () => {
     let s = act(meeting(), "threaten", "moth");
-    s = act(s, "move", "pond");
+    expect(legalActions(s).some((a) => a.kind === "move")).toBe(false);
+    s = act(s, "talk", "moth");
     expect(s.standoffs).toEqual([]);
+    s = act(s, "move", "pond");
     expect(s.items.lamp.holder).toBe("moth");
+  });
+  it("locks a bystander in the room until the fighters finish", () => {
+    let s = meeting();
+    s.actors.keeper.place = "station";
+    s.items.lamp.holder = "keeper";
+    s.standoffs = [
+      {
+        challenger: "moth",
+        defender: "keeper",
+        location: "station",
+        item: "lamp",
+        opened: s.turn,
+        answered: true,
+        resolve: { moth: 4, keeper: 4 },
+        guarding: { moth: false, keeper: false },
+        struck: { moth: true, keeper: true },
+      },
+    ];
+    const kinds = legalActions(s).map((a) => a.kind);
+    expect(kinds).toContain("talk");
+    for (const kind of ["move", "take", "give", "trade", "ask", "attack"])
+      expect(kinds).not.toContain(kind);
   });
   it("preserves a standoff through saves, rejects stale plays and validates combat fields", () => {
     const s = act(meeting(), "threaten", "moth");
@@ -226,7 +262,7 @@ describe("card standoffs", () => {
     expect(act(restored, "attack", "moth")).toEqual(act(s, "attack", "moth"));
     const attack = legalActions(s).find((a) => a.kind === "attack");
     expect(play(s, attack, s.revision - 1).ok).toBe(false);
-    const departed = act(s, "move", "pond");
+    const departed = act(s, "talk", "moth");
     expect(play(departed, attack).ok).toBe(false);
     for (const patch of [
       { resolve: { vale: 99, moth: 4 } },

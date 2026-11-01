@@ -29,6 +29,7 @@ import {
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
 
+import { endStandoff } from "./helpers/standoff.mjs";
 const PACK = "greek-drama";
 const HARBOR = "greek-harbor";
 const COURTYARD = "greek-courtyard";
@@ -40,6 +41,7 @@ const PALACE = "greek-palace";
 const stateOf = (world) => world.packs[PACK];
 
 function act(world, kind, field = {}) {
+  world = endStandoff(world);
   const action = legalActions(world).find(
     (candidate) =>
       candidate.kind === kind &&
