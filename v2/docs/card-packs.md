@@ -204,6 +204,14 @@ reachability test. The hidden item becomes the traveler's want, so finding
 it is their quest. A choice with `"on": "give"` is also never a card. It is the effect
 of the actor giving its subject the item the choice needs them to hold. The
 Give is accepted, the choice text is the outcome, and nothing else moves.
+A choice with `"on": "hold"` names a pack item as its subject, needs `for`
+and requires `{"kind":"holding","item":<subject>,"role":"actor"}`. It
+commits after any play once the item's holder is the traveler it is for,
+wherever they stand and however the item came to them: a take, a gift, a
+trade, or an item held from before the choice existed. It waits a play when
+a choice receipt already holds that turn. Its text is logged as narration.
+RATi's `forest-wear-scarf-*` choices use it to upgrade a scarf's owner and
+retire the scarf.
 A choice with `"on": "talk"` is the effect of a human traveler's Talk with its
 subject, a person, where the choice's requirements hold. The choice text is
 the Talk's outcome. RATi's welcome, `forest-stay-for-tea`, works this way.

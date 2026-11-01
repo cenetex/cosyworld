@@ -1155,6 +1155,16 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           c.on === "wait" ||
           (c.on === "depart" && Boolean(avatars[c.subject])) ||
           (c.on === "talk" && Boolean(avatars[c.subject])) ||
+          // A hold choice is for the one traveler its item belongs to.
+          (c.on === "hold" &&
+            Boolean(items[c.subject]) &&
+            c.for !== undefined &&
+            (c.requires || []).some(
+              (r) =>
+                r.kind === "holding" &&
+                r.role === "actor" &&
+                r.item === c.subject,
+            )) ||
           (c.on === "give" &&
             (c.requires || []).some(
               (r) => r.kind === "holding" && r.role === "actor",

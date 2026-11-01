@@ -190,13 +190,15 @@ describe("a button in each traveler's own colour", () => {
     expect(world.packs[PACK].receipts["forest-sew-scarf-vale"]).toBe(
       world.turn,
     );
-    expect(world.items[SCARF].holder).toBe("vale");
+    // RATi leaves the scarf in her cottage, an ordinary thing to find.
+    expect(world.items[SCARF].holder).toBe(COTTAGE);
     expect(entityActive(world, SCARF)).toBe(true);
+    expect(world.actors.vale.upgrades).toBeUndefined();
     expect(entityActive(world, BUTTON)).toBe(false);
     expect(world.items[BUTTON]).toEqual({ holder: COTTAGE, history: [] });
     expect(world.packs[PACK].flags["forest-scarf-vale-sewn"]).toBe(true);
     world = reload(world);
-    expect(world.items[SCARF].holder).toBe("vale");
+    expect(world.items[SCARF].holder).toBe(COTTAGE);
     // Meeting RATi again hides nothing more.
     world = act(world, "talk", { target: "rati" });
     expect(world.items[BUTTON].holder).toBe(COTTAGE);
@@ -334,19 +336,100 @@ const memory = (data = new Map()) => ({
 });
 
 describe("cosmetic upgrades travel with the traveler (#1873)", () => {
-  it("records the scarf upgrade when RATi sews the traveler's own button", () => {
-    const world = sewn();
+  it("upgrades the owner who takes their scarf, and uses the scarf up", () => {
+    let world = act(sewn(), "take", { item: SCARF });
     expect(world.actors.vale.upgrades).toEqual(["scarf"]);
-    expect(world.items[SCARF].holder).toBe("vale");
-    expect(reload(world).actors.vale.upgrades).toEqual(["scarf"]);
-    validateWorld(reload(world));
-    // The portrait reads the set, so it stays after the scarf is given away.
-    world.items[SCARF].holder = "mara";
+    expect(world.packs[PACK].receipts["forest-wear-scarf-vale"]).toBe(
+      world.turn,
+    );
+    expect(world.log.at(-1)).toMatchObject({
+      kind: "narration",
+      itemId: SCARF,
+      actorId: "vale",
+    });
+    // The scarf leaves play for good: it is not in the cottage again.
+    expect(entityActive(world, SCARF)).toBe(false);
+    expect(world.items[SCARF]).toEqual({ holder: COTTAGE, history: [] });
+    world = reload(world);
+    expect(world.actors.vale.upgrades).toEqual(["scarf"]);
+    expect(entityActive(world, SCARF)).toBe(false);
+    validateWorld(world);
     expect(avatarImage(world, "vale")).toBe(SCARF_ART);
     expect(portrait("vale", null, world)).toBe(`./${SCARF_ART}`);
     expect(avatarImage(world, "mara")).toBe(
       "assets/shared/characters/mara.png",
     );
+  });
+
+  it("keeps someone else's scarf an ordinary thing until its owner holds it", () => {
+    const people = { claimed: ["vale", "mara"], present: ["vale", "mara"] };
+    let world = dispatchShared({
+      op: "create",
+      save: encodeSave(attic()),
+    }).world;
+    const turn = (actor, fields) => {
+      const view = dispatchShared({ op: "view", world, actor, ...people });
+      const action = view.actions.find((a) =>
+        Object.entries(fields).every(([k, v]) => a[k] === v),
+      );
+      expect(action, `${actor} ${JSON.stringify(fields)}`).toBeTruthy();
+      const response = dispatchShared({
+        op: "play",
+        world: view.world,
+        actor,
+        action,
+        ...people,
+      });
+      expect(response.ok, response.error).toBe(true);
+      world = response.world;
+    };
+    world.actors.vale.place = "forest-garden";
+    world.actors.mara.place = "forest-garden";
+    turn("mara", { kind: "move", target: COTTAGE });
+    turn("vale", { kind: "move", target: COTTAGE });
+    world.items["forest-button-mara"].holder = "mara";
+    turn("mara", { kind: "give", item: "forest-button-mara", target: "rati" });
+    const scarf = "forest-scarf-mara";
+    expect(world.items[scarf].holder).toBe(COTTAGE);
+    // Vale can take it and carry it like anything else.
+    turn("vale", { kind: "take", item: scarf });
+    turn("mara", { kind: "wait" });
+    expect(world.items[scarf].holder).toBe("vale");
+    expect(entityActive(world, scarf)).toBe(true);
+    expect(world.actors.vale.upgrades).toBeUndefined();
+    expect(world.actors.mara.upgrades).toBeUndefined();
+    // Handed to Mara, it becomes part of her portrait.
+    turn("vale", { kind: "give", item: scarf, target: "mara" });
+    expect(world.actors.mara.upgrades).toEqual(["scarf"]);
+    expect(world.actors.vale.upgrades).toBeUndefined();
+    expect(entityActive(world, scarf)).toBe(false);
+    expect(avatarImage(world, "mara")).toBe(
+      "assets/shared/characters/mara-scarf.png",
+    );
+  });
+
+  it("upgrades the owner who trades for their scarf", () => {
+    const start = sewn();
+    start.items[SCARF].holder = "rati";
+    start.actors.rati.want = { kind: "item", target: "cloth", since: 0 };
+    const world = act(start, "trade", {
+      item: "cloth",
+      receive: SCARF,
+      target: "rati",
+    });
+    expect(world.items.cloth.holder).toBe("rati");
+    expect(world.actors.vale.upgrades).toEqual(["scarf"]);
+    expect(entityActive(world, SCARF)).toBe(false);
+  });
+
+  it("upgrades a traveler who held their scarf before rules 81", () => {
+    // Older rules handed the scarf over and recorded no upgrade.
+    const start = sewn();
+    start.items[SCARF].holder = "vale";
+    delete start.actors.vale.upgrades;
+    const world = act(start, "wait");
+    expect(world.actors.vale.upgrades).toEqual(["scarf"]);
+    expect(entityActive(world, SCARF)).toBe(false);
   });
 
   it("hides no button for a traveler who already wears the scarf", () => {
@@ -404,7 +487,7 @@ describe("cosmetic upgrades travel with the traveler (#1873)", () => {
 
   it("keeps the local passkey's upgrades between local worlds", () => {
     const storage = memory();
-    rememberLocalUpgrades(sewn(), storage);
+    rememberLocalUpgrades(act(sewn(), "take", { item: SCARF }), storage);
     expect(JSON.parse(storage.getItem(LOCAL_UPGRADES_KEY))).toEqual({
       vale: ["scarf"],
     });
@@ -420,10 +503,11 @@ describe("cosmetic upgrades travel with the traveler (#1873)", () => {
   });
 
   it("does not carry local upgrades into a passkey's shared world", () => {
-    const local = sewn();
+    const local = act(sewn(), "take", { item: SCARF });
+    expect(local.actors.vale.upgrades).toEqual(["scarf"]);
     const shared = dispatchShared({ op: "create", save: encodeSave(local) });
     expect(shared.world.actors.vale.upgrades).toBeUndefined();
     // The shared world keeps its own things; only the passkey set is dropped.
-    expect(shared.world.items[SCARF].holder).toBe("vale");
+    expect(entityActive(shared.world, SCARF)).toBe(false);
   });
 });

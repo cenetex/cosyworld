@@ -55,9 +55,16 @@ for it, and anyone who values it may come to want it.
 
 RATi's Talk says she would sew the button into a scarf of the complementary
 colour. A traveler who brings their own button to the cottage and gives it
-to RATi gets their scarf. The Give triggers the sewing choice. The button
-leaves the world, and RATi wraps the scarf around them. She refuses
-someone else's button.
+to RATi sews their scarf. The Give triggers the sewing choice. The button
+leaves the world, and RATi lays the scarf on the basket in her cottage. She
+refuses someone else's button.
+
+The scarf is an ordinary thing, like the button: anyone can find, take,
+carry, trade, give or want it. When its own traveler comes to hold it, by any
+route, they tie it on: their portrait gains the scarf for good and the scarf
+leaves the world (`forest-wear-scarf-<id>`, an `"on": "hold"` choice). Someone
+else's scarf changes nobody. A traveler who held their scarf under older rules
+ties it on after their next play.
 
 | Traveler | Button | Scarf |
 | --- | --- | --- |

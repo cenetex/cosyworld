@@ -204,9 +204,12 @@ fn a_cosmetic_upgrade_stays_with_the_passkey_in_every_world() {
     let mara = actor_index("mara").unwrap();
     let tx = c.transaction().unwrap();
     full::run(&tx, &first, "u", &body("claim", Some("mara")), now()).unwrap();
+    full::run(&tx, &first, "w", &body("claim", Some("vale")), now()).unwrap();
     // The rules gave Mara an upgrade here; her next committed play keeps it.
+    // Vale's, from a scarf she was handed, is kept by the same play.
     let mut w = full_store::world(&tx, &first, now()).unwrap();
     w.game["actors"]["mara"]["upgrades"] = json!(["scarf"]);
+    w.game["actors"]["vale"]["upgrades"] = json!(["scarf"]);
     let action = home_action(&w, mara, "take");
     full_store::commit(
         &tx,
@@ -218,6 +221,11 @@ fn a_cosmetic_upgrade_stays_with_the_passkey_in_every_world() {
     .unwrap();
     assert_eq!(
         super::bindings::upgrades(&tx, "u", mara).unwrap(),
+        vec!["scarf"]
+    );
+    let vale = actor_index("vale").unwrap();
+    assert_eq!(
+        super::bindings::upgrades(&tx, "w", vale).unwrap(),
         vec!["scarf"]
     );
     // Claimed in a second world, Mara arrives wearing it; it is never taken.

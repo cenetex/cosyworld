@@ -183,7 +183,7 @@ binding instead. The avatar's level and experience are kept in
 `card_avatar_progress(user, actor)`. They are written whenever a seat empties
 through Send, Release or Free, and taken by the next claim, which journals
 them as `progress`. Cosmetic upgrades are one-way and stay with the passkey:
-each committed play stores the actor's `upgrades` in
+each committed play stores every seated traveler's `upgrades` in
 `card_avatar_upgrades(user, actor, upgrade)`, and every claim journals them
 as `progress.upgrades` (rules 81 and later). A fresh seat has none.
 

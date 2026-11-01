@@ -91,6 +91,7 @@ import {
   packChoices,
   applyPackChoice,
   applyMeetingChoices,
+  applyHoldChoices,
   packGiveChoice,
   packWaitChoice,
   applyDeparture,
@@ -2020,6 +2021,14 @@ function performPlay(s, a, round = null, settle = []) {
     );
   // A flask and an empty lamp in one avatar's hands refuel after the play.
   refuelCarried(s);
+  // A traveler who comes to hold an item made for them uses it up (#1873).
+  for (const held of applyHoldChoices(s))
+    addLog(s, "World", held.text, {
+      kind: "narration",
+      actorId: held.actor,
+      itemId: held.item,
+      witnesses: [held.actor],
+    });
   // Answering the request is the invited avatar's action for this round.
   return invitation ? a.target : null;
 }
