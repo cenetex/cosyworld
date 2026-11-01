@@ -16766,7 +16766,12 @@
     if (saved.choices["greek-theban-response"] === "refusal") {
       delete saved.choices["greek-theban-response"];
       delete saved.flags["greek-refusal-public"];
+      delete saved.flags["greek-open-door-open"];
     }
+    if (["burial", "concession", "exposure"].some(
+      (b) => Object.hasOwn(saved.receipts, `greek-courtyard-${b}`)
+    ))
+      saved.flags["greek-open-door-open"] = true;
     s.log = (s.log || []).filter(
       (e) => !(e.packId === pack.id && THEBAN_RETIRED_CHOICES.includes(e.choiceId))
     );

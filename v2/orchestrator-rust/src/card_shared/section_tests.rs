@@ -196,9 +196,9 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
     play(&c, &id, &mut old, 0, "choiceId", "greek-return-water-jar");
     play(&c, &id, &mut old, 0, "target", "greek-gate");
     play(&c, &id, &mut old, 0, "choiceId", "greek-hear-decree");
-    play(&c, &id, &mut old, 0, "choiceId", "greek-decline-burial");
+    play(&c, &id, &mut old, 0, "choiceId", "greek-report-plan");
     play(&c, &id, &mut old, 0, "target", "greek-courtyard");
-    play(&c, &id, &mut old, 0, "choiceId", "greek-courtyard-refusal");
+    play(&c, &id, &mut old, 0, "choiceId", "greek-courtyard-exposure");
     let mut world = full_store::world(&c, &id, now()).unwrap();
     let before = world.clone();
     assert!(full_store::commit(
@@ -210,25 +210,13 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
     )
     .is_err());
     assert_eq!(world, before);
-    let invitation = world.project(0).unwrap()["actions"]
+    // Under the current rules the public account itself opened the road;
+    // there is no invitation button left to play.
+    assert!(!world.project(0).unwrap()["actions"]
         .as_array()
         .unwrap()
         .iter()
-        .find(|a| {
-            a["choiceId"]
-                .as_str()
-                .is_some_and(|id| id.starts_with("greek-open-door-invite-"))
-        })
-        .expect("Dione offers an invitation after the public response")
-        .clone();
-    full_store::commit(
-        &c,
-        &id,
-        &mut world,
-        json!({"op":"play","actor":"vale","action":invitation}),
-        now(),
-    )
-    .unwrap();
+        .any(|a| a["kind"] == "choose"));
     assert_eq!(
         world.game["packs"]["greek-drama"]["flags"]["greek-open-door-open"],
         true

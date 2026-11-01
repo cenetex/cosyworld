@@ -866,7 +866,8 @@ export function upgradeWillowsKitSave(s) {
 
 // Greek revision 11 sets the Market Well within the courtyard and retires the
 // Theban story buttons. Known steps the map lost become walkable paths; the
-// refusal branch and the invitation receipts leave the save.
+// refusal branch and the invitation receipts leave the save. A refusal save
+// that went on to Athens no longer validates and starts fresh (alpha).
 const THEBAN_RETIRED_CHOICES = [
   "prepare-permitted-burial",
   "decline-burial",
@@ -888,7 +889,15 @@ export function upgradeGreekThebesSave(s) {
   if (saved.choices["greek-theban-response"] === "refusal") {
     delete saved.choices["greek-theban-response"];
     delete saved.flags["greek-refusal-public"];
+    delete saved.flags["greek-open-door-open"];
   }
+  // Dione's road now opens with the public account itself.
+  if (
+    ["burial", "concession", "exposure"].some((b) =>
+      Object.hasOwn(saved.receipts, `greek-courtyard-${b}`),
+    )
+  )
+    saved.flags["greek-open-door-open"] = true;
   s.log = (s.log || []).filter(
     (e) =>
       !(e.packId === pack.id && THEBAN_RETIRED_CHOICES.includes(e.choiceId)),

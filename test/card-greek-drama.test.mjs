@@ -464,6 +464,25 @@ describe("Before the Burial", () => {
     ]);
   });
 
+  it("opens Dione's road for a revision 10 report told before the invitation", () => {
+    const old = JSON.parse(encodeSave(move(courtyard(), GATE)));
+    const pack = old.packs[PACK];
+    pack.revision = 10;
+    old.turn += 2;
+    old.revision += 2;
+    delete pack.recitals;
+    pack.receipts["greek-report-plan"] = old.turn - 1;
+    pack.receipts["greek-courtyard-exposure"] = old.turn;
+    pack.choices["greek-theban-response"] = "exposure";
+    Object.assign(pack.flags, {
+      "greek-guard-warned": true,
+      "greek-exposure-public": true,
+    });
+    const s = decodeSave(JSON.stringify(old));
+    expect(s.packs[PACK].flags["greek-open-door-open"]).toBe(true);
+    expect(s.packs[PACK].receipts["greek-courtyard-exposure"]).toBe(old.turn);
+  });
+
   it("does not let generated declarations perform a burial or consume another turn", () => {
     const world = move(courtyard(), GATE);
     const context = narrativeContext(world);

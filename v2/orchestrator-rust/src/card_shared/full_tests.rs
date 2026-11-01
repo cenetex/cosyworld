@@ -639,8 +639,9 @@ fn full_world_bard_visit_and_song_replay_from_the_journal() {
     for op in ["claim", "enter"] {
         full_store::commit(&c, &id, &mut w, json!({"op":op,"actor":"vale"}), now()).unwrap();
     }
+    // Giving Dione the jar returns it; Thebes has no story buttons.
     for (field, value) in [
-        ("choiceId", "greek-return-water-jar"),
+        ("item", "greek-water-jar"),
         ("kind", "wait"),
         ("target", "greek-well"),
         ("target", "greek-courtyard"),
@@ -651,7 +652,12 @@ fn full_world_bard_visit_and_song_replay_from_the_journal() {
             .as_array()
             .unwrap()
             .iter()
-            .find(|a| a[field] == value && (value != "greek-rhapsode" || a["kind"] == "talk"))
+            .find(|a| {
+                a[field] == value
+                    && (value != "greek-rhapsode" || a["kind"] == "talk")
+                    && (value != "greek-water-jar"
+                        || (a["kind"] == "give" && a["target"] == "greek-baker"))
+            })
             .unwrap()
             .clone();
         let result = full_store::commit(
@@ -1953,7 +1959,7 @@ fn pruned_shared_recital_keeps_unknown_author_through_upgrade_and_replay() {
         for op in ["claim", "enter"] {
             old.apply(&json!({"op":op,"actor":"mara"})).unwrap();
         }
-        for choice in ["greek-hear-decree", "greek-decline-burial"] {
+        for choice in ["greek-hear-decree", "greek-report-plan"] {
             let action = old.project(1).unwrap()["actions"]
                 .as_array()
                 .unwrap()
@@ -1968,7 +1974,7 @@ fn pruned_shared_recital_keeps_unknown_author_through_upgrade_and_replay() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|e| e["choiceId"] == "greek-decline-burial" && e["actorId"] == "mara"));
+            .any(|e| e["choiceId"] == "greek-report-plan" && e["actorId"] == "mara"));
         old.game["log"] = json!([]);
         full_store::seed(&c, &id, &old, "pruned-shared-song", now()).unwrap();
         if !keep_checkpoint {
@@ -1984,7 +1990,7 @@ fn pruned_shared_recital_keeps_unknown_author_through_upgrade_and_replay() {
         assert_eq!(Some(&upgraded), checkpointed.as_ref());
         assert_eq!(upgraded.version, engine::VERSION);
         assert_eq!(
-            upgraded.game["packs"]["greek-drama"]["recitals"]["greek-decline-burial"],
+            upgraded.game["packs"]["greek-drama"]["recitals"]["greek-report-plan"],
             json!({"actor":null,"visit":null})
         );
         assert_eq!(
@@ -2007,7 +2013,7 @@ fn pruned_shared_recital_keeps_unknown_author_through_upgrade_and_replay() {
         )
         .unwrap();
         assert!(
-            upgraded.game["packs"]["greek-drama"]["recitals"]["greek-decline-burial"]["visit"]
+            upgraded.game["packs"]["greek-drama"]["recitals"]["greek-report-plan"]["visit"]
                 .is_null()
         );
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
