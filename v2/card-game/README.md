@@ -341,7 +341,9 @@ Athens and Piraeus. Colonus and Marathon are direct visits from the Agora;
 Eleusis is a direct visit from Piraeus. The Theban Harbor Road is the only way
 between the Wine-Dark Harbor and Thebes. The battlefield is a Theban place
 outside the walls; the City Gate opens onto it only while the gate guard holds
-the Burial Decree there, and the way back in is always open. The Sacred Way joins the Agora and
+the Burial Decree there, and the way back in is always open. The Cithaeron
+road leads on from the battlefield to Eleusis while a Theban account of the
+burial is there or on Dione's table. The Sacred Way joins the Agora and
 Delphi, the Oeta Road joins Delphi and Trachis, the Royal Road joins Troy and
 Susa, the Black Sea Road joins Thrace and Tauris, and the Colonists' Road joins
 Corinth and Sicily. A road has two fixed ends, shown by destination cards in a

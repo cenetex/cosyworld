@@ -99,6 +99,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     upgradeWillowsKitSave(s);
     upgradeGreekThebesSave(s);
     upgradeGreekDistrictSave(s);
+    upgradeGreekCithaeronSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -342,6 +343,16 @@ export function upgradeGreekShipSignalSave(s) {
   if (state && (state.phase > 2 || (state.phase === 2 && !state.discovered)))
     state.phase = 0;
   saved.revision = 10;
+}
+
+// Revision 13 makes Cithaeron the road from the battlefield to Eleusis. A
+// known step to the old slopes from the sanctuary becomes a walkable path.
+export function upgradeGreekCithaeronSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 13 || saved?.revision !== 12) return;
+  foldRetiredRoads(s);
+  saved.revision = 13;
 }
 
 // Revision 12 retires Athenian places. Anyone or anything there, or a ship

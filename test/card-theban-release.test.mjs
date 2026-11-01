@@ -111,7 +111,7 @@ describe("the Theban release and its ship", () => {
     s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual([...openingPlaces].sort());
     expect(reachable(s)).toHaveLength(9);
-    expect(pack.release.places).toHaveLength(27);
+    expect(pack.release.places).toHaveLength(28);
     expect(
       pack.release.places
         .filter((id) => !retired(id) && id !== "greek-road-athens-harbor")
@@ -142,13 +142,11 @@ describe("the Theban release and its ship", () => {
     s.actors.vale.place = "greek-courtyard";
     expect(reachable(s)).toHaveLength(9);
     s = act(s, "give", { item: "greek-guard-tablet", target: "greek-baker" });
-    // Black Pond sails only to the Wine-Dark Harbor. The way on to Athens
-    // needs the Travel Provisions aboard, which open the lane to Piraeus;
-    // the Athens-Piraeus road walks on from the quay.
-    expect(reachable(s)).toHaveLength(9);
-    s.items["greek-provisions"].holder = "greek-ship";
+    // The tablet on Dione's table opens the Cithaeron road from the
+    // battlefield, so Athens is reached overland.
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
-    expect(reachable(s)).toHaveLength(15);
+    s.items["greek-provisions"].holder = "greek-ship";
+    expect(reachable(s)).toHaveLength(16);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     for (const start of openDoorPlaces) {

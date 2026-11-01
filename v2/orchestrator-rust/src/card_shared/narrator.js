@@ -1541,7 +1541,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 12,
+        revision: 13,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -1686,20 +1686,24 @@
             name: "The Hillside Sanctuary",
             text: "Olive trees shade a small altar. A stone basin stands beneath its roof.",
             exits: [
-              "greek-courtyard",
-              "greek-cithaeron"
+              "greek-courtyard"
             ],
             backdrop: "assets/greek-drama/sanctuary-dawn.webp",
             persona: "Olive trees shade a small altar. A stone basin stands beneath its roof."
           },
           "greek-cithaeron": {
-            name: "Cithaeron Slopes",
-            text: "Goat paths cross the wooded slope. A distant drum carries between the trees.",
+            name: "The Cithaeron Road",
+            text: "Goat paths cross the wooded slope of Cithaeron. One end leads to The Exposed Battlefield; the other leads to Eleusinian Sanctuary. A distant drum carries between the trees.",
             exits: [
-              "greek-sanctuary"
+              "greek-battlefield",
+              "greek-eleusis"
             ],
             backdrop: "assets/greek-drama/bacchae-cithaeron-day.webp",
-            persona: "Goat paths cross the wooded slope. A distant drum carries between the trees."
+            persona: "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. The left end always leads to The Exposed Battlefield. The right end always leads to Eleusinian Sanctuary. From the battlefield it opens only while a Theban account of the burial is there or on Dione\u2019s table: the Burial Account, Creon\u2019s Writ or the Guard\u2019s Tablet. Travelers can meet, talk, rest and carry their belongings here.",
+            road: [
+              "greek-battlefield",
+              "greek-eleusis"
+            ]
           },
           "greek-aulis": {
             name: "Aulis Anchorage",
@@ -1841,7 +1845,8 @@
             name: "Eleusinian Sanctuary",
             text: "Mothers hold olive branches on Demeter\u2019s steps. Aethra keeps a clear space beside the altar for their request. A shore path leads back to the Piraeus quays.",
             exits: [
-              "greek-piraeus"
+              "greek-piraeus",
+              "greek-cithaeron"
             ],
             backdrop: "assets/greek-drama/open-door-eleusis.webp",
             persona: "This episode follows the attack on Thebes. The Argive mothers seek their sons\u2019 remains. The traveler\u2019s own Theban deed stays true. The city\u2019s recovery, the funeral and the later care each need their own recorded action or report."
@@ -3802,6 +3807,74 @@
           {
             from: "greek-argos-palace",
             to: "greek-argos-tomb"
+          },
+          {
+            from: "greek-battlefield",
+            to: "greek-cithaeron",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-burial-performed",
+                value: true
+              },
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "item_near",
+                    item: "greek-burial-account",
+                    place: "greek-battlefield"
+                  },
+                  {
+                    kind: "item_near",
+                    item: "greek-burial-account",
+                    place: "greek-courtyard"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            from: "greek-battlefield",
+            to: "greek-cithaeron",
+            requires: [
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "item_near",
+                    item: "greek-creon-writ",
+                    place: "greek-battlefield"
+                  },
+                  {
+                    kind: "item_near",
+                    item: "greek-creon-writ",
+                    place: "greek-courtyard"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            from: "greek-battlefield",
+            to: "greek-cithaeron",
+            requires: [
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "item_near",
+                    item: "greek-guard-tablet",
+                    place: "greek-battlefield"
+                  },
+                  {
+                    kind: "item_near",
+                    item: "greek-guard-tablet",
+                    place: "greek-courtyard"
+                  }
+                ]
+              }
+            ]
           }
         ],
         choices: [
@@ -8622,7 +8695,8 @@
             "greek-greek-camp",
             "greek-ajax-landing",
             "greek-ajax-household",
-            "greek-ajax-grave"
+            "greek-ajax-grave",
+            "greek-cithaeron"
           ],
           avatars: [
             "greek-antigone",
@@ -9111,7 +9185,8 @@
               "greek-marathon",
               "greek-road-athens-harbor",
               "greek-road-athens-piraeus",
-              "greek-athens-harbor"
+              "greek-athens-harbor",
+              "greek-cithaeron"
             ],
             requires: [
               {
@@ -13820,7 +13895,8 @@
       if (p.road !== void 0)
         check(
           Array.isArray(p.road) && p.road.length === 2 && new Set(p.road).size === 2 && p.road.every(
-            (end, i) => owns2(places2, end) && p.exits[i] === end && (p.retired === true || places2[end].exits.includes(id))
+            (end, i) => owns2(places2, end) && p.exits[i] === end && (p.retired === true || places2[end].exits.includes(id) || // A gated end leads onto its road by a route.
+            (pack.routes || []).some((r) => r.from === end && r.to === id))
           ) && p.exits.length === 2,
           `road ${id} needs two fixed ends with a return path`
         );
@@ -16188,6 +16264,7 @@
       upgradeWillowsKitSave(s);
       upgradeGreekThebesSave(s);
       upgradeGreekDistrictSave(s);
+      upgradeGreekCithaeronSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -16380,6 +16457,13 @@
     if (state && (state.phase > 2 || state.phase === 2 && !state.discovered))
       state.phase = 0;
     saved.revision = 10;
+  }
+  function upgradeGreekCithaeronSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 13 || saved?.revision !== 12) return;
+    foldRetiredRoads(s);
+    saved.revision = 13;
   }
   function upgradeGreekDistrictSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");

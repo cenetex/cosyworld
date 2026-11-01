@@ -52,8 +52,9 @@ describe("day and night in Greece", () => {
   it("gives released places and painted Trojan shores a night painting on the saved world clock", () => {
     let world = createWorld({ packScopes: { "greek-drama": "full" } });
     world.actors.vale.place = "greek-courtyard";
+    // The Cithaeron road waits for its night painting.
     const places = [
-      ...greek.release.places,
+      ...greek.release.places.filter((place) => place !== "greek-cithaeron"),
       "greek-aulis",
       "greek-troy",
       "greek-trojan-camp",

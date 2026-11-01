@@ -377,6 +377,8 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             ["greek-colonus", "greek-underworld"],
             ["greek-athens-harbor", "greek-ship"],
             ["sea:greek-athens-harbor", "sea:greek-piraeus"],
+            // Greek revision 13 makes Cithaeron a road from the battlefield.
+            ["greek-cithaeron", "greek-sanctuary"],
         ];
         let walked = |edges: &Value| -> Vec<Value> { edges.as_array().unwrap().to_vec() };
         for (who, edges) in old.game["routeKnowledge"].as_object().unwrap() {
