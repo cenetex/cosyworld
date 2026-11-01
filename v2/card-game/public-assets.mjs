@@ -27,6 +27,18 @@ const files = [
   "boardyai.mjs",
   "boardyai.json",
   "assets/card-back.webp",
+  // Combat pose art is ready for client-side presentation integration.
+  ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].flatMap(
+    (id) =>
+      ["", "-scarf"].flatMap((wardrobe) =>
+        ["attack", "hit"].map(
+          (pose) => `assets/combat/${id}${wardrobe}-${pose}.webp`,
+        ),
+      ),
+  ),
+  ...["keeper", "moth"].flatMap((id) =>
+    ["attack", "hit"].map((pose) => `assets/combat/${id}-${pose}.webp`),
+  ),
   "rarity.mjs",
   "card-tiers.css",
   "card-reveal.mjs",
@@ -42,8 +54,6 @@ const files = [
   "assets/greek-drama/olive-branch.webp",
   // Argos commissioned art: end
   "assets/greek-drama/harbor-day.webp",
-  "assets/greek-drama/city-gate-closed-day.webp",
-  "assets/greek-drama/city-gate-closed-night.webp",
   "assets/greek-drama/ship-deck-twilight.webp",
   "assets/greek-drama/ship-deck-at-sea-day.webp",
   "assets/greek-drama/ship-deck-at-sea-night.webp",

@@ -124,4 +124,4 @@ The embedded SRD reference packs remain separately attributed under
 under `cosyworld.rules/2`.
 
 See the [action architecture](../../docs/archive/classic/docs/systems/04-action-system.md) and
-[SAF-10 evidence](../../docs/backlog/srd-action-card-foundation.md#saf-10--align-bounded-combat-with-the-action-registry).
+[SAF-10 evidence](../../docs/archive/backlog/srd-action-card-foundation.md#saf-10--align-bounded-combat-with-the-action-registry).

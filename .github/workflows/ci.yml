@@ -335,7 +335,7 @@ jobs:
           - mode: cards-drama
             scripts: smoke-card-greek-drama smoke-card-theban-scenery
           - mode: cards-weather
-            scripts: smoke-card-weather smoke-card-greek-travel
+            scripts: smoke-card-weather smoke-card-greek-travel smoke-card-ship-fade
           - mode: cards-open-door
             scripts: smoke-card-open-door
           - mode: cards-homecoming
@@ -343,7 +343,7 @@ jobs:
           - mode: cards-ajax
             scripts: smoke-card-ajax
           - mode: cards-dialogue
-            scripts: smoke-card-dialogue-recovery smoke-card-silent-reply smoke-card-dialogue-timing smoke-card-movement smoke-card-beat-stack
+            scripts: smoke-card-dialogue-recovery smoke-card-silent-reply smoke-card-dialogue-timing smoke-card-movement smoke-card-beat-stack smoke-card-combat
           - mode: cards-quests
             scripts: smoke-card-shared-discovery smoke-card-bard-travel smoke-card-voice
     env:

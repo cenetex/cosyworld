@@ -1425,7 +1425,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 8,
+        revision: 9,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -1516,7 +1516,47 @@
               "greek-battlefield",
               "greek-aulis"
             ],
-            backdrop: "assets/greek-drama/city-gate-day.webp",
+            backdrop: "assets/greek-drama/city-gate-closed-day.webp",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/city-gate-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  },
+                  {
+                    kind: "holding",
+                    item: "greek-decree",
+                    actor: "greek-guard"
+                  },
+                  {
+                    kind: "item_near",
+                    item: "greek-decree",
+                    place: "greek-gate"
+                  }
+                ]
+              },
+              {
+                backdrop: "assets/greek-drama/city-gate-day.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "day"
+                  },
+                  {
+                    kind: "holding",
+                    item: "greek-decree",
+                    actor: "greek-guard"
+                  },
+                  {
+                    kind: "item_near",
+                    item: "greek-decree",
+                    place: "greek-gate"
+                  }
+                ]
+              }
+            ],
             persona: "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers clear."
           },
           "greek-battlefield": {
@@ -3112,6 +3152,20 @@
             holder: "greek-harbor",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/provisions.png"
+          },
+          "greek-olive-branch": {
+            name: "The Suppliant\u2019s Olive Branch",
+            text: "An olive branch bound with white wool, given at the Agora when the mothers\u2019 plea is registered. Ships sail between Piraeus and Athens Harbor while it is aboard.",
+            holder: "greek-athens",
+            art: "assets/greek-drama/burial-petition.png",
+            persona: "Describe the branch, its actual holder and its recorded use. The lane between Piraeus and Athens Harbor is open only while it is aboard the ship.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-open-door-plea-registered",
+                value: true
+              }
+            ]
           },
           "greek-egypt-testimony": {
             name: "The Egyptian Witness Tablet",
@@ -4847,8 +4901,8 @@
             subject: "greek-theseus",
             at: "greek-athens",
             label: "Lay the mothers\u2019 petition before Theseus",
-            text: "Vale lays the mothers\u2019 petition on the public table. Theseus hears the request and Adrastus\u2019s part in the war. The city takes up the burial claim as its own duty.",
-            textTemplate: "{actor} lays the mothers\u2019 petition on the public table. Theseus hears the request and Adrastus\u2019s part in the war. The city takes up the burial claim as its own duty.",
+            text: "Vale lays the mothers\u2019 petition on the public table. Theseus hears the request and Adrastus\u2019s part in the war. The city takes up the burial claim as its own duty, and the herald hands over a suppliant\u2019s olive branch.",
+            textTemplate: "{actor} lays the mothers\u2019 petition on the public table. Theseus hears the request and Adrastus\u2019s part in the war. The city takes up the burial claim as its own duty, and the herald hands over a suppliant\u2019s olive branch.",
             requires: [
               {
                 kind: "flag",
@@ -4871,6 +4925,10 @@
                 kind: "place_item",
                 item: "greek-burial-petition",
                 place: "greek-athens"
+              },
+              {
+                kind: "give_item",
+                item: "greek-olive-branch"
               },
               {
                 kind: "set_flag",
@@ -8512,7 +8570,8 @@
             "greek-ajax-shield",
             "greek-ajax-plea",
             "greek-ajax-cloth",
-            "greek-ajax-tools"
+            "greek-ajax-tools",
+            "greek-olive-branch"
           ],
           choices: [
             "greek-return-water-jar",
@@ -9799,7 +9858,14 @@
               },
               {
                 from: "greek-athens-harbor",
-                to: "greek-piraeus"
+                to: "greek-piraeus",
+                opensWith: [
+                  {
+                    kind: "item_present",
+                    item: "greek-olive-branch",
+                    place: "greek-ship"
+                  }
+                ]
               },
               {
                 from: "greek-piraeus",
@@ -13510,6 +13576,7 @@
           "voice",
           "exits",
           "backdrop",
+          "backdrops",
           "art",
           "music",
           "musicMode",
@@ -13533,6 +13600,13 @@
         `place ${id} exits must name other places in this pack`
       );
       media(p.backdrop, `place ${id} backdrop`);
+      if (p.backdrops !== void 0)
+        check(
+          Array.isArray(p.backdrops) && p.backdrops.length > 0 && p.backdrops.length <= 8 && p.backdrops.every(
+            (b) => keysOk(b, ["backdrop", "requires"]) && mediaPathOk(pack.id, b.backdrop) && Array.isArray(b.requires) && b.requires.length > 0
+          ),
+          `place ${id} backdrops need a backdrop in this pack and saved conditions`
+        );
       if (p.road !== void 0)
         check(
           Array.isArray(p.road) && p.road.length === 2 && new Set(p.road).size === 2 && p.road.every(
@@ -13818,8 +13892,11 @@
           );
         });
     };
-    for (const [id, p] of Object.entries(places2))
+    for (const [id, p] of Object.entries(places2)) {
       requirements(p.requires, `place ${id} requires`);
+      for (const b of Array.isArray(p.backdrops) ? p.backdrops : [])
+        requirements(b?.requires, `place ${id} backdrop requires`, false);
+    }
     for (const [id, a] of Object.entries(avatars)) {
       requirements(a.requires, `avatar ${id} requires`);
       for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
@@ -15062,7 +15139,11 @@
   var packMediaFiles = [
     ...new Set(
       packDefinitions.flatMap((pack) => [
-        ...Object.values(pack.places).flatMap((p) => [p.backdrop, p.art]),
+        ...Object.values(pack.places).flatMap((p) => [
+          p.backdrop,
+          p.art,
+          ...(p.backdrops || []).map((b) => b.backdrop)
+        ]),
         ...Object.values(pack.items || {}).map((i) => i.art),
         ...pack.crossings.flatMap((c) => [
           c.scenery?.overlay,
@@ -15869,7 +15950,7 @@
       s.log = s.log.filter((e) => e?.kind !== "quest" && !QUEST_VERBS.includes(e?.verb)).map(({ questPlan, consequence, questKey, ...e }) => e);
     migrateLife(s);
   }
-  function upgradeSave(s, { installPacks: installPacks2 }) {
+  function upgradeSave(s, { installPacks: installPacks2, laneText = () => null }) {
     if (!s || ![6, 7].includes(s.schema))
       throw new Error("This save needs a fresh start.");
     forgetQuests(s);
@@ -15882,6 +15963,7 @@
       upgradeGreekTownSave(s);
       upgradeGreekAjaxSave(s);
       upgradeGreekOneRoadSave(s);
+      upgradeGreekPassSave(s);
       s.schema = 7;
       installPacks2(s);
     } else if (s?.schema === 7 && s.packs && typeof s.packs === "object" && s.crossings && typeof s.crossings === "object") {
@@ -15892,6 +15974,7 @@
       upgradeGreekTownSave(s);
       upgradeGreekAjaxSave(s);
       upgradeGreekOneRoadSave(s);
+      upgradeGreekPassSave(s);
       installPacks2(s);
     }
     if (s?.schema === 7) {
@@ -15908,6 +15991,10 @@
     }
     upgradeSightings(s);
     installPacks2(s);
+    for (const fact of Object.values(s?.knowledge?.facts || {})) {
+      const text2 = fact?.source?.kind === "lane" && laneText(fact.id);
+      if (text2) fact.text = text2;
+    }
     if (s?.schema === 7)
       installKnowledge(
         s,
@@ -16113,6 +16200,15 @@
     s.standoffs = (s.standoffs || []).filter(
       (conflict) => !localRoadEnds(conflict.location)
     );
+  }
+  function upgradeGreekPassSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 9 || saved?.revision !== 8) return;
+    const id = "greek-olive-branch";
+    s.items[id] ??= { holder: pack.items[id].holder, history: [] };
+    s.memories[id] ??= newMemories()[id];
+    saved.revision = 9;
   }
   function upgradeGreekAjaxSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
@@ -16901,7 +16997,7 @@
   }
   function decodeSave(text2) {
     const s = JSON.parse(text2);
-    upgradeSave(s, { actorIds, installPacks });
+    upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
     validateWorld(s);
     preserveTransportAccess(s);
     return validateWorld(s);
@@ -17093,6 +17189,7 @@
     "greek-ajax-grave": art("ajax-camp-night")
   };
   var dockedNightBackdrops = {
+    [art("city-gate-closed-day")]: art("city-gate-closed-night"),
     [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
     [art("athens-harbor")]: art("athens-harbor-ship-at-berth-night"),
     [art("open-door-piraeus")]: art("piraeus-ship-at-berth-night")
@@ -17121,12 +17218,17 @@
       ...Object.values(dockedNightBackdrops)
     ])
   ];
+  var mentionsDaylight = (conditions = []) => conditions.some(
+    (condition) => condition.kind === "daylight" || condition.kind === "any" && mentionsDaylight(condition.conditions)
+  );
   function locationDaylight(world, id) {
-    if (!world || !(Object.hasOwn(nightBackdrops, id) || Object.hasOwn(darkMistBackdrops, id)))
-      return null;
+    const mapped = Object.hasOwn(nightBackdrops, id) || Object.hasOwn(darkMistBackdrops, id);
+    const place = packPlaces[id];
+    const authored = place?.backdrops?.some((b) => mentionsDaylight(b.requires));
+    if (!world || !mapped && !authored) return null;
     const period = Math.floor(world.turn / DAYLIGHT_TURNS);
     const phase = isNight(world) ? "night" : "day";
-    const where = placeDescriptions[id] || (id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : id.startsWith("greek-road-") && id !== "greek-road-thebes" ? "on the Attic roads" : "in Thebes");
+    const where = placeDescriptions[id] || (!mapped && authored ? `at ${place.name}` : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : id.startsWith("greek-road-") && id !== "greek-road-thebes" ? "on the Attic roads" : "in Thebes");
     return {
       phase,
       period,
@@ -17137,7 +17239,7 @@
     if (Object.hasOwn(darkMistBackdrops, id))
       return willowsMist(world) ? darkMistBackdrops[id] : file;
     if (locationDaylight(world, id)?.phase !== "night") return file;
-    return dockedNightBackdrops[file] || nightBackdrops[id];
+    return dockedNightBackdrops[file] || nightBackdrops[id] || file;
   }
 
   // v2/card-game/narrative.mjs
@@ -17433,8 +17535,15 @@
   function backdrop(id, world = null) {
     if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
     const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-    const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
+    const file = variant ? daylightBackdrop(world, id, variant) : placeBackdrop(world, id);
     return file ? `./${file}` : `./assets/${id}.png`;
+  }
+  function placeBackdrop(world, id) {
+    const place = packPlaces[id];
+    const state = world?.packs && place?.backdrops?.find(
+      (b) => conditionsMet(world, place.packId, b.requires)
+    );
+    return state?.backdrop || daylightBackdrop(world, id, place?.backdrop);
   }
   var visibleCrossing = (world, place) => crossings.find(
     (c) => c.from === place && (c.scenery?.overlay || c.scenery?.backdrop) && crossingOpen(world, c, senses)

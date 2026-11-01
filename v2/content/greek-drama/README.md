@@ -133,6 +133,9 @@ The ship sails authored lanes: Black Pond only to the Wine-Dark Harbor; the
 Wine-Dark Harbor to Piraeus and the Trojan camp landing; Athens Harbor to
 Piraeus. The lane between the Wine-Dark Harbor and Piraeus opens only while
 the Travel Provisions (`greek-provisions`, first at the harbour) are aboard.
+The lane between Piraeus and Athens Harbor opens only while the Suppliant's
+Olive Branch (`greek-olive-branch`) is aboard. The herald hands it to whoever
+registers the mothers' plea at the Agora.
 Piraeus Quays lies outside the Open Door section, so that lane reaches it in
 any save; its roads inland and its stories still wait for Dione's invitation.
 Boarding keeps the ship at its harbour. The first course
@@ -160,6 +163,12 @@ record. The other later places keep their SVG scenery for now.
 The Ajax chapter adds day and night camp paintings, Tecmessa, Teucer,
 Odysseus and the shield. Its [art record](../../card-game/assets/greek-drama/AJAX-ART.md)
 lists the retained sources and prompt records.
+
+The Theban City Gate shows its closed day or night painting
+(`city-gate-closed-day.webp`, `city-gate-closed-night.webp`) unless the Gate
+Guard holds the Burial Decree at the gate. Then it shows the open gate. The
+state backdrop uses the same `holding` and `item_near` conditions as the
+battlefield road.
 
 Trojan Shores adds matching day and night paintings for Aulis Anchorage,
 the Trojan Walls, the Trojan Night Camp and the Homecoming Beach. Sixteen inventory objects gain their own transparent

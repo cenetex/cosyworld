@@ -8,16 +8,18 @@ export function greekTravelTargets(from, to) {
   if (packPlaces[from]?.exits.includes(to)) return [to];
   // Black Pond sails only to the Wine-Dark Harbor. The opening fixture's
   // traveller carries the Travel Provisions aboard, which open the lane to
-  // Piraeus, and has heard the lane from Piraeus to Athens Harbor.
+  // Piraeus.
   if (from === "greek-harbor" && to === "greek-piraeus")
     return ["greek-ship", to];
   // From Piraeus an idle ship sails its first lane, to the Wine-Dark Harbor.
   if (from === "greek-piraeus" && to === "greek-harbor")
     return ["greek-ship", to];
+  // The Athens Harbor lane needs the olive branch aboard, so Athens is
+  // walked by the Athens–Piraeus Road.
   if (from === "greek-harbor" && to === "greek-athens")
-    return ["greek-ship", "greek-athens-harbor", to];
+    return ["greek-ship", "greek-piraeus", "greek-road-athens-piraeus", to];
   if (from === "greek-athens" && to === "greek-harbor")
-    return ["greek-athens-harbor", "greek-ship", to];
+    return ["greek-road-athens-piraeus", "greek-piraeus", "greek-ship", to];
   return walk(from, to) || [to];
 }
 

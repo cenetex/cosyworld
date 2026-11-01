@@ -9,8 +9,10 @@ import { DAYLIGHT_TURNS, locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
 import {
   CHANGE_FADE_MS,
+  CARD_ARRIVE_MS,
   CROSSFADE_MS,
   crossfadeImage,
+  fadeLayer,
   hauntScene,
   installScaresToggle,
 } from "./transitions.mjs";
@@ -1685,8 +1687,8 @@ function updateCardSelection(frame) {
       : "");
 }
 const handMotions = new Map();
-function moveHandPart(key, element, frames) {
-  const motion = element.animate(frames, { duration: 220, easing: "ease-out" });
+function moveHandPart(key, element, frames, duration = 220) {
+  const motion = element.animate(frames, { duration, easing: "ease-out" });
   handMotions.set(key, motion);
   motion.finished
     .then(() => {
@@ -2111,14 +2113,17 @@ function renderScene() {
   if (scene.overlay && !overlay) {
     overlay = node("img", undefined, "backdrop location-overlay");
     overlay.id = "location-overlay";
+    overlay.hidden = true;
     overlay.style.pointerEvents = "none";
     img.after(overlay);
   }
   if (overlay) {
-    overlay.hidden = !scene.overlay;
     const overlaySource = imageUrl(scene.overlay);
     if (scene.overlay && overlay.getAttribute("src") !== overlaySource)
       overlay.src = overlaySource;
+    fadeLayer(overlay, Boolean(scene.overlay), {
+      duration: !stayed || reducedMotion.matches ? 0 : CHANGE_FADE_MS,
+    });
     overlay.alt = scene.overlay ? placeText(world, scene.locationId) : "";
   }
   const staging = sceneStaging(view, {
@@ -2981,7 +2986,17 @@ function render() {
         if (frame.hidden) continue;
         const id = frame.querySelector(".card").dataset.card,
           previous = before.get(id) || before.get(frame.dataset.holder);
-        if (!previous) continue;
+        if (!previous) {
+          // A card that joins the hand here (the ship docking) fades in.
+          if (before.size)
+            moveHandPart(
+              `frame:${id}`,
+              frame,
+              { opacity: [0, 1] },
+              CARD_ARRIVE_MS,
+            );
+          continue;
+        }
         const next = frame.getBoundingClientRect(),
           dx = previous.left - next.left,
           dy = previous.top - next.top;
@@ -3279,7 +3294,7 @@ window.addEventListener("storage", (event) => {
     rowCollapsed = true;
     saveBlocked = false;
     notice("The world was updated in another tab.");
-    resumeScene();
+    resumeScene({ otherTab: true });
   } catch {
     saveBlocked = true;
     notice(
@@ -3321,7 +3336,8 @@ function showOpeningSilence() {
   render();
   exchange.load(silence.lines);
 }
-function resumeScene() {
+// A save written by another tab never starts a request here: that tab asks.
+function resumeScene({ otherTab = false } = {}) {
   if (sharedSession) {
     render();
     syncSharedLine();
@@ -3335,8 +3351,9 @@ function resumeScene() {
     render();
     return;
   }
-  if (openingWordsDue()) {
-    // A new game asks the dialogue model for Vale's first line.
+  if (openingWordsDue() && !otherTab && !wordsFailedOnLoad()) {
+    // A new game asks the dialogue model for Vale's first line. A reload
+    // after it failed offers Retry instead of asking again.
     lineSeq = null;
     storyStatus = "pending";
     exchange.begin();
@@ -3358,6 +3375,7 @@ function resumeScene() {
     lineSeq = null;
     storyStatus = "retry";
     render();
+    showOpeningSilence();
     return;
   }
   if (!saveBlocked && hasCurrentWords()) {

@@ -17,7 +17,7 @@ The profile uses Creative Commons-licensed **System Reference Document 5.2.1
 CosyWorld's setting, progression, economy, shared-world model, and cozy safety
 rules. Attack, Dodge, Help, Influence, Magic, Ready, Search, Study, and Utilize
 are supported. Dash, Disengage, and Hide are explicit exclusions. The
-[implementation ledger](../../../../backlog/srd-action-card-foundation.md) records the
+[implementation ledger](../../../backlog/srd-action-card-foundation.md) records the
 acceptance evidence and the separate legal-review gate for marketing claims.
 
 ## Decision
