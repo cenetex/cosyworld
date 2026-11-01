@@ -1,6 +1,7 @@
 // The Greek ship docking where the player waits fades in: the ship painted
-// over Black Pond, the berth at the Wine-Dark Harbor and the ship's card. It
-// fades out as it sails, and nothing is left holding a style or blocking a click.
+// over Black Pond and the berth at the Wine-Dark Harbor. Its card folds into
+// the location stack. It fades out as it sails, and nothing is left holding a
+// style or blocking a click.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -78,7 +79,8 @@ try {
           const card = document
             .querySelector('#hand [data-card="greek-ship"]')
             ?.closest(".card-frame");
-          if (card) seen.card.push(+getComputedStyle(card).opacity);
+          if (card && !card.hidden)
+            seen.card.push(+getComputedStyle(card).opacity);
           const ghost = document.querySelector(".backdrop-fading");
           if (ghost) seen.ghost.push(+getComputedStyle(ghost).opacity);
           if (performance.now() - t0 < 2500) requestAnimationFrame(tick);
@@ -101,13 +103,29 @@ try {
       fade = await wait();
     assert.equal((await ship()).dock, place, "the ship comes to the waiter");
     const mid = (values) => values.some((v) => v > 0.05 && v < 0.95);
-    assert.ok(mid(fade.card), `the ship card fades in at ${place}`);
+    // The docked ship folds face down into the place's location stack
+    // (#1780), so its card shows no fade until the stack opens.
+    assert.equal(
+      await page
+        .locator('#hand [data-card="greek-ship"]')
+        .locator("xpath=..")
+        .getAttribute("data-holder"),
+      place,
+      `the ship card stacks behind ${place}`,
+    );
+    assert.deepEqual(fade.card, [], "the folded ship card stays out of sight");
     if (place === "pond") assert.ok(mid(fade.overlay), "the ship fades in");
     else assert.ok(mid(fade.ghost), "the berth crossfades to the ship");
     await page.screenshot({
       path: new URL(`${place}-docked.png`, output).pathname,
     });
-    // Settled: no animation or inline style left, and the card takes clicks.
+    // Settled: no animation or inline style left, and the card takes clicks
+    // once the location stack is open.
+    await page.locator(`#hand [data-card="${place}"]`).click();
+    await page
+      .locator(`#hand [data-card="${place}"][aria-expanded="true"]`)
+      .waitFor();
+    await page.waitForTimeout(600);
     const frame = page
       .locator('#hand [data-card="greek-ship"]')
       .locator("xpath=..");
