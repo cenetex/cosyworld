@@ -597,6 +597,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "text",
         "place",
         "travels",
+        "stayUntil",
         "journey",
         "roamingQuest",
         "personalQuests",
@@ -650,6 +651,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         (a.roamingQuest === undefined ||
           (a.roamingQuest === "latest-completion" && a.travels !== false)),
       `avatar ${id} may only set travels or standoffs to false`,
+    );
+    // A resident who keeps to its scene may leave once these conditions hold.
+    check(
+      a.stayUntil === undefined || (a.travels === false && !a.journey),
+      `avatar ${id} stayUntil needs a resident that keeps to its scene`,
     );
     check(
       a.previousHomes === undefined ||
@@ -1021,6 +1027,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       );
       requirements(d.requires, `avatar ${id} desire requires`);
     }
+    requirements(a.stayUntil, `avatar ${id} stayUntil`);
   }
   for (const [id, i] of Object.entries(items)) {
     check(

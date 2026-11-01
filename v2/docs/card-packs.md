@@ -198,6 +198,10 @@ sign at the observer's place; its text is the World line. A FNV-1a hash of
 the run seed, the place and the pack's receipt count picks among the
 feasible signs, so each run notices them in its own order.
 
+A resident with `"travels": false` may list `stayUntil` conditions. While
+they hold, it travels like any traveller and can be invited along; when
+they stop holding, it keeps to wherever it is (the Swede and his kit).
+
 Canonical
 person identities prevent incompatible embodiments being active together.
 Ordered receipts recompute saved choices/flags on loading.

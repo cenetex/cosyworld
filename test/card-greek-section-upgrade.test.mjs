@@ -70,6 +70,8 @@ describe("Greek section save upgrade", () => {
         ...before.crossings,
         "greek-ship-willows-landing": { discovered: false },
         "willows-landing-greek-ship": { discovered: false },
+        "willows-landing-pond": { discovered: false },
+        "pond-willows-landing": { discovered: false },
         "station-boardyai-parlour": { discovered: false },
         "boardyai-parlour-station": { discovered: false },
         "greek-athens-harbor-ship": { discovered: false },

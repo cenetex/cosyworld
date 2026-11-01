@@ -80,12 +80,8 @@ const TOWNS = {
     "hoppycat-settled-light-theatre",
     "hoppycat-concordance-tidelands",
   ],
-  willows: [
-    "willows-landing",
-    "willows-camp",
-    "willows-thicket",
-    "willows-bank",
-  ],
+  willows: ["willows-landing", "willows-camp"],
+  "willows-bank": ["willows-bank"],
   "lonely-forest": [
     "forest-cottage",
     "forest-garden",
