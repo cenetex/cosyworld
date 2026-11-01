@@ -145,7 +145,7 @@ async function check(width) {
     queue[0].status = "working";
     await waitFor("Playing: Observe.");
     commit();
-    await waitFor("Played: Wait.");
+    await waitFor("Played: Observe.");
     assert.equal((await status()).state, "played");
     await waitFor("");
     assert.equal(world.turn, 1);
