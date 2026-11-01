@@ -58,6 +58,16 @@ async function checkRuns(repo, sha, token) {
   return (await response.json()).check_runs ?? [];
 }
 
+// The full suite runs only by hand, so a tag usually has no CI run, and
+// waiting for its checks only delays the gate. Unreadable keeps the wait.
+async function ciRunExists(repo, sha, token) {
+  const url = `https://api.github.com/repos/${repo}/actions/workflows/ci.yml/runs?head_sha=${sha}&per_page=1`;
+  const headers = { accept: 'application/vnd.github+json', authorization: `Bearer ${token}` };
+  const response = await fetch(url, { headers }).catch(() => null);
+  if (!response?.ok) return true;
+  return ((await response.json().catch(() => ({}))).total_count ?? 1) > 0;
+}
+
 async function main() {
   const repo = env('GITHUB_REPOSITORY');
   const sha = env('GITHUB_SHA');
@@ -71,7 +81,7 @@ async function main() {
     const elapsed = (Date.now() - started) / 1000;
     try {
       result = decide(await checkRuns(repo, sha, token), {
-        missingIsFinal: elapsed >= missingSecs
+        missingIsFinal: elapsed >= missingSecs || !(await ciRunExists(repo, sha, token))
       });
     } catch (error) {
       result = { decision: 'run', reason: `could not read CI checks: ${error.message}` };

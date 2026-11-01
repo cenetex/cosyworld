@@ -62,8 +62,10 @@ describe("exactly one actor owns the release lever", () => {
   });
 
   it("workflow concurrency serializes release actors without self-rejection", () => {
-    expect(deployWorkflow).toMatch(
-      /concurrency:\s*\n\s*group: deploy-\$\{\{ github\.repository \}\}\s*\n\s*cancel-in-progress: false/,
+    // Main (.dev) and production runs queue apart, so a main push can never
+    // replace a waiting tag deploy.
+    expect(deployWorkflow).toContain(
+      "group: deploy-${{ github.repository }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'dev' || 'production' }}\n  cancel-in-progress: false",
     );
     expect(deployWorkflow).not.toContain("actions/runs?status=");
   });

@@ -7,9 +7,8 @@ Deployments are handled by `.github/workflows/deploy.yml`.
 Pushes to `main` deploy only the primary `cosyworld` Fly app, as soon as its
 image is built, without the production gate or a primary backup; bugs on `.dev` are fixed
 forward. Every main push also runs the fast check (`fast-check.yml`). The
-full suite (`ci.yml`) runs only by hand before a release: run
-`gh workflow run ci.yml --ref main` on the commit to be tagged, and tag it
-only when that run is green. Tags matching `v*` rerun the production gate, deploy both
+full suite (`ci.yml`) runs only by hand and does not block a release (see
+[Cutting a Release](#cutting-a-release)). Tags matching `v*` rerun the production gate, deploy both
 the primary app and `cosyworld-lonelyforest` from the tagged commit, and create
 a GitHub release only after both deployments succeed.
 
@@ -26,8 +25,19 @@ rather than five in a row. The job:
    moves, the run cancels itself (`scripts/yield-superseded-deploy.sh`) and
    the newer run, waiting in the deploy concurrency group, starts at once.
    Only main-push runs yield; tag and dispatch runs never do.
-4. Checks ownership once more, then rolls out and verifies `.dev`. Nothing
-   cancels a run after this point.
+4. Waits while a production deploy is queued or running, checks ownership
+   once more, then rolls out and verifies `.dev`. Nothing cancels a run
+   after this point.
+
+Main runs and production runs (tags and dispatches) queue in separate
+concurrency groups. GitHub keeps one pending run per group, so when they
+shared one, a main push replaced a waiting tag deploy (v1.2.107, run
+41266788580). Both roll out the primary app, so
+`scripts/serialize-primary-rollout.sh` keeps them apart: a `.dev` run waits
+before its rollout while any production run is active, and the production
+backup and rollout wait for a `.dev` run already past that point. Production
+never waits on a waiting `.dev` run, so neither can deadlock. A main run is
+still replaced only by a later main push, which reports for it (#1044).
 
 The image job compiles the release binary on the runner, in the Dockerfile's own
 `cargo-chef` toolchain image, with a release target restored from the GitHub
@@ -103,20 +113,46 @@ package version. It appears only in `/meta.version`, the
 
 ## Cutting a Release
 
-Bump the version once, in a small release PR:
+Broken tests do not block `.dev`. When the owner says "tag it from .dev",
+release the exact commit `.dev` serves, without waiting for the full suite.
+The deploy workflow's own production gates (Node, Rust, worldpack
+compatibility, volume space, backups) still run on the tag. File any
+full-suite failure as an issue and fix it in parallel.
 
-```sh
-git switch -c claude/release-X.Y.Z origin/main
-npm run version:bump          # patch; or `npm run version:bump -- X.Y.Z`
-npm run check:version
-git commit -am "Release X.Y.Z"
-```
+1. Read the commit `.dev` serves:
+   `curl -s https://cosyworld.fly.dev/meta | jq -r .commit`, then
+   `git fetch origin && git rev-parse <commit>`.
+2. Bump the version in a small release PR on that commit. When main has not
+   moved past it, branch from `origin/main`; otherwise branch from the
+   `.dev` commit itself:
 
-Merge it after its fast check passes, run the full suite on the merge commit
-(`gh workflow run ci.yml --ref main`), and tag that commit with `vX.Y.Z` as
-below only after the full run is green.
+   ```sh
+   git switch -c claude/release-X.Y.Z <dev-commit>
+   npm run version:bump          # patch; or `npm run version:bump -- X.Y.Z`
+   npm run check:version
+   git commit -am "Release X.Y.Z"
+   git push -u origin HEAD && gh pr create --fill
+   ```
+
+3. Merge after the fast check passes. Tag the merge commit:
+   `git tag vX.Y.Z <merge-commit> && git push origin vX.Y.Z`. When main
+   moved, tag the bump commit on the release branch instead, which sits
+   directly on the tested commit (1.2.106 shipped this way), then merge the
+   PR so main carries the version.
+4. Watch: `gh run watch "$(gh run list --workflow deploy.yml --branch vX.Y.Z --limit 1 --json databaseId --jq '.[0].databaseId')"`.
+   The Rust gate reuses a CI run on the tag commit when one exists and runs
+   its checks itself, at once, when none does.
+5. Smoke: both `/meta` endpoints report `X.Y.Z` and the tag commit, and the
+   GitHub release exists.
+
 The tag run's `/meta` check requires the deployed version to equal
 `package.json` at the tag, which holds because the release PR bumped it.
+
+A one-click `release` dispatch is a follow-up, not built. A tag pushed with
+`GITHUB_TOKEN` starts no workflow, so it would have to dispatch `deploy.yml`
+at the tag itself, and the version bump still has to reach main through a
+PR. The `Release image` workflow only builds and smoke-tests an image; it
+never tags.
 
 The Mac shell and game helper share this version. `npm run version:bump` updates
 the package and both Cargo manifests and lock files. The **Local desktop app** workflow builds the same
