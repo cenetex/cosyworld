@@ -57,10 +57,10 @@ function outcomeOf(entry, after) {
 
 export function outcomeWord(beat) {
   if (beat.kind === "threaten") return "Standoff";
-  if (beat.kind === "guard") return "Guarding";
+  if (beat.kind === "guard") return "Bracing";
   if (beat.outcome === "sent-home") return "Sent home";
   if (beat.outcome === "yield") return "Yields";
-  if (beat.outcome === "guarded") return `Guarded −${beat.damage}`;
+  if (beat.outcome === "guarded") return `Braced −${beat.damage}`;
   return `−${beat.damage} resolve`;
 }
 
@@ -72,7 +72,7 @@ export function telegraphText(beat) {
       ? `${who} eyes the ${nameOf(beat.itemId)}`
       : `${who} squares up to ${other}`;
   if (beat.kind === "guard") return `${who} braces against ${other}`;
-  return `${who} lunges at ${other}`;
+  return `${who} strikes ${other}`;
 }
 
 // The beats of every standoff line after `sinceSeq` that the viewer saw from

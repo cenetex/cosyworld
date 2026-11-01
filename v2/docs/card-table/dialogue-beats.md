@@ -16,7 +16,7 @@ with no AI: sentence case, closing punctuation, short enough for one phone
 line (it truncates with an ellipsis). For example "Pip asked Vale for the Lamp,
 but was refused.", "Vale offered the Black cloth for the Oil flask, but the
 keeper refused.", "The keeper left for the station." and "Vale found the
-Lamp." A blow is described, never counted: "Pip lunged at Vale. Vale
+Lamp." A blow is described, never counted: "Pip struck Vale. Vale
 stumbled." The number stays in the resolve pips. Each severity has a small
 fixed word set (1: stumbled, staggered back; 2: fell, took a hard knock; 3 or
 more: took a big hit, went down hard), picked by the event's seq so replay
@@ -26,7 +26,7 @@ blow", a yield is "gave way", and the defeat is "was beaten and sent home".
 | Icon   | Captions                                                                           |
 | ------ | ---------------------------------------------------------------------------------- |
 | ➜      | arrivals, departures, travelling with someone                                      |
-| ⚔     | threaten, guard, attack and how the blow landed, a standoff ending                 |
+| ⚔     | threaten, brace, strike and how the blow landed, a standoff ending                 |
 | ↳      | a defeat on the loser's beat: "Vale was beaten and sent home.", "You came to at …" |
 | ⇄      | give, trade and ask, including refusals                                            |
 | ✦      | discoveries, a want met, a pack choice                                             |
@@ -90,7 +90,7 @@ Beats are cards in depth, not rows in a scroll:
   directions frame by frame and that the front card takes clicks afterwards.
 
 Combat keeps its stage animations. Each fighter's step also becomes a beat as
-it lands, for example "⚔ Pip lunged at Vale. Vale stumbled.", and the defeat lands on
+it lands, for example "⚔ Pip struck Vale. Vale stumbled.", and the defeat lands on
 the loser's beat.
 
 ## Memory

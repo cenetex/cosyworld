@@ -191,7 +191,7 @@ describe("combat beats from structured rule fields", () => {
       },
     ]);
     const [hit] = combatBeats(before, after, { viewer: "vale" });
-    expect(outcomeWord(hit)).toBe("Guarded −1");
+    expect(outcomeWord(hit)).toBe("Braced −1");
   });
 });
 

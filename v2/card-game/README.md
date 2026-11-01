@@ -222,7 +222,7 @@ sits at the left. Selecting a card opens the hand across the screen and moves
 dialogue above it. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, cards fade out at an edge that hides more of the hand, and a sideways swipe stays inside the hand.
 Play stays available during an exchange. A play that has not resolved shows
 what the avatar is doing, as a rules caption from its kind: the button reads
-**Waiting…**, **Attacking…** or **Travelling…** and the notice
+**Waiting…**, **Striking…** or **Travelling…** and the notice
 **Vale is waiting…**. In a local game tapping it again cancels it. Selecting another
 card clears the waiting play. Shared play waits for the player's current turn
 to finish, then checks the chosen action against the current table before
@@ -667,11 +667,11 @@ Rejected requests (400, 422) and provider errors (5xx) add OpenRouter's message.
 
 ## Threats and standoffs
 
-Avatar cards offer Talk and Threaten. A threat opens a standoff between the two avatars and adds Guard and Attack to their cards. Each has four resolve. An attack removes two resolve between equal levels, three against a lower level, and one against a higher level. Guard softens the next hit by one, with a minimum of one damage, until that avatar's next play.
+Avatar cards offer Talk and Threaten. A threat opens a standoff between the two avatars and adds Brace and Strike to their cards. Each has four resolve. A strike removes two resolve between equal levels, three against a lower level, and one against a higher level. Brace softens the next hit by one, with a minimum of one damage, until that avatar's next play.
 
 Talk and item trades stay available during a standoff. Travel ends it; releasing the disputed item settles it. A resident challenger that sets the disputed item aside before any blow lets it go, which ends the standoff at the end of that round. At zero resolve, the losing avatar drops the disputed item (or an item the winner needs) and retreats along an open path. Both avatars get three turns to recover before another threat. Saved levels retain their combat effect.
 
-The cast guards, responds to attacks, or leaves. Threats, hits, releases, and retreats enter witnessed memories. A threat also leaves a personal grievance. Earlier saves gain an empty standoff state.
+The cast braces, answers strikes, or leaves. Threats, hits, releases, and retreats enter witnessed memories. A threat also leaves a personal grievance. Earlier saves gain an empty standoff state.
 
 ### Repeated defeats
 
@@ -690,7 +690,7 @@ Every home has a way out for its own avatar. The attic and each visitor's home o
 
 ### Fight events
 
-The attack action (`kind: "action"`, `verb: "attack"`) records the hit:
+Strike is the rules action `attack` and Brace is `guard`; the table renames only the words, so saves and the journal keep those kinds. The attack action (`kind: "action"`, `verb: "attack"`) records the hit:
 
 ```js
 {
@@ -720,9 +720,9 @@ When the loser is the current player, the entry also sets `world.arrival`. A los
 
 ### Seeing a fight
 
-A standoff play is shown beat by beat before the new world is drawn. Each beat opens with a telegraph above the actor (a warning sign for Threaten, a shield for Guard, crossed blades for Attack) and a stage caption such as "Pip lunges at Vale…". The stage pushes in and dims. An attacker lunges, the target holds for a short hit-stop, recoils, shakes once and brightens once (no red). Resolve pips under each fighter drain with a lagging ghost, an outcome word ("−2 resolve", "Guarded −1", "Yields") rises over the target, and the step joins the beat stack and Memory as that fighter's beat. Fighters in an open standoff keep their pips between plays. The hand drops to a sliver the moment the strikes or the travel screen begin, cannot be tapped while down, and rises once the new scene is drawn. In shared play another player's strike or move drops it only while those beats lock the hand anyway. Reduced motion lowers and raises it without the slide.
+A standoff play is shown beat by beat before the new world is drawn. Each beat opens with a telegraph above the actor (a warning sign for Threaten, a shield for Brace, crossed blades for Strike) and a stage caption such as "Pip strikes Vale…". The stage pushes in and dims. An attacker lunges, the target holds for a short hit-stop, recoils, shakes once and brightens once (no red). Resolve pips under each fighter drain with a lagging ghost, an outcome word ("−2 resolve", "Braced −1", "Yields") rises over the target, and the step joins the beat stack and Memory as that fighter's beat. Fighters in an open standoff keep their pips between plays. The hand drops to a sliver the moment the strikes or the travel screen begin, cannot be tapped while down, and rises once the new scene is drawn. In shared play another player's strike or move drops it only while those beats lock the hand anyway. Reduced motion lowers and raises it without the slide.
 
-Published Guard, attack and hit paintings follow those beats and preserve the player's plain or scarf wardrobe. A committed guard keeps its raised-arm portrait until consumed or cleared. Beat images preload before playback; unavailable art keeps the existing portrait. The Keeper uses his unmirrored right-facing neutral portrait when the scene faces him right, since his combat paintings face left. Combatants fit inside the phone frame throughout a beat; Pip and the Keeper keep that framing between plays too. Carried props stay in their cards while combat arms are raised, and the normal portrait and framing return when playback ends or is cancelled.
+Published brace (`guard`), strike (`attack`) and hit paintings follow those beats and preserve the player's plain or scarf wardrobe. A committed brace keeps its raised-arm portrait until consumed or cleared. Beat images preload before playback; unavailable art keeps the existing portrait. The Keeper uses his unmirrored right-facing neutral portrait when the scene faces him right, since his combat paintings face left. Combatants fit inside the phone frame throughout a beat; Pip and the Keeper keep that framing between plays too. Carried props stay in their cards while combat arms are raised, and the normal portrait and framing return when playback ends or is cancelled.
 
 When the player loses, their figure slumps and greys and a defeat card ("Pip drove you off") lists what changed: dropped items, standoffs lost and "Sent home" on the third loss. The card is announced and waits for Continue. The scene then fades to "You come to at <place>", and the player's beat repeats it. The arrival line comes from one voice: a resident at the new place, or the player's avatar when nobody else is there. Its brief is one short fact: "Vale was beaten by Pip and came to at Empty station. Say one line."
 
