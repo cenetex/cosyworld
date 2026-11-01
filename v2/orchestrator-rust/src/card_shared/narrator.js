@@ -1765,7 +1765,7 @@
             name: "Argive Palace",
             text: "A bronze door opens onto the royal court. Wax tablets list the household\u2019s dead and absent members.",
             exits: [],
-            backdrop: "assets/greek-drama/palace.svg",
+            backdrop: "assets/greek-drama/house-atreus-palace.webp",
             requires: [
               {
                 kind: "choice",
@@ -1773,13 +1773,30 @@
                 value: "aeschylus"
               }
             ],
-            persona: "A bronze door opens onto the royal court. Wax tablets list the household\u2019s dead and absent members."
+            persona: "A bronze door opens onto the royal court. Wax tablets list the household\u2019s dead and absent members.",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/house-atreus-palace-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
+            stage: {
+              focus: {
+                x: 31,
+                y: 50
+              }
+            }
           },
           "greek-argos-tomb": {
             name: "Agamemnon's Tomb",
             text: "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot.",
             exits: [],
-            backdrop: "assets/greek-drama/grove.svg",
+            backdrop: "assets/greek-drama/house-atreus-tomb.webp",
             requires: [
               {
                 kind: "choice",
@@ -1787,13 +1804,30 @@
                 value: "aeschylus"
               }
             ],
-            persona: "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot."
+            persona: "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot.",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/house-atreus-tomb-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
+            stage: {
+              focus: {
+                x: 31,
+                y: 50
+              }
+            }
           },
           "greek-mycenae-palace": {
             name: "Mycenaean Palace",
             text: "The palace rises above a worn approach. A woman waits where arriving servants can hear her.",
             exits: [],
-            backdrop: "assets/greek-drama/palace.svg",
+            backdrop: "assets/greek-drama/house-atreus-mycenae.webp",
             requires: [
               {
                 kind: "choice",
@@ -1801,13 +1835,30 @@
                 value: "sophocles"
               }
             ],
-            persona: "The palace rises above a worn approach. A woman waits where arriving servants can hear her."
+            persona: "The palace rises above a worn approach. A woman waits where arriving servants can hear her.",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/house-atreus-mycenae-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
+            stage: {
+              focus: {
+                x: 31,
+                y: 50
+              }
+            }
           },
           "greek-argive-farm": {
             name: "The Argive Farmhouse",
             text: "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest.",
             exits: [],
-            backdrop: "assets/greek-drama/courtyard.svg",
+            backdrop: "assets/greek-drama/house-atreus-farmhouse.webp",
             requires: [
               {
                 kind: "choice",
@@ -1815,7 +1866,24 @@
                 value: "euripides"
               }
             ],
-            persona: "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest."
+            persona: "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest.",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/house-atreus-farmhouse-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
+            stage: {
+              focus: {
+                x: 31,
+                y: 50
+              }
+            }
           },
           "greek-corinth": {
             name: "Corinthian Courtyard",
@@ -2060,7 +2128,37 @@
                 title: "Wine-Dark-3"
               }
             ],
-            musicMode: "random-per-visit"
+            musicMode: "random-per-visit",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/ship-deck-at-sea-night.webp",
+                requires: [
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "@sea"
+                  },
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              },
+              {
+                backdrop: "assets/greek-drama/ship-deck-at-sea-day.webp",
+                requires: [
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "@sea"
+                  },
+                  {
+                    kind: "daylight",
+                    phase: "day"
+                  }
+                ]
+              }
+            ]
           },
           "greek-athens-harbor": {
             name: "Athens Harbor",
@@ -3168,7 +3266,7 @@
             name: "The Suppliant\u2019s Olive Branch",
             text: "An olive branch bound with white wool, given at the Agora when the mothers\u2019 plea is registered. Ships sail between Piraeus and Athens Harbor while it is aboard.",
             holder: "greek-athens",
-            art: "assets/greek-drama/burial-petition.png",
+            art: "assets/greek-drama/olive-branch.webp",
             persona: "Describe the branch, its actual holder and its recorded use. The lane between Piraeus and Athens Harbor is open only while it is aboard the ship.",
             requires: [
               {
@@ -19908,12 +20006,33 @@
         card: "assets/optimized/card/png/vale.webp",
         cardHash: "62ba8b48ac3a2bb0ce5872670282551e1666053f69da62305b03d5156c7e5f9e"
       },
+      "assets/willows/bank-drowned.webp": {
+        sourceHash: "0e4a5f05ccbc424140f18275d65c5744c1befe499f9f3fb6d7eb0f758d38b8f3",
+        stage: "assets/willows/bank-drowned.webp",
+        stageHash: "0e4a5f05ccbc424140f18275d65c5744c1befe499f9f3fb6d7eb0f758d38b8f3",
+        card: "assets/optimized/card/webp/willows/bank-drowned.webp",
+        cardHash: "3eac75b536fc6c6d000cc78981d13e0113a1fa850f7cbf21bbc138e64ba79664"
+      },
+      "assets/willows/bank-humming.webp": {
+        sourceHash: "8ea42c17f0f7e69d464be3571631459799eec3008862276be4395e8d4e7a574e",
+        stage: "assets/willows/bank-humming.webp",
+        stageHash: "8ea42c17f0f7e69d464be3571631459799eec3008862276be4395e8d4e7a574e",
+        card: "assets/optimized/card/webp/willows/bank-humming.webp",
+        cardHash: "8c91fd67f722b9bc1802c427ce4dad07ef748e6d594e79cd7034e8604fcb739b"
+      },
       "assets/willows/bank-night.webp": {
         sourceHash: "427b7e1e3c12c3c095f9d78a0ac9727f7ae224a1cd70cd45f93d7463924525ae",
         stage: "assets/willows/bank-night.webp",
         stageHash: "427b7e1e3c12c3c095f9d78a0ac9727f7ae224a1cd70cd45f93d7463924525ae",
         card: "assets/optimized/card/webp/willows/bank-night.webp",
         cardHash: "becdafaf526737eb6ab157581d64ebab0e55626e56680ebadb43d0b9a7741d1f"
+      },
+      "assets/willows/bank-roots.webp": {
+        sourceHash: "6cede0cfb2bd2dddfe95c6f48eef8e3aa69c32a34f0c800f2e39629ebbbcd886",
+        stage: "assets/willows/bank-roots.webp",
+        stageHash: "6cede0cfb2bd2dddfe95c6f48eef8e3aa69c32a34f0c800f2e39629ebbbcd886",
+        card: "assets/optimized/card/webp/willows/bank-roots.webp",
+        cardHash: "8ebc1a68487c274ded88058cecab77a432fcc4d7f4553b7204c947f4334d8c8d"
       },
       "assets/willows/bank-uncanny.webp": {
         sourceHash: "83dc4e3c118c6348448e54b6043ad5f74c469c6f73857fbcdc355bd0737f9843",
@@ -19928,6 +20047,13 @@
         stageHash: "1b7d169860245febcaccad142b6ee7ecba37d8d302ff75e8128e6584bc07ca19",
         card: "assets/optimized/card/webp/willows/bank.webp",
         cardHash: "abdc2d0d01a27a4cc0892cf9dd890fd3f0606194b175f2ab69929bd8cd59add8"
+      },
+      "assets/willows/camp-closer.webp": {
+        sourceHash: "ad7a9b6d0f9b12b8ab212dc3dc67b53519d586add51bb0b9e8c3806e23598139",
+        stage: "assets/willows/camp-closer.webp",
+        stageHash: "ad7a9b6d0f9b12b8ab212dc3dc67b53519d586add51bb0b9e8c3806e23598139",
+        card: "assets/optimized/card/webp/willows/camp-closer.webp",
+        cardHash: "f838311112b76fd7aab551b4b25a1f7655e8af71a5b0b22a4826f4a358328e53"
       },
       "assets/willows/camp-dark-night.webp": {
         sourceHash: "cd5e5ea072c79a0a1ea6b7645d6950126db124ebf646d04cf0af2a08408689dd",
@@ -19950,6 +20076,13 @@
         card: "assets/optimized/card/webp/willows/camp-lit-night.webp",
         cardHash: "d842740114832e55dd76b6eb965aa9f8b882e7cffb6855ceea1902e7f8b92654"
       },
+      "assets/willows/camp-tent-pressure.webp": {
+        sourceHash: "5938acc5867e528865e208f9797cbb29684e312083226b1b5bdd0905db714073",
+        stage: "assets/willows/camp-tent-pressure.webp",
+        stageHash: "5938acc5867e528865e208f9797cbb29684e312083226b1b5bdd0905db714073",
+        card: "assets/optimized/card/webp/willows/camp-tent-pressure.webp",
+        cardHash: "11d9c340e582493420147333a6017bafa3e272af10ea14a892cecc39c83ba19a"
+      },
       "assets/willows/camp-uncanny.webp": {
         sourceHash: "2322acd0f14dee3fe4034a297ddad18ee5fbf376bc5c42e66894d6fd0179ea68",
         stage: "assets/willows/camp-uncanny.webp",
@@ -19964,12 +20097,33 @@
         card: "assets/optimized/card/webp/willows/camp.webp",
         cardHash: "e889169ffbcfe684c0cfbb21e662e05040296a99a2810c2af574072057a9f13d"
       },
+      "assets/willows/landing-boatman.webp": {
+        sourceHash: "0f97c18fe7d64b3bc4b6c14a81a9be26f74e75530a8d41dc24b516fe62ba1311",
+        stage: "assets/willows/landing-boatman.webp",
+        stageHash: "0f97c18fe7d64b3bc4b6c14a81a9be26f74e75530a8d41dc24b516fe62ba1311",
+        card: "assets/optimized/card/webp/willows/landing-boatman.webp",
+        cardHash: "0baa2080a510432b0a2a21a72ea690229c2d31772194dc60eff807046ffdb92b"
+      },
+      "assets/willows/landing-mended.webp": {
+        sourceHash: "e972a87714f8f4a763053d4c937949da20a4db9393a2d83b2a1b66eec962cc22",
+        stage: "assets/willows/landing-mended.webp",
+        stageHash: "e972a87714f8f4a763053d4c937949da20a4db9393a2d83b2a1b66eec962cc22",
+        card: "assets/optimized/card/webp/willows/landing-mended.webp",
+        cardHash: "16ffb347eb7a8ea59842ea48187db29966a95973cd71b6fec609da65828da7b7"
+      },
       "assets/willows/landing-night.webp": {
         sourceHash: "b6f8aa5cab224eac85b54e677810487c1be6a202df8d9869ab3176a3a444d4e4",
         stage: "assets/willows/landing-night.webp",
         stageHash: "b6f8aa5cab224eac85b54e677810487c1be6a202df8d9869ab3176a3a444d4e4",
         card: "assets/optimized/card/webp/willows/landing-night.webp",
         cardHash: "af780ff32dfd6e9293101828d75ca422e40c31d3749921cad7ed153f5023108c"
+      },
+      "assets/willows/landing-otter.webp": {
+        sourceHash: "0777a61632caca9b31658a97840d94eb389b885251007bc628ef06d84c78c2c8",
+        stage: "assets/willows/landing-otter.webp",
+        stageHash: "0777a61632caca9b31658a97840d94eb389b885251007bc628ef06d84c78c2c8",
+        card: "assets/optimized/card/webp/willows/landing-otter.webp",
+        cardHash: "290f9761916fbc0f7b0a6ea8f45032cad6480dc81b5cbd358e0b27cf78f5c0a3"
       },
       "assets/willows/landing-ship-night.webp": {
         sourceHash: "eccc07e492fe00237e93746026c69d88e515a91553cdc766cbdf97e0e102a887",
@@ -19998,6 +20152,41 @@
         stageHash: "96a9367f9f2f1be338d8e9387d9783efd956957fdf468859d20b88bedab45806",
         card: "assets/optimized/card/png/willows/map.webp",
         cardHash: "6eb35bcdcf3a523adddae2a084fc4d5b131837635066390aef75a7f46c78fb18"
+      },
+      "assets/willows/notebook-book.png": {
+        sourceHash: "ce080d6073cb3500a7ceac38f0d39fe42966e1da2bccf48aa1e2bc13a5daca52",
+        stage: "assets/optimized/stage/png/willows/notebook-book.webp",
+        stageHash: "be192f930a8b44b1874f1420e412be10d1b3d8ce388a62f6e0d0e4582fe5b955",
+        card: "assets/optimized/card/png/willows/notebook-book.webp",
+        cardHash: "f6a95c6749e0ef0e673b4f3bcd8de3290b4e8c7dc114937aa2db8a4a7b7bfa15"
+      },
+      "assets/willows/notebook-chapter.png": {
+        sourceHash: "d7d5191892dbc4f6ab9768b39a54582dd3250edefdf7820b0d7c4b5274276a6c",
+        stage: "assets/optimized/stage/png/willows/notebook-chapter.webp",
+        stageHash: "a86ac3a327b0a384f1023cf7b9b2b6c1ad09d10b07e887d84c8e3cd971327c0a",
+        card: "assets/optimized/card/png/willows/notebook-chapter.webp",
+        cardHash: "3176438e82315ecd79b7fa64094c52f1e5a54b51bc847400291f018083e6cad6"
+      },
+      "assets/willows/notebook-page-1.png": {
+        sourceHash: "7d6771f8870edeeed2985d3a6663fa3126ad3b1eefbe9a94ea6faab9118c9d04",
+        stage: "assets/optimized/stage/png/willows/notebook-page-1.webp",
+        stageHash: "0e944d2c671317783d2c679c82edf6bdd336fd1dd7f1b7c30f6d63e8afc1d8a6",
+        card: "assets/optimized/card/png/willows/notebook-page-1.webp",
+        cardHash: "bbd54e28e10cb2ecc550ba9aef4b4f6098807bed4b2fb9f1d1609d0871d52d6d"
+      },
+      "assets/willows/notebook-page-2.png": {
+        sourceHash: "ee719b1723b1decf783d680feb46400b0d5cbc76232a6ac23d6e20f328bcabe9",
+        stage: "assets/optimized/stage/png/willows/notebook-page-2.webp",
+        stageHash: "625945ff862f254a50bf07fe2770f26239079f5218c136f1f83ee884c9dffc39",
+        card: "assets/optimized/card/png/willows/notebook-page-2.webp",
+        cardHash: "ba8d9852e42022eacf68a2d99fbb08bfe90ce52723e4e4cf021227932ba65463"
+      },
+      "assets/willows/notebook-page-3.png": {
+        sourceHash: "ccfd5d4e7e38ad8c19c60171a3f9c3ac0b0f9e2b4b5f32c1fe51202602a45fee",
+        stage: "assets/optimized/stage/png/willows/notebook-page-3.webp",
+        stageHash: "a96359adf09e14cb8c557887068015c9554e4444d11986076cdfec9cbcfce45a",
+        card: "assets/optimized/card/png/willows/notebook-page-3.webp",
+        cardHash: "713119a760f2d0e2fa00882f91883cc741cf8661aec279738779c6edc46f3058"
       },
       "assets/willows/paddle.png": {
         sourceHash: "910fc7ca01b9774863ecf19aa58f178c59c8dce0c800b700cb7d86b1111bfba2",
@@ -20103,6 +20292,20 @@
         stageHash: "b29d85b8a68d2c15ff68033b5b1bc244875b05adfda3aa3ab2ec96f387f44c4f",
         card: "assets/optimized/card/webp/willows/swede.webp",
         cardHash: "f10b982e4be3e9a819d5e909350d7d0df8369e5323e3cc800c255039e097da43"
+      },
+      "assets/willows/thicket-bronze.webp": {
+        sourceHash: "c928438c7e78c987964c463da63315d9f8d4127e2473116427a078c3f67128e6",
+        stage: "assets/willows/thicket-bronze.webp",
+        stageHash: "c928438c7e78c987964c463da63315d9f8d4127e2473116427a078c3f67128e6",
+        card: "assets/optimized/card/webp/willows/thicket-bronze.webp",
+        cardHash: "50678b733894932ce68ae19d317c08eefc4b867bc47fa05bf304c28ee5db746f"
+      },
+      "assets/willows/thicket-hollows.webp": {
+        sourceHash: "602ccfd7c1aebfda4fbdf9d9b331032220a90bb43f8f16a5d4928a3cecb02d28",
+        stage: "assets/willows/thicket-hollows.webp",
+        stageHash: "602ccfd7c1aebfda4fbdf9d9b331032220a90bb43f8f16a5d4928a3cecb02d28",
+        card: "assets/optimized/card/webp/willows/thicket-hollows.webp",
+        cardHash: "e19c8d3ea7d9077c8f18e9c6df40439255bf59f177e17f3fb7a9a93a708b2832"
       },
       "assets/willows/thicket-night.webp": {
         sourceHash: "d91e0177754a1b9a7ab728d59ce574bfa50068de8e44f0b11672239ce108406d",

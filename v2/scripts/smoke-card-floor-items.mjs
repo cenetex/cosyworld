@@ -11,14 +11,15 @@ import { sceneStaging } from "../card-game/scene.mjs";
 const output = new URL("../../output/floor-props/", import.meta.url);
 await mkdir(output, { recursive: true });
 
-// The rules place the bell at the station from the start, and the willows camp
+// The rules place the bell and the storybook map at the station from the
+// start, and the willows camp
 // holds more things than the floor shows. Boardy's calling card waits there too,
 // but it shows only while BoardyAI does, with two connected humans.
 const station = createWorld({ opening: true });
 station.actors.vale.place = "station";
 assert.deepEqual(
   sceneStaging(station, { currentState: true }).floorItems.map(({ id }) => id),
-  ["bell"],
+  ["bell", "world-map"],
 );
 const willows = createWorld({ opening: true });
 willows.actors.vale.place = "willows-camp";
@@ -249,7 +250,7 @@ try {
       .locator('#hand [data-card="bell"]')
       .waitFor({ state: "attached" });
     await ready();
-    await assertFloor(["bell"], "station-start");
+    await assertFloor(["bell", "world-map"], "station-start");
     // A fresh render puts every prop back on the same spot.
     const before = await propBoxes();
     await page.reload();
@@ -257,7 +258,7 @@ try {
       .locator('#hand [data-card="bell"]')
       .waitFor({ state: "attached" });
     await ready();
-    await assertFloor(["bell"], "station-again");
+    await assertFloor(["bell", "world-map"], "station-again");
     const after = await propBoxes();
     for (const [id, box] of Object.entries(before))
       box.forEach((value, index) =>
