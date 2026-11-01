@@ -14,7 +14,6 @@ import { enableMotives } from "../v2/card-game/motives.mjs";
 import {
   packDefinitions,
   packProfiles,
-  packReadings,
   packFacts,
   hub,
   validatePackDefinition,
@@ -104,7 +103,7 @@ function discoveries() {
 }
 
 describe("The Willows", () => {
-  it("reveals exact source passages to the Swede through the recorded story", () => {
+  it("keeps the source passages as world lore, out of every speech prompt", () => {
     const normalize = (s) => s.replace(/\s+/g, " ").trim();
     const original = normalize(
       readFileSync(
@@ -112,31 +111,22 @@ describe("The Willows", () => {
         "utf8",
       ),
     );
-    for (const reading of pack.readings)
+    const lore = JSON.parse(
+      readFileSync(
+        new URL("../v2/content/willows/lore/readings.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    expect(lore.source.author).toBe("Algernon Blackwood");
+    expect(lore.readings).toHaveLength(13);
+    for (const reading of lore.readings)
       expect(original).toContain(normalize(reading.text));
-    const fresh = createWorld();
-    expect(packReadings(fresh, "willows-swede")).toEqual([]);
-    let world = island();
-    expect(packReadings(world, "willows-swede").map((r) => r.id)).toEqual([
-      "willows-arrival-text",
-    ]);
-    world = observe(world, "examine-hull");
-    expect(packReadings(world, "willows-swede").map((r) => r.id)).toEqual([
-      "willows-arrival-text",
-      "willows-hull-text",
-    ]);
-    world = discoveries();
-    const revealed = packReadings(world, "willows-swede");
-    // Observe may also turn up other signs on the way.
-    expect(revealed.length).toBeGreaterThanOrEqual(7);
-    expect(
-      packReadings(decodeSave(encodeSave(world)), "willows-swede"),
-    ).toEqual(revealed);
-    expect(
-      narrativeContext(world).entities.find((e) => e.id === "willows-swede")
-        .readings,
-    ).toEqual(revealed);
-    expect(packReadings(world, "vale")).toEqual([]);
+    expect(pack.readings).toBeUndefined();
+    // Characters speak from world state; the passages never reach dialogue.
+    const context = JSON.stringify(narrativeContext(discoveries()));
+    expect(context).not.toContain('"readings"');
+    for (const reading of lore.readings)
+      expect(context).not.toContain(reading.text.slice(0, 60));
   });
 
   it("shares the ship side passage while preserving riders, dock and pending recall", () => {
@@ -201,9 +191,6 @@ describe("The Willows", () => {
       dock: "pond",
       recall: null,
     });
-    expect(packReadings(world, "willows-swede").map((r) => r.id)).toEqual([
-      "willows-arrival-text",
-    ]);
   });
 
   it("gives the four locations their voices and the Swede the one resident role", () => {
@@ -531,9 +518,6 @@ describe("The Willows", () => {
     const facts = packFacts(world, "willows-camp").join(" ");
     expect(facts).toContain("nine paces");
     expect(facts).toContain("where by day there were eleven");
-    expect(packReadings(world, "willows-swede").map((r) => r.id)).toEqual(
-      expect.arrayContaining(["willows-paced-text", "willows-nearer-text"]),
-    );
     world = move(world, "willows-thicket");
     world = observe(world, "look-up-willows");
     expect(world.packs.willows.flags["willows-shapes-seen"]).toBe(true);
@@ -567,16 +551,5 @@ describe("The Willows", () => {
     for (const line of ["It's their sound.", "Hush!", "You fool."])
       expect(swede.voice).toContain(line);
     expect(["item", "place", "person", "connect"]).toContain(swede.want.kind);
-    // The Swede carries at most eight newest passages into a scene.
-    let world = discoveries();
-    world = clock(world, true);
-    world = observe(world, "listen-tent");
-    world = choose(world, "choose-watch");
-    world = move(world, "willows-thicket");
-    world = observe(world, "look-up-willows");
-    const readings = packReadings(world, "willows-swede");
-    expect(readings).toHaveLength(8);
-    expect(readings.map((r) => r.id)).not.toContain("willows-arrival-text");
-    expect(readings.map((r) => r.id).at(-1)).toBe("willows-understanding-text");
   });
 });

@@ -130,7 +130,7 @@ export async function checkOpeningPoem(browser, origin) {
         const expected = recitalPoem(
           fixtures.closed,
           packDefinition("greek-drama"),
-        ).stanzas.map((s) => s.lines.join(" "));
+        ).stanzas.map((s) => s.id);
         // The Bard sails and walks from wherever the fixture left it.
         for (let step = 0; step < 10; step++) {
           const arrived = await page.evaluate((key) => {
@@ -164,7 +164,7 @@ export async function checkOpeningPoem(browser, origin) {
             (e) => e.id === "greek-rhapsode",
           ).poem;
           assert.deepEqual(
-            poem.stanzas.map((stanza) => stanza.lines.join(" ")),
+            poem.stanzas.map((stanza) => stanza.id),
             expected,
           );
         };

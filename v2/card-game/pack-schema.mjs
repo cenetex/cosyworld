@@ -289,7 +289,6 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "observations",
       "transports",
       "recital",
-      "readings",
       "storyQuests",
       "topics",
       "situations",
@@ -1289,24 +1288,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "recital needs a singer, a title and up to 64 verses",
     );
     const seen = new Set();
-    const linesOk = (lines) =>
-      Array.isArray(lines) &&
-      lines.length === 2 &&
-      lines.every((line) => textOk(line, 90));
+    // Couplet text is lore (content/<pack>/lore), never part of the rules.
     for (const v of Array.isArray(r?.verses) ? r.verses : []) {
       check(
-        keysOk(v, ["choice", "quest", "lines", "summons", "after"]) &&
+        keysOk(v, ["choice", "quest", "summons"]) &&
           choiceIds.has(v?.choice) &&
           !seen.has(v.choice) &&
           idOk(v.quest) &&
-          linesOk(v.lines) &&
-          typeof v.summons === "boolean" &&
-          (v.after === undefined ||
-            (keysOk(v.after, ["choice", "lines"]) &&
-              choiceIds.has(v.after.choice) &&
-              v.after.choice !== v.choice &&
-              linesOk(v.after.lines))),
-        "recital verse needs a unique choice, quest, couplet and summons flag; after may select an earlier deed",
+          typeof v.summons === "boolean",
+        "recital verse needs a unique choice, quest and summons flag",
       );
       seen.add(v?.choice);
     }
@@ -1449,27 +1439,6 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
   }
   const crossings = Array.isArray(pack.crossings) ? pack.crossings : [];
-  if (pack.readings !== undefined) {
-    const ids = new Set();
-    check(
-      Array.isArray(pack.readings) &&
-        pack.readings.length <= 16 &&
-        pack.readings.every((r) => {
-          if (!record(r)) return false;
-          const valid =
-            keysOk(r, ["id", "actor", "after", "title", "text"]) &&
-            idOk(r.id) &&
-            !ids.has(r.id) &&
-            owns(avatars, r.actor) &&
-            (r.after === null || choiceIds.has(r.after)) &&
-            textOk(r.title, 120) &&
-            textOk(r.text, 3000);
-          ids.add(r.id);
-          return valid;
-        }),
-      "readings need distinct ids, a resident, a recorded choice or arrival, and bounded source text",
-    );
-  }
   check(
     Array.isArray(pack.crossings) && crossings.length > 0,
     "bridge needs crossings",

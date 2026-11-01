@@ -609,30 +609,6 @@ export function packNarration(world, id) {
   ).length;
   return [`Discoveries recorded so far: ${count}.`];
 }
-// Source text enters a resident's knowledge through saved story receipts.
-export function packReadings(world, actor) {
-  const pack = packOf(actor);
-  const state = pack && world.packs?.[pack.id];
-  if (!state) return [];
-  return (pack.readings || [])
-    .filter(
-      (r) =>
-        r.actor === actor &&
-        (r.after === null
-          ? pack.crossings.some(
-              (c) => pack.places[c.to] && world.crossings[c.id]?.discovered,
-            )
-          : Object.hasOwn(state.receipts || {}, r.after)),
-    )
-    .map((r) => ({
-      id: r.id,
-      turn: r.after === null ? 0 : state.receipts[r.after],
-    }))
-    .filter((r, _, all) => newestReadings(all).includes(r));
-}
-// A resident remembers at most its eight newest passages, in story order.
-const newestReadings = (all) =>
-  [...all].sort((a, b) => a.turn - b.turn).slice(-8);
 export function packSceneFacts(world, location) {
   const e = packEntity(location);
   if (!e) return [];
