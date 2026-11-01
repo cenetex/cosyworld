@@ -4024,6 +4024,7 @@
     }
     upgradeSightings(s);
     installPacks2(s);
+    reconcileContent(s);
     for (const fact of Object.values(s?.knowledge?.facts || {})) {
       const text2 = fact?.source?.kind === "lane" && laneText(fact.id);
       if (text2) fact.text = text2;
@@ -4037,6 +4038,42 @@
         )
       );
     return s;
+  }
+  function reconcileContent(s) {
+    if (!s?.items || typeof s.items !== "object") return;
+    for (const pack of packDefinitions)
+      for (const c of pack.crossings)
+        if (c.retired && s.crossings?.[c.id])
+          s.crossings[c.id].discovered = false;
+    const authored = structuredClone(forest_default.initialState.items);
+    for (const pack of packDefinitions)
+      for (const [id, item] of Object.entries(pack.items || {}))
+        authored[id] ??= { holder: item.holder, history: [] };
+    const fresh = newMemories();
+    for (const [id, item] of Object.entries(authored))
+      if (!Object.hasOwn(s.items, id)) {
+        s.items[id] = item;
+        if (s.memories) s.memories[id] ??= fresh[id];
+      }
+    const root = (id) => {
+      let holder2 = s.items[id]?.holder;
+      const seen = /* @__PURE__ */ new Set([id]);
+      while (s.items[holder2] && !seen.has(holder2)) {
+        seen.add(holder2);
+        holder2 = s.items[holder2].holder;
+      }
+      return holder2;
+    };
+    const gone = Object.keys(s.items).filter(
+      (id) => !Object.hasOwn(authored, id)
+    );
+    for (const id of gone) {
+      const keeper = root(id);
+      for (const item of Object.values(s.items))
+        if (item?.holder === id) item.holder = keeper;
+      delete s.items[id];
+      if (s.memories) delete s.memories[id];
+    }
   }
   function upgradeShoreRouteSave(s) {
     const moved = /* @__PURE__ */ new Set(["attic", "train"]);
@@ -6312,9 +6349,14 @@
   var freshlyValidated = /* @__PURE__ */ new WeakSet();
   function decodeSave(text2) {
     const s = JSON.parse(text2);
-    upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
-    validateWorld(s);
-    preserveTransportAccess(s);
+    try {
+      upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
+      validateWorld(s);
+      preserveTransportAccess(s);
+    } catch (error) {
+      if (error instanceof TypeError) return validateWorld(null);
+      throw error;
+    }
     return validateWorld(s);
   }
 

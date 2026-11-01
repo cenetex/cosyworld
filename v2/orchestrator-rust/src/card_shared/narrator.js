@@ -15924,7 +15924,8 @@
     if (!s?.items || typeof s.items !== "object") return;
     for (const pack of packDefinitions)
       for (const c of pack.crossings)
-        if (c.retired && s.crossings?.[c.id]) s.crossings[c.id].discovered = false;
+        if (c.retired && s.crossings?.[c.id])
+          s.crossings[c.id].discovered = false;
     const authored = structuredClone(forest_default.initialState.items);
     for (const pack of packDefinitions)
       for (const [id, item] of Object.entries(pack.items || {}))
@@ -15944,7 +15945,9 @@
       }
       return holder;
     };
-    const gone = Object.keys(s.items).filter((id) => !Object.hasOwn(authored, id));
+    const gone = Object.keys(s.items).filter(
+      (id) => !Object.hasOwn(authored, id)
+    );
     for (const id of gone) {
       const keeper = root(id);
       for (const item of Object.values(s.items))
