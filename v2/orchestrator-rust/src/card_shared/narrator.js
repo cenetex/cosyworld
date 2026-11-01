@@ -1923,6 +1923,9 @@
       }
       case "holding":
         return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
+      // A one-way cosmetic upgrade the traveler carries between worlds (#1873).
+      case "upgraded":
+        return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));
       case "shared_world":
         return sharedEnabled(s);
       case "connected_humans":
@@ -12693,7 +12696,16 @@
             for: "vale",
             label: "Vale meets RATi",
             text: "RATi looks at Vale's coat and finds a thread where a black button should be. Somewhere in the world, the button has gone.",
-            requires: [],
+            requires: [
+              {
+                kind: "not",
+                condition: {
+                  kind: "upgraded",
+                  upgrade: "scarf",
+                  role: "actor"
+                }
+              }
+            ],
             effects: [
               {
                 kind: "set_flag",
@@ -12714,7 +12726,16 @@
             for: "mara",
             label: "Mara meets RATi",
             text: "RATi looks at Mara's coat and finds a thread where a red button should be. Somewhere in the world, the button has gone.",
-            requires: [],
+            requires: [
+              {
+                kind: "not",
+                condition: {
+                  kind: "upgraded",
+                  upgrade: "scarf",
+                  role: "actor"
+                }
+              }
+            ],
             effects: [
               {
                 kind: "set_flag",
@@ -12735,7 +12756,16 @@
             for: "ash",
             label: "Ash meets RATi",
             text: "RATi looks at Ash's coat and finds a thread where a orange button should be. Somewhere in the world, the button has gone.",
-            requires: [],
+            requires: [
+              {
+                kind: "not",
+                condition: {
+                  kind: "upgraded",
+                  upgrade: "scarf",
+                  role: "actor"
+                }
+              }
+            ],
             effects: [
               {
                 kind: "set_flag",
@@ -12756,7 +12786,16 @@
             for: "nell",
             label: "Iris meets RATi",
             text: "RATi looks at Iris's coat and finds a thread where a yellow button should be. Somewhere in the world, the button has gone.",
-            requires: [],
+            requires: [
+              {
+                kind: "not",
+                condition: {
+                  kind: "upgraded",
+                  upgrade: "scarf",
+                  role: "actor"
+                }
+              }
+            ],
             effects: [
               {
                 kind: "set_flag",
@@ -12777,7 +12816,16 @@
             for: "tavi",
             label: "Tavi meets RATi",
             text: "RATi looks at Tavi's coat and finds a thread where a green button should be. Somewhere in the world, the button has gone.",
-            requires: [],
+            requires: [
+              {
+                kind: "not",
+                condition: {
+                  kind: "upgraded",
+                  upgrade: "scarf",
+                  role: "actor"
+                }
+              }
+            ],
             effects: [
               {
                 kind: "set_flag",
@@ -12798,7 +12846,16 @@
             for: "rue",
             label: "Rue meets RATi",
             text: "RATi looks at Rue's coat and finds a thread where a blue button should be. Somewhere in the world, the button has gone.",
-            requires: [],
+            requires: [
+              {
+                kind: "not",
+                condition: {
+                  kind: "upgraded",
+                  upgrade: "scarf",
+                  role: "actor"
+                }
+              }
+            ],
             effects: [
               {
                 kind: "set_flag",
@@ -12819,7 +12876,16 @@
             for: "orin",
             label: "Cass meets RATi",
             text: "RATi looks at Cass's coat and finds a thread where a indigo button should be. Somewhere in the world, the button has gone.",
-            requires: [],
+            requires: [
+              {
+                kind: "not",
+                condition: {
+                  kind: "upgraded",
+                  upgrade: "scarf",
+                  role: "actor"
+                }
+              }
+            ],
             effects: [
               {
                 kind: "set_flag",
@@ -12840,7 +12906,16 @@
             for: "ada",
             label: "Sage meets RATi",
             text: "RATi looks at Sage's coat and finds a thread where a violet button should be. Somewhere in the world, the button has gone.",
-            requires: [],
+            requires: [
+              {
+                kind: "not",
+                condition: {
+                  kind: "upgraded",
+                  upgrade: "scarf",
+                  role: "actor"
+                }
+              }
+            ],
             effects: [
               {
                 kind: "set_flag",
@@ -12885,6 +12960,10 @@
                 kind: "set_flag",
                 key: "forest-scarf-vale-sewn",
                 value: true
+              },
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
               }
             ],
             on: "give"
@@ -12921,6 +13000,10 @@
                 kind: "set_flag",
                 key: "forest-scarf-mara-sewn",
                 value: true
+              },
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
               }
             ],
             on: "give"
@@ -12957,6 +13040,10 @@
                 kind: "set_flag",
                 key: "forest-scarf-ash-sewn",
                 value: true
+              },
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
               }
             ],
             on: "give"
@@ -12993,6 +13080,10 @@
                 kind: "set_flag",
                 key: "forest-scarf-nell-sewn",
                 value: true
+              },
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
               }
             ],
             on: "give"
@@ -13029,6 +13120,10 @@
                 kind: "set_flag",
                 key: "forest-scarf-tavi-sewn",
                 value: true
+              },
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
               }
             ],
             on: "give"
@@ -13065,6 +13160,10 @@
                 kind: "set_flag",
                 key: "forest-scarf-rue-sewn",
                 value: true
+              },
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
               }
             ],
             on: "give"
@@ -13101,6 +13200,10 @@
                 kind: "set_flag",
                 key: "forest-scarf-orin-sewn",
                 value: true
+              },
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
               }
             ],
             on: "give"
@@ -13137,6 +13240,10 @@
                 kind: "set_flag",
                 key: "forest-scarf-ada-sewn",
                 value: true
+              },
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
               }
             ],
             on: "give"
@@ -13499,7 +13606,8 @@
     "weather",
     "ship_at",
     "drawn",
-    "chance"
+    "chance",
+    "upgraded"
   ];
   var AT_SEA = "@sea";
   var WEATHER_CONDITIONS = ["clear", "cloud", "rain", "mist"];
@@ -14009,6 +14117,9 @@
           case "holding":
             ok = keysOk(c, ["kind", "item", "actor", "role"]) && owns2(items2, c.item) && (c.role === void 0 ? c.actor === hub2.player || owns2(avatars, c.actor) : c.role === "actor" && c.actor === void 0);
             break;
+          case "upgraded":
+            ok = keysOk(c, ["kind", "upgrade", "role"]) && idOk(c.upgrade) && c.role === "actor";
+            break;
           case "shared_world":
             ok = keysOk(c, ["kind"]);
             break;
@@ -14076,7 +14187,8 @@
       "knows",
       "daylight",
       "drawn",
-      "chance"
+      "chance",
+      "upgraded"
     ].includes(c?.kind);
     const requirements = (cs, what, persistent = true) => {
       if (cs === void 0) return;
@@ -14201,6 +14313,8 @@
           valid = keysOk(e, ["kind", "item"]) && owns2(items2, e.item) && c.on === "meet";
         if (e.kind === "give_item")
           valid = keysOk(e, ["kind", "item"]) && owns2(items2, e.item) && c.on !== "meet";
+        if (e.kind === "upgrade")
+          valid = keysOk(e, ["kind", "upgrade"]) && idOk(e.upgrade) && c.for !== void 0;
         if (e.kind === "retire_item")
           valid = keysOk(e, ["kind", "item"]) && owns2(items2, e.item) && (c.requires || []).some(
             (r) => r.kind === "holding" && r.item === e.item && r.role === "actor"

@@ -387,6 +387,15 @@ fn claim_command(c: &rusqlite::Connection, w: &World, u: &str, a: usize) -> Resu
             command["progress"] = progress;
         }
     }
+    if bindings::carries_upgrades(&w.version) {
+        let upgrades = bindings::upgrades(c, u, a)?;
+        if !upgrades.is_empty() {
+            if command["progress"].is_null() {
+                command["progress"] = json!({});
+            }
+            command["progress"]["upgrades"] = json!(upgrades);
+        }
+    }
     Ok(command)
 }
 pub(super) fn run(

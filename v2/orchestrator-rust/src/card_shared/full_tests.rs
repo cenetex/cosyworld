@@ -190,6 +190,52 @@ fn a_claim_elsewhere_frees_the_old_seat_and_carries_the_level() {
     let kept = super::bindings::take_progress(&tx, "u", mara).unwrap();
     assert_eq!(kept, Some(serde_json::json!({"xp":6,"level":3})));
 }
+#[test]
+fn a_cosmetic_upgrade_stays_with_the_passkey_in_every_world() {
+    let path =
+        std::env::temp_dir().join(format!("full-card-world-{}.sqlite", crate::random_hex(12)));
+    let mut c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let (first, second) = ("d".repeat(48), "e".repeat(48));
+    for id in [&first, &second] {
+        store::create(&c, id, "owner", now()).unwrap();
+        full_store::seed(&c, id, &World::create(None).unwrap(), "test-create", now()).unwrap();
+    }
+    let mara = actor_index("mara").unwrap();
+    let tx = c.transaction().unwrap();
+    full::run(&tx, &first, "u", &body("claim", Some("mara")), now()).unwrap();
+    // The rules gave Mara an upgrade here; her next committed play keeps it.
+    let mut w = full_store::world(&tx, &first, now()).unwrap();
+    w.game["actors"]["mara"]["upgrades"] = json!(["scarf"]);
+    let action = home_action(&w, mara, "take");
+    full_store::commit(
+        &tx,
+        &first,
+        &mut w,
+        json!({"op":"play","actor":"mara","action":action}),
+        now(),
+    )
+    .unwrap();
+    assert_eq!(
+        super::bindings::upgrades(&tx, "u", mara).unwrap(),
+        vec!["scarf"]
+    );
+    // Claimed in a second world, Mara arrives wearing it; it is never taken.
+    full::run(&tx, &second, "u", &body("claim", Some("mara")), now()).unwrap();
+    let new = full_store::world(&tx, &second, now()).unwrap();
+    assert_eq!(new.game["actors"]["mara"]["upgrades"], json!(["scarf"]));
+    full::run(&tx, &second, "owner", &body("reset", Some("mara")), now()).unwrap();
+    assert_eq!(
+        super::bindings::upgrades(&tx, "u", mara).unwrap(),
+        vec!["scarf"]
+    );
+    // Another passkey taking Mara does not wear it, and replay agrees.
+    full::run(&tx, &second, "v", &body("claim", Some("mara")), now()).unwrap();
+    let other = full_store::world(&tx, &second, now()).unwrap();
+    assert!(other.game["actors"]["mara"]["upgrades"].is_null());
+    tx.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&tx, &second, now()).unwrap(), other);
+}
 fn claim(c: &mut rusqlite::Connection, id: &str, a: usize) {
     let tx = c
         .transaction_with_behavior(TransactionBehavior::Immediate)

@@ -625,6 +625,13 @@ export function applyPackChoice(
         story: true,
       });
     }
+    // A cosmetic upgrade is one-way: it joins the traveler's set and stays.
+    if (e.kind === "upgrade") {
+      const traveler = world.actors[action.actor];
+      traveler.upgrades = [
+        ...new Set([...(traveler.upgrades || []), e.upgrade]),
+      ].sort();
+    }
     if (e.kind === "choose") state.choices[e.key] = e.value;
     if (e.kind === "set_flag") state.flags[e.key] = e.value;
     if (e.kind === "place_item") {

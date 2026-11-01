@@ -82,6 +82,7 @@ export const CONDITION_KINDS = [
   "ship_at",
   "drawn",
   "chance",
+  "upgraded",
 ];
 // The `ship_at` dock for a ship sailing between ports.
 export const AT_SEA = "@sea";
@@ -901,6 +902,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
               ? c.actor === hub.player || owns(avatars, c.actor)
               : c.role === "actor" && c.actor === undefined);
           break;
+        case "upgraded":
+          ok =
+            keysOk(c, ["kind", "upgrade", "role"]) &&
+            idOk(c.upgrade) &&
+            c.role === "actor";
+          break;
         case "shared_world":
           ok = keysOk(c, ["kind"]);
           break;
@@ -1016,6 +1023,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           "daylight",
           "drawn",
           "chance",
+          "upgraded",
         ].includes(c?.kind);
   const requirements = (cs, what, persistent = true) => {
     if (cs === undefined) return;
@@ -1198,6 +1206,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       if (e.kind === "give_item")
         valid =
           keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on !== "meet";
+      // A cosmetic upgrade for the traveler the choice is for (#1873).
+      if (e.kind === "upgrade")
+        valid =
+          keysOk(e, ["kind", "upgrade"]) &&
+          idOk(e.upgrade) &&
+          c.for !== undefined;
       if (e.kind === "retire_item")
         valid =
           keysOk(e, ["kind", "item"]) &&

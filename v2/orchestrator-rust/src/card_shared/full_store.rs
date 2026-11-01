@@ -208,6 +208,10 @@ pub(super) fn commit(
         let Ok(a) = actor_index(command["actor"].as_str().unwrap_or_default()) else {
             return Ok(result);
         };
+        // The holder's passkey keeps any upgrade the play gave (#1873).
+        if let Err(error) = record_upgrades(c, id, a, &w.game) {
+            tracing::error!(error = %error, "could not keep an avatar's upgrades")
+        }
         let mut scene = w.request("context", a);
         scene["action"] = command["action"].clone();
         match super::narrator::context(&scene) {
@@ -218,6 +222,23 @@ pub(super) fn commit(
         }
     }
     Ok(result)
+}
+fn record_upgrades(c: &Connection, id: &str, a: usize, game: &Value) -> Result<()> {
+    let holder = match super::bindings::holder(c, id, a)? {
+        Some(user) => Some(user),
+        None => c
+            .query_row(
+                "SELECT user FROM card_members WHERE world=? AND actor=?",
+                params![id, a],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(sql_error)?,
+    };
+    match holder {
+        Some(user) => super::bindings::record_upgrades(c, &user, a, game, actor_id(a)),
+        None => Ok(()),
+    }
 }
 pub(super) fn expire(c: &Connection, id: &str, w: &mut World, now: i64) -> Result<()> {
     let mut q = c

@@ -10509,7 +10509,16 @@
           "for": "vale",
           "label": "Vale meets RATi",
           "text": "RATi looks at Vale's coat and finds a thread where a black button should be. Somewhere in the world, the button has gone.",
-          "requires": [],
+          "requires": [
+            {
+              "kind": "not",
+              "condition": {
+                "kind": "upgraded",
+                "upgrade": "scarf",
+                "role": "actor"
+              }
+            }
+          ],
           "effects": [
             {
               "kind": "set_flag",
@@ -10530,7 +10539,16 @@
           "for": "mara",
           "label": "Mara meets RATi",
           "text": "RATi looks at Mara's coat and finds a thread where a red button should be. Somewhere in the world, the button has gone.",
-          "requires": [],
+          "requires": [
+            {
+              "kind": "not",
+              "condition": {
+                "kind": "upgraded",
+                "upgrade": "scarf",
+                "role": "actor"
+              }
+            }
+          ],
           "effects": [
             {
               "kind": "set_flag",
@@ -10551,7 +10569,16 @@
           "for": "ash",
           "label": "Ash meets RATi",
           "text": "RATi looks at Ash's coat and finds a thread where a orange button should be. Somewhere in the world, the button has gone.",
-          "requires": [],
+          "requires": [
+            {
+              "kind": "not",
+              "condition": {
+                "kind": "upgraded",
+                "upgrade": "scarf",
+                "role": "actor"
+              }
+            }
+          ],
           "effects": [
             {
               "kind": "set_flag",
@@ -10572,7 +10599,16 @@
           "for": "nell",
           "label": "Iris meets RATi",
           "text": "RATi looks at Iris's coat and finds a thread where a yellow button should be. Somewhere in the world, the button has gone.",
-          "requires": [],
+          "requires": [
+            {
+              "kind": "not",
+              "condition": {
+                "kind": "upgraded",
+                "upgrade": "scarf",
+                "role": "actor"
+              }
+            }
+          ],
           "effects": [
             {
               "kind": "set_flag",
@@ -10593,7 +10629,16 @@
           "for": "tavi",
           "label": "Tavi meets RATi",
           "text": "RATi looks at Tavi's coat and finds a thread where a green button should be. Somewhere in the world, the button has gone.",
-          "requires": [],
+          "requires": [
+            {
+              "kind": "not",
+              "condition": {
+                "kind": "upgraded",
+                "upgrade": "scarf",
+                "role": "actor"
+              }
+            }
+          ],
           "effects": [
             {
               "kind": "set_flag",
@@ -10614,7 +10659,16 @@
           "for": "rue",
           "label": "Rue meets RATi",
           "text": "RATi looks at Rue's coat and finds a thread where a blue button should be. Somewhere in the world, the button has gone.",
-          "requires": [],
+          "requires": [
+            {
+              "kind": "not",
+              "condition": {
+                "kind": "upgraded",
+                "upgrade": "scarf",
+                "role": "actor"
+              }
+            }
+          ],
           "effects": [
             {
               "kind": "set_flag",
@@ -10635,7 +10689,16 @@
           "for": "orin",
           "label": "Cass meets RATi",
           "text": "RATi looks at Cass's coat and finds a thread where a indigo button should be. Somewhere in the world, the button has gone.",
-          "requires": [],
+          "requires": [
+            {
+              "kind": "not",
+              "condition": {
+                "kind": "upgraded",
+                "upgrade": "scarf",
+                "role": "actor"
+              }
+            }
+          ],
           "effects": [
             {
               "kind": "set_flag",
@@ -10656,7 +10719,16 @@
           "for": "ada",
           "label": "Sage meets RATi",
           "text": "RATi looks at Sage's coat and finds a thread where a violet button should be. Somewhere in the world, the button has gone.",
-          "requires": [],
+          "requires": [
+            {
+              "kind": "not",
+              "condition": {
+                "kind": "upgraded",
+                "upgrade": "scarf",
+                "role": "actor"
+              }
+            }
+          ],
           "effects": [
             {
               "kind": "set_flag",
@@ -10701,6 +10773,10 @@
               "kind": "set_flag",
               "key": "forest-scarf-vale-sewn",
               "value": true
+            },
+            {
+              "kind": "upgrade",
+              "upgrade": "scarf"
             }
           ],
           "on": "give"
@@ -10737,6 +10813,10 @@
               "kind": "set_flag",
               "key": "forest-scarf-mara-sewn",
               "value": true
+            },
+            {
+              "kind": "upgrade",
+              "upgrade": "scarf"
             }
           ],
           "on": "give"
@@ -10773,6 +10853,10 @@
               "kind": "set_flag",
               "key": "forest-scarf-ash-sewn",
               "value": true
+            },
+            {
+              "kind": "upgrade",
+              "upgrade": "scarf"
             }
           ],
           "on": "give"
@@ -10809,6 +10893,10 @@
               "kind": "set_flag",
               "key": "forest-scarf-nell-sewn",
               "value": true
+            },
+            {
+              "kind": "upgrade",
+              "upgrade": "scarf"
             }
           ],
           "on": "give"
@@ -10845,6 +10933,10 @@
               "kind": "set_flag",
               "key": "forest-scarf-tavi-sewn",
               "value": true
+            },
+            {
+              "kind": "upgrade",
+              "upgrade": "scarf"
             }
           ],
           "on": "give"
@@ -10881,6 +10973,10 @@
               "kind": "set_flag",
               "key": "forest-scarf-rue-sewn",
               "value": true
+            },
+            {
+              "kind": "upgrade",
+              "upgrade": "scarf"
             }
           ],
           "on": "give"
@@ -10917,6 +11013,10 @@
               "kind": "set_flag",
               "key": "forest-scarf-orin-sewn",
               "value": true
+            },
+            {
+              "kind": "upgrade",
+              "upgrade": "scarf"
             }
           ],
           "on": "give"
@@ -10953,6 +11053,10 @@
               "kind": "set_flag",
               "key": "forest-scarf-ada-sewn",
               "value": true
+            },
+            {
+              "kind": "upgrade",
+              "upgrade": "scarf"
             }
           ],
           "on": "give"

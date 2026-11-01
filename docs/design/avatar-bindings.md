@@ -21,6 +21,10 @@ Owner rules, 2026-11-01 (#1825): no takeover.
   in `card_avatar_progress(user, actor)`, written whenever a seat empties
   (Send, Release, Free), and the next claim journals them as `progress`
   (rules 80 and later).
+- Cosmetic upgrades (#1873), such as RATi's scarf, are kept for good in
+  `card_avatar_upgrades(user, actor, upgrade)` and go with every claim as
+  `progress.upgrades` (rules 81 and later). See
+  [cosmetic upgrades](cosmetic-upgrades.md).
 - Each holder shows under a holder name ("Amber Heron"), a hash of their
   account id over frozen word lists, the same in every world. Ban is not
   built: a person can make many passkeys.

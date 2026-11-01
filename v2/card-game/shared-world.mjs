@@ -74,10 +74,25 @@ function response(world, extra = {}) {
   return { ok: true, world: stored(world), ...extra };
 }
 // An avatar's level travels with it between worlds (#1846): the host passes
-// the level and experience it had where it was last seated.
+// the level and experience it had where it was last seated. Its cosmetic
+// upgrades travel too, and never go (#1873); they may come without a level.
 function carryProgress(actor, progress) {
   if (progress == null) return;
-  const { level, xp } = progress;
+  const { level, xp, upgrades } = progress;
+  if (upgrades !== undefined) {
+    if (
+      !Array.isArray(upgrades) ||
+      upgrades.length > 16 ||
+      upgrades.some(
+        (u) => typeof u !== "string" || !/^[a-z][a-z0-9-]{0,39}$/.test(u),
+      )
+    )
+      throw new Error("Choose the avatar's upgrades.");
+    actor.upgrades = [
+      ...new Set([...(actor.upgrades || []), ...upgrades]),
+    ].sort();
+    if (xp === undefined && level === undefined) return;
+  }
   const count = (n) => Number.isInteger(n) && n >= 0 && n <= 1_000_000;
   if (!count(xp) || !(level === undefined || (count(level) && level >= 1)))
     throw new Error("Choose the avatar's level.");
@@ -128,6 +143,8 @@ function importClientSave(save) {
     "present",
   ])
     delete raw[key];
+  // Upgrades are per passkey, and a local save is its own passkey (#1873).
+  for (const actor of Object.values(raw.actors || {})) delete actor?.upgrades;
   return decodeSave(JSON.stringify(raw));
 }
 export function dispatchShared(request) {

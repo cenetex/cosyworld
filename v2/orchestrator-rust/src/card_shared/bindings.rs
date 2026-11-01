@@ -194,6 +194,51 @@ pub(super) fn take_progress(c: &Connection, user: &str, a: usize) -> Result<Opti
     .map_err(sql_error)?;
     Ok(saved.and_then(|s| serde_json::from_str(&s).ok()))
 }
+// Cosmetic upgrades are one-way and per passkey (#1873). Each one is kept
+// here for good and goes with every claim. Rules before 81 cannot take them.
+pub(super) fn carries_upgrades(version: &str) -> bool {
+    version
+        .rsplit('/')
+        .next()
+        .and_then(|n| n.parse::<u32>().ok())
+        .is_some_and(|n| n >= 81)
+}
+pub(super) fn upgrades(c: &Connection, user: &str, a: usize) -> Result<Vec<String>> {
+    let mut q = c
+        .prepare(
+            "SELECT upgrade FROM card_avatar_upgrades WHERE user=? AND actor=? ORDER BY upgrade",
+        )
+        .map_err(sql_error)?;
+    let rows = q
+        .query_map(params![user, a], |r| r.get::<_, String>(0))
+        .map_err(sql_error)?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(sql_error);
+    rows
+}
+// Keep every upgrade the rules gave this avatar in a world's state.
+pub(super) fn record_upgrades(
+    c: &Connection,
+    user: &str,
+    a: usize,
+    game: &Value,
+    actor: &str,
+) -> Result<()> {
+    for upgrade in game["actors"][actor]["upgrades"]
+        .as_array()
+        .into_iter()
+        .flatten()
+    {
+        if let Some(upgrade) = upgrade.as_str() {
+            c.execute(
+                "INSERT OR IGNORE INTO card_avatar_upgrades(user,actor,upgrade) VALUES(?,?,?)",
+                params![user, a, upgrade],
+            )
+            .map_err(sql_error)?;
+        }
+    }
+    Ok(())
+}
 // The level and experience an avatar has in a world's state.
 pub(super) fn progress_of(game: &Value, actor: &str) -> Value {
     let a = &game["actors"][actor];
