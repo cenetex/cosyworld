@@ -240,8 +240,9 @@ try {
         await tap("vale");
         assert.equal(await page.locator("#hand .quest-frame").count(), 0);
         assert.equal(await page.locator("#hand .quest-preview").count(), 0);
+        // An outside click folds the hand and keeps the choice.
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
-        assert.deepEqual(await selected(), []);
+        assert.deepEqual(await selected(), ["vale"]);
         await collapsed();
         assert.deepEqual(
           await page
@@ -262,6 +263,7 @@ try {
         assert.equal(await open(), "false", "an outside click folds the hand");
         await tap("vale");
         assert.equal(await open(), "true", "a tap opens the hand");
+        assert.deepEqual(await selected(), ["vale"], "as it was");
         await tap("vale");
         assert.deepEqual(await selected(), []);
         assert.equal(await open(), "true", "deselecting keeps the hand open");
@@ -348,10 +350,10 @@ try {
         });
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
         assert.deepEqual(await selected(), ["lamp", "vale"]);
-        // Tapping the folded row opens it with the lamp still held.
+        // Tapping the folded row opens it with the same choice.
         await tap("vale");
         assert.equal(await handExpanded(), "true", "the row opens again");
-        assert.deepEqual(await selected(), ["lamp"]);
+        assert.deepEqual(await selected(), ["lamp", "vale"]);
         assert.equal(await frame("lamp").getAttribute("hidden"), null);
         assert.equal(await action("snuff").count(), 1, "Put out is offered");
         await page.screenshot({
@@ -361,10 +363,22 @@ try {
         assert.equal(await handExpanded(), "false");
         await page.locator(".play-dock").dispatchEvent("click");
         assert.equal(await handExpanded(), "true");
-        assert.deepEqual(await selected(), ["lamp"]);
+        assert.deepEqual(await selected(), ["lamp", "vale"]);
+        // A tap on the beats while the hand is up only lowers the hand.
+        const beat = await page.evaluate(
+          () => document.querySelector("#speaker").textContent,
+        );
+        await page.locator("#dialogue-advance").click();
+        assert.equal(await handExpanded(), "false", "a beat tap folds the hand");
+        assert.equal(
+          await page.evaluate(() => document.querySelector("#speaker").textContent),
+          beat,
+        );
         // A second tap still lowers the lamp, and Escape still clears.
-        await page.locator("#stage").click({ position: { x: 20, y: 200 } });
         await tap("lamp");
+        await tap("lamp");
+        assert.deepEqual(await selected(), ["vale"]);
+        await page.keyboard.press("Escape");
         assert.deepEqual(await selected(), []);
         await tap("vale");
         await tap("lamp");
@@ -377,7 +391,8 @@ try {
         await page.keyboard.press("Escape");
         await tap("moth");
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
-        assert.deepEqual(await selected(), []);
+        assert.deepEqual(await selected(), ["moth"]);
+        await page.keyboard.press("Escape");
         await tap("vale");
         await tap("lamp");
         await tap("moth");
