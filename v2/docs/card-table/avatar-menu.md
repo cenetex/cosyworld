@@ -110,12 +110,15 @@ and the "Your game saves in this browser" paragraph.
 `v2/card-game/world-names.json` holds cosy, uncanny place names: whole names
 ("Hollowmere", "Lanternfall", "Saltmoth Hollow") and "The *word* *place*"
 pairs ("The Quiet Ferry", "The Kettle Marsh"), about two thousand in all. A
-world's name is entry `fnv1a32(id) % count`, using 32-bit FNV-1a over the
-UTF-8 id.
+world's name is entry `fnv1a32(seed) % count`, using 32-bit FNV-1a over the
+decimal run seed (`world.run.seed`).
 
-- A shared world's id is its server id. Every player sees the same name.
-- A local world's id is `local:` plus its run seed (`world.run.seed`). A new
-  local game gets a new name.
+- Every world has one run seed. A local New game draws it; a shared world
+  created from a save keeps the save's seed, and a world with none gets one
+  derived from its id. So a local world keeps its name when it is shared, and
+  every player sees the same name.
+- The server's world list returns each world's seed, so the menu can name
+  worlds it has not opened.
 - The list is frozen once released: adding or reordering names would rename
   every world. A test pins several id-to-name pairs. A later list would need a
   new version recorded on each world.
@@ -137,8 +140,13 @@ hashes and replay do not change.
 - **Shared worlds.** The avatar's world is the account's `card_members` row
   for that avatar. Today every Share claims Vale, so an account can hold Vale
   in several worlds. The newest is shown. The others stay untouched and are
-  released when that avatar next moves or leaves. No journal row is written
-  on upgrade.
+  released only when the player next moves that avatar. Nothing disappears
+  unexpectedly, and no journal row is written on upgrade.
+- **Links.** Opening a world link while that avatar is in another world asks
+  one line: "Move Vale here?"
+- **Starts.** Vale's new local world opens in the attic. Every other avatar's
+  new local world starts at that avatar's own home with their item, as in
+  shared play.
 - **Local and shared together.** Moving an avatar into a shared world (Invite,
   Join or Move) archives that avatar's local save to `.bak`.
 - **Move** is a release in the old world and a claim in the new one. Both
@@ -152,8 +160,8 @@ hashes and replay do not change.
 
 Small ready PRs under the 400-line budget, client first:
 
-1. The world-name list, `worldName(id)`, and the name in 👥, the invite panel
-   and the world list.
+1. The world-name list, `worldName(seed)`, and the name in 👥 and the invite
+   panel; the server's world list returns each seed (Rust CI dispatched).
 2. The avatar ☰ menu, a slot per avatar, Play / Move / Leave / New world /
    Join with the existing `claim` and `release` commands, and the trimmed
    Settings panel.
@@ -162,16 +170,12 @@ Small ready PRs under the 400-line budget, client first:
    the world list returns rows by last visit. CI is dispatched, with no local
    cargo run.
 
-## Open questions
+## Decisions
 
-1. Invite gives a local world a new shared id, so it gets a new name. Keep
-   that, or name worlds by run seed (the shared world keeps the local seed),
-   which needs the server's world list to return the seed?
-2. A pack landing link (`?pack=`) starts a new world. When the avatar already
-   has one, should it ask to move, or keep a separate landing slot?
-3. A local world for Mara, Ash and the others starts at that avatar's home
-   with their item, as in shared play. Is that the right start, or should
-   every avatar get the attic opening?
-4. Accounts that hold Vale in several shared worlds: show the newest and
-   release the rest on the next Move (proposed), or release the extras once
-   now?
+The owner settled these on 2026-11-01 ([#1737](https://github.com/cenetex/cosyworld/issues/1737)):
+
+1. Worlds are named by run seed, so a world keeps its name when shared.
+2. A world link for an avatar that is elsewhere asks "Move Vale here?"
+3. Non-Vale avatars start a local world at their own home.
+4. Extra shared claims stay until the player next moves that avatar.
+5. A player has at most one avatar in a world.
