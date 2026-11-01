@@ -80,6 +80,7 @@ export const CONDITION_KINDS = [
   "weather",
   "ship_at",
   "drawn",
+  "chance",
 ];
 // The `ship_at` dock for a ship sailing between ports.
 export const AT_SEA = "@sea";
@@ -917,6 +918,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             anyPlace(c.place) &&
             WEATHER_CONDITIONS.includes(c.condition);
           break;
+        case "chance":
+          ok =
+            keysOk(c, ["kind", "key", "odds", "lasts"]) &&
+            idOk(c.key) &&
+            intOk(c.odds, 2, 1000) &&
+            intOk(c.lasts, 1, 24);
+          break;
         case "ship_at":
           ok =
             keysOk(c, ["kind", "transport", "dock"]) &&
@@ -974,6 +982,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           "knows",
           "daylight",
           "drawn",
+          "chance",
         ].includes(c?.kind);
   const requirements = (cs, what, persistent = true) => {
     if (cs === undefined) return;
