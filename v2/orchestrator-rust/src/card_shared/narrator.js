@@ -11122,7 +11122,39 @@
               "willows-camp"
             ],
             backdrop: "assets/willows/landing.webp",
-            voice: `Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Examples: "Wind in the reeds. Only \u2014 the reeds are not moving. Wind, then." "An otter. Its eyes were yellow because the sun was low." "The paddle lies nearer the water than I left it. The wind." "The boatman crossed himself. Boatmen do."`
+            voice: `Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Examples: "Wind in the reeds. Only \u2014 the reeds are not moving. Wind, then." "An otter. Its eyes were yellow because the sun was low." "The paddle lies nearer the water than I left it. The wind." "The boatman crossed himself. Boatmen do."`,
+            backdrops: [
+              {
+                backdrop: "assets/willows/landing-boatman.webp",
+                requires: [
+                  {
+                    kind: "chance",
+                    key: "willows-boatman",
+                    odds: 12,
+                    lasts: 2
+                  },
+                  {
+                    kind: "daylight",
+                    phase: "day"
+                  }
+                ]
+              },
+              {
+                backdrop: "assets/willows/landing-otter.webp",
+                requires: [
+                  {
+                    kind: "chance",
+                    key: "willows-otter",
+                    odds: 12,
+                    lasts: 2
+                  },
+                  {
+                    kind: "daylight",
+                    phase: "day"
+                  }
+                ]
+              }
+            ]
           },
           "willows-camp": {
             name: "River Camp",

@@ -19,7 +19,39 @@
       "persona": "A sand spit above the backwater where the upturned canoe lies, with the flooded Danube racing past beyond the low willows. I am the landing and speak in the first person, as the traveller who keeps noticing things and keeps finding reasons for them. The canoe is fixed scenery; it is mended only while the whole kit is back at the camp. The Greek ship is reached through river mist beside the backwater.",
       "exits": ["willows-camp"],
       "backdrop": "assets/willows/landing.webp",
-      "voice": "Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Examples: \"Wind in the reeds. Only — the reeds are not moving. Wind, then.\" \"An otter. Its eyes were yellow because the sun was low.\" \"The paddle lies nearer the water than I left it. The wind.\" \"The boatman crossed himself. Boatmen do.\""
+      "voice": "Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Examples: \"Wind in the reeds. Only — the reeds are not moving. Wind, then.\" \"An otter. Its eyes were yellow because the sun was low.\" \"The paddle lies nearer the water than I left it. The wind.\" \"The boatman crossed himself. Boatmen do.\"",
+      "backdrops": [
+        {
+          "backdrop": "assets/willows/landing-boatman.webp",
+          "requires": [
+            {
+              "kind": "chance",
+              "key": "willows-boatman",
+              "odds": 12,
+              "lasts": 2
+            },
+            {
+              "kind": "daylight",
+              "phase": "day"
+            }
+          ]
+        },
+        {
+          "backdrop": "assets/willows/landing-otter.webp",
+          "requires": [
+            {
+              "kind": "chance",
+              "key": "willows-otter",
+              "odds": 12,
+              "lasts": 2
+            },
+            {
+              "kind": "daylight",
+              "phase": "day"
+            }
+          ]
+        }
+      ]
     },
     "willows-camp": {
       "name": "River Camp",

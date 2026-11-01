@@ -110,6 +110,12 @@ and the alternates alike, so the crossfade does not pan. The otter and the
 boatman appear by chance at the landing (step 4 of the design note); the mended
 canoe follows the kit (step 2); the hull has no painting.
 
+The otter and the man in the boat simply happen at the landing: its
+`backdrops` show `landing-otter` or `landing-boatman` by day while a seeded
+`chance` condition holds (one two-turn window in about twelve, hashed from the
+run seed so every table agrees). Both paintings are lit by the low sun, so
+neither shows at night.
+
 The uncanny flicker (`transitions.mjs`) runs at every Willows place all year,
 not only on Halloween, with the same limits: one cut of 140 ms per entry at
 most, a 40% chance, 30 seconds apart, no brightening, and none under reduced
