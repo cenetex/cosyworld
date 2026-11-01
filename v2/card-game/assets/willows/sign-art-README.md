@@ -59,7 +59,7 @@ specifies that each sign painting holds while it is that place's newest sign;
 there is no fixed six-second return. At `fca8307c`, the PR implements Wait sign
 selection but does not yet implement that artwork selector. The owner kept the
 willow thicket as a live road between camp and bank (2026-11-01), so its two
-signs, the hollows and the bronze shapes, are noticed by Wait at the thicket and their
+signs, the hollows and the bronze shapes, are found by waiting at the thicket and their
 paintings are thicket `backdrops`. The later steps gate the mended canoe on the
 kit at camp and give passing otter/boatman appearances seeded per-turn windows.
 Those are content-owner integration tasks, not shipped behavior of this asset
