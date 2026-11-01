@@ -11,6 +11,8 @@ import {
 import { entityActive } from "./pack-registry.mjs";
 import { sceneCast } from "./scene.mjs";
 import { cardObservation } from "./cards.mjs";
+import { rarityForm } from "./rarity-portraits.mjs";
+import { levelOf } from "./want.mjs";
 
 export const DEFAULT_VIDEO_MODEL = "tbc/mischief-1";
 
@@ -51,7 +53,10 @@ export function sceneVideoContext(world, scene) {
     dialogue,
     people: cast.map((id) => ({
       name: nameOf(id),
-      appearance: people[id]?.text || "",
+      appearance:
+        rarityForm(id, levelOf(world, id))?.appearance ||
+        people[id]?.text ||
+        "",
       present: world.actors[id]?.place === place,
     })),
     items: Object.keys(world.items)

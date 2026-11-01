@@ -1,0 +1,72 @@
+{
+  "character": "hoppycat-hoppy-cat",
+  "form": "mythic",
+  "minLevel": 100,
+  "sourceReference": "https://pbs.twimg.com/media/HV_I7MnW4AAUO52?format=jpg&name=large",
+  "tool": "image_gen.imagegen",
+  "images": [
+    {
+      "pose": "neutral",
+      "prompt": "Use case: identity-preserve. Asset: full-body transparent game portrait and neutral sprite, 1024 by 1536 vertical 2:3. Image 1 is the existing Hoppy Cat game cutout: preserve her recognizable face, green eyes, adult body proportions, centered standing scale and mostly front-facing orientation. Image 2 is the newer 'Arc as Archive' comic: use ONLY the green-haired woman's appearance as the upgrade reference, not the man, room, panels, or text. Create exactly one complete Hoppy Cat, from top of hair to soles of both boots, with generous clear margin. Her earned Mythic appearance has very long loose leaf/sage-green wavy hair, a small blue ribbon and delicate pale flowers in a side braid, warm green eyes and faint freckles, a thoughtful amused half-smile, an ivory-cream blouse with blue botanical embroidery and softly gathered sleeves, a turquoise teardrop pendant, a flowing ankle-length teal-blue skirt with restrained gold botanical embroidery, and brown leather ankle boots. Keep the same person and recognizable identity, with slightly richer natural facial detail. Relaxed neutral stance and empty hands, arms naturally at her sides with a subtle open-hand gesture; no microphone or bag. Richly detailed painterly anime-storybook fantasy matching both references, tactile cloth and hair, warm amber light on face and fabric with restrained cool blue shadows, softly painted edges but a crisp usable silhouette. GENUINELY TRANSPARENT background, clean alpha around hair and clothes, no ground plane, no shadow cloud, no halo, no glow, no environment, no floor, no chair. No text, UI, card frame, border, logo, watermark, duplicate limbs, cropped feet, extra people or props. This must be a coherent production character cutout for an existing illustrated game.",
+      "output": "v2/card-game/assets/hoppycat-archive/hoppycat-hoppy-cat-mythic-cutout.png",
+      "facing": "front",
+      "generatedFile": "exec-e16b14a4-c743-42dc-ab8f-a181a3270fd7.png",
+      "sourceSha256": "d754cc2b03d95d234660767a4279330aefd7ad1fbcaf3b559173989ebcbcd50d",
+      "outputSha256": "d754cc2b03d95d234660767a4279330aefd7ad1fbcaf3b559173989ebcbcd50d",
+      "bytes": 2629665,
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "alphaPreserved": true
+    },
+    {
+      "pose": "attack",
+      "prompt": "Use case: identity-preserve. Asset: one full-body transparent 1024x1536 combat sprite, vertical 2:3. Edit the supplied Hoppy Cat Mythic master by changing ONLY pose and action expression. Preserve the exact recognizable face, green eyes, faint freckles, very long leaf-green wavy hair, blue ribbon and pale flowers, turquoise pendant, cream blouse with blue/gold botanical embroidery, flowing teal skirt with gold floral embroidery, and brown boots. Preserve the same richly detailed painterly anime-storybook finish and warm amber/cool-blue character lighting. She is a capable adult woman. Her whole body faces SCREEN RIGHT in a readable three-quarter or side stance: head, gaze, shoulders, leading hands and front boot aim toward the right. Exactly one complete character; all hair, hands, skirt and both boots within the canvas, clear padding on every edge, consistent body scale. Empty hands. Genuinely transparent background with clean alpha, no floor, cloud, glow, shadow plate, environment, text, UI, frame, weapons or other people. No injury, blood, torn clothes, costume changes or duplicate limbs. POSE STRIKE: a controlled unarmed palm strike toward an opponent to screen right. Front arm extends firmly to the right at chest height, other hand guards near her torso, weight shifts onto the forward rightward boot, rear foot planted. The skirt and long hair follow the movement naturally. Determined focused expression. No magic effects or motion streaks.",
+      "output": "v2/card-game/assets/combat/hoppycat-hoppy-cat-mythic-attack.webp",
+      "facing": "right",
+      "webpQuality": 68,
+      "generatedFile": "exec-ddc76a78-8b6b-474b-ab8c-df4a25e5ffa0.png",
+      "sourceSha256": "f7136c6303db4b439fdbc2fb0192ac4e51272529c0636c10dd3e7a8c5770984e",
+      "outputSha256": "af0dae174dc9759c9f967aeb5a15c91d0b00ae9e687da12e2a6ed4e7fb7e912b",
+      "bytes": 298510,
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "alphaPreserved": true
+    },
+    {
+      "pose": "hit",
+      "prompt": "Use case: identity-preserve. Asset: one full-body transparent 1024x1536 combat sprite, vertical 2:3. Edit the supplied Hoppy Cat Mythic master by changing ONLY pose and action expression. Preserve the exact recognizable face, green eyes, faint freckles, very long leaf-green wavy hair, blue ribbon and pale flowers, turquoise pendant, cream blouse with blue/gold botanical embroidery, flowing teal skirt with gold floral embroidery, and brown boots. Preserve the same richly detailed painterly anime-storybook finish and warm amber/cool-blue character lighting. She is a capable adult woman. Her whole body faces SCREEN RIGHT in a readable three-quarter or side stance: head, gaze, shoulders, leading hands and front boot aim toward the right. Exactly one complete character; all hair, hands, skirt and both boots within the canvas, clear padding on every edge, consistent body scale. Empty hands. Genuinely transparent background with clean alpha, no floor, cloud, glow, shadow plate, environment, text, UI, frame, weapons or other people. No injury, blood, torn clothes, costume changes or duplicate limbs. POSE HIT REACTION: she has just taken a light non-graphic hit from screen right. Torso recoils modestly toward screen left while her face still turns toward screen right. Arms open reflexively for balance, knees slightly bend, both boots remain supported; expression briefly startled with a wince. Hair and skirt move with the recoil. No visible attacker, impact effects or wounds.",
+      "output": "v2/card-game/assets/combat/hoppycat-hoppy-cat-mythic-hit.webp",
+      "facing": "right",
+      "webpQuality": 61,
+      "generatedFile": "exec-c938193b-c1ef-4591-822a-d2cc7329c924.png",
+      "sourceSha256": "a7d38ad8c1e4360a8840722d043bce198ce185ad808db5028f22b28c8b5f8973",
+      "outputSha256": "a536f201c6c60496375c275eee105109c562420abc213b934f4519c441917a9c",
+      "bytes": 298510,
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "alphaPreserved": true
+    },
+    {
+      "pose": "guard",
+      "prompt": "Use case: identity-preserve. Asset: one full-body transparent 1024x1536 combat sprite, vertical 2:3. Edit the supplied Hoppy Cat Mythic master by changing ONLY pose and action expression. Preserve the exact recognizable face, green eyes, faint freckles, very long leaf-green wavy hair, blue ribbon and pale flowers, turquoise pendant, cream blouse with blue/gold botanical embroidery, flowing teal skirt with gold floral embroidery, and brown boots. Preserve the same richly detailed painterly anime-storybook finish and warm amber/cool-blue character lighting. She is a capable adult woman. Her whole body faces SCREEN RIGHT in a readable three-quarter or side stance: head, gaze, shoulders, leading hands and front boot aim toward the right. Exactly one complete character; all hair, hands, skirt and both boots within the canvas, clear padding on every edge, consistent body scale. Empty hands. Genuinely transparent background with clean alpha, no floor, cloud, glow, shadow plate, environment, text, UI, frame, weapons or other people. No injury, blood, torn clothes, costume changes or duplicate limbs. POSE GUARD: an alert balanced defensive stance toward screen right, both forearms raised across the upper torso with hands ready to intercept an incoming blow. Knees softly bent, front boot points right and rear foot steadies her. Calm focused protective expression; hair and long skirt settle naturally. No shield, weapon, effects or new props.",
+      "output": "v2/card-game/assets/combat/hoppycat-hoppy-cat-mythic-guard.webp",
+      "facing": "right",
+      "webpQuality": 65,
+      "generatedFile": "exec-2e9ccb50-6917-48ca-acf5-11311cbad722.png",
+      "sourceSha256": "24e1751ce8f738274378334d01ef788f015d409fed52adf232b517ddf8b5286b",
+      "outputSha256": "756d72f4e89aa0db05d1bb0cbfd8812dd856ad7284891e1ef269f0e8067ae90f",
+      "bytes": 298744,
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "alphaPreserved": true
+    }
+  ]
+}

@@ -38,6 +38,11 @@ receive the new pack through the normal pack installer.
 
 ## Stories
 
+Arc earns a new portrait at Epic level 30, and Hoppy earns hers at Mythic
+level 100. Their cards, scene cutouts and combat poses follow the same saved
+progress. See [rarity portraits](RARITY-PORTRAITS.md) for the art and transition
+contract.
+
 - **February Third:** keep a correction, plant a memory seed, choose a facet,
   trace a reflection, hear Nix's pause, tie the thread, and fit the clapper.
 - **The shared evening:** share the cup, paint a playbill, credit the performers,

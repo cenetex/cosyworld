@@ -14410,8 +14410,8 @@
         }
       }
     }
-    const groups = pack.continuity?.groups || [];
-    for (const g of groups)
+    const groups2 = pack.continuity?.groups || [];
+    for (const g of groups2)
       check(
         idOk(g.key) && new Set(g.options).size === g.options.length && g.options.every((o) => writes.get(g.key)?.has(o)) && writes.get(g.key)?.size === g.options.length,
         "continuity options must match authored commitments"
@@ -14442,7 +14442,7 @@
       }
     }
     if (problems2.length) return problems2;
-    const combinations = groups.reduce(
+    const combinations = groups2.reduce(
       (states, g) => states.flatMap(
         (state) => [void 0, ...g.options].map((v) => ({ ...state, [g.key]: v }))
       ),
@@ -17924,6 +17924,141 @@
       })
     };
   }
+
+  // v2/card-game/rarity-portraits.mjs
+  var appearances = {
+    "hoppycat-arc": "Silver-white tousled hair and blue eyes; ivory open-collar shirt, dark brown knitted cardigan, dark trousers, brown leather shoes, and a brown-strapped wristwatch.",
+    "hoppycat-hoppy-cat": "Long flowing green hair, green eyes, a blue ribbon and small white flowers; ivory floral blouse, teal skirt embroidered with gold, teal sash, turquoise pendant, and brown ankle boots."
+  };
+  var rarityForms = Object.freeze(
+    Object.fromEntries(
+      [
+        ["hoppycat-arc", 30, "epic", "left"],
+        ["hoppycat-hoppy-cat", 100, "mythic", "front"]
+      ].map(([id, level, tier, facing]) => [
+        id,
+        {
+          level,
+          facing,
+          appearance: appearances[id],
+          portrait: `assets/hoppycat-archive/${id}-${tier}-cutout.png`,
+          combat: `assets/combat/${id}-${tier}`
+        }
+      ])
+    )
+  );
+  var rarityPortraitAssets = Object.values(rarityForms).flatMap(
+    (form) => [
+      form.portrait,
+      ...["attack", "hit", "guard"].map((pose) => `${form.combat}-${pose}.webp`)
+    ]
+  );
+
+  // v2/card-game/portrait-facing.mjs
+  var groups = {
+    right: [
+      ...rarityPortraitAssets.filter((file) => file.startsWith("assets/combat/")),
+      "assets/boardyai/boardyai.png",
+      ...["rati", "skull", "whiskerwind"].map(
+        (name) => `assets/lonely-forest/${name}.png`
+      ),
+      "assets/vale.png",
+      "assets/keeper-right.png",
+      ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].flatMap(
+        (id) => [
+          `assets/shared/characters/${id}.png`,
+          `assets/shared/characters/${id}-scarf.png`,
+          ...["guard", "attack", "hit"].flatMap((pose) => [
+            `assets/combat/${id}-${pose}.webp`,
+            `assets/combat/${id}-scarf-${pose}.webp`
+          ])
+        ]
+      )
+    ],
+    left: [
+      ...Object.values(rarityForms).filter((form) => form.facing === "left").map((form) => form.portrait),
+      ...["swede", "swede-listening", "swede-worried", "swede-seated"].map(
+        (name) => `assets/willows/${name}.webp`
+      ),
+      "assets/moth.png",
+      "assets/keeper.png",
+      ...["moth", "keeper"].flatMap(
+        (id) => ["guard", "attack", "hit"].map(
+          (pose) => `assets/combat/${id}-${pose}.webp`
+        )
+      ),
+      "assets/greek-drama/myrine.webp",
+      ...["tecmessa", "teucer", "odysseus"].map(
+        (name) => `assets/greek-drama/ajax-${name}.png`
+      ),
+      ...[
+        "antigone",
+        "ismene",
+        "creon",
+        "guard",
+        "baker",
+        "elder",
+        "shipmaster",
+        "singer",
+        "neighbor",
+        "attendant",
+        "ferryman",
+        "helen",
+        "menelaus",
+        "electra",
+        "orestes"
+      ].map((name) => `assets/greek-drama/chthonic-${name}.png`),
+      ...[
+        "aethra",
+        "adrastus",
+        "mother",
+        "iphis",
+        "theseus",
+        "quay-host",
+        "grove-keeper",
+        "altar-keeper"
+      ].map((name) => `assets/greek-drama/open-door-${name}.webp`)
+    ],
+    front: [
+      ...Object.values(rarityForms).filter((form) => form.facing === "front").map((form) => form.portrait),
+      "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
+      "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",
+      "assets/hoppycat-archive/hoppycat-rill-current-cutout.png",
+      "assets/hoppycat-archive/hoppycat-patch-fern-cutout.png",
+      "assets/hoppycat-archive/hoppycat-lumen-facet-cutout.png",
+      "assets/hoppycat-archive/hoppycat-mira-meraki-cutout.png",
+      "assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
+      "assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
+      "assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
+      "assets/hoppycat-archive/hoppycat-fable-cutout.png",
+      "assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
+      "assets/hoppycat-archive/hoppycat-arc-cutout.png",
+      "assets/hoppycat-archive/hoppycat-staticwashere-cutout.png",
+      "assets/hoppycat-archive/hoppycat-solwashere-cutout.png",
+      "assets/hoppycat-archive/hoppycat-ledger-opus-cutout.png",
+      "assets/hoppycat-archive/hoppycat-ledger-sonnet-cutout.png",
+      "assets/lonely-forest/oak.png",
+      "assets/badger-forest/badger-sleeping.png",
+      "assets/badger-forest/badger-grumpy.png"
+    ]
+  };
+  var portraitFacings = Object.freeze(
+    Object.fromEntries(
+      Object.entries(groups).flatMap(
+        ([facing, files]) => files.map((file) => [file, facing])
+      )
+    )
+  );
+  var widePortraits = /* @__PURE__ */ new Set([
+    "assets/lonely-forest/skull.png",
+    "assets/lonely-forest/whiskerwind.png",
+    "assets/moth.png",
+    "assets/keeper.png",
+    "assets/keeper-right.png",
+    ...Object.keys(portraitFacings).filter(
+      (file) => file.startsWith("assets/combat/")
+    )
+  ]);
 
   // v2/card-game/scene.mjs
   function stateBackdrop(world, id) {

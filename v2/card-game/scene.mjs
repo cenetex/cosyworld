@@ -23,6 +23,8 @@ import { locationWeather } from "./weather.mjs";
 import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 import { avatarImage } from "./scarves.mjs";
+import { rarityForm } from "./rarity-portraits.mjs";
+import { flipStagePortrait, nativePortraitFacing } from "./portrait-facing.mjs";
 import { sceneChanges } from "./scene-cast.mjs";
 export { sceneChanges };
 
@@ -70,6 +72,7 @@ export function portrait(id, facing = null, world = null) {
   const resident = packPeople[id];
   if (resident)
     return `./${
+      (world && rarityForm(id, levelOf(world, id))?.portrait) ||
       residentPose(world, id)?.portrait ||
       resident.portrait ||
       (world ? variantOf(world, id) : resident.variants.awake).portrait
@@ -607,7 +610,7 @@ export function sceneStaging(
         facing,
         gazeTargetId,
         cutout: portrait(id, facing, world),
-        flip: id !== "keeper" && facing !== (id === "vale" ? "right" : "left"),
+        flip: flipStagePortrait(portrait(id, facing, world), facing),
         pose: movement
           ? "walk"
           : ["threaten", "guard", "attack"].includes(act?.verb)
@@ -731,10 +734,10 @@ export function sceneScript(world) {
       name: p.name,
       cutout: portrait(id, null, world),
       facingCutouts: {
-        left: portrait(id, "left"),
-        right: portrait(id, "right"),
+        left: portrait(id, "left", world),
+        right: portrait(id, "right", world),
       },
-      nativeFacing: id === "vale" ? "right" : "left",
+      nativeFacing: nativePortraitFacing(portrait(id, null, world)),
       anchors: { feet: [0.5, 0.99], eyes: [0.5, 0.13] },
     })),
     memories: structuredClone(world.memories),

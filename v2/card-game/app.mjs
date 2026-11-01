@@ -1,7 +1,8 @@
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { arriveCard, finishReveal, revealCard } from "./card-reveal.mjs";
-import { glowCard, levelUpCard } from "./card-level-up.mjs";
+import { glowCard, levelUpCard, transformPortrait } from "./card-level-up.mjs";
+import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
   QUEST_CARD,
   questCard,
@@ -276,6 +277,7 @@ let encountered = new Set(),
 const fresh = new Set();
 // The level each card last showed, so a rise plays on the card itself.
 const shownLevels = new Map();
+const shownStageLevels = new Map();
 const coveredCards = new Set();
 let openingHeld = false;
 // The quest card on show, open to its progress, and glowing once met.
@@ -333,6 +335,7 @@ function loadSeen(reset = false) {
   if (opening) for (const id of availableCards(world)) coveredCards.add(id);
   fresh.clear();
   shownLevels.clear();
+  shownStageLevels.clear();
   shownQuest = null;
   rememberCards();
 }
@@ -502,7 +505,11 @@ const playQueue = createPlayQueue({
         sharedPlay.state,
       );
     else notice("");
-    renderActions();
+    // Capture the hand before a queued play folds it; refresh progress labels
+    // even when the hand's render key is unchanged.
+    const handBefore = renderedHand;
+    render();
+    if (renderedHand === handBefore) renderActions();
   },
 });
 // Strikes and journeys have the screen: the hand, locked through them
@@ -2419,9 +2426,15 @@ function renderScene() {
     );
     const image = figure.querySelector("img");
     const source = imageUrl(actor.cutout);
+    const previous = image.getAttribute("src"),
+      from = shownStageLevels.get(id);
+    const level = cardLevel(view, id);
+    shownStageLevels.set(id, level);
     image.decoding = "async";
     image.fetchPriority = "high";
     if (image.getAttribute("src") !== source) image.src = source;
+    if (!reviewing && crossedPortraitTier(id, from, level))
+      void transformPortrait(image, previous, { reduced: reducedMotion.matches });
     image.dataset.source = actor.cutout;
     image.dataset.flip = String(flipStagePortrait(actor.cutout, actor.facing));
     figure.dataset.flip = image.dataset.flip;
@@ -3300,7 +3313,12 @@ function playLevelUps() {
       from = shownLevels.get(id);
     shownLevels.set(id, level);
     if (from < level && !cardIsCovered(id) && !button.closest(".card-frame").hidden)
-      void levelUpCard(button, from);
+      void levelUpCard(button, from, {
+        frame: frameFigure,
+        previousPortrait: crossedPortraitTier(id, from, level)
+          ? imageUrl(portrait(id), "card")
+          : null,
+      });
   }
 }
 function revealHandCard(id, alignStart = false, instant = false) {

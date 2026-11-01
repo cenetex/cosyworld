@@ -1,0 +1,151 @@
+{
+  "created": "2026-10-31",
+  "generator": "OpenAI built-in image generation",
+  "character": "Arc",
+  "tier": "Epic",
+  "minimum_level": 30,
+  "source_reference": "https://pbs.twimg.com/media/HV_I7MnW4AAUO52?format=jpg&name=large",
+  "base_portrait_reference": "https://github.com/cenetex/cosyworld/blob/07916eb4e75cdde6535cfc32397417ec82a2738e/v2/card-game/assets/hoppycat-archive/hoppycat-arc-cutout.png",
+  "assets": [
+    {
+      "pose": "neutral",
+      "file": "../hoppycat-archive/hoppycat-arc-epic-cutout.png",
+      "native_facing": "left",
+      "generation_id": "exec-8ef50ba4-e3aa-4fc0-944e-a5fc88dd4a7d",
+      "prompt": "Use case: identity-preserve.\nAsset type: one production full-body transparent character portrait for Cosyworld, upgraded ARC at Epic rarity. Image 1 is the new appearance reference (the silver-haired man in the Arc as Archive comic); Image 2 is the old game portrait and defines canvas framing, identity continuity, adult body scale and full-body stance. Use the COMIC's male character only, not the woman, room, speech balloons or title.\n\nCreate Arc's upgraded neutral form on a genuinely transparent background, portrait 1024x1536. Exactly one adult man, whole body visible with generous edge padding and feet near the lower baseline. Keep the same slim adult man and recognisable silver-haired identity, roughly the old portrait's relaxed standing three-quarter pose, but soften his face into the comic's thoughtful, warm half-smile. Face toward viewer's RIGHT with torso slightly three-quarter, eyes attentive. Soft tousled silver-white hair, CLEAR BLUE eyes, gently irregular wisps. Outfit from the comic: open-collar ivory white shirt, dark charcoal-brown soft knitted cardigan/jacket, a simple brown-strapped wristwatch. Complete the partially unseen lower outfit with plain dark charcoal trousers and understated brown-black leather shoes. One hand relaxed at his side, other resting casually near trouser pocket. Empty hands, no chess piece, book, weapon or extra props.\n\nRender richly detailed painterly anime-storybook fantasy with fine expressive linework, tactile fabric, warm amber key light and cool blue shadow accents. Preserve the comic's grown-up, approachable presence. Keep the entire head/hair, both hands, legs and both shoes inside the frame with about 7 percent edge padding. Clear readable silhouette suitable for a game sprite. No navy three-piece suit, no tie, no pocket square, no gold chain. NO scenery, floor, shadow puddle, halo, gradient, glow cloud, decorative effect, text, logo, frame or watermark. All surrounding pixels genuinely transparent; keep only the character.",
+      "generated_size": [
+        1024,
+        1536
+      ],
+      "encoding": "original generated PNG",
+      "size": [
+        1024,
+        1536
+      ],
+      "bytes": 1483165,
+      "source_sha256": "499daf06191ee6a4e6f93b97ef3b6b852d198df8be33b5c6b5a2d1d922feda0b",
+      "sha256": "499daf06191ee6a4e6f93b97ef3b6b852d198df8be33b5c6b5a2d1d922feda0b",
+      "alpha_extrema": [
+        0,
+        254
+      ],
+      "zero_alpha_pixels": 1169734,
+      "silhouette_bbox_alpha_gt_10": [
+        292,
+        5,
+        730,
+        1507
+      ],
+      "review": "Full body inside canvas; same face, blue eyes, outfit and watch as the upgraded neutral master. Empty hands and no scene. Light and dark composite reviewed."
+    },
+    {
+      "pose": "attack",
+      "file": "../combat/hoppycat-arc-epic-attack.webp",
+      "native_facing": "right",
+      "generation_id": "exec-7d21d6bc-a5f8-4f02-aa25-537976d4e51c",
+      "prompt": "Use case: identity-preserve.\nAsset type: Cosyworld upgraded ARC EPIC combat cutout. Edit target: supplied Arc Epic neutral master. Preserve this SAME adult man's face, proportions, soft tousled silver-white hair, CLEAR BLUE eyes, ivory open-collar shirt, dark charcoal-brown cable-knit cardigan, brown leather watch strap, dark trousers, brown-black shoes and richly detailed painterly anime-storybook finish. Warm amber edge light and subtle cool shadows stay on the character only. Empty hands. No objects, weapons or scarf.\n\nOutput ONE full-body sprite on genuinely transparent RGBA background, portrait 1024x1536. Frame entire hair, hands, arms, legs and both shoes inside the canvas. The character's whole height should occupy about 84 percent of canvas, leaving at least 90 pixels transparent padding above hair and below feet. Keep the action compact enough to allow similar side padding. Feet grounded at a consistent baseline near y=1400. No floor or painted shadow. No scenery, black/grey backdrop, halo, glow cloud, text, watermarks, speed lines, duplicates or other people. Clear anatomically coherent hands and limbs. Face and eyes point toward viewer's RIGHT, where the unseen opponent stands; nose visibly points right. Keep hair, clothing and grown-up identity exactly recognisable from the master.\n\nPOSE: A compact unarmed STRIKE toward the RIGHT: a small step with the front foot to the right, weight grounded, torso rotating slightly right, rightward arm extending a controlled short punch with clenched empty fist. Other hand guards near chest. Focused, composed determination, not rage. All parts stay comfortably within frame.",
+      "generated_size": [
+        1024,
+        1536
+      ],
+      "encoding": {
+        "format": "WebP",
+        "quality": 95,
+        "method": 6,
+        "exact_alpha": true
+      },
+      "size": [
+        1024,
+        1536
+      ],
+      "bytes": 235478,
+      "source_sha256": "0f4738187d51f79ebb7d7249d254a7c423d19ba66de88a56b9742cc20d40d1c0",
+      "sha256": "739381af98826643822d755804681a6573a3d5361344e8aa32dd71316bf491a2",
+      "alpha_extrema": [
+        0,
+        254
+      ],
+      "zero_alpha_pixels": 1129328,
+      "silhouette_bbox_alpha_gt_10": [
+        100,
+        69,
+        998,
+        1425
+      ],
+      "review": "Full body inside canvas; same face, blue eyes, outfit and watch as the upgraded neutral master. Empty hands and no scene. Light and dark composite reviewed."
+    },
+    {
+      "pose": "hit",
+      "file": "../combat/hoppycat-arc-epic-hit.webp",
+      "native_facing": "right",
+      "generation_id": "exec-1086d585-e944-4337-b2d8-22385388259c",
+      "prompt": "Use case: identity-preserve.\nAsset type: Cosyworld upgraded ARC EPIC combat cutout. Edit target: supplied Arc Epic neutral master. Preserve this SAME adult man's face, proportions, soft tousled silver-white hair, CLEAR BLUE eyes, ivory open-collar shirt, dark charcoal-brown cable-knit cardigan, brown leather watch strap, dark trousers, brown-black shoes and richly detailed painterly anime-storybook finish. Warm amber edge light and subtle cool shadows stay on the character only. Empty hands. No objects, weapons or scarf.\n\nOutput ONE full-body sprite on genuinely transparent RGBA background, portrait 1024x1536. Frame entire hair, hands, arms, legs and both shoes inside the canvas. The character's whole height should occupy about 84 percent of canvas, leaving at least 90 pixels transparent padding above hair and below feet. Keep the action compact enough to allow similar side padding. Feet grounded at a consistent baseline near y=1400. No floor or painted shadow. No scenery, black/grey backdrop, halo, glow cloud, text, watermarks, speed lines, duplicates or other people. Clear anatomically coherent hands and limbs. Face and eyes point toward viewer's RIGHT, where the unseen opponent stands; nose visibly points right. Keep hair, clothing and grown-up identity exactly recognisable from the master.\n\nPOSE: A clear HIT reaction to a strike arriving from the RIGHT: recoil chest and shoulders slightly backward toward the LEFT, knees softened with both feet still grounded, one forearm raised instinctively across torso and the other hand open for balance. Face still turned toward the RIGHT, pained startled expression, blue eyes narrowed but readable. No wound, blood, bruise, fall or dismemberment. Keep the body's silhouette compact.",
+      "generated_size": [
+        1024,
+        1536
+      ],
+      "encoding": {
+        "format": "WebP",
+        "quality": 95,
+        "method": 6,
+        "exact_alpha": true
+      },
+      "size": [
+        1024,
+        1536
+      ],
+      "bytes": 217652,
+      "source_sha256": "d1e18782a9fe2bcbcb1d669d9f825f5a966f05a43a5dbb49cd874e26e48a634b",
+      "sha256": "5fd48b653622ffe30734ab2db0261e2ce126654a9cb6aa2c6502f9f2b806be7b",
+      "alpha_extrema": [
+        0,
+        254
+      ],
+      "zero_alpha_pixels": 1143557,
+      "silhouette_bbox_alpha_gt_10": [
+        221,
+        43,
+        878,
+        1462
+      ],
+      "review": "Full body inside canvas; same face, blue eyes, outfit and watch as the upgraded neutral master. Empty hands and no scene. Light and dark composite reviewed."
+    },
+    {
+      "pose": "guard",
+      "file": "../combat/hoppycat-arc-epic-guard.webp",
+      "native_facing": "right",
+      "generation_id": "exec-29c7ce6a-a479-464c-ade9-f5c57c2f5411",
+      "prompt": "Use case: identity-preserve.\nAsset type: Cosyworld upgraded ARC EPIC combat cutout. Edit target: supplied Arc Epic neutral master. Preserve this SAME adult man's face, proportions, soft tousled silver-white hair, CLEAR BLUE eyes, ivory open-collar shirt, dark charcoal-brown cable-knit cardigan, brown leather watch strap, dark trousers, brown-black shoes and richly detailed painterly anime-storybook finish. Warm amber edge light and subtle cool shadows stay on the character only. Empty hands. No objects, weapons or scarf.\n\nOutput ONE full-body sprite on genuinely transparent RGBA background, portrait 1024x1536. Frame entire hair, hands, arms, legs and both shoes inside the canvas. The character's whole height should occupy about 84 percent of canvas, leaving at least 90 pixels transparent padding above hair and below feet. Keep the action compact enough to allow similar side padding. Feet grounded at a consistent baseline near y=1400. No floor or painted shadow. No scenery, black/grey backdrop, halo, glow cloud, text, watermarks, speed lines, duplicates or other people. Clear anatomically coherent hands and limbs. Face and eyes point toward viewer's RIGHT, where the unseen opponent stands; nose visibly points right. Keep hair, clothing and grown-up identity exactly recognisable from the master.\n\nPOSE: A clear GUARD/BRACE stance facing RIGHT: feet apart in a stable small stagger, knees slightly bent, both empty hands and forearms raised together in front of chest and face to absorb a hit from the right. Hands anatomically coherent, one fist near cheek and the other forearm slightly forward. Alert concentrated blue eyes visible above the guard. Keep cardigan/watch/white collar unmistakable. Compact balanced pose.",
+      "generated_size": [
+        1024,
+        1535
+      ],
+      "normalization": "Added one fully transparent bottom row to the generated 1024x1535 canvas; original pixels and alpha unchanged.",
+      "encoding": {
+        "format": "WebP",
+        "quality": 95,
+        "method": 6,
+        "exact_alpha": true
+      },
+      "size": [
+        1024,
+        1536
+      ],
+      "bytes": 219148,
+      "source_sha256": "0d3e3d24e8c65078f12c17f39e3ea3d036e9bc69da2eee1a69b69b50271772b6",
+      "sha256": "16f9472c1b78e3c17289771a604cd04b6c23b757b24547677ec0283bef90584e",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "zero_alpha_pixels": 1134868,
+      "silhouette_bbox_alpha_gt_10": [
+        125,
+        19,
+        905,
+        1434
+      ],
+      "review": "Full body inside canvas; same face, blue eyes, outfit and watch as the upgraded neutral master. Empty hands and no scene. Light and dark composite reviewed."
+    }
+  ]
+}

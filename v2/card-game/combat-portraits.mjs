@@ -3,19 +3,23 @@ import variants from "./image-variants.json" with { type: "json" };
 import { humanAvatarIds } from "./human-cast.mjs";
 import { imageUrl } from "./images.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
+import { portraitFormForSource } from "./rarity-portraits.mjs";
 
 const players = new Set(humanAvatarIds);
 const poses = ["guard", "attack", "hit"];
 export function combatPortrait(id, pose, source, facing) {
+  const form = portraitFormForSource(id, source);
   if (
     !poses.includes(pose) ||
-    (!players.has(id) && !["moth", "keeper"].includes(id))
+    (!form && !players.has(id) && !["moth", "keeper"].includes(id))
   )
     return null;
   // The left-facing clock cannot be mirrored. Keep its authored right view.
   if (id === "keeper" && facing === "right") return null;
   const scarf = players.has(id) && source?.includes(`/${id}-scarf`);
-  const file = `assets/combat/${id}${scarf ? "-scarf" : ""}-${pose}.webp`;
+  const file = form
+    ? `${form.combat}-${pose}.webp`
+    : `assets/combat/${id}${scarf ? "-scarf" : ""}-${pose}.webp`;
   return variants.images[file] ? `./${file}` : null;
 }
 
