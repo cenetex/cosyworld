@@ -5,11 +5,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { encodeSave, legalActions } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
-import { learnLane } from "../card-game/pack-transport.mjs";
-import {
-  openDoorStart,
-  openDoorAction,
-} from "../../test/helpers/open-door.mjs";
+import { openDoorAction, openSeas } from "../../test/helpers/open-door.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 
@@ -24,16 +20,16 @@ try {
   for (const width of [1440, 390]) {
     const table = `greek-travel-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
-    const fixture = openDoorStart();
+    // After the plea at the Agora, the Suppliant's Olive Branch rides on deck.
+    const fixture = openSeas();
     fixture.playerActorId = "mara";
     fixture.sharedVersion = 1;
     fixture.controlledActors = ["vale", "mara"];
     fixture.presentActors = ["mara"];
     fixture.actors.mara.place = "greek-athens-harbor";
-    // Black Pond sails only to the Wine-Dark Harbor. Mara has heard the
-    // lane from Athens Harbor to Piraeus; the Travel Provisions on deck open
-    // the lane on to the Wine-Dark Harbor.
-    learnLane(fixture, "mara", "greek-athens-harbor", "greek-piraeus");
+    // Black Pond sails only to the Wine-Dark Harbor. The olive branch on
+    // deck opens the lane between Athens Harbor and Piraeus; the Travel
+    // Provisions on deck open the lane on to the Wine-Dark Harbor.
     if (fixture.items["greek-provisions"].holder !== "greek-ship")
       throw new Error("The opening fixture keeps the provisions aboard.");
     const page = await browser.newPage({

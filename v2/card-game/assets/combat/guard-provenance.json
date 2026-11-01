@@ -1,0 +1,1018 @@
+{
+  "created": "2026-10-31",
+  "generator": "OpenAI built-in image generation",
+  "purpose": "Brace portraits for all eight player characters, Pip and the Keeper; player wardrobes include plain and scarf variants.",
+  "pose_contract": {
+    "requested_pose": "Brace",
+    "current_ui_label": "Guard",
+    "presentation_pose": "guard",
+    "players_native_facing": "right",
+    "pip_and_keeper_native_facing": "left",
+    "dimensions": [1024, 1536],
+    "ada": "Seated in her complete wheelchair; feet supported and wheels grounded.",
+    "scope": "Art assets only. Runtime combat pose image selection is a separate integration."
+  },
+  "max_source_bytes": 300000,
+  "encoding": {
+    "format": "webp",
+    "maxQuality": 88,
+    "alphaQuality": 100,
+    "effort": 6,
+    "smartSubsample": true
+  },
+  "encoder_versions": {
+    "sharp": "0.35.5",
+    "webp": "1.6.0"
+  },
+  "source_note": "Original generated PNGs are identified by generation ID and SHA-256. Published WebPs preserve source dimensions and every alpha value exactly; only format/colour encoding is applied.",
+  "assets": [
+    {
+      "id": "vale-guard",
+      "file": "vale-guard.webp",
+      "character": "Vale",
+      "character_id": "vale",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/vale.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512",
+      "generation_id": "exec-fac51af1-647d-4edc-95eb-9c5a802012ac",
+      "dimensions": [1024, 1536],
+      "quality": 88,
+      "bytes": 205398,
+      "sha256": "0b3d0ad4f79cd42a7f4ecf78001a60e0e9c96a79a835b177df75e80f014023d1",
+      "original_png_sha256": "ee77d2cc9ee06d89d8be3c8acc638246b05d8284336642280e3c059c7d4cfdf0",
+      "original_png_bytes": 2015772,
+      "alpha_sha256": "019386daf0a5e0a6f2dbd0e200d438c1c64bc1a7aff378a8cae71eacf2b8def3",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6198050181070963,
+        "alpha_at_least_240_fraction": 0.3604138692220052,
+        "visible_bounds_alpha_at_least_128": [85, 51, 966, 1491],
+        "visible_margins_left_top_right_bottom": [85, 51, 58, 45],
+        "edge_nonzero_pixels": 19,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "identity/costume reference",
+          "path": "v2/card-game/assets/shared/characters/vale.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512"
+        }
+      ],
+      "visual_review": "Identity, costume, full body, empty hands, defensive braced stance and rightward gaze retained. All extremities inside canvas. No scarf.",
+      "limitations": "Alpha is genuinely zero at background sample points and over most empty canvas; small alpha 1-8 residues exist far from the figure. Character interior alpha is near opaque (maximum 254). Canonical detail is visually preserved but not pixel-identical.",
+      "processing": "Original generated PNG copied without cropping, resizing, opacity changes, compositing or other visual postprocessing. No correction pass."
+    },
+    {
+      "id": "vale-scarf-guard",
+      "file": "vale-scarf-guard.webp",
+      "character": "Vale",
+      "character_id": "vale",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/vale-scarf.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "db446b75fa43c60658acfdd0704ecdb3187b89c031874eb6ae9d2ba4fdb97f0c",
+      "generation_id": "exec-1a8db71c-106b-428c-86a3-e94a95f8f033",
+      "dimensions": [1024, 1536],
+      "quality": 88,
+      "bytes": 202580,
+      "sha256": "d1c7b8ff6e308716858fca3642555e73e7ceb8676a45d76948899e32e3acf576",
+      "original_png_sha256": "01762025405eb56e689e4cccd35f247fea1c9275e55f13318bd8c37d5366110b",
+      "original_png_bytes": 2043781,
+      "alpha_sha256": "13a60f2ce775e3932079e1f9d2b94e63e5b4b13429982dd68973960b17a9e4d8",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6156654357910156,
+        "alpha_at_least_240_fraction": 0.3663686116536458,
+        "visible_bounds_alpha_at_least_128": [84, 48, 973, 1494],
+        "visible_margins_left_top_right_bottom": [84, 48, 51, 42],
+        "edge_nonzero_pixels": 3,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "finished plain guard edit target",
+          "asset_id": "vale-guard",
+          "generation_id": "exec-fac51af1-647d-4edc-95eb-9c5a802012ac",
+          "original_png_sha256": "ee77d2cc9ee06d89d8be3c8acc638246b05d8284336642280e3c059c7d4cfdf0"
+        },
+        {
+          "role": "canonical scarf and button wardrobe reference only",
+          "path": "v2/card-game/assets/shared/characters/vale-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "db446b75fa43c60658acfdd0704ecdb3187b89c031874eb6ae9d2ba4fdb97f0c"
+        }
+      ],
+      "visual_review": "Identity, costume, full body, empty hands, defensive braced stance and rightward gaze retained. All extremities inside canvas. Scarf version adds canonical scarf/button to finished plain guard pose.",
+      "limitations": "Alpha is genuinely zero at background sample points and over most empty canvas; small alpha 1-8 residues exist far from the figure. Character interior alpha is near opaque (maximum 254). Canonical detail is visually preserved but not pixel-identical.",
+      "processing": "Original generated PNG copied without cropping, resizing, opacity changes, compositing or other visual postprocessing. No correction pass."
+    },
+    {
+      "id": "mara-guard",
+      "file": "mara-guard.webp",
+      "character": "Mara",
+      "character_id": "mara",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/mara.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1",
+      "generation_id": "exec-cdfb3e75-8bb6-4b8d-8675-42f1ac22827c",
+      "dimensions": [1024, 1536],
+      "quality": 88,
+      "bytes": 283616,
+      "sha256": "4a5dba05c0e9e3807799087c614eb475c4036cd201318a6ca26f07dd37d135db",
+      "original_png_sha256": "d519e68be63a94c9e75176df23ff1d7ad544590400f69bbe53a251ea4475389a",
+      "original_png_bytes": 2197255,
+      "alpha_sha256": "984f9b853ee7b4cf759ff8b833ddb13a7c8ebeaae1ac28e1bea333141889a76c",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6031468709309896,
+        "alpha_at_least_240_fraction": 0.36399078369140625,
+        "visible_bounds_alpha_at_least_128": [96, 32, 957, 1493],
+        "visible_margins_left_top_right_bottom": [96, 32, 67, 43],
+        "edge_nonzero_pixels": 6,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "identity/costume reference",
+          "path": "v2/card-game/assets/shared/characters/mara.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1"
+        }
+      ],
+      "visual_review": "Identity, costume, full body, empty hands, defensive braced stance and rightward gaze retained. All extremities inside canvas. No scarf.",
+      "limitations": "Alpha is genuinely zero at background sample points and over most empty canvas; small alpha 1-8 residues exist far from the figure. Character interior alpha is near opaque (maximum 254). Canonical detail is visually preserved but not pixel-identical. Top hair clearance is 25-32 pixels for Ash/Mara, below preferred 40 pixels but fully uncropped at reference scale.",
+      "processing": "Original generated PNG copied without cropping, resizing, opacity changes, compositing or other visual postprocessing. No correction pass."
+    },
+    {
+      "id": "mara-scarf-guard",
+      "file": "mara-scarf-guard.webp",
+      "character": "Mara",
+      "character_id": "mara",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/mara-scarf.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "68242c050db52986c8563f894943ae5391ec31489065d9375d37035e65bb3f7f",
+      "generation_id": "exec-0ab990dd-8bf3-4401-a67d-bcb63ea8930f",
+      "dimensions": [1024, 1536],
+      "quality": 88,
+      "bytes": 278980,
+      "sha256": "0326deb14ea054dba5f4f274008ba0e2d3795ce8c00d9141969de8eda23e56f9",
+      "original_png_sha256": "8dbd18c25e9bcc0bb77af022deaca377e1e6d1f09619218437f8b5bb7e437f42",
+      "original_png_bytes": 2253813,
+      "alpha_sha256": "b0ab4d63f087c2b0234964a26387df0dba118591368c494ae4b04c05fbef1065",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5804837544759115,
+        "alpha_at_least_240_fraction": 0.39026323954264325,
+        "visible_bounds_alpha_at_least_128": [64, 25, 963, 1496],
+        "visible_margins_left_top_right_bottom": [64, 25, 61, 40],
+        "edge_nonzero_pixels": 1,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "finished plain guard edit target",
+          "asset_id": "mara-guard",
+          "generation_id": "exec-cdfb3e75-8bb6-4b8d-8675-42f1ac22827c",
+          "original_png_sha256": "d519e68be63a94c9e75176df23ff1d7ad544590400f69bbe53a251ea4475389a"
+        },
+        {
+          "role": "canonical scarf and button wardrobe reference only",
+          "path": "v2/card-game/assets/shared/characters/mara-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "68242c050db52986c8563f894943ae5391ec31489065d9375d37035e65bb3f7f"
+        }
+      ],
+      "visual_review": "Accepted: same right-facing defensive brace and recognizable Mara identity, empty hands, full body and all extremities inside canvas. Sage-green patterned fringed scarf and red/gold button match canonical wardrobe. Scarf layered behind forearms. Small generated cloth/outline differences outside the scarf region remain.",
+      "limitations": "True zero-alpha background covers most empty canvas; faint alpha residues remain at distant edges. Interior is near opaque, maximum alpha 254. Hair has less than preferred 40 px top margin but remains fully inside frame at reference scale.",
+      "processing": "Original generated PNG copied without visual postprocessing. No correction pass."
+    },
+    {
+      "id": "ash-guard",
+      "file": "ash-guard.webp",
+      "character": "Ash",
+      "character_id": "ash",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/ash.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285",
+      "generation_id": "exec-130cc3b8-3585-4bec-b8e2-bee335499705",
+      "dimensions": [1024, 1536],
+      "quality": 87,
+      "bytes": 289414,
+      "sha256": "2b68f71534d67722a77f1f684aa5dcb96ba7fe120ed8ccaef3ad17197befdc6d",
+      "original_png_sha256": "1da41c80799942b6704806a1552f91769bfb58af0a12ce1d7e697fda6e17434a",
+      "original_png_bytes": 2414145,
+      "alpha_sha256": "410318e6bd596ae938c6d64b30241bd07e5d41f4c9ccc27ef9c7a61f74b4f6b8",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5515041351318359,
+        "alpha_at_least_240_fraction": 0.42694091796875,
+        "visible_bounds_alpha_at_least_128": [88, 25, 973, 1487],
+        "visible_margins_left_top_right_bottom": [88, 25, 51, 49],
+        "edge_nonzero_pixels": 3,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "identity/costume reference",
+          "path": "v2/card-game/assets/shared/characters/ash.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285"
+        }
+      ],
+      "visual_review": "Identity, costume, full body, empty hands, defensive braced stance and rightward gaze retained. All extremities inside canvas. No scarf.",
+      "limitations": "Alpha is genuinely zero at background sample points and over most empty canvas; small alpha 1-8 residues exist far from the figure. Character interior alpha is near opaque (maximum 254). Canonical detail is visually preserved but not pixel-identical. Top hair clearance is 25-32 pixels for Ash/Mara, below preferred 40 pixels but fully uncropped at reference scale.",
+      "processing": "Original generated PNG copied without cropping, resizing, opacity changes, compositing or other visual postprocessing. No correction pass."
+    },
+    {
+      "id": "ash-scarf-guard",
+      "file": "ash-scarf-guard.webp",
+      "character": "Ash",
+      "character_id": "ash",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/ash-scarf.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "a39874896719827006f457eb6b2622a04e08f1a906394bea0c4f39abab6785bb",
+      "generation_id": "exec-be2eb423-5317-4d51-a57b-73e6c447a82d",
+      "dimensions": [1024, 1536],
+      "quality": 88,
+      "bytes": 294654,
+      "sha256": "6e619756e320b7728028ce26a449df285be856fa0a4f76379231eec0a6e85209",
+      "original_png_sha256": "2b4bfbe6b7de46c481e5f6958b45bfed93cacbfa5a9c317a69bf94fa98f4b838",
+      "original_png_bytes": 2390382,
+      "alpha_sha256": "7516bf465e5e096e21f5b0f6607e96b8352ec1cdb04c7ad41aca321229a47fd7",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5518035888671875,
+        "alpha_at_least_240_fraction": 0.4300759633382161,
+        "visible_bounds_alpha_at_least_128": [88, 25, 974, 1488],
+        "visible_margins_left_top_right_bottom": [88, 25, 50, 48],
+        "edge_nonzero_pixels": 3,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "finished plain guard edit target",
+          "asset_id": "ash-guard",
+          "generation_id": "exec-130cc3b8-3585-4bec-b8e2-bee335499705",
+          "original_png_sha256": "1da41c80799942b6704806a1552f91769bfb58af0a12ce1d7e697fda6e17434a"
+        },
+        {
+          "role": "canonical scarf and button wardrobe reference only",
+          "path": "v2/card-game/assets/shared/characters/ash-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "a39874896719827006f457eb6b2622a04e08f1a906394bea0c4f39abab6785bb"
+        }
+      ],
+      "visual_review": "Accepted: recognizable older stocky Ash, right-facing defensive brace, both empty hands raised, full body and extremities inside frame. Slate-blue scarf, fringed end and orange four-hole button match canonical wardrobe and sit behind forearm. Guard pose and expression are visually maintained.",
+      "limitations": "True zero-alpha background covers most empty canvas; very faint alpha residues remain at distant edges. Interior is near opaque, maximum alpha 254. Hair top clearance is below preferred 40 px but remains fully inside the frame at reference scale. Small generated cloth and texture differences outside scarf region remain.",
+      "processing": "Original generated PNG copied without visual postprocessing. No correction pass."
+    },
+    {
+      "id": "nell-guard",
+      "file": "nell-guard.webp",
+      "character": "Nell",
+      "character_id": "nell",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/nell.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f",
+      "generation_id": "exec-22cc91e5-793e-4025-9161-8b5fe9fecd4e",
+      "dimensions": [1024, 1536],
+      "quality": 86,
+      "bytes": 293968,
+      "sha256": "dfa170c29df726ff82334eff2d741e68187ef61f796fc453e60b2e7ef2c8eaed",
+      "original_png_sha256": "ece026c3161b30c6213d2432705e907056cadbef4abffe4f2019daf226e810d7",
+      "original_png_bytes": 2488936,
+      "alpha_sha256": "4540b35efccc4abacbf664a910e0abdbeda7f78e75d6a13ac814f1da604f1f02",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5442142486572266,
+        "alpha_at_least_240_fraction": 0.4275658925374349,
+        "visible_bounds_alpha_at_least_128": [76, 15, 985, 1515],
+        "visible_margins_left_top_right_bottom": [76, 15, 39, 21],
+        "edge_nonzero_pixels": 17,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "canonical edit target",
+          "path": "v2/card-game/assets/shared/characters/nell.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f"
+        }
+      ],
+      "visual_review": {
+        "status": "passed with measured margin note",
+        "findings": [
+          "Recognizable canonical identity, wardrobe and painted style preserved.",
+          "Compact defensive stance facing right: both empty hands guard chest/face; no strike, hit recoil or new props.",
+          "Full body and all extremities remain inside the canvas.",
+          "Background and silhouette gaps have genuine transparency; dark background colors in RGB payload are mostly alpha-zero."
+        ],
+        "limitations": [
+          "Visible silhouette margins are recorded; top/bottom spacing is narrower than the requested 40 px but no anatomy is cropped.",
+          "Alpha maximum is 254 rather than 255; core body pixels are near-opaque (typically 252-254), and generated alpha is preserved unchanged.",
+          "Imagegen is not pixel-identical to its source."
+        ]
+      },
+      "limitations": [
+        "Visible silhouette margins are recorded; top/bottom spacing is narrower than the requested 40 px but no anatomy is cropped.",
+        "Alpha maximum is 254 rather than 255; core body pixels are near-opaque (typically 252-254), and generated alpha is preserved unchanged.",
+        "Imagegen is not pixel-identical to its source."
+      ],
+      "processing": "Generated PNG copied byte-for-byte. No crop, resize, alpha editing or encoding."
+    },
+    {
+      "id": "nell-scarf-guard",
+      "file": "nell-scarf-guard.webp",
+      "character": "Nell",
+      "character_id": "nell",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/nell-scarf.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "c869f75b71093df0878c902f2ae68b065d58c32f35962c25616888ba5f61b3d3",
+      "generation_id": "exec-98ffbd60-922f-4b3b-8bb0-52e9ae2c4e77",
+      "dimensions": [1024, 1536],
+      "quality": 87,
+      "bytes": 288104,
+      "sha256": "b45739aa710971af9672aae72ca2f7e84a7420d0147df7590e669a56a72198d8",
+      "original_png_sha256": "75fb1aa8cef3eebc2c4821e53bcb986d14efeb418a336bb70f1a08b065dd7e2b",
+      "original_png_bytes": 2453736,
+      "alpha_sha256": "1d8515fcfedaaec371b7b99aa7e98781b410201f4ae0722b90d7389f7b595394",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5409158070882162,
+        "alpha_at_least_240_fraction": 0.4336738586425781,
+        "visible_bounds_alpha_at_least_128": [75, 15, 986, 1516],
+        "visible_margins_left_top_right_bottom": [75, 15, 38, 20],
+        "edge_nonzero_pixels": 8,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "primary finished plain guard edit target",
+          "asset_id": "nell-guard",
+          "generation_id": "exec-22cc91e5-793e-4025-9161-8b5fe9fecd4e",
+          "original_png_sha256": "ece026c3161b30c6213d2432705e907056cadbef4abffe4f2019daf226e810d7"
+        },
+        {
+          "role": "canonical scarf wardrobe reference only",
+          "path": "v2/card-game/assets/shared/characters/nell-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "c869f75b71093df0878c902f2ae68b065d58c32f35962c25616888ba5f61b3d3"
+        }
+      ],
+      "visual_review": {
+        "status": "passed with measured margin note",
+        "findings": [
+          "Finished plain guard pose, native right facing, empty hands, clothing and character identity visually preserved.",
+          "Canonical violet scarf and yellow button/fastening present with plausible occlusion.",
+          "Full body and extremities remain inside the canvas; no attack or hit recoil.",
+          "Real RGBA transparency is present; no background color fill added."
+        ],
+        "limitations": [
+          "Visible silhouette margins are recorded; top/bottom spacing is narrower than requested 40 px but no anatomy is cropped.",
+          "Alpha maximum is 254 rather than 255; body is near-opaque, generated alpha preserved unchanged.",
+          "Pose/composition preserved visually; imagegen paint textures and small edge details are not pixel-identical."
+        ]
+      },
+      "limitations": [
+        "Visible silhouette margins are recorded; top/bottom spacing is narrower than requested 40 px but no anatomy is cropped.",
+        "Alpha maximum is 254 rather than 255; body is near-opaque, generated alpha preserved unchanged.",
+        "Pose/composition preserved visually; imagegen paint textures and small edge details are not pixel-identical."
+      ],
+      "processing": "Generated PNG copied byte-for-byte. No crop, resize, alpha editing or encoding."
+    },
+    {
+      "id": "tavi-guard",
+      "file": "tavi-guard.webp",
+      "character": "Tavi",
+      "character_id": "tavi",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/tavi.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a",
+      "generation_id": "exec-56edb645-0eae-4788-8095-7efa7a508ab0",
+      "dimensions": [1024, 1536],
+      "quality": 88,
+      "bytes": 298100,
+      "sha256": "ca907cfaf9abd84f7dbae44a7150a3bd566355dceb5e4a8e41270aa9d07c1048",
+      "original_png_sha256": "1c3a909109d667c78c669942127f6544e8b9b720a6faf71f8ad1eab1e5af8fb2",
+      "original_png_bytes": 2320957,
+      "alpha_sha256": "fbb83f74c1ab46af04a149806f549344866cc25fafea1e7a57a798d08410fb6b",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5897833506266276,
+        "alpha_at_least_240_fraction": 0.3791097005208333,
+        "visible_bounds_alpha_at_least_128": [43, 27, 959, 1511],
+        "visible_margins_left_top_right_bottom": [43, 27, 65, 25],
+        "edge_nonzero_pixels": 2,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "canonical edit target",
+          "path": "v2/card-game/assets/shared/characters/tavi.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a"
+        }
+      ],
+      "visual_review": {
+        "status": "passed with measured margin note",
+        "findings": [
+          "Recognizable canonical identity, wardrobe and painted style preserved.",
+          "Compact defensive stance facing right: both empty hands guard chest/face; no strike, hit recoil or new props.",
+          "Full body and all extremities remain inside the canvas.",
+          "Background and silhouette gaps have genuine transparency; dark background colors in RGB payload are mostly alpha-zero."
+        ],
+        "limitations": [
+          "Visible silhouette margins are recorded; top/bottom spacing is narrower than the requested 40 px but no anatomy is cropped.",
+          "Alpha maximum is 254 rather than 255; core body pixels are near-opaque (typically 252-254), and generated alpha is preserved unchanged.",
+          "Imagegen is not pixel-identical to its source."
+        ]
+      },
+      "limitations": [
+        "Visible silhouette margins are recorded; top/bottom spacing is narrower than the requested 40 px but no anatomy is cropped.",
+        "Alpha maximum is 254 rather than 255; core body pixels are near-opaque (typically 252-254), and generated alpha is preserved unchanged.",
+        "Imagegen is not pixel-identical to its source."
+      ],
+      "processing": "Generated PNG copied byte-for-byte. No crop, resize, alpha editing or encoding."
+    },
+    {
+      "id": "tavi-scarf-guard",
+      "file": "tavi-scarf-guard.webp",
+      "character": "Tavi",
+      "character_id": "tavi",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/tavi-scarf.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "69895904f5358ef3e66daabd53152ddacf7cf2c8d814f1120333f3ee7d944fb9",
+      "generation_id": "exec-09a2136a-8ab8-4e45-9d3a-5ebb30d3daf6",
+      "dimensions": [1024, 1536],
+      "quality": 88,
+      "bytes": 279626,
+      "sha256": "a4040a20524fe2cedad3d18c6d97db18fe72547b0481c531fd478e4ea289d8d9",
+      "original_png_sha256": "e5594da29c65740eed5570636be04c976c085b92288f7dddb97d05c3066b1b5e",
+      "original_png_bytes": 2288254,
+      "alpha_sha256": "8ee2362bc6bf60bc26ce4dd15df022e95f3e7160992ff6b9f71ffe34b6d98fa1",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5889021555582682,
+        "alpha_at_least_240_fraction": 0.38595835367838544,
+        "visible_bounds_alpha_at_least_128": [42, 16, 963, 1510],
+        "visible_margins_left_top_right_bottom": [42, 16, 61, 26],
+        "edge_nonzero_pixels": 0,
+        "edge_max": 0
+      },
+      "generation_references": [
+        {
+          "role": "primary finished plain guard edit target",
+          "asset_id": "tavi-guard",
+          "generation_id": "exec-56edb645-0eae-4788-8095-7efa7a508ab0",
+          "original_png_sha256": "1c3a909109d667c78c669942127f6544e8b9b720a6faf71f8ad1eab1e5af8fb2"
+        },
+        {
+          "role": "canonical scarf wardrobe reference only",
+          "path": "v2/card-game/assets/shared/characters/tavi-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "69895904f5358ef3e66daabd53152ddacf7cf2c8d814f1120333f3ee7d944fb9"
+        }
+      ],
+      "visual_review": {
+        "status": "passed with measured margin note",
+        "findings": [
+          "Finished plain guard pose, native right facing, empty hands, clothing and character identity visually preserved.",
+          "Canonical red scarf and green button/fastening present with plausible occlusion.",
+          "Full body and extremities remain inside the canvas; no attack or hit recoil.",
+          "Real RGBA transparency is present; no background color fill added."
+        ],
+        "limitations": [
+          "Visible silhouette margins are recorded; top/bottom spacing is narrower than requested 40 px but no anatomy is cropped.",
+          "Alpha maximum is 254 rather than 255; body is near-opaque, generated alpha preserved unchanged.",
+          "Pose/composition preserved visually; imagegen paint textures and small edge details are not pixel-identical."
+        ]
+      },
+      "limitations": [
+        "Visible silhouette margins are recorded; top/bottom spacing is narrower than requested 40 px but no anatomy is cropped.",
+        "Alpha maximum is 254 rather than 255; body is near-opaque, generated alpha preserved unchanged.",
+        "Pose/composition preserved visually; imagegen paint textures and small edge details are not pixel-identical."
+      ],
+      "processing": "Generated PNG copied byte-for-byte. No crop, resize, alpha editing or encoding."
+    },
+    {
+      "id": "rue-guard",
+      "file": "rue-guard.webp",
+      "character": "Rue",
+      "character_id": "rue",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/rue.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633",
+      "generation_id": "exec-6d93d690-ed41-47d1-aedc-0113ae124994",
+      "dimensions": [1024, 1536],
+      "quality": 88,
+      "bytes": 212620,
+      "sha256": "c5838c91b73d2a76fc95b1b2b4fa9de2dc78691a3be7c39fa4ecd405091dfa49",
+      "original_png_sha256": "2e88df9a21ff58a5b189535255ab94b69ac171746685444c3a38020c70dea112",
+      "original_png_bytes": 2006532,
+      "alpha_sha256": "d1bb8656029ca771312643c4d429f6216f32c7e0e18f32b638aea3e4b3bd7dcf",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6731891632080078,
+        "alpha_at_least_240_fraction": 0.3065166473388672,
+        "visible_bounds_alpha_at_least_128": [144, 17, 911, 1514],
+        "visible_margins_left_top_right_bottom": [144, 17, 113, 22],
+        "edge_nonzero_pixels": 3,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "canonical edit target",
+          "path": "v2/card-game/assets/shared/characters/rue.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633"
+        }
+      ],
+      "visual_review": {
+        "status": "passed with measured margin note",
+        "findings": [
+          "Recognizable canonical identity, wardrobe and painted style preserved.",
+          "Compact defensive stance facing right: both empty hands guard chest/face; no strike, hit recoil or new props.",
+          "Full body and all extremities remain inside the canvas.",
+          "Background and silhouette gaps have genuine transparency; dark background colors in RGB payload are mostly alpha-zero."
+        ],
+        "limitations": [
+          "Visible silhouette margins are recorded; top/bottom spacing is narrower than the requested 40 px but no anatomy is cropped.",
+          "Alpha maximum is 254 rather than 255; core body pixels are near-opaque (typically 252-254), and generated alpha is preserved unchanged.",
+          "Imagegen is not pixel-identical to its source."
+        ]
+      },
+      "limitations": [
+        "Visible silhouette margins are recorded; top/bottom spacing is narrower than the requested 40 px but no anatomy is cropped.",
+        "Alpha maximum is 254 rather than 255; core body pixels are near-opaque (typically 252-254), and generated alpha is preserved unchanged.",
+        "Imagegen is not pixel-identical to its source."
+      ],
+      "processing": "Generated PNG copied byte-for-byte. No crop, resize, alpha editing or encoding."
+    },
+    {
+      "id": "rue-scarf-guard",
+      "file": "rue-scarf-guard.webp",
+      "character": "Rue",
+      "character_id": "rue",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/rue-scarf.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "c8e3593650e08f71678427169ea95aaec69ffd17ee00a3661c896a2e1cf05796",
+      "generation_id": "exec-bd0b6d61-0d98-45bb-8ff8-3bfe8d02b713",
+      "dimensions": [1024, 1536],
+      "quality": 88,
+      "bytes": 198204,
+      "sha256": "dc2cb9a0b5c6684d3ecc66e255a3013c0d0ad37a4aff0eecd51020eb00663cd7",
+      "original_png_sha256": "920242cbb615e5adffbb101b34b9aa7cbf8ac991299a7edf998d51b42380401e",
+      "original_png_bytes": 1994742,
+      "alpha_sha256": "a641acb12f9dfc2bdd0124e547ae7755f9b862473613824dddf3bb771abb2d70",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6745802561442057,
+        "alpha_at_least_240_fraction": 0.3092333475748698,
+        "visible_bounds_alpha_at_least_128": [144, 17, 912, 1515],
+        "visible_margins_left_top_right_bottom": [144, 17, 112, 21],
+        "edge_nonzero_pixels": 7,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "primary finished plain guard edit target",
+          "asset_id": "rue-guard",
+          "generation_id": "exec-6d93d690-ed41-47d1-aedc-0113ae124994",
+          "original_png_sha256": "2e88df9a21ff58a5b189535255ab94b69ac171746685444c3a38020c70dea112"
+        },
+        {
+          "role": "canonical scarf wardrobe reference only",
+          "path": "v2/card-game/assets/shared/characters/rue-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "c8e3593650e08f71678427169ea95aaec69ffd17ee00a3661c896a2e1cf05796"
+        }
+      ],
+      "visual_review": {
+        "status": "passed with measured margin note",
+        "findings": [
+          "Finished plain guard pose, native right facing, empty hands, clothing and character identity visually preserved.",
+          "Canonical orange scarf and blue button/fastening present with plausible occlusion.",
+          "Full body and extremities remain inside the canvas; no attack or hit recoil.",
+          "Real RGBA transparency is present; no background color fill added."
+        ],
+        "limitations": [
+          "Visible silhouette margins are recorded; top/bottom spacing is narrower than requested 40 px but no anatomy is cropped.",
+          "Alpha maximum is 254 rather than 255; body is near-opaque, generated alpha preserved unchanged.",
+          "Pose/composition preserved visually; imagegen paint textures and small edge details are not pixel-identical."
+        ]
+      },
+      "limitations": [
+        "Visible silhouette margins are recorded; top/bottom spacing is narrower than requested 40 px but no anatomy is cropped.",
+        "Alpha maximum is 254 rather than 255; body is near-opaque, generated alpha preserved unchanged.",
+        "Pose/composition preserved visually; imagegen paint textures and small edge details are not pixel-identical."
+      ],
+      "processing": "Generated PNG copied byte-for-byte. No crop, resize, alpha editing or encoding."
+    },
+    {
+      "id": "orin-guard",
+      "file": "orin-guard.webp",
+      "character": "Orin",
+      "character_id": "orin",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/orin.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4",
+      "generation_id": "exec-d1f1039c-a0cf-49e4-9400-50ee545e251f",
+      "dimensions": [1024, 1536],
+      "quality": 88,
+      "bytes": 272386,
+      "sha256": "0d03d7df034f79b33d9f66eaae8ec1008cabb2b6dac92fd09cb8c36fdc5ab0a0",
+      "original_png_sha256": "bccc461ee91db47b7f95b6e6097bf0aee7d913739b4b8af4168975def347c5bf",
+      "original_png_bytes": 2193871,
+      "alpha_sha256": "6d48f8c6226ba66b962b49d68db8511e0ee80e830392ef2d900db47f4b00c056",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6363951365152994,
+        "alpha_at_least_240_fraction": 0.3369738260904948,
+        "visible_bounds_alpha_at_least_128": [120, 37, 980, 1475],
+        "visible_margins_left_top_right_bottom": [120, 37, 44, 61],
+        "edge_nonzero_pixels": 0,
+        "edge_max": 0
+      },
+      "generation_references": [
+        {
+          "role": "canonical identity and plain wardrobe reference",
+          "path": "v2/card-game/assets/shared/characters/orin.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4"
+        }
+      ],
+      "visual_review": "Accepted: identity, spectacles, auburn tied hair, indigo coat, shirt, patched trousers, chain and boots retained; faces right with open alert eyes, raised empty hands and stable braced legs. Whole silhouette preserved with soles near y1470. True clear background and cleared gaps confirmed from alpha.",
+      "limitations": [
+        "Imagegen changes painted surface pixels while preserving visual identity.",
+        "Core alpha is mostly252–253/255 rather than255; copied unchanged with no alpha normalization.",
+        "Rightmost silhouette clearance is43px, close to the requested approximately50px; top36px and bottom60px."
+      ],
+      "processing": "Raw generated RGBA PNG copied without conversion, cropping, resizing or visual postprocessing."
+    },
+    {
+      "id": "orin-scarf-guard",
+      "file": "orin-scarf-guard.webp",
+      "character": "Orin",
+      "character_id": "orin",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/orin-scarf.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "3812b42acdb754238d18ff453c9f8f5c9ba4513b272d726ca1af342fe4b49530",
+      "generation_id": "exec-deb9ebeb-d490-4b36-88da-9615b4295cb2",
+      "dimensions": [1024, 1536],
+      "quality": 88,
+      "bytes": 244336,
+      "sha256": "22f012a265fef3de3d85b36055144022ed207990423fd33ef8ec04c760542ed7",
+      "original_png_sha256": "0966b8b6264d74bfa03c1bda76958adf7690b627316bddb3bda4810e6de4909f",
+      "original_png_bytes": 2162588,
+      "alpha_sha256": "8f5000dfd9cb1eb81e6db7d1de30b544ebd350eede89c66ce2c88c1aa3c0c2dc",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.632659912109375,
+        "alpha_at_least_240_fraction": 0.34358978271484375,
+        "visible_bounds_alpha_at_least_128": [117, 27, 987, 1475],
+        "visible_margins_left_top_right_bottom": [117, 27, 37, 61],
+        "edge_nonzero_pixels": 1,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "primary edit target: finished plain Orin guard",
+          "asset_id": "orin-guard",
+          "generation_id": "exec-d1f1039c-a0cf-49e4-9400-50ee545e251f",
+          "original_png_sha256": "bccc461ee91db47b7f95b6e6097bf0aee7d913739b4b8af4168975def347c5bf"
+        },
+        {
+          "role": "wardrobe-only reference: canonical mustard-gold scarf and indigo four-hole button",
+          "path": "v2/card-game/assets/shared/characters/orin-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "3812b42acdb754238d18ff453c9f8f5c9ba4513b272d726ca1af342fe4b49530"
+        }
+      ],
+      "visual_review": "Accepted: same right-facing defensive pose, spectacles, auburn tied curls, empty protective hands and braced legs as finished plain guard; mustard-gold fringed scarf and indigo four-hole button match canonical wardrobe. Full silhouette and clear background retained.",
+      "limitations": [
+        "Visual identity/pose match; generated texture and outline pixels are not identical between plain and scarf versions.",
+        "Interior alpha is predominantly252–253 rather than255; preserved unchanged.",
+        "Canvas clearance is approximate; exact alpha bounds are recorded."
+      ],
+      "processing": "Raw generated RGBA PNG copied without conversion, cropping, resizing or visual postprocessing."
+    },
+    {
+      "id": "ada-guard",
+      "file": "ada-guard.webp",
+      "character": "Ada",
+      "character_id": "ada",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/ada.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512",
+      "generation_id": "exec-181efaa5-9e86-492f-8df8-942944b029e6",
+      "dimensions": [1024, 1536],
+      "quality": 82,
+      "bytes": 298544,
+      "sha256": "24b4af67d04e3de9fdd8ec51280761a6fd8203bd272210ca3bb441197298dbca",
+      "original_png_sha256": "cfc9f66e219932fd43d2aa5b726a2ff02db5d9b3e210c224bd5e69b22c88cafe",
+      "original_png_bytes": 2587515,
+      "alpha_sha256": "5117f96eef390b60f8d01fc997e8b08332df65df61a3bae0e04b87343820feda",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.45590655008951825,
+        "alpha_at_least_240_fraction": 0.5163466135660807,
+        "visible_bounds_alpha_at_least_128": [31, 87, 992, 1401],
+        "visible_margins_left_top_right_bottom": [31, 87, 32, 135],
+        "edge_nonzero_pixels": 7,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "primary edit target: initial seated Ada brace",
+          "asset_id": "ada-guard",
+          "revision": "initial",
+          "generation_id": "exec-de779e89-beca-4346-8c9c-f11dcb4ab8b4",
+          "original_png_sha256": "557ebfae0d18dbf9df7dc7485cf9fa2de6a947ff3e6453748bba8d164863f022"
+        },
+        {
+          "role": "canonical identity, plain purple neckerchief and complete wheelchair lineage",
+          "path": "v2/card-game/assets/shared/characters/ada.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512"
+        }
+      ],
+      "visual_review": "Accepted after one framing correction: seated Ada faces right with alert open eyes, empty protective hands, white bob, purple plain neckerchief and canonical outfit. Complete wooden/brass wheelchair remains upright with feet on footplate, rear-wheel frame and casters present. All edges stay inside the canvas.",
+      "limitations": [
+        "One focused correction improved right-side clearance but did not meet every requested margin exactly; see actual alpha bounds.",
+        "Generated texture and some small proportions vary from canonical portrait.",
+        "Interior alpha is predominantly252–253 rather than255; preserved unchanged."
+      ],
+      "processing": "Raw generated RGBA PNG copied without conversion, cropping, resizing or visual postprocessing.",
+      "revisions": [
+        {
+          "revision": "initial",
+          "generation_id": "exec-de779e89-beca-4346-8c9c-f11dcb4ab8b4",
+          "prompt": "Use case: identity-preserve.\nAsset type: one transparent COSYWORLD character sprite, ADA, PLAIN clothing, seated defensive brace/guard pose.\nInput image 1 is the authoritative identity, outfit and wheelchair reference: canonical ada.png. Preserve Ada's exact young freckled face, warm fair skin, large brown eyes, tousled short white bob, compact build, lavender rolled-sleeve blouse, plain PURPLE neckerchief tied in its original knot, dark-purple high-waisted trousers, brown leather suspenders with brass fittings, cream wool socks and dark lace-up boots.\n\nADA MUST REMAIN SEATED in her exact complete wooden-and-brass wheelchair. Preserve its wood frame, brown upholstered seat/back, brass rims and supports, large rear wheels with wooden spokes and dark tires, small front casters, curved armrests and full front footplate. The two large wheels and the casters stay upright and grounded on a common invisible plane, with the far wheel naturally occluded as in the reference. Both feet remain supported on the footplate. No standing, rising from the seat, levitation, tipping, wheelies, missing chair parts or extra wheels. Preserve the original chair's perspective, proportions and construction.\n\nChange only her upper-body pose to a stable defensive guard facing RIGHT. She braces in the seat, leaning forward slightly within the stable chair, with both forearms raised protectively across chest and near her face; one empty hand beside the cheek and the other below it across the upper chest. Keep her eyes OPEN and alert toward the opponent off canvas right, lips closed or gently parted in concentration. This is anticipation of impact, not a strike, not an injury, not a frightened recoil. Both hands are empty with natural fingers and normal anatomy. Keep her face unobscured, knees bent naturally in the seated position, and the wheelchair fully visible.\nOutput exactly 1024 x 1536 RGBA pixels with a GENUINELY TRANSPARENT background. Remove the source's colored vignette, diffuse aura, floor and ground shadow completely. Every gap around and within the silhouette must be transparent, including between limbs and equipment. The figure and clothing are opaque, with clean antialiased outline edges; no translucent body, grey matte, colored fringe, halo, checkerboard texture or painted background. Full figure fully visible, around 40 pixels clear above the highest point, at least 50 pixels on both sides, and approximately 60–80 pixels below the soles/contact points (near 95% canvas height). Preserve a readable tall full-body scale; no cropped hair, boots or accessories. Painted gouache-and-ink style matching the reference, fine ink outlines, tactile aged cloth and warm natural materials. No added text, logos, impact flashes, extra props, scenery or watermark.\nFor this seated character, keep the full chair-and-person silhouette within the canvas, wheels/footplate near 95% canvas height, and a little extra headroom is acceptable because her seated proportions must remain natural.\n",
+          "references": [
+            {
+              "role": "canonical identity, plain wardrobe and wheelchair reference",
+              "path": "v2/card-game/assets/shared/characters/ada.png",
+              "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+              "sha256": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512"
+            }
+          ],
+          "raw_output": {
+            "dimensions": [1024, 1536],
+            "mode": "RGBA",
+            "bytes": 2750184,
+            "sha256": "557ebfae0d18dbf9df7dc7485cf9fa2de6a947ff3e6453748bba8d164863f022"
+          },
+          "decision": "Revised once for insufficient side clearance, especially footplate and raised elbow."
+        }
+      ]
+    },
+    {
+      "id": "ada-scarf-guard",
+      "file": "ada-scarf-guard.webp",
+      "character": "Ada",
+      "character_id": "ada",
+      "pose": "guard",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/shared/characters/ada-scarf.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "401bf9cc37ba4bb8ebcfaae2fa45b9e3126e197d1a6e482da7bf006b63b98c8f",
+      "generation_id": "exec-5681bcca-7c98-4f52-84cd-c6f29d113340",
+      "dimensions": [1024, 1536],
+      "quality": 82,
+      "bytes": 296808,
+      "sha256": "3f0556748a43241b081264ee2c675b1b3be7e5e137c46a5128b26d4f4c72a6eb",
+      "original_png_sha256": "48f53ac6f0f13588a01f3a60f1b4efa13ab763199bcf4b142d8386c0c456b582",
+      "original_png_bytes": 2546514,
+      "alpha_sha256": "838b6045eec6b41c87021dbdcb255a29d55c4444836d74a256821dca0717ecc1",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.4454975128173828,
+        "alpha_at_least_240_fraction": 0.5207500457763672,
+        "visible_bounds_alpha_at_least_128": [29, 86, 995, 1402],
+        "visible_margins_left_top_right_bottom": [29, 86, 29, 134],
+        "edge_nonzero_pixels": 21,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "primary edit target: finished seated Ada plain brace",
+          "asset_id": "ada-guard",
+          "generation_id": "exec-181efaa5-9e86-492f-8df8-942944b029e6",
+          "original_png_sha256": "cfc9f66e219932fd43d2aa5b726a2ff02db5d9b3e210c224bd5e69b22c88cafe"
+        },
+        {
+          "role": "wardrobe only: canonical chartreuse scarf and purple four-hole button",
+          "path": "v2/card-game/assets/shared/characters/ada-scarf.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "401bf9cc37ba4bb8ebcfaae2fa45b9e3126e197d1a6e482da7bf006b63b98c8f"
+        }
+      ],
+      "visual_review": "Accepted: preserves the finished plain seated right-facing defensive pose, alert open eyes, white bob, lavender clothing and complete wooden/brass wheelchair. Both feet remain on the full footplate, with rear wheel and visible casters upright. Chartreuse scarf and purple four-hole button match canonical scarf wardrobe. All visible figure/chair parts remain within the canvas.",
+      "limitations": [
+        "Framing follows accepted plain Ada: actual side clearance is 29 px, lower wheel contact is y1403; wider margins and 95% grounding target are approximate.",
+        "Small painterly outline/texture variation from the plain edit target remains.",
+        "Interior alpha is predominantly252–253 rather than255; preserved unchanged."
+      ],
+      "processing": "Raw generated RGBA PNG copied byte-for-byte without conversion, cropping, resizing, alpha normalization or visual postprocessing."
+    },
+    {
+      "id": "moth-guard",
+      "file": "moth-guard.webp",
+      "character": "Pip",
+      "character_id": "moth",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/moth.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "89a55a9fe6a3541c8c63bbf55673d04e1bdf18c6b1b186707846c1a12713dcd5",
+      "generation_id": "exec-19aafec2-ef4b-4627-a4d9-bdda8a81774d",
+      "dimensions": [1024, 1536],
+      "quality": 88,
+      "bytes": 288448,
+      "sha256": "da54b5cd22a695646e53e8997fedc2aaf6bb9023f9c4faa651807097e04f4019",
+      "original_png_sha256": "63a35de10c104f5db87b381a1e062a59170145abd788ee887cc8d1c0a5f5c176",
+      "original_png_bytes": 2335818,
+      "alpha_sha256": "02e02388221c542db5d4ba983e525e99eba062794a19eb2788b9c04ce0a80dd3",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.5947786966959635,
+        "alpha_at_least_240_fraction": 0.37151845296223956,
+        "visible_bounds_alpha_at_least_128": [128, 38, 987, 1474],
+        "visible_margins_left_top_right_bottom": [128, 38, 37, 62],
+        "edge_nonzero_pixels": 19,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "primary edit target: initial Pip/moth guard",
+          "asset_id": "moth-guard",
+          "revision": "initial",
+          "generation_id": "exec-a2c8ec04-17aa-4c27-a2d3-6ac581aae022",
+          "original_png_sha256": "25c951eb1d9c463a11b3bfcf923c35b8f7d899dfb4e27fab86ad23acdc2bdac3"
+        },
+        {
+          "role": "canonical identity and wardrobe lineage",
+          "path": "v2/card-game/assets/moth.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "89a55a9fe6a3541c8c63bbf55673d04e1bdf18c6b1b186707846c1a12713dcd5"
+        }
+      ],
+      "visual_review": "Accepted after one framing correction: Pip faces left in a stable bent-knee stance with both empty hands raised protectively and large alert open eyes. Exactly two arms and two legs. Both feathery antennas and patterned wings remain complete and distinct from limbs. Cream fur, ochre waistcoat, blue neckwear, pocket watch, satchel and boots follow canonical identity. Every silhouette part remains within the canvas with improved headroom and bottom clearance.",
+      "limitations": [
+        "Framing correction improved margins but did not match each target pixel exactly; see measured alpha bounds.",
+        "Subtle painterly outline and texture drift from the initial guard and canonical reference.",
+        "Interior alpha is predominantly252–253 rather than255; preserved unchanged."
+      ],
+      "processing": "Raw generated RGBA PNG copied byte-for-byte without conversion, cropping, resizing, alpha normalization or visual postprocessing.",
+      "revisions": [
+        {
+          "revision": "initial",
+          "generation_id": "exec-a2c8ec04-17aa-4c27-a2d3-6ac581aae022",
+          "prompt": "Use case: identity-preserve.\nAsset type: one full-figure transparent COSYWORLD PIP (asset ID moth) defensive guard / brace sprite.\nInput image 1 is the authoritative identity, anatomy, outfit and wing-pattern reference: moth.png. Pip is the exact anthropomorphic moth from this painting: cream furry head and ruff, huge glossy dark amber-brown eyes, fine little mouth, two tall FEATHERY antennae, and two broad moth wings with the existing grey-brown, ivory and ochre eye-spot patterns. Keep the ochre waistcoat with brass buttons, ivory rolled sleeves, blue-grey spotted neck bow/scarf, diagonal brown leather satchel and its straps, pocket watch/chain, dark loose trousers and brown boots.\nChange the pose to a stable grounded defensive guard facing LEFT. Both feet planted in a slight stagger, knees softly bent, weight centered. Raise both EMPTY hands and forearms in front of upper chest and beside the face to brace for an incoming impact from off canvas LEFT. Open alert eyes looking LEFT. No punch, weapon, attack, recoil, injury, closed eyes or falling. Keep face and antennae visible.\nExactly TWO arms with TWO hands and TWO legs with TWO boots. The wings sit folded closer behind his back for a compact guard silhouette, preserving the same patterned surfaces; they remain broad moth wings, never extra arms, sleeves, tails, feathers or insect legs. Keep both antennae wholly visible with a clear gap around their tips. Preserve all identity, build, texture, clothes and accessories. Hands are empty; satchel/watch remain attached, not held as weapons.\nOutput EXACT 1024 x 1536 RGBA, full silhouette from antenna tips to boot soles, about 40 pixels of transparent clearance above, at least 50 pixels on both sides, soles around y=1460 with clear space beneath. The entire character remains on canvas. GENUINELY TRANSPARENT background: alpha0 outside the subject and in every gap between limbs, antennae and wings; no source vignette, diffuse aura, floor or ground shadow. Subject interiors opaque with clean antialiased edges. Same painted gouache-and-ink illustration style, warm tactile natural materials and fine dark outlines. No added text, scenery, logos, effects, checkerboard pattern or watermark.\n",
+          "references": [
+            {
+              "role": "canonical identity and wardrobe",
+              "path": "v2/card-game/assets/moth.png",
+              "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+              "sha256": "89a55a9fe6a3541c8c63bbf55673d04e1bdf18c6b1b186707846c1a12713dcd5"
+            }
+          ],
+          "raw_output": {
+            "dimensions": [1024, 1536],
+            "mode": "RGBA",
+            "bytes": 2443246,
+            "sha256": "25c951eb1d9c463a11b3bfcf923c35b8f7d899dfb4e27fab86ad23acdc2bdac3"
+          },
+          "decision": "Revised once for safer clearance around top antenna, right wing and lowest boot."
+        }
+      ]
+    },
+    {
+      "id": "keeper-guard",
+      "file": "keeper-guard.webp",
+      "character": "Keeper",
+      "character_id": "keeper",
+      "pose": "guard",
+      "wardrobe": "plain",
+      "native_facing": "left",
+      "source_reference": "https://github.com/cenetex/cosyworld/blob/1cb7374a178f1714bc4e8e5065db8d2a21437344/v2/card-game/assets/keeper.png",
+      "reference_commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+      "canonical_reference_sha256": "5ef1a982a8bd921edb86ff8c3b7aec9ae11025bdad395561a2e7b2e6a3b92f88",
+      "generation_id": "exec-90515661-7422-493c-80a2-941c98b81cac",
+      "dimensions": [1024, 1536],
+      "quality": 88,
+      "bytes": 200914,
+      "sha256": "e144fbf594464786148a262fe04fb09e7551ad29b62beb08498c4ff44c110fd5",
+      "original_png_sha256": "fbc78728a93d7048e2030f8e343bb6e918dc10e338b25042a806a818ffb77064",
+      "original_png_bytes": 1956294,
+      "alpha_sha256": "3626cd6c0d2ded2759767e5987a8747f058a61691a8769ae244d520f9808941d",
+      "alpha_preserved_exactly": true,
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "zero_fraction": 0.6535720825195312,
+        "alpha_at_least_240_fraction": 0.32540130615234375,
+        "visible_bounds_alpha_at_least_128": [149, 23, 955, 1473],
+        "visible_margins_left_top_right_bottom": [149, 23, 69, 63],
+        "edge_nonzero_pixels": 9,
+        "edge_max": 1
+      },
+      "generation_references": [
+        {
+          "role": "canonical identity, clock dial, left-facing orientation and wardrobe",
+          "path": "v2/card-game/assets/keeper.png",
+          "commit": "1cb7374a178f1714bc4e8e5065db8d2a21437344",
+          "sha256": "5ef1a982a8bd921edb86ff8c3b7aec9ae11025bdad395561a2e7b2e6a3b92f88"
+        }
+      ],
+      "visual_review": "Accepted: left-facing three-quarter Keeper maintains brass case, cream dial, cap, original hand/eye construction and normally oriented clockwise Roman numerals. Exact original numeral lettering is painterly, including the canonical clockmaker IIII at four. Two empty black-gloved hands protect chest and lower face without covering the clock, eyes open, knees soft, feet planted. Plum coat and striped clothing match reference; full silhouette clear of all edges.",
+      "limitations": [
+        "Top clearance22px rather than the requested approximate40px; no clipping.",
+        "Painterly re-rendering is identity-preserving rather than pixel-identical to the canonical face and clothing.",
+        "Interior alpha is predominantly252–253 rather than255; preserved unchanged."
+      ],
+      "processing": "Raw generated RGBA PNG copied byte-for-byte without conversion, cropping, resizing, alpha normalization or visual postprocessing."
+    }
+  ]
+}

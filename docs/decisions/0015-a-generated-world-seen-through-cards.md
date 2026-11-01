@@ -211,7 +211,7 @@ parity tests in the same change.
 
 ### Path to the shared world
 
-[Generated world core](../backlog/generated-world-core.md) holds the plan. In
+[Generated world core](../archive/backlog/generated-world-core.md) holds the plan. In
 summary:
 
 1. Make the prototype general:

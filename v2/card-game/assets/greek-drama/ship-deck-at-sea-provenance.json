@@ -1,0 +1,396 @@
+{
+  "created": "2026-10-31",
+  "generator": "OpenAI built-in image generation",
+  "plan": "https://github.com/cenetex/cosyworld/pull/1613",
+  "production_strategy": "Complete reference-matched flat paintings, following the accepted plan fallback after a bounded foreground extraction proof failed opaque-surface and original-paint fidelity.",
+  "canvas_contract": {
+    "width": 1672,
+    "height": 941,
+    "origin": [0, 0],
+    "ship_geometry": "Same mast, sail, rigging, coils, rails, curled prow, two lantern fixtures and open central deck.",
+    "lighting": "Day: lanterns unlit. Night: original two amber lanterns and off-canvas upper-right moonlight.",
+    "open_sea": "No land, shore lights, visible moon, extra ships, permanent rain/mist/fog or forward stern wake.",
+    "horizon_measurement": {
+      "method": "Largest absolute change in mean RGB between adjacent rows y=325..375 over unobstructed x=500..999, zero-based coordinates.",
+      "before_strongest_transition_rows": [341, 342],
+      "corrected_strongest_transition_rows": [353, 354],
+      "day_reference_strongest_transition_rows": [355, 356],
+      "remaining_pair_difference_pixels": 2,
+      "visual_note": "Horizon moved down approximately 12 px, from about y342 to y354; requested y356 is approximated within 2 px rather than exactly reached."
+    }
+  },
+  "assets": [
+    {
+      "file": "ship-deck-at-sea-day.webp",
+      "period": "day",
+      "place": "greek-ship",
+      "phase": "sea",
+      "dimensions": [1672, 941],
+      "transparent_background": false,
+      "generation_id": "exec-5abaccf5-98f0-466b-ab8c-895ac39bcd35",
+      "prompt": "Use case: precise-object-edit.\nAsset type: final complete opaque environmental painting for COSYWORLD's Greek ship at sea, DAY.\nInput image 1 is the authoritative EDIT TARGET: the existing rainy coastal DAY ship-deck painting.\nInput image 2 is a supporting GEOMETRY REFERENCE ONLY: the original NIGHT painting of the same deck. Do not copy its night lighting, lit lamps, coast or stars.\n\nPrimary request: this EXACT SAME familiar Greek ship and camera, now on the OPEN SEA in neutral airy DAYLIGHT, with no land and no fixed weather. Make a complete finished painting, NOT a cutout or layer. Keep the full original 1672 x 941 canvas and exact frame.\n\nCHANGE THE ENVIRONMENT ONLY, plus removing the target's visible rain and fog: replace every mountain, wooded bank, island, coastal silhouette and shore light beyond the rail with uninterrupted blue-green open ocean and a clear natural pale-blue daytime sky with a few unobtrusive high fair-weather clouds. The distant sea horizon is a straight level line approximately y=360 in the 1672 x 941 image (355-363 is acceptable), measured from the top. No hill, coastline, bank, island or dark land-like form anywhere, including behind the mast, prow and rigging. No band of fog hiding residual land. Moderate small ripples and restrained open-water swell; clear readable horizon. Remove all visible rain streaks, rain stippling, low mist, fog, storm clouds and weather effects.\n\nSTRICT SHIP INVARIANTS: preserve the exact position, silhouette, dimensions, perspective, design and details of the massive left mast with its winding ropes and bronze collar; the cargo/bronze fitting and timber at lower left; the full ivory canvas sail across the top with all seams and edges; EVERY rigging line and pulley block; the left and right carved bulwarks and rails; the tall curled prow at center-right; every deck plank, hatch, crossbeam, bolt, rope knot and coil; both lantern housings and their attachments. Do not shift, crop, rebuild, resize, redesign, remove or invent any part of the ship. The center deck standing area and bottom quarter remain clear and quiet for characters and interface.\n\nDAY LIGHT: natural soft diffuse daylight with the same general off-canvas light from the upper right; warm walnut and ochre wood, aged bronze, ivory sail, blue-green water. The deck should be legible and warm without becoming bleached, glossy or orange. Preserve the wood grain and restrained existing sheen, without droplets, active rain or puddles that assert a storm. BOTH existing lanterns remain UNLIT, with ordinary clear/dull glass; NO flames, amber glow or pools of lamplight. No sun or moon disc, no stars, no sunset.\n\nSTYLE: match the exact target painting's tactile, finely detailed painted environmental finish and subtle ink-like edges. Keep the original camera and ship identity unchanged. The sea is spacious and calm enough to read the ship; do not add spectacle.\n\nAvoid: any land, islands, coastal trees, mountains, buildings, shore lights, fog banks, fixed rain, snow, lightning, storms, visible sun/moon, people, creatures, extra ships, modern details, readable text, logos, borders, watermarks, transparent background, cropped rigging or altered mast/prow/lantern positions. This is a forward-facing onboard camera: absolutely NO stern wake in front of the bow or straight white wake running toward the horizon; any tiny movement cue belongs in the water beside the hull.\n\nOutput exactly 1672 x 941, full original opaque canvas, no crop, zoom, expansion, reframe or aspect-ratio change.\n",
+      "references": [
+        {
+          "role": "primary edit target",
+          "path": "v2/card-game/assets/greek-drama/ship-deck.webp",
+          "sha256": "3356fc6209ee05ae7c988c93682a831c1026c5b1cd7da4078b84f0acb0d28422"
+        },
+        {
+          "role": "supporting original geometry reference only",
+          "path": "v2/card-game/assets/greek-drama/ship-deck-night.webp",
+          "sha256": "b942c80b09b6b52e7eb36b43706bfba2f23c6058d549f68725e9244527888d9c"
+        }
+      ],
+      "original_png_sha256": "04336ec4d0f7b9126cc91db0665dbbf3cff0206ef4b9618aae9df0db1995f281",
+      "original_png_bytes": 2742226,
+      "encoding": {
+        "format": "webp",
+        "quality": 84,
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "bytes": 298962,
+      "sha256": "5ea48a067039870345b06e12c000d2b22793b98a5338e93aa1213b1e77c41470",
+      "visual_review": {
+        "status": "passed",
+        "findings": [
+          "Full 1672 x 941 canvas preserved; ship geometry and frame visually match rainy coastal edit target and original night reference.",
+          "All land removed: uninterrupted sea and sky with straight horizon at approximately y=356.",
+          "No visible rain streaks, mist, fog banks, islands, buildings, people, text, extra vessels or forward stern wake.",
+          "Both existing lantern fixtures remain unlit.",
+          "Warm walnut/ochre ship wood and ivory sail stay readable under airy daylight; existing restrained wet sheen retained.",
+          "Central standing space and bottom quarter remain clear."
+        ],
+        "limitation": "Generated paint textures are not pixel-identical; the image visually preserves ship geometry rather than guaranteeing exact outside-edit pixel identity."
+      },
+      "processing": "WebP encoding only; no crop, resize, retouching, compositing or alpha changes."
+    },
+    {
+      "file": "ship-deck-at-sea-night.webp",
+      "period": "night",
+      "place": "greek-ship",
+      "phase": "sea",
+      "dimensions": [1672, 941],
+      "transparent_background": false,
+      "generation_id": "exec-f4fb36e2-a922-4a59-9083-3117bc5eb2c4",
+      "prompt": "Use case: precise-object-edit.\nInput image 1 is the PRIMARY EDIT TARGET: the complete open-sea NIGHT ship painting.\nInput image 2 is ONLY A HORIZON-HEIGHT REFERENCE: the matching open-sea DAY ship painting. Do not copy its daylight, sky, water colors, ship lighting or any other visual feature.\n\nMake one narrow local correction to image 1: lower its straight sea/sky horizon by approximately 14 pixels, from y=342 to y=356 measured down from the TOP of the full 1672 x 941 canvas. Match the exact horizon height in image 2. The corrected horizon must be a horizontal line at y=356 across all visible background openings, with night sky directly above it and dark night ocean directly below it.\n\nBlend ONLY the narrow background strip surrounding the old/new horizon, roughly y=330 through y=375, extending the existing dark indigo sky naturally down to y=356 and beginning the existing ocean at y=356. Preserve the established silver light and distant water texture. Make no change to any ship or rigging pixels that overlap this strip. Do not move the ship or rescale the scene to accomplish this.\n\nLOCK EVERYTHING ELSE FROM IMAGE 1: exact full 1672 x 941 framing and camera; all mast, sail, fine ropes, pulleys, curled prow, rails, carvings, fittings, deck planks, rope coils and lanterns; their exact pixel positions, original night lighting, two warm amber pools of lantern light and cool reflected highlights. Retain the existing stars and cloud pattern above the narrow edit strip. Keep all water and silver reflections below the narrow edit strip unchanged. Preserve image 1's detailed painted texture and color palette without repainting or simplifying.\n\nThis remains entirely NIGHT: no daylight, no visible moon, no land or islands, no fog/rain/weather, no new object or ship, no text. No change to the ship's appearance or to the lighting. No cropping, rotation, zoom, canvas changes, transparency or borders. Output one opaque RGB-style 1672 x 941 painting. This is solely a 14-pixel horizon-height alignment.\n",
+      "references": [
+        {
+          "role": "primary edit target; complete flat open-sea night painting",
+          "generation_id": "exec-4ede3e94-5fd1-4b8f-903c-11ee77af6947",
+          "path": "ship-at-sea-night-raw.png",
+          "sha256": "1fe6736bca3f30f6c253c52a53abcbafe25827efca88ff8c28c9b9fb6cb76c41"
+        },
+        {
+          "role": "horizon-height reference only; no daylight transferred",
+          "path": "ship-deck-at-sea-day-raw.png",
+          "sha256": "04336ec4d0f7b9126cc91db0665dbbf3cff0206ef4b9618aae9df0db1995f281"
+        }
+      ],
+      "original_png_sha256": "ef74f180e710c61693fc2d1f95ba0294f2e592ca3091d8e9d27ec18675e090b6",
+      "original_png_bytes": 2260572,
+      "encoding": {
+        "format": "webp",
+        "quality": 90,
+        "alphaQuality": 100,
+        "effort": 6,
+        "smartSubsample": true
+      },
+      "bytes": 284740,
+      "sha256": "1e9c0c4695796525682a87b1d41a79d2d8368843785f73595808f6f0f2589599",
+      "visual_review": "Preferred over first night painting for day/night pairing: straight open-sea horizon is now within 2 pixels of day reference. Ship geometry and its two amber lamps remain visually aligned; night palette/stars/reflections preserved in appearance, with subtle full-image generated texture drift. No land, fog, weather, extra ships, visible moon or text. One correction pass only.",
+      "processing": "WebP encoding only; no crop, resize, retouching, compositing or alpha changes."
+    }
+  ],
+  "source_layers": [
+    {
+      "file": "ship-deck-sources/environment-at-sea-night.png",
+      "status": "authoring_reference_only",
+      "dimensions": [1672, 941],
+      "bytes": 2059159,
+      "sha256": "1abd47b7a584fd13eeb3177bfce6fe5a6ec88377151c4eb4bec10916e07a256b",
+      "generation": {
+        "created": "2026-10-31",
+        "generator": "OpenAI built-in image generation",
+        "generation_id": "exec-854f46a0-4713-4e40-99b4-f4b64b2fff71",
+        "asset_role": "Opaque clean open-sea night environment plate for later foreground compositing",
+        "prompt": "Use case: compositing.\nAsset type: a CLEAN NIGHT ENVIRONMENT PLATE for a layered COSYWORLD Greek ship scene. This is the background layer only; a separate transparent ship foreground will be added later.\n\nInput image 1 is a STYLE, CAMERA and LIGHTING REFERENCE ONLY: the canonical coastal ship-deck-night.webp painting, 1672 x 941. The deliverable contains NONE of its ship and NONE of its coast. Use the same detailed painterly environment style, restrained blue night palette, perspective and height of view.\n\nPrimary request: paint only a clear open ocean beneath an indigo night sky. EXACT 1672 x 941 full canvas. A perfectly natural, straight ocean horizon runs horizontally across the entire frame at y=355 pixels measured from the top (about 37.7% of the image height). Above that line is uninterrupted night sky; below it is uninterrupted ocean extending to all three lower canvas edges. Maintain this precise horizon placement so the plate will align behind the existing ship foreground.\n\nSky: deep indigo and navy matching the reference, restrained small stars and a few subtle wisps of blue cloud. Natural and quiet, no spectacular Milky Way or dense sparkling starfield. NO VISIBLE MOON. The unseen moon is outside the frame at the upper right.\n\nWater: silver-blue, clear dark open ocean with restrained low swell and fine, horizontally foreshortened ripples near the horizon, becoming naturally larger nearer the bottom edge. Quiet silver-blue highlights fall from the off-canvas upper-right moonlight, comparable in color and softness to the reference's visible water. Keep the surface coherent across the full width. No wake, no V-shaped trail, no foam path or beam pointing toward the viewer; the plate is the water AHEAD of a ship, not a trailing wake. No lantern-gold reflections because the lanterns will live on the separate ship layer.\n\nSTRICT EXCLUSIONS: zero ship, boat, deck, mast, sail, ropes, rigging, rail, prow, lanterns, furniture, framing objects or silhouettes in the foreground. Zero land, island, peninsula, coastline, riverbank, mountains, hills, trees, harbor structures, shore lights or distant ships. Zero mist, fog, fog banks, hazy ridges, rain, snow, storm, lightning, visible moon, sunrise or sunset. No people, creatures, readable text, logos, labels, borders or watermark.\n\nThe image must be fully opaque with continuous painted sky/ocean wherever the original reference had a ship or land. Do not leave cutout holes, alpha transparency, an empty foreground, dark silhouettes, checkerboard or blurred patches. Do not create a full ship scene. Render the ocean-and-sky environment plate only, exact 1672 x 941 pixels, without cropping, reframing or changing the horizon height.\n",
+        "reference": {
+          "role": "Style, camera-height and lighting reference only",
+          "path": "v2/card-game/assets/greek-drama/ship-deck-night.webp",
+          "sha256": "b942c80b09b6b52e7eb36b43706bfba2f23c6058d549f68725e9244527888d9c"
+        },
+        "raw_output": {
+          "path": "open-sea-night-environment-raw.png",
+          "dimensions": [1672, 941],
+          "mode": "RGB",
+          "bytes": 2059159,
+          "sha256": "1abd47b7a584fd13eeb3177bfce6fe5a6ec88377151c4eb4bec10916e07a256b"
+        },
+        "original_generated_output": "exec-854f46a0-4713-4e40-99b4-f4b64b2fff71.png",
+        "background": {
+          "transparent": false,
+          "requested_horizon_y": 355,
+          "observed_horizon_transition_y": [360, 363]
+        },
+        "visual_review": "Passed clean environment content: sky and open ocean only, indigo night palette, quiet silver-blue swell, right-side moonlight reflection, no visible moon, ship, deck, rigging, coast, islands, shore lights, rain, snow, mist banks or wake. The straight painted horizon transition is at approximately y=360–363, slightly below the requested y=355; disclosed for foreground composition review.",
+        "processing": "Original generated PNG copied byte-for-byte; no cropping, resizing, compositing, conversion or visual postprocessing."
+      },
+      "note": "Clean environment plate retained for later source-layer work; not registered as a runtime image."
+    }
+  ],
+  "night_revision_history": [
+    {
+      "created": "2026-10-31",
+      "generator": "OpenAI built-in image generation",
+      "generation_id": "exec-4ede3e94-5fd1-4b8f-903c-11ee77af6947",
+      "prompt": "Use case: precise-object-edit.\nAsset type: complete opaque COSYWORLD ship-at-sea NIGHT background, exact 1672 x 941 canvas.\n\nInput image 1 is the PRIMARY EDIT TARGET and authoritative source for the WHOLE SHIP: the canonical coastal ship-deck-night painting.\nInput image 2 is a SECONDARY ENVIRONMENT REFERENCE ONLY: clean open sea and night sky with a straight horizon. Use it only for the sea/sky BEYOND the existing ship. Do not transfer any camera change or foreground from image 2.\n\nPrimary request: keep the ship foreground from image 1 exactly in place and change ONLY the background outside it, so this same deck is now on the OPEN SEA at night.\nReplace ALL distant mountains, hills, islands, trees, cliffs, shoreline, coastal mist, coast lights and any other land in image 1 with uninterrupted open water and sky. The horizon is a single flat level ocean horizon across the image at approximately y=355-363 pixels from the top, visible through the spaces behind the ship, with NO surviving land silhouette or ridge.\n\nOpen-sea environment: deep indigo night sky with restrained natural stars and scattered high clouds; deep blue gently undulating ocean, subtle silver highlights from moonlight coming from OFF CANVAS at the upper right. No visible moon. Reference image 2 supplies this sea/sky palette, quiet water texture and level horizon. Use no fog, rain, snow, thunderstorm, sea spray or permanent weather effect. No islands, land, lights, boats or structures anywhere on the horizon. No front wake or foam fan ahead of the bow. The ocean continues naturally behind the rail.\n\nLOCK THE ENTIRE SHIP FROM IMAGE 1: same camera, scale and framing; exact massive left mast with bronze collar, rope windings and foreground bronze fixture; the same sail across the top with its exact edges and seams; ALL fine rigging ropes and pulley blocks at the same coordinates; both bulwarks, rails, carved trim and metal fittings; curled prow at center-right; every rope coil, tied rope, deck plank, hatch, beam, bolt and seam. Retain BOTH existing amber lanterns in their original positions and keep their existing small warm pools of light ON the deck and rail. Keep the original cool night reflections on the wood. Do NOT relight, brighten, recolor, redesign, smooth, repaint or simplify any part of the ship, and do not alter the rigging or prow to fit the background. Make the change entirely in the surrounding environment, including every small visible gap around the rigging and above the rail.\n\nStyle: keep image 1's exact detailed painterly realism, aged natural wood and bronze, fine brushwork, and dark blue/amber night balance.\n\nOutput: one complete opaque RGB-style painting, exact original 1672 x 941 canvas. No trimming, crop, resizing, expansion, zoom, padding, rotation, reframing or transparency.\nAvoid: residual coast/hills/trees, mist or fog at the horizon, sunset, visible moon, daylight, text, characters, creatures, extra ships, new ship objects, invented ropes, missing thin ropes, altered foreground geometry, storm waves, front wake, border or watermark.\n",
+      "references": [
+        {
+          "role": "primary edit target; authoritative original ship foreground",
+          "path": "v2/card-game/assets/greek-drama/ship-deck-night.webp",
+          "sha256": "b942c80b09b6b52e7eb36b43706bfba2f23c6058d549f68725e9244527888d9c"
+        },
+        {
+          "role": "secondary environment only; open sea and sky",
+          "path": "open-sea-night-environment-raw.png",
+          "sha256": "1abd47b7a584fd13eeb3177bfce6fe5a6ec88377151c4eb4bec10916e07a256b"
+        }
+      ],
+      "raw_output": {
+        "path": "ship-at-sea-night-raw.png",
+        "dimensions": [1672, 941],
+        "mode": "RGB",
+        "bytes": 2290495,
+        "sha256": "1fe6736bca3f30f6c253c52a53abcbafe25827efca88ff8c28c9b9fb6cb76c41"
+      },
+      "transparent_background": false,
+      "visual_review": "Passed: complete opaque scene; open water and uninterrupted level horizon replace all coast, hills, trees and coastal mist. Original mast/sail/rigging/prow/rails/coils/lanterns/deck geometry visually preserved. Two warm lamps, indigo sky, silver water reflections, no visible moon, no people or ships, no weather particles/fog or front wake. Horizon appears around y=342, slightly above requested approximate y=355-363. Generated texture and lighting differ subtly from canonical; foreground is visually matched rather than pixel-identical.",
+      "lower_deck_mean_absolute_channel_difference_from_canonical_255": 4.019,
+      "processing": "Original generated PNG copied without cropping, resizing or other visual processing. No cutout reference used. No correction pass needed to remove coast."
+    },
+    {
+      "created": "2026-10-31",
+      "generator": "OpenAI built-in image generation",
+      "generation_id": "exec-f4fb36e2-a922-4a59-9083-3117bc5eb2c4",
+      "prompt": "Use case: precise-object-edit.\nInput image 1 is the PRIMARY EDIT TARGET: the complete open-sea NIGHT ship painting.\nInput image 2 is ONLY A HORIZON-HEIGHT REFERENCE: the matching open-sea DAY ship painting. Do not copy its daylight, sky, water colors, ship lighting or any other visual feature.\n\nMake one narrow local correction to image 1: lower its straight sea/sky horizon by approximately 14 pixels, from y=342 to y=356 measured down from the TOP of the full 1672 x 941 canvas. Match the exact horizon height in image 2. The corrected horizon must be a horizontal line at y=356 across all visible background openings, with night sky directly above it and dark night ocean directly below it.\n\nBlend ONLY the narrow background strip surrounding the old/new horizon, roughly y=330 through y=375, extending the existing dark indigo sky naturally down to y=356 and beginning the existing ocean at y=356. Preserve the established silver light and distant water texture. Make no change to any ship or rigging pixels that overlap this strip. Do not move the ship or rescale the scene to accomplish this.\n\nLOCK EVERYTHING ELSE FROM IMAGE 1: exact full 1672 x 941 framing and camera; all mast, sail, fine ropes, pulleys, curled prow, rails, carvings, fittings, deck planks, rope coils and lanterns; their exact pixel positions, original night lighting, two warm amber pools of lantern light and cool reflected highlights. Retain the existing stars and cloud pattern above the narrow edit strip. Keep all water and silver reflections below the narrow edit strip unchanged. Preserve image 1's detailed painted texture and color palette without repainting or simplifying.\n\nThis remains entirely NIGHT: no daylight, no visible moon, no land or islands, no fog/rain/weather, no new object or ship, no text. No change to the ship's appearance or to the lighting. No cropping, rotation, zoom, canvas changes, transparency or borders. Output one opaque RGB-style 1672 x 941 painting. This is solely a 14-pixel horizon-height alignment.\n",
+      "references": [
+        {
+          "role": "primary edit target; complete flat open-sea night painting",
+          "generation_id": "exec-4ede3e94-5fd1-4b8f-903c-11ee77af6947",
+          "path": "ship-at-sea-night-raw.png",
+          "sha256": "1fe6736bca3f30f6c253c52a53abcbafe25827efca88ff8c28c9b9fb6cb76c41"
+        },
+        {
+          "role": "horizon-height reference only; no daylight transferred",
+          "path": "ship-deck-at-sea-day-raw.png",
+          "sha256": "04336ec4d0f7b9126cc91db0665dbbf3cff0206ef4b9618aae9df0db1995f281"
+        }
+      ],
+      "raw_output": {
+        "path": "ship-at-sea-night-horizon-corrected.png",
+        "dimensions": [1672, 941],
+        "mode": "RGB",
+        "bytes": 2260572,
+        "sha256": "ef74f180e710c61693fc2d1f95ba0294f2e592ca3091d8e9d27ec18675e090b6"
+      },
+      "transparent_background": false,
+      "horizon_measurement": {
+        "method": "Largest absolute change in mean RGB between adjacent rows y=325..375 over unobstructed x=500..999, zero-based coordinates.",
+        "before_strongest_transition_rows": [341, 342],
+        "corrected_strongest_transition_rows": [353, 354],
+        "day_reference_strongest_transition_rows": [355, 356],
+        "remaining_pair_difference_pixels": 2,
+        "visual_note": "Horizon moved down approximately 12 px, from about y342 to y354; requested y356 is approximated within 2 px rather than exactly reached."
+      },
+      "lower_deck_mean_absolute_channel_difference_from_first_night_255": 3.504,
+      "lower_deck_mean_absolute_channel_difference_from_canonical_night_255": 4.991,
+      "visual_review": "Preferred over first night painting for day/night pairing: straight open-sea horizon is now within 2 pixels of day reference. Ship geometry and its two amber lamps remain visually aligned; night palette/stars/reflections preserved in appearance, with subtle full-image generated texture drift. No land, fog, weather, extra ships, visible moon or text. One correction pass only.",
+      "processing": "Original generated opaque PNG copied without cropping, resizing or postprocessing. No rejected cutout used."
+    }
+  ],
+  "layer_proof": {
+    "status": "rejected_for_production",
+    "attempts": [
+      {
+        "created": "2026-10-31",
+        "generator": "OpenAI built-in image generation",
+        "generation_id": "exec-34cf13df-b359-4f7e-ae1d-1c49031e2f36",
+        "prompt": "Use case: background-extraction.\nAsset type: a reusable transparent NIGHT SHIP FOREGROUND layer for COSYWORLD, to be composited over separate sea-and-sky environment paintings.\nInput image 1 is the sole authoritative EDIT TARGET: the canonical ship-deck-night.webp at exactly 1672 x 941 pixels.\n\nPrimary request: REMOVE ONLY THE BACKGROUND from this image, producing a clean genuine RGBA cutout of the existing ship. This is extraction, not repainting. Preserve the foreground ship's original pixel positions, exact camera, viewpoint, framing, geometry, colors, detailed painterly texture and existing NIGHT lighting as closely as possible.\n\nKEEP every part of the ship: the thick mast at left, every rope wound around it, its bronze collar and foreground bronze fixture, all foreground beams and the entire wooden deck/planking/hatch/bolts, all bulwarks and rails with their carved decorations and metal fittings, the curled prow in its exact center-right position, both lit lantern fixtures, every rope coil on the deck, EVERY THIN RIGGING ROPE and pulley block even where it crosses the sky, and the full existing sail across the upper edge with its seams and frayed edges. Keep all orange lantern glow that falls ON the wooden ship and all cool blue night reflections ON ship surfaces. Do not change or brighten the ship's night lighting.\n\nREMOVE TO EXACT ZERO ALPHA: every pixel of sky, stars, clouds, distant mountains, trees, coast, mist, sea and water reflections outside the ship. Remove these background elements from EVERY opening around the ropes, between rigging lines and mast, beneath the sail, around the curled prow and outside/above the rail. There must be no residual sea or hill silhouettes anywhere in the transparent areas. A transparent opening is truly empty alpha, not filled with grey, checkerboard, black, blue, fog, or a painted backing. Do not retain any glow, atmospheric haze, cast shadow or halo floating outside the physical ship. Use clean antialiased edges at the physical boundaries and preserve fine rope silhouettes.\n\nCANVAS AND REGISTRATION ARE CRITICAL: output the complete original 1672 x 941 canvas, with the ship at the EXACT SAME pixel coordinates and scale. No trimming to the object, no recentering, no moving, no zoom, no rotation, no expansion, no cropping, no padding and no aspect-ratio change. The ship still extends to the original image edges. The entire lower deck remains opaque.\n\nAvoid: repainting or redesigning any ship part, changing lighting or textures, invented hardware, missing/simplified rigging, thickened ropes, broken ropes, disappearing sail, altered prow, retained sky/water/coast, opaque backing, checkerboard painted into the image, white/blue edge halos, vignette, added drop shadow, new objects, people, text, borders or watermark.\nOutput a single high-quality transparent RGBA PNG with a real alpha channel.\n",
+        "reference": {
+          "role": "edit target",
+          "path": "v2/card-game/assets/greek-drama/ship-deck-night.webp",
+          "sha256": "b942c80b09b6b52e7eb36b43706bfba2f23c6058d549f68725e9244527888d9c"
+        },
+        "raw_output": {
+          "path": "ship-foreground-night-raw.png",
+          "dimensions": [1672, 941],
+          "mode": "RGBA",
+          "bytes": 2024853,
+          "sha256": "9864a1fad1e13eeb098b3757182b85bd674ba5f4a514216919eaab0f11528004"
+        },
+        "transparent_background": true,
+        "alpha_review": {
+          "zero_alpha_pixels": 535309,
+          "opaque_pixels": 1195,
+          "partial_alpha_pixels": 1036848,
+          "zero_alpha_fraction": 0.3402,
+          "alpha_extrema": [0, 255],
+          "alpha_samples": {
+            "sky_center": {
+              "xy": [800, 180],
+              "alpha": 0
+            },
+            "removed_coast": {
+              "xy": [800, 320],
+              "alpha": 0
+            },
+            "sea_behind_rail": {
+              "xy": [800, 420],
+              "alpha": 0
+            },
+            "deck_center": {
+              "xy": [800, 760],
+              "alpha": 253
+            },
+            "mast": {
+              "xy": [170, 250],
+              "alpha": 253
+            },
+            "sail": {
+              "xy": [500, 30],
+              "alpha": 253
+            },
+            "prow": {
+              "xy": [1127, 320],
+              "alpha": 252
+            }
+          },
+          "opaque_foreground_mean_absolute_channel_difference_255": 21.559,
+          "lower_deck_mean_absolute_channel_difference_255": 12.105
+        },
+        "visual_review": "Foreground extraction preserves the full canvas and the mast, sail, ropes/pulleys, rail/prow, deck and lit lantern fixtures visually. Sky, coast, water and mist have been removed to alpha. Fine rigging remains. Lighting and painted texture differ modestly: warmer saturated lantern regions and bluer cool reflections. This is a generated visual cutout, not a pixel-exact alpha mask of the original source. Root will inspect edge fringes on light/dark backing before accepting.",
+        "processing": "Original generated RGBA PNG copied without editing, cropping or resizing. No correction pass attempted."
+      },
+      {
+        "created": "2026-10-31",
+        "generator": "OpenAI built-in image generation",
+        "generation_id": "exec-bed93a6b-ab07-461e-b0a2-be47335b173d",
+        "prompt": "Use case: background-extraction.\nInput image 1 is the EDIT TARGET: the transparent night ship foreground just extracted. It is already correctly framed at 1672 x 941. Make ONLY an alpha-channel correction.\n\nThe solid ship surfaces currently have alpha approximately 252-253, allowing the environment to show faintly through them. Correct this so all interior pixels belonging to the wooden deck, mast, sail, carved rail/prow, bronze hardware, lanterns, rope coils and rigging rope bodies are FULLY OPAQUE with alpha 255. Keep narrow antialiased edge pixels only at actual outer physical silhouettes. Every transparent sky/sea/background opening must remain EXACTLY alpha 0.\n\nPreserve the exact RGB appearance of the input image, all night lighting and lantern reflections, canvas dimensions, registration, geometry, fine ropes, pulleys, all details and empty transparent openings. Do not repaint, relight, move, recolor, add or remove anything. No background, no fringe or shadow outside the ship. Do not trim or recenter. Keep exact full 1672 x 941 canvas.\n\nOutput one RGBA PNG with genuine transparency: hard opaque solid ship interiors, smooth one-pixel-scale silhouette antialiasing, zero-alpha empty background. This is strictly an opacity correction, not a new cutout or a new painting.\n",
+        "reference": {
+          "role": "edit target",
+          "path": "ship-foreground-night-raw.png",
+          "sha256": "9864a1fad1e13eeb098b3757182b85bd674ba5f4a514216919eaab0f11528004"
+        },
+        "raw_output": {
+          "path": "ship-foreground-night-alpha-correction.png",
+          "dimensions": [1672, 941],
+          "mode": "RGBA",
+          "bytes": 1983944,
+          "sha256": "9e95387b9fdd20b6c487ed7b370c2b8c200fe4a7943f4f7a22afa212c16204e9"
+        },
+        "transparent_background": true,
+        "alpha_review": {
+          "zero_alpha_pixels": 532725,
+          "opaque_pixels": 922,
+          "partial_alpha_pixels": 1039705,
+          "alpha_extrema": [0, 255],
+          "zero_alpha_fraction": 0.3386,
+          "solid_deck_alpha_range": [252, 254],
+          "alpha_samples": {
+            "sky": 0,
+            "sea": 0,
+            "deck": 253,
+            "mast": 253,
+            "sail": 253,
+            "prow": 252
+          },
+          "lower_deck_mean_absolute_channel_difference_from_canonical_255": 13.846,
+          "lower_deck_mean_absolute_channel_difference_from_first_cutout_255": 5.318
+        },
+        "processing": "Original generated RGBA PNG copied without editing, cropping or resizing. This is the one bounded correction pass."
+      }
+    ],
+    "independent_review": {
+      "verdict": "reject_for_strict_production_reusable_foreground",
+      "foreground_sha256": "9864a1fad1e13eeb098b3757182b85bd674ba5f4a514216919eaab0f11528004",
+      "reference_sha256": "b942c80b09b6b52e7eb36b43706bfba2f23c6058d549f68725e9244527888d9c",
+      "rendering": "Unmodified source PNG rendered by Chromium using normal CSS source-over compositing. No alpha normalization, visual postprocessing or source edits. Full canvas 1672x941; centered cover crops at1440x900 and390x844. White, black, checker, and night-ocean backgrounds. Additional 3x CSS detail views.",
+      "visual_findings": [
+        "The dark-ocean composition is coherent and the foreground geometry aligns.",
+        "Rigging and sail edges are mostly clean at normal scale; some soft fringe is visible on white when enlarged.",
+        "No major lantern halo or large retained coastal silhouette is evident.",
+        "Wood and sail interiors are uniformly slightly translucent rather than opaque.",
+        "Interior painted texture and RGB values differ from the canonical source.",
+        "The strict original-pixel and opaque-solid-foreground requirements fail despite an aesthetically plausible dark-ocean proof."
+      ],
+      "region_checks": [
+        {
+          "region": "deck_center",
+          "xyxy": [500, 650, 1000, 900],
+          "alpha_min": 252,
+          "alpha_max": 254,
+          "alpha_mean": 253.00064,
+          "fully_opaque_percent": 0,
+          "fully_clear_percent": 0,
+          "RGB_MAE_vs_reference_255": 10.772773333333333,
+          "white_minus_black_render_mean_255": 1.99936,
+          "white_minus_black_render_range_255": [1, 3]
+        },
+        {
+          "region": "mast_interior",
+          "xyxy": [140, 410, 210, 560],
+          "alpha_min": 252,
+          "alpha_max": 254,
+          "alpha_mean": 253.00466666666668,
+          "fully_opaque_percent": 0,
+          "fully_clear_percent": 0,
+          "RGB_MAE_vs_reference_255": 6.265460317460318,
+          "white_minus_black_render_mean_255": 1.9953333333333334,
+          "white_minus_black_render_range_255": [1, 3]
+        },
+        {
+          "region": "sail_interior",
+          "xyxy": [370, 10, 600, 90],
+          "alpha_min": 161,
+          "alpha_max": 254,
+          "alpha_mean": 252.95652173913044,
+          "fully_opaque_percent": 0,
+          "fully_clear_percent": 0,
+          "RGB_MAE_vs_reference_255": 7.1790942028985505,
+          "white_minus_black_render_mean_255": 2.0434782608695654,
+          "white_minus_black_render_range_255": [1, 94]
+        },
+        {
+          "region": "sky_cutout",
+          "xyxy": [460, 200, 950, 350],
+          "alpha_min": 0,
+          "alpha_max": 1,
+          "alpha_mean": 0.012938775510204082,
+          "fully_opaque_percent": 0,
+          "fully_clear_percent": 98.7061224489796,
+          "RGB_MAE_vs_reference_255": 52.877814058956915,
+          "white_minus_black_render_mean_255": 254.9870612244898,
+          "white_minus_black_render_range_255": [254, 255]
+        },
+        {
+          "region": "open_water_cutout",
+          "xyxy": [380, 380, 740, 435],
+          "alpha_min": 0,
+          "alpha_max": 1,
+          "alpha_mean": 0.0013131313131313131,
+          "fully_opaque_percent": 0,
+          "fully_clear_percent": 99.86868686868688,
+          "RGB_MAE_vs_reference_255": 41.84929292929293,
+          "white_minus_black_render_mean_255": 254.99868686868686,
+          "white_minus_black_render_range_255": [254, 255]
+        }
+      ],
+      "source_assets_modified": false,
+      "repository_files_modified": false
+    },
+    "decision": "Solid deck, mast and sail retain slight alpha translucency and repainted texture after one targeted correction. Use the approved flat-scene fallback. Rejected foregrounds are not published as runtime or source masters."
+  },
+  "integration": "Art assets only. Register complete WebPs and build official card variants. A separate selector follow-up must combine saved shipAtSea phase and day/night without the coastal night override replacing an at-sea choice. Keep the exterior ship-card.webp, weather cycle and Willows crossing unchanged."
+}

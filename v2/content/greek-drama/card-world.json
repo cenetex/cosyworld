@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 8,
+  "revision": 9,
   "name": "The Wine-Dark Sea",
   "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -1481,6 +1481,20 @@
       "holder": "greek-harbor",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
       "art": "assets/greek-drama/provisions.png"
+    },
+    "greek-olive-branch": {
+      "name": "The Suppliant’s Olive Branch",
+      "text": "An olive branch bound with white wool, given at the Agora when the mothers’ plea is registered. Ships sail between Piraeus and Athens Harbor while it is aboard.",
+      "holder": "greek-athens",
+      "art": "assets/greek-drama/burial-petition.png",
+      "persona": "Describe the branch, its actual holder and its recorded use. The lane between Piraeus and Athens Harbor is open only while it is aboard the ship.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-open-door-plea-registered",
+          "value": true
+        }
+      ]
     },
     "greek-egypt-testimony": {
       "name": "The Egyptian Witness Tablet",
@@ -3216,8 +3230,8 @@
       "subject": "greek-theseus",
       "at": "greek-athens",
       "label": "Lay the mothers’ petition before Theseus",
-      "text": "Vale lays the mothers’ petition on the public table. Theseus hears the request and Adrastus’s part in the war. The city takes up the burial claim as its own duty.",
-      "textTemplate": "{actor} lays the mothers’ petition on the public table. Theseus hears the request and Adrastus’s part in the war. The city takes up the burial claim as its own duty.",
+      "text": "Vale lays the mothers’ petition on the public table. Theseus hears the request and Adrastus’s part in the war. The city takes up the burial claim as its own duty, and the herald hands over a suppliant’s olive branch.",
+      "textTemplate": "{actor} lays the mothers’ petition on the public table. Theseus hears the request and Adrastus’s part in the war. The city takes up the burial claim as its own duty, and the herald hands over a suppliant’s olive branch.",
       "requires": [
         {
           "kind": "flag",
@@ -3240,6 +3254,10 @@
           "kind": "place_item",
           "item": "greek-burial-petition",
           "place": "greek-athens"
+        },
+        {
+          "kind": "give_item",
+          "item": "greek-olive-branch"
         },
         {
           "kind": "set_flag",
@@ -6795,7 +6813,8 @@
       "greek-ajax-shield",
       "greek-ajax-plea",
       "greek-ajax-cloth",
-      "greek-ajax-tools"
+      "greek-ajax-tools",
+      "greek-olive-branch"
     ],
     "choices": [
       "greek-return-water-jar",

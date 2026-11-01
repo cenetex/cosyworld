@@ -386,332 +386,6 @@
         text: "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object."
       }
     },
-    questPrograms: {
-      vale: [
-        {
-          id: "borrowed-light",
-          name: "Borrowed light",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "station",
-              avatars: [
-                "moth"
-              ]
-            },
-            {
-              items: [
-                "oil"
-              ],
-              location: "attic",
-              avatars: [
-                "keeper"
-              ]
-            },
-            {
-              items: [
-                "cloth"
-              ],
-              location: "pond",
-              avatars: [
-                "moth"
-              ]
-            }
-          ]
-        },
-        {
-          id: "the-bell-below",
-          name: "The bell below",
-          steps: [
-            {
-              items: [
-                "bell"
-              ],
-              location: "pond",
-              avatars: [
-                "keeper"
-              ]
-            },
-            {
-              items: [
-                "lamp",
-                "bell"
-              ],
-              location: "station",
-              avatars: [
-                "moth"
-              ]
-            }
-          ]
-        }
-      ],
-      moth: [
-        {
-          id: "a-light-and-a-witness",
-          name: "A light and a witness",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "pond",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "oil"
-              ],
-              location: "attic",
-              avatars: [
-                "keeper"
-              ]
-            }
-          ]
-        },
-        {
-          id: "a-veil-for-the-eye",
-          name: "A veil for the eye",
-          steps: [
-            {
-              items: [
-                "cloth"
-              ],
-              location: "pond",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "lamp"
-              ],
-              location: "station",
-              avatars: [
-                "keeper"
-              ]
-            }
-          ]
-        }
-      ],
-      keeper: [
-        {
-          id: "the-quiet-hour",
-          name: "The quiet hour",
-          steps: [
-            {
-              items: [
-                "bell"
-              ],
-              location: "attic",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "cloth"
-              ],
-              location: "attic",
-              avatars: [
-                "moth"
-              ]
-            }
-          ]
-        },
-        {
-          id: "the-hour-below",
-          name: "The hour below",
-          steps: [
-            {
-              items: [
-                "bell"
-              ],
-              location: "pond",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "oil"
-              ],
-              location: "station",
-              avatars: [
-                "moth"
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    openingPrograms: {
-      vale: [
-        {
-          id: "first-light",
-          name: "Light the lamp",
-          purpose: "Bring light to the attic.",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "attic",
-              avatars: [],
-              conditions: [
-                {
-                  kind: "lit",
-                  item: "lamp"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          id: "along-the-shore",
-          name: "Along the shore",
-          purpose: "Meet the moth by the water, then carry the lamp along the path to the station.",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "pond",
-              avatars: [
-                "moth"
-              ]
-            },
-            {
-              items: [
-                "lamp"
-              ],
-              location: "station",
-              avatars: []
-            }
-          ]
-        }
-      ],
-      moth: [
-        {
-          id: "a-light-and-a-witness",
-          name: "A light and a witness",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "pond",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "oil"
-              ],
-              location: "station",
-              avatars: [
-                "keeper"
-              ]
-            }
-          ]
-        },
-        {
-          id: "a-veil-for-the-eye",
-          name: "A veil for the eye",
-          steps: [
-            {
-              items: [
-                "cloth"
-              ],
-              location: "pond",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "lamp"
-              ],
-              location: "station",
-              avatars: [
-                "keeper"
-              ]
-            }
-          ]
-        }
-      ],
-      keeper: [
-        {
-          id: "the-quiet-hour",
-          name: "The quiet hour",
-          steps: [
-            {
-              items: [
-                "bell"
-              ],
-              location: "station",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "cloth"
-              ],
-              location: "pond",
-              avatars: [
-                "moth"
-              ]
-            }
-          ]
-        },
-        {
-          id: "the-hour-below",
-          name: "The hour below",
-          steps: [
-            {
-              items: [
-                "bell"
-              ],
-              location: "pond",
-              avatars: [
-                "vale"
-              ]
-            },
-            {
-              items: [
-                "oil"
-              ],
-              location: "station",
-              avatars: [
-                "moth"
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    restingHands: {
-      vale: {
-        items: [],
-        location: null,
-        avatars: []
-      },
-      moth: {
-        items: [],
-        location: "pond",
-        avatars: []
-      },
-      keeper: {
-        items: [],
-        location: "attic",
-        avatars: []
-      }
-    },
     initialState: {
       locations: {
         attic: {
@@ -848,53 +522,6 @@
           light: false,
           speaker: "World",
           text: "Vale stands alone in Mirror attic, holding an unlit lamp. The tall mirror stands dark and empty."
-        }
-      ]
-    },
-    pondOpeningPrograms: {
-      vale: [
-        {
-          id: "shore-light",
-          name: "Light by the water",
-          purpose: "Bring a little light to the black shore.",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "pond",
-              avatars: [],
-              conditions: [
-                {
-                  kind: "lit",
-                  item: "lamp"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          id: "along-the-shore",
-          name: "Along the shore",
-          purpose: "Meet the moth by the water, then carry the lamp along the path to the station.",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "pond",
-              avatars: [
-                "moth"
-              ]
-            },
-            {
-              items: [
-                "lamp"
-              ],
-              location: "station",
-              avatars: []
-            }
-          ]
         }
       ]
     }
@@ -1798,7 +1425,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 8,
+        revision: 9,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -3485,6 +3112,20 @@
             holder: "greek-harbor",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/provisions.png"
+          },
+          "greek-olive-branch": {
+            name: "The Suppliant\u2019s Olive Branch",
+            text: "An olive branch bound with white wool, given at the Agora when the mothers\u2019 plea is registered. Ships sail between Piraeus and Athens Harbor while it is aboard.",
+            holder: "greek-athens",
+            art: "assets/greek-drama/burial-petition.png",
+            persona: "Describe the branch, its actual holder and its recorded use. The lane between Piraeus and Athens Harbor is open only while it is aboard the ship.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-open-door-plea-registered",
+                value: true
+              }
+            ]
           },
           "greek-egypt-testimony": {
             name: "The Egyptian Witness Tablet",
@@ -5220,8 +4861,8 @@
             subject: "greek-theseus",
             at: "greek-athens",
             label: "Lay the mothers\u2019 petition before Theseus",
-            text: "Vale lays the mothers\u2019 petition on the public table. Theseus hears the request and Adrastus\u2019s part in the war. The city takes up the burial claim as its own duty.",
-            textTemplate: "{actor} lays the mothers\u2019 petition on the public table. Theseus hears the request and Adrastus\u2019s part in the war. The city takes up the burial claim as its own duty.",
+            text: "Vale lays the mothers\u2019 petition on the public table. Theseus hears the request and Adrastus\u2019s part in the war. The city takes up the burial claim as its own duty, and the herald hands over a suppliant\u2019s olive branch.",
+            textTemplate: "{actor} lays the mothers\u2019 petition on the public table. Theseus hears the request and Adrastus\u2019s part in the war. The city takes up the burial claim as its own duty, and the herald hands over a suppliant\u2019s olive branch.",
             requires: [
               {
                 kind: "flag",
@@ -5244,6 +4885,10 @@
                 kind: "place_item",
                 item: "greek-burial-petition",
                 place: "greek-athens"
+              },
+              {
+                kind: "give_item",
+                item: "greek-olive-branch"
               },
               {
                 kind: "set_flag",
@@ -8885,7 +8530,8 @@
             "greek-ajax-shield",
             "greek-ajax-plea",
             "greek-ajax-cloth",
-            "greek-ajax-tools"
+            "greek-ajax-tools",
+            "greek-olive-branch"
           ],
           choices: [
             "greek-return-water-jar",
@@ -10172,7 +9818,14 @@
               },
               {
                 from: "greek-athens-harbor",
-                to: "greek-piraeus"
+                to: "greek-piraeus",
+                opensWith: [
+                  {
+                    kind: "item_present",
+                    item: "greek-olive-branch",
+                    place: "greek-ship"
+                  }
+                ]
               },
               {
                 from: "greek-piraeus",
@@ -10202,8 +9855,8 @@
         places: {
           "hoppycat-halfway-tea-garden": {
             name: "Halfway Tea Garden",
-            text: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup and spool rest on the table.",
-            persona: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup and spool rest on the table. Describe this as a playful living place. Use the current story facts for progress.",
+            text: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table.",
+            persona: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table. Describe this as a playful living place. Use the current story facts for progress.",
             exits: [
               "hoppycat-open-record-cathedral",
               "hoppycat-prism-foundry",
@@ -10550,9 +10203,9 @@
         items: {
           "hoppycat-red-thread-spool": {
             name: "Red-Thread Spool",
-            text: "A warm spool that catches only on relationships someone has chosen to carry forward.",
-            persona: "A warm spool that catches only on relationships someone has chosen to carry forward.",
-            holder: "hoppycat-halfway-tea-garden",
+            text: "A warm spool washed up at Black pond, its loose thread trailing over the water. It catches only on relationships someone has chosen to carry forward.",
+            persona: "A warm spool washed up at Black pond, its loose thread trailing over the water toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
+            holder: "pond",
             art: "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png"
           },
           "hoppycat-provenance-card": {
@@ -16242,7 +15895,7 @@
       s.log = s.log.filter((e) => e?.kind !== "quest" && !QUEST_VERBS.includes(e?.verb)).map(({ questPlan, consequence, questKey, ...e }) => e);
     migrateLife(s);
   }
-  function upgradeSave(s, { installPacks: installPacks2 }) {
+  function upgradeSave(s, { installPacks: installPacks2, laneText = () => null }) {
     if (!s || ![6, 7].includes(s.schema))
       throw new Error("This save needs a fresh start.");
     forgetQuests(s);
@@ -16255,6 +15908,7 @@
       upgradeGreekTownSave(s);
       upgradeGreekAjaxSave(s);
       upgradeGreekOneRoadSave(s);
+      upgradeGreekPassSave(s);
       s.schema = 7;
       installPacks2(s);
     } else if (s?.schema === 7 && s.packs && typeof s.packs === "object" && s.crossings && typeof s.crossings === "object") {
@@ -16265,6 +15919,7 @@
       upgradeGreekTownSave(s);
       upgradeGreekAjaxSave(s);
       upgradeGreekOneRoadSave(s);
+      upgradeGreekPassSave(s);
       installPacks2(s);
     }
     if (s?.schema === 7) {
@@ -16281,6 +15936,10 @@
     }
     upgradeSightings(s);
     installPacks2(s);
+    for (const fact of Object.values(s?.knowledge?.facts || {})) {
+      const text2 = fact?.source?.kind === "lane" && laneText(fact.id);
+      if (text2) fact.text = text2;
+    }
     if (s?.schema === 7)
       installKnowledge(
         s,
@@ -16486,6 +16145,15 @@
     s.standoffs = (s.standoffs || []).filter(
       (conflict) => !localRoadEnds(conflict.location)
     );
+  }
+  function upgradeGreekPassSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 9 || saved?.revision !== 8) return;
+    const id = "greek-olive-branch";
+    s.items[id] ??= { holder: pack.items[id].holder, history: [] };
+    s.memories[id] ??= newMemories()[id];
+    saved.revision = 9;
   }
   function upgradeGreekAjaxSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
@@ -17274,7 +16942,7 @@
   }
   function decodeSave(text2) {
     const s = JSON.parse(text2);
-    upgradeSave(s, { actorIds, installPacks });
+    upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
     validateWorld(s);
     preserveTransportAccess(s);
     return validateWorld(s);
