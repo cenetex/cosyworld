@@ -175,7 +175,14 @@ export const packOf = (id) => packDefinition(entities[id]?.packId);
 export const resident = (id) => packPeople[id] || null;
 export const roamingQuestActor = (id) =>
   packPeople[id]?.roamingQuest === "latest-completion";
-export const staysPut = (id) => packPeople[id]?.travels === false;
+// A resident who keeps to its scene leaves it once its pack's `stayUntil`
+// conditions hold (the Swede, once the Willows kit is back at camp).
+export const freed = (world, id) =>
+  !!world &&
+  Array.isArray(packPeople[id]?.stayUntil) &&
+  conditionsMet(world, packPeople[id].packId, packPeople[id].stayUntil, id);
+export const staysPut = (id, world = null) =>
+  packPeople[id]?.travels === false && !freed(world, id);
 export const packJourneyDestination = (world, id) =>
   journeyNextPlace(world, packOf(id), id);
 export const avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;

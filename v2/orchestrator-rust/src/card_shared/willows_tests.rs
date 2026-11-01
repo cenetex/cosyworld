@@ -11,7 +11,7 @@ fn willows_upgrades_from_each_released_version() {
 }
 
 #[test]
-fn willows_upgrades_version_eighteen_and_replays_observed_signs_custody_and_return() {
+fn willows_upgrades_version_eighteen_and_replays_observed_signs_and_the_kit() {
     let version = engine::EIGHTEENTH_VERSION;
     let (path, c, id, mut world) = upgraded_willows(version);
     // The released save keeps its unlit lamp, and a dark lamp already opens
@@ -21,9 +21,13 @@ fn willows_upgrades_version_eighteen_and_replays_observed_signs_custody_and_retu
         ("target", "greek-ship"),
         ("target", "willows-landing"),
         ("observe", "willows-examine-hull"),
+        ("item", "willows-sheet"),
+        ("item", "willows-provisions"),
         ("target", "willows-camp"),
-        ("observe", "willows-count-stores"),
+        ("drop", "willows-sheet"),
+        ("drop", "willows-provisions"),
         ("target", "willows-swede"),
+        ("observe", "willows-count-stores"),
         ("target", "willows-thicket"),
         ("observe", "willows-examine-hollows"),
         ("target", "willows-bank"),
@@ -32,14 +36,16 @@ fn willows_upgrades_version_eighteen_and_replays_observed_signs_custody_and_retu
         ("target", "willows-thicket"),
         ("target", "willows-camp"),
         ("observe", "willows-compare-signs"),
-        ("item", "willows-rope"),
-        ("item", "willows-sheet"),
-        ("target", "willows-landing"),
-        ("choiceId", "willows-prepare-canoe"),
+        ("target", "willows-thicket"),
+        ("target", "willows-bank"),
         ("item", "willows-paddle"),
-        ("choiceId", "willows-set-paddle"),
-        ("choiceId", "willows-choose-departure"),
-        ("target", "greek-ship"),
+        ("item", "willows-rope"),
+        ("target", "willows-thicket"),
+        ("target", "willows-camp"),
+        ("drop", "willows-paddle"),
+        ("drop", "willows-rope"),
+        ("target", "willows-landing"),
+        ("target", "pond"),
     ] {
         // The Willows crossings open only on a misty night with the ship at
         // Black Pond (turns 120-131, then 264-275, ...). The journey waits for
@@ -110,9 +116,10 @@ fn willows_upgrades_version_eighteen_and_replays_observed_signs_custody_and_retu
             .unwrap()
             .iter()
             .find(|a| {
-                a[field] == value
+                a[if field == "drop" { "item" } else { field }] == value
                     && match field {
                         "item" => a["kind"] == "take",
+                        "drop" => a["kind"] == "drop",
                         "target" if value == "willows-swede" => a["kind"] == "talk",
                         "target" => a["kind"] == "move",
                         _ => true,
@@ -134,17 +141,10 @@ fn willows_upgrades_version_eighteen_and_replays_observed_signs_custody_and_retu
         )
         .unwrap_or_else(|error| panic!("{version}: {field} {value}: {error}"));
     }
-    assert_eq!(world.game["actors"]["vale"]["place"], "greek-ship");
-    assert_eq!(
-        world.game["actors"]["willows-swede"]["place"],
-        "willows-camp"
-    );
-    assert_eq!(
-        world.game["packs"]["willows"]["choices"]["willows-response"],
-        "depart"
-    );
-    for item in ["willows-rope", "willows-sheet", "willows-paddle"] {
-        assert_eq!(world.game["items"][item]["holder"], "willows-landing");
+    assert_eq!(world.game["actors"]["vale"]["place"], "pond");
+    for item in ["rope", "sheet", "paddle", "provisions"] {
+        let item = format!("willows-{item}");
+        assert_eq!(world.game["items"][&item]["holder"], "willows-camp");
     }
     assert_eq!(
         world.project(1).unwrap()["world"]["packs"]["willows"],
@@ -197,7 +197,7 @@ fn upgraded_willows(version: &str) -> (std::path::PathBuf, rusqlite::Connection,
     {
         assert_eq!(&world.game["items"][key], item);
     }
-    assert_eq!(world.game["packs"]["willows"]["revision"], 1);
+    assert_eq!(world.game["packs"]["willows"]["revision"], 2);
     assert!(world.game["actors"].get("willows-narrator").is_none());
     // The upgrade itself replays from the journal.
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();

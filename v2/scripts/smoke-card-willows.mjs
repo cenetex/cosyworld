@@ -117,7 +117,7 @@ try {
     const click = async (card, selector) => {
       const before = (await saved()).revision;
       await page.keyboard.press("Escape");
-      await selectCard(page, card);
+      for (const id of [card].flat()) await selectCard(page, id);
       await page.locator(`#card-actions ${selector}`).click();
       await page.waitForFunction(
         ({ key, before }) =>
@@ -129,7 +129,6 @@ try {
       );
     };
     const move = (target) => click(target, '[data-action="move"]');
-    const choose = (place, id) => click(place, `[data-choice="willows-${id}"]`);
     // Observe at a place until it shows this sign.
     const observe = async (place, id) => {
       for (let i = 0; i < 16; i++) {
@@ -138,6 +137,14 @@ try {
       }
       assert.fail(`Observe never found ${id}`);
     };
+    // Take an item, or put it down here by pairing it with this place.
+    const carry = (item, kind) =>
+      click(
+        kind === "drop"
+          ? [`willows-${item}`, "willows-camp"]
+          : `willows-${item}`,
+        `[data-action="${kind}"]`,
+      );
     const willowsCards = () =>
       page.locator('#hand [data-card="willows-landing"]').count();
     const resave = async (world, card = null) => {
@@ -170,8 +177,13 @@ try {
       await page.locator("#backdrop").getAttribute("src"),
       /landing-ship-night\.webp/,
     );
+    assert.equal(await page.locator("#card-actions [data-choice]").count(), 0);
     await observe("willows-landing", "examine-hull");
+    await carry("sheet", "take");
+    await carry("provisions", "take");
     await move("willows-camp");
+    await carry("sheet", "drop");
+    await carry("provisions", "drop");
     await observe("willows-camp", "count-stores");
     await click("willows-swede", '[data-action="talk"]');
     const portrait = page
@@ -213,8 +225,15 @@ try {
     await pose("swede-listening");
     await observe("willows-camp", "compare-signs");
     await pose("swede-worried");
-    await choose("willows-swede", "choose-watch");
-    await pose("swede-listening");
+    // The whole kit at camp mends the canoe.
+    await move("willows-thicket");
+    await move("willows-bank");
+    await carry("paddle", "take");
+    await carry("rope", "take");
+    await move("willows-thicket");
+    await move("willows-camp");
+    await carry("paddle", "drop");
+    await carry("rope", "drop");
     const beforeReload = (await saved()).packs.willows;
     await page.reload();
     await page.locator('#hand [data-card="willows-camp"]').waitFor();
@@ -231,10 +250,6 @@ try {
     await resave(untilDarkMist(stranded), "greek-ship");
     await move("greek-ship");
     assert.equal((await saved()).actors.vale.place, "greek-ship");
-    assert.equal(
-      (await saved()).packs.willows.choices["willows-response"],
-      "watch",
-    );
     assert(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
