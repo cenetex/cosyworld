@@ -4,8 +4,9 @@ import {
   cardActions,
   cardPlay,
   playLabel,
+  playProgress,
+  playProgressLine,
 } from "../v2/card-game/cards.mjs";
-import { observeText } from "../v2/card-game/observe-words.mjs";
 import {
   createWorld,
   encodeSave,
@@ -82,25 +83,22 @@ describe("named card actions", () => {
     expect(primary(world, ["lamp", "station"]).kind).toBe("snuff");
     expect(primary(world, ["bell", "station"]).kind).toBe("ring");
   });
-  it("shows the wait verb as Observe without changing its committed text", () => {
+  it("shows the wait verb as Wait and an unresolved play as progress", () => {
     const world = createWorld();
     const { action, hint } = cardPlay(world, ["vale"]);
     expect(action.kind).toBe("wait");
-    expect(action.text).toBe("Vale waits one turn.");
-    expect(playLabel(action)).toBe("Observe");
-    expect(hint).toBe("Vale observes.");
-    expect(observeText("The keeper waits one turn.")).toBe(
-      "The keeper observes.",
-    );
-    expect(observeText("A kettle waits on the table.")).toBe(
-      "A kettle waits on the table.",
-    );
+    expect(playLabel(action)).toBe("Wait");
+    expect(hint).toBe("Vale waits one turn.");
+    expect(playProgressLine("vale", action)).toBe("Vale is waiting…");
+    expect(playProgress({ kind: "attack" })).toBe("attacking");
+    expect(playProgress({ kind: "move", item: "lamp" })).toBe("carrying");
+    expect(playProgress({ kind: "pack-choice" })).toBe("acting");
   });
   it("lists local fixtures and carries spoken clues through Talk", () => {
     const world = createWorld();
     world.actors.vale.place = "clearing";
     const local = cardActions(world, ["clearing"]).actions;
-    expect(local.map(playLabel)).toEqual(["Observe", "Ring the Steam Clock"]);
+    expect(local.map(playLabel)).toEqual(["Wait", "Ring the Steam Clock"]);
     world.actors.vale.place = "greek-gate";
     world.crossings["pond-greek-harbor"].discovered = true;
     const story = cardActions(world, ["greek-guard"]).actions;

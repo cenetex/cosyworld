@@ -8,8 +8,8 @@ The Willows has no story buttons. The willow thicket stays a live road between
 camp and bank (`road: [camp, bank]`), a place to stand like the Greek roads.
 Two generic rules carry it, in steps:
 
-- **Observe finds signs (step 1, #1640).** A pack choice marked `"on": "wait"`
-  is a sign. A human's Observe (the `wait` play) at that place commits one
+- **Wait finds signs (step 1, #1640).** A pack choice marked `"on": "wait"`
+  is a sign. A human's Wait (the `wait` play) at that place commits one
   feasible sign, picked by a seeded hash of the run seed, place and receipt
   count. The sign's text is the World line in the place's own voice; its flag
   stays, so the Swede's poses still follow it. Day signs: otter, boatman,
