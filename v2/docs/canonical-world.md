@@ -336,10 +336,9 @@ copy of every acknowledged message, and no isolated mutation.
 A command whose observed versions are stale on its edge is forwarded to the
 live owner before it is refused, because the edge may have converged past the
 owner's commit of that same intent before the owner finalized its receipt.
-The regional chaos harness flakes under full-suite load and is quarantined
-until its fix lands (#1554). The blocking Rust job skips it; CI's non-blocking
-`Quarantined Rust tests` job runs it on every push. Run it alone with
-`bash v2/scripts/check-rust.sh quarantine`.
+The regional chaos harness gives live owners the production lease TTL and
+expires a lost owner's leases explicitly, so a stalled scheduler cannot move a
+room mid-run.
 
 ## Rollout order
 
