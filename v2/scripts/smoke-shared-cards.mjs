@@ -678,7 +678,8 @@ try {
     "pickup commits",
   );
   await idle(mara);
-  await mara.locator('#hand [data-card="pond"]').waitFor();
+  // The pond joins the location stack face down (#1780).
+  await mara.locator('#hand [data-card="pond"]').waitFor({ state: "attached" });
   const earlierTravel = await actionFor(mara, "move", "pond");
   await selectCard(mara, "mask");
   await selectCard(mara, "theatre");
