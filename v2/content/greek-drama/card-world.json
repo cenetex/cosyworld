@@ -80,8 +80,25 @@
       "backdrop": "assets/greek-drama/city-gate-closed-day.webp",
       "backdrops": [
         {
+          "backdrop": "assets/greek-drama/city-gate-night.webp",
+          "requires": [
+            { "kind": "daylight", "phase": "night" },
+            {
+              "kind": "holding",
+              "item": "greek-decree",
+              "actor": "greek-guard"
+            },
+            {
+              "kind": "item_near",
+              "item": "greek-decree",
+              "place": "greek-gate"
+            }
+          ]
+        },
+        {
           "backdrop": "assets/greek-drama/city-gate-day.webp",
           "requires": [
+            { "kind": "daylight", "phase": "day" },
             {
               "kind": "holding",
               "item": "greek-decree",
