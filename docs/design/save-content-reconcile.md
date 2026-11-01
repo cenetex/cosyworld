@@ -16,6 +16,27 @@ installed and before validation:
   others. Rules 75 missed this, so every world that had seen the retired
   storybook map at the station asked for a fresh start (2026-11-01).
 
+Rules 78 close the gaps that still left rules-67 worlds asking for a fresh
+start under rules 76 and 77, found by upgrading generated rules-67 worlds
+that walked every pack:
+
+- A thing that leaves also leaves keepsakes, experiences, standoffs and
+  wishes (the storybook map, #1782).
+- A told topic takes its current words and choice; a topic that was retired
+  or given another teller is forgotten (Oak's night watch, #1747). A told
+  lane the ship no longer sails is forgotten (Greek revision 16).
+- `reconcilePackProgress` replays each pack's receipts as validation reads
+  them. A step whose prerequisites the content no longer meets leaves with
+  its log line and recital, and the flags and choices are counted again.
+  Residents and things those flags hold back go home; anyone in a place they
+  close goes to the pack's entry. Greek revision 11 retired the Theban
+  refusal, which had opened the Open Door, so a refusal world that went on
+  to Athens loses its Open Door steps there instead of its whole world.
+
+A refused shared world logs its ID, the error and where the rules refused it
+(function names and bundle lines), so the next 409 is diagnosable from the
+host log.
+
 `decodeSave` turns any script error from upgrading or validating a save into
 the existing "needs a fresh start" message, so a stale save shows New game
 instead of a raw `TypeError` toast. A shared world never shows that

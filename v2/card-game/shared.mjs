@@ -329,12 +329,13 @@ export async function connectSharedWorld(id) {
         }),
       );
     };
-    // One message: why the world did not open, and that it is kept.
-    authenticate(enter, false).catch((error) => {
+    // One message: why the world did not open, and that it is kept. A
+    // failed retry redraws the card instead of repeating the message below.
+    const failed = (error) =>
       panel("Open this world", openFailure(error), false).append(
-        button("Try again", () => authenticate(enter, false)),
+        button("Try again", () => authenticate(enter, false).catch(failed)),
       );
-    });
+    authenticate(enter, false).catch(failed);
   });
   let state = initial,
     listener = () => {},

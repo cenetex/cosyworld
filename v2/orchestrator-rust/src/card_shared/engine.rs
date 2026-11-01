@@ -469,6 +469,9 @@ fn reduce_source(
     let value: Value = serde_json::from_str(&output)
         .map_err(|_| "The shared-world rules need attention.".to_string())?;
     if value["ok"] == false || value["error"].is_string() {
+        if let Some(reason) = value["reason"].as_str().filter(|r| !r.is_empty()) {
+            REASON.with(|r| *r.borrow_mut() = Some(format!("{version}: {reason}")));
+        }
         return Err(value["error"]
             .as_str()
             .unwrap_or("Choose from the current cards.")
@@ -483,6 +486,14 @@ fn reduce_source(
     }
     Ok(value)
 }
+thread_local! {
+    // Where the rules last refused a request on this thread, for the log.
+    static REASON: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+/// Takes where the rules last refused a request on this thread.
+pub(super) fn take_reason() -> Option<String> {
+    REASON.with(|r| r.borrow_mut().take())
+}
 const DEADLINE_ERROR: &str = "The shared world is taking a moment. Try again.";
 fn deadline_error(version: &str) -> String {
     tracing::warn!(version, "shared rules reached the interpreter deadline");
@@ -496,6 +507,19 @@ fn engine_error(error: impl std::fmt::Display) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn a_refused_world_leaves_where_the_rules_refused_it() {
+        take_reason();
+        let request = serde_json::json!({
+            "op":"validate", "world":{"schema":1}, "actor":"vale",
+            "claimed":["vale"], "present":["vale"]
+        });
+        let error = reduce_pack(VERSION, Some(content::current()), request).unwrap_err();
+        assert!(error.contains("fresh start"), "{error}");
+        let reason = take_reason().expect("the rules name where they refused");
+        assert!(reason.starts_with(VERSION) && reason.contains("validateWorld"), "{reason}");
+        assert!(take_reason().is_none());
+    }
     #[test]
     fn view_cache_keys_cover_the_exact_world_and_viewer() {
         let input = serde_json::json!({

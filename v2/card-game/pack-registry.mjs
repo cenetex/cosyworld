@@ -321,7 +321,7 @@ export function entityActive(world, id) {
   if (humanAvatar(id) && !humanPresent(world, id)) return false;
   return entityEnabled(world, id);
 }
-function entityEnabled(world, id, saved = false) {
+export function entityEnabled(world, id, saved = false) {
   if (localRoads.has(id) || retiredPlaces.has(id)) return false;
   const e = packEntity(id);
   if (!e) return true;
@@ -542,7 +542,7 @@ function departure(world, actor, to) {
   return c ? { packId: pack.id, choiceId: c.id, actor } : null;
 }
 // A resident that left keeps its record, hidden by its own requires.
-const departed = (pack, state, id) =>
+export const departed = (pack, state, id) =>
   (pack.choices || []).some(
     (c) => c.on === "depart" && c.subject === id && owns(state.receipts, c.id),
   );

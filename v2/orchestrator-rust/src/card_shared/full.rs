@@ -173,12 +173,14 @@ async fn view(State(state): State<AppState>, Path(id): Path<String>, h: HeaderMa
         valid_id(&id)?;
         let u = user(&state, &h, false)?;
         admit(&u)?;
-        view_as(
-            &state,
-            &id,
-            &u,
-            h.get(super::sync::HEADER).and_then(|v| v.to_str().ok()),
-        )
+        logged(&id, || {
+            view_as(
+                &state,
+                &id,
+                &u,
+                h.get(super::sync::HEADER).and_then(|v| v.to_str().ok()),
+            )
+        })
     })
     .await;
     if result.as_ref().is_ok_and(|v: &Value| {
@@ -218,19 +220,32 @@ async fn command(
         valid_id(&id)?;
         let u = user(&state, &h, true)?;
         admit(&u)?;
-        command_as(
-            &state,
-            &id,
-            &u,
-            &body,
-            h.get(super::sync::HEADER).and_then(|v| v.to_str().ok()),
-        )
+        logged(&id, || {
+            command_as(
+                &state,
+                &id,
+                &u,
+                &body,
+                h.get(super::sync::HEADER).and_then(|v| v.to_str().ok()),
+            )
+        })
     })
     .await;
     if result.is_ok() {
         kick(state, id);
     }
     reply(result)
+}
+// A refused world names itself and where the rules refused it, so a 409 is
+// diagnosable from the host log. Only the world ID and rule text are logged.
+fn logged(id: &str, f: impl FnOnce() -> Result<Value>) -> Result<Value> {
+    super::engine::take_reason();
+    let result = f();
+    if let Err(error) = &result {
+        let reason = super::engine::take_reason();
+        tracing::warn!(world = %id, %error, reason = reason.as_deref().unwrap_or(""), "shared world request refused");
+    }
+    result
 }
 // The signed-in viewer's snapshot. Expiry and the sync chain write, so the
 // view takes the world's write turn.
