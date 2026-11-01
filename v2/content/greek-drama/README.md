@@ -14,11 +14,38 @@ City Gate, Exposed Battlefield, Palace Forecourt and Hillside Sanctuary.
 Seven residents support the opening: Myrto, Antigone, Ismene, Creon, the guard,
 Dione and the chorus elder. Each place has distinct painted scenery.
 
-The player can return water, hear the decree, arrange a witness, carry a
-shovel, supply cloth and oil, perform a burial, petition, accept permission,
-refuse, report or give a later warning. Objects keep their actual holders.
-Witnesses and recorded deeds shape each later offer. The quiet sanctuary and
-the homeward road remain available throughout.
+Thebes has no story buttons. Its deeds are the ordinary verbs:
+
+- **Give** Dione the water jar to return it.
+- Meeting the guard at the gate tells the decree. Meeting the elder at the
+  well after it gives the household a witness.
+- **Wait** on the battlefield with the shovel to dig the grave, then with the
+  cloth and oil laid there to bury the brother. The **Burial Account** then
+  lies on the battlefield.
+- **Give** Creon the decree, with the household token in hand and the elder's
+  witness, to petition. **Creon's Writ** then lies at the palace.
+- **Give** the guard the shovel to report the plan. **The Guard's Tablet**
+  then lies at the gate.
+- **Give** Dione the account, the writ or the tablet. It stays on her table,
+  and her road to Eleusis opens.
+
+The Market Well lies within the courtyard and opens only onto it. Objects
+keep their actual holders. The quiet sanctuary and the homeward road remain
+available throughout. See the [Greek redesign](../../docs/card-table/greek-redesign.md).
+
+The City Gate opens onto the battlefield only while the gate guard
+(`greek-guard`) holds the Burial Decree (`greek-decree`, first at the palace)
+at the gate. It is a live condition in pack data: a `greek-gate` →
+`greek-battlefield` route that `requires` a `holding` condition and an
+`item_near` condition at the gate. The gate's open paintings use exactly the
+same two conditions, and `test/card-theban-gate.test.mjs` keeps them equal, so
+the painting and the passage cannot disagree. While the gate is closed no
+travel card leads out. The gate only blocks the way out: anyone already on the
+battlefield can always walk back in. If the guard gives the decree away or
+leaves his post, the gate closes. A petition needs the decree in hand and
+returns it to the palace, so a petitioner carries it back to the guard
+afterwards. The battlefield is a Theban place just outside the walls, so by
+the map rule it links directly to the gate and has no road of its own.
 
 Three short story cards follow the opening. The Bard carries its growing
 poem. Finishing a quest brings him to the next room the player enters.
@@ -29,8 +56,8 @@ records all three card lines and every branch of the song.
 
 ## The Open Door
 
-After the public account of burial, permission, refusal or warning, Dione
-can offer a place on the road to Athens. Accepting records a lasting opening
+When Dione receives the account of burial, permission or warning, she opens
+the road to Athens. That records a lasting opening
 for the Athenian Agora, Piraeus Quays, Colonus Grove, Eleusinian Sanctuary
 and Marathon Altar. One shared traveler can open the roads for everyone.
 

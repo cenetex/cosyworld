@@ -14,8 +14,8 @@ const pack = packDefinition("greek-drama");
 const places = pack.places;
 const isRoad = (id) => Array.isArray(places[id]?.road);
 
-// A town is a group of places joined by direct links. Roads and the ship are
-// not part of any town.
+// A town is a group of places joined by direct links, either way. Roads and
+// the ship are not part of any town.
 function towns() {
   const town = {};
   for (const start of Object.keys(places)) {
@@ -24,7 +24,10 @@ function towns() {
     town[start] = start;
     while (queue.length) {
       const here = queue.shift();
-      for (const next of places[here].exits || [])
+      const back = Object.keys(places).filter((id) =>
+        places[id].exits?.includes(here),
+      );
+      for (const next of [...(places[here].exits || []), ...back])
         if (!isRoad(next) && places[next] && !town[next]) {
           town[next] = start;
           queue.push(next);
@@ -163,7 +166,7 @@ describe("purposeful road save upgrade", () => {
       ["greek-gate", "greek-aulis"],
     ];
     const after = decodeSave(JSON.stringify(before));
-    expect(after.packs["greek-drama"].revision).toBe(10);
+    expect(after.packs["greek-drama"].revision).toBe(11);
     expect(after.routeKnowledge.vale).toEqual([
       ["greek-athens", "greek-road-sacred-way"],
       ["greek-road-sacred-way", "greek-delphi"],

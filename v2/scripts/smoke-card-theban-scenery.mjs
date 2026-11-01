@@ -237,9 +237,11 @@ try {
       const visited = new Set(["greek-ship", "greek-harbor"]);
       for (const id of [
         "greek-courtyard",
+        // The Market Well lies within the courtyard and opens only onto it.
         "greek-well",
+        "greek-courtyard",
         "greek-palace",
-        "greek-well",
+        "greek-courtyard",
         "greek-gate",
         "greek-battlefield",
         "greek-gate",
@@ -268,6 +270,14 @@ try {
         if (!visited.has(id)) {
           await shot(id.replace("greek-", ""));
           visited.add(id);
+        }
+        // The gate opens onto the battlefield while the guard holds the
+        // decree there; until then no card leads out.
+        const decree = (await state()).items["greek-decree"].holder;
+        if (id === "greek-palace") await use("greek-decree");
+        if (id === "greek-gate" && decree === "vale") {
+          assert(!destinations.includes("greek-battlefield"));
+          await use("greek-decree", "greek-guard");
         }
       }
       assert.deepEqual([...visited].sort(), [

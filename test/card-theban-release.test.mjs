@@ -90,7 +90,10 @@ const act = (s, kind, fields = {}) => {
   expect(r.ok, r.error).toBe(true);
   return r.state;
 };
-const reachable = (s) => {
+// The battlefield road is open while the guard at the gate holds the decree.
+const reachable = (world) => {
+  const s = structuredClone(world);
+  s.items["greek-decree"].holder = "greek-guard";
   const seen = new Set([pack.entry]);
   for (const id of seen)
     for (const to of exits(s, id, "vale"))
@@ -125,16 +128,17 @@ describe("the Theban release and its ship", () => {
     expect(entityActive(s, "greek-rhapsode")).toBe(true);
     expect(s.actors["greek-rhapsode"].place).toBe("greek-harbor");
   });
-  it("opens five more places after Dione hears a refusal and keeps them through reload", () => {
+  it("opens five more places when Dione receives the guard's tablet and keeps them through reload", () => {
     let s = createWorld();
     s.crossings["pond-greek-harbor"].discovered = true;
     s.actors.vale.place = "greek-gate";
-    s = act(s, "choose", { choiceId: "greek-hear-decree" });
-    s = act(s, "choose", { choiceId: "greek-decline-burial" });
+    // Meeting the guard tells the decree; the shovel handed to him reports it.
+    s = act(s, "take", { item: "greek-shovel" });
+    s = act(s, "give", { item: "greek-shovel", target: "greek-guard" });
+    s = act(s, "take", { item: "greek-guard-tablet" });
     s.actors.vale.place = "greek-courtyard";
-    s = act(s, "choose", { choiceId: "greek-courtyard-refusal" });
     expect(reachable(s)).toHaveLength(9);
-    s = act(s, "choose", { choiceId: "greek-open-door-invite-refusal" });
+    s = act(s, "give", { item: "greek-guard-tablet", target: "greek-baker" });
     // Black Pond sails only to the Wine-Dark Harbor. The way on to Athens
     // needs the Travel Provisions aboard, which open the lane to Piraeus;
     // the Athens-Piraeus road walks on from the quay.
@@ -212,6 +216,9 @@ describe("the Theban release and its ship", () => {
         "boardyai-calling-card",
         "can",
         "greek-olive-branch",
+        "greek-burial-account",
+        "greek-creon-writ",
+        "greek-guard-tablet",
         "float",
         "kite",
         "mask",
