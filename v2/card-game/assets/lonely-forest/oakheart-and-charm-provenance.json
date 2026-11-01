@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-31",
+  "assets": [
+    {
+      "file": "oakheart.webp",
+      "prompt": "Use case: identity-preserve. Asset type: final CosyWorld avatar persona card artwork, 1024 x 1536 portrait, true transparent background.\nInput image: the existing Old Oak landscape is the identity, bark material, palette and painterly-style reference. Recompose its living heartwood into a dedicated character portrait for Oak.\nPrimary request: a gnarly oakheart — the ancient oak's deep inner personality made visible as one heavy asymmetrical burl of living heartwood. The face is organically formed entirely from furrowed bark, contorted roots, knots and growth rings: deeply hooded amber knot-eyes, a broad ridged brow, a long blunt wooden nose, and a stern, patient mouth tucked into cracked grain. Rugged, strange, ancient and quietly sentient, with the warmth of the existing dream tree. Make it unmistakably oak wood, not a human wearing wood. The heart-like mass tapers into a few entwined root tendrils; subtle Root, Ring, Leaf and Hollow patterns live naturally in its grain. Small patches of damp moss and a few real oak leaves cling to the silhouette. Tiny restrained violet and mint glints can hide deep in the central hollow.\nStyle: match the reference's richly painted fantasy-storybook texture, honey-brown ridged bark, moss green, cool indigo shadows and warm amber highlights. High craftsmanship, tactile wood, beautifully gnarly.\nComposition: one centered front-facing oakheart portrait, the face in the upper-middle of the image and clear enough to read at small card size. The broad burl and root collar fill most of the 2:3 portrait with generous clear margin on every side. Complete irregular silhouette, no clipped roots or leaves. Keep meaningful features concentrated near the center; no extra faces.\nLighting: gentle honey light from upper left with indigo recesses. Preserve the reference's quiet living warmth.\nConstraints: true alpha transparency around the single oakheart; no forest, cottage, landscape, rectangular background, scenic ground, pots, lanterns, other characters, weapons, human body, arms or legs. No card border, frame, writing, labels, logo, watermark, or graphic heart symbol. This is the painted persona itself; the game supplies the card frame.",
+      "generator": "Built-in image_gen tool",
+      "generation_artifact": "exec-b3f16254-7f16-42bc-b07d-691c7b4ebf35.png",
+      "reference": {
+        "repository": "cenetex/cosyworld",
+        "commit": "9b04468716b675e05a050bd01e325e742af0ab70",
+        "path": "v2/card-game/assets/optimized/stage/png/lonely-forest/oak.webp",
+        "blob_sha": "3b2d1a924c53a434cd563c47099ff1f6164d96a9"
+      },
+      "source_png_sha256": "8d49d4e3d8f5d99a36a21c22f0eac03e5f22f308ce7535b38d9b3a773e802913",
+      "source_png_bytes": 3228971,
+      "width": 1024,
+      "height": 1536,
+      "transparent": true,
+      "sha256": "0a8ee95cf6cdb8c882ed19be7058163fde66aaf3a85d8a6424a5eb5cc1832ed8",
+      "bytes": 646446,
+      "encoding": {
+        "format": "webp",
+        "quality": 88,
+        "alphaQuality": 100,
+        "effort": 4
+      },
+      "checks": {
+        "dimensionsPreserved": true,
+        "alphaPreserved": true
+      }
+    },
+    {
+      "file": "wolfprint-charm.webp",
+      "prompt": "Use case: precise-object-edit. Asset type: final CosyWorld inventory cutout icon, square 1024 x 1024, real transparent background.\nInput image: the existing Wolfprint Charm artwork, used to preserve the pendant's identity. Replace this scenic composition with one clean, hand-painted cutout of the charm itself.\nPrimary request: a weathered iron wolfprint charm, a thick slightly irregular rounded medallion with a clear impressed wolf paw: four oval toe pads above one broad paw pad. Preserve the reference's recognizable paw shape, decorative linked rim pattern and little metal suspension ring, with worn silvery iron edges, cool dark iron in the recesses, a trace of warm worn brass on the rim, and restrained moonlit teal inside the paw grooves. Redraw the object with tactile painterly fantasy-storybook detail so it belongs beside CosyWorld's existing cutout items. The shape must read clearly at tiny inventory-card scale.\nComposition: center the entire charm and its small suspension ring, front-on with only a slight three-quarter thickness visible, filling about 75 percent of the image. Keep a clean generous transparent margin on all sides. One solid recognisable object only, complete outline. Fine engraving but a strong simple outer silhouette.\nConstraints: remove ALL ground, stones, moss, surrounding rubble, background, scenery and cast shadow from the reference. No rectangular tile, vignette, fog, light halo, other objects, writing, caption, card frame, border, logo or watermark. No dangling long chain. Real alpha transparency, including inside the suspension ring. Preserve the pawprint as the sole symbol.",
+      "generator": "Built-in image_gen tool",
+      "generation_artifact": "exec-9862c7c5-5848-4a51-97cc-e8e97f5319a0.png",
+      "reference": {
+        "repository": "cenetex/cosyworld",
+        "commit": "9b04468716b675e05a050bd01e325e742af0ab70",
+        "path": "v2/card-game/assets/lonely-forest/wolfprint-charm.webp",
+        "blob_sha": "d46da58a2547af614c691e3efdc9be680b8e79cc"
+      },
+      "source_png_sha256": "4ce970a9994fcf259f5e2e6a56402b7113e2a1cde25ca47b07aed95182985398",
+      "source_png_bytes": 2085599,
+      "width": 1254,
+      "height": 1254,
+      "transparent": true,
+      "sha256": "78c532c953ffeac8f83871b3553ff6f02d69db2fa47c08eadc949bf6b0731b2e",
+      "bytes": 397170,
+      "encoding": {
+        "format": "webp",
+        "quality": 88,
+        "alphaQuality": 100,
+        "effort": 4
+      },
+      "checks": {
+        "dimensionsPreserved": true,
+        "alphaPreserved": true
+      }
+    }
+  ]
+}

@@ -11918,10 +11918,11 @@
           },
           "forest-trail": {
             name: "Moonlit Trail",
-            text: "Pawprints cross the soft ground. A worn root marks the turn toward the garden.",
-            persona: "A narrow woodland path beneath the oak canopy. Pawprints mark the soft ground. The blue cottage window is visible between the trunks. Skull stands beside the path.",
+            text: "Pawprints cross the soft ground. A worn root leads back to Oak, and the garden path turns toward home.",
+            persona: "A narrow woodland path beneath the oak canopy. Pawprints mark the soft ground. A worn root leads back to Oak. The blue cottage window is visible between the trunks. Skull stands beside the path.",
             exits: [
-              "forest-garden"
+              "forest-garden",
+              "forest-oak"
             ],
             backdrop: "assets/lonely-forest/trail.png"
           },
@@ -11993,7 +11994,10 @@
             standoffs: false,
             seed: "Oak, the Tree of Dreams.",
             expression: "speech",
-            portrait: "assets/lonely-forest/oak.png",
+            portrait: "assets/lonely-forest/oakheart.webp",
+            values: {
+              "forest-wolfprint-charm": 2
+            },
             tastes: {
               likes: "A careful account of the journey home",
               sore: "A claim that outruns the deed",
@@ -12006,7 +12010,7 @@
           "forest-wolfprint-charm": {
             name: "Wolfprint Charm",
             text: "A cool iron charm bears a careful pawprint.",
-            persona: "A cool iron charm bears a careful pawprint.",
+            persona: "A cool iron charm bears a careful pawprint. Its presence at Oak opens the way to the Moonlit Trail.",
             holder: "forest-trail",
             art: "assets/lonely-forest/wolfprint-charm.webp"
           },
@@ -12276,6 +12280,17 @@
           }
         },
         routes: [
+          {
+            from: "forest-oak",
+            to: "forest-trail",
+            requires: [
+              {
+                kind: "item_near",
+                item: "forest-wolfprint-charm",
+                place: "forest-oak"
+              }
+            ]
+          },
           {
             from: "forest-garden",
             to: "forest-trail",
@@ -13142,7 +13157,7 @@
             id: "forest-night-watch",
             speaker: "oak",
             at: "forest-oak",
-            text: "Oak says Skull walks the trail each night so others get home.",
+            text: "Oak says the Wolfprint Charm opens the path from his roots to the Moonlit Trail, where Skull walks each night.",
             requires: []
           },
           {
@@ -18038,6 +18053,7 @@
       "assets/hoppycat-archive/hoppycat-ledger-opus-cutout.png",
       "assets/hoppycat-archive/hoppycat-ledger-sonnet-cutout.png",
       "assets/lonely-forest/oak.png",
+      "assets/lonely-forest/oakheart.webp",
       "assets/badger-forest/badger-sleeping.png",
       "assets/badger-forest/badger-grumpy.png"
     ]
