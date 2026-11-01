@@ -4991,12 +4991,13 @@
         (id) => s.actors[id].place !== c.location
       );
       const released = c.item && rootHolder(s, c.item) !== c.defender;
-      if (separated || released) {
+      const forgone = c.item && !controlledByHuman(s, c.challenger) && !Object.values(c.struck).some(Boolean) && !needed(s, c.challenger, c.item);
+      if (separated || released || forgone) {
         closeStandoff(s, c);
         addLog(
           s,
           "World",
-          separated ? `${nameOf(c.challenger)} and ${nameOf(c.defender)} part. The standoff ends.` : `The ${nameOf(c.item)} changes hands. The standoff ends.`,
+          separated ? `${nameOf(c.challenger)} and ${nameOf(c.defender)} part. The standoff ends.` : released ? `The ${nameOf(c.item)} changes hands. The standoff ends.` : `${nameOf(c.challenger)} lets the ${nameOf(c.item)} go. The standoff ends.`,
           {
             kind: "narration",
             actorId: c.challenger,
@@ -5909,6 +5910,7 @@
       ),
       wantAPI(next)
     );
+    settleStandoffs(next);
     for (const [id, allowance] of Object.entries(
       next.sharedMigration?.inventoryAllowances || {}
     )) {
