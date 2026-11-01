@@ -14,7 +14,7 @@ import {
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { avatarPlays, cardPlay } from "../v2/card-game/cards.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
-import { levelOf, travels } from "../v2/card-game/want.mjs";
+import { levelOf, newWant, travels } from "../v2/card-game/want.mjs";
 import { tastes } from "../v2/card-game/motives.mjs";
 import { humanAvatar, humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 import {
@@ -180,6 +180,36 @@ describe("card standoffs", () => {
     expect(s.standoffs).toEqual([]);
     expect(s.log.some((e) => e.verb === "attack")).toBe(false);
   });
+  it("ends a standoff once the resident challenger sets the item aside", () => {
+    let s = createWorld();
+    s.turn = s.revision = 1;
+    s.actors.moth.place = "station";
+    s.actors.keeper.place = "station";
+    s.items.oil.holder = "keeper";
+    s.actors.moth.want = newWant("person", "keeper", s.turn);
+    s.standoffs = [
+      {
+        challenger: "moth",
+        defender: "keeper",
+        location: "station",
+        item: "oil",
+        opened: s.turn,
+        answered: true,
+        resolve: { moth: 4, keeper: 4 },
+        guarding: { moth: false, keeper: false },
+        struck: { moth: false, keeper: false },
+      },
+    ];
+    validateWorld(s);
+    s = act(s, "wait");
+    expect(s.standoffs).toEqual([]);
+    expect(s.items.oil.holder).toBe("keeper");
+    expect(
+      s.log.some(
+        (e) => e.text === "Pip lets the Oil flask go. The standoff ends.",
+      ),
+    ).toBe(true);
+  });
   it("ends a standoff when either avatar travels and keeps items with their owner", () => {
     let s = act(meeting(), "threaten", "moth");
     s = act(s, "move", "pond");
@@ -255,7 +285,12 @@ describe("card standoffs", () => {
     const start = meeting();
     start.items.bell.holder = "station";
     // The keeper comes from the pond for the bell lying at the station.
-    start.actors.keeper.want = { kind: "item", target: "bell", since: 0, refusals: 0 };
+    start.actors.keeper.want = {
+      kind: "item",
+      target: "bell",
+      since: 0,
+      refusals: 0,
+    };
     const s = act(start, "threaten", "moth");
     const context = narrativeContext(s, { target: "moth" });
     expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
@@ -394,7 +429,9 @@ describe("repeated defeats", () => {
   it("reports hits and guarded hits before anyone yields", () => {
     let s = act(meeting(), "threaten", "moth");
     s = act(s, "attack", "moth");
-    expect(s.log.findLast((e) => e.actorId === "vale" && e.verb === "attack")).toMatchObject({
+    expect(
+      s.log.findLast((e) => e.actorId === "vale" && e.verb === "attack"),
+    ).toMatchObject({
       damage: 1,
       guarded: true,
       resolveBefore: 4,
@@ -402,7 +439,9 @@ describe("repeated defeats", () => {
       outcome: "guarded",
       lossCount: 0,
     });
-    expect(s.log.findLast((e) => e.actorId === "moth" && e.verb === "attack")).toMatchObject({
+    expect(
+      s.log.findLast((e) => e.actorId === "moth" && e.verb === "attack"),
+    ).toMatchObject({
       damage: 2,
       guarded: false,
       resolveBefore: 4,

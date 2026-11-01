@@ -243,6 +243,12 @@ function installPacks(s) {
   s.crossings ??= {};
   s.packs ??= {};
   const fresh = newMemories();
+  // A hub item added after this save was written joins it where it starts.
+  for (const [id, item] of Object.entries(forest.initialState.items))
+    if (!Object.hasOwn(s.items, id)) {
+      s.items[id] = structuredClone(item);
+      s.memories[id] ??= fresh[id];
+    }
   for (const pack of packDefinitions) {
     for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
     if (s.packs[pack.id]) continue;
@@ -999,14 +1005,23 @@ function settleStandoffs(s) {
       (id) => s.actors[id].place !== c.location,
     );
     const released = c.item && rootHolder(s, c.item) !== c.defender;
-    if (separated || released) {
+    // A resident challenger that has set the disputed item aside before
+    // any blow would only stand there; it lets the item go.
+    const forgone =
+      c.item &&
+      !controlledByHuman(s, c.challenger) &&
+      !Object.values(c.struck).some(Boolean) &&
+      !needed(s, c.challenger, c.item);
+    if (separated || released || forgone) {
       closeStandoff(s, c);
       addLog(
         s,
         "World",
         separated
           ? `${nameOf(c.challenger)} and ${nameOf(c.defender)} part. The standoff ends.`
-          : `The ${nameOf(c.item)} changes hands. The standoff ends.`,
+          : released
+            ? `The ${nameOf(c.item)} changes hands. The standoff ends.`
+            : `${nameOf(c.challenger)} lets the ${nameOf(c.item)} go. The standoff ends.`,
         {
           kind: "narration",
           actorId: c.challenger,
@@ -2157,6 +2172,8 @@ export function play(
     ),
     wantAPI(next),
   );
+  // A round of waits still ends a standoff nobody would carry on.
+  settleStandoffs(next);
   for (const [id, allowance] of Object.entries(
     next.sharedMigration?.inventoryAllowances || {},
   )) {

@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { selectCard } from "./card-browser-helpers.mjs";
+import {
+  clearSelection,
+  revealCard,
+  selectCard,
+} from "./card-browser-helpers.mjs";
 import { mkdtemp, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -303,6 +307,20 @@ async function dismissDiscoveries(page) {
     await delay(180);
   }
 }
+// A viewer hears the room only once they have uncovered their own avatar
+// and the place it stands in (#1575), so a new visitor taps both first.
+async function wake(page) {
+  const { actor, world } = await snapshot(page);
+  for (const id of [actor, world.actors[actor].place])
+    await until(async () => {
+      const card = page.locator(`#hand [data-card="${id}"]`);
+      if (!(await card.count())) return true;
+      if ((await card.getAttribute("data-unrevealed")) !== "true") return true;
+      await revealCard(page, id);
+      return false;
+    }, `${actor} uncovers ${id}`);
+  await clearSelection(page);
+}
 async function expectSharedReveal(page, requestStart, speaker = "Vale") {
   let expected;
   await until(() => {
@@ -522,6 +540,7 @@ try {
     "the original station remains connected",
   );
   await dismissDiscoveries(vale);
+  await wake(vale);
   const requestStart = requests.length;
   await selectCard(vale, "moth");
   await vale.getByRole("button", { name: "Talk", exact: true }).click();
@@ -730,6 +749,7 @@ try {
   );
   assert.equal((await snapshot(vale)).world.revision, beforeForgery);
   for (const page of [vale, mara]) {
+    await wake(page);
     await catchUpWithStack(page);
     await catchUpWithLive(page);
   }
