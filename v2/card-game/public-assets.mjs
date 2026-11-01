@@ -40,6 +40,7 @@ const files = [
     ["attack", "hit"].map((pose) => `assets/combat/${id}-${pose}.webp`),
   ),
   "rarity.mjs",
+  "quest-card.mjs",
   "card-tiers.css",
   "card-reveal.mjs",
   "card-level-up.mjs",

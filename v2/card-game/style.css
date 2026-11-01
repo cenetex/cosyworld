@@ -1192,6 +1192,23 @@ body .card-frame[hidden] {
 .card-frame[data-holder] .card {
   border-color: #a48d6370;
 }
+/* The quest card shows how far its target is once selected. */
+.want-card .want-progress {
+  position: absolute;
+  inset: 8px 8px auto;
+  z-index: 2;
+  display: none;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #0b0e14d9;
+  color: var(--tier-color);
+  font:
+    12px/1.3 Georgia,
+    serif;
+}
+.want-card[aria-pressed="true"] .want-progress:not(:empty) {
+  display: block;
+}
 .action-panel {
   pointer-events: auto;
   text-align: center;

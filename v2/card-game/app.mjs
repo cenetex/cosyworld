@@ -2,7 +2,15 @@ import { imageUrl } from "./images.mjs";
 import { observeText } from "./observe-words.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { arriveCard, finishReveal, revealCard } from "./card-reveal.mjs";
-import { levelUpCard } from "./card-level-up.mjs";
+import { glowCard, levelUpCard } from "./card-level-up.mjs";
+import {
+  QUEST_CARD,
+  questCard,
+  questCaption,
+  questHand,
+  questMet,
+  questProgress,
+} from "./quest-card.mjs";
 import {
   landingPack,
   createLandingWorld,
@@ -106,7 +114,7 @@ import {
   cardObservation,
 } from "./cards.mjs";
 // A person's want reaches the player through Talk context (want-talk.mjs).
-// The hand holds only people, items and places.
+// The hand holds people, items and places, and the player's one quest card.
 const $ = (id) => document.getElementById(id);
 const tableName = new URLSearchParams(window.location.search).get("table");
 const startingPack = landingPack(window.location.href);
@@ -266,6 +274,10 @@ const fresh = new Set();
 const shownLevels = new Map();
 const coveredCards = new Set();
 let openingHeld = false;
+// The quest card on show, open to its progress, and glowing once met.
+let shownQuest = null,
+  questOpen = false,
+  questGlowing = false;
 // Card art: a pack's own art, a hub item's authored art, or the forest card.
 const cardArt = (id) =>
   packMedia(id, "art") ||
@@ -311,6 +323,7 @@ function loadSeen(reset = false) {
   if (opening) for (const id of availableCards(world)) coveredCards.add(id);
   fresh.clear();
   shownLevels.clear();
+  shownQuest = null;
   rememberCards();
 }
 loadSeen();
@@ -1013,6 +1026,7 @@ function choose(id) {
   playQueue.clear();
   lastPlayAt = -Infinity;
   fresh.delete(id);
+  questOpen = false;
   // Any tap opens a folded row again; the held item is still raised.
   rowCollapsed = false;
   if (places[id] && expandedHolders.has(id)) {
@@ -1725,9 +1739,15 @@ function renderActions(animate = false) {
   }
   $("play-readout").textContent = selected.length
     ? `${selectionName}. ${actions.map(playLabel).join(". ") || hint}`
-    : "";
+    : questOpen && shownQuest
+      ? questWords(shownQuest)
+      : "";
 }
 function updateCardSelection(frame) {
+  if (frame.dataset.want) {
+    frame.replaceWith(questFrame(shownQuest));
+    return;
+  }
   const button = frame.querySelector(".card"),
     id = button.dataset.card,
     raised =
@@ -1948,6 +1968,82 @@ function card(id) {
     el.removeAttribute("aria-describedby");
   }
   return frame;
+}
+// The quest card: the want's target drawn as the card, the rules' words as
+// its name, and how far it is once selected. It plays nothing.
+const questCovered = (quest) => !quest.target || cardIsCovered(quest.target);
+const questWords = (quest) =>
+  [
+    questCaption(quest, questCovered(quest)),
+    questProgress(world, quest, (id) =>
+      cardIsCovered(id) ? "Someone" : nameOf(id),
+    ),
+  ]
+    .filter(Boolean)
+    .join(". ");
+function questFrame(quest) {
+  const target = quest.target,
+    hidden = questCovered(quest),
+    type = hidden ? "item" : cardType(target),
+    tier = levelTier(cardLevel(world, quest.actor));
+  const el = node("button", undefined, `card ${type} want-card`);
+  el.type = "button";
+  el.dataset.want = quest.kind;
+  el.dataset.tier = tier.id;
+  el.style.setProperty("--tier-color", tier.color);
+  el.disabled = selectionBlocked();
+  el.setAttribute("aria-pressed", String(questOpen));
+  el.setAttribute("aria-label", `Quest: ${questWords(quest)}`);
+  const graphic = node("span", undefined, "art"),
+    img = node("img");
+  img.decoding = "async";
+  img.alt = "";
+  img.draggable = false;
+  img.src = imageUrl(
+    hidden
+      ? "./assets/card-back.webp"
+      : type === "item"
+        ? cardArt(target)
+        : type === "avatar"
+          ? portrait(target, null, world)
+          : packPlaces[target]?.art
+            ? packMedia(target, "art")
+            : backdrop(target, world),
+    "card",
+  );
+  if (type === "avatar" && !hidden) frameFigure(img);
+  graphic.append(img);
+  const progress = questProgress(world, quest, (id) =>
+    cardIsCovered(id) ? "Someone" : nameOf(id),
+  );
+  el.append(
+    graphic,
+    node("span", questCaption(quest, hidden), "name"),
+    node("span", progress, "want-progress"),
+  );
+  el.addEventListener("click", () => {
+    if (selectionBlocked()) return;
+    playQueue.clear();
+    questOpen = !questOpen;
+    selected = [];
+    expandedHolders.clear();
+    rowCollapsed = false;
+    render();
+  });
+  const frame = node("div", undefined, "card-frame want-frame");
+  frame.dataset.want = quest.kind;
+  frame.dataset.raised = String(questOpen);
+  frame.append(el);
+  return frame;
+}
+// A met quest glows once on its card, then the next quest takes its place.
+async function glowQuest() {
+  const button = $("hand").querySelector(".want-card");
+  if (button)
+    await glowCard(button, button.style.getPropertyValue("--tier-color"));
+  questGlowing = false;
+  shownQuest = questCard(world);
+  render();
 }
 // The stage frames each painting with its measured shape, so a resident
 // anchored to it stands on the same spot at every screen size.
@@ -3035,7 +3131,12 @@ function render() {
     for (const id of selected) {
       if (people[id] || places[id]) expandedHolders.add(id);
     }
-  const handCards = availableCards(world);
+  const liveQuest = questCard(world);
+  if (!questGlowing) {
+    questGlowing = questMet(shownQuest, liveQuest);
+    if (!questGlowing) shownQuest = liveQuest;
+  }
+  const handCards = questHand(availableCards(world), world, shownQuest);
   // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
     handCards,
@@ -3050,6 +3151,8 @@ function render() {
     [...fresh],
     saveBlocked,
     rowCollapsed,
+    shownQuest?.key,
+    questOpen,
   ]);
   if (handKey !== renderedHand) {
     const sameWorld =
@@ -3066,7 +3169,7 @@ function render() {
       for (const frame of $("hand").children)
         if (!frame.hidden) {
           const rect = frame.getBoundingClientRect();
-          before.set(frame.querySelector(".card").dataset.card, {
+          before.set(frame.querySelector(".card").dataset.card ?? QUEST_CARD, {
             left: rect.left,
             top: rect.top,
             nameBottom: getComputedStyle(frame.querySelector(".name")).bottom,
@@ -3080,7 +3183,16 @@ function render() {
     renderedHandState = handState;
     if (sameWorld)
       for (const frame of $("hand").children) updateCardSelection(frame);
-    else $("hand").replaceChildren(...handCards.map(card));
+    else
+      $("hand").replaceChildren(
+        ...handCards.map((id) =>
+          id === QUEST_CARD ? questFrame(shownQuest) : card(id),
+        ),
+      );
+    if (questGlowing === true) {
+      questGlowing = "playing";
+      void glowQuest();
+    }
     $("hand").scrollLeft = samePlace ? scroll : 0;
     renderActions(animate);
     if (!sameWorld) playLevelUps();
@@ -3088,7 +3200,7 @@ function render() {
     if (animate)
       for (const frame of $("hand").children) {
         if (frame.hidden) continue;
-        const id = frame.querySelector(".card").dataset.card,
+        const id = frame.querySelector(".card").dataset.card ?? QUEST_CARD,
           previous = before.get(id) || before.get(frame.dataset.holder);
         if (!previous) {
           // A card that joins the hand here (the ship docking) fades in.
@@ -3278,10 +3390,11 @@ document.addEventListener("keydown", (e) => {
   if (
     e.key === "Escape" &&
     !document.querySelector("dialog[open], .world-menu:popover-open") &&
-    (selected.length || expandedHolders.size || !rowCollapsed)
+    (selected.length || expandedHolders.size || !rowCollapsed || questOpen)
   ) {
     playQueue.clear();
     selected = [];
+    questOpen = false;
     expandedHolders.clear();
     rowCollapsed = true;
     render();
@@ -3312,6 +3425,7 @@ document.addEventListener("click", (e) => {
     return;
   playQueue.clear();
   if (!selectedHandItem(world, selected)) selected = [];
+  questOpen = false;
   rowCollapsed = true;
   expandedHolders.clear();
   render();
