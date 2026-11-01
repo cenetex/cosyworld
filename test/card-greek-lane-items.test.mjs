@@ -33,8 +33,7 @@ describe("lanes that open with a thing aboard", () => {
     s.items["greek-provisions"].holder = "greek-harbor";
     // Ashore in Vale's hands, the branch opens nothing at sea.
     expect(courses(s, "greek-harbor")).not.toContain("greek-piraeus");
-    // The provisions aboard open Piraeus. The way home from Piraeus is
-    // always open.
+    // The provisions aboard open Piraeus; the way home is always open.
     expect(courses(s, "greek-piraeus")).toContain("greek-harbor");
     s.items["greek-provisions"].holder = "greek-ship";
     expect(courses(s, "greek-harbor")).toContain("greek-piraeus");
