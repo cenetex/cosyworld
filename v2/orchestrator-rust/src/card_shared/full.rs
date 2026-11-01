@@ -17,7 +17,11 @@ use axum::{
 use rusqlite::{params, OptionalExtension, TransactionBehavior};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, Weak},
+    time::{Duration, Instant},
+};
 #[path = "full_browser.rs"]
 mod browser;
 
@@ -50,6 +54,31 @@ async fn blocking(f: impl FnOnce() -> Result<Value> + Send + 'static) -> Result<
         .await
         .map_err(|_| "The shared world is taking a moment.".to_string())?
 }
+// SQLite has one write lock per database file. Shared-world writes take
+// turns here first, so they wait in line in this process instead of racing
+// each other on the five-second busy timeout ("database is locked", #1364).
+fn writer(state: &AppState) -> Arc<Mutex<()>> {
+    static WRITERS: OnceLock<Mutex<HashMap<std::path::PathBuf, Weak<Mutex<()>>>>> = OnceLock::new();
+    let path = state
+        .event_store_path
+        .as_deref()
+        .cloned()
+        .unwrap_or_default();
+    let mut writers = WRITERS
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    if let Some(gate) = writers.get(&path).and_then(Weak::upgrade) {
+        return gate;
+    }
+    writers.retain(|_, gate| gate.strong_count() > 0);
+    let gate = Arc::new(Mutex::new(()));
+    writers.insert(path, Arc::downgrade(&gate));
+    gate
+}
+fn turn(gate: &Mutex<()>) -> MutexGuard<'_, ()> {
+    gate.lock().unwrap_or_else(PoisonError::into_inner)
+}
 async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
     reply(
         blocking(move || {
@@ -74,6 +103,8 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
         admit(&u)?;
         let mut c = db(&state)?;
         store::schema(&c)?;
+        let gate = writer(&state);
+        let _turn = turn(&gate);
         let tx = c
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sql_error)?;
@@ -105,24 +136,12 @@ async fn view(State(state): State<AppState>, Path(id): Path<String>, h: HeaderMa
         valid_id(&id)?;
         let u = user(&state, &h, false)?;
         admit(&u)?;
-        let mut c = db(&state)?;
-        store::schema(&c)?;
-        let tx = c
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(sql_error)?;
-        let time = now();
-        let mut w = store::world(&tx, &id, time)?;
-        store::expire(&tx, &id, &mut w, time)?;
-        let value = store::snapshot(&tx, &id, &u, time)?;
-        let value = super::sync::response(
-            &tx,
+        view_as(
+            &state,
             &id,
             &u,
-            value,
             h.get(super::sync::HEADER).and_then(|v| v.to_str().ok()),
-        )?;
-        tx.commit().map_err(sql_error)?;
-        Ok(value)
+        )
     })
     .await;
     if result.as_ref().is_ok_and(|v: &Value| {
@@ -159,27 +178,56 @@ async fn command(
         valid_id(&id)?;
         let u = user(&state, &h, true)?;
         admit(&u)?;
-        let mut c = db(&state)?;
-        store::schema(&c)?;
-        let tx = c
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(sql_error)?;
-        let value = run(&tx, &id, &u, &body, now())?;
-        let value = super::sync::response(
-            &tx,
+        command_as(
+            &state,
             &id,
             &u,
-            value,
+            &body,
             h.get(super::sync::HEADER).and_then(|v| v.to_str().ok()),
-        )?;
-        tx.commit().map_err(sql_error)?;
-        Ok(value)
+        )
     })
     .await;
     if result.is_ok() {
         kick(state, id);
     }
     reply(result)
+}
+// The signed-in viewer's snapshot. Expiry and the sync chain write, so the
+// view takes the world's write turn.
+pub(super) fn view_as(state: &AppState, id: &str, u: &str, cursor: Option<&str>) -> Result<Value> {
+    let mut c = db(state)?;
+    store::schema(&c)?;
+    let gate = writer(state);
+    let _turn = turn(&gate);
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sql_error)?;
+    let time = now();
+    let mut w = store::world(&tx, id, time)?;
+    store::expire(&tx, id, &mut w, time)?;
+    let value = store::snapshot(&tx, id, u, time)?;
+    let value = super::sync::response(&tx, id, u, value, cursor)?;
+    tx.commit().map_err(sql_error)?;
+    Ok(value)
+}
+pub(super) fn command_as(
+    state: &AppState,
+    id: &str,
+    u: &str,
+    body: &Command,
+    cursor: Option<&str>,
+) -> Result<Value> {
+    let mut c = db(state)?;
+    store::schema(&c)?;
+    let gate = writer(state);
+    let _turn = turn(&gate);
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sql_error)?;
+    let value = run(&tx, id, u, body, now())?;
+    let value = super::sync::response(&tx, id, u, value, cursor)?;
+    tx.commit().map_err(sql_error)?;
+    Ok(value)
 }
 pub(super) fn run(
     c: &rusqlite::Connection,
@@ -355,6 +403,8 @@ pub(super) struct Work {
 pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
     let mut c = db(state)?;
     store::schema(&c)?;
+    let gate = writer(state);
+    let _turn = turn(&gate);
     let tx = c
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(sql_error)?;
@@ -490,6 +540,8 @@ pub(super) fn finish_work_with_lock_budget(
     budget: Duration,
 ) -> Result<()> {
     let started = Instant::now();
+    let gate = writer(state);
+    let _turn = turn(&gate);
     loop {
         let remaining = budget.saturating_sub(started.elapsed());
         match finish_work_attempt(

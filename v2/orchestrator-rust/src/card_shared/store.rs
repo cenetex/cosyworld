@@ -5,7 +5,22 @@ use std::{path::Path, time::Duration};
 
 pub(super) type Result<T> = std::result::Result<T, String>;
 pub(super) fn open(path: &Path) -> Result<Connection> {
-    open_sqlite(path, Duration::from_secs(5)).map_err(err)
+    open_sqlite(path, busy_timeout()).map_err(err)
+}
+#[cfg(not(test))]
+fn busy_timeout() -> Duration {
+    Duration::from_secs(5)
+}
+#[cfg(test)]
+thread_local! {
+    /// A test thread can shorten the wait so any SQLite writer contention
+    /// fails at once instead of hiding behind the five-second timeout.
+    pub(super) static TEST_BUSY_TIMEOUT: std::cell::Cell<Duration> =
+        const { std::cell::Cell::new(Duration::from_secs(5)) };
+}
+#[cfg(test)]
+fn busy_timeout() -> Duration {
+    TEST_BUSY_TIMEOUT.with(std::cell::Cell::get)
 }
 pub(super) fn open_sqlite(path: &Path, busy_timeout: Duration) -> rusqlite::Result<Connection> {
     let c = Connection::open(path)?;
