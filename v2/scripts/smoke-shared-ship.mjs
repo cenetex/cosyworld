@@ -5,7 +5,11 @@ import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { summonTransport } from "../card-game/pack-transport.mjs";
+import { selectCard } from "./card-browser-helpers.mjs";
 
+// Reachable places, the docked ship among them, lie folded in the location
+// stack behind the current place (#1780): a card "in the hand" is attached,
+// not necessarily visible, and a play opens the stack to reach it.
 // Each browser has its own claimed avatar. The fixture replaces account and
 // queue IO; every move runs through the shipping shared-world reducer.
 const players = ["vale", "mara", "ash"];
@@ -109,17 +113,27 @@ try {
         pages.push(page);
         page.on("pageerror", (error) => errors.push(error.message));
         await page.goto(`${origin}/?world=ship-fixture`);
-        await page.locator('#hand [data-card="greek-ship"]').waitFor();
+        await page
+          .locator('#hand [data-card="greek-ship"]')
+          .waitFor({ state: "attached" });
       }
       const [vale, mara, ash] = pages;
       async function playCard(page, card, name) {
         await page.waitForFunction(
           () => document.querySelector("#hand")?.dataset.cooling === "false",
         );
+        // Another player's play repaints this hand when its shared update
+        // lands, which can detach the card mid-click. Wait until the hand
+        // shows the current revision, then open the location stack if the
+        // card lies in it and play it.
+        await page.waitForFunction(
+          (revision) =>
+            document.querySelector("#hand")?.dataset.presentedRevision ===
+            String(revision),
+          world.revision,
+        );
         const turn = world.turn;
-        // A shared update can repaint the hand while another player boards.
-        // The locator click follows the current card through that repaint.
-        await page.locator(`#hand [data-card="${card}"]`).click();
+        await selectCard(page, card);
         await page.getByRole("button", { name, exact: true }).click();
         for (let n = 0; n < 200 && world.turn === turn; n++)
           await page.waitForTimeout(25);
@@ -147,7 +161,9 @@ try {
       }
       await move(vale, "vale", "greek-ship");
       assert.equal(world.transports["greek-ship"].dock, "pond");
-      await mara.locator('#hand [data-card="greek-ship"]').waitFor();
+      await mara
+        .locator('#hand [data-card="greek-ship"]')
+        .waitFor({ state: "attached" });
       await mara.waitForFunction(
         () => document.querySelector("#location-overlay")?.hidden === false,
       );
@@ -176,20 +192,30 @@ try {
       await playCard(vale, "greek-ship", "Wait");
       await move(vale, "vale", "greek-harbor");
       assert.equal(world.transports["greek-ship"].dock, "greek-harbor");
-      await mara.locator('#hand [data-card="greek-harbor"]').waitFor();
+      await mara
+        .locator('#hand [data-card="greek-harbor"]')
+        .waitFor({ state: "attached" });
       await move(vale, "vale", "greek-ship");
       assert.equal(world.actors.mara.place, "greek-ship");
-      await mara.locator('#hand [data-card="pond"]').waitFor();
+      await mara
+        .locator('#hand [data-card="pond"]')
+        .waitFor({ state: "attached" });
       // The provisions Mara carries aboard open the Piraeus course for
       // everyone on deck, though neither has heard the lane.
-      await mara.locator('#hand [data-card="greek-piraeus"]').waitFor();
-      await vale.locator('#hand [data-card="greek-piraeus"]').waitFor();
+      await mara
+        .locator('#hand [data-card="greek-piraeus"]')
+        .waitFor({ state: "attached" });
+      await vale
+        .locator('#hand [data-card="greek-piraeus"]')
+        .waitFor({ state: "attached" });
       await mara.screenshot({
         path: new URL(`known-lanes-${width}.png`, output).pathname,
       });
       await sail(vale, "pond");
       await move(vale, "vale", "pond");
-      await ash.locator('#hand [data-card="greek-ship"]').waitFor();
+      await ash
+        .locator('#hand [data-card="greek-ship"]')
+        .waitFor({ state: "attached" });
       await move(ash, "ash", "greek-ship");
       await sail(ash, "greek-harbor");
       await move(mara, "mara", "greek-harbor");
