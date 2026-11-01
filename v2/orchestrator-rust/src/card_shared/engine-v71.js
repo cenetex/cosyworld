@@ -3916,14 +3916,22 @@
       return w && w.kind === "item" && !w.step && w.target === target;
     });
     const going = kind === "person" && s.actors[target]?.want;
-    const verbs = kind === "item" ? wanting ? ["give", "bring", "find"] : ["", "find"] : kind === "person" ? ["", "meet", ...level >= HOSTILE_LEVEL ? ["threaten", "attack"] : []] : [""];
+    const verbs = kind === "item" ? wanting ? ["give", "bring", "find"] : ["", "find"] : kind === "person" ? [
+      "",
+      "meet",
+      ...level >= HOSTILE_LEVEL ? ["threaten", "attack"] : []
+    ] : [""];
     const verb = verbs[Math.floor(roll / 7) % verbs.length];
     const here = s.actors[actor].place;
     if (!verb || verb === "find" && placeOfItem(s, target) === here || verb === "meet" && s.actors[target]?.place === here)
       return null;
     if (verb === "give") return { verb, to: wanting };
     if (verb === "bring")
-      return { verb, to: wanting, at: api.home(wanting) || s.actors[wanting].place };
+      return {
+        verb,
+        to: wanting,
+        at: api.home(wanting) || s.actors[wanting].place
+      };
     if (verb === "meet" && going?.kind === "place" && !going.step)
       return { verb, at: going.target };
     return { verb };
@@ -3953,7 +3961,10 @@
     for (const [id, a] of Object.entries(s.actors)) {
       if (!("want" in a)) {
         const w = authoredWant(id);
-        a.want = w && validTarget(s, w.kind, w.target) ? newWant(w.kind, w.target, s.turn) : null;
+        a.want = w && validTarget(s, w.kind, w.target) ? {
+          ...newWant(w.kind, w.target, s.turn),
+          ...w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {}
+        } : null;
       }
       a.xp ??= startXp(id);
       a.visited ??= [a.place];
@@ -4030,11 +4041,16 @@
     if (!want) return false;
     if (want.step) return stepMet(s, actor, want, action);
     if (want.kind === "connect") return introduced(s, actor, talk);
-    if (want.kind === "item") return rootOf2(s, want.target) === actor;
+    if (want.kind === "item") return holdsAsWanted(s, actor, want);
     if (want.kind === "place") return s.actors[actor].place === want.target;
     return Boolean(
       talk && s.actors[want.target]?.place === s.actors[actor].place && (talk.actor === actor && talk.target === want.target || talk.actor === want.target && talk.target === actor)
     );
+  }
+  function holdsAsWanted(s, actor, want) {
+    if (want.lit === void 0) return rootOf2(s, want.target) === actor;
+    const item = s.items[want.target];
+    return item.holder === actor && Boolean(item.lit) === want.lit && !Object.values(s.items).some((i) => i.holder === want.target);
   }
   function rootOf2(s, id) {
     let holder2 = s.items[id].holder;
@@ -4135,7 +4151,7 @@
     const whole4 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const w = a.want;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(startXp(id) + s.turn * 8)) && a.xp <= startXp(id) + s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (w === null || w && Object.keys(w).length === 4 + (w.quest === void 0 ? 0 : 1) + (w.step === void 0 ? 0 : 1) && (w.step === void 0 || validStep(s, w)) && (w.quest === void 0 || Object.keys(w.quest).length === 2 && Number.isSafeInteger(w.quest.level) && w.quest.level >= 2 && Number.isSafeInteger(w.quest.left) && w.quest.left >= 1 && w.quest.left <= questSteps(w.quest.level)) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT);
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(startXp(id) + s.turn * 8)) && a.xp <= startXp(id) + s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (w === null || w && Object.keys(w).length === 4 + (w.quest === void 0 ? 0 : 1) + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) && (w.step === void 0 || validStep(s, w)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && (w.quest === void 0 || Object.keys(w.quest).length === 2 && Number.isSafeInteger(w.quest.level) && w.quest.level >= 2 && Number.isSafeInteger(w.quest.left) && w.quest.left >= 1 && w.quest.left <= questSteps(w.quest.level)) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT);
   }
 
   // v2/card-game/legacy-saves.mjs
@@ -5107,20 +5123,26 @@
   }
   function insideLampRemedy(s, actor) {
     const here = s.actors[actor].place, lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
-    if (!atticInterior.has(here) || !ordinaryRouteHome(s, here, lamp, actor) || !ordinaryRouteHome(s, lamp, "attic", actor)) return false;
-    const at = (place) => ({ ...s, actors: {
-      ...s.actors,
-      [actor]: { ...s.actors[actor], place }
-    } });
+    if (!atticInterior.has(here) || !ordinaryRouteHome(s, here, lamp, actor) || !ordinaryRouteHome(s, lamp, "attic", actor))
+      return false;
+    const at = (place) => ({
+      ...s,
+      actors: { ...s.actors, [actor]: { ...s.actors[actor], place } }
+    });
     if (!localGateResource(at(lamp), lamp, "lamp", actor)) return false;
     return s.items.lamp.fuel > 0 || ordinaryRouteHome(s, here, oil, actor) && ordinaryRouteHome(s, oil, lamp, actor) && localGateResource(at(oil), oil, "oil", actor);
   }
   function pondRescueExit(s, place, actor, previous) {
     actor ||= currentActor(s);
     const lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
-    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors2(s).includes(actor) || !(atticInterior.has(lamp) || atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous)) return null;
-    if (ordinaryRouteHome(s, place, lamp, actor, previous) && (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous))) return null;
-    if (knownActors2(s).some((id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && (insideLampRemedy(s, id) || !atticInterior.has(lamp) && s.actors[id].place === "attic" && homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id)))) return null;
+    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors2(s).includes(actor) || !(atticInterior.has(lamp) || atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous))
+      return null;
+    if (ordinaryRouteHome(s, place, lamp, actor, previous) && (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous)))
+      return null;
+    if (knownActors2(s).some(
+      (id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && (insideLampRemedy(s, id) || !atticInterior.has(lamp) && s.actors[id].place === "attic" && homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id))
+    ))
+      return null;
     return "attic";
   }
   function exits(s, place, actor = null, previous = null) {
@@ -5408,7 +5430,9 @@
     s.items[item].holder = holder2;
     remember3(s, item, text2);
   }
-  var fuelItems = Object.keys(forest_default.things).filter((id) => forest_default.things[id].refuels);
+  var fuelItems = Object.keys(forest_default.things).filter(
+    (id) => forest_default.things[id].refuels
+  );
   function refuelCarried(s) {
     for (const id of fuelItems) {
       const { refuels: target, returnsTo } = things[id];
@@ -6051,12 +6075,7 @@
       }
       case "light":
         if (s.opening && !s.opening.crossed && a.actor === "vale" && here === "attic" && s.items.lamp.holder === "attic")
-          transfer(
-            s,
-            "lamp",
-            "vale",
-            "Vale lifts the lamp."
-          );
+          transfer(s, "lamp", "vale", "Vale lifts the lamp.");
         s.items.lamp.lit = true;
         remember3(s, "lamp", a.text);
         break;
@@ -6149,7 +6168,11 @@
     settleStandoffs(s);
     settleWants(
       s,
-      wantActors(s, [a.actor, ...s.actors[a.target] ? [a.target] : [], ...settle]),
+      wantActors(s, [
+        a.actor,
+        ...s.actors[a.target] ? [a.target] : [],
+        ...settle
+      ]),
       wantAPI(s),
       ["ask", "give", "trade"].includes(a.kind) ? { ...a, accepted: requestAccepted } : a
     );
@@ -6184,7 +6207,13 @@
       const route = queue.shift();
       if (route.at(-1) === target) return route;
       const here = route.at(-1);
-      const projected = s.actors[actor] && s.actors[actor].place !== here ? { ...s, actors: { ...s.actors, [actor]: { ...s.actors[actor], place: here } } } : s;
+      const projected = s.actors[actor] && s.actors[actor].place !== here ? {
+        ...s,
+        actors: {
+          ...s.actors,
+          [actor]: { ...s.actors[actor], place: here }
+        }
+      } : s;
       const previous = route.at(-2) ?? (transportPlace(here) ? VOYAGE : null);
       for (const next of exits(projected, here, actor, previous))
         if (!visited.has(next)) {
@@ -6210,13 +6239,17 @@
       return getActions().find((a) => a.kind === "move" && a.target === route[1]) || voyageAction(s, actor, route[1], getActions());
     const gate = homeGates[here];
     if (gate?.light && !s.items[gate.item].lit && actor !== currentActor(s) && !controlledByHuman(s, actor) && homeGateRecoverable(s, here, gate, actor)) {
-      const light = getActions().find((a) => a.kind === "light" && a.item === gate.item);
+      const light = getActions().find(
+        (a) => a.kind === "light" && a.item === gate.item
+      );
       if (light) return light;
     }
     if (target === "attic" && !["attic", "pond", "station"].includes(here)) {
       const approach = routeBetween(s, here, "pond", actor);
       if (approach?.length > 1)
-        return getActions().find((a) => a.kind === "move" && a.target === approach[1]);
+        return getActions().find(
+          (a) => a.kind === "move" && a.target === approach[1]
+        );
     }
     if (target !== "attic" && atticInterior.has(target) && !atticInterior.has(here))
       return toward(s, actor, "attic");
@@ -6230,11 +6263,18 @@
       if (here === home || !rescueRoute(gate2.rescue)) continue;
       const approach = routeBetween(s, here, home, actor);
       if (approach?.length > 1)
-        return getActions().find((a) => a.kind === "move" && a.target === approach[1]);
+        return getActions().find(
+          (a) => a.kind === "move" && a.target === approach[1]
+        );
     }
-    if (crossings.some((c) => c.from === here && !c.transport && c.requires.some((r) => r.kind === "sound" && r.at.includes(here)) && routeBetween(s, c.to, target, actor))) {
-      const sound = getActions().find((a) => a.kind === "ring" && a.item === "bell");
-      if (sound) return covered(s, "bell") ? getActions().find((a) => a.kind === "take" && a.item === "cloth") : sound;
+    if (crossings.some(
+      (c) => c.from === here && !c.transport && c.requires.some((r) => r.kind === "sound" && r.at.includes(here)) && routeBetween(s, c.to, target, actor)
+    )) {
+      const sound = getActions().find(
+        (a) => a.kind === "ring" && a.item === "bell"
+      );
+      if (sound)
+        return covered(s, "bell") ? getActions().find((a) => a.kind === "take" && a.item === "cloth") : sound;
     }
   }
   function plan(s, actor = currentActor(s)) {
@@ -6251,8 +6291,7 @@
     const landing = arrival && legalActions(s, actor).find(
       (a) => a.kind === "move" && a.target === arrival
     );
-    if (landing)
-      return { action: landing };
+    if (landing) return { action: landing };
     const selected = wantPlan(s, actor);
     return reconsiderPlan(
       s,
@@ -6267,14 +6306,21 @@
     const known = s.routeKnowledge?.[actor];
     if (!known) return { action: toward(s, actor, target) || null };
     const here = s.actors[actor].place;
-    const open = (from, to, previous) => exits(s, from, actor, previous ?? (transportPlace(from) ? VOYAGE : null)).includes(to);
+    const open = (from, to, previous) => exits(
+      s,
+      from,
+      actor,
+      previous ?? (transportPlace(from) ? VOYAGE : null)
+    ).includes(to);
     let path = knownRoute(s, actor, here, target, open) || knownRoute(s, actor, here, target);
     if (!path) {
       const frontiers = [...new Set(known.map(([, to]) => to))].filter(
         (to) => to !== here && entityActive(s, to) && berthOpen(s, to) !== false && !known.some(([from]) => from === to)
       );
       if (!entityActive(s, here)) frontiers.push(...exits(s, here, actor));
-      path = frontiers.map((to) => knownRoute(s, actor, here, to)).filter(Boolean).sort((a, b) => a.length - b.length || a.at(-1).localeCompare(b.at(-1)))[0];
+      path = frontiers.map((to) => knownRoute(s, actor, here, to)).filter(Boolean).sort(
+        (a, b) => a.length - b.length || a.at(-1).localeCompare(b.at(-1))
+      )[0];
       if (!path) return { action: null };
     }
     const actions = legalActions(s, actor);
@@ -6289,8 +6335,7 @@
     const find = (kind, test = () => true) => acts.find((a) => a.kind === kind && test(a));
     const idle = () => ({ action: find("wait") || acts[0] });
     const here = s.actors[actor].place;
-    if (s.peaceUntil[actor] > s.turn)
-      return idle();
+    if (s.peaceUntil[actor] > s.turn) return idle();
     const conflict = standoffFor(s, actor);
     const want = wantOf(s, actor);
     if (conflict) {
@@ -6303,9 +6348,7 @@
       if (conflict.struck[other] || conflict.struck[actor])
         return answer(find("attack", (a) => a.target === other));
       if (conflict.challenger === actor && conflict.item && needed(s, actor, conflict.item) && s.turn - conflict.opened >= 2)
-        return answer(
-          find("attack", (a) => a.target === other)
-        );
+        return answer(find("attack", (a) => a.target === other));
       return idle();
     }
     if (!want) return idle();
@@ -6315,7 +6358,8 @@
       const step = stepToward(s, actor, place);
       return step.action ? { action: step.action } : { ...idle(), ...step.callShip ? { callShip: true } : {} };
     };
-    if (want.kind === "place") return here === want.target ? idle() : go(want.target);
+    if (want.kind === "place")
+      return here === want.target ? idle() : go(want.target);
     if (want.kind === "connect") {
       const humans = connectedHumans(s);
       const withMe = humans.filter((id) => s.actors[id].place === here);
@@ -6333,7 +6377,12 @@
       return talk && s.turn - s.actors[actor].lastTalk >= 1 ? { action: talk } : idle();
     }
     const item = want.target, owner2 = rootHolder(s, item);
-    if (owner2 === actor) return idle();
+    if (owner2 === actor) {
+      if (want.lit === void 0) return idle();
+      const cover = ids.find((id) => s.items[id].holder === item);
+      const fix = cover ? find("take", (a) => a.item === cover) : s.items[item].lit !== want.lit && find(want.lit ? "light" : "snuff", (a) => a.item === item);
+      return fix ? { action: fix } : idle();
+    }
     if (itemPlace2(s, item) !== here) return go(itemPlace2(s, item));
     let top = item;
     while (s.items[s.items[top].holder]) top = s.items[top].holder;
@@ -6442,7 +6491,8 @@
       rememberRoutes(next, id, visibleRouteEdges(from));
       const chosen = plan(next, id);
       if (chosen.callShip) callTransport(next, from, true);
-      if (chosen.action.kind !== "wait") perform(next, chosen.action, round2, [id]);
+      if (chosen.action.kind !== "wait")
+        perform(next, chosen.action, round2, [id]);
       rememberRoutes(next, id, visibleRouteEdges(next.actors[id].place));
       if (next.actors[id].place !== from)
         arriveRoamingRecitals(next, packDefinitions, id);
@@ -6480,7 +6530,12 @@
     let slept = next;
     if (s.actors[actor].sleepUntil === void 0 && !sharedEnabled(next))
       while (slept.actors[actor].sleepUntil !== void 0)
-        slept = play(slept, legalActions(slept, actor)[0], slept.revision, actor).state;
+        slept = play(
+          slept,
+          legalActions(slept, actor)[0],
+          slept.revision,
+          actor
+        ).state;
     return { ok: true, state: slept };
   }
   function validateWorld(s) {
@@ -6638,12 +6693,10 @@
           fail();
         seq = e.seq;
       }
-      if (e.kind !== void 0 && !LOG_KINDS.includes(e.kind))
-        fail();
+      if (e.kind !== void 0 && !LOG_KINDS.includes(e.kind)) fail();
       if (e.witnesses !== void 0 && (!Array.isArray(e.witnesses) || e.witnesses.length > actorIds.length + ids.length || e.witnesses.some((id) => !cast.has(id))))
         fail();
-      if (e.entityId != null && !entities2.has(e.entityId))
-        fail();
+      if (e.entityId != null && !entities2.has(e.entityId)) fail();
       if (e.fromLocationId != null && !Object.hasOwn(places, e.fromLocationId))
         fail();
       if (e.generated !== void 0 && e.generated !== true) fail();
@@ -6674,8 +6727,7 @@
       if (e.receiveId != null && !ids.includes(e.receiveId)) fail();
       if (e.verb === "want_met" !== (e.wantMet !== void 0) || e.wantMet !== void 0 && (!e.wantMet || Object.keys(e.wantMet).length !== 2 || !WANT_KINDS.includes(e.wantMet.kind) || !actorIds.includes(e.actorId) || (e.wantMet.kind === "connect" ? e.wantMet.target !== CONNECT_TARGET : !entities2.has(e.wantMet.target))))
         fail();
-      if (e.targetId != null && !entities2.has(e.targetId))
-        fail();
+      if (e.targetId != null && !entities2.has(e.targetId)) fail();
       if (e.light !== void 0 && typeof e.light !== "boolean") fail();
       if (e.cast !== void 0 && (!Array.isArray(e.cast) || e.cast.length > actorIds.length || new Set(e.cast).size !== e.cast.length || e.cast.some((id) => !actorIds.includes(id))))
         fail();
