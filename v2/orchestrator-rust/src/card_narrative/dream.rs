@@ -42,14 +42,20 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
     let turn = context.turn;
     let life = entity.inner_life.as_ref();
     let mut lines = Vec::new();
+    let known = known(context);
     // Every kept dream, oldest first, so each one can lead into the next.
-    for dream in life.into_iter().flat_map(|l| &l.dreams) {
+    // One that names a thing the scene does not know stays out (#1850).
+    for dream in life
+        .into_iter()
+        .flat_map(|l| &l.dreams)
+        .filter(|d| grounded(&d.text, &known))
+    {
         lines.push(format!("{own}, an earlier dream: {}", dream.text));
     }
     let mut drift = Vec::new();
     if let Some(thought) = life
         .and_then(|l| l.thoughts.last())
-        .filter(|_| roll(id, turn, 1).is_multiple_of(2))
+        .filter(|t| roll(id, turn, 1).is_multiple_of(2) && grounded(&t.text, &known))
     {
         drift.push(format!("{own}, to myself: {}", thought.text));
     }
@@ -112,6 +118,10 @@ mod tests {
                     turn: 20,
                     text: "The feathers became trains.".into(),
                 },
+                InnerMoment {
+                    turn: 30,
+                    text: "The storybook map's right here.".into(),
+                },
             ],
         });
         c.entities[vale].hope = Some(Hope {
@@ -130,6 +140,8 @@ mod tests {
         for absent in [
             "PERSONA SENTINEL",
             "HOPE SENTINEL",
+            // A retired item in an old save does not return (#1850).
+            "storybook map",
             "Current scene:",
             "voice samples",
         ] {
