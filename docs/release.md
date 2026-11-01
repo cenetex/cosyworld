@@ -200,6 +200,51 @@ git push origin vX.Y.Z
 
 The workflow deploys both Fly apps, then creates GitHub release notes.
 
+## Production promotion
+
+Lonely Forest (production) follows `.dev` by about one train.
+`.github/workflows/promote.yml` runs at `:22` and `:52`, between `.dev`
+trains, and `scripts/promote-train.mjs` picks what to promote:
+
+- the newest `.dev` train (a `Deploy main to .dev` job) that rolled out and
+  passed its readiness and card-game smokes on `cosyworld.fly.dev`;
+- that stayed live on `.dev` for `COSYWORLD_PROMOTE_SOAK_MINUTES` (repository
+  variable, default 20), until the next train replaced it or until now;
+- only when the newest train also passed: a failing train holds promotion
+  until a newer train passes;
+- only when it is ahead of the commit Lonely Forest's `/meta` reports, so a
+  train deploys to production at most once and never rolls a release back;
+- never a commit whose production run already failed, and never while
+  another production run is queued or running.
+
+The primary app is `.dev`, so it already runs every train; promotion deploys
+only Lonely Forest. It creates a `promote/<sha>` branch at the train's commit
+and dispatches `deploy.yml` with `target=lonelyforest` on it. That run keeps
+every production gate: the Node, Rust (`check-rust.sh test`, #1743), and lint
+gates, worldpack compatibility, volume space, and the Lonely Forest backup. A
+failed gate stops the deploy and opens the usual tracking issue. Each
+promotion clears the earlier `promote/*` branches.
+
+Promotion needs no new secret. The workflow's `GITHUB_TOKEN` creates the
+branch (`contents: write`) and dispatches the deploy (`actions: write`);
+GitHub lets `GITHUB_TOKEN` start `workflow_dispatch` runs, unlike pushes and
+tags. If a branch ruleset ever blocks creating `promote/*`, exempt that
+pattern for GitHub Actions.
+
+Promotions are not versioned releases. Lonely Forest's `/meta` then reports
+the last released `version` and the promoted `commit`, and no GitHub release
+is created. Versioned releases still come from tags.
+
+Owner controls:
+
+- **Pause:** `gh variable set COSYWORLD_HOLD_PRODUCTION --body on`; delete
+  the variable to resume. A manual run still promotes while paused.
+- **Promote now:** `gh workflow run promote.yml --ref main` promotes the
+  newest passing train without the soak (`-f now=false` keeps it;
+  `-f dry_run=true` only reports).
+- **Tag it from `.dev`:** a versioned release works as before; see
+  [Cutting a Release](#cutting-a-release).
+
 ## Upgrade and recovery
 
 Keep the existing SQLite and generated-asset volumes attached during an upgrade.
