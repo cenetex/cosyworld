@@ -218,8 +218,8 @@ try {
         '[data-avatar="vale"] .portrait-held-item',
       );
       async function assertHeldItem(id) {
-        assert.equal(await heldPreview.count(), id ? 1 : 0);
-        if (!id) return;
+        // With no card raised, Vale holds up the lit lamp he carries.
+        id ??= "lamp";
         assert.equal(await heldPreview.getAttribute("data-item"), id);
         assert.equal(await page.locator(".portrait-held-item").count(), 1);
         await heldPreview
