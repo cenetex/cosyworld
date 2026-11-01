@@ -130,6 +130,7 @@ const OVER_CAP_FOR_NOW = new Set([
   "greek-attic-farm",
   "greek-troy",
   "greek-greek-camp",
+  "greek-marathon",
 ]);
 const ships = new Set(Object.values(transports).map((t) => t.place));
 function links() {
