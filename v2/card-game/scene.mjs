@@ -544,8 +544,15 @@ export function sceneStaging(
     focalId: focal || null,
     floorItems,
     actors: order.map((id, index) => {
-      let gazeTargetId =
-        activeSpeaker && ids.includes(activeSpeaker)
+      // Fighters in an open standoff here watch each other, whoever speaks.
+      const fight = world.standoffs?.find(
+        (c) =>
+          c.location === locationId && [c.challenger, c.defender].includes(id),
+      );
+      const foe = fight?.challenger === id ? fight.defender : fight?.challenger;
+      let gazeTargetId = ids.includes(foe)
+        ? foe
+        : activeSpeaker && ids.includes(activeSpeaker)
           ? id === activeSpeaker
             ? listener
             : activeSpeaker

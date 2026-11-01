@@ -135,6 +135,25 @@ try {
     );
     // The telegraph and the rules line appear on stage before the new place.
     await page.locator("#combat-caption:not([hidden])").waitFor();
+    // From the first combat frame the two fighters face each other.
+    assert.deepEqual(
+      await page.evaluate(() =>
+        ["vale", "moth"].map((id, i, pair) => {
+          const at = (who) => {
+            const box = document
+              .querySelector(`#cast [data-avatar="${who}"]`)
+              .getBoundingClientRect();
+            return box.left + box.width / 2;
+          };
+          const toward = at(pair[1 - i]) > at(id) ? "right" : "left";
+          const facing = document.querySelector(`#cast [data-avatar="${id}"]`)
+            .dataset.facing;
+          return facing === toward;
+        }),
+      ),
+      [true, true],
+      "The fighters face each other before the first strike",
+    );
     report.telegraph = await page.locator("#combat-caption").textContent();
     assert.match(
       await page
