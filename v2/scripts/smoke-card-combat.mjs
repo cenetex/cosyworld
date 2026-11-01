@@ -34,6 +34,7 @@ function fixture() {
       resolve: { vale: 1, moth: 4 },
       guarding: { vale: true, moth: false },
       struck: { vale: true, moth: true },
+      steppedBack: { vale: false, moth: false },
     },
   ];
   return s;

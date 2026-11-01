@@ -1639,32 +1639,30 @@ function rest(s, actor, here) {
   else if (losses) delete s.defeats[actor];
   return null;
 }
-// A standoff goes on only while someone strikes. Any other play by either
-// side ends it, and so does a Brace answering the other side's standing Brace.
+// A threat stays in force until both sides have stood down: each fighter's
+// latest play since it began is something other than Strike or Brace. One
+// side's Talk or Wait alone leaves it open, and a Strike or Brace takes that
+// fighter back into the fight.
 function perform(s, a, round = null, settle = []) {
   const conflict = standoffFor(s, a.actor),
     other = conflict && opponentOf(conflict, a.actor);
-  const mutual = a.kind === "guard" && conflict?.guarding[other];
   const result = performPlay(s, a, round, settle);
-  if (
-    conflict &&
-    s.standoffs.includes(conflict) &&
-    (mutual || !["guard", "attack"].includes(a.kind))
-  ) {
-    closeStandoff(s, conflict);
-    addLog(
-      s,
-      "World",
-      mutual
-        ? `${nameOf(a.actor)} and ${nameOf(other)} both stand down. The standoff ends.`
-        : `${nameOf(a.actor)} steps back from ${nameOf(other)}. The standoff ends.`,
-      {
-        kind: "narration",
-        actorId: a.actor,
-        targetId: other,
-        locationId: conflict.location,
-      },
-    );
+  if (conflict && s.standoffs.includes(conflict)) {
+    conflict.steppedBack[a.actor] = !["guard", "attack"].includes(a.kind);
+    if (conflict.steppedBack[a.actor] && conflict.steppedBack[other]) {
+      closeStandoff(s, conflict);
+      addLog(
+        s,
+        "World",
+        `${nameOf(a.actor)} and ${nameOf(other)} both stand down. The standoff ends.`,
+        {
+          kind: "narration",
+          actorId: a.actor,
+          targetId: other,
+          locationId: conflict.location,
+        },
+      );
+    }
   }
   return result;
 }
@@ -1776,6 +1774,7 @@ function performPlay(s, a, round = null, settle = []) {
         resolve: { [a.actor]: 4, [a.target]: 4 },
         guarding: { [a.actor]: false, [a.target]: false },
         struck: { [a.actor]: false, [a.target]: false },
+        steppedBack: { [a.actor]: false, [a.target]: false },
       });
       break;
     case "guard":
@@ -2214,15 +2213,15 @@ function wantPlan(s, actor) {
           ? find("talk", (a) => a.target === other)
           : find("guard"),
       );
-    if (conflict.struck[other] || conflict.struck[actor])
-      return answer(find("attack", (a) => a.target === other));
-    // A challenger that wants the item strikes; any other play would end
-    // the standoff.
-    if (
+    // A resident strikes while the other side is still in the fight, once
+    // blows have landed or when it is the challenger that wants the item.
+    // Once the other side stands down it stands down too, which ends it.
+    const blows = conflict.struck[other] || conflict.struck[actor];
+    const presses =
       conflict.challenger === actor &&
       conflict.item &&
-      needed(s, actor, conflict.item)
-    )
+      needed(s, actor, conflict.item);
+    if (!conflict.steppedBack[other] && (blows || presses))
       return answer(find("attack", (a) => a.target === other));
     return idle();
   }
@@ -2677,7 +2676,7 @@ export function validateWorld(s) {
       (c.item && rootHolder(s, c.item) !== c.defender)
     )
       fail();
-    for (const field of ["resolve", "guarding", "struck"])
+    for (const field of ["resolve", "guarding", "struck", "steppedBack"])
       if (
         !c[field] ||
         Object.keys(c[field]).sort().join() !== pair.slice().sort().join()
@@ -2690,7 +2689,8 @@ export function validateWorld(s) {
           c.resolve[id] < 1 ||
           c.resolve[id] > 4 ||
           typeof c.guarding[id] !== "boolean" ||
-          typeof c.struck[id] !== "boolean",
+          typeof c.struck[id] !== "boolean" ||
+          typeof c.steppedBack[id] !== "boolean",
       )
     )
       fail();

@@ -73,9 +73,9 @@ describe("card standoffs", () => {
     expect(legalActions(s).some((a) => a.kind === "move")).toBe(false);
     expect(s.log.some((e) => e.verb === "attack")).toBe(false);
   });
-  it("ends a threat when either side answers with words", () => {
+  it("keeps a threat open until both sides stand down", () => {
     let s = meeting();
-    // The more experienced keeper answers with words, which ends the standoff.
+    // The more experienced keeper answers with words: one side stands down.
     s.actors.keeper.place = "station";
     s.turn = s.revision = 3;
     s.actors.keeper.xp = 3;
@@ -83,23 +83,56 @@ describe("card standoffs", () => {
     expect(s.log.some((e) => e.verb === "talk" && e.actorId === "keeper")).toBe(
       true,
     );
+    // One side's Talk alone leaves the threat and the room lock in force.
+    expect(standoffFor(s, "vale").steppedBack).toEqual({
+      vale: false,
+      keeper: true,
+    });
+    expect(legalActions(s).some((a) => a.kind === "move")).toBe(false);
+    // A Brace never counts as standing down.
+    s = act(s, "guard", "keeper");
+    expect(standoffFor(s, "vale")).toBeTruthy();
+    expect(legalActions(s).some((a) => a.kind === "move")).toBe(false);
+    // Once Vale stands down too, it ends.
+    s = act(s, "talk", "keeper");
     expect(standoffFor(s, "vale")).toBeUndefined();
     expect(s.log.map((e) => e.text)).toContain(
-      "The keeper steps back from Vale. The standoff ends.",
+      "Vale and The keeper both stand down. The standoff ends.",
     );
     expect(s.log.filter((e) => e.verb === "attack")).toHaveLength(0);
+    expect(legalActions(s).some((a) => a.kind === "move")).toBe(true);
   });
-  it("ends a standoff on any play but Strike or Brace, or a Brace against a Brace", () => {
+  it("never counts a Strike or Brace towards ending a standoff", () => {
     const open = () => act(meeting(), "threaten", "moth");
-    // Pip braces in answer, so Vale's Brace is a mutual stand-down.
+    // Pip braces in answer; Vale's Brace against it is no stand-down.
     expect(standoffFor(open(), "vale").guarding.moth).toBe(true);
     let s = act(open(), "guard", "moth");
+    expect(s.standoffs).toHaveLength(1);
+    expect(s.log.some((e) => e.text.includes("stand down"))).toBe(false);
+    s = act(open(), "attack", "moth");
+    expect(s.standoffs).toHaveLength(1);
+    // A fighter who stood down and then strikes is back in the fight.
+    s = meeting();
+    s.actors.keeper.place = "station";
+    s.turn = s.revision = 3;
+    s.actors.keeper.xp = 3;
+    s = act(s, "threaten", "keeper");
+    expect(standoffFor(s, "vale").steppedBack.keeper).toBe(true);
+    s = act(s, "attack", "keeper");
+    // The keeper strikes back, so neither side has stood down.
+    expect(standoffFor(s, "vale").steppedBack).toEqual({
+      vale: false,
+      keeper: false,
+    });
+  });
+  it("ends a standoff once both sides make any play but Strike or Brace", () => {
+    // Pip braced in answer; Vale waits, and Pip, with nothing to fight
+    // over, waits too.
+    const s = act(act(meeting(), "threaten", "moth"), "wait");
     expect(s.standoffs).toEqual([]);
-    expect(s.log.some((e) => e.text.includes("both stand down"))).toBe(true);
-    s = act(open(), "wait");
-    expect(s.standoffs).toEqual([]);
-    // A Strike keeps it going.
-    expect(act(open(), "attack", "moth").standoffs).toHaveLength(1);
+    expect(s.log.map((e) => e.text)).toContain(
+      "Pip and Vale both stand down. The standoff ends.",
+    );
   });
   it("ends a standoff when the demanded item is handed over", () => {
     const s = meeting();
@@ -116,6 +149,7 @@ describe("card standoffs", () => {
         resolve: { moth: 4, vale: 4 },
         guarding: { moth: false, vale: false },
         struck: { moth: false, vale: false },
+        steppedBack: { moth: false, vale: false },
       },
     ];
     s.actors.vale.place = "station";
@@ -181,6 +215,7 @@ describe("card standoffs", () => {
         resolve: { moth: 4, vale: 4 },
         guarding: { moth: false, vale: false },
         struck: { moth: false, vale: false },
+        steppedBack: { moth: false, vale: false },
       },
     ];
     // While the room is locked, handing over the demanded item is the one
@@ -213,18 +248,18 @@ describe("card standoffs", () => {
         resolve: { moth: 4, keeper: 4 },
         guarding: { moth: false, keeper: false },
         struck: { moth: false, keeper: false },
+        steppedBack: { moth: false, keeper: false },
       },
     ];
     validateWorld(s);
     s = act(s, "wait");
     expect(s.standoffs).toEqual([]);
     expect(s.items.oil.holder).toBe("keeper");
-    // Pip has no use for the flask, so its next play is not a Strike.
-    expect(
-      s.log.some(
-        (e) => e.text === "Pip steps back from The keeper. The standoff ends.",
-      ),
-    ).toBe(true);
+    // Pip has no use for the flask, so neither side strikes and both stand
+    // down within the round.
+    expect(s.log.map((e) => e.text)).toContain(
+      "The keeper and Pip both stand down. The standoff ends.",
+    );
   });
   it("reopens travel once a Talk ends the standoff and keeps items with their owner", () => {
     let s = act(meeting(), "threaten", "moth");
@@ -249,6 +284,7 @@ describe("card standoffs", () => {
         resolve: { moth: 4, keeper: 4 },
         guarding: { moth: false, keeper: false },
         struck: { moth: true, keeper: true },
+        steppedBack: { moth: false, keeper: false },
       },
     ];
     const kinds = legalActions(s).map((a) => a.kind);
@@ -353,8 +389,9 @@ describe("card standoffs", () => {
 });
 
 describe("standoff endings", () => {
-  // Even a player who only ever Strikes or Braces, and residents left to
-  // their own plans, see every standoff end within a few rounds.
+  // A player who keeps Striking or Bracing keeps a threat open by choice, so
+  // the long run mixes fighting with standing down. Residents follow their
+  // own plans, and every standoff still ends within a few rounds.
   it("never leaves a standoff open in long runs", () => {
     for (let seed = 1; seed <= 6; seed++) {
       let rng = seed;
@@ -373,10 +410,42 @@ describe("standoff endings", () => {
         const acts = legalActions(s);
         const fight = acts.filter((a) => ["guard", "attack"].includes(a.kind));
         const threat = acts.filter((a) => a.kind === "threaten");
-        const pool = fight.length
-          ? fight
-          : threat.length && roll(3) === 0
-            ? threat
+        const pool =
+          fight.length && roll(2) === 0
+            ? fight
+            : threat.length && roll(3) === 0
+              ? threat
+              : acts;
+        s = play(s, pool[roll(pool.length)]).state;
+        for (const c of s.standoffs)
+          longest = Math.max(longest, s.turn - c.opened);
+      }
+      expect(longest, `seed ${seed}`).toBeLessThanOrEqual(10);
+    }
+  });
+  // A player who stands down at once still gets out: a resident either
+  // stands down too or fights it to a finish.
+  it("ends every standoff the player stands down from", () => {
+    for (let seed = 1; seed <= 6; seed++) {
+      let rng = seed;
+      const roll = (n) => (rng = (rng * 48271) % 2147483647) % n;
+      let s = meeting();
+      for (const id of ["moth", "keeper"]) s.actors[id].place = "station";
+      s.items.oil.holder = "keeper";
+      s.actors.moth.want = {
+        kind: "item",
+        target: "oil",
+        since: 0,
+        refusals: 0,
+      };
+      let longest = 0;
+      for (let i = 0; i < 150; i++) {
+        const acts = legalActions(s);
+        const calm = acts.filter((a) => ["talk", "wait"].includes(a.kind));
+        const pool = standoffFor(s, "vale")
+          ? calm
+          : acts.filter((a) => a.kind === "threaten").length && roll(3) === 0
+            ? acts.filter((a) => a.kind === "threaten")
             : acts;
         s = play(s, pool[roll(pool.length)]).state;
         for (const c of s.standoffs)
@@ -403,6 +472,7 @@ const lastBlow = (s, challenger, defender, item, loserResolve = 1) => {
       resolve: { [challenger]: 4, [defender]: loserResolve },
       guarding: { [challenger]: false, [defender]: false },
       struck: { [challenger]: true, [defender]: true },
+      steppedBack: { [challenger]: false, [defender]: false },
     },
   ];
   s.turn = s.revision = Math.max(1, s.turn);
