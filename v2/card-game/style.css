@@ -982,10 +982,44 @@ body .card-frame {
   width: var(--card-width);
   height: var(--card-height);
   scroll-snap-align: start;
-  transition: transform 0.16s;
+  transition:
+    transform 0.22s ease-out,
+    filter 0.22s ease-out;
 }
 body .card-frame[data-raised="true"] {
   transform: translateY(-10px);
+}
+/* A chosen card lifts higher and wears a white ring inside its edge: tiers
+   own the border and the level-up glow owns the shadow. The rest dims. */
+body .card-frame:has(> .card[data-selected="true"]) {
+  z-index: 2;
+  transform: translateY(-12px);
+}
+body .card::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  z-index: 3;
+  border: 2px solid #fffaf0;
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 1px #0009,
+    inset 0 0 0 1px #0009;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease-out;
+}
+body .card[data-selected="true"]::before {
+  opacity: 1;
+}
+.hand:has(.card[data-selected="true"]) .card-frame:not([data-raised="true"]) {
+  filter: saturate(0.45) brightness(0.6);
+}
+@media (prefers-reduced-motion: reduce) {
+  body .card-frame,
+  body .card::before {
+    transition: none;
+  }
 }
 /* Lift the full stack while the face keeps its shadow on the same layer. */
 #hand:not([aria-busy="true"]) .card-frame:has(> .card:hover) {

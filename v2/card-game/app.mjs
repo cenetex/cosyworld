@@ -1028,6 +1028,10 @@ function choose(id) {
     const holder = things[id] ? rootHolder(world, id) : null;
     if (places[holder])
       selected = selected.filter((cardId) => cardId !== holder);
+    // No play takes two places, so a new place replaces the chosen one and
+    // keeps its partner: Pip + Station, then Pond, invites Pip to the Pond.
+    if (places[id] && !selected.includes(id))
+      selected = selected.filter((cardId) => !places[cardId]);
     selectCards(
       selected.includes(id)
         ? selected.filter((cardId) => cardId !== id)
@@ -1885,7 +1889,9 @@ function card(id) {
     ) {
       playQueue.clear();
       rowCollapsed = false;
-      selectCards([dragging[0], id]);
+      selectCards(
+        places[dragging[0]] && places[id] ? [id] : [dragging[0], id],
+      );
       selectionRevision = world.revision;
       render();
     }
