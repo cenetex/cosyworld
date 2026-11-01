@@ -50,13 +50,20 @@ try {
     await ready();
     const quest = page.locator("#hand .want-frame");
     assert.equal(await quest.isHidden(), true, "the quest folds behind Vale");
-    assert.equal(await page.locator('#hand .quest-tab[data-glow="false"]').count(), 1);
+    // Vale already holds the lamp, so the folded tab wears the near halo.
+    assert.equal(await page.locator('#hand .quest-tab[data-glow="near"]').count(), 1);
     await page.screenshot({ path: new URL(`folded-${width}.png`, output).pathname });
-    // Any play meets it; it stays sealed and the tab glows.
+    // Opening Vale's stack brings the quest forward with its halo; the tab
+    // behind Vale hides, so Vale's card carries no quest glow.
     await page.locator('#hand [data-card="vale"]').click();
+    await quest.waitFor();
+    assert.equal(await page.locator("#hand .quest-tab").isHidden(), true);
+    assert.equal(await page.locator('#hand .want-card[data-near="true"]').isVisible(), true);
+    await page.screenshot({ path: new URL(`expanded-${width}.png`, output).pathname });
+    // Any play meets it; it stays sealed and the tab glows.
     await page.locator("#card-actions button", { hasText: "Wait" }).first().click();
     await ready();
-    const tab = page.locator('#hand .quest-tab[data-glow="true"]');
+    const tab = page.locator('#hand .quest-tab[data-glow="invite"]');
     await tab.waitFor();
     // The tab peeks out behind Vale's card; it also takes the keyboard.
     await tab.focus();
@@ -64,6 +71,7 @@ try {
     const card = page.locator('#hand .want-card[data-met="true"]');
     await card.waitFor();
     assert.equal(await card.locator(".quest-seal").count(), 1);
+    assert.equal(await page.locator("#hand .quest-tab").isHidden(), true);
     await page.screenshot({ path: new URL(`met-${width}.png`, output).pathname });
     await card.click();
     const gain = page.locator(".quest-xp");

@@ -1847,6 +1847,8 @@ function updateCardSelection(frame) {
     frame.replaceWith(questFrame(shownQuest));
     return;
   }
+  const tab = frame.querySelector(":scope > .quest-tab");
+  if (tab) syncQuestTab(tab);
   const button = frame.querySelector(".card"),
     id = button.dataset.card,
     raised =
@@ -2197,8 +2199,22 @@ function toggleQuest() {
   rowCollapsed = false;
   render();
 }
-// The folded quest: a tab in its tier colour behind the avatar's card. It
-// glows while a first quest is new or a met quest waits to be cleared.
+// The quest shows when the avatar's stack or the quest itself is open.
+const questShown = (quest) =>
+  Boolean(quest) && (questOpen || expandedHolders.has(quest.actor));
+// The folded quest's tab carries its glows: a pulse while a first quest is
+// new or a met quest waits to be cleared, a steady halo while it is near.
+// Once the quest card shows, the tab hides and the card glows instead.
+function syncQuestTab(tab) {
+  const quest = shownQuest;
+  tab.hidden = questShown(quest);
+  tab.dataset.glow =
+    metQuest || questFresh
+      ? "invite"
+      : !questCovered(quest) && questNear(world, quest)
+        ? "near"
+        : "none";
+}
 function questTab(quest) {
   const tab = node(
     "button",
@@ -2207,7 +2223,7 @@ function questTab(quest) {
   );
   tab.type = "button";
   tab.style.setProperty("--tier-color", questTier(quest).color);
-  tab.dataset.glow = String(Boolean(metQuest || questFresh));
+  syncQuestTab(tab);
   tab.setAttribute("aria-label", metQuest ? "Quest met: open it" : "Quest");
   tab.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -3355,6 +3371,8 @@ function render() {
     if (!shownQuest && liveQuest && renderedHand) questFresh = true;
     shownQuest = liveQuest;
   }
+  // A new quest stops glowing once its card has been seen.
+  if (questShown(shownQuest)) questFresh = false;
   const handCards = questHand(stackPlaces(handAvailable()), world, shownQuest);
   // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
