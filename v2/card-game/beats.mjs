@@ -27,7 +27,7 @@ const HIT_WORDS = [
   ["took a big hit", "went down hard"],
 ];
 
-// "Pip lunged at Vale. Vale stumbled."
+// "Pip struck Vale. Vale stumbled."
 function attackResult(entry) {
   const damage = Number.isFinite(entry.damage)
     ? entry.damage
@@ -150,7 +150,7 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
     case "guard":
       return caption("⚔", `${a} braced against ${t}.`);
     case "attack":
-      return caption("⚔", `${a} lunged at ${t}. ${attackResult(entry)}`);
+      return caption("⚔", `${a} struck ${t}. ${attackResult(entry)}`);
     case "give":
       return entry.accepted === false
         ? caption(

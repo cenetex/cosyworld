@@ -395,9 +395,9 @@ try {
     assert.equal((await state()).standoffs.length, 1);
     await selectCard(page, "vale");
     await selectCard(page, "moth");
-    assert.deepEqual(await labels(), ["Guard", "Attack"]);
+    assert.deepEqual(await labels(), ["Brace", "Strike"]);
     await shot("standoff");
-    await page.getByRole("button", { name: "Guard", exact: true }).click();
+    await page.getByRole("button", { name: "Brace", exact: true }).click();
     await ready();
     assert.equal((await state()).turn, 2);
     const story = createWorld();

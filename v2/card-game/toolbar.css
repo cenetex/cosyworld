@@ -58,7 +58,7 @@ body.local-app #scene-video-button {
   inset: 60px 20px auto auto;
   margin: 0;
   padding: 6px;
-  width: 190px;
+  width: 340px;
   max-width: calc(100vw - 20px);
   max-height: calc(100dvh - 70px);
   overflow: auto;
@@ -245,4 +245,73 @@ body.local-app #scene-video-button {
   margin-top: 1.2rem;
   font-style: italic;
   text-align: right;
+}
+
+/* ☰ lists the player's avatars, then the tools (avatar-menu.mjs). */
+.avatar-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.world-menu .avatar-face {
+  gap: 10px;
+  padding: 5px 8px;
+}
+.avatar-face img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: 50% 12%;
+}
+.avatar-face span {
+  display: grid;
+  flex: 1;
+}
+.avatar-face small,
+.avatar-status {
+  color: var(--muted);
+}
+.avatar-face em,
+.avatar-face .avatar-here {
+  flex: none;
+  color: var(--gold);
+}
+[data-here="true"] .avatar-face {
+  background: #dfc38d1c;
+}
+.avatar-actions {
+  display: flex;
+  gap: 6px;
+  padding: 2px 8px 8px 58px;
+}
+.avatar-dialog .avatar-act,
+.world-menu .avatar-act {
+  width: auto;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+}
+.menu-tools {
+  display: flex;
+  border-top: 1px solid #ffffff1a;
+}
+.world-menu .menu-tools button {
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  font-size: 12px;
+}
+.avatar-dialog {
+  width: min(360px, calc(100vw - 32px));
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--ink);
+}
+.avatar-dialog p ~ .avatar-act {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  background: transparent;
 }

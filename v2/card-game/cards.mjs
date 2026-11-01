@@ -99,7 +99,7 @@ export function placePlays(world, id) {
 export function cardPlay(world, selected) {
   const cards = [...new Set(selected)];
   const available = availableCards(world);
-  const result = (action, hint) => ({ action, hint: action?.text || hint });
+  const result = (action, hint) => ({ action, hint: playText(action) || hint });
   if (!cards.length || cards.some((id) => !available.includes(id)))
     return result(null, "Choose a card from this hand.");
   if (cards.length > 2) return result(null, "Play one card or a pair.");
@@ -284,6 +284,16 @@ export function cardActions(world, selected) {
   };
 }
 
+// The combat verbs read Strike and Brace at the table. The rules keep their
+// own kinds (attack, guard) and journal text, so only the words change here.
+export function playText(action) {
+  const who = nameOf(action?.actor),
+    other = nameOf(action?.target).replace(/^The /u, "the ");
+  if (action?.kind === "attack") return `${who} strikes ${other}.`;
+  if (action?.kind === "guard") return `${who} braces against ${other}.`;
+  return action?.text;
+}
+
 export function playLabel(action) {
   // Pack data can name a play (a fixture, or greeting a sleeping resident).
   if (action?.label) return action.label;
@@ -302,8 +312,8 @@ export function playLabel(action) {
   return {
     accompany: "Accompany",
     threaten: "Threaten",
-    guard: "Guard",
-    attack: "Attack",
+    guard: "Brace",
+    attack: "Strike",
     take: "Take",
     drop: "Put down",
     give: "Give",
@@ -323,8 +333,8 @@ export function playLabel(action) {
 const progress = {
   accompany: "inviting",
   threaten: "threatening",
-  guard: "guarding",
-  attack: "attacking",
+  guard: "bracing",
+  attack: "striking",
   take: "taking",
   drop: "putting down",
   give: "giving",

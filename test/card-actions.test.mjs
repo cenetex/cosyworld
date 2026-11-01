@@ -6,6 +6,7 @@ import {
   playLabel,
   playProgress,
   playProgressLine,
+  playText,
 } from "../v2/card-game/cards.mjs";
 import {
   createWorld,
@@ -90,9 +91,19 @@ describe("named card actions", () => {
     expect(playLabel(action)).toBe("Wait");
     expect(hint).toBe("Vale waits one turn.");
     expect(playProgressLine("vale", action)).toBe("Vale is waiting…");
-    expect(playProgress({ kind: "attack" })).toBe("attacking");
+    expect(playProgress({ kind: "attack" })).toBe("striking");
     expect(playProgress({ kind: "move", item: "lamp" })).toBe("carrying");
     expect(playProgress({ kind: "pack-choice" })).toBe("acting");
+  });
+
+  it("names the combat verbs Strike and Brace over the rules kinds", () => {
+    const strike = { kind: "attack", actor: "vale", target: "keeper" };
+    const brace = { kind: "guard", actor: "moth", target: "vale" };
+    expect(playLabel(strike)).toBe("Strike");
+    expect(playLabel(brace)).toBe("Brace");
+    expect(playProgressLine("vale", strike)).toBe("Vale is striking…");
+    expect(playText(strike)).toBe("Vale strikes the keeper.");
+    expect(playText(brace)).toBe("Pip braces against Vale.");
   });
   it("lists local fixtures and carries spoken clues through Talk", () => {
     const world = createWorld();

@@ -160,7 +160,7 @@ describe("beat grouping", () => {
     expect(sceneBeats(worldOf(log), { held: new Set([1]) })).toEqual([]);
     const [beat] = sceneBeats(worldOf(log));
     expect(beatSummary(beat).text).toBe(
-      "⚔ Pip lunged at Vale. Vale staggered back.",
+      "⚔ Pip struck Vale. Vale staggered back.",
     );
   });
 
@@ -202,13 +202,13 @@ describe("beat grouping", () => {
     ).toMatch(/^The keeper left for .+\.$/u);
     const hit = (damage, outcome = "hit") =>
       say(by("moth", "attack", { targetId: "vale", damage, outcome }));
-    expect(hit(1)).toBe("Pip lunged at Vale. Vale stumbled.");
-    expect(hit(2)).toBe("Pip lunged at Vale. Vale fell.");
-    expect(hit(4)).toBe("Pip lunged at Vale. Vale took a big hit.");
+    expect(hit(1)).toBe("Pip struck Vale. Vale stumbled.");
+    expect(hit(2)).toBe("Pip struck Vale. Vale fell.");
+    expect(hit(4)).toBe("Pip struck Vale. Vale took a big hit.");
     expect(hit(1, "guarded")).toBe(
-      "Pip lunged at Vale. Vale braced and took only a glancing blow.",
+      "Pip struck Vale. Vale braced and took only a glancing blow.",
     );
-    expect(hit(2, "yield")).toBe("Pip lunged at Vale. Vale gave way.");
+    expect(hit(2, "yield")).toBe("Pip struck Vale. Vale gave way.");
     expect(
       say(
         by("vale", "sent-home", {
@@ -303,7 +303,7 @@ describe("combat beats from the rules", () => {
     // Each fighter's step is a beat; the defeat follows on the loser's beat.
     expect(text).toEqual([
       ["vale", ["Vale braced against Pip."]],
-      ["moth", ["Pip lunged at Vale. Vale gave way."]],
+      ["moth", ["Pip struck Vale. Vale gave way."]],
       [
         "vale",
         [

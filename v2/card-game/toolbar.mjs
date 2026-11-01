@@ -4,6 +4,7 @@ import { humanAvatars } from "./human-cast.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { levelOf } from "./want.mjs";
 import { worldNameOf } from "./world-name.mjs";
+import { installAvatarMenu } from "./avatar-menu.mjs";
 
 const icons = {
   worlds:
@@ -60,7 +61,11 @@ export function renderPlayers() {
   refresh();
 }
 
-export function installToolbar({ session, getWorld }) {
+export function installToolbar({
+  session,
+  getWorld,
+  allowShared = () => true,
+}) {
   const toolbar = document.querySelector(".top-actions");
   toolbar.setAttribute("role", "group");
   toolbar.setAttribute("aria-label", "World controls");
@@ -84,23 +89,30 @@ export function installToolbar({ session, getWorld }) {
   menu.addEventListener(
     "click",
     (event) => {
-      if (!event.target.closest("button")) return;
+      const target = event.target.closest("button");
+      if (!target || target.dataset.keepMenu) return;
       menu.hidePopover();
       menuButton.focus();
     },
     true,
   );
+  const tools = element("div", "menu-tools");
+  menu.append(tools);
   for (const [id, icon, label] of [
-    ["owned-worlds-button", "worlds", "Worlds"],
-    ["shared-worlds-button", "share", "Share"],
     ["history-button", "conversation", "Memory"],
+    ["shared-worlds-button", "share", "Invite"],
     ["menu-button", "settings", "Settings"],
   ]) {
     const button = document.getElementById(id);
     decorate(button, icon, label);
-    menu.append(button);
+    tools.append(button);
   }
-  installInnerLife(menu, getWorld);
+  installInnerLife(tools, getWorld);
+  tools.append(
+    tools.querySelector("#shared-worlds-button"),
+    tools.querySelector("#menu-button"),
+  );
+  installAvatarMenu({ menu, session, getWorld, allowShared });
   document.body.append(menu);
   toolbar.append(menuButton);
 
