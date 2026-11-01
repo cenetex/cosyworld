@@ -199,3 +199,144 @@ describe("a main push compares with the commit .dev runs", () => {
     expect(workflow).toContain("- name: Deploy primary Fly app");
   });
 });
+
+const serializeScript = fileURLToPath(
+  new URL("../../scripts/serialize-primary-rollout.sh", import.meta.url),
+);
+
+// A fake gh answers run and job lists from JSON fixtures through jq, so the
+// script's real filters run. A fixture named in `once` is served once.
+const runSerialize = (mode, options = {}) => {
+  const { fixtures = {}, once = [], main = sha } = options;
+  const directory = mkdtempSync(join(tmpdir(), "cosyworld-serialize-"));
+  const log = join(directory, "gh.log");
+  for (const [name, value] of Object.entries(fixtures)) {
+    writeFileSync(join(directory, `${name}.json`), JSON.stringify(value));
+  }
+  writeFileSync(
+    join(directory, "gh"),
+    `#!/usr/bin/env bash
+echo "$*" >> "${log}"
+[ "$1" = api ] || exit 0
+${options.apiFails ? "exit 1" : ""}
+path="$2"; filter=""; while [ $# -gt 0 ]; do [ "$1" = --jq ] && filter="$2"; shift; done
+case "$path" in
+  */git/ref/heads/main) echo ${main}; exit 0 ;;
+  */deploy.yml/runs*) name="runs-\${path##*status=}"; name="\${name%%&*}" ;;
+  */jobs) name="jobs-$(basename "$(dirname "$path")")" ;;
+esac
+file="${directory}/$name.json"; [ -e "$file" ] || echo '{"workflow_runs":[],"jobs":[]}' > "$file"
+jq -r "$filter" < "$file"
+case " ${once.join(" ")} " in *" $name "*) rm "$file" ;; esac
+`,
+  );
+  chmodSync(join(directory, "gh"), 0o755);
+  try {
+    const result = spawnSync("bash", [serializeScript, mode], {
+      encoding: "utf8",
+      timeout: 20_000,
+      env: {
+        ...process.env,
+        PATH: `${directory}${delimiter}${process.env.PATH}`,
+        GH_REPO: "example/world",
+        GITHUB_RUN_ID: "42",
+        GITHUB_SHA: sha,
+        GITHUB_EVENT_NAME: "push",
+        GITHUB_REF: options.ref ?? "refs/heads/main",
+        RUNNER_TEMP: directory,
+        COSYWORLD_ROLLOUT_WAIT_INTERVAL: "1",
+        COSYWORLD_ROLLOUT_WAIT_SECS: options.limit ?? "30",
+        COSYWORLD_YIELD_WAIT_SECS: "1",
+      },
+    });
+    const calls = existsSync(log) ? readFileSync(log, "utf8") : "";
+    return { ...result, calls };
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+};
+
+const runs = (...list) => ({
+  workflow_runs: list.map(([id, event, head_branch]) => ({
+    id,
+    event,
+    head_branch,
+  })),
+});
+const devJob = (status) => ({
+  jobs: [
+    {
+      name: "Deploy main to .dev",
+      status: "in_progress",
+      steps: [{ name: "Wait for production deploys", status }],
+    },
+  ],
+});
+const devRolling = {
+  "runs-in_progress": runs([7, "push", "main"]),
+  "jobs-7": devJob("completed"),
+};
+
+describe("a .dev deploy and a production deploy never roll out together", () => {
+  it("a .dev rollout waits for a tag or dispatch deploy, then continues", () => {
+    const tag = runSerialize("dev", {
+      fixtures: { "runs-queued": runs([5, "push", "v1.2.3"]) },
+      once: ["runs-queued"],
+    });
+    expect(tag.stdout).toContain(
+      "Waiting for production deploy run(s): 5 v1.2.3",
+    );
+    expect(tag.stdout).toContain(`owns main at ${sha.slice(0, 7)}`);
+    expect(tag.status).toBe(0);
+    const dispatch = runSerialize("dev", {
+      fixtures: { "runs-waiting": runs([6, "workflow_dispatch", "main"]) },
+      once: ["runs-waiting"],
+    });
+    expect(dispatch.stdout).toContain("6 main");
+    // Other main runs and its own run never hold it.
+    const quiet = runSerialize("dev", {
+      fixtures: {
+        "runs-in_progress": runs(
+          [7, "push", "main"],
+          [42, "workflow_dispatch", "main"],
+        ),
+      },
+    });
+    expect(quiet.stdout).not.toContain("Waiting");
+    expect(quiet.status).toBe(0);
+  });
+
+  it("a waiting .dev run still yields to a newer main commit", () => {
+    const result = runSerialize("dev", {
+      fixtures: { "runs-in_progress": runs([5, "push", "v1.2.3"]) },
+      main: newer,
+    });
+    expect(result.calls).toContain("run cancel 42");
+    expect(result.status).not.toBe(0);
+    expect(runSerialize("dev", { ref: "refs/tags/v1.2.3" }).calls).toBe("");
+  });
+
+  it("production waits only for a .dev run past its wait, so neither deadlocks", () => {
+    const rolling = runSerialize("production", {
+      fixtures: devRolling,
+      once: ["jobs-7"],
+    });
+    expect(rolling.stdout).toContain("Waiting for .dev rollout run(s): 7 main");
+    expect(rolling.status).toBe(0);
+    const waiting = runSerialize("production", {
+      fixtures: { ...devRolling, "jobs-7": devJob("in_progress") },
+    });
+    expect(waiting.stdout).not.toContain("Waiting");
+    expect(waiting.status).toBe(0);
+  });
+
+  it("fails after its limit, and continues when runs cannot be read", () => {
+    const stuck = runSerialize("production", {
+      fixtures: devRolling,
+      limit: "1",
+    });
+    expect(stuck.stderr).toContain("still running after 1 seconds");
+    expect(stuck.status).toBe(1);
+    expect(runSerialize("production", { apiFails: true }).status).toBe(0);
+  });
+});

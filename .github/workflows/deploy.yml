@@ -26,8 +26,12 @@ on:
         default: ""
         type: string
 
+# Main pushes (.dev) and production runs (v* tags, dispatches) queue in
+# separate groups. GitHub keeps one pending run per group, so a shared group
+# let a main push replace a waiting tag deploy. Both roll out the primary app;
+# scripts/serialize-primary-rollout.sh keeps those rollouts apart.
 concurrency:
-  group: deploy-${{ github.repository }}
+  group: deploy-${{ github.repository }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'dev' || 'production' }}
   cancel-in-progress: false
 
 permissions:
@@ -131,9 +135,11 @@ jobs:
           COSYWORLD_RELEASE_TARGET_CACHE: ${{ runner.temp }}/release-target
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-      - name: Yield to a newer main commit before the rollout
+      # Waits while a production deploy is queued or running, then yields if
+      # main moved. Production waits for .dev runs past this step.
+      - name: Wait for production deploys
         if: steps.impact.outputs.deploy == 'true'
-        run: bash scripts/yield-superseded-deploy.sh check
+        run: bash scripts/serialize-primary-rollout.sh dev
 
       - name: Roll out .dev
         id: rollout
@@ -293,6 +299,7 @@ jobs:
     permissions:
       contents: read
       checks: read
+      actions: read
     env:
       CI: true
       RUST_TEST_THREADS: "2"
@@ -302,9 +309,9 @@ jobs:
         with:
           fetch-depth: 1
 
-      # A manual main CI run, required before a tag, runs the same Rust tests
-      # and lint. Reuse its result for this exact commit; run the checks here
-      # only when CI did not run them, was cancelled, or failed.
+      # A manual CI run on this exact commit runs the same Rust tests and lint.
+      # Reuse its result; run the checks here when CI did not run them (at
+      # once when no CI run exists for the commit), was cancelled, or failed.
       - name: Reuse CI Rust checks for this commit
         id: ci
         env:
@@ -322,9 +329,11 @@ jobs:
         with:
           node-version: "24"
 
+      # Restore only: CI saves this cache daily, and a per-tag save cost a
+      # minute and 2 GB of the 10 GB cache budget for a key nothing reuses.
       - name: Restore Cargo build cache
         if: steps.ci.outputs.reuse != 'true'
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/.cargo/registry/index
@@ -423,9 +432,18 @@ jobs:
        (github.event_name == 'workflow_dispatch' &&
         (inputs.target == 'both' || inputs.target == 'primary')))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Wait for a .dev rollout to finish
+        run: bash scripts/serialize-primary-rollout.sh production
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -477,9 +495,18 @@ jobs:
       needs.production-gate.result == 'success' &&
       needs.primary-backup.result == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Wait for a .dev rollout to finish
+        run: bash scripts/serialize-primary-rollout.sh production
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -680,10 +707,10 @@ jobs:
       - lonelyforest-image
       - lonelyforest-backup
       - lonelyforest-fly
-    # A queued run that a newer run in the deploy concurrency group replaced
-    # (a version tag on the same commit, or a later main push) is cancelled
-    # and owns nothing; the newer run reports for it (#1044). A main run that
-    # a newer main commit superseded cancels itself the same way.
+    # A queued run that a newer run in its concurrency group replaced (a
+    # later main push for main, a later tag or dispatch for production) is
+    # cancelled and owns nothing; the newer run reports for it (#1044). A
+    # main run that a newer main commit superseded cancels itself the same way.
     if: ${{ !cancelled() }}
     permissions:
       contents: read

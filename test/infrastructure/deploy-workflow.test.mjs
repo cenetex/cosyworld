@@ -173,6 +173,10 @@ describe("deploy workflow", () => {
     expect(nodeGate).not.toContain("npm test");
     expect(rustGate).toContain("node scripts/await-ci-rust.mjs");
     expect(rustGate).toContain("checks: read");
+    expect(rustGate).toContain("actions: read");
+    // CI saves the Cargo cache; a per-tag save only evicts others.
+    expect(rustGate).toContain("uses: actions/cache/restore@v6");
+    expect(rustGate).not.toContain("uses: actions/cache@v6");
     expect(rustGate).toContain("if: steps.ci.outputs.reuse != 'true'");
     expect(rustGate).toContain("bash v2/scripts/check-rust.sh test");
     expect(rustGate).toContain("bash v2/scripts/check-main-size.sh");
@@ -253,7 +257,7 @@ describe("deploy workflow", () => {
       'node scripts/check-deployment-impact.mjs "$base" "$GITHUB_SHA"',
       "bash scripts/yield-superseded-deploy.sh watch &",
       "bash scripts/prepare-fly-image.sh cosyworld fly.toml",
-      "Yield to a newer main commit before the rollout",
+      "bash scripts/serialize-primary-rollout.sh dev",
       'flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling',
       "node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev",
       "node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev",
@@ -590,10 +594,28 @@ describe("deploy workflow", () => {
     ).toBe(false);
   });
 
-  it("serializes deployments across branch and tag refs", () => {
-    expect(workflow).toContain("group: deploy-${{ github.repository }}");
+  it("queues .dev and production apart and keeps their rollouts apart", () => {
     expect(workflow).toContain("cancel-in-progress: false");
     expect(workflow).not.toContain("group: deploy-${{ github.ref }}");
+    const dev = job("dev-deploy", "deployment-impact");
+    expect(dev).toContain("bash scripts/serialize-primary-rollout.sh dev");
+    // The wait is the last step before the rollout.
+    expect(dev.indexOf("- name: Wait for production deploys")).toBeLessThan(
+      dev.indexOf("- name: Roll out .dev"),
+    );
+    for (const [name, next, step] of [
+      ["primary-backup", "primary-fly", "Guard primary volume free space"],
+      ["primary-fly", "lonelyforest-image", "Deploy primary Fly app"],
+    ]) {
+      const source = job(name, next);
+      expect(source).toContain(
+        "bash scripts/serialize-primary-rollout.sh production",
+      );
+      expect(source).toContain("actions: read");
+      expect(source.indexOf("serialize-primary-rollout")).toBeLessThan(
+        source.indexOf(step),
+      );
+    }
   });
 
   it("uses separate app-scoped release jobs before publishing a release", () => {
