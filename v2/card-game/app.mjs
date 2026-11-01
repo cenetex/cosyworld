@@ -2057,6 +2057,12 @@ function questFrame(quest) {
   );
   el.addEventListener("click", () => {
     if (selectionBlocked()) return;
+    if (rowCollapsed && foldedChoice && selected.length) {
+      foldedChoice = false;
+      rowCollapsed = false;
+      render();
+      return;
+    }
     playQueue.clear();
     questOpen = !questOpen;
     selected = [];
@@ -3469,11 +3475,11 @@ document.addEventListener("click", (e) => {
     within(".play-dock, .card-frame, dialog, .topbar, .dialogue, .world-menu")
   )
     return;
-  questOpen = false;
   foldHand();
 });
 function foldHand() {
   foldedChoice = selected.length > 0;
+  questOpen = false;
   rowCollapsed = true;
   expandedHolders.clear();
   render();
