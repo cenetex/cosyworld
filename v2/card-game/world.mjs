@@ -532,7 +532,8 @@ const hasSpace = (s, actor, id) =>
 // A want in words, for cards and history.
 export function wantText(want) {
   if (!want) return "nothing in particular";
-  if (want.kind === "item") return `hold ${nameOf(want.target)}`;
+  if (want.kind === "item")
+    return `hold ${want.lit === undefined ? "" : want.lit ? "the lit " : "the dark "}${nameOf(want.target)}`;
   if (want.kind === "place") return `be at ${nameOf(want.target)}`;
   if (want.kind === "connect") return "introduce two people";
   return `talk with ${nameOf(want.target)}`;
@@ -2094,7 +2095,16 @@ function wantPlan(s, actor) {
   }
   const item = want.target,
     owner = rootHolder(s, item);
-  if (owner === actor) return idle();
+  // Held but not as wanted: uncover it, then light or put it out.
+  if (owner === actor) {
+    if (want.lit === undefined) return idle();
+    const cover = ids.find((id) => s.items[id].holder === item);
+    const fix = cover
+      ? find("take", (a) => a.item === cover)
+      : s.items[item].lit !== want.lit &&
+        find(want.lit ? "light" : "snuff", (a) => a.item === item);
+    return fix ? { action: fix } : idle();
+  }
   if (itemPlace(s, item) !== here) return go(itemPlace(s, item));
   let top = item;
   while (s.items[s.items[top].holder]) top = s.items[top].holder;

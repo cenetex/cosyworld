@@ -143,8 +143,26 @@ try {
       "Mirror attic",
     );
     // The lamp burns down in Pip's hands; once it goes out the mirror closes.
-    for (let i = 0; i < 12 && (await state()).items.lamp.lit; i++)
-      await waitHere();
+    // Pip rests at home just after a want is met, so he stays on the shore
+    // while its last fuel burns.
+    const low = await state();
+    low.items.lamp.fuel = 1;
+    low.actors.moth.metTurn = low.actors.moth.want.since = low.turn;
+    await page.evaluate(
+      ({ key, value }) => {
+        localStorage.setItem(key, value);
+        window.dispatchEvent(
+          new StorageEvent("storage", { key, newValue: value }),
+        );
+      },
+      { key, value: encodeSave(low) },
+    );
+    await page.waitForFunction(
+      (key) => JSON.parse(localStorage.getItem(key)).items.lamp.fuel === 1,
+      key,
+    );
+    await ready();
+    await waitHere();
     const spent = await state();
     assert.equal(spent.items.lamp.lit, false);
     assert.equal(spent.items.lamp.holder, "moth");

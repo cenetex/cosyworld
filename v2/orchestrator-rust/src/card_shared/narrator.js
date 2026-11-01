@@ -347,14 +347,14 @@
       },
       moth: {
         name: "Pip",
-        text: "A moth in a borrowed waistcoat. Seeks a lamp and a witness at the pond.",
+        text: "A moth in a borrowed waistcoat. Seeks a lit lamp and a witness at the pond.",
         tastes: {
           likes: "Warm light and a splendid waistcoat",
           sore: "Someone spoiling the light"
         },
         home: "pond",
         values: { lamp: 12, oil: 3, bell: 1, cloth: 6 },
-        want: { kind: "item", target: "lamp" },
+        want: { kind: "item", target: "lamp", lit: true },
         grievances: [
           { kind: "light", on: [{ kind: "snuff" }, { kind: "cover", target: "lamp" }], reason: "{actor} spoiled Pip's light." }
         ]
@@ -16112,7 +16112,10 @@
     for (const [id, a] of Object.entries(s.actors)) {
       if (!("want" in a)) {
         const w = authoredWant(id);
-        a.want = w && validTarget(s, w.kind, w.target) ? newWant(w.kind, w.target, s.turn) : null;
+        a.want = w && validTarget(s, w.kind, w.target) ? {
+          ...newWant(w.kind, w.target, s.turn),
+          ...w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {}
+        } : null;
       }
       a.xp ??= startXp(id);
       a.visited ??= [a.place];
@@ -16124,7 +16127,7 @@
     const whole4 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const w = a.want;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(startXp(id) + s.turn * 8)) && a.xp <= startXp(id) + s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (w === null || w && Object.keys(w).length === (w.quest === void 0 ? 4 : 5) && (w.quest === void 0 || Object.keys(w.quest).length === 2 && Number.isSafeInteger(w.quest.level) && w.quest.level >= 2 && Number.isSafeInteger(w.quest.left) && w.quest.left >= 1 && w.quest.left <= questSteps(w.quest.level)) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT);
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(startXp(id) + s.turn * 8)) && a.xp <= startXp(id) + s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (w === null || w && Object.keys(w).length === 4 + (w.quest !== void 0) + (w.lit !== void 0) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && (w.quest === void 0 || Object.keys(w.quest).length === 2 && Number.isSafeInteger(w.quest.level) && w.quest.level >= 2 && Number.isSafeInteger(w.quest.left) && w.quest.left >= 1 && w.quest.left <= questSteps(w.quest.level)) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT);
   }
 
   // v2/card-game/legacy-saves.mjs
@@ -17051,7 +17054,8 @@
   var loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
   function wantText(want) {
     if (!want) return "nothing in particular";
-    if (want.kind === "item") return `hold ${nameOf(want.target)}`;
+    if (want.kind === "item")
+      return `hold ${want.lit === void 0 ? "" : want.lit ? "the lit " : "the dark "}${nameOf(want.target)}`;
     if (want.kind === "place") return `be at ${nameOf(want.target)}`;
     if (want.kind === "connect") return "introduce two people";
     return `talk with ${nameOf(want.target)}`;
