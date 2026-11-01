@@ -16968,13 +16968,21 @@
     const asked = played.verb === "ask" ? `request for ${nameOf(played.itemId)}` : played.verb === "accompany" ? `invitation to ${nameOf(played.destinationId)}` : `offer of ${nameOf(played.itemId)}`;
     return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed. Say why in your own words.`;
   }
+  function playedEntry(world) {
+    const own = world.log.filter(
+      (entry) => entry.turn === world.turn && !entry.generated && entry.kind === "action" && entry.actorId === currentActor(world)
+    );
+    return own.findLast(
+      (entry) => !(entry.verb === "choose" && own.some(
+        (talk) => talk.seq < entry.seq && talk.verb === "talk" && talk.targetId === entry.targetId
+      ))
+    );
+  }
   function turnOutcome(world) {
     const events = world.log.filter(
       (entry) => entry.turn === world.turn && !entry.generated
     );
-    const played = events.findLast(
-      (entry) => entry.kind === "action" && entry.actorId === currentActor(world)
-    );
+    const played = playedEntry(world);
     const wantMet = played && events.find(
       (entry) => entry.verb === "want_met" && entry.actorId === played.actorId
     )?.wantMet;
@@ -17071,7 +17079,7 @@
       speakers,
       ids3,
       location,
-      played?.seq
+      playedEntry(world)?.seq
     );
     const events = world.log.filter(
       (entry) => entry.turn === world.turn && !entry.generated && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))

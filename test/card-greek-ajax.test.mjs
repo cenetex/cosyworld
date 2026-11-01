@@ -173,6 +173,28 @@ describe("Earth Beside the Ships", () => {
     world = play(world, talk).state;
     const context = narrativeContext(world, talk);
     expect(context.disclosures[0].factId).toBe("greek-ajax-plea");
+    // The choice's World line logs after the Talk; the Talk stays the play,
+    // so its told fact leads a resident's newer one.
+    expect(context.outcome.card).toMatchObject({
+      kind: "talk",
+      target: "greek-ajax-teucer",
+    });
+    const later = structuredClone(world);
+    const other = Object.keys(later.knowledge.facts).find(
+      (id) => !knowsFact(later, "vale", id) && id !== "greek-ajax-plea",
+    );
+    later.knowledge.pending.push({
+      factId: other,
+      speaker: "greek-ajax-teucer",
+      listener: "vale",
+      eventSeq: later.log.at(-1).seq + 1,
+      turn: later.turn,
+      locationId: "greek-greek-camp",
+      commitChoice: false,
+    });
+    expect(
+      narrativeContext(later, talk).disclosures.map((d) => d.factId),
+    ).toEqual(["greek-ajax-plea"]);
     expect(ajaxState(world).receipts["greek-ajax-hear-plea"]).toBe(world.turn);
     expect(entityActive(world, "greek-ajax-plea")).toBe(true);
     const response = (text) => ({

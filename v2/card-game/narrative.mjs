@@ -54,14 +54,37 @@ function refusalFact(played) {
   return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed. Say why in your own words.`;
 }
 
+// The player's play this turn. A topic's story choice commits at the Talk
+// that reserves it and logs just after it (#1581); the Talk is still the
+// play, so the fact it reserved leads the scene's disclosures.
+function playedEntry(world) {
+  const own = world.log.filter(
+    (entry) =>
+      entry.turn === world.turn &&
+      !entry.generated &&
+      entry.kind === "action" &&
+      entry.actorId === currentActor(world),
+  );
+  return own.findLast(
+    (entry) =>
+      !(
+        entry.verb === "choose" &&
+        own.some(
+          (talk) =>
+            talk.seq < entry.seq &&
+            talk.verb === "talk" &&
+            talk.targetId === entry.targetId,
+        )
+      ),
+  );
+}
+
 // Capture the resolved turn separately from wishes and remembered speech.
 export function turnOutcome(world) {
   const events = world.log.filter(
     (entry) => entry.turn === world.turn && !entry.generated,
   );
-  const played = events.findLast(
-    (entry) => entry.kind === "action" && entry.actorId === currentActor(world),
-  );
+  const played = playedEntry(world);
   // A want met by this play reaches the scene as an outcome of the card.
   const wantMet =
     played &&
@@ -191,7 +214,7 @@ export function narrativeContext(world, action = null) {
     speakers,
     ids,
     location,
-    played?.seq,
+    playedEntry(world)?.seq,
   );
   const events = world.log
     .filter(
@@ -277,7 +300,9 @@ export function narrativeContext(world, action = null) {
       // Waking from a long rest, a new level quest arrives in the dream.
       const quest = world.actors[id]?.want;
       const dreamt =
-        rest === "long" && id === resting && quest?.quest?.left &&
+        rest === "long" &&
+        id === resting &&
+        quest?.quest?.left &&
         quest.since === world.turn
           ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.`
           : null;
