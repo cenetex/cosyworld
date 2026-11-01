@@ -133,7 +133,7 @@ describe("the opening poem", () => {
   );
 
   it("adds the report when the bard reaches its saved site", () => {
-    const s = openingFixture("refusal");
+    const s = openingFixture("exposure");
     expect(poemIds(s.returning)).toContain("greek-decline-burial");
     const closed = untilBard(s.closed, "greek-courtyard");
     expect(closed.actors[bard].place).toBe("greek-courtyard");
@@ -143,7 +143,7 @@ describe("the opening poem", () => {
   });
 
   it("upgrades an older completed save and rejects invented visit records", () => {
-    const s = openingFixture("refusal");
+    const s = openingFixture("exposure");
     const old = structuredClone(s.water);
     delete old.packs["greek-drama"].recitals;
     old.log = [];
@@ -236,7 +236,7 @@ describe("the opening poem", () => {
   });
 
   it("allows water to enter the poem after the other quests and survives time away", () => {
-    let world = openingFixture("refusal", { water: false }).closed;
+    let world = openingFixture("exposure", { water: false }).closed;
     expect(stanzas(world)).toHaveLength(2);
     const act = (match) => {
       const a = legalActions(world).find(match);
@@ -278,7 +278,7 @@ describe("the opening poem", () => {
 
 it("keeps a pruned shared deed's author unknown when Vale loads Mara's saved deed", () => {
   const source = structuredClone(
-    openingFixture("refusal", { water: false }).decree,
+    openingFixture("exposure", { water: false }).decree,
   );
 
   const imported = dispatchShared({

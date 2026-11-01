@@ -82,7 +82,7 @@ describe("permanent pack sections", () => {
   });
 
   it("checks static roads and conditional routes for every traveler", () => {
-    const before = openingFixture("refusal").waterOffer;
+    const before = openingFixture("exposure").waterOffer;
     pack.routes.push({ from: "greek-harbor", to: "greek-piraeus" });
     for (const actor of ["vale", "mara", "greek-shipmaster"]) {
       expect(exits(before, "greek-road-athens-piraeus", actor)).not.toContain(
@@ -112,7 +112,7 @@ describe("permanent pack sections", () => {
   });
 
   it("checks section access before applying a choice and while replaying receipts", () => {
-    const before = openingFixture("refusal").waterOffer;
+    const before = openingFixture("exposure").waterOffer;
     const question = {
       id: "test-colonus-question",
       subject: "greek-colonus",

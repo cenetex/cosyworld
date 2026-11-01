@@ -40,7 +40,7 @@ export async function checkOpenDoor(browser, origin) {
             colonus: "family",
             marathon: "alcmene",
           };
-    const fixture = openingFixture("refusal").closed;
+    const fixture = openingFixture("exposure").closed;
     const page = await browser.newPage({
       viewport: { width, height: width === 390 ? 844 : 900 },
       reducedMotion: "reduce",

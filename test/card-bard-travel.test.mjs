@@ -159,7 +159,7 @@ describe("ordinary bard travel", () => {
     expect(play(s, stale, s.revision, "mara").ok).toBe(false);
   });
   it("keeps a known AI verse author through save reload and uses truthful song facts", () => {
-    const s = openingFixture("refusal").closed;
+    const s = openingFixture("exposure").closed;
     const pack = packDefinition("greek-drama");
     const record = s.packs[pack.id].recitals["greek-decline-burial"];
     record.actor = "keeper";

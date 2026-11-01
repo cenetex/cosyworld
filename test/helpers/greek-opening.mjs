@@ -44,7 +44,6 @@ export function openingFixture(
       ? (world = sailTo(world, target))
       : act("move", { target });
   const take = (item) => act("take", { item });
-  const choose = (choiceId) => act("choose", { choiceId });
   const walk = (...places) =>
     places.forEach((p) =>
       greekTravelTargets(world.actors.vale.place, `greek-${p}`).forEach(move),
@@ -73,79 +72,83 @@ export function openingFixture(
   moveTransport(world, bardFrom, "greek-harbor");
   walk("courtyard");
   states.arrival = world;
+  const give = (item, target) => act("give", { item, target });
   if (water) {
     walk("well");
     take("greek-water-jar");
     walk("courtyard");
     states.waterOffer = world;
-    choose("greek-return-water-jar");
+    give("greek-water-jar", "greek-baker");
     states.water = world;
   }
+  // Meeting the guard at the gate tells the traveller the decree.
   walk("gate");
-  choose("greek-hear-decree");
   states.decree = world;
-  if (branch === "refusal" || branch === "exposure") {
-    choose(branch === "refusal" ? "greek-decline-burial" : "greek-report-plan");
+  if (branch === "exposure") {
+    // Handing the guard the shovel reports the plan; his tablet records it.
+    take("greek-shovel");
+    give("greek-shovel", "greek-guard");
     states.choice = world;
+    take("greek-guard-tablet");
     walk("courtyard");
     states.returning = world;
-    choose(`greek-courtyard-${branch}`);
+    give("greek-guard-tablet", "greek-baker");
   } else {
     if (branch === "concession") {
+      // The elder stands witness when met after the decree.
       walk("well");
-      choose("greek-gather-witness");
-      walk("courtyard", "sanctuary");
+      walk("sanctuary");
       take("greek-household-token");
-      walk("courtyard", "well", "palace");
+      walk("palace");
       take("greek-decree");
-      choose("greek-petition-burial");
+      give("greek-decree", "greek-creon");
       states.permission = world;
-      take("greek-decree");
-      walk("well", "courtyard");
+      take("greek-creon-writ");
+      walk("courtyard");
       if (reportFirst) {
-        choose("greek-courtyard-concession");
+        give("greek-creon-writ", "greek-baker");
         states.permissionShared = world;
       }
+      walk("palace");
+      take("greek-decree");
       walk("gate");
     } else {
-      walk("courtyard", "well", "palace");
+      walk("palace");
       take("greek-decree");
       walk("gate");
     }
     // The road out to the battlefield is open while the guard at the gate
     // holds the decree.
-    act("give", { item: "greek-decree", target: "greek-guard" });
+    give("greek-decree", "greek-guard");
     take("greek-shovel");
+    // Waiting on the battlefield with the shovel prepares the grave.
     walk("battlefield");
-    choose(
-      branch === "concession"
-        ? "greek-prepare-permitted-burial"
-        : "greek-prepare-burial-ground",
-    );
-    walk("gate", "courtyard", "sanctuary");
+    act("wait");
+    act("drop", { item: "greek-shovel", target: "greek-battlefield" });
+    walk("gate", "sanctuary");
     if (branch === "concession")
       act("drop", { item: "greek-household-token", target: "greek-sanctuary" });
     take("greek-funeral-cloth");
     walk("courtyard");
     take("greek-oil-flask");
     walk("gate", "battlefield");
+    // Waiting with cloth and oil laid at the prepared grave buries the brother.
+    act("drop", { item: "greek-funeral-cloth", target: "greek-battlefield" });
+    act("drop", { item: "greek-oil-flask", target: "greek-battlefield" });
     states.beforeRite = world;
-    choose(
-      branch === "concession"
-        ? "greek-perform-permitted-burial"
-        : "greek-perform-burial",
-    );
+    act("wait");
     states.buried = world;
+    take("greek-burial-account");
     walk("gate", "courtyard");
     states.returning = world;
     if (branch === "concession") {
       if (!reportFirst) {
-        choose("greek-courtyard-concession");
+        give("greek-creon-writ", "greek-baker");
         states.permissionShared = world;
       }
       states.beforeGraveReport = world;
-      choose("greek-courtyard-permitted-burial");
-    } else choose("greek-courtyard-burial");
+    }
+    give("greek-burial-account", "greek-baker");
   }
   states.closed = world;
   return states;

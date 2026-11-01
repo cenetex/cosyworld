@@ -158,7 +158,7 @@ describe("roads around a full Agora", () => {
   });
 
   it("keeps the new harbor road behind Dione's accepted invitation", () => {
-    let closed = openingFixture("refusal").closed;
+    let closed = openingFixture("exposure").closed;
     closed = openDoorWalk(closed, "harbor");
     const hosted = dispatchShared({
       op: "create",
