@@ -245,18 +245,25 @@ try {
         origin,
       ).pathname.endsWith("harbor-ship-at-berth-night.webp"),
     );
-    for (const [place, day, night] of [
-      [
-        "greek-athens-harbor",
-        "athens-harbor.webp",
-        "athens-harbor-ship-at-berth-night.webp",
-      ],
-      [
-        "greek-piraeus",
-        "open-door-piraeus.webp",
-        "piraeus-ship-at-berth-night.webp",
-      ],
-    ]) {
+    // Desktop checks every place's art; the phone checks the played turns
+    // and one scene for each kind of sky. test/card-weather.test.mjs and
+    // test/card-daylight.test.mjs check each place's weather and daylight.
+    const phone = width === 390;
+    const phoneScenes = ["rain-coast", "rain-shelter", "mist-grove"];
+    for (const [place, day, night] of phone
+      ? []
+      : [
+          [
+            "greek-athens-harbor",
+            "athens-harbor.webp",
+            "athens-harbor-ship-at-berth-night.webp",
+          ],
+          [
+            "greek-piraeus",
+            "open-door-piraeus.webp",
+            "piraeus-ship-at-berth-night.webp",
+          ],
+        ]) {
       for (const turn of [0, 24]) {
         await load(place, turn, true);
         await check(
@@ -287,7 +294,7 @@ try {
       ["greek-colonus", 60, "mist-grove"],
       ["greek-thinkery", 36, "rain-shelter"],
       ["greek-underworld", 36, "underworld-mist"],
-    ]) {
+    ].filter(([, , name]) => !phone || phoneScenes.includes(name))) {
       await load(place, turn);
       await check(place, turn, name);
       await page.reload();
@@ -312,7 +319,7 @@ try {
     JSON.stringify(report, null, 2),
   );
   console.log(
-    `Weather browser checks passed: ${report.length} scenes at desktop and phone widths.`,
+    `Weather browser checks passed: ${report.length} scenes at desktop and phone widths (the phone runs fewer).`,
   );
 } finally {
   await browser.close();
