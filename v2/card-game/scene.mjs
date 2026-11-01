@@ -18,7 +18,7 @@ import {
 
 import { levelOf, knownActors } from "./want.mjs";
 import { packPlaces, packPeople } from "./pack-registry.mjs";
-import { variantOf, crossingOpen } from "./pack-rules.mjs";
+import { variantOf, crossingOpen, conditionMet } from "./pack-rules.mjs";
 import { locationWeather } from "./weather.mjs";
 import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
@@ -32,12 +32,23 @@ export { sceneChanges };
 export const lampLitHere = (world, place) =>
   shining(world) && itemPlace(world, "lamp") === place;
 // Pack art lives in the pack's own asset folder and is named by its data.
-const darkAttic = (world, id) =>
-  id === "attic" && world?.actors && !lampLitHere(world, id);
+// A place's state backdrops name saved conditions; the first that holds wins,
+// then the place's own backdrop (the lit or doused attic, #1600).
+function stateBackdrop(world, id) {
+  const states = world?.actors && places[id]?.backdrops;
+  if (!states) return null;
+  const match = states.find((b) =>
+    b.requires.every((c) => conditionMet(world, c, null)),
+  );
+  return match?.backdrop || places[id].backdrop;
+}
 export function backdrop(id, world = null) {
-  if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
   const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-  const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
+  const file = daylightBackdrop(
+    world,
+    id,
+    variant || stateBackdrop(world, id) || packPlaces[id]?.backdrop,
+  );
   return file ? `./${file}` : `./assets/${id}.png`;
 }
 export function portrait(id, facing = null, world = null) {
@@ -89,8 +100,10 @@ const visibleCrossing = (world, place) =>
       crossingOpen(world, c, senses),
   );
 export function locationVariant(world, id) {
-  if (darkAttic(world, id)) return "dark";
-  const crossing = visibleCrossing(world, id)?.id || "base";
+  const crossing =
+    visibleCrossing(world, id)?.id ||
+    stateBackdrop(world, id)?.replace(/^.*\/|\.\w+$/g, "") ||
+    "base";
   const weather = locationWeather(world, id);
   const variant = weather ? `${crossing}:${weather.variant}` : crossing;
   return locationDaylight(world, id)?.phase === "night"

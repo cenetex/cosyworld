@@ -37,6 +37,11 @@
       "name": "Mirror attic",
       "text": "A tall mirror shows only the warm attic. Dust gathers along its frame.",
       "exits": [],
+      "backdrop": "assets/shared/places/attic-dark.webp",
+      "backdrops": [
+        { "backdrop": "assets/attic/attic-lit.webp", "requires": [{ "kind": "light", "item": "lamp", "at": ["attic"], "uncovered": true }] },
+        { "backdrop": "assets/attic/attic-doused.webp", "requires": [{ "kind": "item_present", "item": "lamp", "place": "attic" }] }
+      ],
       "stage": {
         "focus": {
           "x": 64,

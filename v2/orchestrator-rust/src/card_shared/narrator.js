@@ -303,6 +303,11 @@
         name: "Mirror attic",
         text: "A tall mirror shows only the warm attic. Dust gathers along its frame.",
         exits: [],
+        backdrop: "assets/shared/places/attic-dark.webp",
+        backdrops: [
+          { backdrop: "assets/attic/attic-lit.webp", requires: [{ kind: "light", item: "lamp", at: ["attic"], uncovered: true }] },
+          { backdrop: "assets/attic/attic-doused.webp", requires: [{ kind: "item_present", item: "lamp", place: "attic" }] }
+        ],
         stage: {
           focus: {
             x: 64,
@@ -16575,7 +16580,6 @@
   var itemPlace2 = (s, id) => s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
   var carried = (s, actor) => ids.filter((id) => rootHolder(s, id) === actor);
   var covered = (s, id) => s.items.cloth.holder === id;
-  var shining = (s) => entityActive(s, "lamp") && s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
   var reflectionsFrom = (s, from) => (forest_default.reflectionRoutes || []).filter(
     (r) => r.from === from && r.requires.every((c) => conditionMet(s, c, null))
   ).map((r) => r.to);
@@ -17475,20 +17479,28 @@
   }
 
   // v2/card-game/scene.mjs
-  var lampLitHere = (world, place) => shining(world) && itemPlace2(world, "lamp") === place;
-  var darkAttic = (world, id) => id === "attic" && world?.actors && !lampLitHere(world, id);
+  function stateBackdrop(world, id) {
+    const states = world?.actors && places[id]?.backdrops;
+    if (!states) return null;
+    const match = states.find(
+      (b) => b.requires.every((c) => conditionMet(world, c, null))
+    );
+    return match?.backdrop || places[id].backdrop;
+  }
   function backdrop(id, world = null) {
-    if (darkAttic(world, id)) return "./assets/shared/places/attic-dark.webp";
     const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-    const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
+    const file = daylightBackdrop(
+      world,
+      id,
+      variant || stateBackdrop(world, id) || packPlaces[id]?.backdrop
+    );
     return file ? `./${file}` : `./assets/${id}.png`;
   }
   var visibleCrossing = (world, place) => crossings.find(
     (c) => c.from === place && (c.scenery?.overlay || c.scenery?.backdrop) && crossingOpen(world, c, senses)
   );
   function locationVariant(world, id) {
-    if (darkAttic(world, id)) return "dark";
-    const crossing = visibleCrossing(world, id)?.id || "base";
+    const crossing = visibleCrossing(world, id)?.id || stateBackdrop(world, id)?.replace(/^.*\/|\.\w+$/g, "") || "base";
     const weather = locationWeather(world, id);
     const variant = weather ? `${crossing}:${weather.variant}` : crossing;
     return locationDaylight(world, id)?.phase === "night" ? `${variant}:night` : variant;

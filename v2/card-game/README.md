@@ -432,7 +432,8 @@ and can follow the shore to Empty station and the keeper.
 Empty station connects to Black pond. Mirror attic connects to the pond through
 the reflection. Leaving the attic requires the lamp in the attic, not shining
 (doused, dry or covered). Returning needs a lit, fueled, uncovered lamp at the pond. Both are
-`requires` data on `forest.json` `reflectionRoutes`. The Black
+`requires` data on `forest.json` `reflectionRoutes`; the attic's `backdrops`
+paint it lit, doused, or dark without the lamp. The Black
 cloth in the lit attic also reveals stairs down to Cosy Cottage, with a matching
 painting. The cloth can lie in the room or travel with someone or something
 there. The cottage's
@@ -670,7 +671,7 @@ Requests record the destination and the answer in the scene script. Both places,
 
 The dialogue service gives the model a plain account of every recorded trip and a direction for Vale's chosen action. Threats keep their pressure, attacks keep their commitment, and guards hold a defensive stance. A later player choice can change that stance. Separate trips to the same destination remain separate arrivals in avatar speech, item descriptions and location narration.
 
-Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, quiet departures, both mirror directions (douse to leave, hold it lit at the pond to return), reload and relighting at desktop and phone widths. Run `node v2/scripts/smoke-card-dialogue-timing.mjs` to check the first loading speaker, card locks through each reply, and the cast after quiet actions. Run `node v2/scripts/smoke-card-beat-stack.mjs` to check the beat stack at desktop and phone widths, with and without reduced motion: a new beat arriving in front, tapping behind to step back, tapping the front card to finish a line or step forward, the live count, and Memory. Run `node v2/scripts/smoke-card-movement.mjs` to check visible entrances, the travel screen, arrival beat captions, and reset during travel with fast and delayed replies. The card table still keeps its rules and inventory in the browser; `/card-game/text` only generates validated text and does not authorize movement.
+Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, quiet departures, both mirror directions (douse to leave, hold it lit at the pond to return), the lit and doused attic paintings, reload and relighting at desktop and phone widths. Run `node v2/scripts/smoke-card-dialogue-timing.mjs` to check the first loading speaker, card locks through each reply, and the cast after quiet actions. Run `node v2/scripts/smoke-card-beat-stack.mjs` to check the beat stack at desktop and phone widths, with and without reduced motion: a new beat arriving in front, tapping behind to step back, tapping the front card to finish a line or step forward, the live count, and Memory. Run `node v2/scripts/smoke-card-movement.mjs` to check visible entrances, the travel screen, arrival beat captions, and reset during travel with fast and delayed replies. The card table still keeps its rules and inventory in the browser; `/card-game/text` only generates validated text and does not authorize movement.
 
 Run `node v2/scripts/smoke-card-dialogue-recovery.mjs` to check visible service failures, same-turn retry, incomplete responses, later plays and reload at desktop and phone widths. It uses local fixture responses and makes no model calls.
 

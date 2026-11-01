@@ -96,6 +96,11 @@ try {
     const state = () =>
       page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
     const card = (id) => page.locator(`#hand [data-card="${id}"]`);
+    const painted = async (name) =>
+      page.waitForFunction(
+        (name) => document.querySelector("#backdrop")?.src.includes(name),
+        name,
+      );
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=pond-access-check`,
     );
@@ -193,21 +198,25 @@ try {
       "Mirror attic",
     );
     assert.equal(await card("pond").count(), 0);
+    await painted("attic-lit");
     // Dousing it shows the Black Pond in the glass and the way out.
     await selectCard(page, "lamp");
     await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal((await state()).items.lamp.lit, false);
     await card("pond").waitFor({ state: "attached" });
+    await painted("attic-doused");
     await page.reload();
     await ready();
     assert.equal(await card("pond").count(), 1);
+    await painted("attic-doused");
     assert.equal((await state()).actors.vale.place, "attic");
     // Relighting shuts the mirror again; dousing reopens it.
     await selectCard(page, "lamp");
     await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal(await card("pond").count(), 0);
+    await painted("attic-lit");
     await page.reload();
     await ready();
     await selectCard(page, "lamp");
@@ -219,7 +228,7 @@ try {
     assert.equal((await state()).actors.vale.place, "pond");
     assert.deepEqual(errors, []);
     console.log(
-      `Douse to leave, lit at the pond to return, Pip keeping the lamp at the pond, burn-out and carried-away closing, reload and relighting passed at ${width}px.`,
+      `Douse to leave, lit at the pond to return, lit and doused paintings, Pip keeping the lamp at the pond, burn-out and carried-away closing, reload and relighting passed at ${width}px.`,
     );
     await page.close();
   }
