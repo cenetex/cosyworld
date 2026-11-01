@@ -192,7 +192,10 @@ describe("Tea beneath the oak", () => {
   });
 
   it("requires a shared charm holder to be present, but keeps a charm left at Oak", () => {
-    let world = dispatchShared({ op: "create", save: encodeSave(charmAtOak()) }).world;
+    let world = dispatchShared({
+      op: "create",
+      save: encodeSave(charmAtOak()),
+    }).world;
     world.actors.mara.place = OAK;
     const command = (actor, present, fields = {}) =>
       dispatchShared({
@@ -209,7 +212,10 @@ describe("Tea beneath the oak", () => {
       (a) => a.kind === "drop" && a.item === CHARM,
     );
     expect(drop).toBeDefined();
-    const placed = command("vale", ["vale", "mara"], { op: "play", action: drop });
+    const placed = command("vale", ["vale", "mara"], {
+      op: "play",
+      action: drop,
+    });
     expect(placed.ok, placed.error).toBe(true);
     world = reload(placed.world);
     expect(world.items[CHARM].holder).toBe(OAK);
@@ -284,6 +290,45 @@ describe("Tea beneath the oak", () => {
     },
   );
 
+  // A sewn scarf is active once its flag is set; the world is not reloaded
+  // because the sewing receipt is skipped here.
+  const scarfed = (scarf, holder) => {
+    const world = attic();
+    world.items.cloth.holder = "pond";
+    world.packs["lonely-forest"].flags[`${scarf}-sewn`] = true;
+    world.items[scarf].holder = holder;
+    return world;
+  };
+  it.each([
+    ["Vale's own scarf", "forest-scarf-vale", "vale"],
+    ["another traveler's scarf", "forest-scarf-mara", "vale"],
+    ["a companion's scarf", "forest-scarf-ash", "moth"],
+  ])(
+    "opens only the cottage from the lit attic with %s",
+    (_, scarf, holder) => {
+      const world = scarfed(scarf, holder);
+      world.actors.moth.place = "attic";
+      expect(exits(world, "attic", "vale")).toEqual([COTTAGE]);
+      expect(availableCards(world)).not.toContain("pond");
+      expect(
+        legalActions(world).some(
+          (a) => a.kind === "move" && a.target === COTTAGE,
+        ),
+      ).toBe(true);
+      world.items.lamp.lit = false;
+      expect(exits(world, "attic", "vale")).toEqual(["pond"]);
+    },
+  );
+
+  it("keeps the stairs shut for a scarf left on the floor or still unsewn", () => {
+    expect(
+      exits(scarfed("forest-scarf-vale", "attic"), "attic", "vale"),
+    ).toEqual([]);
+    const unsewn = scarfed("forest-scarf-vale", "vale");
+    delete unsewn.packs["lonely-forest"].flags["forest-scarf-vale-sewn"];
+    expect(exits(unsewn, "attic", "vale")).toEqual([]);
+  });
+
   it.each(["unlit", "empty", "covered", "at the pond", "at the station"])(
     "closes the cottage stairs when the lamp is %s; only a dark lamp here opens the mirror",
     (condition) => {
@@ -340,12 +385,17 @@ describe("Tea beneath the oak", () => {
     expect(placeText(restored, "attic")).toContain("Dust gathers");
     expect(play(restored, stale).ok).toBe(false);
     const doused = act(restored, "snuff");
-    expect(placeText(doused, "attic")).toContain("mirror opens onto a black shore");
+    expect(placeText(doused, "attic")).toContain(
+      "mirror opens onto a black shore",
+    );
     expect(move(doused, "pond").actors.vale.place).toBe("pond");
   });
 
   it("rejects a shared cottage crossing after another player puts out the lamp", () => {
-    let world = dispatchShared({ op: "create", save: encodeSave(attic()) }).world;
+    let world = dispatchShared({
+      op: "create",
+      save: encodeSave(attic()),
+    }).world;
     world.actors.mara.place = "attic";
     world.items.lamp.holder = "vale";
     const command = (actor, fields = {}) =>

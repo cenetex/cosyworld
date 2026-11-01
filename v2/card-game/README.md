@@ -565,9 +565,10 @@ the reflection. Leaving the attic requires the lamp in the attic, not shining
 (doused, dry or covered). Returning needs a lit, fueled, uncovered lamp at the pond. Both are
 `requires` data on `forest.json` `reflectionRoutes`; the attic's `backdrops`
 paint it lit, doused, or dark without the lamp; the stage dims those paintings only at night. The Black
-cloth in the lit attic also reveals stairs down to Cosy Cottage. The two ways
-never open together: lit with the cloth offers only the cottage, lit without it
-offers neither, and dark offers only the pond. The lit attic keeps its lit
+cloth in the lit attic, or any traveler's scarf carried by someone there, also
+reveals stairs down to Cosy Cottage. The two ways never open together: lit with
+the cloth or a scarf offers only the cottage, lit without either offers neither,
+and dark offers only the pond. The lit attic keeps its lit
 painting, whose mirror shows only the room. The cloth can lie in the room or
 travel with someone or something there. The cottage's
 stairs back up stay open after either item leaves or the light goes out.
