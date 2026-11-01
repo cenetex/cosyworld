@@ -32839,7 +32839,7 @@ mod tests {
 
     #[test]
     fn hot_room_and_regional_chaos_preserve_one_committed_world() {
-        std::thread::Builder::new()
+        let fixture_root = std::thread::Builder::new()
             .name("hot-room-regional-chaos".to_string())
             .stack_size(16 * 1024 * 1024)
             .spawn(|| {
@@ -32849,14 +32849,17 @@ mod tests {
                     .enable_all()
                     .build()
                     .expect("build hot-room regional chaos runtime")
-                    .block_on(run_hot_room_and_regional_chaos());
+                    .block_on(run_hot_room_and_regional_chaos())
             })
             .expect("spawn hot-room regional chaos thread")
             .join()
             .expect("hot-room regional chaos thread");
+        // Dropping the runtime above waited for every blocking store read an
+        // aborted scheduler left running, so nothing can reopen a store now.
+        fs::remove_dir_all(&fixture_root).expect("remove hot-room fixture directory");
     }
 
-    async fn run_hot_room_and_regional_chaos() {
+    async fn run_hot_room_and_regional_chaos() -> PathBuf {
         let fixture_root = std::env::temp_dir().join(format!(
             "cosyworld-hot-room-{}-{}",
             std::process::id(),
@@ -32887,7 +32890,10 @@ mod tests {
         let url_b = format!("http://{addr_b}");
         let isolated_url = format!("http://{isolated_addr}");
         let router_token = "hot-room-regional-router-token";
-        let lease_ttl = Duration::from_millis(1_500);
+        // Live owners keep the production lease so a scheduler stall under a
+        // loaded test run cannot move a room. Owner loss below expires the lost
+        // owner's leases explicitly instead of sleeping past a short TTL.
+        let lease_ttl = DEFAULT_CANONICAL_LEASE_TTL;
         let actor_hot = 5100;
         let actor_cold = 5101;
         let hot_location_id = 32;
@@ -33245,7 +33251,13 @@ mod tests {
         server_b.abort();
         let _ = convergence_b.await;
         let _ = server_b.await;
-        tokio::time::sleep(lease_ttl + Duration::from_millis(250)).await;
+        release_owner_partition_leases(
+            &primary_path,
+            OFFICIAL_WORLD_ID,
+            "hot-b:boot-b",
+            now_millis(),
+        )
+        .expect("expire the lost hot-room owner's leases");
         let process_loss = submit_canonical_test_offer(
             &client,
             &url_a,
@@ -33529,7 +33541,7 @@ mod tests {
             recovery_state,
             reconnect_state,
         ));
-        fs::remove_dir_all(&fixture_root).expect("remove hot-room fixture directory");
+        fixture_root
     }
 
     #[tokio::test]

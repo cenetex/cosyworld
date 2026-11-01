@@ -333,10 +333,12 @@ region loss, higher-fence promotion, and clients reconnecting through different
 regional edges. It asserts one gap-free suffix, unique event ids, exactly one
 copy of every acknowledged message, and no isolated mutation.
 
-Both harnesses flake under full-suite load and are quarantined until their
-fixes land (#1553, #1554). The blocking Rust job skips them; CI's non-blocking
-`Quarantined Rust tests` job runs them on every push. Run one alone with
-`bash v2/scripts/check-rust.sh quarantine`.
+The regional chaos harness gives live owners the production lease TTL and
+expires a lost owner's leases explicitly, so a stalled scheduler cannot move a
+room mid-run. The capacity convergence harness flakes under full-suite load
+and is quarantined until its fix lands (#1553). The blocking Rust job skips it;
+CI's non-blocking `Quarantined Rust tests` job runs it on every push. Run it
+alone with `bash v2/scripts/check-rust.sh quarantine`.
 
 ## Rollout order
 
