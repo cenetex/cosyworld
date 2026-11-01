@@ -163,7 +163,7 @@ describe("purposeful road save upgrade", () => {
       ["greek-gate", "greek-aulis"],
     ];
     const after = decodeSave(JSON.stringify(before));
-    expect(after.packs["greek-drama"].revision).toBe(9);
+    expect(after.packs["greek-drama"].revision).toBe(10);
     expect(after.routeKnowledge.vale).toEqual([
       ["greek-athens", "greek-road-sacred-way"],
       ["greek-road-sacred-way", "greek-delphi"],
