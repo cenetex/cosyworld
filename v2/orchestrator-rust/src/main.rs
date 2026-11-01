@@ -20354,6 +20354,71 @@ async fn command(
     command_with_card_receipt(client_addr, state, payload).await
 }
 
+/// Rejects a command whose observed cursor or versions disagree with this
+/// process's runtime.
+fn stale_observation_rejection(
+    runtime: &RuntimeWorld,
+    payload: &CommandRequest,
+    envelope: &CanonicalCommandEnvelope,
+) -> Option<Json<CommandResponse>> {
+    let current_world_seq = runtime.world.next_event_seq.saturating_sub(1);
+    if envelope.last_world_seq > current_world_seq {
+        return Some(canonical_command_error(
+            &payload.command,
+            409,
+            "The command observes a public event cursor ahead of this world.",
+        ));
+    }
+    if let Some(observed) = envelope.observed.actor_version {
+        let current = runtime.entity_version(&envelope.actor_ref);
+        if observed != current {
+            return Some(canonical_command_error_with_kind(
+                &payload.command,
+                409,
+                format!(
+                    "Stale actor version: observed {observed}, current {current}. Refresh before retrying."
+                ),
+                Some(CommandErrorKind::StaleActorVersion),
+            ));
+        }
+    }
+    if let Some(observed) = envelope.observed.location_version {
+        let current = runtime
+            .actor_by_id(payload.actor_id)
+            .and_then(|actor| runtime.canonical_ref("location", actor.location_id))
+            .map(|canonical_ref| runtime.entity_version(canonical_ref))
+            .unwrap_or_default();
+        if observed != current {
+            return Some(canonical_command_error_with_kind(
+                &payload.command,
+                409,
+                format!(
+                    "Stale location version: observed {observed}, current {current}. Refresh before retrying."
+                ),
+                Some(CommandErrorKind::StaleLocationVersion),
+            ));
+        }
+    }
+    for (canonical_ref, observed) in &envelope.observed.entities {
+        let current = runtime
+            .canonical_identities
+            .entity_versions
+            .get(canonical_ref)
+            .copied();
+        if current != Some(*observed) {
+            return Some(canonical_command_error_with_kind(
+                &payload.command,
+                409,
+                format!(
+                    "Stale or unknown entity version for {canonical_ref}. Refresh before retrying."
+                ),
+                Some(CommandErrorKind::StaleEntityVersion),
+            ));
+        }
+    }
+    None
+}
+
 async fn command_with_forwarding(
     client_addr: SocketAddr,
     state: AppState,
@@ -20492,63 +20557,36 @@ async fn command_with_forwarding(
         };
     }
 
-    {
+    let stale_rejection = {
         let runtime = state.inner.lock().await;
-        let current_world_seq = runtime.world.next_event_seq.saturating_sub(1);
-        if envelope.last_world_seq > current_world_seq {
-            return canonical_command_error(
-                &payload.command,
-                409,
-                "The command observes a public event cursor ahead of this world.",
-            );
-        }
-        if let Some(observed) = envelope.observed.actor_version {
-            let current = runtime.entity_version(&envelope.actor_ref);
-            if observed != current {
-                return canonical_command_error_with_kind(
-                    &payload.command,
-                    409,
-                    format!(
-                        "Stale actor version: observed {observed}, current {current}. Refresh before retrying."
-                    ),
-                    Some(CommandErrorKind::StaleActorVersion),
-                );
+        stale_observation_rejection(&runtime, &payload, &envelope)
+    };
+    if let Some(rejection) = stale_rejection {
+        // This edge may have converged past another process's commit of this
+        // very intent before that owner finalized its receipt, so the durable
+        // lookup above missed it. The live owner answers under its command
+        // lock, where the receipt is already visible.
+        if allow_forward && state.canonical_routing.enabled() {
+            payload.envelope = Some(envelope.clone());
+            let partitions = {
+                let runtime = state.inner.lock().await;
+                canonical_command_partitions(&runtime, payload.actor_id)
+            };
+            match canonical_route_for_partitions(&state, &partitions) {
+                Ok(Some(route)) => {
+                    match forward_canonical_command(&state, &route, client_addr, &payload).await {
+                        Ok(response) => return Json(response),
+                        Err(error) => warn!(
+                            "failed to route stale canonical command from {} to {}: {}",
+                            state.deployment.process_id, route.process_id, error
+                        ),
+                    }
+                }
+                Ok(None) => {}
+                Err(error) => warn!("stale command owner route lookup failed: {}", error),
             }
         }
-        if let Some(observed) = envelope.observed.location_version {
-            let current = runtime
-                .actor_by_id(payload.actor_id)
-                .and_then(|actor| runtime.canonical_ref("location", actor.location_id))
-                .map(|canonical_ref| runtime.entity_version(canonical_ref))
-                .unwrap_or_default();
-            if observed != current {
-                return canonical_command_error_with_kind(
-                    &payload.command,
-                    409,
-                    format!(
-                        "Stale location version: observed {observed}, current {current}. Refresh before retrying."
-                    ),
-                    Some(CommandErrorKind::StaleLocationVersion),
-                );
-            }
-        }
-        for (canonical_ref, observed) in &envelope.observed.entities {
-            let current = runtime
-                .canonical_identities
-                .entity_versions
-                .get(canonical_ref)
-                .copied();
-            if current != Some(*observed) {
-                return canonical_command_error_with_kind(
-                    &payload.command,
-                    409,
-                    format!(
-                        "Stale or unknown entity version for {canonical_ref}. Refresh before retrying."
-                    ),
-                    Some(CommandErrorKind::StaleEntityVersion),
-                );
-            }
-        }
+        return rejection;
     }
 
     payload.envelope = Some(envelope.clone());

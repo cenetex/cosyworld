@@ -16,7 +16,6 @@ TIMEOUT_SECS="${COSYWORLD_CARGO_TIMEOUT_SECS:-$DEFAULT_TIMEOUT_SECS}"
 # report on every push. Each has an issue and a fix-by date; remove a name
 # here when its fix lands. Never delete or #[ignore] them.
 QUARANTINED_TESTS=(
-  divergent_capacity_processes_converge_without_affinity # #1553, fix by 2026-11-14
 )
 
 run_with_timeout() {
