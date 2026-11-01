@@ -13700,7 +13700,8 @@
     "daylight",
     "weather",
     "ship_at",
-    "drawn"
+    "drawn",
+    "chance"
   ];
   var AT_SEA = "@sea";
   var WEATHER_CONDITIONS = ["clear", "cloud", "rain", "mist"];
@@ -14218,6 +14219,9 @@
           case "weather":
             ok = keysOk(c, ["kind", "place", "condition"]) && anyPlace(c.place) && WEATHER_CONDITIONS.includes(c.condition);
             break;
+          case "chance":
+            ok = keysOk(c, ["kind", "key", "odds", "lasts"]) && idOk(c.key) && intOk(c.odds, 2, 1e3) && intOk(c.lasts, 1, 24);
+            break;
           case "ship_at":
             ok = keysOk(c, ["kind", "transport", "dock"]) && idOk(c.transport) && (c.dock === AT_SEA || anyPlace(c.dock));
             break;
@@ -14251,7 +14255,8 @@
       "met",
       "knows",
       "daylight",
-      "drawn"
+      "drawn",
+      "chance"
     ].includes(c?.kind);
     const requirements = (cs, what, persistent = true) => {
       if (cs === void 0) return;
@@ -15265,6 +15270,15 @@
       // The saved regional weather where c.place is.
       case "weather":
         return locationWeather(s, c.place)?.condition === c.condition;
+      // A seeded chance: true for `lasts` turns at a time, one window in
+      // `odds`, hashed from the run seed so every table agrees.
+      case "chance": {
+        let h = 2166136261;
+        const window = Math.floor((s.turn || 0) / c.lasts);
+        for (const ch of `${s.run?.seed ?? 0}:${c.key}:${window}`)
+          h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+        return h % c.odds === 0;
+      }
       // A transport docked (or just arrived) at a port, or "@sea" between ports.
       case "ship_at":
         return c.dock === "@sea" ? shipAtSea(s, c.transport) : shipDock(s, c.transport) === c.dock;

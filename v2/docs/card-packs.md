@@ -66,6 +66,11 @@ while that place's regional weather (`weather.mjs`) is the named condition:
 `{ "kind": "ship_at", "transport": "greek-ship", "dock": "pond" }` holds
 while that transport is docked at, or has just arrived at, that dock (not at
 sea). `"dock": "@sea"` holds while it sails between ports.
+`{ "kind": "chance", "key": "otter", "odds": 12, "lasts": 2 }` holds for one
+window of `lasts` turns in about `odds`, picked by a FNV-1a hash of the run
+seed, the key and the window, so every table agrees. A place's state
+`backdrops` use it for things that simply happen, such as the otter and the
+boatman at the Willows landing.
 `{ "kind": "any", "conditions": [ ... ] }` holds while any of two to four
 conditions holds (nested at most two deep, like `not`). The Willows
 crossings use all of these, so the island appears from the ship's rail only
