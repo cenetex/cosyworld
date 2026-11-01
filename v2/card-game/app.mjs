@@ -489,7 +489,15 @@ const playQueue = createPlayQueue({
     renderActions();
   },
 });
+// Strikes and journeys have the screen: the hand, locked through them
+// anyway, drops away the moment they start and rises once the scene is drawn.
+function syncHandDrop() {
+  const dock = document.querySelector(".play-dock");
+  dock.dataset.dropped = String(covering);
+  dock.inert = covering;
+}
 function updateCardCooldown() {
+  syncHandDrop();
   $("hand").dataset.cooling = String(cardsCooling);
   $("hand").setAttribute("aria-busy", String(selectionBlocked()));
   $("card-actions").setAttribute("aria-busy", String(selectionBlocked()));
@@ -1227,6 +1235,7 @@ function cancelTravel() {
   trip++;
   cancelDiscovery();
   covering = false;
+  syncHandDrop();
   revealTravel();
   travelShown = Promise.resolve();
   $("travel").classList.remove("travelling");
@@ -1261,6 +1270,7 @@ async function travel(place, arrive, landed, kicker = "Travelling to") {
     revealTravel = resolve;
   });
   covering = true;
+  syncHandDrop();
   veil.classList.add("travelling");
   // The browser may start a CSS transition on a later frame. Wait for its
   // completion so each scene change stays covered at every rendering speed.

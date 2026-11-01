@@ -922,6 +922,16 @@ main {
   border: 0;
   pointer-events: none;
 }
+/* A play's strikes and journeys drop the locked hand to a sliver. */
+.play-dock {
+  transition:
+    transform 280ms ease-in-out,
+    opacity 280ms ease-in-out;
+}
+.play-dock[data-dropped="true"] {
+  transform: translateY(calc(100% - 28px));
+  opacity: 0.6;
+}
 .hand-wrap {
   position: relative;
   pointer-events: auto;
