@@ -58,6 +58,27 @@ fn eight_claims_and_one_avatar_per_account_survive_reopen() {
     c.execute("DELETE FROM card_checkpoints", []).unwrap();
     assert_eq!(expected, store::world(&c, &id).unwrap());
 }
+// The world list marks the person's own slots and which seats are held,
+// and a passkey owns at most eight worlds (#1877).
+#[test]
+fn the_world_list_marks_owned_slots_and_held_seats() {
+    let (_path, mut c, id) = fixture();
+    run(&mut c, &id, "friend", &command_for("claim", 2), 100_000).unwrap();
+    let owner = store::list(&c, "owner").unwrap();
+    assert_eq!(owner["worlds"][0]["owner"], true);
+    assert_eq!(owner["worlds"][0]["held"], json!([0, 0, 1, 0, 0, 0, 0, 0]));
+    let friend = store::list(&c, "friend").unwrap();
+    assert_eq!(friend["worlds"][0]["owner"], false);
+    assert_eq!(friend["worlds"][0]["actor"], 2);
+    for n in 1..8 {
+        store::create(&c, &format!("{n:0>48}"), "owner", 100_000).unwrap();
+    }
+    let ninth = store::create(&c, &"9".repeat(48), "owner", 100_000);
+    assert_eq!(
+        ninth.unwrap_err().to_string(),
+        "You have 8 worlds. Continue one of them."
+    );
+}
 #[test]
 fn claim_race_has_one_winner() {
     let (path, c, id) = fixture();

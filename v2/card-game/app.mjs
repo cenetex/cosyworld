@@ -3872,10 +3872,6 @@ $("confirm-reset").onclick = () => {
   try {
     const previous = localStorage.getItem(SAVE_KEY);
     if (previous) localStorage.setItem(`${SAVE_KEY}.bak`, previous);
-    const linked = localStorage.getItem(`${SAVE_KEY}.shared`);
-    if (linked) localStorage.setItem(`${SAVE_KEY}.bak.shared`, linked);
-    localStorage.removeItem(`${SAVE_KEY}.shared`);
-    $("continue-shared-world")?.remove();
   } catch {}
   cancelTravel();
   narrator.invalidate();

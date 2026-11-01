@@ -6,6 +6,8 @@ import { worldName } from "./world-name.mjs";
 // (v2/docs/card-table/avatar-menu.md). Vale keeps the original save slot.
 export const SAVE_BASE = "cosyworld.reflected-shore.v1";
 export const PLAYING_KEY = "cosyworld.playing";
+// A friend's link opens ☰ with that world to join (avatar-menu.mjs).
+export const INVITE_KEY = "cosyworld.invite";
 export const avatarSlot = (id, base = SAVE_BASE) =>
   id === "vale" ? base : `${base}.avatar.${id}`;
 export const otherAvatar = (id) =>

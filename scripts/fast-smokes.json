@@ -38,7 +38,11 @@
     },
     {
       "paths": "^v2/card-game/(avatar-menu|avatar-world)",
-      "smokes": ["smoke-card-delete-world", "smoke-card-toolbar"]
+      "smokes": [
+        "smoke-card-world-slots",
+        "smoke-card-delete-world",
+        "smoke-card-toolbar"
+      ]
     }
   ]
 }

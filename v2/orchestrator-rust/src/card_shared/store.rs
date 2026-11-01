@@ -206,8 +206,9 @@ pub(super) fn create(c: &Connection, id: &str, user: &str, now: i64) -> Result<(
             |r| r.get(0),
         )
         .map_err(err)?;
-    if count >= 16 {
-        return Err("You have 16 worlds. Continue one of them.".into());
+    // Eight world slots per passkey (#1846).
+    if count >= 8 {
+        return Err("You have 8 worlds. Continue one of them.".into());
     }
     c.execute(
         "INSERT INTO card_tables(id,owner,created) VALUES(?,?,?)",
@@ -218,9 +219,18 @@ pub(super) fn create(c: &Connection, id: &str, user: &str, now: i64) -> Result<(
 }
 pub(super) fn list(c: &Connection, user: &str) -> Result<Value> {
     // `bound` is the avatar this person returns as there (bindings.rs), and
-    // `full` says every avatar there belongs to someone.
-    let mut q=c.prepare("SELECT t.id,m.actor,(SELECT count(*) FROM card_members c WHERE c.world=t.id),b.actor,(SELECT count(*) FROM card_bindings f WHERE f.world=t.id) FROM card_tables t LEFT JOIN card_members m ON m.world=t.id AND m.user=? LEFT JOIN card_bindings b ON b.world=t.id AND b.user=? WHERE t.owner=? OR m.user=? OR b.user=? ORDER BY t.created DESC LIMIT 64").map_err(err)?;
-    let rows=q.query_map(params![user,user,user,user,user],|r|Ok(json!({"id":r.get::<_,String>(0)?,"actor":r.get::<_,Option<i32>>(1)?,"claimed":r.get::<_,i32>(2)?,"bound":r.get::<_,Option<i32>>(3)?,"full":r.get::<_,i32>(4)?>=8}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
+    // `full` says every avatar there belongs to someone. `owner` marks the
+    // person's own world slots, and `held` the seats someone holds (#1877).
+    let mut q=c.prepare("SELECT t.id,m.actor,(SELECT count(*) FROM card_members c WHERE c.world=t.id),b.actor,(SELECT count(*) FROM card_bindings f WHERE f.world=t.id),t.owner=?,(SELECT group_concat(actor) FROM card_members c WHERE c.world=t.id),(SELECT group_concat(actor) FROM card_bindings f WHERE f.world=t.id) FROM card_tables t LEFT JOIN card_members m ON m.world=t.id AND m.user=? LEFT JOIN card_bindings b ON b.world=t.id AND b.user=? WHERE t.owner=? OR m.user=? OR b.user=? ORDER BY t.created DESC LIMIT 64").map_err(err)?;
+    let rows=q.query_map(params![user,user,user,user,user,user],|r|{
+        let mut held=[0;8];
+        for seats in [r.get::<_,Option<String>>(6)?,r.get::<_,Option<String>>(7)?].into_iter().flatten() {
+            for a in seats.split(',').filter_map(|a| a.parse::<usize>().ok()).filter(|a| *a < 8) {
+                held[a]=1;
+            }
+        }
+        Ok(json!({"id":r.get::<_,String>(0)?,"actor":r.get::<_,Option<i32>>(1)?,"claimed":r.get::<_,i32>(2)?,"bound":r.get::<_,Option<i32>>(3)?,"full":r.get::<_,i32>(4)?>=8,"owner":r.get::<_,bool>(5)?,"held":held}))
+    }).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
     Ok(json!({"worlds":rows}))
 }
 #[cfg(test)]

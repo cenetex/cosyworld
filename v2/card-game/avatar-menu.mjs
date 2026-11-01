@@ -2,14 +2,20 @@ import { imageUrl } from "./images.mjs";
 import { humanAvatars, currentActor } from "./human-cast.mjs";
 import { request } from "./shared-auth.mjs";
 import { worldName, worldNameOf } from "./world-name.mjs";
-import { archiveLocal, deleteLocal, localWorldName } from "./avatar-world.mjs";
+import {
+  archiveLocal,
+  deleteLocal,
+  localWorldName,
+  INVITE_KEY,
+  PLAYING_KEY,
+} from "./avatar-world.mjs";
 import { levelOf } from "./want.mjs";
 import { avatarImage } from "./scarves.mjs";
 
-// ☰ lists the player's eight avatars and where each is now
-// (v2/docs/card-table/avatar-menu.md): Play, Send to…, Step away, Delete
-// world (local) or Release (shared), New world, Join. In a shared world the
-// Table above it shows who holds each of the world's avatars.
+// ☰ is one accordion of the passkey's world slots, then + New world and the
+// deck of avatars in no world (v2/docs/card-table/avatar-menu.md, #1877).
+// Each avatar shows once. Tap one of yours and the places it can go light
+// up; tap one of those to move it there.
 const $ = (id) => document.getElementById(id);
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -20,8 +26,11 @@ function el(tag, className, text) {
 function act(label, run, id) {
   const button = el("button", "avatar-act", label);
   button.type = "button";
+  button.dataset.keepMenu = "true";
   if (id) button.id = id;
-  button.onclick = async () => {
+  button.onclick = async (event) => {
+    // A target sits in a slot's summary; tapping it must not fold the slot.
+    event.preventDefault();
     button.disabled = true;
     try {
       await run();
@@ -42,26 +51,15 @@ export const byInitial = (avatars) =>
   );
 const localLink = (id) => `/?avatar=${id}`;
 const sharedLink = (id) => `/?world=${encodeURIComponent(id)}`;
-
-// The account's shared worlds: the newest row per avatar is where it is.
-async function sharedRows() {
-  const account = await request("/auth/account");
-  if (!account.authenticated) return [];
-  return (await request("/card-game/shared/worlds")).worlds;
-}
-export function placesOf(rows, here) {
-  const places = {};
-  for (const avatar of humanAvatars) {
-    const row = rows.find((r) => r.actor === avatar.id);
-    const local = localWorldName(avatar.id);
-    places[avatar.id] = row
-      ? { shared: row.id, name: worldName(row.seed) || "" }
-      : local !== null
-        ? { local: true, name: local }
-        : null;
-  }
-  if (here.place) places[here.actor] = here.place;
-  return places;
+// Leaving the world being played opens ☰ on the next page.
+const MENU_KEY = "cosyworld.menu";
+function stored(key, value) {
+  try {
+    if (value === undefined) return sessionStorage.getItem(key);
+    if (value === null) sessionStorage.removeItem(key);
+    else sessionStorage.setItem(key, value);
+  } catch {}
+  return null;
 }
 
 // What leaving a world costs. A local world left or replaced is gone for
@@ -81,27 +79,132 @@ export function leaveNote(avatar, place) {
 export const joinable = (row, avatar) =>
   !row.actor && (row.bound ? row.bound === avatar.id : !row.full);
 
-// The Table: this shared world's eight avatars as seats. Yours is in colour;
-// another person's is grey with their holder name, and a green dot while
-// they are here; an open seat is a card back. The owner may free any seat
+// A world's eight seats, as on the board: yours is marked, other humans are
+// in colour with a green dot while here, and an unheld seat is the resident
+// who lives there, in grey (#1846, #1866). The owner may free any held seat
 // but their own.
+function seatsOf(held, mine, { owner = false, online = [], holders = [] }) {
+  return byInitial(
+    humanAvatars.map((avatar, index) => {
+      const self = avatar.id === mine;
+      const human = !self && held[index] === 1;
+      return {
+        id: avatar.id,
+        name: avatar.name,
+        kind: self ? "you" : human ? "human" : "resident",
+        online: (self || human) && online[index] === 1,
+        holder: self ? "You" : human ? holders[index] || "Someone" : "",
+        free: Boolean(owner) && human,
+      };
+    }),
+  );
+}
+// The shared world being played, from its snapshot.
 export function worldSeats(state) {
   if (!state?.actor) return [];
-  const seats = humanAvatars.map((avatar, index) => {
-    const self = avatar.id === state.actor;
-    const held = state.bound?.[index] === 1 || state.claimed?.[index] === 1;
-    const online = state.present?.[index] === 1 && state.claimed?.[index] === 1;
-    const kind = self ? "you" : !held ? "open" : online ? "human" : "away";
-    return {
-      id: avatar.id,
-      name: avatar.name,
-      kind,
-      holder: self ? "You" : held ? state.holders?.[index] || "Someone" : "",
-      level: levelOf(state.world, avatar.id),
-      free: Boolean(state.owner) && held && !self,
-    };
+  const flags = (test) => humanAvatars.map((_, i) => (test(i) ? 1 : 0));
+  const held = flags((i) => state.bound?.[i] === 1 || state.claimed?.[i] === 1);
+  const online = flags(
+    (i) => state.present?.[i] === 1 && state.claimed?.[i] === 1,
+  );
+  return seatsOf(held, state.actor, { ...state, online }).map((seat) => ({
+    ...seat,
+    level: levelOf(state.world, seat.id),
+  }));
+}
+
+// The slots this passkey shows now. Signed in: its own shared worlds (at most
+// eight), a friend's world only while one of its avatars sits there, and the
+// world a friend's link opened. Signed out: one local world per avatar. The
+// world being played comes first. Avatars in no slot are the deck.
+export function worldSlots({ shared, rows = [], here, invite = null, local }) {
+  const slots = [];
+  const sharedSlot = (row, held = row.held || [], from = row) => ({
+    key: row.id,
+    shared: row.id,
+    name: worldName(row.seed) || "",
+    owner: Boolean(row.owner),
+    mine: row.actor || null,
+    row,
+    seats: seatsOf(held, row.actor, from),
   });
-  return byInitial(seats);
+  if (shared) {
+    const owned = rows.filter((row) => row.owner).slice(0, 8);
+    const seated = rows.filter((row) => row.actor && !owned.includes(row));
+    slots.push(...[...owned, ...seated].map((row) => sharedSlot(row)));
+    if (invite && !slots.some((slot) => slot.shared === invite.id)) {
+      // The seat this passkey keeps there waits for its return (#1825).
+      const held = humanAvatars.map((a, i) =>
+        a.id !== invite.mine && (invite.claimed?.[i] || invite.bound?.[i])
+          ? 1
+          : 0,
+      );
+      const row = { ...invite, actor: null, bound: invite.mine || null };
+      row.full = held.every(Boolean);
+      slots.push({ ...sharedSlot(row, held, invite), invite: true });
+    }
+  } else
+    for (const avatar of byInitial(humanAvatars)) {
+      const name = avatar.id === here.actor ? null : local(avatar.id);
+      if (name !== null)
+        slots.push({
+          key: `local:${avatar.id}`,
+          local: true,
+          name,
+          mine: avatar.id,
+        });
+    }
+  const at = slots.findIndex(
+    (slot) => here.place.shared && slot.shared === here.place.shared,
+  );
+  const found = at < 0 ? null : slots.splice(at, 1)[0];
+  slots.unshift(
+    here.place.shared
+      ? {
+          key: here.place.shared,
+          shared: here.place.shared,
+          row: { actor: here.actor },
+          ...found,
+          name: here.place.name,
+          owner: Boolean(here.state?.owner),
+          mine: here.actor,
+          seats: worldSeats(here.state),
+          current: true,
+        }
+      : {
+          key: `local:${here.actor}`,
+          local: true,
+          name: here.place.name,
+          mine: here.actor,
+          current: true,
+        },
+  );
+  for (const slot of slots) slot.seats ??= seatsOf([], slot.mine, {});
+  const placed = new Set(slots.map((slot) => slot.mine));
+  const deck = byInitial(humanAvatars).filter((a) => !placed.has(a.id));
+  const used = slots.filter((slot) => (shared ? slot.owner : slot.local));
+  return { slots, deck, canCreate: used.length < 8 };
+}
+
+// Where one of your avatars can go from `from`, its slot or null for the
+// deck: the deck, another slot whose seat for it is free and that holds
+// none of your avatars, and + New world while a slot is free.
+export function targetsFor(avatar, from, { slots, canCreate }, shared) {
+  return {
+    deck: Boolean(from),
+    worlds: slots
+      .filter(
+        (slot) =>
+          slot !== from &&
+          slot.shared &&
+          !slot.mine &&
+          joinable(slot.row, avatar) &&
+          slot.seats.find((seat) => seat.id === avatar.id).kind === "resident",
+      )
+      .map((slot) => slot.key),
+    // Locally each avatar has its own slot, so a local avatar always can.
+    create: shared ? canCreate : true,
+  };
 }
 
 // Where Delete world leaves the player (#1793, owner bug 2026-11-01): the
@@ -118,144 +221,99 @@ export function installAvatarMenu({
   allowShared,
   stopSaving = () => {},
 }) {
-  const list = el("ul", "avatar-list");
-  list.setAttribute("aria-label", "Your avatars");
+  const box = el("div", "world-slots");
+  box.setAttribute("aria-label", "Your worlds");
   const status = el("p", "avatar-status");
   status.id = "avatar-status";
   status.setAttribute("role", "status");
-  const seatList = el("ul", "table-seats");
-  seatList.setAttribute("aria-label", "Avatars in this world");
-  menu.prepend(seatList, list, status);
-  const dialog = el("dialog", "avatar-dialog");
-  dialog.id = "avatar-dialog";
-  document.body.append(dialog);
-  let rows = [];
-  let open = null;
-  const ask = (title, note, choices) => {
-    menu.hidePopover();
-    const close = act("Close", () => dialog.close());
-    const heading = el("div", "modal-heading");
-    heading.append(el("h2", "", title), close);
-    dialog.replaceChildren(heading, el("p", "avatar-note", note), ...choices);
-    dialog.showModal();
-  };
+  menu.prepend(box, status);
+  const phone = matchMedia("(max-width: 700px)");
+  let rows = [],
+    shared = Boolean(session),
+    invite = null,
+    // The tapped seat: { id, slot }, where slot is null for the deck.
+    chosen = null,
+    opened = new Set(),
+    drawn = "";
   const here = () => {
     const world = getWorld();
     const actor = session ? session.state.actor : currentActor(world);
     const name = worldNameOf(session ? session.state.world : world) || "";
     return {
       actor,
+      state: session?.state,
       place: session ? { shared: session.id, name } : { local: true, name },
     };
   };
-  const release = (worldId) =>
-    request(`/card-game/shared/worlds/${worldId}/command`, { op: "release" });
-  // Leave: a shared claim is released; a local save is kept as a backup.
-  async function leave(id, place) {
-    if (place.shared) await release(place.shared);
+  const command = (worldId, body) =>
+    request(`/card-game/shared/worlds/${worldId}/command`, body);
+  // After the world being played lets its avatar go, the bare address opens
+  // with ☰, and the player picks what comes next.
+  const leaveHere = () => {
+    stopSaving();
+    try {
+      localStorage.removeItem(PLAYING_KEY);
+    } catch {}
+    stored(MENU_KEY, "1");
+    location.href = "/";
+  };
+  const leave = async (id, from) => {
+    if (from.current) stopSaving();
+    if (from.shared) await command(from.shared, { op: "release" });
     else archiveLocal(id);
-  }
-  function move(avatar, place) {
-    const current = here().actor === avatar.id;
-    const targets = rows.filter(
-      (row) => joinable(row, avatar) && row.id !== place?.shared,
-    );
-    // The current local world's New world is the table's own reset.
-    const fresh = act(
-      "New world",
+  };
+  const redraw = () => {
+    drawn = "";
+    render();
+  };
+  // Moving out of a local world loses it, so that asks with a second tap.
+  function target(label, avatar, from, run, id) {
+    const button = act(
+      label,
       async () => {
-        if (current && place?.local) {
-          dialog.close();
-          return $("new-game").click();
+        if (from?.local && button.dataset.armed !== "true") {
+          button.dataset.armed = "true";
+          status.textContent = leaveNote(avatar, from);
+          return;
         }
-        if (place) await leave(avatar.id, place);
-        location.href = localLink(avatar.id);
+        await run();
       },
-      "avatar-new-world",
+      id,
     );
-    ask(`Send ${avatar.name} to…`, leaveNote(avatar, place), [
-      ...targets.map((row) =>
-        act(worldName(row.seed) || "A world", async () => {
-          await request(`/card-game/shared/worlds/${row.id}/command`, {
-            op: "claim",
-            avatar: avatar.id,
-            move: true,
-          });
-          archiveLocal(avatar.id);
-          location.href = sharedLink(row.id);
-        }),
-      ),
-      fresh,
-    ]);
-  }
-  function actions(avatar, place, current, places) {
-    if (!place)
-      return [
-        act("New world", () => (location.href = localLink(avatar.id))),
-        ...(rows.some((row) => joinable(row, avatar))
-          ? [act("Join", () => move(avatar, null))]
-          : []),
-      ];
-    return [
-      ...(current
-        ? []
-        : [
-            act("Play", () => {
-              location.href = place.shared
-                ? sharedLink(place.shared)
-                : localLink(avatar.id);
-            }),
-          ]),
-      act("Send to…", () => move(avatar, place), current ? "avatar-move" : ""),
-      act("Step away", () =>
-        ask(
-          `Step away from ${place.name || "this world"}?`,
-          place.local
-            ? leaveNote(avatar, place)
-            : `${avatar.name} stays yours there, with ${avatar.name}'s things.`,
-          [
-            act("Step away", async () => {
-              await leave(avatar.id, place);
-              if (!current) return location.reload();
-              goOn(avatar, places, "vale");
-            }),
-          ],
-        ),
-      ),
-      // The server has no world delete; a shared world offers Release.
-      place.local
-        ? remove(avatar, place, current, places)
-        : giveUp(avatar, place, current, places),
-    ];
-  }
-  // Go on as another avatar that is somewhere, or start `fallback` afresh.
-  function goOn(avatar, places, fallback) {
-    const next = humanAvatars.find((a) => a.id !== avatar.id && places[a.id]);
-    const there = next && places[next.id];
-    location.href = there?.shared
-      ? sharedLink(there.shared)
-      : localLink(next?.id || fallback);
-  }
-  // Delete world asks with a second tap on the same, now red, button.
-  function remove(avatar, place, current, places) {
-    const button = act("Delete world", () => {
-      if (button.dataset.armed !== "true") {
-        button.dataset.armed = "true";
-        button.textContent = `Delete ${place.name || "this world"} and its progress?`;
-        return;
-      }
-      // The world being played stops saving first, so nothing writes it
-      // back before the page leaves.
-      if (current) stopSaving();
-      deleteLocal(avatar.id);
-      const next = afterDelete(avatar, current);
-      if (next) return location.replace(next);
-      status.textContent = `${place.name || "The world"} is gone.`;
-      render();
-    });
-    button.classList.add("avatar-delete");
-    button.dataset.keepMenu = "true";
+    button.classList.add("slot-target");
     return button;
+  }
+  const toDeck = (avatar, from) =>
+    target("Move to your deck", avatar, from, async () => {
+      await leave(avatar.id, from);
+      if (from.current) return leaveHere();
+      chosen = null;
+      await load();
+    });
+  const toWorld = (avatar, from, slot) =>
+    target(`Move ${avatar.name} here`, avatar, from, async () => {
+      await command(slot.shared, { op: "claim", avatar: avatar.id });
+      if (from?.local) await leave(avatar.id, from);
+      stored(INVITE_KEY, null);
+      location.href = sharedLink(slot.shared);
+    });
+  async function create(avatar, from) {
+    if (!avatar) {
+      status.textContent = "Tap one of your avatars first.";
+      return;
+    }
+    if (!shared) {
+      // The world being played starts over through the table's own reset.
+      if (from?.current) return $("new-game").click();
+      if (from) await leave(avatar.id, from);
+      location.href = localLink(avatar.id);
+      return;
+    }
+    const made = await request("/card-game/shared/worlds", {
+      avatar: avatar.id,
+    });
+    if (from?.local) await leave(avatar.id, from);
+    location.href = sharedLink(made.id);
   }
   // A red button that asks with a second tap, then runs.
   function twoTap(label, armed, note, run) {
@@ -269,153 +327,235 @@ export function installAvatarMenu({
       await run();
     });
     button.classList.add("avatar-delete");
-    button.dataset.keepMenu = "true";
     return button;
   }
-  const reset = (worldId, avatar) =>
-    request(`/card-game/shared/worlds/${worldId}/command`, {
-      op: "reset",
-      avatar,
-    });
-  // Release: the holder gives up their avatar in a shared world. It starts
-  // over, and its place there is free for anyone (#1825).
-  function giveUp(avatar, place, current, places) {
-    const name = place.name || "this world";
-    return twoTap(
-      "Release",
-      `Release ${avatar.name} from ${name}?`,
-      `${avatar.name} keeps their level. Their things and quests stay in ${name}, and anyone may take ${avatar.name} there.`,
-      async () => {
-        await reset(place.shared, avatar.id);
-        if (current) goOn(avatar, places, avatar.id);
-        else location.reload();
-      },
+  // The tapped seat's actions, under its world's line of seats: Play and
+  // Release or Delete world for yours, the owner's Free for another's.
+  function seatActions(slot, seat) {
+    const name = slot.name || "this world";
+    const bar = el("div", "avatar-actions");
+    const level = seat.level ? ` · Level ${seat.level}` : "";
+    bar.append(
+      el("small", "seat-note", `${seat.name} · ${seat.holder}${level}`),
     );
-  }
-  // The owner frees an avatar someone holds: their hold ends and it starts
-  // over as a fresh starter, free for anyone.
-  function seat(row) {
-    const item = el("li", "table-seat");
-    item.dataset.avatar = row.id;
-    item.dataset.kind = row.kind;
-    const card = el("div", "table-card");
-    if (row.kind !== "open") {
-      const portrait = el("img");
-      portrait.src = imageUrl(
-        `/card-game/${avatarImage(session.state.world, row.id)}`,
-        "card",
+    if (seat.kind === "human") {
+      if (slot.owner)
+        bar.append(
+          twoTap(
+            `Free ${seat.name}`,
+            `Free ${seat.name}?`,
+            `Free ${seat.name}: removes ${seat.holder}'s hold and resets ${seat.name}.`,
+            async () => {
+              await command(slot.shared, { op: "reset", avatar: seat.id });
+              location.reload();
+            },
+          ),
+        );
+      return bar;
+    }
+    if (!slot.current)
+      bar.append(
+        act("Play", () => {
+          location.href = slot.shared
+            ? sharedLink(slot.shared)
+            : localLink(seat.id);
+        }),
       );
-      portrait.alt = "";
-      card.append(portrait);
-    }
-    if (row.kind === "human" || row.kind === "you") {
-      const dot = el("span", "table-online");
-      dot.setAttribute("aria-label", "here now");
-      card.append(dot);
-    }
-    const strip = el("span", "table-strip");
-    strip.append(
-      el("strong", "", row.name),
-      el(
-        "small",
-        "",
-        row.kind === "open"
-          ? "open seat"
-          : `${row.holder} · Level ${row.level}`,
-      ),
-    );
-    card.append(strip);
-    item.append(card);
-    if (row.free)
-      item.append(
+    if (slot.shared)
+      bar.append(
         twoTap(
-          `Free ${row.name}`,
-          `Free ${row.name}?`,
-          `Free ${row.name}: removes ${row.holder}'s hold and resets ${row.name}.`,
+          "Release",
+          `Release ${seat.name} from ${name}?`,
+          `${seat.name} keeps their level. Their things and quests stay in ${name}, and anyone may take ${seat.name} there.`,
           async () => {
-            await reset(session.id, row.id);
-            location.reload();
+            await command(slot.shared, { op: "reset", avatar: seat.id });
+            if (slot.current) return leaveHere();
+            chosen = null;
+            await load();
           },
         ),
       );
+    else
+      bar.append(
+        twoTap("Delete world", `Delete ${name} and its progress?`, "", () => {
+          // The world being played stops saving first, so nothing writes it
+          // back before the page leaves.
+          if (slot.current) stopSaving();
+          deleteLocal(seat.id);
+          const next = afterDelete(seat, slot.current);
+          if (next) return location.replace(next);
+          chosen = null;
+          redraw();
+          status.textContent = `${slot.name || "The world"} is gone.`;
+        }),
+      );
+    return bar;
+  }
+  function seatButton(slotKey, seat, world) {
+    const item = el("li", "slot-seat");
+    item.dataset.avatar = seat.id;
+    item.dataset.kind = seat.kind;
+    const face = el("button", "seat-face");
+    face.type = "button";
+    face.dataset.keepMenu = "true";
+    if (world && seat.kind === "you") face.id = "avatar-move";
+    const picked = chosen?.id === seat.id && chosen.slot === slotKey;
+    face.setAttribute("aria-pressed", String(picked));
+    face.setAttribute(
+      "aria-label",
+      [seat.name, seat.holder, seat.level && `Level ${seat.level}`]
+        .filter(Boolean)
+        .join(" · "),
+    );
+    const image =
+      (world && avatarImage(world, seat.id)) ||
+      humanAvatars.find((a) => a.id === seat.id).image;
+    const portrait = el("img");
+    portrait.src = imageUrl(`/card-game/${image}`, "card");
+    portrait.alt = "";
+    face.append(portrait, el("span", "seat-name", seat.name));
+    if (seat.online) face.append(el("span", "table-online"));
+    // A resident lives there on its own; it has nothing to tap.
+    face.disabled = seat.kind === "resident";
+    face.onclick = () => {
+      chosen = picked ? null : { id: seat.id, slot: slotKey };
+      status.textContent = "";
+      render();
+    };
+    item.append(face);
     return item;
   }
-  let seatKey = "";
-  function renderSeats() {
-    const rows = session ? worldSeats(session.state) : [];
-    const key = JSON.stringify(rows);
-    if (key === seatKey) return;
-    seatKey = key;
-    seatList.replaceChildren();
-    if (!rows.length) return;
-    const heading = el("li", "avatar-seats-heading");
-    const here = rows.filter((r) => r.kind === "human" || r.kind === "you");
-    const open = rows.filter((r) => r.kind === "open").length;
-    heading.append(
-      el("strong", "", worldNameOf(session.state.world) || "This world"),
-      el(
-        "small",
-        "",
-        `${here.length} ${here.length === 1 ? "human" : "humans"} here now · ${open} of 8 seats free`,
-      ),
-    );
-    seatList.append(heading, ...rows.map(seat));
-  }
   function render() {
-    const now = here();
-    const places = placesOf(rows, now);
-    list.replaceChildren();
-    for (const avatar of byInitial(humanAvatars)) {
-      const place = places[avatar.id];
-      const current = avatar.id === now.actor;
-      const row = el("li", "avatar-row");
-      row.dataset.avatar = avatar.id;
-      row.dataset.here = String(current);
-      const face = el("button", "avatar-face");
-      face.type = "button";
-      face.dataset.keepMenu = "true";
-      face.setAttribute("aria-expanded", String(open === avatar.id));
-      const portrait = el("img");
-      portrait.src = imageUrl(`/card-game/${avatar.image}`, "card");
-      portrait.alt = "";
-      const where = el("small");
-      if (place) {
-        where.append("in ", el("em", "", place.name || "a world"));
-      } else where.textContent = "not in a world";
-      const copy = el("span");
-      copy.append(el("strong", "", avatar.name), where);
-      face.append(portrait, copy);
-      if (current) face.append(el("span", "avatar-here", "here"));
-      face.onclick = () => {
-        open = open === avatar.id ? null : avatar.id;
-        render();
+    const view = worldSlots({
+      shared,
+      rows,
+      here: here(),
+      invite,
+      local: localWorldName,
+    });
+    const from = view.slots.find((slot) => slot.key === chosen?.slot) || null;
+    const avatar = humanAvatars.find((a) => a.id === chosen?.id);
+    const mine =
+      avatar && (from ? from.mine === avatar.id : view.deck.includes(avatar));
+    const targets = mine
+      ? targetsFor(avatar, from, view, shared)
+      : { deck: false, worlds: [], create: false };
+    // Presence ticks redraw only when something shown has changed.
+    const key = JSON.stringify([view, chosen, [...opened], phone.matches]);
+    if (key === drawn) return;
+    drawn = key;
+    box.replaceChildren();
+    for (const slot of view.slots) {
+      const details = el("details", "world-slot");
+      details.dataset.slot = slot.key;
+      details.dataset.current = String(Boolean(slot.current));
+      // On a phone only one world is open at a time.
+      if (phone.matches) details.name = "world-slot";
+      details.open = opened.has(slot.key);
+      details.ontoggle = () => {
+        if (details.open) opened.add(slot.key);
+        else opened.delete(slot.key);
       };
-      row.append(face);
-      if (open === avatar.id) {
-        const bar = el("div", "avatar-actions");
-        bar.append(...actions(avatar, place, current, places));
-        row.append(bar);
+      const summary = el("summary");
+      const free = slot.seats.filter((s) => s.kind === "resident").length;
+      const humans = slot.seats.filter((s) => s.online).length;
+      const meta = slot.local
+        ? ["on this device"]
+        : [
+            slot.invite ? "invited" : !slot.owner && "a friend's world",
+            slot.current && `${humans} here`,
+            `${free} of 8 free`,
+          ];
+      summary.append(
+        el("strong", "", slot.name || "A world"),
+        el("small", "", meta.filter(Boolean).join(" · ")),
+      );
+      const letters = el("span", "slot-letters");
+      letters.setAttribute("aria-hidden", "true");
+      for (const seat of slot.seats)
+        letters.append(el("span", `letter-${seat.kind}`, seat.name[0]));
+      summary.append(letters);
+      if (targets.worlds.includes(slot.key)) {
+        details.dataset.target = "true";
+        summary.append(toWorld(avatar, from, slot));
       }
-      list.append(row);
+      const world = slot.current ? session?.state.world || getWorld() : null;
+      const seats = el("ul", "slot-seats");
+      seats.append(...slot.seats.map((s) => seatButton(slot.key, s, world)));
+      details.append(summary, seats);
+      const seat =
+        chosen?.slot === slot.key &&
+        slot.seats.find((s) => s.id === chosen.id && s.kind !== "resident");
+      if (seat) details.append(seatActions(slot, seat));
+      box.append(details);
     }
-    seatKey = "";
-    renderSeats();
+    if (view.canCreate || !shared) {
+      const fresh = act(
+        "+ New world",
+        () => create(mine ? avatar : view.deck[0], mine ? from : null),
+        "avatar-new-world",
+      );
+      fresh.classList.add("slot-new");
+      if (targets.create) fresh.dataset.target = "true";
+      box.append(fresh);
+    }
+    if (view.deck.length || targets.deck) {
+      const deck = el("div", "avatar-deck");
+      deck.append(el("small", "", "Your deck · in no world"));
+      if (targets.deck) {
+        deck.dataset.target = "true";
+        deck.append(toDeck(avatar, from));
+      }
+      const list = el("ul", "slot-seats");
+      list.append(
+        ...view.deck.map((a) =>
+          seatButton(null, { id: a.id, name: a.name, kind: "deck" }),
+        ),
+      );
+      deck.append(list);
+      box.append(deck);
+    }
+    if (mine && !status.textContent)
+      status.textContent = `Tap where ${avatar.name} goes.`;
   }
   menu.addEventListener("toggle", () => {
-    if (!menu.matches(":popover-open")) return;
-    open = here().actor;
+    if (!menu.matches(":popover-open")) {
+      // A friend's world shows once, until ☰ closes or an avatar goes there.
+      if (invite) stored(INVITE_KEY, null);
+      invite = null;
+      return;
+    }
+    const now = here();
+    chosen = null;
+    opened = new Set([now.place.shared || `local:${now.actor}`]);
     status.textContent = "";
-    render();
-    if (allowShared())
-      sharedRows()
-        .then((value) => {
-          rows = value;
-          render();
-        })
-        .catch(() => {});
+    redraw();
+    load(stored(INVITE_KEY));
   });
-  // Presence changes while ☰ is open refresh who is here.
+  // Signed in, the slots are the account's shared worlds. Without the
+  // server the menu keeps what it has.
+  async function load(inviteId) {
+    try {
+      if (!allowShared()) return;
+      const account = await request("/auth/account");
+      shared = Boolean(session || account.authenticated);
+      if (!shared) return;
+      rows = (await request("/card-game/shared/worlds")).worlds;
+      if (!inviteId) return;
+      const view = await request(`/card-game/shared/worlds/${inviteId}`);
+      invite = { ...view, id: inviteId };
+      opened.add(inviteId);
+      status.textContent = "Tap one of your avatars to bring it here.";
+    } catch {
+    } finally {
+      redraw();
+    }
+  }
+  if (stored(INVITE_KEY) || stored(MENU_KEY)) {
+    stored(MENU_KEY, null);
+    setTimeout(() => menu.showPopover(), 0);
+  }
   return () => {
-    if (menu.matches(":popover-open")) renderSeats();
+    if (menu.matches(":popover-open")) render();
   };
 }

@@ -284,8 +284,10 @@ pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result
     let owner = super::bindings::owner(c, id, user)?;
     let Some(a) = actor else {
         let mine = super::bindings::mine(c, id, user)?.map(actor_id);
+        // The seed names the world on a friend's link (#1877).
+        let seed = name_seed(c, id)?;
         return Ok(
-            json!({"id":id,"actor":null,"claimed":w.claimed,"bound":bound,"holders":holders,"mine":mine,"owner":owner,"now":now,"version":w.version}),
+            json!({"id":id,"actor":null,"claimed":w.claimed,"bound":bound,"holders":holders,"mine":mine,"owner":owner,"seed":seed,"now":now,"version":w.version}),
         );
     };
     let a = usize::try_from(a)

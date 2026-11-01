@@ -588,8 +588,16 @@ try {
   );
   await perform(vale, "snuff", undefined, "lamp");
   for (let i = 1; i < 8; i++) {
+    // A friend's link opens ☰ on the person's own table with this world as
+    // a slot; tapping an avatar from the deck lights it, and a tap moves it
+    // there (#1877).
     await pages[i].goto(`${origin}/?world=${worldId}`);
-    await pages[i].locator(`.shared-choice[data-avatar="${names[i]}"]`).click();
+    const slot = pages[i].locator(`.world-slot[data-slot="${worldId}"]`);
+    await slot.waitFor();
+    await pages[i]
+      .locator(`.avatar-deck [data-avatar="${names[i]}"] button`)
+      .click();
+    await slot.locator(".slot-target").click();
     await until(
       async () => (await snapshot(pages[i])).actor === names[i],
       "avatar claim finishes",

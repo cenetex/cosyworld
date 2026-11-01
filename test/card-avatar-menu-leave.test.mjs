@@ -3,7 +3,9 @@ import {
   afterDelete,
   joinable,
   leaveNote,
+  targetsFor,
   worldSeats,
+  worldSlots,
 } from "../v2/card-game/avatar-menu.mjs";
 import { humanAvatars } from "../v2/card-game/human-cast.mjs";
 import { avatarSlot, deleteLocal } from "../v2/card-game/avatar-world.mjs";
@@ -45,7 +47,7 @@ describe("worlds an avatar can go to (#1825)", () => {
   });
 });
 
-describe("the Table (#1825)", () => {
+describe("a world's seats (#1825, #1877)", () => {
   const state = {
     actor: "vale",
     owner: true,
@@ -55,7 +57,7 @@ describe("the Table (#1825)", () => {
     holders: [null, "Amber Heron", "Quiet Fox", null, null, null, null, null],
     world: { actors: {} },
   };
-  it("seats each avatar as yours, here, away or open", () => {
+  it("marks yours, colours other humans and greys the residents", () => {
     const seats = worldSeats(state);
     // Shown in initial order, R·A·T·V·M·I·C·S (#1846).
     expect(seats.map((s) => s.name)).toEqual([
@@ -69,8 +71,10 @@ describe("the Table (#1825)", () => {
       "Sage",
     ]);
     const kind = Object.fromEntries(seats.map((s) => [s.id, s.kind]));
-    expect(kind).toMatchObject({ vale: "you", mara: "human", ash: "away" });
-    expect(seats.filter((s) => s.kind === "open")).toHaveLength(5);
+    expect(kind).toMatchObject({ vale: "you", mara: "human", ash: "human" });
+    expect(seats.filter((s) => s.kind === "resident")).toHaveLength(5);
+    const online = seats.filter((s) => s.online).map((s) => s.id);
+    expect(online).toEqual(["vale", "mara"]);
     const holder = Object.fromEntries(seats.map((s) => [s.id, s.holder]));
     expect(holder).toMatchObject({ vale: "You", mara: "Amber Heron", rue: "" });
   });
@@ -84,9 +88,105 @@ describe("the Table (#1825)", () => {
       false,
     );
   });
-  it("shows no Table outside a shared seat", () => {
+  it("shows no seats outside a shared seat", () => {
     expect(worldSeats(null)).toEqual([]);
     expect(worldSeats({ ...state, actor: null })).toEqual([]);
+  });
+});
+
+describe("the world slots (#1877)", () => {
+  const held = (...ids) =>
+    ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].map((id) =>
+      ids.includes(id) ? 1 : 0,
+    );
+  const rows = [
+    { id: "w1", owner: true, actor: "vale", held: held("vale", "ash") },
+    { id: "w2", owner: true, actor: null, held: held("mara") },
+    { id: "w3", owner: false, actor: "tavi", held: held("tavi") },
+    { id: "w4", owner: false, actor: null, held: held() },
+  ];
+  const here = {
+    actor: "vale",
+    state: {
+      actor: "vale",
+      owner: true,
+      claimed: held("vale", "ash"),
+      world: { actors: {} },
+    },
+    place: { shared: "w1", name: "Hollowmere" },
+  };
+  const view = worldSlots({ shared: true, rows, here });
+  it("lists your slots, current first, and a friend's only while seated", () => {
+    expect(view.slots.map((s) => s.key)).toEqual(["w1", "w2", "w3"]);
+    expect(view.slots[0]).toMatchObject({ current: true, name: "Hollowmere" });
+    expect(view.slots[2].owner).toBe(false);
+    expect(view.deck.map((a) => a.id)).toEqual([
+      "rue",
+      "ash",
+      "mara",
+      "nell",
+      "orin",
+      "ada",
+    ]);
+    expect(view.canCreate).toBe(true);
+  });
+  it("lights the deck, worlds with that seat free and none of yours, and New world", () => {
+    const vale = { id: "vale", name: "Vale" };
+    expect(targetsFor(vale, view.slots[0], view, true)).toEqual({
+      deck: true,
+      worlds: ["w2"],
+      create: true,
+    });
+    // Mara's seat in w2 is held by someone else.
+    const mara = { id: "mara", name: "Mara" };
+    expect(targetsFor(mara, null, view, true).worlds).toEqual([]);
+    expect(targetsFor(mara, null, view, true).deck).toBe(false);
+  });
+  it("stops New world at eight owned slots", () => {
+    const full = [
+      rows[0],
+      ...Array.from({ length: 8 }, (_, i) => ({
+        id: `o${i}`,
+        owner: true,
+        held: held(),
+      })),
+    ];
+    const eight = worldSlots({ shared: true, rows: full, here });
+    expect(eight.slots.filter((s) => s.owner)).toHaveLength(8);
+    expect(eight.canCreate).toBe(false);
+  });
+  it("opens a friend's link as a slot, with your kept seat free for you", () => {
+    const invite = {
+      id: "w9",
+      claimed: held("ash"),
+      bound: held("ash", "mara"),
+      mine: "mara",
+    };
+    const linked = worldSlots({ shared: true, rows, here, invite });
+    const slot = linked.slots.find((s) => s.key === "w9");
+    expect(slot.invite).toBe(true);
+    const mara = { id: "mara", name: "Mara" };
+    const ash = { id: "ash", name: "Ash" };
+    expect(targetsFor(mara, null, linked, true).worlds).toContain("w9");
+    expect(targetsFor(ash, null, linked, true).worlds).not.toContain("w9");
+  });
+  it("signed out, lists one local world per avatar, never shared ones", () => {
+    const local = (id) => (id === "mara" ? "The Quiet Ferry" : null);
+    const solo = worldSlots({
+      shared: false,
+      rows,
+      here: { actor: "vale", place: { local: true, name: "Hollowmere" } },
+      local,
+    });
+    expect(solo.slots.map((s) => s.key)).toEqual(["local:vale", "local:mara"]);
+    expect(solo.slots[1].seats.find((s) => s.id === "mara").kind).toBe("you");
+    expect(solo.deck).toHaveLength(6);
+    const vale = { id: "vale", name: "Vale" };
+    expect(targetsFor(vale, solo.slots[0], solo, false)).toEqual({
+      deck: true,
+      worlds: [],
+      create: true,
+    });
   });
 });
 

@@ -4,9 +4,10 @@ import { showBuildInfo } from "./build-info.mjs";
 const local = await setupLocalService();
 if (!local) await setupOpenRouter();
 const params = new URLSearchParams(location.search);
-if (local && (params.has("world") || params.has("shared"))) {
-  params.delete("world");
+// The old "Your worlds" address (`?shared=1`) is ☰ now (#1877).
+if (params.has("shared") || (local && params.has("world"))) {
   params.delete("shared");
+  if (local) params.delete("world");
   history.replaceState(null, "", `${location.pathname}?${params}`);
 }
 // The bare address resumes the avatar played last (avatar-world.mjs).
@@ -19,11 +20,6 @@ if (resume?.world)
   location.replace(`/?world=${encodeURIComponent(resume.world)}`);
 else if (resume?.avatar && resume.avatar !== "vale")
   location.replace(`/?avatar=${encodeURIComponent(resume.avatar)}`);
-else if (params.get("shared") === "1" && !params.has("world")) {
-  const { openWorlds } = await import("./shared.mjs");
-  await openWorlds();
-} else {
-  await import("./app.mjs");
-}
+else await import("./app.mjs");
 document.body.inert = false;
 showBuildInfo();

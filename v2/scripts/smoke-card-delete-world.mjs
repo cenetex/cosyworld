@@ -21,8 +21,10 @@ try {
   page.setDefaultTimeout(10000);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  // Signed out, ☰ lists the local worlds; signed in, the shared ones.
+  let signedIn = false;
   await page.route("**/auth/account", (route) =>
-    route.fulfill({ json: { authenticated: true } }),
+    route.fulfill({ json: { authenticated: signedIn } }),
   );
   await page.route(/\/card-game\/shared\/worlds$/, (route) =>
     route.fulfill({
@@ -62,18 +64,17 @@ try {
   await menu.waitFor({ state: "visible" });
 
   // Another avatar's world: gone from ☰, and the table stays put.
-  const ashRow = menu.locator('[data-avatar="ash"].avatar-row');
-  assert.match(await ashRow.innerText(), new RegExp(worldName(ash.run.seed)));
-  await ashRow.locator(".avatar-face").click();
-  const deleteAsh = ashRow.locator(".avatar-delete");
+  const ashSlot = menu.locator('.world-slot[data-slot="local:ash"]');
+  const ashName = await ashSlot.locator("summary").innerText();
+  assert.match(ashName, new RegExp(worldName(ash.run.seed)));
+  await ashSlot.locator("summary").click();
+  await ashSlot.locator('[data-avatar="ash"] button').click();
+  const deleteAsh = ashSlot.locator(".avatar-delete");
   await deleteAsh.click();
   assert.match(await deleteAsh.innerText(), /^Delete .+ and its progress\?$/);
   await deleteAsh.click();
-  await page.waitForFunction(
-    () =>
-      document.querySelector('[data-avatar="ash"].avatar-row small')
-        ?.textContent === "not in a world",
-  );
+  await ashSlot.waitFor({ state: "detached" });
+  await menu.locator('.avatar-deck [data-avatar="ash"]').waitFor();
   assert.match(await menu.locator(".avatar-status").innerText(), /is gone\./);
   assert.equal(new URL(page.url()).search, "?avatar=vale");
   assert.deepEqual(
@@ -88,10 +89,16 @@ try {
   );
   assert.equal(await valeSeed(), before);
 
-  // The world being played: a fresh world for the same avatar, no detour.
-  const here = menu.locator('[data-here="true"]');
-  await here.locator(".avatar-face").click();
-  const deleteHere = here.locator(".avatar-delete");
+  // The world being played, signed in: a fresh world for the same avatar,
+  // no detour into the shared world Mara is in.
+  signedIn = true;
+  await page.keyboard.press("Escape");
+  await page.locator("#toolbar-menu-button").click();
+  await menu.locator('.world-slot[data-slot="elsewhere"]').waitFor();
+  await page.locator("#avatar-move").click();
+  const deleteHere = menu.locator(
+    '.world-slot[data-current="true"] .avatar-delete',
+  );
   await deleteHere.click();
   await Promise.all([page.waitForEvent("load"), deleteHere.click()]);
   await page.waitForFunction(() => document.body.inert === false);

@@ -12,8 +12,9 @@ Owner rules, 2026-11-01 (#1825): no takeover.
   held where it stood, and its place is free.
 - The holder can **Release** their own avatar the same way: they give the
   seat back, and its quests and things stay there.
-- Release became Leave, now **Step away**, which keeps the binding. Move is
-  now **Send to…**.
+- Release became Leave, then Step away, and is now moving the avatar to the
+  deck in ☰, which keeps the binding. Move became Send to…, and is now a tap
+  on a lit world slot (#1877).
 - Since #1846 an avatar is in one world at a time. Any claim of an avatar
   empties its seats elsewhere: each starts over through the same `reset`.
   The avatar's level and experience go with it. Between seats they are kept
