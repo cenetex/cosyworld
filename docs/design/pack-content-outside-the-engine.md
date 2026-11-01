@@ -145,6 +145,29 @@ After step 5, an art, pose, dialogue or pack PR changes `content.json` or
   create a content revision.
 - Precompile the engine to QuickJS bytecode once per version.
 
+## Later: pack effects and gates instead of special cases (#1550)
+
+`world.mjs` names specific items and places about 50 times ("lamp", "attic",
+"pond", "oil", the player "vale"): `reflectionOpen`, `insideLampRemedy`, the
+attic and pond route rules, refuel. Each feature added a bespoke field to
+`pack-schema.mjs` instead of reusing generic vocabulary.
+
+- Define generic pack vocabulary in `pack-schema.mjs`: `effects` (refill,
+  consume, reveal, return-to), `gates` (light, weather, night, held item, item
+  aboard), and lanes and poses as data, read by one module.
+- Port the attic opening and the lamp and oil first as the reference case,
+  then remove the id-specific branches. Afterwards split `world.mjs`
+  (movement, possession, combat, opening, home rescue).
+- Done when no item or place ids remain in `world.mjs`, the forest's lamp,
+  oil and attic behaviour is expressed in `forest.json`, and released bundles
+  replay unchanged.
+
+The [recipes design](../../v2/docs/card-table/recipes-and-item-economy.md)
+(#1748) generalizes the oil refuel into `renews`, but defers moving the lamp
+and oil and does not cover the light gates, attic and pond routes, reflection
+or home rescue. On 2026-11-01 `world.mjs` still named "lamp" 15 times and
+"attic" 13 times.
+
 ## Per-pack files (#1552)
 
 Split `packs.json` into compiled files per pack if that helps merges. The

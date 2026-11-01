@@ -278,6 +278,24 @@ replay on their frozen rule bundles.
 checks that every resident meets a quest in each 80-turn window of loose play,
 and `test/card-want-talk.test.mjs` checks the Talk fact.
 
+### Later: quests from everything known (#1506)
+
+Owner decision: when choosing an avatar's next quest, every item, avatar and
+place the avatar has **seen or heard about** is an eligible candidate: items
+held or loose, avatars (person quests) and places (place quests). Nothing
+known is excluded outright, except the avatar's own holdings and current
+place. Preference weighting (values, unvisited, not yet talked, nearby) stays.
+Unreachable quests are fine (mystery over reachability; no fallbacks).
+
+Today `nextWant` widens to anyone known and what they hold (#1700), but an
+item lying loose in a place still cannot become a quest, and there is no
+per-avatar `known` list fed by sight or Talk. The plan: record a per-avatar
+`known` list of entity ids deterministically from committed plays (what it
+sees where it stands, what it hears in Talk, and entities named by events it
+witnesses); draw candidates from it with a seeded weighted draw; ship a new
+rules version with released bundles kept for replay and JS/Rust agreement.
+It shares its store with [hidden holdings](../../docs/design/hidden-holdings.md).
+
 ## Image-first presentation
 
 Card faces contain the illustration and a small name. People and things stand
@@ -394,11 +412,24 @@ viewport. Some in-app browsers block storage. In that case the table plays a
 fresh opening in the tab and says the world cannot be saved; it does not refuse
 every card.
 
+### Later: partner cards show their play (#1379)
+
+With one card raised, each other card should show the verb it would play, and
+tapping a labelled card plays that verb. Cards with no play are dimmed, and the
+screen-reader readout still works. Today the hints go only to `#play-readout`.
+#1699 dims every unraised card, but no partner card shows its verb and tapping
+a partner still only selects. The single action bar (#1725) does not replace
+this preview. UI only.
+
 ## Oak and the Moonlit Trail
 
 Oak's avatar card and dialogue portrait show the gnarly oakheart. The Old Oak
 Tree keeps its broad landscape painting, and Oak remains part of that backdrop
 without a second figure on the stage.
+
+Later: the [tree of dreams](../docs/card-table/old-oak-dreams.md) (#1468)
+adds the Roots beneath the Oak and a Mandarin → French → English dream chain
+that only RATi, Skull and Whiskerwind can reach.
 
 The Wolfprint Charm opens a path from Oak to the Moonlit Trail while the charm
 is at Oak: carried by someone present, put among the roots, or given to Oak.
@@ -859,6 +890,38 @@ A ready or pending play's buttons sit under the dialogue, above the hand. The ha
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
 
 When the lamp, or the flask an empty lamp needs, is trapped beyond the attic, a narrow path can open from Black pond. It appears after reachable lamp remedies are exhausted. A traveler inside can still fill the empty lamp by holding it with the flask. Every object keeps its holder until a play changes it. The Black cloth and local lamplight reveal the cottage stairs from the attic.
+
+### Later: humans fight in shared play (#1511)
+
+Today `legalActions` never offers Threaten against a human-controlled avatar
+when sharing is on (#1177), and visitor avatars have `standoffs: false` in
+`human-cast.mjs`, so a human can only lose a fight they started against a
+resident. #1177 added both as a launch default with no recorded reason.
+Owner decision (generic, deterministic, fair to an idle human):
+
+1. Remove both restrictions. The ordinary threat, brace, strike, defeat and
+   sent-home rules apply to humans.
+2. **An unanswered human is not struck.** Strike is not offered against a
+   human defender until that human has made a play after the threat. Any play
+   answers, including Wait, Brace, Talk or leaving.
+3. **No double strikes against a human.** After a hit on a human, the striker
+   cannot strike again until that human has played. The room queue already
+   serializes plays and `play` rechecks legality, so a queued second strike is
+   refused.
+4. **An unanswered threat lapses.** If the human defender has not answered
+   three world turns after the threat, the standoff ends with no loser and the
+   usual three peace turns.
+5. **Home is safe.** A human at their own home cannot be threatened. A
+   visitor's home is private and the sent-home loser lands there, so no one
+   waits at a spawn.
+6. Item drops and sent-home follow the repeated-defeats rule above. A
+   visitor's home keeps its rescue path to Black pond.
+
+Residents defending against a human keep using their quest plan; humans choose
+their own Brace and Strike. Evidence: `test/card-combat.test.mjs` cases for
+human vs human, human vs resident both ways, an idle defender, a visitor sent
+home and home leavable; a new shared rules version with released bundles
+pinned; JS/Rust `card_shared` agreement; a shared smoke with a two-human fight.
 
 ## Accompany requests
 

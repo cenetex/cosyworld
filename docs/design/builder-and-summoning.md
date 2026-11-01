@@ -429,6 +429,29 @@ Two tracks. Each step is one PR with its own tests.
    private world with summons becomes a shared world that replays the same.
 8. **Paint.** The player's OpenRouter image request, size and type checks.
 
+## Tracking (Later)
+
+Folded from the epic [#1362](https://github.com/cenetex/cosyworld/issues/1362)
+and its children on 2026-11-01. None of this is active work yet. The epic is
+done when every step below is done and the rules validate everything the AI
+proposes.
+
+- **Owner approval (#1398).** This design still awaits the owner's review and
+  approval, or requested changes. The open questions below are part of it.
+- **Builder pipeline (#1399).** Brief → places, connections, items, avatars,
+  story → paintings; schema and worldpack checks run; one PR per world pack;
+  the owner has taste gates before merge. Needs approval first.
+- **Summon through Talk (#1400).** In private worlds only, through Talk or an
+  in-fiction item, with no builder menu ("Talk, not buttons"). The AI
+  proposes and the rules validate; summoned content is save and journal data,
+  and the journal replays to the same result. Needs approval and the content
+  seam.
+- **Generate characters (#1401).** A player creates a character in a private
+  world, validated by the rules and saved. "The most requested feature."
+  Needs summoning.
+- **Limits and safety (#1402).** Generation has rate limits, safety checks run
+  on generated content, and generated content cannot impersonate real people.
+
 ## Open questions for the owner
 
 1. **Typed wishes.** Should a player be able to add one short typed line
