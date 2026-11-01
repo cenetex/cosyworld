@@ -14,7 +14,7 @@ is organised around the player's avatars. Every world has a name.
 | Full room | "A place will open shortly", "Check for a place", "Release this avatar", "Your worlds" |
 | Share | "Share this world … You will continue as Vale.", then "Invite someone", "Copy link" |
 | Settings | Controls, Voices, Flashes and scares, Fight speed, Music and volume, OpenRouter, Local game backup, "Your game saves in this browser…", the `?table=` warning, **New game**; in a shared world also Add a passkey, Leave this room, Release this avatar, Sign out |
-| New game | "Start a fresh world?", "This replaces this table's saved game.", "Keep playing", "Start new game" |
+| New game | "Start a fresh world?", "This replaces this table's saved game. Its levels, quests and progress are lost, and there is no way back to it.", "Keep playing", "Start new game" |
 
 World actions are spread over four places (☰ Worlds, Share, Settings, the
 full-room screen). Worlds have no names, so the list names avatars instead.
@@ -57,12 +57,15 @@ Tapping a row opens its actions:
 - **Play** opens that world as that avatar.
 - **Move** lists the worlds you know by name (local, owned, joined) and **New
   world**. A world that already holds another of your avatars is not listed.
-  "*The Quiet Ferry* keeps Mara's things."
+  "*The Quiet Ferry* keeps Mara's things." Moving out of a local world warns
+  first: "*Hollowmere* will be lost, with Mara's level and quest there. There
+  is no way back to it."
 - **Leave** asks once: "Leave *Hollowmere*? Vale's things stay there." In a
   shared world it releases the claim. In a local world it archives the save
-  (`.bak`, as New game does today).
+  (`.bak`, as New game does today), and the menu offers no way back to it, so
+  it asks with the same warning as Move (#1825).
 - **Delete world** removes a local world's save and its backup. The button
-  turns red on the first tap ("Delete *Hollowmere*?") and deletes on the
+  turns red on the first tap ("Delete *Hollowmere* and its progress?") and deletes on the
   second. The avatar is then not in a world; if it was the one being played,
   the table opens the next avatar's world, or a fresh one. The server has no
   world delete, so a shared world offers only Leave.
