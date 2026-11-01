@@ -209,9 +209,17 @@ const localBackups =
 // A table with no saved world, or a new visitor to a shared world, starts with
 // its opening cards covered.
 let openingTable = true;
+// In-app browsers and WebViews can block storage outright. The table then
+// plays a fresh world in this tab instead of refusing every card.
+let storageBlocked = false;
 try {
   await localBackups?.restore();
-  const saved = sharedSession ? null : localStorage.getItem(SAVE_KEY);
+  let saved = null;
+  try {
+    saved = sharedSession ? null : localStorage.getItem(SAVE_KEY);
+  } catch {
+    storageBlocked = true;
+  }
   if (saved) {
     openingTable = false;
     world = enableMotives(decodeSave(saved));
@@ -223,6 +231,9 @@ try {
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
 }
+const UNSAVED_NOTICE =
+  "This browser could not save the world. Keep this tab open to keep playing.";
+if (storageBlocked) notice(UNSAVED_NOTICE);
 const SEEN_KEY = `${SAVE_KEY}.seen`;
 // The revision whose words failed, so a reload keeps Retry instead of a blank
 // or hidden dialogue panel.
@@ -274,9 +285,12 @@ function loadSeen(reset = false) {
   let saved = [],
     opening = reset;
   coveredCards.clear();
+  let stored = null;
   try {
-    const stored = reset ? null : localStorage.getItem(SEEN_KEY);
-    opening ||= openingTable && stored === null;
+    stored = reset ? null : localStorage.getItem(SEEN_KEY);
+  } catch {}
+  opening ||= openingTable && stored === null;
+  try {
     saved = JSON.parse(stored || "[]");
     const covered = reset ? [] : JSON.parse(localStorage.getItem(`${SEEN_KEY}.covered`) || "[]");
     for (const id of Array.isArray(covered) ? covered : [])
@@ -297,15 +311,13 @@ function loadSeen(reset = false) {
 }
 loadSeen();
 function save() {
-  if (saveBlocked || sharedSession) return;
+  if (saveBlocked || sharedSession || storageBlocked) return;
   try {
     const encoded = encodeSave(world);
     localStorage.setItem(SAVE_KEY, encoded);
     void localBackups?.queue(encoded);
   } catch {
-    notice(
-      "This browser could not save the world. Keep this tab open to keep playing.",
-    );
+    notice(UNSAVED_NOTICE);
   }
 }
 if (localBackups) {

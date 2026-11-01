@@ -262,6 +262,13 @@ Run `node v2/scripts/smoke-card-image-first.mjs` for real desktop, phone and
 short-landscape checks. It exercises keyboard, scrolling, selection, drag,
 ritual reload, visible state, travel and conversation without paid model calls.
 
+Run `node v2/scripts/smoke-card-devices.mjs` for Android phones, 130% text
+size, landscape, tablets and a Chromebook. The hand shows at least 70% of each
+card with its name on screen, and the top bar and dialogue stay inside the
+viewport. Some in-app browsers block storage. In that case the table plays a
+fresh opening in the tab and says the world cannot be saved; it does not refuse
+every card.
+
 ## World packs and the Wine-Dark Sea
 
 At quiet Black Pond, the fueled Lamp and Black cloth can summon a ship.
