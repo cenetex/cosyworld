@@ -73,7 +73,8 @@ function probe(records, start = setup) {
   w.log = [];
   w.turn = records.length * 5 + 1;
   w.revision = w.turn;
-  w.eventSeq = records.length + 2;
+  // Travellers far away may have acted already; their events stay counted.
+  w.eventSeq = Math.max(w.eventSeq, records.length + 2);
   w.memories.vale.learning = structuredClone(records).map((t, i) => ({
     ...t,
     seq: i + 2,
@@ -211,7 +212,7 @@ it("gives an earlier helpful gift credit when the later request reaches the goal
     w.actors.keeper.metTurn = 10;
     w.actors.moth.metTurn = 10;
     w = act(w, "ask", "oil");
-    for (let i = 0; i < TRIAL_LIMIT; i++) w = act(w, "wait");
+    for (let i = 0; i < TRIAL_LIMIT + 2; i++) w = act(w, "wait");
     expect(history(w)).toHaveLength(TRIAL_LIMIT);
     expect(history(w)[0].seq).toBeGreaterThan(2);
     expect(

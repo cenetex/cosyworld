@@ -4,11 +4,13 @@
 // rejects a line that names it. The rules still hold the full truth; this
 // narrows only the browser's request. Later, rules-owned knowledge replaces it.
 import { observableStates } from "./pack-registry.mjs";
-import { nameOf } from "./world.mjs";
+import { covered, nameOf } from "./world.mjs";
 
 // A covered thing reaches the speaker as something sensed but unnamed. The
 // table's own word "covered" stays out of speech (#1665).
 export const UNKNOWN_THING = "something I can't make out";
+// A covered light still shines: the speaker knows it holds a light, unnamed.
+export const UNKNOWN_LIGHT = "something shining I can't make out";
 
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -26,11 +28,22 @@ export function forgetCovered(world, context, isCovered) {
     );
   if (!hidden.length) return context;
   const gone = new Set(hidden);
-  const names = [...new Set(hidden.map(nameOf))]
+  const unknown = new Map(
+    hidden.map((id) => [
+      nameOf(id).toLowerCase(),
+      world.items[id].lit && !covered(world, id) ? UNKNOWN_LIGHT : UNKNOWN_THING,
+    ]),
+  );
+  const names = [...unknown.keys()]
     .sort((a, b) => b.length - a.length)
     .map(escape);
-  const pattern = new RegExp(`\\b(?:the )?(?:${names.join("|")})\\b`, "gi");
-  const blur = (text) => text?.replace(pattern, UNKNOWN_THING) ?? text;
+  const pattern = new RegExp(
+    `\\b(?:(?:the|an?) )?(${names.join("|")})\\b`,
+    "gi",
+  );
+  const blur = (text) =>
+    text?.replace(pattern, (_, name) => unknown.get(name.toLowerCase())) ??
+    text;
   const outcome = context.outcome && {
     ...context.outcome,
     card: Object.fromEntries(

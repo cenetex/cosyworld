@@ -76,6 +76,10 @@ describe("the household reaches its berth", () => {
     let world = homecomingJourney({ berth: "open" }).before[
       "greek-homecoming-receive-open"
     ];
+    // The witness has just met a want, so it rests and leaves the basket be.
+    const witness = world.actors["greek-household-witness"];
+    witness.want = null;
+    witness.metTurn = world.turn;
     world = playOpenDoor(world, "take", { item: "greek-return-list" });
     expect(
       legalActions(world).some(

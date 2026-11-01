@@ -232,7 +232,8 @@ describe("world packs on the card table", () => {
     expect(mounted.items).toEqual(s.items);
     expect(mounted.log).toEqual(s.log);
     expect(mounted.actors.vale).toEqual(s.actors.vale);
-    expect(mounted.actors.badger).toEqual(s.actors.badger);
+    // A pack mounted later draws its avatar's want after a short rest.
+    expect(mounted.actors.badger).toEqual({ ...s.actors.badger, want: null });
     expect(mounted.crossings).toEqual(s.crossings);
     expect(mounted.packs).toEqual(s.packs);
   });

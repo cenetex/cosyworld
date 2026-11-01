@@ -157,11 +157,14 @@ export function travelCard(world, id) {
       (c.transport ? transports[c.transport].place : c.to) === id &&
       crossingOpen(world, c, senses),
   );
+  // A ship seen from its mooring shows that mooring's painting of it, lit
+  // for the hour; a mooring with no such painting keeps the authored card.
+  const moored = c?.transport && c.scenery?.backdrop;
+  const art = moored
+    ? daylightBackdrop(world, c.from, c.scenery.backdrop)
+    : c?.scenery?.cardArt;
   return c?.scenery
-    ? {
-        name: c.scenery.cardName || nameOf(id),
-        art: c.scenery.cardArt ? `./${c.scenery.cardArt}` : null,
-      }
+    ? { name: c.scenery.cardName || nameOf(id), art: art ? `./${art}` : null }
     : null;
 }
 const personIds = Object.keys(people);

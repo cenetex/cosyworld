@@ -459,6 +459,7 @@
           "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
         },
         "greek-sanctuary": {
+          "sanctuary": true,
           "name": "The Hillside Sanctuary",
           "text": "Olive trees shade a small altar. A stone basin stands beneath its roof.",
           "exits": [
@@ -8631,6 +8632,7 @@
       "entry": "hoppycat-halfway-tea-garden",
       "places": {
         "hoppycat-halfway-tea-garden": {
+          "sanctuary": true,
           "name": "Halfway Tea Garden",
           "text": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table.",
           "persona": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table. Describe this as a playful living place. Use the current story facts for progress.",
@@ -10674,6 +10676,7 @@
       "entry": "forest-cottage",
       "places": {
         "forest-cottage": {
+          "sanctuary": true,
           "name": "Cosy Cottage",
           "text": "Three cups stand beside the kettle. Blue wool hangs over a basket by the hearth.",
           "persona": "A blue timber cottage beneath a broad living oak. A low doorway opens onto the garden. Rain marks the window. A scarf lies across a basket beside the kettle.",

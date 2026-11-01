@@ -297,7 +297,6 @@
     ],
     places: {
       station: {
-        sanctuary: true,
         name: "Empty station",
         text: "The timetable lists years that have yet to happen. A path leads along the shore to the pond.",
         exits: [
@@ -1681,6 +1680,7 @@
             persona: "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
           },
           "greek-sanctuary": {
+            sanctuary: true,
             name: "The Hillside Sanctuary",
             text: "Olive trees shade a small altar. A stone basin stands beneath its roof.",
             exits: [
@@ -9853,6 +9853,7 @@
         entry: "hoppycat-halfway-tea-garden",
         places: {
           "hoppycat-halfway-tea-garden": {
+            sanctuary: true,
             name: "Halfway Tea Garden",
             text: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table.",
             persona: "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table. Describe this as a playful living place. Use the current story facts for progress.",
@@ -11896,6 +11897,7 @@
         entry: "forest-cottage",
         places: {
           "forest-cottage": {
+            sanctuary: true,
             name: "Cosy Cottage",
             text: "Three cups stand beside the kettle. Blue wool hangs over a basket by the hearth.",
             persona: "A blue timber cottage beneath a broad living oak. A low doorway opens onto the garden. Rain marks the window. A scarf lies across a basket beside the kettle.",
@@ -13886,9 +13888,14 @@
           "stage",
           "requires",
           "road",
-          "retired"
+          "retired",
+          "sanctuary"
         ]),
         `place ${id} has an unknown field`
+      );
+      check(
+        p.sanctuary === void 0 || p.sanctuary === true,
+        `place ${id} sanctuary must be true when set`
       );
       check(
         textOk(p.name, 120) && textOk(p.text) && textOk(p.persona),
@@ -17240,7 +17247,7 @@
     for (const [id, a] of Object.entries(s.actors)) {
       if (!a.trust || Object.keys(a.trust).sort().join() !== expectedTrustKeys[id] || Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3))
         fail();
-      if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn)
+      if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn || a.sleepUntil !== void 0 && (!Number.isSafeInteger(a.sleepUntil) || a.sleepUntil < 0 || a.sleepUntil > s.turn + DAYLIGHT_TURNS))
         fail();
       if (!validWant(s, id) || a.visited.length > Object.keys(places).length || a.visited.some((place) => !Object.hasOwn(places, place)) || a.want?.kind === "place" && !Object.hasOwn(places, a.want.target))
         fail();
@@ -17333,6 +17340,8 @@
       if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
         fail();
       if (e.accepted !== void 0 && typeof e.accepted !== "boolean") fail();
+      if (e.rest !== void 0 && (e.rest !== "long" || e.verb !== "wait"))
+        fail();
       if (e.reason !== void 0 && (!REFUSED_VERBS.includes(e.verb) || e.accepted !== false || !REFUSAL_REASONS.includes(e.reason)))
         fail();
       if (e.verb === "accompany" && (!actorIds.includes(e.actorId) || !actorIds.includes(e.targetId) || e.targetId === e.actorId || !Object.hasOwn(places, e.destinationId) || !Object.hasOwn(places, e.fromLocationId) || e.destinationId === e.fromLocationId || typeof e.accepted !== "boolean" || e.locationId !== (e.accepted ? e.destinationId : e.fromLocationId)))
@@ -17402,7 +17411,7 @@
     for (let i = world.log.length - 1; i >= 0; i--) {
       const entry = world.log[i];
       if (entry.turn !== world.turn) return false;
-      if (entry.verb === "wait" && entry.actorId === actor) return true;
+      if (entry.verb === "wait" && entry.actorId === actor) return entry;
     }
     return false;
   }
@@ -17459,7 +17468,9 @@
     ].filter(
       (id) => id && (id === location || audience.includes(id) || localItems.includes(id))
     ).slice(0, 8);
-    const resting2 = speakers[0] === currentActor(world) && (played ? played.verb === "wait" : waitedThisTurn(world)) ? currentActor(world) : null;
+    const waited = speakers[0] === currentActor(world) && (played?.verb === "wait" ? played : !played && waitedThisTurn(world));
+    const resting2 = waited ? currentActor(world) : null;
+    const rest = waited?.rest === "long" ? "long" : null;
     return {
       location,
       beforeFirstLight,
@@ -17474,7 +17485,8 @@
       defeat,
       speakers,
       ids: ids3,
-      resting: resting2
+      resting: resting2,
+      rest
     };
   }
 
@@ -17712,7 +17724,8 @@
       target,
       speakers,
       ids: ids3,
-      resting: resting2
+      resting: resting2,
+      rest
     } = cast;
     const defeated = cast.defeat && `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}. Say one line.`;
     const disclosures = knowledgeDisclosures(
@@ -17749,6 +17762,7 @@
       focus,
       speakers,
       resting: resting2,
+      ...rest ? { rest } : {},
       ...disclosures.length ? { disclosures } : {},
       action: observeText(played?.text) || (world.turn ? `${nameOf(currentActor(world))} observes the cast.` : null),
       events,

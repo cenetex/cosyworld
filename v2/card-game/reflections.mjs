@@ -11,6 +11,7 @@ export function reflectionContext(world, action = null) {
   return {
     turn: world.turn,
     resting: cast.resting,
+    ...(cast.rest ? { rest: cast.rest } : {}),
     entities: cast.ids.map((id) => ({
       id,
       memories: speechMemories(world.memories[id], {
@@ -27,6 +28,9 @@ export const THOUGHT_GAP = 6;
 export const DREAM_GAP = 24;
 export const THOUGHTS_PER_DREAM = 2;
 export function reflectionDue(context, id, life) {
+  // Waking from a long rest always brings a thought and a dream.
+  if (context.rest === "long" && context.resting === id && context.turn > 0)
+    return { thought: true, dream: true };
   const thoughts = life?.thoughts || [];
   const dreams = life?.dreams || [];
   const last = thoughts.at(-1)?.turn;

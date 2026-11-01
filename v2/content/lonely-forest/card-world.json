@@ -9,6 +9,7 @@
   "entry": "forest-cottage",
   "places": {
     "forest-cottage": {
+      "sanctuary": true,
       "name": "Cosy Cottage",
       "text": "Three cups stand beside the kettle. Blue wool hangs over a basket by the hearth.",
       "persona": "A blue timber cottage beneath a broad living oak. A low doorway opens onto the garden. Rain marks the window. A scarf lies across a basket beside the kettle.",

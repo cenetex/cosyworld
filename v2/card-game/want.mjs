@@ -18,7 +18,8 @@ export const WANT_KINDS = ["item", "place", "person", "connect"];
 // A connect want introduces people: its one target is the connected humans.
 export const CONNECT_TARGET = "humans";
 // A want is set aside after this many refusals, or after a long spell with
-// no way forward. Resting at home lasts a few turns after a want is met.
+// no way forward, and its target stays out of mind a while. Resting at home
+// lasts a few turns after a want is met.
 export const REFUSAL_LIMIT = 3;
 export const STALL_TURNS = 48;
 export const REST_TURNS = 3;
@@ -100,7 +101,9 @@ function hash(text) {
 // Candidates: items held by others that the actor values above the least
 // valued thing it carries, known places it has not visited, and known people
 // it has not talked with. `api` supplies world reads owned by world.mjs.
-export function wantCandidates(s, actor, api, previous = null) {
+// With `wide`, nothing near is left, so anyone known and anything they hold
+// counts, seen or not and wherever they are: a want may be a mystery a while.
+export function wantCandidates(s, actor, api, previous = null, wide = false) {
   const a = s.actors[actor];
   const held = api.carried(actor);
   // Something valued at the minimum is never wanted.
@@ -113,7 +116,9 @@ export function wantCandidates(s, actor, api, previous = null) {
   // Only what can be reached from here: the open routes, or this place for
   // a resident who keeps to its scene.
   const reach = travels(actor, s) ? api.reachable(actor) : [];
-  const near = new Set([a.place, ...reach]);
+  const near = wide
+    ? { has: () => true }
+    : new Set([a.place, ...reach]);
   const items = Object.keys(s.items).filter((id) => {
     const owner = api.rootHolder(id);
     return (
@@ -128,10 +133,13 @@ export function wantCandidates(s, actor, api, previous = null) {
       api.valueOf(actor, id) > floor
     );
   });
-  const places = reach.filter((id) => !a.visited.includes(id));
+  // A place is wanted only while a route to it is open.
+  const places = reach.filter((id) => wide || !a.visited.includes(id));
   const people = knownActors(s).filter(
     (id) =>
-      id !== actor && !a.talked.includes(id) && near.has(s.actors[id].place),
+      id !== actor &&
+      (wide || !a.talked.includes(id)) &&
+      near.has(s.actors[id].place),
   );
   return [
     ...items.map((target) => ["item", target]),
@@ -148,8 +156,19 @@ export function wantCandidates(s, actor, api, previous = null) {
     .map(([kind, target]) => `${kind}:${target}`)
     .sort();
 }
+// Every avatar always holds one want: something near and new first; with
+// all of it seen, curiosity starts over from here; then anyone known and
+// what they hold, and at last even the want just met, again.
 export function nextWant(s, actor, api, previous = null) {
-  const pool = wantCandidates(s, actor, api, previous);
+  let pool = wantCandidates(s, actor, api, previous);
+  if (!pool.length) {
+    const a = s.actors[actor];
+    a.visited = [a.place];
+    a.talked = [];
+    pool = wantCandidates(s, actor, api, previous);
+  }
+  if (!pool.length) pool = wantCandidates(s, actor, api, previous, true);
+  if (!pool.length) pool = wantCandidates(s, actor, api, null, true);
   if (!pool.length) return null;
   const [kind, target] =
     pool[hash(`${actor}:${s.turn}`) % pool.length].split(":");
@@ -272,19 +291,18 @@ export function reviseStalledWants(s, actors, api) {
       s.turn - want.since >= STALL_TURNS
     )
       giveUp(s, id, api);
-    else if (!want && s.turn - (s.actors[id].metTurn ?? 0) >= CONTENT_TURNS) {
-      // With every known place visited and every known person met, the
-      // avatar stays content a while; then curiosity starts over from here.
-      const a = s.actors[id];
-      a.want = nextWant(s, id, api);
-      if (!a.want) {
-        a.visited = [a.place];
-        a.talked = [];
-        a.want = nextWant(s, id, api);
-      }
-      if (!a.want) a.metTurn = s.turn;
-    }
   }
+}
+// A want left empty by an older rule set or a pack mounted later, on a
+// player or an unseen resident too, is drawn after a short rest.
+export function fillWants(s, api, now = false) {
+  for (const [id, a] of Object.entries(s.actors))
+    if (
+      !a.want &&
+      entityActive(s, id) &&
+      (now || s.turn - (a.metTurn ?? 0) >= CONTENT_TURNS)
+    )
+      a.want = nextWant(s, id, api);
 }
 
 export function validWant(s, id) {
