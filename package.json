@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "1.2.106",
+  "version": "1.2.107",
   "description": "A persistent card world with local and shared play",
   "type": "module",
   "private": true,
