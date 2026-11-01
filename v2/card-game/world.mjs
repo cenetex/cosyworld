@@ -2509,6 +2509,9 @@ export function validateWorld(s) {
     "choose",
     "use",
   ];
+  // Built once: every log entry checks its ids against these.
+  const cast = new Set([...actorIds, ...ids]);
+  const entities = new Set([...cast, ...Object.keys(places)]);
   for (const e of s.log) {
     if (e.seq !== undefined) {
       if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
@@ -2526,12 +2529,12 @@ export function validateWorld(s) {
       e.witnesses !== undefined &&
       (!Array.isArray(e.witnesses) ||
         e.witnesses.length > actorIds.length + ids.length ||
-        e.witnesses.some((id) => ![...actorIds, ...ids].includes(id)))
+        e.witnesses.some((id) => !cast.has(id)))
     )
       fail();
     if (
       e.entityId != null &&
-      ![...actorIds, ...ids, ...Object.keys(places)].includes(e.entityId)
+      !entities.has(e.entityId)
     )
       fail();
     if (e.fromLocationId != null && !Object.hasOwn(places, e.fromLocationId))
@@ -2604,14 +2607,12 @@ export function validateWorld(s) {
           !actorIds.includes(e.actorId) ||
           (e.wantMet.kind === "connect"
             ? e.wantMet.target !== CONNECT_TARGET
-            : ![...actorIds, ...ids, ...Object.keys(places)].includes(
-                e.wantMet.target,
-              ))))
+            : !entities.has(e.wantMet.target))))
     )
       fail();
     if (
       e.targetId != null &&
-      ![...actorIds, ...ids, ...Object.keys(places)].includes(e.targetId)
+      !entities.has(e.targetId)
     )
       fail();
     if (e.light !== undefined && typeof e.light !== "boolean") fail();
@@ -2631,9 +2632,7 @@ export function validateWorld(s) {
           (item) =>
             !item ||
             !ids.includes(item.id) ||
-            ![...actorIds, ...ids, ...Object.keys(places)].includes(
-              item.holder,
-            ),
+            !entities.has(item.holder),
         ))
     )
       fail();

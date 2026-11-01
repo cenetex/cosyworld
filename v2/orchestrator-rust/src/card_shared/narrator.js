@@ -16882,6 +16882,8 @@
       "choose",
       "use"
     ];
+    const cast = /* @__PURE__ */ new Set([...actorIds, ...ids]);
+    const entities2 = /* @__PURE__ */ new Set([...cast, ...Object.keys(places)]);
     for (const e of s.log) {
       if (e.seq !== void 0) {
         if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
@@ -16892,9 +16894,9 @@
         e.kind
       ))
         fail();
-      if (e.witnesses !== void 0 && (!Array.isArray(e.witnesses) || e.witnesses.length > actorIds.length + ids.length || e.witnesses.some((id) => ![...actorIds, ...ids].includes(id))))
+      if (e.witnesses !== void 0 && (!Array.isArray(e.witnesses) || e.witnesses.length > actorIds.length + ids.length || e.witnesses.some((id) => !cast.has(id))))
         fail();
-      if (e.entityId != null && ![...actorIds, ...ids, ...Object.keys(places)].includes(e.entityId))
+      if (e.entityId != null && !entities2.has(e.entityId))
         fail();
       if (e.fromLocationId != null && !Object.hasOwn(places, e.fromLocationId))
         fail();
@@ -16922,19 +16924,15 @@
         fail();
       if (e.itemId != null && !ids.includes(e.itemId)) fail();
       if (e.receiveId != null && !ids.includes(e.receiveId)) fail();
-      if (e.verb === "want_met" !== (e.wantMet !== void 0) || e.wantMet !== void 0 && (!e.wantMet || Object.keys(e.wantMet).length !== 2 || !WANT_KINDS.includes(e.wantMet.kind) || !actorIds.includes(e.actorId) || (e.wantMet.kind === "connect" ? e.wantMet.target !== CONNECT_TARGET : ![...actorIds, ...ids, ...Object.keys(places)].includes(
-        e.wantMet.target
-      ))))
+      if (e.verb === "want_met" !== (e.wantMet !== void 0) || e.wantMet !== void 0 && (!e.wantMet || Object.keys(e.wantMet).length !== 2 || !WANT_KINDS.includes(e.wantMet.kind) || !actorIds.includes(e.actorId) || (e.wantMet.kind === "connect" ? e.wantMet.target !== CONNECT_TARGET : !entities2.has(e.wantMet.target))))
         fail();
-      if (e.targetId != null && ![...actorIds, ...ids, ...Object.keys(places)].includes(e.targetId))
+      if (e.targetId != null && !entities2.has(e.targetId))
         fail();
       if (e.light !== void 0 && typeof e.light !== "boolean") fail();
       if (e.cast !== void 0 && (!Array.isArray(e.cast) || e.cast.length > actorIds.length || new Set(e.cast).size !== e.cast.length || e.cast.some((id) => !actorIds.includes(id))))
         fail();
       if (e.items !== void 0 && (!Array.isArray(e.items) || e.items.length > ids.length || e.items.some(
-        (item) => !item || !ids.includes(item.id) || ![...actorIds, ...ids, ...Object.keys(places)].includes(
-          item.holder
-        )
+        (item) => !item || !ids.includes(item.id) || !entities2.has(item.holder)
       )))
         fail();
     }
