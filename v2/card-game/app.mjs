@@ -1055,9 +1055,14 @@ function keepHeldSelection(before, action = null) {
   const received =
     [action?.receive, action?.item].find((id) => arrived.includes(id)) ||
     arrived.at(-1);
-  const held = received
-    ? [received]
-    : before.held.filter((id) => selectedHandItem(world, [id]));
+  // A standoff locks the room and takes the held things out of the hand
+  // (#1775), so a raised item leaves the selection with its card.
+  const shown = availableCards(world);
+  const held = (
+    received
+      ? [received]
+      : before.held.filter((id) => selectedHandItem(world, [id]))
+  ).filter((id) => shown.includes(id));
   const keepActor = held.length > 0 && selected.includes(actor);
   const expanded = keepActor && expandedHolders.has(actor);
   selected = keepActor ? [actor, ...held] : held;
