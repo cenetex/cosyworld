@@ -64,11 +64,11 @@ someone else's button.
 | Vale | black | white |
 | Mara | red | green |
 | Ash | orange | blue |
-| Nell | yellow | violet |
+| Iris | yellow | violet |
 | Tavi | green | red |
 | Rue | blue | orange |
-| Orin | indigo | amber |
-| Ada | violet | yellow |
+| Cass | indigo | amber |
+| Sage | violet | yellow |
 
 Buttons open no ports or lanes. Revision 2 removed the shared Story Button
 and its scarf repair, along with the Dewbright Button and the Watch Bell.

@@ -145,18 +145,23 @@ try {
     assert.equal(await seats.count(), 8);
     const kinds = () =>
       seats.evaluateAll((rows) => rows.map((row) => row.dataset.kind));
+    // Rue, Ash, Tavi, Vale, Mara, Iris, Cass, Sage (#1846).
     assert.deepEqual(await kinds(), [
-      "you",
+      "open",
       "human",
+      "open",
+      "you",
       "human",
       "away",
       "open",
       "open",
-      "open",
-      "open",
     ]);
-    assert.match(await seats.nth(1).innerText(), /Mara\s+Sable Swift · Level 1/);
-    assert.match(await seats.nth(0).innerText(), /Vale\s+You · Level 1/);
+    assert.match(
+      await seats.nth(4).innerText(),
+      /Mara\s+Sable Swift · Level 1/,
+    );
+    assert.match(await seats.nth(3).innerText(), /Vale\s+You · Level 1/);
+    assert.match(await seats.nth(5).innerText(), /Iris\s+Quiet Fox · Level 1/);
     assert.equal(await menu.locator(".table-online").count(), 3);
     assert.match(
       await menu.innerText(),
@@ -164,7 +169,7 @@ try {
     );
     assert.doesNotMatch(await menu.innerText(), /Black pond|Empty station/);
     // The owner frees a seat with a second tap.
-    const free = seats.nth(2).locator("button");
+    const free = seats.nth(1).locator("button");
     assert.equal(await free.innerText(), "Free Ash");
     await page.screenshot({
       path: new URL(`table-${width}.png`, output).pathname,

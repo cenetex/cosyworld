@@ -34,6 +34,12 @@ function act(label, run, id) {
   };
   return button;
 }
+// Avatars show in initial order, R·A·T·V·M·I·C·S (#1846). Seat indices and
+// ids keep the cast's own order.
+export const byInitial = (avatars) =>
+  [...avatars].sort(
+    (a, b) => "RATVMICS".indexOf(a.name[0]) - "RATVMICS".indexOf(b.name[0]),
+  );
 const localLink = (id) => `/?avatar=${id}`;
 const sharedLink = (id) => `/?world=${encodeURIComponent(id)}`;
 
@@ -81,7 +87,7 @@ export const joinable = (row, avatar) =>
 // but their own.
 export function worldSeats(state) {
   if (!state?.actor) return [];
-  return humanAvatars.map((avatar, index) => {
+  const seats = humanAvatars.map((avatar, index) => {
     const self = avatar.id === state.actor;
     const held = state.bound?.[index] === 1 || state.claimed?.[index] === 1;
     const online = state.present?.[index] === 1 && state.claimed?.[index] === 1;
@@ -95,6 +101,7 @@ export function worldSeats(state) {
       free: Boolean(state.owner) && held && !self,
     };
   });
+  return byInitial(seats);
 }
 
 export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
@@ -341,7 +348,7 @@ export function installAvatarMenu({ menu, session, getWorld, allowShared }) {
     const now = here();
     const places = placesOf(rows, now);
     list.replaceChildren();
-    for (const avatar of humanAvatars) {
+    for (const avatar of byInitial(humanAvatars)) {
       const place = places[avatar.id];
       const current = avatar.id === now.actor;
       const row = el("li", "avatar-row");
