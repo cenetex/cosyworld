@@ -77,6 +77,7 @@ fn a_world_with_every_avatar_bound_is_full() {
     let view = full_store::snapshot(&c, &id, "late", now()).unwrap();
     assert_eq!(view["bound"], serde_json::json!([1, 1, 1, 1, 1, 1, 1, 1]));
     assert_eq!(view["mine"], serde_json::Value::Null);
+    assert_eq!(view["seed"], full_store::name_seed(&c, &id).unwrap());
     let back = full_store::snapshot(&c, &id, "p3", now()).unwrap();
     assert_eq!(back["mine"], actor_id(3));
 }
