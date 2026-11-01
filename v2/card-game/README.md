@@ -171,7 +171,7 @@ facts from earlier releases keep their names; player-facing text says quest.
   by standing where it is, whoever holds it; **meet** a person by being
   together, without a Talk; **bring** an item to a person at a place by
   holding it there together. Act verbs are met when the avatar's own play
-  resolves: **give** only when accepted, **threaten** and **attack** whatever
+  resolves: **give** only when accepted, **threaten** and **strike** (the attack play) whatever
   the outcome, and only from Rare (level 20). Steps interlock with other
   avatars' quests: an item another known avatar wants to hold may be given
   or brought to them at home, meeting both quests in one play, and a person

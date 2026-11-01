@@ -52,6 +52,8 @@ describe("quest step verbs", () => {
     step(s, "person", "moth", "threaten");
     expect(wantMet(s, "vale", null, { kind: "threaten", actor: "vale", target: "moth" })).toBe(true);
     expect(wantMet(s, "vale", null, { kind: "talk", actor: "vale", target: "moth" })).toBe(false);
+    step(s, "person", "moth", "attack");
+    expect(wantText(s.actors.vale.want)).toBe("strike Pip");
   });
 
   it("validates a step's verb and cards", () => {

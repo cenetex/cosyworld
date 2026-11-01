@@ -533,12 +533,14 @@ const hasSpace = (s, actor, id) =>
 export function wantText(want) {
   if (!want) return "nothing in particular";
   const step = want.step,
-    what = nameOf(want.target);
+    what = nameOf(want.target),
+    // Players see Strike for the attack play.
+    verb = step?.verb === "attack" ? "strike" : step?.verb;
   if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
   if (step?.verb === "bring")
     return `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`;
-  if (step?.at) return `${step.verb} ${what} at ${nameOf(step.at)}`;
-  if (step) return `${step.verb} ${what}`;
+  if (step?.at) return `${verb} ${what} at ${nameOf(step.at)}`;
+  if (step) return `${verb} ${what}`;
   if (want.kind === "item") return `hold ${nameOf(want.target)}`;
   if (want.kind === "place") return `go to ${nameOf(want.target)}`;
   if (want.kind === "connect") return "introduce two people";
