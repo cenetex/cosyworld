@@ -338,6 +338,18 @@ viewport. Some in-app browsers block storage. In that case the table plays a
 fresh opening in the tab and says the world cannot be saved; it does not refuse
 every card.
 
+## Oak and the Moonlit Trail
+
+Oak's avatar card and dialogue portrait show the gnarly oakheart. The Old Oak
+Tree keeps its broad landscape painting, and Oak remains part of that backdrop
+without a second figure on the stage.
+
+The Wolfprint Charm opens a path from Oak to the Moonlit Trail while the charm
+is at Oak: carried by someone present, put among the roots, or given to Oak.
+Taking it away closes that entrance. The return from the trail to Oak is always
+open. The garden path still opens after tending the drain or stones, so a first
+visitor can reach the charm on the trail before finding this shortcut.
+
 ## World packs and the Wine-Dark Sea
 
 At quiet Black Pond, the fueled Lamp and Black cloth can summon a ship.
