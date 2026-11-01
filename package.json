@@ -12,6 +12,7 @@
     "dev:game": "npm run v2:start",
     "check": "npm test && npm run v2:worldpack && npm run v2:kernel && npm run v2:rust:test && npm run v2:architecture && npm run v2:syntax",
     "check:local": "npm test && npm run v2:check",
+    "deploy:timings": "node scripts/deploy-timings.mjs",
     "v2:start": "./v2/mvp.sh start",
     "v2:restart": "./v2/mvp.sh restart",
     "v2:status": "./v2/mvp.sh status",

@@ -917,7 +917,22 @@ jobs:
     permissions:
       contents: read
       issues: write
+      # Reads this run's job timings for the summary line.
+      actions: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts
+
+      # One line of where this run's time went; `npm run deploy:timings`
+      # reports the same numbers across recent runs.
+      - name: Record deploy timings
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: node scripts/deploy-timings.mjs --run "$GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY" || true
+
       # A merge to main that produces no successful deploy must be visible
       # without anyone going to look.
       - name: Open a loud tracking issue when a required production deploy did not succeed
