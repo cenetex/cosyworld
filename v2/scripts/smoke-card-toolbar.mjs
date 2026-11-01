@@ -106,13 +106,17 @@ try {
     await page.keyboard.press("Enter");
     const menu = page.locator("#world-menu");
     await menu.waitFor({ state: "visible" });
-    assert.deepEqual(await menu.locator("button").allTextContents(), [
-      "Worlds",
-      "Share",
-      "Memory",
-      "Settings",
-      "Inner life",
-    ]);
+    assert.deepEqual(
+      await menu.locator(".menu-tools button").allTextContents(),
+      ["Memory", "Inner life", "Invite", "Settings"],
+    );
+    // ☰ lists the eight avatars; the one played now is open, here.
+    await menu.locator(".avatar-row").nth(7).waitFor();
+    assert.equal(await menu.locator(".avatar-row").count(), 8);
+    assert.match(
+      await menu.locator('[data-here="true"]').innerText(),
+      /^Vale[\s\S]*here[\s\S]*Move[\s\S]*Leave$/,
+    );
     await page.screenshot({
       path: new URL(`menu-${width}.png`, output).pathname,
     });

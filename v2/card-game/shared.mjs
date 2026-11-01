@@ -219,7 +219,29 @@ export async function connectSharedWorld(id) {
       modal?.close();
       resolve(value);
     };
-    const choose = () => {
+    const choose = async () => {
+      // Avatars this account holds in other worlds: choosing one moves it.
+      const elsewhere = {};
+      try {
+        for (const row of (await request("/card-game/shared/worlds")).worlds)
+          if (row.actor && row.id !== id)
+            elsewhere[row.actor] ??= worldName(row.seed) || "another world";
+      } catch {}
+      const claim = async (avatar, move = false) => {
+        try {
+          await worldRequest({
+            op: "claim",
+            avatar: avatar.id,
+            ...(move ? { move } : {}),
+          });
+          await enter();
+        } catch (error) {
+          value = await worldRequest();
+          if (value.actor) return enter();
+          await choose();
+          showError(error);
+        }
+      };
       const box = panel(
         "Choose your avatar",
         "Join this world's story. Each person has one avatar here.",
@@ -227,19 +249,12 @@ export async function connectSharedWorld(id) {
       );
       const picker = node("div", undefined, "shared-picker");
       humanAvatars.forEach((avatar, index) => {
-        const card = button("", async () => {
-          try {
-            await worldRequest({
-              op: "claim",
-              avatar: avatar.id,
-            });
-            await enter();
-          } catch (error) {
-            value = await worldRequest();
-            if (value.actor) return enter();
-            choose();
-            showError(error);
-          }
+        const card = button("", () => {
+          if (!elsewhere[avatar.id]) return claim(avatar);
+          panel(`Move ${avatar.name} here?`, "", false).append(
+            button("Move", () => claim(avatar, true)),
+            button("Back", choose),
+          );
         });
         card.className = "shared-choice";
         card.disabled = Boolean(value.claimed[index]);
@@ -253,7 +268,14 @@ export async function connectSharedWorld(id) {
           image,
           node("strong", avatar.name),
           node("span", avatar.title),
-          node("small", card.disabled ? "Claimed" : avatar.pleasure),
+          node(
+            "small",
+            card.disabled
+              ? "Claimed"
+              : elsewhere[avatar.id]
+                ? `in ${elsewhere[avatar.id]}`
+                : avatar.pleasure,
+          ),
         );
         picker.append(card);
       });
@@ -394,16 +416,22 @@ export function installSharedControls({
     await authenticate(async () => {
       const box = panel(
         name ? `Share ${name}` : "Share this world",
-        "Friends will join this exact world. Its places, people, belongings, quests, and progress stay together. You will continue as Vale.",
+        "Friends will join this exact world. Its places, people, belongings, quests, and progress stay together.",
       );
       box.append(
         button("Share this world", async () => {
+          const save = getSave();
           const created = await request("/card-game/shared/worlds", {
-            save: getSave(),
+            save,
+            avatar: getWorld()?.playerActorId || "vale",
+            move: true,
           });
+          // The avatar's local world moved online; keep it as a backup.
           try {
-            if (saveSlot)
-              localStorage.setItem(`${saveSlot}.shared`, created.id);
+            if (saveSlot) {
+              localStorage.setItem(`${saveSlot}.bak`, save);
+              localStorage.removeItem(saveSlot);
+            }
           } catch {}
           location.href = worldLink(created.id);
         }),
@@ -412,12 +440,6 @@ export function installSharedControls({
   });
   share.id = "shared-worlds-button";
   document.querySelector(".top-actions").prepend(share);
-  const worlds = button("Worlds", async () => {
-    if (session) await session.command({ op: "leave" });
-    location.href = "/?shared=1";
-  });
-  worlds.id = "owned-worlds-button";
-  document.querySelector(".top-actions").prepend(worlds);
   if (!session) {
     if (linkedWorld()) {
       const resume = button("Continue shared world", () => {
@@ -440,31 +462,10 @@ export function installSharedControls({
   roomStatus.hidden = true;
   document.querySelector(".play-dock").prepend(roomStatus);
   $("new-game").hidden = true;
-  const saveCopy = [...$("menu-dialog").querySelectorAll("p")].find((p) =>
-    p.textContent.includes("Your game saves"),
-  );
-  if (saveCopy)
-    saveCopy.textContent =
-      "This shared world saves for everyone. Your passkey keeps your place.";
   $("menu-dialog").append(
     button("Add a passkey", async () => {
       await passkey(true);
       notice("Your extra passkey is ready.");
-    }),
-    button("Leave this room", async () => {
-      await session.command({ op: "leave" });
-      location.href = "/?shared=1";
-    }),
-    button("Release this avatar", () => {
-      $("menu-dialog").close();
-      const box = panel(
-        "Release your avatar?",
-        "Their belongings and story will stay in this world. Someone else can then claim this avatar.",
-      );
-      box.append(
-        button("Keep my avatar", () => modal.close()),
-        button("Release avatar", () => session.command({ op: "release" })),
-      );
     }),
     button("Sign out", async () => {
       await session.command({ op: "leave" });

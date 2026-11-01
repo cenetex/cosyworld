@@ -225,8 +225,8 @@ try {
       if (width === 390) {
         // A quick first Put out reply also crosses the discovery and quest cues.
         await page.locator("#toolbar-menu-button").click();
-        await page.locator("#menu-button").click();
-        await page.locator("#new-game").click();
+        await page.locator("#avatar-move").click();
+        await page.locator("#avatar-new-world").click();
         await page.locator("#confirm-reset").click();
         await finish();
         await playCards("snuff", ["lamp"]);

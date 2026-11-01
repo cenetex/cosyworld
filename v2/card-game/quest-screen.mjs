@@ -6,7 +6,7 @@ import { flipStagePortrait } from "./portrait-facing.mjs";
 
 const BACK = "./assets/card-back.webp";
 // Poses for verbs that have them; others use the speaking portraits.
-const POSES = { Attack: ["attack", "guard"], Threaten: ["attack", null] };
+const POSES = { Strike: ["attack", "guard"], Threaten: ["attack", null] };
 
 const picture = (src, className, url) => {
   const img = document.createElement("img");
