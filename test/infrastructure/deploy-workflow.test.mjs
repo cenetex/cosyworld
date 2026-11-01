@@ -452,8 +452,12 @@ describe("deploy workflow", () => {
     expect(runtime.indexOf("actions/cache/save@v6")).toBeLessThan(
       runtime.indexOf("check-rust.sh test"),
     );
-    expect(ciJob("smoke-binary", "rust-quality")).not.toContain(
-      "actions/cache/save",
+    // The smoke binary keeps main's cache only while the Rust tests run on
+    // the Fly runners, whose volume keeps their own.
+    const binary = ciJob("smoke-binary", "rust-quality");
+    expect(binary.match(/actions\/cache\/save/g)).toHaveLength(1);
+    expect(binary).toContain(
+      "if: vars.FLY_RUNNERS == 'on' && github.ref == 'refs/heads/main'",
     );
   });
 
