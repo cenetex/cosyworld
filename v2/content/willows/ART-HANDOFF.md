@@ -1,14 +1,18 @@
 # Willows paintings and notebook cards
 
-Art handoff, 2026-10-31. Related work: [the Willows redesign](https://github.com/cenetex/cosyworld/issues/1626),
+Art handoff, 2026-10-31; revised 2026-11-01 to the owner's latest painting brief.
+Related work: [the Willows redesign](https://github.com/cenetex/cosyworld/issues/1626),
 [the notebook](https://github.com/cenetex/cosyworld/issues/1629), and
 [state backdrops](https://github.com/cenetex/cosyworld/pull/1620).
 
-Each sign changes its own existing place. Keep the camera, shoreline, tent,
-canoe, roots, and foreground footing fixed. This is a commission list and a
-mapping of existing art, not evidence that the Observe rules or new paintings
-have landed. Hold durations below are implementation recommendations where the
-owner has not already specified one.
+The [owner's original brief and paste-ready prompts](ART-BRIEF.md) are preserved
+verbatim, with table column whitespace normalized. The commission is **nine
+required scenery edits, one optional scenery edit, and five notebook cards**. It replaces the earlier
+proposed filenames and extra day/night sets. Each sign transforms its existing
+place. Keep the camera, shore, tent, roots and foreground footing consistent;
+change the objects only where the brief says to, including turning the mended
+canoe upright. This document does not claim that new paintings or Observe rules
+have landed. Timing recommendations are separate from current code.
 
 ## Exact reference set
 
@@ -17,7 +21,7 @@ All base files below are under `v2/card-game/assets/willows/` at commit
 Use those exact bytes; the SHA-256 checks below identify them even after main
 moves. All scenery bases are opaque 1672 × 941 WebPs. The normal paintings
 occupy the game's day slot but retain their original warm evening light;
-do not silently turn an edit into a new daytime composition.
+preserve it except for the explicitly requested night treatment of camp-closer.
 
 | Base file | SHA-256 |
 | --- | --- |
@@ -27,6 +31,9 @@ do not silently turn an edit into a new daytime composition.
 | `camp.webp` | `b45b2f36bca38d187e277b57704bbb9a7600a087d9cb4dcb6406049c74e10314` |
 | `camp-lit-night.webp` | `3aeac8f45d6c1422f1ffb410a01a7709d607c25a4f9a4781e6fcef1ed41e2aef` |
 | `camp-lit-night-uncanny.webp` | `93e0e8c7cda55b629a25950662b6f725e817a26268958eb916f0a5b405bc7b12` |
+| `camp-uncanny.webp` | `2322acd0f14dee3fe4034a297ddad18ee5fbf376bc5c42e66894d6fd0179ea68` |
+| `thicket-uncanny.webp` | `555a3fcf3d51185f2777dbd4b0a73293479dec7d399abec387053ffc073fddaa` |
+| `bank-uncanny.webp` | `83dc4e3c118c6348448e54b6043ad5f74c469c6f73857fbcdc355bd0737f9843` |
 | `camp-dark-night.webp` | `cd5e5ea072c79a0a1ea6b7645d6950126db124ebf646d04cf0af2a08408689dd` |
 | `thicket.webp` | `ac2324c2edd0d98f8d7ecf11f3b30ccdd891261ba0b5514896305b41064cd95c` |
 | `thicket-night.webp` | `d91e0177754a1b9a7ab728d59ce574bfa50068de8e44f0b11672239ce108406d` |
@@ -37,138 +44,151 @@ do not silently turn an edit into a new daytime composition.
 | `rope.png` | `00ed54fffb54e2535f44eadbe68c45c89b5ec4fd08d2f82852ccf3ade865f6ea` |
 
 **Lamp and fire are separate.** The camp paintings contain a fixed campfire.
-The portable `lamp` is an ordinary carried item whose saved light and custody
-may change. No lamp is painted into these backgrounds. Every camp commission
-below must work with that lamp either lit and present or doused/absent; leave
-its additional light to the stage. Do not use a doused lamp as evidence that
-the campfire is out. The current pack has no saved campfire control.
+The portable `lamp` has its own saved light and custody. No portable lamp is
+painted into these backgrounds: each camp edit must work with it lit and
+present, or doused/absent. Preserve the painted campfire's actual state. The
+current pack has no saved campfire control, so dousing the lamp cannot select
+the fire-out painting. Do not invent a fire flag to make an asset selectable.
 
-## Existing paintings: use these first
+## Existing art and safe fallbacks
 
-The paired content change uses the place's first matching `backdrops` entry.
-It reads existing committed discovery flags; the Observe work should keep
-these receipt identities when it replaces the named discovery buttons.
+The owner approved `thicket-uncanny.webp`, `camp-uncanny.webp`,
+`camp-dark-night.webp`, and `bank-uncanny.webp` as stand-ins until the new set
+arrives. Keep each in its own place and original lighting state:
 
-| Place and sign | Existing painting | Saved condition and behavior |
+| Approved stand-in | Existing visual and lighting | Use constraint |
 | --- | --- | --- |
-| Landing: ship present in dark mist | `landing-ship-night.webp` | First priority: night, mist on `greek-ship`, and ship at Black Pond or at sea. Holds while that crossing is open. |
-| Landing: night without the ship | `landing-night.webp` | Night fallback below the ship entry. Low river mist is already in the painting. Holds through the night. |
-| Camp: ordinary night | `camp-lit-night.webp` | Night fallback. Campfire lit; portable lamp independent. |
-| Camp: patterings and pressure on the tent | `camp-lit-night-uncanny.webp` | Night plus `willows-patterings-heard`. Same tent, now depressed inward. Holds while night and the saved flag hold. |
-| Thicket: bronze forms above the leaves | `thicket-night.webp` | Night plus `willows-shapes-seen`. Holds while night and the saved flag hold. |
-| Bank: something caught below the roots | `bank-night.webp` | Night plus `willows-mark-seen`. Holds while night and the saved flag hold. |
+| `thicket-uncanny.webp` | Dusk thicket; branches lean into the passage | A daytime thicket stand-in, not a night relight |
+| `camp-uncanny.webp` | Original warm camp; tent panel pressed inward | A daytime camp stand-in with the existing fire preserved |
+| `camp-dark-night.webp` | Dark camp; fire out with a few dim embers | Available when a real committed fire-out state exists; presently unbound |
+| `bank-uncanny.webp` | Dusk bank; an over-tall spray of distant willow vegetation | A daytime bank stand-in, keeping the bank's camera |
 
-There is no timed return in these entries: a 900 ms state crossfade settles on
-the chosen painting; a day/night change uses 4000 ms. Travel uses its existing
-veil. Reduced motion cuts immediately. These timings come from
-`transitions.mjs` and the renderer, not a new rule or timer in the save.
+**A missing alternate falls back to the existing base painting for the current
+place and saved lighting.** A commission filename is not a public asset until
+its bytes, variants and registration exist. Do not add a selector for an
+unpainted target, change the day/night clock to show one, or substitute another
+place's backdrop. Ship scenery retains priority while its crossing is open.
 
-The two night discovery paintings must **not** be unconditional night defaults:
-`thicket-night` already contains the bronze form and `bank-night` already
-contains the pale shape. Their quiet counterparts are the first commissions
-below. Until then, undiscovered thicket/bank scenes retain their existing base.
+The existing paintings provide these verified matches and lighting bases:
 
-### Complete sign audit
+| Place and sign | Existing painting | Available role and saved condition |
+| --- | --- | --- |
+| Landing: ship in dark mist | `landing-ship-night.webp` | First priority: night, mist on `greek-ship`, and ship at Black Pond or at sea; holds while that crossing is open |
+| Landing: night without the ship | `landing-night.webp` | Night fallback below the ship entry; low river mist is already painted |
+| Camp: ordinary night | `camp-lit-night.webp` | Night fallback; campfire lit, portable lamp independent |
+| Camp: tent pressure | `camp-lit-night-uncanny.webp` | Night plus `willows-patterings-heard`; holds while the conditions hold |
+| Thicket: ordinary night | `thicket-night.webp` | Quiet night base; it does not show a bronze column |
+| Bank: ordinary night | `bank-night.webp` | Quiet night base; it does not show the pale shape or drowned man |
 
-| Current receipt / future Observe sign | Art decision |
-| --- | --- |
-| `willows-hull-seen`: slit hull and worn paddle | Keep `landing.webp`; it already has the fine hull seam. The paddle has its own worn item art. No new wide painting. |
-| `willows-stores-counted`: missing bread | Keep the camp. The closed sack painting cannot truthfully show its contents; the recorded fact carries the absence. No new wide painting. |
-| `willows-hollows-seen`: smooth sand hollows | Keep the thicket's existing hollows. Do not use `landing-uncanny` to move a thicket discovery to the landing. |
-| `willows-humming-heard`: metallic humming | Keep the bank; this is an auditory sign. Use the existing hum, not a new visible creature. |
-| `willows-mark-seen`: marked shape below the roots | Existing night painting; day counterpart missing (B2). |
-| `willows-otter-seen`: yellow-eyed thing in the current | Day alternate missing (L1). |
-| `willows-boatman-seen`: passing boatman crosses himself | Day and both night compositions missing (L2–L4). Existing rule allows any hour. |
-| `willows-willows-paced`: eleven paces | Keep the ordinary camp as the visual measurement. |
-| `willows-willows-nearer`: nine paces | Matched day/night camp alternates missing (C1–C3). The thicket's inward branches are a different place. |
-| `willows-patterings-heard`: pressure on the tent | Existing lit-night pressure painting matches exactly; reuse it. |
-| `willows-shapes-seen`: bronze ascent | Existing night thicket painting matches; reuse it. |
-| `willows-signs-shared`: compare discoveries | Conversation and existing Swede poses; no additional landscape. |
+The camp pressure match reads an existing discovery receipt. It does not
+replace the named discovery choices with Observe. The Observe work should
+retain the receipt identities. The generic uncanny flickers remain separate
+from held discoveries. Full-size visual review confirms that the thicket and
+bank night files are lighting bases, not sign paintings; the earlier handoff's
+claim that they already showed the bronze ascent and pale body was incorrect.
+Only the new named targets can supply those specific visual discoveries.
 
-The generic uncanny flickers remain separate from these held discovery states.
-`landing-uncanny`, `camp-uncanny`, `thicket-uncanny`, and `bank-uncanny` are
-available but do not supply missing day/night versions of unrelated signs.
-`camp-dark-night` is finished art awaiting a real fire-state binding; it is
-not assigned to `lamp` or to a guessed ending flag.
+The prepared entries have no timed return. Their current state change uses
+900 ms; a day/night change uses 4000 ms. Travel uses its existing veil and
+reduced motion cuts. The new transient recommendations below need presentation
+support before they can be promised as behavior.
 
-## Missing scenery: ten exact edits
+## Exact scenery commission
 
-Target and base filenames are in the pinned Willows folder above. Each row is
-one full painting, not a new camera or an independently laid-out scene.
-Only the stated feature changes. Match the source exposure and brush texture.
+Every target is an **opaque 1672 × 941 WebP, at most 300 KB**. Filenames and
+exact bases are in the pinned Willows folder above. Preserve the source
+composition, materials and painted finish. Each row describes the intended
+lighting; none bakes the portable lamp into the background.
 
-| ID / target filename | Exact base to edit | Day/night and lighting | Observe sign and visual change | Hold or return; intended timing |
+| Target filename | Exact base to edit | Day/night and lighting | Observe sign and visual change | Recommended hold or return |
 | --- | --- | --- | --- | --- |
-| T1 `thicket-night-quiet.webp` | `thicket-night.webp` | Cool night; no painted lamp or fire | Before the bronze sign: remove only the faint bronze column; keep every leaf, hollow, path and sky feature | Holds as ordinary night; 4000 ms on day/night change |
-| B1 `bank-night-quiet.webp` | `bank-night.webp` | Cool night; no painted lamp or fire | Before the roots sign: remove only the small pale shape beneath the roots; preserve waterline, roots and lighting | Holds as ordinary night; 4000 ms on day/night change |
-| C1 `camp-nearer.webp` | `camp.webp` | Day slot, original warm evening exposure; campfire lit; portable lamp independent | Nine paces: move the surrounding willow masses inward, narrow the river gap and space behind the tent; keep tent, pot, fire, guy ropes and camera fixed | Holds after the nearer receipt, including later days; 900 ms in, 4000 ms to its night counterpart |
-| C2 `camp-nearer-lit-night.webp` | `camp-lit-night.webp` | Night; original campfire light; portable lamp independent | Same nearer geometry as C1 under the exact existing night lighting | Holds after the nearer receipt at night; 900 ms in, 4000 ms to C1 at dawn |
-| C3 `camp-nearer-lit-night-pressure.webp` | `camp-lit-night-uncanny.webp` | Night; original campfire light; portable lamp independent | Add C2's inward willow geometry while retaining the existing tent depression, so learning the second sign does not erase the first | Holds at night while nearer and patterings receipts both hold; 900 ms in, 4000 ms to C1 at dawn |
-| B2 `bank-mark-day.webp` | `bank.webp` | Day slot, original evening exposure; no painted lamp or fire | The roots sign: add a small muted pale shape in the same waterline position as `bank-night`; partial, obscured, no new foreground body or gore | Holds after the mark receipt by day; 900 ms in, 4000 ms to the existing night reveal |
-| L1 `landing-otter.webp` | `landing.webp` | Day slot, original low-sun exposure; no painted lamp or fire | The otter: one small dark rolling shape in the existing current, two subdued yellow eye points; preserve canoe, bank and scale | Recommended transient: 900 ms in, 6000 ms fully shown, 900 ms back to the current underlying painting |
-| L2 `landing-boatman.webp` | `landing.webp` | Day slot, original exposure; no painted lamp or fire | One small flat boat on the far shore; standing boatman making the Cross, distant enough to belong to this river | Recommended transient: 900 ms in, 6000 ms fully shown, 900 ms back |
-| L3 `landing-boatman-night.webp` | `landing-night.webp` | Dark misty night; no ship lights, lamp or fire | Same small boatman and gesture as L2, readable in subdued night light; no added light source | Recommended transient: 900 ms in, 6000 ms fully shown, 900 ms back |
-| L4 `landing-ship-boatman-night.webp` | `landing-ship-night.webp` | Dark misty night; existing Greek ship lanterns retained; no portable lamp baked in | Same far-shore boatman; retain the complete existing ship and its reflection so the sign does not make the ship vanish | Recommended transient: 900 ms in, 6000 ms fully shown, 900 ms back |
+| `landing-otter.webp` | `landing.webp` | Day slot; original low sun; no painted lamp/fire | A black wet otter rolls in the current twenty feet out, turning like a drowned man, with **one yellow eye** catching the low sun | 900 ms in, 6000 ms fully shown, 900 ms back to the current base |
+| `landing-boatman.webp` | `landing.webp` | Day slot; original sunset; no painted lamp/fire | On the far shore, a man stands in a flat boat swept downstream, one arm raised making the sign of the Cross toward the island | 900 ms in, 6000 ms fully shown, 900 ms back; night observations retain their matching base |
+| `landing-mended.webp` | `landing.webp` | Day slot; source light; no painted lamp/fire | Canoe upright and mended at the edge, paddle across it, rope coiled and sheet folded ready to launch | Holds after a committed repair completion; 900 ms in; night falls back to the available night base until a matching repair image exists |
+| `camp-closer.webp` | `camp.webp`; use `camp-lit-night.webp` only as a lighting reference | **Night treatment** of the exact camp composition; retain the fixed campfire; portable lamp may be lit or doused independently | The willow ring is visibly nearer than by day, with branches reaching over the fire | Holds after the nearer receipt while night; 900 ms in, 4000 ms back to the day base at dawn |
+| `camp-tent-pressure.webp` | `camp-lit-night.webp` | Night; existing lit campfire and its glow; portable lamp independent | Canvas sagging inward as if pressed from above, with faint wet patter marks on the sand around it; keep poles, ropes, stakes and tent position | 900 ms in, 6000 ms fully shown, 900 ms back to the current camp state |
+| `thicket-bronze.webp` | `thicket-night.webp` | Cool night; no painted lamp/fire | Dim dull-bronze fluid shapes ascend in a bending column through the willow tops, without faces | 900 ms in, 6000 ms fully shown, 900 ms back to the current thicket state |
+| `thicket-hollows.webp` **optional** | `thicket.webp` | Day slot; original dusk exposure; no painted lamp/fire | Many smooth cup- or bowl-shaped hollows between the roots | Holds after the hollows receipt while its light matches; 900 ms in |
+| `bank-humming.webp` | `bank.webp` | Original dusk; no painted lamp/fire | The far willows shimmer while water near the bank is still | 900 ms in, 6000 ms fully shown, 900 ms back to the current bank state |
+| `bank-roots.webp` | `bank.webp` | Day slot; original dusk; no painted lamp/fire | A pale shape caught beneath bare roots; concentrate the edit there while retaining the full bank camera | Holds after the roots discovery while its light matches; 900 ms in |
+| `bank-drowned.webp` | `bank-night.webp` | Cool night; no painted lamp/fire | A face-up drowned man caught in the roots, with small smooth hollow marks on his skin | Holds after the marked-body receipt at night; 900 ms in, 4000 ms to the available day state at dawn |
 
-Paint T1/B1 first, then C1–C3, B2, and L1–L4. C3 is a required combination,
-not a fourth camp condition guessed by the renderer. The future transient
-selector must restore whatever state is current when the hold ends, cancel
-on travel, never replay from a saved knowledge flag alone, and cut under
-reduced motion. It does not exist in the paired content change.
+For a transient, restore the currently valid base or held painting when its
+hold ends, not an image remembered before a ship, lamp or clock change. Cancel
+on travel; do not replay a six-second reveal from a permanent knowledge flag
+alone. Reduced motion changes paintings instantly. Where two signs are known,
+the current event may briefly take the frame, then restore the valid held
+state. No combined new painting is implied by this list.
 
-The approved three-place redesign turns the thicket into a travel painting.
-This mapping preserves its current composition and receipts. If the Observe
-work moves the bronze sign to the bank, commission a bank edit from `bank.webp`
-or its night counterpart before changing the mapping; do not show the thicket
-camera while standing at the bank. New fire-out combinations wait until there
-is a committed campfire state; no speculative extra set is requested here.
+`landing-mended` awaits the repair completion from the scattered-kit work.
+Today's `willows-gear-laid` means preparation, not a mended canoe. Use the
+ordinary landing until the real repair receipt exists. The approved map
+redesign makes the thicket a travel painting; keep its imagery with that
+passage if it moves. Do not render a thicket camera while standing at the bank.
 
-## Traveller's Notebook: three page variants and two assembled cards
+### Receipt map for implementation
 
-The latest owner decision is **nine pages → three readable chapter cards →
-one book**, not three separate volumes. Each chapter's three pages can share
-one illustration; title/index and the real readable writing belong to the UI.
-The chapter themes below are art recommendations, not an invented assignment
-of Blackwood passages. The lore/content owner assigns the thirteen passages.
+| Existing receipt / future Observe sign | Requested target or retained base |
+| --- | --- |
+| `willows-hull-seen`: slit hull and worn paddle | Existing landing and worn-paddle item |
+| `willows-stores-counted`: missing bread | Existing camp; the recorded fact describes the closed sack's missing contents |
+| `willows-hollows-seen`: sand hollows | Optional `thicket-hollows`; existing thicket or approved matching stand-in until supplied |
+| `willows-humming-heard`: metallic humming | `bank-humming` in matching dusk light |
+| `willows-mark-seen`: marked shape below the roots | `bank-roots` by day, `bank-drowned` by night; retain the matching lighting base until supplied |
+| `willows-otter-seen`: thing in the current | `landing-otter` by day |
+| `willows-boatman-seen`: passing boatman | `landing-boatman` in its sunset light; existing night base otherwise |
+| `willows-willows-paced`: eleven paces | Existing ordinary camp |
+| `willows-willows-nearer`: nine paces | `camp-closer` at night |
+| `willows-patterings-heard`: tent pressure | `camp-tent-pressure` at night |
+| `willows-shapes-seen`: bronze ascent | `thicket-bronze` at night |
+| `willows-signs-shared`: compare discoveries | Conversation and existing Swede poses |
+| Future committed repair completion | `landing-mended`; no fabricated receipt identifier |
 
-**Existing item reference:** use pinned `map.png` for paper grain, rubbed
-edges, dimensional folds, ink and muted blue-grey/ochre colour. Its actual
-canvas is **1254 × 1254 RGBA**, despite the older prompt requesting 1024.
-Use pinned `sheet.png` for the book's dark waxed-cloth cover and `rope.png`
-for its simple flax binding. These are material/style references for new
-objects, not backgrounds or literal text to copy.
+## Traveller's Notebook: exact card set
 
-Keep each object opaque with true transparency around it, fully inside the
-same square canvas with breathing room, and use the existing gouache/ink
-finish and soft upper-left warmth. One neutral item light serves day and
-night; neither the portable lamp nor the campfire is baked into the card.
-No scenery, card frame, labels, readable invented writing or drop-shadow box.
+Nine pages assemble into three readable chapter cards, then one book. Three
+page illustrations provide the visual variants; page identity, chapter,
+title/index and the real readable writing remain item/UI data. Assignment of
+the thirteen Blackwood passages belongs to the lore/content work.
 
-| Target filename | Exact existing references | Distinguishing art |
+The existing item reference is pinned **`map.png`**: paper grain, rubbed edges,
+dimensional folds, muted colour and tangible painted material. Its actual
+canvas is **1254 × 1254 RGBA**. Use pinned `sheet.png` for the book's oilcloth
+material and `rope.png` for simple string. These are exact style/material
+references for new objects, rather than a background to copy.
+
+All five deliverables are **1254 × 1254 transparent PNGs**. Keep the object
+opaque, its surroundings genuinely transparent, and its complete silhouette
+inside the canvas with breathing room. Use the existing item set's painted
+finish, pencil handwriting and drawings on the pages, and soft upper-left warmth. One neutral
+item light serves day and night, with no portable lamp or campfire baked in.
+
+| Target filename | Existing references | What distinguishes it |
 | --- | --- | --- |
-| `notebook-page-river.webp` | `map.png` | One cream folded leaf, open and comparatively tidy; sparse river-channel sketch and orderly ink strokes; a small upper-right corner fold |
-| `notebook-page-island.webp` | `map.png` | Same paper scale and view; silver willow-leaf study and three smooth hollow diagrams; denser uneven strokes, a small middle-edge notch |
-| `notebook-page-watch.webp` | `map.png` | Same paper scale and view; exposed-root and current sketches, interrupted strokes, a damp grey tide mark at the lower edge; no monster drawing |
-| `notebook-chapter.webp` | `map.png`, `rope.png` | Three matching leaves lightly bound with one flax stitch; edges visibly layered; chapter title and progress remain UI text |
-| `travellers-notebook.webp` | `map.png`, `sheet.png`, `rope.png` | Small closed, worn waxed-cloth notebook, warm paper edges and plain flax binding; a complete volume, with no lettering or extra props |
+| `notebook-page-1.png` | `map.png` | One torn page with a pencil drawing of the canoe on the sand spit |
+| `notebook-page-2.png` | `map.png` | A matching torn page with a pencil drawing of willow tops |
+| `notebook-page-3.png` | `map.png` | A matching torn page with a pencil drawing of round sand hollows |
+| `notebook-chapter.png` | `map.png`, `rope.png` | Three river-damp pages stitched together, visibly layered |
+| `notebook-book.png` | `map.png`, `sheet.png`, `rope.png` | A 1900s oilcloth-bound notebook tied with string |
 
-All five are missing. A page/chapter/book card holds as its item exists;
-assembly changes the item, not a timed art flash. The three page designs must
-remain distinguishable at the generated 512 × 512 card size by folds, edge
-shape and drawings as well as colour.
+The page drawings, folds and torn silhouettes must distinguish the three
+variants at 512 × 512 card size. The full readable text stays in the Read view;
+avoid invented legible prose in the paintings. Cards hold as their items exist;
+assembly replaces items through the rules, with no timed image reversion.
 
 ## Delivery and integration checks
 
-- Supply the ten scenery edits at 1672 × 941, opaque WebP; preserve their
-  exact base crops. Supply the five inventory objects at 1254 × 1254 with
-  true alpha. Keep original generation output and reference hashes in provenance.
-- Register source art, rebuild stage/card variants and the public manifest
-  with the repository scripts, and record the actual tool and full prompts.
-- Compare each edit with its pinned base at desktop and 390 px phone width.
-  The changed detail must remain legible without moving the place's landmarks.
-- Validate before/after discovery, night/day, portable lamp lit/doused, ship
-  present/absent and both camp flags together. Day/night variants never reveal
-  an unearned sign. No new scene replaces the place to make a sign visible.
-- Update `card-world.json` only when an asset is registered and its condition
-  is supported. A transient needs its presentation mechanism before wiring;
-  no entry should point at an unpainted target from this list.
+- Preserve the original generation output, exact base hashes, tool and complete
+  prompts in provenance. Check every scenery file is at most 300 KB, 1672 × 941
+  and opaque; all five notebook sources are 1254 × 1254 PNGs with true alpha.
+- Register delivered source art and build stage/card variants and public assets
+  with repository scripts. Update the manifest from actual bytes.
+- Inspect each alternate against its base at desktop and 390 px phone width.
+  Keep each place's framing stable across a sign. The camp's prepared runtime
+  uses one 82% horizontal focus so the tent remains visible on a phone.
+- Validate before/after the receipt, day/night, lamp lit/doused, ship
+  present/absent and missing alternate. Held art must not reveal an unearned
+  discovery; the separately governed uncanny flicker keeps its existing rules.
+- Missing or unregistered art uses the current base. A requested transient is
+  not complete until its presentation mechanism, timing and restoration are
+  tested. A finished image alone does not establish a working Observe event.
