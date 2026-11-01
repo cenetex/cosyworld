@@ -1624,7 +1624,6 @@
             exits: [
               "greek-courtyard",
               "greek-well",
-              "greek-battlefield",
               "greek-aulis"
             ],
             backdrop: "assets/greek-drama/city-gate-closed-day.webp",
@@ -2622,6 +2621,7 @@
             home: "greek-gate",
             values: {
               "greek-provisions": 3,
+              "greek-decree": 3,
               "greek-bread": 2
             },
             seed: "The Gate Guard of Thebes.",
@@ -3646,6 +3646,22 @@
           }
         },
         routes: [
+          {
+            from: "greek-gate",
+            to: "greek-battlefield",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-decree",
+                actor: "greek-guard"
+              },
+              {
+                kind: "item_near",
+                item: "greek-decree",
+                place: "greek-gate"
+              }
+            ]
+          },
           {
             from: "greek-harbor",
             to: "greek-egypt-tomb",

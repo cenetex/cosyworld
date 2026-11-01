@@ -4,6 +4,7 @@ import {
   play,
 } from "../../v2/card-game/world.mjs";
 import { needsVoyage, sailTo } from "./voyage.mjs";
+import { summonTransport } from "../../v2/card-game/pack-transport.mjs";
 import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
 import { openingFixture } from "./greek-opening.mjs";
 import { greekTravelTargets, greekMoveSteps } from "./greek-travel.mjs";
@@ -44,8 +45,13 @@ export function playOpenDoor(world, kind, fields = {}) {
         (a) => a.kind === "move" && a.target === "greek-ship",
       );
       wait++
-    )
+    ) {
+      // A roaming bard may have sailed it away; call it back, as the Greek
+      // story suite does. The ship suites cover resident voyages.
+      if (world.transports["greek-ship"].dock !== world.actors.vale.place)
+        summonTransport(world, "greek-ship", world.actors.vale.place);
       world = playOpenDoor(world, "wait");
+    }
   }
   const result = play(
     world,
