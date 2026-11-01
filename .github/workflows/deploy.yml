@@ -1,13 +1,19 @@
 name: Deploy
 
+# Merges to main do not deploy. A scheduled .dev train deploys main's head
+# every 30 minutes, only when main has moved since .dev's last rollout; the
+# `dev` dispatch target runs one now. Edit the cron line to change the
+# cadence, or set the COSYWORLD_DEV_TRAIN repository variable to `off` to
+# pause the schedule. Tags and the other dispatch targets are production.
 on:
   push:
-    branches: [main]
     tags: ["v*"]
+  schedule:
+    - cron: "7,37 * * * *"
   workflow_dispatch:
     inputs:
       target:
-        description: Committed production target to deploy
+        description: Committed production target to deploy, or dev to run the .dev train now
         required: true
         default: both
         type: choice
@@ -15,6 +21,7 @@ on:
           - both
           - primary
           - lonelyforest
+          - dev
       lonelyforest_recovery_capture:
         description: Reviewed committed capture path, only when Lonely Forest's live /meta is unavailable
         required: false
@@ -26,12 +33,16 @@ on:
         default: ""
         type: string
 
-# Main pushes (.dev) and production runs (v* tags, dispatches) queue in
-# separate groups. GitHub keeps one pending run per group, so a shared group
-# let a main push replace a waiting tag deploy. Both roll out the primary app;
+# Shows a train in the run list, where scripts/serialize-primary-rollout.sh
+# reads it: a `dev` dispatch is otherwise indistinguishable from production.
+run-name: ${{ (github.event_name == 'schedule' || inputs.target == 'dev') && format('.dev train {0}', github.sha) || format('Deploy {0}', github.ref_name) }}
+
+# .dev trains and production runs (v* tags, dispatches) queue in separate
+# groups. GitHub keeps one pending run per group, so a shared group let a main
+# push replace a waiting tag deploy. Both roll out the primary app;
 # scripts/serialize-primary-rollout.sh keeps those rollouts apart.
 concurrency:
-  group: deploy-${{ github.repository }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'dev' || 'production' }}
+  group: deploy-${{ github.repository }}-${{ (github.event_name == 'schedule' || inputs.target == 'dev') && 'dev' || 'production' }}
   cancel-in-progress: false
 
 permissions:
@@ -42,19 +53,24 @@ env:
   CARGO_PROFILE_TEST_DEBUG: "0"
 
 jobs:
-  # A main push deploys .dev from this one job, so it waits for one runner,
-  # not five in a row. It skips the production gates, primary backup, and
-  # Lonely Forest; CI still checks main, and bugs on .dev are fixed forward.
-  # Tags and dispatches use the jobs below, which this job never touches.
+  # The .dev train deploys main's head from this one job, so it waits for one
+  # runner, not five in a row. It skips the production gates, primary backup,
+  # and Lonely Forest; the fast check still checks main, and bugs on .dev are
+  # fixed forward. Tags and production dispatches use the jobs below.
+  # The train deploys the commit it started on even if main moves meanwhile;
+  # the next train takes the rest.
   dev-deploy:
     name: Deploy main to .dev
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      ((github.event_name == 'schedule' && vars.COSYWORLD_DEV_TRAIN != 'off') ||
+       (github.event_name == 'workflow_dispatch' && inputs.target == 'dev'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: read
-      # Lets a superseded main run cancel itself so the newer one starts.
-      actions: write
+      # Reads earlier Deploy runs to find what .dev runs.
+      actions: read
     outputs:
       deploy: ${{ steps.impact.outputs.deploy }}
       rolled-out: ${{ steps.rollout.outcome == 'success' }}
@@ -65,23 +81,26 @@ jobs:
       - name: Checkout committed release
         uses: actions/checkout@v7
 
-      # Main moves often. A run whose commit is no longer main's head cancels
-      # itself before the rollout; the newer run deploys every change .dev
-      # does not have yet. The rollout itself is never cancelled.
-      - name: Yield to a newer main commit
-        run: bash scripts/yield-superseded-deploy.sh check
-
-      # Compare with the commit .dev actually runs, not the previous push, so
-      # a docs-only commit after a cancelled code commit still deploys it.
+      # Compare with the commit .dev actually runs. A train whose main has
+      # not moved, or moved only in docs, tests, or tooling, deploys nothing.
       - name: Check whether production inputs changed
         id: impact
         run: |
           base="$(node scripts/last-dev-rollout.mjs)"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
           if [ -n "$base" ]; then
             echo "The primary app last rolled out ${base:0:7}."
             git fetch --no-tags --depth=1 origin "$base" || true
           fi
           node scripts/check-deployment-impact.mjs "$base" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      # Label the drop: the commit and the pull requests merged since .dev's
+      # last rollout, in the run summary.
+      - name: Record the train
+        env:
+          BASE: ${{ steps.impact.outputs.base }}
+          DEPLOY: ${{ steps.impact.outputs.deploy }}
+        run: bash scripts/dev-train-summary.sh >> "$GITHUB_STEP_SUMMARY"
 
       - name: Setup flyctl
         if: steps.impact.outputs.deploy == 'true'
@@ -118,25 +137,17 @@ jobs:
         with:
           node-version: "24"
 
-      # The watcher cancels this run if main moves while the image builds.
       - name: Prepare primary image
         id: image
         if: steps.impact.outputs.deploy == 'true'
-        run: |
-          bash scripts/yield-superseded-deploy.sh watch &
-          watcher=$!
-          status=0
-          bash scripts/prepare-fly-image.sh cosyworld fly.toml || status=$?
-          kill "$watcher" 2>/dev/null || true
-          wait "$watcher" 2>/dev/null || true
-          exit "$status"
+        run: bash scripts/prepare-fly-image.sh cosyworld fly.toml
         env:
           COSYWORLD_IMAGE_BUILDER: runner
           COSYWORLD_RELEASE_TARGET_CACHE: ${{ runner.temp }}/release-target
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-      # Waits while a production deploy is queued or running, then yields if
-      # main moved. Production waits for .dev runs past this step.
+      # Waits while a production deploy is queued or running. Production
+      # waits for .dev runs past this step.
       - name: Wait for production deploys
         if: steps.impact.outputs.deploy == 'true'
         run: bash scripts/serialize-primary-rollout.sh dev
@@ -193,8 +204,8 @@ jobs:
 
   deployment-impact:
     name: Check production impact
-    # Tags and dispatches only; dev-deploy deploys main pushes.
-    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
+    # Tags and production dispatches only; dev-deploy runs the .dev train.
+    if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')
     runs-on: ubuntu-latest
     outputs:
       deploy: ${{ steps.impact.outputs.deploy }}
@@ -247,12 +258,12 @@ jobs:
   production-node-gate:
     name: Production Node and content gate
     needs: [deployment-impact, release-owner]
-    # A main push deploys .dev without this gate; CI still checks main. Tags
-    # and manual dispatches keep it.
+    # The .dev train deploys without this gate; the fast check still checks
+    # main. Tags and production dispatches keep it.
     if: >-
       needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
-      (github.event_name != 'push' || startsWith(github.ref, 'refs/tags/'))
+      (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -288,12 +299,12 @@ jobs:
   production-rust-gate:
     name: Production Rust gate
     needs: [deployment-impact, release-owner]
-    # A main push deploys .dev without this gate; CI still checks main. Tags
-    # and manual dispatches keep it.
+    # The .dev train deploys without this gate; the fast check still checks
+    # main. Tags and production dispatches keep it.
     if: >-
       needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
-      (github.event_name != 'push' || startsWith(github.ref, 'refs/tags/'))
+      (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -358,7 +369,7 @@ jobs:
     if: >-
       needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
-      (github.event_name != 'push' || startsWith(github.ref, 'refs/tags/'))
+      (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -397,9 +408,9 @@ jobs:
 
   production-gate:
     name: V2 production deployment gate
-    # A main push deploys from dev-deploy, which needs no gate, so it skips
-    # this job instead of holding a runner to report that.
-    if: ${{ always() && (github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')) }}
+    # The .dev train deploys from dev-deploy, which needs no gate, so it
+    # skips this job instead of holding a runner to report that.
+    if: ${{ always() && (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')) }}
     needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate, production-rust-lint]
     runs-on: ubuntu-latest
     steps:
@@ -411,7 +422,7 @@ jobs:
           NODE_RESULT: ${{ needs.production-node-gate.result }}
           RUST_RESULT: ${{ needs.production-rust-gate.result }}
           RUST_LINT_RESULT: ${{ needs.production-rust-lint.result }}
-          FULL_RELEASE: ${{ (github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')) }}
+          FULL_RELEASE: ${{ (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')) }}
         run: |
           if [ "$DEPLOY" != true ]; then
             echo "No production inputs changed; deployment is not needed."
@@ -423,7 +434,7 @@ jobs:
             exit 0
           fi
           if [ "$FULL_RELEASE" != true ]; then
-            echo "Main push: .dev deploys without the production gates; CI checks main."
+            echo ".dev train: deploys without the production gates; the fast check checks main."
             exit 0
           fi
           test "$NODE_RESULT" = success
@@ -613,9 +624,10 @@ jobs:
         with:
           node-version: "24"
 
-      # The newest earlier rollout, leaving out this run, is what .dev ran.
+      # The newest earlier rollout, leaving out this run, is what .dev ran:
+      # the last train's commit, so this restores it and deploys nothing new.
       # Only a newer commit on main is restored; an unreadable list keeps the
-      # tag, and the next main push deploys .dev as before.
+      # tag, and the next .dev train deploys main as before.
       - name: Find the commit .dev ran before this tag
         id: previous
         run: |
@@ -671,7 +683,7 @@ jobs:
     needs: [deployment-impact, release-owner, primary-image]
     outputs:
       image: ${{ steps.image.outputs.image }}
-    # Ordinary main pushes must never replace an intentional Lonely Forest
+    # Ordinary .dev trains must never replace an intentional Lonely Forest
     # release. Tags are committed releases; workflow_dispatch is an explicit
     # operator action against the selected GitHub ref.
     if: >-
@@ -706,7 +718,7 @@ jobs:
   lonelyforest-backup:
     name: Guard and back up Lonely Forest
     needs: [deployment-impact, release-owner]
-    # Ordinary main pushes must never replace an intentional Lonely Forest
+    # Ordinary .dev trains must never replace an intentional Lonely Forest
     # release. Tags are committed releases; workflow_dispatch is an explicit
     # operator action against the selected GitHub ref.
     if: >-
@@ -754,7 +766,7 @@ jobs:
   lonelyforest-fly:
     name: Deploy Lonely Forest to Fly
     needs: [deployment-impact, release-owner, production-gate, lonelyforest-image, lonelyforest-backup]
-    # Ordinary main pushes must never replace an intentional Lonely Forest
+    # Ordinary .dev trains must never replace an intentional Lonely Forest
     # release. Tags are committed releases; workflow_dispatch is an explicit
     # operator action against the selected GitHub ref.
     if: >-
@@ -832,9 +844,8 @@ jobs:
       - lonelyforest-backup
       - lonelyforest-fly
     # A queued run that a newer run in its concurrency group replaced (a
-    # later main push for main, a later tag or dispatch for production) is
-    # cancelled and owns nothing; the newer run reports for it (#1044). A
-    # main run that a newer main commit superseded cancels itself the same way.
+    # later train for .dev, a later tag or dispatch for production) is
+    # cancelled and owns nothing; the newer run reports for it (#1044).
     if: ${{ !cancelled() }}
     permissions:
       contents: read
@@ -859,6 +870,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           DEV_RESULT: ${{ needs.dev-deploy.result }}
+          TRIGGER: ${{ (github.event_name == 'schedule' || inputs.target == 'dev') && '.dev train' || format('{0} {1}', github.event_name, github.ref) }}
           OWNER_RESULT: ${{ needs.release-owner.result }}
           GATE_RESULT: ${{ needs.production-gate.result }}
           PRIMARY_IMAGE_RESULT: ${{ needs.primary-image.result }}
@@ -873,7 +885,7 @@ jobs:
           body=$(cat <<BODY
           Merge of ${GITHUB_SHA} did not complete a production deployment.
 
-          - Main push .dev deploy: ${DEV_RESULT}
+          - .dev train deploy: ${DEV_RESULT}
           - Release ownership check: ${OWNER_RESULT}
           - Deployment gate: ${GATE_RESULT}
           - Primary image build: ${PRIMARY_IMAGE_RESULT}
@@ -884,7 +896,7 @@ jobs:
           - Lonely Forest guards and backup: ${LONELYFOREST_BACKUP_RESULT}
           - Lonely Forest Fly deploy: ${LONELYFOREST_RESULT}
           - Run log: ${GITHUB_SERVER_URL}/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}
-          - Trigger: ${GITHUB_EVENT_NAME} ${GITHUB_REF}
+          - Trigger: ${TRIGGER}
 
           Production may still be serving the previous release. Investigate before merging further changes that require a deploy.
           BODY
@@ -896,32 +908,31 @@ jobs:
             echo "A tracking issue for ${GITHUB_SHA:0:7} already exists."
           fi
 
-      # A main push deploys only the primary app (#1414), so it closes the
-      # issues other main pushes opened once the primary ships. Tag and
-      # dispatch runs must ship both apps, and only they close issues that a
-      # release run opened, so a Lonely Forest failure stays open until a
-      # release deploys it.
+      # A .dev train deploys only the primary app (#1414), so it closes the
+      # issues other trains (or the main pushes before them) opened once the
+      # primary ships. Tag and dispatch runs must ship both apps, and only
+      # they close issues that a release run opened, so a Lonely Forest
+      # failure stays open until a release deploys it.
       - name: Close tracking issues for commits this deploy shipped
         if: >-
           (needs.dev-deploy.result == 'success' &&
            needs.dev-deploy.outputs.rolled-out == 'true') ||
           (needs.primary-fly.result == 'success' &&
-          (needs.lonelyforest-fly.result == 'success' ||
-           (github.event_name == 'push' && github.ref == 'refs/heads/main')))
+           needs.lonelyforest-fly.result == 'success')
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          MAIN_PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          DEV_TRAIN: ${{ github.event_name == 'schedule' || inputs.target == 'dev' }}
         run: |
-          if [ "$MAIN_PUSH" = "true" ]; then
+          if [ "$DEV_TRAIN" = "true" ]; then
             scope="the primary app"
           else
             scope="both production apps"
           fi
           gh api --paginate "repos/${GH_REPO}/issues?state=open&per_page=100" \
-            --jq '.[] | select(.pull_request == null) | select(.title | test("^Production did not deploy [0-9a-f]{7,40}$")) | "\(.number) \(.title | split(" ") | last) \((.body // "") | test("- Trigger: push refs/heads/main\\r?\\n"))"' |
-          while read -r number sha from_main_push; do
-            if [ "$MAIN_PUSH" = "true" ] && [ "$from_main_push" != "true" ]; then
+            --jq '.[] | select(.pull_request == null) | select(.title | test("^Production did not deploy [0-9a-f]{7,40}$")) | "\(.number) \(.title | split(" ") | last) \((.body // "") | test("- Trigger: (push refs/heads/main|\\.dev train)\\r?\\n"))"' |
+          while read -r number sha from_dev_train; do
+            if [ "$DEV_TRAIN" = "true" ] && [ "$from_dev_train" != "true" ]; then
               echo "Leaving #${number} open: a release run opened it, so a release deploy must close it."
               continue
             fi

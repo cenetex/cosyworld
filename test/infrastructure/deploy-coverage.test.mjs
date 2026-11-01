@@ -44,8 +44,10 @@ describe("check workflows run only by manual dispatch", () => {
     expect(workflow).not.toMatch(/cancel-in-progress: (?!false\b)/);
   });
 
-  it("main pushes and tags still deploy", () => {
-    expect(deployWorkflow).toMatch(/on:\n {2}push:\n {4}branches: \[main\]\n {4}tags: \["v\*"\]/);
+  it("tags deploy production and a schedule runs the .dev train", () => {
+    expect(deployWorkflow).toMatch(/on:\n {2}push:\n {4}tags: \["v\*"\]\n {2}schedule:\n {4}- cron: /);
+    // Merges to main no longer deploy on their own.
+    expect(deployWorkflow).not.toMatch(/^ {4}branches: \[main\]/m);
   });
 });
 
@@ -62,10 +64,10 @@ describe("exactly one actor owns the release lever", () => {
   });
 
   it("workflow concurrency serializes release actors without self-rejection", () => {
-    // Main (.dev) and production runs queue apart, so a main push can never
+    // .dev trains and production runs queue apart, so a train can never
     // replace a waiting tag deploy.
     expect(deployWorkflow).toContain(
-      "group: deploy-${{ github.repository }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'dev' || 'production' }}\n  cancel-in-progress: false",
+      "group: deploy-${{ github.repository }}-${{ (github.event_name == 'schedule' || inputs.target == 'dev') && 'dev' || 'production' }}\n  cancel-in-progress: false",
     );
     expect(deployWorkflow).not.toContain("actions/runs?status=");
   });

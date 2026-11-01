@@ -211,11 +211,11 @@ describe("deploy workflow", () => {
     ).toBeLessThan(workflow.indexOf("Create rollback backup"));
   });
 
-  it("deploys a main push to .dev from one job without the release path", () => {
+  it("deploys the .dev train from one job without the release path", () => {
     const fullRelease =
-      "(github.event_name != 'push' || startsWith(github.ref, 'refs/tags/'))";
-    const mainPush =
-      "github.event_name == 'push' && github.ref == 'refs/heads/main'";
+      "(startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))";
+    const train =
+      "github.ref == 'refs/heads/main' &&\n      ((github.event_name == 'schedule' && vars.COSYWORLD_DEV_TRAIN != 'off') ||\n       (github.event_name == 'workflow_dispatch' && inputs.target == 'dev'))";
     const dev = job("dev-deploy", "deployment-impact");
     const impact = job("deployment-impact", "release-owner");
     const nodeGate = job("production-node-gate", "production-rust-gate");
@@ -225,12 +225,12 @@ describe("deploy workflow", () => {
     const primaryBackup = job("primary-backup", "primary-fly");
     const primaryFly = job("primary-fly", "lonelyforest-image");
 
-    // Main pushes run only dev-deploy; every release job hangs off the
-    // impact job, which runs only for tags and dispatches.
-    expect(dev).toContain(`if: ${mainPush}`);
+    // Trains run only dev-deploy; every release job hangs off the impact
+    // job, which runs only for tags and production dispatches.
+    expect(dev).toContain(`if: >-\n      ${train}`);
     expect(dev).not.toContain("needs:");
     expect(impact).toContain(
-      "if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')",
+      "if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')",
     );
     expect(dev).not.toContain("production-gate");
     expect(dev).not.toContain("backup-fly-v2.sh");
@@ -247,7 +247,7 @@ describe("deploy workflow", () => {
     expect(rustLint).toContain(
       `needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`,
     );
-    // A main push skips the gate job rather than spend a runner on it.
+    // A train skips the gate job rather than spend a runner on it.
     expect(gate).toContain(`if: \${{ always() && ${fullRelease} }}`);
     expect(gate).toContain(`FULL_RELEASE: \${{ ${fullRelease} }}`);
     expect(primaryBackup).toContain("startsWith(github.ref, 'refs/tags/') ||");
@@ -263,13 +263,12 @@ describe("deploy workflow", () => {
     expect(primaryFly).toContain("needs.primary-backup.result == 'success'");
     expect(primaryFly).not.toContain("refs/heads/main");
 
-    // The .dev job compares with what .dev runs, builds, checks once more
-    // that it still owns main, then rolls out and verifies.
+    // The train compares with what .dev runs, labels the drop, builds the
+    // commit it started on, then rolls out and verifies.
     const order = [
-      "bash scripts/yield-superseded-deploy.sh check",
       "node scripts/last-dev-rollout.mjs",
       'node scripts/check-deployment-impact.mjs "$base" "$GITHUB_SHA"',
-      "bash scripts/yield-superseded-deploy.sh watch &",
+      'bash scripts/dev-train-summary.sh >> "$GITHUB_STEP_SUMMARY"',
       "bash scripts/prepare-fly-image.sh cosyworld fly.toml",
       "bash scripts/serialize-primary-rollout.sh dev",
       'flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling',
@@ -284,7 +283,9 @@ describe("deploy workflow", () => {
     }
     expect(dev).toContain("RELEASE_IMAGE: ${{ steps.image.outputs.image }}");
     expect(dev).toContain("FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}");
-    expect(dev).toContain("actions: write");
+    expect(dev).toContain("actions: read");
+    expect(dev).not.toContain("actions: write");
+    expect(dev).not.toContain("yield-superseded");
     expect(dev).toContain(
       "rolled-out: ${{ steps.rollout.outcome == 'success' }}",
     );
@@ -335,7 +336,7 @@ describe("deploy workflow", () => {
     );
     expect(restore).toContain("node scripts/last-dev-rollout.mjs");
     // Only a commit ahead of the tag is restored, from its own image.
-    expect(restore).toContain('compare/${GITHUB_SHA}...${sha}');
+    expect(restore).toContain("compare/${GITHUB_SHA}...${sha}");
     expect(restore).toContain('if [ "$status" = ahead ]; then');
     expect(restore).toContain('git checkout --quiet "$DEV_SHA"');
     expect(restore).toContain(
@@ -724,26 +725,27 @@ describe("deploy workflow", () => {
     expect(outcome).toContain("gh api --paginate");
     expect(outcome).toContain("compare/${sha}...${GITHUB_SHA}");
     expect(outcome).toMatch(
-      /needs\.primary-fly\.result == 'success' &&\s+\(needs\.lonelyforest-fly\.result == 'success' \|\|/,
+      /needs\.primary-fly\.result == 'success' &&\s+needs\.lonelyforest-fly\.result == 'success'\)/,
     );
   });
 
-  it("lets a primary-only main push close the issues main pushes opened (#1420)", () => {
+  it("lets a primary-only .dev train close the issues trains opened (#1420)", () => {
     const outcome = job("deploy-outcome", "github-release");
-    expect(outcome).toContain("- Trigger: ${GITHUB_EVENT_NAME} ${GITHUB_REF}");
-    expect(outcome).toMatch(
-      /\(needs\.lonelyforest-fly\.result == 'success' \|\|\s+\(github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'\)\)/,
+    expect(outcome).toContain("- Trigger: ${TRIGGER}");
+    expect(outcome).toContain(
+      "TRIGGER: ${{ (github.event_name == 'schedule' || inputs.target == 'dev') && '.dev train' || format('{0} {1}', github.event_name, github.ref) }}",
     );
     expect(outcome).toContain(
-      "MAIN_PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}",
+      "DEV_TRAIN: ${{ github.event_name == 'schedule' || inputs.target == 'dev' }}",
+    );
+    // Issues opened by main pushes before the train still count as .dev's.
+    expect(outcome).toContain(
+      String.raw`test("- Trigger: (push refs/heads/main|\\.dev train)\\r?\\n")`,
     );
     expect(outcome).toContain(
-      String.raw`test("- Trigger: push refs/heads/main\\r?\\n")`,
+      'if [ "$DEV_TRAIN" = "true" ] && [ "$from_dev_train" != "true" ]; then',
     );
-    expect(outcome).toContain(
-      'if [ "$MAIN_PUSH" = "true" ] && [ "$from_main_push" != "true" ]; then',
-    );
-    // A main push never runs Lonely Forest, so a skipped forest deploy
+    // A train never runs Lonely Forest, so a skipped forest deploy
     // must not open an issue.
     const open = outcome.slice(
       outcome.indexOf("Open a loud tracking issue"),

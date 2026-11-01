@@ -102,8 +102,8 @@ The full suite (`ci.yml`, about 12 minutes on idle runners) runs only by hand
 commit `.dev` serves as in [release operations](../docs/release.md#cutting-a-release),
 and file failures as issues. Do not run it after batches.
 `image-build.yml`, `local-desktop.yml`, and `pages.yml` also run only by
-dispatch. `deploy.yml` deploys .dev on every main push and runs the production
-gates on tags.
+dispatch. `deploy.yml` deploys .dev from a scheduled train every 30 minutes
+(not per merge) and runs the production gates on tags.
 
 The full suite is the final cross-platform authority. It uses Node 24 and stable Rust
 for lint, tests, content, kernel, Rust builds, browser and composition smokes,
