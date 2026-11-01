@@ -31,6 +31,8 @@ const TOWNS = {
     "greek-gate",
     "greek-sanctuary",
     "greek-palace",
+    // Outside the walls but still Theban: the gate opens onto it directly,
+    // by a route that needs the guard to hold the decree there. No road.
     "greek-battlefield",
     "greek-aulis",
     "greek-cithaeron",

@@ -349,8 +349,11 @@ describe("Before the Burial", () => {
     world = take(move(world, SANCTUARY), "greek-funeral-cloth");
     world = walk(world, COURTYARD, GATE);
     world = choose(world, "greek-hear-decree");
+    // The road out is closed until the guard at the gate holds the decree.
+    expect(exits(world, GATE, "vale")).not.toContain(BATTLEFIELD);
+    world.items["greek-decree"].holder = "greek-guard";
     // Stage the two offerings before collecting the shovel; no invented stock.
-    world = move(world, BATTLEFIELD);
+    world = move(reload(world), BATTLEFIELD);
     expect(
       legalActions(world).some((a) => a.choiceId === "greek-perform-burial"),
     ).toBe(false);
@@ -412,7 +415,12 @@ describe("Before the Burial", () => {
     world = choose(world, "greek-courtyard-concession");
     world = walk(world, HARBOR, "pond");
     // Permission must change what can actually be done on the next visit.
-    world = take(walk(world, HARBOR, COURTYARD, GATE), "greek-shovel");
+    world = take(walk(world, HARBOR, COURTYARD, PALACE), "greek-decree");
+    world = act(move(move(world, WELL), GATE), "give", {
+      item: "greek-decree",
+      target: "greek-guard",
+    });
+    world = take(world, "greek-shovel");
     world = choose(move(world, BATTLEFIELD), "greek-prepare-permitted-burial");
     world = take(walk(world, GATE, COURTYARD), "greek-oil-flask");
     world = move(world, SANCTUARY);
