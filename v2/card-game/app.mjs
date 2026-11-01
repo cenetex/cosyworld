@@ -1502,15 +1502,11 @@ function discoveryAnchor(id) {
 }
 async function flyCard(shown, target) {
   if (!target || reducedMotion.matches) return;
-  const hand = $("hand"),
-    visible = hand.getBoundingClientRect();
-  const cardBounds = target.getBoundingClientRect();
-  hand.scrollLeft +=
-    cardBounds.left < visible.left
-      ? cardBounds.left - visible.left
-      : cardBounds.right > visible.right
-        ? cardBounds.right - visible.right
-        : 0;
+  // The hand never scrolls on its own: a slot out of sight takes no flight.
+  const visible = $("hand").getBoundingClientRect(),
+    cardBounds = target.getBoundingClientRect();
+  if (cardBounds.left < visible.left || cardBounds.right > visible.right)
+    return;
   const start = shown.getBoundingClientRect(),
     end = target.getBoundingClientRect();
   const centered = { transform: "translate(0, 0) scale(1)", opacity: 1 };
@@ -3506,10 +3502,11 @@ function render() {
         renderedHand &&
         renderedHandRevision === world.revision &&
         renderedHandState === handState,
-      samePlace =
-        renderedHand &&
-        renderedHandPlace === world.actors[currentActor(world)].place,
-      arriving = renderedHandPlace !== null && !samePlace,
+      // A redraw from a shared update or another tab is no arrival: the
+      // hand keeps its scroll unless the player's avatar changed place.
+      stayed = renderedHandPlace === world.actors[currentActor(world)].place,
+      samePlace = renderedHand && stayed,
+      arriving = renderedHandPlace !== null && !stayed,
       animate = samePlace && !reducedMotion.matches,
       before = new Map();
     if (animate)
@@ -3543,7 +3540,7 @@ function render() {
     // Lean the new row before measuring it, so each card moves from where
     // it was to its fanned place.
     fanHand();
-    $("hand").scrollLeft = samePlace ? scroll : 0;
+    $("hand").scrollLeft = stayed ? scroll : 0;
     renderActions(animate);
     if (!sameWorld) playLevelUps();
     if (arriving) revealHandCard(renderedHandPlace, true, true);
@@ -3769,9 +3766,10 @@ document.addEventListener("keydown", (e) => {
     render();
   }
 });
-// A click outside the card area folds the row and keeps the selection and any
-// chosen play; the next tap on the hand raises it as it was. Escape clears.
-// Beat taps fold it first (below); toolbar, dialogs and buttons leave it be.
+// A click outside the cards and the dialogue folds the row and keeps the
+// selection and any chosen play; the next tap on the hand raises it as it
+// was. Escape clears. A tap on the dialogue steps its beat and leaves the
+// hand be, as do the toolbar, dialogs and buttons. Nothing else moves it.
 document.addEventListener("click", (e) => {
   const path = e.composedPath(),
     within = (selector) =>
@@ -3802,23 +3800,6 @@ function foldHand() {
   expandedHolders.clear();
   render();
 }
-// A tap on the dialogue's beats while the hand is up only lowers the hand;
-// the beat steps on the next tap. Keyboard presses step at once.
-document.addEventListener(
-  "click",
-  (e) => {
-    if (
-      rowCollapsed ||
-      !e.detail ||
-      !e.target.closest?.("#dialogue-advance, #beat-behind")
-    )
-      return;
-    e.stopImmediatePropagation();
-    e.preventDefault();
-    foldHand();
-  },
-  { capture: true },
-);
 $("history-button").onclick = () => {
   renderLog(true);
   $("history-dialog").showModal();
@@ -3891,6 +3872,8 @@ $("confirm-reset").onclick = () => {
   reviewing = false;
   reviewBeat = null;
   renderedHand = "";
+  // A new game starts its hand from the left.
+  renderedHandPlace = null;
   lineSeq = null;
   selected = [];
   expandedHolders.clear();
@@ -3915,9 +3898,9 @@ window.addEventListener("storage", (event) => {
     loadSeen();
     renderedHand = "";
     lineSeq = null;
-    selected = [];
-    expandedHolders.clear();
-    rowCollapsed = true;
+    // Another tab's play is not this player's: the hand stays as it was,
+    // less any card that has left the table.
+    selectCards(selected.filter((id) => availableCards(world).includes(id)));
     saveBlocked = false;
     notice("The world was updated in another tab.");
     resumeScene({ otherTab: true });

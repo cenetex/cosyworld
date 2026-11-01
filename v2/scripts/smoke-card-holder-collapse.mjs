@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { createWorld, encodeSave, people } from "../card-game/world.mjs";
+import {
+  addLog,
+  createWorld,
+  encodeSave,
+  people,
+} from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { profiles } from "../card-game/memory.mjs";
@@ -34,11 +39,13 @@ try {
       world.actors.keeper.want = null;
       const table = `holder-${width}-${reducedMotion}`;
       const key = `cosyworld.reflected-shore.v1.${table}`;
-      const page = await browser.newPage({
+      // A context, so a second tab can share this page's storage.
+      const context = await browser.newContext({
         viewport: { width, height: width === 390 ? 844 : 900 },
         reducedMotion,
         hasTouch: width === 390,
       });
+      const page = await context.newPage();
       page.setDefaultTimeout(10000);
       const errors = [],
         requests = [];
@@ -88,6 +95,17 @@ try {
           await new Promise(requestAnimationFrame);
         });
       }
+      // Where each shown card sits, and how far the hand is scrolled.
+      const handLayout = () =>
+        page.locator("#hand").evaluate((hand) => ({
+          scroll: Math.round(hand.scrollLeft),
+          cards: [
+            ...hand.querySelectorAll(".card-frame:not([hidden]) .card"),
+          ].map((card) => {
+            const rect = card.getBoundingClientRect();
+            return `${card.dataset.card}@${Math.round(rect.left)},${Math.round(rect.top)}`;
+          }),
+        }));
       async function collapsed() {
         assert.equal(await card("vale").getAttribute("aria-expanded"), "false");
         assert.equal(await frame("cloth").getAttribute("hidden"), "");
@@ -364,18 +382,30 @@ try {
         await page.locator(".play-dock").dispatchEvent("click");
         assert.equal(await handExpanded(), "true");
         assert.deepEqual(await selected(), ["lamp", "vale"]);
-        // A tap on the beats while the hand is up only lowers the hand.
-        const beat = await page.evaluate(
-          () => document.querySelector("#speaker").textContent,
-        );
-        await page.locator("#dialogue-advance").click();
-        assert.equal(await handExpanded(), "false", "a beat tap folds the hand");
+        // A tap on the dialogue steps its beat and leaves the raised hand,
+        // its cards and its scroll where they were (#1883).
+        await settleHand();
+        const handBefore = await handLayout();
+        if (width === 390) await page.locator("#dialogue-advance").tap();
+        else await page.locator("#dialogue-advance").click();
         assert.equal(
-          await page.evaluate(() => document.querySelector("#speaker").textContent),
-          beat,
+          await handExpanded(),
+          "true",
+          "a dialogue tap keeps it up",
         );
-        // A second tap still lowers the lamp, and Escape still clears.
-        await tap("lamp");
+        assert.deepEqual(await selected(), ["lamp", "vale"]);
+        await settleHand();
+        assert.deepEqual(
+          await handLayout(),
+          handBefore,
+          "the hand holds still",
+        );
+        // Empty table space lowers it.
+        await page.locator("#stage").click({ position: { x: 20, y: 200 } });
+        assert.equal(await handExpanded(), "false", "the table lowers it");
+        await page.locator(".play-dock").dispatchEvent("click");
+        assert.equal(await handExpanded(), "true");
+        // With the hand up, a tap lowers the lamp, and Escape still clears.
         await tap("lamp");
         assert.deepEqual(await selected(), ["vale"]);
         await page.keyboard.press("Escape");
@@ -454,6 +484,32 @@ try {
         await page.screenshot({
           path: new URL(`${table}-received.png`, output).pathname,
         });
+        // Another tab's save is not this player's action: a raised hand
+        // stays raised with its choice, its cards and its scroll (#1883).
+        await tap("vale");
+        assert.equal(await handExpanded(), "true");
+        const choice = await selected();
+        await settleHand();
+        const layout = await handLayout();
+        const other = await context.newPage();
+        await other.goto(`http://127.0.0.1:${server.address().port}/missing`);
+        await other.evaluate((key) => {
+          const save = JSON.parse(localStorage.getItem(key));
+          save.revision++;
+          localStorage.setItem(key, JSON.stringify(save));
+        }, key);
+        await other.close();
+        await page
+          .locator("#play-status", { hasText: "updated in another tab" })
+          .waitFor();
+        assert.equal(await handExpanded(), "true", "another tab keeps it up");
+        assert.deepEqual(await selected(), choice);
+        await settleHand();
+        assert.deepEqual(
+          await handLayout(),
+          layout,
+          "another tab moves nothing",
+        );
         assert.deepEqual(errors, []);
         console.log(
           `${table}: avatar stack, chosen child, cross-holder pair, quest-free stacks, Escape and outside reset, held item through Light, Give and Put down, raised Take and Trade passed`,
@@ -464,7 +520,7 @@ try {
         });
         throw error;
       } finally {
-        await page.close();
+        await context.close();
       }
     }
   }
@@ -537,6 +593,55 @@ try {
       await avatar.scrollIntoViewIfNeeded();
       await avatar.click();
       assert.equal(await avatar.getAttribute("aria-expanded"), "true");
+      // A shared update with a new beat moves nothing in the hand (#1883).
+      const layout = () =>
+        page.locator("#hand").evaluate(async (hand) => {
+          await Promise.allSettled(
+            hand
+              .getAnimations({ subtree: true })
+              .filter((a) =>
+                Number.isFinite(a.effect?.getComputedTiming().endTime),
+              )
+              .map((a) => a.finished),
+          );
+          await new Promise(requestAnimationFrame);
+          return {
+            expanded: document.body.dataset.handExpanded,
+            scroll: Math.round(hand.scrollLeft),
+            cards: [
+              ...hand.querySelectorAll(".card-frame:not([hidden]) .card"),
+            ].map((card) => {
+              const rect = card.getBoundingClientRect();
+              return `${card.dataset.card}@${Math.round(rect.left)},${Math.round(rect.top)}`;
+            }),
+          };
+        });
+      const raised = await layout();
+      assert.equal(raised.expanded, "true");
+      const words = "The reeds lean over the water.";
+      addLog(world, "Mara", words, {
+        generated: true,
+        kind: "dialogue",
+        actorId: "mara",
+        entityId: "mara",
+        locationId: "pond",
+      });
+      snapshot.history = [
+        {
+          room: "pond",
+          actor: "mara",
+          starts_at: Date.now(),
+          lines: [world.log.at(-1)],
+        },
+      ];
+      world.revision++;
+      snapshot.now = Date.now();
+      await page.waitForFunction(
+        (words) =>
+          document.querySelector("#dialogue-text").textContent === words,
+        words,
+      );
+      assert.deepEqual(await layout(), raised, "a new beat moves nothing");
       snapshot.queue = [
         { id: "thinking-play", actor: "vale", status: "working" },
       ];
