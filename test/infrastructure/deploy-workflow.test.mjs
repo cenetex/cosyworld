@@ -162,7 +162,8 @@ describe("deploy workflow", () => {
 
   it("blocks deployment on the real v2 gates before either Fly job runs", () => {
     const nodeGate = job("production-node-gate", "production-rust-gate");
-    const rustGate = job("production-rust-gate", "production-gate");
+    const rustGate = job("production-rust-gate", "production-rust-lint");
+    const rustLint = job("production-rust-lint", "production-gate");
     const gate = job("production-gate", "primary-fly");
     expect(nodeGate).toContain("npm run v2:worldpack");
     expect(nodeGate).toContain("npm run v2:kernel");
@@ -179,13 +180,20 @@ describe("deploy workflow", () => {
     expect(rustGate).not.toContain("uses: actions/cache@v6");
     expect(rustGate).toContain("if: steps.ci.outputs.reuse != 'true'");
     expect(rustGate).toContain("bash v2/scripts/check-rust.sh test");
-    expect(rustGate).toContain("bash v2/scripts/check-main-size.sh");
-    expect(rustGate).toContain("bash v2/scripts/check-rust-lint.sh");
+    // Lint runs in its own job beside the tests, with the same CI reuse.
+    expect(rustGate).not.toContain("check-rust-lint.sh");
+    expect(rustLint).toContain("node scripts/await-ci-rust.mjs");
+    expect(rustLint).toContain("checks: read");
+    expect(rustLint).toContain("if: steps.ci.outputs.reuse != 'true'");
+    expect(rustLint).toContain("bash v2/scripts/check-main-size.sh");
+    expect(rustLint).toContain("bash v2/scripts/check-rust-lint.sh");
+    expect(rustLint).toContain("needs: [deployment-impact, release-owner]");
     expect(gate).toContain(
-      "needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate]",
+      "needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate, production-rust-lint]",
     );
     expect(gate).toContain('test "$NODE_RESULT" = success');
     expect(gate).toContain('test "$RUST_RESULT" = success');
+    expect(gate).toContain('test "$RUST_LINT_RESULT" = success');
     expect(job("primary-backup", "primary-fly")).toContain(
       "needs: [deployment-impact, release-owner]",
     );
@@ -211,7 +219,8 @@ describe("deploy workflow", () => {
     const dev = job("dev-deploy", "deployment-impact");
     const impact = job("deployment-impact", "release-owner");
     const nodeGate = job("production-node-gate", "production-rust-gate");
-    const rustGate = job("production-rust-gate", "production-gate");
+    const rustGate = job("production-rust-gate", "production-rust-lint");
+    const rustLint = job("production-rust-lint", "production-gate");
     const gate = job("production-gate", "primary-fly");
     const primaryBackup = job("primary-backup", "primary-fly");
     const primaryFly = job("primary-fly", "lonelyforest-image");
@@ -235,6 +244,11 @@ describe("deploy workflow", () => {
     expect(rustGate).toContain(
       `needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`,
     );
+    expect(rustLint).toContain(
+      `needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`,
+    );
+    // A main push skips the gate job rather than spend a runner on it.
+    expect(gate).toContain(`if: \${{ always() && ${fullRelease} }}`);
     expect(gate).toContain(`FULL_RELEASE: \${{ ${fullRelease} }}`);
     expect(primaryBackup).toContain("startsWith(github.ref, 'refs/tags/') ||");
     expect(primaryBackup).toContain(
