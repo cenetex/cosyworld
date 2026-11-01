@@ -72,9 +72,9 @@ describe("card standoffs", () => {
     expect(legalActions(s).some((a) => a.kind === "move")).toBe(true);
     expect(s.log.some((e) => e.verb === "attack")).toBe(false);
   });
-  it("lets an avatar ignore a threat and continue with its goal", () => {
+  it("ends a threat when either side answers with words", () => {
     let s = meeting();
-    // The more experienced keeper answers with words, so the standoff stays open.
+    // The more experienced keeper answers with words, which ends the standoff.
     s.actors.keeper.place = "station";
     s.turn = s.revision = 3;
     s.actors.keeper.xp = 3;
@@ -82,9 +82,45 @@ describe("card standoffs", () => {
     expect(s.log.some((e) => e.verb === "talk" && e.actorId === "keeper")).toBe(
       true,
     );
-    expect(standoffFor(s, "vale").resolve).toEqual({ vale: 4, keeper: 4 });
-    s = act(s, "talk", "keeper");
+    expect(standoffFor(s, "vale")).toBeUndefined();
+    expect(s.log.map((e) => e.text)).toContain(
+      "The keeper steps back from Vale. The standoff ends.",
+    );
     expect(s.log.filter((e) => e.verb === "attack")).toHaveLength(0);
+  });
+  it("ends a standoff on any play but Strike or Brace, or a Brace against a Brace", () => {
+    const open = () => act(meeting(), "threaten", "moth");
+    // Pip braces in answer, so Vale's Brace is a mutual stand-down.
+    expect(standoffFor(open(), "vale").guarding.moth).toBe(true);
+    let s = act(open(), "guard", "moth");
+    expect(s.standoffs).toEqual([]);
+    expect(s.log.some((e) => e.text.includes("both stand down"))).toBe(true);
+    s = act(open(), "wait");
+    expect(s.standoffs).toEqual([]);
+    // A Strike keeps it going.
+    expect(act(open(), "attack", "moth").standoffs).toHaveLength(1);
+  });
+  it("ends a standoff when the demanded item is handed over", () => {
+    const s = meeting();
+    s.items.lamp.holder = "vale";
+    s.items.cloth.holder = "moth";
+    s.standoffs = [
+      {
+        challenger: "moth",
+        defender: "vale",
+        location: "station",
+        item: "lamp",
+        opened: s.turn,
+        answered: true,
+        resolve: { moth: 4, vale: 4 },
+        guarding: { moth: false, vale: false },
+        struck: { moth: false, vale: false },
+      },
+    ];
+    s.actors.vale.place = "station";
+    const after = act(s, "give", "moth", "lamp");
+    expect(after.items.lamp.holder).not.toBe("vale");
+    expect(after.standoffs).toEqual([]);
   });
   it("applies guarded damage, retaliation, item release and retreat", () => {
     let s = act(meeting(), "threaten", "moth");
@@ -171,9 +207,10 @@ describe("card standoffs", () => {
     s = act(s, "wait");
     expect(s.standoffs).toEqual([]);
     expect(s.items.oil.holder).toBe("keeper");
+    // Pip has no use for the flask, so its next play is not a Strike.
     expect(
       s.log.some(
-        (e) => e.text === "Pip lets the Oil flask go. The standoff ends.",
+        (e) => e.text === "Pip steps back from The keeper. The standoff ends.",
       ),
     ).toBe(true);
   });
@@ -231,7 +268,8 @@ describe("card standoffs", () => {
     }
     expect(seenThreat).toBe(true);
     expect(seenAttack).toBe(true);
-    expect(released).toBe(true);
+    // Pip strikes; the keeper may outlast him.
+    expect(released || s.log.some((e) => e.verb === "retreat")).toBe(true);
   });
   it("lets the winning avatar collect the released item as a card play", () => {
     let s = meeting();
@@ -278,6 +316,41 @@ describe("card standoffs", () => {
   });
 });
 
+describe("standoff endings", () => {
+  // Even a player who only ever Strikes or Braces, and residents left to
+  // their own plans, see every standoff end within a few rounds.
+  it("never leaves a standoff open in long runs", () => {
+    for (let seed = 1; seed <= 6; seed++) {
+      let rng = seed;
+      const roll = (n) => (rng = (rng * 48271) % 2147483647) % n;
+      let s = meeting();
+      for (const id of ["moth", "keeper"]) s.actors[id].place = "station";
+      s.items.oil.holder = "keeper";
+      s.actors.moth.want = {
+        kind: "item",
+        target: "oil",
+        since: 0,
+        refusals: 0,
+      };
+      let longest = 0;
+      for (let i = 0; i < 150; i++) {
+        const acts = legalActions(s);
+        const fight = acts.filter((a) => ["guard", "attack"].includes(a.kind));
+        const threat = acts.filter((a) => a.kind === "threaten");
+        const pool = fight.length
+          ? fight
+          : threat.length && roll(3) === 0
+            ? threat
+            : acts;
+        s = play(s, pool[roll(pool.length)]).state;
+        for (const c of s.standoffs)
+          longest = Math.max(longest, s.turn - c.opened);
+      }
+      expect(longest, `seed ${seed}`).toBeLessThanOrEqual(10);
+    }
+  });
+});
+
 // A standoff one hit from its end, as if earlier blows had already landed.
 const lastBlow = (s, challenger, defender, item, loserResolve = 1) => {
   const here = s.actors[challenger].place;
@@ -299,12 +372,13 @@ const lastBlow = (s, challenger, defender, item, loserResolve = 1) => {
   s.turn = s.revision = Math.max(1, s.turn);
   return s;
 };
-// Moth strikes Vale's last resolve while Vale waits at the station.
+// Moth strikes Vale's last resolve as Vale strikes at the station. Any
+// other play from Vale would end the standoff first.
 const valeFalls = (s) => {
   s.actors.vale.place = s.actors.moth.place = "station";
   s.items.lamp.holder = "vale";
   lastBlow(s, "moth", "vale", "lamp");
-  return act(s, "wait");
+  return act(s, "attack", "moth");
 };
 
 describe("repeated defeats", () => {

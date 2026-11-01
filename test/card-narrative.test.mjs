@@ -985,6 +985,9 @@ describe("witnessed departures and conversation continuity", () => {
     let world = createWorld();
     world.actors.moth.place = "station";
     world.items.lamp.holder = "moth";
+    // Vale outranks Pip, so Pip braces rather than answering with words,
+    // which would end the standoff.
+    world.actors.vale.xp = 3;
     world = act(world, "threaten", null, "moth");
     world.standoffs[0].resolve.moth = 1;
     world = act(world, "attack", null, "moth");
