@@ -95,6 +95,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     upgradeBoardingSave(s);
     upgradeForestButtonsSave(s);
     upgradeWillowsKitSave(s);
+    upgradeGreekThebesSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -861,4 +862,45 @@ export function upgradeWillowsKitSave(s) {
   for (const [id, was] of Object.entries(WILLOWS_KIT_WAS))
     if (s.items[id]?.holder === was) s.items[id].holder = pack.items[id].holder;
   saved.revision = 2;
+}
+
+// Greek revision 11 sets the Market Well within the courtyard and retires the
+// Theban story buttons. Known steps the map lost become walkable paths; the
+// refusal branch and the invitation receipts leave the save. A refusal save
+// that went on to Athens no longer validates and starts fresh (alpha).
+const THEBAN_RETIRED_CHOICES = [
+  "prepare-permitted-burial",
+  "decline-burial",
+  "courtyard-refusal",
+  "open-door-invite-burial",
+  "open-door-invite-concession",
+  "open-door-invite-refusal",
+  "open-door-invite-exposure",
+].map((id) => `greek-${id}`);
+export function upgradeGreekThebesSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 11 || saved?.revision !== 10) return;
+  foldRetiredRoads(s);
+  for (const id of THEBAN_RETIRED_CHOICES) {
+    delete saved.receipts[id];
+    if (saved.recitals) delete saved.recitals[id];
+  }
+  if (saved.choices["greek-theban-response"] === "refusal") {
+    delete saved.choices["greek-theban-response"];
+    delete saved.flags["greek-refusal-public"];
+    delete saved.flags["greek-open-door-open"];
+  }
+  // Dione's road now opens with the public account itself.
+  if (
+    ["burial", "concession", "exposure"].some((b) =>
+      Object.hasOwn(saved.receipts, `greek-courtyard-${b}`),
+    )
+  )
+    saved.flags["greek-open-door-open"] = true;
+  s.log = (s.log || []).filter(
+    (e) =>
+      !(e.packId === pack.id && THEBAN_RETIRED_CHOICES.includes(e.choiceId)),
+  );
+  saved.revision = 11;
 }

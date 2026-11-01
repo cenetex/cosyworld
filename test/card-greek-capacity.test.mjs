@@ -158,7 +158,7 @@ describe("roads around a full Agora", () => {
   });
 
   it("keeps the new harbor road behind Dione's accepted invitation", () => {
-    let closed = openingFixture("refusal").closed;
+    let closed = openingFixture("exposure").closed;
     closed = openDoorWalk(closed, "harbor");
     const hosted = dispatchShared({
       op: "create",
@@ -187,8 +187,9 @@ describe("roads around a full Agora", () => {
 });
 
 describe("the side roads in earlier saved worlds", () => {
-  it.each([false, true])(
-    "preserves the invitation in a version-11 world (open=%s)",
+  // Its Theban buttons are gone; the report's receipts and road survive.
+  it.each([true])(
+    "preserves a version-11 report and its invitation (open=%s)",
     (open) => {
       const context = vm.createContext({});
       vm.runInContext(
@@ -212,10 +213,10 @@ describe("the side roads in earlier saved worlds", () => {
       const steps = [
         ["move", "greek-gate"],
         ["choose", "greek-hear-decree"],
-        ["choose", "greek-decline-burial"],
+        ["choose", "greek-report-plan"],
         ["move", "greek-courtyard"],
-        ["choose", "greek-courtyard-refusal"],
-        ...(open ? [["choose", "greek-open-door-invite-refusal"]] : []),
+        ["choose", "greek-courtyard-exposure"],
+        ["choose", "greek-open-door-invite-exposure"],
         ["move", "greek-harbor"],
       ];
       for (const [kind, id] of steps) {
@@ -238,6 +239,10 @@ describe("the side roads in earlier saved worlds", () => {
       expect(restored.packs["greek-drama"].revision).toBe(
         currentPackDefinition("greek-drama").revision,
       );
+      const retired = "greek-open-door-invite-exposure";
+      delete world.packs["greek-drama"].receipts[retired];
+      delete world.packs["greek-drama"].recitals[retired];
+      world.log = world.log.filter((e) => e.choiceId !== retired);
       for (const key of ["choices", "flags", "receipts", "recitals"])
         expect(restored.packs["greek-drama"][key]).toEqual(
           world.packs["greek-drama"][key],
@@ -255,10 +260,9 @@ describe("the side roads in earlier saved worlds", () => {
           ]),
         ),
         ...Object.fromEntries(
-          Object.entries(currentPackDefinition("lonely-forest").items).map(([id, item]) => [
-            id,
-            { holder: item.holder, history: [] },
-          ]),
+          Object.entries(currentPackDefinition("lonely-forest").items).map(
+            ([id, item]) => [id, { holder: item.holder, history: [] }],
+          ),
         ),
       });
       expect(restored.log).toEqual(world.log);

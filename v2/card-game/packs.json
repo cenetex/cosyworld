@@ -315,7 +315,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 10,
+      "revision": 11,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -371,6 +371,7 @@
           "exits": [
             "greek-road-thebes",
             "greek-well",
+            "greek-palace",
             "greek-gate",
             "greek-sanctuary"
           ],
@@ -381,9 +382,7 @@
           "name": "Theban Market Well",
           "text": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass.",
           "exits": [
-            "greek-courtyard",
-            "greek-palace",
-            "greek-gate"
+            "greek-courtyard"
           ],
           "backdrop": "assets/greek-drama/market-well-day.webp",
           "persona": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass."
@@ -392,7 +391,7 @@
           "name": "Theban Palace Forecourt",
           "text": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
           "exits": [
-            "greek-well"
+            "greek-courtyard"
           ],
           "backdrop": "assets/greek-drama/palace-day.webp",
           "persona": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders."
@@ -402,7 +401,6 @@
           "text": "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers clear.",
           "exits": [
             "greek-courtyard",
-            "greek-well",
             "greek-aulis"
           ],
           "backdrop": "assets/greek-drama/city-gate-closed-day.webp",
@@ -2422,6 +2420,48 @@
               "value": true
             }
           ]
+        },
+        "greek-burial-account": {
+          "name": "Burial Account",
+          "text": "A written account of the rite on the battlefield: who dug, who brought cloth and oil, and who saw.",
+          "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+          "holder": "greek-battlefield",
+          "art": "assets/greek-drama/testimony.png",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-burial-performed",
+              "value": true
+            }
+          ]
+        },
+        "greek-creon-writ": {
+          "name": "Creon's Writ",
+          "text": "A sealed writ from the palace. It grants the household a burial under witness.",
+          "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+          "holder": "greek-palace",
+          "art": "assets/greek-drama/decree.png",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-burial-permitted",
+              "value": true
+            }
+          ]
+        },
+        "greek-guard-tablet": {
+          "name": "The Guard's Tablet",
+          "text": "A wax tablet from the gate. It records a warning that the household meant to bury the brother.",
+          "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+          "holder": "greek-gate",
+          "art": "assets/greek-drama/testimony.svg",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-guard-warned",
+              "value": true
+            }
+          ]
         }
       },
       "routes": [
@@ -2558,7 +2598,8 @@
               "value": true
             }
           ],
-          "textTemplate": "{actor} sets the filled jar beside Dione's table. She puts a loaf aside for the traveler."
+          "textTemplate": "{actor} sets the filled jar beside Dione's table. She puts a loaf aside for the traveler.",
+          "on": "give"
         },
         {
           "id": "greek-hear-decree",
@@ -2574,7 +2615,8 @@
               "value": true
             }
           ],
-          "textTemplate": "The guard reads the burial prohibition aloud. {actor} now knows what the order forbids."
+          "textTemplate": "The guard reads the burial prohibition aloud. {actor} now knows what the order forbids.",
+          "on": "meet"
         },
         {
           "id": "greek-gather-witness",
@@ -2595,14 +2637,15 @@
               "key": "greek-witness-support",
               "value": true
             }
-          ]
+          ],
+          "on": "meet"
         },
         {
           "id": "greek-prepare-burial-ground",
           "subject": "greek-battlefield",
           "at": "greek-battlefield",
           "label": "Prepare the burial ground",
-          "text": "Vale digs beside the fallen brother and leaves the shovel at the prepared ground.",
+          "text": "Vale digs a grave beside the fallen brother.",
           "requires": [
             {
               "kind": "flag",
@@ -2610,35 +2653,32 @@
               "value": true
             },
             {
-              "kind": "holding",
-              "item": "greek-shovel",
-              "role": "actor"
+              "kind": "flag",
+              "key": "greek-grave-prepared",
+              "value": false
             },
             {
-              "kind": "choice_unset",
-              "key": "greek-theban-response"
+              "kind": "item_near",
+              "item": "greek-shovel",
+              "place": "greek-battlefield"
             }
           ],
           "effects": [
-            {
-              "kind": "place_item",
-              "item": "greek-shovel",
-              "place": "greek-battlefield"
-            },
             {
               "kind": "set_flag",
               "key": "greek-grave-prepared",
               "value": true
             }
           ],
-          "textTemplate": "{actor} digs beside the fallen brother and leaves the shovel at the prepared ground."
+          "textTemplate": "{actor} digs a grave beside the fallen brother.",
+          "on": "wait"
         },
         {
           "id": "greek-perform-burial",
           "subject": "greek-battlefield",
           "at": "greek-battlefield",
           "label": "Perform the burial",
-          "text": "Vale lays out the cloth and oil at the prepared grave. The brother receives a burial despite the standing prohibition.",
+          "text": "Vale lays cloth and oil at the grave. The brother is buried against the decree.",
           "requires": [
             {
               "kind": "flag",
@@ -2651,14 +2691,14 @@
               "value": true
             },
             {
-              "kind": "holding",
+              "kind": "item_near",
               "item": "greek-funeral-cloth",
-              "role": "actor"
+              "place": "greek-battlefield"
             },
             {
-              "kind": "holding",
+              "kind": "item_near",
               "item": "greek-oil-flask",
-              "role": "actor"
+              "place": "greek-battlefield"
             },
             {
               "kind": "choice_unset",
@@ -2666,16 +2706,6 @@
             }
           ],
           "effects": [
-            {
-              "kind": "place_item",
-              "item": "greek-funeral-cloth",
-              "place": "greek-battlefield"
-            },
-            {
-              "kind": "place_item",
-              "item": "greek-oil-flask",
-              "place": "greek-battlefield"
-            },
             {
               "kind": "choose",
               "key": "greek-theban-response",
@@ -2688,7 +2718,8 @@
             }
           ],
           "summary": "The brother was buried. The decree remains in force, and the household must answer for the defiance.",
-          "textTemplate": "{actor} lays out the cloth and oil at the prepared grave. The brother receives a burial despite the standing prohibition."
+          "textTemplate": "{actor} lays cloth and oil at the grave. The brother is buried against the decree.",
+          "on": "wait"
         },
         {
           "id": "greek-petition-burial",
@@ -2740,51 +2771,15 @@
             }
           ],
           "summary": "Creon granted a witnessed exception for the family to arrange a lawful burial. The petition itself did not perform the rite.",
-          "textTemplate": "{actor} presents the decree and household token with the elder's support. Creon grants a public exception for burial under witness."
-        },
-        {
-          "id": "greek-prepare-permitted-burial",
-          "subject": "greek-battlefield",
-          "at": "greek-battlefield",
-          "label": "Prepare the permitted burial",
-          "text": "Vale digs beside the fallen brother under the public exception and leaves the shovel at the prepared ground.",
-          "requires": [
-            {
-              "kind": "choice",
-              "key": "greek-theban-response",
-              "value": "concession"
-            },
-            {
-              "kind": "flag",
-              "key": "greek-grave-prepared",
-              "value": false
-            },
-            {
-              "kind": "holding",
-              "item": "greek-shovel",
-              "role": "actor"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "place_item",
-              "item": "greek-shovel",
-              "place": "greek-battlefield"
-            },
-            {
-              "kind": "set_flag",
-              "key": "greek-grave-prepared",
-              "value": true
-            }
-          ],
-          "textTemplate": "{actor} digs beside the fallen brother under the public exception and leaves the shovel at the prepared ground."
+          "textTemplate": "{actor} presents the decree and household token with the elder's support. Creon grants a public exception for burial under witness.",
+          "on": "give"
         },
         {
           "id": "greek-perform-permitted-burial",
           "subject": "greek-battlefield",
           "at": "greek-battlefield",
           "label": "Complete the permitted burial",
-          "text": "Vale lays out the cloth and oil at the prepared grave. The brother receives a burial under the witnessed exception.",
+          "text": "Vale lays cloth and oil at the grave. The brother is buried under Creon's writ.",
           "requires": [
             {
               "kind": "choice",
@@ -2802,67 +2797,32 @@
               "value": false
             },
             {
-              "kind": "holding",
+              "kind": "item_near",
               "item": "greek-funeral-cloth",
-              "role": "actor"
+              "place": "greek-battlefield"
             },
             {
-              "kind": "holding",
+              "kind": "item_near",
               "item": "greek-oil-flask",
-              "role": "actor"
+              "place": "greek-battlefield"
             }
           ],
           "effects": [
-            {
-              "kind": "place_item",
-              "item": "greek-funeral-cloth",
-              "place": "greek-battlefield"
-            },
-            {
-              "kind": "place_item",
-              "item": "greek-oil-flask",
-              "place": "greek-battlefield"
-            },
             {
               "kind": "set_flag",
               "key": "greek-burial-performed",
               "value": true
             }
           ],
-          "textTemplate": "{actor} lays out the cloth and oil at the prepared grave. The brother receives a burial under the witnessed exception."
-        },
-        {
-          "id": "greek-decline-burial",
-          "subject": "greek-antigone",
-          "at": "greek-gate",
-          "label": "Decline the request",
-          "text": "Vale declines to help with the burial. Antigone knows the answer; no burial or punishment has occurred through this choice.",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-decree-known",
-              "value": true
-            },
-            {
-              "kind": "choice_unset",
-              "key": "greek-theban-response"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "choose",
-              "key": "greek-theban-response",
-              "value": "refusal"
-            }
-          ],
-          "textTemplate": "{actor} declines to help with the burial. Antigone knows the answer; no burial or punishment has occurred through this choice."
+          "textTemplate": "{actor} lays cloth and oil at the grave. The brother is buried under Creon's writ.",
+          "on": "wait"
         },
         {
           "id": "greek-report-plan",
           "subject": "greek-guard",
           "at": "greek-gate",
           "label": "Report the intended burial",
-          "text": "Vale tells the guard that the household intends to seek a burial. The guard records the warning; he has witnessed no burial.",
+          "text": "Vale hands the shovel to the guard. He records a warning on a tablet.",
           "requires": [
             {
               "kind": "flag",
@@ -2870,11 +2830,21 @@
               "value": true
             },
             {
+              "kind": "holding",
+              "item": "greek-shovel",
+              "role": "actor"
+            },
+            {
               "kind": "choice_unset",
               "key": "greek-theban-response"
             }
           ],
           "effects": [
+            {
+              "kind": "place_item",
+              "item": "greek-shovel",
+              "place": "greek-gate"
+            },
             {
               "kind": "choose",
               "key": "greek-theban-response",
@@ -2886,58 +2856,91 @@
               "value": true
             }
           ],
-          "textTemplate": "{actor} tells the guard that the household intends to seek a burial. The guard records the warning; he has witnessed no burial."
+          "textTemplate": "{actor} hands the shovel to the guard. He records a warning on a tablet.",
+          "on": "give"
         },
         {
           "id": "greek-courtyard-burial",
           "subject": "greek-baker",
           "at": "greek-courtyard",
           "label": "Tell the courtyard what happened",
-          "text": "Vale reports the burial at the common table. Dione and the neighbors now know who helped.",
+          "text": "Vale sets the Burial Account on Dione's table. She speaks of the Argive mothers at Eleusis.",
           "requires": [
             {
               "kind": "choice",
               "key": "greek-theban-response",
               "value": "burial"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-burial-account",
+              "role": "actor"
             }
           ],
           "effects": [
             {
+              "kind": "place_item",
+              "item": "greek-burial-account",
+              "place": "greek-courtyard"
+            },
+            {
               "kind": "set_flag",
               "key": "greek-burial-public",
               "value": true
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-open-door-open",
+              "value": true
             }
           ],
-          "textTemplate": "{actor} reports the burial at the common table. Dione and the neighbors now know who helped."
+          "textTemplate": "{actor} sets the Burial Account on Dione's table. She speaks of the Argive mothers at Eleusis.",
+          "on": "give"
         },
         {
           "id": "greek-courtyard-concession",
           "subject": "greek-baker",
           "at": "greek-courtyard",
           "label": "Share the public exception",
-          "text": "Vale tells Dione about the witnessed exception. She records that permission was given for the family’s burial rite.",
+          "text": "Vale sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
           "requires": [
             {
               "kind": "choice",
               "key": "greek-theban-response",
               "value": "concession"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-creon-writ",
+              "role": "actor"
             }
           ],
           "effects": [
             {
+              "kind": "place_item",
+              "item": "greek-creon-writ",
+              "place": "greek-courtyard"
+            },
+            {
               "kind": "set_flag",
               "key": "greek-concession-public",
               "value": true
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-open-door-open",
+              "value": true
             }
           ],
-          "textTemplate": "{actor} tells Dione about the witnessed exception. She records that permission was given for the family’s burial rite."
+          "textTemplate": "{actor} sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
+          "on": "give"
         },
         {
           "id": "greek-courtyard-permitted-burial",
           "subject": "greek-baker",
           "at": "greek-courtyard",
           "label": "Tell Dione about the grave",
-          "text": "Vale tells Dione that the permitted burial is complete. She hears that the brother now lies beneath the earth.",
+          "text": "Vale sets the Burial Account on Dione's table.",
           "requires": [
             {
               "kind": "choice",
@@ -2946,67 +2949,67 @@
             },
             {
               "kind": "flag",
-              "key": "greek-concession-public",
+              "key": "greek-burial-performed",
               "value": true
             },
             {
-              "kind": "flag",
-              "key": "greek-burial-performed",
-              "value": true
+              "kind": "holding",
+              "item": "greek-burial-account",
+              "role": "actor"
             }
           ],
           "effects": [
+            {
+              "kind": "place_item",
+              "item": "greek-burial-account",
+              "place": "greek-courtyard"
+            },
             {
               "kind": "set_flag",
               "key": "greek-permitted-burial-public",
               "value": true
             }
           ],
-          "textTemplate": "{actor} tells Dione that the permitted burial is complete. She hears that the brother now lies beneath the earth."
-        },
-        {
-          "id": "greek-courtyard-refusal",
-          "subject": "greek-baker",
-          "at": "greek-courtyard",
-          "label": "Return to the common table",
-          "text": "Vale returns to the table after declining. Dione leaves a place available; the household dispute remains unresolved.",
-          "requires": [
-            {
-              "kind": "choice",
-              "key": "greek-theban-response",
-              "value": "refusal"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "set_flag",
-              "key": "greek-refusal-public",
-              "value": true
-            }
-          ],
-          "textTemplate": "{actor} returns to the table after declining. Dione leaves a place available; the household dispute remains unresolved."
+          "textTemplate": "{actor} sets the Burial Account on Dione's table.",
+          "on": "give"
         },
         {
           "id": "greek-courtyard-exposure",
           "subject": "greek-baker",
           "at": "greek-courtyard",
           "label": "Explain the warning",
-          "text": "Vale tells Dione about the warning given to the guard. She asks that further claims name their witnesses.",
+          "text": "Vale sets the Guard's Tablet on Dione's table. She speaks of the Argive mothers at Eleusis.",
           "requires": [
             {
               "kind": "choice",
               "key": "greek-theban-response",
               "value": "exposure"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-guard-tablet",
+              "role": "actor"
             }
           ],
           "effects": [
             {
+              "kind": "place_item",
+              "item": "greek-guard-tablet",
+              "place": "greek-courtyard"
+            },
+            {
               "kind": "set_flag",
               "key": "greek-exposure-public",
               "value": true
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-open-door-open",
+              "value": true
             }
           ],
-          "textTemplate": "{actor} tells Dione about the warning given to the guard. She asks that further claims name their witnesses."
+          "textTemplate": "{actor} sets the Guard's Tablet on Dione's table. She speaks of the Argive mothers at Eleusis.",
+          "on": "give"
         },
         {
           "id": "greek-helen-egypt",
@@ -3707,138 +3710,6 @@
             }
           ],
           "textTemplate": "{actor} refuses to promise revenge while keeping the household’s testimony on record. Electra knows the answer."
-        },
-        {
-          "id": "greek-open-door-invite-burial",
-          "subject": "greek-baker",
-          "at": "greek-courtyard",
-          "label": "Take the road to Eleusis",
-          "text": "Dione has heard the burial. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
-          "textTemplate": "Dione has heard the burial. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
-          "summary": "After the public account of the burial, the traveler accepted Dione’s introduction to Eleusis and the Attic roads.",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-open-door-open",
-              "value": false
-            },
-            {
-              "kind": "choice",
-              "key": "greek-theban-response",
-              "value": "burial"
-            },
-            {
-              "kind": "flag",
-              "key": "greek-burial-public",
-              "value": true
-            }
-          ],
-          "effects": [
-            {
-              "kind": "set_flag",
-              "key": "greek-open-door-open",
-              "value": true
-            }
-          ]
-        },
-        {
-          "id": "greek-open-door-invite-concession",
-          "subject": "greek-baker",
-          "at": "greek-courtyard",
-          "label": "Take the road to Eleusis",
-          "text": "Dione has heard the permission. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
-          "textTemplate": "Dione has heard the permission. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
-          "summary": "After the public account of the permission, the traveler accepted Dione’s introduction to Eleusis and the Attic roads.",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-open-door-open",
-              "value": false
-            },
-            {
-              "kind": "choice",
-              "key": "greek-theban-response",
-              "value": "concession"
-            },
-            {
-              "kind": "flag",
-              "key": "greek-concession-public",
-              "value": true
-            }
-          ],
-          "effects": [
-            {
-              "kind": "set_flag",
-              "key": "greek-open-door-open",
-              "value": true
-            }
-          ]
-        },
-        {
-          "id": "greek-open-door-invite-refusal",
-          "subject": "greek-baker",
-          "at": "greek-courtyard",
-          "label": "Take the road to Eleusis",
-          "text": "Dione has heard the refusal. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
-          "textTemplate": "Dione has heard the refusal. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
-          "summary": "After the public account of the refusal, the traveler accepted Dione’s introduction to Eleusis and the Attic roads.",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-open-door-open",
-              "value": false
-            },
-            {
-              "kind": "choice",
-              "key": "greek-theban-response",
-              "value": "refusal"
-            },
-            {
-              "kind": "flag",
-              "key": "greek-refusal-public",
-              "value": true
-            }
-          ],
-          "effects": [
-            {
-              "kind": "set_flag",
-              "key": "greek-open-door-open",
-              "value": true
-            }
-          ]
-        },
-        {
-          "id": "greek-open-door-invite-exposure",
-          "subject": "greek-baker",
-          "at": "greek-courtyard",
-          "label": "Take the road to Eleusis",
-          "text": "Dione has heard the warning. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
-          "textTemplate": "Dione has heard the warning. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
-          "summary": "After the public account of the warning, the traveler accepted Dione’s introduction to Eleusis and the Attic roads.",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-open-door-open",
-              "value": false
-            },
-            {
-              "kind": "choice",
-              "key": "greek-theban-response",
-              "value": "exposure"
-            },
-            {
-              "kind": "flag",
-              "key": "greek-exposure-public",
-              "value": true
-            }
-          ],
-          "effects": [
-            {
-              "kind": "set_flag",
-              "key": "greek-open-door-open",
-              "value": true
-            }
-          ]
         },
         {
           "id": "greek-open-door-hear-mothers",
@@ -7566,7 +7437,10 @@
           "greek-ajax-plea",
           "greek-ajax-cloth",
           "greek-ajax-tools",
-          "greek-olive-branch"
+          "greek-olive-branch",
+          "greek-burial-account",
+          "greek-creon-writ",
+          "greek-guard-tablet"
         ],
         "choices": [
           "greek-return-water-jar",
@@ -7575,19 +7449,12 @@
           "greek-prepare-burial-ground",
           "greek-perform-burial",
           "greek-petition-burial",
-          "greek-prepare-permitted-burial",
           "greek-perform-permitted-burial",
-          "greek-decline-burial",
           "greek-report-plan",
           "greek-courtyard-burial",
           "greek-courtyard-concession",
           "greek-courtyard-permitted-burial",
-          "greek-courtyard-refusal",
           "greek-courtyard-exposure",
-          "greek-open-door-invite-burial",
-          "greek-open-door-invite-concession",
-          "greek-open-door-invite-refusal",
-          "greek-open-door-invite-exposure",
           "greek-open-door-hear-mothers",
           "greek-open-door-hear-adrastus",
           "greek-open-door-register-plea",
@@ -7750,11 +7617,6 @@
             "summons": true
           },
           {
-            "choice": "greek-decline-burial",
-            "quest": "story-quest-greek-burial",
-            "summons": true
-          },
-          {
             "choice": "greek-report-plan",
             "quest": "story-quest-greek-burial",
             "summons": true
@@ -7766,11 +7628,6 @@
           },
           {
             "choice": "greek-courtyard-concession",
-            "quest": "story-quest-greek-courtyard",
-            "summons": true
-          },
-          {
-            "choice": "greek-courtyard-refusal",
             "quest": "story-quest-greek-courtyard",
             "summons": true
           },
@@ -8056,8 +7913,7 @@
           "speaker": "greek-guard",
           "at": "greek-gate",
           "text": "Creon's order forbids burial for Polyneices.",
-          "requires": [],
-          "choiceId": "greek-hear-decree"
+          "requires": []
         },
         {
           "id": "greek-open-door-hear-mothers",

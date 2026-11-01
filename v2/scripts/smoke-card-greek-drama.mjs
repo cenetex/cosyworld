@@ -280,18 +280,23 @@ try {
     await travel("greek-gate");
     assert.equal(await card("greek-antigone").count(), 1);
     assert.equal(await card("greek-guard").count(), 1);
-    await choose("greek-hear-decree");
-    await choose("greek-decline-burial");
+    // Meeting the guard tells the decree. Handing him the shovel reports the
+    // plan; Thebes has no story buttons.
     let current = await state();
+    assert.ok(current.packs["greek-drama"].receipts["greek-hear-decree"]);
+    assert.ok(!legalActions(current).some((a) => a.kind === "choose"));
+    await playCard("greek-shovel");
+    await pair("greek-shovel", "greek-guard");
+    current = await state();
     assert.equal(
       current.packs["greek-drama"].choices["greek-theban-response"],
-      "refusal",
+      "exposure",
     );
     assert.equal(current.items.cloth.holder, "vale");
     assert.equal(rootHolder(current, "lamp"), "vale");
     assert.equal(rootHolder(current, "cloth"), "vale");
-    const refusalTurn =
-      current.packs["greek-drama"].receipts["greek-decline-burial"];
+    const reportTurn =
+      current.packs["greek-drama"].receipts["greek-report-plan"];
     await artReady();
     await page.screenshot({
       path: new URL(`thebes-${width}.png`, output).pathname,
@@ -305,11 +310,11 @@ try {
     assert.equal(current.actors.vale.place, "greek-gate");
     assert.equal(
       current.packs["greek-drama"].choices["greek-theban-response"],
-      "refusal",
+      "exposure",
     );
     assert.equal(
-      current.packs["greek-drama"].receipts["greek-decline-burial"],
-      refusalTurn,
+      current.packs["greek-drama"].receipts["greek-report-plan"],
+      reportTurn,
     );
     for (const destination of ["greek-courtyard", "greek-harbor", "pond"])
       await travel(destination);
@@ -353,7 +358,7 @@ try {
     );
     assert.equal(
       current.packs["greek-drama"].choices["greek-theban-response"],
-      "refusal",
+      "exposure",
     );
     assert.equal(rootHolder(current, evidence), "vale");
 
@@ -390,7 +395,7 @@ try {
     assert.deepEqual(failedAssets, []);
     assert.deepEqual(errors, []);
     console.log(
-      `Greek crossing, Theban refusal, ${branch} branch, custody, reload and return passed at ${width}px.`,
+      `Greek crossing, Theban report, ${branch} branch, custody, reload and return passed at ${width}px.`,
     );
     await page.close();
   }

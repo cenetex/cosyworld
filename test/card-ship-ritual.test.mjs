@@ -366,7 +366,7 @@ test("a revision 9 save keeps one cover and restarts longer marks", () => {
     old.packs["greek-drama"].revision = 9;
     Object.assign(old.crossings["pond-greek-harbor"], { phase, discovered });
     const s = decodeSave(JSON.stringify(old));
-    assert.equal(s.packs["greek-drama"].revision, 10);
+    assert.equal(s.packs["greek-drama"].revision, 11);
     assert.equal(shipSignalPhase(s), kept);
     assert.equal(s.crossings["pond-greek-harbor"].discovered, discovered);
   }

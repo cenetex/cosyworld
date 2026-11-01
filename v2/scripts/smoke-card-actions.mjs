@@ -4,7 +4,7 @@ import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { knowsFact } from "../card-game/knowledge.mjs";
-import { selectCard, topicForChoice } from "./card-browser-helpers.mjs";
+import { selectCard } from "./card-browser-helpers.mjs";
 
 const browserName = process.env.CARD_BROWSER || "chromium";
 const browserType = { chromium, webkit }[browserName];
@@ -411,7 +411,7 @@ try {
     await ready();
     assert.equal((await state()).turn, 1);
     assert(
-      knowsFact(await state(), "vale", topicForChoice("greek-hear-decree").id),
+      knowsFact(await state(), "vale", "greek-hear-decree"),
       "Talk teaches the listener the guard's decree",
     );
     assert.deepEqual(errors, []);

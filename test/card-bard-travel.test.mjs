@@ -159,22 +159,22 @@ describe("ordinary bard travel", () => {
     expect(play(s, stale, s.revision, "mara").ok).toBe(false);
   });
   it("keeps a known AI verse author through save reload and uses truthful song facts", () => {
-    const s = openingFixture("refusal").closed;
+    const s = openingFixture("exposure").closed;
     const pack = packDefinition("greek-drama");
-    const record = s.packs[pack.id].recitals["greek-decline-burial"];
+    const record = s.packs[pack.id].recitals["greek-report-plan"];
     record.actor = "keeper";
     record.visit = s.turn;
     expect(validRecitals(s, pack)).toBe(true);
     const loaded = decodeSave(encodeSave(s));
     expect(
       recitalContext(loaded, [pack], singer).stanzas.find(
-        (v) => v.id === "greek-decline-burial",
+        (v) => v.id === "greek-report-plan",
       ),
     ).toMatchObject({ authorId: "keeper", authorName: "The keeper" });
     record.actor = null;
     expect(
       recitalContext(s, [pack], singer).stanzas.find(
-        (v) => v.id === "greek-decline-burial",
+        (v) => v.id === "greek-report-plan",
       ),
     ).toMatchObject({ authorId: null, authorName: "an earlier traveler" });
   });

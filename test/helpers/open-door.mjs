@@ -1,8 +1,4 @@
-import {
-  currentActor,
-  legalActions,
-  play,
-} from "../../v2/card-game/world.mjs";
+import { currentActor, legalActions, play } from "../../v2/card-game/world.mjs";
 import { needsVoyage, sailTo } from "./voyage.mjs";
 import { summonTransport } from "../../v2/card-game/pack-transport.mjs";
 import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
@@ -77,29 +73,11 @@ export const openDoorWalk = (world, ...places) =>
     world,
   );
 
-export function openDoorInvitation(world) {
-  const choices = packDefinition("greek-drama").choices;
-  return legalActions(world).find(
-    (action) =>
-      action.kind === "choose" &&
-      choices.find(
-        (entry) =>
-          entry.id === action.choiceId &&
-          entry.effects.some(
-            (effect) =>
-              effect.kind === "set_flag" &&
-              effect.key === "greek-open-door-open" &&
-              effect.value === true,
-          ),
-      ),
-  );
-}
-
-export function openDoorStart(branch = "refusal") {
-  let world = openingFixture(branch).closed;
-  const invitation = openDoorInvitation(world);
-  if (!invitation) throw new Error(`Missing invitation after ${branch}`);
-  world = playOpenDoor(world, "choose", { choiceId: invitation.choiceId });
+// Giving Dione a Theban outcome opens the road to Eleusis.
+export function openDoorStart(branch = "exposure") {
+  const world = openingFixture(branch).closed;
+  if (!world.packs["greek-drama"].flags["greek-open-door-open"])
+    throw new Error(`The road stayed closed after ${branch}`);
   return playOpenDoor(world, "drop", {
     item: "lamp",
     target: "greek-courtyard",

@@ -16,9 +16,11 @@ export async function checkOpeningPoem(browser, origin) {
   await mkdir(output, { recursive: true });
   // Every branch runs at desktop width. Each smaller width runs one branch;
   // test/card-opening-poem.test.mjs checks the poem of every branch.
-  const branches = ["burial", "concession", "refusal", "exposure"];
+  const branches = ["burial", "concession", "exposure"];
   for (const [index, width] of [1200, 390, 320, 667].entries()) {
-    for (const branch of width === 1200 ? branches : [branches[index]]) {
+    for (const branch of width === 1200
+      ? branches
+      : [branches[index % branches.length]]) {
       const fixtures = openingFixture(branch);
       const world = structuredClone(
         fixtures.beforeGraveReport || fixtures.returning,
@@ -123,12 +125,12 @@ export async function checkOpeningPoem(browser, origin) {
         await page.screenshot({
           path: new URL(`${branch}-card-${width}.png`, output).pathname,
         });
+        // The outcome item given to Dione is the report.
+        const outcome =
+          branch === "exposure" ? "greek-guard-tablet" : "greek-burial-account";
+        await selectCard(page, outcome, { touch: width < 700 });
         await selectCard(page, "greek-baker", { touch: width < 700 });
-        const choice =
-          branch === "concession"
-            ? "greek-courtyard-permitted-burial"
-            : `greek-courtyard-${branch}`;
-        await page.locator(`[data-choice="${choice}"]`).click();
+        await page.locator('#card-actions [data-action="give"]').click();
         await settle();
         const expected = recitalPoem(
           fixtures.closed,

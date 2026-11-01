@@ -47,12 +47,10 @@ burial came first.
 | Receive permission              | Creon has granted this one grave.<br>Her brother waits for earth.           |
 | Bury in defiance                | I laid her brother in the earth.<br>The king's words crossed the wind.      |
 | Bury with permission            | Creon gave leave for this one grave.<br>I laid her brother in the earth.    |
-| Decline the burial              | I told her I would turn away.<br>Her brother waited by the wall.            |
 | Tell the guard                  | I gave the guard the hidden plan.<br>He held it with the king's command.    |
 | Report the burial               | I spoke of earth beside her table.<br>Dione heard me through.               |
 | Report permission before burial | I spoke the promise of a grave.<br>His body waited in the sun.              |
 | Report permission after burial  | I told her of the king's consent.<br>She heard the leave that he had given. |
-| Report the refusal              | I told her how I turned away.<br>She kept a place beside her table.         |
 | Report the warning              | I told her what the guard had heard.<br>My words lay open on the table.     |
 | Report the permitted burial     | The grave I promised holds him now.<br>I brought that word to Dione.        |
 

@@ -122,10 +122,10 @@ fn released_berth(c: &rusqlite::Connection, id: &str) -> World {
         ("drop", "item", "lamp"),
         ("move", "target", "greek-gate"),
         ("choose", "choiceId", "greek-hear-decree"),
-        ("choose", "choiceId", "greek-decline-burial"),
+        ("choose", "choiceId", "greek-report-plan"),
         ("move", "target", "greek-courtyard"),
-        ("choose", "choiceId", "greek-courtyard-refusal"),
-        ("choose", "choiceId", "greek-open-door-invite-refusal"),
+        ("choose", "choiceId", "greek-courtyard-exposure"),
+        ("choose", "choiceId", "greek-open-door-invite-exposure"),
         ("move", "target", "greek-harbor"),
         ("move", "target", "greek-athens"),
         ("move", "target", "greek-eleusis"),
@@ -193,8 +193,25 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             assert_eq!(Some(&world), checkpointed.as_ref());
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-eleusis");
             super::sea_steps::assert_upgraded_ship(&world.game, &old.game);
+            // Greek revision 11 retires the invitation button; its receipt and
+            // log line leave the upgraded save.
+            let retired = "greek-open-door-invite-exposure";
+            let mut expected = old.game.clone();
+            for key in ["receipts", "recitals"] {
+                if let Some(record) = expected["packs"]["greek-drama"][key].as_object_mut() {
+                    record.remove(retired);
+                }
+            }
+            let log: Vec<Value> = expected["log"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|e| e["choiceId"] != retired)
+                .cloned()
+                .collect();
+            expected["log"] = Value::Array(log);
             for key in ["turn", "eventSeq", "log"] {
-                assert_eq!(world.game[key], old.game[key]);
+                assert_eq!(world.game[key], expected[key]);
             }
             for field in ["items", "crossings"] {
                 for (key, value) in super::saved_items::upgraded_field(&old.game, field)
@@ -207,7 +224,7 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             for key in ["receipts", "choices", "flags", "recitals"] {
                 assert_eq!(
                     world.game["packs"]["greek-drama"][key],
-                    old.game["packs"]["greek-drama"][key]
+                    expected["packs"]["greek-drama"][key]
                 );
             }
             let receive = format!("choose:vale:greek-drama:greek-homecoming-receive-{policy}");

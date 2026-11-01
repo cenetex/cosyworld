@@ -5,7 +5,17 @@ export function upgradedItems(items) {
   return next;
 }
 
-// Revision 9 of the Greek pack adds the Suppliant’s Olive Branch.
+// The Theban outcomes wait unseen where their deeds will be done.
+export const thebanItems = {
+  "greek-burial-account": { holder: "greek-battlefield", history: [] },
+  "greek-creon-writ": { holder: "greek-palace", history: [] },
+  "greek-guard-tablet": { holder: "greek-gate", history: [] },
+};
+
+// Revision 9 of the Greek pack adds the Suppliant’s Olive Branch; later
+// revisions add the Theban outcomes.
 export const branchItems = {
   "greek-olive-branch": { holder: "greek-athens", history: [] },
+  ...thebanItems,
 };
+
