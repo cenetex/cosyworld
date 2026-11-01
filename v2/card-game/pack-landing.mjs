@@ -19,6 +19,11 @@ export function createLandingWorld(pack = null, seed = newRunSeed()) {
   // A retired crossing stays closed in a new game.
   for (const crossing of pack.crossings)
     if (!crossing.retired) world.crossings[crossing.id].discovered = true;
+  // A landing starts inside the pack, so its things that start outside it,
+  // such as the Hoppy Cat spool at Black pond, wait at the entry instead.
+  for (const [id, item] of Object.entries(pack.items || {}))
+    if (!pack.places[item.holder] && !pack.avatars?.[item.holder])
+      world.items[id].holder = pack.entry;
   addLog(
     world,
     "World",

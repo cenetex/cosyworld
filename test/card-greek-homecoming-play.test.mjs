@@ -145,19 +145,11 @@ describe("the household reaches its berth", () => {
     const prior = homecomingJourney().after["greek-homecoming-receive-family"];
     let world = dispatchShared({ op: "create", save: encodeSave(prior) }).world;
     world.actors.mara.place = "greek-piraeus";
-    // Black Pond sails only to the Wine-Dark Harbor. Mara has heard the
-    // lanes home from Athens Harbor by Piraeus.
-    learnLane(world, "mara", "greek-athens-harbor", "greek-piraeus");
+    // Mara has heard the lane home from Piraeus.
     learnLane(world, "mara", "greek-piraeus", "greek-harbor");
     for (const [kind, fields] of [
       ["take", { item: "greek-return-list" }],
-      ["move", { target: "greek-road-athens-piraeus" }],
-      ["move", { target: "greek-athens" }],
-      ["move", { target: "greek-athens-harbor" }],
       ["board", {}],
-      // Athens Harbor has no lane to the Wine-Dark Harbor: sail by Piraeus.
-      ["course", { target: "greek-piraeus" }],
-      ["wait", {}],
       ["course", { target: "greek-harbor" }],
       ["wait", {}],
       ["move", { target: "greek-harbor" }],
@@ -166,7 +158,7 @@ describe("the household reaches its berth", () => {
       ["choose", { choiceId: "greek-homecoming-read-berth-family" }],
     ]) {
       if (kind === "board") {
-        // Wait at Athens Harbor until the ship calls, then go aboard.
+        // Wait at Piraeus until the ship calls, then go aboard.
         for (let turn = 0; turn < 12; turn += 1) {
           const view = shared(world, "mara", ["mara"]);
           let board = null;

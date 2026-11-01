@@ -45,7 +45,7 @@ describe("card image streaming", () => {
     expect(imageUrl(null)).toBeNull();
   });
 
-  it("publishes every variant and keeps the preload on the exact scene URL", async () => {
+  it("publishes every variant and preloads no unused portrait", async () => {
     const files = new Set(publicAssets.map(({ file }) => file));
     for (const image of Object.values(variants.images)) {
       expect(files.has(image.stage)).toBe(true);
@@ -58,8 +58,7 @@ describe("card image streaming", () => {
         /<!-- card-image-preload:start -->([\s\S]*?)<!-- card-image-preload:end -->/,
       );
     expect(marked).not.toBeNull();
-    const preload = new URL(marked[1].match(/href="([^\"]+)"/)[1], root);
-    expect(preload.href).toBe(imageUrl("./assets/keeper-right.png"));
+    expect(marked[1]).not.toMatch(/rel="preload"/);
   });
 
   for (const source of [

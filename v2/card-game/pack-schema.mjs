@@ -456,6 +456,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "voice",
         "exits",
         "backdrop",
+        "backdrops",
         "art",
         "music",
         "musicMode",
@@ -481,6 +482,22 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `place ${id} exits must name other places in this pack`,
     );
     media(p.backdrop, `place ${id} backdrop`);
+    // State backdrops: the first entry whose saved conditions hold replaces
+    // the backdrop, like a resident's poses. They change presentation only.
+    if (p.backdrops !== undefined)
+      check(
+        Array.isArray(p.backdrops) &&
+          p.backdrops.length > 0 &&
+          p.backdrops.length <= 8 &&
+          p.backdrops.every(
+            (b) =>
+              keysOk(b, ["backdrop", "requires"]) &&
+              mediaPathOk(pack.id, b.backdrop) &&
+              Array.isArray(b.requires) &&
+              b.requires.length > 0,
+          ),
+        `place ${id} backdrops need a backdrop in this pack and saved conditions`,
+      );
     if (p.road !== undefined)
       check(
         Array.isArray(p.road) &&
@@ -957,8 +974,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         );
       });
   };
-  for (const [id, p] of Object.entries(places))
+  for (const [id, p] of Object.entries(places)) {
     requirements(p.requires, `place ${id} requires`);
+    for (const b of Array.isArray(p.backdrops) ? p.backdrops : [])
+      requirements(b?.requires, `place ${id} backdrop requires`, false);
+  }
   for (const [id, a] of Object.entries(avatars)) {
     requirements(a.requires, `avatar ${id} requires`);
     for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
@@ -1097,9 +1117,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on === "meet";
       if (e.kind === "give_item")
         valid =
-          keysOk(e, ["kind", "item"]) &&
-          owns(items, e.item) &&
-          c.on !== "meet";
+          keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on !== "meet";
       if (e.kind === "retire_item")
         valid =
           keysOk(e, ["kind", "item"]) &&

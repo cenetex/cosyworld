@@ -132,7 +132,7 @@ features. Their scope and open decisions are in the
 The shipping card engine is `v2/card-game/world.mjs`, with quests, resident
 motives, life, memory, and pack rules in the modules beside it. Its opening
 quests and item rules form the current game. Future work builds on this engine;
-the [generated-world backlog](../../backlog/generated-world-core.md) retains
+the [generated-world backlog](../backlog/generated-world-core.md) retains
 the ideas explored by the retired standalone engine.
 
 ## Shared Runtime at `/classic`

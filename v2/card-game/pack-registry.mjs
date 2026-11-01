@@ -239,7 +239,11 @@ export const packNames = Object.fromEntries(
 export const packMediaFiles = [
   ...new Set(
     packDefinitions.flatMap((pack) => [
-      ...Object.values(pack.places).flatMap((p) => [p.backdrop, p.art]),
+      ...Object.values(pack.places).flatMap((p) => [
+        p.backdrop,
+        p.art,
+        ...(p.backdrops || []).map((b) => b.backdrop),
+      ]),
       ...Object.values(pack.items || {}).map((i) => i.art),
       ...pack.crossings.flatMap((c) => [
         c.scenery?.overlay,

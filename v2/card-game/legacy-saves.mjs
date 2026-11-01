@@ -44,7 +44,7 @@ export function forgetQuests(s) {
 // World-owned helpers keep pack installation on the same path as a new game,
 // while this module owns the schema order. Saves before schema 6 come from
 // the first alpha tables and start fresh.
-export function upgradeSave(s, { installPacks }) {
+export function upgradeSave(s, { installPacks, laneText = () => null }) {
   if (!s || ![6, 7].includes(s.schema))
     throw new Error("This save needs a fresh start.");
   forgetQuests(s);
@@ -58,6 +58,7 @@ export function upgradeSave(s, { installPacks }) {
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
     upgradeGreekOneRoadSave(s);
+    upgradeGreekPassSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -74,6 +75,7 @@ export function upgradeSave(s, { installPacks }) {
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
     upgradeGreekOneRoadSave(s);
+    upgradeGreekPassSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -93,6 +95,11 @@ export function upgradeSave(s, { installPacks }) {
   }
   upgradeSightings(s);
   installPacks(s);
+  // A told lane keeps its id; its words follow the lane's current conditions.
+  for (const fact of Object.values(s?.knowledge?.facts || {})) {
+    const text = fact?.source?.kind === "lane" && laneText(fact.id);
+    if (text) fact.text = text;
+  }
   if (s?.schema === 7)
     installKnowledge(
       s,
@@ -359,6 +366,18 @@ export function foldRetiredRoads(s) {
   s.standoffs = (s.standoffs || []).filter(
     (conflict) => !localRoadEnds(conflict.location),
   );
+}
+
+// Revision 9 adds the Suppliant’s Olive Branch, which opens the lane
+// between Piraeus and Athens Harbor while it is aboard.
+export function upgradeGreekPassSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 9 || saved?.revision !== 8) return;
+  const id = "greek-olive-branch";
+  s.items[id] ??= { holder: pack.items[id].holder, history: [] };
+  s.memories[id] ??= newMemories()[id];
+  saved.revision = 9;
 }
 
 // Revision 7 adds the invited Trojan account while earlier journeys retain

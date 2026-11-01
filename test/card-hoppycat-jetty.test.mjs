@@ -82,9 +82,8 @@ describe("the Signal Jetty lane", () => {
 
   it("opens only while a Hoppy Cat thing is aboard; knowing it is not enough", () => {
     let s = setup("greek-piraeus");
-    // Mara knows the open lane to Athens Harbor. The lane to the
-    // Wine-Dark Harbor waits for the Travel Provisions, which stay ashore.
-    learnLane(s, "mara", "greek-piraeus", "greek-athens-harbor");
+    // The lanes to the Wine-Dark Harbor and Athens Harbor wait for the
+    // Travel Provisions and the olive branch, which stay ashore.
     // Mara knows the jetty lane too; knowledge alone leaves it closed.
     learnLane(s, "mara", "greek-piraeus", JETTY);
     // Vale waits ashore with a Hoppy Cat thing in hand.
@@ -98,13 +97,13 @@ describe("the Signal Jetty lane", () => {
     };
     expect(knowsLane(s, "mara", "greek-piraeus", JETTY)).toBe(true);
     expect(conditionMet(s, gate)).toBe(false);
-    expect(courses(s, "mara")).toEqual(["greek-athens-harbor"]);
+    expect(courses(s, "mara")).toEqual([]);
 
     // Carried aboard, it opens the lane for everyone on deck.
     s = act(s, "vale", "move", "greek-ship");
     expect(conditionMet(s, gate)).toBe(true);
     expect(courses(s, "vale")).toEqual([JETTY]);
-    expect(courses(s, "mara")).toEqual(["greek-athens-harbor", JETTY]);
+    expect(courses(s, "mara")).toEqual([JETTY]);
 
     // Resting on deck counts too.
     s.items[CUP].holder = "greek-ship";
@@ -116,7 +115,7 @@ describe("the Signal Jetty lane", () => {
     s = reload(s);
     expect(conditionMet(s, gate)).toBe(false);
     expect(courses(s, "vale")).toEqual([]);
-    expect(courses(s, "mara")).toEqual(["greek-athens-harbor"]);
+    expect(courses(s, "mara")).toEqual([]);
 
     // With the cup aboard again, the voyage sails and Vale lands at the jetty.
     s.items[CUP].holder = "vale";
@@ -165,6 +164,37 @@ describe("the Signal Jetty lane", () => {
     let s2 = reload(world);
     s2 = act(s2, "vale", "move", "greek-ship");
     expect(courses(s2, "vale")).not.toContain(JETTY);
+  });
+});
+
+describe("the way in", () => {
+  // Every other Hoppy Cat thing starts inside the archive, behind the jetty
+  // lane it would open. The spool waits at Black pond so a new game can sail.
+  const SPOOL = "hoppycat-red-thread-spool";
+  it("starts the spool at Black pond, where a player takes it aboard", () => {
+    const fresh = createWorld();
+    const outside = Object.keys(pack.items).filter(
+      (id) => !pack.places[fresh.items[id].holder],
+    );
+    expect(outside).toEqual([SPOOL]);
+    expect(fresh.items[SPOOL].holder).toBe("pond");
+    let s = setup("pond");
+    const take = ask(s, "vale").actions.find(
+      (a) => a.kind === "take" && a.item === SPOOL,
+    );
+    expect(take).toBeDefined();
+    s = reload(ask(s, "vale", "play", { action: take }).world);
+    expect(s.items[SPOOL].holder).toBe("vale");
+    // Carried to Piraeus, it opens the jetty lane from the deck.
+    for (const who of players) s.actors[who].place = "greek-piraeus";
+    summonTransport(s, "greek-ship", "greek-piraeus");
+    s = act(reload(s), "vale", "move", "greek-ship");
+    expect(courses(s, "vale")).toContain(JETTY);
+  });
+
+  it("puts the spool on the garden table in a Hoppy Cat landing", () => {
+    const landing = reload(createLandingWorld(pack));
+    expect(landing.items[SPOOL].holder).toBe(pack.entry);
   });
 });
 
