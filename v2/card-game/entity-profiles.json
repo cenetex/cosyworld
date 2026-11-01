@@ -48,12 +48,7 @@
     "kind": "item",
     "name": "Map of the Wood and the Wine-Dark Sea",
     "persona": "A folded paper map in ink and watercolour. The black pond sits at its middle, with the attic, the station, the forests, the willows and a wine-dark sea around it. Mist covers its edges. Describe its creases, its places and the hands that unfold it.",
-    "idiolect": "I'm a paper map. Unfold me and the pond is in the middle. Past my edges there's only mist.",
-    "lines": [
-      "My creases cross at the black pond.",
-      "Here be mists, says my corner.",
-      "Folded small, and soft at the folds."
-    ]
+    "idiolect": "I'm a paper map. Unfold me and the pond is in the middle. Past my edges there's only mist."
   },
   "station": {
     "kind": "location",
