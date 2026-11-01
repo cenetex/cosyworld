@@ -522,8 +522,12 @@ try {
     shared.world.actors["greek-antigone"] &&
       shared.world.items["greek-water-jar"],
   );
-  for (const [id, pack] of Object.entries(seed.packs))
-    assert.deepEqual(shared.world.packs[id], pack);
+  for (const [id, pack] of Object.entries(seed.packs)) {
+    // Sharing gives the world a run, so a pack with specials draws them (#1622).
+    const sharedPack = { ...shared.world.packs[id] };
+    if (!("specials" in pack)) delete sharedPack.specials;
+    assert.deepEqual(sharedPack, pack);
+  }
   await vale.locator("#stage").waitFor({ state: "visible" });
   const pondBackdrop = await vale.evaluate(async () =>
     (await import("/card-game/images.mjs")).imageUrl("./assets/pond.png"),
