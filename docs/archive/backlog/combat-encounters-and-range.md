@@ -32,9 +32,9 @@ and LC-1 own what #385 and #382 previously covered.
 
 **Related architecture**:
 
-- [CosyWorld RPG System Bible](../archive/classic/docs/systems/09-cosyworld-rpg-system.md)
-- [Combat system contract](../../v2/docs/combat-system.md)
-- [Writing style](../../v2/docs/writing-style.md) — governs how chance reads in
+- [CosyWorld RPG System Bible](../classic/docs/systems/09-cosyworld-rpg-system.md)
+- [Combat system contract](../../../v2/docs/combat-system.md)
+- [Writing style](../../../v2/docs/writing-style.md) — governs how chance reads in
   the transcript, which is the crux of CB-3.
 
 ---

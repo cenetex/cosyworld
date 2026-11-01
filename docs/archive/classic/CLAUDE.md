@@ -33,7 +33,7 @@ commits results. Keep this boundary explicit when changing rules. See
 
 New card rules land in the shipping `v2/card-game/world.mjs` model and its
 adjacent modules, with tests in `test/card-*.test.mjs`. Earlier standalone
-engine ideas are recorded in `docs/backlog/generated-world-core.md`.
+engine ideas are recorded in `docs/archive/backlog/generated-world-core.md`.
 Rules stay general: no rule names a specific entity, and new content comes from
 generators and pack data.
 A rule may stay client-only while it affects one browser's table. Anything
@@ -41,7 +41,7 @@ shared, multiplayer, persisted on the server, or reward-bearing crosses the C
 authority boundary and journal first. Shared card rules use the bounded C
 interpreter with the same authored model; native rules use the C kernel. Test
 replay and client/server agreement at the actual boundary. The plan
-is `docs/backlog/generated-world-core.md`.
+is `docs/archive/backlog/generated-world-core.md`.
 
 The shared runtime keeps its own authority split:
 
@@ -65,7 +65,7 @@ What the production image builds and serves is canonical: the card table at
 `/`, the shared world at `/classic`, and the Rust and C code behind them. Other
 clients follow the contract those surfaces use; when they disagree, fix the
 client, not the server. Retired prototypes leave the tree, and any idea worth
-keeping moves into `docs/backlog/` first.
+keeping moves into `docs/archive/backlog/` first.
 
 - `v2/card-game/`: the deterministic model for local and shared card games,
   UI, text client, art (`assets/PROVENANCE.md`), and a dev server.

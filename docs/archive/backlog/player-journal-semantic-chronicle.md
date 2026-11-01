@@ -22,10 +22,10 @@ truth for each slice's implementation state.
 
 **Related contracts**:
 
-- [CosyWorld writing style](../../v2/docs/writing-style.md)
-- [Player lexicon](../../v2/docs/player-lexicon.md)
-- [Canonical world](../../v2/docs/canonical-world.md)
-- [One canonical world ADR](../decisions/0003-one-canonical-world.md)
+- [CosyWorld writing style](../../../v2/docs/writing-style.md)
+- [Player lexicon](../../../v2/docs/player-lexicon.md)
+- [Canonical world](../../../v2/docs/canonical-world.md)
+- [One canonical world ADR](../../decisions/0003-one-canonical-world.md)
 
 ## Why now
 

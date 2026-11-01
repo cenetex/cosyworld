@@ -38,17 +38,17 @@ the same Deck/loadout operations. Golden legacy replay, rules conformance,
 mutation/power audits, browser/CLI parity, Core/Ruby migration, and the
 non-shipping deck-gated design spike are checked in with the implementation.
 
-**Architecture**: [SRD-Backed Action and Collectible System](../archive/classic/docs/systems/04-action-system.md)
+**Architecture**: [SRD-Backed Action and Collectible System](../classic/docs/systems/04-action-system.md)
 
 | Ticket | Engineering state | Primary evidence |
 | --- | --- | --- |
-| SAF-0 | Landed; external marketing review remains a release gate | [ADR](../decisions/001-srd-action-card-profile.md) |
+| SAF-0 | Landed; external marketing review remains a release gate | [ADR](../../decisions/001-srd-action-card-profile.md) |
 | SAF-1–5 | Landed | `v2/content/rules-profile-srd5/`, rules bindings, contribution compiler/checker |
 | SAF-6–10 | Landed | Search/Study, Influence, projects, playable items/spells, `cosyworld.combat/4` |
 | SAF-11–12 | Landed | authoritative zones/materialization/theft and Menu/Deck/browser/terminal parity |
-| SAF-13–14 | Landed | conformance matrix, golden replay, mutation/power gates, modified-material report, inspector, [pack guide](../../v2/docs/action-pack-authoring.md) |
+| SAF-13–14 | Landed | conformance matrix, golden replay, mutation/power gates, modified-material report, inspector, [pack guide](../../../v2/docs/action-pack-authoring.md) |
 | SAF-15 | Landed | compiled Core + Ruby High official worldpack and local smoke gates |
-| SAF-16 | Spike complete; not enabled | [deck-gated action spike](../../v2/docs/deck-gated-action-spike.md) |
+| SAF-16 | Spike complete; not enabled | [deck-gated action spike](../../../v2/docs/deck-gated-action-spike.md) |
 
 ---
 

@@ -667,5 +667,5 @@ LLM characters and world state
 In-repo
 
 - [Story quest guide](../../v2/docs/card-story-quests.md), [quest journeys](../../v2/docs/card-table/roaming-quests.md), [card guide](../../v2/card-game/README.md).
-- [Quest grammar and return](../backlog/quest-grammar-and-return.md) (Sign and Return map to R2/R7 and R3/R8 here).
+- [Quest grammar and return](../archive/backlog/quest-grammar-and-return.md) (Sign and Return map to R2/R7 and R3/R8 here).
 - DM guide: [obstacles and pressure](../dm-guide/chapters/06-obstacles-and-pressure.md), [tables](../dm-guide/chapters/07-places-and-tables.md), [AI referee](../dm-guide/chapters/08-ai-referee.md), [preparing adventures](../dm-guide/chapters/09-preparing-adventures.md).

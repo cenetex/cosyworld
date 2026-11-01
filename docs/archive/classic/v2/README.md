@@ -56,7 +56,7 @@ with weapons, skill charms, spells, and containers as playable Item roles. The
 implemented architecture is documented in
 [`docs/systems/04-action-system.md`](../docs/systems/04-action-system.md) and
 its acceptance/evidence ledger is tracked in
-[`docs/backlog/srd-action-card-foundation.md`](../../../backlog/srd-action-card-foundation.md).
+[`docs/archive/backlog/srd-action-card-foundation.md`](../../backlog/srd-action-card-foundation.md).
 Expansion authors should start with
 [`docs/action-pack-authoring.md`](../../../../v2/docs/action-pack-authoring.md); the deliberately
 non-shipping ordinary-action draw experiment is recorded in
