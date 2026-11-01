@@ -56,10 +56,10 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
 In a shared world ☰ opens on **the Table**: the world's eight avatars as
 seats, with the world's name and "2 humans here now · 3 of 8 seats free".
 Your seat is in colour and marked "You · Level 1". Another person's seat is
-grey with their holder name and level ("Sage Swift · Level 1") and a green
+grey with their holder name and level ("Sable Swift · Level 1") and a green
 dot while they are here now. An open seat is a card back. As the owner you
 see **Free *Mara*** under each held seat; the first tap turns it red and says
-"Free Mara: removes Sage Swift's hold and resets Mara." 👥 counts who is here
+"Free Mara: removes Sable Swift's hold and resets Mara." 👥 counts who is here
 and opens the same ☰; the separate "Players in this world" dialog is gone.
 
 Below the Table, ☰ lists your eight avatars. Each row shows the portrait,

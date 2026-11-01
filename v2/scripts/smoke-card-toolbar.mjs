@@ -38,7 +38,7 @@ function snapshot() {
     bound: [1, 1, 1, 1, 0, 0, 0, 0],
     holders: [
       null,
-      "Sage Swift",
+      "Sable Swift",
       "Amber Heron",
       "Quiet Fox",
       null,
@@ -155,7 +155,7 @@ try {
       "open",
       "open",
     ]);
-    assert.match(await seats.nth(1).innerText(), /Mara\s+Sage Swift · Level 1/);
+    assert.match(await seats.nth(1).innerText(), /Mara\s+Sable Swift · Level 1/);
     assert.match(await seats.nth(0).innerText(), /Vale\s+You · Level 1/);
     assert.equal(await menu.locator(".table-online").count(), 3);
     assert.match(
