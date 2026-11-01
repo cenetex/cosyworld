@@ -74,6 +74,15 @@ The vocabulary also includes `light`, bounded `not`, and persistent pack
 `{ "kind": "daylight", "phase": "night" }`, which reads the saved world clock
 (day and night swap every 24 turns). Environmental
 senses belong on crossings; entity/choice requirements use persistent kinds.
+Entity requirements may also use `item_present`, and `any` or `not` whose
+leaves are all persistent kinds. `item_at` may name a hub place. A pack thing
+whose own requirements name where it rests (`item_at` on itself) is gated
+only while it lies there: the Hoppy Cat spool requires
+`any(not item_present oil station, not item_at spool station)`, so it shows at
+the station only while no oil is there, and a carried spool stays a normal
+thing everywhere. Set down at the station again, it is gated again; saves
+accept that, because a disabled thing that is gated on its resting place may
+have travelled and come back.
 To add another kind, update all three places together:
 `CONDITION_KINDS` and its shape check in `pack-schema.mjs`, its evaluation in
 `conditionMet` in `pack-rules.mjs`, and a test in `test/card-packs.test.mjs`.

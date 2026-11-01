@@ -1163,6 +1163,7 @@ describe("speech grounding in resolved card plays", () => {
     const outcome = turnOutcome(createWorld());
     expect(outcome.card.kind).toBe("arrive");
     expect(outcome.avatars).toHaveLength(3);
+    // The forest's four things and the Hoppy Cat spool at the station.
     expect(outcome.items).toHaveLength(5);
     expect(avatar(outcome, "moth")).toMatchObject({
       location: "pond",
