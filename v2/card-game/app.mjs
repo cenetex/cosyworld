@@ -11,7 +11,7 @@ import {
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
-import { DAYLIGHT_TURNS, locationDaylight } from "./daylight.mjs";
+import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
 import {
   CHANGE_FADE_MS,
@@ -1955,7 +1955,12 @@ $("backdrop").addEventListener("load", (event) => {
 function renderStage(locationId) {
   const pack = packOf(locationId);
   const stage = stageOf(world, locationId);
-  const lamp = stage.lamp || null;
+  // A place painted in its own light or dark (state backdrops) dims only in
+  // the darkest phase of the saved clock, so its paintings aren't darkened twice.
+  const lamp =
+    (!places[locationId]?.backdrops || isNight(world)) && stage.lamp
+      ? stage.lamp
+      : null;
   const view = $("stage");
   document.body.dataset.world = pack?.id || "shore";
   document.body.dataset.place = locationId;
