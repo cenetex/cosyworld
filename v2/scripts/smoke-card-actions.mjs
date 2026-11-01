@@ -137,6 +137,11 @@ try {
       await ready();
     };
     const labels = () => page.locator("#card-actions button").allTextContents();
+    // Chosen cards, not the current place raised to show its ways on.
+    const chosen = () =>
+      page
+        .locator('#hand .card[data-selected="true"]')
+        .evaluateAll((cards) => cards.map((c) => c.dataset.card).sort());
     const pressed = () =>
       page
         .locator('#hand .card[aria-pressed="true"]')
@@ -316,10 +321,10 @@ try {
     await selectCard(page, "moth");
     await selectCard(page, "station");
     await selectCard(page, "pond");
-    assert.deepEqual(await pressed(), ["moth", "pond"]);
+    assert.deepEqual(await chosen(), ["moth", "pond"]);
     assert.deepEqual(await labels(), ["Invite Pip along"]);
     await selectCard(page, "moth");
-    assert.deepEqual(await pressed(), ["pond"]);
+    assert.deepEqual(await chosen(), ["pond"]);
     assert.deepEqual(await labels(), ["Travel"]);
     await page.keyboard.press("Escape");
     await selectCard(page, "moth", { touch: width < 700 });

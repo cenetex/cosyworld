@@ -115,6 +115,7 @@ try {
         });
         const layout = () =>
           page.evaluate(() => {
+            const hand = document.querySelector("#hand");
             const rect = (selector) => {
               const { x, y, width, height, right, bottom } = document
                 .querySelector(selector)
@@ -127,13 +128,19 @@ try {
               cardWidth: parseFloat(
                 getComputedStyle(document.querySelector(".card-frame")).width,
               ),
+              // Both sides of the hand share one inline padding.
+              handPadding:
+                2 * parseFloat(getComputedStyle(hand).paddingLeft),
             };
           });
         const resting = await layout();
         if (width === 1512) {
           assert(resting.dialogue.right < resting.hand.x);
           assert(
-            Math.abs(resting.hand.width - (resting.cardWidth * 2 + 46)) < 2,
+            Math.abs(
+              resting.hand.width -
+                (resting.cardWidth * 2 + 14 + resting.handPadding),
+            ) < 2,
           );
         }
         assert.equal(await page.locator(".hand-scroll").count(), 2);

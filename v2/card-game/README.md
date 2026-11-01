@@ -218,7 +218,7 @@ F(n) steps (1 Common, 2–3 Uncommon, 5 Rare, 8 Epic, 13+ Legendary). It never
 shows who holds the target or how far it is; it glows softly and steadily
 while the target is within two moves. Steps still to come lie face down behind
 the card. It plays nothing. The quest folds behind the player's avatar card:
-a tab in its tier colour peeks out at the top left, and it comes forward when
+a plain tab in its tier colour rises above its top left, and it comes forward when
 the avatar's stack opens or the tab is chosen. A met quest stays, sealed, and
 its tab glows until its player taps it to clear it; clearing shows the
 experience it brought rising from the card (a still label with reduced
@@ -248,20 +248,24 @@ Card faces contain the illustration and a small name. People and things stand
 upright at 2:3, the shape of the carved cover; an uncovered place keeps a wider,
 landscape-leaning card (4:5 on phones). The hand fans: each card overlaps the
 one before it and leans with its place in the row, and the chosen or hovered
-card comes to the front. Tapping a card toggles
+card comes to the front. Names stay clear of the next card's overlap and wrap
+rather than hide under it, and the hand leaves room for the outer cards' lean,
+the quest tab and a chosen card's lift, so nothing is clipped at its edges.
+Cards carry no count badges; opening a stack shows its cards. Tapping a card toggles
 its selection. Selecting a card or pair shows named actions in the row below.
-A selected card lifts and wears a white inner ring, apart from its tier border
-and the level-up glow, and the rest of the hand dims. At most one place is
+A selected card lifts and wears one white edge over its tier border, apart from
+the level-up glow, and the rest of the hand dims. At most one place is
 selected: choosing another place replaces it and keeps the selected person or
 item, so Pip + Station, then Pond, offers **Invite Pip along** to the Pond.
 Tapping an action button plays it. The current place leads the hand, followed
 by items lying there, avatars with their carried items, and travel destinations.
 The places you can go from here form one location stack: the current place
-lies face up on top, and each reachable place adds a blank edge behind it with
-a count. Tapping the current place fans the stack (and the items lying there)
+lies face up on top, and each reachable place adds a blank edge behind it, up
+to three. Tapping the current place fans the stack (and the items lying there)
 out like the hand; tapping a place selects it for **Travel**, and the stack
 folds back after the play.
-Hover lifts a card and its preview stack together. The name shade reaches the
+A person or place holding things shows the first of them peeking out behind
+its card. Hover lifts a card and its preview stack together. The name shade reaches the
 card edge, so a raised card clipped by the folded row shows no stray art.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 On wide screens, the resting hand occupies two card widths at the right. Dialogue
@@ -320,11 +324,12 @@ gives no first line, the avatar shows the silent "…". This filter lives in the
 because it uses that browser's covered set. Rules-owned knowledge will replace
 it.
 Borders use Signal's level-tier colours: Common 0–9, Uncommon 10–19, Rare 20–29,
-Epic 30–49 and Legendary 50+. Selected cards show their exact level in faint,
-matching Roman numerals at both ends. These fixed bands use existing avatar
-levels; items and places currently have level 1. They do not change progression.
+Epic 30–49 and Legendary 50+. A selected person or thing shows its exact level
+as one faint, matching Roman numeral at its top; places have no level of their
+own and show none. These fixed bands use existing avatar levels; items
+currently have level 1. They do not change progression.
 When a shown card's level rises, it glows once from its old tier colour to the
-new one, lifts slightly and changes its numerals in place, in about a second;
+new one, lifts slightly and changes its numeral in place, in about a second;
 reduced motion shows the new level at once.
 No card face or hover text exposes quest checklists, hope fractions, Inspiration,
 fuel arithmetic, ringing deadlines, or ritual phases. Observable changes

@@ -129,7 +129,7 @@ try {
             };
           });
         });
-        assert.equal(stack.length, 2);
+        assert.equal(stack.length, 1, "one carried thing peeks out");
         assert(
           stack.every(
             (p) => p.visible && p.overlap > 0.75 && p.behind && p.offset > 0,

@@ -1844,8 +1844,12 @@ function renderActions(animate = false) {
     const toHeight = panel.getBoundingClientRect().height;
     if (Math.abs(fromHeight - toHeight) > 1) {
       panel.hidden = false;
+      // The row grows with the hand's 220 ms move and fades in as it opens.
       const motion = panel.animate(
-        { height: [`${fromHeight}px`, `${toHeight}px`] },
+        {
+          height: [`${fromHeight}px`, `${toHeight}px`],
+          opacity: [fromHeight < 1 ? 0 : 1, 1],
+        },
         { duration: 220, easing: "ease-out" },
       );
       actionPanelMotion = motion;
@@ -1992,12 +1996,10 @@ function card(id) {
   const hidden = cardIsCovered(id);
   if (hidden) observation.textContent = "";
   el.append(graphic, node("span", hidden ? "" : def.name, "name"), observation);
-  for (const end of ["top", "bottom"]) {
-    const numeral = node(
-      "span",
-      romanLevel(level),
-      `card-level card-level-${end}`,
-    );
+  // One faint numeral shows a selected person's or thing's level. Places
+  // have no level of their own, so they carry none.
+  if (type !== "location") {
+    const numeral = node("span", romanLevel(level), "card-level");
     numeral.setAttribute("aria-hidden", "true");
     el.append(numeral);
   }
@@ -2080,7 +2082,9 @@ function card(id) {
         named.push(`${held.length - named.length} covered`);
       if (!hidden)
         observation.textContent += ` ${places[id] ? "Contains" : "Carries"} ${named.join(", ")}. Select to show these cards.`;
-      for (const item of held.slice(0, 2)) {
+      // One carried thing peeks out behind its holder; the rest wait in
+      // the opened stack.
+      for (const item of held.slice(0, 1)) {
         const preview = node("img", undefined, "held-preview");
         preview.decoding = "async";
         preview.src = imageUrl(
@@ -2106,7 +2110,6 @@ function card(id) {
       edge.style.setProperty("--i", String(i));
       frame.prepend(edge);
     }
-    frame.append(node("span", String(stack.length), "place-count"));
   }
   if (shownQuest?.actor === id) frame.prepend(questTab(shownQuest));
   el.dataset.unrevealed = String(cardIsCovered(id));
@@ -2238,11 +2241,7 @@ function syncQuestTab(tab) {
         : "none";
 }
 function questTab(quest) {
-  const tab = node(
-    "button",
-    quest.level ? romanLevel(quest.level) : "",
-    "quest-tab",
-  );
+  const tab = node("button", undefined, "quest-tab");
   tab.type = "button";
   tab.style.setProperty("--tier-color", questTier(quest).color);
   syncQuestTab(tab);
@@ -3447,6 +3446,9 @@ function render() {
           id === QUEST_CARD ? questFrame(shownQuest) : card(id),
         ),
       );
+    // Lean the new row before measuring it, so each card moves from where
+    // it was to its fanned place.
+    fanHand();
     $("hand").scrollLeft = samePlace ? scroll : 0;
     renderActions(animate);
     if (!sameWorld) playLevelUps();
