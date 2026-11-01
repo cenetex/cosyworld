@@ -216,8 +216,15 @@ level numeral of a level quest and its tier colour, which follows the quest's
 F(n) steps (1 Common, 2–3 Uncommon, 5 Rare, 8 Epic, 13+ Legendary). It never
 shows who holds the target or how far it is; it glows softly and steadily
 while the target is within two moves. Steps still to come lie face down behind
-the screen. It plays nothing. A met quest glows once in its tier colour and the
-next quest takes its place. There is never more than one quest card, and no
+the card. It plays nothing. The quest folds behind the player's avatar card:
+a tab in its tier colour peeks out at the top left, and it comes forward when
+the avatar's stack opens or the tab is chosen. A met quest stays, sealed, and
+its tab glows until its player taps it to clear it; clearing shows the
+experience it brought rising from the card (a still label with reduced
+motion), glows the avatar when it ends a level quest, and brings the next
+quest. The rules grant that experience when the quest is met; clearing is
+this browser's alone. A first quest arrives with its tab glowing. There is
+never more than one quest card, and no
 card for anyone else's quest. Another person's quest reaches the player only
 through Talk:
 `want-talk.mjs` adds one first-person fact ("I want the Lamp.") for the player
