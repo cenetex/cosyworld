@@ -1541,7 +1541,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 11,
+        revision: 12,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -1714,18 +1714,15 @@
             name: "Athenian Agora",
             text: "A broad civic square opens beneath long painted colonnades. Marble steps rise toward the Acropolis above the roofs. A herald keeps a petition table beside the market.",
             exits: [
-              "greek-athens-harbor",
               "greek-road-athens-piraeus",
               "greek-assembly",
               "greek-acropolis",
               "greek-demos-house",
               "greek-thinkery",
-              "greek-jury-house",
               "greek-festival",
               "greek-attic-farm",
               "greek-colonus",
-              "greek-road-sacred-way",
-              "greek-road-athens-harbor"
+              "greek-road-sacred-way"
             ],
             backdrop: "assets/greek-drama/athens-grand-agora.webp",
             backdrops: [
@@ -1799,7 +1796,8 @@
               "greek-athens"
             ],
             backdrop: "assets/greek-drama/courtyard.svg",
-            persona: "A jury token hangs beside the door. The household has arranged a small court in the yard."
+            persona: "A jury token hangs beside the door. The household has arranged a small court in the yard.",
+            retired: true
           },
           "greek-festival": {
             name: "The Women's Festival",
@@ -1815,9 +1813,7 @@
             text: "Vines grow beside a patched farmhouse. Unused ploughs stand where military wagons passed.",
             exits: [
               "greek-athens",
-              "greek-acharnae",
-              "greek-divine-heights",
-              "greek-bird-wilderness"
+              "greek-acharnae"
             ],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "Vines grow beside a patched farmhouse. Unused ploughs stand where military wagons passed."
@@ -1836,7 +1832,6 @@
             text: "A cup and a small pot of honey stand at the grove\u2019s edge. A keeper rests beside a smooth stone. Paths lead back to the Agora and on to the Marathon altar.",
             exits: [
               "greek-athens",
-              "greek-underworld",
               "greek-marathon"
             ],
             backdrop: "assets/greek-drama/open-door-colonus.webp",
@@ -2202,7 +2197,8 @@
               "greek-attic-farm"
             ],
             backdrop: "assets/greek-drama/sea.svg",
-            persona: "A steep stair ends above the clouds. Broken farming tools have been carried to the landing."
+            persona: "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
+            retired: true
           },
           "greek-bird-wilderness": {
             name: "The Hoopoe's Thicket",
@@ -2211,7 +2207,8 @@
               "greek-attic-farm"
             ],
             backdrop: "assets/greek-drama/grove.svg",
-            persona: "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city."
+            persona: "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
+            retired: true
           },
           "greek-underworld": {
             name: "The Underworld Landing",
@@ -2220,7 +2217,8 @@
               "greek-colonus"
             ],
             backdrop: "assets/greek-drama/harbor.svg",
-            persona: "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing."
+            persona: "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
+            retired: true
           },
           "greek-ship": {
             name: "Greek ship",
@@ -2284,10 +2282,10 @@
             text: "Stone quays run beneath long warehouses. Beyond the harbor gate, city streets and steps climb toward the walls and the Acropolis of Athens.",
             persona: "Athens Harbor is the ship\u2019s landing for the great city. City streets lead inland to the Agora. Piraeus Quays is a separate town with its own host and work of welcome.",
             exits: [
-              "greek-athens",
-              "greek-road-athens-harbor"
+              "greek-piraeus"
             ],
-            backdrop: "assets/greek-drama/athens-harbor-open-berth.webp"
+            backdrop: "assets/greek-drama/athens-harbor-open-berth.webp",
+            retired: true
           },
           "greek-road-thebes": {
             name: "Theban Harbor Road",
@@ -2315,7 +2313,8 @@
               "greek-athens-harbor",
               "greek-athens"
             ],
-            backdrop: "assets/greek-drama/attic-road.webp"
+            backdrop: "assets/greek-drama/attic-road.webp",
+            retired: true
           },
           "greek-road-athens-piraeus": {
             name: "Athens\u2013Piraeus Road",
@@ -2750,8 +2749,8 @@
           "greek-ferryman": {
             name: "The Lower Ferryman",
             text: "He holds a mooring rope and waits for each traveler to name a purpose.",
-            place: "greek-underworld",
-            home: "greek-underworld",
+            place: "greek-colonus",
+            home: "greek-colonus",
             values: {
               "greek-provisions": 2
             },
@@ -3361,10 +3360,10 @@
           "greek-olive-branch": {
             name: "The Suppliant\u2019s Olive Branch",
             startLevel: 30,
-            text: "An olive branch bound with white wool, given at the Agora when the mothers\u2019 plea is registered. Ships sail between Piraeus and Athens Harbor while it is aboard.",
+            text: "An olive branch bound with white wool, given at the Agora when the mothers\u2019 plea is registered.",
             holder: "greek-athens",
             art: "assets/greek-drama/olive-branch.webp",
-            persona: "Describe the branch, its actual holder and its recorded use. The lane between Piraeus and Athens Harbor is open only while it is aboard the ship.",
+            persona: "Describe the branch, its actual holder and its recorded use.",
             requires: [
               {
                 kind: "flag",
@@ -9526,7 +9525,7 @@
         ],
         bridge: {
           id: "shore-greek-drama",
-          description: "A shared ship sails authored lanes from Black Pond only to the Wine-Dark Harbor, and from there to Piraeus Quays, Athens Harbor and the Trojan camp landing. The lamp signal calls it to the pond."
+          description: "A shared ship sails authored lanes from Black Pond only to the Wine-Dark Harbor, and from there to Piraeus Quays and the Trojan camp landing. The lamp signal calls it to the pond."
         },
         crossings: [
           {
@@ -9603,7 +9602,6 @@
             travelers: "any",
             travel: "aboard the ship",
             requires: [],
-            transport: "greek-ship",
             travelLabel: "Board",
             scenery: {
               open: "The Greek ship waits beside the quay.",
@@ -9611,7 +9609,8 @@
               cardArt: "assets/greek-drama/ship-card.webp",
               backdrop: "assets/greek-drama/athens-harbor.webp",
               closed: "The shared ship is sailing elsewhere. The quay waits beside open water."
-            }
+            },
+            retired: true
           },
           {
             id: "greek-piraeus-ship",
@@ -9674,7 +9673,6 @@
             docks: [
               "pond",
               "greek-harbor",
-              "greek-athens-harbor",
               "greek-piraeus",
               "greek-ajax-landing",
               "hoppycat-signal-jetty"
@@ -9687,6 +9685,7 @@
               {
                 from: "greek-harbor",
                 to: "greek-piraeus",
+                oneWay: true,
                 opensWith: [
                   {
                     kind: "item_present",
@@ -9696,19 +9695,13 @@
                 ]
               },
               {
-                from: "greek-harbor",
-                to: "greek-ajax-landing"
+                from: "greek-piraeus",
+                to: "greek-harbor",
+                oneWay: true
               },
               {
-                from: "greek-athens-harbor",
-                to: "greek-piraeus",
-                opensWith: [
-                  {
-                    kind: "item_present",
-                    item: "greek-olive-branch",
-                    place: "greek-ship"
-                  }
-                ]
+                from: "greek-harbor",
+                to: "greek-ajax-landing"
               },
               {
                 from: "greek-piraeus",
@@ -13566,9 +13559,11 @@
         out.push("has a lane that does not join two of its docks");
         continue;
       }
-      const pair = [lane.from, lane.to].sort().join(">");
-      if (seen.has(pair)) out.push(`repeats the lane ${pair}`);
-      seen.add(pair);
+      const ways = [`${lane.from}>${lane.to}`];
+      if (!lane.oneWay) ways.push(`${lane.to}>${lane.from}`);
+      if (ways.some((way) => seen.has(way)))
+        out.push(`repeats the lane ${ways[0]}`);
+      for (const way of ways) seen.add(way);
       neighbours.get(lane.from).add(lane.to);
       neighbours.get(lane.to).add(lane.from);
       leaving.add(lane.from);
@@ -13831,10 +13826,10 @@
         );
       if (p.retired !== void 0)
         check(
-          p.retired === true && p.road !== void 0 && Object.values(places2).every(
-            (other) => !(Array.isArray(other.exits) && other.exits.includes(id))
-          ),
-          `retired road ${id} must be a road that no exit names`
+          p.retired === true && (p.road !== void 0 || p.exits.length === 1 && places2[p.exits[0]]?.retired !== true) && Object.values(places2).every(
+            (other) => other.retired === true || !(Array.isArray(other.exits) && other.exits.includes(id))
+          ) && !(pack.routes || []).some((r) => r.to === id),
+          `retired place ${id} must be a road or lead to one live place, and no exit names it`
         );
       if (p.art !== void 0) media(p.art, `place ${id} art`);
       if (p.music !== void 0)
@@ -15316,7 +15311,14 @@
     ).map(([id, place]) => [id, place.road])
   );
   var localRoadEnds = (id) => localRoads.get(id) || null;
-  var canonicalPlace = (id) => localRoadEnds(id)?.[0] || id;
+  var retiredPlaces = new Map(
+    Object.entries(packPlaces).filter(([, place]) => place.retired === true && !place.road).map(([id, place]) => [id, place.exits[0]])
+  );
+  var retiredPlace = (id) => retiredPlaces.has(id);
+  var canonicalPlace = (id) => {
+    const end = localRoadEnds(id)?.[0] || id;
+    return retiredPlaces.get(end) || end;
+  };
   var transports = merge("transports");
   var packPeople = merge("avatars");
   var packFixtures = merge("fixtures");
@@ -15451,7 +15453,7 @@
     return entityEnabled(world, id);
   }
   function entityEnabled(world, id, saved = false) {
-    if (localRoads.has(id)) return false;
+    if (localRoads.has(id) || retiredPlaces.has(id)) return false;
     const e = packEntity(id);
     if (!e) return true;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
@@ -16185,6 +16187,7 @@
       upgradeForestButtonsSave(s);
       upgradeWillowsKitSave(s);
       upgradeGreekThebesSave(s);
+      upgradeGreekDistrictSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -16378,6 +16381,24 @@
       state.phase = 0;
     saved.revision = 10;
   }
+  function upgradeGreekDistrictSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 12 || saved?.revision !== 11) return;
+    for (const [id, state] of Object.entries(s.transports || {})) {
+      if (![state?.dock, state?.destination, state?.recall].some(retiredPlace))
+        continue;
+      const dock = canonicalPlace(state.destination || state.dock);
+      s.transports[id] = upgradeTransportState(s, id, {
+        ...state,
+        dock,
+        destination: dock,
+        recall: state.recall && canonicalPlace(state.recall)
+      });
+    }
+    foldRetiredRoads(s);
+    saved.revision = 12;
+  }
   function restoreThebanRoad(s, pack) {
     const road = "greek-road-thebes";
     const [harbor, town] = pack.places[road].road;
@@ -16397,7 +16418,7 @@
   }
   function walkablePath(from, to) {
     const edges = authoredRouteEdges().filter(
-      ([a, b]) => !localRoadEnds(a) && !localRoadEnds(b)
+      ([a, b]) => canonicalPlace(a) === a && canonicalPlace(b) === b
     );
     const queue = [[from]], seen = /* @__PURE__ */ new Set([from]);
     while (queue.length) {
@@ -16412,8 +16433,12 @@
     return null;
   }
   function foldRetiredRoads(s) {
+    for (const actor of Object.values(s.actors || {}))
+      for (const field of ["place", "home"])
+        if (retiredPlace(actor[field]))
+          actor[field] = canonicalPlace(actor[field]);
     for (const [id, actor] of Object.entries(s.actors || {})) {
-      const ends = localRoadEnds(actor.place);
+      const ends = localRoadEnds(actor.place)?.map(canonicalPlace);
       if (!ends) continue;
       const count = (place) => humanAvatarIds.filter((human) => s.actors[human]?.place === place).length;
       actor.place = humanAvatarIds.includes(id) && count(ends[0]) >= 4 ? ends[1] : ends[0];
@@ -16425,7 +16450,9 @@
     );
     const greek = (id) => packPlaces[id]?.packId === "greek-drama";
     for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
-      const paths = edges.map(([from, to]) => [canonicalPlace(from), canonicalPlace(to)]).filter(([from, to]) => from !== to).flatMap((edge) => {
+      const paths = edges.filter(
+        (edge) => !(laneOfEdge(edge) || []).some(retiredPlace) && !(edge.some(retiredPlace) && !edge.every(greek))
+      ).map(([from, to]) => [canonicalPlace(from), canonicalPlace(to)]).filter(([from, to]) => from !== to).flatMap((edge) => {
         if (authored.has(JSON.stringify(edge)) || !edge.every(greek))
           return [edge];
         const path = walkablePath(...edge);
@@ -16442,7 +16469,7 @@
         actor.visited = [...new Set(actor.visited.map(canonicalPlace))];
     }
     s.standoffs = (s.standoffs || []).filter(
-      (conflict) => !localRoadEnds(conflict.location)
+      (conflict) => canonicalPlace(conflict.location) === conflict.location
     );
   }
   function upgradeGreekPassSave(s) {
