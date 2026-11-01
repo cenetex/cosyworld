@@ -1,0 +1,40 @@
+{
+  "about": "Browser smokes for the fast check (.github/workflows/fast-check.yml), chosen by changed paths in scripts/select-fast-smokes.mjs. A changed smoke script runs first, then the rules below in order, up to max. Each smoke serves the static card game; smokes in needsRust start the Rust server and run only in the full suite (ci.yml).",
+  "max": 3,
+  "default": ["smoke-card-beat-stack", "smoke-card-actions"],
+  "needsRust": [
+    "smoke-shared-cards",
+    "smoke-card-greek-capacity",
+    "smoke-card-narrative-contract"
+  ],
+  "rules": [
+    {
+      "paths": "^v2/card-game/(beats|combat-beats|dialogue|character-speech|narrative)\\.",
+      "smokes": ["smoke-card-beat-stack", "smoke-card-dialogue-timing"]
+    },
+    {
+      "paths": "^v2/card-game/(card-tiers|cards|rarity|images)\\.|covered",
+      "smokes": ["smoke-card-unveil", "smoke-card-actions"]
+    },
+    {
+      "paths": "^v2/card-game/(world|pack-rules|roaming-routes|want|want-talk|motives|life)\\.mjs|^v2/card-game/rules/",
+      "smokes": ["smoke-card-actions", "smoke-card-pond-access"]
+    },
+    {
+      "paths": "^v2/card-game/shared|^v2/orchestrator-rust/|^v2/core-c/",
+      "smokes": ["smoke-shared-play-status", "smoke-shared-snapshot-order"]
+    },
+    {
+      "paths": "^v2/card-game/(music|hum)|music-streams",
+      "smokes": ["smoke-card-music"]
+    },
+    {
+      "paths": "^v2/card-game/weather",
+      "smokes": ["smoke-card-weather"]
+    },
+    {
+      "paths": "^v2/card-game/toolbar",
+      "smokes": ["smoke-card-toolbar"]
+    }
+  ]
+}

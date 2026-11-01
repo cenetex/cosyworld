@@ -2,6 +2,7 @@
 mod ajax_tests;
 #[cfg(test)]
 mod boardy_tests;
+mod content;
 mod engine;
 #[cfg(test)]
 mod forest_tests;
@@ -17,6 +18,7 @@ mod homecoming_tests;
 #[cfg(test)]
 mod hoppycat_tests;
 mod kernel;
+mod narrator;
 #[cfg(test)]
 mod opening_tests;
 #[cfg(test)]

@@ -100,6 +100,7 @@ fn local_road_visitors_and_belongings_continue_inside_the_town_after_replay() {
             game: released["world"].clone(),
             claimed: [1, 1, 0, 0, 0, 0, 0, 0],
             present: [1, 1, 0, 0, 0, 0, 0, 0],
+            pack: None,
         };
         old.game.as_object_mut().unwrap().remove("opening");
         old.game["packs"]["greek-drama"]["scope"] = json!("full");
@@ -151,6 +152,7 @@ fn upgraded_ports(version: &str) -> (std::path::PathBuf, rusqlite::Connection, S
         game: released["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
+        pack: None,
     };
     old.game.as_object_mut().unwrap().remove("opening");
     old.game["packs"]["greek-drama"]["scope"] = json!("full");

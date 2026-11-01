@@ -41,6 +41,7 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
         game: old.clone(),
         claimed: [1, 0, 0, 0, 0, 0, 0, 0],
         present: [1, 0, 0, 0, 0, 0, 0, 0],
+        pack: None,
     };
     let path = std::env::temp_dir().join(format!("attic-opening-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();
@@ -52,7 +53,7 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
         &c,
         &id,
         &mut world,
-        json!({"op":"upgrade","from":engine::TWENTIETH_VERSION,"to":engine::VERSION}),
+        json!({"op":"upgrade","from":engine::TWENTIETH_VERSION,"to":engine::VERSION,"pack":super::content::current()}),
         now(),
     )
     .unwrap();
@@ -78,6 +79,11 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
             );
         }
     }
+    // Greek revision 9 adds the Suppliant's Olive Branch at the Agora.
+    items.insert(
+        "greek-olive-branch".into(),
+        json!({"holder": "greek-athens", "history": []}),
+    );
     for field in ["items", "opening", "turn"] {
         assert_eq!(world.game[field], expected[field], "{field}");
     }

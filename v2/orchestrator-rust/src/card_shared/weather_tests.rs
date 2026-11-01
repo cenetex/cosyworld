@@ -1,6 +1,11 @@
 use super::{engine, full_store, full_world::World, now, store};
 use serde_json::json;
 
+// The scene the browser draws for this avatar, from the narrator bundle.
+fn scene(world: &World, a: usize) -> serde_json::Value {
+    super::narrator::scene(&world.request("context", a)).unwrap()
+}
+
 #[test]
 fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     let path = std::env::temp_dir().join(format!("weather-{}.sqlite", crate::random_hex(12)));
@@ -14,6 +19,7 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
         game: old["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
+        pack: None,
     };
     saved.game.as_object_mut().unwrap().remove("opening");
     saved.game["packs"]["greek-drama"]["scope"] = json!("full");
@@ -79,10 +85,7 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
         super::full_tests::greek_revision()
     );
     assert_eq!(world.version, engine::VERSION);
-    assert_eq!(
-        world.project(0).unwrap()["scene"]["weather"]["condition"],
-        "cloud"
-    );
+    assert_eq!(scene(&world, 0)["weather"]["condition"], "cloud");
     let action = world.project(0).unwrap()["actions"]
         .as_array()
         .unwrap()
@@ -99,27 +102,27 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     )
     .unwrap();
     for (actor, variant) in [(0, "rain-coast"), (1, "rain-grove")] {
-        let view = world.project(actor).unwrap();
-        let weather = &view["scene"]["weather"];
+        let view = scene(&world, actor);
+        let weather = &view["weather"];
         assert_eq!(weather["region"], "boeotia");
         assert_eq!(weather["condition"], "rain");
         assert_eq!(weather["variant"], variant);
-        assert_eq!(view["scene"]["daylight"]["phase"], "night");
-        assert!(view["scene"]["background"]
+        assert_eq!(view["daylight"]["phase"], "night");
+        assert!(view["background"]
             .as_str()
             .unwrap()
             .ends_with("-night.webp"));
     }
     assert_eq!(
-        world.project(0).unwrap()["scene"]["background"],
+        scene(&world, 0)["background"],
         "./assets/greek-drama/harbor-ship-at-berth-night.webp"
     );
-    let context = engine::reduce(json!({
-        "op":"context", "world":world.game, "actor":"vale",
+    let context = json!({"context": super::narrator::context(&json!({
+        "world":world.game, "actor":"vale",
         "claimed":["vale","mara"], "present":["vale","mara"]
     }))
-    .unwrap();
-    let weather = world.project(0).unwrap()["scene"]["weather"].clone();
+    .unwrap()});
+    let weather = scene(&world, 0)["weather"].clone();
     let place = context["context"]["entities"]
         .as_array()
         .unwrap()
@@ -163,6 +166,7 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         game: seed["world"].clone(),
         claimed: [1, 1, 1, 0, 0, 0, 0, 0],
         present: [1, 1, 1, 0, 0, 0, 0, 0],
+        pack: None,
     };
     saved.game.as_object_mut().unwrap().remove("opening");
     saved.game["packs"]["greek-drama"]["scope"] = json!("full");
@@ -229,8 +233,10 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
 
     // Her wait at the pond brings the empty ship one lane to her. She
     // boards and sails by the Wine-Dark Harbor to Piraeus, opened by the
-    // provisions aboard, a round at sea each, and steps ashore. Vale's wait
-    // at Athens Harbor brings the empty ship to her berth, and Mara walks on.
+    // provisions aboard, a round at sea each, and steps ashore beside it.
+    // The lane on to Athens Harbor opens only with the Suppliant's Olive
+    // Branch aboard, so Vale's wait there leaves the ship at Piraeus and
+    // Mara walks to her berth.
     let plays = [
         ("mara", "wait", None),
         ("mara", "move", Some("greek-ship")),
@@ -260,39 +266,31 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
             now(),
         )
         .unwrap();
-        let views = [
-            world.project(0).unwrap(),
-            world.project(1).unwrap(),
-            world.project(2).unwrap(),
-        ];
-        assert_eq!(views[0]["scene"]["daylight"]["phase"], "night");
+        let views = [scene(&world, 0), scene(&world, 1), scene(&world, 2)];
+        assert_eq!(views[0]["daylight"]["phase"], "night");
         assert_eq!(
-            views[2]["scene"]["background"],
+            views[2]["background"],
             "./assets/greek-drama/theban-harbor-road-night.webp"
         );
         if step == 0 {
             assert_eq!(world.game["transports"]["greek-ship"]["dock"], "pond");
         }
-        if step < 7 {
-            assert_eq!(
-                views[0]["scene"]["background"],
-                "./assets/greek-drama/athens-harbor-open-berth-night.webp"
-            );
-        } else {
+        assert_eq!(
+            views[0]["background"],
+            "./assets/greek-drama/athens-harbor-open-berth-night.webp"
+        );
+        if (6..=7).contains(&step) {
             assert_eq!(
                 world.game["transports"]["greek-ship"]["dock"],
-                "greek-athens-harbor"
+                "greek-piraeus"
             );
             assert_eq!(
-                views[0]["scene"]["background"],
-                "./assets/greek-drama/athens-harbor-ship-at-berth-night.webp"
+                views[1]["background"],
+                "./assets/greek-drama/piraeus-ship-at-berth-night.webp"
             );
         }
         if step == plays.len() - 1 {
-            assert_eq!(
-                views[1]["scene"]["background"],
-                views[0]["scene"]["background"]
-            );
+            assert_eq!(views[1]["background"], views[0]["background"]);
         }
     }
     let views = [

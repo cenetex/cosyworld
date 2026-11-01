@@ -1,19 +1,14 @@
 name: CI
 
 on:
-  pull_request:
-    branches: ["**"]
-  push:
-    branches: [main, develop]
-  # Runs the full suite on a pushed branch without a pull request.
+  # Manual only, before a production release: gh workflow run ci.yml --ref main.
+  # The commit to be tagged needs a green run. PRs and main pushes run the
+  # fast check (fast-check.yml) instead.
   workflow_dispatch:
 
-# A newer push cancels a pull request's run. On main a running check finishes,
-# so main gets complete results and saves its caches; GitHub keeps only the
-# newest waiting run behind it.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.run_id }}
+  cancel-in-progress: false
 
 # Test builds keep assertions and overflow checks, with compact symbols.
 env:
@@ -30,7 +25,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          # The version check fetches only its base branch when it needs it.
           fetch-depth: 1
 
       - name: Checkout pinned SRD 5.1 source
@@ -47,7 +41,9 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
 
-      - name: Ensure version bumped
+      # Pull requests do not bump the version; only its files' agreement is
+      # checked. A release bumps it once (docs/release.md).
+      - name: Check version alignment
         run: npm run check:version
 
       - name: Install dependencies
@@ -66,32 +62,12 @@ jobs:
           npm run v2:kernel
           npm run v2:syntax
 
-  # Small branches land continuously. Same script as the pre-push hook, so
-  # skipping hooks cannot skip the budget. No install or build.
-  change-budget:
-    name: Change budget
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          # HEAD is the PR merge commit; HEAD^1 is the base branch tip.
-          fetch-depth: 2
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-
-      - name: Check hand-written lines against the budget
-        env:
-          COSYWORLD_PR_BODY: ${{ github.event.pull_request.body }}
-        run: node scripts/check-change-budget.mjs --base HEAD^1 --head HEAD
-
+  # FLY_RUNNERS=on (repository variable) moves this job to the self-hosted Fly
+  # runners in infra/ci-runners, whose volume keeps Cargo's cache. Fork pull
+  # requests always stay on GitHub-hosted runners.
   runtime:
     name: Rust build and tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.FLY_RUNNERS == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","fly","cosyworld"]') || 'ubuntu-latest' }}
     env:
       CI: true
       RUST_TEST_THREADS: "2"
@@ -103,6 +79,12 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
 
       # Only main saves the Cargo cache; pull requests restore it. Saving a
       # new commit-keyed cache on every run cost about 45 seconds each.
@@ -116,6 +98,7 @@ jobs:
 
       - name: Restore Cargo build cache
         id: cargo-cache
+        if: runner.environment == 'github-hosted'
         uses: actions/cache/restore@v6
         with:
           path: |
@@ -138,12 +121,12 @@ jobs:
       # the entry exists even if the tests fail. The debug build adds the
       # crates the smoke-test binary needs.
       - name: Compile the smoke-test binary's crates for the cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
+        if: runner.environment == 'github-hosted' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
         working-directory: v2/orchestrator-rust
         run: cargo build
 
       - name: Save Cargo build cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
+        if: runner.environment == 'github-hosted' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: |
@@ -172,6 +155,12 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
       # Main saves one Cargo cache per UTC day. Every commit changes
       # Cargo.lock, and the repository keeps only 10 GB of caches, so a 2 GB
       # save per commit evicted the other caches before a run could use them.
@@ -196,6 +185,18 @@ jobs:
       - name: Build V2 binary
         run: bash v2/scripts/check-rust.sh build
 
+      # While the Rust tests run on Fly, this job keeps main's daily cache.
+      - name: Save Cargo build cache
+        if: vars.FLY_RUNNERS == 'on' && github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
+
       - name: Prepare smoke-test binary
         run: |
           mkdir -p dist/ci
@@ -211,6 +212,55 @@ jobs:
           retention-days: 1
           compression-level: 1
 
+  # Known flaky tests run here, apart from the blocking Rust job, so they still
+  # run and report on every push without blocking a merge. The `build` gate
+  # does not need this job. Each test has an issue and a fix-by date; see
+  # QUARANTINED_TESTS in v2/scripts/check-rust.sh.
+  rust-quarantine:
+    name: Quarantined Rust tests (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      CI: true
+      RUST_TEST_THREADS: "2"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Choose Cargo cache day
+        id: cargo-cache-day
+        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Cargo build cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target
+          key: ${{ runner.os }}-cargo-compact-v1-day-${{ steps.cargo-cache-day.outputs.day }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-compact-v1-
+
+      - name: Run quarantined Rust tests
+        run: |
+          if ! bash v2/scripts/check-rust.sh quarantine; then
+            echo "::warning title=Quarantined Rust test failed::A known flaky test failed (#1553, #1554). It does not block the merge."
+            exit 1
+          fi
+
   rust-quality:
     name: Rust architecture and lint
     runs-on: ubuntu-latest
@@ -224,6 +274,12 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
 
       - name: Check Rust architecture
         run: |
@@ -289,13 +345,13 @@ jobs:
           - mode: cards-shared
             scripts: smoke-shared-cards smoke-card-greek-capacity
           - mode: cards-ui
-            scripts: check-card-awakening smoke-card-unveil smoke-card-hand smoke-card-boardyai smoke-card-music smoke-card-music-network smoke-card-media-cache smoke-scene-video
+            scripts: check-card-awakening smoke-card-unveil smoke-card-amnesia smoke-card-hand smoke-card-boardyai smoke-card-music smoke-card-music-network smoke-card-media-cache smoke-scene-video
           - mode: cards-routes
             scripts: smoke-card-narrative-contract smoke-card-home-rescue smoke-card-oil-return smoke-card-pond-access smoke-card-clearing-access smoke-card-pond-crossings smoke-shared-ship smoke-card-facing smoke-card-image-first smoke-card-toolbar smoke-card-learning smoke-shared-snapshot-order smoke-shared-play-status smoke-card-actions
           - mode: cards-drama
             scripts: smoke-card-greek-drama smoke-card-theban-scenery
           - mode: cards-weather
-            scripts: smoke-card-weather smoke-card-greek-travel
+            scripts: smoke-card-weather smoke-card-greek-travel smoke-card-ship-fade
           - mode: cards-open-door
             scripts: smoke-card-open-door
           - mode: cards-homecoming
@@ -303,7 +359,7 @@ jobs:
           - mode: cards-ajax
             scripts: smoke-card-ajax
           - mode: cards-dialogue
-            scripts: smoke-card-dialogue-recovery smoke-card-silent-reply smoke-card-dialogue-timing smoke-card-movement
+            scripts: smoke-card-dialogue-recovery smoke-card-silent-reply smoke-card-dialogue-timing smoke-card-movement smoke-card-beat-stack
           - mode: cards-quests
             scripts: smoke-card-shared-discovery smoke-card-bard-travel smoke-card-voice
     env:

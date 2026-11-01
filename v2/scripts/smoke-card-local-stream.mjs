@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
+import { selectCard } from "./card-browser-helpers.mjs";
 const origin =
   process.env.COSYWORLD_LOCAL_SMOKE_ORIGIN || "http://127.0.0.1:3110";
 const output = new URL("../../output/local-app/", import.meta.url);
@@ -114,8 +115,9 @@ try {
     );
     await page.waitForFunction(() => !document.body.inert);
     await page.waitForTimeout(3200);
-    await page.locator('#hand button[data-card="vale"]').click();
-    await page.locator('#hand button[data-card="lamp"]').click();
+    // The opening cards start covered; the helper uncovers, then selects.
+    await selectCard(page, "vale");
+    await selectCard(page, "lamp");
     await page.locator('#card-actions button[data-action="light"]').click();
     await page.waitForFunction(
       () =>

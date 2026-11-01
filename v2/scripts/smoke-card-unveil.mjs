@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, stackHits } from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -14,6 +14,8 @@ try {
   for (const [width, height, motion] of [
     [1440, 900, "no-preference"],
     [390, 844, "no-preference"],
+    [1440, 900, "reduce"],
+    [390, 844, "reduce"],
     [320, 568, "reduce"],
   ]) {
     const page = await browser.newPage({
@@ -33,8 +35,11 @@ try {
       );
       window.discoveries = [];
       window.flights = [];
+      window.arrivals = [];
       const animate = Element.prototype.animate;
       Element.prototype.animate = function (...args) {
+        if (this.matches?.("#hand .card") && args[0][0]?.opacity === 0 && !args[1].pseudoElement)
+          window.arrivals.push(this.dataset.card);
         if (this.id === "unveil-take")
           window.flights.push({
             id: this.dataset.card,
@@ -105,17 +110,29 @@ try {
     const unveil = (id) =>
       page.waitForFunction(
         (id) =>
-          document.querySelector("#unveil-dialog").open &&
-          document.querySelector("#unveil-dialog").dataset.phase === "reveal" &&
-          document.querySelector("#unveil-take").dataset.card === id,
+          document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "true",
         id,
       );
     const finish = async () => {
       for (let i = 0; i < 300; i++) {
         if (await page.locator("#unveil-dialog[open]").count())
           await page.keyboard.press("Escape");
-        else if (await page.locator("#dialogue-advance").isVisible())
-          await page.locator("#dialogue-advance").click();
+        else if (await page.locator("#dialogue-advance").isVisible()) {
+          // After a discovery the front card still takes real clicks.
+          const open = () => page.locator("#unveil-dialog[open]").count();
+          if ((await stackHits(page)).front === false && !(await open())) {
+            await page.waitForTimeout(400);
+            if ((await stackHits(page)).front === false && !(await open()))
+              throw Error(`The front card missed a click at ${width}px`);
+          }
+          // A discovery can open over the line mid-click; the loop takes it.
+          await page
+            .locator("#dialogue-advance")
+            .click({ timeout: 3000 })
+            .catch(async (error) => {
+              if (!(await open())) throw error;
+            });
+        }
         if (
           (await page.locator("#hand").getAttribute("data-cooling")) === "false"
         )
@@ -140,28 +157,89 @@ try {
       assert.equal((await state()).items.lamp.lit, false);
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       // The unlit attic is dark, with no shore in the mirror.
-      assert.equal(await backdrop(), await stage("./assets/shared/places/attic-dark.webp"));
+      assert.equal(
+        await backdrop(),
+        await stage("./assets/shared/places/attic-dark.webp"),
+      );
+      // The opening hand starts covered; a first tap uncovers without selecting.
+      const covered = () =>
+        page.evaluate(() =>
+          [...document.querySelectorAll('#hand [data-unrevealed="true"]')]
+            .map((card) => card.dataset.card)
+            .sort(),
+        );
+      const opening = ["attic", "lamp", "vale"];
+      assert.deepEqual(await covered(), opening);
       await page.screenshot({
         path: new URL(`attic-start-${width}.png`, output).pathname,
       });
+      const vale = page.locator('#hand [data-card="vale"]');
+      await vale.click();
+      assert.equal(await vale.getAttribute("data-unrevealed"), "false");
+      assert.equal(await vale.getAttribute("aria-pressed"), "false");
+      assert.deepEqual(await covered(), ["attic", "lamp"]);
+      // A reload keeps the table known: nothing is covered again.
+      await page.reload();
+      await ready();
+      assert.deepEqual(await covered(), ["attic", "lamp"]);
       await selectCard(page, "lamp");
       await page.locator("#card-actions .card-primary").click();
       await unveil("pond");
+      await finish();
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal(await backdrop(), await stage("./assets/attic.png"));
       assert.equal(
         await page.locator('#hand [data-card="vale"]').isDisabled(),
-        true,
+        false,
       );
       const before = await state();
-      await page.locator('#hand [data-card="vale"]').dispatchEvent("click");
+      const pond = page.locator('#hand [data-card="pond"]');
+      assert.equal(await pond.locator(".card-back").isVisible(), true);
+      assert(await pond.locator(".card-back").evaluate((img) => img.complete && img.naturalWidth > 0));
+      const levelVisibility = () => pond.locator(".card-level").evaluateAll((marks) => marks.map((mark) => getComputedStyle(mark).visibility));
+      assert.deepEqual(await levelVisibility(), ["hidden", "hidden"]);
+      assert(await page.evaluate(() => window.arrivals.includes("pond")), "pond settles into the hand");
+      await pond.click();
+      assert.equal(await pond.getAttribute("aria-pressed"), "false");
+      assert.equal(await pond.getAttribute("data-unrevealed"), "false");
+      assert.equal(await pond.getAttribute("data-revealing"), "common");
+      assert.equal(await pond.evaluate((el) => getComputedStyle(el, "::after").content), '"New card"');
+      const lid = await pond.locator(".reveal-lid").evaluate((el) => ({
+        motion: el.getAnimations()[0].effect.getKeyframes()[0].transform ?? "fade",
+        fit: getComputedStyle(el).objectFit,
+      }));
+      assert.equal(lid.fit, "contain");
+      assert.equal(lid.motion === "fade", motion === "reduce", JSON.stringify(lid));
+      // Once the lid has opened it stays gone for the rest of the reveal.
+      const lateLid = await pond.locator(".reveal-lid").evaluate((lid) => {
+        for (const a of lid.getAnimations()) a.currentTime = a.effect.getComputedTiming().endTime + 1;
+        return getComputedStyle(lid).opacity;
+      });
+      assert.equal(lateLid, "0");
+      // A tap during the reveal skips it without selecting, then the card,
+      // with no layers or animations left, takes the next click itself.
+      await pond.click();
+      assert.equal(await pond.getAttribute("data-revealing"), null);
+      assert.equal(await pond.getAttribute("aria-pressed"), "false");
+      const hits = await pond.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        return {
+          card: el.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 3)),
+          layers: el.querySelectorAll(".reveal-lid, .reveal-sheen").length,
+          animations: el.getAnimations({ subtree: true }).length,
+          preserved: [...document.querySelectorAll("#hand *, .beat-stack *")].some((n) => getComputedStyle(n).transformStyle === "preserve-3d"),
+        };
+      });
+      assert.deepEqual(hits, { card: true, layers: 0, animations: 0, preserved: false });
+      if (await page.locator("#speech-row").isVisible())
+        assert.equal((await stackHits(page)).front, true);
       assert.deepEqual(await state(), before);
-      const bounds = await page.locator("#unveil-take").boundingBox();
+      const bounds = await pond.boundingBox();
       assert(
         bounds.width > 100 &&
           bounds.x >= 0 &&
           bounds.y >= 0 &&
-          bounds.y + bounds.height <= height,
+          bounds.x + bounds.width <= width,
       );
       await page.screenshot({
         path: new URL(`reveal-${width}.png`, output).pathname,
@@ -177,8 +255,8 @@ try {
         });
         await page.waitForTimeout(1800);
         assert.equal(
-          await page.locator("#unveil-dialog").getAttribute("data-phase"),
-          "reveal",
+          await page.locator("#unveil-dialog[open]").count(),
+          0,
         );
         await page.evaluate(() => {
           Object.defineProperty(document, "hidden", {
@@ -188,13 +266,13 @@ try {
           document.dispatchEvent(new Event("visibilitychange"));
         });
       }
-      // The first reveal finishes itself; the player can also tap or press Escape.
+      // The first tap uncovers without playing or changing the held selection.
       await ready();
       assert.equal(
         await page
           .locator('#hand [data-card="pond"]')
-          .evaluate((el) => el.classList.contains("new")),
-        true,
+          .getAttribute("data-unrevealed"),
+        "false",
       );
       // The lit lamp stays in hand and offers Put out until it is lowered.
       assert.equal(
@@ -207,9 +285,12 @@ try {
       assert.equal(
         await page
           .locator('#hand [data-card="pond"]')
-          .evaluate((el) => el.classList.contains("new")),
-        false,
+          .getAttribute("aria-pressed"),
+        "true",
       );
+      assert.deepEqual(await levelVisibility(), ["visible", "visible"]);
+      assert.match(await pond.locator(".card-level").first().textContent(), /^[IVXLCDM]+$/);
+      assert(await pond.evaluate((el) => getComputedStyle(el).borderTopColor === getComputedStyle(el.querySelector(".card-level")).color));
       await page.keyboard.press("Escape");
       await selectCard(page, "pond");
       await page.locator("#card-actions .card-primary").click();
@@ -231,53 +312,38 @@ try {
           .evaluate((el) => Number(getComputedStyle(el).opacity)),
         0,
       );
-      assert.equal(await page.locator("#dialogue-text .revealed").count(), 0);
+      assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       await page.keyboard.press("Escape");
       await unveil("oil");
       assert.equal(
         await page.locator('#hand [data-card="oil"]').isVisible(),
         false,
       );
-      await page.locator("#unveil-take").click();
+      await selectCard(page, "keeper");
+      await page.locator('#hand [data-card="oil"]').click();
       await finish();
       if (motion === "reduce")
         assert.equal(await page.locator("#story-retry").isVisible(), true);
+      // Tapping the card behind still goes back in time after discoveries.
+      if (await page.locator("#beat-behind").isVisible()) {
+        await page.waitForTimeout(400);
+        assert.deepEqual(await stackHits(page), { front: true, behind: true });
+        await page.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
+        await page.locator("#live-line").waitFor();
+        await page.locator("#live-line").click();
+        await page.locator("#live-line").waitFor({ state: "hidden" });
+      }
       const events = await page.evaluate(() => ({
         discoveries: window.discoveries,
         flights: window.flights,
       }));
-      // Only people, items and places are unveiled; quests reach Talk instead.
-      assert(events.discoveries.every((event) => !event.isQuest));
-      assert.equal(
-        events.discoveries.filter((event) => !event.isQuest)[0].id,
-        "pond",
-      );
-      assert(
-        events.discoveries.findIndex((e) => e.id === "keeper") <
-          events.discoveries.findIndex((e) => e.id === "oil"),
-      );
-      assert(
-        events.discoveries.every(
-          (e) =>
-            e.cooling === "true" &&
-            e.travel <= 0.01 &&
-            (e.isQuest || e.speech === 0),
-        ),
-        `Reveal state at ${width}px (${motion}): ${JSON.stringify(events.discoveries)}`,
-      );
-      if (motion === "reduce") assert.equal(events.flights.length, 0);
-      else {
-        assert(events.flights.some((f) => f.id === "pond"));
-        assert(events.flights.some((f) => f.id === "oil"));
-        assert(
-          events.flights
-            .filter((f) => f.direction !== "fulfill")
-            .every((f) => f.frames[1].transform !== "translate(0, 0) scale(1)"),
-        );
-      }
+      assert.deepEqual(events.discoveries, [], "discoveries open no modal");
+      assert.deepEqual(events.flights, [], "cards stay in their hand stacks");
       const saved = await state();
       await page.reload();
       await finish();
+      assert.equal(await page.locator('#hand [data-card="keeper"]').getAttribute("data-unrevealed"), "false");
+      assert.equal(await page.locator('#hand [data-card="oil"]').getAttribute("data-unrevealed"), "false");
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       assert.deepEqual(await page.evaluate(() => window.discoveries), []);
       assert.deepEqual(await state(), saved);
@@ -289,6 +355,7 @@ try {
       await ready();
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal((await state()).items.lamp.lit, false);
+      assert.deepEqual(await covered(), opening);
       await selectCard(page, "lamp");
       await page.locator("#card-actions .card-primary").click();
       await unveil("pond");
@@ -313,7 +380,7 @@ try {
       assert.deepEqual(errors, []);
       reports.push({ width, height, motion, ...events, passed: true });
       console.log(
-        `Discovery reveal, flight, glow, travel order, held items, reload and cancellation passed at ${width}px (${motion}).`,
+        `Card arrival, first-click reveal, skip, hit-testing, second-click selection, reload and reset passed at ${width}px (${motion}).`,
       );
     } finally {
       await page.close();

@@ -1,3 +1,4 @@
+import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
@@ -16,7 +17,7 @@ import {
 } from "../v2/card-game/scene.mjs";
 import { packPlaces } from "../v2/card-game/pack-registry.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
-import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { dispatchShared, load } from "../v2/card-game/shared-world.mjs";
 
 describe("regional Greece weather", () => {
   it("covers every Greek location and keeps local scenery within its region", () => {
@@ -78,24 +79,7 @@ describe("regional Greece weather", () => {
   });
 
   it("matches shared views, browser rules, and the compiled server across regions and turns", () => {
-    const version = readFileSync(
-      new URL(
-        "../v2/orchestrator-rust/src/card_shared/engine.rs",
-        import.meta.url,
-      ),
-      "utf8",
-    ).match(/const VERSION: &str = "full-card-world\/(\d+)"/)[1];
-    const runtime = vm.createContext({ structuredClone });
-    vm.runInContext(
-      readFileSync(
-        new URL(
-          `../v2/orchestrator-rust/src/card_shared/engine-v${version}.js`,
-          import.meta.url,
-        ),
-        "utf8",
-      ),
-      runtime,
-    );
+    const runtime = currentSharedEngine();
     const ask = (request) =>
       JSON.parse(runtime.cardShared(JSON.stringify(request)));
     const world = dispatchShared({
@@ -113,10 +97,12 @@ describe("regional Greece weather", () => {
         const request = { op: "view", world, actor, claimed, present: claimed };
         const browser = dispatchShared(request);
         expect(ask(request)).toEqual(browser);
-        expect(browser.scene.weather).toEqual(
+        // The scene is drawn in the browser from the shared world.
+        const { weather } = currentScene(load(request));
+        expect(weather).toEqual(
           locationWeather(world, world.actors[actor].place),
         );
-        return browser.scene.weather;
+        return weather;
       });
       expect(views[0].condition).toBe(views[1].condition);
       expect(views[0].region).toBe(views[1].region);

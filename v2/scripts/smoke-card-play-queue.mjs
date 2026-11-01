@@ -260,10 +260,8 @@ try {
         document.querySelector("#dialogue-advance").dataset.revealing ===
         "false",
     );
-    await page.waitForFunction(
-      () => !document.querySelector("#next-line").disabled,
-    );
-    await page.locator("#next-line").click();
+    // A tap on the finished front card moves the exchange on.
+    await page.locator("#dialogue-advance").click();
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
     );

@@ -14,6 +14,7 @@ import {
   landingPack,
 } from "../v2/card-game/pack-landing.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 
 const pack = packDefinition("hoppycat-archive");
 const id = (name) => `hoppycat-${name}`;
@@ -148,22 +149,7 @@ describe("Hoppy Cat refresh", () => {
   });
 
   it("keeps browser and bundled shared play in agreement", () => {
-    const runtime = vm.createContext({ structuredClone });
-    vm.runInContext(
-      readFileSync(
-        new URL(
-          `../v2/orchestrator-rust/src/card_shared/engine-v${
-            readFileSync(
-              new URL("../v2/orchestrator-rust/src/card_shared/engine.rs", import.meta.url),
-              "utf8",
-            ).match(/const VERSION: &str = "full-card-world\/(\d+)"/)[1]
-          }.js`,
-          import.meta.url,
-        ),
-        "utf8",
-      ),
-      runtime,
-    );
+    const runtime = currentSharedEngine();
     // Released rules saved version 2 ships; the current rules sail version 3.
     const v2 = (world) =>
       world && {
@@ -202,15 +188,7 @@ describe("Hoppy Cat refresh", () => {
     const action = view.actions.find((a) => a.choiceId === id("welcome"));
     expect(action).toBeDefined();
     const command = { ...request, op: "play", action };
-    // Released rules keep the same state; dialogue context is narration only
-    // and follows the current bundle.
-    const { context: released, ...releasedPlay } = ask(command);
-    const { context: current, ...currentPlay } = shipless(
-      dispatchShared(command),
-    );
-    expect(releasedPlay).toEqual(currentPlay);
-    expect(released.entities.map((e) => e.id)).toEqual(
-      current.entities.map((e) => e.id),
-    );
+    // Dialogue context is narration, built outside the rules (narrator bundle).
+    expect(ask(command)).toEqual(shipless(dispatchShared(command)));
   });
 });

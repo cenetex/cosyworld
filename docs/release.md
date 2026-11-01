@@ -5,8 +5,11 @@ Deployments are handled by `.github/workflows/deploy.yml`.
 ## Continuous deploys
 
 Pushes to `main` deploy only the primary `cosyworld` Fly app, as soon as its
-image is built, without the production gate or a primary backup; CI still
-checks the commit, and bugs on `.dev` are fixed forward. Tags matching `v*` rerun the production gate, deploy both
+image is built, without the production gate or a primary backup; bugs on `.dev` are fixed
+forward. Every main push also runs the fast check (`fast-check.yml`). The
+full suite (`ci.yml`) runs only by hand before a release: run
+`gh workflow run ci.yml --ref main` on the commit to be tagged, and tag it
+only when that run is green. Tags matching `v*` rerun the production gate, deploy both
 the primary app and `cosyworld-lonelyforest` from the tagged commit, and create
 a GitHub release only after both deployments succeed.
 
@@ -31,7 +34,7 @@ The image job compiles the release binary on the runner, in the Dockerfile's own
 Actions cache. The image takes that binary through the `orchestrator-prebuilt`
 build context, so a UI or art change recompiles the crate incrementally rather
 than from scratch. Cargo folds the crate version into the crate's identity and
-every commit bumps it, so this build fixes the manifest version at `0.0.0` and
+each release bumps it, so this build fixes the manifest version at `0.0.0` and
 passes the real version to the compiler through
 `scripts/release-rustc-wrapper.sh`; `/meta` still reports the real version.
 The first deploy of each UTC day saves the target again, after `.dev` is live.
@@ -83,12 +86,40 @@ The Terraform state remains stored in:
 - Key: `lonely-forest/terraform.tfstate`
 - Lock table: `cosyworld-lonely-forest-terraform-locks`
 
+## Versions
+
+Pull requests do not bump the version. Main and `.dev` keep the last released
+version between releases; each deploy sets `COSYWORLD_SOURCE_COMMIT`, and
+`/meta.commit` reports its first 12 characters, so `/meta` shows a `.dev` build
+as `version` plus `commit`. `npm run check:version` (CI, pre-commit, pre-push)
+checks only that `package.json`, `package-lock.json`, both Cargo manifests and
+lock files, and the desktop config agree.
+
+Journal replay, saves, released rules bundles (`engine-vN.js` and their
+hashes), worldpack bundle hashes, and the card asset manifest do not read the
+package version. It appears only in `/meta.version`, the
+`x-cosyworld-card-version` and media headers, activation metrics
+`release_version`, and the Mac app name.
+
 ## Cutting a Release
 
-The package and Rust crate versions must already match the final release version.
+Bump the version once, in a small release PR:
+
+```sh
+git switch -c claude/release-X.Y.Z origin/main
+npm run version:bump          # patch; or `npm run version:bump -- X.Y.Z`
+npm run check:version
+git commit -am "Release X.Y.Z"
+```
+
+Merge it after its fast check passes, run the full suite on the merge commit
+(`gh workflow run ci.yml --ref main`), and tag that commit with `vX.Y.Z` as
+below only after the full run is green.
+The tag run's `/meta` check requires the deployed version to equal
+`package.json` at the tag, which holds because the release PR bumped it.
+
 The Mac shell and game helper share this version. `npm run version:bump` updates
-the package and both Cargo manifests and lock files. `npm run check:version`
-checks their agreement. The **Local desktop app** workflow builds the same
+the package and both Cargo manifests and lock files. The **Local desktop app** workflow builds the same
 commit on `main` and release tags. Its package check verifies the app version,
 shared rules, voice references, and public game files against the web source.
 Use the version and source commit in its download manifest to select the app

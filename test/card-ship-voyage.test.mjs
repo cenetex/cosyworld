@@ -9,7 +9,6 @@ import {
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   IDLE_ROUNDS,
-  learnLane,
   callTransport,
   lanesFrom,
   summonTransport,
@@ -213,7 +212,7 @@ describe("a real voyage", () => {
       "greek-harbor",
     ]);
     // Vale knows the Black Pond lane. Piraeus waits for the Travel
-    // Provisions aboard; Athens Harbor for a lane she has not heard of yet.
+    // Provisions aboard; Athens Harbor for the olive branch.
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-harbor",
     ]);
@@ -222,7 +221,7 @@ describe("a real voyage", () => {
       "greek-harbor",
       "greek-piraeus",
     ]);
-    learnLane(s, "vale", "greek-piraeus", "greek-athens-harbor");
+    s.items["greek-olive-branch"].holder = "greek-ship";
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-athens-harbor",
       "greek-harbor",

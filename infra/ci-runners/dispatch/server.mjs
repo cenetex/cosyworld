@@ -148,7 +148,9 @@ function serve(env) {
   const serial = (task) => (queue = queue.then(task).catch((error) => console.error(error.message)));
   setInterval(() => serial(() => dispatcher.dispatch()), 30_000);
 
-  createServer((req, res) => {
+  // Fly's proxy reuses idle connections longer than Node's 5 s default, and a
+  // request on a connection Node already closed comes back to GitHub as a 502.
+  const server = createServer((req, res) => {
     if (req.method === "GET" && req.url === "/healthz") {
       res.end(JSON.stringify(dispatcher.state()));
       return;
@@ -165,7 +167,10 @@ function serve(env) {
       const event = req.headers["x-github-event"];
       serial(() => dispatcher.handle(event, JSON.parse(body.toString("utf8"))));
     });
-  }).listen(Number(env.PORT ?? 8080));
+  });
+  server.keepAliveTimeout = 75_000;
+  server.headersTimeout = 76_000;
+  server.listen(Number(env.PORT ?? 8080));
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) serve(process.env);

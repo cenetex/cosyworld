@@ -26,7 +26,10 @@ It never teleports a passenger. Its saved state has four phases.
    course for everyone aboard. The other course cards leave every hand.
 3. **At sea.** The voyage takes **one world round**, however far the lane.
    Aboard, the only place card is the deck itself; people can Talk, Wait, give
-   and trade. Nobody disembarks at sea. The deck is a good place for
+   and trade. Nobody disembarks at sea, but on a misty night the Willows
+   crossing rises beside the rail (see
+   [the Willows at sea](willows-at-sea.md)). The deck has its own rainy,
+   misty `sea` weather. The deck is a good place for
    conversation: the shipmaster, the Bard and passengers from several worlds
    share one room.
 4. **Arrived.** The ship docks at its destination. The only Disembark card is
@@ -61,8 +64,8 @@ marked one-way.
 | --- | --- | --- |
 | Black Pond | `pond` | Wine-Dark Harbor |
 | Wine-Dark Harbor | `greek-harbor` | Black Pond, Piraeus (Travel Provisions aboard), Trojan camp landing, Willows landing |
-| Athens Harbor | `greek-athens-harbor` | Piraeus |
-| Piraeus Quays | `greek-piraeus` | Wine-Dark Harbor (Travel Provisions aboard), Athens Harbor, Signal Jetty (Hoppy Cat thing aboard) |
+| Athens Harbor | `greek-athens-harbor` | Piraeus (Suppliant's Olive Branch aboard) |
+| Piraeus Quays | `greek-piraeus` | Wine-Dark Harbor (Travel Provisions aboard), Athens Harbor (Suppliant's Olive Branch aboard), Signal Jetty (Hoppy Cat thing aboard) |
 | Signal Jetty (Hoppy Cat) | `hoppycat-signal-jetty` | Piraeus |
 | Trojan camp landing | `greek-ajax-landing` | Wine-Dark Harbor |
 | Willows landing | `willows-landing` | Wine-Dark Harbor |
@@ -85,9 +88,15 @@ The Wine-Dark Harbor to Piraeus lane opens while the Travel Provisions
 `opensWith` gate as the Signal Jetty, here with an `item_present` condition on
 the ship. Piraeus Quays is outside the Open Door section, so the lane reaches
 it in a default save; the quay's roads inland and its stories still need
-Dione's invitation. Athens Harbor and Athens keep their Open Door gate. The
-lane on from Piraeus to Athens Harbor is learned by sailing it or through
-Talk.
+Dione's invitation. Athens Harbor and Athens keep their Open Door gate.
+
+The lane on from Piraeus to Athens Harbor opens while the Suppliant's Olive
+Branch (`greek-olive-branch`) is aboard (owner decision, 2026-10-31, #1603).
+The herald hands it over at the Agora when the mothers' plea is registered
+(`greek-open-door-register-plea`); until then it is out of play. These lane
+things are ordinary unique items: they can be traded, carried ashore or left
+aboard, and the lane is open only while one rides on deck. No flag or pass
+unlocks a lane permanently. Land roads within a landmass stay open.
 
 Distant worlds are several lanes away. A player needs the thing **and** must
 find which port sails there.

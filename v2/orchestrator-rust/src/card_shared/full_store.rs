@@ -1,6 +1,6 @@
 use super::{
-    engine,
-    full_world::{actor_id, World},
+    content, engine,
+    full_world::{actor_id, actor_index, World},
     store::{self, sql_error, Result},
 };
 use rusqlite::{params, Connection, OptionalExtension};
@@ -20,6 +20,7 @@ pub(super) fn schema_sqlite(c: &Connection) -> rusqlite::Result<()> {
       CREATE INDEX IF NOT EXISTS card_full_plays_user ON card_full_plays(user,created);
       CREATE TABLE IF NOT EXISTS card_full_scenes(seq INTEGER PRIMARY KEY AUTOINCREMENT,world TEXT NOT NULL,room TEXT NOT NULL,play TEXT NOT NULL UNIQUE,content TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS card_full_scenes_room ON card_full_scenes(world,room,seq);
+      CREATE TABLE IF NOT EXISTS card_full_packs(hash TEXT PRIMARY KEY,revision TEXT NOT NULL,content TEXT NOT NULL);
     ")
 }
 fn checkpoint(c: &Connection, id: &str, w: &World, seq: i64) -> Result<()> {
@@ -27,6 +28,9 @@ fn checkpoint(c: &Connection, id: &str, w: &World, seq: i64) -> Result<()> {
     Ok(())
 }
 pub(super) fn seed(c: &Connection, id: &str, w: &World, reason: &str, now: i64) -> Result<()> {
+    if w.pack.is_some() {
+        content::save(c)?;
+    }
     c.execute(
         "INSERT INTO card_full_log(world,command,at) VALUES(?,?,?)",
         params![
@@ -55,6 +59,9 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         ),
         None => (0, None),
     };
+    if let Some(pack) = state.as_ref().and_then(|w| w.pack.as_deref()) {
+        content::preload(c, pack)?;
+    }
     let checkpoint_seq = seq;
     let mut q = c
         .prepare("SELECT seq,command FROM card_full_log WHERE world=? AND seq>? ORDER BY seq")
@@ -71,8 +78,21 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
             if state.is_some() {
                 return Err("This world's history needs attention.".into());
             }
-            state = Some(serde_json::from_value(command["state"].clone()).map_err(sql_error)?);
+            let seeded: World =
+                serde_json::from_value(command["state"].clone()).map_err(sql_error)?;
+            if let Some(pack) = seeded.pack.as_deref() {
+                content::preload(c, pack)?;
+            }
+            state = Some(seeded);
         } else {
+            // Replay reads each recorded content revision from the store.
+            let pack = match command["op"].as_str() {
+                Some("repack") => command["to"].as_str(),
+                _ => command["pack"].as_str(),
+            };
+            if let Some(pack) = pack {
+                content::preload(c, pack)?;
+            }
             state
                 .as_mut()
                 .ok_or("This world's history needs its first record.")?
@@ -83,17 +103,22 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
     if let Some(mut w) = state {
         if engine::historical(&w.version) {
             let from = w.version.clone();
-            commit(
-                c,
-                id,
-                &mut w,
-                json!({"op":"upgrade", "from":from, "to":engine::VERSION}),
-                now,
-            )?;
+            let mut upgrade = json!({"op":"upgrade", "from":from, "to":engine::VERSION});
+            if engine::takes_content(engine::VERSION) {
+                content::save(c)?;
+                upgrade["pack"] = json!(content::current());
+            }
+            commit(c, id, &mut w, upgrade, now)?;
             return Ok(w);
         }
         if w.version != engine::VERSION {
             return Err("This world's rules need a saved migration.".into());
+        }
+        if engine::takes_content(&w.version) && w.pack.as_deref() != Some(content::current()) {
+            content::save(c)?;
+            let repack = json!({"op":"repack", "from":w.pack, "to":content::current(), "revision":content::REVISION});
+            commit(c, id, &mut w, repack, now)?;
+            return Ok(w);
         }
         if seq > checkpoint_seq {
             checkpoint(c, id, &w, seq)?;
@@ -125,6 +150,7 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         game: result["world"].clone(),
         claimed: old.claimed,
         present: [0; 8],
+        pack: engine::takes_content(engine::VERSION).then(|| content::current().into()),
     };
     seed(c, id, &w, "legacy-nine-room-to-full-world", now)?;
     for scene in result["legacyScenes"].as_array().into_iter().flatten() {
@@ -150,13 +176,29 @@ pub(super) fn commit(
     command: Value,
     now: i64,
 ) -> Result<Value> {
-    let result = w.apply(&command)?;
+    let mut result = w.apply(&command)?;
     c.execute(
         "INSERT INTO card_full_log(world,command,at) VALUES(?,?,?)",
         params![id, command.to_string(), now],
     )
     .map_err(sql_error)?;
     checkpoint(c, id, w, c.last_insert_rowid())?;
+    // A committed play's dialogue context comes from the narrator, never the
+    // rules. Replay applies commands directly and never asks for it.
+    // The play is already journaled, so nothing here may return an error.
+    if command["op"] == "play" {
+        let Ok(a) = actor_index(command["actor"].as_str().unwrap_or_default()) else {
+            return Ok(result);
+        };
+        let mut scene = w.request("context", a);
+        scene["action"] = command["action"].clone();
+        match super::narrator::context(&scene) {
+            Ok(context) => result["context"] = context,
+            Err(error) => {
+                tracing::error!(error = %error, "the narrator could not describe a committed play")
+            }
+        }
+    }
     Ok(result)
 }
 pub(super) fn expire(c: &Connection, id: &str, w: &mut World, now: i64) -> Result<()> {

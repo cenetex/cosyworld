@@ -16,6 +16,10 @@ for (const target of targets) {
   assert.equal(metadataResponse.status, 200, `${base.origin}: metadata status`);
   const meta = await metadataResponse.json();
   assert.equal(meta.version, version, `${base.origin}: metadata release`);
+  // Between releases main keeps the release version; the commit names the build.
+  if (meta.commit && process.env.GITHUB_SHA) {
+    assert(process.env.GITHUB_SHA.startsWith(meta.commit), `${base.origin}: commit ${meta.commit}`);
+  }
   assert.equal(
     meta.primary_game,
     "card-table",
@@ -48,7 +52,7 @@ for (const target of targets) {
     assert(meta[field], `${base.origin}: preserved ${field}`);
   }
   console.log(
-    `${base.origin}: ${meta.primary_game} ${meta.version}, rules ${meta.card_game.shared_rules_version}`,
+    `${base.origin}: ${meta.primary_game} ${meta.version}${meta.commit ? `+${meta.commit}` : ""}, rules ${meta.card_game.shared_rules_version}`,
   );
   // Check a few files at a time: the release has hundreds of files and
   // about 500 MB, which took two minutes one by one.

@@ -107,6 +107,13 @@ jobs:
             release-target-v1-${{ hashFiles('Dockerfile') }}-
             release-target-v1-
 
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        if: steps.impact.outputs.deploy == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
       # The watcher cancels this run if main moves while the image builds.
       - name: Prepare primary image
         id: image
@@ -128,16 +135,10 @@ jobs:
         if: steps.impact.outputs.deploy == 'true'
         run: bash scripts/yield-superseded-deploy.sh check
 
-      - name: Setup Node.js
-        if: steps.impact.outputs.deploy == 'true'
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-
       - name: Roll out .dev
         id: rollout
         if: steps.impact.outputs.deploy == 'true'
-        run: flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling
+        run: flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
         env:
           RELEASE_IMAGE: ${{ steps.image.outputs.image }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -301,9 +302,9 @@ jobs:
         with:
           fetch-depth: 1
 
-      # CI runs the same Rust tests and lint on every main commit. Reuse its
-      # result for this exact commit; run the checks here only when CI did not
-      # run them, was cancelled, or failed.
+      # A manual main CI run, required before a tag, runs the same Rust tests
+      # and lint. Reuse its result for this exact commit; run the checks here
+      # only when CI did not run them, was cancelled, or failed.
       - name: Reuse CI Rust checks for this commit
         id: ci
         env:
@@ -313,6 +314,13 @@ jobs:
       - name: Setup Rust
         if: steps.ci.outputs.reuse != 'true'
         uses: dtolnay/rust-toolchain@stable
+
+      # build.rs runs Node to generate the embedded card asset list.
+      - name: Setup Node.js
+        if: steps.ci.outputs.reuse != 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
 
       - name: Restore Cargo build cache
         if: steps.ci.outputs.reuse != 'true'
@@ -482,7 +490,7 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy primary Fly app
-        run: flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling
+        run: flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
         env:
           RELEASE_IMAGE: ${{ needs.primary-image.outputs.image }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -629,7 +637,7 @@ jobs:
       - name: Deploy Lonely Forest
         run: |
           for attempt in 1 2; do
-            if flyctl deploy --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false --strategy rolling; then
+            if flyctl deploy --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"; then
               exit 0
             fi
             if [ "$attempt" -eq 2 ]; then

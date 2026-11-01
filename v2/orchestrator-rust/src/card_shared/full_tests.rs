@@ -341,6 +341,7 @@ fn released_ship_upgrade_keeps_npc_arrivals_locked_and_human_passengers_safe() {
             game: old["world"].clone(),
             claimed: [1, 0, 0, 0, 0, 0, 0, 0],
             present: [1, 0, 0, 0, 0, 0, 0, 0],
+            pack: None,
         };
         w.game.as_object_mut().unwrap().remove("opening");
         w.game["actors"]["vale"]["place"] = json!("pond");
@@ -402,6 +403,7 @@ fn occupied_ship_upgrade_preserves_shared_boarding_return_riders_and_replay() {
             game: old["world"].clone(),
             claimed: [1, 1, 0, 0, 0, 0, 0, 0],
             present: [1, 1, 0, 0, 0, 0, 0, 0],
+            pack: None,
         };
         w.game.as_object_mut().unwrap().remove("opening");
         w.game["actors"]["vale"]["place"] = json!("pond");
@@ -545,6 +547,7 @@ fn earlier_home_travel_replays_before_one_recorded_rules_upgrade() {
         game: result["world"].clone(),
         claimed: [0; 8],
         present: [0; 8],
+        pack: None,
     };
     full_store::seed(&c, &id, &old, "previous-rules", now()).unwrap();
     for a in [1, 2] {
@@ -718,6 +721,7 @@ fn earlier_completed_quests_gain_a_pending_bard_visit_after_recorded_upgrade() {
             game: old["world"].clone(),
             claimed: [0; 8],
             present: [0; 8],
+            pack: None,
         };
         w.game.as_object_mut().unwrap().remove("opening");
         w.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
@@ -1492,6 +1496,7 @@ fn old_rule_history_upgrades_once_and_replays_with_either_checkpoint_path() {
                 game: result["world"].clone(),
                 claimed: [0; 8],
                 present: [0; 8],
+                pack: None,
             };
             old.game["turn"] = json!(2);
             old.game["revision"] = json!(2);
@@ -1626,6 +1631,7 @@ fn released_pickup_journal_replays_through_both_recorded_upgrades() {
             game: result["world"].clone(),
             claimed: [0; 8],
             present: [0; 8],
+            pack: None,
         };
         full_store::seed(&c, &id, &old, "version-two-seed", now()).unwrap();
         for op in ["claim", "enter"] {
@@ -1750,6 +1756,7 @@ fn version_three_upgrade_keeps_released_untouched_belongings() {
             game: result["world"].clone(),
             claimed: [0; 8],
             present: [0; 8],
+            pack: None,
         };
         old.apply(&json!({"op":"claim","actor":"mara"})).unwrap();
         old.apply(
@@ -1807,6 +1814,7 @@ fn released_greek_upgrades_and_recitals_replay_after_quests_are_dropped() {
                 game: result["world"].clone(),
                 claimed: [0; 8],
                 present: [0; 8],
+                pack: None,
             };
             w.game.as_object_mut().unwrap().remove("opening");
             w.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
@@ -1941,6 +1949,7 @@ fn pruned_shared_recital_keeps_unknown_author_through_upgrade_and_replay() {
             game: result["world"].clone(),
             claimed: [0; 8],
             present: [0; 8],
+            pack: None,
         };
         old.game.as_object_mut().unwrap().remove("opening");
         old.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
@@ -2024,6 +2033,7 @@ fn released_carriage_route_replays_before_the_station_connection_upgrade() {
             game: result["world"].clone(),
             claimed: [0; 8],
             present: [0; 8],
+            pack: None,
         };
         full_store::seed(&c, &id, &w, "released-carriage", now()).unwrap();
         for op in ["claim", "enter"] {
@@ -2107,6 +2117,7 @@ fn released_shared_quest_receipts_drop_on_upgrade_and_replay() {
             game: result["world"].clone(),
             claimed: [0; 8],
             present: [0; 8],
+            pack: None,
         };
         w.game.as_object_mut().unwrap().remove("opening");
         w.game["actors"]["vale"]["place"] = json!("station");
@@ -2199,6 +2210,7 @@ fn released_quest_offers_are_dropped_by_the_upgrade_and_replay() {
             game: result["world"].clone(),
             claimed: [1, 1, 0, 0, 0, 0, 0, 0],
             present: [1, 1, 0, 0, 0, 0, 0, 0],
+            pack: None,
         };
         w.game.as_object_mut().unwrap().remove("opening");
         w.game["turn"] = json!(3);
@@ -2528,6 +2540,7 @@ fn stranded_home_rescue_replays_after_version_nine_upgrade() {
             game: result["world"].clone(),
             claimed: [1, 0, 0, 0, 0, 0, 0, 0],
             present: [1, 0, 0, 0, 0, 0, 0, 0],
+            pack: None,
         };
         old.game["items"]["lamp"]["fuel"] = json!(0);
         old.game["items"]["lamp"]["lit"] = json!(false);
@@ -2645,6 +2658,7 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
             game: seed["world"].clone(),
             claimed: [1, 1, 0, 0, 0, 0, 0, 0],
             present: [1, 1, 0, 0, 0, 0, 0, 0],
+            pack: None,
         };
         old.game.as_object_mut().unwrap().remove("opening");
         old.game["actors"]["vale"]["place"] = json!("pond");

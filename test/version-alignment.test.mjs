@@ -45,7 +45,7 @@ const check = (cwd, inherited = process.env) =>
   spawnSync(process.execPath, ["scripts/check-version-bump.mjs"], {
     cwd,
     encoding: "utf8",
-    env: { ...fixtureEnv(inherited), VERSION_BASE_BRANCH: "main" },
+    env: fixtureEnv(inherited),
   });
 afterEach(() =>
   temporary
@@ -80,6 +80,15 @@ describe("one release version for web and Mac", () => {
         encoding: "utf8",
       }).trim(),
     ).toBe("false");
+  });
+  it("accepts a branch that keeps main's version", () => {
+    const folder = fixture();
+    const git = (...args) =>
+      execFileSync("git", args, { cwd: folder, env: fixtureEnv() });
+    git("add", ".");
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "main");
+    git("checkout", "-qb", "feature");
+    expect(check(folder).status).toBe(0);
   });
   it("bumps the package, game helper, and native shell together", () => {
     const folder = fixture();

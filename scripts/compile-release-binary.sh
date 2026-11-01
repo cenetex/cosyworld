@@ -4,7 +4,7 @@
 # and registry, and /out receives the binary.
 set -eu
 
-# Every commit bumps the crate version, and Cargo hashes that version into the
+# Each release bumps the crate version, and Cargo hashes that version into the
 # crate's identity. A new identity discards rustc's incremental state. Build a
 # copy whose manifest version is fixed, and let the rustc wrapper give the
 # compiler the real version, so env!("CARGO_PKG_VERSION") is unchanged.

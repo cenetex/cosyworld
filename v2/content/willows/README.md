@@ -19,18 +19,21 @@ The drowned man is a discovery in the bank scene.
 
 ## Play
 
-Aboard the Greek ship at Black Pond on a misty night, choose Visit the
-Willows. River mist beside the rail leads to River Landing. By day, on a clear
-night, or with the ship at any other port or at sea, the mist does not rise
-and the card is not on the deck. With today's weather tables, night and mist
-at the deck meet for twelve turns in every 144; the ship must also lie at the
-pond then. An empty ship stays where it was left, so that happens only when
-someone left it at the pond or called it there.
+Aboard the Greek ship on a misty night, at Black Pond or at sea between
+ports, choose Visit the Willows. River mist beside the rail leads to River
+Landing. By day, on a night without mist, or with the ship at any other port,
+the mist does not rise and the card is not on the deck. No date changes this:
+after Halloween as before, only night and mist open the way. The deck has its
+own sea weather (`weather.json` region `sea`: mist, rain, mist, rain, mist,
+clear), so night and mist at the deck meet for 36 turns in every 144 (turns
+24-35, 72-83 and 120-131). A voyage lasts one world round, so the crossing at
+sea is a short chance; stepping off at sea leaves the empty ship to finish
+its voyage.
 The island has a landing, a camp, a willow thicket and a crumbling bank.
 At the landing, choose Return to the ship while the dark mist holds and the
-ship still lies at the pond. The ship shows at the landing only then. A
-traveller still on the island when the mist lifts, or when the ship sails,
-waits there until both hold again.
+ship lies at the pond or is at sea. The ship shows at the landing only then.
+A traveller still on the island when the mist lifts, or when the ship docks
+at another port, waits there until both hold again.
 
 Examine the canoe and count the food. Study the sand hollows, listen at the
 bank, and look beneath the roots. Greet the Swede, then compare the signs.
@@ -67,6 +70,11 @@ landing shows the Greek ship's lanterns in the backwater and the camp shows
 its lit fire under a dark sky. These two night paintings came from closed
 PR #1293; their prompts are in `art-prompts.json`. The thicket and the bank
 keep their single painting.
+
+The uncanny flicker (`transitions.mjs`) runs at every Willows place all year,
+not only on Halloween, with the same limits: one cut of 140 ms per entry at
+most, a 40% chance, 30 seconds apart, no brightening, and none under reduced
+motion or with Flashes and scares off.
 
 ## Design
 

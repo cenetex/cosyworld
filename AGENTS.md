@@ -3,6 +3,8 @@
 Use simple English. Keep the original project folder on `main` and make changes
 in a separate worktree on a `codex/` branch. Commit, push, and open a PR for each
 code change. Preserve other contributors' files and local settings.
+Push early: open a draft PR from your first commit and keep pushing work in
+progress, so stopped work is never stranded on a local branch.
 
 Before feature work:
 
@@ -22,6 +24,18 @@ shared human avatars, character profiles, and mounted packs all contribute to
 its cast. Their source paths are listed in `docs/current-game.md`.
 
 Keep each branch small: at most 400 hand-written lines changed against main.
-The pre-push hook and CI enforce this budget; see `.github/AGENT.md`.
+The pre-push hook enforces this budget; see `.github/AGENT.md`.
+
+The fast check (`fast-check.yml`, about five minutes) runs on every PR and
+every main push. Merge in batches of 2-3 PRs and wait for main's fast check to
+go green before the next batch. The full suite (`ci.yml`) runs only by hand,
+before a production release; see `.github/AGENT.md`.
+
+Pull requests do not bump the version. Between releases, main and `.dev` carry
+the last released version; `/meta.commit` names the deployed commit.
+
+Prefer pack data to engine changes. A PR that changes the shared rules bundle
+(its imported modules, `engine-v*.js`, or the released-rules wiring) needs the
+`engine` label and a design note under `docs/design/`; see `.github/AGENT.md`.
 
 Validation and release follow `.github/AGENT.md` and `docs/release.md`.

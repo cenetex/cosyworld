@@ -2,7 +2,16 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import {
+  clearSelection,
+  revealCard,
+  selectCard,
+} from "./card-browser-helpers.mjs";
+// Vale wakes knowing only the cards his player has uncovered (#1575).
+const wake = async (page) => {
+  for (const id of ["vale", "lamp", "attic"]) await revealCard(page, id);
+  await clearSelection(page);
+};
 
 const type = process.env.CARD_BROWSER || "chromium";
 const browser = await { chromium, webkit }[type].launch({ headless: true });
@@ -133,6 +142,7 @@ try {
       await page.goto(
         `http://127.0.0.1:${server.address().port}/?table=voice-${width}`,
       );
+      await wake(page);
       await page.waitForSelector("#dialogue-text .speech-letter");
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
       // A new game asks the model for Vale's first line: no action, Vale alone.
@@ -221,13 +231,15 @@ try {
         await playCards("light", ["lamp"]);
       }
       if (width < 700) {
-        // Read Vale's long reply through the player history controls.
+        // Step back through the beat stack to Vale's long reply.
         for (
           let line = 0;
           line < 8 && (await page.locator("#speaker").innerText()) !== "Vale";
           line++
         ) {
-          await page.locator("#previous-line").click();
+          await page
+            .locator("#beat-behind")
+            .click({ position: { x: 80, y: 6 } });
         }
         assert.match(
           await page.locator("#dialogue-text").textContent(),
@@ -238,8 +250,13 @@ try {
         assert(
           await page
             .locator("#dialogue-text")
-            .evaluate((text) => text.scrollTop > 0),
-          "A long reply still scrolls inside the dialogue",
+            .evaluate(
+              (text) =>
+                text.scrollHeight <= text.clientHeight + 1 ||
+                text.scrollTop > 0,
+            ),
+          // The card grows to about seven lines (#1599); longer still scrolls.
+          "A long reply is shown whole or scrolls inside the dialogue",
         );
         assert.equal(
           await page.locator("#stage").evaluate((stage) => stage.scrollLeft),
@@ -258,8 +275,8 @@ try {
       await page.close();
     }
   }
-  // When the model gives no opening line, the authored line is shown. It is
-  // marked as a fallback, so Retry still asks the model for Vale's words.
+  // When the model gives no opening line, Vale is silent ("…") and Retry
+  // still asks the model for his words.
   const page = await browser.newPage({
     viewport: { width: 1440, height: 900 },
   });
@@ -308,30 +325,29 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=voice-fallback`,
     );
+    await wake(page);
     await page.waitForFunction(
       () => document.querySelector("#dialogue-text")?.textContent.length > 0,
     );
-    await page.waitForFunction(() =>
-      /It's cold up here/.test(
-        document.querySelector("#dialogue-text").textContent,
-      ),
+    // No scripted line (#1600): a failed first line is the silent "…".
+    await page.waitForFunction(
+      () => document.querySelector("#dialogue-text").textContent.trim() === "…",
     );
     assert.ok(requests.length >= 1);
     assert.ok(await page.locator("#story-retry").isVisible());
     let lines = await valeLines();
-    assert.equal(lines.length, 1);
-    assert.equal(lines[0].fallback, true);
+    assert.equal(lines.length, 0, "The silent beat is never saved");
     failing = false;
     await page.locator("#story-retry").click();
     await page.waitForFunction(() =>
       /Hello\?/.test(document.querySelector("#dialogue-text").textContent),
     );
     lines = await valeLines();
-    assert.equal(lines.length, 1, "The model line replaces the fallback");
+    assert.equal(lines.length, 1, "The model line follows the silence");
     assert.equal(lines[0].text, "Dust and a dark mirror. Hello?");
     assert.equal(lines[0].fallback, undefined);
     assert.deepEqual(errors, []);
-    console.log(`Opening fallback and retry passed in ${type}.`);
+    console.log(`Opening silence and retry passed in ${type}.`);
   } finally {
     await page.close();
   }

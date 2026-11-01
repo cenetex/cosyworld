@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 8,
+  "revision": 9,
   "name": "The Wine-Dark Sea",
   "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -1481,6 +1481,20 @@
       "holder": "greek-harbor",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
       "art": "assets/greek-drama/provisions.png"
+    },
+    "greek-olive-branch": {
+      "name": "The Suppliant’s Olive Branch",
+      "text": "An olive branch bound with white wool, given at the Agora when the mothers’ plea is registered. Ships sail between Piraeus and Athens Harbor while it is aboard.",
+      "holder": "greek-athens",
+      "art": "assets/greek-drama/burial-petition.png",
+      "persona": "Describe the branch, its actual holder and its recorded use. The lane between Piraeus and Athens Harbor is open only while it is aboard the ship.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-open-door-plea-registered",
+          "value": true
+        }
+      ]
     },
     "greek-egypt-testimony": {
       "name": "The Egyptian Witness Tablet",
@@ -3029,796 +3043,6 @@
       "textTemplate": "{actor} refuses to promise revenge while keeping the household’s testimony on record. Electra knows the answer."
     },
     {
-      "id": "greek-inquire-aeschylus-persians",
-      "subject": "greek-susa",
-      "at": "greek-susa",
-      "label": "Ask who brought the fleet report",
-      "text": "Vale opens an inquiry into the account told in Persians. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aeschylus-persians",
-          "value": true
-        }
-      ],
-      "workId": "aeschylus-persians",
-      "textTemplate": "{actor} opens an inquiry into the account told in Persians. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aeschylus-seven-against-thebes",
-      "subject": "greek-gate",
-      "at": "greek-gate",
-      "label": "Ask which gate needs help",
-      "text": "Vale opens an inquiry into the account told in Seven Against Thebes. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aeschylus-seven-against-thebes",
-          "value": true
-        }
-      ],
-      "workId": "aeschylus-seven-against-thebes",
-      "textTemplate": "{actor} opens an inquiry into the account told in Seven Against Thebes. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aeschylus-suppliant-women",
-      "subject": "greek-argos-sanctuary",
-      "at": "greek-argos-sanctuary",
-      "label": "Hear the Danaids' petition",
-      "text": "Vale opens an inquiry into the account told in Suppliant Women. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aeschylus-suppliant-women",
-          "value": true
-        }
-      ],
-      "workId": "aeschylus-suppliant-women",
-      "textTemplate": "{actor} opens an inquiry into the account told in Suppliant Women. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aeschylus-prometheus-bound",
-      "subject": "greek-scythian-crag",
-      "at": "greek-scythian-crag",
-      "label": "Carry a question to the bound figure",
-      "text": "Vale opens an inquiry into the account told in Prometheus Bound. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aeschylus-prometheus-bound",
-          "value": true
-        }
-      ],
-      "workId": "aeschylus-prometheus-bound",
-      "textTemplate": "{actor} opens an inquiry into the account told in Prometheus Bound. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aeschylus-agamemnon",
-      "subject": "greek-argos-palace",
-      "at": "greek-argos-palace",
-      "label": "Ask about the returning household",
-      "text": "Vale opens an inquiry into the account told in Agamemnon. The question is recorded; its reported events have not been enacted.",
-      "requires": [
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "aeschylus"
-        }
-      ],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aeschylus-agamemnon",
-          "value": true
-        }
-      ],
-      "workId": "aeschylus-agamemnon",
-      "textTemplate": "{actor} opens an inquiry into the account told in Agamemnon. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aeschylus-libation-bearers",
-      "subject": "greek-argos-tomb",
-      "at": "greek-argos-tomb",
-      "label": "Ask about the offerings",
-      "text": "Vale opens an inquiry into the account told in Libation Bearers. The question is recorded; its reported events have not been enacted.",
-      "requires": [
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "aeschylus"
-        }
-      ],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aeschylus-libation-bearers",
-          "value": true
-        }
-      ],
-      "workId": "aeschylus-libation-bearers",
-      "textTemplate": "{actor} opens an inquiry into the account told in Libation Bearers. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aeschylus-eumenides",
-      "subject": "greek-delphi",
-      "at": "greek-delphi",
-      "label": "Ask where a blood dispute can be heard",
-      "text": "Vale opens an inquiry into the account told in Eumenides. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aeschylus-eumenides",
-          "value": true
-        }
-      ],
-      "workId": "aeschylus-eumenides",
-      "textTemplate": "{actor} opens an inquiry into the account told in Eumenides. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-sophocles-ajax",
-      "subject": "greek-greek-camp",
-      "at": "greek-greek-camp",
-      "label": "Ask who will speak for the isolated soldier",
-      "text": "Vale opens an inquiry into the account told in Ajax. The question is recorded; its reported events have not been enacted.",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-ajax-open",
-          "value": false
-        }
-      ],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-sophocles-ajax",
-          "value": true
-        }
-      ],
-      "workId": "sophocles-ajax",
-      "textTemplate": "{actor} opens an inquiry into the account told in Ajax. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-sophocles-antigone",
-      "subject": "greek-gate",
-      "at": "greek-gate",
-      "label": "Hear the family's burial request",
-      "text": "Vale opens an inquiry into the account told in Antigone. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-sophocles-antigone",
-          "value": true
-        }
-      ],
-      "workId": "sophocles-antigone",
-      "textTemplate": "{actor} opens an inquiry into the account told in Antigone. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-sophocles-women-of-trachis",
-      "subject": "greek-trachis",
-      "at": "greek-trachis",
-      "label": "Ask what is known about the garment",
-      "text": "Vale opens an inquiry into the account told in Women of Trachis. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-sophocles-women-of-trachis",
-          "value": true
-        }
-      ],
-      "workId": "sophocles-women-of-trachis",
-      "textTemplate": "{actor} opens an inquiry into the account told in Women of Trachis. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-sophocles-oedipus-tyrannus",
-      "subject": "greek-palace",
-      "at": "greek-palace",
-      "label": "Ask which witness has not been heard",
-      "text": "Vale opens an inquiry into the account told in Oedipus Tyrannus. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-sophocles-oedipus-tyrannus",
-          "value": true
-        }
-      ],
-      "workId": "sophocles-oedipus-tyrannus",
-      "textTemplate": "{actor} opens an inquiry into the account told in Oedipus Tyrannus. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-sophocles-electra",
-      "subject": "greek-mycenae-palace",
-      "at": "greek-mycenae-palace",
-      "label": "Hear Electra at the palace",
-      "text": "Vale opens an inquiry into the account told in Electra. The question is recorded; its reported events have not been enacted.",
-      "requires": [
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "sophocles"
-        }
-      ],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-sophocles-electra",
-          "value": true
-        }
-      ],
-      "workId": "sophocles-electra",
-      "textTemplate": "{actor} opens an inquiry into the account told in Electra. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-sophocles-philoctetes",
-      "subject": "greek-lemnos",
-      "at": "greek-lemnos",
-      "label": "Ask what the abandoned man wants",
-      "text": "Vale opens an inquiry into the account told in Philoctetes. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-sophocles-philoctetes",
-          "value": true
-        }
-      ],
-      "workId": "sophocles-philoctetes",
-      "textTemplate": "{actor} opens an inquiry into the account told in Philoctetes. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-sophocles-oedipus-at-colonus",
-      "subject": "greek-colonus",
-      "at": "greek-colonus",
-      "label": "Hear the exile's request for refuge",
-      "text": "Vale opens an inquiry into the account told in Oedipus at Colonus. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-sophocles-oedipus-at-colonus",
-          "value": true
-        }
-      ],
-      "workId": "sophocles-oedipus-at-colonus",
-      "textTemplate": "{actor} opens an inquiry into the account told in Oedipus at Colonus. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-alcestis",
-      "subject": "greek-pherae",
-      "at": "greek-pherae",
-      "label": "Ask who accepted the death bargain",
-      "text": "Vale opens an inquiry into the account told in Alcestis. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-alcestis",
-          "value": true
-        }
-      ],
-      "workId": "euripides-alcestis",
-      "textTemplate": "{actor} opens an inquiry into the account told in Alcestis. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-medea",
-      "subject": "greek-corinth",
-      "at": "greek-corinth",
-      "label": "Ask what protection the household needs",
-      "text": "Vale opens an inquiry into the account told in Medea. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-medea",
-          "value": true
-        }
-      ],
-      "workId": "euripides-medea",
-      "textTemplate": "{actor} opens an inquiry into the account told in Medea. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-children-of-heracles",
-      "subject": "greek-marathon",
-      "at": "greek-marathon",
-      "label": "Hear the children's claim to sanctuary",
-      "text": "Vale opens an inquiry into the account told in Children of Heracles. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-children-of-heracles",
-          "value": true
-        }
-      ],
-      "workId": "euripides-children-of-heracles",
-      "textTemplate": "{actor} opens an inquiry into the account told in Children of Heracles. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-hippolytus",
-      "subject": "greek-troezen",
-      "at": "greek-troezen",
-      "label": "Ask how the accusation was learned",
-      "text": "Vale opens an inquiry into the account told in Hippolytus. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-hippolytus",
-          "value": true
-        }
-      ],
-      "workId": "euripides-hippolytus",
-      "textTemplate": "{actor} opens an inquiry into the account told in Hippolytus. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-andromache",
-      "subject": "greek-thetis",
-      "at": "greek-thetis",
-      "label": "Ask whether the mother and child are safe",
-      "text": "Vale opens an inquiry into the account told in Andromache. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-andromache",
-          "value": true
-        }
-      ],
-      "workId": "euripides-andromache",
-      "textTemplate": "{actor} opens an inquiry into the account told in Andromache. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-hecuba",
-      "subject": "greek-thrace",
-      "at": "greek-thrace",
-      "label": "Ask which guest broke protection",
-      "text": "Vale opens an inquiry into the account told in Hecuba. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-hecuba",
-          "value": true
-        }
-      ],
-      "workId": "euripides-hecuba",
-      "textTemplate": "{actor} opens an inquiry into the account told in Hecuba. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-suppliant-women",
-      "subject": "greek-eleusis",
-      "at": "greek-eleusis",
-      "label": "Hear the mothers' burial petition",
-      "text": "Vale opens an inquiry into the account told in Suppliant Women. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-suppliant-women",
-          "value": true
-        }
-      ],
-      "workId": "euripides-suppliant-women",
-      "textTemplate": "{actor} opens an inquiry into the account told in Suppliant Women. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-electra",
-      "subject": "greek-argive-farm",
-      "at": "greek-argive-farm",
-      "label": "Hear Electra at the farmhouse",
-      "text": "Vale opens an inquiry into the account told in Electra. The question is recorded; its reported events have not been enacted.",
-      "requires": [
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "euripides"
-        }
-      ],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-electra",
-          "value": true
-        }
-      ],
-      "workId": "euripides-electra",
-      "textTemplate": "{actor} opens an inquiry into the account told in Electra. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-heracles",
-      "subject": "greek-courtyard",
-      "at": "greek-courtyard",
-      "label": "Ask what the threatened household needs",
-      "text": "Vale opens an inquiry into the account told in Heracles. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-heracles",
-          "value": true
-        }
-      ],
-      "workId": "euripides-heracles",
-      "textTemplate": "{actor} opens an inquiry into the account told in Heracles. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-trojan-women",
-      "subject": "greek-troy",
-      "at": "greek-troy",
-      "label": "Ask which families face separation",
-      "text": "Vale opens an inquiry into the account told in Trojan Women. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-trojan-women",
-          "value": true
-        }
-      ],
-      "workId": "euripides-trojan-women",
-      "textTemplate": "{actor} opens an inquiry into the account told in Trojan Women. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-iphigenia-in-tauris",
-      "subject": "greek-tauris",
-      "at": "greek-tauris",
-      "label": "Ask how strangers are identified",
-      "text": "Vale opens an inquiry into the account told in Iphigenia in Tauris. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-iphigenia-in-tauris",
-          "value": true
-        }
-      ],
-      "workId": "euripides-iphigenia-in-tauris",
-      "textTemplate": "{actor} opens an inquiry into the account told in Iphigenia in Tauris. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-ion",
-      "subject": "greek-delphi",
-      "at": "greek-delphi",
-      "label": "Ask who can identify the foundling's token",
-      "text": "Vale opens an inquiry into the account told in Ion. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-ion",
-          "value": true
-        }
-      ],
-      "workId": "euripides-ion",
-      "textTemplate": "{actor} opens an inquiry into the account told in Ion. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-helen",
-      "subject": "greek-egypt-tomb",
-      "at": "greek-egypt-tomb",
-      "label": "Hear Helen in Egypt",
-      "text": "Vale opens an inquiry into the account told in Helen. The question is recorded; its reported events have not been enacted.",
-      "requires": [
-        {
-          "kind": "choice",
-          "key": "greek-helen-account",
-          "value": "egypt"
-        }
-      ],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-helen",
-          "value": true
-        }
-      ],
-      "workId": "euripides-helen",
-      "textTemplate": "{actor} opens an inquiry into the account told in Helen. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-phoenician-women",
-      "subject": "greek-palace",
-      "at": "greek-palace",
-      "label": "Hear the household before the siege",
-      "text": "Vale opens an inquiry into the account told in Phoenician Women. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-phoenician-women",
-          "value": true
-        }
-      ],
-      "workId": "euripides-phoenician-women",
-      "textTemplate": "{actor} opens an inquiry into the account told in Phoenician Women. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-orestes",
-      "subject": "greek-argos-palace",
-      "at": "greek-argos-palace",
-      "label": "Ask what the civic hearing can decide",
-      "text": "Vale opens an inquiry into the account told in Orestes. The question is recorded; its reported events have not been enacted.",
-      "requires": [
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "aeschylus"
-        }
-      ],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-orestes",
-          "value": true
-        }
-      ],
-      "workId": "euripides-orestes",
-      "textTemplate": "{actor} opens an inquiry into the account told in Orestes. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-bacchae",
-      "subject": "greek-cithaeron",
-      "at": "greek-cithaeron",
-      "label": "Ask what the worshippers claim",
-      "text": "Vale opens an inquiry into the account told in Bacchae. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-bacchae",
-          "value": true
-        }
-      ],
-      "workId": "euripides-bacchae",
-      "textTemplate": "{actor} opens an inquiry into the account told in Bacchae. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-iphigenia-at-aulis",
-      "subject": "greek-aulis",
-      "at": "greek-aulis",
-      "label": "Ask why the fleet cannot sail",
-      "text": "Vale opens an inquiry into the account told in Iphigenia at Aulis. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-iphigenia-at-aulis",
-          "value": true
-        }
-      ],
-      "workId": "euripides-iphigenia-at-aulis",
-      "textTemplate": "{actor} opens an inquiry into the account told in Iphigenia at Aulis. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-rhesus",
-      "subject": "greek-trojan-camp",
-      "at": "greek-trojan-camp",
-      "label": "Check the arriving ally's identity",
-      "text": "Vale opens an inquiry into the account told in Rhesus. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-rhesus",
-          "value": true
-        }
-      ],
-      "workId": "euripides-rhesus",
-      "textTemplate": "{actor} opens an inquiry into the account told in Rhesus. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-euripides-cyclops",
-      "subject": "greek-sicily",
-      "at": "greek-sicily",
-      "label": "Ask the captive shepherds about a way out",
-      "text": "Vale opens an inquiry into the account told in Cyclops. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-euripides-cyclops",
-          "value": true
-        }
-      ],
-      "workId": "euripides-cyclops",
-      "textTemplate": "{actor} opens an inquiry into the account told in Cyclops. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aristophanes-acharnians",
-      "subject": "greek-acharnae",
-      "at": "greek-acharnae",
-      "label": "Ask what a private peace permits",
-      "text": "Vale opens an inquiry into the account told in Acharnians. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aristophanes-acharnians",
-          "value": true
-        }
-      ],
-      "workId": "aristophanes-acharnians",
-      "textTemplate": "{actor} opens an inquiry into the account told in Acharnians. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aristophanes-knights",
-      "subject": "greek-demos-house",
-      "at": "greek-demos-house",
-      "label": "Ask who speaks for Demos",
-      "text": "Vale opens an inquiry into the account told in Knights. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aristophanes-knights",
-          "value": true
-        }
-      ],
-      "workId": "aristophanes-knights",
-      "textTemplate": "{actor} opens an inquiry into the account told in Knights. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aristophanes-clouds",
-      "subject": "greek-thinkery",
-      "at": "greek-thinkery",
-      "label": "Ask what the school promises a debtor",
-      "text": "Vale opens an inquiry into the account told in Clouds. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aristophanes-clouds",
-          "value": true
-        }
-      ],
-      "workId": "aristophanes-clouds",
-      "textTemplate": "{actor} opens an inquiry into the account told in Clouds. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aristophanes-wasps",
-      "subject": "greek-jury-house",
-      "at": "greek-jury-house",
-      "label": "Ask why the juror cannot stay home",
-      "text": "Vale opens an inquiry into the account told in Wasps. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aristophanes-wasps",
-          "value": true
-        }
-      ],
-      "workId": "aristophanes-wasps",
-      "textTemplate": "{actor} opens an inquiry into the account told in Wasps. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aristophanes-peace",
-      "subject": "greek-divine-heights",
-      "at": "greek-divine-heights",
-      "label": "Ask who will help recover peace",
-      "text": "Vale opens an inquiry into the account told in Peace. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aristophanes-peace",
-          "value": true
-        }
-      ],
-      "workId": "aristophanes-peace",
-      "textTemplate": "{actor} opens an inquiry into the account told in Peace. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aristophanes-birds",
-      "subject": "greek-bird-wilderness",
-      "at": "greek-bird-wilderness",
-      "label": "Ask what the proposed city would control",
-      "text": "Vale opens an inquiry into the account told in Birds. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aristophanes-birds",
-          "value": true
-        }
-      ],
-      "workId": "aristophanes-birds",
-      "textTemplate": "{actor} opens an inquiry into the account told in Birds. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aristophanes-lysistrata",
-      "subject": "greek-acropolis",
-      "at": "greek-acropolis",
-      "label": "Ask how the coalition holds the treasury",
-      "text": "Vale opens an inquiry into the account told in Lysistrata. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aristophanes-lysistrata",
-          "value": true
-        }
-      ],
-      "workId": "aristophanes-lysistrata",
-      "textTemplate": "{actor} opens an inquiry into the account told in Lysistrata. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aristophanes-women-at-the-thesmophoria",
-      "subject": "greek-festival",
-      "at": "greek-festival",
-      "label": "Ask who has entered the festival",
-      "text": "Vale opens an inquiry into the account told in Women at the Thesmophoria. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aristophanes-women-at-the-thesmophoria",
-          "value": true
-        }
-      ],
-      "workId": "aristophanes-women-at-the-thesmophoria",
-      "textTemplate": "{actor} opens an inquiry into the account told in Women at the Thesmophoria. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aristophanes-frogs",
-      "subject": "greek-underworld",
-      "at": "greek-underworld",
-      "label": "Ask what the city needs from a poet",
-      "text": "Vale opens an inquiry into the account told in Frogs. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aristophanes-frogs",
-          "value": true
-        }
-      ],
-      "workId": "aristophanes-frogs",
-      "textTemplate": "{actor} opens an inquiry into the account told in Frogs. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aristophanes-assemblywomen",
-      "subject": "greek-assembly",
-      "at": "greek-assembly",
-      "label": "Ask what the proposed common ownership changes",
-      "text": "Vale opens an inquiry into the account told in Assemblywomen. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aristophanes-assemblywomen",
-          "value": true
-        }
-      ],
-      "workId": "aristophanes-assemblywomen",
-      "textTemplate": "{actor} opens an inquiry into the account told in Assemblywomen. The question is recorded; its reported events have not been enacted."
-    },
-    {
-      "id": "greek-inquire-aristophanes-wealth",
-      "subject": "greek-attic-farm",
-      "at": "greek-attic-farm",
-      "label": "Ask who would lose from fair prosperity",
-      "text": "Vale opens an inquiry into the account told in Wealth. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
-      "effects": [
-        {
-          "kind": "set_flag",
-          "key": "greek-inquiry-aristophanes-wealth",
-          "value": true
-        }
-      ],
-      "workId": "aristophanes-wealth",
-      "textTemplate": "{actor} opens an inquiry into the account told in Wealth. The question is recorded; its reported events have not been enacted."
-    },
-    {
       "id": "greek-open-door-invite-burial",
       "subject": "greek-baker",
       "at": "greek-courtyard",
@@ -4006,8 +3230,8 @@
       "subject": "greek-theseus",
       "at": "greek-athens",
       "label": "Lay the mothers’ petition before Theseus",
-      "text": "Vale lays the mothers’ petition on the public table. Theseus hears the request and Adrastus’s part in the war. The city takes up the burial claim as its own duty.",
-      "textTemplate": "{actor} lays the mothers’ petition on the public table. Theseus hears the request and Adrastus’s part in the war. The city takes up the burial claim as its own duty.",
+      "text": "Vale lays the mothers’ petition on the public table. Theseus hears the request and Adrastus’s part in the war. The city takes up the burial claim as its own duty, and the herald hands over a suppliant’s olive branch.",
+      "textTemplate": "{actor} lays the mothers’ petition on the public table. Theseus hears the request and Adrastus’s part in the war. The city takes up the burial claim as its own duty, and the herald hands over a suppliant’s olive branch.",
       "requires": [
         {
           "kind": "flag",
@@ -4030,6 +3254,10 @@
           "kind": "place_item",
           "item": "greek-burial-petition",
           "place": "greek-athens"
+        },
+        {
+          "kind": "give_item",
+          "item": "greek-olive-branch"
         },
         {
           "kind": "set_flag",
@@ -6697,7 +5925,7 @@
       "placeIds": ["greek-susa"],
       "premise": "A messenger's account of defeat must reach the grieving court without losing its source.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-persians"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -6713,7 +5941,7 @@
       "placeIds": ["greek-gate"],
       "premise": "The city's defenders must answer rival claims to command while households seek protection.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-seven-against-thebes"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -6729,7 +5957,7 @@
       "placeIds": ["greek-argos-sanctuary"],
       "premise": "The Danaids seek protection against forced marriage, and the receiving city must decide what protection entails.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-suppliant-women"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -6745,7 +5973,7 @@
       "placeIds": ["greek-scythian-crag"],
       "premise": "A punished benefactor can be approached, but neither prophecy nor release follows from a visitor's words alone.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-prometheus-bound"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -6761,7 +5989,7 @@
       "placeIds": ["greek-argos-palace"],
       "premise": "A returning commander enters a household divided by the costs of the expedition.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-agamemnon"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -6781,7 +6009,7 @@
       "placeIds": ["greek-argos-tomb"],
       "premise": "A meeting at a tomb raises claims of kinship and a demand for revenge.",
       "status": "branching-episode",
-      "hookChoiceIds": ["greek-inquire-aeschylus-libation-bearers"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -6801,7 +6029,7 @@
       "placeIds": ["greek-delphi"],
       "premise": "Sanctuary and public judgment offer different answers to a pursuing claim of vengeance.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-eumenides"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -6822,7 +6050,6 @@
       "premise": "Military honor, isolation, and the treatment of the dead divide the camp.",
       "status": "branching-episode",
       "hookChoiceIds": [
-        "greek-inquire-sophocles-ajax",
         "greek-ajax-invitation",
         "greek-ajax-learn-shield-teucer",
         "greek-ajax-learn-shield-odysseus",
@@ -6861,7 +6088,7 @@
       "placeIds": ["greek-gate"],
       "premise": "A sister seeks burial for the brother whom a public decree leaves exposed.",
       "status": "opening-episode",
-      "hookChoiceIds": ["greek-inquire-sophocles-antigone"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -6877,7 +6104,7 @@
       "placeIds": ["greek-trachis"],
       "premise": "A household prepares a gift without agreeing about its history or effects.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-sophocles-women-of-trachis"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -6893,7 +6120,7 @@
       "placeIds": ["greek-palace"],
       "premise": "An inquiry into a public disaster turns toward the ruler's own origins.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-sophocles-oedipus-tyrannus"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -6909,7 +6136,7 @@
       "placeIds": ["greek-mycenae-palace"],
       "premise": "An excluded daughter demands an answer to her father's murder from the palace approach.",
       "status": "branching-episode",
-      "hookChoiceIds": ["greek-inquire-sophocles-electra"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -6929,7 +6156,7 @@
       "placeIds": ["greek-lemnos"],
       "premise": "An army needs the help of a man it abandoned, and the request need not be honest.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-sophocles-philoctetes"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -6968,7 +6195,7 @@
       "placeIds": ["greek-pherae"],
       "premise": "Hospitality continues in a household mourning the person who paid for another's life.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-alcestis"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -6984,7 +6211,7 @@
       "placeIds": ["greek-corinth"],
       "premise": "A betrayed foreign household faces expulsion while its members seek time, refuge, and a response.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-medea"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7024,7 +6251,7 @@
       "placeIds": ["greek-troezen"],
       "premise": "A household confronts desire, shame, an accusation, and a father's power to punish.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-hippolytus"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7040,7 +6267,7 @@
       "placeIds": ["greek-thetis"],
       "premise": "A captive mother and her child seek protection inside a hostile dynastic household.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-andromache"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7056,7 +6283,7 @@
       "placeIds": ["greek-thrace"],
       "premise": "A captive queen searches for reliable news of her children and a betrayed trust.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-hecuba"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7101,7 +6328,7 @@
       "placeIds": ["greek-argive-farm"],
       "premise": "The revenge claim is heard in a poor household beyond the royal city.",
       "status": "branching-episode",
-      "hookChoiceIds": ["greek-inquire-euripides-electra"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7121,7 +6348,7 @@
       "placeIds": ["greek-courtyard"],
       "premise": "A household needs protection from tyranny and support after destructive divine interference.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-heracles"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7137,7 +6364,7 @@
       "placeIds": ["greek-troy"],
       "premise": "The conquered community struggles to preserve lives and relationships before dispersal.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-trojan-women"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7153,7 +6380,7 @@
       "placeIds": ["greek-tauris"],
       "premise": "A ritual killing rule threatens travelers whose identities may change the priestess's obligations.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-iphigenia-in-tauris"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7169,7 +6396,7 @@
       "placeIds": ["greek-delphi"],
       "premise": "Competing claims to a young attendant's parentage meet inside Apollo's sanctuary.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-ion"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7185,7 +6412,7 @@
       "placeIds": ["greek-egypt-tomb"],
       "premise": "Helen's testimony distinguishes her own life from the phantom blamed for the war.",
       "status": "branching-episode",
-      "hookChoiceIds": ["greek-inquire-euripides-helen"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7205,7 +6432,7 @@
       "placeIds": ["greek-palace"],
       "premise": "A divided family tries to act while rival brothers bring armed claims to the city.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-phoenician-women"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7221,7 +6448,7 @@
       "placeIds": ["greek-argos-palace"],
       "premise": "A household facing judgment after matricide considers further desperate action.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-orestes"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7241,7 +6468,7 @@
       "placeIds": ["greek-cithaeron"],
       "premise": "Suppressed worship and a ruler's surveillance bring human authority against a disguised god.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-bacchae"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7257,7 +6484,7 @@
       "placeIds": ["greek-aulis"],
       "premise": "Commanders and soldiers press for a sacrifice that a father has the power to resist.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-iphigenia-at-aulis"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7273,7 +6500,7 @@
       "placeIds": ["greek-trojan-camp"],
       "premise": "An ally arrives at night while infiltrators and uncertain reports cross the camp.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-rhesus"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7289,7 +6516,7 @@
       "placeIds": ["greek-sicily"],
       "premise": "Captive satyrs and stranded travelers seek a way past a predatory host.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-cyclops"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -7305,7 +6532,7 @@
       "placeIds": ["greek-acharnae"],
       "premise": "A farmer's separate peace creates a market inside a community still at war.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-acharnians"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -7321,7 +6548,7 @@
       "placeIds": ["greek-demos-house"],
       "premise": "Rival household servants compete to flatter and exploit the person who holds political power.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-knights"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -7337,7 +6564,7 @@
       "placeIds": ["greek-thinkery"],
       "premise": "A debtor seeks an education that may overturn the balance of authority in his own family.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-clouds"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -7353,7 +6580,7 @@
       "placeIds": ["greek-jury-house"],
       "premise": "A juror's pleasure and income collide with his household's attempt to restrain him.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-wasps"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -7369,7 +6596,7 @@
       "placeIds": ["greek-divine-heights"],
       "premise": "A farmer seeks peace while trades built on war face losing their customers.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-peace"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -7385,7 +6612,7 @@
       "placeIds": ["greek-bird-wilderness"],
       "premise": "A refuge from civic life could become a new power controlling passage between gods and mortals.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-birds"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -7401,7 +6628,7 @@
       "placeIds": ["greek-acropolis"],
       "premise": "A coalition uses control of the treasury and intimacy to put pressure on the war.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-lysistrata"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -7417,7 +6644,7 @@
       "placeIds": ["greek-festival"],
       "premise": "Women contest a playwright's portrayal while a disguised visitor risks exposure.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-women-at-the-thesmophoria"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -7433,7 +6660,7 @@
       "placeIds": ["greek-underworld"],
       "premise": "A divine visitor seeks a poet whose art can answer the city's troubles.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-frogs"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -7449,7 +6676,7 @@
       "placeIds": ["greek-assembly"],
       "premise": "A political takeover promises shared property and leaves households to work through its consequences.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-assemblywomen"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -7465,7 +6692,7 @@
       "placeIds": ["greek-attic-farm"],
       "premise": "Restoring Wealth's sight would change who receives prosperity and who benefits from the old distribution.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-wealth"],
+      "hookChoiceIds": [],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -7586,7 +6813,8 @@
       "greek-ajax-shield",
       "greek-ajax-plea",
       "greek-ajax-cloth",
-      "greek-ajax-tools"
+      "greek-ajax-tools",
+      "greek-olive-branch"
     ],
     "choices": [
       "greek-return-water-jar",
@@ -8285,1217 +7513,6 @@
           "key": "greek-ajax-open",
           "value": true
         }
-      ]
-    }
-  ],
-  "storyQuests": [
-    {
-      "id": "story-quest-greek-table",
-      "group": "opening",
-      "line": "A place beside the bread.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-baker"
-      },
-      "art": "greek-water-jar",
-      "start": {
-        "any": [
-          {
-            "kind": "met",
-            "actor": "greek-baker"
-          },
-          {
-            "kind": "flag",
-            "key": "greek-water-returned",
-            "value": true
-          }
-        ]
-      },
-      "endings": [
-        {
-          "choice": "greek-return-water-jar"
-        }
-      ],
-      "created": {
-        "first": [
-          {
-            "kind": "met",
-            "actor": "greek-baker"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-return-water-jar"
-          }
-        ]
-      },
-      "related": ["greek-return-water-jar"]
-    },
-    {
-      "id": "story-quest-greek-burial",
-      "group": "opening",
-      "line": "Her brother waits for earth.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-antigone"
-      },
-      "art": "greek-funeral-cloth",
-      "start": {
-        "any": [
-          {
-            "kind": "met",
-            "actor": "greek-antigone"
-          },
-          {
-            "kind": "flag",
-            "key": "greek-decree-known",
-            "value": true
-          },
-          {
-            "kind": "choice_set",
-            "key": "greek-theban-response"
-          },
-          {
-            "kind": "flag",
-            "key": "greek-burial-performed",
-            "value": true
-          }
-        ]
-      },
-      "defaultEnding": "greek-perform-burial",
-      "progress": [
-        "greek-hear-decree",
-        "greek-petition-burial",
-        "greek-prepare-burial-ground",
-        "greek-prepare-permitted-burial"
-      ],
-      "endings": [
-        {
-          "choice": "greek-perform-permitted-burial",
-          "when": {
-            "kind": "receipt",
-            "choice": "greek-perform-permitted-burial"
-          }
-        },
-        {
-          "choice": "greek-perform-burial"
-        },
-        {
-          "choice": "greek-decline-burial",
-          "when": {
-            "kind": "choice",
-            "key": "greek-theban-response",
-            "value": "refusal"
-          },
-          "outcome": "Declined"
-        },
-        {
-          "choice": "greek-report-plan",
-          "when": {
-            "kind": "choice",
-            "key": "greek-theban-response",
-            "value": "exposure"
-          },
-          "outcome": "Reported"
-        }
-      ],
-      "created": {
-        "first": [
-          {
-            "kind": "met",
-            "actor": "greek-antigone"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-hear-decree"
-          },
-          {
-            "first": [
-              {
-                "kind": "receipt",
-                "choice": "greek-perform-permitted-burial"
-              },
-              {
-                "kind": "receipt",
-                "choice": "greek-perform-burial"
-              },
-              {
-                "kind": "receipt",
-                "choice": "greek-decline-burial"
-              },
-              {
-                "kind": "receipt",
-                "choice": "greek-report-plan"
-              }
-            ]
-          }
-        ]
-      },
-      "related": [
-        "greek-hear-decree",
-        "greek-decline-burial",
-        "greek-report-plan",
-        "greek-prepare-burial-ground",
-        "greek-prepare-permitted-burial",
-        "greek-perform-burial",
-        "greek-perform-permitted-burial",
-        "greek-petition-burial"
-      ]
-    },
-    {
-      "id": "story-quest-greek-courtyard",
-      "group": "opening",
-      "line": "What words will you bring home?",
-      "holder": {
-        "kind": "place",
-        "id": "greek-courtyard"
-      },
-      "art": "greek-bread",
-      "start": {
-        "all": [
-          {
-            "kind": "choice",
-            "key": "greek-theban-response",
-            "value": "concession"
-          },
-          {
-            "kind": "flag",
-            "key": "greek-burial-performed",
-            "value": true
-          },
-          {
-            "kind": "flag",
-            "key": "greek-concession-public",
-            "value": true
-          }
-        ]
-      },
-      "endings": [
-        {
-          "choice": "greek-courtyard-permitted-burial"
-        }
-      ],
-      "outcome": "Shared",
-      "created": {
-        "latest": [
-          {
-            "first": [
-              {
-                "kind": "receipt",
-                "choice": "greek-perform-permitted-burial"
-              },
-              {
-                "kind": "receipt",
-                "choice": "greek-perform-burial"
-              }
-            ]
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-courtyard-concession"
-          }
-        ]
-      },
-      "related": "ending",
-      "key": "story-quest-greek-courtyard:grave",
-      "return": {
-        "from": ["story-quest-greek-burial"],
-        "carries": [
-          {
-            "kind": "flag",
-            "key": "greek-burial-performed"
-          }
-        ]
-      }
-    },
-    {
-      "id": "story-quest-greek-courtyard",
-      "group": "opening",
-      "line": "What words will you bring home?",
-      "holder": {
-        "kind": "place",
-        "id": "greek-courtyard"
-      },
-      "art": "greek-bread",
-      "start": {
-        "kind": "choice_set",
-        "key": "greek-theban-response"
-      },
-      "endings": [
-        {
-          "choice": "greek-courtyard-burial",
-          "when": {
-            "kind": "choice",
-            "key": "greek-theban-response",
-            "value": "burial"
-          }
-        },
-        {
-          "choice": "greek-courtyard-concession",
-          "when": {
-            "kind": "choice",
-            "key": "greek-theban-response",
-            "value": "concession"
-          }
-        },
-        {
-          "choice": "greek-courtyard-refusal",
-          "when": {
-            "kind": "choice",
-            "key": "greek-theban-response",
-            "value": "refusal"
-          }
-        },
-        {
-          "choice": "greek-courtyard-exposure",
-          "when": {
-            "kind": "choice",
-            "key": "greek-theban-response",
-            "value": "exposure"
-          }
-        }
-      ],
-      "outcome": "Shared",
-      "created": {
-        "kind": "choice",
-        "key": "greek-theban-response"
-      },
-      "related": "ending",
-      "historicalWhen": {
-        "all": [
-          {
-            "kind": "choice",
-            "key": "greek-theban-response",
-            "value": "concession"
-          },
-          {
-            "kind": "flag",
-            "key": "greek-burial-performed",
-            "value": true
-          },
-          {
-            "kind": "flag",
-            "key": "greek-concession-public",
-            "value": true
-          }
-        ]
-      },
-      "return": {
-        "from": ["story-quest-greek-burial"],
-        "carries": [
-          {
-            "kind": "choice",
-            "key": "greek-theban-response"
-          }
-        ]
-      }
-    },
-    {
-      "id": "story-quest-greek-open-door-eleusis",
-      "group": "open-door",
-      "line": "Their sons need a road home.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-aethra"
-      },
-      "art": "greek-burial-petition",
-      "start": {
-        "any": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-mothers"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-adrastus"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-lay-cloths"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-lay-ashes"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-pyre"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-eleusis-pledge"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-eleusis-care"
-          }
-        ]
-      },
-      "progress": [
-        "greek-open-door-hear-adrastus",
-        "greek-open-door-lay-cloths",
-        "greek-open-door-lay-ashes",
-        "greek-open-door-hear-pyre"
-      ],
-      "endings": [
-        {
-          "choice": "greek-open-door-eleusis-pledge"
-        },
-        {
-          "choice": "greek-open-door-eleusis-care"
-        }
-      ]
-    },
-    {
-      "id": "story-quest-greek-open-door-agora",
-      "group": "open-door",
-      "line": "A city must answer.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-theseus"
-      },
-      "art": "greek-burial-petition",
-      "start": {
-        "any": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-register-plea"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-request-truce"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-request-recovery"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-truce-report"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-recovery-report"
-          }
-        ]
-      },
-      "progress": [
-        "greek-open-door-request-truce",
-        "greek-open-door-request-recovery"
-      ],
-      "endings": [
-        {
-          "choice": "greek-open-door-hear-truce-report"
-        },
-        {
-          "choice": "greek-open-door-hear-recovery-report"
-        }
-      ]
-    },
-    {
-      "id": "story-quest-greek-open-door-piraeus",
-      "group": "open-door",
-      "line": "A berth beside the water.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-quay-host"
-      },
-      "art": "greek-return-list",
-      "start": {
-        "any": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-quay"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-set-provisions"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-family-berth"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-open-berth"
-          }
-        ]
-      },
-      "progress": ["greek-open-door-set-provisions"],
-      "endings": [
-        {
-          "choice": "greek-open-door-family-berth"
-        },
-        {
-          "choice": "greek-open-door-open-berth"
-        }
-      ]
-    },
-    {
-      "id": "story-quest-greek-open-door-colonus",
-      "group": "open-door",
-      "line": "A stranger waits by the grove.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-colonus-keeper"
-      },
-      "art": "greek-grove-cup",
-      "start": {
-        "any": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-enter"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-water"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-daughters"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-farewell"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-custom"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-family"
-          }
-        ]
-      },
-      "progress": [
-        "greek-open-door-colonus-water",
-        "greek-open-door-colonus-daughters",
-        "greek-open-door-colonus-farewell"
-      ],
-      "endings": [
-        {
-          "choice": "greek-open-door-colonus-custom"
-        },
-        {
-          "choice": "greek-open-door-colonus-family"
-        }
-      ]
-    },
-    {
-      "id": "story-quest-greek-open-door-marathon",
-      "group": "open-door",
-      "line": "The children need a place to rest.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-marathon-keeper"
-      },
-      "art": "greek-shelter-blanket",
-      "start": {
-        "any": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-enter"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-blanket"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-daughter"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-battle"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-captive"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-hearing"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-alcmene"
-          }
-        ]
-      },
-      "progress": [
-        "greek-open-door-marathon-blanket",
-        "greek-open-door-marathon-daughter",
-        "greek-open-door-marathon-battle",
-        "greek-open-door-marathon-captive"
-      ],
-      "endings": [
-        {
-          "choice": "greek-open-door-marathon-hearing"
-        },
-        {
-          "choice": "greek-open-door-marathon-alcmene"
-        }
-      ]
-    },
-    {
-      "id": "story-quest-greek-open-door-return",
-      "group": "open-door",
-      "line": "What welcome will you bring home?",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-baker"
-      },
-      "art": "greek-bread",
-      "start": {
-        "any": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-eleusis-pledge"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-eleusis-care"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-truce-report"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-recovery-report"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-family-berth"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-open-berth"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-custom"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-family"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-hearing"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-alcmene"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-return-dione"
-          }
-        ]
-      },
-      "endings": [
-        {
-          "choice": "greek-open-door-return-dione"
-        }
-      ],
-      "created": {
-        "earliest": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-eleusis-pledge"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-eleusis-care"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-truce-report"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-recovery-report"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-family-berth"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-open-berth"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-custom"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-family"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-hearing"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-alcmene"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-return-dione"
-          }
-        ]
-      },
-      "related": "ending",
-      "outcome": "Shared",
-      "return": {
-        "from": [
-          "story-quest-greek-open-door-eleusis",
-          "story-quest-greek-open-door-piraeus",
-          "story-quest-greek-open-door-colonus",
-          "story-quest-greek-open-door-marathon"
-        ],
-        "carries": [
-          {
-            "kind": "flag",
-            "key": "greek-open-door-eleusis-done"
-          },
-          {
-            "kind": "flag",
-            "key": "greek-open-door-piraeus-done"
-          },
-          {
-            "kind": "flag",
-            "key": "greek-open-door-colonus-done"
-          },
-          {
-            "kind": "flag",
-            "key": "greek-open-door-marathon-done"
-          }
-        ]
-      }
-    },
-    {
-      "id": "story-quest-greek-homecoming-return",
-      "key": "story-quest-greek-homecoming-return:agora",
-      "group": "homecoming",
-      "keyedCard": true,
-      "line": "Bring the city's answer to Dione.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-baker"
-      },
-      "art": "greek-bread",
-      "start": {
-        "any": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-truce-report"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-recovery-report"
-          }
-        ]
-      },
-      "endings": [
-        {
-          "choice": "greek-homecoming-report-agora-truce"
-        },
-        {
-          "choice": "greek-homecoming-report-agora-force"
-        },
-        {
-          "choice": "greek-open-door-return-dione"
-        }
-      ],
-      "endingOrder": "earliest",
-      "outcome": "Shared",
-      "created": {
-        "earliest": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-truce-report"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-hear-recovery-report"
-          }
-        ]
-      },
-      "related": "start-and-ending",
-      "return": {
-        "from": ["story-quest-greek-open-door-agora"],
-        "carries": [
-          {
-            "kind": "choice",
-            "key": "greek-open-door-recovery"
-          }
-        ]
-      }
-    },
-    {
-      "id": "story-quest-greek-homecoming-return",
-      "key": "story-quest-greek-homecoming-return:eleusis",
-      "group": "homecoming",
-      "keyedCard": true,
-      "line": "Bring the mothers' answer to Dione.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-baker"
-      },
-      "art": "greek-bread",
-      "start": {
-        "any": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-eleusis-pledge"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-eleusis-care"
-          }
-        ]
-      },
-      "endings": [
-        {
-          "choice": "greek-homecoming-report-eleusis-pledge"
-        },
-        {
-          "choice": "greek-homecoming-report-eleusis-care"
-        },
-        {
-          "choice": "greek-open-door-return-dione"
-        }
-      ],
-      "endingOrder": "earliest",
-      "outcome": "Shared",
-      "created": {
-        "earliest": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-eleusis-pledge"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-eleusis-care"
-          }
-        ]
-      },
-      "related": "start-and-ending",
-      "return": {
-        "from": ["story-quest-greek-open-door-eleusis"],
-        "carries": [
-          {
-            "kind": "choice",
-            "key": "greek-open-door-eleusis"
-          },
-          {
-            "kind": "flag",
-            "key": "greek-open-door-eleusis-done"
-          }
-        ]
-      }
-    },
-    {
-      "id": "story-quest-greek-homecoming-return",
-      "key": "story-quest-greek-homecoming-return:piraeus",
-      "group": "homecoming",
-      "keyedCard": true,
-      "line": "Tell Dione who the berth will welcome.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-baker"
-      },
-      "art": "greek-bread",
-      "start": {
-        "any": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-family-berth"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-open-berth"
-          }
-        ]
-      },
-      "endings": [
-        {
-          "choice": "greek-homecoming-report-piraeus-family"
-        },
-        {
-          "choice": "greek-homecoming-report-piraeus-open"
-        },
-        {
-          "choice": "greek-open-door-return-dione"
-        }
-      ],
-      "endingOrder": "earliest",
-      "outcome": "Shared",
-      "created": {
-        "earliest": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-family-berth"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-open-berth"
-          }
-        ]
-      },
-      "related": "start-and-ending",
-      "return": {
-        "from": ["story-quest-greek-open-door-piraeus"],
-        "carries": [
-          {
-            "kind": "choice",
-            "key": "greek-open-door-berth"
-          },
-          {
-            "kind": "flag",
-            "key": "greek-open-door-piraeus-done"
-          }
-        ]
-      }
-    },
-    {
-      "id": "story-quest-greek-homecoming-return",
-      "key": "story-quest-greek-homecoming-return:colonus",
-      "group": "homecoming",
-      "keyedCard": true,
-      "line": "Bring the grove's story to Dione.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-baker"
-      },
-      "art": "greek-bread",
-      "start": {
-        "any": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-custom"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-family"
-          }
-        ]
-      },
-      "endings": [
-        {
-          "choice": "greek-homecoming-report-colonus-custom"
-        },
-        {
-          "choice": "greek-homecoming-report-colonus-family"
-        },
-        {
-          "choice": "greek-open-door-return-dione"
-        }
-      ],
-      "endingOrder": "earliest",
-      "outcome": "Shared",
-      "created": {
-        "earliest": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-custom"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-colonus-family"
-          }
-        ]
-      },
-      "related": "start-and-ending",
-      "return": {
-        "from": ["story-quest-greek-open-door-colonus"],
-        "carries": [
-          {
-            "kind": "choice",
-            "key": "greek-open-door-colonus"
-          },
-          {
-            "kind": "flag",
-            "key": "greek-open-door-colonus-done"
-          }
-        ]
-      }
-    },
-    {
-      "id": "story-quest-greek-homecoming-return",
-      "key": "story-quest-greek-homecoming-return:marathon",
-      "group": "homecoming",
-      "keyedCard": true,
-      "line": "Bring the children's story to Dione.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-baker"
-      },
-      "art": "greek-bread",
-      "start": {
-        "any": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-alcmene"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-hearing"
-          }
-        ]
-      },
-      "endings": [
-        {
-          "choice": "greek-homecoming-report-marathon-alcmene"
-        },
-        {
-          "choice": "greek-homecoming-report-marathon-hearing"
-        },
-        {
-          "choice": "greek-open-door-return-dione"
-        }
-      ],
-      "endingOrder": "earliest",
-      "outcome": "Shared",
-      "created": {
-        "earliest": [
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-alcmene"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-open-door-marathon-hearing"
-          }
-        ]
-      },
-      "related": "start-and-ending",
-      "return": {
-        "from": ["story-quest-greek-open-door-marathon"],
-        "carries": [
-          {
-            "kind": "choice",
-            "key": "greek-open-door-marathon"
-          },
-          {
-            "kind": "flag",
-            "key": "greek-open-door-marathon-done"
-          }
-        ]
-      }
-    },
-    {
-      "id": "story-quest-greek-homecoming-household",
-      "group": "homecoming",
-      "keyedCard": false,
-      "line": "Bring Myrine to the waiting berth.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-household-witness"
-      },
-      "art": "greek-return-list",
-      "start": {
-        "kind": "receipt",
-        "choice": "greek-homecoming-agree-journey"
-      },
-      "endings": [
-        {
-          "choice": "greek-homecoming-receive-family"
-        },
-        {
-          "choice": "greek-homecoming-receive-open"
-        }
-      ],
-      "endingOrder": "earliest",
-      "created": {
-        "kind": "receipt",
-        "choice": "greek-homecoming-agree-journey"
-      },
-      "related": "start-and-ending"
-    },
-    {
-      "id": "story-quest-greek-homecoming-witness",
-      "group": "homecoming",
-      "keyedCard": false,
-      "line": "Read Myrine's account beside your song.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-baker"
-      },
-      "art": "greek-return-list",
-      "start": {
-        "any": [
-          {
-            "kind": "receipt",
-            "choice": "greek-homecoming-receive-family"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-homecoming-receive-open"
-          }
-        ]
-      },
-      "endings": [
-        {
-          "choice": "greek-homecoming-read-basket-family"
-        },
-        {
-          "choice": "greek-homecoming-read-basket-open"
-        },
-        {
-          "choice": "greek-homecoming-read-berth-family"
-        },
-        {
-          "choice": "greek-homecoming-read-berth-open"
-        }
-      ],
-      "endingOrder": "earliest",
-      "outcome": "Shared",
-      "created": {
-        "earliest": [
-          {
-            "kind": "receipt",
-            "choice": "greek-homecoming-receive-family"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-homecoming-receive-open"
-          }
-        ]
-      },
-      "related": "start-and-ending",
-      "return": {
-        "from": ["story-quest-greek-homecoming-household"],
-        "carries": [
-          {
-            "kind": "choice",
-            "key": "greek-homecoming-care"
-          }
-        ]
-      }
-    },
-    {
-      "id": "story-quest-greek-ajax-shield",
-      "group": "ajax",
-      "line": "His child should keep the shield.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-ajax-tecmessa"
-      },
-      "art": "greek-ajax-shield",
-      "start": {
-        "kind": "flag",
-        "key": "greek-ajax-open",
-        "value": true
-      },
-      "progress": [
-        "greek-ajax-learn-shield-teucer",
-        "greek-ajax-learn-shield-odysseus",
-        "greek-ajax-learn-shield-tecmessa"
-      ],
-      "endings": [
-        {
-          "choice": "greek-ajax-deliver-shield"
-        }
-      ],
-      "outcome": "Fulfilled"
-    },
-    {
-      "id": "story-quest-greek-ajax-plea",
-      "group": "ajax",
-      "line": "A rival should hear his brother’s plea.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-ajax-teucer"
-      },
-      "art": "greek-ajax-plea",
-      "start": {
-        "kind": "receipt",
-        "choice": "greek-ajax-deliver-shield"
-      },
-      "endings": [
-        {
-          "choice": "greek-ajax-deliver-plea"
-        }
-      ],
-      "outcome": "Fulfilled",
-      "progress": ["greek-ajax-hear-plea"]
-    },
-    {
-      "id": "story-quest-greek-ajax-burial",
-      "group": "ajax",
-      "line": "Give Ajax earth beside the ships.",
-      "holder": {
-        "kind": "place",
-        "id": "greek-ajax-grave"
-      },
-      "art": "greek-ajax-cloth",
-      "start": {
-        "kind": "receipt",
-        "choice": "greek-ajax-deliver-plea"
-      },
-      "endings": [
-        {
-          "choice": "greek-ajax-bury-public"
-        },
-        {
-          "choice": "greek-ajax-bury-household"
-        },
-        {
-          "choice": "greek-ajax-bury-appeal"
-        }
-      ],
-      "outcome": "Fulfilled",
-      "progress": [
-        "greek-ajax-prepare-grave",
-        "greek-ajax-lay-cloth",
-        "greek-ajax-witness-appeal"
-      ]
-    },
-    {
-      "id": "story-quest-greek-ajax-return",
-      "group": "ajax",
-      "line": "Carry Teucer’s account home to Dione.",
-      "holder": {
-        "kind": "avatar",
-        "id": "greek-ajax-teucer"
-      },
-      "art": "greek-ajax-plea",
-      "start": {
-        "any": [
-          {
-            "kind": "receipt",
-            "choice": "greek-ajax-bury-public"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-ajax-bury-household"
-          },
-          {
-            "kind": "receipt",
-            "choice": "greek-ajax-bury-appeal"
-          }
-        ]
-      },
-      "endings": [
-        {
-          "choice": "greek-ajax-return-public"
-        },
-        {
-          "choice": "greek-ajax-return-household"
-        },
-        {
-          "choice": "greek-ajax-return-appeal"
-        }
-      ],
-      "outcome": "Shared",
-      "progress": [
-        "greek-ajax-record-public",
-        "greek-ajax-record-household",
-        "greek-ajax-record-appeal"
       ]
     }
   ],

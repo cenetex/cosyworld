@@ -1,14 +1,6 @@
 name: Release image
 
 on:
-  pull_request:
-    paths:
-      - Dockerfile
-      - .dockerignore
-      - .github/workflows/image-build.yml
-      - .github/workflows/deploy.yml
-      - scripts/prepare-fly-image.sh
-      - scripts/build-release-image.sh
   workflow_dispatch:
     inputs:
       publish_image:
@@ -19,9 +11,11 @@ on:
 permissions:
   contents: read
 
+# CI runs only by manual dispatch. Each run gets its own group and always
+# finishes; nothing cancels a run.
 concurrency:
-  group: release-image-${{ github.ref }}
-  cancel-in-progress: true
+  group: release-image-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   image:

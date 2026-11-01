@@ -6,7 +6,9 @@ import variants from "./image-variants.json" with { type: "json" };
 
 // A painting that changes while the place stays fades out over the new one:
 // slowly as night falls or lifts, briefly for anything else (a lamp, a crossing
-// opening). Travel keeps its veil and cuts.
+// opening). Travel keeps its veil and cuts. A card that joins the hand where
+// the player stays (the ship docking) fades in.
+export const CARD_ARRIVE_MS = 700;
 export const CROSSFADE_MS = 4000;
 export const CHANGE_FADE_MS = 900;
 
@@ -50,9 +52,49 @@ export function crossfadeImage(img, source, { duration = CROSSFADE_MS } = {}) {
     });
 }
 
+// A painted layer that comes and goes where the player stays (the ship
+// drawing up at Black Pond) fades instead of jumping. It never takes clicks.
+const showing = new WeakMap();
+export function fadeLayer(el, show, { duration = CHANGE_FADE_MS } = {}) {
+  const shown = showing.get(el) ?? !el.hidden;
+  if (shown === show) return;
+  showing.set(el, show);
+  for (const motion of el.getAnimations()) motion.cancel();
+  el.style.opacity = "";
+  if (!duration) {
+    el.hidden = !show;
+    return;
+  }
+  el.hidden = false;
+  const ready = show ? el.decode().catch(() => {}) : Promise.resolve();
+  if (show) el.style.opacity = "0";
+  ready.then(() => {
+    if (showing.get(el) !== show) return;
+    el.style.opacity = "";
+    const fade = el.animate(
+      { opacity: show ? [0, 1] : [1, 0] },
+      { duration, easing: "ease-in-out", fill: "forwards" },
+    );
+    fade.finished
+      .then(() => {
+        if (!show) el.hidden = true;
+        fade.cancel();
+      })
+      .catch(() => {});
+  });
+}
+
 // Halloween: on some entries to a place, one figure or the painting itself is
 // briefly something else. Change the window here; months count from 1.
 export const HALLOWEEN_DAYS = ["10-31"];
+// Places that stay uncanny all year. Presentation data only; the rules,
+// saves and the shared engine never read it.
+export const UNCANNY_PLACES = [
+  "willows-landing",
+  "willows-camp",
+  "willows-thicket",
+  "willows-bank",
+];
 // Each image has its own uncanny copy beside it: swede-seated.webp shows
 // swede-seated-uncanny.webp, riverbank.webp shows riverbank-uncanny.webp. An
 // image without a published copy never flickers, so art can arrive later
@@ -80,6 +122,18 @@ export function isHalloween(
   const forced = new URLSearchParams(search || "").get("halloween");
   if (forced === "1" || forced === "0") return forced === "1";
   return HALLOWEEN_DAYS.includes(`${date.getMonth() + 1}-${date.getDate()}`);
+}
+
+// The flicker may run at this place now: always at an uncanny place, else on
+// Halloween. `?halloween=1` or `?halloween=0` forces it everywhere.
+export function uncannyAt(
+  place,
+  date = new Date(),
+  search = globalThis.location?.search,
+) {
+  const forced = new URLSearchParams(search || "").get("halloween");
+  if (forced === "1" || forced === "0") return forced === "1";
+  return UNCANNY_PLACES.includes(place) || isHalloween(date, search);
 }
 
 export function scaresEnabled() {
@@ -161,7 +215,7 @@ export function hauntScene(stage, place, { reduced, url = (s) => s }) {
   const choice = apparitionFor({
     sources: images.map((img) => img.dataset.source),
     entered,
-    halloween: isHalloween(),
+    halloween: uncannyAt(place),
     reduced,
     scares: scaresEnabled(),
     now: performance.now(),

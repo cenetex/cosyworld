@@ -92,7 +92,7 @@ export function installToolbar({ session, getWorld }) {
   for (const [id, icon, label] of [
     ["owned-worlds-button", "worlds", "Worlds"],
     ["shared-worlds-button", "share", "Share"],
-    ["history-button", "conversation", "Conversation"],
+    ["history-button", "conversation", "Memory"],
     ["menu-button", "settings", "Settings"],
   ]) {
     const button = document.getElementById(id);

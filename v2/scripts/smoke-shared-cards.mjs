@@ -348,45 +348,29 @@ async function expectSharedReveal(page, requestStart, speaker = "Vale") {
   }
   return { text: expected, speaker };
 }
-async function catchUpWithArrow(page) {
-  await page.locator("#previous-line").click();
+// Step back through the beat stack, then tap the front card toward live.
+async function catchUpWithStack(page) {
+  await page.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
   for (let step = 0; step < 200; step++) {
-    if (
-      (await page
-        .locator("#dialogue-advance")
-        .getAttribute("data-revealing")) === "true"
-    )
-      await page.locator("#dialogue-advance").click();
-    if (await page.locator("#next-line").isDisabled()) break;
-    await page.locator("#next-line").click();
+    if (!(await page.locator("#live-line").isVisible())) break;
+    await page.locator("#dialogue-advance").click();
   }
-  assert(
-    await page.locator("#next-line").isDisabled(),
-    "arrows reach the latest line",
+  assert.equal(
+    await page.locator("#live-line").isVisible(),
+    false,
+    "the front card steps forward to live",
   );
-  assert.equal(await page.locator("#return-live").count(), 0);
 }
-async function catchUpWithPortrait(page) {
+// ● live returns from an earlier beat with the newer count.
+async function catchUpWithLive(page) {
   const latest = await page.locator("#dialogue-text").textContent();
-  await page.locator("#previous-line").click();
+  await page.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
   const live = page.getByRole("button", { name: /^Return to live dialogue/ });
-  assert.equal(await live.getAttribute("data-live"), "false");
-  await page.waitForFunction(() => {
-    const image = document.querySelector('[data-return-live="true"] img');
-    return image?.complete && image.naturalWidth > 0;
-  });
-  const face = await live.boundingBox();
-  const arrow = await page.locator("#next-line").boundingBox();
-  assert(
-    face.x >= arrow.x + arrow.width,
-    "the live portrait follows the arrows",
-  );
-  assert.equal(face.width, 28);
-  assert.equal(face.height, 28);
+  assert(await live.isVisible());
+  assert.match(await live.textContent(), /live\s*·\s*\d/u);
   await live.click();
-  assert.equal(await live.getAttribute("data-live"), "true");
+  assert.equal(await live.isVisible(), false);
   assert.equal(await page.locator("#dialogue-text").textContent(), latest);
-  assert(await page.locator("#next-line").isDisabled());
 }
 try {
   start();
@@ -539,21 +523,22 @@ try {
   );
   await dismissDiscoveries(vale);
   const requestStart = requests.length;
-  await vale.locator('#hand [data-card="moth"]').click();
+  await selectCard(vale, "moth");
   await vale.getByRole("button", { name: "Talk", exact: true }).click();
   await expectSharedReveal(vale, requestStart);
   await vale.screenshot({
     path: join(output, "shared-dialogue-reveal.png"),
     fullPage: true,
   });
+  // Tapping the front card finishes the line; the room clock owns what
+  // comes next, so the reader never skips ahead of the table.
   await vale.locator("#dialogue-advance").click();
-  await vale.locator("#next-line").click();
-  const advancedText = await vale.locator("#dialogue-text").textContent();
+  const finishedText = await vale.locator("#dialogue-text").textContent();
   await delay(500);
-  assert.equal(
-    await vale.locator("#dialogue-text").textContent(),
-    advancedText,
-    "an early arrow keeps the next line while the shared clock catches up",
+  assert(
+    (await vale.locator("#dialogue-text").textContent()).length >=
+      finishedText.length,
+    "a tap at live keeps the current beat",
   );
   await until(
     async () => (await snapshot(vale)).world.turn > seed.turn,
@@ -667,7 +652,7 @@ try {
   await mara.locator('#hand [data-card="pond"]').waitFor();
   const earlierTravel = await actionFor(mara, "move", "pond");
   await selectCard(mara, "mask");
-  await mara.locator('#hand [data-card="theatre"]').click();
+  await selectCard(mara, "theatre");
   await mara.getByRole("button", { name: "Put down", exact: true }).click();
   await until(
     async () => (await snapshot(mara)).world.items.mask.holder === "theatre",
@@ -745,8 +730,8 @@ try {
   );
   assert.equal((await snapshot(vale)).world.revision, beforeForgery);
   for (const page of [vale, mara]) {
-    await catchUpWithArrow(page);
-    await catchUpWithPortrait(page);
+    await catchUpWithStack(page);
+    await catchUpWithLive(page);
   }
   const notesBefore = await Promise.all(
     [vale, mara].map((page) => page.evaluate(() => window.sharedSpeechNotes)),
@@ -782,9 +767,6 @@ try {
   // the stage while the later Waits are still queued.
   for (const page of [vale, mara]) {
     await expectStage(page, ["vale", "nell", "ash", "mara"]);
-    await page.waitForFunction(
-      () => document.getElementById("live-line").dataset.actor === "mara",
-    );
     await page.locator("#shared-queue .shared-play-avatar").nth(3).waitFor();
     assert.equal(await page.locator("#live-line").isVisible(), false);
     assert.equal(
@@ -795,15 +777,13 @@ try {
       "mara",
       "the live portrait is first in the queue",
     );
-    await page.locator("#previous-line").click();
+    await page.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
     const returnLive = page.getByRole("button", {
       name: /^Return to live dialogue/,
     });
     assert.equal(await returnLive.count(), 1);
-    assert.equal(await returnLive.getAttribute("data-actor"), "mara");
-    assert.equal(await returnLive.getAttribute("data-return-live"), "true");
     await returnLive.click();
-    assert(await page.locator("#next-line").isDisabled());
+    assert.equal(await page.locator("#live-line").isVisible(), false);
     await page.waitForFunction(() =>
       [...document.querySelectorAll("#shared-queue img")].every(
         (image) => image.complete && image.naturalWidth > 0,

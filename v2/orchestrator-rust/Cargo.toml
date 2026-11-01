@@ -1,6 +1,6 @@
 [package]
 name = "cosyworld-orchestrator"
-version = "1.2.103"
+version = "1.2.105"
 edition = "2021"
 publish = false
 
@@ -48,3 +48,12 @@ tower = { version = "0.5", features = ["util"] }
 # Optimizing only this C dependency keeps the deadline and the rules unchanged.
 [profile.dev.package.rquickjs-sys]
 opt-level = 3
+
+# Line tables keep file:line in panics and backtraces while dropping the rest
+# of the debug info; dependencies skip it entirely. This trims about 0.6 GB
+# (~11%) from each debug build. Most of the binary is embedded card assets.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

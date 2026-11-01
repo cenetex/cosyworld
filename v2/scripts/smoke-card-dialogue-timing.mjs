@@ -153,25 +153,46 @@ try {
           const style = getComputedStyle(
             document.querySelector("#dialogue-text"),
           );
+          const card = document
+            .querySelector("#speech-row")
+            .getBoundingClientRect();
           return {
-            portraitRight: portrait.right,
-            textLeft: text.left,
+            portraitBottom: portrait.bottom,
+            textTop: text.top,
+            textWidth: text.width,
+            cardWidth: card.width,
             lines: text.height / parseFloat(style.lineHeight),
             font: parseFloat(style.fontSize),
           };
         });
-        assert(layout.portraitRight < layout.textLeft);
-        assert(layout.lines >= 2.95 && layout.lines <= 3.05);
-        assert(layout.font >= 15);
+        // The name and portrait head the card; the speech runs the card's
+        // full width below them and grows to about seven lines (#1599).
+        assert(
+          layout.portraitBottom <= layout.textTop + 1,
+          JSON.stringify(layout),
+        );
+        assert(
+          layout.textWidth > layout.cardWidth * 0.8,
+          JSON.stringify(layout),
+        );
+        assert(
+          layout.lines >= 3 && layout.lines <= 8,
+          `Speech shows three to seven lines: ${layout.lines}`,
+        );
+        assert(layout.font >= (width < 700 ? 14 : 15));
         await page.locator("#dialogue-advance").focus();
         if (motion !== "reduce")
           await page.locator("#dialogue-advance").click();
         await page.locator("#dialogue-advance").press("Home");
         await page.locator("#dialogue-advance").press("ArrowDown");
+        // A line that fits is shown whole; a longer one scrolls by keyboard.
         assert(
           await page
             .locator("#dialogue-text")
-            .evaluate((el) => el.scrollTop > 0),
+            .evaluate(
+              (el) =>
+                el.scrollHeight <= el.clientHeight + 1 || el.scrollTop > 0,
+            ),
           "Keyboard scroll reads the full speech",
         );
         await page.screenshot({
@@ -212,13 +233,8 @@ try {
           }
           await page.locator("#dialogue-advance").click();
           if (i < speakers.length - 1) {
-            if (motion !== "reduce") {
-              assert.equal(
-                await page.locator("#speaker").innerText(),
-                nameOf(speaker),
-              );
-              assert.equal(await card("vale").isDisabled(), false);
-            }
+            // The next beat arrives in front while the finished one recedes.
+            assert.equal(await card("vale").isDisabled(), false);
             await page.waitForFunction(
               (name) => document.querySelector("#speaker").textContent === name,
               nameOf(speakers[i + 1]),

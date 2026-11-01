@@ -32,13 +32,15 @@ The source map distinguishes the card pack compiler from the classic compiler.
    and client/server agreement at the real authority boundary.
 4. Rebuild the public asset list after adding a public file. Rebuild the shared
    engine after changing an imported rule module. Commit generated outputs.
-5. Update the closest current guide and bump the package and Rust crate version
-   together with `npm run version:bump`.
-6. Commit and push the branch. Keep at most one open PR in the repository;
-   wait for any open PR to merge or close before opening yours. Merge once
-   local targeted tests pass, without waiting for CI, and fix a red main forward
-   in the next PR. Main deploys `.dev` without gates as soon as its image is
-   built, and the pre-push hook runs only `npm run check:version`. Lonely
+5. Update the closest current guide. Do not bump the version: a release bumps
+   the package and Rust crate versions once with `npm run version:bump`
+   ([release operations](docs/release.md)).
+6. Commit and push the branch and open a draft PR. Many PRs may be open at
+   once; rebase yours when main moves. Merge once local targeted tests and the
+   PR's fast check pass and the change is reviewed, in batches of 2-3 (see
+   `.github/AGENT.md`). Main deploys `.dev` without gates as soon as its image is
+   built, and the pre-push hook runs only the change budget and
+   `npm run check:version`. Lonely
    Forest production releases stay a manual trigger.
 
 ## Commands

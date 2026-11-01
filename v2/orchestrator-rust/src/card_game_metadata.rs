@@ -137,5 +137,13 @@ mod tests {
         );
         assert!(value["primary_game"].is_string());
         assert_eq!(value["card_game"]["source_root"], "v2/card-game/");
+        let source_commit = crate::projection_cache::source_commit;
+        assert_eq!(
+            source_commit(Some("80364A5BE2F0c1d2e3f4".into())).as_deref(),
+            Some("80364a5be2f0")
+        );
+        assert_eq!(source_commit(Some("abc".into())), None);
+        assert_eq!(source_commit(Some("not-a-sha".into())), None);
+        assert_eq!(source_commit(None), None);
     }
 }

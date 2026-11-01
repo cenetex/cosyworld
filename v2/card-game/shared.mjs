@@ -422,7 +422,7 @@ export function installSharedControls({ session, saveSlot, getSave, notice }) {
   queue.id = "shared-queue";
   queue.setAttribute("aria-label", "Plays at the table");
   const portraits = node("div", undefined, "shared-portraits");
-  portraits.append($("live-line"), queue);
+  portraits.append(queue);
   document.querySelector(".dialogue").append(portraits);
   const roomStatus = node("div", undefined, "shared-room-status");
   roomStatus.id = "shared-room-status";

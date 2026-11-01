@@ -13,6 +13,7 @@ fn old_fixture(version: &str, scope: &str) -> (rusqlite::Connection, String, Wor
         game: result["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
+        pack: None,
     };
     old.game.as_object_mut().unwrap().remove("opening");
     old.game["packs"]["greek-drama"]["scope"] = json!(scope);
@@ -136,6 +137,8 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     old.game["items"].as_object().unwrap().len()
                         + 10
                         + 4
+                        // Greek revision 9: the Suppliant's Olive Branch.
+                        + 1
                         // The Lonely Forest: the Wolfprint Charm and eight
                         // buttons and scarves.
                         + 17

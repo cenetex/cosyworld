@@ -2643,7 +2643,7 @@ export function validateWorld(s) {
 export const encodeSave = (s) => JSON.stringify(validateWorld(s));
 export function decodeSave(text) {
   const s = JSON.parse(text);
-  upgradeSave(s, { actorIds, installPacks });
+  upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
   validateWorld(s);
   preserveTransportAccess(s);
   return validateWorld(s);

@@ -92,6 +92,29 @@ when the bytes differ from main's. It pins the live bundle's hash in
 gives the same result. Then rebuild the card assets and bump the release
 version. Do not resolve bundle conflicts by hand.
 
+`test/card-shared-bundle-modules.test.mjs` lists the modules the bundle may
+contain. A new import into the shared rules fails it. Pack content and
+presentation modules are moving out of the bundle so that content changes stop
+minting rules versions; see
+[the design note](../../../docs/design/pack-content-outside-the-engine.md).
+
+The dialogue context for a committed play, and the scene the browser draws,
+come from a second bundle,
+`card_shared/narrator.js`, built by `npm run v2:card:narrator:build`. Its
+output goes only to the story service and is never a journal input, so it is
+rebuilt from current sources and never versioned. `npm run v2:card:shared:next`
+and the land script rebuild it.
+
+`card_shared/content.json` holds the pack content the shared rules read: every
+JSON module the rules bundle imports, built by `npm run v2:card:content:build`.
+Rules from v58 on take content as input and receive it per request, so the
+bundle holds rules only and an art, pose or pack change leaves `engine-v*.js`
+unchanged. A world records the SHA-256 of that content as `pack`. The server
+stores each revision in `card_full_packs` before a journal row names it and
+replays only from verified stored bytes. A `repack` command moves a world to
+new content under the same rules. Released rules v2 to v57 carry their own
+packs and never use the store.
+
 ## Event sync
 
 Each browser keeps a sequence number and SHA-256 hash for its shared view.
@@ -209,17 +232,16 @@ prompt is a one-line cue plus the place's visible facts, including the weather
 word. Repeated reads and retries keep
 the same choice. The server records the lines
 and their reading times so people in the room see the same exchange. The
-conversation panel shows the current room's history.
+Memory panel shows the beats this player witnessed, newest visit first.
 
 Shared lines reveal letter by letter with the same voice sounds as solo play.
-The line arrows review the conversation. Reaching its latest line resumes live
-playback. Readers who advance early keep their place while the shared clock
-catches up. The voice setting and reduced-motion setting apply to shared play.
-A thinking animation marks speech preparation. The hand, avatars, and held props
-use the same presented world while speech is pending. A circular portrait follows
-the two line arrows. It shows the next queued player
-or upcoming speaker, and keeps the latest speaker's portrait while the room is
-quiet. Tapping it returns straight to the live dialogue.
+Each line arrives in front of the [beat stack](dialogue-beats.md) on the room's
+reading clock. Tapping the card behind steps back; ● live, which shows only
+while behind, counts the newer beats and returns. The voice setting and
+reduced-motion setting apply to shared play. A thinking animation marks speech
+preparation. The hand, avatars, and held props use the same presented world
+while speech is pending. A column of circular portraits beside the stack shows
+the queued players, whoever plays next first.
 Figures shrink in order of their most recent completed play in the room. Their
 areas follow the Fibonacci steps 13, 8, 5, 3, 2, 1, so their heights change gently.
 The two most recent players stand in front. On phones, they move lower into a
@@ -398,9 +420,8 @@ Shared rules version 19 uses common step capture and advancement for personal
 and shared quests. Each saved step keeps its evidence, source turn and card key.
 Repeated checks in one turn preserve the single-step and single-effect rules.
 
-Packs supply story cards and ordered endings through `storyQuests`. Greece uses
-this common evaluator, including its earlier choices, grave return, Open Door
-and Homecoming. Existing cards retain their keys, holders and completion turns.
+Earlier rules read story cards and ordered endings from pack
+`storyQuests`. Current packs carry none; stories are told through pack choices.
 
 Talk may share one fact from an authored topic or the speaker's saved knowledge.
 The accepted line must contain the complete fact sentence. From rules version

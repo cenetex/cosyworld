@@ -1,32 +1,16 @@
 name: Local desktop app
 
 on:
-  push:
-    branches: [main]
-    tags: ["v*"]
-  pull_request:
-    paths:
-      - "v2/desktop/**"
-      - "v2/local/**"
-      - "v2/card-game/**"
-      - "v2/orchestrator-rust/**"
-      - "v2/core-c/**"
-      - "v2/content/**"
-      - "v2/worlds/**"
-      - "v2/scripts/**"
-      - "scripts/*version*.mjs"
-      - "test/*local*.mjs"
-      - "test/version-alignment.test.mjs"
-      - "package*.json"
-      - ".github/workflows/local-desktop.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# CI runs only by manual dispatch. Each run gets its own group and always
+# finishes; nothing cancels a run.
 concurrency:
-  group: local-desktop-${{ github.ref }}
-  cancel-in-progress: true
+  group: local-desktop-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   macos:
@@ -103,8 +87,6 @@ jobs:
             if [ -f "$log" ]; then tail -80 "$log"; fi
           done
       - name: Check local services and desktop source
-        env:
-          VERSION_CHECK_ALIGNMENT_ONLY: ${{ github.event_name != 'pull_request' && '1' || '0' }}
         run: |
           npm run check:version
           npm run v2:card:assets:check
@@ -207,7 +189,7 @@ jobs:
       - uses: actions/cache/save@v6
         if: >-
           always() &&
-          github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+          github.ref == 'refs/heads/main' &&
           steps.cargo-cache.outputs.cache-hit != 'true'
         timeout-minutes: 5
         continue-on-error: true

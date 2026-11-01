@@ -16,6 +16,14 @@ export async function revealCard(page, id) {
     await owner.click();
   }
   await card.scrollIntoViewIfNeeded();
+  // The first tap uncovers; a tap during the reveal only skips it.
+  if ((await card.getAttribute("data-unrevealed")) === "true") {
+    await card.click();
+    await page.waitForFunction(
+      (id) => !document.querySelector(`#hand [data-card="${id}"]`)?.dataset.revealing,
+      id,
+    );
+  }
   return card;
 }
 // A held item stays raised through plays and new targets (#1417, #1435), so
@@ -45,4 +53,22 @@ export async function selectCard(page, id, { touch = false } = {}) {
       else await owner.click();
     }
   }
+}
+// The beat stack's cards take real pointer hits: the front card under its own
+// centre, and the card behind under its peeking top line (#1538).
+export async function stackHits(page) {
+  return page.evaluate(() => {
+    const hit = (id, dy) => {
+      const card = document.getElementById(id);
+      if (!card || card.hidden) return null;
+      const box = card.getBoundingClientRect();
+      const y = dy ? box.top + dy : box.top + box.height / 2;
+      return Boolean(
+        document
+          .elementFromPoint(box.left + box.width / 2, y)
+          ?.closest(`#${id}`),
+      );
+    };
+    return { front: hit("speech-row"), behind: hit("beat-behind", 6) };
+  });
 }
