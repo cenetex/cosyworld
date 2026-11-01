@@ -83,8 +83,8 @@ describe("the Signal Jetty lane", () => {
 
   it("opens only while a Hoppy Cat thing is aboard; knowing it is not enough", () => {
     let s = setup("greek-piraeus");
-    // The lanes to the Wine-Dark Harbor and Athens Harbor wait for the
-    // Travel Provisions and the olive branch, which stay ashore.
+    // The lane to the Wine-Dark Harbor waits for the Travel Provisions,
+    // which stay ashore.
     // Mara knows the jetty lane too; knowledge alone leaves it closed.
     learnLane(s, "mara", "greek-piraeus", JETTY);
     // Vale waits ashore with a Hoppy Cat thing in hand.

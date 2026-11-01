@@ -1,5 +1,13 @@
 import { openDoorSteps, openDoorStart, playOpenDoor } from "./open-door.mjs";
 import { greekMoveSteps } from "./greek-travel.mjs";
+import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
+
+// Myrine walks her authored path one road at a time, from Eleusis along the
+// Sacred Way and the Long Walls to Piraeus.
+export const myrineSteps =
+  packDefinition("greek-drama").avatars[
+    "greek-household-witness"
+  ].journey.path.slice(1);
 
 export const homecomingChoose = (id) => ({
   kind: "choose",
@@ -22,11 +30,11 @@ export function homecomingSteps({ berth = "family", reading = "basket" } = {}) {
     homecomingChoose(`report-piraeus-${berth}`),
     ...fromCourtyard("harbor", "athens", "eleusis"),
     homecomingChoose("agree-journey"),
-    {
+    ...myrineSteps.map((destination) => ({
       kind: "accompany",
       target: "greek-household-witness",
-      destination: "greek-piraeus",
-    },
+      destination,
+    })),
     ...(berth === "family"
       ? [
           { kind: "take", item: "greek-provision-basket" },

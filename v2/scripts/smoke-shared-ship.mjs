@@ -157,7 +157,7 @@ try {
       await move(mara, "mara", "greek-ship");
       // From Black Pond the only course is the Wine-Dark Harbor.
       assert.equal(
-        await vale.locator('#hand [data-card="greek-athens-harbor"]').count(),
+        await vale.locator('#hand [data-card="greek-piraeus"]').count(),
         0,
       );
       await playCard(vale, "greek-harbor", "Set course");

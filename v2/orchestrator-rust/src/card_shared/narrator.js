@@ -1541,7 +1541,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 11,
+        revision: 14,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -1686,20 +1686,24 @@
             name: "The Hillside Sanctuary",
             text: "Olive trees shade a small altar. A stone basin stands beneath its roof.",
             exits: [
-              "greek-courtyard",
-              "greek-cithaeron"
+              "greek-courtyard"
             ],
             backdrop: "assets/greek-drama/sanctuary-dawn.webp",
             persona: "Olive trees shade a small altar. A stone basin stands beneath its roof."
           },
           "greek-cithaeron": {
-            name: "Cithaeron Slopes",
-            text: "Goat paths cross the wooded slope. A distant drum carries between the trees.",
+            name: "The Cithaeron Road",
+            text: "Goat paths cross the wooded slope of Cithaeron. One end leads to The Exposed Battlefield; the other leads to Eleusinian Sanctuary. A distant drum carries between the trees.",
             exits: [
-              "greek-sanctuary"
+              "greek-battlefield",
+              "greek-eleusis"
             ],
             backdrop: "assets/greek-drama/bacchae-cithaeron-day.webp",
-            persona: "Goat paths cross the wooded slope. A distant drum carries between the trees."
+            persona: "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. The left end always leads to The Exposed Battlefield. The right end always leads to Eleusinian Sanctuary. From the battlefield it opens only while a Theban account of the burial is there or on Dione\u2019s table: the Burial Account, Creon\u2019s Writ or the Guard\u2019s Tablet. Travelers can meet, talk, rest and carry their belongings here.",
+            road: [
+              "greek-battlefield",
+              "greek-eleusis"
+            ]
           },
           "greek-aulis": {
             name: "Aulis Anchorage",
@@ -1714,18 +1718,11 @@
             name: "Athenian Agora",
             text: "A broad civic square opens beneath long painted colonnades. Marble steps rise toward the Acropolis above the roofs. A herald keeps a petition table beside the market.",
             exits: [
-              "greek-athens-harbor",
-              "greek-road-athens-piraeus",
               "greek-assembly",
               "greek-acropolis",
-              "greek-demos-house",
               "greek-thinkery",
-              "greek-jury-house",
-              "greek-festival",
-              "greek-attic-farm",
-              "greek-colonus",
-              "greek-road-sacred-way",
-              "greek-road-athens-harbor"
+              "greek-road-athens-eleusis",
+              "greek-road-sacred-way"
             ],
             backdrop: "assets/greek-drama/athens-grand-agora.webp",
             backdrops: [
@@ -1748,10 +1745,9 @@
           },
           "greek-piraeus": {
             name: "Piraeus Quays",
-            text: "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. A road leads inland to Athens. A shore path leads to Eleusis.",
+            text: "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. The Long Walls run inland to Athens.",
             exits: [
-              "greek-road-athens-piraeus",
-              "greek-eleusis"
+              "greek-road-athens-piraeus"
             ],
             backdrop: "assets/greek-drama/piraeus-open-berth.webp",
             persona: "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler\u2019s chosen terms."
@@ -1760,7 +1756,8 @@
             name: "The Assembly Hill",
             text: "Stone benches face the speaker's platform. Citizens gather beside a list of proposals.",
             exits: [
-              "greek-athens"
+              "greek-athens",
+              "greek-demos-house"
             ],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "Stone benches face the speaker's platform. Citizens gather beside a list of proposals."
@@ -1769,7 +1766,8 @@
             name: "Acropolis Treasury",
             text: "A barred door separates the treasury from the courtyard. Women keep watch on the steps.",
             exits: [
-              "greek-athens"
+              "greek-athens",
+              "greek-festival"
             ],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "A barred door separates the treasury from the courtyard. Women keep watch on the steps."
@@ -1778,7 +1776,7 @@
             name: "House of Demos",
             text: "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside.",
             exits: [
-              "greek-athens"
+              "greek-assembly"
             ],
             backdrop: "assets/greek-drama/courtyard.svg",
             persona: "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside."
@@ -1799,13 +1797,14 @@
               "greek-athens"
             ],
             backdrop: "assets/greek-drama/courtyard.svg",
-            persona: "A jury token hangs beside the door. The household has arranged a small court in the yard."
+            persona: "A jury token hangs beside the door. The household has arranged a small court in the yard.",
+            retired: true
           },
           "greek-festival": {
             name: "The Women's Festival",
             text: "Garlands mark the sanctuary entrance. The women at the door check each arriving guest.",
             exits: [
-              "greek-athens"
+              "greek-acropolis"
             ],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "Garlands mark the sanctuary entrance. The women at the door check each arriving guest."
@@ -1814,10 +1813,10 @@
             name: "The Attic Farm",
             text: "Vines grow beside a patched farmhouse. Unused ploughs stand where military wagons passed.",
             exits: [
-              "greek-athens",
-              "greek-acharnae",
-              "greek-divine-heights",
-              "greek-bird-wilderness"
+              "greek-eleusis",
+              "greek-colonus",
+              "greek-marathon",
+              "greek-acharnae"
             ],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "Vines grow beside a patched farmhouse. Unused ploughs stand where military wagons passed."
@@ -1833,29 +1832,34 @@
           },
           "greek-colonus": {
             name: "Colonus Grove",
-            text: "A cup and a small pot of honey stand at the grove\u2019s edge. A keeper rests beside a smooth stone. Paths lead back to the Agora and on to the Marathon altar.",
+            text: "A cup and a small pot of honey stand at the grove\u2019s edge. A keeper rests beside a smooth stone. Country paths lead to Eleusis, the farm and the Marathon altar.",
             exits: [
-              "greek-athens",
-              "greek-underworld",
-              "greek-marathon"
+              "greek-eleusis",
+              "greek-marathon",
+              "greek-attic-farm"
             ],
             backdrop: "assets/greek-drama/open-door-colonus.webp",
             persona: "The keeper tells Sophocles\u2019s Oedipus at Colonus as an earlier tale, before the brothers died at Thebes. Oedipus and his daughters belong to that named tale. The traveler\u2019s offerings and refuge tablet belong to the present grove."
           },
           "greek-eleusis": {
             name: "Eleusinian Sanctuary",
-            text: "Mothers hold olive branches on Demeter\u2019s steps. Aethra keeps a clear space beside the altar for their request. A shore path leads back to the Piraeus quays.",
+            text: "Mothers hold olive branches on Demeter\u2019s steps. Aethra keeps a clear space beside the altar for their request. The Sacred Way leads to the Dipylon gate of Athens; the Cithaeron road leads to Thebes.",
             exits: [
-              "greek-piraeus"
+              "greek-colonus",
+              "greek-marathon",
+              "greek-attic-farm",
+              "greek-cithaeron"
             ],
             backdrop: "assets/greek-drama/open-door-eleusis.webp",
             persona: "This episode follows the attack on Thebes. The Argive mothers seek their sons\u2019 remains. The traveler\u2019s own Theban deed stays true. The city\u2019s recovery, the funeral and the later care each need their own recorded action or report."
           },
           "greek-marathon": {
             name: "Marathon Altar",
-            text: "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. A path runs back to the Colonus grove.",
+            text: "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. Country paths lead to Eleusis, Colonus and the farm.",
             exits: [
-              "greek-colonus"
+              "greek-eleusis",
+              "greek-colonus",
+              "greek-attic-farm"
             ],
             backdrop: "assets/greek-drama/open-door-marathon.webp",
             persona: "The keeper tells Euripides\u2019s Children of Heracles as a separate tale under Demophon, son of Theseus, after Heracles\u2019s death. The daughter, battle and captive king belong to that tale. The traveler\u2019s blanket stays at the present altar for guests."
@@ -2202,7 +2206,8 @@
               "greek-attic-farm"
             ],
             backdrop: "assets/greek-drama/sea.svg",
-            persona: "A steep stair ends above the clouds. Broken farming tools have been carried to the landing."
+            persona: "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
+            retired: true
           },
           "greek-bird-wilderness": {
             name: "The Hoopoe's Thicket",
@@ -2211,7 +2216,8 @@
               "greek-attic-farm"
             ],
             backdrop: "assets/greek-drama/grove.svg",
-            persona: "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city."
+            persona: "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
+            retired: true
           },
           "greek-underworld": {
             name: "The Underworld Landing",
@@ -2220,7 +2226,8 @@
               "greek-colonus"
             ],
             backdrop: "assets/greek-drama/harbor.svg",
-            persona: "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing."
+            persona: "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
+            retired: true
           },
           "greek-ship": {
             name: "Greek ship",
@@ -2284,10 +2291,10 @@
             text: "Stone quays run beneath long warehouses. Beyond the harbor gate, city streets and steps climb toward the walls and the Acropolis of Athens.",
             persona: "Athens Harbor is the ship\u2019s landing for the great city. City streets lead inland to the Agora. Piraeus Quays is a separate town with its own host and work of welcome.",
             exits: [
-              "greek-athens",
-              "greek-road-athens-harbor"
+              "greek-piraeus"
             ],
-            backdrop: "assets/greek-drama/athens-harbor-open-berth.webp"
+            backdrop: "assets/greek-drama/athens-harbor-open-berth.webp",
+            retired: true
           },
           "greek-road-thebes": {
             name: "Theban Harbor Road",
@@ -2315,12 +2322,13 @@
               "greek-athens-harbor",
               "greek-athens"
             ],
-            backdrop: "assets/greek-drama/attic-road.webp"
+            backdrop: "assets/greek-drama/attic-road.webp",
+            retired: true
           },
           "greek-road-athens-piraeus": {
-            name: "Athens\u2013Piraeus Road",
-            text: "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
-            persona: "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
+            name: "The Long Walls",
+            text: "A road runs between two long walls from the city to its port. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
+            persona: "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. From the Agora the walls open only while the Suppliant\u2019s Olive Branch is in the Agora. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-piraeus",
               "greek-athens"
@@ -2347,9 +2355,9 @@
             backdrop: "assets/greek-drama/attic-road.webp"
           },
           "greek-road-athens-eleusis": {
-            name: "Eleusis Road",
-            text: "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
-            persona: "A shared road between Athenian Agora and Eleusinian Sanctuary. The left end always leads to Athenian Agora. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
+            name: "The Sacred Way",
+            text: "A paved road runs from Demeter\u2019s sanctuary to the Dipylon, the double gate of Athens. One end leads to Athenian Agora; the other leads to Eleusinian Sanctuary. Small shrines stand along the verge.",
+            persona: "A shared road between Athenian Agora and Eleusinian Sanctuary. The left end always leads to Athenian Agora. The right end always leads to Eleusinian Sanctuary. From Eleusis the road opens only while the mothers\u2019 petition is at Eleusis or in the Agora. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-athens",
               "greek-eleusis"
@@ -2358,8 +2366,7 @@
               "greek-athens",
               "greek-eleusis"
             ],
-            retired: true,
-            backdrop: "assets/greek-drama/attic-road.webp"
+            backdrop: "assets/greek-drama/dipylon-road.svg"
           },
           "greek-road-athens-marathon": {
             name: "Marathon Road",
@@ -2422,7 +2429,7 @@
             backdrop: "assets/greek-drama/attic-road.webp"
           },
           "greek-road-sacred-way": {
-            name: "The Sacred Way",
+            name: "The Road to Delphi",
             text: "A paved pilgrim road climbs through the hills toward Mount Parnassus. One end leads to Athenian Agora; the other leads to Delphic Temple. Small shrines stand along the verge.",
             persona: "A shared road between Athenian Agora and Delphic Temple. The left end always leads to Athenian Agora. The right end always leads to Delphic Temple. Pilgrims carry questions and gifts for Apollo along this road. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
@@ -2750,8 +2757,8 @@
           "greek-ferryman": {
             name: "The Lower Ferryman",
             text: "He holds a mooring rope and waits for each traveler to name a purpose.",
-            place: "greek-underworld",
-            home: "greek-underworld",
+            place: "greek-colonus",
+            home: "greek-colonus",
             values: {
               "greek-provisions": 2
             },
@@ -3209,6 +3216,9 @@
               after: "greek-homecoming-agree-journey",
               path: [
                 "greek-eleusis",
+                "greek-road-athens-eleusis",
+                "greek-athens",
+                "greek-road-athens-piraeus",
                 "greek-piraeus"
               ]
             },
@@ -3361,10 +3371,10 @@
           "greek-olive-branch": {
             name: "The Suppliant\u2019s Olive Branch",
             startLevel: 30,
-            text: "An olive branch bound with white wool, given at the Agora when the mothers\u2019 plea is registered. Ships sail between Piraeus and Athens Harbor while it is aboard.",
+            text: "An olive branch bound with white wool, given at the Agora when the mothers\u2019 plea is registered. While it is in the Agora, the Long Walls stand open to Piraeus.",
             holder: "greek-athens",
             art: "assets/greek-drama/olive-branch.webp",
-            persona: "Describe the branch, its actual holder and its recorded use. The lane between Piraeus and Athens Harbor is open only while it is aboard the ship.",
+            persona: "Describe the branch, its actual holder and its recorded use. Travelers set out from the Agora along the Long Walls only while it is in the Agora.",
             requires: [
               {
                 kind: "flag",
@@ -3803,6 +3813,116 @@
           {
             from: "greek-argos-palace",
             to: "greek-argos-tomb"
+          },
+          {
+            from: "greek-battlefield",
+            to: "greek-cithaeron",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-burial-performed",
+                value: true
+              },
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "item_near",
+                    item: "greek-burial-account",
+                    place: "greek-battlefield"
+                  },
+                  {
+                    kind: "item_near",
+                    item: "greek-burial-account",
+                    place: "greek-courtyard"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            from: "greek-battlefield",
+            to: "greek-cithaeron",
+            requires: [
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "item_near",
+                    item: "greek-creon-writ",
+                    place: "greek-battlefield"
+                  },
+                  {
+                    kind: "item_near",
+                    item: "greek-creon-writ",
+                    place: "greek-courtyard"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            from: "greek-battlefield",
+            to: "greek-cithaeron",
+            requires: [
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "item_near",
+                    item: "greek-guard-tablet",
+                    place: "greek-battlefield"
+                  },
+                  {
+                    kind: "item_near",
+                    item: "greek-guard-tablet",
+                    place: "greek-courtyard"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            from: "greek-eleusis",
+            to: "greek-road-athens-eleusis",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-open-door-mothers-heard",
+                value: true
+              },
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "item_near",
+                    item: "greek-burial-petition",
+                    place: "greek-eleusis"
+                  },
+                  {
+                    kind: "item_near",
+                    item: "greek-burial-petition",
+                    place: "greek-athens"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            from: "greek-athens",
+            to: "greek-road-athens-piraeus",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-open-door-plea-registered",
+                value: true
+              },
+              {
+                kind: "item_near",
+                item: "greek-olive-branch",
+                place: "greek-athens"
+              }
+            ]
           }
         ],
         choices: [
@@ -8623,7 +8743,8 @@
             "greek-greek-camp",
             "greek-ajax-landing",
             "greek-ajax-household",
-            "greek-ajax-grave"
+            "greek-ajax-grave",
+            "greek-cithaeron"
           ],
           avatars: [
             "greek-antigone",
@@ -9112,7 +9233,9 @@
               "greek-marathon",
               "greek-road-athens-harbor",
               "greek-road-athens-piraeus",
-              "greek-athens-harbor"
+              "greek-athens-harbor",
+              "greek-cithaeron",
+              "greek-road-athens-eleusis"
             ],
             requires: [
               {
@@ -9526,7 +9649,7 @@
         ],
         bridge: {
           id: "shore-greek-drama",
-          description: "A shared ship sails authored lanes from Black Pond only to the Wine-Dark Harbor, and from there to Piraeus Quays, Athens Harbor and the Trojan camp landing. The lamp signal calls it to the pond."
+          description: "A shared ship sails authored lanes from Black Pond only to the Wine-Dark Harbor, and from there to Piraeus Quays and the Trojan camp landing. The lamp signal calls it to the pond."
         },
         crossings: [
           {
@@ -9603,7 +9726,6 @@
             travelers: "any",
             travel: "aboard the ship",
             requires: [],
-            transport: "greek-ship",
             travelLabel: "Board",
             scenery: {
               open: "The Greek ship waits beside the quay.",
@@ -9611,7 +9733,8 @@
               cardArt: "assets/greek-drama/ship-card.webp",
               backdrop: "assets/greek-drama/athens-harbor.webp",
               closed: "The shared ship is sailing elsewhere. The quay waits beside open water."
-            }
+            },
+            retired: true
           },
           {
             id: "greek-piraeus-ship",
@@ -9674,7 +9797,6 @@
             docks: [
               "pond",
               "greek-harbor",
-              "greek-athens-harbor",
               "greek-piraeus",
               "greek-ajax-landing",
               "hoppycat-signal-jetty"
@@ -9687,6 +9809,7 @@
               {
                 from: "greek-harbor",
                 to: "greek-piraeus",
+                oneWay: true,
                 opensWith: [
                   {
                     kind: "item_present",
@@ -9696,19 +9819,13 @@
                 ]
               },
               {
-                from: "greek-harbor",
-                to: "greek-ajax-landing"
+                from: "greek-piraeus",
+                to: "greek-harbor",
+                oneWay: true
               },
               {
-                from: "greek-athens-harbor",
-                to: "greek-piraeus",
-                opensWith: [
-                  {
-                    kind: "item_present",
-                    item: "greek-olive-branch",
-                    place: "greek-ship"
-                  }
-                ]
+                from: "greek-harbor",
+                to: "greek-ajax-landing"
               },
               {
                 from: "greek-piraeus",
@@ -13566,9 +13683,11 @@
         out.push("has a lane that does not join two of its docks");
         continue;
       }
-      const pair = [lane.from, lane.to].sort().join(">");
-      if (seen.has(pair)) out.push(`repeats the lane ${pair}`);
-      seen.add(pair);
+      const ways = [`${lane.from}>${lane.to}`];
+      if (!lane.oneWay) ways.push(`${lane.to}>${lane.from}`);
+      if (ways.some((way) => seen.has(way)))
+        out.push(`repeats the lane ${ways[0]}`);
+      for (const way of ways) seen.add(way);
       neighbours.get(lane.from).add(lane.to);
       neighbours.get(lane.to).add(lane.from);
       leaving.add(lane.from);
@@ -13825,16 +13944,17 @@
       if (p.road !== void 0)
         check(
           Array.isArray(p.road) && p.road.length === 2 && new Set(p.road).size === 2 && p.road.every(
-            (end, i) => owns2(places2, end) && p.exits[i] === end && (p.retired === true || places2[end].exits.includes(id))
+            (end, i) => owns2(places2, end) && p.exits[i] === end && (p.retired === true || places2[end].exits.includes(id) || // A gated end leads onto its road by a route.
+            (pack.routes || []).some((r) => r.from === end && r.to === id))
           ) && p.exits.length === 2,
           `road ${id} needs two fixed ends with a return path`
         );
       if (p.retired !== void 0)
         check(
-          p.retired === true && p.road !== void 0 && Object.values(places2).every(
-            (other) => !(Array.isArray(other.exits) && other.exits.includes(id))
-          ),
-          `retired road ${id} must be a road that no exit names`
+          p.retired === true && (p.road !== void 0 || p.exits.length === 1 && places2[p.exits[0]]?.retired !== true) && Object.values(places2).every(
+            (other) => other.retired === true || !(Array.isArray(other.exits) && other.exits.includes(id))
+          ) && !(pack.routes || []).some((r) => r.to === id),
+          `retired place ${id} must be a road or lead to one live place, and no exit names it`
         );
       if (p.art !== void 0) media(p.art, `place ${id} art`);
       if (p.music !== void 0)
@@ -15316,7 +15436,14 @@
     ).map(([id, place]) => [id, place.road])
   );
   var localRoadEnds = (id) => localRoads.get(id) || null;
-  var canonicalPlace = (id) => localRoadEnds(id)?.[0] || id;
+  var retiredPlaces = new Map(
+    Object.entries(packPlaces).filter(([, place]) => place.retired === true && !place.road).map(([id, place]) => [id, place.exits[0]])
+  );
+  var retiredPlace = (id) => retiredPlaces.has(id);
+  var canonicalPlace = (id) => {
+    const end = localRoadEnds(id)?.[0] || id;
+    return retiredPlaces.get(end) || end;
+  };
   var transports = merge("transports");
   var packPeople = merge("avatars");
   var packFixtures = merge("fixtures");
@@ -15451,7 +15578,7 @@
     return entityEnabled(world, id);
   }
   function entityEnabled(world, id, saved = false) {
-    if (localRoads.has(id)) return false;
+    if (localRoads.has(id) || retiredPlaces.has(id)) return false;
     const e = packEntity(id);
     if (!e) return true;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
@@ -16185,6 +16312,9 @@
       upgradeForestButtonsSave(s);
       upgradeWillowsKitSave(s);
       upgradeGreekThebesSave(s);
+      upgradeGreekDistrictSave(s);
+      upgradeGreekCithaeronSave(s);
+      upgradeGreekDistrictRoadsSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -16378,6 +16508,38 @@
       state.phase = 0;
     saved.revision = 10;
   }
+  function upgradeGreekDistrictRoadsSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 14 || saved?.revision !== 13) return;
+    foldRetiredRoads(s);
+    saved.revision = 14;
+  }
+  function upgradeGreekCithaeronSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 13 || saved?.revision !== 12) return;
+    foldRetiredRoads(s);
+    saved.revision = 13;
+  }
+  function upgradeGreekDistrictSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 12 || saved?.revision !== 11) return;
+    for (const [id, state] of Object.entries(s.transports || {})) {
+      if (![state?.dock, state?.destination, state?.recall].some(retiredPlace))
+        continue;
+      const dock = canonicalPlace(state.destination || state.dock);
+      s.transports[id] = upgradeTransportState(s, id, {
+        ...state,
+        dock,
+        destination: dock,
+        recall: state.recall && canonicalPlace(state.recall)
+      });
+    }
+    foldRetiredRoads(s);
+    saved.revision = 12;
+  }
   function restoreThebanRoad(s, pack) {
     const road = "greek-road-thebes";
     const [harbor, town] = pack.places[road].road;
@@ -16397,7 +16559,7 @@
   }
   function walkablePath(from, to) {
     const edges = authoredRouteEdges().filter(
-      ([a, b]) => !localRoadEnds(a) && !localRoadEnds(b)
+      ([a, b]) => canonicalPlace(a) === a && canonicalPlace(b) === b
     );
     const queue = [[from]], seen = /* @__PURE__ */ new Set([from]);
     while (queue.length) {
@@ -16412,8 +16574,12 @@
     return null;
   }
   function foldRetiredRoads(s) {
+    for (const actor of Object.values(s.actors || {}))
+      for (const field of ["place", "home"])
+        if (retiredPlace(actor[field]))
+          actor[field] = canonicalPlace(actor[field]);
     for (const [id, actor] of Object.entries(s.actors || {})) {
-      const ends = localRoadEnds(actor.place);
+      const ends = localRoadEnds(actor.place)?.map(canonicalPlace);
       if (!ends) continue;
       const count = (place) => humanAvatarIds.filter((human) => s.actors[human]?.place === place).length;
       actor.place = humanAvatarIds.includes(id) && count(ends[0]) >= 4 ? ends[1] : ends[0];
@@ -16425,7 +16591,9 @@
     );
     const greek = (id) => packPlaces[id]?.packId === "greek-drama";
     for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
-      const paths = edges.map(([from, to]) => [canonicalPlace(from), canonicalPlace(to)]).filter(([from, to]) => from !== to).flatMap((edge) => {
+      const paths = edges.filter(
+        (edge) => !(laneOfEdge(edge) || []).some(retiredPlace) && !(edge.some(retiredPlace) && !edge.every(greek))
+      ).map(([from, to]) => [canonicalPlace(from), canonicalPlace(to)]).filter(([from, to]) => from !== to).flatMap((edge) => {
         if (authored.has(JSON.stringify(edge)) || !edge.every(greek))
           return [edge];
         const path = walkablePath(...edge);
@@ -16442,7 +16610,7 @@
         actor.visited = [...new Set(actor.visited.map(canonicalPlace))];
     }
     s.standoffs = (s.standoffs || []).filter(
-      (conflict) => !localRoadEnds(conflict.location)
+      (conflict) => canonicalPlace(conflict.location) === conflict.location
     );
   }
   function upgradeGreekPassSave(s) {
@@ -17518,7 +17686,6 @@
     "greek-road-athens-harbor": art("attic-road-night"),
     "greek-road-athens-piraeus": art("attic-road-night"),
     "greek-road-athens-colonus": art("attic-road-night"),
-    "greek-road-athens-eleusis": art("attic-road-night"),
     "greek-road-athens-marathon": art("attic-road-night"),
     "greek-road-piraeus-eleusis": art("attic-road-night"),
     "greek-road-colonus-eleusis": art("attic-road-night"),

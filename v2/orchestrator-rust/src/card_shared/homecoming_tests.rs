@@ -97,6 +97,18 @@ fn fixture() -> (rusqlite::Connection, String) {
     (c, id)
 }
 
+fn step(target: &str) -> [(&str, &str); 2] {
+    [("kind", "move"), ("target", target)]
+}
+
+// Myrine's walk from Eleusis to the Piraeus quays, one road at a time.
+const MYRINE_PATH: [&str; 4] = [
+    "greek-road-athens-eleusis",
+    "greek-athens",
+    "greek-road-athens-piraeus",
+    "greek-piraeus",
+];
+
 fn released_berth(c: &rusqlite::Connection, id: &str) -> World {
     let result = engine::reduce_version(engine::ELEVENTH_VERSION, json!({"op":"create"})).unwrap();
     let mut world = World {
@@ -231,13 +243,16 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             rejected(&c, &id, &mut world, "vale", json!({"key":receive}));
             let escort = format!("accompany:mara::{MYRINE}:greek-piraeus");
             rejected(&c, &id, &mut world, "mara", json!({"key":escort}));
-            play(
-                &c,
-                &id,
-                &mut world,
-                0,
-                &[("kind", "move"), ("target", "greek-eleusis")],
-            );
+            // Piraeus and Eleusis are joined through the city, by the Long
+            // Walls and the Sacred Way.
+            for target in [
+                "greek-road-athens-piraeus",
+                "greek-athens",
+                "greek-road-athens-eleusis",
+                "greek-eleusis",
+            ] {
+                play(&c, &id, &mut world, 0, &step(target));
+            }
             let agreement = play(
                 &c,
                 &id,
@@ -246,27 +261,26 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
                 &[("choiceId", "greek-homecoming-agree-journey")],
             );
             rejected(&c, &id, &mut world, "vale", agreement);
-            play(
-                &c,
-                &id,
-                &mut world,
-                0,
-                &[("kind", "move"), ("target", "greek-piraeus")],
-            );
+            for target in MYRINE_PATH {
+                play(&c, &id, &mut world, 0, &step(target));
+            }
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-eleusis");
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
             assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
-            let travel = play(
-                &c,
-                &id,
-                &mut world,
-                1,
-                &[
-                    ("kind", "accompany"),
-                    ("target", MYRINE),
-                    ("destination", "greek-piraeus"),
-                ],
-            );
+            let mut travel = Value::Null;
+            for destination in MYRINE_PATH {
+                travel = play(
+                    &c,
+                    &id,
+                    &mut world,
+                    1,
+                    &[
+                        ("kind", "accompany"),
+                        ("target", MYRINE),
+                        ("destination", destination),
+                    ],
+                );
+            }
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-piraeus");
             assert_eq!(world.game["actors"]["mara"]["place"], "greek-piraeus");
             assert_eq!(

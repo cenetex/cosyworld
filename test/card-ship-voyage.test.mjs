@@ -72,9 +72,8 @@ describe("sea lanes", () => {
       expect(lanesFrom(ship(), dock).length).toBeLessThanOrEqual(MAX_LANES);
     // From Black Pond the ship sails only to the Wine-Dark Harbor.
     expect(lanesFrom(ship(), "pond")).toEqual(["greek-harbor"]);
-    expect(lanesFrom(ship(), "greek-athens-harbor")).toEqual([
-      "greek-piraeus",
-    ]);
+    // Athens Harbor has joined Piraeus and is no longer a dock.
+    expect(ship().docks).not.toContain("greek-athens-harbor");
   });
 
   it("the validator rejects a fifth lane, a stray dock and a dock with no way out", () => {
@@ -212,18 +211,12 @@ describe("a real voyage", () => {
       "greek-harbor",
     ]);
     // Vale knows the Black Pond lane. Piraeus waits for the Travel
-    // Provisions aboard; Athens Harbor for the olive branch.
+    // Provisions aboard.
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-harbor",
     ]);
     s.items["greek-provisions"].holder = "greek-ship";
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
-      "greek-harbor",
-      "greek-piraeus",
-    ]);
-    s.items["greek-olive-branch"].holder = "greek-ship";
-    expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
-      "greek-athens-harbor",
       "greek-harbor",
       "greek-piraeus",
     ]);

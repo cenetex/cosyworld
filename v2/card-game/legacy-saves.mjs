@@ -6,12 +6,14 @@ import {
   transports,
   canonicalPlace,
   localRoadEnds,
+  retiredPlace,
   packPlaces,
   choiceText,
 } from "./pack-registry.mjs";
 import { authoredRouteEdges } from "./roaming-routes.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import {
+  laneOfEdge,
   learnLane,
   passengers,
   upgradeTransportState,
@@ -96,6 +98,9 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     upgradeForestButtonsSave(s);
     upgradeWillowsKitSave(s);
     upgradeGreekThebesSave(s);
+    upgradeGreekDistrictSave(s);
+    upgradeGreekCithaeronSave(s);
+    upgradeGreekDistrictRoadsSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -341,6 +346,47 @@ export function upgradeGreekShipSignalSave(s) {
   saved.revision = 10;
 }
 
+// Revision 14 sorts Athens into districts joined by gate roads. A known step
+// between districts becomes a walkable path through the gates.
+export function upgradeGreekDistrictRoadsSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 14 || saved?.revision !== 13) return;
+  foldRetiredRoads(s);
+  saved.revision = 14;
+}
+
+// Revision 13 makes Cithaeron the road from the battlefield to Eleusis. A
+// known step to the old slopes from the sanctuary becomes a walkable path.
+export function upgradeGreekCithaeronSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 13 || saved?.revision !== 12) return;
+  foldRetiredRoads(s);
+  saved.revision = 13;
+}
+
+// Revision 12 retires Athenian places. Anyone or anything there, or a ship
+// berthed or bound there, continues at the place that took it in.
+export function upgradeGreekDistrictSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 12 || saved?.revision !== 11) return;
+  for (const [id, state] of Object.entries(s.transports || {})) {
+    if (![state?.dock, state?.destination, state?.recall].some(retiredPlace))
+      continue;
+    const dock = canonicalPlace(state.destination || state.dock);
+    s.transports[id] = upgradeTransportState(s, id, {
+      ...state,
+      dock,
+      destination: dock,
+      recall: state.recall && canonicalPlace(state.recall),
+    });
+  }
+  foldRetiredRoads(s);
+  saved.revision = 12;
+}
+
 // The Theban Harbor Road is again the only way between the harbor and Thebes.
 // Known direct steps pass along the road, and an open request for passage
 // between the two asks for the road instead.
@@ -369,7 +415,7 @@ function restoreThebanRoad(s, pack) {
 // becomes the shortest walkable path between them.
 function walkablePath(from, to) {
   const edges = authoredRouteEdges().filter(
-    ([a, b]) => !localRoadEnds(a) && !localRoadEnds(b),
+    ([a, b]) => canonicalPlace(a) === a && canonicalPlace(b) === b,
   );
   const queue = [[from]],
     seen = new Set([from]);
@@ -387,10 +433,15 @@ function walkablePath(from, to) {
 }
 
 // Move saved visits, belongings, knowledge and current purposes off retired
-// roads. The road IDs stay in memories and completed records.
+// roads and places. Their IDs stay in memories and completed records.
 export function foldRetiredRoads(s) {
+  // Retired places first, so a traveler on a road sees who is already there.
+  for (const actor of Object.values(s.actors || {}))
+    for (const field of ["place", "home"])
+      if (retiredPlace(actor[field]))
+        actor[field] = canonicalPlace(actor[field]);
   for (const [id, actor] of Object.entries(s.actors || {})) {
-    const ends = localRoadEnds(actor.place);
+    const ends = localRoadEnds(actor.place)?.map(canonicalPlace);
     if (!ends) continue;
     const count = (place) =>
       humanAvatarIds.filter((human) => s.actors[human]?.place === place).length;
@@ -405,6 +456,12 @@ export function foldRetiredRoads(s) {
   const greek = (id) => packPlaces[id]?.packId === "greek-drama";
   for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
     const paths = edges
+      // A lane or crossing from a retired port is forgotten.
+      .filter(
+        (edge) =>
+          !(laneOfEdge(edge) || []).some(retiredPlace) &&
+          !(edge.some(retiredPlace) && !edge.every(greek)),
+      )
       .map(([from, to]) => [canonicalPlace(from), canonicalPlace(to)])
       .filter(([from, to]) => from !== to)
       .flatMap((edge) => {
@@ -424,7 +481,7 @@ export function foldRetiredRoads(s) {
       actor.visited = [...new Set(actor.visited.map(canonicalPlace))];
   }
   s.standoffs = (s.standoffs || []).filter(
-    (conflict) => !localRoadEnds(conflict.location),
+    (conflict) => canonicalPlace(conflict.location) === conflict.location,
   );
 }
 

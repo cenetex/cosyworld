@@ -455,7 +455,7 @@ describe("Before the Burial", () => {
     pack.flags["greek-refusal-public"] = true;
     old.routeKnowledge.vale = [[WELL, GATE]];
     const s = decodeSave(JSON.stringify(old));
-    expect(s.packs[PACK].revision).toBe(11);
+    expect(s.packs[PACK].revision).toBe(packDefinition(PACK).revision);
     expect(s.packs[PACK].receipts["greek-decline-burial"]).toBeUndefined();
     expect(s.packs[PACK].choices["greek-theban-response"]).toBeUndefined();
     expect(s.packs[PACK].flags["greek-refusal-public"]).toBeUndefined();
@@ -466,11 +466,12 @@ describe("Before the Burial", () => {
   });
 
   it("keeps a released decree that was heard through Talk", () => {
-    // Rules 21 told the decree as a Talk choice; revision 11 tells it on meeting.
+    // Rules 21 told the decree as a Talk choice; revision 11 tells it on
+    // meeting, and later revisions keep that.
     const s = decodeSave(
       readFileSync("test/fixtures/ajax-household-rules-21.json", "utf8"),
     );
-    expect(s.packs[PACK].revision).toBe(11);
+    expect(s.packs[PACK].revision).toBeGreaterThanOrEqual(11);
     expect(s.knowledge.facts["greek-hear-decree"].source.topic.choiceId).toBe(
       null,
     );

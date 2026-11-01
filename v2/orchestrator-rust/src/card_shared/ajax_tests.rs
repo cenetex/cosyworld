@@ -336,6 +336,7 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
         // walkable path. Every other known step stays.
         let walkable = [
             "greek-road-athens-piraeus",
+            "greek-road-athens-eleusis",
             "greek-road-thebes",
             "greek-road-sacred-way",
             "greek-road-royal",
@@ -369,6 +370,22 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             ["greek-piraeus", "greek-sicily"],
             ["greek-aulis", "greek-greek-camp"],
             ["greek-scythian-crag", "greek-susa"],
+            // Greek revision 12 retires these Athenian places.
+            ["greek-athens", "greek-athens-harbor"],
+            ["greek-athens", "greek-jury-house"],
+            ["greek-attic-farm", "greek-divine-heights"],
+            ["greek-attic-farm", "greek-bird-wilderness"],
+            ["greek-colonus", "greek-underworld"],
+            ["greek-athens-harbor", "greek-ship"],
+            ["sea:greek-athens-harbor", "sea:greek-piraeus"],
+            // Greek revision 13 makes Cithaeron a road from the battlefield.
+            ["greek-cithaeron", "greek-sanctuary"],
+            // The Athenian districts link only through their gate roads.
+            ["greek-athens", "greek-attic-farm"],
+            ["greek-athens", "greek-colonus"],
+            ["greek-athens", "greek-demos-house"],
+            ["greek-athens", "greek-festival"],
+            ["greek-eleusis", "greek-piraeus"],
         ];
         let walked = |edges: &Value| -> Vec<Value> { edges.as_array().unwrap().to_vec() };
         for (who, edges) in old.game["routeKnowledge"].as_object().unwrap() {
@@ -456,6 +473,12 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             }
             let mut saved = saved.clone();
             saved.as_object_mut().unwrap().remove("progress");
+            // Greek revision 12 retired the Underworld Landing into Colonus.
+            for field in ["place", "home"] {
+                if saved[field] == "greek-underworld" {
+                    saved[field] = json!("greek-colonus");
+                }
+            }
             for field in ["want", "xp", "visited", "talked", "metTurn", "gaveUp"] {
                 retained.as_object_mut().unwrap().remove(field);
                 saved.as_object_mut().unwrap().remove(field);

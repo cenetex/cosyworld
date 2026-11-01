@@ -1,6 +1,6 @@
 // Sea lanes past the Wine-Dark Harbor open while a named thing is aboard:
-// the Travel Provisions for Piraeus, the Suppliant's Olive Branch for Athens
-// Harbor. The branch is handed over when the plea is registered at the Agora.
+// the Travel Provisions for Piraeus. The Suppliant's Olive Branch, handed
+// over when the plea is registered at the Agora, opens no lane.
 import { describe, expect, it } from "vitest";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { transportExits } from "../v2/card-game/pack-transport.mjs";
@@ -26,23 +26,16 @@ function pleaWorld() {
 }
 
 describe("lanes that open with a thing aboard", () => {
-  it("the plea hands over the olive branch, which opens Athens Harbor only aboard", () => {
+  it("the plea hands over the olive branch; the provisions open Piraeus", () => {
     const s = pleaWorld();
     expect(s.items[BRANCH].holder).toBe("vale");
     expect(entityActive(s, BRANCH)).toBe(true);
     s.items["greek-provisions"].holder = "greek-harbor";
     // Ashore in Vale's hands, the branch opens nothing at sea.
     expect(courses(s, "greek-harbor")).not.toContain("greek-piraeus");
-    expect(courses(s, "greek-piraeus")).not.toContain("greek-athens-harbor");
-    // The provisions aboard open Piraeus, and only Piraeus.
+    // The provisions aboard open Piraeus; the way home is always open.
+    expect(courses(s, "greek-piraeus")).toContain("greek-harbor");
     s.items["greek-provisions"].holder = "greek-ship";
     expect(courses(s, "greek-harbor")).toContain("greek-piraeus");
-    expect(courses(s, "greek-piraeus")).not.toContain("greek-athens-harbor");
-    // The branch aboard opens Athens Harbor; taken ashore, it closes again.
-    s.items[BRANCH].holder = "greek-ship";
-    expect(courses(s, "greek-piraeus")).toContain("greek-athens-harbor");
-    expect(courses(s, "greek-athens-harbor")).toContain("greek-piraeus");
-    s.items[BRANCH].holder = "greek-athens";
-    expect(courses(s, "greek-piraeus")).not.toContain("greek-athens-harbor");
   });
 });

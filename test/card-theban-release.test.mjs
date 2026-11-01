@@ -21,6 +21,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
+import { learnLane } from "../v2/card-game/pack-transport.mjs";
 import {
   backdrop,
   locationOverlay,
@@ -110,7 +111,7 @@ describe("the Theban release and its ship", () => {
     s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual([...openingPlaces].sort());
     expect(reachable(s)).toHaveLength(9);
-    expect(pack.release.places).toHaveLength(27);
+    expect(pack.release.places).toHaveLength(28);
     expect(
       pack.release.places
         .filter((id) => !retired(id) && id !== "greek-road-athens-harbor")
@@ -121,7 +122,9 @@ describe("the Theban release and its ship", () => {
         // Piraeus Quays lies outside every section; a ship with the Travel
         // Provisions aboard reaches it.
         "greek-piraeus",
-        ...sectionPlaces.filter((id) => id !== "greek-road-athens-harbor"),
+        ...sectionPlaces.filter(
+          (id) => !retired(id) && id !== "greek-road-athens-harbor",
+        ),
       ].sort(),
     );
     expect(entityActive(s, "greek-athens")).toBe(false);
@@ -139,18 +142,30 @@ describe("the Theban release and its ship", () => {
     s.actors.vale.place = "greek-courtyard";
     expect(reachable(s)).toHaveLength(9);
     s = act(s, "give", { item: "greek-guard-tablet", target: "greek-baker" });
-    // Black Pond sails only to the Wine-Dark Harbor. The way on to Athens
-    // needs the Travel Provisions aboard, which open the lane to Piraeus;
-    // the Athens-Piraeus road walks on from the quay.
-    expect(reachable(s)).toHaveLength(9);
+    // The tablet on Dione's table opens the Cithaeron road from the
+    // battlefield to the countryside. The Sacred Way waits for the mothers'
+    // petition; the ship with the Travel Provisions reaches the city.
+    expect(reachable(s)).toContain("greek-eleusis");
+    expect(reachable(s)).not.toContain("greek-athens");
     s.items["greek-provisions"].holder = "greek-ship";
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
-    expect(reachable(s)).toHaveLength(16);
+    expect(reachable(s)).toHaveLength(17);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     for (const start of openDoorPlaces) {
       const trip = structuredClone(s);
       trip.transports["greek-ship"].dock = "greek-piraeus";
+      // Vale sailed in, so she knows the lane home from Piraeus.
+      learnLane(trip, "vale", "greek-harbor", "greek-piraeus");
+      // The Long Walls lead home from the city once the plea's olive branch
+      // is in the Agora; the mothers' petition there keeps the Sacred Way
+      // open from Eleusis.
+      Object.assign(trip.packs[pack.id].flags, {
+        "greek-open-door-mothers-heard": true,
+        "greek-open-door-plea-registered": true,
+      });
+      for (const id of ["greek-burial-petition", "greek-olive-branch"])
+        trip.items[id].holder = "greek-athens";
       const seen = new Set([start]);
       for (const id of seen)
         for (const to of exits(trip, id, "vale"))
@@ -236,11 +251,15 @@ describe("the Theban release and its ship", () => {
     // Quest records leave the history; every other event stays as it was.
     expect(after.log).toEqual(
       before.log
-        .filter((e) => e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""))
+        .filter(
+          (e) => e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""),
+        )
         .map(({ questPlan, consequence, questKey, ...e }) => e),
     );
     expect(after.quests).toBeUndefined();
-    expect(Object.values(after.actors).every((a) => !("progress" in a))).toBe(true);
+    expect(Object.values(after.actors).every((a) => !("progress" in a))).toBe(
+      true,
+    );
     expect(after.actors.vale.place).toBe("greek-egypt-tomb");
     expect(after.items["greek-egypt-testimony"].holder).toBe("vale");
     expect(entityActive(after, "greek-athens")).toBe(true);

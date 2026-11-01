@@ -35,26 +35,25 @@ const TOWNS = {
     // by a route that needs the guard to hold the decree there. No road.
     "greek-battlefield",
     "greek-aulis",
-    "greek-cithaeron",
   ],
-  athens: [
+  // Athens has three districts. The Sacred Way joins the countryside to the
+  // city, and the Long Walls join the city to its harbour.
+  "athens-countryside": [
+    "greek-eleusis",
+    "greek-colonus",
+    "greek-marathon",
+    "greek-attic-farm",
+    "greek-acharnae",
+  ],
+  "athens-city": [
     "greek-athens",
-    "greek-athens-harbor",
     "greek-assembly",
     "greek-acropolis",
-    "greek-demos-house",
     "greek-thinkery",
-    "greek-jury-house",
+    "greek-demos-house",
     "greek-festival",
-    "greek-attic-farm",
-    "greek-colonus",
-    "greek-acharnae",
-    "greek-divine-heights",
-    "greek-bird-wilderness",
-    "greek-underworld",
-    "greek-marathon",
   ],
-  piraeus: ["greek-piraeus", "greek-eleusis"],
+  "athens-harbour": ["greek-piraeus"],
   delphi: ["greek-delphi"],
   trachis: ["greek-trachis", "greek-pherae", "greek-thetis"],
   troy: [
@@ -92,6 +91,15 @@ const TOWNS = {
   ],
 };
 
+// A place within another links only to its parent and does not count toward
+// its district's four places.
+const INTERIORS = {
+  "greek-acharnae": "greek-attic-farm",
+  "greek-demos-house": "greek-assembly",
+  "greek-festival": "greek-acropolis",
+};
+const DISTRICTS = ["athens-countryside", "athens-city", "athens-harbour"];
+
 const town = (id) =>
   Object.entries(TOWNS).find(([, places]) => places.includes(id))?.[0] ?? id;
 const docks = new Set(Object.values(transports).map((t) => t.place));
@@ -101,7 +109,10 @@ const walkableRoad = (id) =>
   Array.isArray(packPlaces[id]?.road) && !localRoadEnds(id);
 // Town places: not a road of any kind and not a ship.
 const live = (id) =>
-  Boolean(packPlaces[id]) && !docks.has(id) && !packPlaces[id].road;
+  Boolean(packPlaces[id]) &&
+  !docks.has(id) &&
+  !packPlaces[id].road &&
+  !packPlaces[id].retired;
 const roads = Object.keys(packPlaces).filter(walkableRoad);
 // Every authored step: place exits and story routes. An old road that a
 // direct local link has replaced is that direct link.
@@ -137,8 +148,12 @@ describe("the map rule", () => {
       const [a, b] = packPlaces[id].road;
       expect(packPlaces[id].exits, id).toEqual([a, b]);
       expect(town(a), `${id} stays inside ${town(a)}`).not.toBe(town(b));
+      // A gated end leads onto its road by a route instead of an exit.
       for (const end of [a, b])
-        expect(packPlaces[end].exits, `${end} leads onto ${id}`).toContain(id);
+        expect(
+          steps.some(([from, to]) => from === end && to === id),
+          `${end} leads onto ${id}`,
+        ).toBe(true);
       const key = [town(a), town(b)].sort().join("|");
       expect(pairs.get(key), `${key} has two roads`).toBeUndefined();
       pairs.set(key, id);
@@ -151,9 +166,24 @@ describe("the map rule", () => {
     // and the Tea Garden thread are crossings, not exits.
     const back = new Set(steps.map(([from, to]) => `${from}>${to}`));
     for (const [id, place] of Object.entries(packPlaces))
-      for (const to of localRoadEnds(id) ? [] : place.exits || [])
+      for (const to of localRoadEnds(id) || place.retired
+        ? []
+        : place.exits || [])
         if (!localRoadEnds(to))
           expect(back.has(`${to}>${id}`), `${id} -> ${to}`).toBe(true);
+  });
+
+  it("keeps each Athens district to four places, not counting interiors", () => {
+    for (const district of DISTRICTS)
+      expect(
+        TOWNS[district].filter((id) => !INTERIORS[id]).length,
+        district,
+      ).toBeLessThanOrEqual(4);
+    for (const [id, parent] of Object.entries(INTERIORS)) {
+      expect(packPlaces[id].exits, id).toEqual([parent]);
+      expect(packPlaces[parent].exits, parent).toContain(id);
+      expect(town(id), id).toBe(town(parent));
+    }
   });
 
   it("gives every walkable road its own painting", () => {

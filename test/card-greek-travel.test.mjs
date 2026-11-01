@@ -25,13 +25,14 @@ import {
   learnLane,
 } from "../v2/card-game/pack-transport.mjs";
 import { openDoorStart, openSeas } from "./helpers/open-door.mjs";
-import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
+import { upgradedActor, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
-const docks = ["pond", "greek-harbor", "greek-athens-harbor", "greek-piraeus"];
+const docks = ["pond", "greek-harbor", "greek-piraeus"];
 const players = ["vale", "mara"];
 const pack = packDefinition("greek-drama");
 function shared(dock, seas = false) {
-  // After the plea at the Agora the olive branch rides on deck.
+  // After the plea at the Agora the petition and the olive branch rest
+  // there, so both Athenian gates stand open.
   const world = dispatchShared({
     op: "create",
     save: encodeSave(
@@ -139,10 +140,12 @@ describe("Greek ports and fixed roads", () => {
     before.transports["greek-ship"].destination = "pond";
     expect(exits(before, "greek-ship", "vale")).toEqual(["pond"]);
     const after = openDoorStart();
-    expect(entityActive(after, "greek-athens-harbor")).toBe(true);
-    expect(exits(after, "greek-athens-harbor", "vale")).toContain(
-      "greek-athens",
-    );
+    // Athens Harbor has joined Piraeus, whose Long Walls lead to the city.
+    expect(entityActive(after, "greek-athens-harbor")).toBe(false);
+    expect(entityActive(after, "greek-road-athens-piraeus")).toBe(true);
+    expect(exits(after, "greek-piraeus", "vale")).toEqual([
+      "greek-road-athens-piraeus",
+    ]);
     expect(exits(after, "greek-harbor", "vale")).toContain("greek-road-thebes");
     expect(exits(after, "greek-harbor", "vale")).not.toContain(
       "greek-courtyard",
@@ -159,7 +162,11 @@ describe("Greek ports and fixed roads", () => {
     "keeps the two ends of %s in the same order from either direction",
     (id, road) => {
       for (const from of road.road) {
-        let w = shared(from);
+        // A gated road opens from its end once a story has opened it.
+        let w = shared(
+          from,
+          pack.routes.some((r) => r.to === id),
+        );
         const other = road.road.find((end) => end !== from);
         expect(travelCard(ask(w, "vale").world, id).name).toBe(
           `Road to ${pack.places[other].name}`,
@@ -176,9 +183,7 @@ describe("Greek ports and fixed roads", () => {
     },
   );
 
-  // The Athens Harbor lane waits for the olive branch aboard; the voyages
-  // above cover that port.
-  const near = docks.filter((p) => p !== "greek-athens-harbor");
+  const near = docks;
   it.each(near)("brings an empty ship to a traveler waiting at %s", (port) => {
     let w = shared(near.find((p) => p !== port));
     w.actors.vale.place = port;
@@ -242,7 +247,7 @@ describe("Greek ports and fixed roads", () => {
       const lived = ({ want, xp, visited, talked, metTurn, gaveUp, ...a }) => a;
       for (const [id, { progress, ...actor }] of Object.entries(old.actors))
         expect(lived(current.actors[id])).toEqual({
-          ...actor,
+          ...upgradedActor(actor),
           trust: {
             ...actor.trust,
             ...Object.fromEntries(

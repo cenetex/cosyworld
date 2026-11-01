@@ -20,8 +20,9 @@ fn greek_ports_and_roads_upgrade_from_each_released_version() {
 fn greek_ports_roads_and_waiting_replay_after_the_version_eighteen_upgrade() {
     let (path, c, id, mut w) = upgraded_ports(engine::EIGHTEENTH_VERSION);
     // Black Pond sails only to the Wine-Dark Harbor. Vale loads the Travel
-    // Provisions, which open the lane to Piraeus, sails there, walks the
-    // road to Athens and back, and sails home with them.
+    // Provisions, which open the lane to Piraeus, sails there, steps onto
+    // the Long Walls and back, and sails home with them. The walls lead on
+    // from the Agora only with the plea's olive branch there.
     let take = w.project(0).unwrap()["actions"]
         .as_array()
         .unwrap()
@@ -40,8 +41,6 @@ fn greek_ports_roads_and_waiting_replay_after_the_version_eighteen_upgrade() {
     for target in [
         "greek-ship",
         "greek-piraeus",
-        "greek-road-athens-piraeus",
-        "greek-athens",
         "greek-road-athens-piraeus",
         "greek-piraeus",
         "greek-ship",
@@ -82,10 +81,12 @@ fn greek_ports_roads_and_waiting_replay_after_the_version_eighteen_upgrade() {
 
 #[test]
 fn local_road_visitors_and_belongings_continue_inside_the_town_after_replay() {
+    // Athens Harbor has joined Piraeus, so its old road folds into the
+    // quays, and the visit continues along the Long Walls.
     for (road, port, town) in [(
         "greek-road-athens-harbor",
-        "greek-athens-harbor",
-        "greek-athens",
+        "greek-piraeus",
+        "greek-road-athens-piraeus",
     )] {
         let path =
             std::env::temp_dir().join(format!("town-travel-{}.sqlite", crate::random_hex(12)));

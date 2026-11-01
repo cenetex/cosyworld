@@ -4,11 +4,16 @@ Dione's table opens the stories of five places: the Athenian Agora, Piraeus
 Quays, Colonus Grove, Eleusinian Sanctuary and Marathon Altar. Piraeus Quays
 lies outside the section: a ship with the Travel Provisions aboard reaches it
 from the Wine-Dark Harbor in any save, but its roads inland and Thaleia's
-work wait for the invitation. The ship reaches Athens Harbor from Piraeus. City streets lead straight from Athens
-Harbor into the grand Athenian Agora. Roads join towns, not the places
-inside a town. One road, the Athens–Piraeus Road, joins the two Attic towns.
-It is a shared scene with two fixed ends. Colonus and Marathon are direct
-visits from the Agora, and Eleusis is a direct visit from Piraeus. These
+work wait for the invitation. Athens has three districts of at most four
+places each: the countryside (Eleusis, Colonus, Marathon and the Attic Farm,
+with Acharnae Market within it), the city (the Agora, Assembly Hill, the
+Acropolis and the Thinkery, with the House of Demos and the Women's Festival
+within) and the harbour (Piraeus, which took in Athens Harbor). Places in a
+district link directly. Two gate roads join the districts. The Sacred Way
+leads from Eleusis into the city while the mothers' petition is at Eleusis
+or in the Agora. The Long Walls lead from the Agora to Piraeus while the
+plea's olive branch is in the Agora. A gate closes again when its thing moves
+away, and it blocks only the way out: the way back is always open. These
 routes share Dione’s lasting invitation. Waiting at a port lets the empty ship complete its circuit.
 
 The opening invitation follows the public account of any of the four

@@ -33,10 +33,10 @@ const cases = [
 ];
 const homeward = {
   "greek-athens": ["harbor", "courtyard"],
-  "greek-eleusis": ["piraeus", "harbor", "courtyard"],
+  "greek-eleusis": ["athens", "harbor", "courtyard"],
   "greek-piraeus": ["harbor", "courtyard"],
   "greek-colonus": ["athens", "harbor", "courtyard"],
-  "greek-marathon": ["colonus", "athens", "harbor", "courtyard"],
+  "greek-marathon": ["athens", "harbor", "courtyard"],
 };
 let journeys;
 beforeAll(() => {
@@ -106,9 +106,9 @@ describe("early Open Door reports", () => {
 });
 
 describe("Open Door roads home", () => {
-  // Colonus and Marathon are places inside Athens, so a full Agora holds
-  // them until someone leaves. Eleusis and Piraeus go home by the quays.
-  it.each(["eleusis", "piraeus"])(
+  // The countryside reaches the harbour through the city, so a full Agora
+  // holds it until someone leaves. Piraeus goes home by the quays.
+  it.each(["piraeus"])(
     "takes a traveler home from %s while the Agora is full",
     (start) => {
       const created = dispatchShared({
@@ -135,24 +135,17 @@ describe("Open Door roads home", () => {
     },
   );
 
-  it("connects the coast and local roads after Dione’s invitation", () => {
+  it("connects the countryside places after Dione’s invitation", () => {
     let world = openDoorStart();
     world = openDoorWalk(
       world,
       "harbor",
-      "piraeus",
+      "athens",
       "eleusis",
       "colonus",
       "marathon",
-    );
-    world = openDoorWalk(
-      world,
-      "colonus",
       "eleusis",
-      "piraeus",
-      "harbor",
-      "courtyard",
     );
-    expect(world.actors.vale.place).toBe("greek-courtyard");
+    expect(world.actors.vale.place).toBe("greek-eleusis");
   });
 });

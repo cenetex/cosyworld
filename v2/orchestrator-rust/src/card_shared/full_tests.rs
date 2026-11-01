@@ -39,6 +39,12 @@ pub(super) fn assert_saved_actors(current: &Value, old: &Value) {
         // The upgrade drops quest progress and gives every actor one want.
         let mut saved = saved.clone();
         saved.as_object_mut().unwrap().remove("progress");
+        // Greek revision 12 retired the Underworld Landing into Colonus.
+        for field in ["place", "home"] {
+            if saved[field] == "greek-underworld" {
+                saved[field] = json!("greek-colonus");
+            }
+        }
         for field in ["want", "xp", "visited", "talked", "metTurn", "gaveUp"] {
             actor.as_object_mut().unwrap().remove(field);
             saved.as_object_mut().unwrap().remove(field);

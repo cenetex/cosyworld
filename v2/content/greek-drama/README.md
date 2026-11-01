@@ -45,7 +45,12 @@ battlefield can always walk back in. If the guard gives the decree away or
 leaves his post, the gate closes. A petition needs the decree in hand and
 returns it to the palace, so a petitioner carries it back to the guard
 afterwards. The battlefield is a Theban place just outside the walls, so by
-the map rule it links directly to the gate and has no road of its own.
+the map rule it links directly to the gate. Beyond it the Cithaeron road
+leads over the mountain to Eleusis. From the battlefield it opens while a
+Theban account (the Burial Account, Creon's Writ or the Guard's Tablet) is
+at the battlefield or on Dione's table in the courtyard, and closes when that
+account moves away. The way back from Eleusis is always open. The road is in
+the Open Door, so it opens with Dione's report.
 
 Three short story cards follow the opening. The Bard carries its growing
 poem. Finishing a quest brings him to the next room the player enters.
@@ -97,12 +102,18 @@ source guide](AJAX.md) for the choices, objects and saved account.
 
 The camp's landing, household and grave have direct local paths. Places inside
 a town link directly. Between towns there is exactly one road or a sea lane:
-the Sacred Way joins the Agora and Delphi, the Oeta Road joins Delphi and
+the Road to Delphi joins the Agora and Delphi, the Oeta Road joins Delphi and
 Trachis, the Royal Road joins Troy and Susa, the Black Sea Road joins Thrace and
 Tauris, and the Colonists' Road joins Corinth and Sicily. Troy is reached by
-ship at the Trojan landing. The Greek ship serves Athens Harbor,
-Piraeus, the Wine-Dark Harbor, Black Pond and the invited Trojan landing.
-Athens Harbor has an empty-water painting while the shared ship is away.
+ship at the Trojan landing. The Greek ship serves Piraeus, the Wine-Dark
+Harbor, Black Pond and the invited Trojan landing. Athens is three districts
+joined by two gate roads; see [The Open Door](OPEN-DOOR.md).
+
+A pack retires a place with `retired: true` and one exit, the place that took
+it in. No exit or route leads to it. A save upgrade moves anyone and anything
+there, and a ship berthed or bound there, to that place. Athens Harbor joined
+Piraeus; the Juror's House, the Divine Heights, the Hoopoe's Thicket and the
+Underworld Landing retired.
 
 ## Sources and runtime
 
@@ -161,12 +172,13 @@ single saved cover and starts any longer partial signal again.
 Completing the signal summons a shared ship. Its saved discovery keeps the
 boarding shores open through lamp changes, reloads and later voyages.
 The ship sails authored lanes: Black Pond only to the Wine-Dark Harbor; the
-Wine-Dark Harbor to Piraeus and the Trojan camp landing; Athens Harbor to
-Piraeus. The lane between the Wine-Dark Harbor and Piraeus opens only while
-the Travel Provisions (`greek-provisions`, first at the harbour) are aboard.
-The lane between Piraeus and Athens Harbor opens only while the Suppliant's
-Olive Branch (`greek-olive-branch`) is aboard. The herald hands it to whoever
-registers the mothers' plea at the Agora.
+Wine-Dark Harbor to Piraeus and the Trojan camp landing. The lane between the
+Wine-Dark Harbor to Piraeus opens only while the Travel Provisions
+(`greek-provisions`, first at the harbour) are aboard; the way home from
+Piraeus is always open. The herald hands the
+Suppliant's Olive Branch (`greek-olive-branch`) to whoever registers the
+mothers' plea at the Agora. While it is in the Agora, the Long Walls open
+from the Agora to Piraeus.
 Its card uses `assets/greek-drama/olive-branch.webp`, the wool-bound branch
 painting documented in [the Argos art handoff](../../card-game/assets/greek-drama/argos-alternates-README.md).
 Piraeus Quays lies outside the Open Door section, so that lane reaches it in
