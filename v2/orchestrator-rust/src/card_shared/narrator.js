@@ -1765,7 +1765,7 @@
             name: "Argive Palace",
             text: "A bronze door opens onto the royal court. Wax tablets list the household\u2019s dead and absent members.",
             exits: [],
-            backdrop: "assets/greek-drama/palace.svg",
+            backdrop: "assets/greek-drama/house-atreus-palace.webp",
             requires: [
               {
                 kind: "choice",
@@ -1773,13 +1773,30 @@
                 value: "aeschylus"
               }
             ],
-            persona: "A bronze door opens onto the royal court. Wax tablets list the household\u2019s dead and absent members."
+            persona: "A bronze door opens onto the royal court. Wax tablets list the household\u2019s dead and absent members.",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/house-atreus-palace-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
+            stage: {
+              focus: {
+                x: 31,
+                y: 50
+              }
+            }
           },
           "greek-argos-tomb": {
             name: "Agamemnon's Tomb",
             text: "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot.",
             exits: [],
-            backdrop: "assets/greek-drama/grove.svg",
+            backdrop: "assets/greek-drama/house-atreus-tomb.webp",
             requires: [
               {
                 kind: "choice",
@@ -1787,13 +1804,30 @@
                 value: "aeschylus"
               }
             ],
-            persona: "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot."
+            persona: "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot.",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/house-atreus-tomb-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
+            stage: {
+              focus: {
+                x: 31,
+                y: 50
+              }
+            }
           },
           "greek-mycenae-palace": {
             name: "Mycenaean Palace",
             text: "The palace rises above a worn approach. A woman waits where arriving servants can hear her.",
             exits: [],
-            backdrop: "assets/greek-drama/palace.svg",
+            backdrop: "assets/greek-drama/house-atreus-mycenae.webp",
             requires: [
               {
                 kind: "choice",
@@ -1801,13 +1835,30 @@
                 value: "sophocles"
               }
             ],
-            persona: "The palace rises above a worn approach. A woman waits where arriving servants can hear her."
+            persona: "The palace rises above a worn approach. A woman waits where arriving servants can hear her.",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/house-atreus-mycenae-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
+            stage: {
+              focus: {
+                x: 31,
+                y: 50
+              }
+            }
           },
           "greek-argive-farm": {
             name: "The Argive Farmhouse",
             text: "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest.",
             exits: [],
-            backdrop: "assets/greek-drama/courtyard.svg",
+            backdrop: "assets/greek-drama/house-atreus-farmhouse.webp",
             requires: [
               {
                 kind: "choice",
@@ -1815,7 +1866,24 @@
                 value: "euripides"
               }
             ],
-            persona: "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest."
+            persona: "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest.",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/house-atreus-farmhouse-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ],
+            stage: {
+              focus: {
+                x: 31,
+                y: 50
+              }
+            }
           },
           "greek-corinth": {
             name: "Corinthian Courtyard",
@@ -2060,7 +2128,37 @@
                 title: "Wine-Dark-3"
               }
             ],
-            musicMode: "random-per-visit"
+            musicMode: "random-per-visit",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/ship-deck-at-sea-night.webp",
+                requires: [
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "@sea"
+                  },
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              },
+              {
+                backdrop: "assets/greek-drama/ship-deck-at-sea-day.webp",
+                requires: [
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "@sea"
+                  },
+                  {
+                    kind: "daylight",
+                    phase: "day"
+                  }
+                ]
+              }
+            ]
           },
           "greek-athens-harbor": {
             name: "Athens Harbor",
@@ -3168,7 +3266,7 @@
             name: "The Suppliant\u2019s Olive Branch",
             text: "An olive branch bound with white wool, given at the Agora when the mothers\u2019 plea is registered. Ships sail between Piraeus and Athens Harbor while it is aboard.",
             holder: "greek-athens",
-            art: "assets/greek-drama/burial-petition.png",
+            art: "assets/greek-drama/olive-branch.webp",
             persona: "Describe the branch, its actual holder and its recorded use. The lane between Piraeus and Athens Harbor is open only while it is aboard the ship.",
             requires: [
               {

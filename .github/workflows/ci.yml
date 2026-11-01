@@ -335,7 +335,7 @@ jobs:
           - mode: cards-drama
             scripts: smoke-card-greek-drama smoke-card-theban-scenery
           - mode: cards-weather
-            scripts: smoke-card-weather smoke-card-greek-travel smoke-card-ship-fade
+            scripts: smoke-card-weather smoke-card-greek-travel smoke-card-ship-fade smoke-card-painted-travel
           - mode: cards-open-door
             scripts: smoke-card-open-door
           - mode: cards-homecoming
