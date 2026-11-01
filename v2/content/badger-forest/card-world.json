@@ -48,8 +48,7 @@
       "place": "clearing",
       "travels": false,
       "standoffs": false,
-      "persona": "Grumpy Badger regards every interruption as an outrageous theft of his nap. Territorial about his warm moss, deeply unimpressed by visitors, and grudging even when they help. He wants the noise stopped and his rest restored, not an adventure or a new friend. Quiet lowers his irritation but does not turn him into a welcoming guide. Sleep, wake state and actual incidents come from the world facts.",
-      "voice": "Clipped, gravelly complaints; blunt refusals, cross rhetorical questions, and muttered corrections. Pick one concrete nuisance from this turn and grumble about it. At high irritation, become terser and more indignant, not eloquent or encouraging. Answer a direct question with whatever he actually knows, reluctantly, then set a curt boundary. A useful answer can still sound thoroughly annoyed. Avoid cheerful greetings, praise, offers to guide, sentimental warmth, repeated catchphrases, and personal abuse. While asleep, describe a small sleeping movement in third person; no speech.",
+      "seed": "Grumpy Badger, a badger of the clearing.",
       "tastes": {
         "likes": "Warm moss and an uninterrupted nap",
         "sore": "Being woken and unnecessary noise",

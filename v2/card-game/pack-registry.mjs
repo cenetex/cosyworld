@@ -200,8 +200,7 @@ export const packProfiles = Object.fromEntries([
     {
       kind: "avatar",
       name: a.name,
-      persona: a.persona,
-      voice: a.voice,
+      seed: a.seed,
       ...(a.expression ? { expression: a.expression } : {}),
     },
   ]),
