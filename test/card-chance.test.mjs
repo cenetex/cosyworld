@@ -3,6 +3,8 @@ import { createWorld } from "../v2/card-game/world.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { packDefinitions, hub } from "../v2/card-game/pack-registry.mjs";
+import { backdrop } from "../v2/card-game/scene.mjs";
+import { isNight } from "../v2/card-game/daylight.mjs";
 
 // The otter and the boatman appear at the Willows landing by chance (#1626).
 describe("the chance condition", () => {
@@ -30,5 +32,17 @@ describe("the chance condition", () => {
     );
     pack.places["willows-landing"].requires = [{ ...otter, odds: 1 }];
     expect(packProblems(pack, hub).join(" ")).toContain("condition");
+  });
+  it("shows the otter and the boatman at the landing by day only", () => {
+    const seen = new Set();
+    for (let turn = 0; turn < 600; turn++) {
+      const world = at(turn, 7);
+      const art = backdrop("willows-landing", world);
+      seen.add(art);
+      if (isNight(world)) expect(art).not.toMatch(/otter|boatman/);
+    }
+    expect(seen).toContain("./assets/willows/landing-otter.webp");
+    expect(seen).toContain("./assets/willows/landing-boatman.webp");
+    expect(seen).toContain("./assets/willows/landing.webp");
   });
 });
