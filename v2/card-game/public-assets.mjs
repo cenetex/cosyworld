@@ -20,6 +20,8 @@ const files = [
   "shared-rules.mjs",
   "shared.css",
   "toolbar.mjs",
+  "world-name.mjs",
+  "world-names.json",
   "inner-life.mjs",
   "toolbar.css",
   "shared-cast.json",

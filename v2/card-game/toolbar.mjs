@@ -3,6 +3,7 @@ import { imageUrl } from "./images.mjs";
 import { humanAvatars } from "./human-cast.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { levelOf } from "./want.mjs";
+import { worldNameOf } from "./world-name.mjs";
 
 const icons = {
   worlds:
@@ -164,7 +165,8 @@ export function installToolbar({ session, getWorld }) {
             level: levelOf(local, "vale"),
           },
         ];
-    const key = JSON.stringify([Boolean(reconnecting), players]);
+    const name = worldNameOf(session ? session.state.world : local);
+    const key = JSON.stringify([Boolean(reconnecting), players, name]);
     if (key === previous) return;
     previous = key;
     count.textContent = reconnecting ? "…" : String(players.length);
@@ -182,8 +184,8 @@ export function installToolbar({ session, getWorld }) {
     summary.textContent = reconnecting
       ? "Reconnecting… The player list will refresh when the connection returns."
       : session
-        ? `${players.length} ${players.length === 1 ? "player" : "players"} online · This world`
-        : "Local play · Your world";
+        ? `${players.length} ${players.length === 1 ? "player" : "players"} online · ${name || "This world"}`
+        : `Local play · ${name || "Your world"}`;
     list.replaceChildren();
     if (reconnecting) return;
     for (const player of players) {

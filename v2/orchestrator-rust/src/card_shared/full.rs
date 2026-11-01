@@ -83,11 +83,15 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
     reply(
         blocking(move || {
             let u = user(&state, &h, false)?;
-            let mut value = super::store::list(&db(&state)?, &u)?;
+            let c = db(&state)?;
+            let mut value = super::store::list(&c, &u)?;
             for row in value["worlds"]
                 .as_array_mut()
                 .ok_or("The world list needs a moment.")?
             {
+                // The run seed names the world in the menu (avatar-menu.md).
+                let id = row["id"].as_str().unwrap_or_default().to_string();
+                row["seed"] = json!(store::name_seed(&c, &id)?);
                 if let Some(a) = row["actor"].as_u64().filter(|a| *a < 8) {
                     row["actor"] = json!(actor_id(a as usize));
                 }

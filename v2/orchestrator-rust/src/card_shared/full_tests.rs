@@ -1,6 +1,6 @@
 use super::{
     engine, full, full_store,
-    full_world::{actor_id, World},
+    full_world::{self, actor_id, World},
     store, *,
 };
 use serde_json::json;
@@ -115,6 +115,22 @@ fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String) {
     let world = World::create(None).unwrap();
     full_store::seed(&c, &id, &world, "test-create", now()).unwrap();
     (path, c, id)
+}
+#[test]
+fn name_seed_reads_the_run_seed_and_falls_back_to_the_id() {
+    let (_path, c, id) = fixture();
+    let saved = full_store::world(&c, &id, now()).unwrap().game["run"]["seed"].as_u64();
+    let expected = saved.map_or_else(|| full_world::run_seed(&id), |s| s as u32);
+    assert_eq!(full_store::name_seed(&c, &id).unwrap(), expected);
+    let shared = "c".repeat(48);
+    store::create(&c, &shared, "owner", now()).unwrap();
+    let w = World::seeded(None, Some(4_242)).unwrap();
+    full_store::seed(&c, &shared, &w, "test-create", now()).unwrap();
+    assert_eq!(full_store::name_seed(&c, &shared).unwrap(), 4_242);
+    assert_eq!(
+        full_store::name_seed(&c, "missing").unwrap(),
+        full_world::run_seed("missing")
+    );
 }
 fn body(op: &str, avatar: Option<&str>) -> full::Command {
     full::Command {
