@@ -336,6 +336,7 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
         // walkable path. Every other known step stays.
         let walkable = [
             "greek-road-athens-piraeus",
+            "greek-road-athens-eleusis",
             "greek-road-thebes",
             "greek-road-sacred-way",
             "greek-road-royal",
@@ -368,6 +369,12 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             ["sea:greek-athens-harbor", "sea:greek-piraeus"],
             // Greek revision 13 makes Cithaeron a road from the battlefield.
             ["greek-cithaeron", "greek-sanctuary"],
+            // The Athenian districts link only through their gate roads.
+            ["greek-athens", "greek-attic-farm"],
+            ["greek-athens", "greek-colonus"],
+            ["greek-athens", "greek-demos-house"],
+            ["greek-athens", "greek-festival"],
+            ["greek-eleusis", "greek-piraeus"],
         ];
         let walked = |edges: &Value| -> Vec<Value> { edges.as_array().unwrap().to_vec() };
         for (who, edges) in old.game["routeKnowledge"].as_object().unwrap() {
