@@ -1039,6 +1039,24 @@ function keepHeldSelection(before, action = null) {
   expandedHolders.clear();
   if (expanded) expandedHolders.add(actor);
 }
+// The places you can go from here stack face down behind the current place,
+// as held things stack behind their holder; opening the stack fans them out.
+const placeHere = () => world.actors[currentActor(world)].place;
+const stackedPlace = (id) => Boolean(places[id]) && id !== placeHere();
+function stackPlaces(cards) {
+  const here = placeHere(),
+    hand = cards.filter((id) => !stackedPlace(id));
+  let at = hand.indexOf(here) + 1;
+  while (
+    at > 0 &&
+    at < hand.length &&
+    things[hand[at]] &&
+    rootHolder(world, hand[at]) === here
+  )
+    at++;
+  hand.splice(at || hand.length, 0, ...cards.filter(stackedPlace));
+  return hand;
+}
 function selectCards(cards) {
   for (const id of selected)
     if (people[id] && !cards.includes(id)) expandedHolders.delete(id);
@@ -1048,7 +1066,8 @@ function selectCards(cards) {
     if (
       places[id] &&
       !cards.includes(id) &&
-      !cards.some((card) => things[card] && rootHolder(world, card) === id)
+      !cards.some((card) => things[card] && rootHolder(world, card) === id) &&
+      !(id === placeHere() && cards.some(stackedPlace))
     )
       expandedHolders.delete(id);
   selected = cards;
@@ -1086,6 +1105,7 @@ function choose(id) {
       selected.filter(
         (cardId) =>
           cardId !== id &&
+          !(id === placeHere() && stackedPlace(cardId)) &&
           (!things[cardId] || rootHolder(world, cardId) !== id),
       ),
     );
@@ -1826,7 +1846,8 @@ function updateCardSelection(frame) {
         ? availableCards(world).filter(
             (item) => things[item] && rootHolder(world, item) === id,
           )
-        : [];
+        : [],
+    stack = id === placeHere() ? availableCards(world).filter(stackedPlace) : [];
   frame.dataset.raised = String(raised);
   button.setAttribute("aria-pressed", String(raised));
   button.dataset.selected = String(selected.includes(id));
@@ -1835,7 +1856,7 @@ function updateCardSelection(frame) {
     frame.hidden = places[frame.dataset.holder]
       ? !expandedHolders.has(frame.dataset.holder)
       : !raised && !expandedHolders.has(frame.dataset.holder);
-  if (held.length) {
+  if (held.length || stack.length) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
@@ -1844,7 +1865,8 @@ function updateCardSelection(frame) {
     (label ? ` ${label}.` : "") +
     (held.length
       ? ` ${places[id] ? "Contains" : "Carries"} ${held.map(nameOf).join(", ")}. Select to show these cards.`
-      : "");
+      : "") +
+    stackLabel(stack);
 }
 const handMotions = new Map();
 function moveHandPart(key, element, frames, duration = 220) {
@@ -1988,8 +2010,15 @@ function card(id) {
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
   frame.append(el);
-  const holder = things[id] ? rootHolder(world, id) : null;
-  if (people[holder] || places[holder]) {
+  const holder = things[id]
+    ? rootHolder(world, id)
+    : stackedPlace(id)
+      ? placeHere()
+      : null;
+  if (stackedPlace(id)) {
+    frame.dataset.holder = holder;
+    frame.hidden = !expandedHolders.has(holder);
+  } else if (people[holder] || places[holder]) {
     frame.dataset.holder = holder;
     frame.hidden = places[holder]
       ? !expandedHolders.has(holder)
@@ -2024,6 +2053,20 @@ function card(id) {
       }
     }
   }
+  const stack = id === placeHere() ? availableCards(world).filter(stackedPlace) : [];
+  if (stack.length) {
+    frame.dataset.places = String(stack.length);
+    frame.dataset.expanded = String(expandedHolders.has(id));
+    el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
+    if (!hidden) observation.textContent += stackLabel(stack);
+    // Blank edges: how many ways on, not where they lead.
+    for (let i = Math.min(stack.length, 3); i > 0; i--) {
+      const edge = node("span", undefined, "place-edge");
+      edge.style.setProperty("--i", String(i));
+      frame.prepend(edge);
+    }
+    frame.append(node("span", String(stack.length), "place-count"));
+  }
   el.dataset.unrevealed = String(cardIsCovered(id));
   const back = node("img", undefined, "card-back");
   back.src = imageUrl("./assets/card-back.webp", "card");
@@ -2036,6 +2079,10 @@ function card(id) {
   }
   return frame;
 }
+const stackLabel = (stack) =>
+  stack.length
+    ? ` ${stack.length} ${stack.length === 1 ? "way" : "ways"} on. Select to show ${stack.length === 1 ? "it" : "them"}.`
+    : "";
 // The quest card: a small screen showing the player doing the quest's verb
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near and plays nothing.
@@ -3235,7 +3282,11 @@ function render() {
     questGlowing = questMet(shownQuest, liveQuest);
     if (!questGlowing) shownQuest = liveQuest;
   }
-  const handCards = questHand(availableCards(world), world, shownQuest);
+  const handCards = questHand(
+    stackPlaces(availableCards(world)),
+    world,
+    shownQuest,
+  );
   // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
     handCards,

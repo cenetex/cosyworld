@@ -229,6 +229,11 @@ selected: choosing another place replaces it and keeps the selected person or
 item, so Pip + Station, then Pond, offers **Invite Pip along** to the Pond.
 Tapping an action button plays it. The current place leads the hand, followed
 by items lying there, avatars with their carried items, and travel destinations.
+The places you can go from here form one location stack: the current place
+lies face up on top, and each reachable place adds a blank edge behind it with
+a count. Tapping the current place fans the stack (and the items lying there)
+out like the hand; tapping a place selects it for **Travel**, and the stack
+folds back after the play.
 Hover lifts a card and its preview stack together. The name shade reaches the
 card edge, so a raised card clipped by the folded row shows no stray art.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.

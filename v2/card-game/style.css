@@ -1255,6 +1255,38 @@ body .card-frame[hidden] {
 .card-frame[data-holder] .card {
   border-color: #a48d6370;
 }
+/* The places you can go from here: blank edges behind the current place, and
+   their count. Opening the place fans them out like the hand. */
+.place-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  translate: calc(var(--i) * 6px) calc(var(--i) * -4px);
+  rotate: calc(var(--i) * 1.5deg);
+  border: 1px solid #a48d6380;
+  background:
+    repeating-linear-gradient(45deg, #ffffff07 0 3px, transparent 3px 6px),
+    linear-gradient(#2a2118, #17110c);
+  pointer-events: none;
+}
+.place-count {
+  position: absolute;
+  z-index: 2;
+  top: -7px;
+  right: -9px;
+  min-width: 22px;
+  padding: 2px 6px;
+  border: 1px solid #a48d63;
+  border-radius: 11px;
+  background: #17110c;
+  color: #e8d9b8;
+  font: 600 12px / 16px system-ui, sans-serif;
+  text-align: center;
+  pointer-events: none;
+}
+.card-frame[data-expanded="true"] :is(.place-edge, .place-count) {
+  display: none;
+}
 /* The quest card shows the player doing the verb with the target, standing
    in the place's painting feathered into the card, or on its dark ground.
    It holds steady while the target is near: a soft halo, unlike the brief
