@@ -2911,5 +2911,8 @@ fn a_refused_save_names_where_the_rules_refused_it() {
         request,
     )
     .unwrap_err();
-    assert!(error.contains("fresh start") && error.contains("decodeSave:"), "{error}");
+    assert!(
+        error.contains("fresh start") && error.contains("decodeSave:"),
+        "{error}"
+    );
 }
