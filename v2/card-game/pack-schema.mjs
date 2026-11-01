@@ -119,7 +119,6 @@ export function laneProblems(t) {
       out.push("has a lane that does not join two of its docks");
       continue;
     }
-    // Two one-way lanes may join a pair in opposite directions.
     const ways = [`${lane.from}>${lane.to}`];
     if (!lane.oneWay) ways.push(`${lane.to}>${lane.from}`);
     if (ways.some((way) => seen.has(way)))

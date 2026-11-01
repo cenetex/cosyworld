@@ -344,10 +344,8 @@ export function upgradeGreekShipSignalSave(s) {
   saved.revision = 10;
 }
 
-// Revision 12 retires Athenian places. Athens Harbor joins Piraeus;
-// the Juror's House, the Divine Heights, the Hoopoe's Thicket and the
-// Underworld Landing retire. Anyone or anything there, and a ship berthed or
-// bound there, continues at the place that took it in.
+// Revision 12 retires Athenian places. Anyone or anything there, or a ship
+// berthed or bound there, continues at the place that took it in.
 export function upgradeGreekDistrictSave(s) {
   const pack = packDefinitions.find((p) => p.id === "greek-drama");
   const saved = s.packs?.[pack?.id];
