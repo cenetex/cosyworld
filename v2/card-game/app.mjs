@@ -715,9 +715,10 @@ function unlockSpeech() {
   speechSounds.unlock();
   characterSpeech.unlock();
 }
-document.addEventListener("pointerdown", unlockSpeech, {
-  capture: true,
-});
+// A touch grants audio permission on pointerup, not pointerdown, so Android
+// and iOS would otherwise stay silent until a second tap.
+for (const type of ["pointerdown", "pointerup"])
+  document.addEventListener(type, unlockSpeech, { capture: true });
 document.addEventListener("keydown", unlockSpeech, {
   capture: true,
 });
@@ -817,7 +818,8 @@ const unlockAudio = () => {
   music.unlock();
   hum.unlock();
 };
-document.addEventListener("pointerdown", unlockAudio, { capture: true });
+for (const type of ["pointerdown", "pointerup"])
+  document.addEventListener(type, unlockAudio, { capture: true });
 document.addEventListener("keydown", unlockAudio, { capture: true });
 document.addEventListener("visibilitychange", () => {
   music.setHidden(document.hidden);
