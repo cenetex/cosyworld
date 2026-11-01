@@ -1,0 +1,177 @@
+# Avatar menu and world names
+
+Design for [#1737](https://github.com/cenetex/cosyworld/issues/1737). The menu
+is organised around the player's avatars. Every world has a name.
+
+## Today
+
+| Screen | What the player sees |
+| --- | --- |
+| ☰ | Worlds · Share · Memory · Settings · Inner life |
+| 👥 | "Players in this world", "Local play · Your world", "3 players online · This world" |
+| Worlds (`/?shared=1`) | "Your worlds" with buttons "Continue as Vale", "Continue as Mara", "The reflected shore · 3 avatars available", "Return to my game", "Sign out" |
+| Friend's link | "Choose your avatar", eight cards marked "Claimed" or with their pleasure, "Refresh avatars", "Your worlds" |
+| Full room | "A place will open shortly", "Check for a place", "Release this avatar", "Your worlds" |
+| Share | "Share this world … You will continue as Vale.", then "Invite someone", "Copy link" |
+| Settings | Controls, Voices, Flashes and scares, Fight speed, Music and volume, OpenRouter, Local game backup, "Your game saves in this browser…", the `?table=` warning, **New game**; in a shared world also Add a passkey, Leave this room, Release this avatar, Sign out |
+| New game | "Start a fresh world?", "This replaces this table's saved game.", "Keep playing", "Start new game" |
+
+World actions are spread over four places (☰ Worlds, Share, Settings, the
+full-room screen). Worlds have no names, so the list names avatars instead.
+"Leave this room" and "Release this avatar" sit beside the sound settings.
+
+![Today: ☰ on a phone](avatar-menu/today-local-menu-390.jpg)
+![Today: the world list](avatar-menu/today-worlds-list-1440.jpg)
+![Today: shared settings](avatar-menu/today-shared-settings-390.jpg)
+
+Earlier work: #1173 added shared worlds and the avatar picker, #1025 moved
+account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
+
+## Model
+
+- **A player owns one of each avatar**: Vale, Mara, Ash, Nell, Tavi, Rue, Orin
+  and Ada, just as each world has one of each.
+- **Each of a player's avatars is in at most one world**, local or shared.
+- **A player has at most one avatar in a world.** The server already enforces
+  this (`card_members` holds one row per account and world). Two avatars of one
+  person in one room would fill two of its four seats, would let one person
+  trade with themselves past the consent rules, and would summon BoardyAI,
+  who comes only for two people.
+- A signed-out player owns the avatars in this browser. Shared worlds need a
+  passkey; the menu asks for one when the player chooses a shared action.
+
+## The ☰ menu
+
+☰ lists the eight avatars. Each row shows the portrait, the name and where
+the avatar is now: "in *Hollowmere*" or "not in a world". The avatar you are
+playing is marked **here**. A tool row sits underneath: Memory, Inner life,
+Invite, Settings.
+
+Tapping a row opens its actions:
+
+| Avatar | Actions |
+| --- | --- |
+| In a world | **Play** (go there), **Move**, **Leave** |
+| In no world | **New world**, **Join** |
+
+- **Play** opens that world as that avatar.
+- **Move** lists the worlds you know by name (local, owned, joined) and **New
+  world**. A world that already holds another of your avatars is not listed.
+  "*The Quiet Ferry* keeps Mara's things."
+- **Leave** asks once: "Leave *Hollowmere*? Vale's things stay there." In a
+  shared world it releases the claim. In a local world it archives the save
+  (`.bak`, as New game does today).
+- **New world** starts a local world for that avatar.
+- **Join** lists named worlds you own or were invited to that have room.
+
+A friend's link opens "Join *Lanternfall*": your free avatars first, then
+avatars that are elsewhere ("in *The Quiet Ferry* · move"), then avatars taken
+in that world. Choosing one that is elsewhere moves it.
+
+**Invite** shares the current world. For a local world it first moves the
+world online (passkey), then shows the link.
+
+👥 keeps its job and gains the name: "3 here · *Hollowmere*".
+
+**Settings** is a small separate panel: Voices, Music and volume, Flashes and
+scares, Fast fights, OpenRouter, Backup (Save · Restore), Passkey (Add · Sign
+out) and Controls. It holds no world actions.
+
+The menu shows now, not a log: where each avatar is now. There is no list of
+past worlds, and no world-level delete. A world without your avatars is
+reached only through Move or Join.
+
+### Mockups
+
+Phone (390 × 844):
+
+![Menu](avatar-menu/new-menu-390.jpg)
+![An avatar in a world](avatar-menu/new-open-390.jpg)
+![A free avatar](avatar-menu/new-empty-390.jpg)
+![Move](avatar-menu/new-move-390.jpg)
+![Settings](avatar-menu/new-settings-390.jpg)
+![Join from a link](avatar-menu/new-join-390.jpg)
+
+Desktop (1440 × 900):
+
+![Menu](avatar-menu/new-menu-1440.jpg)
+![An avatar in a world](avatar-menu/new-open-1440.jpg)
+
+### Words
+
+Play, Move, Leave, New world, Join, here, in *Name*, not in a world, Memory,
+Inner life, Invite, Settings. Gone: Worlds, Share, Your worlds, Continue as,
+Return to my game, Release this avatar, Leave this room, Refresh avatars,
+Claimed, "The reflected shore · N avatars available", the `?table=` warning
+and the "Your game saves in this browser" paragraph.
+
+## World names
+
+`v2/card-game/world-names.json` holds cosy, uncanny place names: whole names
+("Hollowmere", "Lanternfall", "Saltmoth Hollow") and "The *word* *place*"
+pairs ("The Quiet Ferry", "The Kettle Marsh"), about two thousand in all. A
+world's name is entry `fnv1a32(id) % count`, using 32-bit FNV-1a over the
+UTF-8 id.
+
+- A shared world's id is its server id. Every player sees the same name.
+- A local world's id is `local:` plus its run seed (`world.run.seed`). A new
+  local game gets a new name.
+- The list is frozen once released: adding or reordering names would rename
+  every world. A test pins several id-to-name pairs. A later list would need a
+  new version recorded on each world.
+- Two worlds may share a name. Two of one player's eight worlds share one
+  less than one time in fifty; the avatar on each row tells them apart.
+- The names are presentation. They are not in the shared rules bundle and
+  never enter the journal.
+
+## Mapping onto saves and shared worlds
+
+This is a presentation and ownership layer. Journals, world ids, bundle
+hashes and replay do not change.
+
+- **Local saves.** Vale's local world stays in the existing slot,
+  `cosyworld.reflected-shore.v1`, so current local games carry over. Each
+  other avatar gets `cosyworld.reflected-shore.v1.avatar.<id>`, holding a
+  save with `playerActorId` set. The rules already accept any human avatar
+  as the player. `?table=` stays a developer slot outside the menu.
+- **Shared worlds.** The avatar's world is the account's `card_members` row
+  for that avatar. Today every Share claims Vale, so an account can hold Vale
+  in several worlds. The newest is shown. The others stay untouched and are
+  released when that avatar next moves or leaves. No journal row is written
+  on upgrade.
+- **Local and shared together.** Moving an avatar into a shared world (Invite,
+  Join or Move) archives that avatar's local save to `.bak`.
+- **Move** is a release in the old world and a claim in the new one. Both
+  are existing journal actions, so no rules or engine change is needed. The
+  client can do this in two steps. The server makes it one transaction in the
+  third PR, so a full room or a lost race cannot leave the avatar in no world.
+- **Alpha saves.** Nothing is nuked. Old `.shared` links in local storage are
+  read once to find Vale's shared world and then ignored.
+
+## Plan
+
+Small ready PRs under the 400-line budget, client first:
+
+1. The world-name list, `worldName(id)`, and the name in 👥, the invite panel
+   and the world list.
+2. The avatar ☰ menu, a slot per avatar, Play / Move / Leave / New world /
+   Join with the existing `claim` and `release` commands, and the trimmed
+   Settings panel.
+3. Server: `claim` with `move` releases the account's other row for that
+   avatar in the same transaction; Share takes the avatar, not always Vale;
+   the world list returns rows by last visit. CI is dispatched, with no local
+   cargo run.
+
+## Open questions
+
+1. Invite gives a local world a new shared id, so it gets a new name. Keep
+   that, or name worlds by run seed (the shared world keeps the local seed),
+   which needs the server's world list to return the seed?
+2. A pack landing link (`?pack=`) starts a new world. When the avatar already
+   has one, should it ask to move, or keep a separate landing slot?
+3. A local world for Mara, Ash and the others starts at that avatar's home
+   with their item, as in shared play. Is that the right start, or should
+   every avatar get the attic opening?
+4. Accounts that hold Vale in several shared worlds: show the newest and
+   release the rest on the next Move (proposed), or release the extras once
+   now?
