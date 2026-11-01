@@ -58,7 +58,7 @@ const fixture = (name) =>
 describe("a button in each traveler's own colour", () => {
   it("authors eight buttons and their complementary scarves", () => {
     const pack = packDefinition(PACK);
-    expect(pack.revision).toBe(2);
+    expect(pack.revision).toBe(3);
     const cast = JSON.parse(
       readFileSync(
         new URL("../v2/card-game/shared-cast.json", import.meta.url),
@@ -122,9 +122,9 @@ describe("a button in each traveler's own colour", () => {
     world.actors.vale.place = spot;
     world = act(world, "take", { item: BUTTON });
     expect(world.actors.vale.xp).toBe(xp + 1);
-    expect(world.log.some((e) => e.verb === "want_met" && e.itemId === BUTTON)).toBe(
-      true,
-    );
+    expect(
+      world.log.some((e) => e.verb === "want_met" && e.itemId === BUTTON),
+    ).toBe(true);
     expect(world.actors.vale.want?.target).not.toBe(BUTTON);
   });
 
@@ -244,11 +244,12 @@ describe("a button in each traveler's own colour", () => {
   it("upgrades a finished revision 1 chapter", () => {
     const world = decodeSave(fixture("forest-revision-1-chapter.json"));
     const state = world.packs[PACK];
-    expect(state.revision).toBe(2);
+    expect(state.revision).toBe(3);
     for (const id of RETIRED) expect(world.items[id]).toBeUndefined();
     expect(state.receipts["forest-set-watch-bell"]).toBeUndefined();
     expect(state.receipts["forest-mark-pawprints"]).toBeGreaterThan(0);
-    expect(state.choices["forest-watch-style"]).toBe("tracks");
+    // Revision 3 drops the retired fork keys.
+    expect(state.choices).toEqual({});
     expect(state.receipts["forest-mend-scarf"]).toBeUndefined();
     expect(state.flags["forest-scarf-mended"]).toBeUndefined();
     expect(state.flags["forest-homecoming-shared"]).toBe(true);
@@ -261,13 +262,21 @@ describe("a button in each traveler's own colour", () => {
     expect(next.items[BUTTON].holder).not.toBe(COTTAGE);
     expect(entityActive(next, BUTTON)).toBe(true);
     next = reload(next);
-    expect(next.packs[PACK].revision).toBe(2);
+    expect(next.packs[PACK].revision).toBe(3);
   });
 
   it("upgrades a revision 1 save with the old things in hand", () => {
     const world = decodeSave(fixture("forest-revision-1-garden.json"));
     for (const id of RETIRED) expect(world.items[id]).toBeUndefined();
     expect(world.packs[PACK].receipts["forest-clear-drain"]).toBeGreaterThan(0);
-    expect(reload(world).packs[PACK].revision).toBe(2);
+    expect(reload(world).packs[PACK].revision).toBe(3);
+  });
+
+  // Revision 3 keeps no upgrade for a retired fork's deed.
+  it("asks a save holding a retired fork for a fresh start", () => {
+    const text = fixture("forest-revision-1-garden.json")
+      .replaceAll("forest-clear-drain", "forest-set-stones")
+      .replace('"forest-garden-care":"drain"', '"forest-garden-care":"stones"');
+    expect(() => decodeSave(text)).toThrow(/fresh start/);
   });
 });

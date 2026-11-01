@@ -70,7 +70,7 @@ function act(world, kind, fields = {}) {
 }
 const move = (world, target) => act(world, "move", { target });
 const take = (world, item) => act(world, "take", { item });
-const choose = (world, choiceId) => act(world, "choose", { choiceId });
+const wait = (world) => act(world, "wait", { actor: "vale" });
 const CHARM = "forest-wolfprint-charm";
 function attic() {
   const world = enableMotives(createWorld());
@@ -81,36 +81,36 @@ function attic() {
   world.items.lamp.fuel = 12;
   return world;
 }
+// Talk with RATi after arriving is the welcome (on meet until #1611's
+// on: "talk"); the arrival itself hides Vale's button.
 function welcome() {
-  let world = move(attic(), COTTAGE);
-  world = act(world, "talk", { target: "rati" });
-  return choose(world, "forest-stay-for-tea");
+  const world = move(attic(), COTTAGE);
+  return act(world, "talk", { target: "rati" });
 }
 function charmAtOak() {
   let world = move(welcome(), GARDEN);
-  world = choose(world, "forest-clear-drain");
+  world = wait(world);
   world = move(world, TRAIL);
   world = take(world, CHARM);
   return move(world, OAK);
 }
-function chapter({
-  path = "forest-clear-drain",
-  watch = "forest-mark-pawprints",
-  account = "forest-tell-hearth",
-  ending = "forest-leave-charm",
-} = {}) {
+// Carry the charm past Oak and home to RATi's hearth.
+function homeWithCharm() {
   let world = move(welcome(), GARDEN);
-  world = choose(world, path);
+  world = wait(world);
   world = move(world, TRAIL);
-  world = choose(world, watch);
   world = take(world, "forest-wolfprint-charm");
   world = move(world, GARDEN);
   world = move(world, OAK);
-  world = choose(world, account);
   world = reload(world);
   world = move(world, GARDEN);
-  world = move(world, COTTAGE);
-  return choose(world, ending);
+  return move(world, COTTAGE);
+}
+function chapter() {
+  return act(homeWithCharm(), "give", {
+    item: "forest-wolfprint-charm",
+    target: "rati",
+  });
 }
 
 describe("Tea beneath the oak", () => {
@@ -156,7 +156,7 @@ describe("Tea beneath the oak", () => {
     expect(exits(world, OAK, "vale")).not.toContain(TRAIL);
     expect(availableCards(world)).not.toContain(TRAIL);
     world = move(world, GARDEN);
-    world = choose(world, "forest-clear-drain");
+    world = wait(world);
     world = move(world, TRAIL);
     world = take(world, CHARM);
     world = move(world, OAK);
@@ -426,126 +426,118 @@ describe("Tea beneath the oak", () => {
     );
   });
 
-  it("keeps all choices grounded in work, custody and the resident's place", () => {
+  it("offers no story buttons and follows ordinary plays", () => {
+    const pack = packDefinition(PACK);
+    expect(
+      pack.choices.filter((c) => c.on === undefined).map((c) => c.id),
+    ).toEqual(["forest-hear-walkers-rati", "forest-hear-walkers-oak"]);
     let world = move(attic(), COTTAGE);
     // Vale's button is somewhere else, so RATi cannot sew it yet.
     expect(world.items["forest-button-vale"].holder).not.toBe(COTTAGE);
-    expect(
-      legalActions(world).some((a) => a.choiceId === "forest-sew-scarf-vale"),
-    ).toBe(false);
+    expect(state(world).flags["forest-welcomed"]).toBeUndefined();
     world = act(world, "talk", { target: "rati" });
-    world = choose(world, "forest-stay-for-tea");
+    expect(state(world).flags["forest-welcomed"]).toBe(true);
+    expect(state(world).receipts["forest-stay-for-tea"]).toBe(world.turn);
     world = move(world, GARDEN);
     expect(exits(world, GARDEN, "vale")).not.toContain(TRAIL);
-    world = choose(world, "forest-clear-drain");
+    world = wait(world);
     expect(exits(world, GARDEN, "vale")).toContain(TRAIL);
-    expect(
-      legalActions(world).some((a) => a.choiceId === "forest-set-stones"),
-    ).toBe(false);
     world = move(world, TRAIL);
-    expect(
-      cardChoices(world, "skull").some(
-        (a) => a.choiceId === "forest-mark-pawprints",
-      ),
-    ).toBe(true);
+    expect(state(world).flags["forest-watch-shared"]).toBe(true);
+    // Oak hears the account only from a traveler carrying the charm.
+    world = move(move(world, GARDEN), OAK);
+    expect(state(world).flags["forest-oak-heard"]).toBeUndefined();
+    expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
   });
 
-  it.each([
-    [
-      "forest-clear-drain",
-      "forest-mark-pawprints",
-      "forest-tell-hearth",
-      "forest-leave-charm",
-      "drain",
-      "tracks",
-      "hearth",
-      "hearth",
-    ],
-    [
-      "forest-set-stones",
-      "forest-mark-pawprints",
-      "forest-tell-path",
-      "forest-keep-charm",
-      "stones",
-      "tracks",
-      "path",
-      "traveler",
-    ],
-  ])(
-    "saves the chapter's chosen work and homecoming: %s",
-    (
-      path,
-      watch,
-      account,
-      ending,
-      gardenCare,
-      watchStyle,
-      oakStory,
-      homecoming,
-    ) => {
-      let world = chapter({ path, watch, account, ending });
-      expect(state(world).choices).toMatchObject({
-        "forest-garden-care": gardenCare,
-        "forest-watch-style": watchStyle,
-        "forest-oak-story": oakStory,
-        "forest-homecoming": homecoming,
-      });
-      expect(state(world).flags["forest-homecoming-shared"]).toBe(true);
-      expect(world.items["forest-wolfprint-charm"].holder).toBe(
-        homecoming === "hearth" ? COTTAGE : "vale",
-      );
-      world.log = [];
-      world = reload(world);
-      expect(state(world).choices["forest-homecoming"]).toBe(homecoming);
-      expect(legalActions(world).some((a) => a.choiceId === ending)).toBe(
-        false,
-      );
-      expect(exits(world, COTTAGE, "vale")).toContain("attic");
-    },
-  );
+  it("saves the chapter's deeds and gives the charm to the hearth", () => {
+    let world = chapter();
+    expect(state(world).flags).toMatchObject({
+      "forest-welcomed": true,
+      "forest-path-cleared": true,
+      "forest-watch-shared": true,
+      "forest-oak-heard": true,
+      "forest-homecoming-shared": true,
+    });
+    expect(state(world).choices).toEqual({});
+    expect(world.items["forest-wolfprint-charm"].holder).toBe(COTTAGE);
+    world.log = [];
+    world = reload(world);
+    expect(state(world).receipts["forest-leave-charm"]).toBeGreaterThan(0);
+    expect(exits(world, COTTAGE, "vale")).toContain("attic");
+  });
 
-  it("preserves a second human's choice author and keeps shared results through reload", () => {
+  it("closes Oak's way once RATi keeps the charm by the hearth", () => {
+    let world = charmAtOak();
+    expect(exits(world, OAK, "vale")).toContain(TRAIL);
+    world = move(move(world, GARDEN), COTTAGE);
+    world = act(world, "give", { item: CHARM, target: "rati" });
+    expect(state(world).receipts["forest-leave-charm"]).toBe(world.turn);
+    expect(world.items[CHARM].holder).toBe(COTTAGE);
+    world = reload(move(move(world, GARDEN), OAK));
+    expect(exits(world, OAK, "vale")).not.toContain(TRAIL);
+    // The garden route to the trail stays open.
+    world = move(move(world, GARDEN), TRAIL);
+    expect(world.actors.vale.place).toBe(TRAIL);
+    // Taking the charm back and Waiting at the hearth ends nothing more.
+    world = take(move(move(world, GARDEN), COTTAGE), CHARM);
+    world = wait(world);
+    expect(state(world).receipts["forest-keep-charm"]).toBeUndefined();
+  });
+
+  it("lets Vale keep the charm by Waiting at the hearth with it", () => {
+    let world = homeWithCharm();
+    expect(state(world).receipts["forest-keep-charm"]).toBeUndefined();
+    // Waiting at the hearth is a long rest, so the clock moves on after it.
+    world = wait(world);
+    const kept = state(world).receipts["forest-keep-charm"];
+    expect(kept).toBeGreaterThan(0);
+    expect(state(world).flags["forest-homecoming-shared"]).toBe(true);
+    expect(world.items[CHARM].holder).toBe("vale");
+    expect(
+      world.log.find(
+        (e) => e.verb === "wait" && e.actorId === "vale" && e.turn === kept,
+      )?.text,
+    ).toBe("Vale kept the Wolfprint Charm for the next journey.");
+    // The visit has ended: a later gift to RATi is no second ending.
+    world = reload(world);
+    const given = act(world, "give", { item: CHARM, target: "rati" });
+    expect(state(given).receipts["forest-leave-charm"]).toBeUndefined();
+    // The kept charm still opens Oak's way when carried there.
+    world = move(move(world, GARDEN), OAK);
+    expect(exits(world, OAK, "vale")).toContain(TRAIL);
+  });
+
+  it("keeps a second human's deed author through reload", () => {
     let world = dispatchShared({
       op: "create",
       save: encodeSave(welcome()),
     }).world;
     world.actors.vale.place = GARDEN;
     world.actors.mara.place = GARDEN;
-    let response = dispatchShared({
-      op: "view",
-      world,
+    const people = {
       actor: "mara",
       claimed: ["vale", "mara"],
       present: ["vale", "mara"],
-    });
+    };
+    let response = dispatchShared({ op: "view", world, ...people });
     const action = response.actions.find(
-      (a) => a.choiceId === "forest-set-stones",
+      (a) => a.kind === "wait" && a.actor === "mara",
     );
     expect(action).toBeTruthy();
     response = dispatchShared({
       op: "play",
       world: response.world,
-      actor: "mara",
-      claimed: ["vale", "mara"],
-      present: ["vale", "mara"],
+      ...people,
       action,
     });
     expect(response.ok, response.error).toBe(true);
     world = reload(response.world);
-    expect(state(world).choices["forest-garden-care"]).toBe("stones");
-    expect(
-      world.log.find((e) => e.choiceId === "forest-set-stones")?.actorId,
-    ).toBe("mara");
-    const current = dispatchShared({
-      op: "view",
-      world,
-      actor: "vale",
-      claimed: ["vale", "mara"],
-      present: ["vale", "mara"],
+    expect(state(world).flags["forest-path-cleared"]).toBe(true);
+    expect(world.log.findLast((e) => e.verb === "wait")).toMatchObject({
+      actorId: "mara",
+      text: "Mara cleared the garden drain.",
     });
-    expect(
-      current.actions.some((a) => a.choiceId === "forest-clear-drain"),
-    ).toBe(false);
   });
 });
 
@@ -579,20 +571,15 @@ describe("Three walkers, one old root", () => {
       expect(state(world).flags["forest-walkers-heard"]).toBe(true);
       world = reload(world);
       for (const target of trail) world = move(world, target);
-      expect(cardChoices(world, "skull").map((a) => a.choiceId)).toContain(
-        "forest-sit-watch",
-      );
-      world = choose(world, "forest-sit-watch");
-      expect(state(world).choices["forest-evening-watch"]).toBe("kept");
+      world = wait(world);
+      expect(state(world).flags["forest-watch-kept"]).toBe(true);
       expect(state(world).receipts["forest-sit-watch"]).toBe(world.turn);
     },
   );
 
   it("keeps the watch closed until someone has told the walkers' story", () => {
-    const world = move(move(chapter(), GARDEN), TRAIL);
-    expect(
-      legalActions(world).some((a) => a.choiceId === "forest-sit-watch"),
-    ).toBe(false);
+    const world = wait(move(move(chapter(), GARDEN), TRAIL));
+    expect(state(world).receipts["forest-sit-watch"]).toBeUndefined();
     expect(
       cardChoices(move(world, GARDEN), "whiskerwind").some((a) =>
         a.choiceId?.startsWith("forest-hear-walkers"),

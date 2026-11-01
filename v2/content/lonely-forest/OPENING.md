@@ -12,21 +12,32 @@ reveals their link through a familiar detail repeated at the oak.
 
 ## The journey
 
-1. Talk to RATi in the cottage and choose **Stay for tea**.
-2. In the garden, choose **Clear the garden drain** or **Set the stepping
-   stones**. Each choice opens the Moonlit Trail. The chosen work stays in
-   the world history.
-3. Visit Skull on the trail and choose **Mark the pawprints**. The watch is
-   saved. Take the Wolfprint Charm.
-4. At Oak, choose **Tell Oak about the hearth** or **Tell Oak about the
-   path**. The watch gives the account its facts. Hollow repeats a detail
-   from the journey.
-5. Return to RATi with the charm. Choose **Leave the charm by the hearth**
-   or **Keep the charm for the next journey**. A warm cup closes the visit.
+The chapter has no story buttons. Each step follows an ordinary play, and
+the model voices it from the committed facts.
 
-The two path choices, two oak accounts and two charm endings each keep
-their own result. A later visitor meets the completed work. Cooperation
-uses the shared world's normal custody and action rules.
+1. Talk to RATi in the cottage. That play is her welcome.
+2. Wait in the garden. The traveler clears the drain, and the Moonlit Trail
+   opens.
+3. Go to Skull on the trail. Meeting him shares the pawprint watch. Take the
+   Wolfprint Charm.
+4. Carry the charm to Oak. Meeting Oak while holding it records the account.
+5. Home at the cottage, end the visit one of two ways:
+   - Give RATi the charm. It stays by the hearth.
+   - Wait at the hearth with RATi while holding the charm. The traveler
+     keeps it for the next journey.
+
+Either ending closes the visit, and the other can no longer follow. The
+keep ending needs the Wait itself: carrying the charm in and giving it to
+RATi never keeps it.
+
+While the charm is at Oak, Oak opens the way to the Moonlit Trail. The charm
+counts when someone present carries it, when it lies among the roots or
+when Oak holds it. Once the charm stays by the hearth, Oak's way closes, and
+the garden path to the trail stays open.
+
+The welcome and the two meetings commit when the traveler shares a room
+with the resident (`on: "meet"`). When Talk gets its own trigger (#1611),
+each becomes `on: "talk"`. A later visitor meets the completed work.
 
 ## A button in your own colour
 
@@ -64,24 +75,14 @@ and its scarf repair, along with the Dewbright Button and the Watch Bell.
 The save upgrade drops them and their choices. A Watch Bell set beside
 Skull becomes the pawprint watch.
 
-## Story cards
+Revision 3 retired the story buttons with no save upgrade. An earlier
+forest save asks for a fresh start.
 
-The chapter uses two short card lines:
+## The three walkers
 
-- **Footsteps through the rain.** appears after the tea invitation and ends
-  with the repaired path.
-- **What will the oak hear?** appears after helping Skull and ends with the
-  chosen charm homecoming.
-
-After the homecoming, a third card, **Three walkers, one old root.**,
-asks who the three walkers are. RATi at the cottage or Root at the oak can
-tell it through Talk. Anyone who knows it can then choose **Sit the evening
-watch with Skull** on the trail. The charm homecoming is a story return: it
-carries the cleared path home.
-
-Saved choices and receipts own the result. The shared story registry keeps
-actual participants and the completion turn through reload and trimmed
-conversation history.
+After the homecoming, RATi at the cottage or Root at the oak can tell who
+the three walkers are through Talk. Anyone who knows it can then Wait on
+the trail to keep the evening watch with Skull.
 
 ## Attic stairs
 
@@ -103,7 +104,7 @@ lamp remedies are exhausted; they are separate from the ordinary gates.
 `classic-to-card.json` records every adapted place, resident and item ID.
 The source actors, locations, objects and room features live in
 `v2/content/core/`. The garden work adapts the source garden job. The card
-chapter owns its choices and outcomes.
+chapter owns its outcomes.
 
 The Wolfprint Charm illustration is an unchanged copy of the core
 `cosy-wolfprint-charm.webp`. The buttons use
