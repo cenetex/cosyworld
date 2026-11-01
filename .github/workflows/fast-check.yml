@@ -21,7 +21,11 @@ jobs:
   plan:
     name: Change budget, version, engine gate, and smoke plan
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 5
+    # Up to 15 minutes of this is the wait for a production deploy.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
     outputs:
       smokes: ${{ steps.smokes.outputs.smokes }}
     steps:
@@ -29,6 +33,13 @@ jobs:
         with:
           fetch-depth: 0
           filter: blob:none
+      # Every other job needs this one, so a production deploy gets the
+      # runners first.
+      - name: Yield runners to a production deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: bash scripts/yield-to-production-deploy.sh
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
