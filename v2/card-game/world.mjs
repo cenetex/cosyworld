@@ -174,6 +174,15 @@ const atticInterior = (() => {
 })();
 const ids = Object.keys(things);
 const actorIds = [...Object.keys(forest.people), ...packActorIds];
+// Fixed at load, so validation compares against these instead of rebuilding.
+const placeIds = Object.keys(places);
+const sortedActorKeys = actorIds.slice().sort().join();
+const sortedItemKeys = ids.slice().sort().join();
+const castIds = new Set([...actorIds, ...ids]);
+const entityIds = new Set([...castIds, ...placeIds]);
+const holderIds = new Set([...actorIds, ...placeIds]);
+const LOG_KINDS = ["action", "dialogue", "narration", "input", "hint"];
+const OUTCOMES = ["hit", "guarded", "yield", "sent-home"];
 let planReads = null;
 function planningReadsFor(world) {
   if (!planReads) return null;
@@ -285,8 +294,17 @@ function installRouteKnowledge(s) {
       rememberRoutes(s, actor, visibleRouteEdges(s.actors[actor].place));
     }
 }
+// Holder chains are a few links deep, so the walk tracks visits only when a
+// chain runs long enough to hide a loop: the common case allocates nothing.
+const SHORT_CHAIN = 32;
 export function rootHolder(s, id) {
   let holder = s.items[id].holder;
+  for (let step = 0; step < SHORT_CHAIN; step++) {
+    if (!s.items[holder]) return holder;
+    if (holder === id) throw new Error("An item holds itself.");
+    holder = s.items[holder].holder;
+  }
+  holder = s.items[id].holder;
   const visited = new Set([id]);
   while (s.items[holder]) {
     if (visited.has(holder)) throw new Error("An item holds itself.");
@@ -2271,10 +2289,10 @@ export function validateWorld(s) {
   if (
     Object.keys(s.actors || {})
       .sort()
-      .join() !== actorIds.slice().sort().join() ||
+      .join() !== sortedActorKeys ||
     Object.keys(s.items || {})
       .sort()
-      .join() !== ids.slice().sort().join()
+      .join() !== sortedItemKeys
   )
     fail();
   if (
@@ -2308,8 +2326,7 @@ export function validateWorld(s) {
     fail();
   if (
     !s.peaceUntil ||
-    Object.keys(s.peaceUntil).sort().join() !==
-      actorIds.slice().sort().join() ||
+    Object.keys(s.peaceUntil).sort().join() !== sortedActorKeys ||
     Object.values(s.peaceUntil).some(
       (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn + 3,
     ) ||
@@ -2402,11 +2419,8 @@ export function validateWorld(s) {
 
   for (const [id, item] of Object.entries(s.items)) {
     if (
-      ![
-        ...actorIds,
-        ...Object.keys(places),
-        ...(id === "cloth" ? ["lamp", "bell"] : []),
-      ].includes(item.holder)
+      !holderIds.has(item.holder) &&
+      !(id === "cloth" && (item.holder === "lamp" || item.holder === "bell"))
     )
       fail();
     if (
@@ -2509,9 +2523,8 @@ export function validateWorld(s) {
     "choose",
     "use",
   ];
-  // Built once: every log entry checks its ids against these.
-  const cast = new Set([...actorIds, ...ids]);
-  const entities = new Set([...cast, ...Object.keys(places)]);
+  const cast = castIds,
+    entities = entityIds;
   for (const e of s.log) {
     if (e.seq !== undefined) {
       if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
@@ -2520,9 +2533,7 @@ export function validateWorld(s) {
     }
     if (
       e.kind !== undefined &&
-      !["action", "dialogue", "narration", "input", "hint"].includes(
-        e.kind,
-      )
+      !LOG_KINDS.includes(e.kind)
     )
       fail();
     if (
@@ -2556,7 +2567,7 @@ export function validateWorld(s) {
     if (e.verb != null && !verbs.includes(e.verb)) fail();
     if (
       (e.outcome !== undefined &&
-        !["hit", "guarded", "yield", "sent-home"].includes(e.outcome)) ||
+        !OUTCOMES.includes(e.outcome)) ||
       (e.droppedItemIds !== undefined &&
         (!Array.isArray(e.droppedItemIds) ||
           e.droppedItemIds.some((id) => !ids.includes(id))))
@@ -2637,9 +2648,18 @@ export function validateWorld(s) {
     )
       fail();
   }
+  freshlyValidated.add(s);
   return s;
 }
-export const encodeSave = (s) => JSON.stringify(validateWorld(s));
+// Rule results are validated before they return, so the save that follows
+// does not check the same world again. Saving spends the mark: a later save of
+// that object, and every decoded or imported save, is validated in full.
+const freshlyValidated = new WeakSet();
+export function encodeSave(s) {
+  if (!freshlyValidated.has(s)) validateWorld(s);
+  freshlyValidated.delete(s);
+  return JSON.stringify(s);
+}
 export function decodeSave(text) {
   const s = JSON.parse(text);
   upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });

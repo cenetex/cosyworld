@@ -288,10 +288,13 @@ export function trialFacts(world, actor, nameOf) {
     }),
   ];
 }
-const fields = (o, names) =>
-  o &&
-  typeof o === "object" &&
-  Object.keys(o).sort().join() === names.split(" ").sort().join();
+const sortedNames = new Map();
+const fields = (o, names) => {
+  if (!o || typeof o !== "object") return o && false;
+  if (!sortedNames.has(names))
+    sortedNames.set(names, names.split(" ").sort().join());
+  return Object.keys(o).sort().join() === sortedNames.get(names);
+};
 const validObservation = (o) =>
   fields(o, "met trust strain held") &&
   typeof o.met === "boolean" &&

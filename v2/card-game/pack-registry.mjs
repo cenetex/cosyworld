@@ -98,8 +98,9 @@ if (compositionProblems.length)
   throw new Error(
     `Invalid card world composition: ${compositionProblems.join("; ")}`,
   );
-export const packDefinition = (id) =>
-  packDefinitions.find((p) => p.id === id) || null;
+const packById = new Map();
+for (const p of packDefinitions) if (!packById.has(p.id)) packById.set(p.id, p);
+export const packDefinition = (id) => packById.get(id) || null;
 
 const merge = (field) =>
   Object.fromEntries(
@@ -256,12 +257,10 @@ export const packMediaFiles = [
 
 export const packState = (world, id) => world.packs?.[id];
 export function conditionsMet(world, packId, conditions = [], actor = null) {
-  return (
-    Boolean(world.packs?.[packId]) &&
-    conditions.every((condition) =>
-      evaluateCondition(world, condition, null, packId, actor),
-    )
-  );
+  if (!world.packs?.[packId]) return false;
+  for (const condition of conditions)
+    if (!evaluateCondition(world, condition, null, packId, actor)) return false;
+  return true;
 }
 export function choiceText(choice, actor) {
   return choice.textTemplate === undefined
@@ -274,14 +273,25 @@ export function choiceText(choice, actor) {
       );
 }
 
+// The item's outermost holder, or the first repeated item when holders loop.
+// Short chains, the usual case, are walked without tracking visits.
+function rootOf(world, id) {
+  let holder = world.items[id].holder;
+  for (let step = 0; step < 32 && holder !== id; step++) {
+    if (!world.items[holder]) return holder;
+    holder = world.items[holder].holder;
+  }
+  holder = world.items[id].holder;
+  const seen = new Set([id]);
+  while (world.items[holder] && !seen.has(holder)) {
+    seen.add(holder);
+    holder = world.items[holder].holder;
+  }
+  return holder;
+}
 export function entityActive(world, id) {
   if (world.items?.[id]) {
-    let holder = world.items[id].holder;
-    const seen = new Set([id]);
-    while (world.items[holder] && !seen.has(holder)) {
-      seen.add(holder);
-      holder = world.items[holder].holder;
-    }
+    let holder = rootOf(world, id);
     if (humanAvatar(holder) && !humanPresent(world, holder)) return false;
     if (holder === BOARDY && !boardyActive(world)) return false;
   }
@@ -299,7 +309,9 @@ function entityEnabled(world, id, saved = false) {
     !conditionsMet(
       world,
       e.packId,
-      (e.requires || []).filter((c) => !saved || c.kind !== "connected_humans"),
+      saved
+        ? (e.requires || []).filter((c) => c.kind !== "connected_humans")
+        : e.requires,
     ) ||
     !sectionAllows(world, pack, id, conditionsMet)
   )
@@ -310,8 +322,10 @@ function entityEnabled(world, id, saved = false) {
       (roamingQuestActor(id) || !!recitalVisit(world, pack)) &&
       entityEnabled(world, world.actors[id].place)
     );
-  return [pack.release.places, pack.release.avatars, pack.release.items].some(
-    (ids) => ids.includes(id),
+  return (
+    pack.release.places.includes(id) ||
+    pack.release.avatars.includes(id) ||
+    pack.release.items.includes(id)
   );
 }
 export function packExits(world, place, actor = null) {
