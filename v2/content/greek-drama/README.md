@@ -133,6 +133,9 @@ The ship sails authored lanes: Black Pond only to the Wine-Dark Harbor; the
 Wine-Dark Harbor to Piraeus and the Trojan camp landing; Athens Harbor to
 Piraeus. The lane between the Wine-Dark Harbor and Piraeus opens only while
 the Travel Provisions (`greek-provisions`, first at the harbour) are aboard.
+The lane between Piraeus and Athens Harbor opens only while the Suppliant's
+Olive Branch (`greek-olive-branch`) is aboard. The herald hands it to whoever
+registers the mothers' plea at the Agora.
 Piraeus Quays lies outside the Open Door section, so that lane reaches it in
 any save; its roads inland and its stories still wait for Dione's invitation.
 Boarding keeps the ship at its harbour. The first course

@@ -113,7 +113,7 @@ describe("local town visits and road history", () => {
       expect(current.actors.mara.place).toBe(road);
       expect(current.items.lamp.holder).toBe(road);
       expect(current.routeKnowledge.vale).toEqual(known);
-      expect(current.packs["greek-drama"].revision).toBe(8);
+      expect(current.packs["greek-drama"].revision).toBe(9);
       expect(exits(current, road, "vale")).toEqual([
         "greek-harbor",
         "greek-courtyard",
@@ -132,7 +132,7 @@ describe("local town visits and road history", () => {
       ["greek-harbor", road],
     ];
     const current = decodeSave(JSON.stringify(before));
-    expect(current.packs["greek-drama"].revision).toBe(8);
+    expect(current.packs["greek-drama"].revision).toBe(9);
     expect(current.routeKnowledge.vale).toEqual([
       ["greek-harbor", road],
       [road, "greek-courtyard"],
