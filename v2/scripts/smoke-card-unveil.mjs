@@ -396,9 +396,14 @@ try {
       );
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       await page.keyboard.press("Escape");
-      // The keeper's pack is private (#1791): his oil stays out of the hand.
-      assert.equal(await page.locator('#hand [data-card="oil"]').count(), 0);
+      // The keeper's oil arrives in his stack, which stays folded.
+      await unveil("oil");
+      assert.equal(
+        await page.locator('#hand [data-card="oil"]').isVisible(),
+        false,
+      );
       await selectCard(page, "keeper");
+      await page.locator('#hand [data-card="oil"]').click();
       await finish();
       if (motion === "reduce")
         assert.equal(await page.locator("#story-retry").isVisible(), true);
@@ -426,7 +431,12 @@ try {
           .getAttribute("data-unrevealed"),
         "false",
       );
-      assert.equal(await page.locator('#hand [data-card="oil"]').count(), 0);
+      assert.equal(
+        await page
+          .locator('#hand [data-card="oil"]')
+          .getAttribute("data-unrevealed"),
+        "false",
+      );
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       assert.deepEqual(await page.evaluate(() => window.discoveries), []);
       assert.deepEqual(await state(), saved);
