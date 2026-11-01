@@ -3,7 +3,11 @@ import { observeText } from "./observe-words.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { arriveCard, finishReveal, revealCard } from "./card-reveal.mjs";
 import { levelUpCard } from "./card-level-up.mjs";
-import { landingPack, createLandingWorld } from "./pack-landing.mjs";
+import {
+  landingPack,
+  createLandingWorld,
+  newRunSeed,
+} from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
@@ -74,6 +78,7 @@ import {
   encodeSave,
   decodeSave,
   legalActions,
+  seedRun,
 } from "./world.mjs";
 import { packPlaces, packOf } from "./pack-registry.mjs";
 import { variantOf } from "./pack-rules.mjs";
@@ -222,9 +227,8 @@ try {
   }
   if (saved) {
     openingTable = false;
-    world = enableMotives(decodeSave(saved));
-    // A save from before run seeds starts a new game (alpha).
-    if (!world.run) throw new Error("This save needs a fresh start.");
+    // A save from before run seeds takes one once, as a shared world does.
+    world = enableMotives(seedRun(decodeSave(saved), newRunSeed()));
   }
 } catch (error) {
   openingTable = false;

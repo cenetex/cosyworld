@@ -15,7 +15,7 @@ function fixture() {
   let s = enableMotives(atticOpening());
   s = play(
     s,
-    legalActions(s).find((a) => a.kind === "light"),
+    legalActions(s).find((a) => a.kind === "snuff"),
   ).state;
   s.actors.moth.place = "pond";
   s = play(
