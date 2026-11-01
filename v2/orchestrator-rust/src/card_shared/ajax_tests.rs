@@ -379,7 +379,7 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
                 ["greek-gate", "greek-well"] | ["greek-palace", "greek-well"] => {
                     Some("greek-courtyard")
                 }
-                // Greek revision 15 reaches the sanctuary through the palace.
+                // Greek revision 17 reaches the sanctuary through the palace.
                 ["greek-courtyard", "greek-sanctuary"] => Some("greek-palace"),
                 _ => None,
             }
