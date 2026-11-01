@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createWorld, exits } from "../v2/card-game/world.mjs";
+import {
+  createWorld,
+  decodeSave,
+  encodeSave,
+  exits,
+} from "../v2/card-game/world.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { drawSpecials } from "../v2/card-game/pack-specials.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -21,7 +26,7 @@ function reachable(world) {
 }
 
 describe("Hoppy Cat as a small world", () => {
-  it("keeps the garden and jetty core and joins both to each drawn place, for every seed", () => {
+  it("keeps the garden and jetty core with each drawn place within one, for every seed", () => {
     const pool = new Set(pack.specials.pool.map((e) => e.id));
     expect(pool.has(garden) || pool.has(jetty)).toBe(false);
     // The spool starts at the empty station and is never drawn.
@@ -36,12 +41,11 @@ describe("Hoppy Cat as a small world", () => {
       expect([...reachable(world)].sort()).toEqual(
         [garden, jetty, ...places].sort(),
       );
-      // Garden, special, jetty, other special, garden: one loop of four.
+      // Each drawn place is within the garden or the jetty and leads back.
       for (const id of places) {
         world.actors.vale.place = id;
-        expect(exits(world, id, "vale")).toEqual(
-          expect.arrayContaining([garden, jetty]),
-        );
+        expect([garden, jetty]).toContain(pack.places[id].within);
+        expect(exits(world, id, "vale")).toEqual([pack.places[id].within]);
       }
       // The resident and the thing come from undrawn places to the garden.
       const [, , avatar, item] = drawn;
@@ -65,5 +69,20 @@ describe("Hoppy Cat as a small world", () => {
     expect(reachable(world).size).toBe(Object.keys(pack.places).length);
     for (const [id, a] of Object.entries(pack.avatars))
       expect(world.actors[id].place).toBe(a.place);
+  });
+
+  it("re-walks a known step between two drawn places through their parents", () => {
+    const world = createWorld({ seed: 1 });
+    world.packs[pack.id].revision = 2;
+    const cathedral = "hoppycat-open-record-cathedral",
+      belfry = "hoppycat-red-thread-belfry";
+    world.routeKnowledge.vale = [[cathedral, belfry]];
+    const next = decodeSave(JSON.stringify(world));
+    expect(next.packs[pack.id].revision).toBe(3);
+    expect(next.routeKnowledge.vale).toEqual([
+      [cathedral, garden],
+      [garden, jetty],
+      [jetty, belfry],
+    ]);
   });
 });

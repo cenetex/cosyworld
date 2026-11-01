@@ -467,6 +467,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "road",
         "retired",
         "sanctuary",
+        "within",
       ]),
       `place ${id} has an unknown field`,
     );
@@ -504,6 +505,19 @@ export function packProblems(pack, hub, mountedPlaces = []) {
               b.requires.length > 0,
           ),
         `place ${id} backdrops need a backdrop in this pack and saved conditions`,
+      );
+    // A place within another, such as a house in a quarter, links only to
+    // its parent and does not count toward the parent's links.
+    if (p.within !== undefined)
+      check(
+        owns(places, p.within) &&
+          p.within !== id &&
+          places[p.within].within === undefined &&
+          places[p.within].exits?.includes(id) &&
+          p.exits.length === 1 &&
+          p.exits[0] === p.within &&
+          p.road === undefined,
+        `place ${id} within ${p.within} must link only to that parent`,
       );
     if (p.road !== undefined)
       check(

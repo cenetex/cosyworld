@@ -33,7 +33,10 @@ fn upgraded(found: bool) -> (rusqlite::Connection, String, World) {
         w.game["log"],
         super::full_tests::quest_free_log(&old.game["log"])
     );
-    assert_eq!(w.game["packs"]["hoppycat-archive"]["revision"], 2);
+    assert_eq!(
+        w.game["packs"]["hoppycat-archive"]["revision"],
+        super::full_tests::pack_revision("hoppycat-archive")
+    );
     // A loaded save follows the current content: the retired thread closes.
     assert_eq!(w.game["crossings"][THREAD]["discovered"], json!(false));
     (c, id, w)

@@ -94,6 +94,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     upgradeShoreRouteSave(s);
     upgradeBoardyStationSave(s);
     upgradeHoppyCatSeaSave(s);
+    upgradeHoppyCatInteriorsSave(s);
     upgradeBoardingSave(s);
     upgradeForestButtonsSave(s);
     upgradeWillowsKitSave(s);
@@ -252,6 +253,31 @@ export function upgradeHoppyCatSeaSave(s) {
     if (!Object.hasOwn(pack.avatars, actor) && visited(actor))
       learnLane(s, actor, "greek-piraeus", "hoppycat-signal-jetty");
   saved.revision = 2;
+}
+
+// Hoppy Cat revision 3 puts each drawn place within the Tea Garden or the
+// Signal Jetty. A known step between two archive places that no longer
+// exists becomes the walk through their parents.
+export function upgradeHoppyCatInteriorsSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "hoppycat-archive");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
+  const authored = new Set(authoredRouteEdges().map((e) => JSON.stringify(e)));
+  for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+    const paths = edges.flatMap((edge) => {
+      if (
+        authored.has(JSON.stringify(edge)) ||
+        !edge.every((id) => Object.hasOwn(pack.places, id))
+      )
+        return [edge];
+      const path = walkablePath(...edge);
+      return path ? path.slice(1).map((end, i) => [path[i], end]) : [];
+    });
+    s.routeKnowledge[actor] = [
+      ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values(),
+    ];
+  }
+  saved.revision = 3;
 }
 
 // Revision 5 adds port and road memories. Every earlier position and deed

@@ -354,6 +354,10 @@ road, and the other end. Its entry card names the place ahead. Travelers can
 meet, wait and carry objects on the road. Myrine walks from Eleusis to Piraeus
 one road at a time, along the Sacred Way and the Long Walls.
 
+A place *within* another, such as a house in a quarter, names its parent in
+`within`. It links only to that parent and does not count toward the parent's
+links.
+
 A pack marks an old road or place `retired: true` to keep its ID for saved
 history. No exit leads onto it. A save that stands on a retired road
 continues at the road's first end; one at a retired place continues at the
