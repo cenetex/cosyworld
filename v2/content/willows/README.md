@@ -48,8 +48,10 @@ its own voice and its own signs. The camp and the bank join only through it.
 The Swede's kit is scattered: the Worn Paddle, Waterproof Sheet, Tent Rope and
 Food Sack. While all four are at the camp the canoe is mended: anyone may paddle
 it between the landing and Black Pond, and the Swede leaves his camp as a
-travelling resident (`stayUntil`). Carry one away and both wait again. For now
-the sheet and sack lie at the landing and the paddle and rope at the bank; the
+travelling resident (`stayUntil`). Carry one away and both wait again. If the
+Swede takes the canoe himself, he leaves the world for good and the canoe goes
+with him: his pipe stays on the sand and the canoe route closes. For now the
+sheet and sack lie at the landing and the paddle and rope at the bank; the
 specials draw will scatter them across the other worlds. The pot, spoon, map and
 pipe stay at the camp as lore objects, each inscribed with one short line from
 the story.

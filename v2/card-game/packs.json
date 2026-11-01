@@ -9740,6 +9740,13 @@
               "item": "willows-provisions",
               "place": "willows-camp"
             }
+          ],
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-swede-gone",
+              "value": false
+            }
           ]
         }
       },
@@ -10022,6 +10029,23 @@
             }
           ],
           "on": "wait"
+        },
+        {
+          "id": "willows-swede-departs",
+          "subject": "willows-swede",
+          "at": "willows-landing",
+          "label": "The Swede takes the canoe",
+          "on": "depart",
+          "text": "The Swede pushes the mended canoe off the sand and paddles into the main stream without looking back. The willows close over the place where he went.",
+          "summary": "The Swede took the mended canoe and left the island. He is gone, and the canoe with him.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-swede-gone",
+              "value": true
+            }
+          ]
         }
       ],
       "sources": [
@@ -10143,6 +10167,11 @@
           "travel": "downriver in the mended canoe",
           "requires": [
             {
+              "kind": "flag",
+              "key": "willows-swede-gone",
+              "value": false
+            },
+            {
               "kind": "item_near",
               "item": "willows-paddle",
               "place": "willows-camp"
@@ -10172,6 +10201,11 @@
           "travelers": "any",
           "travel": "upriver in the mended canoe",
           "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-swede-gone",
+              "value": false
+            },
             {
               "kind": "item_near",
               "item": "willows-paddle",

@@ -10957,6 +10957,13 @@
                 item: "willows-provisions",
                 place: "willows-camp"
               }
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "willows-swede-gone",
+                value: false
+              }
             ]
           }
         },
@@ -11239,6 +11246,23 @@
               }
             ],
             on: "wait"
+          },
+          {
+            id: "willows-swede-departs",
+            subject: "willows-swede",
+            at: "willows-landing",
+            label: "The Swede takes the canoe",
+            on: "depart",
+            text: "The Swede pushes the mended canoe off the sand and paddles into the main stream without looking back. The willows close over the place where he went.",
+            summary: "The Swede took the mended canoe and left the island. He is gone, and the canoe with him.",
+            requires: [],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "willows-swede-gone",
+                value: true
+              }
+            ]
           }
         ],
         sources: [
@@ -11360,6 +11384,11 @@
             travel: "downriver in the mended canoe",
             requires: [
               {
+                kind: "flag",
+                key: "willows-swede-gone",
+                value: false
+              },
+              {
                 kind: "item_near",
                 item: "willows-paddle",
                 place: "willows-camp"
@@ -11389,6 +11418,11 @@
             travelers: "any",
             travel: "upriver in the mended canoe",
             requires: [
+              {
+                kind: "flag",
+                key: "willows-swede-gone",
+                value: false
+              },
               {
                 kind: "item_near",
                 item: "willows-paddle",
@@ -13812,7 +13846,7 @@
           "workId",
           "on",
           "for"
-        ]) && idOk(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "give" && (c.requires || []).some(
+        ]) && idOk(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "depart" && Boolean(avatars[c.subject]) || c.on === "give" && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor"
         ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && !choiceIds.has(c.id) && own.includes(c.subject) && owns2(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
         `choice ${c.id} is invalid`
@@ -15091,6 +15125,9 @@
       return domains.includes(home) && domains.includes(target) && crossings.filter((c) => c.transport === id).every((c) => c.travelers === "any");
     });
   }
+  var departed = (pack, state, id) => (pack.choices || []).some(
+    (c) => c.on === "depart" && c.subject === id && owns3(state.receipts, c.id)
+  );
   function committedChoiceText(world, pack, choice) {
     if (choice.summary) return choice.summary;
     const actor = world.log?.find(
@@ -15161,7 +15198,7 @@
         ...pack.recital ? ["recitals"] : [],
         ...pack.specials && world.run ? ["specials"] : []
       ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record3) || Object.entries(state.met).some(
-        ([id, turn]) => !owns3(pack.avatars, id) || !conditionsMet(
+        ([id, turn]) => !owns3(pack.avatars, id) || !departed(pack, state, id) && !conditionsMet(
           world,
           pack.id,
           (pack.avatars[id]?.requires || []).filter(
@@ -15206,7 +15243,7 @@
       if (!equals(choices, state.choices) || !equals(flags, state.flags))
         return false;
       for (const [id, actor] of Object.entries(pack.avatars))
-        if (!entityEnabled(world, id, true) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns3(state.met, id)))
+        if (!entityEnabled(world, id, true) && !departed(pack, state, id) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns3(state.met, id)))
           return false;
       for (const [id, item] of Object.entries(pack.items || {}))
         if (!entityEnabled(world, id, true) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)))

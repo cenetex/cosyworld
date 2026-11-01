@@ -17,6 +17,7 @@ import {
   packFacts,
   hub,
   validatePackDefinition,
+  entityActive,
 } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
@@ -340,7 +341,7 @@ describe("The Willows", () => {
     );
     const saved = decodeSave(encodeSave(world));
     expect(saved.packs.willows).toEqual(world.packs.willows);
-    expect(pack.choices.every((c) => c.on === "wait")).toBe(true);
+    expect(pack.choices.every((c) => c.on)).toBe(true);
   });
 
   it("frees the Swede and the canoe only while the whole kit is at camp", () => {
@@ -424,6 +425,43 @@ describe("The Willows", () => {
       expect(mounted.items[id]).toEqual(item);
     for (const [id, state] of Object.entries(priorPacks))
       expect(mounted.packs[id]).toEqual(state);
+  });
+
+  it("lets the Swede leave the world with the canoe, for good", () => {
+    let world = move(kitHome(island()), "willows-landing");
+    let swede = world.actors["willows-swede"];
+    swede.place = "willows-landing";
+    swede.want = {
+      kind: "place",
+      target: "pond",
+      since: world.turn,
+      refusals: 0,
+    };
+    for (
+      let i = 0;
+      i < 8 && !world.packs.willows.flags["willows-swede-gone"];
+      i++
+    )
+      world = act(world, { kind: "wait" });
+    expect(world.packs.willows.flags["willows-swede-gone"]).toBe(true);
+    expect(entityActive(world, "willows-swede")).toBe(false);
+    expect(exits(world, "pond", "vale")).not.toContain("willows-landing");
+    const saved = decodeSave(encodeSave(world));
+    expect(saved.packs.willows).toEqual(world.packs.willows);
+    const shared = dispatchShared({
+      op: "create",
+      save: encodeSave(world),
+    }).world;
+    const view = dispatchShared({
+      op: "view",
+      world: shared,
+      actor: "vale",
+      claimed: ["vale"],
+      present: ["vale"],
+    });
+    expect(view.actions.some((a) => a.target === "willows-swede")).toBe(false);
+    for (let i = 0; i < 6; i++) world = act(world, { kind: "wait" });
+    expect(world.actors["willows-swede"].place).toBe("pond");
   });
 
   it("upgrades a revision 1 save: the ending and gear chain leave, the kit scatters", () => {

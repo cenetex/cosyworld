@@ -86,6 +86,8 @@ import {
   applyMeetingChoices,
   packGiveChoice,
   packWaitChoice,
+  applyDeparture,
+  departureWaits,
   choiceText,
   conditionsMet,
   validatePackLinks,
@@ -1125,6 +1127,7 @@ export function legalActions(s, actor = currentActor(s)) {
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
+    if (departureWaits(s, actor, to)) continue;
     // A course card aboard a docked ship sets the voyage for everyone aboard.
     if (isCourse(s, here, to)) {
       const course = offer(
@@ -1154,6 +1157,7 @@ export function legalActions(s, actor = currentActor(s)) {
         id !== actor &&
         !controlledByHuman(s, id) &&
         (!staysPut(id, s) || packJourneyDestination(s, id) === to) &&
+        !departureWaits(s, id, to) &&
         s.actors[id].place === here,
     )) {
       const request = offer(
@@ -1471,6 +1475,7 @@ function travelParty(s, actors, destination) {
   )
     s.locations[from].anchored = true;
   markCrossed(s, from, destination);
+  for (const actor of actors) applyDeparture(s, actor, destination);
   for (const actor of actors) {
     if (through) s.actors[actor].crossed += 1;
     s.actors[actor].place = destination;

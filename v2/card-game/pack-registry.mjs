@@ -515,6 +515,38 @@ export function packWaitChoice(world, actor) {
     hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619) >>> 0;
   return signs[hash % signs.length];
 }
+// Choices marked "on": "depart" commit when their subject, a resident, takes
+// a way out of the pack from the choice's place; their flag then hides the
+// resident through its own requires. It has left the world for good.
+function departure(world, actor, to) {
+  const pack = packOf(actor);
+  if (controlledByHuman(world, actor) || packPlaces[to]?.packId === pack?.id)
+    return null;
+  const c = (pack?.choices || []).find(
+    (c) =>
+      c.subject === actor && choiceFeasible(world, pack, c, actor, "depart"),
+  );
+  return c ? { packId: pack.id, choiceId: c.id, actor } : null;
+}
+// A resident that left keeps its record, hidden by its own requires.
+const departed = (pack, state, id) =>
+  (pack.choices || []).some(
+    (c) => c.on === "depart" && c.subject === id && owns(state.receipts, c.id),
+  );
+// One receipt per turn: a departure waits while this turn already has one.
+export const departureWaits = (world, actor, to) =>
+  !!departure(world, actor, to) &&
+  Object.values(packState(world, packOf(actor).id).receipts).includes(
+    world.turn,
+  );
+// What the leaver carried stays behind where it stood.
+export function applyDeparture(world, actor, to) {
+  const leaving = departure(world, actor, to);
+  if (!leaving) return;
+  applyPackChoice(world, leaving, { mode: "depart" });
+  for (const item of Object.values(world.items))
+    if (item.holder === actor) item.holder = world.actors[actor].place;
+}
 export function applyPackChoice(
   world,
   action,
@@ -691,13 +723,14 @@ export function validatePackStates(world) {
       Object.entries(state.met).some(
         ([id, turn]) =>
           !owns(pack.avatars, id) ||
-          !conditionsMet(
-            world,
-            pack.id,
-            (pack.avatars[id]?.requires || []).filter(
-              (c) => c.kind !== "connected_humans",
-            ),
-          ) ||
+          (!departed(pack, state, id) &&
+            !conditionsMet(
+              world,
+              pack.id,
+              (pack.avatars[id]?.requires || []).filter(
+                (c) => c.kind !== "connected_humans",
+              ),
+            )) ||
           (world.opening &&
             !sharedEnabled(world) &&
             world.opening.met?.[id] !== turn) ||
@@ -774,6 +807,7 @@ export function validatePackStates(world) {
     for (const [id, actor] of Object.entries(pack.avatars))
       if (
         !entityEnabled(world, id, true) &&
+        !departed(pack, state, id) &&
         ((world.actors[id]?.place !== actor.place &&
           !actor.previousHomes?.includes(world.actors[id]?.place)) ||
           world.actors[id]?.crossed !== 0 ||
