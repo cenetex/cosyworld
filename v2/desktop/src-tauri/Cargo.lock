@@ -407,7 +407,7 @@ dependencies = [
 
 [[package]]
 name = "cosyworld-desktop"
-version = "1.2.111"
+version = "1.2.112"
 dependencies = [
  "rand 0.8.8",
  "reqwest 0.12.28",
