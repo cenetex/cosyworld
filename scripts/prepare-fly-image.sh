@@ -58,12 +58,30 @@ wait_for_image() {
   done
 }
 
+source_login() {
+  [ -f "$credentials/source/config.json" ] && return 0
+  mkdir -m 700 "$credentials/source"
+  printf '%s\n' '{"auths":{"registry.fly.io":{}}}' > "$credentials/source/config.json"
+  DOCKER_CONFIG="$credentials/source" FLY_API_TOKEN="$FLY_SOURCE_API_TOKEN" flyctl auth docker
+}
+
+# A Lonely Forest-only deploy (a promotion) has no primary build in this run,
+# but the .dev train already built this commit's image for the primary app.
+# Copy that commit-addressed image instead of compiling it again.
+if [ -z "$source_image" ] && [[ "$app" == cosyworld-lonelyforest ]] &&
+  [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] && [ -n "${FLY_SOURCE_API_TOKEN:-}" ]; then
+  source_login
+  train_digest="$(skopeo inspect --no-tags --authfile "$credentials/source/config.json" --format '{{.Digest}}' "docker://registry.fly.io/cosyworld:deploy-${GITHUB_SHA}" 2>/dev/null || true)"
+  if [[ "$train_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+    source_image="registry.fly.io/cosyworld@${train_digest}"
+    echo "Reusing the primary app's image for ${GITHUB_SHA:0:7}: ${train_digest}"
+  fi
+fi
+
 if [ -n "$source_image" ]; then
   source_digest="${source_image##*@}"
   if [ "$digest" != "$source_digest" ]; then
-    mkdir -m 700 "$credentials/source"
-    printf '%s\n' '{"auths":{"registry.fly.io":{}}}' > "$credentials/source/config.json"
-    DOCKER_CONFIG="$credentials/source" FLY_API_TOKEN="$FLY_SOURCE_API_TOKEN" flyctl auth docker
+    source_login
     skopeo copy --retry-times 3 --all --preserve-digests \
       --src-authfile "$credentials/source/config.json" --dest-authfile "$authfile" \
       "docker://${source_image}" "docker://${image}"

@@ -287,7 +287,8 @@ trains, and `scripts/promote-train.mjs` picks what to promote:
 - only when it is ahead of the commit Lonely Forest's `/meta` reports, so a
   train deploys to production at most once and never rolls a release back;
 - never a commit whose production run already failed, and never while
-  another production run is queued or running. A tag pushed after the
+  another production run is queued or running; it checks again just before
+  dispatching, so a tag pushed meanwhile goes first. A tag pushed after the
   dispatch supersedes the promotion run, which yields before its rollout.
 
 The primary app is `.dev`, so it already runs every train; promotion deploys
@@ -295,7 +296,12 @@ only Lonely Forest. It creates a `promote/<sha>` branch at the train's commit
 and dispatches `deploy.yml` with `target=lonelyforest` on it. That run keeps
 every production gate: the Node, Rust (`check-rust.sh test`, #1743), and lint
 gates, worldpack compatibility, volume space, and the Lonely Forest backup. A
-failed gate stops the deploy and opens the usual tracking issue. Each
+failed gate stops the deploy and opens the usual tracking issue. The run does
+not compile the image again: it copies the `deploy-<sha>` image the `.dev`
+train built for that commit (the image `.dev` ran during the soak) into the
+Lonely Forest registry by digest, and builds only when no such image exists.
+That cuts a promotion from about 13 minutes to about 10; the Production Rust
+gate (about 7 minutes) is then its longest path. Each
 promotion clears the earlier `promote/*` branches.
 
 Promotion needs no new secret. The workflow's `GITHUB_TOKEN` creates the

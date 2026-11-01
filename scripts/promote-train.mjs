@@ -69,6 +69,39 @@ export function chooseTrain({ trains, now, soakMs }) {
   return { reason: "No passing train has soaked on .dev long enough yet." };
 }
 
+// Why `sha` must not be promoted now, or null. A queued or running production
+// run comes first: a tag deploy may be about to ship something newer, and it
+// supersedes a promotion anyway. A commit whose production run failed waits
+// for a newer train.
+export function promotionBlock({ runs, sha }) {
+  const active = runs.find(
+    (run) => run.status !== "completed" && isProductionRun(run),
+  );
+  if (active)
+    return `A production deploy is active (run ${active.id}); trying again next time.`;
+  const failed = runs.find(
+    (run) =>
+      isProductionRun(run) &&
+      run.head_sha === sha &&
+      run.conclusion === "failure",
+  );
+  if (failed)
+    return `Train ${sha.slice(0, 7)} already failed a production run (${failed.id}); waiting for a newer train.`;
+  return null;
+}
+
+// Promote only forward of the commit Lonely Forest's /meta reports. `status`
+// is GitHub's compare status of live...sha; anything but "ahead" (the same,
+// behind, or diverged) would replace production with an older or unrelated
+// commit.
+export function liveBlock({ live, sha, status }) {
+  if (sha.startsWith(live))
+    return `Lonely Forest already runs train ${sha.slice(0, 7)}.`;
+  if (status !== "ahead")
+    return `Train ${sha.slice(0, 7)} is not ahead of Lonely Forest's ${live.slice(0, 7)} (${status}); not promoting.`;
+  return null;
+}
+
 async function api(route, init = {}) {
   const base = process.env.GITHUB_API_URL || "https://api.github.com";
   const response = await fetch(`${base}${route}`, {
@@ -103,13 +136,9 @@ async function main() {
   );
 
   // At most one production deploy at a time, and none while one is queued.
-  const active = runs.filter(
-    (run) => run.status !== "completed" && isProductionRun(run),
-  );
-  if (active.length) {
-    say(
-      `A production deploy is active (run ${active[0].id}); trying again next time.`,
-    );
+  const busy = promotionBlock({ runs, sha: "" });
+  if (busy) {
+    say(busy);
     return;
   }
 
@@ -130,18 +159,9 @@ async function main() {
   }
   const short = train.sha.slice(0, 7);
 
-  // Never retry a commit whose production run failed: a newer train must
-  // fix it first.
-  const failed = runs.find(
-    (run) =>
-      isProductionRun(run) &&
-      run.head_sha === train.sha &&
-      run.conclusion === "failure",
-  );
-  if (failed) {
-    say(
-      `Train ${short} already failed a production run (${failed.id}); waiting for a newer train.`,
-    );
+  const blocked = promotionBlock({ runs, sha: train.sha });
+  if (blocked) {
+    say(blocked);
     return;
   }
 
@@ -152,15 +172,23 @@ async function main() {
   const live = String(meta.commit ?? "");
   if (!/^[0-9a-f]{7,40}$/.test(live))
     throw new Error(`Lonely Forest /meta has no commit: ${live}`);
-  if (train.sha.startsWith(live)) {
-    say(`Lonely Forest already runs train ${short}.`);
+  const status = train.sha.startsWith(live)
+    ? "identical"
+    : (await api(`/repos/${repo}/compare/${live}...${train.sha}`)).status;
+  const stale = liveBlock({ live, sha: train.sha, status });
+  if (stale) {
+    say(stale);
     return;
   }
-  const { status } = await api(`/repos/${repo}/compare/${live}...${train.sha}`);
-  if (status !== "ahead") {
-    say(
-      `Train ${short} is not ahead of Lonely Forest's ${live.slice(0, 7)} (${status}); not promoting.`,
-    );
+  // Recheck just before dispatching: a tag pushed while this ran takes
+  // priority. A tag pushed after the dispatch supersedes the promotion run
+  // (scripts/supersede-production-deploy.mjs).
+  const { workflow_runs: latest } = await api(
+    `/repos/${repo}/actions/workflows/deploy.yml/runs?per_page=20&exclude_pull_requests=true`,
+  );
+  const raced = promotionBlock({ runs: latest, sha: train.sha });
+  if (raced) {
+    say(raced);
     return;
   }
 
