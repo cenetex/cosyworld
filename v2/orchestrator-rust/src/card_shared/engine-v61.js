@@ -187,7 +187,13 @@
       }
     };
   }
-  var fields = (o, names2) => o && typeof o === "object" && Object.keys(o).sort().join() === names2.split(" ").sort().join();
+  var sortedNames = /* @__PURE__ */ new Map();
+  var fields = (o, names2) => {
+    if (!o || typeof o !== "object") return o && false;
+    if (!sortedNames.has(names2))
+      sortedNames.set(names2, names2.split(" ").sort().join());
+    return Object.keys(o).sort().join() === sortedNames.get(names2);
+  };
   var validObservation = (o) => fields(o, "met trust strain held") && typeof o.met === "boolean" && Number.isInteger(o.held) && o.held >= 0 && o.held <= 3 && [o.trust, o.strain].every((n) => Number.isInteger(n) && n >= 0 && n <= 3);
   function validAction(action, goal) {
     if (!related(action, goal)) return false;
@@ -360,7 +366,9 @@
   // v2/card-game/human-cast.mjs
   var humanAvatars = shared_cast_default.avatars;
   var humanAvatarIds = humanAvatars.map((a) => a.id);
-  var humanAvatar = (id) => humanAvatars.find((a) => a.id === id) || null;
+  var avatarById = /* @__PURE__ */ new Map();
+  for (const a of humanAvatars) if (!avatarById.has(a.id)) avatarById.set(a.id, a);
+  var humanAvatar = (id) => avatarById.get(id) || null;
   var currentActor = (world) => world.playerActorId || "vale";
   var controlledByHuman = (world, id) => world.controlledActors ? world.controlledActors.includes(id) : id === "vale";
   var humanPresent = (world, id) => controlledByHuman(world, id) && (!world.presentActors || world.presentActors.includes(id));
@@ -2803,7 +2811,9 @@
     throw new Error(
       `Invalid card world composition: ${compositionProblems.join("; ")}`
     );
-  var packDefinition = (id) => packDefinitions.find((p) => p.id === id) || null;
+  var packById = /* @__PURE__ */ new Map();
+  for (const p of packDefinitions) if (!packById.has(p.id)) packById.set(p.id, p);
+  var packDefinition = (id) => packById.get(id) || null;
   var merge = (field) => Object.fromEntries(
     packDefinitions.flatMap(
       (pack) => Object.entries(pack[field] || {}).map(([id, entity]) => [
@@ -2920,9 +2930,10 @@
   ].filter(Boolean);
   var packState = (world, id) => world.packs?.[id];
   function conditionsMet(world, packId, conditions = [], actor = null) {
-    return Boolean(world.packs?.[packId]) && conditions.every(
-      (condition) => conditionMet(world, condition, null, packId, actor)
-    );
+    if (!world.packs?.[packId]) return false;
+    for (const condition of conditions)
+      if (!conditionMet(world, condition, null, packId, actor)) return false;
+    return true;
   }
   function choiceText(choice, actor) {
     return choice.textTemplate === void 0 ? choice.text : choice.textTemplate.replaceAll(
@@ -2930,14 +2941,23 @@
       humanAvatar(actor)?.name || packPeople[actor]?.name || "An earlier traveler"
     );
   }
+  function rootOf(world, id) {
+    let holder2 = world.items[id].holder;
+    for (let step = 0; step < 32 && holder2 !== id; step++) {
+      if (!world.items[holder2]) return holder2;
+      holder2 = world.items[holder2].holder;
+    }
+    holder2 = world.items[id].holder;
+    const seen = /* @__PURE__ */ new Set([id]);
+    while (world.items[holder2] && !seen.has(holder2)) {
+      seen.add(holder2);
+      holder2 = world.items[holder2].holder;
+    }
+    return holder2;
+  }
   function entityActive(world, id) {
     if (world.items?.[id]) {
-      let holder2 = world.items[id].holder;
-      const seen = /* @__PURE__ */ new Set([id]);
-      while (world.items[holder2] && !seen.has(holder2)) {
-        seen.add(holder2);
-        holder2 = world.items[holder2].holder;
-      }
+      let holder2 = rootOf(world, id);
       if (humanAvatar(holder2) && !humanPresent(world, holder2)) return false;
       if (holder2 === BOARDY && !boardyActive(world)) return false;
     }
@@ -2952,15 +2972,13 @@
     if (!state || !conditionsMet(
       world,
       e.packId,
-      (e.requires || []).filter((c) => !saved || c.kind !== "connected_humans")
+      saved ? (e.requires || []).filter((c) => c.kind !== "connected_humans") : e.requires
     ) || !sectionAllows(world, pack, id, conditionsMet))
       return false;
     if (!pack.release || state.scope === "full") return true;
     if (pack.recital?.actor === id)
       return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place);
-    return [pack.release.places, pack.release.avatars, pack.release.items].some(
-      (ids3) => ids3.includes(id)
-    );
+    return pack.release.places.includes(id) || pack.release.avatars.includes(id) || pack.release.items.includes(id);
   }
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
@@ -3019,16 +3037,16 @@
       }))
     );
   }
-  function hidingPlace(world, choice, actor, placeIds) {
+  function hidingPlace(world, choice, actor, placeIds2) {
     const here = world.actors[actor].place;
-    const places2 = placeIds.filter((id) => id !== here && entityActive(world, id)).sort();
+    const places2 = placeIds2.filter((id) => id !== here && entityActive(world, id)).sort();
     if (!places2.length) return choice.at;
     let hash2 = 2166136261;
     for (const ch of `${choice.id}:${actor}:${world.turn}`)
       hash2 = Math.imul(hash2 ^ ch.charCodeAt(0), 16777619) >>> 0;
     return places2[hash2 % places2.length];
   }
-  function applyMeetingChoices(world, actor, placeIds) {
+  function applyMeetingChoices(world, actor, placeIds2) {
     const applied = [];
     for (const pack of packDefinitions)
       for (const c of pack.choices || []) {
@@ -3040,7 +3058,7 @@
           applyPackChoice(
             world,
             { packId: pack.id, choiceId: c.id, actor },
-            { mode: "meet", placeIds }
+            { mode: "meet", placeIds: placeIds2 }
           )
         );
       }
@@ -3055,7 +3073,7 @@
           return { packId: pack.id, choiceId: c.id, actor: action.actor };
     return null;
   }
-  function applyPackChoice(world, action, { mode = null, placeIds = [] } = {}) {
+  function applyPackChoice(world, action, { mode = null, placeIds: placeIds2 = [] } = {}) {
     const pack = packDefinition(action.packId), choice = pack?.choices?.find((c) => c.id === action.choiceId);
     if (!choice || !choiceFeasible(world, pack, choice, action.actor, mode))
       throw new Error("That choice is no longer available.");
@@ -3080,7 +3098,7 @@
           world,
           choice,
           action.actor,
-          placeIds
+          placeIds2
         );
         note(e.item);
         world.actors[action.actor].want = {
@@ -3340,13 +3358,16 @@
       )
     );
   }
+  var profileKeys = Object.keys(profiles).sort().join();
+  var SEEN_KEYS = ["place", "turn", "seq"];
+  var EVENT_KINDS = ["event", "expression"];
   function validMemories(world) {
-    if (!world.memories || Object.keys(world.memories).sort().join() !== Object.keys(profiles).sort().join())
+    if (!world.memories || Object.keys(world.memories).sort().join() !== profileKeys)
       return false;
     return Object.entries(world.memories).every(([id, memory]) => {
       if (memory?.seen !== void 0 && (!memory.seen || typeof memory.seen !== "object" || Array.isArray(memory.seen) || profiles[id].kind !== "avatar" || Object.entries(memory.seen).some(
         ([other, seen]) => other === id || profiles[other]?.kind !== "avatar" || !seen || Object.keys(seen).some(
-          (key) => !["place", "turn", "seq"].includes(key)
+          (key) => !SEEN_KEYS.includes(key)
         ) || !profiles[seen.place] || profiles[seen.place].kind === "avatar" || world.items[seen.place] || !Number.isSafeInteger(seen.turn) || seen.turn < 0 || seen.turn > world.turn || !Number.isSafeInteger(seen.seq) || seen.seq < 1 || seen.seq > world.eventSeq
       )) || !validInnerLife(memory?.innerLife, world.turn) || !validLearning(world, id, memory?.learning, profiles) || !validReflections(world, id, memory?.reflections) || profiles[id].kind !== "avatar" && memory?.innerLife != null)
         return false;
@@ -3363,7 +3384,7 @@
       if (memory.model !== void 0 && (typeof memory.model !== "string" || memory.model.length > 160))
         return false;
       return memory.events.every(
-        (event, index) => event && Number.isSafeInteger(event.seq) && event.seq > 0 && event.seq <= world.eventSeq && (!index || event.seq > memory.events[index - 1].seq) && Number.isSafeInteger(event.turn) && event.turn >= 0 && event.turn <= world.turn && ["event", "expression"].includes(event.kind) && typeof event.text === "string" && event.text.length <= 650
+        (event, index) => event && Number.isSafeInteger(event.seq) && event.seq > 0 && event.seq <= world.eventSeq && (!index || event.seq > memory.events[index - 1].seq) && Number.isSafeInteger(event.turn) && event.turn >= 0 && event.turn <= world.turn && EVENT_KINDS.includes(event.kind) && typeof event.text === "string" && event.text.length <= 650
       );
     });
   }
@@ -3493,13 +3514,13 @@
       });
     }
   }
-  function validExperience(s, e, placeIds = null) {
+  function validExperience(s, e, placeIds2 = null) {
     const keys = ["kind", "turn", "other", "item", "place"];
     return Boolean(
-      e && typeof e === "object" && Object.keys(e).length === keys.length && Object.keys(e).every((k) => keys.includes(k)) && experienceKinds.includes(e.kind) && Number.isSafeInteger(e.turn) && e.turn >= 0 && e.turn <= s.turn && (e.other === null || Object.hasOwn(s.actors || {}, e.other)) && (e.item === null || Object.hasOwn(s.items || {}, e.item)) && (e.place === null || typeof e.place === "string" && e.place.length > 0 && e.place.length <= 40 && (!placeIds || placeIds.includes(e.place)))
+      e && typeof e === "object" && Object.keys(e).length === keys.length && Object.keys(e).every((k) => keys.includes(k)) && experienceKinds.includes(e.kind) && Number.isSafeInteger(e.turn) && e.turn >= 0 && e.turn <= s.turn && (e.other === null || Object.hasOwn(s.actors || {}, e.other)) && (e.item === null || Object.hasOwn(s.items || {}, e.item)) && (e.place === null || typeof e.place === "string" && e.place.length > 0 && e.place.length <= 40 && (!placeIds2 || placeIds2.includes(e.place)))
     );
   }
-  function validLife(s, placeIds = null) {
+  function validLife(s, placeIds2 = null) {
     const l = s.life;
     const whole4 = (n, max) => Number.isSafeInteger(n) && n >= 0 && n <= max;
     const actorIds2 = Object.keys(s.actors || {});
@@ -3509,7 +3530,7 @@
         ([item, a]) => itemIds.includes(item) && a && actorIds2.includes(a.from) && a.from !== id && whole4(a.turn, s.turn)
       ) && p.company && Object.entries(p.company).every(
         ([other, until]) => actorIds2.includes(other) && other !== id && whole4(until, s.turn + COMPANY_TURNS)
-      ) && Array.isArray(p.experiences) && p.experiences.length <= EXPERIENCE_LIMIT && p.experiences.every((e) => validExperience(s, e, placeIds))
+      ) && Array.isArray(p.experiences) && p.experiences.length <= EXPERIENCE_LIMIT && p.experiences.every((e) => validExperience(s, e, placeIds2))
     );
   }
 
@@ -3732,13 +3753,13 @@
     const want = wantOf(s, actor);
     if (!want) return false;
     if (want.kind === "connect") return introduced(s, actor, talk);
-    if (want.kind === "item") return rootOf(s, want.target) === actor;
+    if (want.kind === "item") return rootOf2(s, want.target) === actor;
     if (want.kind === "place") return s.actors[actor].place === want.target;
     return Boolean(
       talk && s.actors[want.target]?.place === s.actors[actor].place && (talk.actor === actor && talk.target === want.target || talk.actor === want.target && talk.target === actor)
     );
   }
-  function rootOf(s, id) {
+  function rootOf2(s, id) {
     let holder2 = s.items[id].holder;
     const seen = /* @__PURE__ */ new Set([id]);
     while (s.items[holder2] && !seen.has(holder2)) {
@@ -4425,6 +4446,14 @@
   })();
   var ids = Object.keys(things);
   var actorIds = [...Object.keys(forest_default.people), ...packActorIds];
+  var placeIds = Object.keys(places);
+  var sortedActorKeys = actorIds.slice().sort().join();
+  var sortedItemKeys = ids.slice().sort().join();
+  var castIds = /* @__PURE__ */ new Set([...actorIds, ...ids]);
+  var entityIds = /* @__PURE__ */ new Set([...castIds, ...placeIds]);
+  var holderIds = /* @__PURE__ */ new Set([...actorIds, ...placeIds]);
+  var LOG_KINDS = ["action", "dialogue", "narration", "input", "hint"];
+  var OUTCOMES = ["hit", "guarded", "yield", "sent-home"];
   var planReads = null;
   function planningReadsFor(world) {
     if (!planReads) return null;
@@ -4524,8 +4553,15 @@
         rememberRoutes(s, actor, visibleRouteEdges(s.actors[actor].place));
       }
   }
+  var SHORT_CHAIN = 32;
   function rootHolder(s, id) {
     let holder2 = s.items[id].holder;
+    for (let step = 0; step < SHORT_CHAIN; step++) {
+      if (!s.items[holder2]) return holder2;
+      if (holder2 === id) throw new Error("An item holds itself.");
+      holder2 = s.items[holder2].holder;
+    }
+    holder2 = s.items[id].holder;
     const visited = /* @__PURE__ */ new Set([id]);
     while (s.items[holder2]) {
       if (visited.has(holder2)) throw new Error("An item holds itself.");
@@ -5959,7 +5995,7 @@
       )) || o.version === 1 && o.crossed && !s.locations?.attic.anchored || o.crossed && o.met.moth === void 0 || o.version === 2 && !o.crossed)
         fail();
     }
-    if (Object.keys(s.actors || {}).sort().join() !== actorIds.slice().sort().join() || Object.keys(s.items || {}).sort().join() !== ids.slice().sort().join())
+    if (Object.keys(s.actors || {}).sort().join() !== sortedActorKeys || Object.keys(s.items || {}).sort().join() !== sortedItemKeys)
       fail();
     if (s.invitedPlaces !== void 0 && (!s.invitedPlaces || typeof s.invitedPlaces !== "object" || Array.isArray(s.invitedPlaces) || Object.entries(s.invitedPlaces).some(
       ([actor, visits]) => !actorIds.includes(actor) || !Array.isArray(visits) || visits.length > Object.keys(places).length || new Set(visits).size !== visits.length || visits.some((place) => !Object.hasOwn(places, place))
@@ -5970,7 +6006,7 @@
       fail();
     if (!s.locations || typeof s.locations.attic?.anchored !== "boolean" || ![null, "hush"].includes(s.locations.pond?.answer))
       fail();
-    if (!s.peaceUntil || Object.keys(s.peaceUntil).sort().join() !== actorIds.slice().sort().join() || Object.values(s.peaceUntil).some(
+    if (!s.peaceUntil || Object.keys(s.peaceUntil).sort().join() !== sortedActorKeys || Object.values(s.peaceUntil).some(
       (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn + 3
     ) || !Array.isArray(s.standoffs) || s.standoffs.length > Math.floor(actorIds.length / 2))
       fail();
@@ -6006,11 +6042,7 @@
         fail();
     }
     for (const [id, item] of Object.entries(s.items)) {
-      if (![
-        ...actorIds,
-        ...Object.keys(places),
-        ...id === "cloth" ? ["lamp", "bell"] : []
-      ].includes(item.holder))
+      if (!holderIds.has(item.holder) && !(id === "cloth" && (item.holder === "lamp" || item.holder === "bell")))
         fail();
       if (entityActive(s, id) && (!entityActive(s, item.holder) || !entityActive(s, itemPlace2(s, id))))
         fail();
@@ -6064,17 +6096,14 @@
       "choose",
       "use"
     ];
-    const cast = /* @__PURE__ */ new Set([...actorIds, ...ids]);
-    const entities2 = /* @__PURE__ */ new Set([...cast, ...Object.keys(places)]);
+    const cast = castIds, entities2 = entityIds;
     for (const e of s.log) {
       if (e.seq !== void 0) {
         if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
           fail();
         seq = e.seq;
       }
-      if (e.kind !== void 0 && !["action", "dialogue", "narration", "input", "hint"].includes(
-        e.kind
-      ))
+      if (e.kind !== void 0 && !LOG_KINDS.includes(e.kind))
         fail();
       if (e.witnesses !== void 0 && (!Array.isArray(e.witnesses) || e.witnesses.length > actorIds.length + ids.length || e.witnesses.some((id) => !cast.has(id))))
         fail();
@@ -6090,7 +6119,7 @@
       if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
       if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
       if (e.verb != null && !verbs.includes(e.verb)) fail();
-      if (e.outcome !== void 0 && !["hit", "guarded", "yield", "sent-home"].includes(e.outcome) || e.droppedItemIds !== void 0 && (!Array.isArray(e.droppedItemIds) || e.droppedItemIds.some((id) => !ids.includes(id))))
+      if (e.outcome !== void 0 && !OUTCOMES.includes(e.outcome) || e.droppedItemIds !== void 0 && (!Array.isArray(e.droppedItemIds) || e.droppedItemIds.some((id) => !ids.includes(id))))
         fail();
       if (e.verb === "choose") {
         const pack = packDefinition(e.packId), choice = pack?.choices.find((c) => c.id === e.choiceId);
@@ -6118,8 +6147,10 @@
       )))
         fail();
     }
+    freshlyValidated.add(s);
     return s;
   }
+  var freshlyValidated = /* @__PURE__ */ new WeakSet();
   function decodeSave(text2) {
     const s = JSON.parse(text2);
     upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
