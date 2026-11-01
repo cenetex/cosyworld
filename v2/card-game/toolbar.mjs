@@ -5,8 +5,6 @@ import { levelOf } from "./want.mjs";
 import { installAvatarMenu } from "./avatar-menu.mjs";
 
 const icons = {
-  worlds:
-    '<circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c5 5 5 11 0 16-5-5-5-11 0-16Z"/>',
   share: '<path d="M12 15V3m-4 4 4-4 4 4M5 12v8h14v-8"/>',
   conversation:
     '<path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6 3V6a2 2 0 0 1 2-2Z"/><path d="M7 9h10M7 13h6"/>',
