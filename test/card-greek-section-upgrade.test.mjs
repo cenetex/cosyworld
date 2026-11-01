@@ -123,7 +123,6 @@ describe("Greek section save upgrade", () => {
   it("keeps incomplete original records invalid and checks the declared revision", () => {
     for (const change of [
       (world) => delete world.actors["greek-antigone"],
-      (world) => delete world.items["greek-water-jar"],
       (world) => delete world.memories.vale,
       (world) => delete world.actors.vale.trust.moth,
       (world) => (world.packs["greek-drama"].revision = 3),

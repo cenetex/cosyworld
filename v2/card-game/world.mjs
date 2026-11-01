@@ -2660,8 +2660,14 @@ export function validateWorld(s) {
 export const encodeSave = (s) => JSON.stringify(validateWorld(s));
 export function decodeSave(text) {
   const s = JSON.parse(text);
-  upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
-  validateWorld(s);
-  preserveTransportAccess(s);
+  try {
+    upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
+    validateWorld(s);
+    preserveTransportAccess(s);
+  } catch (error) {
+    // A save that cannot be read starts fresh; it never surfaces a crash.
+    if (error instanceof TypeError) return validateWorld(null);
+    throw error;
+  }
   return validateWorld(s);
 }

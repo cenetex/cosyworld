@@ -438,3 +438,13 @@ world journal, so checkpoint recovery and journal replay produce the same facts.
 
 Versions 2 through 17 retain their released interpreters. Loading an earlier
 world records an upgrade to version 18 with its prior progress and receipts.
+
+## Saves follow the current content
+
+Shared rules version 63 reconciles every loaded save with the current content.
+A missing authored thing joins at its authored holder, a thing the content no
+longer defines leaves the world with what it held kept by its holder, and a
+retired crossing closes even where the save had found it, so Black pond no
+longer leads to the Halfway Tea Garden. Loading an earlier world records an
+upgrade to version 63; versions 2 through 62 keep their released bytes. A save
+that still cannot be read gives the New game message, never a script error.

@@ -34,7 +34,8 @@ fn upgraded(found: bool) -> (rusqlite::Connection, String, World) {
         super::full_tests::quest_free_log(&old.game["log"])
     );
     assert_eq!(w.game["packs"]["hoppycat-archive"]["revision"], 2);
-    assert_eq!(w.game["crossings"][THREAD]["discovered"], json!(found));
+    // A loaded save follows the current content: the retired thread closes.
+    assert_eq!(w.game["crossings"][THREAD]["discovered"], json!(false));
     (c, id, w)
 }
 
@@ -57,7 +58,7 @@ fn moves(actions: &Value) -> Vec<String> {
 }
 
 #[test]
-fn an_earlier_save_keeps_a_found_red_thread_and_teaches_its_visitor_the_jetty_lane() {
+fn an_earlier_save_closes_a_found_red_thread_and_teaches_its_visitor_the_jetty_lane() {
     let (c, id, mut w) = upgraded(true);
     assert!(knows_jetty(&w, "vale"));
     assert!(!knows_jetty(&w, "mara"));
@@ -77,7 +78,7 @@ fn an_earlier_save_keeps_a_found_red_thread_and_teaches_its_visitor_the_jetty_la
     )
     .unwrap();
     assert_eq!(w.game["actors"]["vale"]["place"], "pond");
-    assert!(moves(&w.project(0).unwrap()["actions"]).contains(&GARDEN.to_string()));
+    assert!(!moves(&w.project(0).unwrap()["actions"]).contains(&GARDEN.to_string()));
 }
 
 #[test]
