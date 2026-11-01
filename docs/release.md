@@ -128,7 +128,15 @@ full-suite failure as an issue and fix it in parallel.
 1. Read the commit `.dev` serves:
    `curl -s https://cosyworld.fly.dev/meta | jq -r .commit`, then
    `git fetch origin && git rev-parse <commit>`.
-2. Bump the version in a small release PR on that commit. When main has not
+2. Confirm the tag run's **Production Rust gate** will pass. It runs
+   `bash v2/scripts/check-rust.sh test`, the same command as CI's **Rust
+   build and tests** job; pull request fast checks do not run it. Find a
+   green **Rust build and tests** job on that commit, or on a branch head
+   whose tree differs from it only in version files
+   (`git diff --stat <head> <commit>`). If none exists, run
+   `gh workflow run ci.yml --ref main` and wait for its Rust jobs. Fix any
+   failure before bumping (1.2.109's tag run failed here).
+3. Bump the version in a small release PR on that commit. When main has not
    moved past it, branch from `origin/main`; otherwise branch from the
    `.dev` commit itself:
 
@@ -140,15 +148,15 @@ full-suite failure as an issue and fix it in parallel.
    git push -u origin HEAD && gh pr create --fill
    ```
 
-3. Merge after the fast check passes. Tag the merge commit:
+4. Merge after the fast check passes. Tag the merge commit:
    `git tag vX.Y.Z <merge-commit> && git push origin vX.Y.Z`. When main
    moved, tag the bump commit on the release branch instead, which sits
    directly on the tested commit (1.2.106 shipped this way), then merge the
    PR so main carries the version.
-4. Watch: `gh run watch "$(gh run list --workflow deploy.yml --branch vX.Y.Z --limit 1 --json databaseId --jq '.[0].databaseId')"`.
+5. Watch: `gh run watch "$(gh run list --workflow deploy.yml --branch vX.Y.Z --limit 1 --json databaseId --jq '.[0].databaseId')"`.
    The Rust gate reuses a CI run on the tag commit when one exists and runs
    its checks itself, at once, when none does.
-5. Smoke: both `/meta` endpoints report `X.Y.Z` and the tag commit, and the
+6. Smoke: both `/meta` endpoints report `X.Y.Z` and the tag commit, and the
    GitHub release exists.
 
 The tag run's `/meta` check requires the deployed version to equal
