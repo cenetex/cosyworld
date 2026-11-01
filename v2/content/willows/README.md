@@ -64,10 +64,11 @@ item paintings were supplied by the owner on 2026-10-30, made with built-in
 image generation; their prompts and source hashes are also in
 `art-prompts.json`. Art lives in `v2/card-game/assets/willows/`.
 
-[The painting and notebook handoff](ART-HANDOFF.md) maps each recorded sign to
-the existing paintings and lists the exact missing edits, pinned base hashes,
+[The painting and notebook handoff](ART-HANDOFF.md) maps the existing paintings
+and completed new art to the owner's newest-sign plan, with pinned base hashes,
 lighting, hold/fade timing, and the three notebook page designs. It separates
-the campfire from the portable lamp and keeps each sign in its own place.
+art completion from Observe integration, records phone-framing findings, and
+keeps the campfire distinct from the portable lamp.
 
 River Landing and River Camp share the saved world clock with the Greek
 places: every twenty-four accepted turns, day turns to night. At night the
