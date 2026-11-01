@@ -113,7 +113,7 @@ async function checkPlayRecovery(width, scenario) {
     await page.locator('#card-actions [data-action="wait"]').click();
     const expected =
       scenario === "validation"
-        ? "Not played: Observe. Choose a current play."
+        ? "Not played: Wait. Choose a current play."
         : "The connection paused. Check the table, then try again.";
     await page.waitForFunction(
       (text) => document.querySelector("#notice").textContent === text,
@@ -127,7 +127,7 @@ async function checkPlayRecovery(width, scenario) {
     else if (scenario === "queued")
       await page.waitForFunction(
         () =>
-          document.querySelector("#notice").textContent === "Playing: Observe.",
+          document.querySelector("#notice").textContent === "Vale is waiting…",
       );
     else if (scenario === "new-notice")
       await page.waitForFunction(
@@ -153,7 +153,7 @@ async function checkPlayRecovery(width, scenario) {
         (validation) =>
           validation
             ? document.querySelector("#notice").textContent ===
-              "Not played: Observe. Choose a current play."
+              "Not played: Wait. Choose a current play."
             : document.querySelector("#notice").hidden,
         validation,
       );
@@ -163,7 +163,7 @@ async function checkPlayRecovery(width, scenario) {
       if (validation)
         assert.equal(
           await page.locator("#notice").textContent(),
-          "Not played: Observe. Choose a current play.",
+          "Not played: Wait. Choose a current play.",
         );
       else
         assert(

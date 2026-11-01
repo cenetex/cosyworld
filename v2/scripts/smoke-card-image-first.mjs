@@ -265,6 +265,9 @@ try {
             await page.locator(".card-primary").count(),
             ids[0] === "vale" ? 0 : 1,
           );
+          // The first tap raises the folded hand as it was; the next lowers.
+          await tapCard(lowered);
+          assert.equal(await card(lowered).getAttribute("aria-pressed"), "true");
           await tapCard(lowered);
           assert.equal(
             await card(lowered).getAttribute("aria-pressed"),

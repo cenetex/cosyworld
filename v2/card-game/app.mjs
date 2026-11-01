@@ -1,5 +1,4 @@
 import { imageUrl } from "./images.mjs";
-import { observeText } from "./observe-words.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { arriveCard, finishReveal, revealCard } from "./card-reveal.mjs";
 import { glowCard, levelUpCard } from "./card-level-up.mjs";
@@ -110,6 +109,8 @@ import {
   cardType,
   cardPlay,
   playLabel,
+  playProgress,
+  playProgressLine,
   cardActions,
   cardObservation,
 } from "./cards.mjs";
@@ -144,7 +145,10 @@ let world = sharedSession
   // The hand rests folded until a card is touched. Only a click outside
   // the card area, Escape, or a play folds it again; changing the
   // selection, deselecting included, never does. A held item stays raised.
-  rowCollapsed = true;
+  rowCollapsed = true,
+  // A click off the hand folds it with its selection and chosen play intact;
+  // the next tap on the hand only raises it again.
+  foldedChoice = false;
 // Name the save slot: table saves are keyed off the URL param, so a player
 // landing through a different link silently lands in a different slot.
 {
@@ -461,23 +465,16 @@ function ownSharedEntry() {
     (entry) => entry.actor === currentActor(world),
   );
 }
-// Name the one thing a queued play is waiting for.
-function queuedWait() {
-  if (sharedSession && (sharedSending || ownSharedEntry()))
-    return "Waiting for your earlier play.";
-  if (!reveal.complete) return "Waiting for the arrival.";
-  if (cardsCooling) return "Waiting for the cards to settle.";
-  if (document.hidden) return "Waiting for this tab.";
-  if (document.querySelector("dialog[open], .world-menu:popover-open"))
-    return "Waiting for the open menu.";
-  return sharedSession
-    ? "Cancel it to choose again."
-    : "Select a card to change it.";
+// A chosen play that has not resolved reads as what the avatar is doing.
+// The button of a chosen, unresolved play: "Waiting…".
+function progressLabel(action) {
+  const verb = playProgress(action);
+  return `${verb[0].toUpperCase()}${verb.slice(1)}…`;
 }
 function showQueuedPlay() {
   const pending = playQueue.pending;
   if (!pending) return false;
-  const text = `Queued: ${playLabel(pending.action)}. ${queuedWait()}`;
+  const text = playProgressLine(currentActor(world), pending.action);
   if ($("notice").textContent !== text) notice(text, "queued");
   return true;
 }
@@ -501,14 +498,22 @@ const playQueue = createPlayQueue({
     if (pending) showQueuedPlay();
     else if (["sent", "playing"].includes(sharedPlay?.state))
       notice(
-        sharedPlayText[sharedPlay.state](sharedPlay.label),
+        sharedPlayText[sharedPlay.state](sharedPlay),
         sharedPlay.state,
       );
     else notice("");
     renderActions();
   },
 });
+// Strikes and journeys have the screen: the hand, locked through them
+// anyway, drops away the moment they start and rises once the scene is drawn.
+function syncHandDrop() {
+  const dock = document.querySelector(".play-dock");
+  dock.dataset.dropped = String(covering);
+  dock.inert = covering;
+}
 function updateCardCooldown() {
+  syncHandDrop();
   $("hand").dataset.cooling = String(cardsCooling);
   $("hand").setAttribute("aria-busy", String(selectionBlocked()));
   $("card-actions").setAttribute("aria-busy", String(selectionBlocked()));
@@ -1029,6 +1034,13 @@ function choose(id) {
     if (sharedSession) syncSharedLine();
     return;
   }
+  if (rowCollapsed && foldedChoice && selected.length) {
+    foldedChoice = false;
+    rowCollapsed = false;
+    render();
+    return;
+  }
+  foldedChoice = false;
   playQueue.clear();
   lastPlayAt = -Infinity;
   fresh.delete(id);
@@ -1090,7 +1102,8 @@ function commitAction(action, revision, renderedAt = -Infinity) {
     // Shared plays cancel through their own visible control.
     if (!sharedSession) playQueue.clear();
   } else {
-    // Playing is one of the two things that fold the hand.
+    // Playing is one of the things that fold the hand.
+    foldedChoice = false;
     rowCollapsed = true;
     playQueue.submit(action, revision);
   }
@@ -1247,6 +1260,7 @@ function cancelTravel() {
   trip++;
   cancelDiscovery();
   covering = false;
+  syncHandDrop();
   revealTravel();
   travelShown = Promise.resolve();
   $("travel").classList.remove("travelling");
@@ -1281,6 +1295,7 @@ async function travel(place, arrive, landed, kicker = "Travelling to") {
     revealTravel = resolve;
   });
   covering = true;
+  syncHandDrop();
   veil.classList.add("travelling");
   // The browser may start a CSS transition on a later frame. Wait for its
   // completion so each scene change stays covered at every rendering speed.
@@ -1640,8 +1655,9 @@ function renderActions(animate = false) {
     ? selectionName
     : "Card actions";
   panel.hidden = !actions.length;
+  // A folded row lies low even with a choice in it.
   document.querySelector(".play-dock").dataset.selected = String(
-    selected.length > 0,
+    selected.length > 0 && !rowCollapsed,
   );
   document.body.dataset.handExpanded = String(
     dragging.length > 0 || !rowCollapsed,
@@ -1661,11 +1677,7 @@ function renderActions(animate = false) {
       const queued = playQueue.pending?.action.key === action.key;
       const button = node(
         "button",
-        queued
-          ? `Queued: ${playLabel(action)}`
-          : sent
-            ? `${{ sending: "Sending", sent: "Sent" }[sharedPlay.state] || "Playing"}: ${playLabel(action)}`
-            : playLabel(action),
+        queued || sent ? progressLabel(action) : playLabel(action),
         index === 0 ? "card-primary" : "card-action",
       );
       button.type = "button";
@@ -1674,8 +1686,8 @@ function renderActions(animate = false) {
       if (sent && !queued) button.dataset.sent = sharedPlay.state;
       button.title =
         queued && !sharedSession
-          ? "Cancel this queued play"
-          : observeText(action.text);
+          ? "Cancel this play"
+          : action.text;
       button.disabled = selectionBlocked();
       button.setAttribute("aria-pressed", String(queued));
       if (action.choiceId) {
@@ -1696,7 +1708,7 @@ function renderActions(animate = false) {
     const cancel = node("button", "Cancel play", "card-action");
     cancel.type = "button";
     cancel.dataset.cancelPlay = "true";
-    cancel.title = "Withdraw your queued play";
+    cancel.title = "Withdraw your play";
     cancel.onclick = () =>
       playQueue.pending
         ? playQueue.clear()
@@ -1712,6 +1724,23 @@ function renderActions(animate = false) {
         .command({ op: "nudge", target: nudgeTarget })
         .catch((error) => notice(error.message));
     row.append(nudge);
+    panel.hidden = false;
+  }
+  // An open level quest can be dropped, at the cost of half the experience.
+  const drop =
+    questOpen &&
+    legalActions(world).find((action) => action.kind === "drop" && !action.item);
+  if (drop) {
+    const button = node("button", "Drop quest", "card-action");
+    button.type = "button";
+    button.dataset.dropQuest = "true";
+    button.title = "Give up this level quest; it costs half your experience";
+    button.disabled = selectionBlocked();
+    button.onclick = () => {
+      questOpen = false;
+      commitAction(drop, revision);
+    };
+    row.append(button);
     panel.hidden = false;
   }
   // An item with its own view offers a client-only Look; it plays nothing.
@@ -2028,6 +2057,12 @@ function questFrame(quest) {
   );
   el.addEventListener("click", () => {
     if (selectionBlocked()) return;
+    if (rowCollapsed && foldedChoice && selected.length) {
+      foldedChoice = false;
+      rowCollapsed = false;
+      render();
+      return;
+    }
     playQueue.clear();
     questOpen = !questOpen;
     selected = [];
@@ -3411,13 +3446,14 @@ document.addEventListener("keydown", (e) => {
     selected = [];
     questOpen = false;
     expandedHolders.clear();
+    foldedChoice = false;
     rowCollapsed = true;
     render();
   }
 });
-// A click outside the card area folds the row. A held item stays raised and
-// is still held when the row opens again; Escape or a second tap lowers it.
-// Clicks on the dialogue, toolbar, dialogs and action buttons leave it be.
+// A click outside the card area folds the row and keeps the selection and any
+// chosen play; the next tap on the hand raises it as it was. Escape clears.
+// Beat taps fold it first (below); toolbar, dialogs and buttons leave it be.
 document.addEventListener("click", (e) => {
   const path = e.composedPath(),
     within = (selector) =>
@@ -3429,6 +3465,7 @@ document.addEventListener("click", (e) => {
     // hand opens from a card. A play folds the row from its own button, so
     // that click must not reopen it.
     if (selected.length && within(".play-dock") && !within("#card-actions")) {
+      foldedChoice = false;
       rowCollapsed = false;
       render();
     }
@@ -3438,13 +3475,32 @@ document.addEventListener("click", (e) => {
     within(".play-dock, .card-frame, dialog, .topbar, .dialogue, .world-menu")
   )
     return;
-  playQueue.clear();
-  if (!selectedHandItem(world, selected)) selected = [];
+  foldHand();
+});
+function foldHand() {
+  foldedChoice = selected.length > 0;
   questOpen = false;
   rowCollapsed = true;
   expandedHolders.clear();
   render();
-});
+}
+// A tap on the dialogue's beats while the hand is up only lowers the hand;
+// the beat steps on the next tap. Keyboard presses step at once.
+document.addEventListener(
+  "click",
+  (e) => {
+    if (
+      rowCollapsed ||
+      !e.detail ||
+      !e.target.closest?.("#dialogue-advance, #beat-behind")
+    )
+      return;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    foldHand();
+  },
+  { capture: true },
+);
 $("history-button").onclick = () => {
   renderLog(true);
   $("history-dialog").showModal();
@@ -3642,25 +3698,26 @@ function resumeScene({ otherTab = false } = {}) {
     exchange.load(line ? [line] : []);
   } else render();
 }
+// Until it resolves, the player's own play reads as what their avatar is doing.
 const sharedPlayText = {
-  sending: (label) => `Sending: ${label}…`,
-  sent: (label) => `Sent: ${label}. Waiting for the round.`,
-  playing: (label) => `Playing: ${label}.`,
-  played: (label) => `Played: ${label}.`,
-  rejected: (label, reason) => `Not played: ${label}. ${reason}`,
+  sending: ({ line }) => line,
+  sent: ({ line }) => line,
+  playing: ({ line }) => line,
+  played: ({ label }) => `Played: ${label}.`,
+  rejected: ({ label }, reason) => `Not played: ${label}. ${reason}`,
 };
 function showSharedPlay(state, reason = "") {
   if (!sharedPlay) return;
   clearTimeout(sharedPlayTimer);
-  const { label } = sharedPlay;
+  const play = sharedPlay;
   sharedPlay.state = state;
   if (state === "played" || state === "rejected") sharedPlay = null;
   if (state === "sending") sharedRefusal = null;
   if (state === "rejected")
-    sharedRefusal = { reason, text: sharedPlayText.rejected(label, reason) };
+    sharedRefusal = { reason, text: sharedPlayText.rejected(play, reason) };
   if (state === "uncertain") notice(reason, state);
   else if (state === "rejected" || !playQueue.pending)
-    notice(sharedPlayText[state](label, reason), state);
+    notice(sharedPlayText[state](play, reason), state);
   if (state === "played")
     sharedPlayTimer = setTimeout(() => {
       if ($("notice").dataset.playStatus === "played") notice("");
@@ -3735,6 +3792,7 @@ async function submitSharedPlay(action) {
     key: crypto.randomUUID(),
     actionKey: current.key,
     label: playLabel(current),
+    line: playProgressLine(currentActor(world), current),
     notice: sharedSession.state.notice || "",
   };
   showSharedPlay("sending");

@@ -74,8 +74,10 @@ describe("dousing the lamp in the attic", () => {
     expect(knownActors(s)).toEqual(["vale"]);
     expect(s.memories.moth.events).toEqual([]);
     expect(s.memories.keeper.events).toEqual([]);
-    // Vale already holds the lamp, so the first play meets that want.
-    expect(levelOf(s, "vale")).toBe(2);
+    // Vale already holds the lamp, so the first play meets that want. The
+    // experience waits for a level quest; it does not raise the level.
+    expect(s.actors.vale.xp).toBeGreaterThanOrEqual(1);
+    expect(levelOf(s, "vale")).toBe(1);
     // The lamp burned dry while everyone waited; its dark opens the mirror.
     expect(s.items.lamp).toMatchObject({ lit: false, fuel: 0 });
     expect(exits(s, "attic")).toEqual(["pond"]);
@@ -102,7 +104,7 @@ describe("dousing the lamp in the attic", () => {
       availableCards(lit).filter((id) => !availableCards(before).includes(id)),
     ).toEqual(["pond"]);
     expect(exits(lit, "attic")).toEqual(["pond"]);
-    expect(levelOf(lit, "vale")).toBe(2);
+    expect(levelOf(lit, "vale")).toBe(1);
     const met = lit.log.find(
       (e) => e.verb === "want_met" && e.actorId === "vale",
     );

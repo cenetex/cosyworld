@@ -166,6 +166,17 @@ try {
   await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
   await page.locator('[data-close="menu-dialog"]').click();
+  // Vale's level waits for her level quest (#1583), so Pip, a level up, would
+  // pick a fight over the lamp at the pond. Level her with her experience so
+  // the ring sequence below stays the only thing under test.
+  await page.evaluate(() => {
+    const key = "cosyworld.reflected-shore.v1.badger-check";
+    const saved = JSON.parse(localStorage.getItem(key));
+    saved.actors.vale.level = 2;
+    localStorage.setItem(key, JSON.stringify(saved));
+  });
+  await page.reload();
+  await page.locator('[data-card="bell"]').waitFor({ state: "attached" });
   await play("pond");
   assert.equal((await state()).actors.vale.place, "pond");
   await play("bell");

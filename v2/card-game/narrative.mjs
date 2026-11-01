@@ -1,5 +1,4 @@
 import { learningFacts } from "./learning.mjs";
-import { observeText } from "./observe-words.mjs";
 import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 import { wantFact, wantHeard } from "./want-talk.mjs";
@@ -29,6 +28,7 @@ import {
   covered,
   exits,
   nameOf,
+  wantText,
   validateWorld,
   standoffFor,
   opponentOf,
@@ -203,7 +203,7 @@ export function narrativeContext(world, action = null) {
           entry.witnesses?.includes(currentActor(world))),
     )
     .slice(-8)
-    .map((entry) => observeText(entry.text));
+    .map((entry) => entry.text);
   // A persona that minds noise reads a handled bell as a ring unless told
   // otherwise. Name the silence for those speakers when nothing rang.
   const bellHandled =
@@ -254,8 +254,10 @@ export function narrativeContext(world, action = null) {
     ...(rest ? { rest } : {}),
     ...(disclosures.length ? { disclosures } : {}),
     action:
-      observeText(played?.text) ||
-      (world.turn ? `${nameOf(currentActor(world))} observes the cast.` : null),
+      played?.text ||
+      (world.turn
+        ? `${nameOf(currentActor(world))} waits and watches the cast.`
+        : null),
     events,
     conversation,
     entities: ids.map((id) => {
@@ -272,7 +274,15 @@ export function narrativeContext(world, action = null) {
         kind === "avatar" && wantHeard(world, played, id, currentActor(world))
           ? wantFact(world, id, nameOf)
           : null;
+      // Waking from a long rest, a new level quest arrives in the dream.
+      const quest = world.actors[id]?.want;
+      const dreamt =
+        rest === "long" && id === resting && quest?.quest?.left &&
+        quest.since === world.turn
+          ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.`
+          : null;
       const facts = [
+        ...(dreamt ? [dreamt] : []),
         ...(want ? [want] : []),
         ...knowledgeFacts(
           world,

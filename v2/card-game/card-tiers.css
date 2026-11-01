@@ -87,21 +87,3 @@ body .hand .card-frame:has(> .card[data-unrevealed="true"]) {
 .reveal-sheen {
   background: linear-gradient(105deg, transparent 35%, #fff4d640 50%, transparent 65%);
 }
-body .card.new[data-unrevealed="false"]::after {
-  content: "New card";
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  z-index: 3;
-  translate: -50% 0;
-  padding: 3px 9px;
-  border: 1px solid color-mix(in srgb, var(--tier-color) 70%, transparent);
-  border-radius: 999px;
-  background: #0b0e14d9;
-  color: var(--tier-color);
-  font: 10px/1.2 Georgia, serif;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  pointer-events: none;
-}

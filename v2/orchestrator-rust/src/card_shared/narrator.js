@@ -11,7 +11,7 @@
     trade: "trading",
     give: "giving",
     talk: "talking",
-    wait: "observing",
+    wait: "waiting",
     accompany: "inviting"
   })[kind];
   var goalKey = (g) => [g.kind, g.target, g.item, g.destination].join(":");
@@ -86,7 +86,7 @@
       if (a.kind === "talk") return `talking with ${nameOf2(a.target)}`;
       if (a.kind === "accompany")
         return `inviting ${nameOf2(a.target)} to ${nameOf2(a.destination)}`;
-      return "observing";
+      return "waiting";
     };
     return [
       `I tried ${describe(trial.action)} while seeking ${purpose}. ${result} ${earlier}`,
@@ -11102,7 +11102,7 @@
         entry: "willows-landing",
         continuity: {
           startingEra: "willows-island",
-          policy: "The traveller joins the Swede on the island. The places tell the landscape's side of the story through the signs Observe finds. The Swede's kit is scattered; when the Worn Paddle, Waterproof Sheet, Tent Rope and Food Sack are all at the camp, the canoe is mended and he and the traveller can leave by it.",
+          policy: "The traveller joins the Swede on the island. The places tell the landscape's side of the story through the signs found by waiting. The Swede's kit is scattered; when the Worn Paddle, Waterproof Sheet, Tent Rope and Food Sack are all at the camp, the canoe is mended and he and the traveller can leave by it.",
           groups: []
         },
         places: {
@@ -16173,6 +16173,12 @@
     (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
   );
   var travels = (id, s = null) => !isPackActor(id) || freed(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
+  var levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
+  var questSteps = (level) => {
+    let [a, b] = [1, 1];
+    for (let i = 1; i < level; i++) [a, b] = [b, a + b];
+    return a;
+  };
   var startXp = (id) => {
     const level = isPackActor(id) ? packPeople[id].startLevel || 1 : 1;
     return level * (level - 1) / 2;
@@ -16201,7 +16207,7 @@
     const whole4 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const w = a.want;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && a.xp <= startXp(id) + s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (w === null || w && Object.keys(w).length === 4 && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT);
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(startXp(id) + s.turn * 8)) && a.xp <= startXp(id) + s.turn * 8 && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (w === null || w && Object.keys(w).length === (w.quest === void 0 ? 4 : 5) && (w.quest === void 0 || Object.keys(w.quest).length === 2 && Number.isSafeInteger(w.quest.level) && w.quest.level >= 2 && Number.isSafeInteger(w.quest.left) && w.quest.left >= 1 && w.quest.left <= questSteps(w.quest.level)) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole4(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT);
   }
 
   // v2/card-game/legacy-saves.mjs
@@ -17088,6 +17094,13 @@
   var canReach = (s, actor, item) => itemPlace2(s, item) === s.actors[actor].place && !actorIds.includes(rootHolder(s, item)) || rootHolder(s, item) === actor;
   var canUse = canReach;
   var loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
+  function wantText(want) {
+    if (!want) return "nothing in particular";
+    if (want.kind === "item") return `hold ${nameOf(want.target)}`;
+    if (want.kind === "place") return `be at ${nameOf(want.target)}`;
+    if (want.kind === "connect") return "introduce two people";
+    return `talk with ${nameOf(want.target)}`;
+  }
   var bundle = (s, item) => [
     item,
     ...s.items.cloth.holder === item ? ["cloth"] : []
@@ -17517,10 +17530,6 @@
     return loaded;
   }
 
-  // v2/card-game/observe-words.mjs
-  var WAITS = /^(.+) waits one turn\.$/u;
-  var observeText = (text2) => typeof text2 === "string" ? text2.replace(WAITS, "$1 observes.") : text2;
-
   // v2/card-game/daylight.mjs
   var isNight = (world) => Math.floor((world?.turn ?? 0) / DAYLIGHT_TURNS) % 2 === 1;
   var darkMist = (world) => isNight(world) && locationWeather(world, "greek-ship")?.condition === "mist";
@@ -17737,7 +17746,7 @@
     );
     const events = world.log.filter(
       (entry) => entry.turn === world.turn && !entry.generated && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))
-    ).slice(-8).map((entry) => observeText(entry.text));
+    ).slice(-8).map((entry) => entry.text);
     const bellHandled = localItems.includes("bell") || [played?.itemId, played?.receiveId].includes("bell");
     const bellRang = world.log.some(
       (entry) => entry.turn === world.turn && !entry.generated && entry.verb === "ring" && entry.itemId === "bell"
@@ -17764,14 +17773,17 @@
       resting: resting2,
       ...rest ? { rest } : {},
       ...disclosures.length ? { disclosures } : {},
-      action: observeText(played?.text) || (world.turn ? `${nameOf(currentActor(world))} observes the cast.` : null),
+      action: played?.text || (world.turn ? `${nameOf(currentActor(world))} waits and watches the cast.` : null),
       events,
       conversation,
       entities: ids3.map((id) => {
         const kind = profiles[id].kind;
         const continuity = kind === "location" || id === currentActor(world) ? packSceneFacts(world, location) : [];
         const want = kind === "avatar" && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf) : null;
+        const quest = world.actors[id]?.want;
+        const dreamt = rest === "long" && id === resting2 && quest?.quest?.left && quest.since === world.turn ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.` : null;
         const facts = [
+          ...dreamt ? [dreamt] : [],
           ...want ? [want] : [],
           ...knowledgeFacts(
             world,
