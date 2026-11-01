@@ -94,6 +94,21 @@ fn spoken(text: &str, speaker: &str, listener: &str, cast: &[String]) -> String 
             subject = Some("It");
             continue;
         }
+        // So is an unnamed one: "The keeper attacks me." -> "attacked".
+        let unnamed = ["The ", "A ", "An "]
+            .into_iter()
+            .filter(|_| start)
+            .find_map(|article| {
+                let noun = rest.strip_prefix(article)?;
+                let len = noun.find(|c: char| !c.is_alphanumeric())?;
+                (len > 0 && noun[len..].starts_with(' ')).then_some(article.len() + len)
+            });
+        if let Some(len) = unnamed {
+            out.push_str(&rest[..len]);
+            rest = &rest[len..];
+            subject = Some("It");
+            continue;
+        }
         let person = [
             (speaker, ["I", "me", "My", "my"]),
             (listener, ["You", "you", "Your", "your"]),
@@ -503,17 +518,17 @@ mod tests {
 
     #[test]
     fn a_told_deed_is_past_so_it_never_reads_as_this_beat() {
-        let context = vale_saw("The keeper attacks Vale. Vale drops the Bell.");
-        let prompt = directions(&context, "vale").join(" ");
-        assert!(
-            prompt.contains("The keeper attacked me. I dropped the Bell."),
-            "{prompt}"
-        );
-        assert!(delivered(
-            &context,
-            "vale",
-            "The keeper attacked me. I dropped the bell."
-        ));
+        // A fact is one sentence, whoever its subject is.
+        for (seen, told) in [
+            ("The keeper attacks Vale.", "The keeper attacked me."),
+            ("Vale drops the Bell.", "I dropped the Bell."),
+        ] {
+            let context = vale_saw(seen);
+            assert!(valid(&context));
+            let prompt = directions(&context, "vale").join(" ");
+            assert!(prompt.contains(&format!(": {told} ")), "{prompt}");
+            assert!(delivered(&context, "vale", told), "{told}");
+        }
         for (verb, told) in [
             ("gives", "gave"),
             ("carries", "carried"),
