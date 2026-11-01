@@ -18,13 +18,22 @@ const wait = (s, actor = "vale") =>
 
 describe("rest and sanctuary", () => {
   it("gives each world exactly one sanctuary, and the Willows none", () => {
-    const worldOf = (id) => packOf(id)?.id ?? "hub";
+    // Badger's glade is a hidden part of the Lonely Forest, which shares
+    // the Cosy Cottage as its one sanctuary.
+    const partOf = { "badger-forest": "lonely-forest" };
+    const worldOf = (id) => {
+      const pack = packOf(id)?.id ?? "hub";
+      return partOf[pack] ?? pack;
+    };
     const count = (world) =>
       sanctuaries.filter((id) => worldOf(id) === world).length;
     expect(count("hub")).toBe(1);
     for (const id of ["greek-drama", "hoppycat-archive", "lonely-forest"])
       expect(count(id)).toBe(1);
     expect(count("willows")).toBe(0);
+    expect(sanctuaries.some((id) => packOf(id)?.id === "badger-forest")).toBe(
+      false,
+    );
     expect(packDefinitions.every((pack) => count(pack.id) <= 1)).toBe(true);
     expect(sanctuaries).not.toContain("greek-ship");
     expect(sanctuaries.every((id) => places[id])).toBe(true);
