@@ -160,5 +160,7 @@ Each `forest.json` `reflectionRoutes` entry now carries `requires`, written in
 the pack condition vocabulary (`light`, `not`, `item_present`) and read by the
 same `conditionMet`. The opening flips with data alone: the attic mirror
 opens while the lamp there is not shining, and the pond's way back opens while
-it shines at the pond. The rule change ships as one new rules version;
-released bundles replay older journals unchanged.
+it shines at the pond. A hub place may also list `backdrops` (`backdrop` plus
+`requires`); the first match paints the place, else its own `backdrop`. This
+is the same shape #1620 gives pack places. The rule change ships as one new
+rules version; released bundles replay older journals unchanged.

@@ -229,9 +229,13 @@ describe("Tea beneath the oak", () => {
       expect(exits(restored, "attic", "vale")).not.toContain(COTTAGE);
       expect(availableCards(restored)).not.toContain(COTTAGE);
       expect(backdrop("attic", restored)).toBe(
-        "./assets/shared/places/attic-dark.webp",
+        dark
+          ? "./assets/attic/attic-doused.webp"
+          : "./assets/shared/places/attic-dark.webp",
       );
-      expect(locationVariant(restored, "attic")).toBe("dark");
+      expect(locationVariant(restored, "attic")).toBe(
+        dark ? "attic-doused" : "attic-dark",
+      );
       expect(placeText(restored, "attic").includes("black shore")).toBe(dark);
       const result = play(world, stale);
       expect(result.ok).toBe(false);
@@ -248,8 +252,8 @@ describe("Tea beneath the oak", () => {
     world.items.cloth.holder = "pond";
     const restored = reload(world);
     expect(exits(restored, "attic", "vale")).toEqual([]);
-    expect(backdrop("attic", restored)).toBe("./assets/attic.png");
-    expect(locationVariant(restored, "attic")).toBe("base");
+    expect(backdrop("attic", restored)).toBe("./assets/attic/attic-lit.webp");
+    expect(locationVariant(restored, "attic")).toBe("attic-lit");
     expect(placeText(restored, "attic")).toContain("Dust gathers");
     expect(play(restored, stale).ok).toBe(false);
     const doused = act(restored, "snuff");
@@ -285,7 +289,7 @@ describe("Tea beneath the oak", () => {
     expect(rejected.world.actors.mara.place).toBe("attic");
     expect(rejected.world.items.cloth.holder).toBe("vale");
     expect(backdrop("attic", rejected.world)).toBe(
-      "./assets/shared/places/attic-dark.webp",
+      "./assets/attic/attic-doused.webp",
     );
   });
 
