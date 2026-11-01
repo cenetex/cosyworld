@@ -110,4 +110,41 @@ mod tests {
         let full = super::super::transcript(&c, entity(&c, "vale"), Part::Line);
         assert!(full.contains("Current scene:"));
     }
+
+    /// Client/server agreement: every player avatar's new local world sends
+    /// an opening request the route accepts, built by the real browser rules.
+    #[test]
+    fn every_avatar_opens_a_valid_local_world() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        let output = std::process::Command::new("node")
+            .current_dir(root)
+            .args([
+                "--input-type=module",
+                "-e",
+                "import { createAvatarWorld } from './v2/card-game/avatar-world.mjs'; \
+                 import { narrativeContext } from './v2/card-game/narrative.mjs'; \
+                 import { humanAvatars } from './v2/card-game/human-cast.mjs'; \
+                 console.log(JSON.stringify(humanAvatars.map((a) => \
+                   [a.id, narrativeContext(createAvatarWorld(a.id))])));",
+            ])
+            .output()
+            .expect("Node builds each avatar's opening request");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let openings: Vec<(String, Value)> = serde_json::from_slice(&output.stdout).unwrap();
+        assert!(openings.len() > 1 && openings.iter().any(|(id, _)| id == "tavi"));
+        for (id, value) in openings {
+            let context: Context =
+                serde_json::from_value(value).unwrap_or_else(|e| panic!("{id}: {e}"));
+            assert!(valid(&context), "{id}: opening request rejected");
+            assert_eq!(context.speakers, [id.as_str()]);
+        }
+    }
 }

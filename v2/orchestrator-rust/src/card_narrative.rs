@@ -624,7 +624,8 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
                 "person" => kind(&want.target, "avatar"),
                 _ => false,
             })
-        && avatars.contains("vale")
+        // Any player avatar can act: a non-Vale local world opens at that
+        // avatar's home with Vale nowhere in the scene (#1763).
         && (1..=8).contains(&outcome.avatars.len())
         && avatars.len() == outcome.avatars.len()
         && avatars.iter().all(|id| kind(id, "avatar"))
