@@ -13,6 +13,7 @@ import {
   outcomeWord,
   sequencePlan,
   telegraphText,
+  theName,
 } from "../v2/card-game/combat-beats.mjs";
 
 const act = (s, kind, target) => {
@@ -117,6 +118,12 @@ describe("combat beats from today's rule lines", () => {
     expect(
       telegraphText({ ...beat, actorId: "vale", targetId: "keeper" }),
     ).toBe("Vale strikes the keeper");
+  });
+
+  it("names a thing with one article", () => {
+    expect(theName("greek-decree")).toBe("the Burial Decree");
+    expect(theName("keeper")).toBe("the keeper");
+    expect(theName("lamp")).toBe(`the ${nameOf("lamp")}`);
   });
 
   it("ignores plays with no standoff", () => {

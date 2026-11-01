@@ -34,7 +34,7 @@ import {
   installScaresToggle,
 } from "./transitions.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
-import { combatBeats, lastSeq } from "./combat-beats.mjs";
+import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
 import {
   beatSummary,
   memoryVisits,
@@ -1782,7 +1782,7 @@ function renderActions(animate = false) {
     const look = node("button", "Look", "card-action");
     look.type = "button";
     look.dataset.look = viewed;
-    look.title = `Look at the ${nameOf(viewed)} up close`;
+    look.title = `Look at ${theName(viewed)} up close`;
     look.onclick = () => showItemView(viewed);
     row.append(look);
     panel.hidden = false;
