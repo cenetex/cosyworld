@@ -3,7 +3,9 @@
 // lane. The towns below are declared from the map, so a new direct link
 // between two towns fails here instead of quietly merging them.
 import { describe, expect, it } from "vitest";
+import forest from "../v2/card-game/forest.json" with { type: "json" };
 import {
+  crossings,
   localRoadEnds,
   packDefinitions,
   packPlaces,
@@ -92,12 +94,63 @@ const TOWNS = {
 };
 
 // A place within another links only to its parent and does not count toward
-// its district's four places.
+// its district's four places. The well and other places name it in `within`.
 const INTERIORS = {
   "greek-acharnae": "greek-attic-farm",
   "greek-demos-house": "greek-assembly",
   "greek-festival": "greek-acropolis",
+  ...Object.fromEntries(
+    Object.entries(packPlaces)
+      .filter(([, place]) => place.within)
+      .map(([id, place]) => [id, place.within]),
+  ),
 };
+
+// Every place has at most three links (owner decision, 2026-11-01): exits,
+// roads, routes and crossings, counted even while closed, and reflections.
+// Boarding a ship is one link however many lanes it sails, and the ship has
+// no cap. A place within another does not count against its parent.
+const LINK_CAP = 3;
+// Still over the cap while their maps are redrawn. Remove each place as its
+// pack lands: Hoppy Cat (#1785), Athens, Argos and the hub; Troy, the Greek
+// Camp and the harbor's story doors belong to the Troy and Far Shores work.
+const OVER_CAP_FOR_NOW = new Set([
+  "pond",
+  "hoppycat-halfway-tea-garden",
+  "hoppycat-signal-jetty",
+  "hoppycat-open-record-cathedral",
+  "hoppycat-red-thread-belfry",
+  "hoppycat-context-greenhouse",
+  "hoppycat-concordance-tidelands",
+  "hoppycat-settled-light-theatre",
+  "greek-athens",
+  "greek-argolid-road",
+  "greek-harbor",
+  "greek-eleusis",
+  "greek-attic-farm",
+  "greek-troy",
+  "greek-greek-camp",
+  "greek-marathon",
+]);
+const ships = new Set(Object.values(transports).map((t) => t.place));
+function links() {
+  const places = { ...forest.places, ...packPlaces };
+  const out = new Map();
+  const add = (from, to) => {
+    if (ships.has(from) || INTERIORS[to] === from) return;
+    out.set(from, (out.get(from) || new Set()).add(to));
+  };
+  for (const [id, place] of Object.entries(places))
+    if (!place.retired && !(place.road && localRoadEnds(id)))
+      for (const to of place.exits || []) if (!places[to]?.retired) add(id, to);
+  for (const r of forest.reflectionRoutes || []) add(r.from, r.to);
+  for (const pack of packDefinitions)
+    for (const r of pack.routes || []) add(r.from, r.to);
+  for (const c of crossings)
+    if (!c.retired)
+      add(c.from, c.transport ? transports[c.transport].place : c.to);
+  return out;
+}
 const DISTRICTS = ["athens-countryside", "athens-city", "athens-harbour"];
 
 const town = (id) =>
@@ -184,6 +237,16 @@ describe("the map rule", () => {
       expect(packPlaces[parent].exits, parent).toContain(id);
       expect(town(id), id).toBe(town(parent));
     }
+  });
+
+  it("gives every place at most three links, and an interior only its parent", () => {
+    for (const [id, to] of links())
+      if (!OVER_CAP_FOR_NOW.has(id))
+        expect(to.size, `${id}: ${[...to].join(", ")}`).toBeLessThanOrEqual(
+          LINK_CAP,
+        );
+    for (const [id, parent] of Object.entries(INTERIORS))
+      expect([...(links().get(id) || [])], id).toEqual([parent]);
   });
 
   it("gives every walkable road its own painting", () => {

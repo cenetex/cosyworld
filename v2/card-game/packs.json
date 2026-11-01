@@ -314,7 +314,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 16,
+      "revision": 17,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -371,8 +371,7 @@
             "greek-road-thebes",
             "greek-well",
             "greek-palace",
-            "greek-gate",
-            "greek-sanctuary"
+            "greek-gate"
           ],
           "backdrop": "assets/greek-drama/courtyard-day.webp",
           "persona": "Bread cools beneath a cloth. An empty place remains at the common table."
@@ -383,6 +382,7 @@
           "exits": [
             "greek-courtyard"
           ],
+          "within": "greek-courtyard",
           "backdrop": "assets/greek-drama/market-well-day.webp",
           "persona": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass."
         },
@@ -390,7 +390,8 @@
           "name": "Theban Palace Forecourt",
           "text": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
           "exits": [
-            "greek-courtyard"
+            "greek-courtyard",
+            "greek-sanctuary"
           ],
           "backdrop": "assets/greek-drama/palace-day.webp",
           "persona": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders."
@@ -459,7 +460,7 @@
           "name": "The Hillside Sanctuary",
           "text": "Olive trees shade a small altar. A stone basin stands beneath its roof.",
           "exits": [
-            "greek-courtyard"
+            "greek-palace"
           ],
           "backdrop": "assets/greek-drama/sanctuary-dawn.webp",
           "persona": "Olive trees shade a small altar. A stone basin stands beneath its roof."

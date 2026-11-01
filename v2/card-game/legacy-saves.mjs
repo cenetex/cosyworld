@@ -106,6 +106,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     upgradeGreekDistrictRoadsSave(s);
     upgradeGreekOpenDoorSave(s);
     upgradeGreekEastSeaSave(s);
+    upgradeGreekThreeLinksSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -374,6 +375,17 @@ export function upgradeGreekShipSignalSave(s) {
   if (state && (state.phase > 2 || (state.phase === 2 && !state.discovered)))
     state.phase = 0;
   saved.revision = 10;
+}
+
+// Revision 17 gives every Theban place at most three links: the sanctuary
+// is reached through the palace. A known step that no longer exists becomes
+// the walk that replaced it.
+export function upgradeGreekThreeLinksSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 17 || saved?.revision !== 16) return;
+  foldRetiredRoads(s);
+  saved.revision = 17;
 }
 
 // Revision 14 sorts Athens into districts joined by gate roads. A known step
