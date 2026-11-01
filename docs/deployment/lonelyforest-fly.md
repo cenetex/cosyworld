@@ -51,7 +51,9 @@ production gate. A push to `main` skips that gate and the primary backup and
 deploys `.dev` as soon as its image is built. The Rust gate reuses CI's `Rust build and tests` and
 `Rust architecture and lint` results for the same commit through
 `scripts/await-ci-rust.mjs`: it waits while they run, and runs the checks
-itself when CI did not run them, was cancelled, or failed.
+itself when CI did not run them, was cancelled, or failed. The Rust tests and
+the Rust architecture and lint checks run as two jobs side by side, so lint no
+longer waits for the tests.
 
 Each app's release runs as three jobs. The image job builds and pushes
 `registry.fly.io/<app>:deploy-<sha>` with `--build-only` while the gates run;
