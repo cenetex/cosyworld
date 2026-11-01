@@ -1536,7 +1536,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 10,
+        revision: 11,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -16139,6 +16139,7 @@
       upgradeBoardingSave(s);
       upgradeForestButtonsSave(s);
       upgradeWillowsKitSave(s);
+      upgradeGreekThebesSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -16743,6 +16744,33 @@
     for (const [id, was] of Object.entries(WILLOWS_KIT_WAS))
       if (s.items[id]?.holder === was) s.items[id].holder = pack.items[id].holder;
     saved.revision = 2;
+  }
+  var THEBAN_RETIRED_CHOICES = [
+    "prepare-permitted-burial",
+    "decline-burial",
+    "courtyard-refusal",
+    "open-door-invite-burial",
+    "open-door-invite-concession",
+    "open-door-invite-refusal",
+    "open-door-invite-exposure"
+  ].map((id) => `greek-${id}`);
+  function upgradeGreekThebesSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 11 || saved?.revision !== 10) return;
+    foldRetiredRoads(s);
+    for (const id of THEBAN_RETIRED_CHOICES) {
+      delete saved.receipts[id];
+      if (saved.recitals) delete saved.recitals[id];
+    }
+    if (saved.choices["greek-theban-response"] === "refusal") {
+      delete saved.choices["greek-theban-response"];
+      delete saved.flags["greek-refusal-public"];
+    }
+    s.log = (s.log || []).filter(
+      (e) => !(e.packId === pack.id && THEBAN_RETIRED_CHOICES.includes(e.choiceId))
+    );
+    saved.revision = 11;
   }
 
   // v2/card-game/world.mjs

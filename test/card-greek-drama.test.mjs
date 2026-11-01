@@ -445,6 +445,25 @@ describe("Before the Burial", () => {
     expect(legalActions(world).length).toBeGreaterThan(0);
   });
 
+  it("upgrades a revision 10 refusal and the old well steps", () => {
+    const old = JSON.parse(encodeSave(move(courtyard(), GATE)));
+    const pack = old.packs[PACK];
+    pack.revision = 10;
+    pack.receipts["greek-decline-burial"] = old.turn;
+    pack.choices["greek-theban-response"] = "refusal";
+    pack.flags["greek-refusal-public"] = true;
+    old.routeKnowledge.vale = [[WELL, GATE]];
+    const s = decodeSave(JSON.stringify(old));
+    expect(s.packs[PACK].revision).toBe(11);
+    expect(s.packs[PACK].receipts["greek-decline-burial"]).toBeUndefined();
+    expect(s.packs[PACK].choices["greek-theban-response"]).toBeUndefined();
+    expect(s.packs[PACK].flags["greek-refusal-public"]).toBeUndefined();
+    expect(s.routeKnowledge.vale).toEqual([
+      [WELL, COURTYARD],
+      [COURTYARD, GATE],
+    ]);
+  });
+
   it("does not let generated declarations perform a burial or consume another turn", () => {
     const world = move(courtyard(), GATE);
     const context = narrativeContext(world);

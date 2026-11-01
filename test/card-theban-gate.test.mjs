@@ -63,7 +63,7 @@ describe("the Theban City Gate", () => {
     ).toBe(false);
     // The other gate roads stay open.
     expect(exits(s, "greek-gate", "vale")).toEqual(
-      expect.arrayContaining(["greek-courtyard", "greek-well"]),
+      expect.arrayContaining(["greek-courtyard"]),
     );
     s = act(walk(s, "palace"), "take", { item: "greek-decree" });
     s = walk(s, "gate");

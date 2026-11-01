@@ -103,10 +103,8 @@ describe("named card actions", () => {
     world.crossings["pond-greek-harbor"].discovered = true;
     const story = cardActions(world, ["greek-guard"]).actions;
     expect(story[0].kind).toBe("talk");
-    expect(story.some((a) => a.choiceId === "greek-hear-decree")).toBe(false);
-    expect(
-      legalActions(world).some((a) => a.choiceId === "greek-hear-decree"),
-    ).toBe(true);
+    // The decree is told on meeting the guard; it is never a button.
+    expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
     for (const action of story)
       expect(legalActions(world)).toContainEqual(action);
   });

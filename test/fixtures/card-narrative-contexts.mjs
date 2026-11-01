@@ -82,8 +82,13 @@ export function narrativeContractCases() {
     if (!result.ok) throw new Error(`Rejected contract choice: ${choiceId}`);
     return result.state;
   };
-  const heard = choose(gate, "greek-hear-decree");
-  const refused = choose(heard, "greek-decline-burial");
+  // Meeting the guard tells the decree; handing him the shovel reports it.
+  const reported = playCard(
+    playCard(gate, "take", "greek-shovel"),
+    "give",
+    "greek-shovel",
+    "greek-guard",
+  );
   const legacyHarbor = structuredClone(harbor);
   legacyHarbor.packs["greek-drama"].scope = "full";
   const egypt = choose(legacyHarbor, "greek-helen-egypt");
@@ -107,7 +112,7 @@ export function narrativeContractCases() {
     ["Greek harbor crossing", harbor],
     ["Theban gate cast", gate],
     ["Theban decree through Talk", playCard(gate, "talk", null, "greek-guard")],
-    ["Theban refusal", refused],
+    ["Theban report", reported],
     ["Helen history choice", egypt],
     ["Helen in Egypt", helen],
     ["reload Greek history", decodeSave(encodeSave(helen))],
@@ -125,7 +130,7 @@ export function narrativeContractCases() {
     ["refused give", playCard(gifts, "give", "bell", "moth")],
     ["refused trade", playCard(gifts, "trade", "cloth", "keeper")],
   );
-  for (const branch of ["burial", "concession", "refusal", "exposure"]) {
+  for (const branch of ["burial", "concession", "exposure"]) {
     const earned = openingFixture(branch).closed;
     // The Bard follows its own want; the case meets it where Vale stands.
     const arrival = playCard(earned, "wait");

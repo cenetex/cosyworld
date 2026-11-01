@@ -1,8 +1,4 @@
-import {
-  currentActor,
-  legalActions,
-  play,
-} from "../../v2/card-game/world.mjs";
+import { currentActor, legalActions, play } from "../../v2/card-game/world.mjs";
 import {
   courseToward,
   transportPlace,
@@ -19,7 +15,11 @@ const localPlay = (world, action) => {
 export function sailTo(
   world,
   dock,
-  { actor = currentActor(world), step = localPlay, actions = legalActions } = {},
+  {
+    actor = currentActor(world),
+    step = localPlay,
+    actions = legalActions,
+  } = {},
 ) {
   for (let turn = 0; turn < 40; turn++) {
     const here = world.actors[actor].place;

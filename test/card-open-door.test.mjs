@@ -17,7 +17,6 @@ import { recitalPoem, recitalContext } from "../v2/card-game/pack-recital.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 import {
   OPEN_DOOR_PLACES,
-  openDoorInvitation,
   openDoorJourney,
   openDoorStart,
   openDoorWalk,
@@ -185,26 +184,21 @@ describe("the Open Door", () => {
       ).authorId,
     ).toBe("mara");
   });
-  it.each(["burial", "concession", "refusal", "exposure"])(
-    "opens five places after Dione hears the %s account",
+  it.each(["burial", "concession", "exposure"])(
+    "opens five places when Dione receives the %s outcome",
     (branch) => {
       const fixture = openingFixture(branch);
       const before =
         branch === "concession"
           ? fixture.permission
           : fixture.choice || fixture.buried;
-      expect(openDoorInvitation(before)).toBeUndefined();
       // Piraeus Quays lies outside the Open Door: a ship with provisions
-      // aboard reaches it. Its stories still wait for the invitation.
-      expect(accessible(fixture.closed)).toEqual(["greek-piraeus"]);
-      const invitation = openDoorInvitation(fixture.closed);
-      expect(invitation).toBeTruthy();
-      let world = playOpenDoor(fixture.closed, "choose", {
-        choiceId: invitation.choiceId,
-      });
+      // aboard reaches it. Its stories still wait for Dione's road.
+      expect(accessible(before)).toEqual(["greek-piraeus"]);
+      let world = fixture.closed;
       expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
       expect(state(world).choices["greek-theban-response"]).toBe(branch);
-      expect(play(world, invitation).ok).toBe(false);
+      expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
       world = openDoorWalk(reload(world), "harbor", "athens");
       expect(exits(world, "greek-athens", "vale")).toEqual(
         expect.arrayContaining([
@@ -215,10 +209,6 @@ describe("the Open Door", () => {
       );
       expect(entityActive(world, "greek-thinkery")).toBe(false);
       expect(entityActive(world, "greek-argolid-road")).toBe(false);
-      expect(state(world).receipts[invitation.choiceId]).toBe(
-        state(fixture.closed).receipts[invitation.choiceId] ||
-          fixture.closed.turn + 1,
-      );
       for (let count = 0; count < 3; count++) world = reload(world);
       expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
       expect(world.items["greek-water-jar"].holder).toBe(
@@ -251,9 +241,7 @@ describe("the Open Door", () => {
   it("opens the next journey after a public concession while its burial stays available", () => {
     let world = openingFixture("concession").permissionShared;
     expect(state(world).flags["greek-burial-performed"]).toBeUndefined();
-    const invitation = openDoorInvitation(world);
-    expect(invitation).toBeTruthy();
-    world = playOpenDoor(world, "choose", { choiceId: invitation.choiceId });
+    expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
     world = openDoorWalk(
       world,
       "harbor",
@@ -267,12 +255,8 @@ describe("the Open Door", () => {
       target: "greek-guard",
     });
     world = playOpenDoor(world, "take", { item: "greek-shovel" });
-    world = openDoorWalk(world, "battlefield");
-    expect(
-      legalActions(world).some(
-        (action) => action.choiceId === "greek-prepare-permitted-burial",
-      ),
-    ).toBe(true);
+    world = playOpenDoor(openDoorWalk(world, "battlefield"), "wait");
+    expect(state(world).receipts["greek-prepare-burial-ground"]).toBeTruthy();
     expect(accessible(reload(world))).toEqual(OPEN_DOOR_PLACES);
   });
 
@@ -307,7 +291,9 @@ describe("the Open Door", () => {
     expect(world.actors.vale.place).toBe(earlier.actors.vale.place);
     expect(world.log).toEqual(
       earlier.log
-        .filter((e) => e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""))
+        .filter(
+          (e) => e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""),
+        )
         .map(({ questPlan, consequence, questKey, ...e }) => e),
     );
     for (const key of ["choices", "flags", "receipts", "met"])

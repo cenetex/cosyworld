@@ -103,14 +103,16 @@ export function openingFixture(
       take("greek-decree");
       give("greek-decree", "greek-creon");
       states.permission = world;
+      // Creon's writ appears; the decree lies at the palace again. The token
+      // has done its work.
+      act("drop", { item: "greek-household-token", target: "greek-palace" });
+      take("greek-decree");
       take("greek-creon-writ");
       walk("courtyard");
       if (reportFirst) {
         give("greek-creon-writ", "greek-baker");
         states.permissionShared = world;
       }
-      walk("palace");
-      take("greek-decree");
       walk("gate");
     } else {
       walk("palace");
@@ -125,15 +127,14 @@ export function openingFixture(
     walk("battlefield");
     act("wait");
     act("drop", { item: "greek-shovel", target: "greek-battlefield" });
+    // Cloth and oil are carried out one at a time and laid at the grave.
     walk("gate", "sanctuary");
-    if (branch === "concession")
-      act("drop", { item: "greek-household-token", target: "greek-sanctuary" });
     take("greek-funeral-cloth");
-    walk("courtyard");
+    walk("gate", "battlefield");
+    act("drop", { item: "greek-funeral-cloth", target: "greek-battlefield" });
+    walk("gate", "courtyard");
     take("greek-oil-flask");
     walk("gate", "battlefield");
-    // Waiting with cloth and oil laid at the prepared grave buries the brother.
-    act("drop", { item: "greek-funeral-cloth", target: "greek-battlefield" });
     act("drop", { item: "greek-oil-flask", target: "greek-battlefield" });
     states.beforeRite = world;
     act("wait");

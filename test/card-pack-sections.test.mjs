@@ -93,8 +93,9 @@ describe("permanent pack sections", () => {
       );
     }
     expect(entityActive(before, "greek-market-neighbor")).toBe(false);
-    const opened = act(before, "choose", {
-      choiceId: "greek-return-water-jar",
+    const opened = act(before, "give", {
+      item: "greek-water-jar",
+      target: "greek-baker",
     });
     for (const actor of ["vale", "mara", "greek-shipmaster"]) {
       expect(exits(opened, "greek-road-athens-piraeus", actor)).toContain(
@@ -124,7 +125,10 @@ describe("permanent pack sections", () => {
     };
     pack.choices.push(question);
     pack.release.choices.push(question.id);
-    let world = act(before, "choose", { choiceId: "greek-return-water-jar" });
+    let world = act(before, "give", {
+      item: "greek-water-jar",
+      target: "greek-baker",
+    });
     world = act(world, "move", { target: "greek-harbor" });
     world = act(world, "move", { target: "greek-athens" });
     world = act(world, "move", { target: "greek-colonus" });

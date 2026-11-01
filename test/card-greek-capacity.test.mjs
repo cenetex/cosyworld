@@ -187,8 +187,9 @@ describe("roads around a full Agora", () => {
 });
 
 describe("the side roads in earlier saved worlds", () => {
-  it.each([false, true])(
-    "preserves the invitation in a version-11 world (open=%s)",
+  // Its Theban buttons are gone; a world that heard only the decree upgrades.
+  it.each([false])(
+    "preserves a version-11 world that heard the decree (open=%s)",
     (open) => {
       const context = vm.createContext({});
       vm.runInContext(
@@ -212,10 +213,7 @@ describe("the side roads in earlier saved worlds", () => {
       const steps = [
         ["move", "greek-gate"],
         ["choose", "greek-hear-decree"],
-        ["choose", "greek-decline-burial"],
         ["move", "greek-courtyard"],
-        ["choose", "greek-courtyard-refusal"],
-        ...(open ? [["choose", "greek-open-door-invite-refusal"]] : []),
         ["move", "greek-harbor"],
       ];
       for (const [kind, id] of steps) {

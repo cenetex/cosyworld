@@ -72,7 +72,7 @@ describe("the opening poem", () => {
     expect(Object.keys(lore.verses).sort()).toEqual(
       pack.recital.verses.map((v) => v.choice).sort(),
     );
-    expect(couplets).toHaveLength(114);
+    expect(couplets).toHaveLength(110);
     expect(quotesLore(pack.recital)).toBe(false);
     expect(lore.verses["greek-courtyard-concession"].after.choice).toBe(
       "greek-perform-permitted-burial",
@@ -108,7 +108,7 @@ describe("the opening poem", () => {
     });
   });
 
-  it.each(["burial", "concession", "refusal", "exposure"])(
+  it.each(["burial", "concession", "exposure"])(
     "carries the whole %s poem into a later conversation",
     (branch) => {
       const s = openingFixture(branch);
@@ -134,11 +134,11 @@ describe("the opening poem", () => {
 
   it("adds the report when the bard reaches its saved site", () => {
     const s = openingFixture("exposure");
-    expect(poemIds(s.returning)).toContain("greek-decline-burial");
+    expect(poemIds(s.returning)).toContain("greek-report-plan");
     const closed = untilBard(s.closed, "greek-courtyard");
     expect(closed.actors[bard].place).toBe("greek-courtyard");
     expect(poemIds(act(closed, "talk", bard))).toContain(
-      "greek-courtyard-refusal",
+      "greek-courtyard-exposure",
     );
   });
 
@@ -184,7 +184,6 @@ describe("the opening poem", () => {
   });
   it.each([
     ["burial", "greek-perform-burial"],
-    ["refusal", "greek-decline-burial"],
     ["exposure", "greek-report-plan"],
   ])(
     "weaves water, %s, and the public return from actual deeds",
@@ -213,10 +212,10 @@ describe("the opening poem", () => {
     expect(stanzas(s.buried).slice(0, 3)).toEqual(stanzas(s.permissionShared));
     expect(ids(s.buried)).toContain("greek-courtyard-concession");
     expect(
-      legalActions(s.permissionShared).some(
-        (a) => a.choiceId === "greek-courtyard-permitted-burial",
-      ),
-    ).toBe(false);
+      s.permissionShared.packs["greek-drama"].receipts[
+        "greek-courtyard-permitted-burial"
+      ],
+    ).toBeUndefined();
     expect(ids(s.closed).at(-1)).toBe("greek-courtyard-permitted-burial");
     expect(stanzas(reload(s.closed))).toEqual(stanzas(s.closed));
   });
@@ -248,7 +247,12 @@ describe("the opening poem", () => {
     act((a) => a.kind === "move" && a.target === "greek-well");
     act((a) => a.kind === "take" && a.item === "greek-water-jar");
     act((a) => a.kind === "move" && a.target === "greek-courtyard");
-    act((a) => a.choiceId === "greek-return-water-jar");
+    act(
+      (a) =>
+        a.kind === "give" &&
+        a.item === "greek-water-jar" &&
+        a.target === "greek-baker",
+    );
     const poem = openingPoem(world);
     expect(poem.stanzas.at(-1).id).toBe("greek-return-water-jar");
     act((a) => a.kind === "move" && a.target === "greek-road-thebes");
@@ -263,8 +267,12 @@ describe("the opening poem", () => {
     world.log = [];
     const before = encodeSave(world);
     const report = legalActions(s.beforeGraveReport).find(
-      (a) => a.choiceId === "greek-courtyard-permitted-burial",
+      (a) =>
+        a.kind === "give" &&
+        a.item === "greek-burial-account" &&
+        a.target === "greek-baker",
     );
+    expect(report).toBeTruthy();
     expect(play(world, report, world.revision).ok).toBe(false);
     expect(encodeSave(world)).toBe(before);
     expect(openingPoem(reload(world))).toEqual(openingPoem(s.closed));
@@ -295,13 +303,28 @@ it("keeps a pruned shared deed's author unknown when Vale loads Mara's saved dee
       present: ["vale", "mara"],
       ...extra,
     });
-  const offered = request(imported, "view", "mara");
-  const result = request(imported, "play", "mara", {
-    action: offered.actions.find((a) => a.choiceId === "greek-decline-burial"),
-  });
-  expect(result.ok, result.error || JSON.stringify(result)).toBe(true);
+  const marasPlay = (world, match) => {
+    const offered = request(world, "view", "mara");
+    const result = request(world, "play", "mara", {
+      action: offered.actions.find(match),
+    });
+    expect(result.ok, result.error || JSON.stringify(result)).toBe(true);
+    return result;
+  };
+  // Mara reports the plan by handing the guard the shovel.
+  const taken = marasPlay(
+    imported,
+    (a) => a.kind === "take" && a.item === "greek-shovel",
+  ).world;
+  const result = marasPlay(
+    taken,
+    (a) =>
+      a.kind === "give" &&
+      a.item === "greek-shovel" &&
+      a.target === "greek-guard",
+  );
   expect(
-    result.world.packs["greek-drama"].recitals["greek-decline-burial"].actor,
+    result.world.packs["greek-drama"].recitals["greek-report-plan"].actor,
   ).toBe("mara");
   const old = structuredClone(result.world);
   delete old.packs["greek-drama"].recitals;
@@ -309,19 +332,12 @@ it("keeps a pruned shared deed's author unknown when Vale loads Mara's saved dee
   const upgraded = request(old, "upgrade", "vale", {
     from: "full-card-world/3",
   }).world;
-  expect(
-    upgraded.packs["greek-drama"].recitals["greek-decline-burial"],
-  ).toEqual({ actor: null, visit: null });
+  expect(upgraded.packs["greek-drama"].recitals["greek-report-plan"]).toEqual({
+    actor: null,
+    visit: null,
+  });
   expect(stanzas(upgraded)).toEqual(stanzas(result.world));
-  const view = request(upgraded, "view", "vale");
-  let moved = request(upgraded, "play", "vale", {
-    action: view.actions.find(
-      (a) => a.kind === "move" && a.target === "greek-courtyard",
-    ),
-  }).world;
-  expect(
-    moved.packs["greek-drama"].recitals["greek-decline-burial"].actor,
-  ).toBeNull();
+  let moved = upgraded;
   const playAsVale = (match) => {
     const view = request(moved, "view", "vale");
     const result = request(moved, "play", "vale", {
@@ -330,15 +346,25 @@ it("keeps a pruned shared deed's author unknown when Vale loads Mara's saved dee
     expect(result.ok, result.error || JSON.stringify(result)).toBe(true);
     moved = result.world;
   };
-  playAsVale((a) => a.choiceId === "greek-courtyard-refusal");
+  playAsVale((a) => a.kind === "take" && a.item === "greek-guard-tablet");
+  expect(
+    moved.packs["greek-drama"].recitals["greek-report-plan"].actor,
+  ).toBeNull();
+  playAsVale((a) => a.kind === "move" && a.target === "greek-courtyard");
+  playAsVale(
+    (a) =>
+      a.kind === "give" &&
+      a.item === "greek-guard-tablet" &&
+      a.target === "greek-baker",
+  );
   playAsVale((a) => a.kind === "wait");
   expect(entityActive(moved, bard)).toBe(true);
   expect(poem(moved).stanzas[0]).toMatchObject({
     authorId: null,
-    id: "greek-decline-burial",
+    id: "greek-report-plan",
     authorName: "an earlier traveler",
   });
   expect(
-    reload(moved).packs["greek-drama"].recitals["greek-decline-burial"].actor,
+    reload(moved).packs["greek-drama"].recitals["greek-report-plan"].actor,
   ).toBeNull();
 });
