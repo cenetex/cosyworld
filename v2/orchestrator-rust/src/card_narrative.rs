@@ -2632,25 +2632,30 @@ mod tests {
                 "Pip adjusts the borrowed waistcoat and smiles.",
                 "self-narration",
             ),
-            ("I remember: the lamp moved.", "echoed brief"),
-            (
-                "Yes, the keeper polished the brass bell twice.",
-                "echoed brief",
-            ),
             // Observed on .dev, 2026-10-31: a first-person dialogue tag.
             (
                 "\"You hit me and I hit back,\" I say, keeping my hand near the door.",
                 "narration tag",
             ),
             ("\"Stay,\" I say, \"and listen.\"", "narration tag"),
-            // Observed on .dev, 2026-11-01: an earlier give told as this beat.
+            // Observed on .dev, 2026-11-01: an earlier give told as this beat
+            // (Pip speaks here, so Pip gives to Vale).
             (
-                "I give the Lamp to Pip. I'll keep the course steady.",
+                "I give the Lamp to Vale. I'll keep the course steady.",
                 "stage action",
             ),
             ("Fine. I take the bell.", "stage action"),
         ] {
             assert_eq!(clean(raw), Err(reason), "{raw}");
+        }
+        // Memories stay out of a line's brief (#1537), so a read-back of one
+        // is caught where the brief carries it: reflection.
+        let thought = Check::new(&c, pip, Part::Thought);
+        for raw in [
+            "I remember: the lamp moved.",
+            "Yes, the keeper polished the brass bell twice.",
+        ] {
+            assert_eq!(thought.clean(raw, true), Err("echoed brief"), "{raw}");
         }
         // A word emphasised mid-sentence keeps its word; directions still go.
         assert_eq!(
@@ -3627,7 +3632,17 @@ mod tests {
         for body in &requests {
             assert!(body.get("response_format").is_none());
             let text = body["messages"].to_string();
-            if body["model"] == "vale-model" {
+            let stem = body["messages"].as_array().unwrap().last().unwrap()["content"]
+                .as_str()
+                .unwrap()
+                .lines()
+                .last()
+                .unwrap();
+            if body["model"] == "vale-model" && stem == "Vale:" {
+                // A line sees this beat, not past deeds (#1537).
+                assert!(!text.contains("Vale private kindness memory"));
+                assert!(!text.contains("Moth private persona sentinel"));
+            } else if body["model"] == "vale-model" {
                 assert!(text.contains("Vale private kindness memory"));
                 assert!(!text.contains("Moth private persona sentinel"));
             } else if body["model"] == "moth-model" {
@@ -3638,6 +3653,17 @@ mod tests {
                 assert!(!text.contains("Vale private kindness memory"));
             }
         }
+        // Vale's thought, persona and dream in both scenes read the memory.
+        let remembering = requests
+            .iter()
+            .filter(|body| body["model"] == "vale-model")
+            .filter(|body| {
+                body["messages"]
+                    .to_string()
+                    .contains("Vale private kindness memory")
+            })
+            .count();
+        assert_eq!(remembering, 6);
         // A place that fails twice stays silent; the speakers are still published.
         c.entities[1].facts.push("Fail this place.".into());
         let partial = app.clone().oneshot(request(&c)).await.unwrap();
