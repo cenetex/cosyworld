@@ -37,7 +37,7 @@ ship lies at the pond or is at sea. The ship shows at the landing only then.
 A traveller still on the island when the mist lifts, or when the ship docks
 at another port, waits there until both hold again.
 
-Observe (the Wait play) at a place to notice its signs, one per Observe, in
+Observe (the `wait` play) at a place to notice its signs, one per Observe, in
 an order seeded by the run; there are no observation buttons. By day: the
 otter and the boatman (landing) and pacing out the willows (camp). By night:
 pacing it again and the patterings on the tent (camp) and the shapes over the

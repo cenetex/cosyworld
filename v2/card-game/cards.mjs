@@ -1,3 +1,4 @@
+import { observeText } from "./observe-words.mjs";
 import {
   entityActive,
   packThings,
@@ -99,7 +100,10 @@ export function placePlays(world, id) {
 export function cardPlay(world, selected) {
   const cards = [...new Set(selected)];
   const available = availableCards(world);
-  const result = (action, hint) => ({ action, hint: action?.text || hint });
+  const result = (action, hint) => ({
+    action,
+    hint: observeText(action?.text) || hint,
+  });
   if (!cards.length || cards.some((id) => !available.includes(id)))
     return result(null, "Choose a card from this hand.");
   if (cards.length > 2) return result(null, "Play one card or a pair.");
@@ -313,7 +317,7 @@ export function playLabel(action) {
     cover: "Cover",
     move: "Travel",
     talk: "Talk",
-    wait: "Wait",
+    wait: "Observe",
   }[action?.kind];
 }
 

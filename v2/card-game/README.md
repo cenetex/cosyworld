@@ -502,9 +502,13 @@ turn and moves nothing. It records `accepted: false` and one reason: `grudge`,
 `needs-it` or `wants-something-else`. Ask and Accompany refusals commit the
 same codes. The log says only that the other side declines; the narrator brief
 passes the code to the cast, so the refuser's own line says why. Plans carry no
-reason text, and a player's Wait is an ordinary `wait` action entry. The
+reason text, and a player's Observe is an ordinary `wait` action entry. The
 residents' planner reads `expects(s, action)` to skip some offers it expects
 to be refused.
+
+Observe keeps the rules verb id `wait`. The journal, released rule bundles
+and saves still commit "Vale waits one turn."; `observe-words.mjs` shows it
+as "Vale observes." on the table and in the narrator brief.
 
 Accompany requests use the companion's quest, the items carried by the requester, favours, and grievances. An agreed trip moves both avatars and their belongings through the usual rules. A refusal leaves both in place for that exchange. The other cast member takes its own turn.
 
@@ -537,7 +541,7 @@ estimate before the play, the observed result, and the exact event as evidence.
 The first estimate is unknown. Later estimates come from that avatar's results.
 
 The action chooser compares those results across legal requests, trades, gifts,
-conversations and waits. It gives less-tried approaches room to establish a
+conversations and observing. It gives less-tried approaches room to establish a
 record. Recent results matter more. A changed situation gets fresh exploration,
 with earlier results providing a small starting estimate. The same present
 world can therefore produce different choices for avatars with different past
@@ -552,8 +556,8 @@ later result with a 0.7 discount per step. A changed recorded situation or a
 completed goal ends that link. Human choices and resident choices use the same
 measurement path. Earlier lessons remain readable in existing saves.
 
-Solo and shared avatars reflect when they choose **Wait** after something new
-has happened to them. Other plays never start a reflection. A new thought
+Solo and shared avatars reflect when they choose **Observe** after something
+new has happened to them. Other plays never start a reflection. A new thought
 informs the persona revision. A dream may come with the thought, alongside the
 persona. Each accepted revision keeps its source events, previous persona and
 the model used for each part. Four revisions stay in the save. Thoughts stay at
@@ -740,7 +744,7 @@ with their own calls. Authored personas and voice profiles remain the roots of
 identity; current actions, possessions, travel and relationships come from the
 resolved simulation.
 
-An avatar reflects when it chooses Wait after a new witnessed event; the scene
+An avatar reflects when it chooses Observe after a new witnessed event; the scene
 names that avatar as `resting`. A reflection supplies a thought and an evolved
 persona. The thought and persona prompts also carry the avatar's hope, its wish
 and next step, from the life rules. Sleeping and waking state still comes from

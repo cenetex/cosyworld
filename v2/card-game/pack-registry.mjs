@@ -491,7 +491,7 @@ export function packGiveChoice(world, action) {
   return null;
 }
 // Choices marked "on": "wait" are what a human traveler notices by Observing
-// (the Wait play) at their place. One feasible sign commits per Observe; the
+// (the `wait` play) at their place. One feasible sign commits per Observe; the
 // run seed and the signs already seen pick which, so each run has its order.
 export function packWaitChoice(world, actor) {
   if (!controlledByHuman(world, actor)) return null;
