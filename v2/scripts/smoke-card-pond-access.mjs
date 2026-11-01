@@ -199,6 +199,8 @@ try {
     );
     assert.equal(await card("pond").count(), 0);
     await painted("attic-lit");
+    // Its own paintings carry the light; the stage dims them only at night.
+    assert.equal(await page.locator("body").getAttribute("data-dim"), "false");
     // Dousing it shows the Black Pond in the glass and the way out.
     await selectCard(page, "lamp");
     await page.locator("#card-actions .card-primary").click();
@@ -228,7 +230,7 @@ try {
     assert.equal((await state()).actors.vale.place, "pond");
     assert.deepEqual(errors, []);
     console.log(
-      `Douse to leave, lit at the pond to return, lit and doused paintings, Pip keeping the lamp at the pond, burn-out and carried-away closing, reload and relighting passed at ${width}px.`,
+      `Douse to leave, lit at the pond to return, lit and doused paintings undimmed by day, Pip keeping the lamp at the pond, burn-out and carried-away closing, reload and relighting passed at ${width}px.`,
     );
     await page.close();
   }

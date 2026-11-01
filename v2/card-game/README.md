@@ -433,7 +433,7 @@ Empty station connects to Black pond. Mirror attic connects to the pond through
 the reflection. Leaving the attic requires the lamp in the attic, not shining
 (doused, dry or covered). Returning needs a lit, fueled, uncovered lamp at the pond. Both are
 `requires` data on `forest.json` `reflectionRoutes`; the attic's `backdrops`
-paint it lit, doused, or dark without the lamp. The Black
+paint it lit, doused, or dark without the lamp; the stage dims those paintings only at night. The Black
 cloth in the lit attic also reveals stairs down to Cosy Cottage, with a matching
 painting. The cloth can lie in the room or travel with someone or something
 there. The cottage's
