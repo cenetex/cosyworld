@@ -392,11 +392,14 @@ describe("card standoffs", () => {
 describe("standoff endings", () => {
   // A player who keeps Striking or Bracing keeps a threat open by choice, so
   // the long run mixes fighting with standing down. Residents follow their
-  // own plans, and every standoff still ends within a few rounds. Six seeds
-  // of 150 plays take about 4 s locally and 20 s on a busy runner, past the
-  // 10 s default.
-  it("never leaves a standoff open in long runs", () => {
-    for (let seed = 1; seed <= 6; seed++) {
+  // own plans, and every standoff still ends within a few rounds. Each play
+  // clones and validates the whole world (66 actors, ~300 KB by turn 150),
+  // so one seed of 150 plays takes ~0.6 s locally and a few seconds on a
+  // busy runner. Each seed is its own test so none nears the 10 s default.
+  const seeds = [1, 2, 3, 4, 5, 6];
+  it.each(seeds)(
+    "never leaves a standoff open in long runs (seed %i)",
+    (seed) => {
       let rng = seed;
       const roll = (n) => (rng = (rng * 48271) % 2147483647) % n;
       let s = meeting();
@@ -424,12 +427,13 @@ describe("standoff endings", () => {
           longest = Math.max(longest, s.turn - c.opened);
       }
       expect(longest, `seed ${seed}`).toBeLessThanOrEqual(10);
-    }
-  }, 60_000);
+    },
+  );
   // A player who stands down at once still gets out: a resident either
   // stands down too or fights it to a finish.
-  it("ends every standoff the player stands down from", () => {
-    for (let seed = 1; seed <= 6; seed++) {
+  it.each(seeds)(
+    "ends every standoff the player stands down from (seed %i)",
+    (seed) => {
       let rng = seed;
       const roll = (n) => (rng = (rng * 48271) % 2147483647) % n;
       let s = meeting();
@@ -455,8 +459,8 @@ describe("standoff endings", () => {
           longest = Math.max(longest, s.turn - c.opened);
       }
       expect(longest, `seed ${seed}`).toBeLessThanOrEqual(10);
-    }
-  });
+    },
+  );
 });
 
 // A standoff one hit from its end, as if earlier blows had already landed.
