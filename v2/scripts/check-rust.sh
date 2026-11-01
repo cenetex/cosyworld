@@ -16,7 +16,6 @@ TIMEOUT_SECS="${COSYWORLD_CARGO_TIMEOUT_SECS:-$DEFAULT_TIMEOUT_SECS}"
 # report on every push. Each has an issue and a fix-by date; remove a name
 # here when its fix lands. Never delete or #[ignore] them.
 QUARANTINED_TESTS=(
-  divergent_capacity_processes_converge_without_affinity # #1553, fix by 2026-11-14
   hot_room_and_regional_chaos_preserve_one_committed_world # #1554, fix by 2026-11-14
 )
 
@@ -83,13 +82,18 @@ run_cargo_tests() {
 
 run_tests() {
   local skips=()
-  for name in "${QUARANTINED_TESTS[@]}"; do
+  for name in ${QUARANTINED_TESTS[@]+"${QUARANTINED_TESTS[@]}"}; do
     skips+=(--skip "$name")
   done
-  run_cargo_tests "running orchestrator cargo test" "${skips[@]}"
+  run_cargo_tests "running orchestrator cargo test" ${skips[@]+"${skips[@]}"}
 }
 
 run_quarantined() {
+  # With no names, libtest would run every test instead of none.
+  if [ "${#QUARANTINED_TESTS[@]}" -eq 0 ]; then
+    echo "no quarantined orchestrator tests"
+    return 0
+  fi
   run_cargo_tests "running quarantined orchestrator tests" "${QUARANTINED_TESTS[@]}"
 }
 
