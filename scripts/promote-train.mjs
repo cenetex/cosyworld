@@ -31,7 +31,14 @@ export function trainRollout(run, jobs) {
       candidate.name === TRAIN_ROLLOUT_STEP &&
       candidate.conclusion === "success",
   );
-  if (!job || !step || !SHA.test(run.head_sha ?? "")) return null;
+  // A train runs its Rust checks after this job; it counts once the job ends.
+  if (
+    !job ||
+    job.status !== "completed" ||
+    !step ||
+    !SHA.test(run.head_sha ?? "")
+  )
+    return null;
   return {
     sha: run.head_sha,
     runId: run.id,
@@ -144,7 +151,7 @@ async function main() {
 
   const trains = [];
   for (const run of runs) {
-    if (run.status !== "completed" || isProductionRun(run)) continue;
+    if (isProductionRun(run)) continue;
     const rollout = trainRollout(
       run,
       (await api(`/repos/${repo}/actions/runs/${run.id}/jobs?per_page=100`))

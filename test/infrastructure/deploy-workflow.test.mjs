@@ -187,7 +187,9 @@ describe("deploy workflow", () => {
     expect(rustLint).toContain("if: steps.ci.outputs.reuse != 'true'");
     expect(rustLint).toContain("bash v2/scripts/check-main-size.sh");
     expect(rustLint).toContain("bash v2/scripts/check-rust-lint.sh");
-    expect(rustLint).toContain("needs: [deployment-impact, release-owner]");
+    expect(rustLint).toContain(
+      "needs: [dev-deploy, deployment-impact, release-owner]",
+    );
     expect(gate).toContain(
       "needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate, production-rust-lint]",
     );
@@ -241,12 +243,16 @@ describe("deploy workflow", () => {
     expect(nodeGate).toContain(
       `needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`,
     );
-    expect(rustGate).toContain(
-      `needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`,
-    );
-    expect(rustLint).toContain(
-      `needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`,
-    );
+    // The Rust gate and lint also run after a train's rollout, so its
+    // promotion and a version-bump tag reuse them; the train never waits.
+    for (const rust of [rustGate, rustLint]) {
+      expect(rust).toContain(
+        `needs.release-owner.outputs.owns == 'true' &&\n        ${fullRelease}) ||`,
+      );
+      expect(rust).toContain(
+        "(needs.dev-deploy.result == 'success' && needs.dev-deploy.outputs.rolled-out == 'true')",
+      );
+    }
     // A train skips the gate job rather than spend a runner on it.
     expect(gate).toContain(`if: \${{ always() && ${fullRelease} }}`);
     expect(gate).toContain(`FULL_RELEASE: \${{ ${fullRelease} }}`);
