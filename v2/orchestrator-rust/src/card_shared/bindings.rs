@@ -13,7 +13,7 @@ const ADJECTIVES: &str =
      Copper Coral Dappled Dawn Dusky Ember Fable Fennel Fern Frost Gentle Gilded \
      Glimmer Hazel Heather Hollow Honey Ivory Juniper Lantern Linen Maple Meadow \
      Mellow Misty Moss Nutmeg Oaken Pale Pebble Pine Plum Quiet Rain Rowan Russet \
-     Saffron Sage Silver Slate Snowy Sorrel Starlit Still Sunny Thistle Tidal \
+     Saffron Sable Silver Slate Snowy Sorrel Starlit Still Sunny Thistle Tidal \
      Twilight Velvet Willow Winter Woolly Wren";
 const NOUNS: &str =
     "Badger Beetle Bittern Bobcat Crane Cricket Crow Curlew Deer Dormouse Dove Eel \

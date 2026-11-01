@@ -158,7 +158,7 @@ fn holders_are_named_without_their_account_id() {
     assert_eq!(name, super::bindings::holder_name(user));
     assert_ne!(name, super::bindings::holder_name("acct-5f3a9d"));
     // The word lists are frozen: this pin changes only if they do.
-    assert_eq!(super::bindings::holder_name("ann"), "Sage Swift");
+    assert_eq!(super::bindings::holder_name("ann"), "Sable Swift");
     let view = full_store::snapshot(&c, &id, "late", now()).unwrap();
     assert_eq!(view["holders"][actor_index("mara").unwrap()], name);
     assert_eq!(view["holders"][0], serde_json::Value::Null);
