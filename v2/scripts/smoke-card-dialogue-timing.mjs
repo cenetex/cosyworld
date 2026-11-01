@@ -27,6 +27,14 @@ function fixture(kind) {
   world.actors.keeper.place = "pond";
   world.opening.met.keeper = 0;
   if (kind === "light") world.items.lamp.lit = false;
+  // The keeper's pack is private until Vale's want names his cloth (#1791).
+  if (kind === "ask")
+    world.actors.vale.want = {
+      kind: "item",
+      target: "cloth",
+      since: world.turn,
+      refusals: 0,
+    };
   const previous = kind === "ask" ? "keeper" : "moth";
   addLog(world, nameOf(previous), "The last conversation has ended.", {
     actorId: previous,
