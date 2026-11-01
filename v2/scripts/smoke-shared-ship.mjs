@@ -122,10 +122,17 @@ try {
         await page.waitForFunction(
           () => document.querySelector("#hand")?.dataset.cooling === "false",
         );
+        // Another player's play repaints this hand when its shared update
+        // lands, which can detach the card mid-click. Wait until the hand
+        // shows the current revision, then open the location stack if the
+        // card lies in it and play it.
+        await page.waitForFunction(
+          (revision) =>
+            document.querySelector("#hand")?.dataset.presentedRevision ===
+            String(revision),
+          world.revision,
+        );
         const turn = world.turn;
-        // A shared update can repaint the hand while another player boards.
-        // The locator click follows the current card through that repaint,
-        // and opens the location stack first when the card lies in it.
         await selectCard(page, card);
         await page.getByRole("button", { name, exact: true }).click();
         for (let n = 0; n < 200 && world.turn === turn; n++)
