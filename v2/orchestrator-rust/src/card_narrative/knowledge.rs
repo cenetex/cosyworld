@@ -47,6 +47,11 @@ pub(super) fn valid(context: &Context) -> bool {
 }
 
 pub(super) fn directions(context: &Context, id: &str) -> Vec<String> {
+    let cast: Vec<String> = context
+        .entities
+        .iter()
+        .map(|e| super::name(&e.id))
+        .collect();
     context
         .disclosures
         .iter()
@@ -58,21 +63,37 @@ pub(super) fn directions(context: &Context, id: &str) -> Vec<String> {
                 spoken(
                     &fact.text,
                     &super::name(&fact.speaker),
-                    &super::name(&fact.listener)
+                    &super::name(&fact.listener),
+                    &cast,
                 )
             )
         })
         .collect()
 }
 
-/// The fact in the speaker's own voice, so a small model can say it as it
-/// stands: "Vale takes the Lamp." becomes "I take the Lamp." for Vale.
-fn spoken(text: &str, speaker: &str, listener: &str) -> String {
+/// The fact in the speaker's own voice and in the past, so a small model can
+/// say it as it stands without narrating it as this beat (#1537): "Vale takes
+/// the Lamp." becomes "I took the Lamp." for Vale.
+fn spoken(text: &str, speaker: &str, listener: &str, cast: &[String]) -> String {
     let mut out = String::new();
     let mut rest = text;
     let mut subject = None;
     while !rest.is_empty() {
-        let start = out.is_empty();
+        let start = out.is_empty() || out.trim_end().ends_with(['.', '!', '?']);
+        // Another named subject's verb is told in the past too.
+        let other = cast.iter().filter(|n| start && !n.is_empty()).find(|n| {
+            rest.starts_with(n.as_str())
+                && !rest[n.len()..]
+                    .starts_with(|c: char| c.is_alphanumeric() || c == '\'' || c == '’')
+                && n.as_str() != speaker
+                && n.as_str() != listener
+        });
+        if let Some(named) = other {
+            out.push_str(named);
+            rest = &rest[named.len()..];
+            subject = Some("It");
+            continue;
+        }
         let person = [
             (speaker, ["I", "me", "My", "my"]),
             (listener, ["You", "you", "Your", "your"]),
@@ -108,7 +129,7 @@ fn spoken(text: &str, speaker: &str, listener: &str) -> String {
         rest = &rest[len..];
         match subject.take() {
             Some(person) if word.chars().all(char::is_alphanumeric) => {
-                out.push_str(&agree(word, person == "I"))
+                out.push_str(&past(word, person))
             }
             Some(person) if word == " " => {
                 out.push(' ');
@@ -118,6 +139,50 @@ fn spoken(text: &str, speaker: &str, listener: &str) -> String {
         }
     }
     out
+}
+
+/// A present verb after its subject, told in the past: takes -> took,
+/// gives -> gave, is -> was/were. Other words ("can") stay as they are.
+/// Every form folds back to the same stem, so `delivered` still matches.
+fn past(verb: &str, person: &str) -> String {
+    match verb {
+        "is" | "am" | "are" | "was" | "were" => {
+            return (if person == "You" { "were" } else { "was" }).into()
+        }
+        "has" | "have" => return "had".into(),
+        "does" => return "did".into(),
+        "goes" => return "went".into(),
+        _ if !verb.ends_with('s') || verb.ends_with("ss") || verb.len() <= 2 => return verb.into(),
+        _ => {}
+    }
+    let base = agree(verb, true);
+    if let Some((was, _)) = FORMS
+        .iter()
+        .find(|(was, is)| *is == base && !was.ends_with('s'))
+    {
+        return (*was).into();
+    }
+    if ["put", "set", "cut", "hit", "let", "shut"].contains(&base.as_str()) {
+        return base;
+    }
+    let chars: Vec<char> = base.chars().collect();
+    let vowel = |c: &char| "aeiou".contains(*c);
+    let n = chars.len();
+    if base.ends_with('e') {
+        format!("{base}d")
+    } else if n > 1 && chars[n - 1] == 'y' && !vowel(&chars[n - 2]) {
+        format!("{}ied", &base[..base.len() - 1])
+    } else if n >= 3
+        && !vowel(&chars[n - 1])
+        && !"wxy".contains(chars[n - 1])
+        && vowel(&chars[n - 2])
+        && !vowel(&chars[n - 3])
+        && chars.iter().filter(|c| vowel(c)).count() == 1
+    {
+        format!("{base}{}ed", chars[n - 1])
+    } else {
+        format!("{base}ed")
+    }
 }
 
 /// The verb after "I" or "You": takes -> take, is -> am/are, has -> have.
@@ -391,7 +456,7 @@ mod tests {
         let context = vale_saw("Vale takes the Lamp.");
         assert!(valid(&context));
         let prompt = directions(&context, "vale").join(" ");
-        assert!(prompt.contains("I take the Lamp."), "{prompt}");
+        assert!(prompt.contains("I took the Lamp."), "{prompt}");
         for told in [
             "I take the Lamp.",
             "I took the lamp. It was warm.",
@@ -421,19 +486,45 @@ mod tests {
         let context = vale_saw("Pip gives the Lamp to Vale.");
         assert_eq!(
             directions(&context, "vale")[0],
-            "I tell Pip this as one sentence: You give the Lamp to me. I may add one short sentence of my own."
+            "I tell Pip this as one sentence: You gave the Lamp to me. I may add one short sentence of my own."
         );
         assert!(delivered(&context, "vale", "You gave the lamp to me."));
         assert!(delivered(&context, "vale", "Pip gave the Lamp to me."));
         assert!(!delivered(&context, "vale", "You gave the cloth to me."));
         let context = vale_saw("Vale has Pip's Lamp.");
-        assert!(directions(&context, "vale")[0].contains("I have your Lamp."));
+        assert!(directions(&context, "vale")[0].contains("I had your Lamp."));
         assert!(delivered(&context, "vale", "I had your lamp."));
         assert!(!delivered(&context, "vale", "I had my lamp."));
         let context = vale_saw("Vale is beside the pond.");
-        assert!(directions(&context, "vale")[0].contains("I am beside the pond."));
+        assert!(directions(&context, "vale")[0].contains("I was beside the pond."));
         assert!(delivered(&context, "vale", "I was beside the pond."));
         assert!(!delivered(&context, "vale", "I was beside the attic."));
+    }
+
+    #[test]
+    fn a_told_deed_is_past_so_it_never_reads_as_this_beat() {
+        let context = vale_saw("The keeper attacks Vale. Vale drops the Bell.");
+        let prompt = directions(&context, "vale").join(" ");
+        assert!(
+            prompt.contains("The keeper attacked me. I dropped the Bell."),
+            "{prompt}"
+        );
+        assert!(delivered(
+            &context,
+            "vale",
+            "The keeper attacked me. I dropped the bell."
+        ));
+        for (verb, told) in [
+            ("gives", "gave"),
+            ("carries", "carried"),
+            ("lights", "lighted"),
+            ("arrives", "arrived"),
+            ("rings", "rang"),
+            ("puts", "put"),
+            ("can", "can"),
+        ] {
+            assert_eq!(past(verb, "I"), told, "{verb}");
+        }
     }
 
     #[test]

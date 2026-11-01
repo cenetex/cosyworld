@@ -1481,6 +1481,25 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             "guard" => Some("guarding against"),
             _ => None,
         };
+        // The play itself, once, in the present for the two it joins.
+        if let ("give", Some(item), Some(target)) = (
+            card.kind.as_str(),
+            card.item.as_deref(),
+            card.target.as_deref(),
+        ) {
+            let actor = context.acting_avatar.as_deref().unwrap_or("vale");
+            if card.accepted != Some(false) && id == actor {
+                lines.push((
+                    Section::Now,
+                    format!("I'm handing {} {}.", name(target), name(item)),
+                ));
+            } else if card.accepted != Some(false) && id == target {
+                lines.push((
+                    Section::Now,
+                    format!("{} is handing me {}.", name(actor), name(item)),
+                ));
+            }
+        }
         if let (Some(stance), Some(target)) = (stance, card.target.as_deref()) {
             let actor = context.acting_avatar.as_deref().unwrap_or("vale");
             if id == actor {
@@ -1533,7 +1552,9 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     for memory in &entity.memories {
         let text = memory.text.strip_prefix("World: ").unwrap_or(&memory.text);
         lines.push(match memory.kind.as_str() {
-            "expression" if part == Part::Line => continue,
+            // Now, not a log (#1537): a line sees this beat, not past deeds
+            // in the present tense ("Vale gives the Lamp to Pip").
+            _ if part == Part::Line => continue,
             "expression" => (Section::Earlier, format!("Earlier: {text}")),
             _ => (Section::Memories, format!("I remember: {text}")),
         });
@@ -2282,6 +2303,11 @@ impl<'a> Check<'a> {
         if kind(&self.entity.id, "avatar") && mentions(&freely_spoken, &own) {
             return Err("self-narration");
         }
+        // The stage shows the play; a line that narrates the speaker's own
+        // deed ("I give the Lamp to Pip.") is a stage direction.
+        if kind(&self.entity.id, "avatar") && stage_action(&kept) {
+            return Err("stage action");
+        }
         // A line wrapped in its own dialogue tag (`hit you back," I say,
         // keeping my hand…`) leaves a stray quote or tags its speaker.
         let marks = kept.matches(['"', '\u{201c}', '\u{201d}']).count();
@@ -2303,6 +2329,18 @@ impl<'a> Check<'a> {
         }
         Ok(kept)
     }
+}
+
+/// Whether a sentence narrates the speaker's own present deed with an item:
+/// "I give the Lamp to Pip." "I take the Bell." "I give you my word" speaks.
+fn stage_action(text: &str) -> bool {
+    text.split_inclusive(['.', '!', '?', ';'])
+        .map(|s| s.trim().to_lowercase())
+        .any(|s| {
+            ["give", "hand", "pass", "take", "offer", "drop", "put"]
+                .iter()
+                .any(|verb| s.starts_with(&format!("i {verb} the ")))
+        })
 }
 
 /// Whether `text` names `name` as a whole word.
@@ -2605,6 +2643,12 @@ mod tests {
                 "narration tag",
             ),
             ("\"Stay,\" I say, \"and listen.\"", "narration tag"),
+            // Observed on .dev, 2026-11-01: an earlier give told as this beat.
+            (
+                "I give the Lamp to Pip. I'll keep the course steady.",
+                "stage action",
+            ),
+            ("Fine. I take the bell.", "stage action"),
         ] {
             assert_eq!(clean(raw), Err(reason), "{raw}");
         }
@@ -3141,7 +3185,7 @@ mod tests {
             .as_str()
             .unwrap()
             .to_string();
-        assert!(prompt.contains("I take the Lamp."), "{prompt}");
+        assert!(prompt.contains("I took the Lamp."), "{prompt}");
         server.abort();
     }
 
@@ -4082,9 +4126,10 @@ mod tests {
         let vale = transcript(&c, &c.entities[0], Part::Line);
         assert!(vale.contains("Just now: Vale asks Pip what they want."));
         assert!(vale.contains("Holding the lamp."));
-        assert!(
-            transcript(&c, &c.entities[2], Part::Line).contains("I remember: Vale lit the lamp.")
-        );
+        // Past deeds stay out of a line (#1537); reflection still reads them.
+        assert!(!transcript(&c, &c.entities[2], Part::Line).contains("I remember:"));
+        assert!(transcript(&c, &c.entities[2], Part::Thought)
+            .contains("I remember: Vale lit the lamp."));
         // Spoken lines stay out of speech; reflection still reads them.
         let pip = transcript(&c, &c.entities[3], Part::Line);
         assert!(!pip.contains("I offered my cloth."));
