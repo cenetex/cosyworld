@@ -440,12 +440,6 @@ export function installSharedControls({
   });
   share.id = "shared-worlds-button";
   document.querySelector(".top-actions").prepend(share);
-  const worlds = button("Worlds", async () => {
-    if (session) await session.command({ op: "leave" });
-    location.href = "/?shared=1";
-  });
-  worlds.id = "owned-worlds-button";
-  document.querySelector(".top-actions").prepend(worlds);
   if (!session) {
     if (linkedWorld()) {
       const resume = button("Continue shared world", () => {
@@ -468,31 +462,10 @@ export function installSharedControls({
   roomStatus.hidden = true;
   document.querySelector(".play-dock").prepend(roomStatus);
   $("new-game").hidden = true;
-  const saveCopy = [...$("menu-dialog").querySelectorAll("p")].find((p) =>
-    p.textContent.includes("Your game saves"),
-  );
-  if (saveCopy)
-    saveCopy.textContent =
-      "This shared world saves for everyone. Your passkey keeps your place.";
   $("menu-dialog").append(
     button("Add a passkey", async () => {
       await passkey(true);
       notice("Your extra passkey is ready.");
-    }),
-    button("Leave this room", async () => {
-      await session.command({ op: "leave" });
-      location.href = "/?shared=1";
-    }),
-    button("Release this avatar", () => {
-      $("menu-dialog").close();
-      const box = panel(
-        "Release your avatar?",
-        "Their belongings and story will stay in this world. Someone else can then claim this avatar.",
-      );
-      box.append(
-        button("Keep my avatar", () => modal.close()),
-        button("Release avatar", () => session.command({ op: "release" })),
-      );
     }),
     button("Sign out", async () => {
       await session.command({ op: "leave" });

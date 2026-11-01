@@ -354,8 +354,8 @@ try {
       assert.deepEqual(await state(), saved);
       // Reset through the real menu, then cancel a live reveal with a save update.
       await page.locator("#toolbar-menu-button").click();
-      await page.locator("#menu-button").click();
-      await page.locator("#new-game").click();
+      await page.locator("#avatar-move").click();
+      await page.locator("#avatar-new-world").click();
       await page.locator("#confirm-reset").click();
       await ready();
       assert.equal((await state()).actors.vale.place, "attic");

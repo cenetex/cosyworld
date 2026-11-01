@@ -396,8 +396,8 @@ try {
     "Songs finish their fade before the next room starts music",
   );
   await page.locator("#toolbar-menu-button").click();
-  await page.locator("#menu-button").click();
-  await page.locator("#new-game").click();
+  await page.locator("#avatar-move").click();
+  await page.locator("#avatar-new-world").click();
   await page.locator("#confirm-reset").click();
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await page.reload();
