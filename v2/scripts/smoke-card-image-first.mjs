@@ -467,8 +467,11 @@ try {
       );
       assert.equal(await card("lamp").getAttribute("aria-pressed"), "true");
       await assertHeldItem("lamp");
+      // The dialogue lies over the stage as its sibling and takes drops too,
+      // so the drop may land on it.
       await card("lamp").dragTo(page.locator("#stage"), {
         targetPosition: { x: width / 2, y: 110 },
+        force: true,
       });
       await ready();
       // Both items stay in Vale's hands, so the lamp stays held.

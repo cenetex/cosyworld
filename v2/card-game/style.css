@@ -2326,3 +2326,96 @@ body .beat-live {
     transition: none;
   }
 }
+
+/* The dialogue lies over the hand (option D). It is a sibling of the stage,
+   so on phones and tablets it can sit over the dock. There it keeps one fixed
+   box at the foot of the screen and never moves: a resting hand shows its
+   cards' tops above it, and a raised hand lifts the cards further, with
+   their feet still tucked behind it. Each card's name sits just above the
+   dialogue. Wide screens keep the dialogue beside the resting hand, and
+   short ones above it, since their cards are too short to show above it. */
+main > .dialogue {
+  z-index: 4;
+}
+@media not all and (min-width: 1100px) and (min-aspect-ratio: 3/2) {
+  @media (min-height: 641px) {
+    :root {
+      --dialogue-height: 106px;
+      /* The dialogue's box plus the gap under it. */
+      --dialogue-cover: calc(
+        var(--dialogue-height) + max(8px, env(safe-area-inset-bottom))
+      );
+      /* How much of a resting card shows above the dialogue, and how much
+         of a raised card stays behind it. */
+      --resting-show: 0.4;
+      --raised-tuck: 0.2;
+    }
+    main > .dialogue {
+      z-index: 6;
+    }
+    :root body .dialogue {
+      top: auto;
+      bottom: max(8px, env(safe-area-inset-bottom));
+      height: var(--dialogue-height);
+      transition: opacity 280ms ease-in-out;
+    }
+    :root body .dialogue[data-dropped="true"] {
+      translate: none;
+    }
+    /* One beat at a time: long lines scroll inside the box. The earlier
+       beat stays in the layout, hidden, so its motions still finish. */
+    :root body .dialogue.beat-stack .beat-behind {
+      visibility: hidden;
+      pointer-events: none;
+    }
+    :root body .dialogue.beat-stack > .beat-front {
+      height: 100%;
+      padding-block: 6px;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      align-items: start;
+      overflow: hidden;
+    }
+    :root body .beat-stack .speech-line {
+      align-self: stretch;
+      min-height: 0;
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    :root body .beat-stack #dialogue-text {
+      max-height: none;
+    }
+    :root body .beat-stack .speaker-portrait {
+      height: 28px;
+    }
+    .hand {
+      height: calc(
+        var(--dialogue-cover) + var(--card-height) * var(--resting-show) +
+          var(--hand-top)
+      );
+    }
+    .play-dock[data-selected="true"] .hand,
+    body[data-hand-expanded="true"] .hand {
+      height: calc(
+        var(--dialogue-cover) + var(--card-height) * (1 - var(--raised-tuck)) +
+          var(--hand-top)
+      );
+    }
+    /* The hand's arrows sit between the cards' tops and the dialogue. */
+    .hand-scroll {
+      top: calc((100% - var(--dialogue-cover)) / 2 - 24px);
+    }
+    body .hand .card .name {
+      bottom: calc(var(--card-height) * (1 - var(--resting-show)));
+      padding-top: 24px;
+    }
+    .play-dock[data-selected="true"] .hand .card .name,
+    body[data-hand-expanded="true"] .hand .card .name {
+      bottom: calc(var(--card-height) * var(--raised-tuck));
+    }
+  }
+}
+@media (max-width: 700px) {
+  :root {
+    --dialogue-height: 96px;
+  }
+}
