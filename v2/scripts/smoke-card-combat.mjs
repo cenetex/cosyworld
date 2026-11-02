@@ -146,6 +146,17 @@ try {
     await selectCard(page, "vale");
     await page.evaluate(() => {
       window.combatArt = [];
+      // The painted effects each beat drew (#1920).
+      window.combatEffects = [];
+      new MutationObserver((changes) => {
+        for (const change of changes)
+          for (const node of change.addedNodes)
+            if (node.classList?.contains("combat-effect"))
+              window.combatEffects.push(node.dataset.effect);
+      }).observe(document.querySelector("#cast"), {
+        subtree: true,
+        childList: true,
+      });
       // Who stands in the front row at each step of the exchange.
       window.battleRows = [];
       new MutationObserver(() => {
@@ -268,6 +279,16 @@ try {
       rows.every((r) => r.above),
       `The front row is drawn above ${JSON.stringify(rows)}`,
     );
+    // Brace raises its shield; the hit burst matches the recorded damage and,
+    // with motion, a trail follows the lunge.
+    const struck = (
+      await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key)
+    ).log.findLast((e) => e.verb === "attack");
+    report.effects = await page.evaluate(() => window.combatEffects);
+    assert.ok(report.effects.includes("brace-raise"), "Brace raises a shield");
+    assert.ok(report.effects.includes(`hit-${Math.min(3, struck.damage)}`));
+    if (motion !== "reduce")
+      assert.ok(report.effects.some((e) => /^(swipe|jab)-/u.test(e)));
     report.art = [...new Set(await page.evaluate(() => window.combatArt))];
     for (const [id, pose] of [
       ["vale", "guard"],
