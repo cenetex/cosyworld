@@ -18,14 +18,14 @@ use axum::{
 
 use crate::account_auth::AccountAuth;
 
-pub(super) const PASSKEYS_ENV: &str = "COSYWORLD_PASSKEYS";
-pub(super) const SIGNUPS_CLOSED: &str = "Sign-ups are closed on this test server.";
-pub(super) const MEMBERS_ONLY: &str =
+pub(crate) const PASSKEYS_ENV: &str = "COSYWORLD_PASSKEYS";
+pub(crate) const SIGNUPS_CLOSED: &str = "Sign-ups are closed on this test server.";
+pub(crate) const MEMBERS_ONLY: &str =
     "This test server is for invited players. Sign in with your passkey.";
 
 /// Whether this process runs members-only. Unknown values stop startup so a
 /// typo never opens a server that was meant to be closed.
-pub(super) fn members_only_from_env() -> io::Result<bool> {
+pub(crate) fn members_only_from_env() -> io::Result<bool> {
     parse_mode(std::env::var(PASSKEYS_ENV).ok().as_deref())
 }
 
@@ -59,7 +59,7 @@ fn public_path(method: &Method, path: &str) -> bool {
             && !path.starts_with("/card-game/local/"))
 }
 
-pub(super) async fn members_only_gate(
+pub(crate) async fn members_only_gate(
     State(auth): State<Arc<AccountAuth>>,
     request: Request,
     next: Next,

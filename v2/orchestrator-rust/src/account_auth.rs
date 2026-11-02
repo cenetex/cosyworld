@@ -399,7 +399,7 @@ impl AccountAuth {
             init_account_schema(path).map_err(|error| io::Error::other(error.to_string()))?;
         }
         let secure_cookie = rp_origin.starts_with("https://");
-        let members_only = crate::passkey_access::members_only_from_env()?;
+        let members_only = passkey_access::members_only_from_env()?;
         Ok(Self {
             webauthn,
             db_path,
@@ -601,7 +601,7 @@ pub(super) async fn passkey_registration_start(
     // A members-only server lets a signed-in passkey add another, never a
     // new account.
     if auth.members_only && current.is_none() {
-        return auth_message(StatusCode::FORBIDDEN, crate::passkey_access::SIGNUPS_CLOSED);
+        return auth_message(StatusCode::FORBIDDEN, passkey_access::SIGNUPS_CLOSED);
     }
 
     let bootstrap_wallet = payload
@@ -2480,6 +2480,9 @@ fn no_store_json<T: Serialize>(
     }
     response
 }
+
+#[path = "passkey_access.rs"]
+pub(crate) mod passkey_access;
 
 #[cfg(test)]
 #[path = "account_avatar_tests.rs"]

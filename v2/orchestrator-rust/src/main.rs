@@ -93,7 +93,6 @@ mod natural_affordances;
 mod notice;
 mod offer_commands;
 mod ownership;
-mod passkey_access;
 #[cfg(test)]
 mod project_push_tests;
 mod projection;

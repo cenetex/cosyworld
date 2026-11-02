@@ -456,7 +456,7 @@ fn app_router_with_dependencies(
         // `COSYWORLD_PASSKEYS=members` keeps play to known passkeys.
         .layer(middleware::from_fn_with_state(
             state.account_auth.clone(),
-            crate::passkey_access::members_only_gate,
+            crate::account_auth::passkey_access::members_only_gate,
         ))
         .layer(response_compression())
         .layer(CorsLayer::permissive())
