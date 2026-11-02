@@ -170,18 +170,19 @@ try {
             Math.abs(open.dialogue.x + open.dialogue.width / 2 - width / 2) <
               2 && open.dialogue.width <= 720,
           );
-        // The queue sits inside the dialogue's box.
+        // The queue stands just outside the dialogue's box, beside its top
+        // right corner and inside the screen.
         const chips = await page.evaluate(() => {
           const box = document
-            .querySelector("#speech-row")
+            .querySelector(".dialogue")
             .getBoundingClientRect();
           return [...document.querySelectorAll(".shared-play-avatar")].map(
             (chip) => {
               const rect = chip.getBoundingClientRect();
               return (
-                rect.left >= box.left &&
-                rect.right <= box.right &&
-                rect.top >= box.top &&
+                rect.left >= box.right &&
+                rect.right <= innerWidth &&
+                rect.top >= box.top - 1 &&
                 rect.bottom <= box.bottom
               );
             },
