@@ -51,6 +51,10 @@
         "smoke-card-find-hidden",
         "smoke-card-toolbar"
       ]
+    },
+    {
+      "paths": "^v2/card-game/(privacy|shared-auth)",
+      "smokes": ["smoke-card-privacy"]
     }
   ]
 }

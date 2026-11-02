@@ -32,6 +32,13 @@ visits, and track visits only for a chain long enough to hide a loop.
 once for a marked world, the one a play just returned, and clears the mark.
 A decoded, imported or saved-again world is checked in full.
 
+## Privacy
+
+The passkey panel and the members-only sign-in say what a passkey keeps and
+link the Privacy page (`privacy.html` at `/privacy`, also in Settings;
+[#2052](https://github.com/cenetex/cosyworld/issues/2052)). `privacy.mjs` holds
+the notice and operator details. `/download` redirects to the source on GitHub.
+
 ## Public assets
 
 `public-assets.mjs` defines the public files and their content types. It includes

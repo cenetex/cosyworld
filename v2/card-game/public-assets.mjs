@@ -182,6 +182,10 @@ const files = [
   "assets/shared/places/loft.png",
   "assets/shared/items/shears.png",
   "index.html",
+  // The Privacy page (#2052), served at /privacy.
+  "privacy.html",
+  "privacy.css",
+  "privacy.mjs",
   "style.css",
   "entry.mjs",
   "title-intro.mjs",
