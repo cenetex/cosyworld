@@ -169,23 +169,32 @@ describe("the world slots (#1877)", () => {
     expect(targetsFor(mara, null, linked, true).worlds).toContain("w9");
     expect(targetsFor(ash, null, linked, true).worlds).not.toContain("w9");
   });
-  it("signed out, lists one local world per avatar, never shared ones", () => {
-    const local = (id) => (id === "mara" ? "The Quiet Ferry" : null);
+  it("signed out, shows no world UI at all (#1892)", () => {
     const solo = worldSlots({
       shared: false,
       rows,
       here: { actor: "vale", place: { local: true, name: "Hollowmere" } },
-      local,
     });
-    expect(solo.slots.map((s) => s.key)).toEqual(["local:vale", "local:mara"]);
-    expect(solo.slots[1].seats.find((s) => s.id === "mara").kind).toBe("you");
-    expect(solo.deck).toHaveLength(6);
-    const vale = { id: "vale", name: "Vale" };
-    expect(targetsFor(vale, solo.slots[0], solo, false)).toEqual({
-      deck: true,
-      worlds: [],
-      create: true,
+    expect(solo).toEqual({ slots: [], deck: [], canCreate: false });
+  });
+  it("signed in at the local table, never lists it (#1892)", () => {
+    const view = worldSlots({
+      shared: true,
+      rows,
+      here: { actor: "vale", place: { local: true, name: "Hollowmere" } },
     });
+    expect(view.slots.map((s) => s.key)).toEqual(["w1", "w2", "w3"]);
+    expect(view.slots.some((s) => s.local || s.current)).toBe(false);
+    // Vale sits in w1, so the local Vale is not another copy in the deck.
+    expect(view.deck.map((a) => a.id)).not.toContain("vale");
+    const fresh = worldSlots({
+      shared: true,
+      rows: [],
+      here: { actor: "vale", place: { local: true, name: "Hollowmere" } },
+    });
+    expect(fresh.slots).toEqual([]);
+    expect(fresh.deck).toHaveLength(8);
+    expect(fresh.canCreate).toBe(true);
   });
 });
 
