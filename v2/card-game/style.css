@@ -2551,6 +2551,20 @@ body .beat-live {
   background: transparent;
   opacity: 0.5;
 }
+/* A beat with only buttons (a Take refused for space, #2018) leaves no empty
+   box beside them. */
+.action-beat-body:not(:has(> :not([hidden]))) {
+  display: none;
+}
+.beat-action .action-beat-body:not(:has(> :not([hidden]))) + #card-actions {
+  flex: 1 1 100%;
+  max-width: none;
+  box-shadow: none;
+}
+.beat-action #card-actions button[data-blocked]:disabled {
+  opacity: 0.85;
+  cursor: default;
+}
 /* What the play does takes two lines before it ends in an ellipsis. */
 .action-beat-text {
   display: -webkit-box;
