@@ -147,15 +147,24 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
     // Any thing tagged c.tag, carried by someone present at c.place.
     case "tag_held":
-      return Object.keys(s.items).some((id) => {
-        const holder = s.items[id].holder;
-        return (
-          Boolean(packThings[id]?.tags?.includes(c.tag)) &&
-          entityActive(s, id) &&
-          s.actors[holder]?.place === c.place &&
-          (!controlledByHuman(s, holder) || humanPresent(s, holder))
-        );
-      });
+      // A worn upgrade of that name counts as carrying the tag (#1873).
+      return (
+        Object.keys(s.actors).some(
+          (id) =>
+            s.actors[id].upgrades?.includes(c.tag) &&
+            s.actors[id].place === c.place &&
+            (!controlledByHuman(s, id) || humanPresent(s, id)),
+        ) ||
+        Object.keys(s.items).some((id) => {
+          const holder = s.items[id].holder;
+          return (
+            Boolean(packThings[id]?.tags?.includes(c.tag)) &&
+            entityActive(s, id) &&
+            s.actors[holder]?.place === c.place &&
+            (!controlledByHuman(s, holder) || humanPresent(s, holder))
+          );
+        })
+      );
     case "item_at":
       return s.items[c.item]?.holder === c.place;
     // Any thing from that world in the place: carried there or resting there.

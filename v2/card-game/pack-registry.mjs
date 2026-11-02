@@ -418,7 +418,8 @@ function choiceFeasible(world, pack, choice, actor, mode = null) {
     (pack.release &&
       state.scope !== "full" &&
       !pack.release.choices.includes(choice.id)) ||
-    world.actors[actor]?.place !== choice.at ||
+    // A hold choice follows its item wherever its holder stands.
+    (mode !== "hold" && world.actors[actor]?.place !== choice.at) ||
     !entityActive(world, choice.at) ||
     !entityActive(world, choice.subject) ||
     !conditionsMet(world, pack.id, choice.requires, actor)
@@ -516,6 +517,28 @@ export function packGiveChoice(world, action) {
       )
         return { packId: pack.id, choiceId: c.id, actor: action.actor };
   return null;
+}
+// Choices marked "on": "hold" commit once their item's holder is the
+// traveler the choice is for, by any route: a take, a gift, a trade, or an
+// item already held before the choice existed. Each runs after a play, so a
+// want to hold the item is met first. They are never offered as cards.
+export function applyHoldChoices(world) {
+  const applied = [];
+  for (const pack of packDefinitions)
+    for (const c of pack.choices || []) {
+      const actor = world.items[c.subject]?.holder;
+      if (
+        c.on !== "hold" ||
+        !world.actors[actor] ||
+        !choiceFeasible(world, pack, c, actor, "hold") ||
+        Object.values(packState(world, pack.id).receipts).includes(world.turn)
+      )
+        continue;
+      const action = { packId: pack.id, choiceId: c.id, actor };
+      applyPackChoice(world, action, { mode: "hold" });
+      applied.push({ ...action, item: c.subject, text: choiceText(c, actor) });
+    }
+  return applied;
 }
 // Choices marked "on": "wait" are what a human traveler notices by Waiting
 // at their place. One feasible sign commits per Wait; the
@@ -668,7 +691,7 @@ export function packFacts(world, id) {
       (c) =>
         owns(state.receipts, c.id) &&
         (c.subject === id ||
-          c.at === id ||
+          (c.at === id && c.on !== "hold") ||
           c.effects.some((effect) => effect.item === id)),
     )
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])
@@ -711,7 +734,8 @@ export function packSceneFacts(world, location) {
     ),
   );
   const local = committed
-    .filter((c) => c.at === location && !canon.includes(c))
+    // A hold choice happens wherever its holder stands, not at its `at`.
+    .filter((c) => c.at === location && c.on !== "hold" && !canon.includes(c))
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])
     .slice(-2);
   return [

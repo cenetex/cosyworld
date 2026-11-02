@@ -1943,7 +1943,9 @@
         return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
       // Any thing tagged c.tag, carried by someone present at c.place.
       case "tag_held":
-        return Object.keys(s.items).some((id) => {
+        return Object.keys(s.actors).some(
+          (id) => s.actors[id].upgrades?.includes(c.tag) && s.actors[id].place === c.place && (!controlledByHuman(s, id) || humanPresent(s, id))
+        ) || Object.keys(s.items).some((id) => {
           const holder = s.items[id].holder;
           return Boolean(packThings[id]?.tags?.includes(c.tag)) && entityActive(s, id) && s.actors[holder]?.place === c.place && (!controlledByHuman(s, holder) || humanPresent(s, holder));
         });
@@ -12305,6 +12307,11 @@
                 kind: "flag",
                 key: "forest-scarf-vale-sewn",
                 value: true
+              },
+              {
+                kind: "flag",
+                key: "forest-scarf-vale-worn",
+                value: false
               }
             ],
             art: "assets/lonely-forest/scarf-white.png"
@@ -12323,6 +12330,11 @@
                 kind: "flag",
                 key: "forest-scarf-mara-sewn",
                 value: true
+              },
+              {
+                kind: "flag",
+                key: "forest-scarf-mara-worn",
+                value: false
               }
             ],
             art: "assets/lonely-forest/scarf-green.png"
@@ -12341,6 +12353,11 @@
                 kind: "flag",
                 key: "forest-scarf-ash-sewn",
                 value: true
+              },
+              {
+                kind: "flag",
+                key: "forest-scarf-ash-worn",
+                value: false
               }
             ],
             art: "assets/lonely-forest/scarf-blue.png"
@@ -12359,6 +12376,11 @@
                 kind: "flag",
                 key: "forest-scarf-nell-sewn",
                 value: true
+              },
+              {
+                kind: "flag",
+                key: "forest-scarf-nell-worn",
+                value: false
               }
             ],
             art: "assets/lonely-forest/scarf-violet.png"
@@ -12377,6 +12399,11 @@
                 kind: "flag",
                 key: "forest-scarf-tavi-sewn",
                 value: true
+              },
+              {
+                kind: "flag",
+                key: "forest-scarf-tavi-worn",
+                value: false
               }
             ],
             art: "assets/lonely-forest/scarf-red.png"
@@ -12394,6 +12421,11 @@
                 kind: "flag",
                 key: "forest-scarf-rue-sewn",
                 value: true
+              },
+              {
+                kind: "flag",
+                key: "forest-scarf-rue-worn",
+                value: false
               }
             ],
             art: "assets/lonely-forest/scarf-orange.png"
@@ -12411,6 +12443,11 @@
                 kind: "flag",
                 key: "forest-scarf-orin-sewn",
                 value: true
+              },
+              {
+                kind: "flag",
+                key: "forest-scarf-orin-worn",
+                value: false
               }
             ],
             art: "assets/lonely-forest/scarf-amber.png"
@@ -12428,6 +12465,11 @@
                 kind: "flag",
                 key: "forest-scarf-ada-sewn",
                 value: true
+              },
+              {
+                kind: "flag",
+                key: "forest-scarf-ada-worn",
+                value: false
               }
             ],
             art: "assets/lonely-forest/scarf-yellow.png"
@@ -12934,7 +12976,7 @@
             at: "forest-cottage",
             for: "vale",
             label: "RATi sews your black button",
-            text: "Vale gives RATi the black button. She sews it into a white scarf and wraps the scarf around Vale's neck.",
+            text: "Vale gives RATi the black button. She sews it into a white scarf and lays the scarf on the basket beside the kettle.",
             requires: [
               {
                 kind: "flag",
@@ -12953,20 +12995,43 @@
                 item: "forest-button-vale"
               },
               {
-                kind: "give_item",
-                item: "forest-scarf-vale"
-              },
-              {
                 kind: "set_flag",
                 key: "forest-scarf-vale-sewn",
                 value: true
-              },
-              {
-                kind: "upgrade",
-                upgrade: "scarf"
               }
             ],
             on: "give"
+          },
+          {
+            id: "forest-wear-scarf-vale",
+            subject: "forest-scarf-vale",
+            at: "forest-cottage",
+            on: "hold",
+            for: "vale",
+            label: "Vale wears the white scarf",
+            text: "Vale ties on the white scarf RATi sewed. From now on, Vale wears it everywhere.",
+            requires: [
+              {
+                kind: "holding",
+                item: "forest-scarf-vale",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-scarf-vale-worn",
+                value: true
+              },
+              {
+                kind: "retire_item",
+                item: "forest-scarf-vale"
+              }
+            ]
           },
           {
             id: "forest-sew-scarf-mara",
@@ -12974,7 +13039,7 @@
             at: "forest-cottage",
             for: "mara",
             label: "RATi sews your red button",
-            text: "Mara gives RATi the red button. She sews it into a green scarf and wraps the scarf around Mara's neck.",
+            text: "Mara gives RATi the red button. She sews it into a green scarf and lays the scarf on the basket beside the kettle.",
             requires: [
               {
                 kind: "flag",
@@ -12993,20 +13058,43 @@
                 item: "forest-button-mara"
               },
               {
-                kind: "give_item",
-                item: "forest-scarf-mara"
-              },
-              {
                 kind: "set_flag",
                 key: "forest-scarf-mara-sewn",
                 value: true
-              },
-              {
-                kind: "upgrade",
-                upgrade: "scarf"
               }
             ],
             on: "give"
+          },
+          {
+            id: "forest-wear-scarf-mara",
+            subject: "forest-scarf-mara",
+            at: "forest-cottage",
+            on: "hold",
+            for: "mara",
+            label: "Mara wears the green scarf",
+            text: "Mara ties on the green scarf RATi sewed. From now on, Mara wears it everywhere.",
+            requires: [
+              {
+                kind: "holding",
+                item: "forest-scarf-mara",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-scarf-mara-worn",
+                value: true
+              },
+              {
+                kind: "retire_item",
+                item: "forest-scarf-mara"
+              }
+            ]
           },
           {
             id: "forest-sew-scarf-ash",
@@ -13014,7 +13102,7 @@
             at: "forest-cottage",
             for: "ash",
             label: "RATi sews your orange button",
-            text: "Ash gives RATi the orange button. She sews it into a blue scarf and wraps the scarf around Ash's neck.",
+            text: "Ash gives RATi the orange button. She sews it into a blue scarf and lays the scarf on the basket beside the kettle.",
             requires: [
               {
                 kind: "flag",
@@ -13033,20 +13121,43 @@
                 item: "forest-button-ash"
               },
               {
-                kind: "give_item",
-                item: "forest-scarf-ash"
-              },
-              {
                 kind: "set_flag",
                 key: "forest-scarf-ash-sewn",
                 value: true
-              },
-              {
-                kind: "upgrade",
-                upgrade: "scarf"
               }
             ],
             on: "give"
+          },
+          {
+            id: "forest-wear-scarf-ash",
+            subject: "forest-scarf-ash",
+            at: "forest-cottage",
+            on: "hold",
+            for: "ash",
+            label: "Ash wears the blue scarf",
+            text: "Ash ties on the blue scarf RATi sewed. From now on, Ash wears it everywhere.",
+            requires: [
+              {
+                kind: "holding",
+                item: "forest-scarf-ash",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-scarf-ash-worn",
+                value: true
+              },
+              {
+                kind: "retire_item",
+                item: "forest-scarf-ash"
+              }
+            ]
           },
           {
             id: "forest-sew-scarf-nell",
@@ -13054,7 +13165,7 @@
             at: "forest-cottage",
             for: "nell",
             label: "RATi sews your yellow button",
-            text: "Iris gives RATi the yellow button. She sews it into a violet scarf and wraps the scarf around Iris's neck.",
+            text: "Iris gives RATi the yellow button. She sews it into a violet scarf and lays the scarf on the basket beside the kettle.",
             requires: [
               {
                 kind: "flag",
@@ -13073,20 +13184,43 @@
                 item: "forest-button-nell"
               },
               {
-                kind: "give_item",
-                item: "forest-scarf-nell"
-              },
-              {
                 kind: "set_flag",
                 key: "forest-scarf-nell-sewn",
                 value: true
-              },
-              {
-                kind: "upgrade",
-                upgrade: "scarf"
               }
             ],
             on: "give"
+          },
+          {
+            id: "forest-wear-scarf-nell",
+            subject: "forest-scarf-nell",
+            at: "forest-cottage",
+            on: "hold",
+            for: "nell",
+            label: "Iris wears the violet scarf",
+            text: "Iris ties on the violet scarf RATi sewed. From now on, Iris wears it everywhere.",
+            requires: [
+              {
+                kind: "holding",
+                item: "forest-scarf-nell",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-scarf-nell-worn",
+                value: true
+              },
+              {
+                kind: "retire_item",
+                item: "forest-scarf-nell"
+              }
+            ]
           },
           {
             id: "forest-sew-scarf-tavi",
@@ -13094,7 +13228,7 @@
             at: "forest-cottage",
             for: "tavi",
             label: "RATi sews your green button",
-            text: "Tavi gives RATi the green button. She sews it into a red scarf and wraps the scarf around Tavi's neck.",
+            text: "Tavi gives RATi the green button. She sews it into a red scarf and lays the scarf on the basket beside the kettle.",
             requires: [
               {
                 kind: "flag",
@@ -13113,20 +13247,43 @@
                 item: "forest-button-tavi"
               },
               {
-                kind: "give_item",
-                item: "forest-scarf-tavi"
-              },
-              {
                 kind: "set_flag",
                 key: "forest-scarf-tavi-sewn",
                 value: true
-              },
-              {
-                kind: "upgrade",
-                upgrade: "scarf"
               }
             ],
             on: "give"
+          },
+          {
+            id: "forest-wear-scarf-tavi",
+            subject: "forest-scarf-tavi",
+            at: "forest-cottage",
+            on: "hold",
+            for: "tavi",
+            label: "Tavi wears the red scarf",
+            text: "Tavi ties on the red scarf RATi sewed. From now on, Tavi wears it everywhere.",
+            requires: [
+              {
+                kind: "holding",
+                item: "forest-scarf-tavi",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-scarf-tavi-worn",
+                value: true
+              },
+              {
+                kind: "retire_item",
+                item: "forest-scarf-tavi"
+              }
+            ]
           },
           {
             id: "forest-sew-scarf-rue",
@@ -13134,7 +13291,7 @@
             at: "forest-cottage",
             for: "rue",
             label: "RATi sews your blue button",
-            text: "Rue gives RATi the blue button. She sews it into a orange scarf and wraps the scarf around Rue's neck.",
+            text: "Rue gives RATi the blue button. She sews it into an orange scarf and lays the scarf on the basket beside the kettle.",
             requires: [
               {
                 kind: "flag",
@@ -13153,20 +13310,43 @@
                 item: "forest-button-rue"
               },
               {
-                kind: "give_item",
-                item: "forest-scarf-rue"
-              },
-              {
                 kind: "set_flag",
                 key: "forest-scarf-rue-sewn",
                 value: true
-              },
-              {
-                kind: "upgrade",
-                upgrade: "scarf"
               }
             ],
             on: "give"
+          },
+          {
+            id: "forest-wear-scarf-rue",
+            subject: "forest-scarf-rue",
+            at: "forest-cottage",
+            on: "hold",
+            for: "rue",
+            label: "Rue wears the orange scarf",
+            text: "Rue ties on the orange scarf RATi sewed. From now on, Rue wears it everywhere.",
+            requires: [
+              {
+                kind: "holding",
+                item: "forest-scarf-rue",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-scarf-rue-worn",
+                value: true
+              },
+              {
+                kind: "retire_item",
+                item: "forest-scarf-rue"
+              }
+            ]
           },
           {
             id: "forest-sew-scarf-orin",
@@ -13174,7 +13354,7 @@
             at: "forest-cottage",
             for: "orin",
             label: "RATi sews your indigo button",
-            text: "Cass gives RATi the indigo button. She sews it into a amber scarf and wraps the scarf around Cass's neck.",
+            text: "Cass gives RATi the indigo button. She sews it into an amber scarf and lays the scarf on the basket beside the kettle.",
             requires: [
               {
                 kind: "flag",
@@ -13193,20 +13373,43 @@
                 item: "forest-button-orin"
               },
               {
-                kind: "give_item",
-                item: "forest-scarf-orin"
-              },
-              {
                 kind: "set_flag",
                 key: "forest-scarf-orin-sewn",
                 value: true
-              },
-              {
-                kind: "upgrade",
-                upgrade: "scarf"
               }
             ],
             on: "give"
+          },
+          {
+            id: "forest-wear-scarf-orin",
+            subject: "forest-scarf-orin",
+            at: "forest-cottage",
+            on: "hold",
+            for: "orin",
+            label: "Cass wears the amber scarf",
+            text: "Cass ties on the amber scarf RATi sewed. From now on, Cass wears it everywhere.",
+            requires: [
+              {
+                kind: "holding",
+                item: "forest-scarf-orin",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-scarf-orin-worn",
+                value: true
+              },
+              {
+                kind: "retire_item",
+                item: "forest-scarf-orin"
+              }
+            ]
           },
           {
             id: "forest-sew-scarf-ada",
@@ -13214,7 +13417,7 @@
             at: "forest-cottage",
             for: "ada",
             label: "RATi sews your violet button",
-            text: "Sage gives RATi the violet button. She sews it into a yellow scarf and wraps the scarf around Sage's neck.",
+            text: "Sage gives RATi the violet button. She sews it into a yellow scarf and lays the scarf on the basket beside the kettle.",
             requires: [
               {
                 kind: "flag",
@@ -13233,20 +13436,43 @@
                 item: "forest-button-ada"
               },
               {
-                kind: "give_item",
-                item: "forest-scarf-ada"
-              },
-              {
                 kind: "set_flag",
                 key: "forest-scarf-ada-sewn",
                 value: true
-              },
-              {
-                kind: "upgrade",
-                upgrade: "scarf"
               }
             ],
             on: "give"
+          },
+          {
+            id: "forest-wear-scarf-ada",
+            subject: "forest-scarf-ada",
+            at: "forest-cottage",
+            on: "hold",
+            for: "ada",
+            label: "Sage wears the yellow scarf",
+            text: "Sage ties on the yellow scarf RATi sewed. From now on, Sage wears it everywhere.",
+            requires: [
+              {
+                kind: "holding",
+                item: "forest-scarf-ada",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "upgrade",
+                upgrade: "scarf"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-scarf-ada-worn",
+                value: true
+              },
+              {
+                kind: "retire_item",
+                item: "forest-scarf-ada"
+              }
+            ]
           },
           {
             id: "forest-stay-for-tea",
@@ -14287,7 +14513,10 @@
           "workId",
           "on",
           "for"
-        ]) && idOk(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "depart" && Boolean(avatars[c.subject]) || c.on === "talk" && Boolean(avatars[c.subject]) || c.on === "give" && (c.requires || []).some(
+        ]) && idOk(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "depart" && Boolean(avatars[c.subject]) || c.on === "talk" && Boolean(avatars[c.subject]) || // A hold choice is for the one traveler its item belongs to.
+        c.on === "hold" && Boolean(items2[c.subject]) && c.for !== void 0 && (c.requires || []).some(
+          (r) => r.kind === "holding" && r.role === "actor" && r.item === c.subject
+        ) || c.on === "give" && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor"
         ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && !choiceIds.has(c.id) && own.includes(c.subject) && owns2(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
         `choice ${c.id} is invalid`
@@ -14971,7 +15200,7 @@
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
     if (!state) return [];
     return (pack.choices || []).filter(
-      (c) => owns3(state.receipts, c.id) && (c.subject === id || c.at === id || c.effects.some((effect) => effect.item === id))
+      (c) => owns3(state.receipts, c.id) && (c.subject === id || c.at === id && c.on !== "hold" || c.effects.some((effect) => effect.item === id))
     ).sort((a, b) => state.receipts[a.id] - state.receipts[b.id]).slice(-3).map((c) => committedChoiceText(world, pack, c).slice(0, 240));
   }
   function packNarration(world, id) {
@@ -15000,7 +15229,7 @@
         (effect) => effect.kind === "choose" && historyKeys.has(effect.key)
       )
     );
-    const local = committed.filter((c) => c.at === location && !canon.includes(c)).sort((a, b) => state.receipts[a.id] - state.receipts[b.id]).slice(-2);
+    const local = committed.filter((c) => c.at === location && c.on !== "hold" && !canon.includes(c)).sort((a, b) => state.receipts[a.id] - state.receipts[b.id]).slice(-2);
     return [
       ...canon.map(
         (c) => `Established account: ${committedChoiceText(world, pack, c)}`

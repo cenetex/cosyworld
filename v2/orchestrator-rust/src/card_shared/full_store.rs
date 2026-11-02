@@ -208,13 +208,16 @@ pub(super) fn commit(
         let Ok(a) = actor_index(command["actor"].as_str().unwrap_or_default()) else {
             return Ok(result);
         };
-        // The holder's passkey keeps any upgrade the play gave (#1873).
-        let kept = super::bindings::holder(c, id, a).and_then(|holder| match holder {
-            Some(user) => super::bindings::record_upgrades(c, &user, a, &w.game),
-            None => Ok(()),
-        });
-        if let Err(error) = kept {
-            tracing::error!(error = %error, "could not keep an avatar's upgrades")
+        // Each seat's passkey keeps any upgrade the play gave (#1873). A
+        // gift or trade can upgrade a traveler other than the one who played.
+        for seat in 0..8 {
+            let kept = super::bindings::holder(c, id, seat).and_then(|holder| match holder {
+                Some(user) => super::bindings::record_upgrades(c, &user, seat, &w.game),
+                None => Ok(()),
+            });
+            if let Err(error) = kept {
+                tracing::error!(error = %error, "could not keep an avatar's upgrades")
+            }
         }
         let mut scene = w.request("context", a);
         scene["action"] = command["action"].clone();
