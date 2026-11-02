@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createCredits, creditsText } from "../v2/card-game/credits.mjs";
+import {
+  createCredits,
+  creditsText,
+  poolText,
+} from "../v2/card-game/credits.mjs";
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -53,5 +57,61 @@ describe("passkey credits in the browser", () => {
         prices: { tts: 1, video: 100 },
       }),
     ).toBe("Credits: 7. A spoken line costs 1; a scene video costs 100.");
+  });
+
+  it("spends a shared world's pool and commits credits to it", async () => {
+    let pool = 0;
+    const calls = [];
+    const fetcher = vi.fn(async (path, init = {}) => {
+      calls.push([path, init.body && JSON.parse(init.body)]);
+      if (path === "/card-game/credits")
+        return json({
+          signed_in: true,
+          balance: 500,
+          prices: { tts: 1, video: 100 },
+        });
+      if (path.startsWith("/card-game/credits/pool"))
+        return json({
+          world: "w1",
+          pool,
+          contributors: pool ? [{ name: "Moss", credits: pool }] : [],
+        });
+      if (path === "/card-game/credits/commit") {
+        pool += JSON.parse(init.body).credits;
+        return json({
+          world: "w1",
+          pool,
+          contributors: [],
+          balance: 500 - pool,
+        });
+      }
+      return new Response(new Uint8Array([255, 251]), {
+        headers: { "Content-Type": "audio/mpeg" },
+      });
+    });
+    const credits = createCredits({ fetcher, world: "w1" });
+    await credits.refresh();
+    expect(calls.map(([path]) => path)).toContain(
+      "/card-game/credits/pool?world=w1",
+    );
+    // A rich passkey still hears a shared world only from its pool.
+    expect(credits.voices.available()).toBe(false);
+    expect(poolText(credits.state.pool)).toBe(
+      "This world's pool: 0 credits. Nobody has committed credits yet.",
+    );
+    expect((await credits.commit(100)).pool).toBe(100);
+    const commit = calls.find(([path]) => path.endsWith("commit"))[1];
+    expect(commit).toMatchObject({ world: "w1", credits: 100 });
+    expect(commit.request_id).toMatch(/^commit-/u);
+    expect(credits.affords("video")).toBe(true);
+    expect(poolText(credits.state.pool)).toBe(
+      "This world's pool: 100 credits. From Moss 100.",
+    );
+    await credits.voices.clip("vale", "Hello.");
+    expect(calls.find(([path]) => path.endsWith("speech"))[1]).toEqual({
+      speaker: "vale",
+      text: "Hello.",
+      world: "w1",
+    });
   });
 });

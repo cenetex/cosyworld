@@ -111,7 +111,8 @@ function wait(ms, signal) {
   });
 }
 
-// A scene video spends the passkey's credits on the server (#1924).
+// A scene video spends the passkey's credits on the server, or a shared
+// world's pool (#1924).
 export function installSceneVideo({ getWorld, getScene }) {
   const $ = (id) => document.getElementById(id);
   const credits = playerCredits();
@@ -119,9 +120,15 @@ export function installSceneVideo({ getWorld, getScene }) {
   const report = (message) => ($("scene-video-status").textContent = message);
   const pause = () => document.dispatchEvent(new Event("shared-dialog-change"));
   const price = () => credits.state.prices?.video ?? 100;
+  const payer = () =>
+    credits.world
+      ? `this world's pool holds ${credits.state.pool?.pool ?? 0}`
+      : `you have ${credits.state.balance}`;
   let snapshot, frame, controller, resultUrl;
   function ready() {
-    const cost = `${price()} credits`;
+    const cost = credits.world
+      ? `${price()} credits from the pool (${credits.state.pool?.pool ?? 0})`
+      : `${price()} credits`;
     $("scene-video-button").title = `Make a 10 second scene video · ${cost}`;
     $("scene-video-button").dataset.affordable = credits.affords("video");
     $("scene-video-create").textContent = `Create scene video · ${cost}`;
@@ -159,6 +166,7 @@ export function installSceneVideo({ getWorld, getScene }) {
           request_id: id,
           prompt: sceneVideoPrompt(snapshot, options.duration),
           options,
+          ...(credits.world ? { world: credits.world } : {}),
         }),
         signal,
       });
@@ -204,15 +212,15 @@ export function installSceneVideo({ getWorld, getScene }) {
       $("scene-video-lines").textContent = snapshot.dialogue
         .map((line) => `${line.speaker}: ${line.text}`)
         .join("\n\n");
-      const { signed_in, balance } = credits.state;
+      const { signed_in } = credits.state;
       report(
         !snapshot.dialogue.length
           ? "Play a card to give this scene its first words."
           : !signed_in
             ? "Sign in with your passkey to make a scene video."
             : credits.affords("video")
-              ? `Film these lines for ${price()} credits. You have ${balance}.`
-              : `A scene video costs ${price()} credits; you have ${balance}. Get a speech pack in Settings.`,
+              ? `Film these lines for ${price()} credits; ${payer()}.`
+              : `A scene video costs ${price()} credits; ${payer()}. ${credits.world ? "Commit credits" : "Get a speech pack"} in Settings.`,
       );
     }
     ready();
