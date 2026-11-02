@@ -35,7 +35,7 @@ const files = [
   "boardyai.mjs",
   "boardyai.json",
   "assets/card-back.webp",
-  // The first-arrival title (title-intro.mjs).
+  // The new-world title (title-intro.mjs).
   "assets/title/lonely-forest-1.webp",
   "assets/title/lonely-forest-2.webp",
   // Rest card paintings for issue #1849; the rest-card feature follows.

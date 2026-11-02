@@ -678,22 +678,26 @@ Schema 6 saves include location changes, favours and lasting memories. Earlier s
 
 ## Opening in Mirror attic
 
-### First-arrival title
+### New-world title
 
-A browser's first visit to the bare Lonely Forest address starts black, fades in
+Every new world on Lonely Forest opens black, fades in
 one of the two title wordmarks in `assets/title/` at random, holds it for
-about two seconds, then fades to the attic: about four seconds in all
-(`title-intro.mjs`, started from `entry.mjs`). The table boots and asks for
+about three and a half seconds, then fades to the table: about six seconds in
+all (`title-intro.mjs`, started from `entry.mjs`; it was about four seconds
+with a two-second hold). The table boots and asks for
 Vale's opening line underneath it. A tap, click or key skips to the attic.
 Reduced motion crossfades without scaling. The image loads before it fades in;
 if it does not load within 2.5 seconds the black fades straight to the table.
-The title plays only when no save, no last-played world and no
-`cosyworld.title-intro` flag exists; it sets that flag as it starts. Shared
-worlds, `?table=`, `?pack=` and other query links, other sites' landings
-(`pack-landings.json`) and the local CosyWorld app never show it. Storage that
-cannot be read shows it once per load. Automated browsers skip it unless the
-address is exactly `?intro=1`; `v2/scripts/smoke-card-title-intro.mjs` plays
-it at desktop and phone width.
+A new world is the bare address with no save and no last-played world, New
+game on the local table, or a shared world this browser just created or joined
+an avatar to (`avatar-menu.mjs` stores its id in `cosyworld.title-intro`, and
+the title clears it as it starts). A reload, a return to a world, a switch
+between your avatars' worlds, `?table=`, `?pack=` and other query links, other
+sites' landings (`pack-landings.json`) and the local CosyWorld app never show
+it. Storage that cannot be read shows it once per load of the bare address.
+Automated browsers skip it unless the address has `intro=1`;
+`v2/scripts/smoke-card-title-intro.mjs` plays it at desktop and phone width,
+including after New game.
 
 New browser tables and shared worlds use `createWorld({ opening: true })`.
 Vale starts alone in the lamplit attic with a lit lamp; the mirror shows only
@@ -917,7 +921,7 @@ A standoff play is shown beat by beat before the new world is drawn. Each beat o
 
 Published brace (`guard`), strike (`attack`) and hit paintings follow those beats and preserve the player's plain or scarf wardrobe. A committed brace keeps its raised-arm portrait until consumed or cleared. Beat images preload before playback; unavailable art keeps the existing portrait. The Keeper uses his unmirrored right-facing neutral portrait when the scene faces him right, since his combat paintings face left. Combatants fit inside the phone frame throughout a beat; Pip and the Keeper keep that framing between plays too. Carried props stay in their cards while combat arms are raised, and the normal portrait and framing return when playback ends or is cancelled.
 
-When the player loses, their figure slumps and greys and a defeat card ("Pip drove you off") lists what changed: dropped items, standoffs lost and "Sent home" on the third loss. The card is announced and waits for Continue. The scene then fades to "You come to at <place>", and the player's beat repeats it. The arrival line comes from one voice: a resident at the new place, or the player's avatar when nobody else is there. Its brief is one short fact: "Vale was beaten by Pip and came to at Empty station. Say one line."
+When the player loses, their figure slumps and greys and a defeat card ("Pip drove you off") lists what changed: dropped items, standoffs lost and "Sent home" on the third loss. The scene fades slowly to black behind the card, like losing consciousness (1.4 seconds at 1×, half that at 2×; reduced motion cuts to black). The card is announced and waits for Continue. The black then gives way to "You come to at <place>", and the player's beat repeats it. The arrival line comes from one voice: a resident at the new place, or the player's avatar when nobody else is there. Its brief is one short fact: "Vale was beaten by Pip and came to at Empty station. Say one line."
 
 Tapping the stage finishes the current beat; its outcome text still shows. Settings › Fight speed switches between 1× and 2×. A full fight stays under three seconds at 1×. Reduced motion replaces the cut, lunge and shake with outlines and fades and keeps all text. The flash follows "Flashes and scares". Local and shared tables play the same beats from the committed log (`combat-beats.mjs` reads the rules' structured attack and retreat fields, falling back to standoff state and the rules' lines; `combat-view.mjs` draws them).
 

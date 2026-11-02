@@ -1,3 +1,4 @@
+import { playNewWorldIntro } from "./title-intro.mjs";
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { arriveCard, finishReveal, revealCard } from "./card-reveal.mjs";
@@ -1325,6 +1326,7 @@ function combatStage() {
     caption: $("combat-caption"),
     announce: $("combat-announcement"),
     dialog: $("defeat-dialog"),
+    veil: $("travel"),
     reducedMotion,
     revealLine: (seq) => {
       if (combatHeld.delete(seq)) renderLog();
@@ -1334,6 +1336,7 @@ function combatStage() {
 function endCombat() {
   combatRun++;
   combatView?.cleanup();
+  $("travel").classList.remove("fainting");
   combatHeld.clear();
   const release = combatRelease;
   combatRelease = null;
@@ -1364,6 +1367,8 @@ async function presentCombat(beats, land) {
   covering = false;
   renderLog();
   land(release);
+  // The travel veil (already down) takes over from a defeat's black.
+  $("travel").classList.remove("fainting");
 }
 
 // Moving between places dips the scene to dark with the destination's name,
@@ -3909,6 +3914,7 @@ $("confirm-reset").onclick = () => {
   notice("");
   save();
   $("reset-dialog").close();
+  playNewWorldIntro();
   resumeScene();
 };
 window.addEventListener("storage", (event) => {

@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
+import { startNewGame } from "./card-browser-helpers.mjs";
 import { TITLES } from "../card-game/title-intro.mjs";
 
-// The first arrival sees a Lonely Forest title fade over the booting table,
-// then Vale's lit attic; later visits and a skip go straight to the table.
+// A new world opens with a Lonely Forest title over the booting table, then
+// Vale's lit attic; a reload, a later visit and a skip go straight to the
+// table, and New game plays it again.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -84,8 +86,8 @@ try {
     // The table boots under the title instead of waiting for it.
     await page.waitForSelector("#hand .card");
     assert.equal(await page.locator(".title-intro").count(), 1);
-    await gone(page, 6000);
-    assert.ok(Date.now() - started < 6500, "the title takes about 5 s");
+    await gone(page, 8000);
+    assert.ok(Date.now() - started < 8500, "the title takes about 6 s");
     const save = await page.evaluate(() =>
       JSON.parse(localStorage.getItem("cosyworld.reflected-shore.v1")),
     );
@@ -103,12 +105,19 @@ try {
     await page.waitForSelector("#hand .card");
     await page.waitForTimeout(600);
     assert.equal(await page.locator(".title-intro").count(), 0);
-    assert.equal(
-      await page.evaluate(() => localStorage.getItem("cosyworld.title-intro")),
-      "seen",
-    );
     const later = await open(fresh);
     await later.goto(`${origin}/?intro=1`);
+    await later.waitForSelector("#hand .card");
+    await later.waitForTimeout(600);
+    assert.equal(await later.locator(".title-intro").count(), 0);
+    // New game is a new world: the title plays again, once.
+    await startNewGame(later);
+    await titlePhase(later);
+    const again = new URL(`new-game-${width}.png`, output).pathname;
+    await later.screenshot({ path: again });
+    shots.push(again);
+    await gone(later, 8000);
+    await later.reload();
     await later.waitForSelector("#hand .card");
     await later.waitForTimeout(600);
     assert.equal(await later.locator(".title-intro").count(), 0);
@@ -142,7 +151,7 @@ try {
     ),
     "none",
   );
-  await gone(quiet, 4500);
+  await gone(quiet, 6000);
   await quiet.waitForSelector("#hand .card");
   await reduced.close();
   console.log(`Title intro smoke passed. Screenshots: ${shots.join(", ")}`);

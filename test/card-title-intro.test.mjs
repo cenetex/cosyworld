@@ -14,16 +14,16 @@ const wanted = (overrides = {}) =>
     ...overrides,
   });
 
-test("the title greets only a first arrival at the Lonely Forest root", () => {
+test("the title opens a new local world, not a resumed one", () => {
   assert.equal(wanted(), true);
-  for (const key of [
-    "cosyworld.reflected-shore.v1",
-    "cosyworld.playing",
-    "cosyworld.title-intro",
-  ])
+  // A browser that saw it before still sees it for a new world.
+  assert.equal(
+    wanted({ storage: storage({ "cosyworld.title-intro": "seen" }) }),
+    true,
+  );
+  for (const key of ["cosyworld.reflected-shore.v1", "cosyworld.playing"])
     assert.equal(wanted({ storage: storage({ [key]: "x" }) }), false, key);
   for (const href of [
-    "https://lonelyforest.com/?world=w1",
     "https://lonelyforest.com/?table=t",
     "https://lonelyforest.com/?pack=greek-drama",
     "https://hoppy.lonelyforest.com/",
@@ -32,7 +32,18 @@ test("the title greets only a first arrival at the Lonely Forest root", () => {
   assert.equal(wanted({ local: true }), false);
 });
 
-test("blocked storage shows it; automated browsers need ?intro=1", () => {
+test("a shared world shows it once, after this browser made or joined it", () => {
+  const href = "https://lonelyforest.com/?world=w1";
+  assert.equal(wanted({ href }), false);
+  const due = storage({ "cosyworld.title-intro": "w1" });
+  assert.equal(wanted({ href, storage: due }), true);
+  assert.equal(
+    wanted({ href: "https://lonelyforest.com/?world=w2", storage: due }),
+    false,
+  );
+});
+
+test("blocked storage shows it; automated browsers need intro=1", () => {
   const blocked = {
     getItem() {
       throw new Error("blocked");
@@ -40,6 +51,10 @@ test("blocked storage shows it; automated browsers need ?intro=1", () => {
   };
   assert.equal(wanted({ storage: blocked }), true);
   assert.equal(wanted({ storage: null }), true);
+  assert.equal(
+    wanted({ storage: blocked, href: "https://lonelyforest.com/?world=w1" }),
+    false,
+  );
   assert.equal(wanted({ webdriver: true }), false);
   assert.equal(
     wanted({ webdriver: true, href: "https://lonelyforest.com/?intro=1" }),

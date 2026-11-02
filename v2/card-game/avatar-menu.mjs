@@ -3,6 +3,7 @@ import { humanAvatars, currentActor } from "./human-cast.mjs";
 import { request } from "./shared-auth.mjs";
 import { worldName, worldNameOf } from "./world-name.mjs";
 import { INVITE_KEY, PLAYING_KEY } from "./avatar-world.mjs";
+import { queueTitleIntro } from "./title-intro.mjs";
 import { levelOf } from "./want.mjs";
 import { nameOf } from "./world.mjs";
 import { avatarImage } from "./scarves.mjs";
@@ -281,6 +282,7 @@ export function installAvatarMenu({
   const toWorld = async (avatar, from, slot) => {
     await command(slot.shared, { op: "claim", avatar: avatar.id });
     stored(INVITE_KEY, null);
+    queueTitleIntro(slot.shared);
     location.href = sharedLink(slot.shared);
   };
   // A new world hides the next avatar this passkey has not found.
@@ -288,6 +290,7 @@ export function installAvatarMenu({
     const made = await request("/card-game/shared/worlds", {
       avatar: avatar.id,
     });
+    queueTitleIntro(made.id);
     location.href = sharedLink(made.id);
   }
   // "+ Find Mara": the quest to talk to the avatar hidden here (#1936).
