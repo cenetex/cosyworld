@@ -695,7 +695,7 @@ Schema 6 saves include location changes, favours and lasting memories. Earlier s
 ### New-world title
 
 Every new world on Lonely Forest opens black, fades in
-one of the two title wordmarks in `assets/title/` at random, holds it for
+that world's logo, holds it for
 about three and a half seconds, then fades to the table: about six seconds in
 all (`title-intro.mjs`, started from `entry.mjs`; it was about four seconds
 with a two-second hold). The table boots and asks for
@@ -709,6 +709,15 @@ the title clears it as it starts). A reload, a return to a world, a switch
 between your avatars' worlds, `?table=`, `?pack=` and other query links, other
 sites' landings (`pack-landings.json`) and the local CosyWorld app never show
 it. Storage that cannot be read shows it once per load of the bare address.
+The logos are data in `title-logos.json` (file, name, size; both suit a
+dark ground). `title-logo.mjs` picks one per world: first from the world's
+id (`?world=`, `?table=`, `?pack=` or the bare local table), never the logo
+shown last when another exists, then remembered in `cosyworld.title-logo` so
+a reload or a return shows the same one; New game picks afresh. The same
+logo replaces the COSYWORLD wordmark in the toolbar, at its own aspect ratio
+and 40 px tall (34 px at phone width), named by its `alt`; the button still
+opens the scene video. Other sites' landings and the local CosyWorld app keep
+the COSYWORLD wordmark.
 Automated browsers skip it unless the address has `intro=1`;
 `v2/scripts/smoke-card-title-intro.mjs` plays it at desktop and phone width,
 including after New game.

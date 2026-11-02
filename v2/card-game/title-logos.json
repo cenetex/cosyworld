@@ -1,0 +1,18 @@
+{
+  "logos": [
+    {
+      "src": "assets/title/lonely-forest-1.webp",
+      "name": "Lonely Forest",
+      "width": 1312,
+      "height": 512,
+      "background": "dark"
+    },
+    {
+      "src": "assets/title/lonely-forest-2.webp",
+      "name": "Lonely Forest, with Pip and the lantern",
+      "width": 2000,
+      "height": 800,
+      "background": "dark"
+    }
+  ]
+}

@@ -1,16 +1,14 @@
 import landings from "./pack-landings.json" with { type: "json" };
 import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
 import { imageUrl } from "./images.mjs";
+import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 
-// The Lonely Forest title opens every new world: black, one of the two
-// wordmarks, then the table. A reload or a return to a world never replays it.
+// The Lonely Forest title opens every new world: black, the world's logo
+// (title-logo.mjs), then the table. A reload or a return to a world never replays it.
 // The key holds the id of a shared world just created or joined whose title
 // is still due.
 export const INTRO_KEY = "cosyworld.title-intro";
-export const TITLES = [
-  "assets/title/lonely-forest-1.webp",
-  "assets/title/lonely-forest-2.webp",
-];
+export const TITLES = LOGOS.map((logo) => logo.src);
 const BLACK_MS = 350,
   HOLD_MS = 3500,
   LOAD_LIMIT_MS = 2500;
@@ -53,9 +51,17 @@ export function queueTitleIntro(world, storage = globalThis.localStorage) {
   } catch {}
 }
 
-// New game on the local table plays the title at once.
+// New game on the local table picks its own logo and plays the title at once.
 export function playNewWorldIntro() {
-  if (titleIntroAllowed(pageContext())) playTitleIntro({ storage: null });
+  const context = pageContext();
+  let storage = null;
+  try {
+    storage = localStorage;
+  } catch {}
+  if (!logoSite(context)) return;
+  const logo = worldLogo({ href: context.href, storage, fresh: true });
+  showToolbarLogo(logo);
+  if (titleIntroAllowed(context)) playTitleIntro({ storage: null, logo });
 }
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -63,7 +69,7 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // The overlay sits outside the inert body and over the table, which boots
 // and asks for Vale's opening line underneath it. Resolves when it is gone.
 export function playTitleIntro({
-  random = Math.random,
+  logo = LOGOS[0],
   storage = globalThis.localStorage,
 } = {}) {
   try {
@@ -74,11 +80,11 @@ export function playTitleIntro({
   layer.className = "title-intro";
   layer.dataset.phase = "black";
   layer.setAttribute("role", "img");
-  layer.setAttribute("aria-label", "Lonely Forest");
+  layer.setAttribute("aria-label", logo.name);
   const image = document.createElement("img");
   image.alt = "";
   image.decoding = "async";
-  const source = TITLES[Math.floor(random() * TITLES.length) % TITLES.length];
+  const source = logo.src;
   layer.dataset.title = source;
   layer.append(image);
   document.documentElement.append(layer);
