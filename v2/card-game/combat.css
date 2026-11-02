@@ -222,3 +222,19 @@
     transition: none;
   }
 }
+
+/* Painted effect stills (#1920), drawn over a fighter by combat-view.mjs. */
+.combat-effect {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  top: 38%;
+  width: clamp(72px, 70%, 200px);
+  translate: -50% -50%;
+  pointer-events: none;
+  opacity: 0;
+}
+.combat-effect[data-effect^="swipe"],
+.combat-effect[data-effect^="jab"] {
+  width: clamp(120px, 130%, 360px);
+}

@@ -3,6 +3,7 @@
 // already committed every result before the first beat starts.
 import { nameOf } from "./world.mjs";
 import { scaresEnabled } from "./transitions.mjs";
+import { imageUrl } from "./images.mjs";
 import {
   combatPortrait,
   createCombatPortraits,
@@ -211,6 +212,31 @@ export function createCombatView({
       { duration: BEAT_MS.word + 200, easing: "ease-out", fill: "forwards" },
     );
   };
+  // Painted effect stills (#1920) over a fighter: a hit burst sized by the
+  // recorded damage, brace shields and lunge trails. Each fades in and out;
+  // with motion and "Flashes and scares" on it also scales. Reduced motion
+  // shows the single still.
+  const effect = (id, name, duration = BEAT_MS.recoil) => {
+    const el = fighter(id);
+    if (!el) return null;
+    const still = add(el, document.createElement("img"));
+    still.className = "combat-effect";
+    still.dataset.effect = name;
+    still.alt = "";
+    still.src = imageUrl(`./assets/combat/effects/${name}.png`);
+    const pop = !reduced() && scaresEnabled();
+    animate(
+      still,
+      [
+        { opacity: 0, scale: pop ? 0.7 : 1 },
+        { opacity: 1, scale: 1, offset: 0.25 },
+        { opacity: 1, offset: 0.7 },
+        { opacity: 0, scale: pop ? 1.08 : 1 },
+      ],
+      { duration, easing: "ease-out", fill: "forwards" },
+    );
+    return still;
+  };
   const pose = (id, value) => {
     portraits.pose(id, value === "intercept" ? "guard" : value);
   };
@@ -337,6 +363,20 @@ export function createCombatView({
       Math.abs(b.x + b.width / 2 - (a.x + a.width / 2)) * 0.35,
     );
     const total = BEAT_MS.lunge + BEAT_MS.hold + BEAT_MS.back;
+    // A short reach or a fighter without strike art jabs; others swipe.
+    const source = attacker.querySelector(".portrait-body > img")?.dataset
+      .source;
+    const armed = combatPortrait(
+      beat.actorId,
+      "attack",
+      source,
+      attacker.dataset.facing,
+    );
+    effect(
+      beat.actorId,
+      `${armed && reach >= 40 ? "swipe" : "jab"}-${toward > 0 ? "right" : "left"}`,
+      total,
+    );
     animate(
       bodyOf(attacker),
       [
@@ -359,6 +399,8 @@ export function createCombatView({
     const target = fighter(beat.targetId);
     if (!target) return;
     pose(beat.targetId, beat.outcome === "guarded" ? "guard" : "hit");
+    effect(beat.targetId, `hit-${Math.min(3, Math.max(1, beat.damage || 1))}`);
+    if (beat.outcome === "guarded") effect(beat.targetId, "brace-absorb");
     const body = bodyOf(target);
     if (reduced()) {
       target.classList.add("combat-outline");
@@ -438,6 +480,8 @@ export function createCombatView({
       setCaption(beat.text);
       revealLine(beat.seq);
       pose(beat.actorId, beat.kind);
+      if (beat.kind === "guard")
+        effect(beat.actorId, "brace-raise", BEAT_MS.word);
       for (const id of Object.keys(beat.resolve || {}))
         showResolve(id, beat.resolve[id]);
       floatWord(beat.actorId, outcomeWord(beat), beat.kind);
