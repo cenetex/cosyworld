@@ -86,13 +86,21 @@ A tapped seat also shows its own actions under the line of seats:
 
 | Seat | Actions |
 | --- | --- |
-| Yours | **Play** (in another slot), **Release** (shared) or **Delete world** (local) |
+| Yours | **Play** (in another slot), **Release · start over** (shared) or **Delete world** (local); a second tap on the portrait adds **Step away** |
 | Another person's | its holder and level, and **Free** for the world's owner |
 | A resident | none |
 
-- **Release** gives a shared seat back. The first tap turns it red: "Release
-  *Mara* from *Hollowmere*?" and "Mara keeps their level. Their things and
-  quests stay in Hollowmere, and anyone may take Mara there."
+- **Step away** frees your seat and keeps the avatar's level and its binding
+  there; the avatar is then in no world (grey everywhere), ready for + New
+  world or a move. It shows after a second tap on your own portrait, with
+  "Mara's level goes with Mara. Mara's things and quests stay in
+  *Hollowmere*, and the seat there opens for someone else." It sends the
+  `release` command (a local world is archived to `.bak`), as Move to your
+  deck did before #1891.
+- **Release · start over** gives a shared seat back and starts the avatar
+  over. The first tap turns it red: "Release *Mara* and start over?" and
+  "Mara starts over at level 1. Their things and quests stay in Hollowmere,
+  and anyone may take Mara there." It sends `reset`.
 - **Free** (owner) asks "Free Ash?" and says "Free Ash: removes Amber
   Heron's hold and resets Ash."
 - **Delete world** removes a local world's save and its backup on a second
@@ -118,12 +126,16 @@ out) and Controls. It holds no world actions.
 
 The menu shows now, not a log: where each avatar is now. There is no list of
 past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` checks
-colour, stats and a two-tap move, at 390 and 1440 pixels.
+colour, stats, a two-tap move and Step away, at 390 and 1440 pixels.
 
 Vale's grey seat tapped once in another world:
 
 ![Phone: Vale's targets](avatar-menu/slots-move-390.jpg)
 ![Desktop: Vale's targets](avatar-menu/slots-move-1440.jpg)
+
+Your Tavi in a friend's world, tapped twice:
+
+![Phone: Step away](avatar-menu/slots-step-away-390.jpg)
 
 ### #1737 mockups (replaced by the slots above)
 
@@ -143,11 +155,11 @@ Desktop (1440 × 900):
 
 ### Words
 
-Play, Release, Free, Delete world, + New world, Tap *Vale* again to bring
+Play, Step away, Release · start over, Free, Delete world, + New world, Tap *Vale* again to bring
 *Vale* here, on this device, a friend's
 world, invited, You, Memory, Inner life, Invite, Settings. Gone: Worlds,
 Share, Your worlds (`/?shared=1` opens the table), Continue as, Continue
-shared world, Return to my game, Send to…, Step away, Join, Choose your
+shared world, Return to my game, Send to…, Join, Choose your
 avatar, Return as *Mara*, Move *Mara* here?, This world is full (panel), A
 place will open shortly, Leave, Refresh avatars, the avatar list under the
 seats, Release this avatar, Leave this room, Players in this world, Claimed,
