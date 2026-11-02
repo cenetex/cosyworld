@@ -524,6 +524,13 @@ main {
 #story-status[hidden] {
   display: none;
 }
+/* The first tap on the Thinking card asks before it cancels. */
+#story-status[data-armed="true"] {
+  color: var(--gold);
+}
+#story-status[data-armed="true"] .thinking-orbit {
+  display: none;
+}
 .thinking-orbit {
   width: 15px;
   height: 15px;
@@ -2043,6 +2050,7 @@ body .beat-live {
 }
 .beat-stack .speech-line {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 /* An action with no speech is one line, as a play folds into the stream:
    the figure, then the caption, which names who acted. */

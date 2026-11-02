@@ -34,9 +34,10 @@ from the hand. The server checks room space again when a play reaches its turn.
 
 The existing Play buttons add an action to the room queue. A room holds four
 pending plays, including the current play. Each person has one pending play.
-Waiting plays can be withdrawn with **Cancel play**. The play's button reads
-as what the avatar is doing while it is sent. Once the room plays it, the
-action beat leaves and the reply types into the full-size front card. A refusal names the
+A sent play is one **Thinking…** card until its scene starts; two taps on
+it withdraw a waiting play. A retrying play is committed, so cancelling only
+stops waiting for its line. Once the room plays it, the reply types into the
+full-size front card. A refusal names the
 server's reason on the action beat's status line. Nudge asks a present human for attention. People
 can sit quietly while the scene runs. Presence has a 60-second reconnect grace;
 the avatar claim remains saved.
@@ -392,8 +393,8 @@ bust view as more people enter. Smaller figures sit higher behind them.
 Repeated plays by one person keep the others in order. Changes move smoothly.
 Reviewing older words keeps the figures and belongings in their current places.
 Waiting plays show no chips or circles (owner, 2026-11-01). A player's own
-waiting play stays in the action beat, whose **Cancel play** withdraws it;
-other players' plays stay private until they resolve.
+waiting play is their Thinking card, which withdraws it in two taps; other
+players' plays stay private until they resolve.
 
 The approved OpenRouter request contains fictional profiles, scene facts,
 visible people and belongings, and the completed play. Passkey and account data
