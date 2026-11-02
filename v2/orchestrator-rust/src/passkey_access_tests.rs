@@ -66,7 +66,7 @@ async fn members_mode_refuses_sign_ups_and_signed_out_play() {
 
     let (status, body) = send(&state, "POST", "/auth/passkey/register/start", None).await;
     assert_eq!(status, 403);
-    assert_eq!(body["error"], crate::passkey_access::SIGNUPS_CLOSED);
+    assert_eq!(body["error"], passkey_access::SIGNUPS_CLOSED);
 
     let (status, body) = send(&state, "GET", "/auth/account", None).await;
     assert_eq!(status, 200);
