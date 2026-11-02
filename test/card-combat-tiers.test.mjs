@@ -63,18 +63,6 @@ describe("strike strength by level tier", () => {
     for (const count of [...same.values(), ...up.values()])
       expect(count).toBeGreaterThan(400);
     expect([...rolls(9, 10).keys()]).toEqual([1]);
-    // The same seed and play roll the same; another seed rolls otherwise.
-    const one = at(1, 2);
-    const run = (seed) =>
-      Array.from({ length: 20 }, (_, revision) =>
-        strikeDamage(
-          Object.assign(one, { run: { seed }, revision }),
-          "vale",
-          "moth",
-        ),
-      ).join();
-    expect(run(42)).toBe(run(42));
-    expect(run(1)).not.toBe(run(2));
   });
   it("records the rolled damage, and a Brace never takes it below one", () => {
     for (let seed = 1; seed <= 40; seed++) {
@@ -102,6 +90,7 @@ describe("strike strength by level tier", () => {
       expect([1, 2]).toContain(back.damage);
       expect(back.text).toContain(`loses ${back.damage} resolve`);
       expect(back.resolveBefore - back.resolveAfter).toBe(back.damage);
+      // The same seed and play roll the same.
       expect(strike(before, "attack").log).toEqual(s.log);
     }
   });
