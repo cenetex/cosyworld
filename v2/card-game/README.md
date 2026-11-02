@@ -1086,6 +1086,24 @@ six seconds, so a storm gathers and mist lifts instead of snapping. Travel cuts
 under its veil, and reduced motion cuts everywhere. These are presentation only:
 they read the committed scene, so local and shared play look the same.
 
+### Light and time of day
+
+The rules keep two light settings of twenty-four plays each. The stage reads
+the same committed turn as a game hour (`stage-light.mjs`): turn 0 is 06:00,
+each play is thirty game minutes, the painted night begins at 18:00 and
+midnight is turn 36 of each 48-play day. Eight visual periods blend smoothly:
+dawn, morning, noon, afternoon, golden hour, dusk, night and midnight. The
+hour's shade and edge vignette multiply the painting and its desaturation
+greys it (`.stage-grade` in `weather.css`); figures and props on the stage take
+the same light as a filter, while lit lamps keep their glow. The hand,
+dialogue and place cards are never graded. A place without night paintings,
+such as the Lonely Forest, takes the full grade, so its midnights are dark. A
+painted night, or a room the lamp already dims, keeps only a quarter of it so
+its art is not darkened twice (#1696). Every play eases the light over four
+seconds; a long rest's jump sweeps through the hours between. Travel and
+reduced motion cut. It is presentation only: the rules, saves, journal and
+shared engine never read it, and every viewer of a world sees the same hour.
+
 In the Willows all year (`UNCANNY_PLACES` in `transitions.mjs`, client data the
 rules never read), and elsewhere on Halloween (31 October, browser local date;
 `HALLOWEEN_DAYS`), some entries to a place briefly show one image as something

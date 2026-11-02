@@ -11,6 +11,7 @@ import {
 } from "../card-game/world.mjs";
 import { locationWeather } from "../card-game/weather.mjs";
 import { locationDaylight } from "../card-game/daylight.mjs";
+import { hourOf } from "../card-game/stage-light.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 
@@ -97,6 +98,11 @@ try {
       assert.equal(
         await stage.getAttribute("data-time-of-day"),
         daylight?.phase || "day",
+      );
+      // The stage's time of day eases to the committed turn's game hour.
+      await page.waitForFunction(
+        (hour) => document.querySelector("#stage").dataset.hour === hour,
+        String(Math.floor(hourOf(turn))),
       );
       const night = daylight?.phase === "night";
       assert.equal(
@@ -303,6 +309,32 @@ try {
     await load("pond", 24);
     await check("pond", 24, "shore");
     assert.equal(await page.locator("#stage > .weather-layer").count(), 0);
+    // Midnight: a place without night paintings takes the full grade, a
+    // painted night only a gentle share, and noon none.
+    const figureLight = () =>
+      page
+        .locator("#stage")
+        .evaluate((stage) =>
+          Number(
+            /brightness\(([\d.]+)\)/.exec(
+              stage.style.getPropertyValue("--tod-figure"),
+            )[1],
+          ),
+        );
+    for (const [place, turn, name, graded, below, above] of [
+      ["forest-garden", 36, "midnight-forest", "true", 0.7, 0],
+      ["greek-courtyard", 36, "midnight-painted", "true", 1, 0.85],
+      ["forest-garden", 12, "noon-forest", "false", 1.01, 0.99],
+    ]) {
+      await load(place, turn);
+      await check(place, turn, name);
+      assert.equal(
+        await page.locator("#stage").getAttribute("data-graded"),
+        graded,
+      );
+      const light = await figureLight();
+      assert(light < below && light > above, `${name}: figure light ${light}`);
+    }
     assert.deepEqual(errors, []);
     await page.close();
   }
