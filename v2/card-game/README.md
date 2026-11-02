@@ -321,7 +321,7 @@ the carved card back, behind it, up to three. Tapping the current place fans the
 out like the hand; tapping a place selects it for **Travel**, and the stack
 folds back after the play.
 A person or place holding things shows the first of them peeking out behind
-its card. Hover lifts a card and its preview stack together. The name shade reaches the
+its card. A pointer over a card shuffles it: the card and its preview stack lift together while the rest of the fan parts around it (180 ms; touch has no hover, reduced motion only brightens it). The name shade reaches the
 card edge, so a raised card clipped by the folded row shows no stray art.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 On wide screens, the resting hand is a small deck two card widths wide at the
