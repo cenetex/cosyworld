@@ -1655,11 +1655,13 @@ function renderActions() {
   if (restedChoice !== choiceKey()) restedChoice = null;
   const rested = restedChoice !== null;
   const { actions: ready, hint } = cardActions(world, selected);
+  // A committed play (shared playing or played) has left the beat, so its
+  // reply types into the full-size front card.
   const actions = ready.filter(
     (action) =>
       !rested ||
       playQueue.pending?.action.key === action.key ||
-      (["sending", "sent", "playing"].includes(sharedPlay?.state) &&
+      (["sending", "sent"].includes(sharedPlay?.state) &&
         sharedPlay.actionKey === action.key),
   );
   const selectionName = selected.map(nameOf).join(" + ");
@@ -1714,7 +1716,7 @@ function renderActions() {
     ...actions.map((action, index) => {
       const sent =
         sharedSession &&
-        ["sending", "sent", "playing"].includes(sharedPlay?.state) &&
+        ["sending", "sent"].includes(sharedPlay?.state) &&
         sharedPlay.actionKey === action.key;
       const queued = playQueue.pending?.action.key === action.key;
       const button = node(
@@ -3262,9 +3264,9 @@ $("dialogue-advance").onclick = advanceFront;
 $("beat-behind").onclick = () => {
   stepBack();
 };
-// Behind the action beat the spoken beat is the card behind: a tap on its
-// line steps back in time once the exchange is read; until then it moves
-// the lines on.
+// Behind the action beat the spoken beat is a strip: a tap on it moves the
+// lines on, never back in time. Only the card behind, the arrows, the wheel
+// and a swipe step back.
 $("speech-row").addEventListener(
   "click",
   (event) => {
@@ -3273,7 +3275,7 @@ $("speech-row").addEventListener(
     if (exchange.current && !reviewing) return;
     if (event.target.closest("#story-retry, #voice-retry")) return;
     event.stopPropagation();
-    if (!stepBack()) advanceFront();
+    advanceFront();
   },
   true,
 );
@@ -3326,7 +3328,9 @@ document.addEventListener("keydown", (event) => {
   stackBox.addEventListener(
     "wheel",
     (event) => {
+      // A sideways scroll of the hand never steps the stack.
       if (Math.abs(event.deltaY) < 4) return;
+      if (Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
       const words = $("dialogue-text");
       const scrolls =
         words.contains(event.target) &&
@@ -4033,13 +4037,21 @@ function resumeScene({ otherTab = false } = {}) {
 const refusalText = ({ label }, reason) => `Not played: ${label}. ${reason}`;
 function showSharedPlay(state, reason = "") {
   if (!sharedPlay) return;
-  const play = sharedPlay;
+  const play = sharedPlay,
+    was = play.state;
   sharedPlay.state = state;
   if (state === "played" || state === "rejected") sharedPlay = null;
   if (state === "sending") sharedRefusal = null;
   // A play the server did not take wakes its rested beat, so the player
   // can play it again from the beat.
   if (["rejected", "uncertain"].includes(state)) restedChoice = null;
+  // A committed play rests the beat even if the player chose again while it
+  // waited, so its reply types into the full-size front card.
+  if (
+    ["playing", "played"].includes(state) &&
+    !["playing", "played"].includes(was)
+  )
+    restedChoice = choiceKey();
   const shown = $("play-status").dataset.playStatus;
   if (state === "rejected") {
     sharedRefusal = { reason, text: refusalText(play, reason) };
