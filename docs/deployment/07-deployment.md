@@ -228,8 +228,11 @@ Restart after changes. Partial/invalid settings block new videos before charging
 both unset preserve polling. A private 256-bit token and callback URL persist
 with each new reservation. Permit POSTs to `/internal/video/callback/{token}`;
 do not log these URLs. The inbox checks raw-body HMAC and a five-minute timestamp
-window, then saves the job hint before acknowledgment. Hints alone cannot refund.
-Missing callbacks and old unknown receipts need review; there is no exactly-once guarantee.
+window, then saves the hint before acknowledgment. Once submission is unknown,
+the worker verifies its exact ID through the authenticated API before settling.
+Live submits wait; conflicting IDs are retained for review, and another request's
+job cannot be adopted. Missing callbacks and old unknown receipts need review;
+callback delivery and exactly-once provider submission are not guaranteed.
 
 Until payments exist, an operator hands out packs. Each grant is a ledger row
 with its note and an `operator granted credits` log line; a repeated

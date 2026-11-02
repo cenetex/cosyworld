@@ -55,6 +55,16 @@ fn settle(
 ) -> rusqlite::Result<Value> {
     let tx = c.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let payer = reservations::scope(user, world);
+    if tx.prepare("SELECT 1 FROM credit_video_requests WHERE payer = ?1 AND request_id = ?2 AND state = 'submission_conflict'")?.exists(params![payer, id])? {
+        return Ok(json!({"status":"submission_unknown", "error":"Conflicting provider receipts. Do not submit it again; credits need review.", "refunded":false}));
+    }
+    // Only an authenticated GET with this exact ID reaches settlement. A signed
+    // callback hint can recover a lost submit response, never another request's job.
+    tx.execute("UPDATE credit_video_requests SET state = 'submitted', job_id = ?3
+        WHERE payer = ?1 AND request_id = ?2 AND job_id = '' AND state = 'submission_unknown'
+        AND EXISTS (SELECT 1 FROM credit_video_callbacks WHERE payer = ?1 AND request_id = ?2 AND job_hint = ?3)
+        AND NOT EXISTS (SELECT 1 FROM credit_video_requests WHERE job_id = ?3)
+        AND NOT EXISTS (SELECT 1 FROM credit_video_jobs WHERE job_id = ?3)", params![payer, id, job])?;
     // A second legacy receipt can arrive after adoption. Recheck before refunding.
     if status != "completed"
         && tx

@@ -375,6 +375,11 @@ async fn begin_with_callback(
 }
 
 fn submission_status(id: &str, state: &str) -> Response {
+    let state = if state == "submission_conflict" {
+        "submission_unknown"
+    } else {
+        state
+    };
     reply(
         StatusCode::OK,
         json!({"request_id": id, "status": state,
@@ -517,6 +522,9 @@ async fn poll(path: &FsPath, config: &AiConfig, user: &str, world: &str, id: &st
     let Ok(Some((job, world, state, detail))) = lookup(path, user, world, id).await else {
         return fail(StatusCode::NOT_FOUND, "Film the current scene again.");
     };
+    if state == "submission_conflict" {
+        return submission_status(id, &state);
+    }
     if receipts::terminal(&state) {
         return reply(
             StatusCode::OK,

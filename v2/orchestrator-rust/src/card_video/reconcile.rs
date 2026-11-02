@@ -70,9 +70,11 @@ fn plan(c: &mut rusqlite::Connection, now: i64) -> rusqlite::Result<Vec<Pending>
     }
     let batch = {
         let mut query = tx.prepare(
-            "SELECT user_id, world_id, request_id, job_id FROM credit_video_requests
-            WHERE state = 'submitted' AND updated_at_unix <= ?1 - 30
-            ORDER BY updated_at_unix, created_at_unix LIMIT 16",
+            "SELECT r.user_id, r.world_id, r.request_id, COALESCE(NULLIF(r.job_id, ''), b.job_hint)
+            FROM credit_video_requests r LEFT JOIN credit_video_callbacks b USING (payer, request_id)
+            WHERE r.updated_at_unix <= ?1 - 30 AND (r.state = 'submitted' OR
+                (r.state = 'submission_unknown' AND b.job_hint <> ''))
+            ORDER BY r.updated_at_unix, r.created_at_unix LIMIT 16",
         )?;
         let rows = query.query_map([now], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
         rows.collect::<rusqlite::Result<Vec<Pending>>>()?
