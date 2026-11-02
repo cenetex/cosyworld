@@ -1,5 +1,9 @@
+/* The camera sits beside the wordmark, never over it: grey while the
+   passkey cannot afford a film, brighter on hover or focus. */
 .brand #scene-video-button {
-  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 0;
   min-height: 44px;
   background: transparent;
@@ -11,24 +15,17 @@
 }
 #scene-video-button strong {
   font: inherit;
-  transition: opacity 160ms ease;
 }
 #scene-video-button svg {
-  position: absolute;
-  width: 26px;
-  height: 26px;
-  inset: 50% auto auto 50%;
-  transform: translate(-50%, -50%);
-  opacity: 0;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  opacity: 0.75;
   transition: opacity 160ms ease;
 }
 #scene-video-button[data-affordable="false"] svg {
   filter: grayscale(1);
   opacity: 0.45;
-}
-#scene-video-button:hover strong,
-#scene-video-button:focus-visible strong {
-  opacity: 0;
 }
 #scene-video-button:hover svg,
 #scene-video-button:focus-visible svg {
@@ -56,24 +53,6 @@
 #scene-video-dialog a {
   color: #e5cb92;
 }
-@media (hover: none) {
-  #scene-video-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-  #scene-video-button svg {
-    position: static;
-    width: 18px;
-    height: 18px;
-    transform: none;
-    opacity: 1;
-  }
-  #scene-video-button:hover strong,
-  #scene-video-button:focus-visible strong {
-    opacity: 1;
-  }
-}
 @media (max-width: 700px) {
   .topbar .brand {
     display: block;
@@ -86,7 +65,6 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  #scene-video-button strong,
   #scene-video-button svg {
     transition: none;
   }

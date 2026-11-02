@@ -791,9 +791,8 @@ existing world, possessions, quest, memory and persona.
 
 ## Scene video
 
-Hover over the CosyWorld title to reveal the video camera. Keyboard focus also
-reveals it. Phones show the camera beside the title. Click it to film the last
-two displayed dialogue lines for 100 credits
+The video camera sits beside the CosyWorld title at every width. Click it to
+film the last two displayed dialogue lines for 100 credits
 ([#1924](https://github.com/cenetex/cosyworld/issues/1924)); the camera greys
 out when the passkey cannot afford one. The prompt (`scene-video-context.mjs`)
 uses the current place, character appearances, visible items, their holders,

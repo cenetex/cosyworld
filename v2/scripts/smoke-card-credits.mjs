@@ -76,6 +76,23 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
+    // The camera sits beside the wordmark, in colour or grey, never over it.
+    await page.waitForFunction(
+      () => document.querySelector("#scene-video-button").dataset.affordable,
+    );
+    const [mark, camera] = await Promise.all(
+      ["#scene-video-button strong", "#scene-video-button svg"].map((s) =>
+        page.locator(s).boundingBox(),
+      ),
+    );
+    assert.ok(mark && camera, `wordmark and camera render at ${width}px`);
+    assert.ok(
+      camera.x >= mark.x + mark.width ||
+        camera.x + camera.width <= mark.x ||
+        camera.y >= mark.y + mark.height ||
+        camera.y + camera.height <= mark.y,
+      `camera ${JSON.stringify(camera)} overlaps wordmark ${JSON.stringify(mark)} at ${width}px`,
+    );
     await page.locator("#scene-video-button").click();
     const create = page.locator("#scene-video-create");
     assert.match(await create.textContent(), /100 credits/u);
