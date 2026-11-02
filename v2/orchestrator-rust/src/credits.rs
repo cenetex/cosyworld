@@ -9,6 +9,9 @@
 //! hold committed credits.
 use std::path::Path;
 
+#[path = "credits/pool.rs"]
+pub(crate) mod pool;
+
 use axum::{
     extract::State,
     http::{header, HeaderMap, StatusCode},
@@ -47,6 +50,35 @@ impl SpendKind {
             Self::Tts => 1,
             Self::Video => 100,
         }
+    }
+}
+
+/// Who pays: an account's own balance, or a shared world's pool on behalf
+/// of one of its players.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Payer<'a> {
+    Person(&'a str),
+    World { world: &'a str, by: &'a str },
+}
+
+impl<'a> Payer<'a> {
+    fn user(self) -> &'a str {
+        match self {
+            Self::Person(user) | Self::World { by: user, .. } => user,
+        }
+    }
+    /// The world whose pool pays, or "" for an account's own balance.
+    fn world(self) -> &'a str {
+        match self {
+            Self::Person(_) => "",
+            Self::World { world, .. } => world,
+        }
+    }
+}
+
+impl<'a, S: AsRef<str> + ?Sized> From<&'a S> for Payer<'a> {
+    fn from(user: &'a S) -> Self {
+        Self::Person(user.as_ref())
     }
 }
 
@@ -101,7 +133,8 @@ fn schema(c: &Connection) -> rusqlite::Result<()> {
         "CREATE TABLE IF NOT EXISTS credit_events {TABLE};
         CREATE INDEX IF NOT EXISTS idx_credit_events_request
             ON credit_events(user_id, request_id);
-
+        CREATE INDEX IF NOT EXISTS idx_credit_events_world
+            ON credit_events(world_id, request_id);
         CREATE TRIGGER IF NOT EXISTS credit_events_no_update BEFORE UPDATE ON credit_events
             BEGIN SELECT RAISE(ABORT, 'credit_events is append-only'); END;
         CREATE TRIGGER IF NOT EXISTS credit_events_no_delete BEFORE DELETE ON credit_events
@@ -111,7 +144,7 @@ fn schema(c: &Connection) -> rusqlite::Result<()> {
 
 fn insert(
     c: &Connection,
-    user: &str,
+    payer: Payer,
     request_id: &str,
     kind: &str,
     spend_kind: Option<SpendKind>,
@@ -120,25 +153,31 @@ fn insert(
 ) -> rusqlite::Result<()> {
     c.execute(
         "INSERT INTO credit_events
-         (user_id, request_id, kind, spend_kind, delta, note, created_at_unix)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+         (user_id, request_id, kind, spend_kind, delta, note, created_at_unix, world_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![
-            user,
+            payer.user(),
             request_id,
             kind,
             spend_kind.map(SpendKind::name),
             delta,
             note,
-            crate::util::now_unix_secs() as i64
+            crate::util::now_unix_secs() as i64,
+            payer.world()
         ],
     )?;
     Ok(())
 }
 
-fn sum(c: &Connection, user: &str) -> rusqlite::Result<i64> {
+/// An account holds its own rows less what it committed; a pool holds its
+/// commits less its spends.
+fn sum(c: &Connection, payer: Payer) -> rusqlite::Result<i64> {
     c.query_row(
-        "SELECT COALESCE(SUM(delta), 0) FROM credit_events WHERE user_id = ?1",
-        params![user],
+        "SELECT COALESCE(SUM(CASE WHEN ?1 <> '' AND kind = 'commit' THEN -delta ELSE delta END), 0)
+         FROM credit_events
+         WHERE CASE WHEN ?1 = '' THEN user_id = ?2 AND (world_id = '' OR kind = 'commit')
+                    ELSE world_id = ?1 END",
+        params![payer.world(), payer.user()],
         |row| row.get(0),
     )
 }
@@ -146,43 +185,44 @@ fn sum(c: &Connection, user: &str) -> rusqlite::Result<i64> {
 /// What a request still owes back: negative while its spend stands.
 fn request_net(
     c: &Connection,
-    user: &str,
+    payer: Payer,
     kind: SpendKind,
     request_id: &str,
 ) -> rusqlite::Result<i64> {
     c.query_row(
         "SELECT COALESCE(SUM(delta), 0) FROM credit_events
-         WHERE user_id = ?1 AND request_id = ?2 AND spend_kind = ?3
-           AND kind IN ('spend', 'refund')",
-        params![user, request_id, kind.name()],
+         WHERE world_id = ?1 AND (?1 <> '' OR user_id = ?2) AND request_id = ?3
+           AND spend_kind = ?4 AND kind IN ('spend', 'refund')",
+        params![payer.world(), payer.user(), request_id, kind.name()],
         |row| row.get(0),
     )
 }
 
-pub(crate) fn balance(c: &Connection, user: &str) -> rusqlite::Result<i64> {
+pub(crate) fn balance<'a>(c: &Connection, payer: impl Into<Payer<'a>>) -> rusqlite::Result<i64> {
     schema(c)?;
-    sum(c, user)
+    sum(c, payer.into())
 }
 
 /// Take a feature's price before its provider call. A request that already
 /// paid and was not refunded is not charged again.
-pub(crate) fn spend(
+pub(crate) fn spend<'a>(
     c: &mut Connection,
-    user: &str,
+    payer: impl Into<Payer<'a>>,
     kind: SpendKind,
     request_id: &str,
 ) -> rusqlite::Result<Spend> {
+    let payer = payer.into();
     let tx = c.transaction_with_behavior(TransactionBehavior::Immediate)?;
     schema(&tx)?;
-    let balance = sum(&tx, user)?;
-    if request_net(&tx, user, kind, request_id)? < 0 {
+    let balance = sum(&tx, payer)?;
+    if request_net(&tx, payer, kind, request_id)? < 0 {
         return Ok(Spend::AlreadyPaid { balance });
     }
     let price = kind.price();
     if balance < price {
         return Ok(Spend::Insufficient { balance, price });
     }
-    insert(&tx, user, request_id, "spend", Some(kind), -price, "")?;
+    insert(&tx, payer, request_id, "spend", Some(kind), -price, "")?;
     tx.commit()?;
     Ok(Spend::Spent {
         balance: balance - price,
@@ -191,20 +231,21 @@ pub(crate) fn spend(
 
 /// Return a standing spend once its provider call failed. Returns whether a
 /// refund row was written.
-pub(crate) fn refund(
+pub(crate) fn refund<'a>(
     c: &mut Connection,
-    user: &str,
+    payer: impl Into<Payer<'a>>,
     kind: SpendKind,
     request_id: &str,
     reason: &str,
 ) -> rusqlite::Result<bool> {
+    let payer = payer.into();
     let tx = c.transaction_with_behavior(TransactionBehavior::Immediate)?;
     schema(&tx)?;
-    let net = request_net(&tx, user, kind, request_id)?;
+    let net = request_net(&tx, payer, kind, request_id)?;
     if net >= 0 {
         return Ok(false);
     }
-    insert(&tx, user, request_id, "refund", Some(kind), -net, reason)?;
+    insert(&tx, payer, request_id, "refund", Some(kind), -net, reason)?;
     tx.commit()?;
     Ok(true)
 }
@@ -229,9 +270,17 @@ pub(crate) fn grant(
         .optional()?
         .is_some();
     if !seen {
-        insert(&tx, user, request_id, "grant", None, credits, note)?;
+        insert(
+            &tx,
+            Payer::Person(user),
+            request_id,
+            "grant",
+            None,
+            credits,
+            note,
+        )?;
     }
-    let balance = sum(&tx, user)?;
+    let balance = sum(&tx, Payer::Person(user))?;
     tx.commit()?;
     Ok((balance, !seen))
 }
@@ -243,6 +292,7 @@ pub(crate) fn open(path: &Path) -> std::io::Result<Connection> {
 pub(crate) fn router() -> Router<AppState> {
     Router::new()
         .route("/card-game/credits", get(view))
+        .merge(pool::router())
         .route("/internal/credits/grant", post(operator_grant))
 }
 
