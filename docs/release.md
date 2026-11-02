@@ -19,7 +19,8 @@ rather than once per merge:
    is labelled.
 3. **Production.** When the owner says "tag it from `.dev`", release the
    commit the last train shipped ([Cutting a Release](#cutting-a-release)).
-   Automatic promotion of the previous train is planned separately.
+   Between trains, [production promotion](#production-promotion) deploys
+   the newest train that soaked on `.dev` and passed its gates.
 
 Owner controls:
 
@@ -62,13 +63,16 @@ The train job:
    already has one, so a rerun skips the build.
 4. Waits while a production deploy is queued or running, then rolls out and
    verifies `.dev`.
-5. After a successful rollout, runs the **Production Rust gate** and
-   **Production Rust architecture and lint** jobs on the train's commit.
-   `.dev` does not wait for them and their result does not change it; they
-   exist so the promotion of that train, and a release that only bumps its
-   version, reuse a passed Rust gate instead of running it again (about
-   5 to 7 minutes each). The run stays open while they run, so a manual
-   `dev` dispatch meanwhile waits up to about 7 minutes for them.
+5. After a successful rollout, runs the production gates on the train's
+   commit: the **Production Node and content gate**, the **Production Rust
+   gate**, and **Production Rust architecture and lint**. Tests run after
+   `.dev` deploys and before production: `.dev` does not wait for them and
+   their result does not change it, but only a train whose three gates all
+   passed can be promoted, and the promotion of that train, and a release
+   that only bumps its version, reuse its passed Rust gate instead of
+   running it again (about 5 to 8 minutes each). The run stays open while
+   they run, so a manual `dev` dispatch meanwhile waits up to about 8
+   minutes for them.
 
 A train deploys the commit it started on even if main moves meanwhile; the
 next train takes the rest.
@@ -361,12 +365,15 @@ Lonely Forest (production) follows `.dev` by about one train.
 `.github/workflows/promote.yml` runs at `:22` and `:52`, between `.dev`
 trains, and `scripts/promote-train.mjs` picks what to promote:
 
-- the newest `.dev` train (a `Deploy main to .dev` job) that rolled out and
-  passed its readiness and card-game smokes on `cosyworld.fly.dev`;
+- the newest `.dev` train (a `Deploy main to .dev` job) that rolled out,
+  passed its readiness and card-game smokes on `cosyworld.fly.dev`, and then
+  passed all three post-rollout gates (Node and content, Rust, Rust lint) in
+  the same run. A train whose gates are still running is skipped, not
+  counted as a failure;
 - that stayed live on `.dev` for `COSYWORLD_PROMOTE_SOAK_MINUTES` (repository
   variable, default 20), until the next train replaced it or until now;
-- only when the newest train also passed: a failing train holds promotion
-  until a newer train passes;
+- only when the newest finished train also passed: a train whose smokes or
+  gates failed holds promotion until a newer train passes;
 - only when it is ahead of the commit Lonely Forest's `/meta` reports, so a
   train deploys to production at most once and never rolls a release back;
 - never a commit whose production run already failed, and never while

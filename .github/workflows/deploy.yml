@@ -287,13 +287,17 @@ jobs:
 
   production-node-gate:
     name: Production Node and content gate
-    needs: [deployment-impact, release-owner]
-    # The .dev train deploys without this gate; the fast check still checks
-    # main. Tags and production dispatches keep it.
+    needs: [dev-deploy, deployment-impact, release-owner]
+    # Tags and production dispatches run it before their rollouts. A train
+    # that rolled out runs it after, off the .dev path, with the Rust gate
+    # and lint: promotion takes only a train whose three gates all passed
+    # (scripts/promote-train.mjs).
     if: >-
-      needs.deployment-impact.outputs.deploy == 'true' &&
-      needs.release-owner.outputs.owns == 'true' &&
-      (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))
+      !cancelled() &&
+      ((needs.deployment-impact.outputs.deploy == 'true' &&
+        needs.release-owner.outputs.owns == 'true' &&
+        (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))) ||
+       (needs.dev-deploy.result == 'success' && needs.dev-deploy.outputs.rolled-out == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
