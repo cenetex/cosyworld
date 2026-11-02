@@ -105,7 +105,7 @@ import {
   seedRun,
   exits as placeExits,
 } from "./world.mjs";
-import { packPlaces, packOf } from "./pack-registry.mjs";
+import { packOf } from "./pack-registry.mjs";
 import { variantOf } from "./pack-rules.mjs";
 import {
   currentScene,
@@ -309,12 +309,10 @@ const questEntry = (id) => questEntries().find((entry) => entry.id === id);
 const cardArt = (id) =>
   packMedia(id, "art") ||
   (things[id]?.art ? `./${things[id].art}` : `./assets/${id}-card.png`);
-// A place's authored art is its outside view; aboard or inside, its card
-// shows the scene there, so the ship's card follows its voyage and the hour.
-const placeCardArt = (id) =>
-  packPlaces[id]?.art && world.actors[currentActor(world)]?.place !== id
-    ? packMedia(id, "art")
-    : backdrop(id, world);
+// A place card shows that place as you would find it there: the same
+// painting the action beat shows, so a destination card shows where you are
+// going (the ship's deck from its berth), lit for the hour and weather.
+const placeArt = (id) => backdrop(id, world);
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
 // The screen names a card only once its player has uncovered it (#1575).
 const knownName = (id, unknown = "…") =>
@@ -1829,13 +1827,11 @@ function card(id) {
       ? cardArt(id)
       : type === "avatar"
         ? portrait(id, null, world)
-        : crossingFace?.art || placeCardArt(id),
+        : placeArt(id),
     "card",
   );
   img.alt = "";
   img.draggable = false;
-  if (crossingFace?.focus)
-    img.style.objectPosition = `${crossingFace.focus.x}% ${crossingFace.focus.y}%`;
   if (type === "avatar") frameFigure(img);
   graphic.append(img);
   if (type === "location") {
@@ -2020,10 +2016,7 @@ const questArt = {
   url: (src) => imageUrl(src, "card"),
   portrait: (id) => portrait(id, null, world),
   thing: (id) => cardArt(id),
-  place: (id) =>
-    packPlaces[id]?.art && world.actors[currentActor(world)]?.place !== id
-      ? packMedia(id, "art")
-      : backdrop(id, world),
+  place: placeArt,
 };
 function questFrame({ id, quest, met }) {
   const picked = !met && questOpen && quest.index === questPick;
@@ -2941,7 +2934,7 @@ function beatPortrait(id) {
     people[id]
       ? portrait(id, null, world)
       : places[id]
-        ? backdrop(id, world)
+        ? placeArt(id)
         : cardArt(id),
     "card",
   );

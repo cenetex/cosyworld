@@ -508,13 +508,15 @@ Run `npm run v2:card:travel:smoke` for desktop and phone trips through
 Piraeus, the Athens–Piraeus Road, the Agora and the return to Dione. The check
 also tests the destination cards, a reload on the road and waiting for the ship.
 
-The ship's card follows the same paintings. Aboard, it shows the stage
-backdrop: the deck at a port, or open sea by day or night. From a mooring
-with a berth painting (the Wine-Dark Harbor, Piraeus, Trojan camp landing or
-Signal Jetty), it shows the ship at that berth. Greek moorings follow the hour;
-the Signal Jetty keeps its starry sky. The berth's focus frames both the scene
-and boarding card on phones. Departures restore the empty shore painting.
-Black Pond keeps the authored Black Pond card.
+A destination card shows where you are going, never where you stand. Every
+place card in the hand uses the same painting the action beat shows for that
+place, lit for its hour and weather. The ship's card always shows its deck: the
+deck at a port, or open sea by day or night, from the pond, a berth or aboard.
+The stage at a mooring with a berth painting (the Wine-Dark Harbor, Piraeus,
+Trojan camp landing or Signal Jetty) shows the ship at that berth. Greek
+moorings follow the hour; the Signal Jetty keeps its starry sky. The berth's
+focus frames the scene on phones. Departures restore the empty shore painting.
+A road card shows the road, because the road is the next place.
 
 The ship sails authored sea lanes, at most four from each port. Black Pond
 has one lane, to the Wine-Dark Harbor. The Wine-Dark Harbor has
