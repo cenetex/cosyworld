@@ -238,7 +238,7 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   stall clock starts at that attempt.
 - **Trust** has one source: someone gave me the item my quest wanted.
 - **Connect.** BoardyAI's starter quest is `{ "kind": "connect", "target":
-  "humans" }` in `boardyai.json`. It is met by any Talk in his room while two
+"humans" }` in `boardyai.json`. It is met by any Talk in his room while two
   connected humans are there with him. In Talk he says "I want to introduce
   you to someone." As a resident he Talks once two connected humans share his
   room, and otherwise goes to one who is elsewhere. Generated quests are never
@@ -478,14 +478,15 @@ Roads separate towns, and places inside a town link directly. Between two
 towns there is exactly one road or a sea lane, and every walkable road has its
 own painting. Athens has three districts: the countryside, the city and the
 harbour. The Sacred Way joins the countryside to the city and the Long Walls
-join the city to Piraeus. Each is a gate: a route from one end, with a live
-condition, replaces that end's exit, and the way back stays open (see the
+join the city to Piraeus. Each is a gate: a route from one end replaces that
+end's exit, opens the first time its condition holds and stays open after,
+and the way back stays open (see the
 [Open Door guide](../content/greek-drama/OPEN-DOOR.md)). The Theban Harbor Road is the only way
 between the Wine-Dark Harbor and Thebes. The battlefield is a Theban place
-outside the walls; the City Gate opens onto it only while the gate guard holds
-the Burial Decree there, and the way back in is always open. The Cithaeron
-road leads on from the battlefield to Eleusis while a Theban account of the
-burial is there or on Dione's table. The Road to Delphi joins the Agora and
+outside the walls; the City Gate opens onto it once the gate guard holds the
+Burial Decree there and stays open, and the way back in is always open. The
+Cithaeron road leads on from the battlefield to Eleusis once a Theban account
+of the burial is there or on Dione's table. The Road to Delphi joins the Agora and
 Delphi, the Oeta Road joins Delphi and Trachis, the Royal Road joins Troy and
 Susa, the Black Sea Road joins Thrace and Tauris, and the Colonists' Road joins
 Corinth and Sicily. A road has two fixed ends, shown by destination cards in a
@@ -494,7 +495,7 @@ road, and the other end. Its entry card names the place ahead. Travelers can
 meet, wait and carry objects on the road. Myrine walks from Eleusis to Piraeus
 one road at a time, along the Sacred Way and the Long Walls.
 
-A place *within* another, such as a house in a quarter, names its parent in
+A place _within_ another, such as a house in a quarter, names its parent in
 `within`. It links only to that parent and does not count toward the parent's
 links.
 

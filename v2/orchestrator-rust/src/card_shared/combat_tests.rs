@@ -20,8 +20,13 @@ fn released_level_strikes_replay_and_current_strikes_roll_by_tier_in_the_c_host(
     store::create(&c, &id, "owner", now()).unwrap();
     // On rules 82, Vale at level II meets Pip at level I over the lamp.
     let version = engine::EIGHTY_SECOND_VERSION;
-    let mut game =
-        engine::reduce_version(version, json!({"op":"create","seed":9})).unwrap()["world"].clone();
+    let mut game = engine::reduce_pack(
+        version,
+        Some(content::released()),
+        json!({"op":"create","seed":9}),
+    )
+    .unwrap()["world"]
+        .clone();
     game.as_object_mut().unwrap().remove("opening");
     (game["turn"], game["revision"]) = (json!(3), json!(3));
     (
@@ -34,7 +39,7 @@ fn released_level_strikes_replay_and_current_strikes_roll_by_tier_in_the_c_host(
     ) = (json!(1), json!(0));
     game["actors"]["moth"]["want"] = Value::Null;
     game["items"]["lamp"]["holder"] = json!("moth");
-    let pack = engine::takes_content(version).then(|| content::current().into());
+    let pack = engine::takes_content(version).then(|| content::released().into());
     let mut old = World {
         version: version.into(),
         game,
@@ -97,8 +102,13 @@ fn rules_83_standoffs_replay_and_rules_84_battles_run_in_the_c_host() {
     store::create(&c, &id, "owner", now()).unwrap();
     // On rules 83, Vale threatens Pip over the lamp; the keeper looks on.
     let version = engine::EIGHTY_THIRD_VERSION;
-    let mut game =
-        engine::reduce_version(version, json!({"op":"create","seed":9})).unwrap()["world"].clone();
+    let mut game = engine::reduce_pack(
+        version,
+        Some(content::released()),
+        json!({"op":"create","seed":9}),
+    )
+    .unwrap()["world"]
+        .clone();
     game.as_object_mut().unwrap().remove("opening");
     (game["turn"], game["revision"]) = (json!(3), json!(3));
     for actor in ["vale", "moth", "keeper"] {
@@ -109,7 +119,7 @@ fn rules_83_standoffs_replay_and_rules_84_battles_run_in_the_c_host() {
         ) = (json!(0), Value::Null);
     }
     game["items"]["lamp"]["holder"] = json!("moth");
-    let pack = engine::takes_content(version).then(|| content::current().into());
+    let pack = engine::takes_content(version).then(|| content::released().into());
     let mut old = World {
         version: version.into(),
         game,

@@ -10,10 +10,11 @@ with Acharnae Market within it), the city (the Agora, Assembly Hill, the
 Acropolis and the Thinkery, with the House of Demos and the Women's Festival
 within) and the harbour (Piraeus, which took in Athens Harbor). Places in a
 district link directly. Two gate roads join the districts. The Sacred Way
-leads from Eleusis into the city while the mothers' petition is at Eleusis
-or in the Agora. The Long Walls lead from the Agora to Piraeus while the
-herald's truce is in the Agora. A gate closes again when its thing moves
-away, and it blocks only the way out: the way back is always open. These
+leads from Eleusis into the city once the mothers' petition is at Eleusis
+or in the Agora. The Long Walls lead from the Agora to Piraeus once the
+herald's truce is in the Agora. A gate stays open once opened, for everyone
+in that world, even after its thing moves away. It blocks only the way out:
+the way back is always open. These
 routes share Dione’s lasting invitation. Waiting at a port lets the empty ship complete its circuit.
 
 The opening invitation follows the public account of any of the four

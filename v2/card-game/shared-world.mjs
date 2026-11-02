@@ -31,6 +31,7 @@ import { profiles } from "./memory.mjs";
 import { enableMotives } from "./motives.mjs";
 import { applySharedReflections } from "./reflections.mjs";
 import { resetAvatar } from "./avatar-reset.mjs";
+import { arrive, hideAvatar, seekHidden } from "./hidden-avatar.mjs";
 
 function ids(value, fallback = []) {
   const result = value === undefined ? fallback : value;
@@ -159,6 +160,8 @@ export function dispatchShared(request) {
     seedRun(world, request.seed);
     if (!world.sharedVersion) settleHomeItems(world);
     enableShared(world);
+    // The host's pick from its passkey's locked avatars (#1936).
+    if (request.save == null) hideAvatar(world, request);
     delete world.playerActorId;
     delete world.controlledActors;
     delete world.presentActors;
@@ -193,6 +196,7 @@ export function dispatchShared(request) {
     if (!world.controlledActors.includes(actor))
       world.controlledActors.push(actor);
     if (!world.heldActors.includes(actor)) world.heldActors.push(actor);
+    arrive(world, actor);
     carryProgress(world.actors[actor], request.progress);
     enableShared(world);
     validateWorld(world);
@@ -203,6 +207,12 @@ export function dispatchShared(request) {
     resetAvatar(world, actor);
     validateWorld(world);
     return response(world);
+  }
+  if (request.op === "seek") {
+    seekHidden(world, actor);
+    world.revision += 1;
+    validateWorld(world);
+    return response(world, view(world, actor));
   }
   if (request.op === "view")
     return {

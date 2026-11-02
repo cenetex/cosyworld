@@ -33,23 +33,24 @@ The Market Well lies within the courtyard and opens only onto it. Objects
 keep their actual holders. The quiet sanctuary and the homeward road remain
 available throughout. See the [Greek redesign](../../docs/card-table/greek-redesign.md).
 
-The City Gate opens onto the battlefield only while the gate guard
+The City Gate opens onto the battlefield once the gate guard
 (`greek-guard`) holds the Burial Decree (`greek-decree`, first at the palace)
-at the gate. It is a live condition in pack data: a `greek-gate` →
-`greek-battlefield` route that `requires` a `holding` condition and an
-`item_near` condition at the gate. The gate's open paintings use exactly the
-same two conditions, and `test/card-theban-gate.test.mjs` keeps them equal, so
-the painting and the passage cannot disagree. While the gate is closed no
+at the gate, and stays open after (rules 86). In pack data it is a
+`greek-gate` → `greek-battlefield` route that `requires` a `holding`
+condition and an `item_near` condition at the gate. The first time they hold,
+the world records the gate in `openedRoutes`. The gate's open paintings
+require `gate_open` for that route, and `test/card-theban-gate.test.mjs`
+checks it, so the painting and the passage cannot disagree. While the gate is closed no
 travel card leads out. The gate only blocks the way out: anyone already on the
-battlefield can always walk back in. If the guard gives the decree away or
-leaves his post, the gate closes. A petition needs the decree in hand and
+battlefield can always walk back in. If the guard later gives the decree
+away or leaves his post, the gate stays open. A petition needs the decree in hand and
 returns it to the palace, so a petitioner carries it back to the guard
 afterwards. The battlefield is a Theban place just outside the walls, so by
 the map rule it links directly to the gate. Beyond it the Cithaeron road
 leads over the mountain to Eleusis. From the battlefield it opens while a
 Theban account (the Burial Account, Creon's Writ or the Guard's Tablet) is
-at the battlefield or on Dione's table in the courtyard, and closes when that
-account moves away. The way back from Eleusis is always open. The road is in
+at the battlefield or on Dione's table in the courtyard, and stays open after
+that account moves away. The way back from Eleusis is always open. The road is in
 the Open Door, so it opens with Dione's report.
 
 Three short story cards follow the opening. The Bard carries its growing

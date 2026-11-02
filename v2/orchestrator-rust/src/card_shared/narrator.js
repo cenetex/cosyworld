@@ -820,7 +820,7 @@
     world.presentActors = [...present];
     return world;
   }
-  var residentAvatar = (world, id) => sharedEnabled(world) && Boolean(humanAvatar(id)) && !controlledByHuman(world, id);
+  var residentAvatar = (world, id) => sharedEnabled(world) && Boolean(humanAvatar(id)) && !controlledByHuman(world, id) && !world.absent?.includes(id);
   var roomHumanCount = (world, place) => humanAvatarIds.filter(
     (id) => humanPresent(world, id) && world.actors[id]?.place === place
   ).length;
@@ -1153,7 +1153,7 @@
   var SPECIAL_KINDS = ["places", "avatars", "items"];
   var validSeed = (n) => Number.isInteger(n) && n >= 0 && n <= 4294967295;
   var kindOf = (pack, id) => SPECIAL_KINDS.find((kind) => Object.hasOwn(pack[kind] || {}, id));
-  function hash(text2) {
+  function seedHash(text2) {
     let h = 2166136261;
     for (const ch of text2) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
     return h;
@@ -1188,7 +1188,7 @@
       for (let slot = 0; slot < (pack.specials.draw[kind] || 0); slot++) {
         const total = pool.reduce((n, e) => n + RARITY_WEIGHTS[e.rarity], 0);
         if (!total) break;
-        let pick = hash(`${seed}:${pack.id}:${kind}:${slot}`) % total;
+        let pick = seedHash(`${seed}:${pack.id}:${kind}:${slot}`) % total;
         const index = pool.findIndex(
           (e) => (pick -= RARITY_WEIGHTS[e.rarity]) < 0
         );
@@ -1944,6 +1944,8 @@
         return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));
       case "shared_world":
         return sharedEnabled(s);
+      case "gate_open":
+        return Boolean(s.openedRoutes?.includes(`${c.from}>${c.to}`));
       case "connected_humans":
         return sharedEnabled(s) && humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum;
       case "item_near": {
@@ -2440,6 +2442,14 @@
             requires: []
           }
         ],
+        hiding: {
+          pool: [
+            {
+              id: "clearing",
+              depth: "door"
+            }
+          ]
+        },
         bridge: {
           id: "shore-badger-forest",
           description: "Two bell rings at Black pond fold its reflection onto the Steam Clock clearing. A bell sounding at either end keeps the way back open."
@@ -2619,14 +2629,9 @@
                     phase: "night"
                   },
                   {
-                    kind: "holding",
-                    item: "greek-decree",
-                    actor: "greek-guard"
-                  },
-                  {
-                    kind: "item_near",
-                    item: "greek-decree",
-                    place: "greek-gate"
+                    kind: "gate_open",
+                    from: "greek-gate",
+                    to: "greek-battlefield"
                   }
                 ]
               },
@@ -2638,14 +2643,9 @@
                     phase: "day"
                   },
                   {
-                    kind: "holding",
-                    item: "greek-decree",
-                    actor: "greek-guard"
-                  },
-                  {
-                    kind: "item_near",
-                    item: "greek-decree",
-                    place: "greek-gate"
+                    kind: "gate_open",
+                    from: "greek-gate",
+                    to: "greek-battlefield"
                   }
                 ]
               }
@@ -11191,6 +11191,14 @@
             requires: []
           }
         ],
+        hiding: {
+          pool: [
+            {
+              id: "hoppycat-halfway-tea-garden",
+              depth: "plain"
+            }
+          ]
+        },
         bridge: {
           id: "shore-hoppycat-archive",
           description: "A red thread from the Halfway Tea Garden leads back to Black pond. Ships for the Signal Jetty leave from Piraeus. The pond's own thread into the garden stays open only where it was already found."
@@ -11864,6 +11872,18 @@
             requires: []
           }
         ],
+        hiding: {
+          pool: [
+            {
+              id: "willows-thicket",
+              depth: "night"
+            },
+            {
+              id: "willows-bank",
+              depth: "night"
+            }
+          ]
+        },
         bridge: {
           id: "greek-ship-willows",
           description: "On a misty night, while the Greek ship lies at Black Pond or sails between ports, river mist beside its rail opens onto a small Danube island and keeps a path back. Once the Swede's kit is all back at his camp, the mended canoe also runs between the landing and Black Pond, for anyone."
@@ -12495,6 +12515,7 @@
         routes: [
           {
             from: "forest-oak",
+            live: true,
             to: "forest-trail",
             requires: [
               {
@@ -13716,6 +13737,18 @@
             scope: "first journey proposal"
           }
         ],
+        hiding: {
+          pool: [
+            {
+              id: "forest-garden",
+              depth: "plain"
+            },
+            {
+              id: "forest-oak",
+              depth: "door"
+            }
+          ]
+        },
         bridge: {
           id: "shore-lonely-forest",
           description: "The Black cloth or a traveler's scarf in the lamplit attic reveals stairs down to the cottage. The cottage keeps a free stair back to the attic."
@@ -13850,7 +13883,8 @@
     "ship_at",
     "drawn",
     "chance",
-    "upgraded"
+    "upgraded",
+    "gate_open"
   ];
   var AT_SEA = "@sea";
   var WEATHER_CONDITIONS = ["clear", "cloud", "rain", "mist"];
@@ -13895,6 +13929,14 @@
       (e) => Object.hasOwn(RARITY_WEIGHTS, e?.rarity) && (e.none === true ? keysOk(e, ["none", "rarity"]) : keysOk(e, ["id", "rarity", "anchor"]) && own(e.id) && (e.anchor === void 0 || owns2(pack.places, e.anchor) && !ids3.includes(e.anchor)))
     );
     return ok ? [] : ["specials needs a bounded draw and a pool of own entities"];
+  }
+  var HIDING_DEPTHS = ["plain", "door", "night"];
+  function hidingProblems(pack) {
+    const pool = Array.isArray(pack.hiding?.pool) ? pack.hiding.pool : [], drawn = new Set((pack.specials?.pool || []).map((e) => e?.id));
+    const ok = keysOk(pack.hiding, ["pool"]) && pool.length > 0 && pool.length <= 16 && new Set(pool.map((e) => e?.id)).size === pool.length && pool.every(
+      (e) => keysOk(e, ["id", "depth"]) && owns2(pack.places, e.id) && !drawn.has(e.id) && HIDING_DEPTHS.includes(e.depth)
+    );
+    return ok ? [] : ["hiding needs a pool of the pack's own undrawn places"];
   }
   var keysOk = (o, allowed) => record2(o) && Object.keys(o).every((k) => allowed.includes(k));
   var pointOk = (o) => keysOk(o, ["x", "y"]) && intOk(o.x, 0, 100) && intOk(o.y, 0, 100);
@@ -13970,7 +14012,8 @@
         "storyQuests",
         "topics",
         "situations",
-        "specials"
+        "specials",
+        "hiding"
       ]),
       "has an unknown top-level field"
     );
@@ -14366,6 +14409,10 @@
           case "shared_world":
             ok = keysOk(c, ["kind"]);
             break;
+          // A gate route this world has opened for good (pack-registry.mjs).
+          case "gate_open":
+            ok = keysOk(c, ["kind", "from", "to"]) && anyPlace(c.from) && anyPlace(c.to);
+            break;
           case "connected_humans":
             ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
             break;
@@ -14431,7 +14478,8 @@
       "daylight",
       "drawn",
       "chance",
-      "upgraded"
+      "upgraded",
+      "gate_open"
     ].includes(c?.kind);
     const requirements = (cs, what, persistent = true) => {
       if (cs === void 0) return;
@@ -14505,7 +14553,7 @@
     const routes = pack.routes || [];
     for (const r of routes) {
       check(
-        keysOk(r, ["from", "to", "requires"]) && owns2(places2, r.from) && owns2(places2, r.to) && r.from !== r.to,
+        keysOk(r, ["from", "to", "requires", "live"]) && (r.live === void 0 || r.live === true) && owns2(places2, r.from) && owns2(places2, r.to) && r.from !== r.to,
         "routes must stay within their pack"
       );
       requirements(r.requires, "route requires");
@@ -14711,6 +14759,7 @@
       );
     }
     if (pack.specials !== void 0) problems2.push(...specialsProblems(pack));
+    if (pack.hiding !== void 0) problems2.push(...hidingProblems(pack));
     if (pack.release !== void 0) {
       const r = pack.release;
       check(
@@ -15174,10 +15223,26 @@
       return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place);
     return pack.release.places.includes(id) || pack.release.avatars.includes(id) || pack.release.items.includes(id);
   }
+  var routeKey = (r) => `${r.from}>${r.to}`;
+  var latching = packDefinitions.flatMap(
+    (pack) => (pack.routes || []).filter((r) => r.requires?.length && !r.live).map((route) => ({ pack: pack.id, route }))
+  );
+  var latchKeys = new Set(latching.map(({ route }) => routeKey(route)));
+  var routeOpen = (world, packId, r) => !r.live && Boolean(world.openedRoutes?.includes(routeKey(r))) || conditionsMet(world, packId, r.requires);
+  function latchRoutes(world) {
+    for (const { pack, route } of latching) {
+      const key = routeKey(route);
+      if (route.live || world.openedRoutes?.includes(key)) continue;
+      if (!conditionsMet(world, pack, route.requires)) continue;
+      world.openedRoutes = [...world.openedRoutes || [], key].sort();
+    }
+    return world;
+  }
+  var validOpenedRoutes = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.every((key, i) => latchKeys.has(key) && (!i || list[i - 1] < key));
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
-        (r) => r.from === place && conditionsMet(world, pack.id, r.requires) && (humanAvatarIds.includes(actor) || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || owns3(pack.places, r.from) && owns3(pack.places, r.to))
+        (r) => r.from === place && routeOpen(world, pack.id, r) && (humanAvatarIds.includes(actor) || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || owns3(pack.places, r.from) && owns3(pack.places, r.to))
       ).map((r) => r.to)
     );
     return routes.filter(
@@ -15372,6 +15437,15 @@
         (edge) => Array.isArray(edge) && edge.length === 2 && allowed.has(edgeKey(edge))
       )
     );
+  }
+
+  // v2/card-game/hidden-avatar.mjs
+  var avatarList = (value) => Array.isArray(value) && value.length <= 8 && new Set(value).size === value.length && value.every((id) => humanAvatar(id));
+  function validHidden(world) {
+    const h = world.hidden;
+    if (world.absent !== void 0 && (!avatarList(world.absent) || !world.absent.length || world.absent.includes("vale")))
+      return false;
+    return h === void 0 || Boolean(h) && Object.keys(h).sort().join() === "actor,met,place" && Boolean(humanAvatar(h.actor)) && !world.absent?.includes(h.actor) && typeof h.place === "string" && avatarList(h.met) && !h.met.includes(h.actor);
   }
 
   // v2/card-game/shared-rules.mjs
@@ -17159,6 +17233,8 @@
     if (s.run !== void 0 && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
       fail();
     if (!validPackState(s, sensesFor(s))) fail();
+    if (!validOpenedRoutes(s.openedRoutes) || !validHidden(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
+      fail();
     if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)))
       fail();
     if (!s.locations || typeof s.locations.attic?.anchored !== "boolean" || ![null, "hush"].includes(s.locations.pond?.answer))
@@ -17321,6 +17397,7 @@
     const s = JSON.parse(text2);
     try {
       upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
+      latchRoutes(s);
       validateWorld(s);
       preserveTransportAccess(s);
     } catch (error) {

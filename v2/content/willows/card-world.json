@@ -626,5 +626,11 @@
       "text": "The Swede says the river has cut new channels since the map was drawn.",
       "requires": []
     }
-  ]
+  ],
+  "hiding": {
+    "pool": [
+      { "id": "willows-thicket", "depth": "night" },
+      { "id": "willows-bank", "depth": "night" }
+    ]
+  }
 }

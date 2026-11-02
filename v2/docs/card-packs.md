@@ -179,6 +179,13 @@ Media can be PNG, SVG or WebP under the owning pack folder and is checked
 against actual file signatures and both server allowlists.
 
 Packs can own items, internal conditional routes, and typed choices.
+A conditional route is a gate: the first time its `requires` hold, the world
+records it in `openedRoutes` and it stays open for everyone there (rules 86).
+`"live": true` keeps a route a toggle, open only while its condition holds,
+like Oak's charm shortcut. `{"kind":"gate_open","from":"a","to":"b"}` holds
+once that gate has opened, for a painting that follows it. A pack's
+`hiding.pool` lists where a world's hidden avatar may stand
+(`{"id":"place","depth":"plain"|"door"|"night"}`, #1936).
 A choice can require custody from its acting avatar with
 `{"kind":"holding","item":"pack-item","role":"actor"}`. The command actor
 supplies this role. A condition with an explicit `actor` keeps that named

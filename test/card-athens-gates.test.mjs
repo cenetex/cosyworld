@@ -38,14 +38,14 @@ describe("the Athenian gates", () => {
     expect(s.items["greek-olive-branch"].holder).toBe("greek-athens");
     expect(opens(reload(s), "greek-eleusis", SACRED)).toBe(true);
     expect(opens(reload(s), "greek-athens", WALLS)).toBe(true);
-    // The truce leaves the Agora: the walls close behind it.
+    // The truce leaves the Agora: the walls stay open once opened.
     s = playOpenDoor(s, "take", { item: "greek-olive-branch" });
     s = openDoorWalk(s, "piraeus");
     expect(s.items["greek-olive-branch"].holder).toBe("vale");
-    expect(opens(reload(s), "greek-athens", WALLS)).toBe(false);
+    expect(opens(reload(s), "greek-athens", WALLS)).toBe(true);
     expect(opens(s, "greek-piraeus", WALLS)).toBe(true);
-    // The petition taken away from the Agora closes the Sacred Way.
+    // The petition taken away from the Agora leaves the Sacred Way open.
     s.items["greek-burial-petition"].holder = "greek-colonus";
-    expect(opens(reload(s), "greek-eleusis", SACRED)).toBe(false);
+    expect(opens(reload(s), "greek-eleusis", SACRED)).toBe(true);
   });
 });

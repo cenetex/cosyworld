@@ -83,14 +83,9 @@
               "phase": "night"
             },
             {
-              "kind": "holding",
-              "item": "greek-decree",
-              "actor": "greek-guard"
-            },
-            {
-              "kind": "item_near",
-              "item": "greek-decree",
-              "place": "greek-gate"
+              "kind": "gate_open",
+              "from": "greek-gate",
+              "to": "greek-battlefield"
             }
           ]
         },
@@ -102,14 +97,9 @@
               "phase": "day"
             },
             {
-              "kind": "holding",
-              "item": "greek-decree",
-              "actor": "greek-guard"
-            },
-            {
-              "kind": "item_near",
-              "item": "greek-decree",
-              "place": "greek-gate"
+              "kind": "gate_open",
+              "from": "greek-gate",
+              "to": "greek-battlefield"
             }
           ]
         }

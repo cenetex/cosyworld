@@ -234,6 +234,14 @@
           "requires": []
         }
       ],
+      "hiding": {
+        "pool": [
+          {
+            "id": "clearing",
+            "depth": "door"
+          }
+        ]
+      },
       "bridge": {
         "id": "shore-badger-forest",
         "description": "Two bell rings at Black pond fold its reflection onto the Steam Clock clearing. A bell sounding at either end keeps the way back open."
@@ -413,14 +421,9 @@
                   "phase": "night"
                 },
                 {
-                  "kind": "holding",
-                  "item": "greek-decree",
-                  "actor": "greek-guard"
-                },
-                {
-                  "kind": "item_near",
-                  "item": "greek-decree",
-                  "place": "greek-gate"
+                  "kind": "gate_open",
+                  "from": "greek-gate",
+                  "to": "greek-battlefield"
                 }
               ]
             },
@@ -432,14 +435,9 @@
                   "phase": "day"
                 },
                 {
-                  "kind": "holding",
-                  "item": "greek-decree",
-                  "actor": "greek-guard"
-                },
-                {
-                  "kind": "item_near",
-                  "item": "greek-decree",
-                  "place": "greek-gate"
+                  "kind": "gate_open",
+                  "from": "greek-gate",
+                  "to": "greek-battlefield"
                 }
               ]
             }
@@ -8985,6 +8983,14 @@
           "requires": []
         }
       ],
+      "hiding": {
+        "pool": [
+          {
+            "id": "hoppycat-halfway-tea-garden",
+            "depth": "plain"
+          }
+        ]
+      },
       "bridge": {
         "id": "shore-hoppycat-archive",
         "description": "A red thread from the Halfway Tea Garden leads back to Black pond. Ships for the Signal Jetty leave from Piraeus. The pond's own thread into the garden stays open only where it was already found."
@@ -9658,6 +9664,18 @@
           "requires": []
         }
       ],
+      "hiding": {
+        "pool": [
+          {
+            "id": "willows-thicket",
+            "depth": "night"
+          },
+          {
+            "id": "willows-bank",
+            "depth": "night"
+          }
+        ]
+      },
       "bridge": {
         "id": "greek-ship-willows",
         "description": "On a misty night, while the Greek ship lies at Black Pond or sails between ports, river mist beside its rail opens onto a small Danube island and keeps a path back. Once the Swede's kit is all back at his camp, the mended canoe also runs between the landing and Black Pond, for anyone."
@@ -10289,6 +10307,7 @@
       "routes": [
         {
           "from": "forest-oak",
+          "live": true,
           "to": "forest-trail",
           "requires": [
             {
@@ -11510,6 +11529,18 @@
           "scope": "first journey proposal"
         }
       ],
+      "hiding": {
+        "pool": [
+          {
+            "id": "forest-garden",
+            "depth": "plain"
+          },
+          {
+            "id": "forest-oak",
+            "depth": "door"
+          }
+        ]
+      },
       "bridge": {
         "id": "shore-lonely-forest",
         "description": "The Black cloth or a traveler's scarf in the lamplit attic reveals stairs down to the cottage. The cottage keeps a free stair back to the attic."

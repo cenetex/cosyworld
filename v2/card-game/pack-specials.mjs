@@ -16,7 +16,7 @@ export const validSeed = (n) =>
 const kindOf = (pack, id) =>
   SPECIAL_KINDS.find((kind) => Object.hasOwn(pack[kind] || {}, id));
 
-function hash(text) {
+export function seedHash(text) {
   let h = 2166136261;
   for (const ch of text) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
   return h;
@@ -59,7 +59,7 @@ export function drawSpecials(pack, seed) {
     for (let slot = 0; slot < (pack.specials.draw[kind] || 0); slot++) {
       const total = pool.reduce((n, e) => n + RARITY_WEIGHTS[e.rarity], 0);
       if (!total) break;
-      let pick = hash(`${seed}:${pack.id}:${kind}:${slot}`) % total;
+      let pick = seedHash(`${seed}:${pack.id}:${kind}:${slot}`) % total;
       const index = pool.findIndex(
         (e) => (pick -= RARITY_WEIGHTS[e.rarity]) < 0,
       );

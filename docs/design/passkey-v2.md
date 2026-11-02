@@ -8,8 +8,10 @@ The owner approved this model on 2026-11-01
 ## The model
 
 - **Eight avatars per passkey**, by initial R·A·T·V·M·I·C·S: Rue, Ash,
-  Tavi, Vale, Mara, Iris, Cass and Sage. A passkey starts with Vale. Meeting
-  (talking to) another avatar in any world unlocks it.
+  Tavi, Vale, Mara, Iris, Cass and Sage. A passkey starts with Vale. Each
+  new world hides one of its passkey's locked avatars; talking to that one
+  unlocks it ([#1936](https://github.com/cenetex/cosyworld/issues/1936),
+  below).
 - **One place each.** An avatar is in one world at a time. A person plays one
   avatar at a time, and their others live as residents where they are.
 - **One avatar per person per world** (#1737 stays).
@@ -57,13 +59,47 @@ These are the rules changes; everything else is server or client work.
 Rules 79 and earlier replay unchanged. A world moves onto rules 80 by its
 journaled upgrade.
 
+## Rules 86: one hidden avatar per world (#1936)
+
+The owner settled this on 2026-11-01.
+
+- **Order is per passkey.** There is no fixed R·A·T·V·M·I·C·S chain and no
+  rarity weighting. The server picks the hidden avatar from the creating
+  passkey's locked avatars by a hash of the passkey and the world id. A
+  shared world hides from its owner's locked set.
+- **`create` carries the pick.** The server passes `hidden` (the one) and
+  `absent` (the passkey's other locked avatars) on the create request. The
+  seeded world records both, so replay never reads the unlock table.
+- **Placement.** `hideAvatar` in `hidden-avatar.mjs` puts the hidden avatar
+  in one of the installed packs' hiding places, hashing `world.run.seed`, and
+  records `world.hidden = {actor, place, met}`. It lives there as a resident
+  with a want. A pack lists its hiding places as `hiding.pool`, entries
+  `{id, depth}` like the specials pool, where depth is `plain`, `door` or
+  `night`. A hiding place is the pack's own place and never a drawn special.
+- **Absent avatars.** `world.absent` lists the locked avatars a world leaves
+  out. They are not residents and take no want. A claim brings one in.
+- **Unlock.** A human's first committed Talk with the hidden avatar adds a
+  narration line with `unlock: <avatar>` ("Mara remembers Vale.") and
+  records the talker in `hidden.met`. Later Talks add nothing.
+- **Seek.** The `seek` command gives its avatar the plain person quest to
+  talk to the hidden avatar: the menu's "+ Find _Mara_".
+
+The same mint latches gates (owner, 2026-11-01): a pack route opens for good
+the first time its condition holds, recorded in `world.openedRoutes`, unless
+it is marked `live`. An earlier save records the gates already open as it
+loads ([pack guide](../../v2/docs/card-packs.md)).
+
+Rules 85 and earlier replay unchanged; worlds created before rules 86 hide
+nobody.
+
 ## Phases
 
 0. Holder names, Free and Release, the Table (#1844, #1845).
 1. Iris, Cass and Sage, and initial order (#1847).
 2. Rules 80 above, then the server: Send frees and resets the old seat, and
    claims carry the level.
-3. Unlocks by talk, local and shared, with the migration offer: a free unlock
-   of every avatar already played, or a reset to Vale.
+3. Unlocks by talk (#1936): rules 86 above, then the server's unlock table,
+   the hidden pick at create, the grandfather pass (every avatar a passkey
+   already claimed counts as unlocked) and the world that opens on unlock.
 4. World slots: eight per passkey, with world reset and delete.
 5. The passkey screen.

@@ -11,9 +11,9 @@ import { backdrop } from "../v2/card-game/scene.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 
-// The road from the Theban City Gate out to the battlefield is open while the
-// Gate Guard holds the Burial Decree at the gate: a live condition. The gate
-// only blocks the way out; the way back is an ordinary exit.
+// The road from the Theban City Gate out to the battlefield opens once the
+// Gate Guard holds the Burial Decree at the gate, and stays open after. The
+// gate only blocks the way out; the way back is an ordinary exit.
 const reload = (s) => decodeSave(encodeSave(s));
 const out = (s) => exits(s, "greek-gate", "vale").includes("greek-battlefield");
 const painted = (s) => !backdrop("greek-gate", s).includes("closed");
@@ -42,16 +42,16 @@ const walk = (s, ...ids) =>
   );
 
 describe("the Theban City Gate", () => {
-  it("paints the gate open with the same condition that opens the road", () => {
+  it("paints the gate open once the road has opened", () => {
     expect(pack.places["greek-gate"].exits).not.toContain("greek-battlefield");
     expect(pack.places["greek-battlefield"].exits).toEqual(["greek-gate"]);
     for (const b of pack.places["greek-gate"].backdrops)
-      expect(b.requires.filter((r) => r.kind !== "daylight")).toEqual(
-        route.requires,
-      );
+      expect(b.requires.filter((r) => r.kind !== "daylight")).toEqual([
+        { kind: "gate_open", from: route.from, to: route.to },
+      ]);
   });
 
-  it("opens the battlefield road only while the guard holds the decree there", () => {
+  it("opens the battlefield road once the guard holds the decree there", () => {
     let s = openingFixture("burial").decree;
     expect(s.items["greek-decree"].holder).toBe("greek-palace");
     expect(out(s)).toBe(false);
@@ -75,18 +75,43 @@ describe("the Theban City Gate", () => {
     s = act(s, "move", { target: "greek-battlefield" });
     // The way back is always open.
     expect(exits(s, "greek-battlefield", "vale")).toContain("greek-gate");
-    // The guard leaves his post with the decree: the road closes.
+    expect(s.openedRoutes).toEqual(["greek-gate>greek-battlefield"]);
+    // The guard leaves his post with the decree: the gate stays open.
     const away = structuredClone(s);
     away.actors["greek-guard"].place = "greek-well";
-    expect(out(reload(away))).toBe(false);
-    expect(painted(reload(away))).toBe(false);
-    // Anyone already outside can still come back through the closed gate.
+    expect(out(reload(away))).toBe(true);
+    expect(painted(reload(away))).toBe(true);
     expect(exits(reload(away), "greek-battlefield", "vale")).toContain(
       "greek-gate",
     );
-    // He gives the decree away: the road closes.
+    // He gives the decree away: it stays open.
     s.items["greek-decree"].holder = "greek-elder";
-    expect(out(reload(s))).toBe(false);
-    expect(painted(reload(s))).toBe(false);
+    expect(out(reload(s))).toBe(true);
+  });
+
+  it("records a gate already open when an earlier save loads", () => {
+    const s = structuredClone(openingFixture("burial").decree);
+    s.items["greek-decree"].holder = "greek-guard";
+    s.actors["greek-guard"].place = "greek-gate";
+    const loaded = reload(s);
+    expect(loaded.openedRoutes).toEqual(["greek-gate>greek-battlefield"]);
+    loaded.items["greek-decree"].holder = "greek-palace";
+    expect(out(reload(loaded))).toBe(true);
+  });
+
+  it("keeps a live route a toggle", () => {
+    route.live = true;
+    try {
+      const s = structuredClone(openingFixture("burial").decree);
+      s.items["greek-decree"].holder = "greek-guard";
+      s.actors["greek-guard"].place = "greek-gate";
+      const open = reload(s);
+      expect(open.openedRoutes).toBeUndefined();
+      expect(out(open)).toBe(true);
+      open.items["greek-decree"].holder = "greek-palace";
+      expect(out(reload(open))).toBe(false);
+    } finally {
+      delete route.live;
+    }
   });
 });

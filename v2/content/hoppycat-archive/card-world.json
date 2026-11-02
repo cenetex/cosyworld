@@ -1048,5 +1048,10 @@
       "text": "Tapi still needs one real ally before the broadcast ends.",
       "requires": []
     }
-  ]
+  ],
+  "hiding": {
+    "pool": [
+      { "id": "hoppycat-halfway-tea-garden", "depth": "plain" }
+    ]
+  }
 }

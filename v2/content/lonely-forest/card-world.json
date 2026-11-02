@@ -439,6 +439,7 @@
   "routes": [
     {
       "from": "forest-oak",
+      "live": true,
       "to": "forest-trail",
       "requires": [
         {
@@ -1656,5 +1657,11 @@
       "path": "docs/art-direction/world-map.md",
       "scope": "first journey proposal"
     }
-  ]
+  ],
+  "hiding": {
+    "pool": [
+      { "id": "forest-garden", "depth": "plain" },
+      { "id": "forest-oak", "depth": "door" }
+    ]
+  }
 }

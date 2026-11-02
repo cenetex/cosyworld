@@ -83,6 +83,7 @@ export const CONDITION_KINDS = [
   "drawn",
   "chance",
   "upgraded",
+  "gate_open",
 ];
 // The `ship_at` dock for a ship sailing between ports.
 export const AT_SEA = "@sea";
@@ -164,6 +165,27 @@ function specialsProblems(pack) {
               (owns(pack.places, e.anchor) && !ids.includes(e.anchor)))),
     );
   return ok ? [] : ["specials needs a bounded draw and a pool of own entities"];
+}
+// Where a world's hidden avatar may stand (#1936): the pack's own places,
+// never a drawn special, each in plain sight, behind a door or quest, or on a
+// night path.
+const HIDING_DEPTHS = ["plain", "door", "night"];
+function hidingProblems(pack) {
+  const pool = Array.isArray(pack.hiding?.pool) ? pack.hiding.pool : [],
+    drawn = new Set((pack.specials?.pool || []).map((e) => e?.id));
+  const ok =
+    keysOk(pack.hiding, ["pool"]) &&
+    pool.length > 0 &&
+    pool.length <= 16 &&
+    new Set(pool.map((e) => e?.id)).size === pool.length &&
+    pool.every(
+      (e) =>
+        keysOk(e, ["id", "depth"]) &&
+        owns(pack.places, e.id) &&
+        !drawn.has(e.id) &&
+        HIDING_DEPTHS.includes(e.depth),
+    );
+  return ok ? [] : ["hiding needs a pool of the pack's own undrawn places"];
 }
 const keysOk = (o, allowed) =>
   record(o) && Object.keys(o).every((k) => allowed.includes(k));
@@ -298,6 +320,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "topics",
       "situations",
       "specials",
+      "hiding",
     ]),
     "has an unknown top-level field",
   );
@@ -911,6 +934,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "shared_world":
           ok = keysOk(c, ["kind"]);
           break;
+        // A gate route this world has opened for good (pack-registry.mjs).
+        case "gate_open":
+          ok =
+            keysOk(c, ["kind", "from", "to"]) &&
+            anyPlace(c.from) &&
+            anyPlace(c.to);
+          break;
         case "connected_humans":
           ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
           break;
@@ -1024,6 +1054,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           "drawn",
           "chance",
           "upgraded",
+          "gate_open",
         ].includes(c?.kind);
   const requirements = (cs, what, persistent = true) => {
     if (cs === undefined) return;
@@ -1116,7 +1147,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   const routes = pack.routes || [];
   for (const r of routes) {
     check(
-      keysOk(r, ["from", "to", "requires"]) &&
+      keysOk(r, ["from", "to", "requires", "live"]) &&
+        (r.live === undefined || r.live === true) &&
         owns(places, r.from) &&
         owns(places, r.to) &&
         r.from !== r.to,
@@ -1442,6 +1474,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
   }
   if (pack.specials !== undefined) problems.push(...specialsProblems(pack));
+  if (pack.hiding !== undefined) problems.push(...hidingProblems(pack));
   if (pack.release !== undefined) {
     const r = pack.release;
     check(

@@ -14,6 +14,7 @@ const RULES = [
   "adaptive-learning.mjs",
   "boardyai.mjs",
   "expression.mjs",
+  "hidden-avatar.mjs",
   "human-cast.mjs",
   "knowledge.mjs",
   "learning.mjs",
