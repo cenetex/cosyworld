@@ -20,7 +20,7 @@ const probe = `
 // Test-only access to the actual lifecycle promises and shared polling path.
 globalThis.discoveryProbe = {
   sync: () => sharedSession.sync(),
-  state: () => ({ revision: world.revision, trip, pending: discoveryPending }),
+  state: () => ({ revision: world.revision, trip }),
   wait: (key) => {
     globalThis.discoverySettled ||= {};
     globalThis.discoverySettled[key] = false;
@@ -68,10 +68,8 @@ try {
         window.discoveryReveals = [];
         window.addEventListener("DOMContentLoaded", () => {
           new MutationObserver(() => {
-            const dialog = document.querySelector("#unveil-dialog");
             const id = ["oil", "bell", "cloth"].find((id) => document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "false" && !window.discoveryReveals.includes(id));
             if (
-              !dialog?.open &&
               id &&
               window.discoveryReveals.at(-1) !== id
             )
@@ -116,9 +114,7 @@ try {
     };
     const reveal = (id) =>
       page.waitForFunction((id) => {
-        const dialog = document.querySelector("#unveil-dialog");
         return (
-          !dialog.open &&
           document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "true"
         );
       }, id);
@@ -161,11 +157,6 @@ try {
       "bell",
       "cloth",
     ]);
-    assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
-    assert.equal(
-      await page.evaluate(() => window.discoveryProbe.state().pending),
-      false,
-    );
 
     // A new trip leaves covered cards at their actual place without a modal.
     await page.evaluate(() => {
@@ -205,12 +196,6 @@ try {
       document.querySelector("#history-dialog").close(),
     );
     await page.waitForFunction(() => window.discoverySettled.cancelled);
-    assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
-    assert.equal(
-      await page.evaluate(() => window.discoveryProbe.state().pending),
-      false,
-      "a shared room change clears the cancelled discovery state",
-    );
     await publish((state) => {
       state.items.oil.holder = "attic";
       state.items.bell.holder = "attic";
@@ -220,20 +205,11 @@ try {
     await page.evaluate(() => window.discoveryProbe.wait("newTrip"));
     await dismiss("cloth");
     await page.waitForFunction(() => window.discoverySettled.newTrip);
-    assert.equal(
-      await page.evaluate(() => window.discoveryProbe.state().pending),
-      false,
-    );
-    // Quests have no reveal. A reload of this viewer opens no quest card
-    // and the room's next lines play in order.
+    // A reload of this viewer plays the room's next lines play in order.
     await page.reload();
     await page.waitForFunction(() => Boolean(window.discoveryProbe));
     await publish(() => {});
     await page.waitForTimeout(300);
-    assert.equal(
-      await page.locator("#unveil-dialog[open] [data-quest]").count(),
-      0,
-    );
     const first = "I can hear the pond while we talk about what we want.";
     const second = "I will wait here beside the water.";
     const startsAt = Math.max(Date.now(), snapshot.now + 1);

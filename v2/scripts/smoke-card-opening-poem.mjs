@@ -85,9 +85,7 @@ export async function checkOpeningPoem(browser, origin) {
         const settle = async () => {
           await page.waitForSelector("#hand .card");
           for (let i = 0; i < 180; i++) {
-            if (await page.locator("#unveil-dialog[open]").count())
-              await page.keyboard.press("Escape");
-            else if (await page.locator("#dialogue-advance").isVisible())
+            if (await page.locator("#dialogue-advance").isVisible())
               await page.locator("#dialogue-advance").click();
             await page.waitForTimeout(60);
             if (

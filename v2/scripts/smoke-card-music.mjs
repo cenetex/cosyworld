@@ -56,15 +56,7 @@ try {
     `http://127.0.0.1:${server.address().port}/?table=music-smoke`,
   );
   console.log("Loaded card table");
-  // Cards met for the first time are unveiled; take each into the hand.
-  async function takeUnveiled() {
-    while (await page.locator("#unveil-dialog[open]").count()) {
-      await page.keyboard.press("Escape");
-      await page.waitForTimeout(60);
-    }
-  }
   async function playCard(card) {
-    await takeUnveiled();
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
@@ -82,13 +74,11 @@ try {
   await page.waitForFunction(() =>
     document.querySelector('#hand [data-card="pond"]'),
   );
-  await takeUnveiled();
   await page.waitForFunction((file) => {
     const audio = document.querySelector("#room-music");
     return new URL(audio.src).pathname.endsWith(file) && audio.currentTime > 0;
   }, roomTracks.attic[0].file);
   await playCard("pond");
-  await takeUnveiled();
   // The attic song follows the player to the pond until it ends.
   await page.waitForFunction(() => document.body.dataset.place === "pond");
   assert(
@@ -306,7 +296,6 @@ try {
     localStorage.setItem("cosyworld.reflected-shore.v1.music-smoke", save);
   }, encodeSave(ship));
   await page.reload();
-  await takeUnveiled();
   await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
   await fullVolume();
@@ -401,7 +390,6 @@ try {
   await page.locator("#confirm-reset").click();
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await page.reload();
-  await takeUnveiled();
   await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
   await page.locator("#music-toggle").click();

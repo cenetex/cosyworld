@@ -71,9 +71,7 @@ try {
     const finish = async () => {
       const deadline = Date.now() + 20000;
       while (Date.now() < deadline) {
-        if (await page.locator("#unveil-dialog[open]").count())
-          await page.keyboard.press("Escape");
-        else if (await page.locator("#dialogue-advance").isVisible())
+        if (await page.locator("#dialogue-advance").isVisible())
           await page.locator("#dialogue-advance").click();
         await page.waitForTimeout(50);
         if (

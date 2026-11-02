@@ -20,10 +20,6 @@ const browser = await chromium.launch({ headless: true });
 await mkdir("output/home-rescue", { recursive: true });
 async function ready(page) {
   await page.waitForFunction(() => document.body.inert === false);
-  while (await page.locator("#unveil-dialog[open]").count()) {
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(60);
-  }
 }
 try {
   for (const width of [1440, 390]) {

@@ -33,8 +33,6 @@ try {
         "cosyworld.room-music",
         JSON.stringify({ enabled: false }),
       );
-      window.discoveries = [];
-      window.flights = [];
       window.arrivals = [];
       const animate = Element.prototype.animate;
       Element.prototype.animate = function (...args) {
@@ -44,45 +42,8 @@ try {
           !args[1].pseudoElement
         )
           window.arrivals.push(this.dataset.card);
-        if (this.id === "unveil-take")
-          window.flights.push({
-            id: this.dataset.card,
-            direction:
-              document.querySelector("#unveil-dialog").dataset.direction,
-            frames: args[0],
-            duration: args[1].duration,
-          });
         return animate.apply(this, args);
       };
-      window.addEventListener("DOMContentLoaded", () => {
-        new MutationObserver(() => {
-          const dialog = document.querySelector("#unveil-dialog");
-          if (
-            !dialog?.open ||
-            dialog.dataset.phase !== "reveal" ||
-            dialog.dataset.direction === "fulfill"
-          )
-            return;
-          const id = document.querySelector("#unveil-take").dataset.card;
-          if (window.discoveries.at(-1)?.id === id) return;
-          window.discoveries.push({
-            id,
-            isQuest: Boolean(
-              document.querySelector("#unveil-take [data-quest]"),
-            ),
-            travel: Number(
-              getComputedStyle(document.querySelector("#travel")).opacity,
-            ),
-            speech: document.querySelectorAll("#dialogue-text .revealed")
-              .length,
-            cooling: document.querySelector("#hand").dataset.cooling,
-          });
-        }).observe(document.body, {
-          attributes: true,
-          subtree: true,
-          attributeFilter: ["open", "data-phase"],
-        });
-      });
     });
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
@@ -120,23 +81,14 @@ try {
       );
     const finish = async () => {
       for (let i = 0; i < 300; i++) {
-        if (await page.locator("#unveil-dialog[open]").count())
-          await page.keyboard.press("Escape");
-        else if (await page.locator("#dialogue-advance").isVisible()) {
+        if (await page.locator("#dialogue-advance").isVisible()) {
           // After a discovery the front card still takes real clicks.
-          const open = () => page.locator("#unveil-dialog[open]").count();
-          if ((await stackHits(page)).front === false && !(await open())) {
+          if ((await stackHits(page)).front === false) {
             await page.waitForTimeout(400);
-            if ((await stackHits(page)).front === false && !(await open()))
+            if ((await stackHits(page)).front === false)
               throw Error(`The front card missed a click at ${width}px`);
           }
-          // A discovery can open over the line mid-click; the loop takes it.
-          await page
-            .locator("#dialogue-advance")
-            .click({ timeout: 3000 })
-            .catch(async (error) => {
-              if (!(await open())) throw error;
-            });
+          await page.locator("#dialogue-advance").click({ timeout: 3000 });
         }
         if (
           (await page.locator("#hand").getAttribute("data-cooling")) === "false"
@@ -160,7 +112,6 @@ try {
       await ready();
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal((await state()).items.lamp.lit, true);
-      assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       // The lamplit attic shows only the room in the mirror (#1653).
       assert.equal(
         await backdrop(),
@@ -329,7 +280,6 @@ try {
           document.dispatchEvent(new Event("visibilitychange"));
         });
         await page.waitForTimeout(1800);
-        assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
         await page.evaluate(() => {
           Object.defineProperty(document, "hidden", {
             configurable: true,
@@ -368,7 +318,6 @@ try {
         await page.locator("#toolbar-menu-button").click();
         await page.locator("#menu-button").click();
         await page.waitForTimeout(2400);
-        assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
         await page.locator('[data-close="menu-dialog"]').click();
       }
       await unveil("keeper");
@@ -378,7 +327,6 @@ try {
           .evaluate((el) => Number(getComputedStyle(el).opacity)),
         0,
       );
-      assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       await page.keyboard.press("Escape");
       // The keeper's oil arrives in his stack, which stays folded.
       await unveil("oil");
@@ -400,12 +348,6 @@ try {
         await page.locator("#live-line").click();
         await page.locator("#live-line").waitFor({ state: "hidden" });
       }
-      const events = await page.evaluate(() => ({
-        discoveries: window.discoveries,
-        flights: window.flights,
-      }));
-      assert.deepEqual(events.discoveries, [], "discoveries open no modal");
-      assert.deepEqual(events.flights, [], "cards stay in their hand stacks");
       const saved = await state();
       await page.reload();
       await finish();
@@ -421,13 +363,12 @@ try {
           .getAttribute("data-unrevealed"),
         "false",
       );
-      assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
-      assert.deepEqual(await page.evaluate(() => window.discoveries), []);
       assert.deepEqual(await state(), saved);
       // Reset through the real menu, then cancel a live reveal with a save update.
       await page.locator("#toolbar-menu-button").click();
-      await page.locator("#avatar-move").click();
-      await page.locator("#avatar-new-world").click();
+      // Signed out, Settings holds New game (#1892).
+      await page.locator("#menu-button").click();
+      await page.locator("#new-game").click();
       await page.locator("#confirm-reset").click();
       await ready();
       assert.equal((await state()).actors.vale.place, "attic");
@@ -447,15 +388,8 @@ try {
       );
       await finish();
       await page.waitForTimeout(1800);
-      assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
-      assert.equal(
-        await page
-          .locator("#unveil-take")
-          .evaluate((el) => el.getAnimations().length),
-        0,
-      );
       assert.deepEqual(errors, []);
-      reports.push({ width, height, motion, ...events, passed: true });
+      reports.push({ width, height, motion, passed: true });
       console.log(
         `Location stack, first-click reveal, skip, hit-testing, second-click selection, reload and reset passed at ${width}px (${motion}).`,
       );
