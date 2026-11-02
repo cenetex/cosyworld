@@ -26,6 +26,14 @@ describe("combat art on the current stage", () => {
         expect(portraitFraming(result)).toBe("wide");
         // A standing guard remains in the same wardrobe when another beat starts.
         expect(combatPortrait(id, "guard", result, "right")).toBe(result);
+        expect(
+          combatPortrait(
+            id,
+            "guard",
+            `./assets/shared/characters/${id}-sleeping${scarf}.webp`,
+            "right",
+          ),
+        ).toBe(result);
       }
   });
   it("keeps residents inside the phone and never mirrors the Keeper's clock", () => {

@@ -6,6 +6,7 @@ import voiceCast from "./voices.json" with { type: "json" };
 import { daylightAssets } from "./daylight.mjs";
 import { rarityPortraitAssets } from "./rarity-portraits.mjs";
 import { castCombatAssets } from "./cast-combat-art.mjs";
+import { sleepPortraitAssets } from "./sleep-portraits.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
@@ -40,6 +41,12 @@ const files = [
   // Rest card paintings for issue #1849; the rest-card feature follows.
   "assets/rest/short-rest.webp",
   "assets/rest/long-rest.webp",
+  "sleep-portraits.mjs",
+  ...sleepPortraitAssets,
+  ...["body", "reflection", "contact", "still"].map(
+    (part) => `assets/greek-drama/ship-layers/pond-ship-${part}.webp`,
+  ),
+  "assets/greek-drama/ship-layers/recipe.json",
   // Standoff effect art for issue #1920; runtime overlays follow.
   ...[
     "hit-1",

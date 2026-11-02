@@ -18298,6 +18298,26 @@
     });
   }
 
+  // v2/card-game/sleep-portraits.mjs
+  var travelers = /* @__PURE__ */ new Set([
+    "vale",
+    "mara",
+    "ash",
+    "nell",
+    "tavi",
+    "rue",
+    "orin",
+    "ada"
+  ]);
+  var sleepPortraitAssets = [
+    ...[...travelers].flatMap(
+      (id) => ["", "-scarf"].map(
+        (wardrobe) => `assets/shared/characters/${id}-sleeping${wardrobe}.webp`
+      )
+    ),
+    ...["moth", "keeper"].map((id) => `assets/sleep/${id}-sleeping.webp`)
+  ];
+
   // v2/card-game/rarity-portraits.mjs
   var appearances = {
     "hoppycat-arc": "Silver-white tousled hair and blue eyes; ivory open-collar shirt, dark brown knitted cardigan, dark trousers, brown leather shoes, and a brown-strapped wristwatch.",
@@ -19059,6 +19079,7 @@
   // v2/card-game/portrait-facing.mjs
   var groups = {
     right: [
+      ...sleepPortraitAssets.filter((file) => file.includes("/shared/")),
       ...castCombatFacings("right"),
       ...rarityPortraitAssets.filter((file) => file.startsWith("assets/combat/")),
       "assets/boardyai/boardyai.png",
@@ -19079,6 +19100,8 @@
       )
     ],
     left: [
+      "assets/sleep/moth-sleeping.webp",
+      "assets/sleep/keeper-sleeping.webp",
       ...castCombatFacings("left"),
       ...Object.values(rarityForms).filter((form) => form.facing === "left").map((form) => form.portrait),
       ...["swede", "swede-listening", "swede-worried", "swede-seated"].map(
@@ -19155,6 +19178,7 @@
     )
   );
   var widePortraits = /* @__PURE__ */ new Set([
+    ...sleepPortraitAssets,
     "assets/lonely-forest/skull.png",
     "assets/lonely-forest/whiskerwind.png",
     "assets/moth.png",

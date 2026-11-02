@@ -1,0 +1,181 @@
+{
+  "created": "2026-11-02",
+  "generator": "OpenAI built-in image generation",
+  "base_commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+  "brief": "Separate the approved Black Pond ship into rigid ship, water reflection and small contact-ripple layers. Preserve the original camera and 1672x940 registration, reuse the clean boat-free Pond, and provide cropped exports plus a static bake.",
+  "assets": [
+    {
+      "id": "pond-ship-body",
+      "generation_id": "exec-e6807f73-0628-4e52-b964-e5b4439922ab",
+      "prompt": "Use case: background-extraction / identity-preserve.\nAsset: the rigid exterior ship layer for CosyWorld's Black Pond, separated for gentle bobbing.\nImage 1 is the edit target: the approved transparent ship-and-water overlay on a 1672x940 canvas. Preserve the ship's exact camera, scale, position, silhouette, weathered dark wooden hull, curved prow, mast, spars, pale cloth sail with its seams and shading, ropes, oars, three small warm lanterns attached to the ship, and painterly fine detail. Do not redesign or enlarge the ship.\nChange ONLY this: completely remove the entire water patch, reflected ship, reflected sail, reflected lantern streaks, ripples, foam, horizon, ground and all pixels of scenery from below and around the hull. Keep the complete actual ship, including the oars, ropes and the hull's clean waterline edge. All space outside the actual physical ship must be genuine transparent alpha.\nKeep the same wide original composition: the small ship is right of centre, approximately x695..1140, y5..320 on the 1672x940 reference canvas. Most of the left half and lower two-thirds stay completely empty transparent. Do not centre, crop, zoom, move, rotate, or change perspective. Preserve the full mast tip and rigging without clipping.\nCRITICAL: opaque physical materials: solid wood, sail fabric, mast, oars, metal and ropes must have fully opaque interiors. Cloth is opaque painted canvas, not gauze. Transparent alpha belongs only outside the silhouette and in actual gaps between ropes. Delicate antialiased edges are allowed. No ghostly translucent hull, no background colour or black matte, no checkerboard painted into the image, no people, text, watermark, new objects or water whatsoever. The attached boat lanterns remain because they are part of this boat; no additional lights. Output one registered transparent ship layer, not a presentation sheet.",
+      "references": [
+        {
+          "role": "Identity-preserving edit target; remove only reflected boat and water.",
+          "repository_path": "v2/card-game/assets/greek-drama/pond-ship-overlay.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/greek-drama/pond-ship-overlay.png",
+          "sha256": "dde8685c9d694b49e81aac2cdf76415db9390224b5e35c624e15b5d89c170b55"
+        }
+      ],
+      "dimensions": [
+        461,
+        329
+      ],
+      "transparent_background": true,
+      "original_png_file": "exec-e6807f73-0628-4e52-b964-e5b4439922ab.png",
+      "original_png_sha256": "0024bb776a1a116509d2fa02f7695b351ad6b42dfe3c273f2eac0fa910bb76b1",
+      "original_png_bytes": 235502,
+      "file": "pond-ship-body.webp",
+      "master": "sources/pond-ship-body.png",
+      "original_dimensions": [
+        1672,
+        940
+      ],
+      "registered_canvas": [
+        1672,
+        940
+      ],
+      "crop": {
+        "left": 689,
+        "top": 0,
+        "width": 461,
+        "height": 329
+      }
+    },
+    {
+      "id": "pond-ship-reflection",
+      "generation_id": "exec-e06d1300-18c5-4817-877a-8d21f6150b79",
+      "prompt": "Use case: precise-object-edit / background-extraction.\nAsset: a separate water REFLECTION layer for the approved CosyWorld Black Pond ship.\nImage 1 is the registered edit target, a 1672x940 transparent overlay containing the boat above and its water reflection below. Image 2 is the newly separated rigid ship, a supporting identity reference only. Preserve the camera, ship identity, location, scale, night palette and painterly texture of image 1.\nReturn ONLY the reflected ship on the water: a broken, gently rippled inverted pale sail, dark reflected hull and mast, and three small warm amber lantern streaks. The reflection remains exactly beneath the original ship at approximately x700..1120 and y320..580 on the 1672x940 canvas, tapering and fading towards its bottom. There must be NO actual upright boat anywhere, no mast or sail above the waterline, no rigging/oars above y320.\nSeparate the reflection from the background water: remove the solid blue water patch and its hard cutout edge. The dark water itself belongs to a different background image. Make the quiet dark gaps between ripple strokes and the surroundings genuinely alpha-transparent, with soft feathering at the reflection's outer and lower edges. Keep a restrained dim blue-silver reflected sail with a few warm vertical highlights, appropriate for still, very dark water. No bright mirror-like white sail. It should read as broken reflected light floating on the underlying pond, not as a solid object or opaque sticker.\nKeep the original full wide registered canvas and original position. Do not move, enlarge, centre or rotate the reflection. Leave the entire top third, left half and bottom third completely transparent. No scenery, horizon, sky, plants, mirror, wake, foam, extra boat, people, letters, words, icons or checkerboard. One transparent reflection layer only.",
+      "references": [
+        {
+          "role": "Registered edit target; isolate reflected ship and remove background water.",
+          "repository_path": "v2/card-game/assets/greek-drama/pond-ship-overlay.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/greek-drama/pond-ship-overlay.png",
+          "sha256": "dde8685c9d694b49e81aac2cdf76415db9390224b5e35c624e15b5d89c170b55"
+        },
+        {
+          "role": "Accepted rigid ship identity reference.",
+          "generation_id": "exec-e6807f73-0628-4e52-b964-e5b4439922ab",
+          "original_png_sha256": "0024bb776a1a116509d2fa02f7695b351ad6b42dfe3c273f2eac0fa910bb76b1",
+          "original_png_bytes": 235502,
+          "dimensions": [
+            1672,
+            940
+          ]
+        }
+      ],
+      "dimensions": [
+        429,
+        306
+      ],
+      "transparent_background": true,
+      "original_png_file": "exec-e06d1300-18c5-4817-877a-8d21f6150b79.png",
+      "original_png_sha256": "e185465fddffa01d90a848152498e5df9c241bf5447401bcf162028a79b76551",
+      "original_png_bytes": 256694,
+      "file": "pond-ship-reflection.webp",
+      "master": "sources/pond-ship-reflection.png",
+      "original_dimensions": [
+        1672,
+        940
+      ],
+      "registered_canvas": [
+        1672,
+        940
+      ],
+      "crop": {
+        "left": 697,
+        "top": 296,
+        "width": 429,
+        "height": 306
+      }
+    },
+    {
+      "id": "pond-ship-contact",
+      "generation_id": "exec-11890df7-ea53-476f-8326-c6f0f35ce210",
+      "prompt": "Use case: precise-object-edit.\nImage1 is the contact-water layer to refine. Image2 is the approved rigid ship position reference only; do not paint any part of the boat. Preserve the same 1672x940 transparent canvas and the existing camera registration.\nMake ONE targeted correction: replace the broad diffuse blue band with a much quieter, much thinner set of broken waterline strokes. No continuous filled band, no large glowing oval and no broad wake. The contact should sit just BELOW the hull, around y322..340, from x690..1125. Reduce its painted height and visual brightness substantially; most pixels in this area should also remain transparent. Think of three or four fine, irregular blue-grey moonlit ripples lightly touching the hull at rest. Small dim warm traces may lie immediately beneath the boat's existing lantern locations, but no bright pools.\nThe waterline may softly curve to follow the hull, but remain almost horizontal and only about 12-18 pixels tall on the full canvas. Empty transparent spaces between strokes. Feathered alpha edges, no filled-in water surface or shadow. Leave every other part of the canvas genuinely transparent. Do not centre, enlarge, rotate or crop the effect.\nNo ship, oars, sail, mast, reflected sail, actual lantern, scenery, sky, ground, people, words, symbols, smoke, foam, big splash, blue glow or checkerboard. Return the corrected tiny restrained contact ripple layer only.",
+      "references": [
+        {
+          "role": "Contact-ripple edit target; narrow and soften the earlier broad band.",
+          "generation_id": "exec-174f6ce4-cf66-4bb1-84d5-163eb3f44376",
+          "original_png_sha256": "f0c7ff7a2bde13bdafa46d10e5e9f8affa2b004727a903a084b59ac782ef304b",
+          "original_png_bytes": 86918,
+          "dimensions": [
+            1672,
+            940
+          ]
+        },
+        {
+          "role": "Rigid ship registration reference only; do not include the boat.",
+          "generation_id": "exec-e6807f73-0628-4e52-b964-e5b4439922ab",
+          "original_png_sha256": "0024bb776a1a116509d2fa02f7695b351ad6b42dfe3c273f2eac0fa910bb76b1",
+          "original_png_bytes": 235502,
+          "dimensions": [
+            1672,
+            940
+          ]
+        }
+      ],
+      "dimensions": [
+        612,
+        366
+      ],
+      "transparent_background": true,
+      "original_png_file": "exec-11890df7-ea53-476f-8326-c6f0f35ce210.png",
+      "original_png_sha256": "40c6d0a438c9c69d321e1c5f719bd6020ff5ecbe7d8fb9d446fc33a4e7bf3ce8",
+      "original_png_bytes": 117603,
+      "generation_history": [
+        {
+          "id": "pond-ship-contact",
+          "generation_id": "exec-174f6ce4-cf66-4bb1-84d5-163eb3f44376",
+          "prompt": "Use case: illustration-story / compositing.\nAsset: a tiny transparent WATER-CONTACT effect layer for CosyWorld's Black Pond ship, registered on the existing 1672x940 canvas.\nImage 1 is the rigid ship positioning and painterly-style reference, NOT a subject to include. Image 2 is the boat-free moonlit pond palette reference only, NOT scenery to paint into this layer.\nPaint ONLY a very restrained narrow water-contact line and a few small soft ripples where the hull touches the pond: approximately from x695 to1125, centred around y320, extending at most from y310 to345 on the original 1672x940 canvas. The curved ripples embrace the ship's long dark hull footprint, with a little blue-silver edge and two tiny warm amber accents beneath the attached lanterns. Calm docked water, no forward motion.\nKeep the element at that original scale and upper-right-of-centre position. Almost the entire image must remain empty transparent; do not enlarge the effect or centre it on the canvas. The horizontal ripple is much wider than it is tall. Use fine hand-painted broken strokes and soft low-opacity edges that disappear into the underlying water, with transparent spaces between strokes.\nCRITICAL: no boat, hull, mast, sail, rigging, oars, lantern body, reflected sail, large reflection, solid blue water patch, horizon, scenery, broad wake, splash, white foam, glowing ring, smoke, stars, people or text. No background rectangle, black matte or painted checkerboard. Actual alpha transparency. Only the small quiet contact ripples, matching the source boat's waterline.",
+          "references": [
+            {
+              "role": "Rigid ship positioning and painterly style reference, not a subject to include.",
+              "generation_id": "exec-e6807f73-0628-4e52-b964-e5b4439922ab",
+              "original_png_sha256": "0024bb776a1a116509d2fa02f7695b351ad6b42dfe3c273f2eac0fa910bb76b1",
+              "original_png_bytes": 235502,
+              "dimensions": [
+                1672,
+                940
+              ]
+            },
+            {
+              "role": "Boat-free moonlit Pond palette reference only.",
+              "repository_path": "v2/card-game/assets/pond.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/pond.png",
+              "sha256": "aa4b9600d32dc3cd043aa91eed47aa2a6f16fd422849a0563f05cb3b42478e75"
+            }
+          ],
+          "dimensions": [
+            1672,
+            940
+          ],
+          "transparent_background": true,
+          "original_png_file": "exec-174f6ce4-cf66-4bb1-84d5-163eb3f44376.png",
+          "original_png_sha256": "f0c7ff7a2bde13bdafa46d10e5e9f8affa2b004727a903a084b59ac782ef304b",
+          "original_png_bytes": 86918,
+          "selected": false,
+          "revision_reason": "The first contact treatment made a broad blue band; refine into quieter broken strokes and composite behind the rigid hull."
+        }
+      ],
+      "file": "pond-ship-contact.webp",
+      "master": "sources/pond-ship-contact.png",
+      "original_dimensions": [
+        1672,
+        940
+      ],
+      "registered_canvas": [
+        1672,
+        940
+      ],
+      "crop": {
+        "left": 568,
+        "top": 171,
+        "width": 612,
+        "height": 366
+      }
+    }
+  ]
+}
