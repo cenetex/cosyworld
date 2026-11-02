@@ -72,8 +72,13 @@ export const joinable = (row, avatar) =>
 // A world's eight seats, as on the board: yours is marked, other humans are
 // held, a seat in colour only while online (owner, 2026-11-01), and an
 // unheld seat the resident who lives there (#1846, #1866). The owner may
-// free any held seat but their own.
-function seatsOf(held, mine, { owner = false, online = [], holders = [] }) {
+// free any held seat but their own. The world list says who is online in
+// each world and each avatar's level there (`online`, `actors`).
+function seatsOf(
+  held,
+  mine,
+  { owner = false, online = [], holders = [], actors = null },
+) {
   return byInitial(
     humanAvatars.map((avatar, index) => {
       const self = avatar.id === mine;
@@ -85,6 +90,7 @@ function seatsOf(held, mine, { owner = false, online = [], holders = [] }) {
         online: (self || human) && online[index] === 1,
         holder: self ? "You" : human ? holders[index] || "Someone" : "",
         free: Boolean(owner) && human,
+        level: actors?.[avatar.id] ? levelOf({ actors }, avatar.id) : 0,
       };
     }),
   );

@@ -187,4 +187,33 @@ describe("the world slots (#1877)", () => {
     expect(fresh.deck).toHaveLength(8);
     expect(fresh.canCreate).toBe(true);
   });
+  it("colours seats online in other worlds and shows their levels", () => {
+    const listed = worldSlots({
+      shared: true,
+      rows: [
+        {
+          id: "w5",
+          owner: true,
+          actor: "mara",
+          held: held("mara", "ash"),
+          online: held("ash"),
+          actors: { ash: { level: 4, xp: 9 }, mara: { xp: 3 } },
+        },
+      ],
+      here,
+    });
+    const seats = listed.slots.find((s) => s.key === "w5").seats;
+    const seat = (id) => seats.find((s) => s.id === id);
+    expect(seat("ash")).toMatchObject({
+      kind: "human",
+      online: true,
+      level: 4,
+    });
+    expect(seat("mara")).toMatchObject({
+      kind: "you",
+      online: false,
+      level: 3,
+    });
+    expect(seat("vale").level).toBe(0);
+  });
 });
