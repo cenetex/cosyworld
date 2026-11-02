@@ -18,7 +18,10 @@ export function combatPortrait(id, pose, source, facing) {
     return null;
   // The left-facing clock cannot be mirrored. Keep its authored right view.
   if (id === "keeper" && facing === "right") return null;
-  const scarf = players.has(id) && source?.includes(`/${id}-scarf`);
+  const scarf =
+    players.has(id) &&
+    (source?.includes(`/${id}-scarf`) ||
+      source?.includes(`/${id}-sleeping-scarf`));
   const file = form
     ? `${form.combat}-${pose}.webp`
     : stem

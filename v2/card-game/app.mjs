@@ -2583,6 +2583,7 @@ function renderScene() {
   }
   staging.actors.forEach((actor, index) => {
     const { id } = actor;
+    const sleeping = actor.pose === "sleep";
     const figure = $("cast").children[index];
     if (
       figure.dataset.removing ||
@@ -2627,11 +2628,13 @@ function renderScene() {
     renderHeldItem(
       figure,
       actor,
-      (id === currentActor(world) && handItem) || litCarried(id),
+      sleeping
+        ? null
+        : (id === currentActor(world) && handItem) || litCarried(id),
     );
     figure.classList.toggle(
       "active",
-      scene.activeSpeaker === id && !resolvedBeat,
+      !sleeping && scene.activeSpeaker === id && !resolvedBeat,
     );
     const left = actor.presence === "departed";
     const wasLeft = figure.classList.contains("departed");

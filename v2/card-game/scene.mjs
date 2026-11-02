@@ -23,6 +23,7 @@ import { locationWeather } from "./weather.mjs";
 import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 import { avatarImage } from "./scarves.mjs";
+import { sleepingPortrait } from "./sleep-portraits.mjs";
 import { rarityForm } from "./rarity-portraits.mjs";
 import { flipStagePortrait, nativePortraitFacing } from "./portrait-facing.mjs";
 import { sceneChanges } from "./scene-cast.mjs";
@@ -67,6 +68,8 @@ export function placeBackdrop(world, id) {
   );
 }
 export function portrait(id, facing = null, world = null) {
+  const sleeping = sleepingPortrait(world, id);
+  if (sleeping) return `./${sleeping}`;
   const human = avatarImage(world, id);
   if (human) return `./${human}`;
   const resident = packPeople[id];
@@ -643,13 +646,15 @@ export function sceneStaging(
         gazeTargetId,
         cutout: portrait(id, facing, world),
         flip: flipStagePortrait(portrait(id, facing, world), facing),
-        pose: movement
-          ? "walk"
-          : ["threaten", "guard", "attack"].includes(act?.verb)
-            ? act.verb
-            : id === activeSpeaker
-              ? "speak"
-              : "listen",
+        pose: sleepingPortrait(world, id)
+          ? "sleep"
+          : movement
+            ? "walk"
+            : ["threaten", "guard", "attack"].includes(act?.verb)
+              ? act.verb
+              : id === activeSpeaker
+                ? "speak"
+                : "listen",
         movement: movement
           ? {
               kind: movement.locationId === locationId ? "arrive" : "leave",

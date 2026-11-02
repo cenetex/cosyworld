@@ -1,0 +1,2607 @@
+{
+  "created": "2026-11-02",
+  "generator": "OpenAI built-in image generation",
+  "brief": "Ten main characters asleep: eight shared travelers with their own neutral and earned-scarf wardrobe, plus Pip and the keeper. Eighteen complete transparent sleeping portraits preserve approved identities and painterly style.",
+  "source_commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+  "canvas_contract": {
+    "dimensions": [
+      1024,
+      1536
+    ],
+    "format": "WebP",
+    "transparent_background": true,
+    "max_source_bytes": 300000,
+    "coordinate_system": "Full portrait canvas retained; visible alpha bounds are measured per asset.",
+    "scope": "Presentation assets selected only from existing committed sleepUntil state. No new sleep, fuel, time or NPC-planning rules."
+  },
+  "encoder_versions": {
+    "sharp": "0.35.5",
+    "vips": "8.18.7",
+    "webp": "1.6.0"
+  },
+  "assets": [
+    {
+      "id": "vale-sleeping",
+      "actor_id": "vale",
+      "display_name": "Vale",
+      "file": "../shared/characters/vale-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-e7f3fdcc-1eac-40a0-88df-5c1d1c0025d9",
+      "references": [
+        {
+          "role": "edit target",
+          "repository_path": "v2/card-game/assets/shared/characters/vale.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/vale.png",
+          "sha256": "7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 151020,
+      "sha256": "565e0d457a8d00296df1c1cf19b31e4a73cb2125f4ba6c3c846daa3cb695d998",
+      "original_png_file": "exec-e7f3fdcc-1eac-40a0-88df-5c1d1c0025d9.png",
+      "original_png_sha256": "79619f0c52c4d7873ba00cca9fe0877fab748cf9170ed61e8cb5e80579733649",
+      "original_png_bytes": 1629906,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "b8dd376405a418c47d60b91e5a3a7df23a172eb7363d191ca207bd900d917683",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "b8dd376405a418c47d60b91e5a3a7df23a172eb7363d191ca207bd900d917683",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 1082470,
+        "fully_transparent_fraction": 0.6882158915201823,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 10837,
+        "near_opaque_pixels_240_to_255": 470912,
+        "border_max": 0,
+        "visible_bounds_alpha_gt_8": {
+          "left": 39,
+          "top": 553,
+          "right": 995,
+          "bottom": 1486
+        },
+        "sha256": "b8dd376405a418c47d60b91e5a3a7df23a172eb7363d191ca207bd900d917683"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "stage": {
+        "file": "assets/shared/characters/vale-sleeping.webp",
+        "sha256": "565e0d457a8d00296df1c1cf19b31e4a73cb2125f4ba6c3c846daa3cb695d998",
+        "bytes": 151020,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "b8dd376405a418c47d60b91e5a3a7df23a172eb7363d191ca207bd900d917683",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/vale-sleeping.webp",
+        "sha256": "c67447cb327f0baaddfc7aa5702fbbb1a03faa2cefeb66e80b5a4472dc05b9d7",
+        "bytes": 49568,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "bdfc36e775eb2dcbaec0a2c263aa374f400c12388788d98ab78a8aad9a88e43b",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/vale-sleeping.webp",
+        "sha256": "a4a18087a646d2bb6086dd82bb71a78837884535678f4b0cdaa7c178c51078a1",
+        "bytes": 67834,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "ed647f4982017d8e3c067fa2d878afabea3df4fc2ffd6875f43dd2a78357d9d9",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "vale-sleeping-scarf",
+      "actor_id": "vale",
+      "display_name": "Vale",
+      "file": "../shared/characters/vale-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-58d72e8f-6a16-4097-9b2f-9e73335cb2b4",
+      "references": [
+        {
+          "role": "edit target",
+          "asset_id": "vale-sleeping",
+          "generation_id": "exec-e7f3fdcc-1eac-40a0-88df-5c1d1c0025d9",
+          "original_png_file": "exec-e7f3fdcc-1eac-40a0-88df-5c1d1c0025d9.png",
+          "original_png_sha256": "79619f0c52c4d7873ba00cca9fe0877fab748cf9170ed61e8cb5e80579733649",
+          "original_png_bytes": 1629906,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "scarf design reference",
+          "repository_path": "v2/card-game/assets/shared/characters/vale-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/vale-scarf.png",
+          "sha256": "db446b75fa43c60658acfdd0704ecdb3187b89c031874eb6ae9d2ba4fdb97f0c"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 147270,
+      "sha256": "261537e9b12aac6d937c4656ed2afe15118dfde9f9c8246c89ed2c4d62dc7330",
+      "original_png_file": "exec-58d72e8f-6a16-4097-9b2f-9e73335cb2b4.png",
+      "original_png_sha256": "e77c87c933d883b1305ec322465da4b2a7d69ec926e9d12061fe8ea063dffe1d",
+      "original_png_bytes": 1696791,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "96a1c83abb730d9f32b8a86fa56038728c99b8a28660c60ea18754a3f26b1fae",
+      "alpha_byte_exact_to_original_canvas": false,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "325c4362e9f5feb169524a44ce8a4658f6847e45b7fb4219fe3b227be7f5cdaf",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 1084053,
+        "fully_transparent_fraction": 0.6892223358154297,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 9300,
+        "near_opaque_pixels_240_to_255": 472133,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 39,
+          "top": 555,
+          "right": 995,
+          "bottom": 1487
+        },
+        "sha256": "325c4362e9f5feb169524a44ce8a4658f6847e45b7fb4219fe3b227be7f5cdaf"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Register by integer canvas translation, then encode.",
+        "canvas_translation": {
+          "x": 0,
+          "y": 160,
+          "reason": "The generated scarf edit shifted the whole figure upward; translate it down to align with the accepted neutral sleeping pose.",
+          "source_canvas": [
+            1024,
+            1536
+          ],
+          "destination_canvas": [
+            1024,
+            1536
+          ],
+          "discarded_nonzero_alpha_pixels": 20,
+          "discarded_max_alpha": 1,
+          "discarded_alpha_sum": 20,
+          "discarded_visible_paint_alpha_gt_8": false
+        }
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "vale-sleeping",
+          "generation_id": "exec-e7f3fdcc-1eac-40a0-88df-5c1d1c0025d9",
+          "original_png_file": "exec-e7f3fdcc-1eac-40a0-88df-5c1d1c0025d9.png",
+          "original_png_sha256": "79619f0c52c4d7873ba00cca9fe0877fab748cf9170ed61e8cb5e80579733649",
+          "original_png_bytes": 1629906,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld character sprite, sleeping pose, genuine transparent RGBA background, portrait canvas 1024 x 1536.\nInput image 1 is the approved Vale character and is the identity, costume, palette, and painterly rendering reference. Edit this character into a peaceful sleeping pose.\nSubject: exactly the same young adult traveller Vale, with short tousled black hair, the same face, skin and adult proportions, long charcoal-black coat with brass fastenings, ivory open-collar shirt, dark trousers, leather belt and worn buckled black boots.\nPose: seated comfortably on an implied flat floor, knees gently drawn up, forearms loosely crossed over the knees, cheek resting naturally on one forearm. Eyes fully closed, brow relaxed, soft peaceful expression. Turned three-quarter toward the viewer's right. Clearly asleep in safety, not hurt, sad, collapsed, or defeated. Natural hands and anatomy. Both boots and the whole coat are visible.\nComposition: keep the original adult head and body scale rather than enlarging the head; the compact seated figure occupies roughly the lower 60% of the 1024x1536 canvas, with its lowest boot/coat at about 96% height and clear transparent margin on every edge. Empty upper area is transparent. No crop.\nStyle: match exactly the source's warm painterly storybook finish, ink-like edge detail and softly textured cloth. Soft light on the figure only.\nConstraints: preserve Vale's identity and all costume details; no scarf for this neutral variant; no lantern, no held objects, no bed, furniture, floor, cast shadow, scenery, glow halo or background. No text, lettering, sleep symbols, Zs, watermark or border. Actual alpha transparency outside the solid opaque character, including gaps between limbs; preserve soft antialiased painted edges.\n",
+          "references": [
+            {
+              "role": "edit target",
+              "repository_path": "v2/card-game/assets/shared/characters/vale.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/vale.png",
+              "sha256": "7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512"
+            }
+          ]
+        }
+      ],
+      "stage": {
+        "file": "assets/shared/characters/vale-sleeping-scarf.webp",
+        "sha256": "261537e9b12aac6d937c4656ed2afe15118dfde9f9c8246c89ed2c4d62dc7330",
+        "bytes": 147270,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "325c4362e9f5feb169524a44ce8a4658f6847e45b7fb4219fe3b227be7f5cdaf",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/vale-sleeping-scarf.webp",
+        "sha256": "fbf8fb71b1375fb3afaa47a8f1ff870411aab04adc39ad407a87f7e46846d20c",
+        "bytes": 52090,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "90a225c304667dfa417cf0c3d3cc52e193e7460216f429892f5cfc191fa9af5c",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/vale-sleeping-scarf.webp",
+        "sha256": "dfb24957ec61d21646235dc4ecc60d9ae4c0ba08c95e7bbc8ca892cc7ae3ddd9",
+        "bytes": 68580,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "00b0e15c590e85bc1f199955e2e3ed0cf1922a3897c0666022c8f8c2addf0799",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "mara-sleeping",
+      "actor_id": "mara",
+      "display_name": "Mara",
+      "file": "../shared/characters/mara-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-5ce1951b-d849-4cad-a3b1-e88ae87418b2",
+      "references": [
+        {
+          "role": "edit target",
+          "repository_path": "v2/card-game/assets/shared/characters/mara.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/mara.png",
+          "sha256": "c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 201094,
+      "sha256": "15c77c77f6d4b1965e47eb34133d3c8553654bc60eb01876f050e23b82665d06",
+      "original_png_file": "exec-5ce1951b-d849-4cad-a3b1-e88ae87418b2.png",
+      "original_png_sha256": "f749b3aba3b7ab6f66da96ff57115229b34c0ba39e79284459fd7dac49185997",
+      "original_png_bytes": 1794652,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "06361c9ced1841e16ada3560a04b3774ea6d50a11330cd6a2a92d40ac78a6f1f",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "06361c9ced1841e16ada3560a04b3774ea6d50a11330cd6a2a92d40ac78a6f1f",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 1104181,
+        "fully_transparent_fraction": 0.7020193735758463,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 19933,
+        "near_opaque_pixels_240_to_255": 432995,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 37,
+          "top": 461,
+          "right": 938,
+          "bottom": 1509
+        },
+        "sha256": "06361c9ced1841e16ada3560a04b3774ea6d50a11330cd6a2a92d40ac78a6f1f"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "stage": {
+        "file": "assets/shared/characters/mara-sleeping.webp",
+        "sha256": "15c77c77f6d4b1965e47eb34133d3c8553654bc60eb01876f050e23b82665d06",
+        "bytes": 201094,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "06361c9ced1841e16ada3560a04b3774ea6d50a11330cd6a2a92d40ac78a6f1f",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/mara-sleeping.webp",
+        "sha256": "318c9587c5bbe560b013c04df59a5a2efc7071599a8cae50367d483438358e06",
+        "bytes": 64924,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "d5452aad7fd103e684c1a1e2b8d5a4819c530dc35bb675b7b11e57dccf0c7331",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/mara-sleeping.webp",
+        "sha256": "88dd9c4d42f3cb233f6b78b4459f9f26cfd4e0bc7bb302850e78e02930726ccd",
+        "bytes": 86922,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "1a848cbb283f6a31a6383d124cc695314ade42857825b54f0dfc22baa04f35be",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "mara-sleeping-scarf",
+      "actor_id": "mara",
+      "display_name": "Mara",
+      "file": "../shared/characters/mara-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-7681b17f-d392-486c-8697-b95a02d1399a",
+      "references": [
+        {
+          "role": "edit target",
+          "asset_id": "mara-sleeping",
+          "generation_id": "exec-5ce1951b-d849-4cad-a3b1-e88ae87418b2",
+          "original_png_file": "exec-5ce1951b-d849-4cad-a3b1-e88ae87418b2.png",
+          "original_png_sha256": "f749b3aba3b7ab6f66da96ff57115229b34c0ba39e79284459fd7dac49185997",
+          "original_png_bytes": 1794652,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "scarf design reference",
+          "repository_path": "v2/card-game/assets/shared/characters/mara-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/mara-scarf.png",
+          "sha256": "68242c050db52986c8563f894943ae5391ec31489065d9375d37035e65bb3f7f"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 171448,
+      "sha256": "b178fe990b5d0f19fc04d48ab94c272a4bff4fe553194b56c5b984713ac6e8f8",
+      "original_png_file": "exec-7681b17f-d392-486c-8697-b95a02d1399a.png",
+      "original_png_sha256": "f3e428741a11989b0acba4c9831b03a85157c5f5801a86938d1c001717a788b0",
+      "original_png_bytes": 1779445,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "a7ab558b0fb616898e3d9927cdbcd772dd44a9134b0789af7788ac8f8092986d",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "a7ab558b0fb616898e3d9927cdbcd772dd44a9134b0789af7788ac8f8092986d",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 1101939,
+        "fully_transparent_fraction": 0.7005939483642578,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 17367,
+        "near_opaque_pixels_240_to_255": 438801,
+        "border_max": 0,
+        "visible_bounds_alpha_gt_8": {
+          "left": 35,
+          "top": 459,
+          "right": 939,
+          "bottom": 1510
+        },
+        "sha256": "a7ab558b0fb616898e3d9927cdbcd772dd44a9134b0789af7788ac8f8092986d"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "mara-sleeping",
+          "generation_id": "exec-5ce1951b-d849-4cad-a3b1-e88ae87418b2",
+          "original_png_file": "exec-5ce1951b-d849-4cad-a3b1-e88ae87418b2.png",
+          "original_png_sha256": "f749b3aba3b7ab6f66da96ff57115229b34c0ba39e79284459fd7dac49185997",
+          "original_png_bytes": 1794652,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld character sprite, sleeping pose, genuine transparent RGBA background, 1024 x 1536 portrait canvas.\nInput image 1 is the approved Mara character: edit target and sole identity, costume, palette and painterly-style reference.\nShow exactly this same adult Mara peacefully asleep, seated comfortably on an implied flat floor with legs bent gently to one side, arms folded loosely across her lap and head tilted naturally toward one shoulder. Eyes fully closed, a relaxed soft smile. Native three-quarter facing toward the viewer's right. Clearly safe and resting, never hurt, defeated, weeping or slumped in pain.\nPreserve her face, complexion, curly dark hair with red ribbon, gold hoop earrings, red cropped coat with brass fastenings and gold edges, ivory blouse and bell cuffs, red sash, red trousers and worn buckled dark boots. Natural adult proportions, hands and anatomy.\nKeep the original head/body scale; do not enlarge her head to fill the portrait. Compact seated figure roughly in the lower 60% of the canvas, lowest boot or coat near 96% height, clear transparent margins on all sides and generous transparent space above. Full figure uncropped.\nMatch the source's textured painterly storybook finish and warm light on the figure. No scarf in this neutral variant. True alpha outside the solid character, including gaps.\nNo lantern, held objects, props, furniture, floor, cast shadow, scenery, background, glow halo, text, symbols, Zs, watermark or border.\n",
+          "references": [
+            {
+              "role": "edit target",
+              "repository_path": "v2/card-game/assets/shared/characters/mara.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/mara.png",
+              "sha256": "c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1"
+            }
+          ]
+        }
+      ],
+      "stage": {
+        "file": "assets/shared/characters/mara-sleeping-scarf.webp",
+        "sha256": "b178fe990b5d0f19fc04d48ab94c272a4bff4fe553194b56c5b984713ac6e8f8",
+        "bytes": 171448,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "a7ab558b0fb616898e3d9927cdbcd772dd44a9134b0789af7788ac8f8092986d",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/mara-sleeping-scarf.webp",
+        "sha256": "03a3c31c98720a377ac8c9551831ef76d8cb71842b5e542f945cf160574a6533",
+        "bytes": 59576,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "ecfd5685d2f7a9acde60400380a45bba6fb669f9536eededcea1294855319e25",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/mara-sleeping-scarf.webp",
+        "sha256": "bd1724c1f4ab2aa84cd8f6647581d665fca7d2058830e2a96e423aade7b9cdf7",
+        "bytes": 79042,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "37de18785c59013a4c3d477f782198f486cfc524b38771e26d743414445b8e32",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "ash-sleeping",
+      "actor_id": "ash",
+      "display_name": "Ash",
+      "file": "../shared/characters/ash-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-0a61a454-52e4-4f31-a4b0-aaa8ffa10ff1",
+      "references": [
+        {
+          "role": "edit target",
+          "repository_path": "v2/card-game/assets/shared/characters/ash.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/ash.png",
+          "sha256": "2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 225962,
+      "sha256": "9b5e8d1b82c369a046f009e53c8bffe2ffaf84a1b7a1f347d9969971c3ee2577",
+      "original_png_file": "exec-0a61a454-52e4-4f31-a4b0-aaa8ffa10ff1.png",
+      "original_png_sha256": "489653baebba6b250dd9ede3f60b83a990c85a1c776d5d7772ecc91c49d7aa55",
+      "original_png_bytes": 1912312,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "c618eddde5f0e1f82b06ef17d70a202978767b02ac388b2218ac83051f29c340",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "c618eddde5f0e1f82b06ef17d70a202978767b02ac388b2218ac83051f29c340",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 1010886,
+        "fully_transparent_fraction": 0.6427040100097656,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 13136,
+        "near_opaque_pixels_240_to_255": 540453,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 114,
+          "top": 502,
+          "right": 921,
+          "bottom": 1482
+        },
+        "sha256": "c618eddde5f0e1f82b06ef17d70a202978767b02ac388b2218ac83051f29c340"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "stage": {
+        "file": "assets/shared/characters/ash-sleeping.webp",
+        "sha256": "9b5e8d1b82c369a046f009e53c8bffe2ffaf84a1b7a1f347d9969971c3ee2577",
+        "bytes": 225962,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "c618eddde5f0e1f82b06ef17d70a202978767b02ac388b2218ac83051f29c340",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/ash-sleeping.webp",
+        "sha256": "6b351c5378a1df2591fac4e471b6be656bea3ac05874a4d592991cfe4262f73e",
+        "bytes": 71910,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "986bba5d0b20f44cb063a9ba459f12a32707bc5beb23d51ab6ff6bff49e5db1e",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/ash-sleeping.webp",
+        "sha256": "0885f038ee2b927a86a9caec4dd867bb5bac5c389ab397be6f4b391c88af707a",
+        "bytes": 97416,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "bf5262bcb0dc637a98124ba9769f267ba1b362736d3ebada44e6b1be195ab94f",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "ash-sleeping-scarf",
+      "actor_id": "ash",
+      "display_name": "Ash",
+      "file": "../shared/characters/ash-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-5fa0c153-15e4-4363-b17c-ccc1a3e37a6e",
+      "references": [
+        {
+          "role": "edit target",
+          "asset_id": "ash-sleeping",
+          "generation_id": "exec-0a61a454-52e4-4f31-a4b0-aaa8ffa10ff1",
+          "original_png_file": "exec-0a61a454-52e4-4f31-a4b0-aaa8ffa10ff1.png",
+          "original_png_sha256": "489653baebba6b250dd9ede3f60b83a990c85a1c776d5d7772ecc91c49d7aa55",
+          "original_png_bytes": 1912312,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "scarf design reference",
+          "repository_path": "v2/card-game/assets/shared/characters/ash-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/ash-scarf.png",
+          "sha256": "a39874896719827006f457eb6b2622a04e08f1a906394bea0c4f39abab6785bb"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 192666,
+      "sha256": "adca0bcc6a5a5330458c71aee08065db707f460cae05ea6ac7ed4dd13fa4bf70",
+      "original_png_file": "exec-5fa0c153-15e4-4363-b17c-ccc1a3e37a6e.png",
+      "original_png_sha256": "d4b9c4acf914b583d7e2c2046d96b2cd14a8ba3881e6391123a936efd12c3e33",
+      "original_png_bytes": 1942210,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "2d533c70b4176b81a36a523b0035942b6436175ab6b12bf6591dae1be2df3b35",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "2d533c70b4176b81a36a523b0035942b6436175ab6b12bf6591dae1be2df3b35",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 1005060,
+        "fully_transparent_fraction": 0.6389999389648438,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 13667,
+        "near_opaque_pixels_240_to_255": 545363,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 112,
+          "top": 501,
+          "right": 921,
+          "bottom": 1482
+        },
+        "sha256": "2d533c70b4176b81a36a523b0035942b6436175ab6b12bf6591dae1be2df3b35"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "ash-sleeping",
+          "generation_id": "exec-0a61a454-52e4-4f31-a4b0-aaa8ffa10ff1",
+          "original_png_file": "exec-0a61a454-52e4-4f31-a4b0-aaa8ffa10ff1.png",
+          "original_png_sha256": "489653baebba6b250dd9ede3f60b83a990c85a1c776d5d7772ecc91c49d7aa55",
+          "original_png_bytes": 1912312,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld character sprite, sleeping pose, genuine transparent RGBA background, 1024x1536 portrait canvas.\nInput image 1 is the approved Ash character: edit target and exact identity, costume, palette and painterly-style reference.\nShow the same sturdy mature Ash peacefully asleep. Preserve his warm brown skin, salt-and-pepper curly hair, silver-black beard, strong adult build, orange knitted sweater with rolled sleeves, worn golden-orange overalls with patched knees, brass buckles, dark utility belt and sturdy laced dark boots.\nPose: seated comfortably on an implied flat floor with knees loosely bent, forearms resting together across them and head gently resting on his arms. Both eyes fully closed, loose brow and the smallest contented smile, an unmistakably safe sleeping posture. Native three-quarter facing toward the viewer's right. Keep both full boots visible and plausible adult anatomy.\nComposition: original adult head and body scale, no large cute head. Whole compact seated figure occupies roughly the lower 60% of a 1024x1536 canvas; lowest boot/cloth near 96% height, transparent space above, transparent margin all around. Preserve the same painterly storybook texture, hand-painted highlights and edge detail.\nNo scarf for this neutral variant. No held objects, diving float, lantern, props, furniture, floor, cast shadow, scenery, background, glow halo, text, lettering, symbols, Zs, watermark or border. Not injured, defeated or distressed. Genuine alpha transparency outside the solid character and in gaps between limbs, with soft antialiased painted edges.\n",
+          "references": [
+            {
+              "role": "edit target",
+              "repository_path": "v2/card-game/assets/shared/characters/ash.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/ash.png",
+              "sha256": "2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285"
+            }
+          ]
+        }
+      ],
+      "stage": {
+        "file": "assets/shared/characters/ash-sleeping-scarf.webp",
+        "sha256": "adca0bcc6a5a5330458c71aee08065db707f460cae05ea6ac7ed4dd13fa4bf70",
+        "bytes": 192666,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "2d533c70b4176b81a36a523b0035942b6436175ab6b12bf6591dae1be2df3b35",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/ash-sleeping-scarf.webp",
+        "sha256": "bac3765b05073979b7ca6bddaca9db2b94bcc82978d8eeddae658fab6711f889",
+        "bytes": 67336,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "fb3f1d98e9fd2d45ebf632d3f1613cfe6205a161be5e007d57141c191f1d2d70",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/ash-sleeping-scarf.webp",
+        "sha256": "cf56f6fb45ebc6f7499244ba97240eb76e03a501c9ce86f53fe71fdaf318e2ee",
+        "bytes": 87990,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "32279ad30685ab11f5cfbb37e98fea3abd9a72a579006a5bf26f19110357fd4b",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "nell-sleeping",
+      "actor_id": "nell",
+      "display_name": "Iris",
+      "file": "../shared/characters/nell-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-22b1e4f7-1cbf-4a0f-a7c9-ac388baa40a0",
+      "references": [
+        {
+          "role": "edit target",
+          "repository_path": "v2/card-game/assets/shared/characters/nell.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/nell.png",
+          "sha256": "705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 232076,
+      "sha256": "a935781ae9ccc618340420f33cc09547c84bfe3dede4a4091fc75a8e8806af98",
+      "original_png_file": "exec-22b1e4f7-1cbf-4a0f-a7c9-ac388baa40a0.png",
+      "original_png_sha256": "cc27a9449b210bb9db7b376c668807f7c98bf67717e4fe76108512a5e214157a",
+      "original_png_bytes": 2123332,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "f1272fe18f81bf5dcd431993a5932c0f627fb22598d42af87b98f72a115e8022",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "f1272fe18f81bf5dcd431993a5932c0f627fb22598d42af87b98f72a115e8022",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 976195,
+        "fully_transparent_fraction": 0.6206480662027994,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 18624,
+        "near_opaque_pixels_240_to_255": 567113,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 31,
+          "top": 406,
+          "right": 976,
+          "bottom": 1519
+        },
+        "sha256": "f1272fe18f81bf5dcd431993a5932c0f627fb22598d42af87b98f72a115e8022"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "stage": {
+        "file": "assets/shared/characters/nell-sleeping.webp",
+        "sha256": "a935781ae9ccc618340420f33cc09547c84bfe3dede4a4091fc75a8e8806af98",
+        "bytes": 232076,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "f1272fe18f81bf5dcd431993a5932c0f627fb22598d42af87b98f72a115e8022",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/nell-sleeping.webp",
+        "sha256": "d9ce4c26c5e857230411f2e237894c7a27a0ab6728ac7b22743b2dfd26cfcc09",
+        "bytes": 76230,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "d6d37513f2e413743739e04bbbc49b4e2b74c22a6fd82c18bfbca80e55069a02",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/nell-sleeping.webp",
+        "sha256": "b127dd55e8e78ece1951ae31ad80bc492a28be41ef0a6f44ae1c9f7b74fe31f6",
+        "bytes": 102488,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "6033555ece56b747a044832943a8f6f0982edff6308ab64c797c7cc2e25c3844",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "nell-sleeping-scarf",
+      "actor_id": "nell",
+      "display_name": "Iris",
+      "file": "../shared/characters/nell-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-6818657f-8d74-4d84-8019-3116152a67af",
+      "references": [
+        {
+          "role": "edit target",
+          "asset_id": "nell-sleeping",
+          "generation_id": "exec-22b1e4f7-1cbf-4a0f-a7c9-ac388baa40a0",
+          "original_png_file": "exec-22b1e4f7-1cbf-4a0f-a7c9-ac388baa40a0.png",
+          "original_png_sha256": "cc27a9449b210bb9db7b376c668807f7c98bf67717e4fe76108512a5e214157a",
+          "original_png_bytes": 2123332,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "scarf design reference",
+          "repository_path": "v2/card-game/assets/shared/characters/nell-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/nell-scarf.png",
+          "sha256": "c869f75b71093df0878c902f2ae68b065d58c32f35962c25616888ba5f61b3d3"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 214296,
+      "sha256": "8e96fde476d9dc710cad21662a473efcf49f783ee23746256c399743d54dbdc6",
+      "original_png_file": "exec-6818657f-8d74-4d84-8019-3116152a67af.png",
+      "original_png_sha256": "c02f49d7dac8b3e1c06d3c5afa7f00ad72a77ec0051cfffe55710bf58f886a08",
+      "original_png_bytes": 2107921,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "e2989dda8c3d5b3a2f83f8eae0811da2f966578eab4bf2ca6830c524dd04f30c",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "e2989dda8c3d5b3a2f83f8eae0811da2f966578eab4bf2ca6830c524dd04f30c",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 979249,
+        "fully_transparent_fraction": 0.6225897471110026,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 14864,
+        "near_opaque_pixels_240_to_255": 570683,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 31,
+          "top": 406,
+          "right": 976,
+          "bottom": 1519
+        },
+        "sha256": "e2989dda8c3d5b3a2f83f8eae0811da2f966578eab4bf2ca6830c524dd04f30c"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "nell-sleeping",
+          "generation_id": "exec-22b1e4f7-1cbf-4a0f-a7c9-ac388baa40a0",
+          "original_png_file": "exec-22b1e4f7-1cbf-4a0f-a7c9-ac388baa40a0.png",
+          "original_png_sha256": "cc27a9449b210bb9db7b376c668807f7c98bf67717e4fe76108512a5e214157a",
+          "original_png_bytes": 2123332,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld sleeping character sprite, genuine transparent RGBA background, portrait canvas1024x1536.\nInput image1 is the approved Iris character (stable filename nell.png), the EDIT TARGET and identity/costume/style reference.\nMake the same mature woman Iris peacefully asleep in a comfortable compact seated pose on an implied flat floor. Legs bent gently to one side beneath her skirts, hands resting loosely together in her lap, head softly tilted toward her shoulder. Both eyes completely closed and a relaxed content expression. Native three-quarter orientation toward the viewer's right.\nPreserve her same face and age, silver hair in the long braid, broad woven straw hat, ivory rolled-sleeve shirt, golden-yellow gardener's apron, brown belt and pouch, patched oatmeal skirt, gardening gloves and brown lace-up ankle boots. Do not add tools or plants; costume attachments already present may remain.\nKeep natural adult anatomy and original head/body scale. The seated figure occupies roughly the lower60% of the canvas, with top of hat around y500, lowest boot/hem around y1475, all of her uncropped and transparent margin on every edge. Preserve the original painterly storybook rendering, cloth weave, warm light and fine edge detail.\nNo scarf for this neutral variant. No watering can, lantern, extra props, furniture, floor, shadow, scenery, backdrop, halo, text, symbols, Zs, watermark or border. Clearly sleeping safely, not injured or defeated. True transparent alpha outside the solid character and in gaps; clean softly antialiased edges.\n",
+          "references": [
+            {
+              "role": "edit target",
+              "repository_path": "v2/card-game/assets/shared/characters/nell.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/nell.png",
+              "sha256": "705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f"
+            }
+          ]
+        }
+      ],
+      "stage": {
+        "file": "assets/shared/characters/nell-sleeping-scarf.webp",
+        "sha256": "8e96fde476d9dc710cad21662a473efcf49f783ee23746256c399743d54dbdc6",
+        "bytes": 214296,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "e2989dda8c3d5b3a2f83f8eae0811da2f966578eab4bf2ca6830c524dd04f30c",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/nell-sleeping-scarf.webp",
+        "sha256": "c3be506cba282856b7aa457d3948e519a55d59069d31deae1c6084fde7f3086c",
+        "bytes": 74422,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "d7d2b083375a8f13492746ef6cca8463ec3e92ae15cf0247fa86ac997fb34871",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/nell-sleeping-scarf.webp",
+        "sha256": "23e39a29fdbde4149a63d5313c95c224aa9a8f82045d5cd2247d730cf8ad8d3e",
+        "bytes": 98046,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "bba6cbeb55c9444630989fb5fb4cc6ebc5f98a773777895e74459ed3ba3f9171",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "tavi-sleeping",
+      "actor_id": "tavi",
+      "display_name": "Tavi",
+      "file": "../shared/characters/tavi-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-7770724b-0d4f-4859-8b20-fa1affd51ac5",
+      "references": [
+        {
+          "role": "Approved identity, clothing and painterly style edit target.",
+          "repository_path": "v2/card-game/assets/shared/characters/tavi.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/tavi.png",
+          "sha256": "6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 272182,
+      "sha256": "24bd8c57d5dac66b122c3a5d49a0b05f154c1399e20a65395de2c44c21228e56",
+      "original_png_file": "exec-7770724b-0d4f-4859-8b20-fa1affd51ac5.png",
+      "original_png_sha256": "0ef529ab1fbb3523b97da3ef1d6891a5609f97f7089f451fa581c3d24f062c24",
+      "original_png_bytes": 2199062,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "6bbf3f1f7a631d4cd67956159abea8da6333664c0d02bbe2b1b89221c3699fae",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "6bbf3f1f7a631d4cd67956159abea8da6333664c0d02bbe2b1b89221c3699fae",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 901504,
+        "fully_transparent_fraction": 0.5731608072916666,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 19788,
+        "near_opaque_pixels_240_to_255": 638636,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 10,
+          "top": 328,
+          "right": 976,
+          "bottom": 1398
+        },
+        "sha256": "6bbf3f1f7a631d4cd67956159abea8da6333664c0d02bbe2b1b89221c3699fae"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "stage": {
+        "file": "assets/shared/characters/tavi-sleeping.webp",
+        "sha256": "24bd8c57d5dac66b122c3a5d49a0b05f154c1399e20a65395de2c44c21228e56",
+        "bytes": 272182,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "6bbf3f1f7a631d4cd67956159abea8da6333664c0d02bbe2b1b89221c3699fae",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/tavi-sleeping.webp",
+        "sha256": "c70440dc0d8e93b5ac2876ea3710b045af463a8b12014d827575c834de75ed1b",
+        "bytes": 85270,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "9345f0d509d251ee1ef506da684c4f286df6442e9958cf15f2c74f62c01613ce",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/tavi-sleeping.webp",
+        "sha256": "3ac0187582f1677eb9c7d9274dab2d20186f198c117859a7953f13970ee8be6e",
+        "bytes": 116876,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "b5da5187d51aec379c2191a006e1b614b9651720129104bd9236768adbf16690",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "tavi-sleeping-scarf",
+      "actor_id": "tavi",
+      "display_name": "Tavi",
+      "file": "../shared/characters/tavi-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-3aad6056-7c13-4ee5-9669-761bb9c99e02",
+      "references": [
+        {
+          "role": "Identity-preserving sleeping-pose edit target.",
+          "asset_id": "tavi-sleeping",
+          "generation_id": "exec-7770724b-0d4f-4859-8b20-fa1affd51ac5",
+          "original_png_file": "exec-7770724b-0d4f-4859-8b20-fa1affd51ac5.png",
+          "original_png_sha256": "0ef529ab1fbb3523b97da3ef1d6891a5609f97f7089f451fa581c3d24f062c24",
+          "original_png_bytes": 2199062,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "Supporting wardrobe reference only; preserve the sleeping edit target pose.",
+          "repository_path": "v2/card-game/assets/shared/characters/tavi-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/tavi-scarf.png",
+          "sha256": "69895904f5358ef3e66daabd53152ddacf7cf2c8d814f1120333f3ee7d944fb9"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 231374,
+      "sha256": "f783f61781470e896ec18b68b5963e00e47ff9cecd1a4eede4680cc05976bd65",
+      "original_png_file": "exec-3aad6056-7c13-4ee5-9669-761bb9c99e02.png",
+      "original_png_sha256": "79bad6f517f4a23c9b630f40520241de5869d23ff97a7215d5a89023b9825466",
+      "original_png_bytes": 2163871,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "682d069218f215f328d30818b967197d7333a8d13b90cbcf032e1cd90aec8b9e",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "682d069218f215f328d30818b967197d7333a8d13b90cbcf032e1cd90aec8b9e",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 903201,
+        "fully_transparent_fraction": 0.5742397308349609,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 14274,
+        "near_opaque_pixels_240_to_255": 644628,
+        "border_max": 3,
+        "visible_bounds_alpha_gt_8": {
+          "left": 8,
+          "top": 327,
+          "right": 978,
+          "bottom": 1400
+        },
+        "sha256": "682d069218f215f328d30818b967197d7333a8d13b90cbcf032e1cd90aec8b9e"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "tavi-sleeping",
+          "generation_id": "exec-7770724b-0d4f-4859-8b20-fa1affd51ac5",
+          "original_png_file": "exec-7770724b-0d4f-4859-8b20-fa1affd51ac5.png",
+          "original_png_sha256": "0ef529ab1fbb3523b97da3ef1d6891a5609f97f7089f451fa581c3d24f062c24",
+          "original_png_bytes": 2199062,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping character pose, complete 1024x1536 RGBA cutout. Image 1 is the exact approved Tavi identity/outfit/style reference and edit target. Change only the pose and expression into peaceful natural sleep. Preserve Tavi's young face, warm medium-brown skin, dense short dark curls, lean build, moss-green patched short jacket, dark green hooded shoulder cape, cream shirt, charcoal patched knee-length shorts, pale socks, leather satchel and worn lace-up boots. No new red scarf in this neutral version. Tavi is comfortably sitting on the unseen ground with knees bent and loosely folded, relaxed hands resting together over one knee, head softly tipped onto the forearms, eyes fully closed and a tiny contented smile. Slight three-quarter orientation toward image right, face still identifiable, no tension or injury. Keep realistic original head-to-body proportions. Full complete figure and both boots visible with generous margins, lower edge at about94% of canvas height; compact seated silhouette occupies the lower two-thirds of the portrait canvas. Ground itself must not be painted. Match the reference's tactile hand-painted storybook pigments, worn cloth details, delicate dark contours and soft warm highlights, with opaque skin and clothes. Genuine alpha0 transparency around the whole figure and in gaps. Do not copy any dark background glow from the reference. No scenery, background, floor, ground shadow, bed, stool, chair, pillow, extra prop, held item, weapon, text, Z letters, speech bubble, symbols, border or watermark. One sleeping Tavi only.",
+          "references": [
+            {
+              "role": "Approved identity, clothing and painterly style edit target.",
+              "repository_path": "v2/card-game/assets/shared/characters/tavi.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/tavi.png",
+              "sha256": "6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a"
+            }
+          ]
+        }
+      ],
+      "stage": {
+        "file": "assets/shared/characters/tavi-sleeping-scarf.webp",
+        "sha256": "f783f61781470e896ec18b68b5963e00e47ff9cecd1a4eede4680cc05976bd65",
+        "bytes": 231374,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "682d069218f215f328d30818b967197d7333a8d13b90cbcf032e1cd90aec8b9e",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/tavi-sleeping-scarf.webp",
+        "sha256": "04c49f3a6b5ede0261b2d0b52767634af22585e44b85f38babee90a6c0ec7c04",
+        "bytes": 80098,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "6620d2d5000fcaf009ae848cd5d83043a8a9afaa9f95497da14f676c075b99fb",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/tavi-sleeping-scarf.webp",
+        "sha256": "31f37cf4d9cbff23e076079c18ea22685c8827344a5aa3661c8a65e04a31ab3f",
+        "bytes": 105530,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "6a3a8910e09c5aa411705fb479dcaaed88582a6e7e4373568af15608a800dae2",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "rue-sleeping",
+      "actor_id": "rue",
+      "display_name": "Rue",
+      "file": "../shared/characters/rue-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-3286470e-f882-42eb-aea3-cffe819731d9",
+      "references": [
+        {
+          "role": "Approved identity, clothing and painterly style edit target.",
+          "repository_path": "v2/card-game/assets/shared/characters/rue.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/rue.png",
+          "sha256": "e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 201722,
+      "sha256": "d882790f97cdda62dea97b83e071962913671da1a1886416636315cb5129e663",
+      "original_png_file": "exec-3286470e-f882-42eb-aea3-cffe819731d9.png",
+      "original_png_sha256": "702e280b0f835452cdeff15f58267b42b2dfc89d5dedfc19ccc44db3441e148d",
+      "original_png_bytes": 1955408,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "8c2a902fc5fe8005d537e5916d41b75ec0230d00028c9379caecbfd5023c2f1d",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "8c2a902fc5fe8005d537e5916d41b75ec0230d00028c9379caecbfd5023c2f1d",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 1004435,
+        "fully_transparent_fraction": 0.6386025746663412,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 11293,
+        "near_opaque_pixels_240_to_255": 549226,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 14,
+          "top": 260,
+          "right": 1007,
+          "bottom": 1470
+        },
+        "sha256": "8c2a902fc5fe8005d537e5916d41b75ec0230d00028c9379caecbfd5023c2f1d"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "stage": {
+        "file": "assets/shared/characters/rue-sleeping.webp",
+        "sha256": "d882790f97cdda62dea97b83e071962913671da1a1886416636315cb5129e663",
+        "bytes": 201722,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "8c2a902fc5fe8005d537e5916d41b75ec0230d00028c9379caecbfd5023c2f1d",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/rue-sleeping.webp",
+        "sha256": "4256eedcc60ba7240d60901aae61fc4f980602167dd79edc8dca1fc3ee3b5ef2",
+        "bytes": 62164,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "79f3622981a602a1f8015f192ddb2e98a5a7669196e9596d6ce25291c268e329",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/rue-sleeping.webp",
+        "sha256": "6f274ceb54baf5838223e65c300bae2b09d5d18a6f90caf591a45dd1f5ee5781",
+        "bytes": 85212,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "4f72e230f9bd9e349dd4faefdeb3a50642b5f6722dfe42a64a206c7d832d3f13",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "rue-sleeping-scarf",
+      "actor_id": "rue",
+      "display_name": "Rue",
+      "file": "../shared/characters/rue-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-be12b3fc-796a-43fa-9563-9c54e37df8c0",
+      "references": [
+        {
+          "role": "Identity-preserving sleeping-pose edit target.",
+          "asset_id": "rue-sleeping",
+          "generation_id": "exec-3286470e-f882-42eb-aea3-cffe819731d9",
+          "original_png_file": "exec-3286470e-f882-42eb-aea3-cffe819731d9.png",
+          "original_png_sha256": "702e280b0f835452cdeff15f58267b42b2dfc89d5dedfc19ccc44db3441e148d",
+          "original_png_bytes": 1955408,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "Supporting wardrobe reference only; preserve the sleeping edit target pose.",
+          "repository_path": "v2/card-game/assets/shared/characters/rue-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/rue-scarf.png",
+          "sha256": "c8e3593650e08f71678427169ea95aaec69ffd17ee00a3661c896a2e1cf05796"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 175618,
+      "sha256": "aa76e92cbf7dcc8f9f21d2b84b50234597390391899ea5c209e1044b4aac0e75",
+      "original_png_file": "exec-be12b3fc-796a-43fa-9563-9c54e37df8c0.png",
+      "original_png_sha256": "b799ad7fd97474378c330d4f10d9146a2e6390afc0cf120d87a2714c5ced0aaa",
+      "original_png_bytes": 1926178,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "ffdae34d3c32eba34f2626f8772467f30242bc7fa23a417c636d1e60bc99da0a",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "ffdae34d3c32eba34f2626f8772467f30242bc7fa23a417c636d1e60bc99da0a",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 1005195,
+        "fully_transparent_fraction": 0.6390857696533203,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 9425,
+        "near_opaque_pixels_240_to_255": 551961,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 15,
+          "top": 262,
+          "right": 1006,
+          "bottom": 1471
+        },
+        "sha256": "ffdae34d3c32eba34f2626f8772467f30242bc7fa23a417c636d1e60bc99da0a"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "rue-sleeping",
+          "generation_id": "exec-3286470e-f882-42eb-aea3-cffe819731d9",
+          "original_png_file": "exec-3286470e-f882-42eb-aea3-cffe819731d9.png",
+          "original_png_sha256": "702e280b0f835452cdeff15f58267b42b2dfc89d5dedfc19ccc44db3441e148d",
+          "original_png_bytes": 1955408,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping character pose, complete 1024x1536 RGBA cutout. Image1 is the exact approved Rue identity/outfit/style reference and edit target. Change only pose/expression into natural peaceful sleep. Preserve Rue's adult face and dark brown skin, very short tightly curled black hair, strong brows, fitted cobalt-blue long conductor coat with brass double-breasted buttons, epaulettes and belt, cream shirt collar, blue trousers, tall worn black riding boots and blue conductor cap attached at the hip. NO orange scarf in this neutral version. Rue is comfortably sitting on the unseen ground with her knees gently folded to the side and boots in front, hands loosely folded in her lap, shoulders relaxed, head tipped slightly toward image right and chin softly lowered, eyes entirely closed with a restful small smile. Slight three-quarter body orientation toward image right. Her back naturally balances over her hips; she is not leaning on imaginary furniture. Full complete figure with both boots; preserve natural original head-to-body proportions. Use generous margins, bottom of boots at about94% canvasheight; compact seated silhouette fills the lower two-thirds. Match the tactile hand-painted storybook pigments, textured worn cloth, fine contours and warm soft highlights of the reference. All skin/clothes opaque, genuine alpha0 background and transparent gaps. No dark glow or backdrop from the reference. No floor, ground, shadow, bench, chair, bed, pillow, held prop, extra object, text, Z letters, sleep symbols, border or watermark. One peaceful sleeping Rue, visibly asleep and unharmed.",
+          "references": [
+            {
+              "role": "Approved identity, clothing and painterly style edit target.",
+              "repository_path": "v2/card-game/assets/shared/characters/rue.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/rue.png",
+              "sha256": "e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633"
+            }
+          ]
+        }
+      ],
+      "stage": {
+        "file": "assets/shared/characters/rue-sleeping-scarf.webp",
+        "sha256": "aa76e92cbf7dcc8f9f21d2b84b50234597390391899ea5c209e1044b4aac0e75",
+        "bytes": 175618,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "ffdae34d3c32eba34f2626f8772467f30242bc7fa23a417c636d1e60bc99da0a",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/rue-sleeping-scarf.webp",
+        "sha256": "1b1046ce1f6e74ca68453ad41f32398e896501100d53ecc27aa61d3117b74564",
+        "bytes": 62150,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "5d1c0edc07d3e374f1f4c65bc82db897c69ad50d2c8245501a9dcf41c77eb5cd",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/rue-sleeping-scarf.webp",
+        "sha256": "a9781599bf6ac55d46ac694673b4eeaf1fa95c81b524f9b0e404269582ee4e2e",
+        "bytes": 82562,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "7541b70dc19ca4a6786079039d6dab392bce2c6633d6b048a5e287431a879403",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "orin-sleeping",
+      "actor_id": "orin",
+      "display_name": "Cass",
+      "file": "../shared/characters/orin-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-9e3651fa-58e4-4603-82c8-4f4aa1d7dc4f",
+      "references": [
+        {
+          "role": "Approved identity, clothing and painterly style edit target.",
+          "repository_path": "v2/card-game/assets/shared/characters/orin.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/orin.png",
+          "sha256": "909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 290236,
+      "sha256": "708b252c4d3e99db950d15779c9d6b6c5dfa27b72cb529eb7069b4d9e725929c",
+      "original_png_file": "exec-9e3651fa-58e4-4603-82c8-4f4aa1d7dc4f.png",
+      "original_png_sha256": "da51a65253032c4f0acecc051e2e9f5e03dab0a149e76fdf23b4891845d2a1ed",
+      "original_png_bytes": 2316048,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "496440fd65aa6288a86cfccdc65c2540fab36acfa7a4f68d1dbababb0eac07d6",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "496440fd65aa6288a86cfccdc65c2540fab36acfa7a4f68d1dbababb0eac07d6",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 904630,
+        "fully_transparent_fraction": 0.5751482645670573,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 25275,
+        "near_opaque_pixels_240_to_255": 625913,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 34,
+          "top": 179,
+          "right": 985,
+          "bottom": 1491
+        },
+        "sha256": "496440fd65aa6288a86cfccdc65c2540fab36acfa7a4f68d1dbababb0eac07d6"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "stage": {
+        "file": "assets/shared/characters/orin-sleeping.webp",
+        "sha256": "708b252c4d3e99db950d15779c9d6b6c5dfa27b72cb529eb7069b4d9e725929c",
+        "bytes": 290236,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "496440fd65aa6288a86cfccdc65c2540fab36acfa7a4f68d1dbababb0eac07d6",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/orin-sleeping.webp",
+        "sha256": "cb4e82bbbd3f80dc2725ef7f4516f9456ca09eaaff8f8535631eebefd490b375",
+        "bytes": 88310,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "a7c9037f28e96d10ca587f042f62a8d297722272aeeaf532944c25b53e87541f",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/orin-sleeping.webp",
+        "sha256": "6d3275b35ee66877d91e7c68f34bbb218cf98a3b36dbb09aa7af5cc3f1ca1f1a",
+        "bytes": 121780,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "498c9d0cb1df4a4d77c678ba921cd1be473afef61a3eec81b63bed996dcee7f0",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "orin-sleeping-scarf",
+      "actor_id": "orin",
+      "display_name": "Cass",
+      "file": "../shared/characters/orin-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-6c5c4f92-87ac-402b-98d4-39e8098b5781",
+      "references": [
+        {
+          "role": "Identity-preserving sleeping-pose edit target.",
+          "asset_id": "orin-sleeping",
+          "generation_id": "exec-9e3651fa-58e4-4603-82c8-4f4aa1d7dc4f",
+          "original_png_file": "exec-9e3651fa-58e4-4603-82c8-4f4aa1d7dc4f.png",
+          "original_png_sha256": "da51a65253032c4f0acecc051e2e9f5e03dab0a149e76fdf23b4891845d2a1ed",
+          "original_png_bytes": 2316048,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "Supporting wardrobe reference only; preserve the sleeping edit target pose.",
+          "repository_path": "v2/card-game/assets/shared/characters/orin-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/orin-scarf.png",
+          "sha256": "3812b42acdb754238d18ff453c9f8f5c9ba4513b272d726ca1af342fe4b49530"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 237916,
+      "sha256": "bae1f965d17a9ffd79d17efbcce83d25f1922daca7fd729e623d8c00c8843a38",
+      "original_png_file": "exec-6c5c4f92-87ac-402b-98d4-39e8098b5781.png",
+      "original_png_sha256": "9d7738940dccdda948b51b8cd7f4e82f18ba93b6f903bf404bb8d66cfc25db08",
+      "original_png_bytes": 2246872,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "6ecb260dc64a64231b90f669d04b957ca367f8fd2be267dea696cb38fbaa30aa",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "6ecb260dc64a64231b90f669d04b957ca367f8fd2be267dea696cb38fbaa30aa",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 905781,
+        "fully_transparent_fraction": 0.5758800506591797,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 19247,
+        "near_opaque_pixels_240_to_255": 631877,
+        "border_max": 0,
+        "visible_bounds_alpha_gt_8": {
+          "left": 33,
+          "top": 177,
+          "right": 986,
+          "bottom": 1491
+        },
+        "sha256": "6ecb260dc64a64231b90f669d04b957ca367f8fd2be267dea696cb38fbaa30aa"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical.",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "orin-sleeping",
+          "generation_id": "exec-9e3651fa-58e4-4603-82c8-4f4aa1d7dc4f",
+          "original_png_file": "exec-9e3651fa-58e4-4603-82c8-4f4aa1d7dc4f.png",
+          "original_png_sha256": "da51a65253032c4f0acecc051e2e9f5e03dab0a149e76fdf23b4891845d2a1ed",
+          "original_png_bytes": 2316048,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping character pose, full 1024x1536 transparent RGBA cutout. Image1 is the approved Cass identity and clothing edit target (stable file name orin). Change only pose and expression into peaceful natural sleep. Preserve the same slim adult man, long expressive freckled face, warm pale skin, auburn loosely tied-back hair with wisps, fine round spectacles, cream rolled-sleeve shirt, long indigo-blue sleeveless waistcoat with brass buttons and worn patched surfaces, dark grey patched trousers, brown lace-up ankle boots and belt watch chain. No amber scarf in this neutral version. Cass sits comfortably on the unseen ground with knees loosely folded and both boots visible, relaxed hands folded across his lap, head gently bowed toward image right, eyes completely closed behind the same round spectacles and a faint contented smile. Keep the spectacles naturally on his face. Relaxed shoulders and balanced spine, not collapsed or injured. Three-quarter orientation facing image right. Keep natural original adult head-to-body proportions; full figure in the lower two-thirds of portrait canvas, bottom boots at94%height, generous clear outer margins. Preserve the original hand-painted storybook texture, fine contour drawing, warm highlights and soft deep shadows. Actual alpha0 background/gaps, opaque painted body and garments; do not copy the dark glow behind reference. No painted surface, floor, ground shadow, furniture, bed, pillow, extra prop, gameboard, held item, writing, Zs, symbols, watermark or border. One sleeping Cass only.",
+          "references": [
+            {
+              "role": "Approved identity, clothing and painterly style edit target.",
+              "repository_path": "v2/card-game/assets/shared/characters/orin.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/orin.png",
+              "sha256": "909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4"
+            }
+          ]
+        }
+      ],
+      "stage": {
+        "file": "assets/shared/characters/orin-sleeping-scarf.webp",
+        "sha256": "bae1f965d17a9ffd79d17efbcce83d25f1922daca7fd729e623d8c00c8843a38",
+        "bytes": 237916,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "6ecb260dc64a64231b90f669d04b957ca367f8fd2be267dea696cb38fbaa30aa",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/orin-sleeping-scarf.webp",
+        "sha256": "ec4baa0d4b148c8ace56caec061904f7dd3023df0ed6db716f52c4012daf2b2e",
+        "bytes": 80744,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "97c2103237db0faedb8bc060238bc42a223d0ce3da978e66e5238b712bf12479",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/orin-sleeping-scarf.webp",
+        "sha256": "d2ffe97c60bc0f401f1743d33def6c2e370fe5adc6adab55e8dc654df6ec5998",
+        "bytes": 108114,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "fe013d972630e1408e809122f3ba157baf154146499199f4c09873b1cf48f9cc",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "ada-sleeping",
+      "actor_id": "ada",
+      "display_name": "Sage",
+      "file": "../shared/characters/ada-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-fbb3941a-15c4-4856-be14-9112fa6b3f94",
+      "references": [
+        {
+          "role": "Approved identity, clothing and painterly style edit target.",
+          "repository_path": "v2/card-game/assets/shared/characters/ada.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/ada.png",
+          "sha256": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 282704,
+      "sha256": "8c6a7cb08b7fc81c7008b670f4df68d85423421d6a7a5bbba5f856ba2aeffb0d",
+      "original_png_file": "exec-fbb3941a-15c4-4856-be14-9112fa6b3f94.png",
+      "original_png_sha256": "d1365b7215bf8d6cefb63c4495070a53fd29da1b0c62ec49dcc063dd6b032a18",
+      "original_png_bytes": 2478300,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "8dc3eed482cb124e5112bfaff643a7da8867ab13d146e2a26a9184dfb609ef7c",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "8dc3eed482cb124e5112bfaff643a7da8867ab13d146e2a26a9184dfb609ef7c",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 792020,
+        "fully_transparent_fraction": 0.5035527547200521,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 33482,
+        "near_opaque_pixels_240_to_255": 723244,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 32,
+          "top": 135,
+          "right": 999,
+          "bottom": 1414
+        },
+        "sha256": "8dc3eed482cb124e5112bfaff643a7da8867ab13d146e2a26a9184dfb609ef7c"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 84,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical. The approved hand-powered chair, wheels, spokes and footrest are retained, with genuine transparency in its structural gaps.",
+      "stage": {
+        "file": "assets/shared/characters/ada-sleeping.webp",
+        "sha256": "8c6a7cb08b7fc81c7008b670f4df68d85423421d6a7a5bbba5f856ba2aeffb0d",
+        "bytes": 282704,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "8dc3eed482cb124e5112bfaff643a7da8867ab13d146e2a26a9184dfb609ef7c",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/ada-sleeping.webp",
+        "sha256": "93e8f52a1f39b2ffe72231f2f4b57c06db93a5d33f3f4a0597f2fa0b7904d511",
+        "bytes": 106950,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "da7b7a626b4fa58b39b662f4f2ddd7e3934cf00e855d9e91fa1945a9f36e99ff",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/ada-sleeping.webp",
+        "sha256": "120cb6df0c52892865e2c343f4a3dccd9243dc70d5ab6fc0ed26b707d02b0bf4",
+        "bytes": 145716,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "ab5a3f0a162b1de8d930abd508456a9e9bd5962e0bed024c7522e5293c02159d",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "ada-sleeping-scarf",
+      "actor_id": "ada",
+      "display_name": "Sage",
+      "file": "../shared/characters/ada-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-d3843039-448c-42f1-9dde-b054052ab289",
+      "references": [
+        {
+          "role": "Identity-preserving sleeping-pose edit target.",
+          "asset_id": "ada-sleeping",
+          "generation_id": "exec-fbb3941a-15c4-4856-be14-9112fa6b3f94",
+          "original_png_file": "exec-fbb3941a-15c4-4856-be14-9112fa6b3f94.png",
+          "original_png_sha256": "d1365b7215bf8d6cefb63c4495070a53fd29da1b0c62ec49dcc063dd6b032a18",
+          "original_png_bytes": 2478300,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "Supporting wardrobe reference only; preserve the sleeping edit target pose.",
+          "repository_path": "v2/card-game/assets/shared/characters/ada-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/ada-scarf.png",
+          "sha256": "401bf9cc37ba4bb8ebcfaae2fa45b9e3126e197d1a6e482da7bf006b63b98c8f"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 292156,
+      "sha256": "c705c1fd6a545c39f17799ccb7f16936783980f3a9cdfd2f7fe383321afc4fc5",
+      "original_png_file": "exec-d3843039-448c-42f1-9dde-b054052ab289.png",
+      "original_png_sha256": "e14581fa4ee4b72fc016af428dc2f749116f1a7217483d4f863b380125ee134d",
+      "original_png_bytes": 2459783,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "821fbc1d69808a3cdfc18ea0b869c05fe4135d862fdec3ff73e7dffc928a32e2",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "821fbc1d69808a3cdfc18ea0b869c05fe4135d862fdec3ff73e7dffc928a32e2",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 793051,
+        "fully_transparent_fraction": 0.5042082468668619,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 31954,
+        "near_opaque_pixels_240_to_255": 725303,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 32,
+          "top": 135,
+          "right": 999,
+          "bottom": 1414
+        },
+        "sha256": "821fbc1d69808a3cdfc18ea0b869c05fe4135d862fdec3ff73e7dffc928a32e2"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 86,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical. The approved hand-powered chair, wheels, spokes and footrest are retained, with genuine transparency in its structural gaps.",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "ada-sleeping",
+          "generation_id": "exec-fbb3941a-15c4-4856-be14-9112fa6b3f94",
+          "original_png_file": "exec-fbb3941a-15c4-4856-be14-9112fa6b3f94.png",
+          "original_png_sha256": "d1365b7215bf8d6cefb63c4495070a53fd29da1b0c62ec49dcc063dd6b032a18",
+          "original_png_bytes": 2478300,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve. Asset type: CosyWorld Sage sleeping pose, full1024x1536 transparent RGBA cutout. Image1 is the exact approved identity, outfit and hand-powered chair EDIT TARGET (stable filename ada). Make Sage peacefully asleep IN HER SAME CHAIR. Preserve her adult face, warm freckled pale skin, short tousled white bob, purple neckerchief, lavender rolled-sleeve blouse, dark violet high-waisted trousers with brass buttons and brown suspenders, pale socks and worn black lace-up boots. Preserve the exact brass-and-dark-wood manual chair design: large spoked rear wheels with hand rims, small front castors, leather seat/back, armrests and single foot platform. Both feet remain on that platform; all chair wheels and mechanisms stay complete and fully visible. Change only her expression and relaxed resting body pose: eyes closed, softly contented mouth, head gently tipped down toward image right, shoulders settled, both empty hands loosely resting together on her lap. No raised pointing hand. She remains comfortably supported by the chair back; no collapse, injury or medical distress. Keep the chair's existing three-quarter orientation toward image right and original proportions; no different chair, no bed. Preserve overall camera/canvas placement and substantial transparent margins, whole chair with bottom wheels around92%canvasheight. Match original detailed painterly cloth, worn metal and brush texture, warm soft lighting and fine contours. Genuine transparent background and transparency between every wheel spoke and structural gap. Opaque body, fabric, seat and solid frame; do not copy any background glow. No floor, cast ground shadow, backdrop, scenery, extra furniture, blanket, pillow, held prop, scissors, text, Z symbols, border or watermark. The purple neckerchief is part of this neutral outfit; do not add the yellow scarf yet.",
+          "references": [
+            {
+              "role": "Approved identity, clothing and painterly style edit target.",
+              "repository_path": "v2/card-game/assets/shared/characters/ada.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/ada.png",
+              "sha256": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512"
+            }
+          ]
+        }
+      ],
+      "stage": {
+        "file": "assets/shared/characters/ada-sleeping-scarf.webp",
+        "sha256": "c705c1fd6a545c39f17799ccb7f16936783980f3a9cdfd2f7fe383321afc4fc5",
+        "bytes": 292156,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "821fbc1d69808a3cdfc18ea0b869c05fe4135d862fdec3ff73e7dffc928a32e2",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/shared/characters/ada-sleeping-scarf.webp",
+        "sha256": "297087fcacfc69ff7e95c0932beffcae40a8223d059ec91f7b7258096d6b6ef9",
+        "bytes": 109704,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "11d5506abc808edcc4731fad62a9ede04475ce67ee9c187b17cc91920cd0e8f1",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/shared/characters/ada-sleeping-scarf.webp",
+        "sha256": "d639936c713664e766a44a6afe5afd29585413541e299305bed25c73d027a975",
+        "bytes": 145864,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "d7b090faca62f3565003c3af83ea1c5fc91d8a1c451b35202a1034a32ac31c75",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "moth-sleeping",
+      "actor_id": "moth",
+      "display_name": "Pip",
+      "file": "moth-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "left",
+      "generation_id": "exec-bb279fef-f6da-4556-b5ba-c6f78cae9e46",
+      "references": [
+        {
+          "role": "edit target",
+          "repository_path": "v2/card-game/assets/moth.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/moth.png",
+          "sha256": "89a55a9fe6a3541c8c63bbf55673d04e1bdf18c6b1b186707846c1a12713dcd5"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 274514,
+      "sha256": "95bd8f30a167d5593b07516a532cc243c8a923275b842bd3467b4c6fcc96540f",
+      "original_png_file": "exec-bb279fef-f6da-4556-b5ba-c6f78cae9e46.png",
+      "original_png_sha256": "c6af363dbc485e186f01fb49a7939ba5c4a927a904ce51a4e8d98098f1f33805",
+      "original_png_bytes": 2247865,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "5ceee557168061958343fe116dbbe3c9be518b80e27f35a482e282cb2b20cc6f",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "5ceee557168061958343fe116dbbe3c9be518b80e27f35a482e282cb2b20cc6f",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 929579,
+        "fully_transparent_fraction": 0.5910104115804037,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 23227,
+        "near_opaque_pixels_240_to_255": 591343,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 22,
+          "top": 419,
+          "right": 1002,
+          "bottom": 1492
+        },
+        "sha256": "5ceee557168061958343fe116dbbe3c9be518b80e27f35a482e282cb2b20cc6f"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 86,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical. Both antenna tips and the folded patterned wings remain complete.",
+      "stage": {
+        "file": "assets/sleep/moth-sleeping.webp",
+        "sha256": "95bd8f30a167d5593b07516a532cc243c8a923275b842bd3467b4c6fcc96540f",
+        "bytes": 274514,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "5ceee557168061958343fe116dbbe3c9be518b80e27f35a482e282cb2b20cc6f",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/sleep/moth-sleeping.webp",
+        "sha256": "a4670d5c9d1be224004f851c9643f9e6b6b053bc1a660e4a998628a46d9196eb",
+        "bytes": 89190,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "aac7d5fce7ef210b4ae1b27a32ba00607ea032571e15b764bdbc7f76a01d41f1",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/sleep/moth-sleeping.webp",
+        "sha256": "6ae23677abfd123501a7fd8e96cc11674859fe7adfdfb7917b0faeeeaed1c1d6",
+        "bytes": 123144,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "07cc0606afad994df3e0d1400a0b0c8c5fdd1176320a6d2cd402598010fd72f4",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    },
+    {
+      "id": "keeper-sleeping",
+      "actor_id": "keeper",
+      "display_name": "The keeper",
+      "file": "keeper-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "left",
+      "generation_id": "exec-b4adbfec-2cf4-4858-969d-a43b867f52aa",
+      "references": [
+        {
+          "role": "Approved identity, clothing and painterly style edit target.",
+          "repository_path": "v2/card-game/assets/keeper.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/keeper.png",
+          "sha256": "5ef1a982a8bd921edb86ff8c3b7aec9ae11025bdad395561a2e7b2e6a3b92f88"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "bytes": 223460,
+      "sha256": "7c3f68a155d82778eab8dc93af1c0a96789c04efe42ef8fec9342974bd646faf",
+      "original_png_file": "exec-b4adbfec-2cf4-4858-969d-a43b867f52aa.png",
+      "original_png_sha256": "64f4af23b7a5fa376a244f933804c3ac098f66008526e7f0a06dc3c07b969b96",
+      "original_png_bytes": 2105277,
+      "original_dimensions": [
+        1024,
+        1536
+      ],
+      "original_png_alpha_sha256": "9fbb0df1f2c7a1f0eff2c678a1e5ec5a96b24520f0e1c78af91259aedc3d0b56",
+      "alpha_byte_exact_to_original_canvas": true,
+      "alpha_byte_exact_after_registration": true,
+      "registered_alpha_sha256": "9fbb0df1f2c7a1f0eff2c678a1e5ec5a96b24520f0e1c78af91259aedc3d0b56",
+      "alpha": {
+        "min": 0,
+        "max": 254,
+        "fully_transparent_pixels": 879845,
+        "fully_transparent_fraction": 0.5593903859456381,
+        "fully_opaque_pixels": 0,
+        "faint_alpha_pixels_1_to_15": 21887,
+        "near_opaque_pixels_240_to_255": 661526,
+        "border_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 10,
+          "top": 179,
+          "right": 1013,
+          "bottom": 1484
+        },
+        "sha256": "9fbb0df1f2c7a1f0eff2c678a1e5ec5a96b24520f0e1c78af91259aedc3d0b56"
+      },
+      "encoding": {
+        "tool": "sharp",
+        "format": "webp",
+        "quality": 88,
+        "alpha_quality": 100,
+        "effort": 6,
+        "resize": false,
+        "alpha_repair": false,
+        "operation": "Encode the original complete canvas without crop, resize, recoloring or alpha repair."
+      },
+      "visual_review": "Reviewed on light and dark backings: complete peaceful sleeping figure with closed eyes, preserved face, clothing and correct scarf where present, clean readable silhouette, no painted floor, background matte, held quest object, text or visible halo. Wardrobe edits preserve the pose visually; generated paint is not pixel identical. Existing clock numerals remain part of the character; the dial is not mirrored. Rendering must keep its authored direction.",
+      "stage": {
+        "file": "assets/sleep/keeper-sleeping.webp",
+        "sha256": "7c3f68a155d82778eab8dc93af1c0a96789c04efe42ef8fec9342974bd646faf",
+        "bytes": 223460,
+        "width": 1024,
+        "height": 1536,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "9fbb0df1f2c7a1f0eff2c678a1e5ec5a96b24520f0e1c78af91259aedc3d0b56",
+        "aliases_source": true,
+        "alpha_matches_resized_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/sleep/keeper-sleeping.webp",
+        "sha256": "07ab0d40bad5b2b459d79fec4908355bddffcddbf0f69eef5c007b701968b5eb",
+        "bytes": 69292,
+        "width": 512,
+        "height": 768,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "8826323853b66b8add5ba8924f9023f013d04b70d7e150fa7ad2f33a74fd7739",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "card_width": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/sleep/keeper-sleeping.webp",
+        "sha256": "fc5e2d85b03d6bb3579a39cd451ed8aea7ce39ae69a0f3d7ed33aa479dbeea68",
+        "bytes": 95148,
+        "width": 640,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "alpha_sha256": "bbf7d17ce6a5afa32a36ba35a05a42255173338fd3fa07e3d5526f63496b4992",
+        "aliases_source": false,
+        "alpha_matches_resized_source": true,
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alpha_quality": 100,
+          "effort": 6,
+          "phone_size": 960,
+          "fit": "inside"
+        }
+      }
+    }
+  ],
+  "review_previews": [
+    {
+      "file": "preview-neutral.webp",
+      "dimensions": [
+        1132,
+        712
+      ],
+      "bytes": 109618,
+      "sha256": "4dbf5d50a1a810235bc21af252e0e71b18b4e78112e4332c55959745cb532fe5",
+      "purpose": "Unregistered review contact sheet only.",
+      "processing": "Mechanical crop to visible alpha bounds with four pixels of padding, fit each subject into a review tile, composite over cream and add name labels. Source assets are unchanged.",
+      "quality": 84
+    },
+    {
+      "file": "preview-scarves.webp",
+      "dimensions": [
+        912,
+        712
+      ],
+      "bytes": 96804,
+      "sha256": "22f5f77a1802aa38aef96b24f484fdd30d39e557760bc9baae7425cd4d4ea7bd",
+      "purpose": "Unregistered review contact sheet only.",
+      "processing": "Mechanical crop to visible alpha bounds with four pixels of padding, fit each subject into a review tile, composite over cream and add name labels. Source assets are unchanged.",
+      "quality": 84
+    }
+  ],
+  "validation": {
+    "asset_count": 18,
+    "character_count": 10,
+    "total_source_bytes": 4017714,
+    "source_dimensions": "All eighteen complete 1024x1536 RGBA canvases.",
+    "source_alpha": "Seventeen WebPs preserve raw generated alpha byte for byte. Vale scarf preserves alpha after the separately recorded integer canvas translation; it is not byte-identical to the untranslated raw alpha array.",
+    "alpha_limits": "The generated files have maximum alpha254; very faint edge pixels are retained rather than thresholded. No alpha repair is applied.",
+    "references": "Every repository reference is pinned by commit and SHA-256. Every generated edit target is identified by generation ID, original PNG hash and its complete prompt/reference history.",
+    "derivatives": "Eighteen 512x768 card and eighteen 640x960 phone WebPs were read from the official image manifest and actual files. All hashes match that manifest; each decoded alpha channel exactly equals the complete source resized with the owning builder settings. Stage entries alias the unchanged source WebPs.",
+    "derivative_count": 36,
+    "total_derivative_bytes": 3168192
+  }
+}

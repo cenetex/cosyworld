@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "canvas": {
+    "width": 1672,
+    "height": 940
+  },
+  "background": {
+    "file": "assets/pond.png",
+    "sha256": "aa4b9600d32dc3cd043aa91eed47aa2a6f16fd422849a0563f05cb3b42478e75",
+    "commit": "41368bd229b84a490b72522d4d5e2766ead6511d"
+  },
+  "waterline_y": 319,
+  "layers": [
+    {
+      "id": "pond-ship-reflection",
+      "source": "sources/pond-ship-reflection.png",
+      "source_sha256": "e185465fddffa01d90a848152498e5df9c241bf5447401bcf162028a79b76551",
+      "file": "pond-ship-reflection.webp",
+      "crop": {
+        "left": 697,
+        "top": 296,
+        "width": 429,
+        "height": 306
+      },
+      "attachment": "water",
+      "pivot": {
+        "x": 920,
+        "y": 319
+      }
+    },
+    {
+      "id": "pond-ship-contact",
+      "source": "sources/pond-ship-contact.png",
+      "source_sha256": "40c6d0a438c9c69d321e1c5f719bd6020ff5ecbe7d8fb9d446fc33a4e7bf3ce8",
+      "file": "pond-ship-contact.webp",
+      "crop": {
+        "left": 568,
+        "top": 171,
+        "width": 612,
+        "height": 366
+      },
+      "attachment": "water",
+      "pivot": {
+        "x": 920,
+        "y": 319
+      }
+    },
+    {
+      "id": "pond-ship-body",
+      "source": "sources/pond-ship-body.png",
+      "source_sha256": "0024bb776a1a116509d2fa02f7695b351ad6b42dfe3c273f2eac0fa910bb76b1",
+      "file": "pond-ship-body.webp",
+      "crop": {
+        "left": 689,
+        "top": 0,
+        "width": 461,
+        "height": 329
+      },
+      "attachment": "rigid ship",
+      "pivot": {
+        "x": 920,
+        "y": 319
+      }
+    }
+  ]
+}
