@@ -37,7 +37,7 @@ Each glyph is the caption's data key. The table draws it as a line-art SVG in
 the toolbar's style (`beatIcons` in `app.mjs`): a hand for take, a smoking
 candle for snuff, a bell for ring, a drop over a lamp for refuelling.
 
-An action with no speech is a beat with only the portrait and its caption.
+An action with no speech is a beat with only the portrait and its caption. Most plays are like this: only Talk, Ask and the rules' speech occasions speak (see the card guide), so a silent play shows its caption beat with no loading line.
 A character's actions join their first spoken beat of that turn.
 
 Only events at the player's current place, during the current visit, become

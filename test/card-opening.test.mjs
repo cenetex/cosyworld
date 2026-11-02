@@ -244,7 +244,12 @@ describe("dousing the lamp in the attic", () => {
     s = act(s, "move", { target: "station" });
     expect(s.actors.keeper).toEqual(keeper);
     expect(s.opening.met.keeper).toBe(3);
-    expect(narrativeContext(s).speakers).toEqual(["vale", "keeper", "moth"]);
+    // The newcomer greets; the first arrival also captions the station.
+    expect(narrativeContext(s)).toMatchObject({
+      occasion: "first_meeting",
+      speakers: ["keeper"],
+      scenery: true,
+    });
     expect(knownActors(s)).toEqual(["vale", "moth", "keeper"]);
     expect(availableCards(s)).toContain("keeper");
     expect(

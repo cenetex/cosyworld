@@ -180,18 +180,6 @@ export function turnOutcome(world) {
   };
 }
 
-// One varied turn in each four-turn block, at least three turns apart.
-// The turn is the seed: retries, reloads and shared clients keep the same choice.
-export function sceneryDue(turn) {
-  if (turn === 0) return true;
-  if (turn < 4) return false;
-  const block = Math.floor(turn / 4);
-  let seed = Math.imul(block, 0x45d9f3b);
-  seed = Math.imul(seed ^ (seed >>> 16), 0x45d9f3b);
-  const offset = (seed ^ (seed >>> 16)) & 1;
-  return turn % 4 === offset;
-}
-
 // An avatar does not retell its own earlier deed ("I threatened the Keeper
 // over the Bell") unless this Talk tells it (#1850).
 function pastDeedsAside(world, id, telling) {
@@ -363,13 +351,14 @@ export function narrativeContext(world, action = null) {
     present,
     localItems,
     changes,
-    focus,
     played,
-    speakers,
     ids,
-    resting,
-    rest,
   } = cast;
+  // Talk and Ask speak; any other play speaks only on a rules occasion.
+  const { occasion, speakers, scenery } = speechOccasions(world, cast);
+  const resting =
+    cast.resting && speakers[0] === cast.resting ? cast.resting : null;
+  const rest = resting ? cast.rest : null;
   const defeated =
     cast.defeat &&
     `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}. Say one line.`;
@@ -436,9 +425,10 @@ export function narrativeContext(world, action = null) {
     turn: world.turn,
     outcome: turnOutcome(world),
     location,
-    scenery: sceneryDue(world.turn),
-    focus,
+    scenery,
+    focus: null,
     speakers,
+    ...(occasion ? { occasion } : {}),
     resting,
     ...(rest ? { rest } : {}),
     ...(disclosures.length ? { disclosures } : {}),
@@ -547,7 +537,7 @@ export function narrativeContext(world, action = null) {
         );
         const movement = changes.find((change) => change.actorId === id);
         if (defeated && id === speakers[0]) facts.unshift(defeated);
-        else if (movement)
+        else if (movement && speakers.includes(id))
           facts.push(
             movement.leaving
               ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now. Say goodbye to ${nameOf(currentActor(world))} and name your destination and reason as you leave.`

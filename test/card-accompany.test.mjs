@@ -194,7 +194,9 @@ describe("accompany card requests", () => {
     world.memories.moth.text = "I will go with you.";
     const context = narrativeContext(world);
     expect(context.action).toContain("Pip declines the trip");
-    expect(context.speakers).toEqual(["vale", "moth"]);
+    // A refusal is the refuser's occasion alone.
+    expect(context.occasion).toBe("refused");
+    expect(context.speakers).toEqual(["moth"]);
     for (const id of ["vale", "moth"]) {
       const entity = context.entities.find((e) => e.id === id);
       expect(entity.facts[0]).toContain(
@@ -211,7 +213,9 @@ describe("accompany card requests", () => {
     const world = request(together(), "moth", "pond");
     const context = narrativeContext(world);
     expect(context.location).toBe("pond");
-    expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
+    // The companion speaks on arrival; Vale and the Keeper stay quiet.
+    expect(context.occasion).toBe("companion");
+    expect(context.speakers).toEqual(["moth"]);
     expect(context.action).toContain("Pip agrees");
     expect(context.entities.find((e) => e.id === "moth").facts[0]).toContain(
       "Pip agreed to Vale's invitation to Black pond",
@@ -224,7 +228,11 @@ describe("accompany card requests", () => {
         text: `${profiles[id].name} recalls the joint trip.`,
       })),
     });
-    expect(next.log.slice(-3).map((e) => e.actorId)).toEqual(["vale", "moth", "keeper"]);
+    expect(
+      next.log
+        .filter((e) => e.generated && e.turn === next.turn && e.actorId)
+        .map((e) => e.actorId),
+    ).toEqual(["moth"]);
     expect(
       sceneScript(next).beats.find((e) => e.verb === "accompany"),
     ).toMatchObject({

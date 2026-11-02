@@ -4,6 +4,7 @@ import {
   applyGeneratedText,
 } from "../v2/card-game/narrative.mjs";
 import { describe, it, expect } from "vitest";
+import { dialogueCast } from "../v2/card-game/scene-cast.mjs";
 import {
   createWorld,
   legalActions,
@@ -191,8 +192,12 @@ describe("JRPG scenes", () => {
   });
 
   it("starts a fresh scene on return and keeps earlier visits available for replay", () => {
+    // Travel is silent; the whole cast speaks here so each visit has lines.
     const write = (s) => {
-      const context = narrativeContext(s);
+      const context = {
+        ...narrativeContext(s),
+        speakers: dialogueCast(s).speakers,
+      };
       return applyGeneratedText(s, context, {
         revision: s.revision,
         model: "fixture",

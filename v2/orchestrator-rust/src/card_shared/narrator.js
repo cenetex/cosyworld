@@ -2012,6 +2012,13 @@
   var crossingScenery = (s, place, senses2) => crossings.filter((c) => c.from === place && c.scenery).map(
     (c) => crossingOpen(s, c, senses2) ? c.scenery.open : c.scenery.closed
   ).filter(Boolean);
+  var matches = (p, a, holder) => Boolean(p) && p.verb === a.kind && (p.item === void 0 || p.item === a.item) && (p.target === void 0 || p.target === a.target) && (p.from === void 0 || p.from === holder);
+  function signalEcho(s, location, card) {
+    const c = crossings.find(
+      (c2) => c2.signal?.echo && c2.from === location && s.crossings[c2.id].phase > 0 && matches(c2.signal.steps[s.crossings[c2.id].phase - 1], card)
+    );
+    return c?.signal.echo || null;
+  }
   var hasTemperament = (id) => Boolean(packPeople[id]?.temperament);
   function variantOf(s, id) {
     const a = packPeople[id];
@@ -17443,6 +17450,32 @@
     };
   }
 
+  // v2/card-game/reflections.mjs
+  var THOUGHT_GAP = 6;
+  var DREAM_GAP = 24;
+  var THOUGHTS_PER_DREAM = 2;
+  function reflectionDue(context, id, life) {
+    if (context.rest === "long" && context.resting === id && context.turn > 0)
+      return { thought: true, dream: true };
+    const thoughts = life?.thoughts || [];
+    const dreams = life?.dreams || [];
+    const last = thoughts.at(-1)?.turn;
+    const changed = context.entities.find((e) => e.id === id)?.memories.some(
+      (m) => m.kind === "event" && (last === void 0 || m.turn > last)
+    );
+    const thought = Boolean(
+      context.resting === id && context.turn > 0 && changed && (last === void 0 || context.turn >= last + THOUGHT_GAP)
+    );
+    const dreamt = dreams.at(-1)?.turn;
+    const settled = thoughts.filter(
+      (m) => dreamt === void 0 || m.turn > dreamt
+    ).length;
+    return {
+      thought,
+      dream: thought && settled >= THOUGHTS_PER_DREAM && (dreamt === void 0 || context.turn >= dreamt + DREAM_GAP)
+    };
+  }
+
   // v2/card-game/shared-world.mjs
   function ids2(value, fallback = []) {
     const result = value === void 0 ? fallback : value;
@@ -17654,6 +17687,23 @@
     return changed ? { ...context, entities: entities2 } : context;
   }
 
+  // v2/card-game/speech.json
+  var speech_default = {
+    opening: ["actor", "place"],
+    defeat: ["host"],
+    talk: ["actor", "target"],
+    refused: ["target"],
+    threatened: ["target"],
+    battle_wait: ["actor", "opponent"],
+    companion: ["target"],
+    first_meeting: ["newcomer"],
+    want_met: ["met"],
+    long_rest: ["actor"],
+    thought_due: ["actor"],
+    signal_echo: [],
+    new_place: ["place"]
+  };
+
   // v2/card-game/narrative.mjs
   function refusalFact(played) {
     const asked = played.verb === "ask" ? `request for ${nameOf(played.itemId)}` : played.verb === "accompany" ? `invitation to ${nameOf(played.destinationId)}` : `offer of ${nameOf(played.itemId)}`;
@@ -17738,15 +17788,6 @@
       observations: observableStates(world, [...actorIds2, ...relevantItems])
     };
   }
-  function sceneryDue(turn) {
-    if (turn === 0) return true;
-    if (turn < 4) return false;
-    const block = Math.floor(turn / 4);
-    let seed = Math.imul(block, 73244475);
-    seed = Math.imul(seed ^ seed >>> 16, 73244475);
-    const offset = (seed ^ seed >>> 16) & 1;
-    return turn % 4 === offset;
-  }
   function pastDeedsAside(world, id, telling) {
     const known = world.knowledge?.known?.[id];
     if (!known) return world;
@@ -17768,6 +17809,101 @@
       return life || null;
     return { ...life, persona: null };
   }
+  var SPEECH_OCCASIONS = [
+    "opening",
+    "defeat",
+    "talk",
+    "refused",
+    "threatened",
+    "battle_wait",
+    "companion",
+    "first_meeting",
+    "want_met",
+    "long_rest",
+    "thought_due",
+    "signal_echo",
+    "new_place"
+  ];
+  function firstArrival(world, location) {
+    const actor = currentActor(world);
+    const arrived = (entry) => !entry.generated && entry.locationId === location && entry.fromLocationId && entry.fromLocationId !== location && (entry.actorId === actor || entry.verb === "accompany" && entry.accepted && entry.targetId === actor);
+    return world.log.some((entry) => entry.turn === world.turn && arrived(entry)) && !world.log.some((entry) => entry.turn < world.turn && arrived(entry)) && (world.actors[actor].visited?.at(-1) ?? location) === location;
+  }
+  function speechOccasions(world, cast) {
+    const actor = currentActor(world);
+    const played = playedEntry(world);
+    const verb = played?.verb;
+    const awake = (id) => !hasTemperament(id) || world.actors[id]?.awake;
+    const near = (id) => Boolean(id) && id !== actor && cast.audience.includes(id) && awake(id);
+    const thisTurn = world.log.filter(
+      (entry) => entry.turn === world.turn && !entry.generated
+    );
+    const talked = verb === "talk" || verb === "ask";
+    const hailed = talked ? null : thisTurn.find(
+      (e) => e.verb === "talk" && e.targetId === actor && near(e.actorId)
+    )?.actorId;
+    const target = near(played?.targetId) ? played.targetId : hailed || null;
+    const waited = cast.resting === actor;
+    const conflict = standoffFor(world, actor);
+    const roles = {
+      actor: [actor],
+      target: [target],
+      host: cast.defeat ? [cast.speakers[0]] : [],
+      opponent: conflict ? fightersOf(conflict).filter(near) : [],
+      newcomer: cast.present.filter(
+        (id) => near(id) && world.opening?.met[id] === world.turn
+      ),
+      met: [actor, target].filter(
+        (id) => thisTurn.some((e) => e.verb === "want_met" && e.actorId === id)
+      ),
+      place: []
+    };
+    const thought = () => reflectionDue(
+      {
+        rest: cast.rest,
+        resting: actor,
+        turn: world.turn,
+        entities: [
+          { id: actor, memories: speechMemories(world.memories[actor]) }
+        ]
+      },
+      actor,
+      world.memories[actor]?.innerLife
+    ).thought;
+    const meets = {
+      opening: world.turn === 0,
+      defeat: Boolean(cast.defeat),
+      talk: talked || Boolean(hailed),
+      refused: REFUSED_VERBS.includes(verb) && played.accepted === false,
+      threatened: verb === "threaten" && Boolean(target),
+      battle_wait: waited && Boolean(conflict),
+      companion: verb === "accompany" && played.accepted === true,
+      first_meeting: roles.newcomer.length > 0,
+      want_met: roles.met.length > 0,
+      long_rest: waited && cast.rest === "long",
+      thought_due: waited && thought(),
+      signal_echo: Boolean(
+        played && signalEcho(world, cast.location, turnOutcome(world).card)
+      ),
+      new_place: firstArrival(world, cast.location)
+    };
+    const occasions = meets.defeat ? ["defeat"] : SPEECH_OCCASIONS.filter((name) => meets[name]);
+    const named = occasions.flatMap((name) => speech_default[name] || []);
+    const voices = [
+      ...new Set(named.flatMap((role) => roles[role] || []))
+    ].filter(
+      (id) => id && cast.ids.includes(id) && profiles[id]?.kind === "avatar"
+    );
+    return {
+      occasion: occasions[0] || null,
+      // The player's avatar speaks first, so a waiting avatar can reflect.
+      speakers: [
+        ...voices.filter((id) => id === actor),
+        ...voices.filter((id) => id !== actor)
+      ].slice(0, 3),
+      scenery: named.includes("place")
+    };
+  }
   function narrativeContext(world, action = null) {
     const cast = dialogueCast(world, action);
     const {
@@ -17777,13 +17913,12 @@
       present,
       localItems,
       changes,
-      focus,
       played,
-      speakers,
-      ids: ids3,
-      resting: resting2,
-      rest
+      ids: ids3
     } = cast;
+    const { occasion, speakers, scenery } = speechOccasions(world, cast);
+    const resting2 = cast.resting && speakers[0] === cast.resting ? cast.resting : null;
+    const rest = resting2 ? cast.rest : null;
     const defeated = cast.defeat && `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}. Say one line.`;
     const disclosures = knowledgeDisclosures(
       world,
@@ -17816,9 +17951,10 @@
       turn: world.turn,
       outcome: turnOutcome(world),
       location,
-      scenery: sceneryDue(world.turn),
-      focus,
+      scenery,
+      focus: null,
       speakers,
+      ...occasion ? { occasion } : {},
       resting: resting2,
       ...rest ? { rest } : {},
       ...disclosures.length ? { disclosures } : {},
@@ -17881,7 +18017,7 @@
           );
           const movement = changes.find((change) => change.actorId === id);
           if (defeated && id === speakers[0]) facts.unshift(defeated);
-          else if (movement)
+          else if (movement && speakers.includes(id))
             facts.push(
               movement.leaving ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now. Say goodbye to ${nameOf(currentActor(world))} and name your destination and reason as you leave.` : `Just arrived from ${nameOf(movement.from)}. Greet the people here and explain what brought you.`
             );
