@@ -11,8 +11,9 @@ import { worldName } from "../card-game/world-name.mjs";
 // the dialogue, and a second tap plays it, dealing the table over to its
 // world. On another's a second tap arms it for the owner's Free. "+" offers
 // your avatar on the card. A friend's world shows while your avatar sits
-// there; Leave releases it and keeps its level. A world of yours nobody is in is no row: + New world
-// takes its name and brings an avatar back into it.
+// there; Leave releases it and keeps its level. A world nobody is in has
+// closed on the server and is not listed; + New world starts a fresh one
+// for the card's avatar.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -71,37 +72,37 @@ try {
       route.fulfill({ json: { authenticated: true } }),
     );
     await page.route(/\/card-game\/shared\/worlds$/, (route) =>
-      route.fulfill({
-        json: {
-          worlds: [
-            { id: "here", owner: true, actor: "vale", held: seats(1), seed: 1 },
-            // Someone holds Mara in the spare slot; Vale's seat is free.
-            {
-              id: "spare",
-              owner: true,
-              actor: null,
-              held: seats(0, 1),
-              seed: 2,
+      route.request().method() === "POST"
+        ? (commands.push(["new", route.request().postDataJSON()]),
+          route.fulfill({ json: { id: "fresh" } }))
+        : route.fulfill({
+            json: {
+              worlds: [
+                {
+                  id: "here",
+                  owner: true,
+                  actor: "vale",
+                  held: seats(1),
+                  seed: 1,
+                },
+                // Someone holds Mara in the spare slot; Vale's seat is free.
+                {
+                  id: "spare",
+                  owner: true,
+                  actor: null,
+                  held: seats(0, 1),
+                  seed: 2,
+                },
+                {
+                  id: "friend",
+                  owner: false,
+                  actor: tavi,
+                  held: seats(0, 0, 0, 0, tavi ? 1 : 0),
+                  seed: 3,
+                },
+              ],
             },
-            {
-              id: "friend",
-              owner: false,
-              actor: tavi,
-              held: seats(0, 0, 0, 0, tavi ? 1 : 0),
-              seed: 3,
-            },
-            // Nobody is in this one any more; your Ash stepped away from it.
-            {
-              id: "gone",
-              owner: true,
-              actor: null,
-              bound: "ash",
-              held: seats(0, 0, 1),
-              seed: 4,
-            },
-          ],
-        },
-      }),
+          }),
     );
     await page.route(
       /\/card-game\/shared\/worlds\/(\w+)\/command$/,
@@ -219,27 +220,20 @@ try {
     );
     assert.doesNotMatch(await menu.innerText(), /on this device/);
     assert.equal(await page.locator("#new-game").getAttribute("hidden"), "");
-    // The emptied world is no row; + New world carries its name and brings
-    // the card's avatar back into it when that one is in no world, starting
-    // over the Ash who stepped away there first.
-    assert.equal(await menu.locator('[data-slot="gone"]').count(), 0);
-    const again = menu.locator("#avatar-new-world");
-    assert.equal(await again.innerText(), `+ ${worldName(4)}`);
-    await shot(`output/card-world-slots-emptied-${width}.png`);
+    // + New world starts a fresh world for the card's avatar in no world.
+    const fresh = menu.locator("#avatar-new-world");
+    assert.equal(await fresh.innerText(), "+ New world");
     const plus = menu.locator('.world-slot[data-slot="spare"] .seat-open');
     await plus.click();
     await plus.click();
     assert.equal(await card.getAttribute("data-avatar"), "rue");
-    await Promise.all([page.waitForURL(/\?world=gone$/), again.click()]);
-    assert.deepEqual(commands.splice(0), [
-      ["gone", { op: "reset", avatar: "ash" }],
-      ["gone", { op: "claim", avatar: "rue" }],
-    ]);
+    await Promise.all([page.waitForURL(/\?world=fresh$/), fresh.click()]);
+    assert.deepEqual(commands.splice(0), [["new", { avatar: "rue" }]]);
     assert.deepEqual(errors, []);
     await page.close();
   }
   console.log(
-    "World slots: entered avatars and +, colour is presence, the card, armed with its actions, + offers a move, Leave, and an emptied world folded into + New world, at 390 and 1440.",
+    "World slots: entered avatars and +, colour is presence, the card, armed with its actions, + offers a move, Leave, and + New world for the card's avatar, at 390 and 1440.",
   );
 } finally {
   await browser.close();

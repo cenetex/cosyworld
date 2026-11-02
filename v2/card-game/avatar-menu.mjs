@@ -70,15 +70,6 @@ export const byInitial = (avatars) =>
 const sharedLink = (id) => `/?world=${encodeURIComponent(id)}`;
 // Leaving the world being played opens ☰ on the next page.
 const MENU_KEY = "cosyworld.menu";
-// The world whose last avatar this browser saw leave, so + New world names it.
-const EMPTIED_KEY = "cosyworld.emptied";
-function remember(id) {
-  try {
-    if (id === undefined) return localStorage.getItem(EMPTIED_KEY);
-    localStorage.setItem(EMPTIED_KEY, id);
-  } catch {}
-  return null;
-}
 function stored(key, value) {
   try {
     if (value === undefined) return sessionStorage.getItem(key);
@@ -146,18 +137,10 @@ export function worldSeats(state) {
 // friend's link opened, with the world being played first. Avatars in no
 // slot are the deck. Signed out there are no slots: the player plays Vale
 // in this browser, and that local save is its own passkey, never a slot
-// (#1892, #1846). A world of yours that nobody has entered any more is no
-// row: the most recently emptied (`emptied`, else the newest) is `reuse`,
-// which + New world takes its name from and fills again, and older ones wait
-// behind it (owner, 2026-11-01).
-export function worldSlots({
-  shared,
-  rows = [],
-  here,
-  invite = null,
-  emptied = null,
-}) {
-  if (!shared) return { slots: [], deck: [], canCreate: false, reuse: null };
+// (#1892, #1846). A world nobody is in any more has closed on the server and
+// is not listed (full_retire.rs, owner 2026-11-01).
+export function worldSlots({ shared, rows = [], here, invite = null }) {
+  if (!shared) return { slots: [], deck: [], canCreate: false };
   const slots = [];
   const sharedSlot = (row, held = row.held || [], from = row) => ({
     key: row.id,
@@ -209,19 +192,7 @@ export function worldSlots({
   const placed = new Set(slots.map((slot) => slot.mine));
   const deck = byInitial(humanAvatars).filter((a) => !placed.has(a.id));
   const used = slots.filter((slot) => slot.owner);
-  const empty = used.filter(
-    (slot) =>
-      !slot.current &&
-      !slot.invite &&
-      slot.seats.every((seat) => seat.kind === "resident"),
-  );
-  const reuse = empty.find((slot) => slot.key === emptied) || empty[0] || null;
-  return {
-    slots: slots.filter((slot) => !empty.includes(slot)),
-    deck,
-    canCreate: Boolean(reuse) || used.length < 8,
-    reuse,
-  };
+  return { slots, deck, canCreate: used.length < 8 };
 }
 
 // Where one of your avatars can go from `from`, its slot or null for the
@@ -305,29 +276,12 @@ export function installAvatarMenu({
     stored(INVITE_KEY, null);
     location.href = sharedLink(slot.shared);
   };
-  // + New world fills the emptied world again when there is one. A seat this
-  // passkey stepped away from there is its own avatar's: another avatar
-  // first starts that one over, which keeps its level for its next seat.
-  async function create(avatar, reuse) {
-    if (reuse) {
-      const bound = reuse.row.bound;
-      if (bound && bound !== avatar.id)
-        await command(reuse.shared, { op: "reset", avatar: bound });
-      return toWorld(avatar, null, reuse);
-    }
+  async function create(avatar) {
     const made = await request("/card-game/shared/worlds", {
       avatar: avatar.id,
     });
     location.href = sharedLink(made.id);
   }
-  // Your world is empty once its last entered avatar leaves.
-  const emptiedBy = (slot, seat) => {
-    if (
-      slot.owner &&
-      slot.seats.every((s) => s.id === seat.id || s.kind === "resident")
-    )
-      remember(slot.shared);
-  };
   // The chosen seat's action, as a beat in front of the dialogue: Leave for
   // yours, the owner's Free for another's once armed, with a one-line note.
   function seatBeat(slot, seat, image) {
@@ -349,7 +303,6 @@ export function installAvatarMenu({
     // is in no world until + New world or a move.
     const leaveSeat = async () => {
       await leave(slot);
-      emptiedBy(slot, seat);
       if (slot.current) return leaveHere();
       // The tap outside closed ☰; it opens again to say so.
       result = `${seat.name} left ${slot.name || "the world"}.`;
@@ -501,7 +454,6 @@ export function installAvatarMenu({
       rows,
       here: here(),
       invite,
-      emptied: remember(),
     });
     // With nothing tapped, the card is the avatar being played, else the
     // first of yours in a world.
@@ -537,14 +489,11 @@ export function installAvatarMenu({
       box.append(row);
     }
     if (view.deck.length && view.canCreate) {
-      // The card's avatar when it is in no world, else the one that stepped
-      // away from the emptied world, else the first in no world.
-      const reuse = view.reuse;
-      const free = (id) => view.deck.find((a) => a.id === id);
-      const avatar = free(shown?.id) || free(reuse?.row.bound) || view.deck[0];
+      // The card's avatar when it is in no world, else the first in no world.
+      const avatar = view.deck.find((a) => a.id === shown?.id) || view.deck[0];
       const fresh = act(
-        `+ ${reuse ? reuse.name || "A world" : "New world"}`,
-        () => create(avatar, reuse),
+        "+ New world",
+        () => create(avatar),
         "avatar-new-world",
       );
       fresh.classList.add("slot-new");
@@ -590,7 +539,12 @@ export function installAvatarMenu({
       const view = await request(`/card-game/shared/worlds/${inviteId}`);
       invite = { ...view, id: inviteId };
       status.textContent = "Tap + there to bring an avatar in.";
-    } catch {
+    } catch (error) {
+      // A link to a world nobody is in any more says it has closed.
+      if (inviteId && /closed/.test(error?.message)) {
+        stored(INVITE_KEY, null);
+        status.textContent = error.message;
+      }
     } finally {
       redraw();
     }

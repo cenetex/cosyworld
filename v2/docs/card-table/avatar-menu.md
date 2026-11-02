@@ -85,25 +85,25 @@ only the tools. ☰ opens a list of **world slots**:
   not only the world being played. The tools (Memory, Invite, Settings) stay
   pinned at the bottom; Memory opens on the avatar's inner life, then the
   past visits.
-- **A world nobody is in folds into + New world** (owner, 2026-11-01). A
-  world of yours with no entered avatar left (no claimed or bound seat but
-  your own stepped-away one) is not a row. The **+ New world** row instead
-  carries the most recently emptied world's name, "+ *The Borrowed
-  Station*", and tapping it brings an avatar back into that same world: the
-  card's avatar when it is in no world, else the one that stepped away
-  there, else the first in no world. A stepped-away seat there that belongs
-  to another of your avatars is started over first (`reset`, which keeps its
-  level for its next seat), then the avatar is claimed. This browser
-  remembers which world it last saw emptied (`cosyworld.emptied`); without
-  that, the newest empty world is used. Older empty worlds are not shown and
-  wait behind it: once the shown one is filled again, the next appears.
-  With no empty world, **+ New world** starts a fresh world for the first
-  avatar in no world.
+- **A world nobody is in closes** (owner, 2026-11-01). When the last avatar
+  leaves a world of yours (Leave, the owner's Free, or a claim elsewhere) and
+  nobody else holds a seat there, the server retires it
+  (`card_shared/full_retire.rs`). Your list also retires any such world left
+  over, in one transaction that warns and keeps the world on failure. A
+  stepped-away avatar still holds its seat, so stepping away does not close
+  a world. A retired world is marked `retired_at` on `card_tables`: it is no
+  row, does not count toward the eight, and its journal and checkpoints stay
+  for replay. Your own avatar there starts over with an ordinary `reset`
+  that keeps its level for its next seat. A world where anyone else is
+  bound is never retired, and only its owner's passkey retires it. A link to
+  a retired world says "This world has closed." **+ New world** starts a
+  fresh world for the card's avatar when it is in no world, else the first
+  avatar in no world (#1936 will make this row "+ Find" the next avatar).
 - **There is no Delete world.** Emptying a world (Leave of its last
   avatar) is how it goes: a world with nobody in it vanishes from the list. The server has no delete for shared
-  worlds and none is added: an empty world keeps its journal and still
-  counts toward the eight, which is why + New world reuses it instead of
-  creating a ninth. A world holding anyone else's avatar is never empty.
+  worlds and none is added: an empty world closes, keeping its journal, and
+  no longer counts toward the eight. A world holding anyone else's avatar is
+  never empty.
 - Below, the **profile card**: one avatar shown as a hand card (full
   portrait, name, the faint level numeral and the level tier's edge colour),
   then online or offline, its world, and what it holds where that world is
@@ -167,7 +167,7 @@ out) and Controls. It holds no world actions.
 The menu shows now, not a log: where each avatar is now. There is no list of
 past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` checks
 the portraits and +, colour, choosing and arming, a move from +, Leave,
-and an emptied world folded into + New world, at 390 and 1440 pixels.
+and + New world, at 390 and 1440 pixels.
 
 **Notes go with the card.** The beat's note names the card's avatar and
 world, so it goes when the card disarms, shows another avatar or ☰ closes.
@@ -183,11 +183,6 @@ the action beat):
 ![Phone: chosen](avatar-menu/slots-selected-390.jpg)
 ![Desktop: chosen](avatar-menu/slots-selected-1440.jpg)
 
-
-An emptied world as the + row (here "+ Silverhook"):
-
-![Phone: emptied world](avatar-menu/slots-emptied-390.jpg)
-![Desktop: emptied world](avatar-menu/slots-emptied-1440.jpg)
 
 ### #1737 mockups (replaced by the slots above)
 

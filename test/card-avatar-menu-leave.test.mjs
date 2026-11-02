@@ -145,45 +145,6 @@ describe("the world slots (#1877)", () => {
     expect(eight.slots.filter((s) => s.owner)).toHaveLength(8);
     expect(eight.canCreate).toBe(false);
   });
-  it("folds a world nobody is in into New world, the last emptied first", () => {
-    const empties = [
-      ...rows,
-      { id: "e1", owner: true, actor: null, held: held(), seed: 1 },
-      // Your own stepped-away Tavi still holds the seat but shows no portrait.
-      {
-        id: "e2",
-        owner: true,
-        actor: null,
-        bound: "tavi",
-        held: held("tavi"),
-        seed: 2,
-      },
-    ];
-    const newest = worldSlots({ shared: true, rows: empties, here });
-    expect(newest.slots.map((s) => s.key)).toEqual(["w1", "w2", "w3"]);
-    expect(newest.reuse.key).toBe("e1");
-    const last = worldSlots({
-      shared: true,
-      rows: empties,
-      here,
-      emptied: "e2",
-    });
-    expect(last.reuse).toMatchObject({ key: "e2", name: expect.any(String) });
-    expect(last.reuse.name).not.toBe("");
-    // Eight worlds with one empty still offer it again.
-    const eight = [
-      rows[0],
-      ...Array.from({ length: 6 }, (_, i) => ({
-        id: `o${i}`,
-        owner: true,
-        held: held("mara"),
-      })),
-      { id: "e1", owner: true, held: held(), seed: 1 },
-    ];
-    expect(worldSlots({ shared: true, rows: eight, here }).canCreate).toBe(
-      true,
-    );
-  });
   it("opens a friend's link as a slot, with your kept seat free for you", () => {
     const invite = {
       id: "w9",
@@ -209,7 +170,6 @@ describe("the world slots (#1877)", () => {
       slots: [],
       deck: [],
       canCreate: false,
-      reuse: null,
     });
   });
   it("signed in at the local table, never lists it (#1892)", () => {
