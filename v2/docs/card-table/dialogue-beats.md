@@ -97,9 +97,18 @@ Beats are cards in depth, not rows in a scroll:
 ## The action beat
 
 A ready or pending play is a beat too: the action beat, in front of the
-stack, with small cards of who acts and what it acts on, what the play will do ("Vale takes the
-Burial Decree.") and its buttons (the play, Cancel play, Nudge or Look) under
-the status line. The spoken beat settles behind it as one dimmed line that
+stack. It is one row, vertically centred: on the left who acts and what it
+acts on, drawn as the quest card pairs them (borderless cut-out figures with
+a drop shadow, a little over each other, facing; an item or place a small
+borderless picture); in the middle what the play will do ("Vale takes the
+Burial Decree.", up to two lines) and the status line; on the right its
+buttons (the play, Cancel play, Nudge or Look). The buttons are flush
+segments of the box itself, not boxes inside it: full height, split from
+the words and from each other by a thin divider, a serif verb centred,
+tinting the whole segment on hover, focus and press, with a focus ring for
+the keyboard. Where the row is too narrow the buttons wrap into a strip
+along the foot under the same divider; the fixed box over the hand on a
+phone keeps them on the right and wraps their words instead. The spoken beat settles behind it as one dimmed line that
 still takes taps. When the play commits or is cancelled the action beat leaves
 and the spoken beat returns; after a play it rests until the player chooses a
 card or taps the raised hand. A shared play the server refused or did not
