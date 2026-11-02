@@ -57,8 +57,14 @@ verb: it is `wait` with `sleep: true`, labelled "Sleep" (key
 actor's last committed play was a Wait (a waking counts), and never aboard a
 ship, during a standoff, or where a lit lamp has one oil or less left: that
 Sleep would sleep through the burnout, so the player gets a plain Wait, which
-burns the last oil and opens the mirror. Residents never sleep. The client
-keeps the card selection unchanged to show it.
+burns the last oil and opens the mirror. Residents never sleep.
+
+The client (`restPlays` in `cards.mjs`) shows Sleep in place of the Wait only
+when the same cards are chosen again after a committed Wait, at the same table
+revision; any other choice brings back the plain Wait. A sleeper sees Sleep
+first, then Wait. Its beat and Thinking cards use the sleeping art, and the
+wake reads in the past: "Vale slept.", then "Vale woke as the lamp
+guttered."
 
 1. Sleep sets `actor.sleeping = {since, place, present}`, where `present` is
    the sorted set of avatars physically in the place (a seat counts while its

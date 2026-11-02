@@ -14,6 +14,22 @@ const QUIET_VERBS = new Set(["talk"]);
 const DAMAGE = /loses (\d+) resolve/u;
 const YIELDED = /after yielding to/u;
 const STANDOFF_ENDS = /(standoff|battle) ends/u;
+// The rules word a wake in the present ("Vale wakes as Pip arrives."); its
+// caption is past, like every other.
+const WAKE_PAST = {
+  wakes: "woke",
+  arrives: "arrived",
+  leaves: "left",
+  docks: "docked",
+  gutters: "guttered",
+  runs: "ran",
+  opens: "opened",
+  closes: "closed",
+};
+const WAKE_VERBS = new RegExp(
+  `\\b(${Object.keys(WAKE_PAST).join("|")})\\b`,
+  "gu",
+);
 
 // A name inside a sentence: "the keeper", not "The keeper", and one article:
 // "took the Burial Decree". The sentence itself is capitalised by sentence().
@@ -159,12 +175,17 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
           : `${a} squared up to ${t}.`,
       );
     case "wait":
-      // A sign noticed while waiting reads as its own words.
+      // A wake gives its reason ("Vale woke as the lamp guttered."); a sign
+      // noticed while waiting reads as its own words.
       return caption(
         "⌛",
-        / waits one turn/u.test(entry.text || "")
-          ? `${a} waited a turn.`
-          : entry.text,
+        entry.woke
+          ? entry.text.replace(WAKE_VERBS, (verb) => WAKE_PAST[verb])
+          : entry.sleep
+            ? `${a} slept.`
+            : / waits one turn/u.test(entry.text || "")
+              ? `${a} waited a turn.`
+              : entry.text,
       );
     case "guard":
       return caption("⚔", `${a} braced.`);

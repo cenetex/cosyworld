@@ -7,6 +7,7 @@ import {
   playLabel,
   TOO_MANY_ITEMS,
   playText,
+  restPlays,
 } from "../v2/card-game/cards.mjs";
 import {
   createWorld,
@@ -189,5 +190,33 @@ describe("named card actions", () => {
     expect(
       moved.slice(moved.indexOf("moth"), moved.indexOf("moth") + 3),
     ).toEqual(["moth", "lamp", "cloth"]);
+  });
+});
+
+describe("Sleep after a Wait (#2028)", () => {
+  const waited = () => {
+    const world = createWorld();
+    const wait = legalActions(world).find((a) => a.kind === "wait");
+    return play(world, wait, world.revision).state;
+  };
+  const labels = (world, again) =>
+    restPlays(world, cardActions(world, ["vale"]).actions, again).map(
+      playLabel,
+    );
+  it("offers Sleep only for the same cards chosen again", () => {
+    const world = waited();
+    expect(legalActions(world).some((a) => a.sleep)).toBe(true);
+    expect(labels(world, true)).toEqual(["Sleep"]);
+    expect(labels(world, false)).toEqual(["Wait"]);
+    expect(labels(createWorld(), true)).toEqual(["Wait"]);
+  });
+  it("lets a sleeper sleep on or wake by waiting", () => {
+    const world = waited();
+    world.actors.vale.sleeping = {
+      since: world.turn,
+      place: "attic",
+      present: [],
+    };
+    expect(labels(world, false)).toEqual(["Sleep", "Wait"]);
   });
 });

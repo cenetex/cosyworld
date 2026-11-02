@@ -134,6 +134,7 @@ import {
   cardPlay,
   playLabel,
   playText,
+  restPlays,
   cardActions,
   cardObservation,
   TOO_MANY_ITEMS,
@@ -1114,6 +1115,15 @@ function stackPlaces(cards) {
   hand.splice(at || hand.length, 0, ...cards.filter(stackedPlace));
   return hand;
 }
+// The cards of the player's last committed Wait and the table's revision
+// after it: the same cards chosen again offer Sleep.
+let lastWait = null;
+function rememberWait(action, key) {
+  lastWait =
+    action.kind === "wait" && !action.sleep
+      ? { key, revision: world.revision }
+      : null;
+}
 function selectCards(cards) {
   for (const id of selected)
     if (people[id] && !cards.includes(id)) expandedHolders.delete(id);
@@ -1128,6 +1138,8 @@ function selectCards(cards) {
     )
       expandedHolders.delete(id);
   selected = cards;
+  // Choosing other cards after a Wait brings back the plain Wait.
+  if (lastWait && cards.join("+") !== lastWait.key) lastWait = null;
 }
 function choose(id) {
   if (finishReveal(id) || selectionBlocked()) return;
@@ -1243,6 +1255,7 @@ function performAction(action, revision) {
     place: from,
   });
   world = result.state;
+  rememberWait(action, selected.join("+"));
   music.setRoom(
     world.actors[currentActor(world)].place,
     locationDaylight(world, world.actors[currentActor(world)].place)?.phase ||
@@ -1646,7 +1659,13 @@ function renderActions() {
   const row = $("card-actions");
   if (restedChoice !== choiceKey()) restedChoice = null;
   const rested = restedChoice !== null;
-  const { actions: ready, hint } = cardActions(world, selected);
+  const { actions: offered, hint } = cardActions(world, selected);
+  const ready = restPlays(
+    world,
+    offered,
+    lastWait?.key === selected.join("+") &&
+      lastWait.revision === world.revision,
+  );
   // A chosen play leaves the beat: the Thinking card stands for it, and its
   // reply types into the full-size front card.
   const actions = rested ? [] : ready;
@@ -4076,8 +4095,10 @@ function showSharedPlay(state, reason = "") {
   if (
     ["playing", "played"].includes(state) &&
     !["playing", "played"].includes(was)
-  )
+  ) {
     restedChoice = choiceKey();
+    rememberWait(play.action, play.choice);
+  }
   const shown = $("play-status").dataset.playStatus;
   if (state === "rejected") {
     sharedRefusal = { reason, text: refusalText(play, reason) };
@@ -4205,6 +4226,8 @@ async function submitSharedPlay(action) {
   sharedSending = true;
   sharedPlay = {
     key: crypto.randomUUID(),
+    action: current,
+    choice: selected.join("+"),
     label: playLabel(current),
     notice: sharedSession.state.notice || "",
   };
