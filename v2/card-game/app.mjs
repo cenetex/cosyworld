@@ -112,6 +112,7 @@ import {
 } from "./world.mjs";
 import { packOf } from "./pack-registry.mjs";
 import { variantOf } from "./pack-rules.mjs";
+import { hiddenFor, unlockedSince } from "./unlock-view.mjs";
 import {
   currentScene,
   isSceneText,
@@ -319,9 +320,12 @@ const cardArt = (id) =>
 // going (the ship's deck from its berth), lit for the hour and weather.
 const placeArt = (id) => backdrop(id, world);
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
-// The screen names a card only once its player has uncovered it (#1575).
+// The screen names a card only once its player has uncovered it (#1575),
+// and the world's hidden avatar only once this avatar has met it (#1936).
 const knownName = (id, unknown = "…") =>
-  coveredCards.has(id) ? unknown : nameOf(id);
+  coveredCards.has(id) || hiddenFor(world, currentActor(world))?.id === id
+    ? unknown
+    : nameOf(id);
 // An avatar wakes knowing nothing: it speaks once its player has uncovered
 // both its own card and the place it stands in.
 const selfKnown = () =>
@@ -4121,8 +4125,20 @@ function adoptShared(value) {
             sinceSeq: lastSeq(world),
           })
         : [];
+    // The Talk that met the hidden avatar unlocks it: a beat says so.
+    const found =
+      alreadyOpen && unlockedSince(next, value.actor, lastSeq(world));
     world = next;
     sharedWorldKey = key;
+    if (found)
+      showActionBeat({
+        images: [`./${found.image}`],
+        text: `${found.name} remembers you`,
+        note: `${found.name}'s own world is in ☰ now.`,
+        buttons: [
+          { label: "OK", id: "unlock-ok", run: () => clearActionBeat() },
+        ],
+      });
     selectCards(selected.filter((id) => availableCards(world).includes(id)));
     selectionRevision = world.revision;
     renderedHand = "";

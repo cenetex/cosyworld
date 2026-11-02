@@ -145,6 +145,31 @@ describe("the world slots (#1877)", () => {
     expect(eight.slots.filter((s) => s.owner)).toHaveLength(8);
     expect(eight.canCreate).toBe(false);
   });
+  it("shows avatars not yet found as card backs, never in the deck (#1936)", () => {
+    const found = worldSlots({
+      shared: true,
+      rows,
+      here,
+      unlocked: ["vale", "ash", "tavi", "mara"],
+    });
+    expect(found.deck.map((a) => a.id)).toEqual(["ash", "mara"]);
+    expect(found.locked.map((a) => a.id)).toEqual([
+      "rue",
+      "nell",
+      "orin",
+      "ada",
+    ]);
+    expect(found.canCreate).toBe(true);
+    // Once everyone is found, no new world opens.
+    const all = worldSlots({
+      shared: true,
+      rows,
+      here,
+      unlocked: ["rue", "ash", "tavi", "vale", "mara", "nell", "orin", "ada"],
+    });
+    expect(all.locked).toEqual([]);
+    expect(all.canCreate).toBe(false);
+  });
   it("opens a friend's link as a slot, with your kept seat free for you", () => {
     const invite = {
       id: "w9",
@@ -169,6 +194,7 @@ describe("the world slots (#1877)", () => {
     expect(solo).toEqual({
       slots: [],
       deck: [],
+      locked: [],
       canCreate: false,
     });
   });

@@ -217,6 +217,7 @@ body.local-app #scene-video-button {
   padding: 0;
 }
 .seat-face img,
+.slot-locked img,
 .world-menu .seat-open {
   display: block;
   width: 32px;
@@ -234,6 +235,11 @@ body.local-app #scene-video-button {
 }
 .world-menu .seat-open:disabled {
   opacity: 0.35;
+}
+/* Avatars not yet found (#1936): card backs, dim. */
+.slot-locked {
+  margin-top: 8px;
+  opacity: 0.6;
 }
 .slot-seat:not([data-lit="true"]) .seat-face img {
   filter: grayscale(1) brightness(0.7);

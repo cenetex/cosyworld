@@ -7,6 +7,7 @@ import { levelOf } from "./want.mjs";
 import { nameOf } from "./world.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { levelTier, romanLevel } from "./rarity.mjs";
+import { hiddenFor } from "./unlock-view.mjs";
 
 // ☰ lists the passkey's worlds, each with the avatars that have entered it
 // and "+" for an open seat, then + New world and the shown avatar's card
@@ -138,9 +139,17 @@ export function worldSeats(state) {
 // slot are the deck. Signed out there are no slots: the player plays Vale
 // in this browser, and that local save is its own passkey, never a slot
 // (#1892, #1846). A world nobody is in any more has closed on the server and
-// is not listed (full_retire.rs, owner 2026-11-01).
-export function worldSlots({ shared, rows = [], here, invite = null }) {
-  if (!shared) return { slots: [], deck: [], canCreate: false };
+// is not listed (full_retire.rs). An avatar this passkey has not found yet
+// (`unlocked`, from the world list) is `locked`: a card back, in no deck
+// (#1936). Once nobody is left to find, no new world opens.
+export function worldSlots({
+  shared,
+  rows = [],
+  here,
+  invite = null,
+  unlocked = null,
+}) {
+  if (!shared) return { slots: [], deck: [], locked: [], canCreate: false };
   const slots = [];
   const sharedSlot = (row, held = row.held || [], from = row) => ({
     key: row.id,
@@ -190,9 +199,18 @@ export function worldSlots({ shared, rows = [], here, invite = null }) {
     for (const seat of slots[0].seats)
       if (seat.kind === "you") seat.online = true;
   const placed = new Set(slots.map((slot) => slot.mine));
-  const deck = byInitial(humanAvatars).filter((a) => !placed.has(a.id));
+  const found = (a) => !unlocked || unlocked.includes(a.id);
+  const cast = byInitial(humanAvatars);
+  const deck = cast.filter((a) => !placed.has(a.id) && found(a));
+  const locked = cast.filter((a) => !found(a));
   const used = slots.filter((slot) => slot.owner);
-  return { slots, deck, canCreate: used.length < 8 };
+  return {
+    slots,
+    deck,
+    locked,
+    canCreate:
+      used.length < 8 && (!unlocked || locked.length > 0 || !used.length),
+  };
 }
 
 // Where one of your avatars can go from `from`, its slot or null for the
@@ -230,6 +248,7 @@ export function installAvatarMenu({
   status.setAttribute("role", "status");
   menu.prepend(box, status);
   let rows = [],
+    unlocked = null,
     shared = Boolean(session),
     invite = null,
     // The card's avatar: a tapped seat { id, slot }, or one "+" offers
@@ -276,11 +295,18 @@ export function installAvatarMenu({
     stored(INVITE_KEY, null);
     location.href = sharedLink(slot.shared);
   };
+  // A new world hides the next avatar this passkey has not found.
   async function create(avatar) {
     const made = await request("/card-game/shared/worlds", {
       avatar: avatar.id,
     });
     location.href = sharedLink(made.id);
+  }
+  // "+ Find Mara": the quest to talk to the avatar hidden here (#1936).
+  async function seek(avatar) {
+    await command(session.id, { op: "seek" });
+    menu.hidePopover();
+    result = `Find ${avatar.name} here and talk to them.`;
   }
   // The chosen seat's action, as a beat in front of the dialogue: Leave for
   // yours, the owner's Free for another's once armed, with a one-line note.
@@ -454,6 +480,7 @@ export function installAvatarMenu({
       rows,
       here: here(),
       invite,
+      unlocked,
     });
     // With nothing tapped, the card is the avatar being played, else the
     // first of yours in a world.
@@ -488,16 +515,34 @@ export function installAvatarMenu({
       row.append(title, seats);
       box.append(row);
     }
-    if (view.deck.length && view.canCreate) {
-      // The card's avatar when it is in no world, else the first in no world.
-      const avatar = view.deck.find((a) => a.id === shown?.id) || view.deck[0];
-      const fresh = act(
-        "+ New world",
-        () => create(avatar),
-        "avatar-new-world",
-      );
+    // The avatar hidden in the world being played is the one to find next;
+    // with none hidden here, a new world hides the next, for the card's
+    // avatar when it is in no world, else the first in no world.
+    const world = session?.state.world;
+    const hidden = session && hiddenFor(world, here().actor, unlocked);
+    const avatar =
+      view.deck.find((a) => a.id === shown?.id) || view.deck[0] || null;
+    const fresh = hidden
+      ? act(`+ Find ${hidden.name}`, () => seek(hidden), "avatar-find")
+      : avatar && view.canCreate
+        ? act("+ New world", () => create(avatar), "avatar-new-world")
+        : null;
+    if (fresh) {
       fresh.classList.add("slot-new");
       box.append(fresh);
+    }
+    // Avatars not yet found are card backs, with no hint of where they are.
+    if (view.locked.length) {
+      const backs = el("ul", "slot-seats slot-locked");
+      backs.setAttribute("aria-label", `${view.locked.length} still to find`);
+      for (const back of view.locked.map(() => el("li", "slot-seat"))) {
+        const img = el("img");
+        img.src = face("assets/card-back.webp");
+        img.alt = "";
+        back.append(img);
+        backs.append(back);
+      }
+      box.append(backs);
     }
     const card = shown && stats(view, shown);
     if (card) box.append(card.box);
@@ -534,7 +579,9 @@ export function installAvatarMenu({
       const account = await request("/auth/account");
       shared = Boolean(session || account.authenticated);
       if (!shared) return;
-      rows = (await request("/card-game/shared/worlds")).worlds;
+      const list = await request("/card-game/shared/worlds");
+      rows = list.worlds;
+      unlocked = Array.isArray(list.unlocked) ? list.unlocked : null;
       if (!inviteId) return;
       const view = await request(`/card-game/shared/worlds/${inviteId}`);
       invite = { ...view, id: inviteId };
