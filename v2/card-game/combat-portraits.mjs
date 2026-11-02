@@ -5,6 +5,7 @@ import { imageUrl } from "./images.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { portraitFormForSource } from "./rarity-portraits.mjs";
 import { castCombatStem } from "./cast-combat-art.mjs";
+import poseFit from "./assets/combat/pose-fit.json" with { type: "json" };
 
 const players = new Set(humanAvatarIds);
 const poses = ["guard", "attack", "hit"];
@@ -30,11 +31,26 @@ export function combatPortrait(id, pose, source, facing) {
   return variants.images[file]?.stage ? `./${file}` : null;
 }
 
+// A painting whose canvas pads its figure differently from the plain
+// portrait drops and scales by its measured fit (build-combat-pose-fit.mjs),
+// so the feet stay on the floor and the figure keeps its size.
+function fitPose(image, source) {
+  const fit = poseFit[source?.replace(/^\.\//u, "")];
+  if (fit) {
+    image.style.setProperty("--pose-drop", `${fit.drop * 100}%`);
+    image.style.setProperty("--pose-scale", String(fit.scale));
+  } else {
+    image.style.removeProperty("--pose-drop");
+    image.style.removeProperty("--pose-scale");
+  }
+}
+
 export function showCombatPortrait(figure, source, pose) {
   const image = figure.querySelector(".portrait-body > img");
   if (!image || !source) return;
   image.src = imageUrl(source);
   image.dataset.source = source;
+  fitPose(image, source);
   image.dataset.flip = String(flipStagePortrait(source, figure.dataset.facing));
   figure.dataset.flip = image.dataset.flip;
   figure.dataset.framing = portraitFraming(source);
@@ -65,6 +81,7 @@ export function createCombatPortraits(fighter) {
   const restore = (figure, original) => {
     original.image.src = original.src;
     original.image.dataset.source = original.source;
+    fitPose(original.image, original.source);
     original.image.dataset.flip = original.imageFlip;
     figure.dataset.flip = original.flip;
     figure.dataset.pose = original.pose;
@@ -111,7 +128,6 @@ export function createCombatPortraits(fighter) {
             }),
         ),
       );
-      for (const figure of originals.keys()) figure.dataset.framing = "wide";
     },
     // Before the first frame the two fighters turn to face each other,
     // whoever they were watching. The keeper's clock is never mirrored:
@@ -155,7 +171,6 @@ export function createCombatPortraits(fighter) {
       );
       if (source && ready.has(source)) showCombatPortrait(figure, source, pose);
       else restore(figure, original);
-      figure.dataset.framing = "wide";
       figure.dataset.pose = value;
     },
     restore() {

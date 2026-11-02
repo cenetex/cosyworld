@@ -84,14 +84,16 @@ pub(super) fn preload(c: &Connection, pack: &str) -> Result<()> {
     Ok(())
 }
 
-/// This binary's content less what rules 86 added (hiding places, `live`
-/// routes, `gate_open`), which earlier released rules refuse. Tests that seed
+/// This binary's content less what rules 86 and 91 added (hiding places,
+/// `live` routes, `gate_open`, a transport's `waitVerb` and `waitSentence`),
+/// which earlier released rules refuse. Tests that seed
 /// a world on those rules read it. The cut keeps every other byte in order.
 #[cfg(test)]
 pub(super) fn released() -> &'static str {
     fn cut(text: &mut String, open: &str, close: &str) {
         while let Some(at) = text.find(open) {
-            let end = text[at..].find(close).expect("a closed field") + at + close.len();
+            let from = at + open.len();
+            let end = text[from..].find(close).expect("a closed field") + from + close.len();
             text.replace_range(at..end, "");
         }
     }
@@ -100,6 +102,8 @@ pub(super) fn released() -> &'static str {
         let mut text = CURRENT.replace("\"live\":true,", "");
         cut(&mut text, ",\"hiding\":{\"pool\":[", "]}");
         cut(&mut text, ",{\"kind\":\"gate_open\"", "}");
+        cut(&mut text, ",\"waitVerb\":\"", "\"");
+        cut(&mut text, ",\"waitSentence\":\"", "\"");
         let name = hash(&text);
         if let Ok(mut loaded) = loaded().lock() {
             loaded.insert(name.clone(), Arc::from(text));

@@ -363,6 +363,17 @@ in. Anyone still aboard can stay for the next course. A ship left docked with
 passengers and no course for three world rounds sails its first lane. An empty
 ship stays where it was left; a traveller waiting to board at a port brings it
 one lane closer each round. The same saved ship serves every actor.
+
+A transport may name the Wait played aboard while it is under way (course set
+or at sea), when each round passed carries the voyage on: `waitVerb` is the
+button label and `waitSentence` the beat sentence, with `{actor}` once for the
+person. The Greek ship uses `"Sail"` and `"{actor} sails on."`. The two come
+together; the verb is a capitalised word of up to 24 letters, and the sentence
+is plain text of up to 80 characters with no markup. A docked ship keeps Wait,
+because a wait there moves nothing, and a transport without the pair keeps
+Wait throughout. Only the table's words change: the rules action and journal
+stay `wait`. Older rules bundles reject these keys, so the field ships with a
+rules version.
 Every place uses the same stage layout, and no CSS is written for a single
 place. An optional place `stage` object holds the per-place differences as
 data. All of its values are whole percentages of the painting:

@@ -904,8 +904,8 @@ main {
   border: 0;
   pointer-events: none;
 }
-/* A play's strikes and journeys leave the locked hand where it is: only the
-   player lowers it. The dialogue above a raised hand fades out of the
+/* A play's journeys leave the locked hand where it is (strikes tuck it
+   down, combat.css): only the player lowers it. The dialogue above a raised hand fades out of the
    fighters' way; beside a resting hand it sinks to a strip. Reduced motion
    fades it out and back in place. */
 body .dialogue {

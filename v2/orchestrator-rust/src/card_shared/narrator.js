@@ -10185,7 +10185,9 @@
               }
             ],
             at: "greek-harbor",
-            shipmaster: "greek-shipmaster"
+            shipmaster: "greek-shipmaster",
+            waitVerb: "Sail",
+            waitSentence: "{actor} sails on."
           }
         }
       },
@@ -13949,6 +13951,10 @@
   var owns2 = (o, key) => record2(o) && typeof key === "string" && Object.hasOwn(o, key);
   var idOk = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
   var textOk = (v, max = 1200) => typeof v === "string" && v.trim().length > 0 && v.length <= max && !/[\u0000-\u001f]/.test(v);
+  function waitWordsOk(t) {
+    if (t.waitVerb === void 0 && t.waitSentence === void 0) return true;
+    return typeof t.waitVerb === "string" && /^[A-Z][A-Za-z' -]{0,23}$/u.test(t.waitVerb) && textOk(t.waitSentence, 80) && !/[<>&`]/u.test(t.waitSentence) && t.waitSentence.replace("{actor}", "").length === t.waitSentence.length - 7 && !/[{}]/u.test(t.waitSentence.replace("{actor}", ""));
+  }
   var intOk = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
   var MAX_LANES = 4;
   function laneProblems(t) {
@@ -14896,7 +14902,15 @@
     const transportPlaces = /* @__PURE__ */ new Set();
     for (const [id, t] of Object.entries(pack.transports || {})) {
       const valid = check(
-        idOk(id) && keysOk(t, ["place", "docks", "at", "lanes", "shipmaster"]) && owns2(places2, t.place) && !transportPlaces.has(t.place) && places2[t.place]?.exits.length === 0 && Array.isArray(t.docks) && t.docks.length >= 2 && t.docks.length <= 12 && new Set(t.docks).size === t.docks.length && t.docks.every((p) => anyPlace(p) && p !== t.place) && t.docks.includes(t.at),
+        idOk(id) && keysOk(t, [
+          "place",
+          "docks",
+          "at",
+          "lanes",
+          "shipmaster",
+          "waitVerb",
+          "waitSentence"
+        ]) && owns2(places2, t.place) && !transportPlaces.has(t.place) && places2[t.place]?.exits.length === 0 && Array.isArray(t.docks) && t.docks.length >= 2 && t.docks.length <= 12 && new Set(t.docks).size === t.docks.length && t.docks.every((p) => anyPlace(p) && p !== t.place) && t.docks.includes(t.at),
         `transport ${id} needs its own place, two to twelve docks and an initial dock`
       );
       if (!valid) continue;
@@ -14912,6 +14926,10 @@
           for (const c of Array.isArray(lane.opensWith) ? lane.opensWith : [])
             condition(c, `transport ${id} lane condition`);
         }
+      check(
+        waitWordsOk(t),
+        `transport ${id} waitVerb and waitSentence are a short plain pair`
+      );
       check(
         t.shipmaster === void 0 || typeof t.shipmaster === "string" && t.shipmaster.length > 0,
         `transport ${id} shipmaster names a resident`

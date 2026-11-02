@@ -223,7 +223,7 @@ describe("entity memories and model text", () => {
     world = act(world, "talk", null, "keeper");
     const context = narrativeContext(world, { target: "keeper" });
     expect(context.speakers).toEqual(["vale", "keeper"]);
-    expect(context.action).toBe("Vale asks The keeper what they want.");
+    expect(context.action).toBe("Vale has a conversation with The keeper.");
     const next = applyGeneratedText(world, context, response(context));
     expect(next.log.slice(-2).map((entry) => entry.actorId)).toEqual([
       "vale",

@@ -62,7 +62,8 @@ burns the last oil and opens the mirror. Residents never sleep.
 The client (`restPlays` in `cards.mjs`) shows Sleep in place of the Wait only
 when the same cards are chosen again after a committed Wait, at the same table
 revision; any other choice brings back the plain Wait. A sleeper sees Sleep
-first, then Wait. Its beat and Thinking cards use the sleeping art, and the
+first, then Wait. Beside any other play the plain Wait drops out and Sleep
+stays ([#2027](https://github.com/cenetex/cosyworld/issues/2027)). Its beat and Thinking cards use the sleeping art, and the
 wake reads in the past: "Vale slept.", then "Vale woke as the lamp
 guttered."
 

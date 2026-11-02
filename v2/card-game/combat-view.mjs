@@ -142,6 +142,8 @@ export function createCombatView({
     cut = null,
     portraitRun = 0;
   const reduced = () => reducedMotion.matches;
+  // Phones draw the battle on their own marks (combat.css).
+  const phone = () => globalThis.matchMedia?.("(max-width: 700px)").matches;
   // Painted stage residents keep their sprite; their beats use the caption.
   const fighter = (id) =>
     id ? stage.querySelector(`#cast [data-avatar="${CSS.escape(id)}"]`) : null;
@@ -292,7 +294,9 @@ export function createCombatView({
       spread(rest, 50, 14);
     } else spread(els, 50, 48 / (els.length - 1));
     stage.querySelector("#cast").dataset.battle = "true";
-    const at = (el) => parseFloat(el.style.getPropertyValue("--stage-x"));
+    // Facing reads the marks the figures are drawn at.
+    const mark = phone() ? "--battle-x" : "--stage-x";
+    const at = (el) => parseFloat(el.style.getPropertyValue(mark));
     const aim = fighter(beat.coveredId || beat.targetId);
     for (const el of front) {
       const other = el === fighter(beat.actorId) ? aim : fighter(beat.actorId);
@@ -302,6 +306,18 @@ export function createCombatView({
           other.dataset.avatar,
           at(other) > at(el) ? "right" : "left",
         );
+    }
+    // Those waiting turn toward the fight: the middle of the exchange, or
+    // the one it aims at when they stand right at that middle.
+    const middle = front.reduce((sum, el) => sum + at(el), 0) / front.length;
+    for (const el of rest) {
+      const toward =
+        Math.abs(middle - at(el)) > 1 ? middle : at(aim || front[0]);
+      portraits.face(
+        el.dataset.avatar,
+        front[0].dataset.avatar,
+        toward > at(el) ? "right" : "left",
+      );
     }
   };
   // The redrawn scene keeps the last exchange in front (scene.mjs).
