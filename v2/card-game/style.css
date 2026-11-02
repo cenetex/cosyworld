@@ -2367,9 +2367,44 @@ body .beat-live {
     15px/1.3 Georgia,
     serif;
 }
-.action-beat-heading .beat-behind-portrait {
-  width: 26px;
-  height: 26px;
+/* Who acts and what it acts on, small cards side by side as a quest pairs
+   them, beside what the play does. */
+.beat-stack > .action-panel:not([hidden]) {
+  display: flex;
+  align-items: center;
+  column-gap: 10px;
+}
+.action-beat-body {
+  display: grid;
+  flex: 1;
+  align-content: start;
+  gap: inherit;
+  min-width: 0;
+  max-height: 100%;
+}
+.action-beat-cards {
+  display: flex;
+  gap: 4px;
+}
+.action-beat-cards:empty {
+  display: none;
+}
+.action-beat-cards img {
+  width: 52px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  object-position: 50% 12%;
+  border: 1px solid #a48d63b3;
+  border-radius: 4px;
+  background: #181b22;
+  box-shadow: 0 2px 6px #0008;
+}
+/* Its buttons share the beat cards' edges: no pill. */
+.beat-action #card-actions button {
+  padding: 6px 18px;
+  border-color: #b09a6a88;
+  border-radius: 6px;
+  background: #1a1f29;
 }
 .action-beat-text {
   min-width: 0;
@@ -2481,9 +2516,8 @@ main > .dialogue {
     width: 15px;
     height: 15px;
   }
-  body[data-dialogue-over="true"] .action-beat-heading .beat-behind-portrait {
-    width: 20px;
-    height: 20px;
+  body[data-dialogue-over="true"] .action-beat-cards img {
+    width: 36px;
   }
   body[data-dialogue-over="true"] .beat-action #card-actions {
     padding-block: 1px;

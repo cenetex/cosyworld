@@ -25,12 +25,19 @@ const browser = await chromium.launch({
     : {}),
 });
 try {
-  for (const [width, height] of [
+  for (const [width, height, motion = "no-preference"] of [
     [1440, 900],
+    [1900, 1000],
+    [765, 760],
     [390, 844],
-    [844, 390],
+    [390, 844, "reduce"],
+    [844, 390, "reduce"],
   ]) {
-    const page = await browser.newPage({ viewport: { width, height } });
+    const name = `${width}-${motion}`;
+    const page = await browser.newPage({
+      viewport: { width, height },
+      reducedMotion: motion,
+    });
     page.setDefaultTimeout(12000);
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
@@ -49,7 +56,7 @@ try {
         }),
       });
     });
-    const key = `cosyworld.reflected-shore.v1.action-spot-${width}`;
+    const key = `cosyworld.reflected-shore.v1.action-spot-${name}`;
     await page.addInitScript(
       ({ key, save }) => {
         if (!localStorage.getItem(key)) localStorage.setItem(key, save);
@@ -92,6 +99,9 @@ try {
           inDialogue: Boolean(panel.closest(".dialogue")),
           dockRow: document.querySelector(".play-dock .action-panel"),
           heading: panel.querySelector(".action-beat-heading").textContent,
+          cards: panel.querySelectorAll(".action-beat-cards img").length,
+          // Square-ish, as the beat cards are: no pill.
+          corner: parseFloat(getComputedStyle(button).borderTopLeftRadius),
           buttonInside: b.top >= p.top && b.bottom <= p.bottom + 1,
           takesTaps: button.contains(hit),
           spoken: !front.hidden,
@@ -105,6 +115,7 @@ try {
       assert(beat.inDialogue && !beat.dockRow, `${label}: a dialogue beat`);
       assert(beat.buttonInside, `${label}: its button is inside it`);
       assert(beat.takesTaps, `${label}: its button takes taps`);
+      assert(beat.corner <= 8, `${label}: a ${beat.corner}px corner`);
       if (beat.spoken) {
         assert(beat.peek > 12 && beat.peek <= 32, `${label}: ${beat.peek}`);
         assert(beat.dim < 1, `${label}: the spoken beat is dimmed`);
@@ -117,12 +128,12 @@ try {
       const handBottom = (await box("#hand")).bottom;
       assert(handBottom >= height - 2, `hand ends at ${handBottom}`);
     }
-    const shot = (name) =>
+    const shot = (state) =>
       page.screenshot({
-        path: new URL(`${name}-${width}.png`, output).pathname,
+        path: new URL(`${state}-${name}.png`, output).pathname,
       });
     const port = server.address().port;
-    await page.goto(`http://127.0.0.1:${port}/?table=action-spot-${width}`);
+    await page.goto(`http://127.0.0.1:${port}/?table=action-spot-${name}`);
     await page
       .locator('#hand [data-card="greek-decree"]')
       .waitFor({ state: "attached" });
@@ -138,6 +149,7 @@ try {
       restDialogue = await box(".dialogue");
     const taking = await actionBeat("take");
     assert.match(taking.heading, /^\s*Vale takes the Burial Decree/u);
+    assert.equal(taking.cards, 2, "Vale and the decree");
     // Selecting raised the hand; the beat appearing moves nothing more.
     await page.waitForTimeout(300);
     assert.deepEqual(await box("#hand"), restHand, "hand stays put");
@@ -161,6 +173,7 @@ try {
     const give = page.locator("#card-actions .card-primary");
     assert.match(await give.innerText(), /Give/);
     const offering = await actionBeat("give");
+    assert.equal(offering.cards, 3, "Vale, the decree and Creon");
     assert(offering.spoken, "the spoken beat waits behind the offer");
     await handUncut();
     await shot("ready-dialogue");
