@@ -40,6 +40,7 @@ pub(super) fn run_seed(id: &str) -> u32 {
     u32::from_be_bytes([d[0], d[1], d[2], d[3]])
 }
 impl World {
+    #[cfg(test)]
     pub fn create(save: Option<&str>) -> Result<Self> {
         Self::seeded(save, None)
     }
