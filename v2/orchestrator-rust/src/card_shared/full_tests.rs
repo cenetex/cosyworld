@@ -1093,7 +1093,7 @@ async fn server_dialogue_keeps_a_legacy_browser_scene_through_retry_and_replay()
     )
     .unwrap();
     let checked = browser::complete(&payload["scene"], Some(&ids), answers).unwrap();
-    let lines = full_speech::parse(&checked.to_string(), "stop", &work.context, &ids).unwrap();
+    let lines = full_speech::parse(&checked.to_string(), "stop", &work.context, 0, &ids).unwrap();
     full::finish_work(&state, &id, work, Ok(lines)).unwrap();
     let expected = full_store::world(&c, &id, now()).unwrap();
     assert!(expected.game["log"]

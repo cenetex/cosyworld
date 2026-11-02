@@ -34,7 +34,7 @@ pub(super) async fn chat(
         let (payload, ids) = super::super::full_speech::prepared(actor, &context)?;
         if let Some(answers) = body.answers {
             let checked = voices::complete(&payload["scene"], Some(&ids), answers)?;
-            let lines = super::super::full_speech::parse(&checked.to_string(), "stop", &context, &ids)?;
+            let lines = super::super::full_speech::parse(&checked.to_string(), "stop", &context, actor, &ids)?;
             finish_work(&state, &id, Work { id:body.key, room, actor, context, attempt }, Ok(lines))?;
             Ok(json!({"ok":true}))
         } else if body.failure {

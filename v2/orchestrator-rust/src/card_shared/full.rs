@@ -763,6 +763,15 @@ fn finish_work_attempt(
         let mut scene = work.context.clone();
         let ok = lines.is_ok();
         match lines {
+            // A silent play, or one whose only voices stayed quiet, commits
+            // no speech op: the journal matches a play whose words never came.
+            Ok(lines) if lines.as_array().is_some_and(Vec::is_empty) => {
+                scene["lines"] = json!([]);
+                let silent = super::full_speech::silent(&work.context, work.actor, lines);
+                if !silent.is_empty() {
+                    scene["silent"] = json!(silent);
+                }
+            }
             Ok(lines) => {
                 let mut w = store::world(&tx, id, time)?;
                 let result = store::commit(

@@ -499,7 +499,9 @@ fn valid(context: &Context) -> bool {
                     .as_ref()
                     .is_none_or(|ids| ids.len() <= 64 && ids.iter().all(|id| kind(id, "avatar")))
         })
-        && (1..=3).contains(&context.speakers.len())
+        && context.speakers.len() <= 3
+        // A turn with no speakers still voices its place caption or item.
+        && (!context.speakers.is_empty() || context.scenery || context.focus.is_some())
         && context.speakers.iter().collect::<BTreeSet<_>>().len() == context.speakers.len()
         && context
             .speakers
@@ -981,6 +983,7 @@ async fn complete_selected(
 pub(crate) async fn shared_lines(
     config: &AiConfig,
     scene: &Value,
+    actor: &str,
     ids: &[String],
     models: &BTreeMap<String, String>,
 ) -> Result<Value, String> {
@@ -999,7 +1002,7 @@ pub(crate) async fn shared_lines(
     {
         return Err("The saved scene needs its requested voices.".into());
     }
-    context.acting_avatar = ids.first().cloned();
+    context.acting_avatar = Some(actor.to_string());
     context.speakers = ids
         .iter()
         .filter(|id| kind(id, "avatar"))
@@ -1013,16 +1016,13 @@ pub(crate) async fn shared_lines(
     let value = complete_selected(config, &context, models, &settings, ids, true, None)
         .await
         .map_err(|_| "The play is saved. Its words need another moment.")?;
-    // Shared scenes require the acting avatar's line. A replying avatar whose
-    // words do not come stays silent ("…" on the table), as atmosphere may.
-    if ids
-        .first()
-        .filter(|id| kind(id, "avatar"))
-        .is_some_and(|id| {
-            !value["entries"]
-                .as_array()
-                .is_some_and(|entries| entries.iter().any(|e| e["id"] == *id))
-        })
+    // A shared scene that voices the acting avatar requires its line. A
+    // replying avatar whose words do not come stays silent ("…" on the table),
+    // as atmosphere may.
+    if ids.iter().any(|id| id == actor)
+        && !value["entries"]
+            .as_array()
+            .is_some_and(|entries| entries.iter().any(|e| e["id"] == actor))
     {
         return Err("The play is saved. Its words need another moment.".into());
     }
@@ -2774,6 +2774,7 @@ mod tests {
                 shared_lines(
                     &test_config(address),
                     &serde_json::to_value(&c).unwrap(),
+                    "vale",
                     &ids,
                     &BTreeMap::new(),
                 )
@@ -3123,6 +3124,7 @@ mod tests {
         let shared = shared_lines(
             &test_config(address),
             &serde_json::to_value(&c).unwrap(),
+            "vale",
             &ids,
             &BTreeMap::new(),
         )
@@ -3252,6 +3254,7 @@ mod tests {
         let shared = shared_lines(
             &test_config(address),
             &serde_json::to_value(&c).unwrap(),
+            "vale",
             &ids,
             &BTreeMap::new(),
         )
@@ -3382,6 +3385,7 @@ mod tests {
         let shared = shared_lines(
             &test_config(address),
             &serde_json::to_value(&c).unwrap(),
+            "vale",
             &ids,
             &BTreeMap::new(),
         )
@@ -4656,6 +4660,7 @@ mod tests {
         let result = shared_lines(
             &test_config(address),
             &serde_json::to_value(&c).unwrap(),
+            "vale",
             &["mara".into(), "moth".into()],
             &models,
         )

@@ -21,13 +21,15 @@ pub(super) fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>
         .flatten()
         .filter_map(Value::as_str)
         .collect();
-    let target = scene["outcome"]["card"]["target"].as_str();
-    let reply = target
-        .filter(|id| speakers.contains(id) && !roster.contains(id))
-        .or_else(|| (scene["scenery"].as_bool().unwrap_or(true)).then_some(room));
-    let mut ids = vec![actor_id(actor).to_string()];
-    if let Some(reply) = reply {
-        ids.push(reply.to_string());
+    // The scene's speakers speak as given, except other players' avatars:
+    // their own players speak for them. A due place caption follows.
+    let mut ids: Vec<String> = speakers
+        .iter()
+        .filter(|id| **id == actor_id(actor) || !roster.contains(*id))
+        .map(|id| id.to_string())
+        .collect();
+    if scene["scenery"].as_bool().unwrap_or(true) && !ids.iter().any(|id| id == room) {
+        ids.push(room.to_string());
     }
     let profiles = work["profiles"]
         .as_object()
@@ -45,15 +47,20 @@ pub(super) fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>
         ids,
     ))
 }
-pub(super) fn parse(text: &str, finish: &str, work: &Value, ids: &[String]) -> Result<Value> {
+pub(super) fn parse(
+    text: &str,
+    finish: &str,
+    work: &Value,
+    actor: usize,
+    ids: &[String],
+) -> Result<Value> {
     let error = "The play is saved. Its words need another moment.";
     if finish != "stop" {
         return Err(error.into());
     }
     let parsed: Value = serde_json::from_str(text).map_err(|_| error.to_string())?;
     let entries = parsed["entries"].as_array().ok_or(error)?;
-    if entries.is_empty()
-        || entries.len() > ids.len()
+    if entries.len() > ids.len()
         || entries
             .iter()
             .map(|e| e["id"].as_str())
@@ -66,10 +73,10 @@ pub(super) fn parse(text: &str, finish: &str, work: &Value, ids: &[String]) -> R
     }
     let mut seen = BTreeSet::new();
     let mut lines = Vec::new();
-    for (index, id) in ids.iter().enumerate() {
+    for id in ids {
         let Some(entry) = entries.iter().find(|e| e["id"] == *id) else {
-            // The acting avatar must speak. A reply may stay silent.
-            if index > 0 && work["profiles"][id]["kind"] == "avatar" {
+            // A voiced acting avatar must speak. A reply may stay silent.
+            if id != actor_id(actor) && work["profiles"][id]["kind"] == "avatar" {
                 continue;
             }
             if work["context"].get("scenery").is_some()
@@ -99,8 +106,7 @@ pub(super) fn silent(work: &Value, actor: usize, lines: &Value) -> Vec<String> {
         return Vec::new();
     };
     ids.into_iter()
-        .skip(1)
-        .filter(|id| work["profiles"][id]["kind"] == "avatar")
+        .filter(|id| id != actor_id(actor) && work["profiles"][id]["kind"] == "avatar")
         .filter(|id| {
             !lines
                 .as_array()
@@ -109,6 +115,11 @@ pub(super) fn silent(work: &Value, actor: usize, lines: &Value) -> Vec<String> {
         .collect()
 }
 pub(super) async fn generate(state: &crate::AppState, actor: usize, work: &Value) -> Result<Value> {
+    let (payload, ids) = prepared(actor, work)?;
+    // A silent play voices no one: it finishes with no lines and no model call.
+    if ids.is_empty() {
+        return Ok(json!([]));
+    }
     let mut config = state
         .ai_config
         .as_ref()
@@ -129,16 +140,16 @@ pub(super) async fn generate(state: &crate::AppState, actor: usize, work: &Value
     config.reasoning_effort = std::env::var("COSYWORLD_CARD_TEXT_REASONING_EFFORT")
         .ok()
         .or(config.reasoning_effort);
-    let (payload, ids) = prepared(actor, work)?;
     let models: BTreeMap<String, String> = serde_json::from_value(models).unwrap_or_default();
     let value = crate::routes::card_game::narrative::shared_lines(
         &config,
         &payload["scene"],
+        actor_id(actor),
         &ids,
         &models,
     )
     .await?;
-    parse(&value.to_string(), "stop", work, &ids)
+    parse(&value.to_string(), "stop", work, actor, &ids)
 }
 #[cfg(test)]
 mod tests {
@@ -147,7 +158,7 @@ mod tests {
     fn shared_bard_can_comment_on_the_earned_poem() {
         let verse = "I told her I would turn away. Her brother waited by the wall.";
         let work = json!({"room":"greek-harbor","context":{
-            "location":"greek-harbor","speakers":["vale","greek-rhapsode"],
+            "location":"greek-harbor","speakers":["vale","greek-rhapsode"],"scenery":false,
             "outcome":{"card":{"kind":"talk","target":"greek-rhapsode"}},
             "entities":[{"id":"greek-rhapsode","facts":[format!("Verse 1, Vale: {verse}")]}]
         },"profiles":{"vale":{"name":"Vale","kind":"avatar"},"greek-rhapsode":{"name":"The Bard","kind":"avatar"}}});
@@ -156,21 +167,23 @@ mod tests {
         let response = |text: &str| {
             json!({"entries":[{"id":"vale","text":"I hear you."},{"id":"greek-rhapsode","text":text}]}).to_string()
         };
-        assert!(parse(&response(verse), "stop", &work, &ids).is_ok());
+        assert!(parse(&response(verse), "stop", &work, 0, &ids).is_ok());
         assert!(parse(
             &response("The dark keeps every name the waves release."),
             "stop",
             &work,
+            0,
             &ids
         )
         .is_ok());
     }
     #[test]
     fn resident_dialogue_and_human_authority_share_one_scene() {
-        let mut work = json!({"room":"station","context":{"location":"station","speakers":["vale","pip","mara"],"outcome":{"card":{"target":"pip"}}},"profiles":{"vale":{"name":"Vale","kind":"avatar"},"pip":{"name":"Pip","kind":"avatar"},"mara":{"name":"Mara","kind":"avatar"},"station":{"name":"Empty station","kind":"location"}}});
+        let mut work = json!({"room":"station","context":{"location":"station","speakers":["vale","pip","mara"],"scenery":false,"outcome":{"card":{"target":"pip"}}},"profiles":{"vale":{"name":"Vale","kind":"avatar"},"pip":{"name":"Pip","kind":"avatar"},"mara":{"name":"Mara","kind":"avatar"},"station":{"name":"Empty station","kind":"location"}}});
+        // Mara's own player speaks for her.
         let (_, ids) = prepared(0, &work).unwrap();
         assert_eq!(ids, vec!["vale", "pip"]);
-        let result=parse(r#"{"entries":[{"id":"vale","text":"What caught your eye?"},{"id":"pip","text":"That shine belongs in my collection."}]}"#,"stop",&work,&ids).unwrap();
+        let result=parse(r#"{"entries":[{"id":"vale","text":"What caught your eye?"},{"id":"pip","text":"That shine belongs in my collection."}]}"#,"stop",&work,0,&ids).unwrap();
         assert_eq!(result[1]["actorId"], "pip");
         assert!(silent(&work, 0, &result).is_empty());
         // A reply that does not come stays silent; the actor's line is required.
@@ -178,6 +191,7 @@ mod tests {
             r#"{"entries":[{"id":"vale","text":"What caught your eye?"}]}"#,
             "stop",
             &work,
+            0,
             &ids,
         )
         .unwrap();
@@ -187,15 +201,50 @@ mod tests {
             r#"{"entries":[{"id":"pip","text":"Mine."}]}"#,
             "stop",
             &work,
+            0,
             &ids
         )
         .is_err());
-        work["context"]["scenery"] = json!(false);
-        assert_eq!(prepared(0, &work).unwrap().1, vec!["vale", "pip"]);
-        work["context"]["outcome"]["card"]["target"] = Value::Null;
-        assert_eq!(prepared(0, &work).unwrap().1, vec!["vale"]);
         work["context"]["scenery"] = json!(true);
-        assert_eq!(prepared(0, &work).unwrap().1, vec!["vale", "station"]);
+        assert_eq!(
+            prepared(0, &work).unwrap().1,
+            vec!["vale", "pip", "station"]
+        );
+    }
+    #[test]
+    fn shared_scenes_voice_only_their_given_speakers() {
+        let mut work = json!({"room":"station","context":{"location":"station","speakers":["pip"],"scenery":false,"outcome":{"card":{"kind":"give","target":"pip","accepted":false}}},"profiles":{"vale":{"name":"Vale","kind":"avatar"},"pip":{"name":"Pip","kind":"avatar"},"station":{"name":"Empty station","kind":"location"}}});
+        // A refusal voices the refuser alone; the actor stays quiet.
+        let (_, ids) = prepared(0, &work).unwrap();
+        assert_eq!(ids, vec!["pip"]);
+        let refused = parse(
+            r#"{"entries":[{"id":"pip","text":"Not that one."}]}"#,
+            "stop",
+            &work,
+            0,
+            &ids,
+        )
+        .unwrap();
+        assert_eq!(refused[0]["entityId"], "pip");
+        // A refuser whose words do not come leaves the scene with no lines.
+        let none = parse(r#"{"entries":[]}"#, "stop", &work, 0, &ids).unwrap();
+        assert_eq!(none, json!([]));
+        assert_eq!(silent(&work, 0, &none), vec!["pip"]);
+        // A silent play voices nobody.
+        work["context"]["speakers"] = json!([]);
+        assert!(prepared(0, &work).unwrap().1.is_empty());
+        // A first arrival's place caption needs no speaker.
+        work["context"]["scenery"] = json!(true);
+        let (_, place) = prepared(0, &work).unwrap();
+        assert_eq!(place, vec!["station"]);
+        assert!(parse(
+            r#"{"entries":[{"id":"station","text":"Dust settles."}]}"#,
+            "stop",
+            &work,
+            0,
+            &place
+        )
+        .is_ok());
     }
     #[test]
     fn quiet_shared_turns_keep_the_actor_and_legacy_exchanges() {
@@ -204,7 +253,7 @@ mod tests {
         assert_eq!(ids, vec!["vale"]);
         let response = r#"{"entries":[{"id":"vale","text":"I can wait here."}]}"#;
         assert_eq!(
-            parse(response, "stop", &work, &ids)
+            parse(response, "stop", &work, 0, &ids)
                 .unwrap()
                 .as_array()
                 .unwrap()
@@ -214,17 +263,18 @@ mod tests {
         work["context"]["scenery"] = json!(true);
         let (_, scenic) = prepared(0, &work).unwrap();
         assert_eq!(scenic, vec!["vale", "station"]);
-        assert!(parse(response, "stop", &work, &scenic).is_ok());
+        assert!(parse(response, "stop", &work, 0, &scenic).is_ok());
         assert!(parse(
             r#"{"entries":[{"id":"station","text":"Dust settles."}]}"#,
             "stop",
             &work,
+            0,
             &scenic
         )
         .is_err());
-        assert!(parse(r#"{"entries":[{"id":"vale","text":"I can wait."},{"id":"vale","text":"I can wait."}]}"#, "stop", &work, &scenic).is_err());
+        assert!(parse(r#"{"entries":[{"id":"vale","text":"I can wait."},{"id":"vale","text":"I can wait."}]}"#, "stop", &work, 0, &scenic).is_err());
         work["context"].as_object_mut().unwrap().remove("scenery");
         assert_eq!(prepared(0, &work).unwrap().1, scenic);
-        assert!(parse(response, "stop", &work, &scenic).is_err());
+        assert!(parse(response, "stop", &work, 0, &scenic).is_err());
     }
 }
