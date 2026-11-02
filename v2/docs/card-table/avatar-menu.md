@@ -38,8 +38,8 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
   the old one: their passkey is bound to it there, and they return as it
   (#1825).
 - **Nobody takes over an avatar.** In a shared world an avatar belongs to the
-  passkey that took it, even after it steps away to the deck. Its seat there
-  shows as held for everyone else, and the person bound to it sees it free
+  passkey that took it, even after it leaves. Its seat there
+  shows in colour for everyone else, and the person bound to it sees it free
   for that avatar only. With all eight taken nobody new can join. The world's
   owner can **Free *Mara*** and the holder can **Release** their own avatar.
   Each asks with a second tap and starts that avatar over as a fresh
@@ -65,40 +65,24 @@ Redesigned in [#1877](https://github.com/cenetex/cosyworld/issues/1877).
   your local worlds, one per avatar. Local play is its own passkey, so the
   two lists never mix. The world being played is always the first slot,
   open, even when it is local and you are signed in ("on this device").
-- **Each slot** is a header (the name, "a friend's world" or "invited" where
-  that applies, and a letter strip R·A·T·V·M·I·C·S) and one line of its
-  eight seats. Colour is presence: a seat is in colour while a person is
-  online in it (you in the world being played, or someone else here now),
-  and grey otherwise: residents of unheld seats, offline players, and your
-  avatar in a world you are not playing (owner, 2026-11-01). Your own seat
-  keeps its light frame either way. Presence is known only for the world
-  being played; other worlds show every seat grey. The seats say who is
-  here, so the header has no count. On a
-  phone only one slot is open at a time, and the tools (Memory, Inner life,
-  Invite, Settings) stay pinned at the bottom.
-- Panels open and fold over 200 ms (height and opacity), and at once with
-  reduced motion. Only the player folds a panel, except that tapping an
-  avatar on a wide screen folds the worlds it cannot go to and opens the
-  ones it can.
-- **+ New world** follows the slots while one is free. Signed in it makes a
-  shared world; signed out a local one. On the world being played locally,
-  it is the table's own New game ("Start a fresh world?").
-- **Your deck** is a panel like a world, with the whole cast in the same
-  order: your avatars in no world in colour (you are "there"), the others
-  grey.
+- **Each slot** is a header (the name, "a friend's world" or "invited", and
+  a letter strip R·A·T·V·M·I·C·S) and one line of its eight seats, in colour
+  only while someone is online there (only the world being played knows),
+  grey otherwise (owner, 2026-11-01). On a phone only one slot is open at a
+  time, and the tools (Memory, Inner life, Invite, Settings) stay pinned at
+  the bottom. Panels fold over 200 ms.
+- **+ New world** starts a world for the first avatar in no world.
+- Below, the **tapped seat's stats**: level and holdings where the world is
+  loaded, and who plays it.
 
-Each avatar appears once. **Tap one of your avatars** (in a slot or the deck)
-and the places it can go light up: your deck, where its grey copy moves it
-there, every slot whose seat for it is free and that holds none of your
-avatars ("Move *Vale* here"), and + New world. Tap one to move it there. A claim anywhere
-frees its old seat and carries its level (#1870). Moving out of a local
-world asks with a second tap, because that world is lost: "*Hollowmere* will
-be lost, with Mara's level and quest there. There is no way back to it."
-Moving to the deck releases a shared seat and keeps the binding, or archives
-a local save (`.bak`). When the avatar being played leaves, the bare address
+**Tap a grey seat** in a world its avatar may go to (its seat is free, and
+you hold no avatar there), then again to move it. A claim frees its
+old seat and carries its level (#1870). Moving out of a local world says what is lost on the first
+tap: "*Hollowmere* will be lost, with Mara's level and quest there. There is
+no way back to it." When the avatar being played leaves, the bare address
 opens with ☰ so the player picks what comes next.
 
-The tapped seat also shows its own actions under the line of seats:
+A tapped seat also shows its own actions under the line of seats:
 
 | Seat | Actions |
 | --- | --- |
@@ -120,7 +104,7 @@ The tapped seat also shows its own actions under the line of seats:
 
 **A friend's link** (`/?world=…`) signs the person in, then opens their own
 table with ☰ open and the linked world as an extra slot marked "invited",
-with its seats. Tapping an avatar lights that slot when its seat is free (a
+with its seats. Tapping a free seat there twice brings that avatar in (a
 person bound there sees their own avatar's seat free). There are no separate
 join, "Return as", full-world or full-room panels. A full room waits at the
 table: "Your room is full. Your avatar and belongings are saved."
@@ -133,11 +117,10 @@ scares, Fast fights, OpenRouter, Backup (Save · Restore), Passkey (Add · Sign
 out) and Controls. It holds no world actions.
 
 The menu shows now, not a log: where each avatar is now. There is no list of
-past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` taps an
-avatar, checks the lit targets and moves it, at 390 and 1440 pixels.
+past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` checks
+colour, stats and a two-tap move, at 390 and 1440 pixels.
 
-Vale tapped in the world being played, with the deck, a free slot and + New
-world lit. Vale is in colour only in the world being played:
+Vale's grey seat tapped once in another world:
 
 ![Phone: Vale's targets](avatar-menu/slots-move-390.jpg)
 ![Desktop: Vale's targets](avatar-menu/slots-move-1440.jpg)
@@ -160,15 +143,15 @@ Desktop (1440 × 900):
 
 ### Words
 
-Play, Release, Free, Delete world, + New world, Your deck, Move *Vale* here, Tap where *Vale* goes, on this device, a friend's
+Play, Release, Free, Delete world, + New world, Tap *Vale* again to bring
+*Vale* here, on this device, a friend's
 world, invited, You, Memory, Inner life, Invite, Settings. Gone: Worlds,
 Share, Your worlds (`/?shared=1` opens the table), Continue as, Continue
 shared world, Return to my game, Send to…, Step away, Join, Choose your
 avatar, Return as *Mara*, Move *Mara* here?, This world is full (panel), A
 place will open shortly, Leave, Refresh avatars, the avatar list under the
 seats, Release this avatar, Leave this room, Players in this world, Claimed,
-open seat, "The reflected shore · N avatars available", "3 here · 4 of 8
-free", the Move to your deck button, Your deck · in no world.
+open seat, "The reflected shore · N avatars available".
 
 ## Later: the cast ledger
 

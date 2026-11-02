@@ -146,14 +146,7 @@ try {
       "resident",
       "resident",
     ]);
-    // Colour is presence: the three people online here (owner, 2026-11-01).
     assert.equal(await current.locator('[data-lit="true"]').count(), 3);
-    // The seats say who is here; the header carries no count (owner,
-    // 2026-11-01).
-    assert.doesNotMatch(
-      await current.locator("summary").innerText(),
-      /here|free/,
-    );
     assert.doesNotMatch(await menu.innerText(), /Black pond|Empty station/);
     // Each avatar shows once: no avatar list, no Send to… or Step away.
     assert.equal(await menu.locator(".avatar-row, .avatar-list").count(), 0);
