@@ -224,6 +224,7 @@ const files = [
   "pack-registry.mjs",
   "pack-sections.mjs",
   "pack-specials.mjs",
+  "hidden-avatar.mjs",
   "pack-journeys.mjs",
   "pack-recital.mjs",
   "pack-rules.mjs",
