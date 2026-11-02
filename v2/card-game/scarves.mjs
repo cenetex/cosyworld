@@ -32,10 +32,13 @@ export function avatarImage(world, actor) {
 
 // Signed-out play is its own passkey. Its upgrades live in this browser and
 // never reach a shared world, which reads the signed-in passkey's set.
+// A WebView with DOM storage off throws on reading `localStorage` itself, so
+// the default is looked up inside each guard, never as a parameter default.
 export const LOCAL_UPGRADES_KEY = "cosyworld.local.upgrades";
-function readLocal(storage) {
+const browserStorage = () => globalThis.localStorage;
+function readLocal(storage = browserStorage) {
   try {
-    const saved = JSON.parse(storage?.getItem(LOCAL_UPGRADES_KEY) || "{}");
+    const saved = JSON.parse(storage()?.getItem(LOCAL_UPGRADES_KEY) || "{}");
     return saved && typeof saved === "object" ? saved : {};
   } catch {
     return {};
@@ -45,24 +48,22 @@ const merged = (...sets) =>
   [...new Set(sets.flat().filter((u) => typeof u === "string"))].sort();
 
 // Keep every upgrade a local world's travelers have earned.
-export function rememberLocalUpgrades(
-  world,
-  storage = globalThis.localStorage,
-) {
-  const saved = readLocal(storage);
+export function rememberLocalUpgrades(world, storage) {
+  const store = storage ? () => storage : browserStorage;
+  const saved = readLocal(store);
   for (const id of humanAvatarIds)
     if (upgradesOf(world, id).length)
       saved[id] = merged(saved[id] || [], upgradesOf(world, id));
   try {
-    storage?.setItem(LOCAL_UPGRADES_KEY, JSON.stringify(saved));
+    store()?.setItem(LOCAL_UPGRADES_KEY, JSON.stringify(saved));
   } catch {
     /* The upgrade stays in this world's save. */
   }
 }
 
 // A local world's travelers wear the local passkey's upgrades.
-export function wearLocalUpgrades(world, storage = globalThis.localStorage) {
-  const saved = readLocal(storage);
+export function wearLocalUpgrades(world, storage) {
+  const saved = readLocal(storage ? () => storage : browserStorage);
   for (const id of humanAvatarIds) {
     const actor = world?.actors?.[id];
     if (!actor || !Array.isArray(saved[id]) || !saved[id].length) continue;

@@ -6,7 +6,9 @@ import { onlinePlayers } from "../v2/card-game/toolbar.mjs";
 import {
   avatarImage,
   holdsScarf,
+  rememberLocalUpgrades,
   scarfItemId,
+  wearLocalUpgrades,
 } from "../v2/card-game/scarves.mjs";
 
 // The sewn scarf item arrives with the personal-buttons work; until then the
@@ -70,5 +72,25 @@ describe("scarf portraits follow the scarf", () => {
       "assets/shared/characters/vale-scarf.png",
     );
     expect(avatarImage(world, "moth")).toBe(null);
+  });
+
+  // In-app browsers with DOM storage off throw on reading localStorage, and
+  // a new local world still has to start (smoke-card-devices).
+  it("starts a local world when the browser blocks storage", () => {
+    const had = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      get() {
+        throw new Error("SecurityError");
+      },
+    });
+    try {
+      const world = createWorld();
+      expect(wearLocalUpgrades(world)).toBe(world);
+      expect(() => rememberLocalUpgrades(world)).not.toThrow();
+    } finally {
+      if (had) Object.defineProperty(globalThis, "localStorage", had);
+      else delete globalThis.localStorage;
+    }
   });
 });
