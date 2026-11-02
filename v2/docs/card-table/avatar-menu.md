@@ -111,8 +111,9 @@ only the tools. ☰ opens a list of **world slots**:
 
 **Tap a portrait once** to choose it: it glows and the card shows it, with no
 buttons. **Tap it again** to arm it: the portrait and the card's edge turn
-its level tier's colour, and the action box appears below its facts
-(owner, 2026-11-01). A tap anywhere else in the menu disarms; presence
+its level tier's colour, three card backs shuffle out from behind the card
+and back (about 360 ms; with reduced motion the card fades in instead), and
+the action box appears below its facts (owner, 2026-11-01). A tap anywhere else in the menu disarms; presence
 redraws keep it armed. Each action acts on one tap, with no second confirm.
 
 **Tap +** in a world one of your avatars may go to (its seat there is free,
@@ -176,10 +177,11 @@ Your Tavi in a friend's world, tapped once (chosen, glowing):
 ![Phone: chosen](avatar-menu/slots-selected-390.jpg)
 ![Desktop: chosen](avatar-menu/slots-selected-1440.jpg)
 
-Tapped again (armed, with Start and Leave):
+Tapped again (armed, with Start and Leave), and mid-shuffle:
 
 ![Phone: armed](avatar-menu/slots-armed-390.jpg)
 ![Desktop: armed](avatar-menu/slots-armed-1440.jpg)
+![Phone: the shuffle](avatar-menu/slots-shuffle-390.jpg)
 
 An emptied world as the + row (here "+ Silverhook"):
 

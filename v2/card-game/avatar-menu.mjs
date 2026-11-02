@@ -243,6 +243,8 @@ export function installAvatarMenu({
     // A second tap on the chosen portrait arms it: its card then shows its
     // actions. A tap anywhere else disarms.
     armed = false,
+    // The armed card shuffles in once, not on every presence redraw.
+    shuffle = false,
     drawn = "";
   const here = () => {
     const world = getWorld();
@@ -380,6 +382,7 @@ export function installAvatarMenu({
     item.dataset.lit = String(Boolean(seat.online));
     // The first tap chooses (it glows), the second arms it.
     face.onclick = () => {
+      shuffle = picked && !armed;
       armed = picked;
       chosen = { id: seat.id, slot: slot.key };
       status.textContent = "";
@@ -439,6 +442,18 @@ export function installAvatarMenu({
       : slot && armed && chosen && seatActions(slot, seat);
     if (bar && !to) box.dataset.armed = "true";
     const art = el("div", "profile-art");
+    // Arming deals the card in over a quick shuffle of card backs.
+    if (bar && shuffle && !to) {
+      const deck = el("div", "profile-shuffle");
+      for (let i = 0; i < 3; i += 1) {
+        const back = el("img");
+        back.src = imageUrl("/card-game/assets/card-back.webp", "card");
+        back.alt = "";
+        deck.append(back);
+      }
+      box.append(deck);
+      shuffle = false;
+    }
     const image = el("img");
     image.src = imageUrl(
       `/card-game/${(world && avatarImage(world, id)) || avatar.image}`,
