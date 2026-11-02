@@ -1053,10 +1053,20 @@ checks apply to local and shared replies.
 Hosted calls have a twelve-second limit and the scene has a twenty-two-second
 limit, with eight calls in flight. Replies are collected as they complete, then
 published in scene order. Local play can publish completed lines once at least
-one requested speaker succeeds. Omitted cards keep their saved words. Shared
+one requested speaker succeeds. In a local save, `POST /card-game/text` answers
+with lines only. Once the line is shown, the browser asks
+`POST /card-game/reflections` for the due thought, persona and dream, so a
+reflection never delays the line or turns it into a failed scene
+([#2016](https://github.com/cenetex/cosyworld/issues/2016)). A scene with no
+one due is answered at once without a model call. That request has its own
+capacity and one slot per client. The client's next scene cancels it, and a
+late reply for an older turn is ignored. A failed reflection is simply
+skipped. Omitted cards keep their saved words. Shared
 play requires both selected voices and journals the committed text through the
 existing shared dialogue event. Shared speech uses the same transcript and
-visible-state checks. Shared reflections are saved through the world journal.
+visible-state checks. Shared reflections are still generated with their
+speech and saved with it through the world journal, so journal order and
+replay are unchanged.
 
 Optional voice tiers are enabled with exact model IDs in
 `COSYWORLD_CARD_REFLECTION_MODEL` and `COSYWORLD_CARD_ESCALATION_MODEL`.

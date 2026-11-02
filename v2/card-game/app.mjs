@@ -978,10 +978,9 @@ const narrator = createNarrator({
     ? (context, signal, progress) =>
         requestNarrative(context, signal, progress, "/card-game/text", true)
     : undefined,
-  reflect: localRuntime()
-    ? (context, signal) =>
-        requestNarrative(context, signal, () => {}, "/card-game/reflections")
-    : null,
+  // Thoughts, persona and dreams come after the line, so they never delay it.
+  reflect: (context, signal) =>
+    requestNarrative(context, signal, () => {}, "/card-game/reflections"),
   // A silent play ends its exchange at once; the beat is its caption.
   silent: () => exchange.cancel(),
   started: (context) => {

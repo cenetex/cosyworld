@@ -1111,7 +1111,8 @@ export function createNarrator({
             60_000,
           )
             .then((value) => {
-              if (version !== ticket) return;
+              // Most scenes have no one due a reflection.
+              if (version !== ticket || !value?.reflections?.length) return;
               const updated = applyGeneratedReflections(
                 getWorld(),
                 context,

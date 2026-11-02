@@ -1,16 +1,35 @@
-//! Local thoughts yield to the next spoken scene.
+//! Private reflections (thought, persona, dream) after a spoken scene.
+//!
+//! The browser asks for them once its line is shown, so they never delay or
+//! fail the line (#2016). They have their own capacity and one request per
+//! client, and a client's next admitted scene drops its unfinished one.
 use super::*;
 
 pub(super) struct Queue {
-    pub cancel: tokio::sync::watch::Sender<u64>,
+    /// The client whose admitted scene replaces its queued reflections.
+    pub cancel: tokio::sync::watch::Sender<Option<IpAddr>>,
     capacity: Arc<Semaphore>,
+    in_flight: Arc<InFlight>,
 }
 
-impl Default for Queue {
-    fn default() -> Self {
+impl Queue {
+    pub(super) fn new(capacity: usize) -> Self {
         Self {
-            cancel: tokio::sync::watch::channel(0).0,
-            capacity: Arc::new(Semaphore::new(1)),
+            cancel: tokio::sync::watch::channel(None).0,
+            capacity: Arc::new(Semaphore::new(capacity.max(1))),
+            in_flight: Arc::new(InFlight::default()),
+        }
+    }
+}
+
+/// Resolves when `client` starts a newer admitted scene.
+async fn replaced(mut cancel: tokio::sync::watch::Receiver<Option<IpAddr>>, client: IpAddr) {
+    loop {
+        if cancel.changed().await.is_err() {
+            return std::future::pending().await;
+        }
+        if *cancel.borrow_and_update() == Some(client) {
+            return;
         }
     }
 }
@@ -24,39 +43,52 @@ pub(super) async fn generate(
     let Ok(settings) = state.settings.as_ref() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
-    if !settings.defer_reflections {
-        return StatusCode::NOT_FOUND.into_response();
-    }
     if !same_origin(&headers) || !valid(&context) {
         return StatusCode::BAD_REQUEST.into_response();
     }
     let (Some(config), Ok(models)) = (state.ai.as_ref(), state.character_models.as_ref()) else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
+    // Most scenes have no one due: answer at once, without spending the
+    // client's story budget.
+    if !voiced(&context)
+        .iter()
+        .any(|id| reflection_due(&context, entity(&context, id)).0)
+    {
+        return Json(json!({"type":"complete","revision":context.revision,"reflections":[]}))
+            .into_response();
+    }
+    let client = peer.ip();
+    let Some(slot) = state.background.in_flight.try_enter(client, 1) else {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    };
     let Ok(mut limits) = state.limits.lock() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
-    if !admit(&mut limits, peer.ip(), Instant::now()) {
+    if !admit(&mut limits, client, Instant::now()) {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     }
     drop(limits);
     let Ok(permit) = state.background.capacity.clone().try_acquire_owned() else {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     };
-    let mut cancelled = state.background.cancel.subscribe();
+    let cancelled = replaced(state.background.cancel.subscribe(), client);
     let config = config.clone();
     let models = models.clone();
     let settings = settings.clone();
     let (sender, receiver) = mpsc::channel(1);
     tokio::spawn(async move {
-        let _permit = permit;
         tokio::select! {
             _ = sender.closed() => {},
-            _ = cancelled.changed() => {},
+            _ = cancelled => {},
             value = complete(&config, &context, &models, &settings) => {
                 let _ = sender.send(Event::default().data(value.to_string())).await;
             }
         }
+        // Free the client's slot before its stream ends, so a reply in hand
+        // never meets a busy slot on the next scene.
+        drop((permit, slot));
+        drop(sender);
     });
     Sse::new(
         tokio_stream::wrappers::ReceiverStream::new(receiver)
@@ -90,11 +122,8 @@ mod tests {
     use tower::ServiceExt;
 
     #[tokio::test]
-    async fn private_route_uses_the_local_profile_and_scene_guard() {
-        for (settings, expected) in [
-            (VoiceSettings::hosted(), StatusCode::NOT_FOUND),
-            (VoiceSettings::local(), StatusCode::BAD_REQUEST),
-        ] {
+    async fn private_route_serves_both_profiles_behind_the_scene_guard() {
+        for settings in [VoiceSettings::hosted(), VoiceSettings::local()] {
             let mut c = super::super::tests::context();
             c.location = "unknown-room".into();
             let mut request = axum::http::Request::builder()
@@ -110,12 +139,12 @@ mod tests {
                 .oneshot(request)
                 .await
                 .unwrap();
-            assert_eq!(response.status(), expected);
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         }
     }
 
     #[tokio::test]
-    async fn local_spoken_scene_skips_thoughts_until_the_private_request() {
+    async fn spoken_scenes_skip_thoughts_until_the_private_request() {
         let seen = Arc::new(Mutex::new(Vec::new()));
         let provider =
             super::super::tests::plain_provider(seen.clone(), |_, _| "I hear you.".into());
@@ -129,19 +158,35 @@ mod tests {
         });
         super::super::tests::resting(&mut c);
         let config = super::super::tests::test_config(address);
-        super::super::complete(&config, &c, &BTreeMap::new(), &VoiceSettings::local(), None)
+        for settings in [VoiceSettings::hosted(), VoiceSettings::local()] {
+            seen.lock().unwrap().clear();
+            let spoken = super::super::complete(&config, &c, &BTreeMap::new(), &settings, None)
+                .await
+                .unwrap();
+            assert!(spoken["entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|e| e.get("reflection").is_none()));
+            let requests = seen.lock().unwrap().len();
+            assert!(requests <= voiced(&c).len() * 2);
+            let result = complete(&config, &c, &BTreeMap::new(), &settings).await;
+            assert!(seen.lock().unwrap().len() > requests);
+            assert!(result.get("reflections").is_some());
+        }
+        // Only the same client's newer scene drops its private future.
+        let queue = Queue::new(2);
+        let (mine, other): (IpAddr, IpAddr) =
+            ("127.0.0.1".parse().unwrap(), "127.0.0.2".parse().unwrap());
+        let waiting = tokio::spawn(replaced(queue.cancel.subscribe(), mine));
+        queue.cancel.send_replace(Some(other));
+        tokio::task::yield_now().await;
+        assert!(!waiting.is_finished());
+        queue.cancel.send_replace(Some(mine));
+        tokio::time::timeout(Duration::from_secs(1), waiting)
             .await
+            .unwrap()
             .unwrap();
-        let requests = seen.lock().unwrap().len();
-        assert!(requests <= voiced(&c).len() * 2);
-        let result = complete(&config, &c, &BTreeMap::new(), &VoiceSettings::local()).await;
-        assert!(seen.lock().unwrap().len() > requests);
-        assert!(result.get("reflections").is_some());
-        // A newer scene changes this watched value and drops the private future.
-        let queue = Queue::default();
-        let mut cancelled = queue.cancel.subscribe();
-        queue.cancel.send_modify(|generation| *generation += 1);
-        cancelled.changed().await.unwrap();
         server.abort();
     }
 }
