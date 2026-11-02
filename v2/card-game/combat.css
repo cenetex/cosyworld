@@ -234,6 +234,11 @@
   #cast[data-battle] .portrait[data-battle-row] {
     left: var(--battle-x, var(--stage-x));
   }
+  /* The exchange shares one scale whatever each painting's framing, so a
+     strike painting swapping in never resizes its fighter. */
+  #cast[data-battle] .portrait[data-battle-row="front"] {
+    height: min(calc(var(--stage-size) * 0.8), 96vw);
+  }
   /* Those waiting stand further back, smaller, between the two sides. */
   #cast[data-battle] .portrait[data-battle-row="back"] {
     height: calc(var(--stage-size) * 0.5);
