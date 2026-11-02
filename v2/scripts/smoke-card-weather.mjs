@@ -308,9 +308,17 @@ try {
     }
     await load("pond", 24);
     await check("pond", 24, "shore");
-    assert.equal(await page.locator("#stage > .weather-layer").count(), 0);
     // Midnight: a place without night paintings takes the full grade, a
-    // painted night only a gentle share, and noon none.
+    // painted night only a gentle share, and noon none. The stage shader
+    // draws it, its canvas hidden while there is nothing to draw.
+    const shading = () =>
+      page.locator("#stage").evaluate((stage) => ({
+        shader: stage.dataset.stageShader,
+        canvas: getComputedStyle(stage.querySelector(".weather-layer canvas"))
+          .visibility,
+        css: getComputedStyle(stage.querySelector(".stage-grade"), "::after")
+          .display,
+      }));
     const figureLight = () =>
       page
         .locator("#stage")
@@ -334,6 +342,32 @@ try {
       );
       const light = await figureLight();
       assert(light < below && light > above, `${name}: figure light ${light}`);
+      assert.deepEqual(await shading(), {
+        shader: "webgl",
+        canvas: graded === "true" ? "visible" : "hidden",
+        css: "none",
+      });
+    }
+    if (!phone) {
+      // Without WebGL the CSS multiply carries the same grade.
+      await page.addInitScript(() => {
+        const get = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+          return type === "webgl" ? null : get.call(this, type, ...rest);
+        };
+      });
+      await load("forest-garden", 36);
+      assert.equal(
+        await page.locator("#stage").getAttribute("data-stage-shader"),
+        null,
+      );
+      assert.equal(
+        await page
+          .locator(".stage-grade")
+          .evaluate((el) => getComputedStyle(el, "::after").display),
+        "block",
+      );
+      assert((await figureLight()) < 0.7);
     }
     assert.deepEqual(errors, []);
     await page.close();

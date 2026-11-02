@@ -121,6 +121,14 @@
   inset: 0;
   z-index: -1;
 }
+/* With WebGL the stage shader draws the shade and vignette (hard-light), and
+   this CSS multiply is its fallback. */
+.stage[data-stage-shader] > .stage-grade::after {
+  display: none;
+}
+.stage > .weather-layer[data-shader] {
+  mix-blend-mode: hard-light;
+}
 .stage-grade::before {
   background: rgb(128 128 128 / var(--tod-desat, 0));
   mix-blend-mode: saturation;
