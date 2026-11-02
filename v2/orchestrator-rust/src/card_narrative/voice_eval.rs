@@ -279,8 +279,10 @@ fn voice_eval_measures_contract_prompts_and_recorded_replies() {
             "false_claims": report["replies"]["false_claims"],
         })
     );
-    assert!(report["cases"].as_u64().unwrap() >= 30);
-    assert!(report["speech"]["calls"].as_u64().unwrap() >= 60);
+    // Silent plays (Light, Put down, Take, ...) send no voice request, so
+    // only the scenes that voice someone count.
+    assert!(report["cases"].as_u64().unwrap() >= 20);
+    assert!(report["speech"]["calls"].as_u64().unwrap() >= 30);
     // Every prompt stays inside a small model's context.
     assert!(report["all_voices"]["max"].as_u64().unwrap() <= 1_100);
     assert_eq!(
