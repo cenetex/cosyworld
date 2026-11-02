@@ -165,10 +165,22 @@ export async function connectSharedWorld(id) {
     };
     // One message: why the world did not open, and that it is kept. A
     // failed retry redraws the card instead of repeating the message below.
-    const failed = (error) =>
+    const failed = (error) => {
+      // A world nobody is in any more has closed (full_retire.rs): the bare
+      // address stops resuming it, and nothing is worth trying again.
+      if (/has closed/.test(error?.message || "")) {
+        try {
+          const playing = JSON.parse(localStorage.getItem(PLAYING_KEY));
+          if (playing?.world === id) localStorage.removeItem(PLAYING_KEY);
+        } catch {}
+        return panel("Open this world", error.message, false).append(
+          button("Back to your table", () => location.replace("/")),
+        );
+      }
       panel("Open this world", openFailure(error), false).append(
         button("Try again", () => authenticate(enter, false).catch(failed)),
       );
+    };
     authenticate(enter, false).catch(failed);
   });
   let state = initial,
