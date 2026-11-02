@@ -288,11 +288,15 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
         .with_state(TextState {
             ai,
             character_models: Arc::new(models),
-            settings: Arc::new(settings),
             limits: Arc::new(Mutex::new(RateLimiter::default())),
             in_flight: Arc::new(InFlight::default()),
             capacity: Arc::new(Semaphore::new(TOTAL_CONCURRENCY)),
-            background: Arc::new(reflections::Queue::default()),
+            background: Arc::new(reflections::Queue::new(
+                settings
+                    .as_ref()
+                    .map_or(1, |s| s.parallel.clamp(1, TOTAL_CONCURRENCY)),
+            )),
+            settings: Arc::new(settings),
         })
 }
 
@@ -764,12 +768,9 @@ async fn generate(
     let Ok(_permit) = state.capacity.clone().try_acquire_owned() else {
         return error(StatusCode::TOO_MANY_REQUESTS, "The story service is busy.");
     };
-    // Only an admitted scene replaces queued reflections: a refused request
-    // must not cancel work for this or any other client.
-    state
-        .background
-        .cancel
-        .send_modify(|generation| *generation += 1);
+    // Only an admitted scene replaces this client's queued reflections: a
+    // refused request must not cancel work, and other clients keep theirs.
+    state.background.cancel.send_replace(Some(client));
     if headers
         .get("accept")
         .is_some_and(|value| value == "text/event-stream")
@@ -813,8 +814,10 @@ async fn generate(
     }
 }
 
-/// One scene: a separate plain-text call for each voiced entity, plus private
-/// reflection calls when an avatar is due one. The simulation chooses who
+/// One scene: a separate plain-text call for each voiced entity. Private
+/// reflections (thought, persona, dream) come from `/card-game/reflections`
+/// after the line is shown, so they never delay or fail it (#2016). Shared
+/// scenes still journal them with their speech. The simulation chooses who
 /// is voiced and what each one is aware of; this validator decides what is
 /// published. Prompts carry only the entity's own words and awareness.
 ///
@@ -837,7 +840,7 @@ async fn complete(
         character_models,
         settings,
         &voiced(context),
-        !settings.defer_reflections,
+        false,
         on_delta,
     )
     .await
@@ -1069,7 +1072,6 @@ struct VoiceSettings {
     line_limit: usize,
     reflection_model: Option<String>,
     escalation_model: Option<String>,
-    defer_reflections: bool,
 }
 
 impl VoiceSettings {
@@ -1082,7 +1084,6 @@ impl VoiceSettings {
             line_limit: 400,
             reflection_model: None,
             escalation_model: None,
-            defer_reflections: false,
         }
     }
 
@@ -1095,7 +1096,6 @@ impl VoiceSettings {
             line_limit: 400,
             reflection_model: None,
             escalation_model: None,
-            defer_reflections: true,
         }
     }
 
@@ -3628,10 +3628,8 @@ mod tests {
             dreams: vec![],
         });
         for _ in 0..2 {
-            let response = app.clone().oneshot(request(&c)).await.unwrap();
-            assert_eq!(response.status(), StatusCode::OK);
-            let bytes = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
-            let result: Value = serde_json::from_slice(&bytes).unwrap();
+            let (status, result) = scene_and_growth(&app, &c).await;
+            assert_eq!(status, StatusCode::OK);
             let entries = result["entries"].as_array().unwrap();
             assert_eq!(entries.len(), 4);
             assert_eq!(result["omitted"], json!([]));
@@ -3651,7 +3649,7 @@ mod tests {
                 .filter(|e| e["id"] == "lamp" || e["id"] == "station")
                 .all(|e| e.get("reflection").is_none()));
         }
-        // Each scene: four lines, then Vale's thought, persona and dream.
+        // Each scene: four lines, then Vale's separate thought, persona and dream.
         let requests = seen.lock().unwrap().clone();
         assert_eq!(requests.len(), 14);
         for body in &requests {
@@ -4744,6 +4742,35 @@ mod tests {
         (status, serde_json::from_slice(&bytes).unwrap())
     }
 
+    /// A spoken scene, then the browser's separate reflection request, with
+    /// each reflection joined to its speaker's entry. The line never waits on
+    /// or carries a reflection (#2016).
+    async fn scene_and_growth(app: &Router, context: &Context) -> (StatusCode, Value) {
+        let (status, mut result) = scene(app, context).await;
+        if status != StatusCode::OK {
+            return (status, result);
+        }
+        let entries = result["entries"].as_array_mut().unwrap();
+        assert!(entries.iter().all(|e| e.get("reflection").is_none()));
+        let mut grow = request(context);
+        *grow.uri_mut() = "/card-game/reflections".parse().unwrap();
+        let response = app.clone().oneshot(grow).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
+        let text = String::from_utf8(bytes.to_vec()).unwrap();
+        let data = text
+            .lines()
+            .find_map(|line| line.strip_prefix("data:"))
+            .unwrap_or(&text);
+        let growth: Value = serde_json::from_str(data.trim()).unwrap();
+        assert_eq!(growth["revision"], json!(context.revision));
+        for grown in growth["reflections"].as_array().unwrap() {
+            let entry = entries.iter_mut().find(|e| e["id"] == grown["id"]).unwrap();
+            entry["reflection"] = grown["reflection"].clone();
+        }
+        (status, result)
+    }
+
     /// The cue a captured request ends with, such as `Pip:`.
     fn stem_of(body: &Value) -> String {
         body["messages"].as_array().unwrap().last().unwrap()["content"]
@@ -4803,7 +4830,7 @@ mod tests {
         ] {
             seen.lock().unwrap().clear();
             let app = router_with_models::<()>(config.clone(), Ok(models), Ok(reflective.clone()));
-            let (status, result) = scene(&app, &c).await;
+            let (status, result) = scene_and_growth(&app, &c).await;
             assert_eq!(status, StatusCode::OK);
             assert_eq!(result["entries"][0]["id"], "vale");
             assert_eq!(result["entries"][0]["model"], line_model);
@@ -4843,7 +4870,7 @@ mod tests {
         };
         seen.lock().unwrap().clear();
         let app = router_with_models::<()>(config.clone(), Ok(cast_models()), Ok(same));
-        let (status, result) = scene(&app, &c).await;
+        let (status, result) = scene_and_growth(&app, &c).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(result["entries"][0]["model"], "vale-model");
         assert!(result["entries"][0].get("reflection").is_none());
@@ -4862,7 +4889,7 @@ mod tests {
         };
         seen.lock().unwrap().clear();
         let app = router_with_models::<()>(config, Ok(cast_models()), Ok(bigger));
-        let (status, result) = scene(&app, &c).await;
+        let (status, result) = scene_and_growth(&app, &c).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(result["entries"][0]["model"], "vale-model");
         assert_eq!(result["entries"][0]["reflection"]["persona"], persona);

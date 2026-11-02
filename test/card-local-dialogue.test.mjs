@@ -151,6 +151,31 @@ describe("local dialogue arrives before private thoughts", () => {
     narrator.invalidate();
   });
 
+  it("shows the line without waiting and skips an empty reflection reply", async () => {
+    let world = createWorld({ opening: true });
+    const phases = [];
+    let asked = 0;
+    const narrator = createNarrator({
+      getWorld: () => world,
+      apply: (next, phase) => {
+        world = next;
+        phases.push(phase);
+      },
+      status: () => {},
+      request: async (context) => fixture(context),
+      reflect: async (context) => {
+        asked += 1;
+        expect(phases).toHaveLength(1);
+        return { revision: context.revision, reflections: [] };
+      },
+    });
+    narrator.changed();
+    await flush();
+    expect(asked).toBe(1);
+    expect(phases).toHaveLength(1);
+    narrator.invalidate();
+  });
+
   it("keeps the first line in place as later lines arrive", () => {
     vi.useFakeTimers();
     const show = vi.fn();
