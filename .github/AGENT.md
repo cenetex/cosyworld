@@ -105,6 +105,10 @@ and file failures as issues. Do not run it after batches.
 dispatch. `deploy.yml` deploys .dev from a scheduled train every 30 minutes
 (not per merge) and runs the production gates on tags.
 
+`.dev` is members-only. Scripts that play it sign in as `agent-test` with
+`devPasskeySession(page)` from `v2/scripts/dev-test-passkey.mjs`; see
+[agent test passkey](../docs/release.md#agent-test-passkey).
+
 The full suite is the final cross-platform authority. It uses Node 24 and stable Rust
 for lint, tests, content, kernel, Rust builds, browser and composition smokes,
 and guide checks. Browser journeys run in parallel shards from one shared

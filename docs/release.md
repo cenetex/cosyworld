@@ -178,6 +178,43 @@ sign in normally, and a signed-in passkey may add another. The setting takes
 effect on the next `.dev` deploy. Lonely Forest leaves it unset, which means
 `open` (no change); any other value stops startup.
 
+### Agent test passkey
+
+Agents and CI smokes sign in to `.dev` as the dedicated `agent-test` account,
+an ordinary player account with no operator rights. The Fly secret
+`COSYWORLD_DEV_TEST_PASSKEY` holds only the public half: a credential id and a
+P-256 public key. At startup the server creates `agent-test` and installs
+that one passkey, logging each change and each `agent-test` sign-in. The server
+refuses to start with the secret set unless `COSYWORLD_PASSKEYS=members`, so
+Lonely Forest can never take it. Unsetting the secret removes the passkey and
+revokes the account's sessions on the next boot; replacing it retires the old
+key the same way.
+
+The private key lives only in `~/.config/cosyworld/dev-test-passkey.json`
+(mode 600) and the GitHub Actions secret `COSYWORLD_DEV_TEST_PASSKEY_SECRET`.
+Never commit it. In a Playwright script:
+
+```js
+import { devPasskeySession } from "./dev-test-passkey.mjs";
+const { cookie } = await devPasskeySession(page); // signed in as agent-test
+```
+
+The helper adds a Chrome DevTools virtual authenticator holding the credential
+and signs in through the table's own passkey code. It reads
+`COSYWORLD_DEV_TEST_PASSKEY_SECRET`, then `COSYWORLD_DEV_TEST_PASSKEY_FILE`,
+then the default file, and targets `COSYWORLD_DEV_URL` or `.dev`. The returned
+`cookie` serves plain HTTP checks. `node v2/scripts/dev-test-passkey.mjs check`
+confirms that sign-in works and a members-only endpoint answers.
+
+To rotate the key, run `node v2/scripts/dev-test-passkey.mjs generate --force`
+and set both secrets with the commands it prints:
+
+```sh
+fly secrets set --app cosyworld COSYWORLD_DEV_TEST_PASSKEY='<printed JSON>'
+gh secret set COSYWORLD_DEV_TEST_PASSKEY_SECRET --repo cenetex/cosyworld \
+  < ~/.config/cosyworld/dev-test-passkey.json
+```
+
 ## Volume headroom
 
 Both Fly data volumes extend automatically at 80% usage in 1 GB increments,
