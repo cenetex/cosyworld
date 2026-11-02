@@ -157,6 +157,25 @@
             ></span>
           </div>
         </div>
+        <!-- A ready or pending play is a beat in front of the dialogue. -->
+        <section
+          id="action-beat"
+          class="action-panel beat-action"
+          aria-label="Selected card actions"
+          hidden
+        >
+          <p id="selection-name" class="sr-only"></p>
+          <p class="action-beat-heading" hidden>
+            <span class="beat-behind-portrait" aria-hidden="true"></span>
+            <span class="action-beat-text"></span>
+          </p>
+          <p id="play-status" class="play-status" role="status" hidden></p>
+          <div
+            id="card-actions"
+            role="group"
+            aria-labelledby="selection-name"
+          ></div>
+        </section>
         <span
           id="speech-announcement"
           class="sr-only"
@@ -168,15 +187,6 @@
         <div class="hand-wrap">
           <div id="hand" class="hand" aria-label="Playable cards"></div>
         </div>
-        <section class="action-panel" aria-label="Selected card actions">
-          <p id="selection-name" class="sr-only"></p>
-          <p id="play-status" class="play-status" role="status" hidden></p>
-          <div
-            id="card-actions"
-            role="group"
-            aria-labelledby="selection-name"
-          ></div>
-        </section>
         <p id="play-readout" class="sr-only" aria-live="polite"></p>
       </section>
     </main>

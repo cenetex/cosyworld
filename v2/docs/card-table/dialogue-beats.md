@@ -94,6 +94,16 @@ Beats are cards in depth, not rows in a scroll:
   when their fade ends. `v2/scripts/smoke-card-beat-stack.mjs` checks both
   directions frame by frame and that the front card takes clicks afterwards.
 
+## The action beat
+
+A ready or pending play is a beat too: the action beat, in front of the
+stack, with the actor's portrait, what the play will do ("Vale takes the
+Burial Decree.") and its buttons (the play, Cancel play, Nudge or Look) under
+the status line. The spoken beat settles behind it as one dimmed line that
+still takes taps. When the play commits or is cancelled the action beat leaves
+and the spoken beat returns; after a play it rests until the player chooses a
+card or taps the raised hand. The hand never moves for it.
+
 Combat keeps its stage animations. Each fighter's step also becomes a beat as
 it lands, for example "⚔ Pip struck Vale. Vale stumbled.", and the defeat lands on
 the loser's beat.

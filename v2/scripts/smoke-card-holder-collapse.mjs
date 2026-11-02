@@ -194,8 +194,11 @@ try {
         );
         await tap("vale");
         assert.equal(await frame("cloth").getAttribute("hidden"), null);
-        // Before the first beat there is no dialogue, and the raised hand
-        // leaves no hole for it: each card shows whole, name and all.
+        await tap("vale");
+        await collapsed();
+        assert.equal(await frame("lamp").getAttribute("hidden"), "");
+        // Before the first beat, with no play chosen, there is no dialogue,
+        // and the raised hand leaves no hole for it: each card shows whole.
         await settleHand();
         const whole = await page.evaluate(() => ({
           quiet: document.querySelector(".dialogue").hidden,
@@ -217,9 +220,6 @@ try {
         await page.screenshot({
           path: new URL(`${table}-no-dialogue.png`, output).pathname,
         });
-        await tap("vale");
-        await collapsed();
-        assert.equal(await frame("lamp").getAttribute("hidden"), "");
         await page.screenshot({
           path: new URL(`${table}-stack.png`, output).pathname,
         });
@@ -357,9 +357,11 @@ try {
           else assert.deepEqual(now, beforePlay, label);
         };
         await action("light").click();
+        // The play's beat leaves so the reply comes forward, and a quick
+        // second tap cannot land on Put out.
+        assert.equal(await action("snuff").count(), 0, "the beat rests");
         await sameHand("committing a play leaves the hand where it is");
         await settled();
-        await action("snuff").waitFor();
         await settleHand();
         assert.equal(await open(), "true", "a play keeps the hand raised");
         await sameHand("the played hand stays exactly where it was");
@@ -371,20 +373,20 @@ try {
           ["lamp", "vale"],
           "lighting the lamp keeps it in hand",
         );
+        // Raising the hand again brings the held lamp's plays back.
+        const raise = () => page.locator(".play-dock").dispatchEvent("click");
+        await raise();
         assert.equal(await action("light").count(), 0);
         await page.waitForTimeout(600);
         await action("snuff").click();
         await settled();
+        await raise();
         await action("light").waitFor();
         assert.deepEqual(await selected(), ["lamp", "vale"]);
         await page.waitForTimeout(600);
-        // The Light slot becomes Put out; a quick second tap must not land on it.
-        if (width === 390) {
-          await action("light").tap();
-          await action("snuff").tap();
-        } else await action("light").dblclick();
-        await page.waitForTimeout(1200);
+        await action("light").click();
         await settled();
+        await raise();
         assert.equal(await action("snuff").count(), 1, "the lamp stays lit");
         assert.equal(await action("light").count(), 0);
         assert.deepEqual(await selected(), ["lamp", "vale"]);
@@ -421,12 +423,13 @@ try {
         await page.locator(".play-dock").dispatchEvent("click");
         assert.equal(await handExpanded(), "true");
         assert.deepEqual(await selected(), ["lamp", "vale"]);
-        // A tap on the dialogue steps its beat and leaves the raised hand,
-        // its cards and its scroll where they were (#1883).
+        // A tap on the dialogue (the ready play's beat) leaves the raised
+        // hand, its cards and its scroll where they were (#1883).
         await settleHand();
         const handBefore = await handLayout();
-        if (width === 390) await page.locator("#dialogue-advance").tap();
-        else await page.locator("#dialogue-advance").click();
+        const actionBeat = page.locator(".action-beat-heading");
+        if (width === 390) await actionBeat.tap();
+        else await actionBeat.click();
         assert.equal(
           await handExpanded(),
           "true",
