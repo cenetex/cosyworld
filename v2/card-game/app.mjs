@@ -1526,6 +1526,23 @@ function sharedQueuePortrait(actor) {
   frameFigure(image);
   return image;
 }
+// The action beat's small cards, at most three.
+function showBeatCards(ids) {
+  const cards = document.querySelector(".action-beat-cards"),
+    key = ids.slice(0, 3).join("+");
+  if (cards.dataset.cards === key) return;
+  cards.dataset.cards = key;
+  releaseImages(cards);
+  cards.replaceChildren(
+    ...ids.slice(0, 3).map((id) => {
+      const image = node("img");
+      image.alt = "";
+      image.decoding = "async";
+      image.src = beatPortrait(id);
+      return image;
+    }),
+  );
+}
 // A play that commits rests the action beat, so the reply comes to the
 // front, until the player chooses or raises the hand again.
 let restedChoice = null;
@@ -1546,7 +1563,7 @@ function renderActions() {
   $("selection-name").textContent = selected.length
     ? selectionName
     : "Card actions";
-  // The beat says what the play will do, under the actor's portrait.
+  // The beat shows the cards being played and says what the play will do.
   const heading = document.querySelector(".action-beat-heading"),
     actor = currentActor(world),
     name = nameOf(actor),
@@ -1556,10 +1573,14 @@ function renderActions() {
       "$1 ",
     );
   heading.hidden = !sentence;
-  if (heading.dataset.actor !== actor) {
-    heading.dataset.actor = actor;
-    fillPortrait(heading.firstElementChild, actor);
-  }
+  // Who acts, then what it acts on: the chosen cards, or the place it
+  // waits in.
+  const others = selected.filter((id) => id !== actor);
+  showBeatCards(
+    sentence
+      ? [actor, ...(others.length ? others : [world.actors[actor].place])]
+      : [],
+  );
   heading.lastElementChild.replaceChildren(
     ...(sentence.startsWith(`${name} `)
       ? [node("strong", name), sentence.slice(name.length)]

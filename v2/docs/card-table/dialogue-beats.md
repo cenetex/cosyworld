@@ -97,7 +97,7 @@ Beats are cards in depth, not rows in a scroll:
 ## The action beat
 
 A ready or pending play is a beat too: the action beat, in front of the
-stack, with the actor's portrait, what the play will do ("Vale takes the
+stack, with small cards of who acts and what it acts on, what the play will do ("Vale takes the
 Burial Decree.") and its buttons (the play, Cancel play, Nudge or Look) under
 the status line. The spoken beat settles behind it as one dimmed line that
 still takes taps. When the play commits or is cancelled the action beat leaves
