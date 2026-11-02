@@ -43,6 +43,7 @@ const atPond = (resolve = { vale: 1, moth: 4 }) => {
       guarding: { vale: false, moth: false },
       struck: { vale: true, moth: true },
       steppedBack: { vale: false, moth: false },
+      hitBy: { moth: "vale" },
     },
   ];
   return s;
@@ -51,7 +52,7 @@ const atPond = (resolve = { vale: 1, moth: 4 }) => {
 describe("combat beats from today's rule lines", () => {
   it("reads a lost standoff as guard, hit, defeat and a relocation", () => {
     const before = atPond();
-    const after = act(before, "guard", "moth");
+    const after = act(before, "guard");
     const beats = combatBeats(before, after, { viewer: "vale" });
     expect(beats.map((b) => b.kind)).toEqual(["guard", "attack", "defeat"]);
     const [, hit, defeat] = beats;
@@ -276,7 +277,7 @@ describe("beat timing", () => {
 
 describe("coming to after a defeat", () => {
   it("names the arrival and gives the line to one voice", () => {
-    const after = act(atPond(), "guard", "moth");
+    const after = act(atPond(), "guard");
     const here = after.actors.vale.place;
     expect(movementCaption(after)).toMatch(/^You come to at /u);
     const context = narrativeContext(after);

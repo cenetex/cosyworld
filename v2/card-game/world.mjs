@@ -1053,8 +1053,11 @@ function offer(kind, actor, item, target, text, cards) {
     key: [kind, actor, item || "", target || ""].join(":"),
   };
 }
+// A battle holds its whole room. Its combatants are the keys of `resolve`,
+// in the order they joined; rules 84 keeps no sides.
+export const fightersOf = (c) => Object.keys(c.resolve);
 export function standoffFor(s, actor) {
-  return s.standoffs.find((c) => [c.challenger, c.defender].includes(actor));
+  return s.standoffs.find((c) => Object.hasOwn(c.resolve, actor));
 }
 export function opponentOf(c, actor) {
   return c.challenger === actor ? c.defender : c.challenger;
@@ -1075,8 +1078,28 @@ export function strikeDamage(s, actor, target) {
 }
 function closeStandoff(s, c) {
   s.standoffs = s.standoffs.filter((entry) => entry !== c);
-  for (const id of [c.challenger, c.defender]) s.peaceUntil[id] = s.turn + 3;
+  for (const id of fightersOf(c)) s.peaceUntil[id] = s.turn + 3;
 }
+// Everyone present joins, except humans in shared play (#1511) and avatars
+// whose pack keeps them out of fights. Each joins with four resolve and must
+// play before a round without a Strike can complete.
+function joinBattle(s, c, id) {
+  c.resolve[id] = 4;
+  for (const field of ["guarding", "struck", "steppedBack"])
+    c[field][id] = false;
+  s.peaceUntil[id] = Math.min(s.peaceUntil[id], s.turn);
+}
+function leaveBattle(s, c, id) {
+  for (const field of ["resolve", "guarding", "struck", "steppedBack"])
+    delete c[field][id];
+  for (const map of [c.covering, c.hitBy])
+    for (const [key, value] of Object.entries(map || {}))
+      if (key === id || value === id) delete map[key];
+  s.peaceUntil[id] = s.turn + 3;
+}
+const fightsHere = (s, c, id) =>
+  [c.challenger, c.defender].includes(id) ||
+  (!avoidsStandoffs(id) && !(sharedEnabled(s) && controlledByHuman(s, id)));
 // Consecutive defeats per avatar. A win or a rest at a sanctuary clears it;
 // the third defeat sends the loser home with empty hands.
 export const DEFEATS_TO_SEND_HOME = 3;
@@ -1113,11 +1136,16 @@ function defeatInStandoff(s, c, winner, loser, here) {
   const to = sentHome
     ? home
     : exits(s, here, loser).find((next) => !isCourse(s, here, next));
-  closeStandoff(s, c);
+  // The loser leaves the battle; it ends with one combatant left or the
+  // disputed item let go.
+  leaveBattle(s, c, loser);
+  const over = fightersOf(c).length < 2 || dropped.includes(c.item);
+  if (over) closeStandoff(s, c);
+  const ends = over ? " The battle ends." : "";
   if (!to || to === here) {
     text += sentHome
-      ? ` ${nameOf(loser)} is already home. The standoff ends.`
-      : ` ${nameOf(loser)} yields here. The standoff ends.`;
+      ? ` ${nameOf(loser)} is already home.${ends}`
+      : ` ${nameOf(loser)} yields here.${ends}`;
     return { text, outcome, lossCount, droppedItemIds: dropped, to: null };
   }
   // A retreat walks an open path; being sent home crosses nothing.
@@ -1127,8 +1155,8 @@ function defeatInStandoff(s, c, winner, loser, here) {
   for (const id of carried(s, loser))
     remember(s, id, `${nameOf(loser)} retreated to ${nameOf(to)} with it.`);
   text += sentHome
-    ? ` ${nameOf(loser)} is beaten a third time and sent home to ${nameOf(to)}. The standoff ends.`
-    : ` ${nameOf(loser)} retreats to ${nameOf(to)}. The standoff ends.`;
+    ? ` ${nameOf(loser)} is beaten a third time and sent home to ${nameOf(to)}.${ends}`
+    : ` ${nameOf(loser)} retreats to ${nameOf(to)}.${ends}`;
   return {
     text,
     outcome,
@@ -1142,9 +1170,20 @@ function defeatInStandoff(s, c, winner, loser, here) {
 }
 function settleStandoffs(s) {
   for (const c of [...s.standoffs]) {
-    const separated = [c.challenger, c.defender].some(
-      (id) => s.actors[id].place !== c.location,
-    );
+    for (const id of fightersOf(c))
+      if (s.actors[id].place !== c.location) leaveBattle(s, c, id);
+    // Arrivals join the battle: there are no bystanders.
+    for (const id of actorIds)
+      if (
+        entityActive(s, id) &&
+        !Object.hasOwn(c.resolve, id) &&
+        s.actors[id].place === c.location &&
+        !standoffFor(s, id) &&
+        fightsHere(s, c, id) &&
+        (!controlledByHuman(s, id) || humanPresent(s, id))
+      )
+        joinBattle(s, c, id);
+    const separated = fightersOf(c).length < 2;
     const released = c.item && rootHolder(s, c.item) !== c.defender;
     // A resident challenger that has set the disputed item aside before
     // any blow would only stand there; it lets the item go.
@@ -1159,10 +1198,10 @@ function settleStandoffs(s) {
         s,
         "World",
         separated
-          ? `${nameOf(c.challenger)} and ${nameOf(c.defender)} part. The standoff ends.`
+          ? `The fighters part. The battle ends.`
           : released
-            ? `The ${nameOf(c.item)} changes hands. The standoff ends.`
-            : `${nameOf(c.challenger)} lets the ${nameOf(c.item)} go. The standoff ends.`,
+            ? `The ${nameOf(c.item)} changes hands. The battle ends.`
+            : `${nameOf(c.challenger)} lets the ${nameOf(c.item)} go. The battle ends.`,
         {
           kind: "narration",
           actorId: c.challenger,
@@ -1238,6 +1277,11 @@ export function legalActions(s, actor = currentActor(s)) {
   ];
   // A sleeper's only play is to wait until the light changes.
   if (s.actors[actor].sleepUntil !== undefined) return out;
+  const conflict = standoffFor(s, actor);
+  if (conflict)
+    out.push(
+      offer("guard", actor, null, null, `${nameOf(actor)} braces.`, [actor]),
+    );
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
     if (departureWaits(s, actor, to)) continue;
     // A course card aboard a docked ship sets the voyage for everyone aboard.
@@ -1322,16 +1366,16 @@ export function legalActions(s, actor = currentActor(s)) {
       if (greet.label) talk.label = greet.label;
       out.push(talk);
     }
-    const conflict = standoffFor(s, actor);
-    if (conflict && opponentOf(conflict, actor) === other) {
+    // In battle, Guard covers another combatant and Strike hits one.
+    if (conflict && Object.hasOwn(conflict.resolve, other)) {
       out.push(
         offer(
-          "guard",
+          "intercept",
           actor,
           null,
           other,
-          `${nameOf(actor)} guards against ${nameOf(other)}.`,
-          [other],
+          `${nameOf(actor)} guards ${nameOf(other)}.`,
+          [actor, other],
         ),
       );
       // A sanctuary allows a threat but never an attack.
@@ -1593,10 +1637,12 @@ export function legalActions(s, actor = currentActor(s)) {
   // the offers they expect the other side to accept.
   return planReads ? open.filter((a) => expects(s, a)) : open;
 }
-// A standoff locks its room: nobody there leaves or changes items until it
-// ends. Arrivals are locked in too. Talk, Wait and the fight's own plays
-// stay, and the threatened side may still hand over the demanded item.
+// A battle locks its room: nobody there leaves, talks or changes items until
+// it ends. Arrivals are locked in too. Wait and the battle's own plays stay,
+// and the threatened side may still hand over the demanded item.
 const ROOM_LOCKED = new Set([
+  "talk",
+  "threaten",
   "move",
   "accompany",
   "course",
@@ -1619,15 +1665,18 @@ function roomLocked(s, here, actor, actions) {
         a.target === opponentOf(conflict, actor)),
   );
 }
+// A selection names its plays. One that names the actor (Brace, Guard) wins
+// over the same cards without the actor (yourself + Pip threatens Pip).
 export function matchingActions(s, selected, actor = currentActor(s)) {
-  const set = [...new Set(selected)].filter((id) => id !== actor);
-  if (!set.length) return [];
-  return legalActions(s, actor).filter(
-    (a) =>
-      Array.isArray(a.cards) &&
-      a.cards.length === set.length &&
-      set.every((id) => a.cards.includes(id)),
-  );
+  const all = [...new Set(selected)];
+  const set = all.filter((id) => id !== actor);
+  const match = (cards) => (a) =>
+    Array.isArray(a.cards) &&
+    a.cards.length === cards.length &&
+    cards.every((id) => a.cards.includes(id));
+  const actions = legalActions(s, actor);
+  const exact = all.length > set.length ? actions.filter(match(all)) : [];
+  return exact.length || !set.length ? exact : actions.filter(match(set));
 }
 function travelParty(s, actors, destination) {
   const from = s.actors[actors[0]].place;
@@ -1682,29 +1731,24 @@ function rest(s, actor, here) {
     a.sleepUntil = (Math.floor(s.turn / DAYLIGHT_TURNS) + 1) * DAYLIGHT_TURNS;
   return null;
 }
-// A threat stays in force until both sides have stood down: each fighter's
-// latest play since it began is something other than Strike or Brace. One
-// side's Talk or Wait alone leaves it open, and a Strike or Brace takes that
-// fighter back into the fight.
+// A battle ends after one full round without a Strike: every combatant has
+// played since the last Strike and none of those plays was one. A Strike
+// starts the round again; an arrival must play before it can complete.
 function perform(s, a, round = null, settle = []) {
-  const conflict = standoffFor(s, a.actor),
-    other = conflict && opponentOf(conflict, a.actor);
+  settleStandoffs(s); // anyone who walked in joins before playing
+  const conflict = standoffFor(s, a.actor);
   const result = performPlay(s, a, round, settle);
   if (conflict && s.standoffs.includes(conflict)) {
-    conflict.steppedBack[a.actor] = !["guard", "attack"].includes(a.kind);
-    if (conflict.steppedBack[a.actor] && conflict.steppedBack[other]) {
+    const calm = conflict.steppedBack;
+    if (a.kind === "attack") for (const id in calm) calm[id] = false;
+    else if (Object.hasOwn(calm, a.actor)) calm[a.actor] = true;
+    if (Object.values(calm).every(Boolean)) {
       closeStandoff(s, conflict);
-      addLog(
-        s,
-        "World",
-        `${nameOf(a.actor)} and ${nameOf(other)} both stand down. The standoff ends.`,
-        {
-          kind: "narration",
-          actorId: a.actor,
-          targetId: other,
-          locationId: conflict.location,
-        },
-      );
+      addLog(s, "World", "Nobody strikes for a whole round. The battle ends.", {
+        kind: "narration",
+        actorId: a.actor,
+        locationId: conflict.location,
+      });
     }
   }
   return result;
@@ -1725,6 +1769,8 @@ function performPlay(s, a, round = null, settle = []) {
   const conflict = standoffFor(s, a.actor);
   if (conflict) {
     conflict.guarding[a.actor] = false;
+    delete conflict.covering?.[a.actor];
+    delete conflict.hitBy?.[a.actor];
     if (a.actor === conflict.defender) conflict.answered = true;
   }
   if (a.kind === "drop" && !a.item) {
@@ -1818,32 +1864,44 @@ function performPlay(s, a, round = null, settle = []) {
         guarding: { [a.actor]: false, [a.target]: false },
         struck: { [a.actor]: false, [a.target]: false },
         steppedBack: { [a.actor]: false, [a.target]: false },
+        covering: {},
+        hitBy: {},
       });
       break;
     case "guard":
       conflict.guarding[a.actor] = true;
       break;
+    case "intercept":
+      (conflict.covering ??= {})[a.actor] = a.target;
+      break;
     case "attack": {
-      const guarded = conflict.guarding[a.target];
+      // A combatant guarding the target takes the hit, with its own brace.
+      const guard = fightersOf(conflict).find(
+        (id) => id !== a.actor && conflict.covering?.[id] === a.target,
+      );
+      const hit = guard || a.target;
+      const guarded = conflict.guarding[hit];
       const damage = Math.max(
         1,
-        strikeDamage(s, a.actor, a.target) - Number(guarded),
+        strikeDamage(s, a.actor, hit) - Number(guarded),
       );
-      const resolveBefore = conflict.resolve[a.target];
-      conflict.guarding[a.target] = false;
+      const resolveBefore = conflict.resolve[hit];
+      conflict.guarding[hit] = false;
       conflict.struck[a.actor] = true;
-      conflict.resolve[a.target] = Math.max(0, resolveBefore - damage);
-      text += ` ${guarded ? "The guard softens the blow. " : ""}${nameOf(a.target)} loses ${damage} resolve.`;
+      (conflict.hitBy ??= {})[hit] = a.actor;
+      conflict.resolve[hit] = Math.max(0, resolveBefore - damage);
+      text += `${guard ? ` ${nameOf(guard)} steps in front of ${nameOf(a.target)}.` : ""} ${guarded ? "The guard softens the blow. " : ""}${nameOf(hit)} loses ${damage} resolve.`;
       combat = {
+        ...(guard ? { targetId: guard, coveredId: a.target } : {}),
         damage,
         guarded,
         resolveBefore,
-        resolveAfter: conflict.resolve[a.target],
+        resolveAfter: conflict.resolve[hit],
         outcome: guarded ? "guarded" : "hit",
-        lossCount: s.defeats?.[a.target] || 0,
+        lossCount: s.defeats?.[hit] || 0,
       };
-      if (conflict.resolve[a.target] === 0) {
-        const defeat = defeatInStandoff(s, conflict, a.actor, a.target, here);
+      if (conflict.resolve[hit] === 0) {
+        const defeat = defeatInStandoff(s, conflict, a.actor, hit, here);
         text += defeat.text;
         Object.assign(combat, {
           outcome: defeat.outcome,
@@ -1855,7 +1913,7 @@ function performPlay(s, a, round = null, settle = []) {
             text: defeat.arrivalText,
             kind: "narration",
             verb: defeat.outcome === "sent-home" ? "sent-home" : "retreat",
-            actorId: a.target,
+            actorId: hit,
             targetId: a.actor,
             locationId: defeat.to,
             fromLocationId: here,
@@ -2255,26 +2313,30 @@ function wantPlan(s, actor) {
   if (s.peaceUntil[actor] > s.turn) return idle();
   const conflict = standoffFor(s, actor);
   const want = wantOf(s, actor);
+  // A resident answers plays, not sides: it strikes whoever struck it since
+  // its last play, or holds what it wants, until a human holder plays
+  // anything but a Strike. It braces when low, guards a friend under attack,
+  // and otherwise waits.
   if (conflict) {
-    const other = opponentOf(conflict, actor);
     const answer = (action) => (action ? { action } : idle());
-    if (actor === conflict.defender && !conflict.answered)
-      return answer(
-        outranks(s, actor, other)
-          ? find("talk", (a) => a.target === other)
-          : find("guard"),
+    const others = fightersOf(conflict).filter((id) => id !== actor);
+    const striker = others.find((id) => conflict.hitBy?.[actor] === id);
+    const foe =
+      striker ||
+      others.find(
+        (id) =>
+          !(controlledByHuman(s, id) && conflict.steppedBack[id]) &&
+          ids.some(
+            (item) => rootHolder(s, item) === id && needed(s, actor, item),
+          ),
       );
-    // A resident strikes while the other side is still in the fight, once
-    // blows have landed or when it is the challenger that wants the item.
-    // Once the other side stands down it stands down too, which ends it.
-    const blows = conflict.struck[other] || conflict.struck[actor];
-    const presses =
-      conflict.challenger === actor &&
-      conflict.item &&
-      needed(s, actor, conflict.item);
-    if (!conflict.steppedBack[other] && (blows || presses))
-      return answer(find("attack", (a) => a.target === other));
-    return idle();
+    if (foe && conflict.resolve[actor] <= 1)
+      return striker ? answer(find("guard")) : idle();
+    if (foe) return answer(find("attack", (a) => a.target === foe));
+    const friend = others.find(
+      (id) => conflict.hitBy?.[id] && s.actors[actor].trust?.[id] > 0,
+    );
+    return answer(friend && find("intercept", (a) => a.target === friend));
   }
   if (!want) return idle();
   if (resting(s, actor)) return idle();
@@ -2735,8 +2797,13 @@ export function validateWorld(s) {
       c.opened > s.turn
     )
       fail();
-    const pair = [c.challenger, c.defender];
-    if (pair.some((id) => fighting.has(id))) fail();
+    const pair =
+      c.resolve && typeof c.resolve === "object" ? fightersOf(c) : [];
+    if (
+      pair.length < 2 ||
+      pair.some((id) => !actorIds.includes(id) || fighting.has(id))
+    )
+      fail();
     for (const id of pair) fighting.add(id);
     if (
       pair.some(
@@ -2749,6 +2816,18 @@ export function validateWorld(s) {
       if (
         !c[field] ||
         Object.keys(c[field]).sort().join() !== pair.slice().sort().join()
+      )
+        fail();
+    // Guard and last-hit maps name combatants (absent before rules 84).
+    for (const map of [c.covering, c.hitBy])
+      if (
+        map !== undefined &&
+        (!map ||
+          typeof map !== "object" ||
+          Object.entries(map).some(
+            ([id, other]) =>
+              !pair.includes(id) || !pair.includes(other) || id === other,
+          ))
       )
         fail();
     if (
@@ -2883,6 +2962,7 @@ export function validateWorld(s) {
     "accompany",
     "threaten",
     "guard",
+    "intercept",
     "attack",
     "retreat",
     "sent-home",

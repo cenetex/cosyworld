@@ -79,8 +79,7 @@ describe("strike strength by level tier", () => {
           legalActions(s).find((a) => a.kind === kind),
         ).state;
       s = strike(s, "threaten");
-      // Pip does not outrank Vale, so it braces rather than talking.
-      expect(s.standoffs[0].guarding.moth).toBe(true);
+      s.standoffs[0].guarding.moth = true; // as if Pip had braced
       const before = s;
       s = strike(s, "attack");
       const [hit, back] = s.log.filter((e) => e.seq > before.eventSeq);

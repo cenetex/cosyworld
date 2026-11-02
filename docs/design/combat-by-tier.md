@@ -31,8 +31,9 @@ roll, so combat beats show the real "−1/−2/−3 resolve".
 
 Changed to tiers (relative strength between two actors), via `outranks`:
 
-- A threatened resident answers with Talk only when it outranks the
-  challenger; otherwise it braces.
+- Rules 83: a threatened resident answered with Talk only when it outranked
+  the challenger, otherwise it braced. Rules 84 battles have no Talk (see
+  [standoff endings](standoff-endings.md)).
 - A resident is bold enough to threaten an owner it outranks (resentment and
   repeated refusals still count as before).
 

@@ -31,7 +31,7 @@ import {
   wantText,
   validateWorld,
   standoffFor,
-  opponentOf,
+  fightersOf,
   placeText,
   places,
   things,
@@ -423,7 +423,12 @@ export function narrativeContext(world, action = null) {
         const conflict = standoffFor(world, id);
         if (conflict)
           facts.push(
-            `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: ${conflict.guarding[id] ? "braced" : "open stance"}. Talk, trade, brace, strike or leave are available.`,
+            `In a battle with ${fightersOf(conflict)
+              .filter((other) => other !== id)
+              .map(nameOf)
+              .join(
+                ", ",
+              )}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: ${conflict.guarding[id] ? "braced" : "open stance"}. Brace, guard, strike or wait are available.`,
           );
         const want = wantHeard(world, played, id, currentActor(world))
           ? wantOf(world, id)

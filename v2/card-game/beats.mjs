@@ -13,7 +13,7 @@ import { inSentence, theName } from "./combat-beats.mjs";
 const QUIET_VERBS = new Set(["talk", "wait"]);
 const DAMAGE = /loses (\d+) resolve/u;
 const YIELDED = /after yielding to/u;
-const STANDOFF_ENDS = /standoff ends/u;
+const STANDOFF_ENDS = /(standoff|battle) ends/u;
 
 // A name inside a sentence: "the keeper", not "The keeper", and one article:
 // "took the Burial Decree". The sentence itself is capitalised by sentence().
@@ -149,7 +149,9 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
           : `${a} squared up to ${t}.`,
       );
     case "guard":
-      return caption("⚔", `${a} braced against ${t}.`);
+      return caption("⚔", `${a} braced.`);
+    case "intercept":
+      return caption("⚔", `${a} guarded ${t}.`);
     case "attack":
       return caption("⚔", `${a} struck ${t}. ${attackResult(entry)}`);
     case "give":

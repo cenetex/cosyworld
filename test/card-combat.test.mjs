@@ -9,6 +9,9 @@ import {
   decodeSave,
   validateWorld,
   plan,
+  fightersOf,
+  matchingActions,
+  strikeDamage,
 } from "../v2/card-game/world.mjs";
 import { avatarPlays, cardPlay } from "../v2/card-game/cards.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
@@ -46,94 +49,151 @@ const meeting = () => {
 };
 
 describe("card standoffs", () => {
-  it("opens combat with a threat and locks the room's travel and item plays", () => {
+  it("opens a room battle with a threat; the selection names the verb", () => {
     let s = meeting();
+    s.actors.keeper.place = "station";
     expect(avatarPlays(s, "moth").map((a) => a.kind)).toEqual([
       "talk",
       "threaten",
     ]);
-    expect(legalActions(s).some((a) => a.kind === "attack")).toBe(false);
     expect(play(s, { key: "attack:vale::moth" }).ok).toBe(false);
     s = act(s, "threaten", "moth");
-    expect(standoffFor(s, "vale")).toMatchObject({
-      challenger: "vale",
-      defender: "moth",
-      item: "lamp",
-      resolve: { vale: 4, moth: 4 },
-      guarding: { moth: true },
-    });
-    expect(avatarPlays(s, "moth").map((a) => a.kind)).toEqual([
-      "talk",
-      "guard",
-      "attack",
-    ]);
-    expect(cardPlay(s, ["moth"]).action.kind).toBe("talk");
-    // Nobody in a standoff's room leaves or changes items until it ends.
+    // Everyone present is a combatant, the keeper too, with four resolve.
+    const c = standoffFor(s, "keeper");
+    expect(c).toBe(standoffFor(s, "vale"));
+    expect(fightersOf(c)).toEqual(["vale", "moth", "keeper"]);
+    expect(c.resolve).toEqual({ vale: 4, moth: 4, keeper: 4 });
+    const verbs = (cards) =>
+      matchingActions(s, cards).map((a) => [a.kind, a.target]);
+    expect(verbs(["vale"])).toEqual([["guard", null]]);
+    expect(verbs(["vale", "moth"])).toEqual([["intercept", "moth"]]);
+    expect(verbs(["keeper"])).toEqual([["attack", "keeper"]]);
+    expect(verbs(["station"])).toEqual([]);
+    expect(cardPlay(s, ["station"]).action.kind).toBe("wait");
+    expect(cardPlay(s, ["moth"]).action.kind).toBe("attack");
+    // No Talk, no second threat, no leaving and no item plays, for anyone.
+    for (const id of ["vale", "moth", "keeper"])
+      for (const kind of ["talk", "threaten", "move", "take", "trade"])
+        expect(legalActions(s, id).map((a) => a.kind)).not.toContain(kind);
     expect(cardPlay(s, ["lamp"]).action).toBeFalsy();
-    expect(legalActions(s).some((a) => a.kind === "move")).toBe(false);
-    expect(s.log.some((e) => e.verb === "attack")).toBe(false);
   });
-  it("keeps a threat open until both sides stand down", () => {
+  it("redirects a Strike to a Guard, whose own brace applies", () => {
     let s = meeting();
-    // The keeper, a tier above (Uncommon), answers with words: one side
-    // stands down.
     s.actors.keeper.place = "station";
     s.turn = s.revision = 3;
-    s.actors.keeper.carried = s.actors.keeper.xp = 45;
-    s = act(s, "threaten", "keeper");
-    expect(s.log.some((e) => e.verb === "talk" && e.actorId === "keeper")).toBe(
-      true,
+    s = act(s, "threaten", "moth");
+    const c = standoffFor(s, "vale");
+    // The keeper guards Pip, braced; Pip's own brace stays untouched.
+    Object.assign(c.covering, { keeper: "moth" });
+    c.guarding.keeper = c.guarding.moth = true;
+    const roll = strikeDamage(
+      { ...s, revision: s.revision + 1 },
+      "vale",
+      "keeper",
     );
-    // One side's Talk alone leaves the threat and the room lock in force.
+    s = act(s, "attack", "moth");
+    const hit = s.log.find((e) => e.verb === "attack" && e.actorId === "vale");
+    expect(hit).toMatchObject({
+      targetId: "keeper",
+      coveredId: "moth",
+      guarded: true,
+      damage: Math.max(1, roll - 1),
+      resolveBefore: 4,
+    });
+    expect(hit.text).toContain("The keeper steps in front of Pip.");
+    expect(standoffFor(s, "vale").resolve.moth).toBe(4);
+    // The keeper strikes back at Vale, which ends its Guard.
+    expect(s.log.findLast((e) => e.actorId === "keeper")).toMatchObject({
+      verb: "attack",
+      targetId: "vale",
+    });
+    expect(standoffFor(s, "vale").covering).toEqual({});
+  });
+  it("ends after a full round without a Strike, and a Strike starts it again", () => {
+    let s = meeting();
+    s.actors.keeper.place = "station";
+    s = act(s, "threaten", "moth");
+    // Pip and the keeper wait; nobody struck, but Vale has not played yet.
     expect(standoffFor(s, "vale").steppedBack).toEqual({
       vale: false,
+      moth: true,
       keeper: true,
     });
-    expect(legalActions(s).some((a) => a.kind === "move")).toBe(false);
-    // A Brace never counts as standing down.
-    s = act(s, "guard", "keeper");
-    expect(standoffFor(s, "vale")).toBeTruthy();
-    expect(legalActions(s).some((a) => a.kind === "move")).toBe(false);
-    // Once Vale stands down too, it ends.
-    s = act(s, "talk", "keeper");
-    expect(standoffFor(s, "vale")).toBeUndefined();
-    expect(s.log.map((e) => e.text)).toContain(
-      "Vale and The keeper both stand down. The standoff ends.",
-    );
-    expect(s.log.filter((e) => e.verb === "attack")).toHaveLength(0);
-    expect(legalActions(s).some((a) => a.kind === "move")).toBe(true);
-  });
-  it("never counts a Strike or Brace towards ending a standoff", () => {
-    const open = () => act(meeting(), "threaten", "moth");
-    // Pip braces in answer; Vale's Brace against it is no stand-down.
-    expect(standoffFor(open(), "vale").guarding.moth).toBe(true);
-    let s = act(open(), "guard", "moth");
-    expect(s.standoffs).toHaveLength(1);
-    expect(s.log.some((e) => e.text.includes("stand down"))).toBe(false);
-    s = act(open(), "attack", "moth");
-    expect(s.standoffs).toHaveLength(1);
-    // A fighter who stood down and then strikes is back in the fight.
-    s = meeting();
-    s.actors.keeper.place = "station";
-    s.turn = s.revision = 3;
-    s.actors.keeper.carried = s.actors.keeper.xp = 45;
-    s = act(s, "threaten", "keeper");
-    expect(standoffFor(s, "vale").steppedBack.keeper).toBe(true);
-    s = act(s, "attack", "keeper");
-    // The keeper strikes back, so neither side has stood down.
-    expect(standoffFor(s, "vale").steppedBack).toEqual({
-      vale: false,
-      keeper: false,
-    });
-  });
-  it("ends a standoff once both sides make any play but Strike or Brace", () => {
-    // Pip braced in answer; Vale waits, and Pip, with nothing to fight
-    // over, waits too.
-    const s = act(act(meeting(), "threaten", "moth"), "wait");
+    const struck = act(s, "attack", "keeper");
+    expect(struck.standoffs).toHaveLength(1);
+    // Brace, like Guard and Wait, does not keep it going.
+    s = act(s, "guard");
     expect(s.standoffs).toEqual([]);
     expect(s.log.map((e) => e.text)).toContain(
-      "Pip and Vale both stand down. The standoff ends.",
+      "Nobody strikes for a whole round. The battle ends.",
     );
+    expect(s.peaceUntil.keeper).toBe(s.turn + 3);
+    expect(legalActions(s).some((a) => a.kind === "move")).toBe(true);
+  });
+  it("draws arrivals in, and they must play before the round completes", () => {
+    const start = meeting();
+    start.items.bell.holder = "station";
+    // The keeper comes from the pond for the bell while the battle opens.
+    delete start.actors.keeper.metTurn;
+    start.actors.keeper.want = newWant("item", "bell", 0);
+    let s = act(start, "threaten", "moth");
+    expect(standoffFor(s, "keeper").steppedBack.keeper).toBe(false);
+    // Vale's Brace does not complete the round: the keeper must play first.
+    s = act(s, "guard");
+    expect(s.standoffs).toEqual([]);
+    expect(s.log.find((e) => e.text.startsWith("Nobody strikes")).actorId).toBe(
+      "keeper",
+    );
+  });
+  // A three-way battle at the station, nothing in dispute.
+  const melee = (patch = {}) => {
+    const s = meeting();
+    s.actors.keeper.place = "station";
+    s.turn = s.revision = 3;
+    const all = (v) => ({ vale: v, moth: v, keeper: v });
+    s.standoffs = [
+      {
+        ...{ challenger: "vale", defender: "moth", location: "station" },
+        ...{ item: null, opened: 1, answered: true, resolve: all(4) },
+        ...{
+          guarding: all(false),
+          struck: all(false),
+          steppedBack: all(false),
+        },
+        ...{ covering: {}, hitBy: {}, ...patch },
+      },
+    ];
+    validateWorld(s);
+    return s;
+  };
+  it("plans resident plays from the plays, not sides", () => {
+    const kind = (s) => {
+      const { action } = plan(s, "keeper");
+      return [action.kind, action.target];
+    };
+    expect(kind(melee())).toEqual(["wait", null]);
+    expect(kind(melee({ hitBy: { keeper: "vale" } }))).toEqual([
+      "attack",
+      "vale",
+    ]);
+    const low = melee({ hitBy: { keeper: "moth" } });
+    low.standoffs[0].resolve.keeper = 1;
+    expect(kind(low)).toEqual(["guard", null]);
+    // It guards a friend who is being struck.
+    const friend = melee({ hitBy: { moth: "vale" } });
+    friend.actors.keeper.trust.moth = 1;
+    expect(kind(friend)).toEqual(["intercept", "moth"]);
+  });
+  it("lets a defeated combatant retreat while the others fight on", () => {
+    let s = melee();
+    s.standoffs[0].resolve.moth = 1;
+    s = act(s, "attack", "moth");
+    expect(s.actors.moth.place).toBe("pond");
+    expect(s.peaceUntil.moth).toBe(s.turn + 3);
+    const c = standoffFor(s, "vale");
+    expect(fightersOf(c)).toEqual(["vale", "keeper"]);
+    expect(c.steppedBack.vale).toBe(false);
+    validateWorld(s);
   });
   it("ends a standoff when the demanded item is handed over", () => {
     const s = meeting();
@@ -158,29 +218,26 @@ describe("card standoffs", () => {
     expect(after.items.lamp.holder).not.toBe("vale");
     expect(after.standoffs).toEqual([]);
   });
-  it("applies guarded damage, retaliation, item release and retreat", () => {
+  it("answers each strike in kind until one side retreats", () => {
     let s = act(meeting(), "threaten", "moth");
-    s = act(s, "attack", "moth");
-    expect(standoffFor(s, "vale").resolve).toEqual({ vale: 2, moth: 3 });
-    // Guard reduces Pip's two damage to one and lasts for one reply.
-    s = act(s, "guard", "moth");
-    expect(standoffFor(s, "vale").resolve.vale).toBe(1);
-    expect(exits(s, "station", "vale")).toEqual(["pond"]);
-    s = act(s, "attack", "moth");
-    expect(standoffFor(s, "vale")).toBeUndefined();
-    expect(s.actors.vale.place).toBe("pond");
-    expect(narrativeContext(s).outcome).toMatchObject({
-      card: { kind: "attack", target: "moth" },
-      avatars: expect.arrayContaining([
-        expect.objectContaining({
-          id: "vale",
-          location: "pond",
-          travel: { from: "station", to: "pond", companions: [] },
-        }),
-      ]),
-    });
-    expect(levelOf(s, "vale")).toBe(1);
+    for (let i = 0; i < 8 && s.standoffs.length; i++) {
+      const seq = s.eventSeq;
+      s = act(s, "attack", "moth");
+      const fresh = s.log.filter((e) => e.seq > seq);
+      expect(fresh[0]).toMatchObject({ actorId: "vale", targetId: "moth" });
+      // Pip strikes whoever struck it, or braces once its resolve is low.
+      if (s.standoffs.length)
+        expect(
+          fresh.filter(
+            (e) => e.actorId === "moth" && ["attack", "guard"].includes(e.verb),
+          ),
+        ).toHaveLength(1);
+    }
+    expect(s.standoffs).toEqual([]);
+    const retreat = s.log.findLast((e) => e.verb === "retreat");
+    expect(s.actors[retreat.actorId].place).toBe("pond");
     expect(s.peaceUntil.vale).toBe(s.turn + 3);
+    expect(s.peaceUntil.moth).toBe(s.turn + 3);
   });
   it("allows a threat but never an attack in a sanctuary", () => {
     const s = meeting();
@@ -256,21 +313,20 @@ describe("card standoffs", () => {
     s = act(s, "wait");
     expect(s.standoffs).toEqual([]);
     expect(s.items.oil.holder).toBe("keeper");
-    // Pip has no use for the flask, so neither side strikes and both stand
-    // down within the round.
+    // Pip has no use for the flask before any blow, so it lets it go.
     expect(s.log.map((e) => e.text)).toContain(
-      "The keeper and Pip both stand down. The standoff ends.",
+      "Pip lets the Oil flask go. The battle ends.",
     );
   });
-  it("reopens travel once a Talk ends the standoff and keeps items with their owner", () => {
+  it("reopens travel once the battle ends and keeps items with their owner", () => {
     let s = act(meeting(), "threaten", "moth");
     expect(legalActions(s).some((a) => a.kind === "move")).toBe(false);
-    s = act(s, "talk", "moth");
+    s = act(s, "wait");
     expect(s.standoffs).toEqual([]);
     s = act(s, "move", "pond");
     expect(s.items.lamp.holder).toBe("moth");
   });
-  it("locks a bystander in the room until the fighters finish", () => {
+  it("has no bystanders: anyone present joins at the next play", () => {
     let s = meeting();
     s.actors.keeper.place = "station";
     s.items.lamp.holder = "keeper";
@@ -288,10 +344,11 @@ describe("card standoffs", () => {
         steppedBack: { moth: false, keeper: false },
       },
     ];
-    const kinds = legalActions(s).map((a) => a.kind);
-    expect(kinds).toContain("talk");
-    for (const kind of ["move", "take", "give", "trade", "ask", "attack"])
-      expect(kinds).not.toContain(kind);
+    expect(legalActions(s).map((a) => a.kind)).toEqual(["wait"]);
+    // Vale joins as it plays; its Wait completes the round with theirs.
+    s = act(s, "wait");
+    expect(s.standoffs).toEqual([]);
+    expect(s.peaceUntil.vale).toBe(s.turn + 3);
   });
   it("preserves a standoff through saves, rejects stale plays and validates combat fields", () => {
     const s = act(meeting(), "threaten", "moth");
@@ -299,7 +356,7 @@ describe("card standoffs", () => {
     expect(act(restored, "attack", "moth")).toEqual(act(s, "attack", "moth"));
     const attack = legalActions(s).find((a) => a.kind === "attack");
     expect(play(s, attack, s.revision - 1).ok).toBe(false);
-    const departed = act(s, "talk", "moth");
+    const departed = act(s, "wait");
     expect(play(departed, attack).ok).toBe(false);
     for (const patch of [
       { resolve: { vale: 99, moth: 4 } },
@@ -383,7 +440,9 @@ describe("card standoffs", () => {
         s.memories[id].events.some((e) => e.text.includes("threatens")),
       ).toBe(true);
     const moth = context.entities.find((e) => e.id === "moth");
-    expect(moth.facts.join(" ")).toContain("braced");
+    expect(moth.facts.join(" ")).toContain(
+      "In a battle with Vale, The keeper over Lamp",
+    );
     expect(
       context.entities.every(
         (e) => e.facts.length <= 16 && e.facts.every((f) => f.length <= 240),
@@ -585,10 +644,11 @@ describe("repeated defeats", () => {
   });
   it("reports hits and guarded hits before anyone yields", () => {
     let s = act(meeting(), "threaten", "moth");
+    standoffFor(s, "vale").guarding.moth = true; // as if Pip had braced
     s = act(s, "attack", "moth");
-    expect(
-      s.log.findLast((e) => e.actorId === "vale" && e.verb === "attack"),
-    ).toMatchObject({
+    const [hit, back] = s.log.filter((e) => e.verb === "attack");
+    expect(hit).toMatchObject({
+      actorId: "vale",
       damage: 1,
       guarded: true,
       resolveBefore: 4,
@@ -596,16 +656,9 @@ describe("repeated defeats", () => {
       outcome: "guarded",
       lossCount: 0,
     });
-    expect(
-      s.log.findLast((e) => e.actorId === "moth" && e.verb === "attack"),
-    ).toMatchObject({
-      damage: 2,
-      guarded: false,
-      resolveBefore: 4,
-      resolveAfter: 2,
-      outcome: "hit",
-      lossCount: 0,
-    });
+    expect(back).toMatchObject({ actorId: "moth", guarded: false });
+    expect(back.resolveBefore - back.resolveAfter).toBe(back.damage);
+    expect(back.outcome).toBe("hit");
   });
   it("clears the count while the avatar rests at home", () => {
     let s = meeting();

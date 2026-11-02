@@ -79,7 +79,7 @@ export function telegraphText(beat) {
     return beat.itemId
       ? `${who} eyes ${theName(beat.itemId)}`
       : `${who} squares up to ${other}`;
-  if (beat.kind === "guard") return `${who} braces against ${other}`;
+  if (beat.kind === "guard") return `${who} braces`;
   return `${who} strikes ${other}`;
 }
 
@@ -101,7 +101,8 @@ export function combatBeats(before, after, { viewer, place, sinceSeq } = {}) {
     if (at !== here && entry.fromLocationId !== here) continue;
     const actorId = entry.actorId,
       targetId = entry.targetId;
-    if (!actorId || !targetId) continue;
+    // A Brace names no target.
+    if (!actorId || (!targetId && entry.verb !== "guard")) continue;
     const key = pairKey(actorId, targetId);
     const base = {
       seq: entry.seq,
@@ -165,12 +166,9 @@ function defeatBeat(before, after, attack, fresh, { viewer, here }) {
   const loserId = attack.targetId;
   const move = fresh.find(
     (entry) =>
-      entry.seq > attack.seq &&
-      entry.actorId === loserId &&
-      defeatMove(entry),
+      entry.seq > attack.seq && entry.actorId === loserId && defeatMove(entry),
   );
-  const sentHome =
-    attack.outcome === "sent-home" || move?.verb === "sent-home";
+  const sentHome = attack.outcome === "sent-home" || move?.verb === "sent-home";
   const locationId =
     move?.locationId || after?.actors?.[loserId]?.place || here;
   const droppedItemIds = Array.isArray(move?.droppedItemIds)
