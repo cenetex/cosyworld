@@ -129,8 +129,7 @@ try {
                 getComputedStyle(document.querySelector(".card-frame")).width,
               ),
               // Both sides of the hand share one inline padding.
-              handPadding:
-                2 * parseFloat(getComputedStyle(hand).paddingLeft),
+              handPadding: 2 * parseFloat(getComputedStyle(hand).paddingLeft),
             };
           });
         const resting = await layout();
@@ -161,7 +160,31 @@ try {
           return Math.abs(measured - height) < 1;
         });
         const open = await layout();
-        assert(open.dialogue.bottom <= open.hand.y + 1);
+        // Wide screens set speech above the open hand; phones lay it over
+        // the hand's foot, below the raised cards' tops.
+        if (width === 1512) assert(open.dialogue.bottom <= open.hand.y + 1);
+        else assert(open.dialogue.y > open.hand.y + 100);
+        // The queue sits inside the dialogue's box.
+        const chips = await page.evaluate(() => {
+          const box = document
+            .querySelector("#speech-row")
+            .getBoundingClientRect();
+          return [...document.querySelectorAll(".shared-play-avatar")].map(
+            (chip) => {
+              const rect = chip.getBoundingClientRect();
+              return (
+                rect.left >= box.left &&
+                rect.right <= box.right &&
+                rect.top >= box.top &&
+                rect.bottom <= box.bottom
+              );
+            },
+          );
+        });
+        assert(
+          chips.length > 0 && chips.every(Boolean),
+          `queue chips ${chips}`,
+        );
         await play.click();
         assert.equal(await play.innerText(), "Waiting…");
         assert.equal(await play.isDisabled(), false);
