@@ -27,7 +27,6 @@ p {
   line-height: 1.65;
   margin: 0;
 }
-a,
-[data-operator] {
+a {
   color: #e8cf97;
 }

@@ -86,11 +86,16 @@ try {
     for (const heading of [
       "Passkeys and your account",
       "AI providers",
+      "Where data is processed",
       "Play on your own computer",
       "Deleting your data",
       "Contact",
     ])
       await page.getByRole("heading", { name: heading }).waitFor();
+    assert.doesNotMatch(
+      await page.locator("main").innerText(),
+      /owner to fill/u,
+    );
     assert.ok(
       (await page.evaluate(() => document.documentElement.scrollWidth)) <=
         width,

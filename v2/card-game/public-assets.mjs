@@ -186,7 +186,6 @@ const files = [
   "privacy.html",
   "privacy.css",
   "privacy.mjs",
-  "privacy-page.mjs",
   "style.css",
   "entry.mjs",
   "title-intro.mjs",

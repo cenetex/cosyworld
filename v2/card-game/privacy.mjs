@@ -1,14 +1,6 @@
 // What a passkey keeps (#2052): the full notice before a passkey is made,
 // one line at sign-in, both linking the Privacy page (privacy.html).
 
-// Who runs the site; an empty value keeps the page's marked placeholder.
-export const OPERATOR = {
-  name: "Cenetex Inc.",
-  builder: "RATi Open Software Foundation",
-  jurisdiction: "", // TODO(owner): the governing country or state
-  contact: "", // TODO(owner): the address for privacy and deletion requests
-};
-
 // TODO(#2052 PR b): when gameplay counts ship, add "We count plays without
 // knowing who you are; turn that off in Settings." here and update the
 // counts section of privacy.html in the same PR.
