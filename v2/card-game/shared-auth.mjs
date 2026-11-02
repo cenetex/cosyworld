@@ -21,9 +21,9 @@ export async function request(path, body, headers = {}) {
   });
   const result = await response.json();
   if (!response.ok || result.error)
+    // No cause: a cause marks a play whose fate is uncertain (app.mjs).
     throw new Error(
       playerText(result.error) || "The world is taking a moment. Try again.",
-      { cause: result.error },
     );
   return result;
 }
