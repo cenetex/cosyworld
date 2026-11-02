@@ -1540,7 +1540,9 @@
         return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
       // Any thing tagged c.tag, carried by someone present at c.place.
       case "tag_held":
-        return Object.keys(s.items).some((id) => {
+        return Object.keys(s.actors).some(
+          (id) => s.actors[id].upgrades?.includes(c.tag) && s.actors[id].place === c.place && (!controlledByHuman(s, id) || humanPresent(s, id))
+        ) || Object.keys(s.items).some((id) => {
           const holder2 = s.items[id].holder;
           return Boolean(packThings[id]?.tags?.includes(c.tag)) && entityActive(s, id) && s.actors[holder2]?.place === c.place && (!controlledByHuman(s, holder2) || humanPresent(s, holder2));
         });

@@ -18,7 +18,9 @@ data, so the next upgrade needs no rules change:
   `forest-scarf-<id>-worn` and retires the scarf; the scarf's `requires`
   then keep it out of play. Someone else's scarf upgrades nobody, so it joins
   wants and trades like the button. A scarf held from before rules 81 is tied
-  on after its owner's next play, which fills the old gap.
+  on after its owner's next play, which fills the old gap. A worn `scarf`
+  upgrade satisfies `tag_held: scarf`, so tying it on keeps the lit attic
+  stairs open.
 - `{"kind":"upgraded","upgrade":"scarf","role":"actor"}` holds while the
   acting traveler has it. RATi's `forest-hide-button-*` meetings require
   `not` upgraded: no button quest and no second scarf.

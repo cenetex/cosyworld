@@ -54,10 +54,12 @@ carrier. Hub and pack items can use this crossing condition. An item on the
 floor and an item held by someone in that room satisfy the same condition.
 
 `{ "kind": "tag_held", "tag": "scarf", "place": "attic" }` holds while someone
-in the place carries an active pack thing whose `tags` list names that tag. A
-human must be present. Things on the floor do not count. A pack item may list
+in the place carries an active pack thing whose `tags` list names that tag,
+or has an upgrade of that name. A human must be present. Things on the floor
+do not count. A pack item may list
 up to four `tags`. Lonely Forest tags its eight sewn scarves `scarf`, so any
-traveler's scarf opens the lit attic stairs, as the Black cloth does.
+traveler's scarf opens the lit attic stairs, as the Black cloth does, and a
+traveler who wears their scarf (the `scarf` upgrade) still opens them.
 
 `{ "kind": "pack_item_present", "pack": "hoppycat-archive", "place": "greek-ship" }`
 holds while any thing from that pack is in the place: resting there, or
@@ -209,7 +211,8 @@ and requires `{"kind":"holding","item":<subject>,"role":"actor"}`. It
 commits after any play once the item's holder is the traveler it is for,
 wherever they stand and however the item came to them: a take, a gift, a
 trade, or an item held from before the choice existed. It waits a play when
-a choice receipt already holds that turn. Its text is logged as narration.
+a choice receipt already holds that turn. Its text is logged as narration
+and, since it can happen anywhere, it is not a scene fact of its `at` place.
 RATi's `forest-wear-scarf-*` choices use it to upgrade a scarf's owner and
 retire the scarf.
 A choice with `"on": "talk"` is the effect of a human traveler's Talk with its

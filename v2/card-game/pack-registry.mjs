@@ -691,7 +691,7 @@ export function packFacts(world, id) {
       (c) =>
         owns(state.receipts, c.id) &&
         (c.subject === id ||
-          c.at === id ||
+          (c.at === id && c.on !== "hold") ||
           c.effects.some((effect) => effect.item === id)),
     )
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])
@@ -734,7 +734,8 @@ export function packSceneFacts(world, location) {
     ),
   );
   const local = committed
-    .filter((c) => c.at === location && !canon.includes(c))
+    // A hold choice happens wherever its holder stands, not at its `at`.
+    .filter((c) => c.at === location && c.on !== "hold" && !canon.includes(c))
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])
     .slice(-2);
   return [

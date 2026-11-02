@@ -6,6 +6,7 @@ import {
   createWorld as baseCreateWorld,
   decodeSave,
   encodeSave,
+  exits,
   legalActions,
   play,
   places,
@@ -17,6 +18,8 @@ import { enableMotives } from "../v2/card-game/motives.mjs";
 import {
   entityActive,
   packDefinition,
+  packFacts,
+  packSceneFacts,
 } from "../v2/card-game/pack-registry.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -406,6 +409,48 @@ describe("cosmetic upgrades travel with the traveler (#1873)", () => {
     expect(avatarImage(world, "mara")).toBe(
       "assets/shared/characters/mara-scarf.png",
     );
+  });
+
+  it("keeps the lit attic stairs open for a traveler wearing their scarf", () => {
+    let world = act(sewn(), "take", { item: SCARF });
+    expect(entityActive(world, SCARF)).toBe(false);
+    // Back in the lit attic without the cloth, the scarf she wears opens them.
+    world.actors.vale.place = "attic";
+    world.items.cloth.holder = "pond";
+    world.items.lamp.holder = "attic";
+    world.items.lamp.lit = true;
+    expect(exits(world, "attic", "vale")).toEqual([COTTAGE]);
+    // A traveler who arrives wearing it climbs down from a fresh attic.
+    const worn = attic();
+    worn.items.cloth.holder = "pond";
+    worn.actors.vale.upgrades = ["scarf"];
+    world = act(worn, "move", { target: COTTAGE });
+    expect(world.actors.vale.place).toBe(COTTAGE);
+    // Someone else carrying a scarf still opens them for a traveler without one.
+    const other = sewn();
+    other.actors.vale.place = "attic";
+    other.actors.moth.place = "attic";
+    other.items[SCARF].holder = "moth";
+    other.items.cloth.holder = "pond";
+    other.items.lamp.holder = "attic";
+    other.items.lamp.lit = true;
+    expect(other.actors.vale.upgrades).toBeUndefined();
+    expect(exits(other, "attic", "vale")).toEqual([COTTAGE]);
+    // Without either, the lit attic offers nothing.
+    other.items[SCARF].holder = "pond";
+    expect(exits(other, "attic", "vale")).toEqual([]);
+  });
+
+  it("does not place a tying-on done elsewhere among the cottage's facts", () => {
+    let world = sewn();
+    world.items[SCARF].holder = "forest-garden";
+    world.actors.vale.place = "forest-garden";
+    world = act(world, "take", { item: SCARF });
+    expect(world.actors.vale.upgrades).toEqual(["scarf"]);
+    const tied = "ties on the white scarf";
+    expect(packSceneFacts(world, COTTAGE).join(" ")).not.toContain(tied);
+    expect(packFacts(world, COTTAGE).join(" ")).not.toContain(tied);
+    expect(world.log.some((e) => e.text.includes(tied))).toBe(true);
   });
 
   it("upgrades the owner who trades for their scarf", () => {

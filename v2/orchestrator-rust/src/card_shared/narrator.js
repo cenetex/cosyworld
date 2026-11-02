@@ -1943,7 +1943,9 @@
         return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
       // Any thing tagged c.tag, carried by someone present at c.place.
       case "tag_held":
-        return Object.keys(s.items).some((id) => {
+        return Object.keys(s.actors).some(
+          (id) => s.actors[id].upgrades?.includes(c.tag) && s.actors[id].place === c.place && (!controlledByHuman(s, id) || humanPresent(s, id))
+        ) || Object.keys(s.items).some((id) => {
           const holder = s.items[id].holder;
           return Boolean(packThings[id]?.tags?.includes(c.tag)) && entityActive(s, id) && s.actors[holder]?.place === c.place && (!controlledByHuman(s, holder) || humanPresent(s, holder));
         });
@@ -15198,7 +15200,7 @@
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
     if (!state) return [];
     return (pack.choices || []).filter(
-      (c) => owns3(state.receipts, c.id) && (c.subject === id || c.at === id || c.effects.some((effect) => effect.item === id))
+      (c) => owns3(state.receipts, c.id) && (c.subject === id || c.at === id && c.on !== "hold" || c.effects.some((effect) => effect.item === id))
     ).sort((a, b) => state.receipts[a.id] - state.receipts[b.id]).slice(-3).map((c) => committedChoiceText(world, pack, c).slice(0, 240));
   }
   function packNarration(world, id) {
@@ -15227,7 +15229,7 @@
         (effect) => effect.kind === "choose" && historyKeys.has(effect.key)
       )
     );
-    const local = committed.filter((c) => c.at === location && !canon.includes(c)).sort((a, b) => state.receipts[a.id] - state.receipts[b.id]).slice(-2);
+    const local = committed.filter((c) => c.at === location && c.on !== "hold" && !canon.includes(c)).sort((a, b) => state.receipts[a.id] - state.receipts[b.id]).slice(-2);
     return [
       ...canon.map(
         (c) => `Established account: ${committedChoiceText(world, pack, c)}`
