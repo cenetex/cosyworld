@@ -119,18 +119,21 @@ the keyboard. Where the row is too narrow the buttons wrap into a strip
 along the foot under the same divider; the fixed box over the hand on a
 phone keeps them on the right and wraps their words instead. ☰ borrows the
 same beat for a chosen avatar ([avatar menu](avatar-menu.md)). The spoken beat settles behind it as one dimmed line: the card behind. With
-a card chosen the player still steps through the stack: tap that line, use
-↑ and ↓ (from the hand too), the wheel or a swipe anywhere on the stack, and
-"● live" returns. The line crossfades as it steps.
+a card chosen the player still steps through the stack: use ↑ and ↓ (from
+the hand too), the wheel or a swipe anywhere on the stack, and "● live"
+returns. A tap on that line moves the lines on; it never steps back. The
+line crossfades as it steps. Nothing steps back in time without the
+player's input.
 
 When a play commits, its box folds into the stream: it eases down onto the
 front card, the beat the play became (its caption line, or the Thinking card
 when a reply is coming), and fades as that card arrives, in the stack's
 300 ms. The earlier beat recedes behind. Reduced motion crossfades. The
 folded line is a beat read from the committed event, so Memory shows it too.
-A cancelled play's box just leaves and the spoken beat returns. After a
-play the beat rests until the player chooses a card or taps the raised
-hand. Choosing a quest in the open fan takes no
+A cancelled play's box just leaves and the spoken beat returns. Once a
+play commits (a local play, or a shared play the room is playing) the beat
+leaves and its reply types into the full-size front card. After a play the
+beat rests until the player chooses a card or taps the raised hand. Choosing a quest in the open fan takes no
 turn, so it does not rest the beat: the chosen top quest still offers Drop
 quest. A shared play the server refused or did not
 confirm brings the beat back with its button, so the player can try again.

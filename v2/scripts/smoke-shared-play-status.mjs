@@ -1,12 +1,13 @@
-// The player's own shared play shows on its button while sent and playing,
-// and a refusal names its reason on the action bar's status line.
+// The player's own shared play shows on its button while sent. Once it
+// commits the action beat leaves and the reply types into the full-size
+// front card. A refusal names its reason on the action bar's status line.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
-import { createWorld, encodeSave } from "../card-game/world.mjs";
+import { addLog, createWorld, encodeSave } from "../card-game/world.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
 const server = createServer();
@@ -122,6 +123,15 @@ async function check(width) {
     );
   // A sent play leaves the hand; selecting Vale again shows its pill.
   const chooseWait = async () => {
+    // A committed play rests the beat with Vale still chosen: tapping him
+    // again lets go, and the next tap chooses him.
+    if (
+      !(await wait.isVisible()) &&
+      (await page
+        .locator('#hand [data-card="vale"]')
+        .getAttribute("aria-pressed")) === "true"
+    )
+      await selectCard(page, "vale", { touch: width === 390 });
     if (!(await wait.isVisible()))
       await selectCard(page, "vale", { touch: width === 390 });
     await wait.waitFor();
@@ -152,10 +162,71 @@ async function check(width) {
     await page.screenshot({
       path: resolve(output, `sent-${width}.png`),
     });
+    // Committed: the beat leaves while the reply is written.
     queue[0].status = "working";
-    await sent("playing");
+    await page.waitForFunction(
+      () => document.querySelector(".action-panel").hidden,
+    );
     assert.equal((await status()).text, "");
+    // The reply types into the full-size front card while the scene plays,
+    // and nothing steps back in time without input.
+    const key = queue[0].id;
     commit();
+    const reply =
+      "The lamp hums while I wait here with you, as long as it takes.";
+    addLog(world, "Vale", reply, {
+      generated: true,
+      kind: "dialogue",
+      actorId: "vale",
+      entityId: "vale",
+      locationId: "station",
+    });
+    const startsAt = Date.now();
+    history = [
+      {
+        play: key,
+        room: "station",
+        actor: "vale",
+        turn: world.turn,
+        starts_at: startsAt,
+        until_at: startsAt + 30000,
+        lines: [world.log.at(-1)],
+      },
+    ];
+    queue = [{ id: key, actor: "vale", status: "playing" }];
+    await page.waitForFunction(
+      (reply) =>
+        document.querySelector("#dialogue-text")?.textContent.includes(reply),
+      reply,
+    );
+    const front = () =>
+      page.evaluate(() => ({
+        panel: document.querySelector(".action-panel").hidden,
+        action: document.querySelector(".beat-stack").dataset.action,
+        position: getComputedStyle(document.querySelector("#speech-row"))
+          .position,
+        opacity: getComputedStyle(document.querySelector("#speech-row"))
+          .opacity,
+        live: document.querySelector("#live-line").hidden,
+      }));
+    const shown = await front();
+    assert.notEqual(shown.position, "absolute", "not squashed into a strip");
+    assert.deepEqual(
+      { ...shown, position: undefined },
+      {
+        panel: true,
+        action: "false",
+        position: undefined,
+        opacity: "1",
+        live: true,
+      },
+    );
+    await page.screenshot({ path: resolve(output, `playing-${width}.png`) });
+    await page.waitForTimeout(1500);
+    assert.equal((await front()).live, true, "no step back without input");
+    // The scene has been read; the next play need not wait for it.
+    queue = [];
+    history = [{ play: key, room: "station", lines: [] }];
     await page.waitForFunction(
       () => !document.querySelector("#card-actions [data-sent]"),
     );
@@ -164,8 +235,12 @@ async function check(width) {
 
     // A refused play names its reason and stays until the next play.
     await chooseWait();
+    const sentBefore = keys.length;
     await wait.click();
     await cancel.waitFor();
+    // The play waits for the read scene to settle before it is sent.
+    while (keys.length === sentBefore || !queue.length)
+      await page.waitForTimeout(50);
     queue = [];
     notice = refusal;
     await waitFor(`Not played: Wait. ${refusal}`);

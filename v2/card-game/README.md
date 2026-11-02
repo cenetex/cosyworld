@@ -367,7 +367,9 @@ what the avatar is doing on its own button, as a rules caption from its kind:
 card clears the waiting play. Shared play waits for the player's current turn
 to finish, then checks the chosen action against the current table before
 sending it. There a second tap keeps the play; **Cancel play** withdraws it.
-The button keeps that caption while the shared play is sent and played.
+The button keeps that caption while the shared play is sent; once the room
+plays it, the action beat leaves and the reply types into the full-size front
+card.
 Nothing floats over the stage. Words the player must see, such as **Not played**
 with the server's reason, an unsaved world, a lost connection or a nudge, read
 on the action beat's status line in front of the dialogue. A refusal stays until the next
