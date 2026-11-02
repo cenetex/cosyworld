@@ -1054,9 +1054,38 @@ body .card:focus-visible {
     transition: none;
   }
 }
-/* Lift the full stack while the face keeps its shadow on the same layer. */
-#hand:not([aria-busy="true"]) .card-frame:has(> .card:hover) {
-  translate: 0 -2px;
+/* A pointer over a card shuffles it up out of the fan: it lifts while the
+   rest of the fan parts around it, and all settle back on leave. The full
+   stack moves; the face keeps its shadow on the same layer. Only translate
+   moves, so the hand's layout and scroll stay put and the hovered card keeps
+   its edges under the pointer. Touch has no hover; reduced motion only
+   brightens the card. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  body .hand > .card-frame {
+    transition:
+      transform 0.22s ease-out,
+      filter 0.22s ease-out,
+      translate 180ms ease-out;
+  }
+  /* A chosen card is already up. */
+  #hand:not([aria-busy="true"])
+    > .card-frame:has(> .card:hover:not([data-selected="true"])) {
+    translate: 0 -8px;
+  }
+  /* The fan parts around it: cards after it slide right, cards before it
+     slide left. */
+  #hand:not([aria-busy="true"]) > .card-frame:has(> .card:hover) ~ .card-frame {
+    translate: 12px 0;
+  }
+  #hand:not([aria-busy="true"])
+    > .card-frame:has(~ .card-frame > .card:hover) {
+    translate: -12px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #hand:not([aria-busy="true"]) .card:hover {
+    filter: brightness(1.12);
+  }
 }
 body .card {
   position: relative;
