@@ -176,10 +176,11 @@ try {
         await card("greek-ship").locator(".name").innerText(),
         "Greek ship",
       );
-      assert(
-        new URL(
-          await card("greek-ship").locator(".art img").getAttribute("src"),
-        ).pathname.endsWith("ship-card.webp"),
+      // From the pond the ship's card shows where it goes: the deck, not
+      // the Black Pond painting of it (the stage keeps the docked ship).
+      assert.match(
+        await card("greek-ship").locator(".art img").getAttribute("src"),
+        /ship-deck/,
       );
       await shot("pond-ship");
       await use("greek-ship");
@@ -233,10 +234,11 @@ try {
           await card("greek-ship").count(),
           dock === "greek-harbor" ? 1 : 0,
         );
+        // The stage shows the ship at its berth; its card shows the deck.
         if (dock === "greek-harbor")
           assert.match(
             await card("greek-ship").locator(".art img").getAttribute("src"),
-            /harbor-ship-at-berth/,
+            /ship-deck/,
           );
         await shot(file.replace(".webp", ""));
       }

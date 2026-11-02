@@ -279,7 +279,7 @@ describe("the Theban release and its ship", () => {
     expect(locationOverlay(s, "pond")).toMatch(/pond-ship-overlay\.png$/);
     expect(travelCard(s, "greek-ship")).toMatchObject({
       name: "Greek ship",
-      art: "./assets/greek-drama/ship-card.webp",
+      art: expect.stringMatching(/\/ship-deck[^/]*\.webp$/),
     });
     s = act(s, "move", { target: "greek-ship" });
     s = act(s, "move", { target: "greek-harbor" });

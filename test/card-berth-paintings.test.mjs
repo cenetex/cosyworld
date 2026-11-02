@@ -48,8 +48,10 @@ function checkShore(world, berth, night, docked) {
     ? `greek-drama/${berth.painting}${berth.daylight && night ? "-night" : ""}`
     : `${berth.empty}${berth.daylight ? (night ? "-night" : "-day") : ""}`;
   expect(backdrop(berth.place, shore)).toBe(`./assets/${file}.webp`);
+  // The stage shows the ship at its berth; the ship's card shows where it
+  // goes, the deck lit for the hour.
   expect(travelCard(shore, ship)).toEqual(docked ? {
-    name: "Greek ship", art: `./assets/${file}.webp`, focus: { x: berth.focus, y: 50 },
+    name: "Greek ship", art: `./assets/greek-drama/ship-deck${night ? "-night" : ""}.webp`,
   } : null);
   expect(stageOf(shore, berth.place).focus).toEqual({ x: berth.focus, y: 50 });
 }

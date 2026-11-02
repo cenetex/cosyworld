@@ -159,18 +159,11 @@ export function travelCard(world, id) {
       (c.transport ? transports[c.transport].place : c.to) === id &&
       crossingOpen(world, c, senses),
   );
-  // A ship seen from its mooring shows that mooring's painting of it, lit
-  // for the hour; a mooring with no such painting keeps the authored card.
-  const moored = c?.transport && c.scenery?.backdrop;
-  const art = moored
-    ? daylightBackdrop(world, c.from, c.scenery.backdrop)
-    : c?.scenery?.cardArt;
+  // A destination card shows where you are going, never where you stand:
+  // the place's own current painting (the ship's deck, lit for the hour and
+  // weather), the same art the action beat shows for that place.
   return c?.scenery
-    ? {
-        name: c.scenery.cardName || nameOf(id),
-        art: art ? `./${art}` : null,
-        ...(moored && c.scenery.focus ? { focus: c.scenery.focus } : {}),
-      }
+    ? { name: c.scenery.cardName || nameOf(id), art: backdrop(id, world) }
     : null;
 }
 const personIds = Object.keys(people);
