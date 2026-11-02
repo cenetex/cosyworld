@@ -1078,7 +1078,8 @@ The shared game, local saves, dialogue facts, and scene exports all read the sam
 turn. Reloading keeps the current weather. Shared rules version 18 adds the
 harbor and road views. Each earlier rule bundle keeps its contents for replay.
 
-`weather-shader.mjs` paints the weather with one WebGL fragment shader. The
+`weather-shader.mjs` paints the weather, and on the stage the hour's grade,
+with one WebGL fragment shader. The
 scene animates parallax rain sheets with gusts and ground splashes, drifting
 cloud shadow, and folding mist banks. Each exposure sets its own slant, rain
 strength, mist height, and tint, and night cools the palette. Place cards show
@@ -1103,8 +1104,13 @@ the same committed turn as a game hour (`stage-light.mjs`): turn 0 is 06:00,
 each play is thirty game minutes, the painted night begins at 18:00 and
 midnight is turn 36 of each 48-play day. Eight visual periods blend smoothly:
 dawn, morning, noon, afternoon, golden hour, dusk, night and midnight. The
-hour's shade and edge vignette multiply the painting and its desaturation
-greys it (`.stage-grade` in `weather.css`); figures and props on the stage take
+hour's shade and edge vignette darken the painting and its desaturation
+greys it. The stage shader draws the shade and vignette on the stage's one
+WebGL canvas, which now stays on the stage with clear skies too: it blends
+hard-light, so the grade multiplies while rain and mist still brighten, and
+weather tones darken continuously toward midnight. With nothing to draw it
+hides; with clear skies it draws one frame at half resolution. Without WebGL,
+`.stage-grade` in `weather.css` multiplies the same grade. Figures and props on the stage take
 the same light as a filter, while lit lamps keep their glow. The hand,
 dialogue and place cards are never graded. A place without night paintings,
 such as the Lonely Forest, takes the full grade, so its midnights are dark. A

@@ -1,6 +1,7 @@
-// Draws location weather with one WebGL fragment shader. The stage animates
-// it; place cards reuse cached still frames so the hand never holds a context
-// per card. Callers fall back to weather.css when WebGL is unavailable.
+// The stage shader: one WebGL fragment shader draws location weather and, on
+// the stage, the time-of-day grade (stage-light.mjs). The stage animates it;
+// place cards reuse cached still frames so the hand never holds a context per
+// card. Callers fall back to weather.css when WebGL is unavailable.
 
 const vertex = `
 attribute vec2 a_position;
@@ -17,7 +18,10 @@ uniform float u_cloud;
 uniform float u_mist;
 uniform float u_mistHeight;
 uniform vec3 u_mistTint;
-uniform float u_night;
+uniform float u_dark;
+uniform vec3 u_shade;
+uniform float u_vignette;
+uniform float u_hard;
 
 float hash(float n) { return fract(sin(n) * 43758.5453123); }
 float hash2(vec2 p) {
@@ -76,7 +80,7 @@ void main() {
     float c = fbm(st * 1.4 + vec2(u_time * 0.018, u_time * 0.004));
     float shade = u_cloud * (0.25 + 0.55 * smoothstep(0.35, 0.8, c));
     shade *= mix(0.55, 1.0, smoothstep(0.1, 1.0, uv.y));
-    vec3 tone = mix(vec3(0.16, 0.19, 0.27), vec3(0.04, 0.05, 0.09), u_night);
+    vec3 tone = mix(vec3(0.16, 0.19, 0.27), vec3(0.04, 0.05, 0.09), u_dark);
     color = tone * shade + color * (1.0 - shade);
     alpha = shade + alpha * (1.0 - shade);
   }
@@ -94,7 +98,7 @@ void main() {
     float streaks = far * 0.35 + mid * 0.6 + near * 0.95;
     streaks *= u_rain * mix(0.55, 1.15, gust);
     float haze = u_rain * (0.08 + 0.14 * gust) * (1.0 - 0.5 * uv.y);
-    vec3 hazeTone = mix(vec3(0.58, 0.64, 0.72), vec3(0.18, 0.22, 0.3), u_night);
+    vec3 hazeTone = mix(vec3(0.58, 0.64, 0.72), vec3(0.18, 0.22, 0.3), u_dark);
     color = hazeTone * haze + color * (1.0 - haze);
     alpha = haze + alpha * (1.0 - haze);
     // Splashes flicker as flattened rings across the lower ground.
@@ -106,8 +110,8 @@ void main() {
     vec2 d = (fract(g) - centre) * vec2(1.0, 2.6);
     float ring = smoothstep(0.07, 0.0, abs(length(d) - life * 0.42)) * (1.0 - life);
     streaks += ring * step(0.86, phase) * smoothstep(0.32, 0.04, uv.y) * 1.4;
-    vec3 dropTone = mix(vec3(0.86, 0.91, 0.96), vec3(0.74, 0.81, 0.92), u_night);
-    float drop = clamp(streaks * mix(0.75, 0.62, u_night), 0.0, 0.9);
+    vec3 dropTone = mix(vec3(0.86, 0.91, 0.96), vec3(0.74, 0.81, 0.92), u_dark);
+    float drop = clamp(streaks * mix(0.75, 0.62, u_dark), 0.0, 0.9);
     color = dropTone * drop + color * (1.0 - drop);
     alpha = drop + alpha * (1.0 - drop);
   }
@@ -124,12 +128,27 @@ void main() {
     float fog = smoothstep(0.38, 0.82, bank + 0.3 * ground) * ground;
     fog = u_mist * (fog * 0.8 + wisps * 0.18 * (1.0 - uv.y * 0.6));
     fog = clamp(fog, 0.0, 0.72);
-    vec3 tone = u_mistTint * mix(1.0, 0.42, u_night);
+    vec3 tone = u_mistTint * mix(1.0, 0.42, u_dark);
     color = tone * fog + color * (1.0 - fog);
     alpha = fog + alpha * (1.0 - fog);
   }
 
-  gl_FragColor = vec4(color, alpha);
+  if (u_hard < 0.5) {
+    gl_FragColor = vec4(color, alpha);
+    return;
+  }
+  // On the stage the canvas blends hard-light: below mid grey multiplies,
+  // above it screens. The grade (shade, edge vignette) multiplies; weather is
+  // laid over it, matched on a mid-tone painting.
+  vec2 e = vec2((uv.x - 0.5) / 0.8, (0.55 - uv.y) / 0.75);
+  float edge = clamp((length(e) - 0.45) / 0.55, 0.0, 1.0);
+  vec3 grade = u_shade * mix(vec3(1.0), vec3(0.04, 0.05, 0.13), u_vignette * edge);
+  const float mid = 0.42;
+  vec3 target = mid * grade * (1.0 - alpha) + color;
+  vec3 layer = mix(target / (2.0 * mid),
+    0.5 + (target - mid) / (2.0 * (1.0 - mid)), step(mid, target));
+  layer += (hash2(gl_FragCoord.xy) - 0.5) / 255.0;
+  gl_FragColor = vec4(layer, 1.0);
 }
 `;
 
@@ -154,9 +173,11 @@ const exposures = {
   },
 };
 
-export function weatherUniforms(weather, night) {
-  const place = exposures[weather.exposure] || exposures.open;
-  const condition = weather.condition;
+const NEUTRAL = { shade: [1, 1, 1], vignette: 0 };
+// weather may be null on the stage, which still draws the hour's grade.
+export function weatherUniforms(weather, night, grade = NEUTRAL) {
+  const place = exposures[weather?.exposure] || exposures.open;
+  const condition = weather?.condition;
   return {
     rain: condition === "rain" ? place.rain : 0,
     slant: place.slant,
@@ -170,7 +191,7 @@ export function weatherUniforms(weather, night) {
             : 0,
     mist:
       condition === "mist"
-        ? weather.exposure === "shelter"
+        ? weather?.exposure === "shelter"
           ? 0.35
           : 0.95
         : condition === "rain"
@@ -180,7 +201,9 @@ export function weatherUniforms(weather, night) {
             : 0,
     mistHeight: place.mistHeight,
     tint: place.tint,
-    night: night ? 1 : 0,
+    dark: Number(night),
+    shade: grade.shade,
+    vignette: grade.vignette,
   };
 }
 
@@ -230,7 +253,10 @@ export function createWeatherRenderer(canvas) {
         "mist",
         "mistHeight",
         "mistTint",
-        "night",
+        "dark",
+        "shade",
+        "vignette",
+        "hard",
       ].map((name) => [name, at(name)]),
     );
     return {
@@ -238,7 +264,7 @@ export function createWeatherRenderer(canvas) {
       release() {
         gl.getExtension("WEBGL_lose_context")?.loseContext();
       },
-      draw(uniforms, time) {
+      draw(uniforms, time, hard = false) {
         if (gl.isContextLost()) return false;
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.uniform2f(u.resolution, canvas.width, canvas.height);
@@ -249,7 +275,10 @@ export function createWeatherRenderer(canvas) {
         gl.uniform1f(u.mist, uniforms.mist);
         gl.uniform1f(u.mistHeight, uniforms.mistHeight);
         gl.uniform3fv(u.mistTint, uniforms.tint);
-        gl.uniform1f(u.night, uniforms.night);
+        gl.uniform1f(u.dark, uniforms.dark);
+        gl.uniform3fv(u.shade, uniforms.shade);
+        gl.uniform1f(u.vignette, uniforms.vignette);
+        gl.uniform1f(u.hard, hard ? 1 : 0);
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.drawArrays(gl.TRIANGLES, 0, 3);

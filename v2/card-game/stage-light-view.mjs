@@ -11,6 +11,10 @@ import {
 // custom properties on the stage (style.css "Time of day").
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const states = new WeakMap();
+// The stage shader (weather-view.mjs) follows the eased light each frame.
+const listeners = new Set();
+export const onStageLight = (listener) => listeners.add(listener);
+export const stageLight = (stage) => states.get(stage)?.light;
 
 function apply(stage, light) {
   for (const [name, value] of Object.entries(lightStyle(light)))
@@ -18,6 +22,8 @@ function apply(stage, light) {
   stage.dataset.hour = String(Math.floor(light.hour));
   stage.dataset.period = light.period;
   stage.dataset.graded = String(!isNeutral(light));
+  states.get(stage).light = light;
+  for (const listener of listeners) listener(stage, light);
 }
 
 // turn is the committed world turn; strength is the share of the grade the
