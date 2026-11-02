@@ -639,6 +639,8 @@ function finishSpokenLine() {
     !characterSpeech.busy
   )
     exchange.revealed(line.seq, line.text, line.instant);
+  // A chosen play waits for no reading pause.
+  if (playQueue.pending) exchange.advance();
 }
 const characterSpeech = createCharacterSpeech({
   changed: ({ state, message }) => {
@@ -758,7 +760,10 @@ const reveal = createTextReveal({
     if (speechComplete !== value.complete) {
       speechComplete = value.complete;
       updateSpeechControls(value.complete);
-      queueMicrotask(syncPhase);
+      // A read line lets a play in flight show its Thinking card.
+      queueMicrotask(() =>
+        value.complete && ownPlayInFlight() ? renderScene() : syncPhase(),
+      );
     }
     // Layout is measured once per line or resize, then reused for each letter.
     const bottom = glyphBottoms[Math.max(0, shownLetters - 1)] || 0;
@@ -1219,6 +1224,7 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   // at once; the Thinking card stands for it until its scene.
   if (action.kind !== "focus") restedChoice = choiceKey();
   playQueue.submit(action, revision);
+  if (playQueue.pending) exchange.advance();
 }
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
@@ -1655,6 +1661,8 @@ function presentPhase() {
   return phase({
     reviewing: reviewing && stackView.frontIndex < stackView.liveIndex,
     revealing: !reveal.complete || exchange.hasNext,
+    inFlight: Boolean(stackView.pending) || Boolean(ownPlayInFlight()),
+    failed: storyStatus === "retry",
     raised: !rowCollapsed,
     chosen: selected.length > 0 || questOpen,
     rested: restedChoice !== null,
@@ -1799,7 +1807,20 @@ function renderActions() {
     blocked.title = reason;
     row.append(blocked);
   }
-  document.querySelector(".action-beat-note").hidden = true;
+  // A choice over words that failed keeps the failure and its Retry in
+  // front: the play beside them also asks again.
+  const note = document.querySelector(".action-beat-note");
+  const failed = !rested && storyStatus === "retry";
+  note.textContent = failed ? $("story-error").textContent.trim() : "";
+  note.hidden = !failed;
+  if (failed) {
+    const retry = node("button", "Retry", "card-action");
+    retry.type = "button";
+    retry.dataset.retryWords = "true";
+    retry.disabled = $("story-retry").disabled;
+    retry.onclick = () => $("story-retry").click();
+    row.append(retry);
+  }
   delete $("action-beat").dataset.avatar;
   syncActionBeat();
   $("play-readout").textContent = selected.length
@@ -2752,47 +2773,36 @@ function renderScene() {
           awaitingNext ||
           (storyStatus === "pending" && !exchange.current),
       );
-  const stack = withPending(
-    sceneBeats(view, {
-      viewer,
-      shared,
-      held: combatHeld,
-      hiddenSpeech,
-      hiddenAction,
-    }),
-    { speakerId: waiting ? waitingSpeaker || "" : null, turn: world.turn },
-  );
+  const scened = sceneBeats(view, {
+    viewer,
+    shared,
+    held: combatHeld,
+    hiddenSpeech,
+    hiddenAction,
+  });
+  // Every play in flight is one Thinking card, once the lines before it
+  // are read: a line being written stays in front.
+  const last = scened.findLast((beat) => beat.line)?.line;
+  const lineFirst = sharedSession
+    ? moreToRead ||
+      (last?.seq === lineSeq &&
+        !completedSpeech.has(lineKey(last, scene.locationId)))
+    : Boolean(exchange.current) && (!exchange.read || exchange.hasNext);
+  const own = ownPlayInFlight();
+  const stack = withPending(scened, {
+    // A committed local play waits through its own exchange.
+    speakerId:
+      waiting || (own && !lineFirst && (sharedSession || !own.committed))
+        ? waitingSpeaker || viewer
+        : null,
+    turn: world.turn,
+  });
   const beats = stack.beats;
-  // The player's own play in flight, before its scene: one Thinking card.
-  const own =
-    !waiting &&
-    !(sharedSession
-      ? sharedSession.state.queue?.some((entry) =>
-          ["working", "playing"].includes(entry.status),
-        )
-      : exchange.active)
-      ? ownPlayInFlight()
-      : null;
-  const pendingCard =
-    stack.pending ||
-    (waiting
-      ? {
-          key: `p:${world.turn}:`,
-          speakerId: null,
-          line: null,
-          actions: [],
-          pending: true,
-        }
-      : own
-        ? {
-            key: `p:${world.turn}:${viewer}`,
-            speakerId: viewer,
-            line: null,
-            actions: [],
-            pending: true,
-            own,
-          }
-        : null);
+  const pendingCard = stack.pending && {
+    ...stack.pending,
+    // Its two taps cancel the player's own play.
+    own: stack.pending.speakerId === viewer || !sharedSession ? own : null,
+  };
   const liveIndex = pendingCard ? beats.length : beats.length - 1;
   let frontIndex = -1;
   if (reviewing) {
@@ -2849,11 +2859,8 @@ function renderScene() {
   const canRetryWords = !sharedSession || Boolean(sharedSpeech.retryKey);
   const ownFront = behindLive ? null : front?.own || null;
   if (!ownFront?.cancel) disarmThinking(false);
-  $("story-status").hidden = ownFront
-    ? false
-    : behindLive ||
-      wordsFailed ||
-      (storyStatus === "ready" && !exchange.preparing);
+  // The Thinking chip belongs to the Thinking card, never to a line.
+  $("story-status").hidden = !front?.pending || behindLive;
   $("story-status").lastElementChild.textContent = thinkingArmed
     ? "Tap again to cancel"
     : "Thinking…";
@@ -2926,7 +2933,7 @@ function renderScene() {
   $("speech-hint").hidden = true;
   if (text) {
     const speaker = line.entityId || line.actorId || scene.locationId;
-    const key = JSON.stringify([line.seq, speaker, text]);
+    const key = lineKey(line, scene.locationId);
     // A local line from an earlier turn that is still the latest beat was
     // already read; it stays whole instead of being written again.
     reveal.show(key, text, speaker, {
@@ -3007,6 +3014,9 @@ function renderScene() {
   animateStack(direction, ghost);
   syncPhase();
 }
+// A line's reveal key, so a line read once stays whole.
+const lineKey = (line, place) =>
+  JSON.stringify([line.seq, line.entityId || line.actorId || place, line.text]);
 // The art for a beat's speaker: a person, a place, or an item.
 // Dropping the address lets the browser free the decoded picture now rather
 // than whenever the node is collected.
@@ -4135,7 +4145,11 @@ function ownPlayInFlight() {
         restedChoice = null;
       },
     };
-  if (!sharedSession) return null;
+  // A committed local play stays saved: cancel only stops waiting for words.
+  if (!sharedSession)
+    return storyStatus === "pending" && !openingWordsDue()
+      ? { committed: true, cancel: stopWaiting }
+      : null;
   const entry = ownSharedEntry();
   if (entry?.status === "waiting")
     return {
@@ -4156,6 +4170,12 @@ function ownPlayInFlight() {
   if (sharedSending || ["sending", "accepted"].includes(sharedPlay?.state))
     return { cancel: null };
   return null;
+}
+function stopWaiting() {
+  narrator.invalidate();
+  exchange.cancel();
+  storyStatus = "ready";
+  rememberWordsFailed(null);
 }
 // The Thinking card cancels in two taps: the first asks, the second
 // cancels. A pause, Escape or a tap elsewhere puts it back.
