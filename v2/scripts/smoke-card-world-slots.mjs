@@ -7,13 +7,14 @@ import { worldName } from "../card-game/world-name.mjs";
 
 // ☰'s world slots (#1877, #1891): a world shows the avatars that entered
 // it, in colour only while online, then "+" for an open seat. A tap shows
-// an avatar's card; on yours it also offers Leave as a beat in front of
-// the dialogue, and a second tap plays it, dealing the table over to its
-// world. On another's a second tap arms it for the owner's Free. "+" offers
-// your avatar on the card. A friend's world shows while your avatar sits
+// that avatar as a beat in front of the dialogue (☰ has no profile card):
+// its small card, who plays it, online and where, and on yours Leave on the
+// right; a second tap plays it, dealing the table over to its world. On
+// another's a second tap arms it for the owner's Free. "+" offers your
+// avatar in the beat. A friend's world shows while your avatar sits
 // there; Leave releases it and keeps its level. A world nobody is in has
 // closed on the server and is not listed; + New world starts a fresh one
-// for the card's avatar.
+// for the chosen avatar.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -138,9 +139,10 @@ try {
       .evaluateAll((seats) => seats.map((seat) => seat.dataset.lit));
     assert.deepEqual(lit, ["true"]);
     assert.equal(await friend.locator(".slot-seat").count(), 2);
-    // The card starts on the avatar being played.
-    const card = menu.locator(".profile-card");
-    assert.equal(await card.getAttribute("data-avatar"), "vale");
+    // ☰ has no profile card, and nothing is chosen yet.
+    assert.equal(await menu.locator(".profile-card").count(), 0);
+    const card = page.locator(".dialogue > .action-panel");
+    assert(await card.isHidden());
     // Your Tavi in the friend's world: one tap chooses her (she glows) and
     // offers Leave in front of the dialogue; a second tap goes to her world
     // over a shuffle of card backs.
@@ -152,7 +154,26 @@ try {
     await taviFace.click();
     assert.equal(await card.getAttribute("data-avatar"), "tavi");
     assert.equal(await taviFace.getAttribute("aria-pressed"), "true");
+    assert.equal(
+      await card.locator(".action-beat-heading").innerText(),
+      `Tavi · offline · ${worldName(3)}`,
+    );
     assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
+    // Portrait left, words in the middle, Leave flush on the right, all in
+    // one row.
+    const [art, words, leaveBox, beatBox] = await Promise.all(
+      [".action-beat-cards", ".action-beat-body", "#card-actions", ""].map(
+        (part) => card.locator(part ? part : ":scope").boundingBox(),
+      ),
+    );
+    assert(art.x < words.x && words.x + words.width <= leaveBox.x + 1);
+    assert(
+      Math.abs(leaveBox.x + leaveBox.width - (beatBox.x + beatBox.width)) <= 2,
+    );
+    assert(
+      leaveBox.y < words.y + words.height &&
+        words.y < leaveBox.y + leaveBox.height,
+    );
     assert.match(
       await note.innerText(),
       new RegExp(
@@ -183,11 +204,16 @@ try {
       `Tavi left ${worldName(3)}.`,
     );
     assert.equal(await menu.locator(".world-slot").count(), 2);
-    // Someone's offline Mara is grey; her card says who plays her, and,
-    // armed, the owner may free her.
+    // Someone's offline Mara is grey; her beat says who plays her, with no
+    // button until, armed, the owner may free her.
     const spare = menu.locator('.world-slot[data-slot="spare"]');
     await spare.locator('[data-avatar="mara"] button').click();
-    assert.match(await card.innerText(), /Someone · offline/);
+    assert.match(await card.innerText(), /Mara · Someone · offline/);
+    assert.equal(
+      await card.locator(".beat-face").getAttribute("data-lit"),
+      "false",
+    );
+    assert.equal(await actions.count(), 0);
     await spare.locator('[data-avatar="mara"] button').click();
     assert.deepEqual(await actions.allInnerTexts(), ["Free"]);
     // "+" in the spare world offers Vale on the card, and each tap the next
