@@ -1986,8 +1986,8 @@ pub(crate) async fn request_direct_audio_completion_with_binding(
             .post(&url)
             .bearer_auth(&config.api_key)
             .header("HTTP-Referer", request.referer)
-            .header("X-OpenRouter-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
-            .header("X-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
+            .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
+            .header("X-Title", OPENROUTER_APP_TITLE)
             .json(&payload)
             .send()
             .await;
@@ -2460,8 +2460,8 @@ pub(crate) async fn post_bounded_exact_json(
             .post(&url)
             .bearer_auth(&config.api_key)
             .header("HTTP-Referer", referer)
-            .header("X-OpenRouter-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
-            .header("X-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
+            .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
+            .header("X-Title", OPENROUTER_APP_TITLE)
             .json(payload)
             .send()
             .await;
@@ -2603,8 +2603,8 @@ async fn post_bounded_exact_audio(
             .post(&url)
             .bearer_auth(&config.api_key)
             .header("HTTP-Referer", referer)
-            .header("X-OpenRouter-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
-            .header("X-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
+            .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
+            .header("X-Title", OPENROUTER_APP_TITLE)
             .json(payload)
             .send()
             .await;
@@ -2897,8 +2897,8 @@ async fn request_image_generation_with_selection(
             .post(&url)
             .bearer_auth(&config.api_key)
             .header("HTTP-Referer", request.referer)
-            .header("X-OpenRouter-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
-            .header("X-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
+            .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
+            .header("X-Title", OPENROUTER_APP_TITLE)
             .json(&payload)
             .send()
             .await;
@@ -3590,8 +3590,8 @@ async fn request_completion(
                 .post(&url)
                 .bearer_auth(&config.api_key)
                 .header("HTTP-Referer", referer)
-                .header("X-OpenRouter-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
-                .header("X-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
+                .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
+                .header("X-Title", OPENROUTER_APP_TITLE)
                 .json(&payload)
                 .send()
                 .await;
@@ -3856,8 +3856,8 @@ pub(crate) async fn enforce_server_paid_daily_limit(
             config.base_url, OPENROUTER_CURRENT_KEY_ENDPOINT
         ))
         .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", crate::ai_gateway::OPENROUTER_APP_REFERER)
-        .header("X-OpenRouter-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
+        .header("HTTP-Referer", OPENROUTER_APP_REFERER)
+        .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
         .send()
         .await
         .map_err(|_| AiGatewayError::daily_spend_check_unavailable(feature))?;
@@ -3959,9 +3959,9 @@ pub(crate) async fn probe_openrouter_account(
     let mut response = client
         .get(url)
         .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", crate::ai_gateway::OPENROUTER_APP_REFERER)
-        .header("X-OpenRouter-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
-        .header("X-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
+        .header("HTTP-Referer", OPENROUTER_APP_REFERER)
+        .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
+        .header("X-Title", OPENROUTER_APP_TITLE)
         .send()
         .await
         .map_err(|error| AiGatewayError {

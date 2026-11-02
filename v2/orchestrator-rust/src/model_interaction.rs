@@ -2190,7 +2190,10 @@ async fn execute_batch_talk_with_submission_model(
             .get(format!("{collection_url}/{provider_batch_id}"))
             .bearer_auth(&config.api_key)
             .header("HTTP-Referer", crate::ai_gateway::OPENROUTER_APP_REFERER)
-            .header("X-OpenRouter-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
+            .header(
+                "X-OpenRouter-Title",
+                crate::ai_gateway::OPENROUTER_APP_TITLE,
+            )
             .header("X-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
             .send()
             .await
@@ -2223,7 +2226,10 @@ async fn execute_batch_talk_with_submission_model(
             .post(&collection_url)
             .bearer_auth(&config.api_key)
             .header("HTTP-Referer", crate::ai_gateway::OPENROUTER_APP_REFERER)
-            .header("X-OpenRouter-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
+            .header(
+                "X-OpenRouter-Title",
+                crate::ai_gateway::OPENROUTER_APP_TITLE,
+            )
             .header("X-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
             .header("Idempotency-Key", interaction_id)
             .json(&payload)

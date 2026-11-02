@@ -1095,7 +1095,10 @@ async fn bounded_openrouter_json(
     let mut request = client
         .request(method, url)
         .header("HTTP-Referer", crate::ai_gateway::OPENROUTER_APP_REFERER)
-        .header("X-OpenRouter-Title", crate::ai_gateway::OPENROUTER_APP_TITLE);
+        .header(
+            "X-OpenRouter-Title",
+            crate::ai_gateway::OPENROUTER_APP_TITLE,
+        );
     if let Some(api_key) = bearer {
         request = request.bearer_auth(api_key);
     }
