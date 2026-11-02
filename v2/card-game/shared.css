@@ -40,16 +40,24 @@
 .shared-play-queue:empty {
   display: none;
 }
-body .dialogue:has(.shared-play-queue > li) .dialogue-heading {
+body
+  .dialogue:has(.shared-play-queue > li)
+  :is(.dialogue-heading, .action-beat-heading) {
   padding-right: 32px;
 }
-body .dialogue:has(.shared-play-queue > li:nth-child(2)) .dialogue-heading {
+body
+  .dialogue:has(.shared-play-queue > li:nth-child(2))
+  :is(.dialogue-heading, .action-beat-heading) {
   padding-right: 52px;
 }
-body .dialogue:has(.shared-play-queue > li:nth-child(3)) .dialogue-heading {
+body
+  .dialogue:has(.shared-play-queue > li:nth-child(3))
+  :is(.dialogue-heading, .action-beat-heading) {
   padding-right: 72px;
 }
-body .dialogue:has(.shared-play-queue > li:nth-child(4)) .dialogue-heading {
+body
+  .dialogue:has(.shared-play-queue > li:nth-child(4))
+  :is(.dialogue-heading, .action-beat-heading) {
   padding-right: 92px;
 }
 .shared-play-avatar {

@@ -2248,6 +2248,129 @@ body .beat-live {
   }
 }
 
+/* A ready or pending play is a beat in front of the dialogue: the actor's
+   portrait, what the play will do and its buttons, with the status line
+   (#1725). The spoken beat settles into the slot behind it, so nothing sits
+   between the dialogue and the hand, and the hand never moves for it. A
+   strike or journey that drops the dialogue hides it. */
+.beat-stack > .action-panel {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid #b09a6a55;
+  border-radius: 8px;
+  background: #10151ded;
+  box-shadow:
+    0 -6px 16px #05060c80,
+    0 10px 35px #08091470;
+  backdrop-filter: blur(12px);
+  transform-origin: 50% 0;
+}
+.beat-stack[data-dropped="true"] > .action-panel {
+  display: none;
+}
+/* The spoken beat in the slot behind reads as the card behind does: one
+   dimmed line of portrait, name, speech and first action. */
+.beat-stack[data-action="true"]:not([data-dropped="true"]) > #speech-row {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  height: auto;
+  margin: 0;
+  padding: 4px 14px 0 10px;
+  overflow: hidden;
+  background: #0b0f16;
+  color: #cfc3ab;
+  font:
+    14px/24px Georgia,
+    serif;
+  opacity: 0.72;
+  transform: var(--beat-slot);
+  pointer-events: none;
+}
+.beat-stack[data-action="true"]:not([data-dropped="true"])
+  > :is(#beat-behind, #live-line),
+.beat-stack[data-action="true"]
+  > #speech-row
+  :is(.speech-hint, .line-controls, .beat-caption + .beat-caption) {
+  display: none;
+}
+.beat-stack[data-action="true"] > #speech-row * {
+  flex: none;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  font: inherit;
+}
+.beat-stack[data-action="true"] > #speech-row .speaker-portrait {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+.beat-stack[data-action="true"] > #speech-row .speech-line {
+  flex: 1;
+  align-self: auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+.beat-stack[data-action="true"]
+  > #speech-row
+  :is(#speaker, #dialogue-text, .beat-captions, .beat-caption) {
+  display: inline;
+  margin-right: 6px;
+}
+.beat-stack[data-action="true"] > #speech-row #speaker {
+  font-weight: 600;
+}
+.beat-stack[data-action="true"] > #speech-row .beat-caption {
+  font-style: italic;
+}
+.beat-action[data-motion="arrive"] {
+  animation-name: beat-arrive;
+}
+#speech-row[data-motion="settle"] {
+  animation-name: beat-settle;
+}
+@keyframes beat-settle {
+  from {
+    transform: none;
+    opacity: 1;
+  }
+}
+.action-beat-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  color: #f2e3c4;
+  font:
+    15px/1.3 Georgia,
+    serif;
+}
+.action-beat-heading .beat-behind-portrait {
+  width: 26px;
+  height: 26px;
+}
+.action-beat-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.action-beat-text strong {
+  color: var(--gold);
+  font-weight: 600;
+}
+
 /* The dialogue lies over the hand (option D). It is a sibling of the stage,
    so on phones and tablets it can sit over the dock. There it keeps one fixed
    box at the foot of the screen and never moves: a resting hand shows its
@@ -2330,6 +2453,33 @@ main > .dialogue {
   }
   body[data-dialogue-over="true"] .beat-stack .speaker-portrait {
     height: 20px;
+  }
+  body[data-dialogue-over="true"] .beat-stack > .action-panel {
+    height: calc(100% - var(--beat-peek));
+    margin-top: var(--beat-peek);
+    align-content: start;
+    gap: 3px;
+    padding: 3px 10px 2px 8px;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  body[data-dialogue-over="true"] .beat-stack[data-action="true"] > #speech-row {
+    top: var(--beat-peek);
+    gap: 5px;
+    padding: 1px 10px 0 7px;
+    font-size: 12px;
+    line-height: 15px;
+  }
+  body[data-dialogue-over="true"] .beat-stack[data-action="true"] > #speech-row .speaker-portrait {
+    width: 15px;
+    height: 15px;
+  }
+  body[data-dialogue-over="true"] .action-beat-heading .beat-behind-portrait {
+    width: 20px;
+    height: 20px;
+  }
+  body[data-dialogue-over="true"] .beat-action #card-actions {
+    padding-block: 1px;
   }
   body[data-dialogue-over="true"] .hand {
     height: calc(
