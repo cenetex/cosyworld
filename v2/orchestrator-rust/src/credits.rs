@@ -491,9 +491,7 @@ mod tests {
             let tx = c
                 .transaction_with_behavior(TransactionBehavior::Immediate)
                 .unwrap();
-            assert!(
-                refund_in(&tx, Payer::Person("u1"), SpendKind::Tts, "film", "failed").unwrap()
-            );
+            assert!(refund_in(&tx, Payer::Person("u1"), SpendKind::Tts, "film", "failed").unwrap());
             tx.execute("INSERT INTO receipts VALUES ('failed')", [])
                 .unwrap();
         }
@@ -702,11 +700,7 @@ mod tests {
         )
         .await;
         assert_eq!(
-            (
-                status,
-                body["signed_in"].clone(),
-                body["prices"].clone()
-            ),
+            (status, body["signed_in"].clone(), body["prices"].clone()),
             (StatusCode::OK, json!(false), json!({"tts": 1}))
         );
         let _ = std::fs::remove_file(path);
