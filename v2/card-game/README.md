@@ -714,8 +714,8 @@ id (`?world=`, `?table=`, `?pack=` or the bare local table), never the logo
 shown last when another exists, then remembered in `cosyworld.title-logo` so
 a reload or a return shows the same one; New game picks afresh. The same
 logo replaces the COSYWORLD wordmark in the toolbar, at its own aspect ratio
-and 40 px tall (34 px at phone width), named by its `alt`; the button still
-opens the scene video. Other sites' landings and the local CosyWorld app keep
+and 40 px tall (34 px at phone width), named by its `alt`; it is a plain image,
+not a button. Other sites' landings and the local CosyWorld app keep
 the COSYWORLD wordmark.
 Automated browsers skip it unless the address has `intro=1`;
 `v2/scripts/smoke-card-title-intro.mjs` plays it at desktop and phone width,

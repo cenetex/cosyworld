@@ -188,8 +188,10 @@ try {
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
     await page.waitForFunction(() => document.body.inert === false);
-    // The toolbar names the game; there is no scene camera beside it.
-    assert.equal(await page.textContent(".brand strong"), "COSYWORLD");
+    // The toolbar shows the world's logo as a plain image, not a button.
+    await page.locator(".brand strong img.brand-logo").waitFor();
+    assert.ok(await page.getAttribute(".brand-logo", "alt"));
+    assert.equal(await page.locator(".brand button").count(), 0);
     assert.equal(await page.locator("#scene-video-button").count(), 0);
     await page.locator("#toolbar-menu-button").click();
     await page.locator("#menu-button").click();
