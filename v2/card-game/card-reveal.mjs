@@ -51,7 +51,7 @@ function glowFrames(color, { pulses, glow }) {
 // Plays the reveal on a freshly uncovered card button. Returns a promise that
 // settles once every added layer is gone.
 export function revealCard(button, options = {}) {
-  finishReveal(button.dataset.card);
+  finishCardReveal(button.dataset.card);
   const plan = revealPlan(button.dataset.tier, {
     reduced: options.reduced ?? reduceMotion(),
     scares: options.scares ?? scaresEnabled(),
@@ -139,7 +139,7 @@ export function revealCard(button, options = {}) {
 }
 
 // A tap during a reveal completes it instead of selecting the card.
-export function finishReveal(id) {
+export function finishCardReveal(id) {
   const control = running.get(id);
   if (!control?.button.isConnected) return false;
   control.finish();
