@@ -127,9 +127,15 @@ async function local(width) {
   const speaker = await t.page.locator("#speaker").innerText();
   await t.choose("vale");
   await t.choose("lamp");
+  await t.page.evaluate(() =>
+    new MutationObserver(() => {
+      if (document.querySelector("#beat-captions .inscribe"))
+        window.inscribed ??= performance.now();
+    }).observe(document.body, { subtree: true, childList: true }),
+  );
   await t.page.locator('#card-actions [data-action="light"]').click();
   await t.page.keyboard.press("Escape");
-  await t.page.waitForSelector("#beat-captions .beat-caption.inscribe");
+  await t.page.waitForFunction(() => window.inscribed);
   await t.shot("local-inscribing");
   const lit = await until(
     t.page,
