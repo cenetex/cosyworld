@@ -38,6 +38,15 @@ async fn replaced(mut cancel: watch::Receiver<Seat>, seat: (String, usize)) {
     }
 }
 
+/// Whether `version` journals reflections in their own op after the speech
+/// they follow. Rules v88 added it; earlier rules take them in the speech.
+pub(in crate::card_shared) fn takes_reflect(version: &str) -> bool {
+    version
+        .strip_prefix("full-card-world/")
+        .and_then(|n| n.parse::<u32>().ok())
+        .is_some_and(|n| n >= 88)
+}
+
 /// Whether the play's recent speech is journaled under rules that take a
 /// later reflection, and none is journaled for it yet.
 fn due(c: &rusqlite::Connection, id: &str, play: &str) -> super::Result<bool> {
@@ -61,7 +70,7 @@ fn due(c: &rusqlite::Connection, id: &str, play: &str) -> super::Result<bool> {
         .flatten();
     Ok(ops.iter().any(|op| op == "speech")
         && !ops.iter().any(|op| op == "reflect")
-        && version.is_some_and(|v| super::super::engine::takes_reflect(&v)))
+        && version.is_some_and(|v| takes_reflect(&v)))
 }
 
 /// The command for a play's reflections, dated to its speech.

@@ -18,7 +18,7 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
     claim(&mut c, &id, 0);
     claim(&mut c, &id, 1);
     let mut w = full_store::world(&c, &id, now()).unwrap();
-    assert!(engine::takes_reflect(&w.version));
+    assert!(full::reflect::takes_reflect(&w.version));
     let snuff = home_action(&w, 0, "snuff");
     full_store::commit(
         &c,
@@ -29,7 +29,7 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
     )
     .unwrap();
     let mut queued = body("play", None);
-    queued.key = "reflect-later".into();
+    queued.key = "reflect-after-speech".into();
     queued.action = home_action(&full_store::world(&c, &id, now()).unwrap(), 0, "wait");
     full::run(&c, &id, "user0", &queued, now()).unwrap();
     let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
@@ -55,7 +55,7 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
         .query_row("SELECT command FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='speech'", [&id], |r| r.get(0))
         .unwrap();
     let speech: Value = serde_json::from_str(&speech).unwrap();
-    assert_eq!(speech["play"], "reflect-later");
+    assert_eq!(speech["play"], "reflect-after-speech");
     assert_eq!(speech["entries"], json!([]));
     assert!(spoken.game["memories"]["vale"]["innerLife"].is_null());
     // Another play lands before the reflection.
@@ -124,9 +124,11 @@ fn refused_or_orphan_reflections_leave_the_world_whole() {
     assert_eq!(reflect_count(&c, &id), 0);
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), before);
-    assert!(!engine::takes_reflect(engine::EIGHTY_SIXTH_VERSION));
+    assert!(!full::reflect::takes_reflect(
+        engine::EIGHTY_SEVENTH_VERSION
+    ));
     let mut old = World {
-        version: engine::EIGHTY_SIXTH_VERSION.into(),
+        version: engine::EIGHTY_SEVENTH_VERSION.into(),
         ..before.clone()
     };
     assert!(old.apply(&orphan).is_err());

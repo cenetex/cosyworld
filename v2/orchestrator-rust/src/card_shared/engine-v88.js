@@ -7846,7 +7846,7 @@
       return saved && { seq: saved.seq, turn: saved.turn, text: saved.text };
     }).filter(Boolean).sort((a, b) => a.seq - b.seq);
   }
-  function saveReflection(world, context, entry, fallbackModel) {
+  function saveReflection(world, context, entry, fallbackModel, turn = world.turn) {
     const memory = world.memories[entry.id];
     const previous = memory.innerLife || {
       persona: null,
@@ -7857,7 +7857,7 @@
     memory.reflections = [
       ...memory.reflections || [],
       {
-        turn: world.turn,
+        turn,
         previousPersona: previous.persona,
         persona: r.persona,
         thought: r.thought,
@@ -7872,12 +7872,49 @@
     ].slice(-4);
     memory.innerLife = {
       persona: r.persona,
-      thoughts: [
-        ...previous.thoughts,
-        { turn: world.turn, text: r.thought }
-      ].slice(-4),
-      dreams: r.dream ? [...previous.dreams, { turn: world.turn, text: r.dream }].slice(-4) : previous.dreams
+      thoughts: [...previous.thoughts, { turn, text: r.thought }].slice(-4),
+      dreams: r.dream ? [...previous.dreams, { turn, text: r.dream }].slice(-4) : previous.dreams
     };
+  }
+  function applyLaterReflections(world, request) {
+    const { turn, entries, rest: rest2 } = request;
+    if (!Number.isInteger(turn) || turn < 1 || turn > world.turn || rest2 !== void 0 && rest2 !== null && rest2 !== "long" || !Array.isArray(entries) || !entries.length || entries.length > 2 || new Set(entries.map((e) => e?.id)).size !== entries.length)
+      throw new Error("Use the saved scene's character reflections.");
+    for (const entry of entries) {
+      const memory = world.memories[entry.id];
+      const saved = memory ? [...memory.events, ...memory.landmarks || []] : [];
+      const evidence = entry.reflection?.evidence;
+      const sources = Array.isArray(evidence) ? evidence.map(
+        (seq) => saved.find((m) => m.seq === seq && m.turn <= turn)
+      ) : [];
+      if (!entry.reflection || !sources.length || sources.some((m) => !m))
+        throw new Error("Use a reflection grounded in the saved scene.");
+      const context = {
+        turn,
+        resting: entry.id,
+        ...rest2 ? { rest: rest2 } : {},
+        entities: [
+          {
+            id: entry.id,
+            memories: sources.map(({ seq, turn: turn2, text: text2 }) => ({
+              kind: "event",
+              seq,
+              turn: turn2,
+              text: text2
+            }))
+          }
+        ]
+      };
+      if (!validReflection(entry, world, context))
+        throw new Error("Use a reflection grounded in the saved scene.");
+      saveReflection(
+        world,
+        context,
+        entry,
+        entry.model || "card-voices-v1",
+        turn
+      );
+    }
   }
   function applySharedReflections(world, entries) {
     const context = reflectionContext(world);
@@ -8158,6 +8195,12 @@
       world.revision += 1;
       validateWorld(world);
       return response(world, { lines });
+    }
+    if (request.op === "reflect") {
+      applyLaterReflections(world, request);
+      world.revision += 1;
+      validateWorld(world);
+      return response(world);
     }
     throw new Error("Choose a supported world operation.");
   }
