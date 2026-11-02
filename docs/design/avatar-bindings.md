@@ -53,3 +53,11 @@ everyone's trust in it returns to nothing; a standoff it was in ends. Released
 bundles have no `reset` op and refuse it, so it is never journaled for them.
 The batch lander mints the next shared rules version with the other rules
 PRs.
+
+## Open questions
+
+Free resets the avatar's local memory, learning and relationships, while
+account-level progress (level, experience and cosmetic upgrades) is kept. That
+split is a deliberate account policy. Level and memory are different accounts
+of who an avatar is, though, so where Free is offered the wording should say
+plainly what is lost, not only that the avatar is reset.

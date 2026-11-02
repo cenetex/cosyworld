@@ -60,6 +60,13 @@ Permission earns a verse while the burial remains open. A later rite adds
 another verse and opens a return to Dione. The [exact copy list](OPENING-POEM.md)
 records all three card lines and every branch of the song.
 
+### Open question: weight of the burial routes
+
+The burial routes (defy, the witnessed exception, report) each preserve what
+occurred as a different Theban account. They still need later weight, so that
+the route a player committed to keeps mattering after Dione takes the account.
+Otherwise they read as an inventory lock accepting its key.
+
 ## The Open Door
 
 When Dione receives the account of burial, permission or warning, she opens

@@ -153,6 +153,12 @@ schema 6 `steamClock` record and the Greek ship in pack revision 2.
   table. Anything shared or server-persisted still goes through the kernel
   and journal first.
 
+## Content review standard
+
+When a scene says the player chose, reconciled, understood or became
+something, the rules must preserve that difference. If the rules keep only
+that a deed happened, word the scene as the deed, not as a choice.
+
 ## Adding a spoke
 
 1. Create `v2/content/<pack>/card-world.json` and its art under

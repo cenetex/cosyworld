@@ -7962,8 +7962,8 @@
         },
         "hoppycat-red-thread-belfry": {
           "name": "Red-Thread Belfry",
-          "text": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a chosen facet, and a route home.",
-          "persona": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a chosen facet, and a route home. Describe this as a playful living place. Use the current story facts for progress.",
+          "text": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a last facet, and a route home.",
+          "persona": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a last facet, and a route home. Describe this as a playful living place. Use the current story facts for progress.",
           "exits": [
             "hoppycat-signal-jetty"
           ],
@@ -7972,8 +7972,8 @@
         },
         "hoppycat-prism-foundry": {
           "name": "Prism Foundry",
-          "text": "Cool furnaces cast coloured light through unfinished glass. Lumen offers each guest a final facet to choose. Phase Two has drawn several plans around the prism.",
-          "persona": "Cool furnaces cast coloured light through unfinished glass. Lumen offers each guest a final facet to choose. Phase Two has drawn several plans around the prism. Describe this as a playful living place. Use the current story facts for progress.",
+          "text": "Cool furnaces cast coloured light through unfinished glass. Lumen keeps the last facet of the prism unfinished. Phase Two has drawn several plans around the prism.",
+          "persona": "Cool furnaces cast coloured light through unfinished glass. Lumen keeps the last facet of the prism unfinished. Phase Two has drawn several plans around the prism. Describe this as a playful living place. Use the current story facts for progress.",
           "exits": [
             "hoppycat-halfway-tea-garden"
           ],
@@ -8325,8 +8325,8 @@
         "hoppycat-unfinished-prism": {
           "name": "Unfinished Prism",
           "startLevel": 10,
-          "text": "A many-sided glass beginning whose final facet must be chosen by the person whose light passes through it.",
-          "persona": "A many-sided glass beginning whose final facet must be chosen by the person whose light passes through it.",
+          "text": "A many-sided glass beginning whose last facet is still unfinished.",
+          "persona": "A many-sided glass beginning whose last facet is still unfinished.",
           "holder": "hoppycat-prism-foundry",
           "art": "assets/hoppycat-archive/hoppycat-unfinished-prism-cutout.png"
         },
@@ -8610,7 +8610,7 @@
           "id": "hoppycat-facet",
           "at": "hoppycat-prism-foundry",
           "subject": "hoppycat-lumen-facet",
-          "label": "Choose your own final facet",
+          "label": "Bring the Unfinished Prism to Lumen",
           "text": "Vale brought Lumen the Unfinished Prism.",
           "requires": [
             {
