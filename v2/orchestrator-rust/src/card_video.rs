@@ -1,6 +1,7 @@
 //! Scene videos on the server's OpenRouter key, paid with credits (#1924).
 //! Starting a film spends a video's price; a job OpenRouter fails, cancels
 //! or lets expire is refunded once. The browser polls by its request id.
+//! A player in a shared world films on that world's pool.
 
 use std::path::{Path as FsPath, PathBuf};
 
@@ -15,7 +16,7 @@ use rusqlite::{params, OptionalExtension};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 
-use super::credits::{self, Spend, SpendKind};
+use super::credits::{self, clips, Payer, Spend, SpendKind};
 use crate::{ai_gateway::AiConfig, AppState};
 
 /// TBC Mischief 1, the camera's default film model.
@@ -122,7 +123,16 @@ fn jobs(c: &rusqlite::Connection) -> rusqlite::Result<()> {
             created_at_unix INTEGER NOT NULL,
             PRIMARY KEY (user_id, request_id)
         );",
-    )
+    )?;
+    let pooled = c
+        .prepare("SELECT 1 FROM pragma_table_info('credit_video_jobs') WHERE name = 'world_id'")?
+        .exists([])?;
+    if !pooled {
+        c.execute_batch(
+            "ALTER TABLE credit_video_jobs ADD COLUMN world_id TEXT NOT NULL DEFAULT ''",
+        )?;
+    }
+    Ok(())
 }
 
 /// Run one store step off the async workers.
@@ -153,11 +163,16 @@ async fn store<T: Send + 'static>(
     }
 }
 
-fn job_of(c: &mut rusqlite::Connection, user: &str, id: &str) -> rusqlite::Result<Option<String>> {
+/// A film's provider job and the world whose pool paid ("" for the player).
+fn job_of(
+    c: &mut rusqlite::Connection,
+    user: &str,
+    id: &str,
+) -> rusqlite::Result<Option<(String, String)>> {
     c.query_row(
-        "SELECT job_id FROM credit_video_jobs WHERE user_id = ?1 AND request_id = ?2",
+        "SELECT job_id, world_id FROM credit_video_jobs WHERE user_id = ?1 AND request_id = ?2",
         params![user, id],
-        |row| row.get(0),
+        |row| Ok((row.get(0)?, row.get(1)?)),
     )
     .optional()
 }
@@ -195,6 +210,9 @@ struct Start {
     request_id: String,
     prompt: String,
     options: Map<String, Value>,
+    /// The shared world whose pool pays; absent for the player's own.
+    #[serde(default)]
+    world: Option<String>,
 }
 
 /// The provider body: the fixed model, the prompt and the clip options the
@@ -234,22 +252,33 @@ async fn start(
     let Some(request) = body(&start).filter(|_| valid_id(&start.request_id)) else {
         return fail(StatusCode::BAD_REQUEST, "Film the current scene again.");
     };
-    begin(&path, &config, &user, &start.request_id, &request).await
+    let world = start.world.clone().unwrap_or_default();
+    begin(&path, &config, &user, &world, &start.request_id, &request).await
 }
 
 async fn begin(
     path: &FsPath,
     config: &AiConfig,
     user: &str,
+    world: &str,
     id: &str,
     request: &Value,
 ) -> Response {
-    let (u, i) = (user.to_owned(), id.to_owned());
+    let (u, w) = (user.to_owned(), world.to_owned());
+    if !world.is_empty()
+        && !matches!(
+            store(path, move |c| clips::plays_in(c, &w, &u)).await,
+            Ok(true)
+        )
+    {
+        return fail(StatusCode::FORBIDDEN, "Join this world to film it.");
+    }
+    let (u, w, i) = (user.to_owned(), world.to_owned(), id.to_owned());
     let spent = match store(path, move |c| {
         if job_of(c, &u, &i)?.is_some() {
             return Ok(None);
         }
-        credits::spend(c, &u, SpendKind::Video, &i).map(Some)
+        credits::spend(c, Payer::of(&w, &u), SpendKind::Video, &i).map(Some)
     })
     .await
     {
@@ -264,10 +293,11 @@ async fn begin(
             )
         }
         Some(Spend::Insufficient { balance, price }) => {
+            let reason = if world.is_empty() { "credits" } else { "pool" };
             return reply(
                 StatusCode::PAYMENT_REQUIRED,
-                json!({"error": "A scene video needs 100 credits.", "reason": "credits", "balance": balance, "price": price}),
-            )
+                json!({"error": "A scene video needs 100 credits.", "reason": reason, "balance": balance, "price": price}),
+            );
         }
         Some(_) => {}
     }
@@ -283,12 +313,12 @@ async fn begin(
             .map(str::to_owned)
             .ok_or_else(|| "The video provider sent no job.".to_string())
     });
-    let (u, i) = (user.to_owned(), id.to_owned());
+    let (u, w, i) = (user.to_owned(), world.to_owned(), id.to_owned());
     match job {
         Ok(job) => match store(path, move |c| {
             c.execute(
-                "INSERT INTO credit_video_jobs (user_id, request_id, job_id, created_at_unix) VALUES (?1, ?2, ?3, ?4)",
-                params![u, i, job, crate::util::now_unix_secs() as i64],
+                "INSERT INTO credit_video_jobs (user_id, request_id, job_id, created_at_unix, world_id) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![u, i, job, crate::util::now_unix_secs() as i64, w],
             )
         })
         .await
@@ -298,7 +328,7 @@ async fn begin(
         },
         Err(reason) => {
             let note = reason.clone();
-            let _ = store(path, move |c| credits::refund(c, &u, SpendKind::Video, &i, &note)).await;
+            let _ = store(path, move |c| credits::refund(c, Payer::of(&w, &u), SpendKind::Video, &i, &note)).await;
             reply(StatusCode::BAD_GATEWAY, json!({"error": "The video needs a fresh request.", "detail": reason}))
         }
     }
@@ -318,7 +348,7 @@ async fn status(
 
 async fn poll(path: &FsPath, config: &AiConfig, user: &str, id: &str) -> Response {
     let (u, i) = (user.to_owned(), id.to_owned());
-    let Ok(Some(job)) = store(path, move |c| job_of(c, &u, &i)).await else {
+    let Ok(Some((job, world))) = store(path, move |c| job_of(c, &u, &i)).await else {
         return fail(StatusCode::NOT_FOUND, "Film the current scene again.");
     };
     let job_status = match provider_json(config, &format!("videos/{}", urlencode(&job)), None).await
@@ -347,7 +377,7 @@ async fn poll(path: &FsPath, config: &AiConfig, user: &str, id: &str) -> Respons
             format!("video {status}: {reason}"),
         );
         let refunded = store(path, move |c| {
-            credits::refund(c, &u, SpendKind::Video, &i, &note)
+            credits::refund(c, Payer::of(&world, &u), SpendKind::Video, &i, &note)
         })
         .await;
         return reply(
@@ -383,7 +413,7 @@ async fn content(
         Ok(context) => context,
         Err(response) => return response,
     };
-    let Ok(Some(job)) = store(&path, move |c| job_of(c, &user, &id)).await else {
+    let Ok(Some((job, _))) = store(&path, move |c| job_of(c, &user, &id)).await else {
         return fail(StatusCode::NOT_FOUND, "Film the current scene again.");
     };
     let bytes = match provider(
@@ -466,6 +496,7 @@ mod tests {
             prompt: "Vale: \"Hello.\"".into(),
             options: serde_json::from_value(json!({"duration": 5, "aspect_ratio": "16:9"}))
                 .unwrap(),
+            world: None,
         };
         let request = body(&start).unwrap();
         assert_eq!(
@@ -482,7 +513,8 @@ mod tests {
         assert!(body(&sneaky).is_none(), "the browser cannot pick the model");
         let balance = || credits::balance(&credits::open(&path).unwrap(), "u1").unwrap();
 
-        let (status, reply) = read(begin(&path, &config, "u1", "film-0001", &request).await).await;
+        let (status, reply) =
+            read(begin(&path, &config, "u1", "", "film-0001", &request).await).await;
         assert_eq!(
             (status, reply["balance"].as_i64()),
             (StatusCode::PAYMENT_REQUIRED, Some(0))
@@ -499,7 +531,7 @@ mod tests {
         .unwrap();
         for _ in 0..2 {
             let (status, reply) =
-                read(begin(&path, &config, "u1", "film-0001", &request).await).await;
+                read(begin(&path, &config, "u1", "", "film-0001", &request).await).await;
             assert_eq!(
                 (status, reply["status"].as_str()),
                 (StatusCode::OK, Some("submitted"))
@@ -530,6 +562,31 @@ mod tests {
             (Some(false), 150),
             "refunded once"
         );
+
+        // In a shared world the pool pays and takes the refund.
+        let mut c = credits::open(&path).unwrap();
+        c.execute_batch(
+            "CREATE TABLE card_members(world TEXT, actor INTEGER, user TEXT, seen INTEGER);
+             CREATE TABLE card_bindings(world TEXT, actor INTEGER, user TEXT);
+             INSERT INTO card_members VALUES ('w1', 0, 'u1', 0);",
+        )
+        .unwrap();
+        credits::pool::commit(&mut c, "u1", "w1", 100, "c-1").unwrap();
+        let film = |user: &'static str| begin(&path, &config, user, "w1", "film-0002", &request);
+        assert_eq!(read(film("u2").await).await.0, StatusCode::FORBIDDEN);
+        *job_status.lock().unwrap() = "pending";
+        assert_eq!(read(film("u1").await).await.0, StatusCode::OK);
+        let pool = || {
+            let world = Payer::World {
+                world: "w1",
+                by: "",
+            };
+            credits::balance(&credits::open(&path).unwrap(), world).unwrap()
+        };
+        assert_eq!((pool(), balance()), (0, 50));
+        *job_status.lock().unwrap() = "failed";
+        poll(&path, &config, "u1", "film-0002").await;
+        assert_eq!((pool(), balance()), (100, 50));
         let _ = std::fs::remove_file(&path);
     }
 }

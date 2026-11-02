@@ -9,6 +9,8 @@
 //! hold committed credits.
 use std::path::Path;
 
+#[path = "credits/clips.rs"]
+pub(crate) mod clips;
 #[path = "credits/pool.rs"]
 pub(crate) mod pool;
 
@@ -62,6 +64,13 @@ pub(crate) enum Payer<'a> {
 }
 
 impl<'a> Payer<'a> {
+    /// A shared world's pool, or the account's own balance for "".
+    pub(crate) fn of(world: &'a str, user: &'a str) -> Self {
+        match world {
+            "" => Self::Person(user),
+            world => Self::World { world, by: user },
+        }
+    }
     fn user(self) -> &'a str {
         match self {
             Self::Person(user) | Self::World { by: user, .. } => user,
