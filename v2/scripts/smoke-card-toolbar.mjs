@@ -230,6 +230,11 @@ try {
     await page.locator("#world-menu").innerText(),
     /on this device|New world/,
   );
+  // Settings keeps New game, which asks before Vale's table starts over.
+  await page.locator("#menu-button").click();
+  await page.locator("#new-game").click();
+  await page.locator("#reset-dialog").waitFor({ state: "visible" });
+  await page.locator("#cancel-reset").click();
   console.log(
     "Toolbar: five screen sizes, keyboard, the world slots, presence, the owner's Free, and solo play passed.",
   );

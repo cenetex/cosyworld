@@ -55,6 +55,7 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
   Local play is its own passkey (#1846), so signing in neither uploads nor
   lists that save: it waits, unchanged, for the next signed-out visit.
   **Invite** on the local table is the one way to bring it online.
+  Settings has **New game** ("Start a fresh world?") only while signed out.
 
 ## The ☰ menu
 

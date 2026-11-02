@@ -180,6 +180,7 @@ try {
       0,
     );
     assert.doesNotMatch(await menu.innerText(), /on this device/);
+    assert.equal(await page.locator("#new-game").getAttribute("hidden"), "");
     assert.deepEqual(errors, []);
     await page.close();
   }
