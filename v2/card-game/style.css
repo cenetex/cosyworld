@@ -2282,18 +2282,39 @@ main > .dialogue {
     :root body .dialogue[data-dropped="true"] {
       translate: none;
     }
-    /* One beat at a time: long lines scroll inside the box. The earlier
-       beat stays in the layout, hidden, so its motions still finish. */
+    /* The earlier beat peeks above the front one inside the same box, as
+       on wide screens: one dimmed line. The front card gives up the peek's
+       height, and its long lines scroll inside it. */
+    :root body .dialogue.beat-stack {
+      --beat-peek: 16px;
+    }
     :root body .dialogue.beat-stack .beat-behind {
-      visibility: hidden;
-      pointer-events: none;
+      top: var(--beat-peek);
+      gap: 5px;
+      padding: 1px 10px 0 7px;
+      font-size: 12px;
+    }
+    :root body .beat-behind-text {
+      line-height: 15px;
+    }
+    :root body .beat-behind-portrait {
+      width: 15px;
+      height: 15px;
     }
     :root body .dialogue.beat-stack > .beat-front {
-      height: 100%;
-      padding-block: 6px;
+      height: calc(100% - var(--beat-peek));
+      margin-top: var(--beat-peek);
+      padding-block: 3px 2px;
       grid-template-rows: auto minmax(0, 1fr) auto;
       align-items: start;
       overflow: hidden;
+    }
+    :root body .beat-stack .dialogue-heading {
+      min-height: 20px;
+    }
+    /* Who plays next stays in the front card's header row. */
+    :root body .shared-portraits {
+      top: calc(var(--beat-peek) + 4px);
     }
     :root body .beat-stack .speech-line {
       align-self: stretch;
@@ -2303,9 +2324,11 @@ main > .dialogue {
     }
     :root body .beat-stack #dialogue-text {
       max-height: none;
+      margin: 0;
+      line-height: 1.3;
     }
     :root body .beat-stack .speaker-portrait {
-      height: 28px;
+      height: 20px;
     }
     .hand {
       height: calc(
