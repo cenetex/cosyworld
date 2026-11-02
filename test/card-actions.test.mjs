@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import {
   availableCards,
@@ -154,6 +155,30 @@ describe("named card actions", () => {
     // A free hand hears the old pairing hint, not the full-hands reason.
     world.items.bell.holder = "station";
     expect(cardActions(world, ["oil"]).hint).not.toBe(TOO_MANY_ITEMS);
+  });
+  it("puts the full-hands reason in the context button, not on cards", () => {
+    const app = readFileSync(
+      new URL("../v2/card-game/app.mjs", import.meta.url),
+      "utf8",
+    );
+    const body = (name) => {
+      const at = app.indexOf(`function ${name}(`);
+      return app.slice(at, app.indexOf("\nfunction ", at + 1));
+    };
+    // The context button names the item and never plays (#2018, #2023).
+    const actions = body("renderActions");
+    expect(actions).toContain(
+      "`You have too many items to take ${theName(crowded).toLowerCase()}`",
+    );
+    expect(actions).toContain("blocked.disabled = true;");
+    expect(body("updateCardCooldown")).toContain(
+      "Boolean(button.dataset.blocked)",
+    );
+    // Cards keep their accessible name and tooltip.
+    for (const name of ["card", "updateCardSelection"]) {
+      expect(body(name)).not.toContain("TOO_MANY_ITEMS");
+      expect(body(name)).not.toMatch(/\.title\b/u);
+    }
   });
   it("places carried and nested items directly after their holders", () => {
     const world = meeting();

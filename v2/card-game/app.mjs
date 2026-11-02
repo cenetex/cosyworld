@@ -556,7 +556,8 @@ function updateCardCooldown() {
   for (const button of document.querySelectorAll(
     "#hand button, #card-actions button",
   )) {
-    button.disabled = selectionBlocked();
+    // A blocked reason (a Take refused for space) never plays.
+    button.disabled = selectionBlocked() || Boolean(button.dataset.blocked);
     if (button.dataset.card)
       button.draggable =
         !button.disabled && !cardIsCovered(button.dataset.card);
@@ -1790,11 +1791,20 @@ function renderActions() {
     look.onclick = () => showItemView(viewed);
     row.append(look);
   }
-  // A Take refused for space says why instead of leaving the beat blank.
-  const note = document.querySelector(".action-beat-note"),
-    reason = !rested && hint === TOO_MANY_ITEMS ? hint : "";
-  note.textContent = note.title = reason;
-  note.hidden = !reason;
+  // A Take refused for space says why in the context button (#2018). It
+  // plays nothing; the cards stay as they are.
+  const crowded =
+    !rested && hint === TOO_MANY_ITEMS && selected.find((id) => things[id]);
+  if (crowded) {
+    const reason = `You have too many items to take ${theName(crowded).toLowerCase()}`;
+    const blocked = node("button", reason, "card-primary");
+    blocked.type = "button";
+    blocked.disabled = true;
+    blocked.dataset.blocked = "carry";
+    blocked.title = reason;
+    row.append(blocked);
+  }
+  document.querySelector(".action-beat-note").hidden = true;
   delete $("action-beat").dataset.avatar;
   syncActionBeat();
   $("play-readout").textContent = selected.length
@@ -1815,9 +1825,7 @@ function updateCardSelection(frame) {
     id = button.dataset.card,
     raised =
       selected.includes(id) || Boolean(places[id] && expandedHolders.has(id)),
-    chosen = raised ? cardPlay(world, selected) : null,
-    label = playLabel(chosen?.action) || "",
-    full = fullHands(id, chosen),
+    label = raised ? playLabel(cardPlay(world, selected).action) : "",
     held =
       people[id] || places[id]
         ? availableCards(world).filter(
@@ -1838,19 +1846,14 @@ function updateCardSelection(frame) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
-  if (full) button.title = TOO_MANY_ITEMS;
-  else button.removeAttribute("title");
   button.querySelector(".sr-only").textContent =
     cardObservation(world, id) +
-    (label ? ` ${label}.` : full ? ` ${TOO_MANY_ITEMS}` : "") +
+    (label ? ` ${label}.` : "") +
     (held.length
       ? ` ${places[id] ? "Contains" : "Carries"} ${held.map(nameOf).join(", ")}. Select to show these cards.`
       : "") +
     stackLabel(stack);
 }
-// A raised thing whose Take is refused for space says why (#2018).
-const fullHands = (id, chosen) =>
-  Boolean(things[id]) && chosen?.hint === TOO_MANY_ITEMS;
 const handMotions = new Map();
 function moveHandPart(key, element, frames, duration = 220) {
   const motion = element.animate(frames, { duration, easing: "ease-out" });
@@ -1936,10 +1939,6 @@ function card(id) {
   const observation = node("span", cardObservation(world, id), "sr-only");
   observation.id = `card-detail-${id}`;
   if (raised && label) observation.textContent += ` ${label}.`;
-  else if (fullHands(id, chosen)) {
-    observation.textContent += ` ${TOO_MANY_ITEMS}`;
-    el.title = TOO_MANY_ITEMS;
-  }
   const hidden = cardIsCovered(id);
   if (hidden) observation.textContent = "";
   el.append(graphic, node("span", hidden ? "" : def.name, "name"), observation);
@@ -3112,8 +3111,7 @@ function syncActionBeat() {
     show =
       Boolean(borrowedBeat) ||
       $("card-actions").children.length > 0 ||
-      !$("play-status").hidden ||
-      !document.querySelector(".action-beat-note").hidden;
+      !$("play-status").hidden;
   if (panel.hidden !== show) return;
   // A notice before the first render (storage refused) only shows the beat.
   const drawn = Boolean(document.body.dataset.handExpanded);
