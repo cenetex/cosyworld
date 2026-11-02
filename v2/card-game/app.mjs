@@ -1530,7 +1530,9 @@ function sharedQueuePortrait(actor) {
   frameFigure(image);
   return image;
 }
-// The action beat's small cards, at most three.
+// The action beat's figures, at most three, as the quest card pairs them:
+// borderless cut-outs side by side, the actor facing the others; an item or
+// place a small picture beside them.
 function showBeatCards(ids) {
   const cards = document.querySelector(".action-beat-cards"),
     key = ids.slice(0, 3).join("+");
@@ -1538,11 +1540,24 @@ function showBeatCards(ids) {
   cards.dataset.cards = key;
   releaseImages(cards);
   cards.replaceChildren(
-    ...ids.slice(0, 3).map((id) => {
+    ...ids.slice(0, 3).map((id, index) => {
       const image = node("img");
       image.alt = "";
       image.decoding = "async";
+      image.draggable = false;
       image.src = beatPortrait(id);
+      image.className = people[id]
+        ? "beat-figure"
+        : places[id]
+          ? "beat-place"
+          : "beat-thing";
+      if (people[id])
+        image.dataset.flip = String(
+          flipStagePortrait(
+            portrait(id, null, world),
+            index ? "left" : "right",
+          ),
+        );
       return image;
     }),
   );

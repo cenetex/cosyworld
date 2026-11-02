@@ -2238,12 +2238,14 @@ body .beat-live {
    between the dialogue and the hand, and the hand never moves for it. A
    strike or journey that drops the dialogue hides it. */
 .beat-stack > .action-panel {
+  --beat-divider: #b09a6a55;
   position: relative;
   z-index: 3;
   display: grid;
   gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid #b09a6a55;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--beat-divider);
   border-radius: 8px;
   background: #10151ded;
   box-shadow:
@@ -2340,40 +2342,68 @@ body .beat-live {
     15px/1.3 Georgia,
     serif;
 }
-/* Who acts and what it acts on, small cards side by side as a quest pairs
-   them, beside what the play does. */
+/* One row: who acts and what it acts on, small cards side by side as a
+   quest pairs them; then what the play does; then its buttons, flush
+   segments on the right of the box itself, each a full-height verb split
+   off by a thin divider. Too narrow for that, the buttons wrap into a strip
+   along the foot, under the same divider. */
 .beat-stack > .action-panel:not([hidden]) {
   display: flex;
-  align-items: center;
-  column-gap: 10px;
-}
-.action-beat-body {
-  display: grid;
-  flex: 1;
-  align-content: start;
-  gap: inherit;
-  min-width: 0;
-  max-height: 100%;
+  flex-wrap: wrap;
+  align-items: stretch;
+  column-gap: 0;
 }
 .action-beat-cards {
   display: flex;
-  gap: 4px;
+  flex: none;
+  align-items: flex-end;
+  align-self: stretch;
+  padding: 6px 0 2px 10px;
 }
 .action-beat-cards:empty {
   display: none;
 }
-.action-beat-cards img {
-  width: 52px;
-  aspect-ratio: 2 / 3;
-  object-fit: cover;
-  object-position: 50% 12%;
-  border: 1px solid #a48d63b3;
-  border-radius: 4px;
-  background: #181b22;
-  box-shadow: 0 2px 6px #0008;
+.action-beat-body {
+  display: grid;
+  flex: 1000 1 120px;
+  grid-template-columns: minmax(0, 1fr);
+  align-self: center;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 12px 8px 10px;
 }
-/* A borrowed beat's one-line note reads under its heading, above the
-   buttons. */
+.action-beat-cards:empty + .action-beat-body {
+  padding-left: 12px;
+}
+/* A play's figures read as the quest card's pair: no tile, a drop shadow,
+   standing a little over each other. */
+.action-beat-cards img {
+  display: block;
+  max-width: none;
+  height: 68px;
+  width: auto;
+  filter: drop-shadow(0 3px 4px #000a);
+}
+.action-beat-cards img + img {
+  margin-left: -10px;
+}
+.action-beat-cards [data-flip="true"] {
+  scale: -1 1;
+}
+.action-beat-cards .beat-thing {
+  align-self: center;
+  height: 40px;
+}
+.action-beat-cards .beat-place {
+  align-self: center;
+  height: 50px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  -webkit-mask-image: radial-gradient(ellipse 50% 50%, #000 55%, transparent);
+  mask-image: radial-gradient(ellipse 50% 50%, #000 55%, transparent);
+}
+/* The note reads under the heading. */
 .action-beat-heading {
   order: -2;
 }
@@ -2382,18 +2412,61 @@ body .beat-live {
   color: var(--muted);
   font-size: 13px;
 }
-/* Its buttons share the beat cards' edges: no pill. */
-.beat-action #card-actions button {
-  padding: 6px 18px;
-  border-color: #b09a6a88;
-  border-radius: 6px;
-  background: #1a1f29;
+.beat-action #card-actions {
+  flex: 1 0 auto;
+  gap: 0;
+  padding: 0;
+  overflow: visible;
+  /* The divider on its left, or above it once it wraps; the box clips the
+     other one. */
+  box-shadow:
+    -1px 0 0 var(--beat-divider),
+    0 -1px 0 var(--beat-divider);
 }
+.beat-action #card-actions:empty {
+  display: none;
+}
+.beat-action #card-actions button {
+  flex: 1 1 auto;
+  max-width: none;
+  min-height: 44px;
+  margin: 0;
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #f2e3c4;
+  font:
+    15px/1.25 Georgia,
+    serif;
+}
+.beat-action #card-actions button + button {
+  box-shadow: inset 1px 0 0 var(--beat-divider);
+}
+.beat-action #card-actions button:is(:hover, :focus-visible) {
+  background: #dfc38d1f;
+}
+.beat-action #card-actions button:active,
+.beat-action #card-actions button:is([data-queued="true"], [data-sent]) {
+  background: #dfc38d33;
+  color: var(--gold);
+}
+.beat-action #card-actions button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -3px;
+}
+.beat-action #card-actions button:disabled {
+  background: transparent;
+  opacity: 0.5;
+}
+/* What the play does takes two lines before it ends in an ellipsis. */
 .action-beat-text {
+  display: -webkit-box;
   min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 .action-beat-text strong {
   color: var(--gold);
@@ -2484,39 +2557,52 @@ main > .dialogue {
     margin-top: var(--beat-peek);
     align-content: start;
     gap: 3px;
-    padding: 3px 10px 2px 8px;
     overflow-y: auto;
     scrollbar-width: none;
   }
-  body[data-dialogue-over="true"] .beat-stack[data-action="true"] > #speech-row {
+  body[data-dialogue-over="true"]
+    .beat-stack[data-action="true"]
+    > #speech-row {
     top: var(--beat-peek);
     gap: 5px;
     padding: 1px 10px 0 7px;
     font-size: 12px;
     line-height: 15px;
   }
-  body[data-dialogue-over="true"] .beat-stack[data-action="true"] > #speech-row .speaker-portrait {
+  body[data-dialogue-over="true"]
+    .beat-stack[data-action="true"]
+    > #speech-row
+    .speaker-portrait {
     width: 15px;
     height: 15px;
   }
-  body[data-dialogue-over="true"] .action-beat-cards img {
-    width: 36px;
+  /* The fixed box has no room for a strip: its buttons stay on the
+     right, and their words wrap there. */
+  body[data-dialogue-over="true"] .beat-stack > .action-panel:not([hidden]) {
+    flex-wrap: nowrap;
   }
-  /* The fixed box has room for one line above the buttons: the note, which
-     names the avatar and its world. */
-  body[data-dialogue-over="true"]
-    .action-beat-body:has(> .action-beat-note:not([hidden]))
-    > .action-beat-heading {
-    display: none;
+  body[data-dialogue-over="true"] .beat-action #card-actions {
+    flex: 0 1 auto;
+    max-width: 42%;
+  }
+  body[data-dialogue-over="true"] .beat-action #card-actions button {
+    min-width: 0;
+  }
+  body[data-dialogue-over="true"] .action-beat-cards {
+    padding: 2px 0 0 8px;
+  }
+  body[data-dialogue-over="true"] .action-beat-body {
+    gap: 2px;
+    padding: 3px 10px 2px 8px;
+  }
+  body[data-dialogue-over="true"] .action-beat-cards .beat-figure {
+    height: 66px;
   }
   body[data-dialogue-over="true"] .action-beat-note {
     overflow: hidden;
     font-size: 12px;
     white-space: nowrap;
     text-overflow: ellipsis;
-  }
-  body[data-dialogue-over="true"] .beat-action #card-actions {
-    padding-block: 1px;
   }
   body[data-dialogue-over="true"] .hand {
     height: calc(
