@@ -6,6 +6,7 @@ import {
   clearSelection,
   revealCard,
   selectCard,
+  startNewGame,
 } from "./card-browser-helpers.mjs";
 // Vale wakes knowing only the cards his player has uncovered (#1575).
 const wake = async (page) => {
@@ -232,10 +233,7 @@ try {
       await playCards("take", ["lamp"]);
       if (width === 390) {
         // A quick first Put out reply also crosses the discovery and quest cues.
-        await page.locator("#toolbar-menu-button").click();
-        await page.locator("#avatar-move").click();
-        await page.locator("#avatar-new-world").click();
-        await page.locator("#confirm-reset").click();
+        await startNewGame(page);
         await finish();
         await playCards("snuff", ["lamp"]);
       }

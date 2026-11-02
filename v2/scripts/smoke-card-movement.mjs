@@ -1,5 +1,9 @@
 import { atticOpening } from "../../test/fixtures/card-attic-opening.mjs";
-import { revealCard, selectCard } from "./card-browser-helpers.mjs";
+import {
+  revealCard,
+  selectCard,
+  startNewGame,
+} from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -167,11 +171,7 @@ try {
       await selectCard(page, "pond");
       await page.locator("#card-actions .card-primary").click();
       if (kind === "reset") {
-        // Signed out, Settings keeps New game for Vale's table (#1892).
-        await page.locator("#toolbar-menu-button").click();
-        await page.locator("#menu-button").click();
-        await page.locator("#new-game").click();
-        await page.locator("#confirm-reset").click();
+        await startNewGame(page);
         // A new game opens on the attic without a quest reveal.
         await page.waitForFunction(
           (key) => JSON.parse(localStorage.getItem(key)).turn === 0,
