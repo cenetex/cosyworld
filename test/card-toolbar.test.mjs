@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { localPlayer, onlinePlayers } from "../v2/card-game/toolbar.mjs";
-import { createAvatarWorld } from "../v2/card-game/avatar-world.mjs";
+import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
 
 function snapshot() {
   return {
@@ -60,7 +60,7 @@ describe("players in the shared world", () => {
 
 describe("the player in a local world", () => {
   it("is the avatar the world belongs to, with that avatar's level", () => {
-    const world = createAvatarWorld("mara", 7);
+    const world = { ...createLandingWorld(null, 7), playerActorId: "mara" };
     world.actors.mara.level = 3;
     world.actors.vale.level = 1;
     expect(localPlayer(world)).toMatchObject({
@@ -71,8 +71,7 @@ describe("the player in a local world", () => {
     });
   });
   it("is Vale in Vale's original save", () => {
-    const world = createAvatarWorld("vale", 7);
-    delete world.playerActorId;
+    const world = createLandingWorld(null, 7);
     expect(localPlayer(world)).toMatchObject({ id: "vale", name: "Vale" });
   });
 });

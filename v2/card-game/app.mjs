@@ -3985,7 +3985,7 @@ installToolbar({
   session: sharedSession,
   getWorld: () => world,
   allowShared: () => !localRuntime(),
-  // Delete world on the world being played: nothing saves it again.
+  // Leaving the world being played: nothing saves it again.
   stopSaving: () => {
     saveBlocked = true;
     playQueue.clear();

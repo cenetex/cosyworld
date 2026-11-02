@@ -2,13 +2,7 @@ import { imageUrl } from "./images.mjs";
 import { humanAvatars, currentActor } from "./human-cast.mjs";
 import { request } from "./shared-auth.mjs";
 import { worldName, worldNameOf } from "./world-name.mjs";
-import {
-  archiveLocal,
-  deleteLocal,
-  localWorldName,
-  INVITE_KEY,
-  PLAYING_KEY,
-} from "./avatar-world.mjs";
+import { INVITE_KEY, PLAYING_KEY } from "./avatar-world.mjs";
 import { levelOf } from "./want.mjs";
 import { nameOf } from "./world.mjs";
 import { avatarImage } from "./scarves.mjs";
@@ -50,7 +44,6 @@ export const byInitial = (avatars) =>
   [...avatars].sort(
     (a, b) => "RATVMICS".indexOf(a.name[0]) - "RATVMICS".indexOf(b.name[0]),
   );
-const localLink = (id) => `/?avatar=${id}`;
 const sharedLink = (id) => `/?world=${encodeURIComponent(id)}`;
 // Leaving the world being played opens ☰ on the next page.
 const MENU_KEY = "cosyworld.menu";
@@ -63,15 +56,11 @@ function stored(key, value) {
   return null;
 }
 
-// What leaving a world costs. A local world left or replaced is gone for
-// good, with the avatar's level and quest there (#1825). Leaving a shared
-// world takes the avatar's level along and frees its seat there (#1846).
+// What stepping away costs: the level goes along, and the seat frees (#1846).
 export function leaveNote(avatar, place) {
   const name = place?.name || "This world";
   if (!place) return "";
-  return place.local
-    ? `${name} will be lost, with ${avatar.name}'s level and quest there. There is no way back to it.`
-    : `${avatar.name}'s level goes with ${avatar.name}. ${avatar.name}'s things and quests stay in ${name}, and the seat there opens for someone else.`;
+  return `${avatar.name}'s level goes with ${avatar.name}. ${avatar.name}'s things and quests stay in ${name}, and the seat there opens for someone else.`;
 }
 
 // A shared world this avatar can go to: one this person holds no avatar in,
@@ -179,7 +168,7 @@ export function worldSlots({ shared, rows = [], here, invite = null }) {
 // Where one of your avatars can go from `from`, its slot or null for the
 // deck: the deck, another slot whose seat for it is free and that holds
 // none of your avatars, and + New world while a slot is free.
-export function targetsFor(avatar, from, { slots, canCreate }, shared) {
+export function targetsFor(avatar, from, { slots, canCreate }) {
   return {
     deck: Boolean(from),
     worlds: slots
@@ -192,17 +181,9 @@ export function targetsFor(avatar, from, { slots, canCreate }, shared) {
           slot.seats.find((seat) => seat.id === avatar.id).kind === "resident",
       )
       .map((slot) => slot.key),
-    // Locally each avatar has its own slot, so a local avatar always can.
-    create: shared ? canCreate : true,
+    create: canCreate,
   };
 }
-
-// Where Delete world leaves the player (#1793, owner bug 2026-11-01): the
-// world being played gives way to a fresh one for the same avatar, as New
-// game does, never another avatar's world, which may be a shared world that
-// does not open. Deleting another world stays in the menu.
-export const afterDelete = (avatar, current) =>
-  current ? localLink(avatar.id) : null;
 
 export function installAvatarMenu({
   menu,
@@ -247,10 +228,9 @@ export function installAvatarMenu({
     stored(MENU_KEY, "1");
     location.href = "/";
   };
-  const leave = async (id, from) => {
+  const leave = async (from) => {
     if (from.current) stopSaving();
-    if (from.shared) await command(from.shared, { op: "release" });
-    else archiveLocal(id);
+    await command(from.shared, { op: "release" });
   };
   const redraw = () => {
     drawn = "";
@@ -258,15 +238,10 @@ export function installAvatarMenu({
   };
   const toWorld = async (avatar, from, slot) => {
     await command(slot.shared, { op: "claim", avatar: avatar.id });
-    if (from?.local) await leave(avatar.id, from);
     stored(INVITE_KEY, null);
     location.href = sharedLink(slot.shared);
   };
   async function create(avatar) {
-    if (!shared) {
-      location.href = localLink(avatar.id);
-      return;
-    }
     const made = await request("/card-game/shared/worlds", {
       avatar: avatar.id,
     });
@@ -287,8 +262,8 @@ export function installAvatarMenu({
     return button;
   }
   // The tapped seat's actions, under its world's line of seats: Play and
-  // Release or Delete world for yours, and Step away after a second tap on
-  // it; the owner's Free for another's.
+  // Release for yours, and Step away after a second tap on it; the owner's
+  // Free for another's.
   function seatActions(slot, seat) {
     const name = slot.name || "this world";
     const bar = el("div", "avatar-actions");
@@ -314,9 +289,7 @@ export function installAvatarMenu({
     if (!slot.current)
       bar.append(
         act("Play", () => {
-          location.href = slot.shared
-            ? sharedLink(slot.shared)
-            : localLink(seat.id);
+          location.href = sharedLink(slot.shared);
         }),
       );
     // Step away frees the seat and keeps the avatar's level and binding, so
@@ -326,7 +299,7 @@ export function installAvatarMenu({
         act(
           "Step away",
           async () => {
-            await leave(seat.id, slot);
+            await leave(slot);
             if (slot.current) return leaveHere();
             chosen = null;
             await load();
@@ -334,34 +307,19 @@ export function installAvatarMenu({
           "avatar-step-away",
         ),
       );
-    if (slot.shared)
-      bar.append(
-        twoTap(
-          "Release · start over",
-          `Release ${seat.name} and start over?`,
-          `${seat.name} starts over at level 1. Their things and quests stay in ${name}, and anyone may take ${seat.name} there.`,
-          async () => {
-            await command(slot.shared, { op: "reset", avatar: seat.id });
-            if (slot.current) return leaveHere();
-            chosen = null;
-            await load();
-          },
-        ),
-      );
-    else
-      bar.append(
-        twoTap("Delete world", `Delete ${name} and its progress?`, "", () => {
-          // The world being played stops saving first, so nothing writes it
-          // back before the page leaves.
-          if (slot.current) stopSaving();
-          deleteLocal(seat.id);
-          const next = afterDelete(seat, slot.current);
-          if (next) return location.replace(next);
+    bar.append(
+      twoTap(
+        "Release · start over",
+        `Release ${seat.name} and start over?`,
+        `${seat.name} starts over at level 1. Their things and quests stay in ${name}, and anyone may take ${seat.name} there.`,
+        async () => {
+          await command(slot.shared, { op: "reset", avatar: seat.id });
+          if (slot.current) return leaveHere();
           chosen = null;
-          redraw();
-          status.textContent = `${slot.name || "The world"} is gone.`;
-        }),
-      );
+          await load();
+        },
+      ),
+    );
     return bar;
   }
   function seatButton(slot, seat, world, view) {
@@ -385,7 +343,7 @@ export function installAvatarMenu({
     const from = view.slots.find((s) => s.mine === seat.id) || null;
     const move =
       seat.kind === "resident" &&
-      targetsFor(avatar, from, view, shared).worlds.includes(slot.key);
+      targetsFor(avatar, from, view).worlds.includes(slot.key);
     if (move) face.classList.add("slot-target");
     const image =
       (world && avatarImage(world, seat.id)) ||
@@ -397,19 +355,16 @@ export function installAvatarMenu({
     // Colour is presence: someone online in the seat. Every other is grey.
     item.dataset.lit = String(Boolean(seat.online));
     // A tap selects the seat: its stats show below, and your seat its
-    // actions; a second tap on yours offers Step away. Leaving a local world
-    // says what is lost before the second tap.
+    // actions; a second tap on yours offers Step away.
     face.onclick = async () => {
       if (!picked || !move) {
         const away = picked && seat.kind === "you";
         chosen = { id: seat.id, slot: slot.key, away };
         status.textContent = away
           ? leaveNote(avatar, slot)
-          : !move
-            ? ""
-            : from?.local
-              ? leaveNote(avatar, from)
-              : `Tap ${avatar.name} again to bring ${avatar.name} here.`;
+          : move
+            ? `Tap ${avatar.name} again to bring ${avatar.name} here.`
+            : "";
         return render();
       }
       face.disabled = true;
@@ -465,7 +420,6 @@ export function installAvatarMenu({
       rows,
       here: here(),
       invite,
-      local: localWorldName,
     });
     // Presence ticks redraw only when something shown has changed.
     const key = JSON.stringify([view, chosen, [...opened], phone.matches]);
@@ -484,11 +438,7 @@ export function installAvatarMenu({
         else opened.delete(slot.key);
       };
       const summary = el("summary");
-      const label = slot.local
-        ? "on this device"
-        : slot.invite
-          ? "invited"
-          : !slot.owner && "a friend's world";
+      const label = slot.invite ? "invited" : !slot.owner && "a friend's world";
       summary.append(el("strong", "", slot.name || "A world"));
       if (label) summary.append(el("small", "", label));
       const letters = el("span", "slot-letters");
@@ -506,7 +456,7 @@ export function installAvatarMenu({
       if (seat) details.append(seatActions(slot, seat));
       box.append(details);
     }
-    if (view.deck.length && (view.canCreate || !shared)) {
+    if (view.deck.length && view.canCreate) {
       const fresh = act(
         "+ New world",
         () => create(view.deck[0]),
@@ -528,7 +478,7 @@ export function installAvatarMenu({
     }
     const now = here();
     chosen = null;
-    opened = new Set([now.place.shared || `local:${now.actor}`]);
+    opened = new Set([now.place.shared]);
     status.textContent = "";
     redraw();
     load(stored(INVITE_KEY));
