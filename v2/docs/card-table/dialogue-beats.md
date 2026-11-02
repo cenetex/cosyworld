@@ -112,7 +112,9 @@ phone keeps them on the right and wraps their words instead. ☰ borrows the
 same beat for a chosen avatar ([avatar menu](avatar-menu.md)). The spoken beat settles behind it as one dimmed line that
 still takes taps. When the play commits or is cancelled the action beat leaves
 and the spoken beat returns; after a play it rests until the player chooses a
-card or taps the raised hand. A shared play the server refused or did not
+card or taps the raised hand. Choosing a quest in the open fan takes no
+turn, so it does not rest the beat: the chosen top quest still offers Drop
+quest. A shared play the server refused or did not
 confirm brings the beat back with its button, so the player can try again.
 The hand never moves for it.
 

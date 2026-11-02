@@ -521,7 +521,9 @@ const playQueue = createPlayQueue({
     !document.hidden &&
     !document.querySelector("dialog[open], .world-menu:popover-open"),
   play: (action, revision) => {
-    restedChoice = choiceKey();
+    // Choosing a quest takes no turn and brings no reply, so its beat stays
+    // awake: the chosen quest's Drop quest is still offered.
+    if (action.kind !== "focus") restedChoice = choiceKey();
     if (sharedSession) void submitSharedPlay(action);
     else performAction(action, revision);
   },

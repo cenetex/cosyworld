@@ -79,16 +79,34 @@ try {
             .unrevealed === "true",
         id,
       );
+    // A ready play or a notice is an action beat in front of the dialogue
+    // (#1945): it is then the stack's front card. Null when none shows.
+    const beatHit = () =>
+      page.evaluate(() => {
+        const beat = document.getElementById("action-beat");
+        if (!beat || beat.hidden) return null;
+        const box = beat.getBoundingClientRect();
+        return beat.contains(
+          document.elementFromPoint(
+            box.left + box.width / 2,
+            box.top + box.height / 2,
+          ),
+        );
+      });
+    const frontHit = async () =>
+      (await beatHit()) ?? (await stackHits(page)).front;
     const finish = async () => {
       for (let i = 0; i < 300; i++) {
         if (await page.locator("#dialogue-advance").isVisible()) {
           // After a discovery the front card still takes real clicks.
-          if ((await stackHits(page)).front === false) {
+          if ((await frontHit()) === false) {
             await page.waitForTimeout(400);
-            if ((await stackHits(page)).front === false)
+            if ((await frontHit()) === false)
               throw Error(`The front card missed a click at ${width}px`);
           }
-          await page.locator("#dialogue-advance").click({ timeout: 3000 });
+          // The dialogue steps on from the front; behind a beat it waits.
+          if ((await beatHit()) === null)
+            await page.locator("#dialogue-advance").click({ timeout: 3000 });
         }
         if (
           (await page.locator("#hand").getAttribute("data-cooling")) === "false"
@@ -168,11 +186,13 @@ try {
         !(await page.evaluate(() => window.arrivals.includes("pond"))),
         "a folded place does not arrive",
       );
-      // The doused lamp stays in hand and offers Light until it is lowered.
-      assert.equal(
-        await page.locator('#card-actions [data-action="light"]').count(),
-        1,
-      );
+      // The doused lamp stays in hand and offers Light until it is lowered;
+      // the play rests its beat, so the reply comes to the front, and a tap
+      // on the raised hand brings Light back.
+      const light = page.locator('#card-actions [data-action="light"]');
+      assert.equal(await light.count(), 0, "the beat rests after the play");
+      await page.locator(".play-dock").dispatchEvent("click");
+      assert.equal(await light.count(), 1, "the lamp still offers Light");
       await (await revealCard(page, "attic")).click();
       await page
         .locator('#hand [data-card="attic"][aria-expanded="true"]')
@@ -223,15 +243,17 @@ try {
       assert.equal(lateLid, "0");
       // A tap during the reveal skips it without selecting, then the card,
       // with no layers or animations left, takes the next click itself. A
-      // place widens first as it opens; tap once it holds still.
-      await pond.evaluate((el) =>
-        Promise.all(
+      // place widens first as it opens; tap once it holds still. The card's
+      // own reveal holds meanwhile, so a slow runner still taps mid-reveal.
+      await pond.evaluate((el) => {
+        for (const a of el.getAnimations({ subtree: true })) a.pause();
+        return Promise.all(
           el
             .closest(".card-frame")
             .getAnimations()
             .map((a) => a.finished),
-        ),
-      );
+        );
+      });
       await pond.click();
       assert.equal(await pond.getAttribute("data-revealing"), null);
       assert.equal(await pond.getAttribute("aria-pressed"), "false");
@@ -257,8 +279,13 @@ try {
         animations: 0,
         preserved: false,
       });
-      if (await page.locator("#speech-row").isVisible())
-        assert.equal((await stackHits(page)).front, true);
+      // A ready play's beat is the stack's front card; otherwise the spoken
+      // beat is. Either way the front takes real clicks after the reveal.
+      if (
+        (await page.locator("#action-beat").isVisible()) ||
+        (await page.locator("#speech-row").isVisible())
+      )
+        assert.equal(await frontHit(), true);
       assert.deepEqual(await state(), before);
       const bounds = await pond.boundingBox();
       assert(
@@ -336,6 +363,10 @@ try {
       );
       await selectCard(page, "keeper");
       await page.locator('#hand [data-card="oil"]').click();
+      // Lowering the keeper takes his Talk beat away, so the dialogue is the
+      // stack's front card again.
+      await page.keyboard.press("Escape");
+      await page.locator(".action-panel").waitFor({ state: "hidden" });
       await finish();
       if (motion === "reduce")
         assert.equal(await page.locator("#story-retry").isVisible(), true);
