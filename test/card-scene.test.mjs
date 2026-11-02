@@ -21,7 +21,12 @@ import {
   currentScene,
   sceneScript,
 } from "../v2/card-game/scene.mjs";
-const wantPlace = (target) => ({ kind: "place", target, since: 0, refusals: 0 });
+const wantPlace = (target) => ({
+  kind: "place",
+  target,
+  since: 0,
+  refusals: 0,
+});
 function gathered() {
   const s = createWorld();
   for (const id of ["vale", "moth", "keeper"]) s.actors[id].place = "station";
@@ -354,7 +359,10 @@ describe("JRPG scenes", () => {
     const s = gathered();
     dialogue(s, "keeper");
     const place = s.actors.vale.place;
-    s.standoffs = [{ challenger: "vale", defender: "moth", location: place }];
+    const resolve = { vale: 4, moth: 4 };
+    s.standoffs = [
+      { challenger: "vale", defender: "moth", location: place, resolve },
+    ];
     const stage = sceneStaging(s);
     expect(stage.actors.find((a) => a.id === "vale")).toMatchObject({
       gazeTargetId: "moth",
@@ -364,6 +372,26 @@ describe("JRPG scenes", () => {
       gazeTargetId: "vale",
       facing: "left",
     });
+  });
+  it("brings a battle's latest exchange to the front between plays", () => {
+    const s = gathered();
+    const place = s.actors.vale.place;
+    const resolve = { vale: 4, moth: 4, keeper: 4 };
+    s.standoffs = [
+      { challenger: "vale", defender: "moth", location: place, resolve },
+    ];
+    dialogue(s, "keeper", { kind: "action", verb: "attack", targetId: "moth" });
+    const actors = sceneStaging(s).actors;
+    const by = (id) => actors.find((a) => a.id === id);
+    expect(actors.map((a) => a.id).slice(0, 2)).toEqual(["keeper", "moth"]);
+    expect([by("keeper").depth, by("moth").depth, by("vale").depth]).toEqual([
+      "foreground",
+      "middle",
+      "back",
+    ]);
+    expect(by("keeper").gazeTargetId).toBe("moth");
+    expect(by("moth").gazeTargetId).toBe("keeper");
+    expect(by("vale").gazeTargetId).toBe("keeper");
   });
   it("mirrors the whole composition at a scene entrance", () => {
     const s = gathered();
