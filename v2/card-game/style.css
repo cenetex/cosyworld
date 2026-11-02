@@ -948,34 +948,7 @@ body .dialogue[data-dropped="true"] {
   scroll-snap-type: x proximity;
   overscroll-behavior-x: contain;
 }
-.hand-scroll {
-  position: absolute;
-  top: 35%;
-  z-index: 120;
-  width: 44px;
-  height: 48px;
-  padding: 0;
-  border-radius: 24px;
-  background: #10151bef;
-  border-color: #baa37c99;
-  color: #f2e3c4;
-  font-size: 32px;
-  box-shadow: 0 3px 12px #0008;
-}
-.hand-scroll[hidden] {
-  display: none;
-}
-.hand-scroll:disabled {
-  opacity: 0.25;
-}
-.hand-previous {
-  left: -12px;
-}
-.hand-next {
-  right: -12px;
-}
-/* Cards past either edge fade out instead of meeting a hard cut. The arrows
-   are siblings of the hand, so the mask never dims them. */
+/* Cards past either edge fade out instead of meeting a hard cut. */
 .hand {
   --hand-fade: 44px;
 }
@@ -2346,10 +2319,6 @@ main > .dialogue {
         var(--dialogue-cover) + var(--card-height) * (1 - var(--raised-tuck)) +
           var(--hand-top)
       );
-    }
-    /* The hand's arrows sit between the cards' tops and the dialogue. */
-    .hand-scroll {
-      top: calc((100% - var(--dialogue-cover)) / 2 - 24px);
     }
     body .hand .card .name {
       bottom: calc(var(--card-height) * (1 - var(--resting-show)));

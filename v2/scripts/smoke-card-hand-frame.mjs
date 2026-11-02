@@ -69,16 +69,15 @@ const inspect = (longName) => {
         problems.push(`${id} numeral colour`);
     }
     // Every line of a name is in view at both ends: no card on either side,
-    // a raised or chosen one included, covers it. The hand's edges and
-    // arrows may hide cards scrolled past them.
+    // a raised or chosen one included, covers it. The hand's edges may hide
+    // cards scrolled past them.
     if (name?.textContent && name.checkVisibility()) {
       const range = document.createRange();
       range.selectNodeContents(name);
       for (const line of range.getClientRects())
         for (const x of [line.left + 1, line.right - 1]) {
           const hit = document.elementFromPoint(x, line.top + line.height / 2);
-          if (x < box.left || x > box.right || hit?.closest(".hand-scroll"))
-            continue;
+          if (x < box.left || x > box.right) continue;
           const over = hit?.closest(".card-frame");
           if (over !== frame)
             problems.push(

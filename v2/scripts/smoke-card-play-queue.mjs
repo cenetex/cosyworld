@@ -142,7 +142,7 @@ try {
             ) < 2,
           );
         }
-        assert.equal(await page.locator(".hand-scroll").count(), 2);
+        assert.equal(await page.locator(".hand-scroll").count(), 0);
         await page.screenshot({
           path: new URL(`resting-${width}-${stale}.png`, output).pathname,
         });

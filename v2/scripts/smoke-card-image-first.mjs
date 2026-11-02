@@ -165,16 +165,13 @@ try {
       const overflow = await hand.evaluate(
         (h) => h.scrollWidth > h.clientWidth + 1,
       );
-      const handPrevious = page.locator("#hand-previous"),
-        handNext = page.locator("#hand-next");
-      assert.equal(await handPrevious.isVisible(), overflow, "hand arrows");
-      assert.equal(await handNext.isVisible(), overflow, "hand arrows");
+      const fade = () => hand.evaluate((h) => h.dataset.fade ?? "");
+      assert.equal(await page.locator(".hand-scroll").count(), 0, "no arrows");
       if (overflow) {
         await hand.evaluate((h) => (h.scrollLeft = 0));
         await page.waitForFunction(
-          () => document.querySelector("#hand-previous").disabled,
+          () => document.querySelector("#hand").dataset.fade === "end",
         );
-        assert.equal(await handNext.isDisabled(), false, "more cards arrow");
         const bounds = await hand.boundingBox();
         await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + 30);
         await page.mouse.wheel(0, 180);
@@ -187,27 +184,13 @@ try {
         await page.waitForFunction(
           () => document.querySelector("#hand").scrollLeft > 0,
         );
-        // The arrows step through the hand and stop at each end.
-        await hand.evaluate((h) => (h.scrollLeft = 0));
-        await page.waitForFunction(
-          () => document.querySelector("#hand-previous").disabled,
-        );
-        await handNext.click();
-        await page.waitForFunction(
-          () =>
-            document.querySelector("#hand").scrollLeft > 0 &&
-            !document.querySelector("#hand-previous").disabled,
-        );
+        // Only the edges that hide more cards fade.
         await hand.evaluate((h) => (h.scrollLeft = h.scrollWidth));
         await page.waitForFunction(
-          () => document.querySelector("#hand-next").disabled,
-        );
-        await handPrevious.click();
-        await page.waitForFunction(
-          () => !document.querySelector("#hand-next").disabled,
+          () => document.querySelector("#hand").dataset.fade === "start",
         );
         await hand.evaluate((h) => (h.scrollLeft = 0));
-      }
+      } else assert.equal(await fade(), "", "a hand that fits has no fade");
       const tapCard = async (id) => {
         await selectCard(page, id, { touch: width === 390 });
       };
@@ -264,7 +247,10 @@ try {
           );
           // The first tap raises the folded hand as it was; the next lowers.
           await tapCard(lowered);
-          assert.equal(await card(lowered).getAttribute("aria-pressed"), "true");
+          assert.equal(
+            await card(lowered).getAttribute("aria-pressed"),
+            "true",
+          );
           await tapCard(lowered);
           assert.equal(
             await card(lowered).getAttribute("aria-pressed"),
