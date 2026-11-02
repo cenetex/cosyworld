@@ -101,6 +101,20 @@ const textOk = (v, max = 1200) =>
   v.trim().length > 0 &&
   v.length <= max &&
   !/[\u0000-\u001f]/.test(v);
+// A transport may name the Wait played aboard while it is under way
+// ("Sail", "{actor} sails on."). Both or neither; plain words, no markup.
+export function waitWordsOk(t) {
+  if (t.waitVerb === undefined && t.waitSentence === undefined) return true;
+  return (
+    typeof t.waitVerb === "string" &&
+    /^[A-Z][A-Za-z' -]{0,23}$/u.test(t.waitVerb) &&
+    textOk(t.waitSentence, 80) &&
+    !/[<>&`]/u.test(t.waitSentence) &&
+    t.waitSentence.replace("{actor}", "").length ===
+      t.waitSentence.length - 7 &&
+    !/[{}]/u.test(t.waitSentence.replace("{actor}", ""))
+  );
+}
 const intOk = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 // The sea is an authored graph. A lane joins two docks and is two-way unless
 // marked one-way. Each dock has at most four lanes and at least one way out.
@@ -1582,7 +1596,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   for (const [id, t] of Object.entries(pack.transports || {})) {
     const valid = check(
       idOk(id) &&
-        keysOk(t, ["place", "docks", "at", "lanes", "shipmaster"]) &&
+        keysOk(t, [
+          "place",
+          "docks",
+          "at",
+          "lanes",
+          "shipmaster",
+          "waitVerb",
+          "waitSentence",
+        ]) &&
         owns(places, t.place) &&
         !transportPlaces.has(t.place) &&
         places[t.place]?.exits.length === 0 &&
@@ -1610,6 +1632,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         for (const c of Array.isArray(lane.opensWith) ? lane.opensWith : [])
           condition(c, `transport ${id} lane condition`);
       }
+    check(
+      waitWordsOk(t),
+      `transport ${id} waitVerb and waitSentence are a short plain pair`,
+    );
     check(
       t.shipmaster === undefined ||
         (typeof t.shipmaster === "string" && t.shipmaster.length > 0),

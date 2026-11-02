@@ -331,28 +331,27 @@ export function cardActions(world, selected) {
   };
 }
 
-// Aboard a ship under way, a Wait is the voyage: each round passed carries
-// the ship on (sailTransports in pack-transport.mjs). The ship's place comes
-// from the pack's transports; the rules keep their wait and journal text.
-function underSail(world, actor) {
+// Aboard a transport under way (course set or at sea), a Wait is the voyage:
+// each round passed carries it on (sailTransports in pack-transport.mjs). The
+// pack names that Wait (waitVerb, waitSentence); a docked ship keeps Wait
+// because a wait there moves nothing. The rules keep their wait and journal.
+function underWay(world, actor) {
   const here = world.actors[actor]?.place;
-  return Object.entries(transports).some(
+  return Object.entries(transports).find(
     ([id, t]) =>
       t.place === here &&
+      t.waitVerb &&
       ["course", "sea"].includes(world.transports?.[id]?.phase),
-  );
+  )?.[1];
 }
 function shownPlay(world, action) {
-  if (
-    action?.kind !== "wait" ||
-    action.sleep ||
-    !underSail(world, action.actor)
-  )
-    return action;
+  const t =
+    action?.kind === "wait" && !action.sleep && underWay(world, action.actor);
+  if (!t) return action;
   return {
     ...action,
-    label: "Sail",
-    shown: `${nameOf(action.actor)} sails on.`,
+    label: t.waitVerb,
+    shown: t.waitSentence.replace("{actor}", nameOf(action.actor)),
   };
 }
 

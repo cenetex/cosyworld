@@ -369,7 +369,9 @@
         }
       ],
       "at": "greek-harbor",
-      "shipmaster": "greek-shipmaster"
+      "shipmaster": "greek-shipmaster",
+      "waitVerb": "Sail",
+      "waitSentence": "{actor} sails on."
     }
   }
 }
