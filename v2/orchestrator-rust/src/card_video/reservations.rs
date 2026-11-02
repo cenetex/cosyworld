@@ -12,18 +12,25 @@ pub(super) fn scope(user: &str, world: &str) -> String {
 }
 
 pub(super) fn schema(c: &Connection) -> rusqlite::Result<()> {
-    c.execute_batch(
+    let tx = rusqlite::Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
+    tx.execute_batch(
         "CREATE TABLE IF NOT EXISTS credit_video_requests (
         payer TEXT NOT NULL, request_id TEXT NOT NULL, user_id TEXT NOT NULL,
         world_id TEXT NOT NULL, content_hash TEXT NOT NULL, state TEXT NOT NULL,
         job_id TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL DEFAULT '', created_at_unix INTEGER NOT NULL,
+        updated_at_unix INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (payer, request_id));
         INSERT OR IGNORE INTO credit_video_requests
             (payer, request_id, user_id, world_id, content_hash, state, job_id, created_at_unix)
         SELECT CASE WHEN world_id = '' THEN 'person:' || user_id ELSE 'world:' || world_id END AS payer,
             request_id, MIN(user_id), world_id, 'legacy', 'submitted', MIN(job_id), MIN(created_at_unix)
         FROM credit_video_jobs GROUP BY payer, request_id HAVING COUNT(DISTINCT job_id) = 1;",
-    )
+    )?;
+    if !tx.prepare("SELECT 1 FROM pragma_table_info('credit_video_requests') WHERE name = 'updated_at_unix'")?.exists([])? {
+        tx.execute_batch("ALTER TABLE credit_video_requests ADD COLUMN updated_at_unix INTEGER NOT NULL DEFAULT 0")?;
+    }
+    tx.execute_batch("CREATE INDEX IF NOT EXISTS idx_credit_video_pending ON credit_video_requests(state, updated_at_unix, created_at_unix)")?;
+    tx.commit()
 }
 
 pub(super) enum Reservation {
@@ -79,8 +86,8 @@ pub(super) fn reserve(
 }
 
 pub(super) fn claim(c: &Connection, user: &str, world: &str, id: &str) -> rusqlite::Result<bool> {
-    Ok(c.execute("UPDATE credit_video_requests SET state = 'submitting' WHERE payer = ?1 AND request_id = ?2 AND state = 'reserved'",
-        params![scope(user, world), id])? == 1)
+    Ok(c.execute("UPDATE credit_video_requests SET state = 'submitting', updated_at_unix = ?3 WHERE payer = ?1 AND request_id = ?2 AND state = 'reserved'",
+        params![scope(user, world), id, crate::util::now_unix_secs() as i64])? == 1)
 }
 
 pub(super) fn finish(
@@ -94,8 +101,9 @@ pub(super) fn finish(
 ) -> rusqlite::Result<bool> {
     let tx = c.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let changed = tx.execute(
-        "UPDATE credit_video_requests SET state = ?3, job_id = ?4, detail = ?6
-        WHERE payer = ?1 AND request_id = ?2 AND state = ?5",
+        "UPDATE credit_video_requests SET state = ?3, job_id = ?4, detail = ?6, updated_at_unix = ?7
+        WHERE payer = ?1 AND request_id = ?2 AND (state = ?5 OR
+        (state = 'submission_unknown' AND job_id = '' AND ?3 IN ('submitted', 'rejected')))",
         params![
             scope(user, world),
             id,
@@ -106,7 +114,8 @@ pub(super) fn finish(
             } else {
                 "submitting"
             },
-            detail
+            detail,
+            crate::util::now_unix_secs() as i64
         ],
     )?;
     if changed == 1 && matches!(state, "failed" | "rejected") {

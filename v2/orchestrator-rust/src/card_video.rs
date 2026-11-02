@@ -21,6 +21,9 @@ use crate::{ai_gateway::AiConfig, AppState};
 
 #[path = "card_video/receipts.rs"]
 mod receipts;
+#[path = "card_video/reconcile.rs"]
+mod reconcile;
+pub(crate) use reconcile::start as start_reconciler;
 #[path = "card_video/reservations.rs"]
 mod reservations;
 

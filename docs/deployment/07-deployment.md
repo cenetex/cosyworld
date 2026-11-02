@@ -211,6 +211,15 @@ deliver bytes if the provider later serves content.
 Status and content reads check membership in the resolved job's world, including
 older requests whose URLs omitted the world query parameter.
 
+With the event store and AI settings available, a server worker resumes known
+pending videos every 30 seconds: at most 16 per batch and four status requests
+in flight. Terminal refunds therefore survive browser closure and server
+restart. An unclaimed reservation expires and refunds after five minutes;
+a submission interrupted for two minutes becomes `submission_unknown` without
+refund or resubmission. A late confirmed receipt can still recover that job.
+Unknown acceptance needs receipt reconciliation; it is never permission to
+start another paid provider job for the same request.
+
 Until payments exist, an operator hands out packs. Each grant is a ledger row
 with its note and an `operator granted credits` log line; a repeated
 `request_id` grants once.

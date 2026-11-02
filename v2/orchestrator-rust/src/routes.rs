@@ -21,7 +21,7 @@ use super::*;
 #[path = "card_game.rs"]
 pub(crate) mod card_game;
 #[path = "card_video.rs"]
-mod card_video;
+pub(crate) mod card_video;
 #[path = "card_voices.rs"]
 mod card_voices;
 #[cfg(test)]
