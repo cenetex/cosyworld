@@ -249,6 +249,19 @@ try {
       [true, true],
       "The fighters face each other before the first strike",
     );
+    // The exchange stands apart at every width, including three-way phone
+    // battles, where the ordinary scene pins foreground figures to one spot.
+    await page.waitForTimeout(400); // the fighters step onto their marks
+    const apart = await page.evaluate((opponent) => {
+      const at = (who) => {
+        const box = document
+          .querySelector(`#cast [data-avatar="${who}"]`)
+          .getBoundingClientRect();
+        return box.left + box.width / 2;
+      };
+      return Math.abs(at("vale") - at(opponent)) / innerWidth;
+    }, opponent);
+    assert.ok(apart > 0.3, `The two fighters stand apart (${apart})`);
     report.telegraph = await page.locator("#combat-caption").textContent();
     assert.match(
       await page
@@ -261,6 +274,20 @@ try {
         document.querySelector("#combat-caption").textContent,
       ),
     );
+    // The trail runs toward the target and stays on screen.
+    const trail = await page.evaluate(() => {
+      const el = document.querySelector(
+        '#cast .combat-effect[data-effect^="swipe"], #cast .combat-effect[data-effect^="jab"]',
+      );
+      if (!el) return null;
+      const box = el.getBoundingClientRect();
+      return { left: box.left, right: box.right };
+    });
+    if (motion !== "reduce" && trail)
+      assert.ok(
+        trail.left >= -1 && trail.right <= width + 1,
+        `The strike trail stays on screen ${JSON.stringify(trail)}`,
+      );
     // A hit lands: no target circle, a slim resolve bar under each fighter.
     await page.screenshot({
       path: new URL(`hit-${opponent}-${width}-${motion}.png`, output).pathname,

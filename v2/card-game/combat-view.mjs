@@ -275,6 +275,22 @@ export function createCombatView({
       if (shift && reduced())
         animate(el, [{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
     });
+    // Phones redraw the exchange on their own marks (combat.css): the front
+    // pair at the two sides, a guard between them, and everyone else spread
+    // behind the middle, so no two fighters share a spot. A lone bracer
+    // keeps its side of the line-up.
+    const byX = (list) => [...list].sort((a, b) => x(a) - x(b));
+    const spread = (list, from, step) =>
+      byX(list).forEach((el, i, row) =>
+        el.style.setProperty(
+          "--battle-x",
+          `${from + (i - (row.length - 1) / 2) * step}%`,
+        ),
+      );
+    if (front.length > 1) {
+      spread(front, 50, 48 / (front.length - 1));
+      spread(rest, 50, 14);
+    } else spread(els, 50, 48 / (els.length - 1));
     stage.querySelector("#cast").dataset.battle = "true";
     const at = (el) => parseFloat(el.style.getPropertyValue("--stage-x"));
     const aim = fighter(beat.coveredId || beat.targetId);
@@ -290,8 +306,10 @@ export function createCombatView({
   };
   // The redrawn scene keeps the last exchange in front (scene.mjs).
   const releaseExchange = () => {
-    for (const el of stage.querySelectorAll("[data-battle-row]"))
+    for (const el of stage.querySelectorAll("[data-battle-row]")) {
       delete el.dataset.battleRow;
+      el.style.removeProperty("--battle-x");
+    }
     slots = null;
     delete stage.querySelector("#cast")?.dataset.battle;
   };
@@ -400,9 +418,12 @@ export function createCombatView({
       target.classList.add("combat-outline");
       return;
     }
+    // Centres, as strike() measures them: the target recoils away from its
+    // attacker even when their frames differ in width.
+    const centre = (box) => box.x + box.width / 2;
     const attacker = fighter(beat.actorId)?.getBoundingClientRect();
     const t = target.getBoundingClientRect();
-    const away = attacker ? Math.sign(t.x - attacker.x) || 1 : 1;
+    const away = attacker ? Math.sign(centre(t) - centre(attacker)) || 1 : 1;
     // Hit-stop: the target holds still for a moment, then recoils and
     // shakes with a decaying amplitude, and the scene shakes by the recorded
     // damage. One brightness flash, never red.
