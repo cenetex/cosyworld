@@ -351,7 +351,7 @@ function shownPlay(world, action) {
   return {
     ...action,
     label: t.waitVerb,
-    shown: t.waitSentence.replace("{actor}", nameOf(action.actor)),
+    shown: t.waitSentence.replace("{actor}", () => nameOf(action.actor)),
   };
 }
 

@@ -7,7 +7,12 @@ import {
   playText,
   restPlays,
 } from "../v2/card-game/cards.mjs";
-import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
+import {
+  createWorld,
+  legalActions,
+  people,
+  play,
+} from "../v2/card-game/world.mjs";
 import {
   hub,
   packDefinition,
@@ -79,6 +84,17 @@ describe("the table reads the transport's wait words", () => {
       "Vale sails on.",
       "wait",
     ]);
+  });
+  it("puts a name with replacement patterns into the sentence as written", () => {
+    const { atSea } = voyage();
+    const saved = people.vale.name;
+    people.vale.name = "Va$&le$'";
+    try {
+      const [sail] = shown(atSea, ["greek-ship"]);
+      expect(playText(sail)).toBe("Va$&le$' sails on.");
+    } finally {
+      people.vale.name = saved;
+    }
   });
   it("keeps Wait aboard a transport without wait words", () => {
     const { atSea } = voyage();
