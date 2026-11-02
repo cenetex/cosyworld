@@ -3,7 +3,7 @@ use crate::routes::app_router;
 use axum::body::{to_bytes, Body};
 use tower::ServiceExt;
 
-fn members_state() -> (AppState, PathBuf) {
+pub(super) fn members_state() -> (AppState, PathBuf) {
     let path =
         std::env::temp_dir().join(format!("cosyworld-passkey-access-{}.sqlite", random_hex(8)));
     let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
@@ -33,6 +33,19 @@ async fn send(
     path: &str,
     cookie: Option<&str>,
 ) -> (u16, serde_json::Value) {
+    let (status, body, _) = send_json(state, method, path, serde_json::json!({}), cookie).await;
+    (status, body)
+}
+
+/// One request through the router; returns status, JSON body, and the
+/// `name=value` part of any session cookie it sets.
+pub(super) async fn send_json(
+    state: &AppState,
+    method: &str,
+    path: &str,
+    body: serde_json::Value,
+    cookie: Option<&str>,
+) -> (u16, serde_json::Value, Option<String>) {
     let mut builder = axum::http::Request::builder()
         .method(method)
         .uri(path)
@@ -43,7 +56,7 @@ async fn send(
     let body = if method == "GET" {
         Body::empty()
     } else {
-        Body::from("{}")
+        Body::from(body.to_string())
     };
     let mut request = builder.body(body).unwrap();
     request
@@ -51,12 +64,18 @@ async fn send(
         .insert(ConnectInfo("127.0.0.1:8841".parse::<SocketAddr>().unwrap()));
     let response = app_router(state.clone()).oneshot(request).await.unwrap();
     let status = response.status().as_u16();
+    let cookie = response
+        .headers()
+        .get(header::SET_COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.split(';').next().unwrap().to_string());
     let bytes = to_bytes(response.into_body(), 4 * 1024 * 1024)
         .await
         .unwrap();
     (
         status,
         serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null),
+        cookie,
     )
 }
 

@@ -1,5 +1,6 @@
 use super::*;
 
+mod dev_test_passkey;
 mod rati_link;
 use rati_link::rati_link_message;
 
@@ -375,11 +376,12 @@ impl AccountAuth {
         let webauthn = builder
             .build()
             .map_err(|error| io::Error::other(format!("failed to configure WebAuthn: {error}")))?;
+        let members_only = passkey_access::members_only_from_env()?;
         if let Some(path) = db_path.as_deref() {
             init_account_schema(path).map_err(|error| io::Error::other(error.to_string()))?;
+            dev_test_passkey::apply_from_env(path, members_only)?;
         }
         let secure_cookie = rp_origin.starts_with("https://");
-        let members_only = passkey_access::members_only_from_env()?;
         Ok(Self {
             webauthn,
             db_path,
@@ -898,6 +900,13 @@ pub(super) async fn passkey_login_finish(
         }
     } else {
         return auth_message(StatusCode::UNAUTHORIZED, "passkey sign-in was not accepted");
+    }
+    if user_id.to_string() == dev_test_passkey::TEST_USER_ID {
+        info!(
+            "{}: {} signed in",
+            dev_test_passkey::TEST_PASSKEY_ENV,
+            dev_test_passkey::TEST_USERNAME
+        );
     }
     let (_, cookie) = match auth.issue_session(&user_id.to_string()) {
         Ok(session) => session,

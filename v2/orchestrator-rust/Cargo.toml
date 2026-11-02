@@ -39,6 +39,7 @@ llama-cpp-2 = { version = "=0.1.160", optional = true, default-features = false 
 llama-cpp-2 = { version = "=0.1.160", optional = true, default-features = false, features = ["metal"] }
 
 [dev-dependencies]
+openssl = "0.10"
 tokio = { version = "1", features = ["test-util"] }
 tower = { version = "0.5", features = ["util"] }
 
