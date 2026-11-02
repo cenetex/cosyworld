@@ -149,8 +149,9 @@ try {
       "the saved action caption remains readable",
     );
     assert(
-      failureBounds.y >= captionBounds.y + captionBounds.height,
-      "dialogue failure has its own row below the action",
+      failureBounds.y >= captionBounds.y + captionBounds.height ||
+        failureBounds.y + failureBounds.height <= captionBounds.y,
+      "dialogue failure has its own row apart from the action",
     );
     assert.doesNotMatch(
       await page.locator(".dialogue").innerText(),

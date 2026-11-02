@@ -9,7 +9,8 @@ back through the stack, or they open Memory.
 A beat is one character's moment in the scene:
 
 - their spoken line for that turn, or "…" when their voice did not come;
-- their own committed actions that turn, as short italic captions with an icon.
+- the effects that happened while it was the current card, as short italic
+  captions with an icon, inscribed onto it.
 
 Each caption is one plain sentence, worded from the committed event's fields
 with no AI: sentence case, closing punctuation, short enough for one phone
@@ -38,14 +39,19 @@ Each glyph is the caption's data key. The table draws it as a line-art SVG in
 the toolbar's style (`beatIcons` in `app.mjs`): a hand for take, a smoking
 candle for snuff, a bell for ring, a drop over a lamp for refuelling.
 
-An action with no speech is a beat with only the portrait and its caption,
-drawn as one line: a small round figure, then the caption, which names who
-acted. Most plays are like this: only Talk, Ask and the rules' speech
-occasions speak (see the card guide), so a silent play, a Wait included,
-still leaves its line in the stream. The viewer's own journey opens the new
-visit with one ("Vale boarded the Greek ship.", "Vale arrived from the
-Agora."); Talk is the speech itself and leaves none.
-A character's actions join their first spoken beat of that turn.
+A play's effect never makes a card of its own: it is inscribed onto the card
+current when it happened, under its line, writing in from the left (instant
+with reduced motion; a tap finishes it). Most plays are like this: only Talk,
+Ask and the rules' speech occasions speak (see the card guide), so a silent
+play, a Wait included, writes its caption onto the line in front, and the
+Thinking card or reply follows as a new card. A new card comes only with a
+new line, so "● live" counts lines, never inscriptions. Only an effect with no
+card before it in the visit, such as the viewer's own arrival ("Vale boarded
+the Greek ship.", "Vale arrived from the Agora."), stands as a card: the
+portrait and the caption, which names who acted. Talk is the speech itself
+and leaves none. Fights keep a beat for each step (see below).
+An inscription counts as revealing: the action beat waits until it is done.
+A card shows its latest three effects; Memory keeps them all.
 
 Only events at the player's current place, during the current visit, become
 beats: what the player's avatar could witness. Beats are read from committed
@@ -53,11 +59,10 @@ journal events and published speech. They add nothing to saves or the shared
 journal, so local and shared play group the same events the same way.
 `v2/card-game/beats.mjs` owns the grouping; `test/card-beats.test.js` checks it.
 
-Speech beats follow speaking order. An action-only beat sits at its first
-action, which is before that turn's speech, so a departure peeks behind the
-reply that followed it. While a reply is being written, the front card is the
-waiting speaker with Thinking and their committed actions; their action-only
-beat folds into it.
+Speech beats follow speaking order. An effect is written onto the card
+before the reply that followed it, so a departure stays on the card it
+interrupted. While a reply is being written, the front card is the waiting
+speaker with Thinking; the play's effect is on the card behind it.
 
 ## The depth stack
 
@@ -67,12 +72,12 @@ Beats are cards in depth, not rows in a scroll:
 - Exactly one earlier beat is a card behind it in depth: the same card,
   scaled to about 94%, dimmer and raised so one line of its top edge peeks
   out above the front card, which casts a soft shadow on it. That line is the
-  speaker, the speech and its first action, truncated.
+  speaker, the speech and its latest effect, truncated.
 - The front card puts the name on top at every size: portrait and name share
   the header row, the speech runs the full width below, and the action
   captions sit under the speech. The card grows to show the whole line, up to
   about seven lines (fewer on a short phone screen), with no scrollbar. On a
-  phone only the first action shows, as one truncated line.
+  phone only the latest effect shows, as one truncated line.
 - On phones and tablets, and on wide screens while the hand is raised, the
   stack sits in a fixed box over the hand's foot.
   The card behind peeks out inside the box, one dimmed line as on wide

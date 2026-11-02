@@ -307,6 +307,7 @@ export function groupBeats(
     if (!firstBeat.has(owner)) firstBeat.set(owner, beat);
     beats.push(beat);
   }
+  beats.sort((a, b) => a.anchor - b.anchor);
   for (const entry of entries) {
     if (
       held.has(entry.seq) ||
@@ -322,6 +323,17 @@ export function groupBeats(
     const world = caption.kind === "standoff";
     const own = defeat ? `d:${entry.seq}` : world ? `w:${entry.seq}` : null;
     const owner = own ?? `${entry.turn}|${entry.actorId}`;
+    // Any other effect is inscribed onto the card current when it
+    // happened; it makes a card of its own only when there is none yet.
+    // Fights keep a beat per step.
+    const current =
+      !own &&
+      caption.icon !== "⚔" &&
+      beats.findLast((beat) => beat.anchor < entry.seq);
+    if (current) {
+      current.actions.push({ ...caption, inscribed: true });
+      continue;
+    }
     let beat = firstBeat.get(owner);
     if (!beat) {
       beat = {
@@ -334,7 +346,8 @@ export function groupBeats(
         anchor: entry.seq,
       };
       firstBeat.set(owner, beat);
-      beats.push(beat);
+      const at = beats.findIndex((other) => other.anchor > beat.anchor);
+      beats.splice(at < 0 ? beats.length : at, 0, beat);
     }
     beat.actions.push(caption);
   }
@@ -388,10 +401,11 @@ export function withPending(beats, { speakerId, turn }) {
   };
 }
 
-// One line for a beat seen behind the front card: speech, then first action.
+// One line for a beat seen behind the front card: speech, then its latest
+// action, the one most recently inscribed.
 export function beatSummary(beat) {
   const speech = beat.line ? (beat.silent ? "…" : beat.line.text) : "";
-  const first = beat.actions[0];
+  const first = beat.actions.at(-1);
   return {
     speaker: beat.line?.speaker || fullName(beat.speakerId),
     speech,

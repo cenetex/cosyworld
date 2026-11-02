@@ -27,6 +27,7 @@ const state = (page) =>
       front: q("#speech-row").hidden ? null : q("#speech-row").dataset.beat,
       typing: q("#dialogue-advance").dataset.revealing === "true",
       thinking: !q("#story-status").hidden,
+      caption: q("#beat-captions").lastElementChild?.textContent || "",
       note: q(".action-beat-note").hidden
         ? ""
         : q(".action-beat-note").textContent,
@@ -59,6 +60,10 @@ async function open(width, path, route) {
   );
   const tap = (locator) => (touch ? locator.tap() : locator.click());
   const choose = (id) => selectCard(page, id, { touch });
+  const shot = (name) =>
+    page.screenshot({
+      path: `${process.env.SHOTS || "output"}/${name}-${width}.png`,
+    });
   // A choice during a typing line waits; the line keeps its full card.
   const waits = async (label) => {
     const s = await until(page, (s) => s.typing, label);
@@ -74,13 +79,14 @@ async function open(width, path, route) {
     return until(page, (s) => s.panel, "the panel returns after the line");
   };
   const clickOff = () => page.mouse.click(Math.round(width * 0.3), 140);
-  return { page, tap, choose, waits, readAll, clickOff };
+  return { page, tap, shot, choose, waits, readAll, clickOff };
 }
 
 async function local(width) {
   const world = W.createWorld();
   world.actors.vale.place = world.actors.moth.place = "pond";
   world.actors.moth.want = null;
+  world.items.lamp.holder = "vale";
   const key = "cosyworld.reflected-shore.v1.present";
   let mode = "reply";
   const held = [];
@@ -117,6 +123,22 @@ async function local(width) {
   await t.clickOff();
   const off = await until(t.page, (s) => !s.panel && !s.strip, "click off");
   assert.deepEqual([off.selected, off.front], [[], "speech"]);
+  // A silent play inscribes its effect onto the current card: no new card.
+  const speaker = await t.page.locator("#speaker").innerText();
+  await t.choose("vale");
+  await t.choose("lamp");
+  await t.page.locator('#card-actions [data-action="light"]').click();
+  await t.page.keyboard.press("Escape");
+  await t.page.waitForSelector("#beat-captions .beat-caption.inscribe");
+  await t.shot("local-inscribing");
+  const lit = await until(
+    t.page,
+    (s) => s.caption.includes("lit"),
+    "inscribed",
+  );
+  assert.equal(lit.front, "speech", "the effect has no card of its own");
+  assert.equal(await t.page.locator("#speaker").innerText(), speaker);
+  assert.equal(await t.page.locator("#live-line").isHidden(), true);
   // D3: a choice made after a play waits behind its Thinking card.
   mode = "hold";
   await t.choose("moth");

@@ -330,7 +330,9 @@ try {
             () =>
               document.querySelector("#hand").dataset.cooling === "false" &&
               document.querySelector("#hand").getAttribute("aria-busy") ===
-                "false",
+                "false" &&
+              // A play's effect is inscribed before its plays come back.
+              !document.querySelector(".inscribe"),
           );
         // The hand's box and each card's spot, before and after a play.
         const handRect = () =>

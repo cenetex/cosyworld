@@ -401,6 +401,9 @@ if (localBackups) {
     void localBackups.flush();
   });
 }
+// Effect captions being written onto a card (inscribe()).
+const inscribing = new Set();
+let shownCaptions = { key: null, count: 0 };
 let storyStatus = "ready",
   storyRetrying = false,
   renderedCast = "",
@@ -1691,7 +1694,7 @@ function presentPhase() {
   if (restedChoice !== choiceKey()) restedChoice = null;
   return phase({
     reviewing: reviewing && stackView.frontIndex < stackView.liveIndex,
-    revealing: !reveal.complete || exchange.hasNext,
+    revealing: !reveal.complete || exchange.hasNext || inscribing.size > 0,
     inFlight: Boolean(stackView.pending) || Boolean(ownPlayInFlight()),
     failed: storyStatus === "retry",
     raised: !rowCollapsed,
@@ -2934,13 +2937,20 @@ function renderScene() {
   frontCaptions = (front?.actions || []).map((action) => action.text);
   const captions = $("beat-captions");
   const captionKey = JSON.stringify(front?.actions || []);
+  // Effects added to the same card are inscribed onto it, even when a
+  // Thinking card stood in front for a moment.
+  const kept =
+    shownCaptions.key === front?.key ? shownCaptions.count : Infinity;
+  if (front && !front.pending)
+    shownCaptions = { key: front.key, count: front.actions.length };
   if (captions.dataset.key !== captionKey) {
     captions.dataset.key = captionKey;
     captions.replaceChildren(
-      ...(front?.actions || []).map((action) => {
+      ...(front?.actions || []).map((action, index) => {
         const item = node("span", undefined, "beat-caption");
         item.dataset.kind = action.kind;
         item.append(beatIcon(action.icon), node("span", action.text));
+        if (index >= kept) inscribe(item, action.text);
         return item;
       }),
     );
@@ -3011,9 +3021,12 @@ function renderScene() {
         behind.speakerId,
       );
       const words = behindButton.querySelector(".beat-behind-text");
-      const first = behind.actions[0];
+      const first = behind.actions.at(-1);
       const caption = node("span", undefined, "beat-behind-caption");
       if (first) caption.append(beatIcon(first.icon), first.text);
+      if (first && behindButton.dataset.beatKey === behind.key)
+        inscribe(caption, first.text);
+      behindButton.dataset.beatKey = behind.key;
       words.replaceChildren(
         node("strong", summary.speaker),
         ...(summary.speech
@@ -3025,7 +3038,7 @@ function renderScene() {
     }
     behindButton.setAttribute(
       "aria-label",
-      `Step back to ${summary.speaker}: ${summary.speech || behind.actions[0]?.text || ""}`,
+      `Step back to ${summary.speaker}: ${summary.speech || behind.actions.at(-1)?.text || ""}`,
     );
   }
   // One live control, only while behind live, counting the newer beats.
@@ -3043,6 +3056,25 @@ function renderScene() {
   liveButton.onclick = returnToLive;
   if (sharedSession) renderRoomStatus(sharedSession);
   animateStack(direction, ghost);
+  syncPhase();
+}
+// An effect written onto a card counts as revealing until it is done; a
+// tap finishes it.
+function inscribe(item, text) {
+  if (reducedMotion.matches) return;
+  const ms = Math.min(900, Math.max(300, text.length * 20));
+  item.style.setProperty("--inscribe-ms", `${ms}ms`);
+  item.classList.add("inscribe");
+  inscribing.add(item);
+  // A clock, not animationend: a caption hidden on a phone never animates.
+  setTimeout(() => inscribing.has(item) && finishInscribing(item), ms);
+  queueMicrotask(syncPhase);
+}
+function finishInscribing(only) {
+  for (const item of only ? [only] : [...inscribing]) {
+    item.classList.remove("inscribe");
+    inscribing.delete(item);
+  }
   syncPhase();
 }
 // A line's reveal key, so a line read once stays whole.
@@ -3347,12 +3379,17 @@ document.addEventListener(
   true,
 );
 $("beat-behind").onclick = () => {
-  stepBack();
+  if (inscribing.size) finishInscribing();
+  else stepBack();
 };
 // A tap anywhere on a typing card, portrait and name included, finishes it.
 $("speech-row").addEventListener(
   "click",
   (event) => {
+    if (inscribing.size) {
+      event.stopPropagation();
+      return finishInscribing();
+    }
     if (reveal.complete || $("dialogue-text").hidden) return;
     if (event.target.closest("#story-retry, #voice-retry")) return;
     event.stopPropagation();
