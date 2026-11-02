@@ -2,6 +2,7 @@
 // it, and company it promised to keep. No rule here names an avatar, item or
 // place. The avatar's want lives in want.mjs.
 import { profiles } from "./memory.mjs";
+import { grievanceActive } from "./knowledge.mjs";
 
 export const LIFE_VERSION = 3;
 // A conversation promises a few turns of company.
@@ -99,7 +100,9 @@ export function stayingWith(s, actor) {
       (other) =>
         life.company[other] >= s.turn &&
         s.actors[other]?.place === s.actors[actor].place &&
-        !(s.motives?.grievances[actor] || []).some((g) => g.other === other),
+        !(s.motives?.grievances[actor] || []).some(
+          (g) => g.other === other && grievanceActive(s, g),
+        ),
     ) || null
   );
 }

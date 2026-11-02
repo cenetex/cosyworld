@@ -165,9 +165,13 @@ describe("a path out of a stranded home", () => {
     s.actors.keeper.place = "attic";
     s.items.lamp.holder = "keeper";
     s.items.bell.holder = "vale";
-    recordReaction(s, { kind: "ring", actor: "vale", item: "bell" }, [
-      "keeper",
-    ]);
+    recordReaction(
+      s,
+      { kind: "ring", actor: "vale", item: "bell" },
+      ["keeper"],
+      false,
+      { seq: s.eventSeq },
+    );
     expect(exits(s, "attic", "vale")).toEqual([]);
   });
   it("keeps accepted resident gifts as real recovery routes", () => {
@@ -180,9 +184,13 @@ describe("a path out of a stranded home", () => {
       s.items.lamp.holder = "keeper";
       s.items.bell.holder = "vale";
       if (kind === "trade") {
-        recordReaction(s, { kind: "ring", actor: "vale", item: "bell" }, [
-          "keeper",
-        ]);
+        recordReaction(
+          s,
+          { kind: "ring", actor: "vale", item: "bell" },
+          ["keeper"],
+          false,
+          { seq: s.eventSeq },
+        );
         expect(willingToGive(s, "keeper", "lamp", "vale")).toBe(false);
       }
       expect(exits(s, "attic", "vale")).toEqual([]);

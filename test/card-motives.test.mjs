@@ -5,6 +5,8 @@ import {
   legalActions,
   plan,
   play,
+  addLog,
+  publishKnowledgeSpeech,
   canTrade,
   accompanyDecision,
   encodeSave,
@@ -15,11 +17,20 @@ import {
   enableMotives,
   resentment,
   recordReaction,
+  motiveFacts,
 } from "../v2/card-game/motives.mjs";
+import {
+  GRIEVANCE_DORMANT_TURNS,
+  knowsFact,
+  reserveKnowledge,
+} from "../v2/card-game/knowledge.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { cardPlay } from "../v2/card-game/cards.mjs";
 
 const fresh = () => enableMotives(createWorld());
+// A slight taken from the latest committed event.
+const slight = (s, a, witnesses) =>
+  recordReaction(s, a, witnesses, false, { seq: s.eventSeq });
 function act(s, kind, fields = {}) {
   const a = legalActions(s).find(
     (a) =>
@@ -60,7 +71,7 @@ describe("shore wants and grievances", () => {
     s.actors.keeper.place = s.actors.vale.place;
     // One slight leaves the bell just enough; a second raises the price.
     expect(canTrade(s, "vale", "bell", "oil")).toBe(true);
-    recordReaction(s, { kind: "ring", actor: "vale", item: "bell" }, ["keeper"], false);
+    slight(s, { kind: "ring", actor: "vale", item: "bell" }, ["keeper"]);
     expect(canTrade(s, "vale", "bell", "oil")).toBe(false);
     expect(decodeSave(encodeSave(s)).motives).toEqual(s.motives);
   });
@@ -98,7 +109,12 @@ describe("shore wants and grievances", () => {
     let s = together(fresh());
     s.items.lamp.holder = "vale";
     s.items.lamp.lit = true;
-    s.actors.moth.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
+    s.actors.moth.want = {
+      kind: "place",
+      target: "pond",
+      since: 0,
+      refusals: 0,
+    };
     expect(accompanyDecision(s, "vale", "moth", "pond").accepted).toBe(true);
     s = act(s, "snuff", { item: "lamp" });
     expect(resentment(s, "moth", "vale")).toBe(1);
@@ -115,21 +131,83 @@ describe("shore wants and grievances", () => {
     expect(facts.join(" ")).toContain("spoiled Pip's light");
   });
 
-  it("softens a grievance through a gift, and trusts the giver of a wanted item", () => {
+  it("repairs a grievance by a gift in person, for those present and then those told", () => {
     let s = together(fresh());
     s.items.bell.holder = "vale";
-    s.items.lamp.holder = "vale";
-    recordReaction(
-      s,
-      { kind: "ring", actor: "vale", item: "bell" },
-      ["keeper"],
-      false,
+    s = act(s, "ring", { item: "bell" });
+    const [g] = s.motives.grievances.keeper;
+    expect(g.incident).toBe(
+      `event:${s.log.findLast((e) => e.verb === "ring").seq}`,
     );
-    expect(resentment(s, "keeper", "vale")).toBe(1);
+    // Pip took the same offence but is away when Vale makes amends.
+    s.motives.grievances.moth.push({ ...g });
+    s.actors.moth.place = "pond";
     // The keeper wants the bell, so this gift also earns its trust.
     s = act(s, "give", { item: "bell", target: "keeper" });
-    expect(resentment(s, "keeper", "vale")).toBe(0);
     expect(s.actors.keeper.trust.vale).toBe(1);
+    const repair = Object.values(s.knowledge.facts).find(
+      (f) => f.source.kind === "repair",
+    );
+    expect(repair.source).toMatchObject({
+      actorId: "vale",
+      answers: { recipient: "keeper", incident: g.incident },
+    });
+    // Closed is dormant, not deleted, and the gift buys no strength off.
+    expect(s.motives.grievances.keeper).toMatchObject([
+      { weight: 1, repaired: true },
+    ]);
+    expect(resentment(s, "keeper", "vale")).toBe(0);
+    expect(resentment(s, "moth", "vale")).toBe(1);
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+    // The keeper tells Pip; hearing the repair closes Pip's grievance too.
+    s.actors.moth.place = s.actors.keeper.place;
+    for (let i = 0; i < 4 && !knowsFact(s, "moth", repair.id); i++) {
+      addLog(s, "The Keeper", "Listen.", {
+        kind: "dialogue",
+        generated: true,
+        actorId: "keeper",
+      });
+      const entry = s.log.at(-1);
+      const told = reserveKnowledge(s, "keeper", "moth", entry);
+      const text = s.knowledge.facts[told.factId].text;
+      entry.text = text;
+      const { factId, speaker, listener, eventSeq } = told;
+      const said = { factId, speaker, listener, eventSeq, text };
+      publishKnowledgeSpeech(s, entry, [said]);
+    }
+    expect(s.knowledge.known.moth[repair.id].kind).toBe("heard");
+    expect(resentment(s, "moth", "vale")).toBe(0);
+  });
+
+  it("repairs nothing when the aggrieved avatar is not there to see the gift", () => {
+    let s = together(fresh());
+    s.items.lamp.holder = "vale";
+    slight(s, { kind: "ring", actor: "vale", item: "bell" }, ["keeper"]);
+    s.actors.keeper.place = "pond";
+    const before = structuredClone(s.motives);
+    s = act(s, "give", { item: "lamp", target: "moth" });
+    expect(s.motives).toEqual(before);
+    expect(
+      Object.values(s.knowledge.facts).some((f) => f.source.kind === "repair"),
+    ).toBe(false);
+  });
+
+  it("lets a grievance go dormant without news, then wakes it from its floor", () => {
+    const s = together(fresh());
+    slight(s, { kind: "ring", actor: "vale", item: "bell" }, ["keeper"]);
+    slight(s, { kind: "ring", actor: "vale", item: "bell" }, ["keeper"]);
+    s.turn = s.revision = GRIEVANCE_DORMANT_TURNS - 1;
+    expect(resentment(s, "keeper", "vale")).toBe(2);
+    s.turn = s.revision = GRIEVANCE_DORMANT_TURNS;
+    expect(resentment(s, "keeper", "vale")).toBe(0);
+    expect(motiveFacts(s, "keeper").join(" ")).not.toContain("grievance");
+    expect(s.motives.grievances.keeper[0].weight).toBe(2);
+    slight(s, { kind: "ring", actor: "vale", item: "bell" }, ["keeper"]);
+    expect(s.motives.grievances.keeper[0]).toMatchObject({
+      weight: 3,
+      lastTouched: GRIEVANCE_DORMANT_TURNS,
+    });
+    expect(resentment(s, "keeper", "vale")).toBe(3);
   });
 
   it("rejects malformed and oversized grievance state", () => {
@@ -156,14 +234,12 @@ describe("shore wants and grievances", () => {
     const s = fresh();
     s.turn = s.revision = 12;
     s.actors.moth.place = s.actors.keeper.place = "hoppycat-halfway-tea-garden";
-    recordReaction(
-      s,
-      { kind: "threaten", actor: "keeper", target: "moth" },
-      ["moth"],
-      false,
-    );
+    slight(s, { kind: "threaten", actor: "keeper", target: "moth" }, ["moth"]);
     const before = structuredClone(s);
-    expect(plan(s, "moth").action).toMatchObject({ kind: "move", target: "pond" });
+    expect(plan(s, "moth").action).toMatchObject({
+      kind: "move",
+      target: "pond",
+    });
     expect(s).toEqual(before);
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });

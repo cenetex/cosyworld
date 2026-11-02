@@ -47,6 +47,8 @@ import {
   giftDecision,
   socialTravel,
   recordReaction,
+  repairAnswer,
+  closeRepaired,
   validMotives,
   tastes,
 } from "./motives.mjs";
@@ -57,6 +59,7 @@ import {
   reserveKnowledge,
   reserveLaneKnowledge,
   acceptKnowledgeSpeech,
+  witnessRepair,
   validKnowledge,
 } from "./knowledge.mjs";
 import {
@@ -987,6 +990,7 @@ export function publishKnowledgeSpeech(s, entry, disclosures) {
   for (const { fact, listener } of learned)
     if (fact.source.kind === "lane")
       learnLane(s, listener, ...fact.id.slice(5).split(">"));
+    else closeRepaired(s, listener, fact);
   return learned;
 }
 // Rules read recent history, so generated words never shorten the authoritative
@@ -1806,7 +1810,7 @@ function performPlay(s, a, round = null, settle = []) {
   if (a.kind === "wait") {
     const rested = rest(s, a.actor, here);
     const learningStart = beginLearning(s, a);
-    if (a.actor === currentActor(s)) calm(s, here, a.actor);
+    if (a.actor === currentActor(s)) calm(s, here);
     // Observing here may notice one of the place's signs.
     const sign = packWaitChoice(s, a.actor);
     const text = sign
@@ -2046,7 +2050,6 @@ function performPlay(s, a, round = null, settle = []) {
       ? arriveRecitals(s, packDefinitions, a.actor)
       : [];
   meetCast(s);
-  recordReaction(s, a, witnesses, requestAccepted);
   recordLifeAction(
     s,
     a,
@@ -2073,6 +2076,19 @@ function performPlay(s, a, round = null, settle = []) {
       : {}),
     ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
   });
+  // A gift in person to an aggrieved recipient is a repair all present see.
+  const answer = repairAnswer(s, a, requestAccepted, witnesses);
+  recordReaction(s, a, witnesses, requestAccepted, s.log.at(-1));
+  const repair =
+    answer &&
+    witnessRepair(
+      s,
+      s.log.at(-1),
+      answer,
+      `${who} makes amends to ${nameOf(a.target)}.`,
+      witnesses,
+    );
+  for (const id of repair?.source.witnesses || []) closeRepaired(s, id, repair);
   if (a.kind === "talk") talkKnowledge(s, a, s.log.at(-1));
   // A human's first Talk with the world's hidden avatar unlocks it (#1936).
   const met = meetHidden(s, a, controlledByHuman(s, a.actor));

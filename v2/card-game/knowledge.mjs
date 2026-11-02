@@ -135,16 +135,22 @@ function remember(world, actor, fact, kind, teller, eventSeq, learnedTurn) {
   return owns(known, fact.id);
 }
 
-// A standing grievance keeps the witnessed incident it was taken from: the
-// event its other avatar did on the grievance's turn, seen by its holder.
-// Nothing is stored; the pin lasts exactly as long as the grievance does.
+// A standing grievance keeps the witnessed incident it was taken from, by
+// its id. Saves from before #2020 kept no id: there the incident is the event
+// its other avatar did on the grievance's turn, seen by its holder. The pin
+// lasts exactly as long as the grievance does, dormant or repaired.
 export function grievanceEvidence(world, fact) {
   const s = fact.source;
   if (s.kind !== "event") return false;
   return Object.entries(world.motives?.grievances || {}).some(
     ([holder, list]) =>
-      s.witnesses.includes(holder) &&
-      list.some((g) => g.other === s.actorId && g.turn === s.turn),
+      list.some((g) =>
+        g.incident
+          ? g.incident === fact.id
+          : g.other === s.actorId &&
+            g.turn === s.turn &&
+            s.witnesses.includes(holder),
+      ),
   );
 }
 
@@ -223,6 +229,32 @@ export function witnessKnowledge(
   });
   if (!fact) return null;
   for (const actor of witnesses)
+    remember(world, actor, fact, "witnessed", null, entry.seq, entry.turn);
+  return fact;
+}
+
+// A gift handed to an aggrieved recipient in person is a witnessed repair:
+// the giver, the recipient and the incident it answers (#2020).
+export function witnessRepair(world, entry, answers, text, witnesses) {
+  installKnowledge(world);
+  if (!validFactText(text) || !entry.seq) return null;
+  const present = witnesses.filter((id) => world.actors[id]).sort();
+  const fact = retainFact(world, {
+    id: `repair:${entry.seq}`,
+    text,
+    source: {
+      kind: "repair",
+      eventSeq: entry.seq,
+      turn: entry.turn,
+      actorId: entry.actorId,
+      locationId: entry.locationId,
+      witnesses: present,
+      topic: null,
+      answers,
+    },
+  });
+  if (!fact) return null;
+  for (const actor of present)
     remember(world, actor, fact, "witnessed", null, entry.seq, entry.turn);
   return fact;
 }
@@ -533,6 +565,13 @@ export function knowledgeFacts(
 
 // Old news is told by age band, not turn number.
 const STALE_TURNS = 6;
+// A grievance goes dormant when no news has passed between the pair for a
+// full day on the world clock, or when a witnessed repair closed it. Its
+// strength is never decayed; a new incident wakes it from that floor.
+export const GRIEVANCE_DORMANT_TURNS = 24;
+export const grievanceActive = (world, g) =>
+  !g.repaired &&
+  world.turn - (g.lastTouched ?? g.turn) < GRIEVANCE_DORMANT_TURNS;
 export const ageText = (turns) =>
   turns <= 1
     ? "just now"
@@ -580,8 +619,9 @@ export function validKnowledge(
         "locationId",
         "witnesses",
         "topic",
+        ...(s.kind === "repair" ? ["answers"] : []),
       ]) ||
-      !["event", "topic", "ending", "lane"].includes(s.kind) ||
+      !["event", "topic", "ending", "lane", "repair"].includes(s.kind) ||
       !whole(s.eventSeq, world.eventSeq) ||
       s.eventSeq < 1 ||
       !whole(s.turn, world.turn) ||
@@ -596,6 +636,17 @@ export function validKnowledge(
       return false;
     if (s.kind === "event") {
       if (id !== `event:${s.eventSeq}` || s.topic !== null) return false;
+    } else if (s.kind === "repair") {
+      const a = s.answers;
+      if (
+        id !== `repair:${s.eventSeq}` ||
+        s.topic !== null ||
+        !fields(a, ["recipient", "incident"]) ||
+        !actors.includes(a.recipient) ||
+        !/^event:[1-9]\d*$/u.test(a.incident) ||
+        Number(a.incident.slice(6)) >= s.eventSeq
+      )
+        return false;
     } else if (s.kind === "lane") {
       if (laneText(id) !== fact.text || s.topic !== null) return false;
     } else if (s.kind === "ending") {

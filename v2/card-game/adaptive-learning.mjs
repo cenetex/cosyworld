@@ -1,5 +1,6 @@
 // Online action values come from completed plays. The game supplies legal
 // actions and goals; experience supplies each avatar's estimates and choices.
+import { grievanceActive } from "./knowledge.mjs";
 export const TRIAL_LIMIT = 32;
 const horizon = 4;
 const discount = 0.7;
@@ -52,7 +53,7 @@ function observation(world, actor, goal) {
     strain: Math.min(
       3,
       (world.motives?.grievances[goal.target] || [])
-        .filter((g) => g.other === actor)
+        .filter((g) => g.other === actor && grievanceActive(world, g))
         .reduce((n, g) => n + g.weight, 0),
     ),
   };

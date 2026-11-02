@@ -1,3 +1,4 @@
+import { grievanceActive } from "./knowledge.mjs";
 import {
   beginLearning as prepare,
   finishLearning,
@@ -19,11 +20,9 @@ export function requestConditions(world, action) {
   return JSON.stringify([
     target?.place,
     target?.trust?.[action.actor] || 0,
-    (world.motives?.grievances[action.target] || []).map((g) => [
-      g.other,
-      g.kind,
-      g.weight,
-    ]),
+    (world.motives?.grievances[action.target] || [])
+      .filter((g) => grievanceActive(world, g))
+      .map((g) => [g.other, g.kind, g.weight]),
     // The other side's quest changes when a gift meets it, so it stays out of
     // the conditions; these slots keep the layout adaptive learning reads.
     [null, null],

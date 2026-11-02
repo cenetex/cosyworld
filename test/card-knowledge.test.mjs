@@ -295,7 +295,10 @@ describe("saved public knowledge", () => {
     );
   });
 
-  it("keeps the incident under a standing grievance through news churn", () => {
+  it.each([
+    ["by its incident id", { turn: 0, incident: "event:2" }],
+    ["in an old save without an id", { turn: 1 }],
+  ])("keeps the incident under a standing grievance %s", (_, held) => {
     const w = bare();
     w.turn = 1;
     const fight = source(w, {
@@ -313,12 +316,13 @@ describe("saved public knowledge", () => {
             other: "vale",
             kind: "threat",
             reason: "Vale picked a fight.",
-            turn: 1,
             weight: 1,
+            ...held,
           },
         ],
       },
     };
+    expect(fight.id).toBe("event:2");
     w.turn = 2;
     const next = source(w, {
       text: "Pip carried the first shell to the pond.",
