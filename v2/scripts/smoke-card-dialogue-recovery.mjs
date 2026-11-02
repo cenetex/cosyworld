@@ -34,9 +34,15 @@ try {
       reducedMotion: "reduce",
     });
     const errors = [],
-      requests = [];
-    let mode = "unavailable";
+      requests = [],
+      abandoned = [];
+    let mode = "unavailable",
+      stalledRequest = 0;
     page.on("pageerror", (error) => errors.push(error.message));
+    page.on("requestfailed", (request) => {
+      if (request.url().endsWith("/card-game/text"))
+        abandoned.push(request.postDataJSON().revision);
+    });
     await page.addInitScript(
       ({ key, save }) => {
         if (!localStorage.getItem(key)) localStorage.setItem(key, save);
@@ -64,7 +70,16 @@ try {
       const input = route.request().postDataJSON();
       requests.push(input);
       // Slow words: the request stays open until a later play replaces it.
-      if (mode === "hang") return;
+      if (
+        mode === "hang" ||
+        (mode === "stall-once" && requests.length === stalledRequest)
+      )
+        return;
+      if (mode === "stall-once")
+        assert(
+          abandoned.includes(input.revision),
+          "the old transport closes before retry",
+        );
       await route.fulfill(
         mode === "unavailable"
           ? {
@@ -103,6 +118,7 @@ try {
     const state = () =>
       page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
     const retry = page.locator("#story-retry");
+    const failure = page.locator("#story-error");
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=dialogue-recovery`,
     );
@@ -122,10 +138,20 @@ try {
     assert.equal(await page.locator(".dialogue").isVisible(), true);
     assert.equal(await retry.isVisible(), true);
     assert.equal(await page.locator("#story-status").isVisible(), false);
-    assert.equal(await retry.innerText(), "↻");
+    assert.equal(await retry.innerText(), "Retry");
     assert.equal(await retry.getAttribute("aria-label"), "Retry dialogue");
-    const retryBounds = await retry.boundingBox();
-    assert(retryBounds.width <= 32 && retryBounds.height <= 32);
+    assert.equal(await failure.isVisible(), true);
+    assert.match(await failure.innerText(), /Dialogue didn’t arrive/);
+    const captionBounds = await page.locator("#beat-captions").boundingBox();
+    const failureBounds = await failure.boundingBox();
+    assert(
+      captionBounds.width > 100,
+      "the saved action caption remains readable",
+    );
+    assert(
+      failureBounds.y >= captionBounds.y + captionBounds.height,
+      "dialogue failure has its own row below the action",
+    );
     assert.doesNotMatch(
       await page.locator(".dialogue").innerText(),
       /503|Retry this scene/,
@@ -148,6 +174,7 @@ try {
     assert.deepEqual(recovered.items, before.items);
     assert.deepEqual(recovered.actors, before.actors);
     assert.equal(await retry.isVisible(), false);
+    assert.equal(await failure.isVisible(), false);
     assert.match(
       await page.textContent("#dialogue-text"),
       new RegExp(`speaks on turn ${before.turn}`),
@@ -161,6 +188,7 @@ try {
       () => !document.querySelector("#story-retry").hidden,
     );
     assert.equal(await page.locator("#story-status").isVisible(), false);
+    assert.equal(await failure.isVisible(), true);
     assert.doesNotMatch(
       await page.locator(".dialogue").innerText(),
       /incomplete|Retry this scene/,
@@ -192,10 +220,12 @@ try {
     assert.equal(await page.locator(".dialogue").isVisible(), true);
     assert.equal(await retry.isVisible(), true);
     assert.equal(await page.locator("#story-status").isVisible(), false);
+    assert.equal(await failure.isVisible(), true);
     // Slow words release the hand rather than holding it.
     mode = "hang";
     await pond.click();
     await page.locator("#card-actions .card-primary").click();
+    assert.equal(await failure.isVisible(), false);
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
       null,
@@ -207,6 +237,15 @@ try {
         (e) => e.turn === before.turn + 2 && e.kind === "action",
       ),
       true,
+    );
+    const pendingRequests = requests.length;
+    await page.reload();
+    await retry.waitFor({ state: "visible", timeout: 3000 });
+    assert.equal(await failure.isVisible(), true);
+    assert.equal(
+      requests.length,
+      pendingRequests,
+      "reload waits for an explicit retry",
     );
     mode = "ready";
     await pond.click();
@@ -223,6 +262,30 @@ try {
       await page.textContent("#dialogue-text"),
       new RegExp(`speaks on turn ${before.turn + 3}`),
     );
+    // A stalled transport leaves time for one automatic same-turn recovery.
+    mode = "stall-once";
+    stalledRequest = requests.length + 1;
+    await pond.click();
+    await page.locator("#card-actions .card-primary").click();
+    const committed = await state();
+    assert.equal(await failure.isVisible(), false);
+    await page.waitForFunction(
+      (turn) =>
+        document
+          .querySelector("#dialogue-text")
+          .textContent.includes(`speaks on turn ${turn}`),
+      committed.turn,
+      { timeout: 30_000 },
+    );
+    assert.equal(requests.length, stalledRequest + 1);
+    assert.equal((await state()).turn, committed.turn);
+    assert.deepEqual((await state()).actors, committed.actors);
+    assert.deepEqual((await state()).items, committed.items);
+    assert.equal(await failure.isVisible(), false);
+    assert.equal(await retry.isVisible(), false);
+    await page.locator("#toolbar-menu-button").click();
+    await page.locator("#world-menu").waitFor({ state: "visible" });
+    await page.keyboard.press("Escape");
     assert.deepEqual(errors, []);
     console.log(
       `Visible failure, same-turn retry, later play and reload passed at ${width}px.`,

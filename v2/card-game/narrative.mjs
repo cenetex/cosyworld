@@ -1003,6 +1003,9 @@ async function boundedRequest(request, context, signal, progress, timeout) {
   }
 }
 const RETRY_DELAY = 750;
+// The service budgets each scene plus eight seconds for transport and recovery.
+// Leave its whole scene window and one second to deliver the first reply.
+const RETRY_RESERVE = 7_000;
 function retryPause(signal, delay = RETRY_DELAY) {
   return new Promise((resolve, reject) => {
     const finish = () => {
@@ -1079,9 +1082,9 @@ export function createNarrator({
               }
             }
           },
-          // The server can take 25 seconds. Keep its response alive inside the
-          // shared 30-second budget; retry only with the time still remaining.
-          Math.max(0, deadline - Date.now()),
+          // Abort a stalled first transport before it consumes the retry's
+          // share. Both attempts still end at the original scene deadline.
+          Math.max(0, deadline - Date.now() - (attempt ? 0 : RETRY_RESERVE)),
         );
         if (version !== ticket) return;
         if (early)
