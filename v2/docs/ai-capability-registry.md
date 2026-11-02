@@ -119,7 +119,7 @@ When the pinned OpenRouter route declares `retention: "none"`, the gateway sends
 `provider.data_collection: "deny"` and `provider.zdr: true`. Other routes send
 neither field, so request policy never claims a guarantee the route lacks.
 
-Every server OpenRouter request (chat, voice, batch, image, key and OAuth
+Every server OpenRouter request (chat, voice, batch, image and key
 calls) names the app as `HTTP-Referer: https://lonelyforest.com` and
 `X-Title`/`X-OpenRouter-Title: Lonely Forest` (`OPENROUTER_APP_REFERER` and
 `OPENROUTER_APP_TITLE` in `ai_gateway.rs`), so OpenRouter stats show Lonely

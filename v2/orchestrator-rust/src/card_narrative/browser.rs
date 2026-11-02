@@ -1,4 +1,4 @@
-//! Prompts and checks for player-funded calls made directly by the browser.
+//! Prompts and checks for dialogue calls prepared outside the scene request.
 use super::*;
 
 #[derive(Deserialize)]
@@ -8,12 +8,6 @@ pub(crate) struct Answer {
     part: String,
     text: String,
     finish: String,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct Completed {
-    context: Context,
-    answers: Vec<Answer>,
 }
 /// Dreams and an avatar still waking unnamed send only the raw transcript,
 /// without a system voice.
@@ -239,45 +233,4 @@ pub(crate) fn complete(
     Ok(
         json!({"revision":context.revision,"entries":entries,"omitted":omitted,"model":"card-voices-v1"}),
     )
-}
-pub(super) async fn prepare_route(
-    State(state): State<TextState>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
-    Json(context): Json<Context>,
-) -> Response {
-    if !same_origin(&headers) {
-        return error(StatusCode::FORBIDDEN, "Open the card game on this site.");
-    }
-    if !state
-        .limits
-        .lock()
-        .is_ok_and(|mut limits| admit(&mut limits, peer.ip(), Instant::now()))
-    {
-        return error(
-            StatusCode::TOO_MANY_REQUESTS,
-            "The story service is taking a short break.",
-        );
-    }
-    match prepare(
-        &serde_json::to_value(context).unwrap_or(Value::Null),
-        None,
-        state.ai.as_ref().as_ref(),
-    ) {
-        Ok(value) => ([("cache-control", "no-store")], Json(value)).into_response(),
-        Err(message) => error(StatusCode::BAD_REQUEST, &message),
-    }
-}
-pub(super) async fn complete_route(headers: HeaderMap, Json(body): Json<Completed>) -> Response {
-    if !same_origin(&headers) {
-        return error(StatusCode::FORBIDDEN, "Open the card game on this site.");
-    }
-    match complete(
-        &serde_json::to_value(body.context).unwrap_or(Value::Null),
-        None,
-        body.answers,
-    ) {
-        Ok(value) => ([("cache-control", "no-store")], Json(value)).into_response(),
-        Err(message) => error(StatusCode::BAD_GATEWAY, &message),
-    }
 }

@@ -186,9 +186,6 @@ fn app_router_with_dependencies(
         .route("/content-packs", get(content_packs_view))
         .route("/auth/account", get(account_identity))
         .route("/auth/logout", post(account_logout))
-        .route("/ai/openrouter/exchange", post(openrouter_exchange))
-        .route("/ai/openrouter/verify", post(openrouter_verify))
-        .route("/ai/openrouter/disconnect", post(openrouter_disconnect))
         .route(
             "/auth/passkey/register/start",
             post(passkey_registration_start),
