@@ -151,19 +151,23 @@ try {
     // Each avatar shows once: no avatar list and no Send to….
     assert.equal(await menu.locator(".avatar-row, .avatar-list").count(), 0);
     assert.doesNotMatch(await menu.innerText(), /Send to/);
-    // The card below shows the avatar being played, with no action until
-    // a portrait is tapped; a tapped seat shows that avatar's card. A seat's
-    // action is a beat in front of the dialogue, outside ☰.
-    const card = menu.locator(".profile-card");
+    // ☰ has no profile card: a tapped seat shows that avatar, who plays it,
+    // online and where, as a beat in front of the dialogue, outside ☰, with
+    // its action on the right when it has one.
+    assert.equal(await menu.locator(".profile-card").count(), 0);
+    const card = page.locator(".dialogue > .action-panel");
     const actions = page.locator(
       ".dialogue .action-panel #card-actions button",
     );
     const note = page.locator(".dialogue > .action-panel .action-beat-note");
-    assert.match(await card.innerText(), /Vale[\s\S]*online/);
-    assert.equal(await card.getAttribute("data-avatar"), "vale");
     assert.equal(await actions.count(), 0);
     await seats.nth(2).locator("button").click();
-    assert.match(await card.innerText(), /Mara[\s\S]*Sable Swift · online/);
+    assert.equal(await card.getAttribute("data-avatar"), "mara");
+    assert.match(
+      await card.locator(".action-beat-heading").innerText(),
+      /^Mara · Sable Swift · online · /,
+    );
+    assert.equal(await actions.count(), 0);
     await seats.nth(1).locator("button").click();
     // Choosing your own avatar offers Leave, with what it costs.
     assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
@@ -221,8 +225,9 @@ try {
       assert.match(await toggle.getAttribute("aria-label"), /1 friend online/);
       // A presence redraw keeps the card armed; a tap elsewhere disarms.
       assert.equal(await free.innerText(), "Free");
-      await card.locator(".profile-art").click();
+      await current.locator(".slot-name").click();
       assert.equal(await actions.count(), 0);
+      assert.equal(await card.getAttribute("data-avatar"), "ash");
     }
     await page.keyboard.press("Escape");
     await menu.waitFor({ state: "hidden" });

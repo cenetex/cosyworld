@@ -1565,8 +1565,10 @@ function showBeatCards(ids) {
   );
 }
 // Another part of the table, such as the ☰ menu, can borrow the action
-// beat: { images: [url], text, note, buttons: [{ label, id, run }] }.
-// It replaces the play's beat until cleared.
+// beat: { avatar, cards: [{ src, level, color, lit }], name, info, note,
+// buttons: [{ label, id, run }] }. The name and its info line read in the
+// middle, then the note; the buttons sit on the right, and a beat may have
+// none. It replaces the play's beat until cleared.
 let borrowedBeat = null;
 function showActionBeat(beat) {
   borrowedBeat = beat;
@@ -1579,13 +1581,30 @@ function clearActionBeat(beat) {
 }
 function showBorrowedBeat(row, heading) {
   const beat = borrowedBeat,
+    panel = $("action-beat"),
     cards = document.querySelector(".action-beat-cards");
-  cards.dataset.cards = "";
+  panel.dataset.avatar = beat.avatar || "";
+  $("selection-name").textContent = beat.name || "Card actions";
+  // A play's beat draws its own cards again after this one.
+  cards.dataset.cards = "borrowed";
+  releaseImages(cards);
+  // A small hand card: its art, its tier's edge and level numeral, grey
+  // while nobody is online in it.
   cards.replaceChildren(
-    ...beat.images.map((src) => Object.assign(node("img"), { src, alt: "" })),
+    ...beat.cards.map(({ src, level, color, lit }) => {
+      const face = node("span", "", "beat-face");
+      face.dataset.lit = String(lit !== false);
+      if (color) face.style.setProperty("--tier-color", color);
+      face.append(Object.assign(node("img"), { src, alt: "" }));
+      if (level) face.append(node("span", level, "card-level"));
+      return face;
+    }),
   );
-  heading.hidden = !beat.text;
-  heading.lastElementChild.replaceChildren(beat.text || "");
+  heading.hidden = !beat.name;
+  heading.lastElementChild.replaceChildren(
+    node("strong", beat.name || ""),
+    beat.info ? ` · ${beat.info}` : "",
+  );
   const note = document.querySelector(".action-beat-note");
   note.textContent = note.title = beat.note || "";
   note.hidden = !beat.note;
@@ -1751,6 +1770,7 @@ function renderActions() {
     row.append(look);
   }
   document.querySelector(".action-beat-note").hidden = true;
+  delete $("action-beat").dataset.avatar;
   syncActionBeat();
   $("play-readout").textContent = selected.length
     ? `${selectionName}. ${ready.map(playLabel).join(". ") || hint}`
@@ -3071,7 +3091,10 @@ function syncDialogueShown() {
 function syncActionBeat() {
   const panel = document.querySelector(".action-panel"),
     front = $("speech-row"),
-    show = $("card-actions").children.length > 0 || !$("play-status").hidden;
+    show =
+      Boolean(borrowedBeat) ||
+      $("card-actions").children.length > 0 ||
+      !$("play-status").hidden;
   if (panel.hidden !== show) return;
   // A notice before the first render (storage refused) only shows the beat.
   const drawn = Boolean(document.body.dataset.handExpanded);

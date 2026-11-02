@@ -198,7 +198,6 @@ body.local-app #scene-video-button {
   color: var(--muted);
   font-size: 11px;
 }
-.profile-facts small,
 .avatar-status {
   color: var(--muted);
 }
@@ -252,44 +251,6 @@ body.local-app #scene-video-button {
   box-shadow: 0 0 14px var(--tier-color, var(--gold));
   filter: none;
 }
-/* The shown avatar as a hand card: art, name, level numeral, tier edge. */
-.profile-card {
-  position: relative;
-  display: grid;
-  grid-template-columns: 104px 1fr;
-  gap: 10px;
-  margin-top: 4px;
-  padding: 10px 8px;
-  border-top: 1px solid #ffffff1a;
-}
-.profile-art {
-  position: relative;
-  z-index: 1;
-  aspect-ratio: 2 / 3;
-  overflow: hidden;
-  border: 1px solid var(--tier-color);
-  border-radius: 10px;
-  background: radial-gradient(ellipse at 50% 66%, #70543c6e, #141b2499);
-  box-shadow: 0 6px 20px #0006;
-}
-.profile-art img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 50% 12%;
-}
-.profile-card:not([data-lit="true"]) .profile-art img {
-  filter: saturate(0.35) brightness(0.6);
-}
-.profile-card[data-armed="true"] .profile-art {
-  border-color: var(--tier-color);
-  box-shadow:
-    0 0 0 1px var(--tier-color),
-    0 0 18px var(--tier-color);
-}
-.profile-card[data-armed="true"] .profile-art img {
-  filter: none;
-}
 /* Going to another of your worlds deals the table over: card backs
    shuffle in front of it while the page changes (avatar-menu.mjs). Reduced
    motion only fades it. */
@@ -330,32 +291,6 @@ body.local-app #scene-video-button {
   .table-shuffle img {
     display: none;
   }
-}
-.profile-name {
-  position: absolute;
-  inset: auto 0 0;
-  padding: 24px 6px 8px;
-  background: linear-gradient(transparent, #080b12eb 65%);
-  color: #f2e3c4;
-  font:
-    15px/1.2 Georgia,
-    serif;
-  text-align: center;
-  text-shadow: 0 2px 5px #000;
-}
-.profile-art .card-level {
-  left: 9px;
-  visibility: visible;
-  opacity: 0.8;
-  transform: none;
-}
-.profile-facts {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
 }
 .world-menu .avatar-act {
   flex: 1 0 auto;
