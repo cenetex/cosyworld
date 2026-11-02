@@ -37,7 +37,18 @@ pub(super) fn router<S: Clone + Send + Sync + 'static>() -> Router<S> {
             get(|| async { Redirect::permanent("/card-game/") }),
         )
         .route("/card-game/", get(index))
+        .route("/privacy", get(|| async { serve("privacy.html") }))
+        .route("/download", get(download))
         .route("/card-game/{*path}", get(asset))
+}
+
+// Players who keep their passkey data to themselves run the game from its
+// source (#2052). The page names lonelyforest.com/download; a 302 keeps the
+// target free to move to a release download later.
+const DOWNLOAD_URL: &str = "https://github.com/cenetex/cosyworld";
+
+async fn download() -> Response {
+    (StatusCode::FOUND, [(header::LOCATION, DOWNLOAD_URL)]).into_response()
 }
 
 async fn index() -> Response {
@@ -141,6 +152,17 @@ mod tests {
         assert_eq!(&body[..], include_bytes!("../../card-game/index.html"));
         let response = request("/classic", "GET").await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn privacy_page_and_download_redirect_are_served() {
+        let response = request("/privacy", "GET").await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(&body[..], include_bytes!("../../card-game/privacy.html"));
+        let response = request("/download", "GET").await;
+        assert_eq!(response.status(), StatusCode::FOUND);
+        assert_eq!(response.headers()[header::LOCATION], DOWNLOAD_URL);
     }
 
     #[tokio::test]

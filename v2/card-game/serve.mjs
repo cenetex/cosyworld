@@ -87,6 +87,7 @@ export function createServer({
     }),
   );
   assets.set("/", assets.get("/index.html"));
+  assets.set("/privacy", assets.get("/privacy.html"));
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
     const pathname = url.pathname;
