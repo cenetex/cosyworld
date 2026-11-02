@@ -9,8 +9,9 @@ import { worldName } from "../card-game/world-name.mjs";
 // it, in colour only while online, then "+" for an open seat. A tap shows
 // that avatar as a beat in front of the dialogue (☰ has no profile card):
 // its small card, who plays it, online and where, and on yours Leave on the
-// right; a second tap plays it, dealing the table over to its world. On
-// another's a second tap arms it for the owner's Free. "+" offers your
+// right. One tap on yours in another world switches there, and ☰ opens
+// with it chosen; on the one being played a tap only chooses. On another's
+// a second tap arms it for the owner's Free. "+" offers your
 // avatar in the beat. A friend's world shows while your avatar sits
 // there; Leave releases it and keeps its level. A world nobody is in has
 // closed on the server and is not listed; + New world starts a fresh one
@@ -25,25 +26,30 @@ const world = dispatchShared({
 }).world;
 // Seat order: vale, mara, ash, nell, tavi, rue, orin, ada.
 const seats = (...held) => held.concat(Array(8 - held.length).fill(0));
-const snapshot = (id) => ({
-  ...dispatchShared({
-    op: "view",
-    world,
-    actor: "vale",
-    claimed: ["vale"],
-    present: ["vale"],
-  }),
-  id,
-  version: "full-card-world/3",
-  claimed: seats(1),
-  present: seats(1),
-  bound: seats(1),
-  holders: seats(null),
-  owner: true,
-  now: Date.now(),
-  queue: [],
-  history: [],
-});
+// The friend's world is played as Tavi, in seat five.
+const snapshot = (id) => {
+  const actor = id === "friend" ? "tavi" : "vale";
+  const seat = id === "friend" ? seats(0, 0, 0, 0, 1) : seats(1);
+  return {
+    ...dispatchShared({
+      op: "view",
+      world,
+      actor,
+      claimed: [actor],
+      present: [actor],
+    }),
+    id,
+    version: "full-card-world/3",
+    claimed: seat,
+    present: seat,
+    bound: seat,
+    holders: seats(null),
+    owner: id !== "friend",
+    now: Date.now(),
+    queue: [],
+    history: [],
+  };
+};
 try {
   for (const [width, height] of [
     [390, 844],
@@ -116,10 +122,12 @@ try {
         route.fulfill({ json: snapshot(id) });
       },
     );
-    await page.route(/\/card-game\/shared\/worlds\/(here|spare)$/, (route) =>
-      route.fulfill({
-        json: snapshot(route.request().url().split("/").at(-1)),
-      }),
+    await page.route(
+      /\/card-game\/shared\/worlds\/(here|spare|friend)$/,
+      (route) =>
+        route.fulfill({
+          json: snapshot(route.request().url().split("/").at(-1)),
+        }),
     );
     await page.goto(`${origin}/?world=here`);
     await page.waitForFunction(() => document.body.inert === false);
@@ -143,20 +151,22 @@ try {
     assert.equal(await menu.locator(".profile-card").count(), 0);
     const card = page.locator(".dialogue > .action-panel");
     assert(await card.isHidden());
-    // Your Tavi in the friend's world: one tap chooses her (she glows) and
-    // offers Leave in front of the dialogue; a second tap goes to her world
-    // over a shuffle of card backs.
+    // The Vale being played: a tap only chooses her (she glows) and offers
+    // Leave in front of the dialogue; a second tap keeps her chosen.
+    const valeFace = menu.locator(
+      '.world-slot[data-current="true"] [data-avatar="vale"] button',
+    );
     const taviFace = friend.locator('[data-avatar="tavi"] button');
     const actions = page.locator(
       ".dialogue > .action-panel #card-actions button",
     );
     const note = page.locator(".dialogue > .action-panel .action-beat-note");
-    await taviFace.click();
-    assert.equal(await card.getAttribute("data-avatar"), "tavi");
-    assert.equal(await taviFace.getAttribute("aria-pressed"), "true");
-    assert.equal(
+    await valeFace.click();
+    assert.equal(await card.getAttribute("data-avatar"), "vale");
+    assert.equal(await valeFace.getAttribute("aria-pressed"), "true");
+    assert.match(
       await card.locator(".action-beat-heading").innerText(),
-      `Tavi · offline · ${worldName(3)}`,
+      /^Vale · online · /,
     );
     assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
     // Portrait left, words in the middle, Leave flush on the right, all in
@@ -174,35 +184,50 @@ try {
       leaveBox.y < words.y + words.height &&
         words.y < leaveBox.y + leaveBox.height,
     );
+    assert.match(await note.innerText(), /^Vale keeps their level; the seat/);
+    await shot(`output/card-world-slots-selected-${width}.png`);
+    await valeFace.click();
+    assert(await menu.isVisible());
+    assert.equal(await valeFace.getAttribute("aria-pressed"), "true");
+    assert.equal(await valeFace.getAttribute("data-armed"), null);
+    assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
+    // Your Tavi in the friend's world: one tap switches there at once, a
+    // plain page change with no veil, and ☰ opens there with Tavi chosen,
+    // Leave on the right.
+    await Promise.all([page.waitForURL(/\?world=friend$/), taviFace.click()]);
+    await page.waitForFunction(() => document.body.inert === false);
+    await menu.waitFor({ state: "visible" });
+    const arrived = menu.locator('.world-slot[data-current="true"]');
+    assert.equal(await arrived.getAttribute("data-slot"), "friend");
+    assert.equal(
+      await arrived
+        .locator('[data-avatar="tavi"] button')
+        .getAttribute("aria-pressed"),
+      "true",
+    );
+    assert.equal(await card.getAttribute("data-avatar"), "tavi");
+    assert.match(
+      await card.locator(".action-beat-heading").innerText(),
+      /^Tavi · online · /,
+    );
+    assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
     assert.match(
       await note.innerText(),
-      new RegExp(
-        `^Tavi keeps their level; the seat in ${worldName(3)} opens\\.$`,
-      ),
+      new RegExp(`^Tavi keeps their level; the seat in .+ opens\\.$`),
     );
-    await shot(`output/card-world-slots-selected-${width}.png`);
-    await page.route(/\?world=friend$/, (route) =>
-      route.fulfill({ contentType: "text/html", body: "<p>friend</p>" }),
-    );
+    await shot(`output/card-world-slots-arrived-${width}.png`);
+    // Leave there frees her seat; the bare address opens with ☰.
     await Promise.all([
-      page.waitForURL(/\?world=friend$/),
-      (async () => {
-        await taviFace.click();
-        await page.locator(".table-shuffle").waitFor({ state: "attached" });
-        assert.equal(await page.locator(".table-shuffle img").count(), 3);
-      })(),
+      page.waitForURL(`${origin}/`),
+      page.locator("#avatar-leave").click(),
     ]);
-    await page.goBack();
+    assert.deepEqual(commands.shift(), ["friend", { op: "release" }]);
+    await menu.waitFor({ state: "visible" });
+    await page.goto(`${origin}/?world=here`);
     await page.waitForFunction(() => document.body.inert === false);
     await page.locator("#toolbar-menu-button").click();
-    await taviFace.click();
-    await page.locator("#avatar-leave").click();
-    await friend.waitFor({ state: "detached" });
-    assert.deepEqual(commands.shift(), ["friend", { op: "release" }]);
-    assert.equal(
-      await menu.locator(".avatar-status").innerText(),
-      `Tavi left ${worldName(3)}.`,
-    );
+    await menu.locator('.world-slot[data-slot="spare"]').waitFor();
+    assert.equal(await friend.count(), 0);
     assert.equal(await menu.locator(".world-slot").count(), 2);
     // Someone's offline Mara is grey; her beat says who plays her, with no
     // button until, armed, the owner may free her.

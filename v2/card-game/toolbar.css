@@ -257,47 +257,6 @@ body.local-app #scene-video-button {
   box-shadow: 0 0 14px var(--tier-color, var(--gold));
   filter: none;
 }
-/* Going to another of your worlds deals the table over: card backs
-   shuffle in front of it while the page changes (avatar-menu.mjs). Reduced
-   motion only fades it. */
-.table-shuffle {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: grid;
-  place-items: center;
-  background: #090d12;
-  pointer-events: none;
-}
-.table-shuffle img {
-  grid-area: 1 / 1;
-  width: min(32vw, 190px);
-  aspect-ratio: 2 / 3;
-  border-radius: 12px;
-  box-shadow: 0 10px 35px #000a;
-  animation: table-shuffle 420ms ease-in-out both;
-}
-.table-shuffle img:nth-child(2) {
-  --shuffle-x: 70px;
-  --shuffle-turn: 9deg;
-  animation-delay: 40ms;
-}
-.table-shuffle img:nth-child(3) {
-  --shuffle-x: -52px;
-  --shuffle-turn: -7deg;
-  animation-delay: 80ms;
-}
-@keyframes table-shuffle {
-  50% {
-    transform: translateX(var(--shuffle-x, 58px))
-      rotate(var(--shuffle-turn, 14deg));
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .table-shuffle img {
-    display: none;
-  }
-}
 .world-menu .avatar-act {
   flex: 1 0 auto;
   justify-content: center;

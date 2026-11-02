@@ -46,23 +46,6 @@ function guard(run) {
   };
 }
 const face = (path) => imageUrl(`/card-game/${path}`, "card");
-// Going to another world deals it in: card backs shuffle over the table
-// before the page changes. Reduced motion fades the table out instead.
-async function dealTo(href) {
-  const veil = el("div", "table-shuffle");
-  for (let i = 0; i < 3; i += 1) {
-    const back = el("img");
-    back.src = face("assets/card-back.webp");
-    back.alt = "";
-    veil.append(back);
-  }
-  document.body.append(veil);
-  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  await veil
-    .animate({ opacity: [0, 1] }, { duration: still ? 240 : 420 })
-    .finished.catch(() => {});
-  location.href = href;
-}
 // Avatars show in initial order, R·A·T·V·M·I·C·S (#1846). Seat indices and
 // ids keep the cast's own order.
 export const byInitial = (avatars) =>
@@ -70,7 +53,9 @@ export const byInitial = (avatars) =>
     (a, b) => "RATVMICS".indexOf(a.name[0]) - "RATVMICS".indexOf(b.name[0]),
   );
 const sharedLink = (id) => `/?world=${encodeURIComponent(id)}`;
-// Leaving the world being played opens ☰ on the next page.
+// Leaving the world being played opens ☰ on the next page. Switching to an
+// avatar in another world stores its id instead, so ☰ opens there with it
+// chosen.
 const MENU_KEY = "cosyworld.menu";
 function stored(key, value) {
   try {
@@ -260,7 +245,9 @@ export function installAvatarMenu({
     armed = false,
     // What a seat action did, said when ☰ next opens.
     result = "",
-    drawn = "";
+    drawn = "",
+    // The avatar a switch from another world chose, or "1" after Leave.
+    arrived = stored(MENU_KEY);
   const here = () => {
     const world = getWorld();
     const actor = session ? session.state.actor : currentActor(world);
@@ -362,16 +349,17 @@ export function installAvatarMenu({
     face.append(portrait);
     // Colour is presence: someone online in the seat. Every other is grey.
     item.dataset.lit = String(Boolean(seat.online));
-    // The first tap chooses (it glows). On one of yours the second tap
-    // plays it: the table deals over to its world, or ☰ just closes when it
-    // is the one being played. On another's it arms it.
+    // One tap on one of yours in another world switches to it: the page
+    // goes there and ☰ opens with it chosen (owner, 2026-11-01). Any other
+    // tap chooses (it glows); a second tap on another's arms it.
     face.onclick = () => {
-      if (picked && seat.kind === "you") {
-        menu.hidePopover();
-        if (!slot.current) dealTo(sharedLink(slot.shared));
+      if (seat.kind === "you" && !slot.current) {
+        stored(INVITE_KEY, null);
+        stored(MENU_KEY, seat.id);
+        location.href = sharedLink(slot.shared);
         return;
       }
-      armed = picked;
+      armed = picked && seat.kind === "human";
       chosen = { id: seat.id, slot: slot.key };
       status.textContent = "";
       render();
@@ -475,8 +463,9 @@ export function installAvatarMenu({
     const mine =
       view.slots.find((s) => s.current) || view.slots.find((s) => s.mine);
     const shown = chosen || (mine && { id: mine.mine, slot: mine.key });
-    // Presence ticks redraw only when something shown has changed.
-    const key = JSON.stringify([view, shown, armed]);
+    // Presence ticks redraw only when something shown has changed; choosing
+    // the avatar already shown by default is a change.
+    const key = JSON.stringify([view, shown, Boolean(chosen), armed]);
     if (key === drawn) return;
     drawn = key;
     box.replaceChildren();
@@ -550,7 +539,12 @@ export function installAvatarMenu({
       invite = null;
       return;
     }
-    chosen = null;
+    // Arriving from a switch, the avatar now played is chosen.
+    chosen =
+      arrived && session && arrived === here().actor
+        ? { id: arrived, slot: session.id }
+        : null;
+    arrived = null;
     armed = false;
     status.textContent = result;
     result = "";
@@ -582,7 +576,7 @@ export function installAvatarMenu({
       redraw();
     }
   }
-  if (stored(INVITE_KEY) || stored(MENU_KEY)) {
+  if (stored(INVITE_KEY) || arrived) {
     stored(MENU_KEY, null);
     setTimeout(() => menu.showPopover(), 0);
   }

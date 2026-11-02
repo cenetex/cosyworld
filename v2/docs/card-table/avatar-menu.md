@@ -122,14 +122,17 @@ online · *Hollowmere*" (another person's seat adds who holds it: "Ash ·
 Amber Heron · online · *Hollowmere*"), then the note; and its action on the
 right. On one of yours that is **Leave**. A chosen avatar with no action
 (someone else's, unarmed, or anyone's for a non-owner) shows the line with
-no button. **Tap it again** to play it (owner, 2026-11-01): three card backs
-shuffle over the table (about 420 ms; with reduced motion the table only
-fades) and the page goes to that avatar in its world. When it is the avatar
-being played, the second tap just closes ☰. On another person's avatar the
-second tap arms it instead: the portrait turns its level tier's colour, and
-the owner gets **Free**. A tap anywhere else in the menu
-disarms; presence redraws keep it armed. Each action acts on one tap, with
-no second confirm.
+no button.
+
+**Tap one of your avatars in another world** to switch to it at once
+(owner, 2026-11-01): the page goes to that world with no veil or
+animation, and ☰ opens there with that avatar chosen and **Leave** on the
+right of its beat. Tapping the avatar being played only chooses it, however
+often. On another person's avatar a second tap arms it: the portrait turns
+its level tier's colour, and the owner gets **Free**. A tap anywhere else in
+the menu disarms; presence redraws keep it armed. Each action acts on one
+tap, with no second confirm. Switching without a page load, through the
+scene transition, is [#1990](https://github.com/cenetex/cosyworld/issues/1990).
 
 **Tap +** in a world one of your avatars may go to (its seat there is free,
 you hold no avatar there, and it is not already there): the beat shows that
@@ -141,7 +144,7 @@ player picks what comes next.
 
 | Card | Actions |
 | --- | --- |
-| Yours, chosen | **Leave** (a second tap plays it) |
+| Yours, chosen | **Leave** (one tap on yours in another world switches there first) |
 | Another person's, armed | **Free** for the world's owner; nothing for anyone else |
 | Yours, offered by + | **Bring to *Hollowmere*** (no arming) |
 
