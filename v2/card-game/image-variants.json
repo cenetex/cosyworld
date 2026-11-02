@@ -2366,6 +2366,15 @@
       "phone": "assets/optimized/phone/png/greek-drama/bread.webp",
       "phoneHash": "c4c4c1a356b3fbdf4d5dd1274bb11370a42a6900cc8e254d8c0176f96d39a0c3"
     },
+    "assets/greek-drama/burial-account.webp": {
+      "sourceHash": "dc7aeb7c018ecbef6dfa0c3c3cf67f22873673204ae686be9c4e2a6a5007ee9a",
+      "stage": "assets/greek-drama/burial-account.webp",
+      "stageHash": "dc7aeb7c018ecbef6dfa0c3c3cf67f22873673204ae686be9c4e2a6a5007ee9a",
+      "card": "assets/optimized/card/webp/greek-drama/burial-account.webp",
+      "cardHash": "ec12f5722ee483463315cace1adbb0ccebdd9458a05834ff080b4fd7ce47aa6a",
+      "phone": "assets/optimized/phone/webp/greek-drama/burial-account.webp",
+      "phoneHash": "439ac54afffecdea19368aae5dd75542aa3b48a75d5c906ef6866ee5b7568740"
+    },
     "assets/greek-drama/burial-ground-dusk.webp": {
       "sourceHash": "a48b519c59a4bdea60ce1d843c8c475238e0fc4b83da7eef6ce8277ca234592f",
       "stage": "assets/greek-drama/burial-ground-dusk.webp",
@@ -2582,6 +2591,15 @@
       "phone": "assets/optimized/phone/webp/greek-drama/courtyard-night.webp",
       "phoneHash": "f6da4111ccb1d190ee6a38d87ccb2b754db5bb33a79cd439beb6a9a17ce5d9e4"
     },
+    "assets/greek-drama/creon-writ.webp": {
+      "sourceHash": "a4c0f986c0e5b794d218f4c0ed9a21b8b25e268603951572ebdb0f34169f69f6",
+      "stage": "assets/greek-drama/creon-writ.webp",
+      "stageHash": "a4c0f986c0e5b794d218f4c0ed9a21b8b25e268603951572ebdb0f34169f69f6",
+      "card": "assets/optimized/card/webp/greek-drama/creon-writ.webp",
+      "cardHash": "8889c1a4c1873b16d63af0b5fa2db50d7c5b325496a9da7c1433b02db77b694d",
+      "phone": "assets/optimized/phone/webp/greek-drama/creon-writ.webp",
+      "phoneHash": "a4d1831c8261d822b6eee280cd8abf090c7ca95a3b1c42f5ed4aa29ad65f1bb2"
+    },
     "assets/greek-drama/decree.png": {
       "sourceHash": "ed08e73661fcb7ed7f5cf653cfbb4c035784fdab0597b9f4de73eaf8ab9df877",
       "stage": "assets/optimized/stage/png/greek-drama/decree.webp",
@@ -2626,6 +2644,15 @@
       "cardHash": "f7b0e12085174310f5d52f468b06cd8d4bf00b0afd41919e9d49d4394744a099",
       "phone": "assets/optimized/phone/png/greek-drama/grove-honey.webp",
       "phoneHash": "160686446d3a281f428e995c2f3bede4e2d63fb614a528862707eb6441567100"
+    },
+    "assets/greek-drama/guard-tablet.webp": {
+      "sourceHash": "3d64f910dea0d6cd56be088b1c1fcd7ec9dc86331eff6eec7befcdaca9bed3d6",
+      "stage": "assets/greek-drama/guard-tablet.webp",
+      "stageHash": "3d64f910dea0d6cd56be088b1c1fcd7ec9dc86331eff6eec7befcdaca9bed3d6",
+      "card": "assets/optimized/card/webp/greek-drama/guard-tablet.webp",
+      "cardHash": "cd720ad050cfc292c8015e25985db7dfa66d5ddbd19442f99d85f80dd0b0d772",
+      "phone": "assets/optimized/phone/webp/greek-drama/guard-tablet.webp",
+      "phoneHash": "3123dc89293c62d903c92ce0ba79b07b56e3fcfe7cea681e9488772417e52104"
     },
     "assets/greek-drama/harbor-day.webp": {
       "sourceHash": "b535244774382afc8a6440e292f1c51698375717d4473f3c70b5c16fff3e4425",
@@ -2806,6 +2833,15 @@
       "cardHash": "05de193b85a6d729c21fd8df02aa6c8cc6372ca47baa90ed6945f132432388de",
       "phone": "assets/optimized/phone/webp/greek-drama/lemnian-cave-night.webp",
       "phoneHash": "352693dec9114ad2f2f6ca626d6ba6037e15d9253a2a09b601f6769a137116e1"
+    },
+    "assets/greek-drama/marathon-record.webp": {
+      "sourceHash": "9f384e62a67c7de8151ea953ad4eedff882822c2650e9e0d32611778fd4fb36d",
+      "stage": "assets/greek-drama/marathon-record.webp",
+      "stageHash": "9f384e62a67c7de8151ea953ad4eedff882822c2650e9e0d32611778fd4fb36d",
+      "card": "assets/optimized/card/webp/greek-drama/marathon-record.webp",
+      "cardHash": "3be29ad2519c880aa12ff8a23c69cb057236f32ce1584977b1ef6d38a9f317b7",
+      "phone": "assets/optimized/phone/webp/greek-drama/marathon-record.webp",
+      "phoneHash": "af3772c997e667838518b3254cf70e519f981fb6cfc7a508116839a1a44e68a8"
     },
     "assets/greek-drama/market-well-day.webp": {
       "sourceHash": "ec31b6e5fafa30d070e705596f7714eaa1c0d779c6b29a01347b6b6bd8ef73dd",
@@ -3076,6 +3112,15 @@
       "cardHash": "0de1983be4a6273ee85fc9d9c12d24cdfbf3d51ff1415de11f6690c18f49daa5",
       "phone": "assets/optimized/phone/png/greek-drama/provisions.webp",
       "phoneHash": "06d48f76fe319f5018cd7cc577cb5b8fb919ceb2099d3098cbbfa05aa3033c57"
+    },
+    "assets/greek-drama/pyre-account.webp": {
+      "sourceHash": "71f7baed41be3c85da79bce5a08f0bcabb4a32c3730b4e9b372fa6dac7c8d6bc",
+      "stage": "assets/greek-drama/pyre-account.webp",
+      "stageHash": "71f7baed41be3c85da79bce5a08f0bcabb4a32c3730b4e9b372fa6dac7c8d6bc",
+      "card": "assets/optimized/card/webp/greek-drama/pyre-account.webp",
+      "cardHash": "3899cef27818ddb42d11d1fac75bf0707d223d6078b4c2eb6db565dbfee9a09a",
+      "phone": "assets/optimized/phone/webp/greek-drama/pyre-account.webp",
+      "phoneHash": "51d181ba5a78e5eb415d44973547875f7edca309bf84ca8329bd35eabcdfcdbc"
     },
     "assets/greek-drama/refuge-tablet.png": {
       "sourceHash": "205ff4d39046d294b8aa7a64e67544e237bf1a56571122042b2d5e50df8e6e2e",

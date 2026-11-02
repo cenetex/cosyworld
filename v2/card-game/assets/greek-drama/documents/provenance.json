@@ -1,0 +1,617 @@
+{
+  "created": "2026-11-02",
+  "generator": "OpenAI built-in image generation",
+  "issue": "https://github.com/cenetex/cosyworld/issues/1851",
+  "brief_source": "https://github.com/cenetex/cosyworld/issues/1851#issuecomment-6564242922",
+  "brief": "Five distinct Greek document item cutouts replace shared or placeholder art: a guard wax tablet, burial papyrus folio, pyre clay record, Marathon wax diptych and bronze-sealed writ. Material and silhouette identify each document while all writing faces remain blank.",
+  "art_direction_feedback": [
+    "Match the established Greek item family with warm upper-left amber light, deep subdued blue-indigo self-shadow, matte painterly texture and worn natural materials.",
+    "Use complete square transparent cutouts for cards and floor items, with generous outer margins and a quiet lower card-name area.",
+    "Keep materials and silhouettes distinct at small display sizes. The Guard and Marathon records remain wax; the sealed palace writ remains visibly sealed.",
+    "No readable or unreadable text, pseudoletters, glyphs, ruled rows, sigils or pictorial emblems. Plain material grain and natural wear are allowed.",
+    "No people, hands, scenery, floor, cast ground shadow, extra props or painted background.",
+    "Preserve exact final prompts and every earlier prompt used in the reference chain. Generated references are identified by generation ID and PNG hash; repository references are pinned to the base commit."
+  ],
+  "prompt_file": "art-prompts.json",
+  "max_source_bytes": 300000,
+  "encoding": {
+    "format": "webp",
+    "alphaQuality": 100,
+    "effort": 6,
+    "smartSubsample": true
+  },
+  "derivation": "Encode original full 1254×1254 RGBA canvas to WebP; no resize, crop, compositing, alpha thresholding, or pixel edits. Card and phone versions are generated from those source WebPs by the unmodified official build-card-images.mjs; stage entries alias the source WebPs. Their hashes are verified against both image-variants.json and media-manifest.json.",
+  "alpha_measurement": "Alpha bounds use inclusive right and bottom coordinates. visible_bounds_alpha_gt_8 excludes nearly transparent generator residue for the visible-object measurement; alpha is preserved exactly, not thresholded.",
+  "pipeline": {
+    "encoder": "sharp",
+    "node": "24.22.1",
+    "sharp": "0.35.5",
+    "libvips": "8.18.7",
+    "webp": "1.6.0",
+    "image_builder": {
+      "repository_path": "v2/scripts/build-card-images.mjs",
+      "commit": "44c486d1951143c760ef91daede42cd9f9f12402",
+      "sha256": "38001dc18199c29831b58084433d8e2e28d76b8f79437bdfd42ec673fa5853b6"
+    },
+    "image_manifest_version": 1
+  },
+  "assets": [
+    {
+      "id": "guard-tablet",
+      "file": "../guard-tablet.webp",
+      "card_id": "greek-guard-tablet",
+      "material": "Narrow single-panel dark wax tablet in worn walnut, with a bound bronze stylus.",
+      "generation_id": "exec-63489dfa-f8f1-407b-a62a-9d8379173cb1",
+      "references": [
+        {
+          "role": "Identity-preserving edit target; correct canvas placement while retaining the accepted object.",
+          "generation_id": "exec-271bc72c-611e-4978-8e47-4feeaed6ec8d",
+          "original_png_sha256": "67c2e0b1b8f1e1d3af795aae16aa3c976232e3954115cdddb1f944dab20e62c5",
+          "original_png_bytes": 1252575,
+          "dimensions": [
+            1254,
+            1254
+          ]
+        }
+      ],
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "transparent_background": true,
+      "quality": 88,
+      "bytes": 126392,
+      "sha256": "3d64f910dea0d6cd56be088b1c1fcd7ec9dc86331eff6eec7befcdaca9bed3d6",
+      "original_png_file": "exec-63489dfa-f8f1-407b-a62a-9d8379173cb1.png",
+      "original_png_sha256": "d900dda054707bbd3ccb019e4be3f15eac745b7ab76203a6e049a1be244645e2",
+      "original_png_bytes": 754069,
+      "original_png_alpha_sha256": "9fb1f766d823e61f86b7275630ac8373d3141972891e102de7b7305739a9aea7",
+      "alpha_byte_exact": true,
+      "alpha": {
+        "min": 0,
+        "max": 255,
+        "fully_transparent_pixels": 1264235,
+        "fully_transparent_fraction": 0.8039568436823537,
+        "border_max": 0,
+        "lower_quarter_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 372,
+          "top": 118,
+          "right": 889,
+          "bottom": 897
+        },
+        "sha256": "9fb1f766d823e61f86b7275630ac8373d3141972891e102de7b7305739a9aea7"
+      },
+      "generation_history": [
+        {
+          "role": "Initial generation used as the final layout-edit reference.",
+          "generation_id": "exec-271bc72c-611e-4978-8e47-4feeaed6ec8d",
+          "original_png_sha256": "67c2e0b1b8f1e1d3af795aae16aa3c976232e3954115cdddb1f944dab20e62c5",
+          "original_png_bytes": 1252575,
+          "dimensions": [
+            1254,
+            1254
+          ],
+          "transparent_background": true,
+          "selected": false,
+          "revision_reason": "Increase clear margins and reserve the lower quarter for the card name.",
+          "references": [
+            {
+              "role": "Blank single-panel wax-tablet edit target and painterly material reference.",
+              "repository_path": "v2/card-game/assets/greek-drama/refuge-tablet.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/refuge-tablet.png",
+              "sha256": "205ff4d39046d294b8aa7a64e67544e237bf1a56571122042b2d5e50df8e6e2e"
+            },
+            {
+              "role": "Dark worn wood and bronze craftsmanship reference only; exclude its writing and two-panel form.",
+              "repository_path": "v2/card-game/assets/greek-drama/testimony.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/testimony.png",
+              "sha256": "98374962809e259ecba2e1aa26643f3397c37c038f7f0ab7dc6a42a43b24e7bf"
+            }
+          ]
+        }
+      ],
+      "stage": {
+        "file": "assets/greek-drama/guard-tablet.webp",
+        "sha256": "3d64f910dea0d6cd56be088b1c1fcd7ec9dc86331eff6eec7befcdaca9bed3d6",
+        "aliases_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/greek-drama/guard-tablet.webp",
+        "sha256": "cd720ad050cfc292c8015e25985db7dfa66d5ddbd19442f99d85f80dd0b0d772",
+        "bytes": 24872,
+        "width": 512,
+        "height": 512,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "cardWidth": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/greek-drama/guard-tablet.webp",
+        "sha256": "3123dc89293c62d903c92ce0ba79b07b56e3fcfe7cea681e9488772417e52104",
+        "bytes": 69990,
+        "width": 960,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "phoneSize": 960
+        }
+      }
+    },
+    {
+      "id": "burial-account",
+      "file": "../burial-account.webp",
+      "card_id": "greek-burial-account",
+      "material": "Loose partly unrolled pale papyrus folio with a plain linen tie.",
+      "generation_id": "exec-455da182-6517-4e6c-b4bc-41cc75771acb",
+      "references": [
+        {
+          "role": "Identity-preserving edit target; correct canvas placement while retaining the accepted object.",
+          "generation_id": "exec-a0849940-b0f9-442c-a93e-f2aa3f9c9c0b",
+          "original_png_sha256": "749a79e3817bba7f4561957e0c585c906ce5db2c0ed133e84d65123e0cd34038",
+          "original_png_bytes": 1453961,
+          "dimensions": [
+            1254,
+            1254
+          ]
+        }
+      ],
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "transparent_background": true,
+      "quality": 88,
+      "bytes": 154072,
+      "sha256": "dc7aeb7c018ecbef6dfa0c3c3cf67f22873673204ae686be9c4e2a6a5007ee9a",
+      "original_png_file": "exec-455da182-6517-4e6c-b4bc-41cc75771acb.png",
+      "original_png_sha256": "a1f4754baf866aa49fbe5e406a4e063d97e8d1c6bffbca5c2c3a1538d074e96b",
+      "original_png_bytes": 985793,
+      "original_png_alpha_sha256": "a312106e287f4228994bd7b7b0613e61a8dd637810cbf3a1714b0806acf85910",
+      "alpha_byte_exact": true,
+      "alpha": {
+        "min": 0,
+        "max": 255,
+        "fully_transparent_pixels": 1147359,
+        "fully_transparent_fraction": 0.7296326396678953,
+        "border_max": 0,
+        "lower_quarter_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 248,
+          "top": 124,
+          "right": 1047,
+          "bottom": 903
+        },
+        "sha256": "a312106e287f4228994bd7b7b0613e61a8dd637810cbf3a1714b0806acf85910"
+      },
+      "generation_history": [
+        {
+          "role": "Initial generation used as the final layout-edit reference.",
+          "generation_id": "exec-a0849940-b0f9-442c-a93e-f2aa3f9c9c0b",
+          "original_png_sha256": "749a79e3817bba7f4561957e0c585c906ce5db2c0ed133e84d65123e0cd34038",
+          "original_png_bytes": 1453961,
+          "dimensions": [
+            1254,
+            1254
+          ],
+          "transparent_background": true,
+          "selected": false,
+          "revision_reason": "Object footprint extended beyond the requested canvas safe area.",
+          "references": [
+            {
+              "role": "Painterly material and amber-light style reference only; exclude writing, ornate rollers, seal and ornament.",
+              "repository_path": "v2/card-game/assets/greek-drama/decree.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/decree.png",
+              "sha256": "ed08e73661fcb7ed7f5cf653cfbb4c035784fdab0597b9f4de73eaf8ab9df877"
+            },
+            {
+              "role": "Plain undyed linen material and pigment-handling style reference only.",
+              "repository_path": "v2/card-game/assets/greek-drama/funeral-cloth.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/funeral-cloth.png",
+              "sha256": "495f882672ce8513a65f789b919741ef3f49f22a76c73551847cefb5d217e0a0"
+            }
+          ]
+        }
+      ],
+      "stage": {
+        "file": "assets/greek-drama/burial-account.webp",
+        "sha256": "dc7aeb7c018ecbef6dfa0c3c3cf67f22873673204ae686be9c4e2a6a5007ee9a",
+        "aliases_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/greek-drama/burial-account.webp",
+        "sha256": "ec12f5722ee483463315cace1adbb0ccebdd9458a05834ff080b4fd7ce47aa6a",
+        "bytes": 30518,
+        "width": 512,
+        "height": 512,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "cardWidth": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/greek-drama/burial-account.webp",
+        "sha256": "439ac54afffecdea19368aae5dd75542aa3b48a75d5c906ef6866ee5b7568740",
+        "bytes": 86470,
+        "width": 960,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "phoneSize": 960
+        }
+      }
+    },
+    {
+      "id": "pyre-account",
+      "file": "../pyre-account.webp",
+      "card_id": "greek-pyre-account",
+      "material": "Squat thick ash-grey and terracotta clay record with a scorched rim and plain linen binding.",
+      "generation_id": "exec-72221693-39ea-45ee-9843-2aed3035e75a",
+      "references": [
+        {
+          "role": "Identity-preserving edit target; correct canvas placement while retaining the accepted object.",
+          "generation_id": "exec-b35b2d72-6098-4cff-8cff-15f184e3f389",
+          "original_png_sha256": "97e76ca054cc6567e7035b31e5181efa93a35a3edbf666272adec45af0fcba67",
+          "original_png_bytes": 1648781,
+          "dimensions": [
+            1254,
+            1254
+          ]
+        }
+      ],
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "transparent_background": true,
+      "quality": 88,
+      "bytes": 166018,
+      "sha256": "71f7baed41be3c85da79bce5a08f0bcabb4a32c3730b4e9b372fa6dac7c8d6bc",
+      "original_png_file": "exec-72221693-39ea-45ee-9843-2aed3035e75a.png",
+      "original_png_sha256": "7905312d0456c45c8336ed8e94ee0a1adb49e13c02760ad74069b34df2617637",
+      "original_png_bytes": 1062783,
+      "original_png_alpha_sha256": "d9c1030d7dad06ee3a0cdfa4bd976f54840f57b61d08c6a7c93c120e7e595ceb",
+      "alpha_byte_exact": true,
+      "alpha": {
+        "min": 0,
+        "max": 255,
+        "fully_transparent_pixels": 1176904,
+        "fully_transparent_fraction": 0.7484210017576928,
+        "border_max": 1,
+        "lower_quarter_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 166,
+          "top": 222,
+          "right": 1102,
+          "bottom": 845
+        },
+        "sha256": "d9c1030d7dad06ee3a0cdfa4bd976f54840f57b61d08c6a7c93c120e7e595ceb"
+      },
+      "generation_history": [
+        {
+          "role": "Initial generation used as the final layout-edit reference.",
+          "generation_id": "exec-b35b2d72-6098-4cff-8cff-15f184e3f389",
+          "original_png_sha256": "97e76ca054cc6567e7035b31e5181efa93a35a3edbf666272adec45af0fcba67",
+          "original_png_bytes": 1648781,
+          "dimensions": [
+            1254,
+            1254
+          ],
+          "transparent_background": true,
+          "selected": false,
+          "revision_reason": "Object footprint extended beyond the requested canvas safe area.",
+          "references": [
+            {
+              "role": "Painterly material and amber-light style reference only; exclude writing, ornate rollers, seal and ornament.",
+              "repository_path": "v2/card-game/assets/greek-drama/decree.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/decree.png",
+              "sha256": "ed08e73661fcb7ed7f5cf653cfbb4c035784fdab0597b9f4de73eaf8ab9df877"
+            },
+            {
+              "role": "Plain undyed linen material and pigment-handling style reference only.",
+              "repository_path": "v2/card-game/assets/greek-drama/funeral-cloth.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/funeral-cloth.png",
+              "sha256": "495f882672ce8513a65f789b919741ef3f49f22a76c73551847cefb5d217e0a0"
+            }
+          ]
+        }
+      ],
+      "stage": {
+        "file": "assets/greek-drama/pyre-account.webp",
+        "sha256": "71f7baed41be3c85da79bce5a08f0bcabb4a32c3730b4e9b372fa6dac7c8d6bc",
+        "aliases_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/greek-drama/pyre-account.webp",
+        "sha256": "3899cef27818ddb42d11d1fac75bf0707d223d6078b4c2eb6db565dbfee9a09a",
+        "bytes": 31588,
+        "width": 512,
+        "height": 512,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "cardWidth": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/greek-drama/pyre-account.webp",
+        "sha256": "51d181ba5a78e5eb415d44973547875f7edca309bf84ca8329bd35eabcdfcdbc",
+        "bytes": 91924,
+        "width": 960,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "phoneSize": 960
+        }
+      }
+    },
+    {
+      "id": "marathon-record",
+      "file": "../marathon-record.webp",
+      "card_id": "greek-marathon-record",
+      "material": "Broad open wax diptych with muted red-ochre faces, pale olive-wood frames and cord hinges.",
+      "generation_id": "exec-9768aadc-f23e-45a2-b453-390afc2601c0",
+      "references": [
+        {
+          "role": "Identity-preserving edit target; correct canvas placement while retaining the accepted object.",
+          "generation_id": "exec-a17fb87a-8677-498c-b4f0-4841ad0edbd6",
+          "original_png_sha256": "299ddd53efceb7b92802c99cff1ee4e0f9f8b983a1e1dfe7636dad583c55a152",
+          "original_png_bytes": 1653370,
+          "dimensions": [
+            1254,
+            1254
+          ]
+        }
+      ],
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "transparent_background": true,
+      "quality": 88,
+      "bytes": 134872,
+      "sha256": "9f384e62a67c7de8151ea953ad4eedff882822c2650e9e0d32611778fd4fb36d",
+      "original_png_file": "exec-9768aadc-f23e-45a2-b453-390afc2601c0.png",
+      "original_png_sha256": "21034f00ddf73722f677c70ac3bd5792dc1b6aecf80be0ce5ad6f6b6a86d9e5f",
+      "original_png_bytes": 967724,
+      "original_png_alpha_sha256": "0df94b37bc7b60d8430947ec6f27ca93c6e576a72dd2e58858ea3f7268ae7b50",
+      "alpha_byte_exact": true,
+      "alpha": {
+        "min": 0,
+        "max": 255,
+        "fully_transparent_pixels": 1147888,
+        "fully_transparent_fraction": 0.7299690432402596,
+        "border_max": 1,
+        "lower_quarter_max": 255,
+        "visible_bounds_alpha_gt_8": {
+          "left": 146,
+          "top": 244,
+          "right": 1086,
+          "bottom": 951
+        },
+        "sha256": "0df94b37bc7b60d8430947ec6f27ca93c6e576a72dd2e58858ea3f7268ae7b50"
+      },
+      "generation_history": [
+        {
+          "role": "Initial generation used as the final layout-edit reference.",
+          "generation_id": "exec-a17fb87a-8677-498c-b4f0-4841ad0edbd6",
+          "original_png_sha256": "299ddd53efceb7b92802c99cff1ee4e0f9f8b983a1e1dfe7636dad583c55a152",
+          "original_png_bytes": 1653370,
+          "dimensions": [
+            1254,
+            1254
+          ],
+          "transparent_background": true,
+          "selected": false,
+          "revision_reason": "Increase clear margins and reserve the lower quarter for the card name.",
+          "references": [
+            {
+              "role": "Open diptych edit target and Greek craft reference; remove all writing and the stylus.",
+              "repository_path": "v2/card-game/assets/greek-drama/testimony.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/testimony.png",
+              "sha256": "98374962809e259ecba2e1aa26643f3397c37c038f7f0ab7dc6a42a43b24e7bf"
+            },
+            {
+              "role": "Pale worn olive-wood and blank wax material reference.",
+              "repository_path": "v2/card-game/assets/greek-drama/refuge-tablet.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/refuge-tablet.png",
+              "sha256": "205ff4d39046d294b8aa7a64e67544e237bf1a56571122042b2d5e50df8e6e2e"
+            }
+          ]
+        }
+      ],
+      "stage": {
+        "file": "assets/greek-drama/marathon-record.webp",
+        "sha256": "9f384e62a67c7de8151ea953ad4eedff882822c2650e9e0d32611778fd4fb36d",
+        "aliases_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/greek-drama/marathon-record.webp",
+        "sha256": "3be29ad2519c880aa12ff8a23c69cb057236f32ce1584977b1ef6d38a9f317b7",
+        "bytes": 27244,
+        "width": 512,
+        "height": 512,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "cardWidth": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/greek-drama/marathon-record.webp",
+        "sha256": "af3772c997e667838518b3254cf70e519f981fb6cfc7a508116839a1a44e68a8",
+        "bytes": 73606,
+        "width": 960,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          255
+        ],
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "phoneSize": 960
+        }
+      }
+    },
+    {
+      "id": "creon-writ",
+      "file": "../creon-writ.webp",
+      "card_id": "greek-creon-writ",
+      "material": "Compact rolled cream papyrus writ with wine-red cords and a plain bronze seal.",
+      "generation_id": "exec-1e19da46-ed49-4117-b992-0f9d52a32ad0",
+      "references": [
+        {
+          "role": "Open decree edit target and painterly papyrus/bronze reference; change to a closed writ and remove all writing and emblems.",
+          "repository_path": "v2/card-game/assets/greek-drama/decree.png",
+          "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+          "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/decree.png",
+          "sha256": "ed08e73661fcb7ed7f5cf653cfbb4c035784fdab0597b9f4de73eaf8ab9df877"
+        }
+      ],
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "transparent_background": true,
+      "quality": 88,
+      "bytes": 188542,
+      "sha256": "a4c0f986c0e5b794d218f4c0ed9a21b8b25e268603951572ebdb0f34169f69f6",
+      "original_png_file": "exec-1e19da46-ed49-4117-b992-0f9d52a32ad0.png",
+      "original_png_sha256": "1c4130f6d66d36d98dee2ebbf921155454b8bbbcdcb50fafb62ffc2bbd2eaae6",
+      "original_png_bytes": 948782,
+      "original_png_alpha_sha256": "e54e9c6e4156c568a11a72b216771d742f29d00f4eb52ff0b16290c7029807cd",
+      "alpha_byte_exact": true,
+      "alpha": {
+        "min": 0,
+        "max": 255,
+        "fully_transparent_pixels": 1208245,
+        "fully_transparent_fraction": 0.768351482592228,
+        "border_max": 0,
+        "lower_quarter_max": 1,
+        "visible_bounds_alpha_gt_8": {
+          "left": 67,
+          "top": 259,
+          "right": 1205,
+          "bottom": 909
+        },
+        "sha256": "e54e9c6e4156c568a11a72b216771d742f29d00f4eb52ff0b16290c7029807cd"
+      },
+      "stage": {
+        "file": "assets/greek-drama/creon-writ.webp",
+        "sha256": "a4c0f986c0e5b794d218f4c0ed9a21b8b25e268603951572ebdb0f34169f69f6",
+        "aliases_source": true
+      },
+      "card": {
+        "file": "assets/optimized/card/webp/greek-drama/creon-writ.webp",
+        "sha256": "8889c1a4c1873b16d63af0b5fa2db50d7c5b325496a9da7c1433b02db77b694d",
+        "bytes": 35228,
+        "width": 512,
+        "height": 512,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "cardWidth": 512
+        }
+      },
+      "phone": {
+        "file": "assets/optimized/phone/webp/greek-drama/creon-writ.webp",
+        "sha256": "a4d1831c8261d822b6eee280cd8abf090c7ca95a3b1c42f5ed4aa29ad65f1bb2",
+        "bytes": 105202,
+        "width": 960,
+        "height": 960,
+        "has_alpha": true,
+        "alpha_extrema": [
+          0,
+          254
+        ],
+        "encoding": {
+          "format": "webp",
+          "quality": 88,
+          "alphaQuality": 100,
+          "effort": 6,
+          "phoneSize": 960
+        }
+      }
+    }
+  ],
+  "validation": {
+    "source_dimensions": "Five complete 1254x1254 RGBA canvases; all source WebPs below 300,000 bytes.",
+    "source_alpha": "Decoded source WebP alpha bytes exactly match the original generated PNG alpha bytes for each asset.",
+    "derivatives": "Five 512x512 card and five 960x960 phone WebPs retain transparency; their SHA-256 values match both official manifests.",
+    "references": "Repository reference bytes match the pinned base commit; every generated reference is identified by generation ID, PNG size and SHA-256."
+  }
+}
