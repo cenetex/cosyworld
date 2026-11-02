@@ -138,6 +138,7 @@ fn publication_keeps_reflection_private_after_disconnect_and_duplicate_finish() 
         &json!({"entries":entries}).to_string(),
         "stop",
         &work.context,
+        0,
         &ids,
     )
     .unwrap();

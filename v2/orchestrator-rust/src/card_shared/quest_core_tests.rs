@@ -234,6 +234,7 @@ fn quest_core_talk_disclosure_retries_the_original_scene_and_replays_accepted_le
         &json!({"entries":entries}).to_string(),
         "stop",
         &retry.context,
+        0,
         &ids,
     )
     .unwrap();
