@@ -275,10 +275,11 @@ try {
           captured.animations.every((a) => a.opacity <= 0.01),
           "Entrances play in view.",
         );
-        assert(
-          captured.animations.every((a) => a.end <= firstSpeech.at),
-          "Speech follows the entrances.",
-        );
+        if (speaks)
+          assert(
+            captured.animations.every((a) => a.end <= firstSpeech.at),
+            "Speech follows the entrances.",
+          );
         const vale = captured.animations.find((a) => a.avatar === "vale");
         const pip = captured.animations.find((a) => a.avatar === "moth");
         assert(vale);
