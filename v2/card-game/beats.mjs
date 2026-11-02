@@ -297,13 +297,16 @@ export function groupBeats(
     if (!caption) continue;
     // A defeat lands after the blow that caused it, on the loser's own beat.
     const defeat = caption.kind === "retreat" || caption.kind === "sent-home";
-    const owner = defeat ? `d:${entry.seq}` : `${entry.turn}|${entry.actorId}`;
+    // The end of a standoff is the place's caption, not the last actor's.
+    const world = caption.kind === "standoff";
+    const own = defeat ? `d:${entry.seq}` : world ? `w:${entry.seq}` : null;
+    const owner = own ?? `${entry.turn}|${entry.actorId}`;
     let beat = firstBeat.get(owner);
     if (!beat) {
       beat = {
-        key: defeat ? `d:${entry.seq}` : `a:${entry.turn}:${entry.actorId}`,
+        key: own ?? `a:${entry.turn}:${entry.actorId}`,
         turn: entry.turn,
-        speakerId: entry.actorId,
+        speakerId: world ? entry.locationId : entry.actorId,
         line: null,
         silent: false,
         actions: [],

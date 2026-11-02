@@ -86,6 +86,27 @@ describe("beat grouping", () => {
     );
   });
 
+  it("gives the end of a standoff to the place, not the last actor", () => {
+    seq = 0;
+    const log = [
+      did("moth", "wait", { text: "Pip waits one turn." }),
+      event({
+        kind: "narration",
+        speaker: "World",
+        text: "Nobody strikes for a whole round. The battle ends.",
+        actorId: "moth",
+        locationId: "pond",
+      }),
+    ];
+    const beats = sceneBeats(worldOf(log));
+    expect(beats.map((b) => b.key)).toEqual(["a:1:moth", "w:2"]);
+    expect(beatSummary(beats[0]).text).toBe("⌛ Pip waited a turn.");
+    expect(beats[1].speakerId).toBe("pond");
+    expect(beatSummary(beats[1]).text).toBe(
+      "⚔ Nobody strikes for a whole round. The battle ends.",
+    );
+  });
+
   it("keeps a silent speaker's beat as …", () => {
     seq = 0;
     const log = [
