@@ -453,6 +453,11 @@ fn app_router_with_dependencies(
         // process begins draining. Liveness remains available to distinguish a
         // draining process from a dead one.
         .layer(middleware::from_fn_with_state(shutdown, shutdown_admission))
+        // `COSYWORLD_PASSKEYS=members` keeps play to known passkeys.
+        .layer(middleware::from_fn_with_state(
+            state.account_auth.clone(),
+            crate::passkey_access::members_only_gate,
+        ))
         .layer(response_compression())
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn_with_state(

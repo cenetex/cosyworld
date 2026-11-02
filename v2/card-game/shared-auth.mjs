@@ -73,3 +73,58 @@ export async function passkey(register = false) {
     credential: serialized,
   });
 }
+// A members-only server (`COSYWORLD_PASSKEYS=members`, the .dev test server)
+// takes no new passkeys and no signed-out play. Until a known passkey signs
+// in, the table shows only this lock. Without the account API (a static or
+// local table) play starts as usual.
+export async function membersLock() {
+  let account;
+  try {
+    account = await request("/auth/account");
+  } catch {
+    return false;
+  }
+  if (!account.members_only || account.authenticated) return false;
+  const style = document.createElement("link");
+  style.rel = "stylesheet";
+  style.href = "/card-game/shared.css";
+  document.head.append(style);
+  const lock = document.createElement("dialog");
+  lock.id = "members-lock";
+  lock.className = "shared-lobby";
+  lock.oncancel = (event) => event.preventDefault();
+  const heading = document.createElement("h2");
+  heading.textContent = "Invited players only";
+  const text = document.createElement("p");
+  text.textContent =
+    "This test server is for invited players. Sign in with your passkey.";
+  const status = document.createElement("p");
+  status.setAttribute("role", "status");
+  const signIn = document.createElement("button");
+  signIn.type = "button";
+  signIn.textContent = "Sign in with your passkey";
+  signIn.onclick = async () => {
+    signIn.disabled = true;
+    status.textContent = "";
+    try {
+      await passkey(false);
+      location.reload();
+    } catch (error) {
+      status.textContent =
+        error.name === "NotAllowedError"
+          ? "The passkey step was closed. You can try again."
+          : error.message;
+      signIn.disabled = false;
+    }
+  };
+  const elsewhere = document.createElement("p");
+  const link = document.createElement("a");
+  link.href = "https://lonelyforest.com";
+  link.textContent = "Play at lonelyforest.com";
+  elsewhere.append(link);
+  lock.append(heading, text, signIn, status, elsewhere);
+  document.body.append(lock);
+  document.body.inert = false;
+  lock.showModal();
+  return true;
+}

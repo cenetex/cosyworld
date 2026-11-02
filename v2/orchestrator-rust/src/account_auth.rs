@@ -69,6 +69,8 @@ pub(super) struct AccountAuth {
     wallet_claim_challenges: StdMutex<BTreeMap<String, WalletClaimChallenge>>,
     cookie_name: String,
     secure_cookie: bool,
+    /// `COSYWORLD_PASSKEYS=members`: no sign-ups, no signed-out play.
+    members_only: bool,
 }
 
 enum AccountCeremony {
@@ -397,6 +399,7 @@ impl AccountAuth {
             init_account_schema(path).map_err(|error| io::Error::other(error.to_string()))?;
         }
         let secure_cookie = rp_origin.starts_with("https://");
+        let members_only = crate::passkey_access::members_only_from_env()?;
         Ok(Self {
             webauthn,
             db_path,
@@ -410,11 +413,20 @@ impl AccountAuth {
                 "cosyworld_session".to_string()
             },
             secure_cookie,
+            members_only,
         })
     }
 
     #[cfg(test)]
     pub(super) fn for_test(db_path: Option<Arc<PathBuf>>) -> Arc<Self> {
+        Self::for_test_with_access(db_path, false)
+    }
+
+    #[cfg(test)]
+    pub(super) fn for_test_with_access(
+        db_path: Option<Arc<PathBuf>>,
+        members_only: bool,
+    ) -> Arc<Self> {
         let origin = Url::parse("http://localhost:3102").expect("test WebAuthn origin");
         let webauthn = WebauthnBuilder::new("localhost", &origin)
             .expect("test WebAuthn RP")
@@ -433,7 +445,12 @@ impl AccountAuth {
             wallet_claim_challenges: StdMutex::new(BTreeMap::new()),
             cookie_name: "cosyworld_session".to_string(),
             secure_cookie: false,
+            members_only,
         })
+    }
+
+    pub(super) fn members_only(&self) -> bool {
+        self.members_only
     }
 
     fn path(&self) -> AccountResult<&Path> {
@@ -581,6 +598,11 @@ pub(super) async fn passkey_registration_start(
         Ok(current) => current,
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     };
+    // A members-only server lets a signed-in passkey add another, never a
+    // new account.
+    if auth.members_only && current.is_none() {
+        return auth_message(StatusCode::FORBIDDEN, crate::passkey_access::SIGNUPS_CLOSED);
+    }
 
     let bootstrap_wallet = payload
         .wallet_session
@@ -914,6 +936,12 @@ pub(super) async fn account_identity(
     };
     match current {
         Some(current) => identity_response(&state, &current.user_id, None, None),
+        None if state.account_auth.members_only => {
+            let mut body = serde_json::to_value(IdentityResponse::signed_out())
+                .unwrap_or(serde_json::Value::Null);
+            body["members_only"] = true.into();
+            no_store_json(StatusCode::OK, &body, None)
+        }
         None => no_store_json(StatusCode::OK, &IdentityResponse::signed_out(), None),
     }
 }
@@ -2456,6 +2484,10 @@ fn no_store_json<T: Serialize>(
 #[cfg(test)]
 #[path = "account_avatar_tests.rs"]
 mod avatar_tests;
+
+#[cfg(test)]
+#[path = "passkey_access_tests.rs"]
+mod passkey_access_tests;
 
 #[cfg(test)]
 mod tests {

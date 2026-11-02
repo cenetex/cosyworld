@@ -1,8 +1,11 @@
 import { setupOpenRouter } from "./openrouter-settings.mjs";
 import { setupLocalService } from "./local-service.mjs";
 import { showBuildInfo } from "./build-info.mjs";
+import { membersLock } from "./shared-auth.mjs";
 const local = await setupLocalService();
-if (!local) await setupOpenRouter();
+// A members-only test server shows its sign-in lock instead of the table.
+const locked = !local && (await membersLock());
+if (!local && !locked) await setupOpenRouter();
 const params = new URLSearchParams(location.search);
 // The old "Your worlds" address (`?shared=1`) is ☰ now (#1877).
 if (params.has("shared") || (local && params.has("world"))) {
@@ -17,7 +20,9 @@ try {
   if (!local && !params.size)
     resume = JSON.parse(localStorage.getItem("cosyworld.playing") || "null");
 } catch {}
-if (resume?.world)
+if (locked) {
+  // The lock stays until a known passkey signs in and the page reloads.
+} else if (resume?.world)
   location.replace(`/?world=${encodeURIComponent(resume.world)}`);
 else await import("./app.mjs");
 document.body.inert = false;

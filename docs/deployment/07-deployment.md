@@ -66,6 +66,9 @@ secret values through Fly's secret store for the selected app.
 - `COSYWORLD_WEBAUTHN_RP_ID`, `COSYWORLD_WEBAUTHN_ORIGIN`, and optional
   `COSYWORLD_WEBAUTHN_EXTRA_ORIGINS` define domain-scoped passkeys for the
   shared runtime.
+- `COSYWORLD_PASSKEYS` is `open` (the default) or `members`. Members mode
+  refuses new passkey sign-ups and signed-out play; `.dev` uses it (see
+  [release operations](../release.md)).
 - `OPENROUTER_API_KEY` supplies the configured text provider. Image generation
   uses the configured Replicate credentials. See the
   [runtime guide](../../v2/README.md) for provider settings.
