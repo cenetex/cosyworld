@@ -35,6 +35,7 @@ import {
   installScaresToggle,
 } from "./transitions.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
+import { innerLifeChain, innerLifeSection } from "./inner-life.mjs";
 import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
 import {
   beatSummary,
@@ -3136,8 +3137,9 @@ document.addEventListener("keydown", (event) => {
   });
 }
 let renderedMemory = "";
-// Memory is opened on purpose: every remembered visit, newest first, as the
-// same beats the stack shows. Closed, it holds no portraits at all.
+// Memory is opened on purpose: the avatar's inner life (I'm, I'm becoming,
+// I dream), then every remembered visit, newest first, as the same beats the
+// stack shows. Closed, it holds no portraits at all.
 function renderLog(open = $("history-dialog").open) {
   const box = $("messages");
   if (!open) {
@@ -3151,8 +3153,10 @@ function renderLog(open = $("history-dialog").open) {
     shared: Boolean(sharedSession),
     held: combatHeld,
   });
-  const key = JSON.stringify(
-    visits.map((visit) => [
+  const inner = innerLifeChain(world);
+  const key = JSON.stringify([
+    inner,
+    ...visits.map((visit) => [
       visit.key,
       visit.placeId,
       visit.beats.map((beat) => [
@@ -3161,10 +3165,11 @@ function renderLog(open = $("history-dialog").open) {
         beat.actions.map((action) => action.text),
       ]),
     ]),
-  );
+  ]);
   if (key === renderedMemory) return;
   renderedMemory = key;
   box.replaceChildren(
+    innerLifeSection(inner),
     ...visits.map((visit) => {
       const section = node("section", undefined, "memory-visit");
       section.append(node("h3", nameOf(visit.placeId), "memory-place"));

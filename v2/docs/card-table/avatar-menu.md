@@ -82,8 +82,9 @@ only the tools. ☰ opens a list of **world slots**:
   The world list (`GET /card-game/shared/worlds`) gives each world's
   `online` seats (a heartbeat in the last minute) and its avatars' `level`
   and `xp` from the last checkpoint (`actors`), so this holds in every slot,
-  not only the world being played. The tools (Memory, Inner life, Invite,
-  Settings) stay pinned at the bottom.
+  not only the world being played. The tools (Memory, Invite, Settings) stay
+  pinned at the bottom; Memory opens on the avatar's inner life, then the
+  past visits.
 - **A world nobody is in folds into + New world** (owner, 2026-11-01). A
   world of yours with no entered avatar left (no claimed or bound seat but
   your own stepped-away one) is not a row. The **+ New world** row instead
@@ -207,7 +208,7 @@ Desktop (1440 × 900):
 ### Words
 
 Start, Leave, Free, Bring to
-*Hollowmere*, +, + New world, + *The Borrowed Station*, You, Memory, Inner life, Invite, Settings. Gone: Worlds,
+*Hollowmere*, +, + New world, + *The Borrowed Station*, You, Memory, Invite, Settings. Gone: Worlds, Inner life (now the top of Memory),
 Share, Play, Step away, Step away?, Release · start over, Free *Mara*,
 Your worlds (`/?shared=1` opens the table), on this
 device, Delete world (local), `?avatar=`, Continue as, Continue

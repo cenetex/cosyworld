@@ -2102,7 +2102,31 @@ body .beat-live {
 .beat-stack .line-controls:not(:has(button:not([hidden]))) {
   display: none;
 }
-/* Memory: the same beats, opened on purpose, newest visit first. */
+/* Memory: the avatar's inner life now, then the same beats, opened on
+   purpose, newest visit first. */
+.inner-life {
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #ffffff15;
+}
+.inner-life h4 {
+  margin: 12px 0 4px;
+  font-size: 13px;
+}
+.inner-life p {
+  margin: 4px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.inner-life .inner-life-im {
+  font-size: 15px;
+}
+.inner-life .inner-life-name {
+  margin-top: 10px;
+  font-style: italic;
+  text-align: right;
+}
 .memory-visit + .memory-visit {
   margin-top: 18px;
 }
