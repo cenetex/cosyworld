@@ -83,8 +83,17 @@ try {
           : route.fulfill({ json: snapshot() }),
     );
     await page.goto(`${origin}/?world=toolbar`);
-    const toggle = page.locator("#players-button");
+    // One button opens ☰; its face shows the friends online here, Mara
+    // and Ash, and not you (owner, 2026-11-01).
+    const toggle = page.locator("#toolbar-menu-button");
     await toggle.waitFor();
+    await page.waitForFunction(
+      () => document.querySelectorAll(".friend-chips img").length === 2,
+    );
+    assert.equal(
+      await toggle.getAttribute("aria-label"),
+      "Menu, 2 friends online",
+    );
     await page.waitForFunction(() => document.body.inert === false);
     const bounds = await page
       .locator(".top-actions button")
@@ -101,7 +110,7 @@ try {
           };
         }),
       );
-    assert.equal(bounds.length, 2);
+    assert.equal(bounds.length, 1);
     for (const box of bounds) {
       assert(box.x >= 0 && box.right <= width, `${box.id} fits at ${width}`);
       assert(
@@ -113,7 +122,7 @@ try {
     await page.screenshot({
       path: new URL(`toolbar-${width}.png`, output).pathname,
     });
-    const menuToggle = page.locator("#toolbar-menu-button");
+    const menuToggle = toggle;
     await menuToggle.focus();
     await page.keyboard.press("Enter");
     const menu = page.locator("#world-menu");
@@ -161,7 +170,7 @@ try {
     // A real pointer press outside the popover performs light dismissal.
     await page.mouse.click(5, 100);
     await menu.waitFor({ state: "hidden" });
-    // 👥 opens the same ☰. The owner frees a seat with a second tap.
+    // The owner frees a seat with a second tap.
     await toggle.click();
     await menu.waitFor({ state: "visible" });
     await seats.nth(0).locator("button").click();
@@ -184,7 +193,7 @@ try {
             '.world-slot[data-current="true"] [data-lit="true"]',
           ).length === 2,
       );
-      assert.match(await toggle.getAttribute("aria-label"), /2 online/);
+      assert.match(await toggle.getAttribute("aria-label"), /1 friend online/);
     }
     await page.keyboard.press("Escape");
     await menu.waitFor({ state: "hidden" });
@@ -208,7 +217,12 @@ try {
   }
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.goto(origin);
-  await page.locator("#players-button").click();
+  // Signed out, the one button still opens ☰'s tools, with no friends.
+  assert.equal(
+    await page.locator("#toolbar-menu-button").getAttribute("aria-label"),
+    "Menu",
+  );
+  await page.locator("#toolbar-menu-button").click();
   await page.locator("#world-menu").waitFor({ state: "visible" });
   // Signed out, ☰ has no world UI at all, only its tools (#1892).
   await page.locator("#history-button").waitFor({ state: "visible" });

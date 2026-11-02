@@ -1,6 +1,7 @@
 import { installInnerLife } from "./inner-life.mjs";
-import { currentActor, humanAvatar, humanAvatars } from "./human-cast.mjs";
+import { humanAvatars } from "./human-cast.mjs";
 import { avatarImage } from "./scarves.mjs";
+import { imageUrl } from "./images.mjs";
 import { levelOf } from "./want.mjs";
 import { installAvatarMenu } from "./avatar-menu.mjs";
 
@@ -8,8 +9,6 @@ const icons = {
   share: '<path d="M12 15V3m-4 4 4-4 4 4M5 12v8h14v-8"/>',
   conversation:
     '<path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6 3V6a2 2 0 0 1 2-2Z"/><path d="M7 9h10M7 13h6"/>',
-  players:
-    '<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2"/>',
   menu: '<path d="M5 6h14M5 12h14M5 18h14"/>',
   settings:
     '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="#141b22"/><circle cx="15" cy="17" r="3" fill="#141b22"/>',
@@ -50,19 +49,6 @@ export function onlinePlayers(state) {
     .sort(
       (a, b) => Number(b.self) - Number(a.self) || a.name.localeCompare(b.name),
     );
-}
-
-// In local play the one player is the avatar this world belongs to.
-export function localPlayer(world) {
-  const id = currentActor(world);
-  const avatar = humanAvatar(id) || humanAvatars[0];
-  return {
-    id: avatar.id,
-    name: avatar.name,
-    image: avatarImage(world, avatar.id),
-    level: levelOf(world, avatar.id),
-    self: true,
-  };
 }
 
 let refresh = () => {};
@@ -132,39 +118,44 @@ export function installToolbar({
   document.body.append(menu);
   toolbar.append(menuButton);
 
-  // 👥 counts who is here and opens ☰, which lists them.
-  const toggle = element("button", "players-button");
-  toggle.id = "players-button";
-  decorate(toggle, "players", "Players");
-  const count = element("span", "player-count");
-  count.setAttribute("aria-hidden", "true");
-  toggle.append(count);
-  toggle.setAttribute("popovertarget", menu.id);
-  toggle.setAttribute("aria-controls", menu.id);
-  toolbar.append(toggle);
+  // The one toolbar button opens ☰; its face shows the friends online in
+  // this world now, not yourself (owner, 2026-11-01).
+  const friends = element("span", "friend-chips");
+  friends.setAttribute("aria-hidden", "true");
+  menuButton.append(friends);
   let previous = "";
   refresh = () => {
     const reconnecting =
       session &&
       (session.connectionError || Date.now() - session.lastSynced > 20000);
-    const local = getWorld();
-    const players = session
-      ? onlinePlayers(session.state)
-      : [localPlayer(local)];
-    const key = JSON.stringify([Boolean(reconnecting), players]);
+    const online = session
+      ? onlinePlayers(session.state).filter((player) => !player.self)
+      : [];
+    const key = JSON.stringify([Boolean(reconnecting), online]);
     if (key === previous) return;
     previous = key;
-    count.textContent = reconnecting ? "…" : String(players.length);
-    toggle.dataset.online = String(
-      Boolean(session && !reconnecting && players.length),
+    friends.replaceChildren(
+      ...online.slice(0, 3).map((friend) => {
+        const face = element("img");
+        face.src = imageUrl(`/card-game/${friend.image}`, "card");
+        face.alt = "";
+        const chip = element("i");
+        chip.append(face);
+        return chip;
+      }),
     );
-    toggle.setAttribute(
+    if (reconnecting || online.length > 3)
+      friends.append(
+        element("span", "", reconnecting ? "…" : `+${online.length - 3}`),
+      );
+    const count = online.length === 1 ? "1 friend" : `${online.length} friends`;
+    menuButton.setAttribute(
       "aria-label",
       reconnecting
-        ? "Players, reconnecting"
-        : session
-          ? `Players, ${players.length} online in this world`
-          : "Players, local world",
+        ? "Menu, reconnecting"
+        : online.length
+          ? `Menu, ${count} online`
+          : "Menu",
     );
     seats();
   };

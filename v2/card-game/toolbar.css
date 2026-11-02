@@ -88,25 +88,38 @@ body.local-app #scene-video-button {
 .world-menu button:focus-visible {
   outline-offset: -2px;
 }
-.player-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 14px;
-  color: #d5d0c5;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
+/* ☰'s face: the friends online in this world now. */
+.friend-chips {
+  display: flex;
 }
-[data-online="true"] .player-count::before {
-  content: "";
-  width: 5px;
-  height: 5px;
+.friend-chips:empty {
+  display: none;
+}
+.friend-chips i {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  margin-left: -6px;
+  overflow: hidden;
+  border: 1px solid #141b22;
   border-radius: 50%;
-  background: #9bcab0;
+  background: #2a2f38;
 }
-.topbar .top-actions #players-button {
-  border-left: 1px solid #ded1b326;
-  border-radius: 0 10px 10px 0;
+.friend-chips i:first-child {
+  margin-left: 0;
+}
+/* The portrait's head, from its upper middle. */
+.friend-chips img {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: 72px;
+  translate: -50% 0;
+}
+.friend-chips span {
+  align-self: center;
+  margin-left: 3px;
+  font-size: 11px;
 }
 .players-dialog {
   width: min(440px, calc(100vw - 28px));
