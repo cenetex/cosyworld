@@ -23,9 +23,12 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-use super::credits::{self, speech as purchases, Payer, Spend};
+use super::credits::{self, clips, speech as purchases, Payer, Spend};
 use crate::{ai_gateway::AiConfig, AppState};
 use purchases::Start;
+
+#[path = "card_voices/authority.rs"]
+pub(super) mod authority;
 
 const VOICES: &str = include_str!("../../card-game/voices.json");
 const MAX_TEXT: usize = 1200;
@@ -38,11 +41,16 @@ pub(crate) fn router() -> Router<AppState> {
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Line {
+    #[serde(default)]
     speaker: String,
+    #[serde(default)]
     text: String,
     /// The shared world whose pool pays; absent for the player's own.
     #[serde(default)]
     world: Option<String>,
+    /// A committed shared scene and its zero-based line position.
+    play: Option<String>,
+    line: Option<usize>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -146,17 +154,31 @@ async fn speak(
     line: &Line,
 ) -> Result<Vec<u8>, Failure> {
     let cast: Value = serde_json::from_str(VOICES).map_err(|e| Failure::Store(e.to_string()))?;
-    let text = line.text.trim();
+    let world = line.world.clone().unwrap_or_default();
+    let (speaker, words) = if world.is_empty() {
+        (line.speaker.clone(), line.text.clone())
+    } else {
+        let (w, u) = (world.clone(), user.to_owned());
+        let play = line.play.clone().ok_or(Failure::Unknown)?;
+        let index = line.line.ok_or(Failure::Unknown)?;
+        store(path, move |c| {
+            if !clips::plays_in(c, &w, &u)? {
+                return Ok(Err(Failure::Outsider));
+            }
+            Ok(authority::line(c, &w, &play, index)?.ok_or(Failure::Unknown))
+        })
+        .await??
+    };
+    let text = words.trim();
     if text.is_empty() || text.len() > MAX_TEXT {
         return Err(Failure::Unknown);
     }
-    let body = payload(&cast, &line.speaker, text).ok_or(Failure::Unknown)?;
-    let world = line.world.clone().unwrap_or_default();
+    let body = payload(&cast, &speaker, text).ok_or(Failure::Unknown)?;
     let owner = match world.as_str() {
         "" => user.to_owned(),
         world => format!("world:{world}"),
     };
-    let id = request_id(&owner, &cast, &line.speaker, text);
+    let id = request_id(&owner, &cast, &speaker, text);
     let token = crate::random_hex(16);
     let waiting = Instant::now();
     loop {
@@ -346,6 +368,7 @@ mod tests {
             speaker: speaker.into(),
             text: text.into(),
             world: None,
+            ..Default::default()
         };
         let balance = || credits::balance(&credits::open(&path).unwrap(), "u1").unwrap();
         // No credits: nothing reaches the provider.
@@ -410,7 +433,10 @@ mod tests {
             speaker: "vale".into(),
             text: text.into(),
             world: Some("w1".into()),
+            play: Some("play-1".into()),
+            line: Some(usize::from(text == "Again?")),
         };
+        authority::seed(&credits::open(&path).unwrap(), "Again?");
         let pool = || {
             let by = "";
             credits::balance(
@@ -430,22 +456,98 @@ mod tests {
         let mut c = credits::open(&path).unwrap();
         credits::grant(&mut c, "u3", 3, "pack", "test").unwrap();
         credits::pool::commit(&mut c, "u3", "w1", 3, "c-1").unwrap();
+        c.execute("INSERT INTO card_members VALUES ('w2', 0, 'u1', 0)", [])
+            .unwrap();
+        // Missing references, another world's play, and indices outside the
+        // recorded exchange never reach the cache, debit, or provider.
+        for body in [
+            json!({"world":"w1","speaker":"vale","text":"Uncommitted words."}),
+            json!({"world":"w1","play":"missing","line":0}),
+            json!({"world":"w2","play":"play-1","line":0}),
+            json!({"world":"w1","play":"play-1"}),
+            json!({"world":"w1","play":"play-1","line":2}),
+        ] {
+            assert_eq!(
+                speak(&path, &config, "u1", &serde_json::from_value(body).unwrap()).await,
+                Err(Failure::Unknown)
+            );
+        }
+        assert!(
+            serde_json::from_value::<Line>(json!({"world":"w1","play":"play-1","line":-1}))
+                .is_err()
+        );
+        assert_eq!(pool(), 3);
+        assert!(seen.lock().unwrap().is_empty());
         assert_eq!(
             speak(&path, &config, "u3", &line("Hello.")).await,
             Err(Failure::Outsider),
             "a committer who does not play there cannot spend the pool"
         );
-        let first = speak(&path, &config, "u1", &line("Hello.")).await.unwrap();
-        let second = speak(&path, &config, "u2", &line("Hello.")).await.unwrap();
+        let mut forged = line("Hello.");
+        forged.speaker = "mara".into();
+        forged.text = "Words the world never said.".into();
+        let first = speak(&path, &config, "u1", &forged).await.unwrap();
+        assert_eq!(
+            seen.lock().unwrap()[0],
+            payload(&serde_json::from_str(VOICES).unwrap(), "vale", "Hello.").unwrap()
+        );
+        forged.speaker = "unknown".into();
+        forged.text = "x".repeat(MAX_TEXT + 1);
+        let second = speak(&path, &config, "u2", &forged).await.unwrap();
         assert_eq!((first, pool()), (second, 2));
         assert_eq!(seen.lock().unwrap().len(), 1, "the clip is made once");
         assert_eq!(credits::balance(&c, "u2").unwrap(), 0);
+        // A cached purchase still needs a current member and a completed scene.
+        forged = line("Hello.");
+        c.execute("DELETE FROM card_bindings", []).unwrap();
+        assert_eq!(
+            speak(&path, &config, "u2", &forged).await,
+            Err(Failure::Outsider)
+        );
+        c.execute("INSERT INTO card_bindings VALUES ('w1', 1, 'u2')", [])
+            .unwrap();
+        for status in ["waiting", "working", "failed", "cancelled"] {
+            c.execute("UPDATE card_full_plays SET status=?", [status])
+                .unwrap();
+            assert_eq!(
+                speak(&path, &config, "u1", &forged).await,
+                Err(Failure::Unknown)
+            );
+        }
+        c.execute("UPDATE card_full_plays SET status='done',world='w2'", [])
+            .unwrap();
+        assert_eq!(
+            speak(&path, &config, "u1", &forged).await,
+            Err(Failure::Unknown)
+        );
+        c.execute("UPDATE card_full_plays SET world='w1'", [])
+            .unwrap();
+        assert!(speak(&path, &config, "u2", &forged).await.is_ok());
+        assert_eq!(seen.lock().unwrap().len(), 1);
         fail.store(true, Ordering::SeqCst);
         assert!(matches!(
             speak(&path, &config, "u2", &line("Again?")).await,
             Err(Failure::Provider(_))
         ));
         assert_eq!(pool(), 2, "a failed voice is refunded to the pool");
+        c.execute("DELETE FROM card_full_plays", []).unwrap();
+        assert_eq!(
+            speak(&path, &config, "u1", &forged).await,
+            Err(Failure::Unknown),
+            "legacy scene-only rows cannot spend"
+        );
+        c.execute(
+            "INSERT INTO card_full_plays VALUES ('play-1','w1','done')",
+            [],
+        )
+        .unwrap();
+        c.execute("DELETE FROM card_full_scenes", []).unwrap();
+        assert_eq!(
+            speak(&path, &config, "u1", &forged).await,
+            Err(Failure::Unknown),
+            "deleted lines cannot return cached clips"
+        );
+        assert_eq!(pool(), 2);
         let _ = std::fs::remove_file(&path);
     }
 }

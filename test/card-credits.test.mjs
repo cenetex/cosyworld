@@ -108,11 +108,17 @@ describe("passkey credits in the browser", () => {
     expect(poolText(credits.state.pool)).toBe(
       "This world's pool: 100 credits. From Moss 100.",
     );
-    await credits.voices.clip("vale", "Hello.");
+    await expect(credits.voices.clip("vale", "Hello.")).rejects.toThrow(
+      "Choose a saved character line",
+    );
+    await credits.voices.clip("vale", "Hello.", undefined, {
+      play: "committed-play",
+      line: 0,
+    });
     expect(calls.find(([path]) => path.endsWith("speech"))[1]).toEqual({
-      speaker: "vale",
-      text: "Hello.",
       world: "w1",
+      play: "committed-play",
+      line: 0,
     });
   });
 

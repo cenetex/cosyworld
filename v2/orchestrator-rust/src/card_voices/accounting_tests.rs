@@ -51,6 +51,7 @@ fn fixture(shared: bool) -> PathBuf {
         )
         .unwrap();
         credits::pool::commit(&mut c, "u1", "w1", 4, "pool").unwrap();
+        authority::seed(&c, "New line.");
     }
     path
 }
@@ -69,6 +70,8 @@ fn call(
         ..Line::default()
     };
     line.world = shared.then(|| "w1".into());
+    line.play = shared.then(|| "play-1".into());
+    line.line = shared.then(|| usize::from(text == "New line."));
     tokio::spawn(async move { speak(&path, &config, &user, &line).await })
 }
 

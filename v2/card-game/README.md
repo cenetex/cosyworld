@@ -103,6 +103,13 @@ server spends each voiced line once for the whole world and keeps the clip, so
 every player hears the same audio; the camera films on the pool. An empty pool
 leaves lines unvoiced and greys out the camera.
 
+Shared speech sends `{world, play, line}`, with a zero-based line index into
+the completed play's saved scene. The server checks seated or bound access
+and resolves the recorded speaker and words before cache lookup or spending.
+Queued, missing and scene-only legacy records cannot spend the pool. Old
+shared clients must refresh. Personal local speech still sends speaker/text,
+and local Chatterbox stays free.
+
 The Settings footer and the COSYWORLD wordmark tooltip name the build from the
 server's `/meta` (`v1.2.104 · 94ff0b8 · rules 57`, commit linked); a static
 server shows none.

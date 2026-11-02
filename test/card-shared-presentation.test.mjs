@@ -3,6 +3,7 @@ import {
   sharedLiveLine,
   createSharedPlaybackClock,
   sharedSpeechState,
+  sharedVoiceReference,
   hasSharedPlace,
   sharedSilentLines,
   SHARED_SILENT_TEXT,
@@ -72,6 +73,22 @@ describe("the existing card table seen by a shared avatar", () => {
 });
 
 describe("shared room dialogue clock", () => {
+  it("references a committed scene line by play and position, not its words", () => {
+    const line = { seq: 12, text: "Repeated words." };
+    const state = {
+      history: [{ play: "saved-play", lines: [{ seq: 11 }, line] }],
+    };
+    expect(sharedVoiceReference(state, line)).toEqual({
+      play: "saved-play",
+      line: 1,
+    });
+    expect(
+      sharedVoiceReference(state, { seq: 13, text: line.text }),
+    ).toBeUndefined();
+    expect(
+      sharedVoiceReference(state, { ...line, silent: true }),
+    ).toBeUndefined();
+  });
   const first = { seq: 10, speaker: "Vale", text: "Here is a light." };
   const second = { seq: 11, speaker: "Mara", text: "Then let us see." };
   const state = {

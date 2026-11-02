@@ -480,6 +480,15 @@ export function sharedLiveLine(state, now, room) {
   return scene.lines.at(-1);
 }
 
+// Select a saved scene's line; imported local log entries have no such record.
+export function sharedVoiceReference(state, line) {
+  if (!Number.isInteger(line?.seq) || line.silent) return;
+  for (const scene of state?.history || []) {
+    const index = scene.lines?.findIndex((entry) => entry.seq === line.seq);
+    if (scene.play && index >= 0) return { play: scene.play, line: index };
+  }
+}
+
 export function sharedSpeechState(state, room) {
   const working = state.queue?.some((entry) => entry.status === "working");
   if (working) return { status: "pending", retryKey: null };

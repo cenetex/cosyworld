@@ -24,6 +24,8 @@ pub(crate) mod card_game;
 mod card_video;
 #[path = "card_voices.rs"]
 mod card_voices;
+#[cfg(test)]
+pub(crate) use card_voices::authority::line as shared_voice_line;
 #[path = "credits.rs"]
 pub(crate) mod credits;
 
