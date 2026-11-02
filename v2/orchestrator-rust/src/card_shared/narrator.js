@@ -820,7 +820,7 @@
     world.presentActors = [...present];
     return world;
   }
-  var residentAvatar = (world, id) => sharedEnabled(world) && Boolean(humanAvatar(id)) && !controlledByHuman(world, id);
+  var residentAvatar = (world, id) => sharedEnabled(world) && Boolean(humanAvatar(id)) && !controlledByHuman(world, id) && !world.absent?.includes(id);
   var roomHumanCount = (world, place) => humanAvatarIds.filter(
     (id) => humanPresent(world, id) && world.actors[id]?.place === place
   ).length;
@@ -1153,7 +1153,7 @@
   var SPECIAL_KINDS = ["places", "avatars", "items"];
   var validSeed = (n) => Number.isInteger(n) && n >= 0 && n <= 4294967295;
   var kindOf = (pack, id) => SPECIAL_KINDS.find((kind) => Object.hasOwn(pack[kind] || {}, id));
-  function hash(text2) {
+  function seedHash(text2) {
     let h = 2166136261;
     for (const ch of text2) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
     return h;
@@ -1188,7 +1188,7 @@
       for (let slot = 0; slot < (pack.specials.draw[kind] || 0); slot++) {
         const total = pool.reduce((n, e) => n + RARITY_WEIGHTS[e.rarity], 0);
         if (!total) break;
-        let pick = hash(`${seed}:${pack.id}:${kind}:${slot}`) % total;
+        let pick = seedHash(`${seed}:${pack.id}:${kind}:${slot}`) % total;
         const index = pool.findIndex(
           (e) => (pick -= RARITY_WEIGHTS[e.rarity]) < 0
         );
@@ -2440,6 +2440,14 @@
             requires: []
           }
         ],
+        hiding: {
+          pool: [
+            {
+              id: "clearing",
+              depth: "door"
+            }
+          ]
+        },
         bridge: {
           id: "shore-badger-forest",
           description: "Two bell rings at Black pond fold its reflection onto the Steam Clock clearing. A bell sounding at either end keeps the way back open."
@@ -11191,6 +11199,14 @@
             requires: []
           }
         ],
+        hiding: {
+          pool: [
+            {
+              id: "hoppycat-signal-jetty",
+              depth: "plain"
+            }
+          ]
+        },
         bridge: {
           id: "shore-hoppycat-archive",
           description: "A red thread from the Halfway Tea Garden leads back to Black pond. Ships for the Signal Jetty leave from Piraeus. The pond's own thread into the garden stays open only where it was already found."
@@ -11864,6 +11880,18 @@
             requires: []
           }
         ],
+        hiding: {
+          pool: [
+            {
+              id: "willows-thicket",
+              depth: "night"
+            },
+            {
+              id: "willows-bank",
+              depth: "night"
+            }
+          ]
+        },
         bridge: {
           id: "greek-ship-willows",
           description: "On a misty night, while the Greek ship lies at Black Pond or sails between ports, river mist beside its rail opens onto a small Danube island and keeps a path back. Once the Swede's kit is all back at his camp, the mended canoe also runs between the landing and Black Pond, for anyone."
@@ -13716,6 +13744,18 @@
             scope: "first journey proposal"
           }
         ],
+        hiding: {
+          pool: [
+            {
+              id: "forest-garden",
+              depth: "plain"
+            },
+            {
+              id: "forest-oak",
+              depth: "door"
+            }
+          ]
+        },
         bridge: {
           id: "shore-lonely-forest",
           description: "The Black cloth or a traveler's scarf in the lamplit attic reveals stairs down to the cottage. The cottage keeps a free stair back to the attic."
@@ -13896,6 +13936,14 @@
     );
     return ok ? [] : ["specials needs a bounded draw and a pool of own entities"];
   }
+  var HIDING_DEPTHS = ["plain", "door", "night"];
+  function hidingProblems(pack) {
+    const pool = Array.isArray(pack.hiding?.pool) ? pack.hiding.pool : [], drawn = new Set((pack.specials?.pool || []).map((e) => e?.id));
+    const ok = keysOk(pack.hiding, ["pool"]) && pool.length > 0 && pool.length <= 16 && new Set(pool.map((e) => e?.id)).size === pool.length && pool.every(
+      (e) => keysOk(e, ["id", "depth"]) && owns2(pack.places, e.id) && !drawn.has(e.id) && HIDING_DEPTHS.includes(e.depth)
+    );
+    return ok ? [] : ["hiding needs a pool of the pack's own undrawn places"];
+  }
   var keysOk = (o, allowed) => record2(o) && Object.keys(o).every((k) => allowed.includes(k));
   var pointOk = (o) => keysOk(o, ["x", "y"]) && intOk(o.x, 0, 100) && intOk(o.y, 0, 100);
   var templateOk = (v, max, names2) => textOk(v, max) && !/[{}]/.test(
@@ -13970,7 +14018,8 @@
         "storyQuests",
         "topics",
         "situations",
-        "specials"
+        "specials",
+        "hiding"
       ]),
       "has an unknown top-level field"
     );
@@ -14711,6 +14760,7 @@
       );
     }
     if (pack.specials !== void 0) problems2.push(...specialsProblems(pack));
+    if (pack.hiding !== void 0) problems2.push(...hidingProblems(pack));
     if (pack.release !== void 0) {
       const r = pack.release;
       check(
@@ -15372,6 +15422,15 @@
         (edge) => Array.isArray(edge) && edge.length === 2 && allowed.has(edgeKey(edge))
       )
     );
+  }
+
+  // v2/card-game/hidden-avatar.mjs
+  var avatarList = (value) => Array.isArray(value) && value.length <= 8 && new Set(value).size === value.length && value.every((id) => humanAvatar(id));
+  function validHidden(world) {
+    const h = world.hidden;
+    if (world.absent !== void 0 && (!avatarList(world.absent) || !world.absent.length || world.absent.includes("vale")))
+      return false;
+    return h === void 0 || Boolean(h) && Object.keys(h).sort().join() === "actor,met,place" && Boolean(humanAvatar(h.actor)) && !world.absent?.includes(h.actor) && typeof h.place === "string" && avatarList(h.met) && !h.met.includes(h.actor);
   }
 
   // v2/card-game/shared-rules.mjs
@@ -17159,6 +17218,8 @@
     if (s.run !== void 0 && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
       fail();
     if (!validPackState(s, sensesFor(s))) fail();
+    if (!validHidden(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
+      fail();
     if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)))
       fail();
     if (!s.locations || typeof s.locations.attic?.anchored !== "boolean" || ![null, "hush"].includes(s.locations.pond?.answer))

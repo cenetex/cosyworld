@@ -25,11 +25,13 @@ export function seatActors(world, claimed, present) {
 }
 export const heldByHuman = (world, id) =>
   (world.heldActors || world.controlledActors || ["vale"]).includes(id);
-// An avatar living as a resident of a shared world.
+// An avatar living as a resident of a shared world. One still locked for the
+// world's creator is absent until someone claims it (#1936).
 export const residentAvatar = (world, id) =>
   sharedEnabled(world) &&
   Boolean(humanAvatar(id)) &&
-  !controlledByHuman(world, id);
+  !controlledByHuman(world, id) &&
+  !world.absent?.includes(id);
 export const roomHumanCount = (world, place) =>
   humanAvatarIds.filter(
     (id) => humanPresent(world, id) && world.actors[id]?.place === place,

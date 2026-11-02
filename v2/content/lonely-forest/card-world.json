@@ -1656,5 +1656,11 @@
       "path": "docs/art-direction/world-map.md",
       "scope": "first journey proposal"
     }
-  ]
+  ],
+  "hiding": {
+    "pool": [
+      { "id": "forest-garden", "depth": "plain" },
+      { "id": "forest-oak", "depth": "door" }
+    ]
+  }
 }

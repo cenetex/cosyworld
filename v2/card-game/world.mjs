@@ -11,6 +11,7 @@ import {
   validRouteKnowledge,
 } from "./roaming-routes.mjs";
 import { arriveRecitals, arriveRoamingRecitals } from "./pack-recital.mjs";
+import { meetHidden, validHidden } from "./hidden-avatar.mjs";
 import {
   currentActor,
   humanAvatar,
@@ -2054,6 +2055,17 @@ function performPlay(s, a, round = null, settle = []) {
     ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
   });
   if (a.kind === "talk") talkKnowledge(s, a, s.log.at(-1));
+  // A human's first Talk with the world's hidden avatar unlocks it (#1936).
+  const met = meetHidden(s, a, controlledByHuman(s, a.actor));
+  if (met)
+    addLog(s, "World", `${nameOf(a.target)} remembers ${who}.`, {
+      kind: "narration",
+      unlock: met.unlock,
+      actorId: a.actor,
+      entityId: a.target,
+      locationId: here,
+      witnesses: [a.actor, a.target],
+    });
   recordLearning(s, a, learningStart, s.log.at(-1));
   for (const visit of recitals)
     addLog(
@@ -2745,6 +2757,11 @@ export function validateWorld(s) {
   )
     fail();
   if (!validPackState(s, sensesFor(s))) fail();
+  if (
+    !validHidden(s) ||
+    (s.hidden && !Object.hasOwn(places, s.hidden.place))
+  )
+    fail();
   if (
     !validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) ||
     !validMemories(s) ||

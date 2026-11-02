@@ -165,6 +165,27 @@ function specialsProblems(pack) {
     );
   return ok ? [] : ["specials needs a bounded draw and a pool of own entities"];
 }
+// Where a world's hidden avatar may stand (#1936): the pack's own places,
+// never a drawn special, each in plain sight, behind a door or quest, or on a
+// night path.
+const HIDING_DEPTHS = ["plain", "door", "night"];
+function hidingProblems(pack) {
+  const pool = Array.isArray(pack.hiding?.pool) ? pack.hiding.pool : [],
+    drawn = new Set((pack.specials?.pool || []).map((e) => e?.id));
+  const ok =
+    keysOk(pack.hiding, ["pool"]) &&
+    pool.length > 0 &&
+    pool.length <= 16 &&
+    new Set(pool.map((e) => e?.id)).size === pool.length &&
+    pool.every(
+      (e) =>
+        keysOk(e, ["id", "depth"]) &&
+        owns(pack.places, e.id) &&
+        !drawn.has(e.id) &&
+        HIDING_DEPTHS.includes(e.depth),
+    );
+  return ok ? [] : ["hiding needs a pool of the pack's own undrawn places"];
+}
 const keysOk = (o, allowed) =>
   record(o) && Object.keys(o).every((k) => allowed.includes(k));
 // A point on a painting, as whole percentages of its width and height.
@@ -298,6 +319,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "topics",
       "situations",
       "specials",
+      "hiding",
     ]),
     "has an unknown top-level field",
   );
@@ -1442,6 +1464,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
   }
   if (pack.specials !== undefined) problems.push(...specialsProblems(pack));
+  if (pack.hiding !== undefined) problems.push(...hidingProblems(pack));
   if (pack.release !== undefined) {
     const r = pack.release;
     check(
