@@ -29,7 +29,7 @@
       "smokes": ["smoke-card-music"]
     },
     {
-      "paths": "^v2/card-game/credits",
+      "paths": "^v2/card-game/(credits|scene-video)",
       "smokes": ["smoke-card-credits"]
     },
     {

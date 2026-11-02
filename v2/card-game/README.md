@@ -791,13 +791,22 @@ existing world, possessions, quest, memory and persona.
 ## Scene video
 
 Hover over the CosyWorld title to reveal the video camera. Keyboard focus also
-reveals it. Phones show the camera beside the title. Click it to see the last
-two displayed dialogue lines. Making the film itself returns as a credits
-purchase ([#1924](https://github.com/cenetex/cosyworld/issues/1924)). The
-prompt (`scene-video-context.mjs`) uses the current place, character
-appearances, visible items, their holders, light, and other visible states.
-The default model is TBC Mischief 1 (`tbc/mischief-1`), and the current stage
-supplies a reference frame where the model supports one.
+reveals it. Phones show the camera beside the title. Click it to film the last
+two displayed dialogue lines for 100 credits
+([#1924](https://github.com/cenetex/cosyworld/issues/1924)); the camera greys
+out when the passkey cannot afford one. The prompt (`scene-video-context.mjs`)
+uses the current place, character appearances, visible items, their holders,
+light, and other visible states. The current stage supplies a reference frame
+where the model supports one.
+
+The server fixes the model to TBC Mischief 1 (`tbc/mischief-1`).
+`GET /card-game/video/model` gives its clip options; the clip aims for ten
+seconds and uses the nearest supported length (five seconds for Mischief 1).
+`POST /card-game/video` spends the credits and starts the job on the server's
+OpenRouter key. The browser polls `GET /card-game/video/{id}` every three
+seconds for up to 15 minutes, then plays `/content` and offers a download. A
+failed, cancelled or expired job returns its credits once. Stop waiting ends
+the browser wait; the film's credits stay spent unless it fails.
 
 ## Threats and standoffs
 
