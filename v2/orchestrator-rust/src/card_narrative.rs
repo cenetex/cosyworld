@@ -284,8 +284,6 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
     Router::new()
         .route("/card-game/text", post(generate))
         .route("/card-game/reflections", post(reflections::generate))
-        .route("/card-game/text/prepare", post(browser::prepare_route))
-        .route("/card-game/text/complete", post(browser::complete_route))
         .layer(DefaultBodyLimit::max(64 * 1024))
         .with_state(TextState {
             ai,
@@ -2430,7 +2428,7 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("Vale"));
-        // Player-funded dialogue uses the player's OpenRouter routing settings.
+        // Prepared calls carry no provider routing of their own.
         for call in prepared["calls"].as_array().unwrap() {
             assert!(call["request"].get("provider").is_none());
         }
@@ -2452,25 +2450,6 @@ mod tests {
         );
         assert!(browser::complete(&scene, None, answers("As an AI, I can help.")).is_err());
         assert!(browser::complete(&scene, None, answers("I hear you,")).is_err());
-        let app = router_with_models::<()>(
-            Arc::new(None),
-            Ok(BTreeMap::new()),
-            Ok(VoiceSettings::hosted()),
-        );
-        let mut req = request(&context());
-        *req.uri_mut() = "/card-game/text/prepare".parse().unwrap();
-        assert_eq!(
-            app.clone().oneshot(req).await.unwrap().status(),
-            StatusCode::OK
-        );
-        let mut req = request(&context());
-        *req.uri_mut() = "/card-game/text/prepare".parse().unwrap();
-        req.headers_mut()
-            .insert("sec-fetch-site", "cross-site".parse().unwrap());
-        assert_eq!(
-            app.oneshot(req).await.unwrap().status(),
-            StatusCode::FORBIDDEN
-        );
     }
 
     fn solo_departure() -> TurnOutcome {
