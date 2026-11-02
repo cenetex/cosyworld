@@ -9,6 +9,24 @@ Play at [Lonely Forest](https://lonelyforest.com/). The
 versioned releases. Each site's `/meta` reports its running version and selected
 game. The package version identifies this checkout.
 
+## Summoning characters
+
+CosyWorld summons characters through names and roles. A seed such as
+"Antigone, daughter of Oedipus" deliberately draws on the language model's
+cultural inheritance: the stories, voices, dispositions, and contradictions
+associated with that figure. Keeping the seed sparse leaves room for qualities
+we did not prescribe. "Raw" means minimally directed by an authored persona.
+
+Each encounter gives that inherited figure a particular life. Possessions,
+journeys, witnessed events, relationships, thoughts, and dreams give this
+incarnation its own history. The rules establish what happens in the world;
+generated speech and reflection draw on those facts and the character's
+inheritance. A name calls the character into the world, and play gives them
+something new to live through.
+
+See the [seed-sentence guide](v2/docs/card-table/seed-sentences.md) for the
+authored identities and how they enter play.
+
 ## Start here
 
 Read the [current source map](docs/current-game.md) before changing gameplay.
