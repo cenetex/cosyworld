@@ -260,9 +260,12 @@ try {
             queuedTurn = (await state()).turn;
             await selectCard(page, "vale");
             await page.locator("#card-actions .card-primary").click();
-            // The queued play leaves the beat for its Thinking card.
+            // The play skips the last reading pause for its Thinking card.
             assert.equal(await page.locator("#card-actions button").count(), 0);
-            assert.equal((await state()).turn, queuedTurn);
+            await page.waitForFunction(
+              () => document.querySelector("#story-status").hidden === false,
+            );
+            break;
           }
           await page.locator("#dialogue-advance").click();
           if (i < speakers.length - 1) {

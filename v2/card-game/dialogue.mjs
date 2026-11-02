@@ -343,6 +343,10 @@ export function createExchange({
     get current() {
       return active ? lines[index] || null : null;
     },
+    // The current line has been read; its reading pause may still run.
+    get read() {
+      return active && index >= 0 && completed === lines[index]?.seq;
+    },
     get hasNext() {
       return active && index >= 0 && index < lines.length - 1;
     },

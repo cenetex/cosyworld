@@ -179,17 +179,14 @@ try {
         assert.equal(await page.locator("#card-actions button").count(), 0);
         assert.equal(plays.length, 0);
         // Once the earlier scene is read, the play in flight is one Thinking
-        // card, which cancels in two taps: the queued play goes first and its
+        // card, which cancels in two taps: the queued play goes and its
         // button comes back.
-        queue = [{ id: "earlier-play", actor: "vale", status: "waiting" }];
         await thinkingIs("Thinking…");
         await page.locator("#speech-row").click();
         await thinkingIs("Tap again to cancel");
         await page.locator("#speech-row").click();
-        // The queued play is gone and its button is back; the earlier
-        // play still waits at the table.
+        // The queued play is gone and its button is back.
         await play.waitFor();
-        await thinkingIs("Thinking…");
         assert.equal(plays.length, 0);
         await play.click();
         assert.equal(await page.locator("#card-actions button").count(), 0);
@@ -222,22 +219,17 @@ try {
           for (let attempt = 0; attempt < 100 && plays.length === 0; attempt++)
             await page.waitForTimeout(100);
           assert.equal(plays.length, 1);
-          // A second choice made while the first request is in flight
-          // survives its reply. Vale is let go and chosen again.
-          await selectCard(page, "vale");
-          await selectCard(page, "vale");
-          assert.equal(await play.isDisabled(), false);
-          await play.click();
+          // A new choice made while the first play is in flight waits
+          // behind its Thinking card and is offered once the reply comes.
+          await selectCard(page, "lamp");
           assert.equal(await page.locator("#card-actions button").count(), 0);
           await heldReply();
-          await page.waitForTimeout(1100);
-          assert.equal(plays.length, 1);
           queue = [];
-          await page.waitForFunction(
-            () =>
-              document.querySelectorAll('#hand .card[aria-pressed="true"]')
-                .length === 0,
-          );
+          await page.locator("#card-actions .card-primary").waitFor();
+          await page.waitForTimeout(600);
+          await page.locator("#card-actions .card-primary").click();
+          for (let attempt = 0; attempt < 50 && plays.length < 2; attempt++)
+            await page.waitForTimeout(100);
           assert.equal(plays.length, 2);
           assert.equal(world.turn, 2);
           await page.waitForTimeout(1100);

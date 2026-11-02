@@ -136,7 +136,8 @@ being read), the play is one Thinking card: the speaker's portrait,
 "Thinking…" and no button. The first tap reads "Tap again to cancel" and the
 second cancels; three seconds, Escape or a tap elsewhere puts it back. A play
 still waiting is withdrawn and its button returns. A committed one (a shared
-retry) stays saved: its caption shows with no line, never "undone". Once a
+retry, or a local play awaiting its words) stays saved: its caption shows with
+no line, never "undone". Once a
 play commits (a local play, or a shared play the room is playing) the beat
 leaves and its reply types into the full-size front card. After a play the
 beat rests until the player chooses a card or taps the raised hand. Choosing a quest in the open fan takes no
@@ -169,6 +170,14 @@ exchange is read. A shared refusal waits for the line too. A tap anywhere
 on a card that is being written, portrait and name included, finishes it.
 Clicking off the cards, like Escape, clears the choice: the action beat
 fades and the full dialogue card comes back.
+
+Every play in flight is one Thinking card with the speaker's portrait: queued
+here, sent or waiting at a shared table, or committed with its words still on
+the way. A play chosen in an exchange's last reading pause skips the pause,
+so its Thinking card comes at once. Cards chosen meanwhile wait behind it.
+The Thinking chip shows only on that card, never on a line. A choice over
+words that did not arrive is offered with the failure and its Retry in the
+action beat, since the new play also asks again.
 
 ## Memory
 
