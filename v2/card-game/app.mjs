@@ -79,7 +79,12 @@ import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
-import { creditsText, installCreditPool, playerCredits } from "./credits.mjs";
+import {
+  buySpeechPack,
+  creditsText,
+  installCreditPool,
+  playerCredits,
+} from "./credits.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
 import {
   createTextReveal,
@@ -662,12 +667,19 @@ $("credits").hidden = Boolean(localRuntime());
 let creditsSeen;
 playerCredits().subscribe((credits) => {
   $("credits-status").textContent = creditsText(credits);
+  // With Stripe on, the pack is bought here instead of asked for.
+  $("speech-pack").hidden = Boolean(credits.checkout);
+  $("buy-speech-pack").hidden = !credits.checkout || !credits.signed_in;
   const key = `${credits.signed_in}:${playerCredits().affords("tts")}`;
   if (creditsSeen !== undefined && key !== creditsSeen)
     characterSpeech.connectionChanged();
   creditsSeen = key;
 });
 if (!localRuntime()) void playerCredits().refresh();
+$("buy-speech-pack").onclick = () =>
+  buySpeechPack().catch((error) => {
+    $("credits-status").textContent = error.message;
+  });
 let soundEnabled = true;
 try {
   soundEnabled = localStorage.getItem("cosyworld.dialogue.sound") !== "off";

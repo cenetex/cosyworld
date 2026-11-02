@@ -62,6 +62,10 @@ secret values through Fly's secret store for the selected app.
 - `COSYWORLD_CREDITS_OPERATOR_TOKEN` (at least 16 characters) turns on the
   operator credit grant; unset, `/internal/credits/grant` answers 404. See
   [credits](#credits).
+- `COSYWORLD_STRIPE_SECRET_KEY`, `COSYWORLD_STRIPE_PRICE_SPEECH_PACK` and
+  `COSYWORLD_STRIPE_WEBHOOK_SECRET` together turn on buying speech packs with
+  Stripe Checkout; with any unset, checkout and its webhook answer 404. See
+  [credits](#credits).
 - `COSYWORLD_V2_EVENT_DB_PATH` names the SQLite journal;
   `COSYWORLD_V2_SNAPSHOT_PATH` names its snapshot file.
 - `COSYWORLD_PROCESS_ID` names the process. The compatibility setting
@@ -211,3 +215,26 @@ curl -s -X POST https://cosyworld.fly.dev/internal/credits/grant \
 
 `user` takes an account id or username. The reply gives the new balance and
 whether this call granted (`granted: false` for a repeated `request_id`).
+
+### Stripe speech packs
+
+With the three Stripe settings, Settings and an unaffordable camera show "Get a
+speech pack". `POST /card-game/credits/checkout` starts a Checkout session for
+one pack (the price id, quantity 1, `client_reference_id` = the passkey
+account) and returns its `url`. Stripe's `checkout.session.completed` event at
+`POST /internal/credits/stripe-webhook` is verified against the
+`Stripe-Signature` header (HMAC-SHA256, five-minute tolerance) and, when
+`payment_status` is `paid`, grants 100 credits with the Checkout session id as
+the request id, so Stripe's retries grant once. `/internal/` is outside the
+members-only gate, so the webhook needs no passkey session.
+
+In the Stripe dashboard, create a one-time price for the pack and a webhook
+endpoint at `https://<host>/internal/credits/stripe-webhook` for the
+`checkout.session.completed` event, then:
+
+```sh
+fly secrets set --app cosyworld \
+  COSYWORLD_STRIPE_SECRET_KEY="sk_live_..." \
+  COSYWORLD_STRIPE_PRICE_SPEECH_PACK="price_..." \
+  COSYWORLD_STRIPE_WEBHOOK_SECRET="whsec_..."
+```

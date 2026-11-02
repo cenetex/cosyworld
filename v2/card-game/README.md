@@ -89,6 +89,10 @@ and refunds a failed call. A line already bought plays again for free. Signed
 out or out of credits, lines are simply not voiced. The Mac app keeps its
 local voices without credits.
 
+When the server has Stripe set up, `GET /card-game/credits` says `checkout:
+true` and "Get a speech pack" in Settings (and on the camera when a film is
+out of reach) opens Stripe Checkout; Stripe's webhook adds the pack.
+
 In a shared world the world's credit pool pays instead. Any passkey can commit
 credits to it from Settings ("Commit 10 credits" / "Commit 100 credits"); the
 action beat confirms, since a commit is never taken back. Settings shows the
