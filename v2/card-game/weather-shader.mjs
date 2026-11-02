@@ -22,6 +22,10 @@ uniform float u_dark;
 uniform vec3 u_shade;
 uniform float u_vignette;
 uniform float u_hard;
+// Up to four pools stay lit as the room darkens: x, y (0..1), radius (a share
+// of the height) and how lit; each with its own tint.
+uniform vec4 u_lights[4];
+uniform vec3 u_lightTint[4];
 
 float hash(float n) { return fract(sin(n) * 43758.5453123); }
 float hash2(vec2 p) {
@@ -143,6 +147,12 @@ void main() {
   vec2 e = vec2((uv.x - 0.5) / 0.8, (0.55 - uv.y) / 0.75);
   float edge = clamp((length(e) - 0.45) / 0.55, 0.0, 1.0);
   vec3 grade = u_shade * mix(vec3(1.0), vec3(0.04, 0.05, 0.13), u_vignette * edge);
+  for (int i = 0; i < 4; i++) {
+    vec4 l = u_lights[i];
+    float d = length((uv - l.xy) * vec2(aspect, 1.0));
+    float pool = l.w * smoothstep(l.z, 0.0, d);
+    grade = mix(grade, u_lightTint[i], pool * pool * (3.0 - 2.0 * pool));
+  }
   const float mid = 0.42;
   vec3 target = mid * grade * (1.0 - alpha) + color;
   vec3 layer = mix(target / (2.0 * mid),
@@ -257,6 +267,8 @@ export function createWeatherRenderer(canvas) {
         "shade",
         "vignette",
         "hard",
+        "lights",
+        "lightTint",
       ].map((name) => [name, at(name)]),
     );
     return {
@@ -279,6 +291,15 @@ export function createWeatherRenderer(canvas) {
         gl.uniform3fv(u.shade, uniforms.shade);
         gl.uniform1f(u.vignette, uniforms.vignette);
         gl.uniform1f(u.hard, hard ? 1 : 0);
+        const pools = [0, 1, 2, 3].map((i) => uniforms.lights?.[i]);
+        gl.uniform4fv(
+          u.lights,
+          pools.flatMap((l) => l?.at ?? [0, 0, 0, 0]),
+        );
+        gl.uniform3fv(
+          u.lightTint,
+          pools.flatMap((l) => l?.tint ?? [1, 1, 1]),
+        );
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.drawArrays(gl.TRIANGLES, 0, 3);

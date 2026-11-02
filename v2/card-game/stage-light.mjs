@@ -1,3 +1,5 @@
+import authored from "./stage-light.json" with { type: "json" };
+
 // Presentation-only time of day. The rules keep two light settings, each
 // DAYLIGHT_TURNS plays long; the stage reads the same committed turn as a
 // continuous game hour, so every viewer of a world sees the same sky. Nothing
@@ -96,14 +98,33 @@ export function lightPath(fromTurn, toTurn) {
   };
 }
 
+// How dark the hour itself is, whatever share the painting takes: 0 by day,
+// 1 at midnight. Weather tones and light pools follow it.
+export const nightness = (hour) =>
+  Math.min(1, Math.max(0, (1 - lightAt(hour).light) / 0.44));
+
+// A place's authored stage light (stage-light.json); places without an entry
+// are open to the sky and take the full grade.
+export const placeLight = (id) => authored.places[id] || {};
+export const LIGHT_TINTS = {
+  lamp: [1.3, 1.02, 0.66],
+  fire: [1.35, 0.95, 0.58],
+};
+
 const css = (n) => Number(n.toFixed(3));
 // The CSS custom properties the stage grade reads.
 export function lightStyle(light) {
+  const pool = light.pools?.[0];
   const [r, g, b] = light.shade.map((v) => Math.round(v * 255));
   return {
     "--tod-shade": `rgb(${r} ${g} ${b})`,
     "--tod-desat": String(css(light.desat)),
     "--tod-vignette": String(css(light.vignette)),
     "--tod-figure": `brightness(${css(light.light)}) saturate(${css(light.saturate)})`,
+    // The CSS grade lifts the first pool; the shader draws them all.
+    "--light-x": String((pool?.x ?? 50) / 100),
+    "--light-y": String((pool?.y ?? 50) / 100),
+    "--light-r": String(pool?.r ?? 0.3),
+    "--light-on": String(css(pool?.on ?? 0)),
   };
 }

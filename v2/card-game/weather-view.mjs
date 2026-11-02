@@ -5,7 +5,7 @@ import {
 } from "./weather-shader.mjs";
 import { blendUniforms, WEATHER_EASE_MS } from "./transitions.mjs";
 import { onStageLight, stageLight } from "./stage-light-view.mjs";
-import { isNeutral, lightAt } from "./stage-light.mjs";
+import { isNeutral, LIGHT_TINTS, nightness } from "./stage-light.mjs";
 
 const live = new Map();
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
@@ -18,10 +18,21 @@ function wake() {
 document.addEventListener("visibilitychange", wake);
 reducedMotion.addEventListener("change", wake);
 
-// How dark the hour is for weather tones: 0 by day, 1 at midnight, whatever
-// share of the grade the painting takes.
-const darkness = (light) =>
-  light ? Math.min(1, Math.max(0, (1 - lightAt(light.hour).light) / 0.44)) : 0;
+// Pools sit on the painting, so they follow its frame on the stage.
+function pools(stage, light) {
+  const art = stage.querySelector(".stage-figures")?.getBoundingClientRect();
+  const box = stage.getBoundingClientRect();
+  if (!art?.height || !box.height) return [];
+  return (light?.pools || []).map((pool) => ({
+    at: [
+      (art.left - box.left + (art.width * pool.x) / 100) / box.width,
+      1 - (art.top - box.top + (art.height * pool.y) / 100) / box.height,
+      (art.height * pool.r) / box.height,
+      pool.on,
+    ],
+    tint: LIGHT_TINTS[pool.tint] || LIGHT_TINTS.lamp,
+  }));
+}
 // The time of day eases on its own clock; each eased frame redraws.
 onStageLight((stage) => {
   const state = live.get(stage.querySelector(":scope > .weather-layer"));
@@ -64,7 +75,8 @@ function animate(layer, weather, ease) {
         : (now - state.since) / WEATHER_EASE_MS;
       const uniforms = {
         ...blendUniforms(state.from, state.uniforms, progress),
-        dark: darkness(light),
+        dark: light ? nightness(light.hour) : 0,
+        lights: pools(stage, light),
         shade: light?.shade ?? [1, 1, 1],
         vignette: light?.vignette ?? 0,
       };

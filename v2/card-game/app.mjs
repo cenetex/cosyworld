@@ -26,7 +26,7 @@ import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
 import { renderStageLight } from "./stage-light-view.mjs";
-import { GENTLE } from "./stage-light.mjs";
+import { GENTLE, placeLight } from "./stage-light.mjs";
 import {
   CHANGE_FADE_MS,
   CARD_ARRIVE_MS,
@@ -2229,8 +2229,6 @@ function renderStage(locationId) {
   const fraction = (value, fallback) => String((value ?? fallback) / 100);
   view.style.setProperty("--focus-x", fraction(stage.focus?.x, 50));
   view.style.setProperty("--focus-y", fraction(stage.focus?.y, 50));
-  view.style.setProperty("--lamp-x", `${lamp?.x ?? 50}%`);
-  view.style.setProperty("--lamp-y", `${lamp?.y ?? 50}%`);
   const sprite = stage.sprite;
   for (const [name, value] of [
     ["--figure-left", sprite && sprite.left - sprite.width / 2],
@@ -2438,11 +2436,16 @@ function renderScene() {
   if (scene.daylight) img.alt += ` ${scene.daylight.description}`;
   img.dataset.locationVariant = scene.variant;
   $("stage").dataset.timeOfDay = scene.daylight?.phase || "day";
-  // A painted night or a lamp-dimmed room already carries its own dark.
+  // A painted night already carries its own dark; stage-light.json gives a
+  // place its own share and lights, such as the attic's lamp.
+  const authored = placeLight(scene.locationId);
   renderStageLight($("stage"), {
     turn: view.turn,
-    strength:
-      phase === "night" || document.body.dataset.dim === "true" ? GENTLE : 1,
+    strength: authored.grade ?? (phase === "night" ? GENTLE : 1),
+    pools: (authored.lights || []).map((pool) => ({
+      ...pool,
+      on: !pool.item || lampLitHere(view, scene.locationId),
+    })),
     ease: stayed,
   });
   renderWeather($("stage"), scene.weather, { ease: stayed });

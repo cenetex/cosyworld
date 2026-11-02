@@ -1,0 +1,19 @@
+{
+  "about": "Presentation-only stage light per place (stage-light.mjs). sky: 1 open to the sky, 0 indoors (stars and moon). grade: the share of the time-of-day grade the painting takes (default 1; 0.25 for a painting already lit as night). lights: pools that stay lit as the room darkens, at x/y percent of the painting, r a share of its height; tint lamp or fire; item \"lamp\" lights the pool only while the lamp shines here. The rules, saves and shared engine never read this file.",
+  "places": {
+    "attic": {
+      "sky": 0,
+      "grade": 0.6,
+      "lights": [{ "x": 65, "y": 60, "r": 0.4, "tint": "lamp", "item": "lamp" }]
+    },
+    "station": { "sky": 1, "grade": 0.6 },
+    "pond": { "sky": 1, "grade": 0.4 },
+    "forest-cottage": {
+      "sky": 0,
+      "lights": [{ "x": 68, "y": 54, "r": 0.32, "tint": "fire" }]
+    },
+    "forest-garden": { "sky": 1 },
+    "forest-trail": { "sky": 1, "grade": 0.25 },
+    "forest-oak": { "sky": 1 }
+  }
+}

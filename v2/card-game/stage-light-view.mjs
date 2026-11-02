@@ -5,6 +5,7 @@ import {
   lightAt,
   lightPath,
   lightStyle,
+  nightness,
 } from "./stage-light.mjs";
 
 // Eases the stage's time of day between committed turns. The grade is CSS
@@ -27,24 +28,33 @@ function apply(stage, light) {
 }
 
 // turn is the committed world turn; strength is the share of the grade the
-// painting takes; ease is false on arrival at a new place.
-export function renderStageLight(stage, { turn, strength = 1, ease = true }) {
+// painting takes; pools are the place's lights, each on or off; ease is false
+// on arrival at a new place. Pools glow as the hour darkens.
+export function renderStageLight(
+  stage,
+  { turn, strength = 1, pools = [], ease = true },
+) {
   let state = states.get(stage);
   if (!state) states.set(stage, (state = { frame: 0 }));
-  if (state.turn === turn && state.strength === strength) return;
-  const shown = state.shown ?? { turn, strength };
+  const lit = pools.map((pool) => Number(Boolean(pool.on)));
+  const key = JSON.stringify(pools);
+  if (state.turn === turn && state.strength === strength && state.key === key)
+    return;
+  const shown = state.shown ?? { turn, strength, lit };
+  if (!ease || shown.lit.length !== lit.length) shown.lit = lit;
   const motion = ease && !reducedMotion.matches;
   const path = motion
     ? lightPath(shown.turn, turn)
     : { from: turn, to: turn, duration: 0 };
-  // A painting that changes its own light where the turn stays eases too.
-  if (motion && !path.duration && shown.strength !== strength)
-    path.duration = EASE_MS;
+  // A painting or lamp that changes its own light where the turn stays eases.
+  if (motion && !path.duration && state.key !== key) path.duration = EASE_MS;
   Object.assign(state, {
     turn,
     strength,
+    key,
     path,
     fromStrength: path.duration ? shown.strength : strength,
+    fromLit: path.duration ? shown.lit : lit,
     since: performance.now(),
   });
   cancelAnimationFrame(state.frame);
@@ -59,9 +69,16 @@ export function renderStageLight(stage, { turn, strength = 1, ease = true }) {
     const now = {
       turn: state.path.from + (state.path.to - state.path.from) * t,
       strength: state.fromStrength + (state.strength - state.fromStrength) * t,
+      lit: lit.map((on, i) => state.fromLit[i] + (on - state.fromLit[i]) * t),
     };
     state.shown = now;
-    apply(stage, lightAt(hourOf(now.turn), now.strength));
+    const hour = hourOf(now.turn);
+    const light = lightAt(hour, now.strength);
+    light.pools = pools.map((pool, i) => ({
+      ...pool,
+      on: now.lit[i] * nightness(hour),
+    }));
+    apply(stage, light);
     if (progress < 1) state.frame = requestAnimationFrame(step);
   };
   step();

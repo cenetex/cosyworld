@@ -1114,8 +1114,13 @@ hides; with clear skies it draws one frame at half resolution. Without WebGL,
 the same light as a filter, while lit lamps keep their glow. The hand,
 dialogue and place cards are never graded. A place without night paintings,
 such as the Lonely Forest, takes the full grade, so its midnights are dark. A
-painted night, or a room the lamp already dims, keeps only a quarter of it so
-its art is not darkened twice (#1696). Every play eases the light over four
+painted night keeps only a quarter of it so its art is not darkened twice
+(#1696). `stage-light.json` (client data the rules never read) gives a place
+its own share (`grade`: the attic and station 0.6, the dark Black pond 0.4,
+the already moonlit Moonlit Trail 0.25), whether it is open to the sky (`sky`), and light pools that stay warm
+as the room darkens: the attic's lamp, lit only while the lamp shines there,
+and the cottage hearth. Pools glow from dusk and ease as a lamp is lit or
+doused. The shader draws up to four; the CSS fallback lifts the first. Every play eases the light over four
 seconds; a long rest's jump sweeps through the hours between. Travel and
 reduced motion cut. It is presentation only: the rules, saves, journal and
 shared engine never read it, and every viewer of a world sees the same hour.

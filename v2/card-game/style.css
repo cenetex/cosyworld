@@ -1775,29 +1775,8 @@ body .card.new {
     0 0 14px #e7ca8655;
 }
 
-/* A dim place (one with lamp data) warms where its lamp's light pools. */
-body[data-dim="true"] #backdrop {
-  filter: brightness(0.55) saturate(0.65);
-  transition: filter 650ms ease;
-}
-body[data-dim="true"][data-lamplit="true"] #backdrop {
-  filter: brightness(0.77) saturate(0.8);
-}
-body[data-dim="true"] .scene-shade::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse at var(--lamp-x) var(--lamp-y),
-    #ce903d26,
-    transparent 65%
-  );
-  opacity: 0;
-  transition: opacity 650ms ease;
-}
-body[data-dim="true"][data-lamplit="true"] .scene-shade::after {
-  opacity: 1;
-}
+/* A dim place (one with lamp data) darkens its cards; stage-light.json lights
+   its lamp's pool. */
 body[data-dim="true"] .card {
   background-color: #0d131c;
   border-color: #847961;
@@ -1818,12 +1797,6 @@ body[data-dim="true"] .card {
   .topbar .top-actions button {
     padding-inline: 6px;
     font-size: 11px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  body[data-dim="true"] #backdrop,
-  body[data-dim="true"] .scene-shade::after {
-    transition: none;
   }
 }
 /* Short wide screens keep the hand and the scene within one view. */
