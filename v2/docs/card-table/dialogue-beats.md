@@ -66,6 +66,9 @@ Beats are cards in depth, not rows in a scroll:
   captions sit under the speech. The card grows to show the whole line, up to
   about seven lines (fewer on a short phone screen), with no scrollbar. On a
   phone only the first action shows, as one truncated line.
+- On phones and tablets the stack sits in a fixed box over the hand's foot
+  and shows only the front card; its line scrolls inside the box. Swipe or
+  the arrow keys step back in time.
 - A new beat arrives in front. The front card recedes into the behind slot and
   the old behind card fades away deeper.
 - Going back is going back in time. Tap the card behind to step back; it comes

@@ -80,88 +80,90 @@
           aria-live="polite"
           hidden
         ></p>
-        <section class="dialogue beat-stack" aria-label="What is happening now">
-          <button
-            id="beat-behind"
-            class="beat-card beat-behind"
-            type="button"
-            hidden
-          >
-            <span class="beat-behind-portrait" aria-hidden="true"></span>
-            <span class="beat-behind-text" aria-hidden="true"></span>
-          </button>
-          <button
-            id="live-line"
-            class="beat-live"
-            type="button"
-            aria-label="Return to live dialogue"
-            hidden
-          >
-            <span class="beat-live-dot" aria-hidden="true">●</span>
-            <span>live</span><span class="beat-live-count"></span>
-          </button>
-          <div id="speech-row" class="speech-row beat-card beat-front" hidden>
-            <span
-              id="speaker-portrait"
-              class="speaker-portrait"
-              aria-hidden="true"
-            ></span>
-            <div class="speech-content">
-              <div class="dialogue-heading">
-                <strong id="speaker"></strong>
-                <span id="story-status" role="status" aria-live="polite" hidden>
-                  <span class="thinking-orbit" aria-hidden="true"></span>
-                  <span>Thinking</span>
-                </span>
-                <button
-                  id="story-retry"
-                  type="button"
-                  aria-label="Retry dialogue"
-                  title="Retry dialogue"
-                  hidden
-                >
-                  ↻
-                </button>
-                <div class="line-controls">
-                  <button
-                    id="voice-retry"
-                    type="button"
-                    aria-label="Retry voice"
-                    title="Retry voice"
-                    hidden
-                  >
-                    ♪
-                  </button>
-                </div>
-              </div>
+      </section>
+      <!-- The dialogue sits over the resting hand's lower half; a raised
+           hand rises over it. -->
+      <section class="dialogue beat-stack" aria-label="What is happening now">
+        <button
+          id="beat-behind"
+          class="beat-card beat-behind"
+          type="button"
+          hidden
+        >
+          <span class="beat-behind-portrait" aria-hidden="true"></span>
+          <span class="beat-behind-text" aria-hidden="true"></span>
+        </button>
+        <button
+          id="live-line"
+          class="beat-live"
+          type="button"
+          aria-label="Return to live dialogue"
+          hidden
+        >
+          <span class="beat-live-dot" aria-hidden="true">●</span>
+          <span>live</span><span class="beat-live-count"></span>
+        </button>
+        <div id="speech-row" class="speech-row beat-card beat-front" hidden>
+          <span
+            id="speaker-portrait"
+            class="speaker-portrait"
+            aria-hidden="true"
+          ></span>
+          <div class="speech-content">
+            <div class="dialogue-heading">
+              <strong id="speaker"></strong>
+              <span id="story-status" role="status" aria-live="polite" hidden>
+                <span class="thinking-orbit" aria-hidden="true"></span>
+                <span>Thinking</span>
+              </span>
               <button
-                id="dialogue-advance"
-                class="speech-line"
+                id="story-retry"
                 type="button"
+                aria-label="Retry dialogue"
+                title="Retry dialogue"
                 hidden
               >
-                <span id="dialogue-text" aria-hidden="true"></span>
-                <span
-                  id="beat-captions"
-                  class="beat-captions"
-                  aria-hidden="true"
-                ></span>
+                ↻
               </button>
-              <span
-                id="speech-hint"
-                class="speech-hint"
-                aria-hidden="true"
-                hidden
-              ></span>
+              <div class="line-controls">
+                <button
+                  id="voice-retry"
+                  type="button"
+                  aria-label="Retry voice"
+                  title="Retry voice"
+                  hidden
+                >
+                  ♪
+                </button>
+              </div>
             </div>
+            <button
+              id="dialogue-advance"
+              class="speech-line"
+              type="button"
+              hidden
+            >
+              <span id="dialogue-text" aria-hidden="true"></span>
+              <span
+                id="beat-captions"
+                class="beat-captions"
+                aria-hidden="true"
+              ></span>
+            </button>
+            <span
+              id="speech-hint"
+              class="speech-hint"
+              aria-hidden="true"
+              hidden
+            ></span>
           </div>
-          <span
-            id="speech-announcement"
-            class="sr-only"
-            aria-live="polite"
-            aria-atomic="true"
-          ></span>
-        </section>
+        </div>
+        <span
+          id="speech-announcement"
+          class="sr-only"
+          aria-live="polite"
+          aria-atomic="true"
+        ></span>
       </section>
       <section class="play-dock" aria-label="Card hand">
         <div class="hand-wrap">

@@ -3618,23 +3618,26 @@ $("card-actions").addEventListener("keydown", (e) => {
     }
   }
 });
-$("stage").addEventListener("dragover", (e) => {
-  if (dragging.length) {
+// The dialogue lies over the stage's foot, outside it, so it takes drops too.
+for (const zone of [$("stage"), document.querySelector(".dialogue")]) {
+  zone.addEventListener("dragover", (e) => {
+    if (dragging.length) {
+      e.preventDefault();
+      $("stage").classList.add("drag-over");
+    }
+  });
+  zone.addEventListener("dragleave", (e) => {
+    if (!zone.contains(e.relatedTarget))
+      $("stage").classList.remove("drag-over");
+  });
+  zone.addEventListener("drop", (e) => {
     e.preventDefault();
-    $("stage").classList.add("drag-over");
-  }
-});
-$("stage").addEventListener("dragleave", (e) => {
-  if (!$("stage").contains(e.relatedTarget))
-    $("stage").classList.remove("drag-over");
-});
-$("stage").addEventListener("drop", (e) => {
-  e.preventDefault();
-  const cards = [...dragging];
-  dragging = [];
-  $("stage").classList.remove("ready", "drag-over");
-  if (cards.length) commit(cards, selectionRevision);
-});
+    const cards = [...dragging];
+    dragging = [];
+    $("stage").classList.remove("ready", "drag-over");
+    if (cards.length) commit(cards, selectionRevision);
+  });
+}
 document.addEventListener("keydown", (e) => {
   if (
     e.key === "Escape" &&

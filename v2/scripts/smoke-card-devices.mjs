@@ -108,6 +108,11 @@ try {
             speech.bottom <= frame.top + 2 ||
             speech.right <= frame.left ||
             speech.left >= frame.right,
+          // Phones and tablets lay the dialogue over the hand's foot.
+          overHand: getComputedStyle(document.querySelector(".dialogue")).zIndex === "6",
+          labelAbove: label.bottom <= speech.top + 1,
+          topsShown: speech.top - frame.top,
+          speechAtFoot: height - speech.bottom <= 40,
         };
       });
       const where = `${name} ${fit.width}x${fit.height}`;
@@ -119,7 +124,11 @@ try {
       assert(fit.labelBottom <= fit.height + 1, `${where}: card name is off screen`);
       assert(fit.controlsInside, `${where}: a top-bar control is off screen`);
       assert(fit.speechInside, `${where}: the dialogue is off screen`);
-      assert(fit.speechClear, `${where}: the dialogue covers the hand`);
+      if (fit.overHand) {
+        assert(fit.speechAtFoot, `${where}: the dialogue leaves the foot`);
+        assert(fit.labelAbove, `${where}: the dialogue covers a card name`);
+        assert(fit.topsShown >= 60, `${where}: only ${fit.topsShown}px of the cards show`);
+      } else assert(fit.speechClear, `${where}: the dialogue covers the hand`);
       assert.deepEqual(errors, [], `${where}: page errors`);
       await page.screenshot({ path: new URL(`${name}.png`, output).pathname });
     } finally {

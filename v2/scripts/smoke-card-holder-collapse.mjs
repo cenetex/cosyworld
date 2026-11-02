@@ -611,6 +611,9 @@ try {
             }),
           };
         });
+      // On phones the new beat's dialogue covers the raised cards' feet, so
+      // keep the pointer off the cards: a hover lift is not a move.
+      await page.mouse.move(0, 0);
       const raised = await layout();
       assert.equal(raised.expanded, "true");
       const words = "The reeds lean over the water.";

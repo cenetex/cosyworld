@@ -239,11 +239,24 @@ try {
       );
       // The earlier beat is a card behind, with the speech on one line
       // peeking above the front card. The action sits under the speech.
+      // Phones show the current beat alone in a fixed box over the hand
+      // (option D), so the earlier beat is reached with the arrow keys.
+      const narrow = width < 700,
+        stackHits = narrow ? { front: true, behind: false } : undefined;
       const behind = page.locator("#beat-behind");
-      assert(await behind.isVisible(), "An earlier beat waits behind.");
+      const stepBack = async () => {
+        if (!narrow) return behind.click({ position: { x: 80, y: 8 } });
+        await page.locator("#dialogue-advance").focus();
+        await page.keyboard.press("ArrowUp");
+      };
+      assert.equal(
+        await behind.isVisible(),
+        !narrow,
+        "An earlier beat waits behind on wide screens only.",
+      );
       assert.match(await behind.textContent(), /Vale\s*Pip, wait\./u);
       assert.equal(await page.locator("#live-line").isVisible(), false);
-      const layout = await page.evaluate(() => {
+      const layout = await page.evaluate((narrow) => {
         const box = (selector) =>
           document.querySelector(selector).getBoundingClientRect();
         const back = box("#beat-behind"),
@@ -258,7 +271,7 @@ try {
           wholeLine: words.scrollHeight <= words.clientHeight + 1,
           peek: card.top - back.top,
           narrower: back.width < card.width,
-          stack: card.bottom - back.top,
+          stack: card.bottom - (narrow ? card.top : back.top),
           captionBelow: caption.top >= text.bottom - 1,
           captionLines: Math.round(
             caption.height /
@@ -268,21 +281,23 @@ try {
               ),
           ),
         };
-      });
-      assert(layout.narrower, "The card behind is smaller than the front.");
-      assert(
-        layout.peek > 12 && layout.peek <= 32,
-        `One line of the card behind peeks out: ${layout.peek}`,
-      );
+      }, narrow);
+      if (!narrow) {
+        assert(layout.narrower, "The card behind is smaller than the front.");
+        assert(
+          layout.peek > 12 && layout.peek <= 32,
+          `One line of the card behind peeks out: ${layout.peek}`,
+        );
+      }
       assert(layout.captionBelow, "The action caption sits under the speech.");
       assert(layout.nameOnTop, "The speaker's name sits above the speech.");
       assert(layout.fullWidth, "The speech runs the card's full width.");
       assert(layout.wholeLine, "The front card shows the whole line.");
       if (width < 700) {
         assert.equal(layout.captionLines, 1, "The phone caption is one line.");
-        // Name row, a two-line reply and one caption line, and the peek.
+        // Name row, a two-line reply and one caption line, in a fixed box.
         assert(
-          layout.stack <= 120,
+          layout.stack <= 100,
           `The phone stack stays compact: ${layout.stack}`,
         );
       }
@@ -291,12 +306,10 @@ try {
       // Tap behind: back in time. Vale comes forward; the live count shows.
       // Vale's line opens this visit to the pond: the first quest waits for
       // the pond (#1768), so no earlier beat is left to sit behind it.
-      const back = await watchStep(
-        page,
-        () => behind.click({ position: { x: 80, y: 8 } }),
-        `back-${width}-${motion}`,
-        { front: true, behind: null },
-      );
+      const back = await watchStep(page, stepBack, `back-${width}-${motion}`, {
+        front: true,
+        behind: null,
+      });
       assert.equal(await front(), "Vale");
       assert.equal(await words(), lines.vale);
       assert(await page.locator("#live-line").isVisible());
@@ -319,7 +332,7 @@ try {
         await page.locator("#live-line").textContent(),
         /live\s*·\s*1/u,
       );
-      // ↓ comes forward to live; tap behind to step back to Vale again.
+      // ↓ comes forward to live; step back to Vale again.
       await page.keyboard.press("ArrowDown");
       await page.waitForFunction(
         () => document.querySelector("#speaker").textContent === "Pip",
@@ -328,7 +341,7 @@ try {
       await page.waitForFunction(
         () => !document.querySelector(".beat-ghost, .beat-card[data-motion]"),
       );
-      await behind.click({ position: { x: 80, y: 8 } });
+      await stepBack();
       await page.waitForFunction(
         () => document.querySelector("#speaker").textContent === "Vale",
       );
@@ -340,6 +353,7 @@ try {
         page,
         () => page.locator("#dialogue-advance").click(),
         `forward-${width}-${motion}`,
+        stackHits,
       );
       assert.equal(await front(), "Pip");
       // Both directions fade the leaving card out as an inert copy.
@@ -350,7 +364,7 @@ try {
       assert(back.ghosts > 0 && forward.ghosts > 0, "The old card fades.");
       assert.equal(await page.locator("#live-line").isVisible(), false);
       // ● live returns from any depth.
-      await behind.click({ position: { x: 80, y: 8 } });
+      await stepBack();
       await page.locator("#live-line").click();
       await page.waitForFunction(
         () => document.querySelector("#speaker").textContent === "Pip",
