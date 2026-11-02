@@ -160,6 +160,12 @@ someone plays in its room. There is no server tick, so in a world where
 nobody is playing, nothing acts. A claim can carry the avatar's level and
 experience from its last seat (`progress` on the journaled `claim`).
 
+### Open question: whose conduct
+
+Other players need to tell whether an away avatar's conduct came from its
+holder's choice or from its autonomous resident behaviour. This is a
+presentation question for the UI lock-down, not a rules change.
+
 ## One avatar per passkey per world
 
 A person's passkey binds them to the avatar they take in a shared world

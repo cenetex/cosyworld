@@ -35,8 +35,8 @@ use pack-pinned OpenRouter models; the eight original fantasy residents keep the
 ordinary Cosyworld inference route.
 
 The primary quest is **Ring in February Third**. Players inspect a corrected
-record, plant one bounded context seed, choose an unfinished prism's final
-facet, restore the bell's authority to pause, and tie the chosen red thread.
+record, plant one bounded context seed, bring the
+Unfinished Prism to Lumen, restore the bell's authority to pause, and tie the chosen red thread.
 
 The card table has no story buttons. Each deed follows an ordinary play:
 
