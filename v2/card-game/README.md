@@ -347,9 +347,10 @@ A person or place holding things shows the first of them peeking out behind
 its card. A pointer over a card shuffles it: the card and its preview stack lift together while the rest of the fan parts around it (180 ms; touch has no hover, reduced motion only brightens it). The name shade reaches the
 card edge, so a raised card clipped by the folded row shows no stray art.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
-On wide screens, the resting hand is a small deck two card widths wide at the
-right, and the dialogue sits at the left with the earlier beat peeking above
-it. Selecting a card raises the hand into the phone layering: in one 280 ms
+On wide screens, the resting hand is a fanned deck at the right, as wide as
+its cards so none is cut at the screen edge; once it would crowd the dialogue
+the cards overlap more instead. The dialogue sits at the left with the
+earlier beat peeking above it. Selecting a card raises the hand into the phone layering: in one 280 ms
 motion the deck grows into a full row across the screen while the dialogue
 slides to the middle (at most 720 px wide) and lies over the cards' feet, and
 lowering slides both back. Reduced motion crossfades. On phones and tablets the

@@ -3652,9 +3652,37 @@ function fanHand() {
     frame.style.setProperty("--fan-at", String(i - (shown.length - 1) / 2)),
   );
 }
+// A resting hand on a wide screen is as wide as its fanned cards, so none
+// is cut at the screen edge (#2017). Past the dialogue's room the cards
+// overlap more instead of spilling off it.
+function fitRestingHand() {
+  const root = document.documentElement.style;
+  const shown = [...$("hand").children].filter((frame) => !frame.hidden);
+  if (!wideLayout.matches || !shown.length) {
+    root.removeProperty("--resting-hand-fit");
+    root.removeProperty("--resting-fan-overlap");
+    return;
+  }
+  const hand = getComputedStyle($("hand")),
+    padding = parseFloat(hand.paddingLeft) + parseFloat(hand.paddingRight),
+    cards = shown.reduce((sum, frame) => sum + frame.offsetWidth, 0),
+    gaps = shown.length - 1,
+    overlap = shown[0].offsetHeight * 0.14,
+    room = Math.max(innerWidth - 540, shown[0].offsetWidth * 2),
+    natural = cards - gaps * overlap + padding + 14,
+    width = Math.min(natural, room);
+  root.setProperty("--resting-hand-fit", `${Math.ceil(width)}px`);
+  if (natural > room && gaps)
+    root.setProperty(
+      "--resting-fan-overlap",
+      `${overlap + (natural - room) / gaps}px`,
+    );
+  else root.removeProperty("--resting-fan-overlap");
+}
 // Fade only the hand's edges that hide more cards.
 function updateHandEdges() {
   fanHand();
+  fitRestingHand();
   const hand = $("hand"),
     overflow = hand.scrollWidth > hand.clientWidth + 2,
     first = hand.querySelector(".card-frame:not([hidden])");
