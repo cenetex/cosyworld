@@ -17,6 +17,14 @@ export const topicForChoice = (choiceId) =>
     .flatMap((pack) => pack.topics || [])
     .find((topic) => topic.choiceId === choiceId);
 
+// On phones and tablets the dialogue lies over the hand's foot (#1897), so
+// a player taps a card's top, which always shows above it.
+export async function tapCard(card) {
+  await card.scrollIntoViewIfNeeded();
+  const { width } = await card.boundingBox();
+  await card.click({ position: { x: width / 2, y: 16 } });
+}
+
 // Use the same holder reveal and selection gestures as a player.
 export async function revealCard(page, id) {
   const card = page.locator(`#hand [data-card="${id}"]`);
@@ -24,12 +32,12 @@ export async function revealCard(page, id) {
   if ((await frame.getAttribute("hidden")) !== null) {
     const holder = await frame.getAttribute("data-holder");
     const owner = await revealCard(page, holder);
-    await owner.click();
+    await tapCard(owner);
   }
   await card.scrollIntoViewIfNeeded();
   // The first tap uncovers; a tap during the reveal only skips it.
   if ((await card.getAttribute("data-unrevealed")) === "true") {
-    await card.click();
+    await tapCard(card);
     await page.waitForFunction(
       (id) =>
         !document.querySelector(`#hand [data-card="${id}"]`)?.dataset.revealing,

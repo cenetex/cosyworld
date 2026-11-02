@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium, devices } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { revealCard } from "./card-browser-helpers.mjs";
+import { revealCard, tapCard } from "./card-browser-helpers.mjs";
 
 const android = (width, height, scale) => ({
   viewport: { width, height },
@@ -147,7 +147,7 @@ try {
     await revealCard(page, "attic");
     await page.locator("#speech-row:not([hidden])").waitFor();
     const lamp = await revealCard(page, "lamp");
-    await lamp.click();
+    await tapCard(lamp);
     await page.locator("#card-actions button:visible:enabled").first().waitFor();
     assert.deepEqual(errors, [], "page errors with storage blocked");
   } finally {
