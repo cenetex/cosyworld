@@ -181,7 +181,14 @@ async function build() {
         await sameAlpha(source, cardBody, settings.cardWidth);
     }
     cardBytes += cardBody.length;
-    const phone = await phoneVariant(file, source, metadata, stage, stageBody);
+    const phone = await phoneVariant(
+      file,
+      source,
+      metadata,
+      stage,
+      stageBody,
+      sourceHash,
+    );
     phoneBytes += phone.body.length;
     records[file] = {
       sourceHash,
@@ -196,13 +203,26 @@ async function build() {
 }
 // A painting larger than phoneSize gets a smaller stage for narrow screens:
 // a 1672x941 scene decodes to about 6 MB, its phone copy to about 2 MB.
-async function phoneVariant(file, source, metadata, stage, stageBody) {
+async function phoneVariant(
+  file,
+  source,
+  metadata,
+  stage,
+  stageBody,
+  sourceHash,
+) {
   if (Math.max(metadata.width, metadata.height) <= settings.phoneSize)
     return { path: stage, body: stageBody };
   const path = pathFor(file, "phone");
   const saved = old?.images?.[file];
   let body = null;
-  if (check || (phoneMatch && !reencode && saved?.phone === path)) {
+  if (
+    check ||
+    (phoneMatch &&
+      !reencode &&
+      saved?.sourceHash === sourceHash &&
+      saved.phone === path)
+  ) {
     try {
       body = await readFile(new URL(path, root));
     } catch {}

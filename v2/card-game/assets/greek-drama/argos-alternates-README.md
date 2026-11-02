@@ -19,7 +19,9 @@ All backdrops are opaque 1672 × 941 WebPs below 300,000 bytes. The official bui
 
 ![Olive bough wrapped in white and red wool](../optimized/card/webp/greek-drama/olive-branch.webp)
 
-The worn olive bough has white and red wool, a cord knot and two falling leaves on an opaque dark background. Its 1254 × 1254 square canvas matches the existing Greek item set; the card variant is 512 × 512.
+The worn olive bough has white and red wool, a cord knot and two falling leaves on a transparent background. Its 1254 × 1254 square canvas matches the existing Greek item set; the card variant is 512 × 512 and the phone version is 960 × 960. All three preserve the cutout so the temple floor remains visible around it.
+
+The November 1 correction removes the former painted dark rectangle with the built-in image tool. The source and both smaller variants are rebuilt together. A regression checks real background transparency at every delivered size, and the image builder now invalidates an old phone version when its source changes.
 
 ## Files
 
@@ -33,12 +35,14 @@ The worn olive bough has white and red wool, a cord knot and two falling leaves 
 | [house-atreus-tomb-night.webp](house-atreus-tomb-night.webp)           | 1672 × 941  | 293,354 |
 | [house-atreus-mycenae-night.webp](house-atreus-mycenae-night.webp)     | 1672 × 941  | 289,214 |
 | [house-atreus-farmhouse-night.webp](house-atreus-farmhouse-night.webp) | 1672 × 941  | 290,848 |
-| [olive-branch.webp](olive-branch.webp)                                 | 1254 × 1254 | 209,582 |
+| [olive-branch.webp](olive-branch.webp)                                 | 1254 × 1254 | 299,518 |
 
 ## Integration and provenance
 
 These are art assets for the approved small-worlds design in #1622 and the eight-painting brief in #1631. Account/state-based selection and content folding belong to that pilot; this PR publishes and registers the images without changing rules or alternate selection. Preserve the existing backdrop where no alternate applies.
 
-The new `olive-branch.webp` is the intended replacement for `burial-petition.png` on `greek-olive-branch` in #1609. That item is not yet on this branch’s base, so its owning content PR should select the new file when the art lands.
+The stable item `greek-olive-branch`, currently named The Herald’s Truce, already uses `olive-branch.webp`. The floor props render its card variant directly. This correction keeps that item and asset path unchanged.
 
 `argos-art-prompts.json` and `argos-art-provenance.json` record exact prompts, canonical references, composition references, generation IDs, full correction histories, original PNG hashes, output hashes and encoder settings. Source canvases were encoded without cropping, resizing or creative postprocessing.
+
+The original opaque olive painting, prompt and hashes remain in the provenance revision history. The current correction record describes its transparent replacement.

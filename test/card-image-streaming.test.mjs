@@ -84,6 +84,28 @@ describe("card image streaming", () => {
     expect(marked[1]).not.toMatch(/rel="preload"/);
   });
 
+  it("keeps the Herald's Truce a transparent floor prop at every size", async () => {
+    const image = variants.images["assets/greek-drama/olive-branch.webp"];
+    for (const size of ["stage", "card", "phone"]) {
+      const { data, info } = await sharp(await bytes(image[size]))
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const pixels = info.width * info.height;
+      let transparent = 0,
+        visible = 0;
+      for (let i = 3; i < data.length; i += 4) {
+        transparent += Number(data[i] === 0);
+        visible += Number(data[i] >= 240);
+      }
+      // Catch both the original opaque rectangle and an empty replacement.
+      expect(transparent / pixels, size).toBeGreaterThan(0.5);
+      expect(visible / pixels, size).toBeGreaterThan(0.15);
+      for (const pixel of [0, info.width - 1, pixels - info.width, pixels - 1])
+        expect(data[pixel * 4 + 3], `${size} corner`).toBe(0);
+    }
+  });
+
   for (const source of [
     "assets/station.png",
     "assets/vale.png",

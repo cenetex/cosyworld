@@ -653,68 +653,112 @@
       "kind": "item",
       "period": null,
       "dimensions": [1254, 1254],
-      "opaque": true,
-      "quality": 88,
-      "bytes": 209582,
-      "sha256": "e5dcbf33dfc6902ba18532e89515c8d669fa58742452ebeac138a86a588653e6",
-      "original_png_sha256": "e9d958bfdfd548caeea8831e5bc65bd0548efba743a280e18bf5b99bc39c34ae",
-      "original_png_bytes": 2487651,
-      "processing": "Full native canvas encoded to WebP only. No crop, resize, retouching, compositing or colour edits.",
+      "opaque": false,
+      "quality": 78,
+      "bytes": 299518,
+      "sha256": "a4fe628351e46d1edc9e03a43d044e85c8ecfb1b3c944bdaf9c02f19b644f47a",
+      "original_png_sha256": "c478e6409d39f9cb7e0388057eecb8f7a561aaf1957262ca96f1e5d0fba968a3",
+      "original_png_bytes": 1511703,
+      "processing": "Built-in image tool removed the painted background. Complete generated 1254x1254 canvas encoded to WebP without cropping, resizing, compositing or alpha changes. AlphaQuality 100, effort 6, smartSubsample true.",
       "generation": {
-        "created": "2026-10-31",
+        "created": "2026-11-01",
         "asset_id": "olive-branch",
-        "runtime_target": "greek-drama/olive-branch.webp",
         "generator": "OpenAI built-in image generation",
-        "generation_id": "exec-047749b3-b93c-48be-a39c-624b3c72a07b",
-        "user_prompt": "An item card in the existing Greek item style: an olive bough wound with white and red wool (the suppliant’s branch), a little worn, a few leaves falling, tied with a cord; painted gouache-and-ink, warm ochre and olive greens, plain dark background like the other Greek item cards.",
-        "prompt": "Use case: precise-object-edit / style-matched Greek game item illustration.\nAsset: COSYWORLD Suppliant's Olive Branch, replacing the stand-in Greek burial-petition item. Final illustration must be exactly 1254 x 1254 pixels, square to match the inspected Greek item-art source set.\nInput image 1 (burial-petition.png) is the primary botanical and Greek item-style reference. Edit its item concept into a SINGLE CLEAR OLIVE BOUGH on a plain dark background: remove the entire wax tablet, wooden frame, writing, ornament and any other object. Keep the natural narrow olive-leaf shapes, aged woody stem, muted olive/silvery leaf colors, and tactile painted material style, but compose an independent clean olive-bough card.\nInput image 2 (funeral-cloth.png) is a material/style reference for soft worn off-white fibers. Input image 3 (oil-flask.png) is a style, cord and warm ochre palette reference only. Do not include the cloth bundle, flask, tablet or any object other than the specified branch, wool and cord.\n\nSubject: one handheld olive bough, a little worn from travel, with a gently forked natural woody stem and a readable scattering of slender olive-green leaves with silvery undersides. The bough is wound with clearly visible WHITE and RED WOOL: a few substantial soft woolen strands or narrow wool bands spiral around the lower and middle stem, distinct creamy-white and muted deep terracotta-red wrapping, slightly fuzzy and frayed, with modest loose ends. A simple natural tan twisted cord ties the wool securely around the stem in a small practical knot. These are soft fibers and cord, not rigid metal bands, a bow of shiny ribbon, or a second branch. Three or four loose olive leaves fall naturally near the lower part of the composition. A few subtly chipped or curled leaf edges communicate use without making the bough dead.\n\nComposition: full object isolated and prominent, gracefully angled from lower left toward upper right, centered with generous breathing room, readable even as a small inventory card. Keep the entire bough, wool ends, cord and falling leaves within the image with roughly 75–100 pixels of clear space from all canvas edges. No cropping, no multiple arrangements, no wreath, no vase, no hand holding it. This is one humble token of supplication rather than a weapon or ceremonial staff.\nStyle: painted gouache-and-ink, detailed but clearly hand-painted, fine organic ink outlines, tactile dry-brush pigment and natural fiber/bark detail, warm ochre wood, muted olive greens, restrained cream-white and earthy red accents. Match the existing Greek item set's warm worn materials and single-object clarity. Gentle upper-left light gives readable form without a luminous halo.\nBackground: fully OPAQUE plain very dark warm charcoal/umber across the full canvas, understated almost-black paint texture only. No transparency; no checkerboard; no floor line, tabletop, scenery, dramatic spotlight or decorative background.\nNo readable text, letters, numerals, labels, symbols, seals, logos, card borders, frames, UI, people, animals, architecture or watermark. Preserve the requested white-and-red wool and cord as the defining details.\n",
+        "generation_id": "exec-7910f0db-1519-4825-ba4e-c8ac8d664a99",
+        "use_case": "background-extraction",
+        "revision": "transparent-floor-prop",
+        "prompt": "Use case: background-extraction / identity-preserving precise edit.\nEdit target: the attached original CosyWorld olive-branch inventory painting.\nPrimary request: Remove ONLY the dark brown-black rectangular background and replace every background pixel with real transparency. This must be an RGBA cutout of the existing painted object.\nPreserve the existing olive branch exactly in appearance and overall composition: diagonal from lower left to upper right, the weathered twig, the same silver-green leaves and olives, the alternating red-and-cream wool wound around the handle, the natural twine knot and loose frayed threads, and the two detached leaves near the bottom. Preserve their positions, proportions, colors, texture, light and painterly realism. Keep the complete object within the original square canvas, same scale and generous edge margins; intended final canvas 1254x1254.\nMake the background transparent both around the outside silhouette and in all gaps between leaves, twigs, yarn and hanging threads. Remove the dark matte cleanly at leaf edges and between wool fibres; no black fringe, pale halo or rectangular shadow. Solid leaves, olives, wood and wool must remain fully opaque. Only delicate antialiased silhouette edges and fine fibre edges may be partly transparent.\nDo not add a replacement background, checkerboard, floor, scenery, drop shadow, gradient, border, text, watermark, new objects, glows or effects. Do not redesign or simplify the olive branch. Return one finished transparent-background image.\n",
+        "transparent_background_requested": true,
         "references": [
           {
-            "role": "primary botanical and Greek item-style reference; tablet and text removed from new composition",
-            "repository_path": "v2/card-game/assets/greek-drama/burial-petition.png",
-            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
-            "sha256": "8da862019d8d638f2a94a4e3fa6f9f929577b9d5a16c7c9a8054d762b090a6f4",
-            "dimensions": [1254, 1254],
-            "mode": "RGBA"
-          },
-          {
-            "role": "worn off-white fiber and material-style reference",
-            "repository_path": "v2/card-game/assets/greek-drama/funeral-cloth.png",
-            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
-            "sha256": "495f882672ce8513a65f789b919741ef3f49f22a76c73551847cefb5d217e0a0",
-            "dimensions": [1254, 1254],
-            "mode": "RGBA"
-          },
-          {
-            "role": "warm ochre palette, material detail and cord reference",
-            "repository_path": "v2/card-game/assets/greek-drama/oil-flask.png",
-            "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
-            "sha256": "93a2cc9f0e8bfdc2b7da0077aa1f0f16f5e6768467f7a39489e9d3dc41dc6f3a",
-            "dimensions": [1254, 1254],
-            "mode": "RGBA"
+            "repository_path": "v2/card-game/assets/greek-drama/olive-branch.webp",
+            "reference_commit": "f960fd44164d38e601c23a31fb8db7966ee656b6",
+            "sha256": "e5dcbf33dfc6902ba18532e89515c8d669fa58742452ebeac138a86a588653e6",
+            "role": "Exact olive branch identity and composition reference; remove its dark painted background."
           }
         ],
         "raw_output": {
-          "source_filename": "olive-branch-raw.png",
+          "source_filename": "exec-7910f0db-1519-4825-ba4e-c8ac8d664a99.png",
           "dimensions": [1254, 1254],
-          "mode": "RGB",
-          "bytes": 2487651,
-          "sha256": "e9d958bfdfd548caeea8831e5bc65bd0548efba743a280e18bf5b99bc39c34ae"
+          "mode": "RGBA",
+          "bytes": 1511703,
+          "sha256": "c478e6409d39f9cb7e0388057eecb8f7a561aaf1957262ca96f1e5d0fba968a3",
+          "alpha_range": [0, 255]
         },
-        "format_decision": "1254x1254 square matches all inspected canonical Greek item PNGs, including burial-petition, funeral-cloth and oil-flask. Parent approved matching the observed square set rather than a portrait canvas.",
-        "transparent_background_requested": false,
-        "opacity": {
-          "has_alpha_channel": false,
-          "opaque": true
-        },
-        "processing": "Raw generated PNG copied byte-for-byte; no encoding, resizing, cropping, color adjustment, alpha processing, repo edits or publication.",
-        "visual_review": "Accepted on first generation. One clear diagonal olive bough with narrow olive/silver leaves and warm aged wood, visible cream-white and earthy-red wool wrapping, practical tan cord knot, two detached falling leaves, and a few natural olives. Full object remains inside the canvas. Plain opaque near-black warm background. Worn material detail and gouache/ink item treatment correspond to the inspected Greek item references. No tablet, writing, readable text, people, symbols, card frame or UI.",
-        "limitations": [
-          "Two detached falling leaves are visible rather than the full prompt’s suggestion of three or four; the user requested only a few.",
-          "Material detail is highly rendered, consistent with the inspected canonical Greek item set.",
-          "Runtime card rendering and WebP encoding are left to the integration agent."
-        ]
-      }
+        "visual_review": "Reviewed over pale stone-coloured and dark blue backgrounds. The branch, olives, red and white wool, cord and two detached leaves remain recognizable. Background and leaf gaps are transparent; no rectangular matte remains.",
+        "limitations": "This is a reference-based generative edit, not a pixel-identical extraction. Most solid interior alpha values are 250–254; those generated values and fine soft edges are preserved exactly during WebP encoding."
+      },
+      "revision_history": [
+        {
+          "id": "olive-branch",
+          "file": "olive-branch.webp",
+          "kind": "item",
+          "period": null,
+          "dimensions": [1254, 1254],
+          "opaque": true,
+          "quality": 88,
+          "bytes": 209582,
+          "sha256": "e5dcbf33dfc6902ba18532e89515c8d669fa58742452ebeac138a86a588653e6",
+          "original_png_sha256": "e9d958bfdfd548caeea8831e5bc65bd0548efba743a280e18bf5b99bc39c34ae",
+          "original_png_bytes": 2487651,
+          "processing": "Full native canvas encoded to WebP only. No crop, resize, retouching, compositing or colour edits.",
+          "generation": {
+            "created": "2026-10-31",
+            "asset_id": "olive-branch",
+            "runtime_target": "greek-drama/olive-branch.webp",
+            "generator": "OpenAI built-in image generation",
+            "generation_id": "exec-047749b3-b93c-48be-a39c-624b3c72a07b",
+            "user_prompt": "An item card in the existing Greek item style: an olive bough wound with white and red wool (the suppliant’s branch), a little worn, a few leaves falling, tied with a cord; painted gouache-and-ink, warm ochre and olive greens, plain dark background like the other Greek item cards.",
+            "prompt": "Use case: precise-object-edit / style-matched Greek game item illustration.\nAsset: COSYWORLD Suppliant's Olive Branch, replacing the stand-in Greek burial-petition item. Final illustration must be exactly 1254 x 1254 pixels, square to match the inspected Greek item-art source set.\nInput image 1 (burial-petition.png) is the primary botanical and Greek item-style reference. Edit its item concept into a SINGLE CLEAR OLIVE BOUGH on a plain dark background: remove the entire wax tablet, wooden frame, writing, ornament and any other object. Keep the natural narrow olive-leaf shapes, aged woody stem, muted olive/silvery leaf colors, and tactile painted material style, but compose an independent clean olive-bough card.\nInput image 2 (funeral-cloth.png) is a material/style reference for soft worn off-white fibers. Input image 3 (oil-flask.png) is a style, cord and warm ochre palette reference only. Do not include the cloth bundle, flask, tablet or any object other than the specified branch, wool and cord.\n\nSubject: one handheld olive bough, a little worn from travel, with a gently forked natural woody stem and a readable scattering of slender olive-green leaves with silvery undersides. The bough is wound with clearly visible WHITE and RED WOOL: a few substantial soft woolen strands or narrow wool bands spiral around the lower and middle stem, distinct creamy-white and muted deep terracotta-red wrapping, slightly fuzzy and frayed, with modest loose ends. A simple natural tan twisted cord ties the wool securely around the stem in a small practical knot. These are soft fibers and cord, not rigid metal bands, a bow of shiny ribbon, or a second branch. Three or four loose olive leaves fall naturally near the lower part of the composition. A few subtly chipped or curled leaf edges communicate use without making the bough dead.\n\nComposition: full object isolated and prominent, gracefully angled from lower left toward upper right, centered with generous breathing room, readable even as a small inventory card. Keep the entire bough, wool ends, cord and falling leaves within the image with roughly 75–100 pixels of clear space from all canvas edges. No cropping, no multiple arrangements, no wreath, no vase, no hand holding it. This is one humble token of supplication rather than a weapon or ceremonial staff.\nStyle: painted gouache-and-ink, detailed but clearly hand-painted, fine organic ink outlines, tactile dry-brush pigment and natural fiber/bark detail, warm ochre wood, muted olive greens, restrained cream-white and earthy red accents. Match the existing Greek item set's warm worn materials and single-object clarity. Gentle upper-left light gives readable form without a luminous halo.\nBackground: fully OPAQUE plain very dark warm charcoal/umber across the full canvas, understated almost-black paint texture only. No transparency; no checkerboard; no floor line, tabletop, scenery, dramatic spotlight or decorative background.\nNo readable text, letters, numerals, labels, symbols, seals, logos, card borders, frames, UI, people, animals, architecture or watermark. Preserve the requested white-and-red wool and cord as the defining details.\n",
+            "references": [
+              {
+                "role": "primary botanical and Greek item-style reference; tablet and text removed from new composition",
+                "repository_path": "v2/card-game/assets/greek-drama/burial-petition.png",
+                "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+                "sha256": "8da862019d8d638f2a94a4e3fa6f9f929577b9d5a16c7c9a8054d762b090a6f4",
+                "dimensions": [1254, 1254],
+                "mode": "RGBA"
+              },
+              {
+                "role": "worn off-white fiber and material-style reference",
+                "repository_path": "v2/card-game/assets/greek-drama/funeral-cloth.png",
+                "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+                "sha256": "495f882672ce8513a65f789b919741ef3f49f22a76c73551847cefb5d217e0a0",
+                "dimensions": [1254, 1254],
+                "mode": "RGBA"
+              },
+              {
+                "role": "warm ochre palette, material detail and cord reference",
+                "repository_path": "v2/card-game/assets/greek-drama/oil-flask.png",
+                "reference_commit": "d0a9444fb9c73eab49d3610163d11105556e0111",
+                "sha256": "93a2cc9f0e8bfdc2b7da0077aa1f0f16f5e6768467f7a39489e9d3dc41dc6f3a",
+                "dimensions": [1254, 1254],
+                "mode": "RGBA"
+              }
+            ],
+            "raw_output": {
+              "source_filename": "olive-branch-raw.png",
+              "dimensions": [1254, 1254],
+              "mode": "RGB",
+              "bytes": 2487651,
+              "sha256": "e9d958bfdfd548caeea8831e5bc65bd0548efba743a280e18bf5b99bc39c34ae"
+            },
+            "format_decision": "1254x1254 square matches all inspected canonical Greek item PNGs, including burial-petition, funeral-cloth and oil-flask. Parent approved matching the observed square set rather than a portrait canvas.",
+            "transparent_background_requested": false,
+            "opacity": {
+              "has_alpha_channel": false,
+              "opaque": true
+            },
+            "processing": "Raw generated PNG copied byte-for-byte; no encoding, resizing, cropping, color adjustment, alpha processing, repo edits or publication.",
+            "visual_review": "Accepted on first generation. One clear diagonal olive bough with narrow olive/silver leaves and warm aged wood, visible cream-white and earthy-red wool wrapping, practical tan cord knot, two detached falling leaves, and a few natural olives. Full object remains inside the canvas. Plain opaque near-black warm background. Worn material detail and gouache/ink item treatment correspond to the inspected Greek item references. No tablet, writing, readable text, people, symbols, card frame or UI.",
+            "limitations": [
+              "Two detached falling leaves are visible rather than the full prompt’s suggestion of three or four; the user requested only a few.",
+              "Material detail is highly rendered, consistent with the inspected canonical Greek item set.",
+              "Runtime card rendering and WebP encoding are left to the integration agent."
+            ]
+          }
+        }
+      ]
     }
   ]
 }
