@@ -113,7 +113,7 @@ export function createCombatPortraits(fighter) {
     // Before the first frame the two fighters turn to face each other,
     // whoever they were watching. The keeper's clock is never mirrored:
     // he turns by his right-facing painting.
-    face(id, otherId) {
+    face(id, otherId, toward) {
       const figure = fighter(id),
         other = fighter(otherId);
       if (!capture(id) || !other) return;
@@ -122,7 +122,8 @@ export function createCombatPortraits(fighter) {
         const box = el.getBoundingClientRect();
         return box.left + box.width / 2;
       };
-      const facing = middle(other) > middle(figure) ? "right" : "left";
+      const facing =
+        toward || (middle(other) > middle(figure) ? "right" : "left");
       if (figure.dataset.facing === facing) return;
       figure.dataset.facing = facing;
       figure.style.setProperty(

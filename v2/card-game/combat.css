@@ -74,7 +74,8 @@
   stroke-width: 4;
   stroke-linejoin: round;
 }
-.combat-telegraph[data-verb="guard"] {
+.combat-telegraph[data-verb="guard"],
+.combat-telegraph[data-verb="intercept"] {
   color: #b8d2e8;
 }
 .combat-reticle::after {
@@ -195,5 +196,29 @@
   }
   .combat-word {
     font-size: 14px;
+  }
+}
+
+/* In battle the current exchange steps to the front slots and the other
+   combatants wait behind, dimmed (phones draw combat art at one depth, so
+   the rows set it). Reduced motion swaps with a fade. */
+.stage[data-combat="true"] #cast[data-battle] .portrait {
+  transition:
+    left 0.32s ease-out,
+    bottom 0.32s ease-out,
+    height 0.32s ease-out;
+}
+#cast[data-battle] .portrait[data-battle-row="front"] {
+  z-index: 5;
+}
+#cast[data-battle] .portrait[data-battle-row="back"] {
+  z-index: 2;
+}
+#cast[data-battle] .portrait[data-battle-row="back"] .portrait-body {
+  filter: brightness(0.7) saturate(0.8);
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage[data-combat="true"] #cast[data-battle] .portrait {
+    transition: none;
   }
 }

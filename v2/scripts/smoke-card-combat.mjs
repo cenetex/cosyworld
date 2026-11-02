@@ -1,8 +1,8 @@
-// A lost standoff, seen in the browser: telegraph, hit, defeat card, Continue,
+// A lost battle, seen in the browser: telegraph, hit, defeat card, Continue,
 // then the "You come to at" title at the new place. Desktop, phone and
-// reduced motion.
+// reduced motion; against Antigone, Pip is a third combatant.
 import { atticOpening } from "../../test/fixtures/card-attic-opening.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -22,7 +22,14 @@ function fixture(opponent) {
     s,
     legalActions(s).find((a) => a.kind === "move" && a.target === "pond"),
   ).state;
-  // The opponent has the upper hand: Vale's next brace loses the standoff.
+  // The opponent has the upper hand and was just struck by Vale, so it
+  // strikes back: Vale's next brace loses the battle.
+  const third = opponent === "moth" ? {} : { moth: 4 };
+  const all = (v) => ({
+    vale: v,
+    [opponent]: v,
+    ...(third.moth ? { moth: v } : {}),
+  });
   s.standoffs = [
     {
       challenger: opponent,
@@ -31,10 +38,12 @@ function fixture(opponent) {
       item: "lamp",
       opened: s.turn - 1,
       answered: true,
-      resolve: { vale: 1, [opponent]: 4 },
-      guarding: { vale: true, [opponent]: false },
-      struck: { vale: true, [opponent]: true },
-      steppedBack: { vale: false, [opponent]: false },
+      resolve: { vale: 1, [opponent]: 4, ...third },
+      guarding: { ...all(false), vale: true },
+      struck: all(true),
+      steppedBack: all(false),
+      covering: {},
+      hitBy: { [opponent]: "vale" },
     },
   ];
   return s;
@@ -99,8 +108,8 @@ try {
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
     await page.locator(`#hand [data-card="${opponent}"]`).waitFor();
-    // Under threat the room is locked: no place cards and no items but the
-    // demanded Lamp, which Vale may still hand over.
+    // In battle the room is locked: only this place (Wait), and no items but
+    // the demanded Lamp, which Vale may still hand over.
     assert.deepEqual(
       [
         ...new Set(
@@ -109,12 +118,14 @@ try {
           ),
         ),
       ].sort(),
-      [...new Set(["lamp", "moth", opponent, "vale"])].sort(),
-      "Under threat the hand holds only the people and the demanded item",
+      [...new Set(["lamp", "moth", opponent, "vale", "pond"])].sort(),
+      "In battle the hand holds the people, the place and the demanded item",
     );
-    // Standing resolve shows under both fighters before the play.
+    // Standing resolve shows under every combatant before the play.
     await page.waitForFunction(
-      () => document.querySelectorAll("#cast .combat-pips").length === 2,
+      (count) =>
+        document.querySelectorAll("#cast .combat-pips").length === count,
+      opponent === "moth" ? 2 : 3,
     );
     assert.match(
       await page
@@ -123,11 +134,40 @@ try {
       /vale-guard\.webp$/,
       "The saved standing guard selects its painting before another play",
     );
-    // Raising both fighters offers Brace during the standoff.
-    await selectCard(page, "vale");
+    // Vale's own card alone is Brace; with the opponent it is Guard.
     await selectCard(page, opponent);
+    assert.ok(
+      await page
+        .locator("#card-actions button", { hasText: /^Strike/ })
+        .count(),
+      "In battle the avatar card's Talk is Strike",
+    );
+    await clearSelection(page);
+    await selectCard(page, "vale");
     await page.evaluate(() => {
       window.combatArt = [];
+      // Who stands in the front row at each step of the exchange.
+      window.battleRows = [];
+      new MutationObserver(() => {
+        const row = (name) =>
+          [...document.querySelectorAll(`#cast [data-battle-row="${name}"]`)]
+            .map((el) => el.dataset.avatar)
+            .sort();
+        const front = document.querySelector('#cast [data-battle-row="front"]');
+        const back = document.querySelector('#cast [data-battle-row="back"]');
+        window.battleRows.push({
+          front: row("front"),
+          back: row("back"),
+          above:
+            !back ||
+            Number(getComputedStyle(front).zIndex) >
+              Number(getComputedStyle(back).zIndex),
+        });
+      }).observe(document.querySelector("#cast"), {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["data-battle-row"],
+      });
       new MutationObserver(() => {
         for (const image of document.querySelectorAll(
           "#cast .portrait-body > img",
@@ -144,6 +184,7 @@ try {
         const { left, top, width, height } = hand.getBoundingClientRect();
         return [left, top, width, height].map(Math.round);
       });
+    await page.waitForTimeout(400); // the hand rises again after Escape
     const raisedHand = await handRect();
     await page.locator("#card-actions button", { hasText: /^Brace/ }).click();
     // The hand locks, untappable, as soon as the play commits, and the
@@ -172,22 +213,27 @@ try {
     );
     // From the first combat frame the two fighters face each other.
     assert.deepEqual(
-      await page.evaluate(() =>
-        Array.from(
-          document.querySelectorAll("#cast .combat-pips"),
-          (bar) => bar.parentElement.dataset.avatar,
-        ).map((id, i, pair) => {
-          const at = (who) => {
-            const box = document
-              .querySelector(`#cast [data-avatar="${who}"]`)
-              .getBoundingClientRect();
-            return box.left + box.width / 2;
-          };
-          const toward = at(pair[1 - i]) > at(id) ? "right" : "left";
-          const facing = document.querySelector(`#cast [data-avatar="${id}"]`)
-            .dataset.facing;
-          return facing === toward;
-        }),
+      await page.evaluate(
+        (opponent) =>
+          Array.from(
+            document.querySelectorAll("#cast .combat-pips"),
+            (bar) => bar.parentElement.dataset.avatar,
+          )
+            .filter((id) => ["vale", opponent].includes(id))
+            .map((id, i, pair) => {
+              const at = (who) => {
+                const box = document
+                  .querySelector(`#cast [data-avatar="${who}"]`)
+                  .getBoundingClientRect();
+                return box.left + box.width / 2;
+              };
+              const toward = at(pair[1 - i]) > at(id) ? "right" : "left";
+              const facing = document.querySelector(
+                `#cast [data-avatar="${id}"]`,
+              ).dataset.facing;
+              return facing === toward;
+            }),
+        opponent,
       ),
       [true, true],
       "The fighters face each other before the first strike",
@@ -209,6 +255,19 @@ try {
       .last()
       .textContent();
     await page.locator("#defeat-dialog[open]").waitFor();
+    // The striker and Vale step forward together; Pip waits behind.
+    const rows = await page.evaluate(() => window.battleRows);
+    const strike = rows.findLast((r) => r.front.length === 2);
+    assert.deepEqual(
+      strike?.front,
+      [opponent, "vale"].sort(),
+      "Exchange in front",
+    );
+    assert.deepEqual(strike.back, opponent === "moth" ? [] : ["moth"]);
+    assert.ok(
+      rows.every((r) => r.above),
+      `The front row is drawn above ${JSON.stringify(rows)}`,
+    );
     report.art = [...new Set(await page.evaluate(() => window.combatArt))];
     for (const [id, pose] of [
       ["vale", "guard"],
