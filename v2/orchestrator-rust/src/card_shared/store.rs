@@ -78,6 +78,7 @@ pub(super) fn open_sqlite(path: &Path, busy_timeout: Duration) -> rusqlite::Resu
             [],
         )?;
     }
+    super::unlocks::schema(&c)?;
     Ok(c)
 }
 fn err(e: impl std::fmt::Display) -> String {

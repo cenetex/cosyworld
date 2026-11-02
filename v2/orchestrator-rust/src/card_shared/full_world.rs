@@ -44,10 +44,20 @@ impl World {
     pub fn create(save: Option<&str>) -> Result<Self> {
         Self::seeded(save, None)
     }
+    #[cfg(test)]
     pub fn seeded(save: Option<&str>, seed: Option<u32>) -> Result<Self> {
+        Self::hiding(save, seed, &Value::Null)
+    }
+    // A new world with its creator's hidden and absent avatars (#1936).
+    pub fn hiding(save: Option<&str>, seed: Option<u32>, hide: &Value) -> Result<Self> {
         let mut request = json!({"op":"create","save":save});
         if let Some(seed) = seed {
             request["seed"] = json!(seed);
+        }
+        for key in ["hidden", "absent"] {
+            if !hide[key].is_null() {
+                request[key] = hide[key].clone();
+            }
         }
         let result = engine::reduce(request)?;
         Ok(Self {
@@ -356,6 +366,16 @@ impl World {
                 let mut request = self.request("play", a);
                 request["action"] = command["action"].clone();
                 let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
+                next.game = result["world"].clone();
+                (11, result)
+            }
+            // "+ Find Mara": the quest to talk to the hidden avatar (#1936).
+            "seek" => {
+                let result = engine::reduce_pack(
+                    &self.version,
+                    self.pack.as_deref(),
+                    self.request("seek", a),
+                )?;
                 next.game = result["world"].clone();
                 (11, result)
             }
