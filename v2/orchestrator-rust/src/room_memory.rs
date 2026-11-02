@@ -138,7 +138,7 @@ async fn request_ai_room_memory_summary(
                 max_tokens: 110,
                 timeout: Duration::from_secs(10),
                 max_attempts: 2,
-                referer: "https://cosyworld.fly.dev",
+                referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
                 response_format: None,
                 room_id: Some(location.id),
             },

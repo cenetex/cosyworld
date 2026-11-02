@@ -1462,7 +1462,7 @@ pub(super) async fn preflight_community_art_funding(
             policy: &capability_policy,
             timeout: Duration::from_secs(10),
             max_attempts: 1,
-            referer: "https://cosyworld.fly.dev",
+            referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
         },
     )
     .await
@@ -1920,7 +1920,7 @@ async fn generate_and_store_prepared_community_art(
                         policy: &review_policy,
                         timeout: Duration::from_secs(30),
                         max_attempts: 2,
-                        referer: "https://cosyworld.fly.dev",
+                        referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
                     },
                 )
                 .await

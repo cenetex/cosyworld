@@ -317,7 +317,7 @@ pub(super) async fn generate_moderated_resident_image(
                                 }),
                                 timeout: Duration::from_secs(90),
                                 max_attempts: 2,
-                                referer: "https://cosy.world/",
+                                referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
                             },
                         )
                         .await
@@ -393,7 +393,7 @@ pub(super) async fn generate_moderated_resident_image(
                     policy: RESIDENT_IMAGE_POLICY,
                     timeout: Duration::from_secs(45),
                     max_attempts: 1,
-                    referer: "https://cosy.world/",
+                    referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
                 },
             )
             .await

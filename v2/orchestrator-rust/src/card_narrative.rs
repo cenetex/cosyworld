@@ -1890,7 +1890,7 @@ async fn speak(
                     max_tokens: if part == Part::Persona { 160 } else { 96 },
                     timeout,
                     max_attempts: 1,
-                    referer: "https://cosyworld.fly.dev",
+                    referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
                     response_format: None,
                     room_id: None,
                 };

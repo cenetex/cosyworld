@@ -1094,8 +1094,11 @@ async fn bounded_openrouter_json(
         .map_err(|_| "OpenRouter connection could not start".to_string())?;
     let mut request = client
         .request(method, url)
-        .header("HTTP-Referer", "https://cosy.world/")
-        .header("X-OpenRouter-Title", "CosyWorld v2");
+        .header("HTTP-Referer", crate::ai_gateway::OPENROUTER_APP_REFERER)
+        .header(
+            "X-OpenRouter-Title",
+            crate::ai_gateway::OPENROUTER_APP_TITLE,
+        );
     if let Some(api_key) = bearer {
         request = request.bearer_auth(api_key);
     }

@@ -229,7 +229,7 @@ pub(super) async fn request_ai_avatar_identity(
             max_tokens: 240,
             timeout: Duration::from_secs(14),
             max_attempts: 1,
-            referer: "https://cosyworld.fly.dev",
+            referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
             response_format: None,
             room_id: None,
         },

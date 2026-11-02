@@ -43,6 +43,9 @@ pub(crate) const DEFAULT_OPENROUTER_METACOGNITIVE_MODEL: &str = "openai/gpt-5.6-
 pub(crate) const DEFAULT_OPENAI_CHAT_MODEL: &str = "openai/gpt-5.6-luna";
 pub(crate) const OPENROUTER_METACOGNITIVE_MODEL_ENV: &str = "OPENROUTER_METACOGNITIVE_MODEL";
 pub(crate) const OPENROUTER_FREE_MODEL: &str = "openrouter/free";
+/// OpenRouter attributes usage to the app named by these headers on every request.
+pub(crate) const OPENROUTER_APP_REFERER: &str = "https://lonelyforest.com";
+pub(crate) const OPENROUTER_APP_TITLE: &str = "Lonely Forest";
 pub(crate) const GENERATION_DEFAULT_MODE_ENV: &str = "COSYWORLD_GENERATION_DEFAULT_MODE";
 pub(crate) const GENERATION_FEATURE_MODES_ENV: &str = "COSYWORLD_GENERATION_FEATURE_MODES_JSON";
 pub(crate) const PATHWAY_CONTENT_FEATURE: &str = "pathway_content";
@@ -1983,8 +1986,8 @@ pub(crate) async fn request_direct_audio_completion_with_binding(
             .post(&url)
             .bearer_auth(&config.api_key)
             .header("HTTP-Referer", request.referer)
-            .header("X-OpenRouter-Title", "CosyWorld v2")
-            .header("X-Title", "CosyWorld v2")
+            .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
+            .header("X-Title", OPENROUTER_APP_TITLE)
             .json(&payload)
             .send()
             .await;
@@ -2457,8 +2460,8 @@ pub(crate) async fn post_bounded_exact_json(
             .post(&url)
             .bearer_auth(&config.api_key)
             .header("HTTP-Referer", referer)
-            .header("X-OpenRouter-Title", "CosyWorld v2")
-            .header("X-Title", "CosyWorld v2")
+            .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
+            .header("X-Title", OPENROUTER_APP_TITLE)
             .json(payload)
             .send()
             .await;
@@ -2600,8 +2603,8 @@ async fn post_bounded_exact_audio(
             .post(&url)
             .bearer_auth(&config.api_key)
             .header("HTTP-Referer", referer)
-            .header("X-OpenRouter-Title", "CosyWorld v2")
-            .header("X-Title", "CosyWorld v2")
+            .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
+            .header("X-Title", OPENROUTER_APP_TITLE)
             .json(payload)
             .send()
             .await;
@@ -2894,8 +2897,8 @@ async fn request_image_generation_with_selection(
             .post(&url)
             .bearer_auth(&config.api_key)
             .header("HTTP-Referer", request.referer)
-            .header("X-OpenRouter-Title", "CosyWorld v2")
-            .header("X-Title", "CosyWorld v2")
+            .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
+            .header("X-Title", OPENROUTER_APP_TITLE)
             .json(&payload)
             .send()
             .await;
@@ -3587,8 +3590,8 @@ async fn request_completion(
                 .post(&url)
                 .bearer_auth(&config.api_key)
                 .header("HTTP-Referer", referer)
-                .header("X-OpenRouter-Title", "CosyWorld v2")
-                .header("X-Title", "CosyWorld v2")
+                .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
+                .header("X-Title", OPENROUTER_APP_TITLE)
                 .json(&payload)
                 .send()
                 .await;
@@ -3853,8 +3856,8 @@ pub(crate) async fn enforce_server_paid_daily_limit(
             config.base_url, OPENROUTER_CURRENT_KEY_ENDPOINT
         ))
         .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", "https://cosy.world/")
-        .header("X-OpenRouter-Title", "CosyWorld v2")
+        .header("HTTP-Referer", OPENROUTER_APP_REFERER)
+        .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
         .send()
         .await
         .map_err(|_| AiGatewayError::daily_spend_check_unavailable(feature))?;
@@ -3956,9 +3959,9 @@ pub(crate) async fn probe_openrouter_account(
     let mut response = client
         .get(url)
         .bearer_auth(&config.api_key)
-        .header("HTTP-Referer", "https://cosy.world/")
-        .header("X-OpenRouter-Title", "CosyWorld v2")
-        .header("X-Title", "CosyWorld v2")
+        .header("HTTP-Referer", OPENROUTER_APP_REFERER)
+        .header("X-OpenRouter-Title", OPENROUTER_APP_TITLE)
+        .header("X-Title", OPENROUTER_APP_TITLE)
         .send()
         .await
         .map_err(|error| AiGatewayError {

@@ -2189,9 +2189,12 @@ async fn execute_batch_talk_with_submission_model(
         let response = client
             .get(format!("{collection_url}/{provider_batch_id}"))
             .bearer_auth(&config.api_key)
-            .header("HTTP-Referer", "https://cosy.world/")
-            .header("X-OpenRouter-Title", "CosyWorld v2")
-            .header("X-Title", "CosyWorld v2")
+            .header("HTTP-Referer", crate::ai_gateway::OPENROUTER_APP_REFERER)
+            .header(
+                "X-OpenRouter-Title",
+                crate::ai_gateway::OPENROUTER_APP_TITLE,
+            )
+            .header("X-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
             .send()
             .await
             .map_err(|error| {
@@ -2222,9 +2225,12 @@ async fn execute_batch_talk_with_submission_model(
         let response = client
             .post(&collection_url)
             .bearer_auth(&config.api_key)
-            .header("HTTP-Referer", "https://cosy.world/")
-            .header("X-OpenRouter-Title", "CosyWorld v2")
-            .header("X-Title", "CosyWorld v2")
+            .header("HTTP-Referer", crate::ai_gateway::OPENROUTER_APP_REFERER)
+            .header(
+                "X-OpenRouter-Title",
+                crate::ai_gateway::OPENROUTER_APP_TITLE,
+            )
+            .header("X-Title", crate::ai_gateway::OPENROUTER_APP_TITLE)
             .header("Idempotency-Key", interaction_id)
             .json(&payload)
             .send()
@@ -2409,7 +2415,7 @@ async fn execute_embedding_model_interaction(
             inputs: &inputs,
             timeout: Duration::from_secs(45),
             max_attempts: 2,
-            referer: "https://cosy.world/",
+            referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
         },
     )
     .await
@@ -2481,7 +2487,7 @@ async fn execute_rerank_model_interaction(
             documents: &documents,
             timeout: Duration::from_secs(45),
             max_attempts: 2,
-            referer: "https://cosy.world/",
+            referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
         },
     )
     .await
@@ -2617,7 +2623,7 @@ async fn execute_speech_model_interaction(
                 voice,
                 timeout: Duration::from_secs(45),
                 max_attempts: 2,
-                referer: "https://cosy.world/",
+                referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
             },
         )
         .await
@@ -2746,7 +2752,7 @@ async fn execute_direct_audio_model_interaction(
                     voice,
                     timeout: Duration::from_secs(60),
                     max_attempts: 2,
-                    referer: "https://cosy.world/",
+                    referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
                     room_id: Some(job.plan.location_id),
                 },
             )
@@ -2862,7 +2868,7 @@ async fn generate_tts_transcript(
             max_tokens: 96,
             timeout: Duration::from_secs(30),
             max_attempts: 2,
-            referer: "https://cosy.world/",
+            referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
             response_format: None,
             room_id: Some(plan.location_id),
         },
