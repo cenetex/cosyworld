@@ -59,6 +59,7 @@ import {
   sharedLiveLine,
   sharedSilentLines,
   sharedSpeechState,
+  sharedVoiceReference,
   hasSharedPlace,
   humanAvatars,
 } from "./shared.mjs";
@@ -738,7 +739,13 @@ const reveal = createTextReveal({
       text.scrollTop = 0;
       speechSounds.stop();
       if (shownSceneLine?.silent) characterSpeech.clear();
-      else characterSpeech.show(value.key, value.speaker, value.text);
+      else
+        characterSpeech.show(
+          value.key,
+          value.speaker,
+          value.text,
+          sharedVoiceReference(sharedSession?.state, shownSceneLine),
+        );
       speechGlyphs = value.letters.map((letter) =>
         node("span", letter, "speech-letter"),
       );

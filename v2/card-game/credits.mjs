@@ -66,13 +66,18 @@ export function createCredits({ fetcher = globalThis.fetch, world = "" } = {}) {
     voices: {
       available: () => affords("tts"),
       timeoutMs: 25_000,
-      async clip(speaker, text, signal) {
+      voiceIdentity: world ? `world:${world}` : "openrouter",
+      async clip(speaker, text, signal, reference) {
+        if (world && (!reference?.play || !Number.isInteger(reference.line)))
+          throw new Error("Choose a saved character line from this world.");
         const response = await fetcher("/card-game/speech", {
           method: "POST",
           credentials: "same-origin",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
-            world ? { speaker, text, world } : { speaker, text },
+            world
+              ? { world, play: reference.play, line: reference.line }
+              : { speaker, text },
           ),
           signal,
         });

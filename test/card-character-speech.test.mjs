@@ -256,13 +256,15 @@ describe("the six card character voices", () => {
   it("clears a failed decode from cache and supports retry and unsupported speakers", async () => {
     const f = fixture();
     f.load.remove = vi.fn();
+    const reference = { play: "saved-play", line: 1 };
     f.context.decodeAudioData.mockRejectedValueOnce(new Error("Broken audio"));
     f.speech.unlock();
-    f.speech.show("retry", "moth", "Please.");
+    f.speech.show("retry", "moth", "Please.", reference);
     await tick();
     expect(f.events.at(-1).state).toBe("error");
     expect(f.speech.busy).toBe(false);
-    expect(f.load.remove).toHaveBeenCalledWith("moth", "Please.");
+    expect(f.load.mock.calls[0][3]).toEqual(reference);
+    expect(f.load.remove).toHaveBeenCalledWith("moth", "Please.", reference);
     f.speech.retry();
     await tick();
     expect(f.events.at(-1).state).toBe("playing");

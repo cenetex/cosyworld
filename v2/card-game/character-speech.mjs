@@ -32,7 +32,7 @@ export function createVoiceClips({
     memory.set(key, blob);
     if (memory.size > MAX_CLIPS) memory.delete(memory.keys().next().value);
   };
-  async function cacheKey(speaker, text) {
+  async function cacheKey(speaker, text, reference) {
     const digest = await crypto.subtle.digest(
       "SHA-256",
       new TextEncoder().encode(
@@ -43,6 +43,7 @@ export function createVoiceClips({
           characterVoices[speaker],
           speaker,
           text,
+          ...(reference ? [reference] : []),
         ]),
       ),
     );
@@ -51,11 +52,11 @@ export function createVoiceClips({
     ).join("");
     return new URL(`./voice-cache/${id}.mp3`, import.meta.url).href;
   }
-  async function generate(speaker, text, signal) {
+  async function generate(speaker, text, signal, reference) {
     const voice = characterVoices[speaker];
     if (!voice || !text.trim() || text.length > 1200)
       throw new Error("Choose a current character line.");
-    const key = await cacheKey(speaker, text);
+    const key = await cacheKey(speaker, text, reference);
     if (memory.has(key)) return memory.get(key);
     let cache;
     try {
@@ -75,7 +76,7 @@ export function createVoiceClips({
     signal.throwIfAborted();
     if (!connected(client))
       throw new Error("Sign in and add credits to hear character voices.");
-    const blob = await client.clip(speaker, text, signal);
+    const blob = await client.clip(speaker, text, signal, reference);
     signal.throwIfAborted();
     if (!audioType(blob) || !blob.size || blob.size > MAX_BYTES)
       throw new Error("This voice needs another try.");
@@ -104,9 +105,9 @@ export function createVoiceClips({
     }
     return blob;
   }
-  async function clip(speaker, text, signal) {
+  async function clip(speaker, text, signal, reference) {
     signal.throwIfAborted();
-    const key = await cacheKey(speaker, text);
+    const key = await cacheKey(speaker, text, reference);
     signal.throwIfAborted();
     let job = pending.get(key);
     if (!job) {
@@ -114,7 +115,7 @@ export function createVoiceClips({
       job = {
         controller,
         users: 0,
-        promise: generate(speaker, text, controller.signal),
+        promise: generate(speaker, text, controller.signal, reference),
       };
       pending.set(key, job);
       const clear = () => {
@@ -139,8 +140,8 @@ export function createVoiceClips({
       }
     }
   }
-  clip.remove = async (speaker, text) => {
-    const key = await cacheKey(speaker, text);
+  clip.remove = async (speaker, text, reference) => {
+    const key = await cacheKey(speaker, text, reference);
     memory.delete(key);
     try {
       await (await storage?.open(CACHE))?.delete(key);
@@ -202,13 +203,13 @@ export function createCharacterSpeech({
     ]);
     publish("loading");
     try {
-      const blob = await load(line.speaker, line.text, signal);
+      const blob = await load(line.speaker, line.text, signal, line.reference);
       signal.throwIfAborted();
       let buffer;
       try {
         buffer = await context.decodeAudioData(await blob.arrayBuffer());
       } catch (error) {
-        await load.remove?.(line.speaker, line.text);
+        await load.remove?.(line.speaker, line.text, line.reference);
         throw error;
       }
       signal.throwIfAborted();
@@ -262,11 +263,11 @@ export function createCharacterSpeech({
           characterVoices[speaker] &&
           (connected(client) || current?.busy),
       ),
-    show(key, speaker, text) {
+    show(key, speaker, text, reference) {
       if (current?.key === key) return;
       stop(false, prefetch?.speaker === speaker && prefetch.text === text);
       current = characterVoices[speaker]
-        ? { key, speaker, text, attempted: false, busy: false }
+        ? { key, speaker, text, reference, attempted: false, busy: false }
         : null;
       publish(
         !enabled ? "off" : current && !connected(client) ? "connect" : "ready",

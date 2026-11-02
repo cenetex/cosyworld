@@ -1251,6 +1251,8 @@ fn full_world_shared_speech_is_journaled_with_matching_log_sequences() {
         tx.commit().unwrap();
         let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
         let work = full::take_work(&state, &id).unwrap().unwrap();
+        let voice = |index| crate::routes::shared_voice_line(&c, &id, &b.key, index).unwrap();
+        assert_eq!(voice(0), None, "working speech is not yet billable");
         assert_eq!(work.context["context"]["scenery"], false);
         let mut lines = json!([{"speaker":"Vale","actorId":"vale","entityId":"vale","text":"I could stay a little longer."}]);
         if with_scenery {
@@ -1260,6 +1262,11 @@ fn full_world_shared_speech_is_journaled_with_matching_log_sequences() {
         let expected = full_store::world(&c, &id, now()).unwrap();
         let snap = full_store::snapshot(&c, &id, "user0", now()).unwrap();
         let lines = snap["history"][0]["lines"].as_array().unwrap();
+        assert_eq!(
+            voice(0),
+            Some(("vale".into(), "I could stay a little longer.".into()))
+        );
+        assert_eq!(voice(1), None, "scenery is not a character voice");
         assert_eq!(lines.len(), if with_scenery { 2 } else { 1 });
         for line in lines {
             assert!(expected.game["log"]
@@ -1270,6 +1277,29 @@ fn full_world_shared_speech_is_journaled_with_matching_log_sequences() {
         }
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
+        assert_eq!(voice(0).unwrap().1, lines[0]["text"].as_str().unwrap());
+        // Focusing quests can save many silent scenes without a new turn.
+        // Those rows must not hide the reference for words still in the log.
+        for i in 0..45 {
+            let scene =
+                json!({"play":format!("silent-{i}"),"room":snap["history"][0]["room"],"lines":[]});
+            c.execute(
+                "INSERT INTO card_full_scenes(world,room,play,content) VALUES(?,?,?,?)",
+                params![
+                    id,
+                    scene["room"].as_str().unwrap(),
+                    scene["play"].as_str().unwrap(),
+                    scene.to_string()
+                ],
+            )
+            .unwrap();
+        }
+        let recalled = full_store::snapshot(&c, &id, "user0", now()).unwrap();
+        assert!(recalled["history"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|scene| scene["play"] == b.key));
     }
 }
 

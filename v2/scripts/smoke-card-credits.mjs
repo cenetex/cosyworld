@@ -3,11 +3,12 @@
 // world, Settings shows the world's pool and commits credits to it through
 // the action beat, and the camera films on the pool.
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { addLog, createWorld, encodeSave } from "../card-game/world.mjs";
+import { revealCard } from "./card-browser-helpers.mjs";
 
 const world = createWorld({ opening: true });
 addLog(world, "Vale", "The lamp is steady.", {
@@ -25,13 +26,39 @@ async function checkPool(width) {
     reducedMotion: "reduce",
   });
   const errors = [],
-    commits = [];
+    commits = [],
+    voices = [];
   let pool = 0;
   page.on("pageerror", (error) => errors.push(error.message));
-  const shared = dispatchShared({
+  let shared = dispatchShared({
     op: "create",
     save: encodeSave(createWorld()),
   }).world;
+  const room = shared.actors.vale.place;
+  const spoken = dispatchShared({
+    op: "speech",
+    world: shared,
+    actor: "vale",
+    room,
+    lines: [{ actorId: "vale", text: "The lamp is steady." }],
+  });
+  shared = spoken.world;
+  const history = [
+    {
+      play: "saved-pool-play",
+      room,
+      lines: spoken.lines,
+      starts_at: Date.now(),
+      until_at: Date.now() + 9000,
+    },
+  ];
+  const audio = await readFile(
+    new URL("../card-game/assets/voices/vale.mp3", import.meta.url),
+  );
+  await page.route("**/card-game/speech", (route) => {
+    voices.push(route.request().postDataJSON());
+    return route.fulfill({ contentType: "audio/mpeg", body: audio });
+  });
   await page.route("**/auth/account", (route) =>
     route.fulfill({ json: { authenticated: true } }),
   );
@@ -53,7 +80,7 @@ async function checkPool(width) {
           present: [1, 0, 0, 0, 0, 0, 0, 0],
           now: Date.now(),
           queue: [],
-          history: [],
+          history,
         },
       }),
   );
@@ -82,6 +109,8 @@ async function checkPool(width) {
   });
   await page.goto(`${origin()}/?world=pool-w`);
   await page.waitForFunction(() => document.body.inert === false);
+  await revealCard(page, "vale");
+  await revealCard(page, room);
   await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
   const status = page.locator("#credit-pool-status");
@@ -109,6 +138,13 @@ async function checkPool(width) {
     [["pool-w", 10]],
   );
   await page.locator("#credit-commit-done").click();
+  await page.waitForFunction(
+    () => document.querySelector("#speech-row").dataset.voice === "playing",
+  );
+  assert.deepEqual(voices, [
+    { world: "pool-w", play: "saved-pool-play", line: 0 },
+  ]);
+  await page.screenshot({ path: `output/credits/shared-voice-${width}.png` });
   await page.locator("#scene-video-button").click();
   assert.match(
     await page.textContent("#scene-video-create"),
@@ -116,7 +152,9 @@ async function checkPool(width) {
   );
   assert.equal(await page.locator("#scene-video-create").isDisabled(), true);
   assert.deepEqual(errors, []);
-  console.log(`Settings committed credits to a world's pool at ${width}px.`);
+  console.log(
+    `Committed pool credits and voiced a saved scene line at ${width}px.`,
+  );
   await page.close();
 }
 
