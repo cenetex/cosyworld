@@ -5,9 +5,6 @@
 //! failed. A balance is the sum of an account's rows. Every spend and refund
 //! carries a request id, so a retried request never charges twice. A new paid
 //! feature is one more `SpendKind` with its price.
-// The credit-gated speech and video routes spend and refund next (#1924).
-#![cfg_attr(not(test), allow(dead_code))]
-
 use std::path::Path;
 
 use axum::{
