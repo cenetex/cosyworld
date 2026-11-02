@@ -22,6 +22,10 @@
   opacity: 0;
   transition: opacity 160ms ease;
 }
+#scene-video-button[data-affordable="false"] svg {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
 #scene-video-button:hover strong,
 #scene-video-button:focus-visible strong {
   opacity: 0;
