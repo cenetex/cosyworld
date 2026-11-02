@@ -81,7 +81,7 @@ export function factWords(sentence, speaker, listener) {
     [nameWords(listener), "you"],
   ].filter(([name]) => name.length);
   const out = [];
-  for (let i = 0; i < words.length;) {
+  for (let i = 0; i < words.length; ) {
     const person = people.find(([name]) =>
       name.every((w, j) => words[i + j] === w),
     );
@@ -135,16 +135,61 @@ function remember(world, actor, fact, kind, teller, eventSeq, learnedTurn) {
   return owns(known, fact.id);
 }
 
+// A standing grievance keeps the witnessed incident it was taken from, by
+// its id. Saves from before #2020 kept no id: there the incident is the event
+// its other avatar did on the grievance's turn, seen by its holder. Pins take
+// at most half the store. Active grievances keep their evidence first, then
+// dormant ones by most recent touch; repaired ones are released first.
+export const GRIEVANCE_PIN_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
+export function pinnedFacts(world) {
+  const facts = world.knowledge?.facts || {};
+  const byPlay = {};
+  for (const f of Object.values(facts).sort(compareFacts))
+    if (f.source.kind === "event")
+      (byPlay[`${f.source.actorId}|${f.source.turn}`] ??= []).push(f);
+  const rank = (g) => (g.repaired ? 2 : grievanceActive(world, g) ? 0 : 1);
+  const grievances = world.motives?.grievances || {};
+  const standing = Object.keys(grievances)
+    .sort()
+    .flatMap((holder) => grievances[holder].map((g, i) => ({ holder, g, i })))
+    .sort(
+      (a, b) =>
+        rank(a.g) - rank(b.g) ||
+        (b.g.lastTouched ?? b.g.turn) - (a.g.lastTouched ?? a.g.turn) ||
+        a.holder.localeCompare(b.holder) ||
+        a.i - b.i,
+    );
+  const pinned = new Set();
+  for (const { holder, g } of standing) {
+    const evidence = g.incident
+      ? owns(facts, g.incident)
+        ? [facts[g.incident]]
+        : []
+      : (byPlay[`${g.other}|${g.turn}`] || []).filter((f) =>
+          f.source.witnesses.includes(holder),
+        );
+    for (const f of evidence) {
+      if (pinned.size >= GRIEVANCE_PIN_LIMIT) return pinned;
+      if (f.source.kind === "event") pinned.add(f.id);
+    }
+  }
+  return pinned;
+}
+
 function retainFact(world, fact) {
   const knowledge = world.knowledge;
   if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
   // Authored facts keep their stable identity. Event and ending news ages in
-  // source order.
-  const eventFacts = Object.values(knowledge.facts)
-    .filter((f) => f.source.kind !== "topic")
-    .sort(compareFacts);
+  // source order, skipping pinned grievance evidence. If every aging fact is
+  // pinned, the oldest goes anyway so the store stays bounded.
   if (Object.keys(knowledge.facts).length >= KNOWLEDGE_FACT_LIMIT) {
-    const old = eventFacts.at(-1);
+    const eventFacts = Object.values(knowledge.facts)
+      .filter((f) => f.source.kind !== "topic")
+      .sort(compareFacts);
+    const pinned = pinnedFacts(world);
+    const old =
+      [...eventFacts].reverse().find((f) => !pinned.has(f.id)) ||
+      eventFacts.at(-1);
     if (!old) return null;
     delete knowledge.facts[old.id];
     for (const known of Object.values(knowledge.known)) delete known[old.id];
@@ -207,6 +252,32 @@ export function witnessKnowledge(
   });
   if (!fact) return null;
   for (const actor of witnesses)
+    remember(world, actor, fact, "witnessed", null, entry.seq, entry.turn);
+  return fact;
+}
+
+// A gift handed to an aggrieved recipient in person is a witnessed repair:
+// the giver, the recipient and the incident it answers (#2020).
+export function witnessRepair(world, entry, answers, text, witnesses) {
+  installKnowledge(world);
+  if (!validFactText(text) || !entry.seq) return null;
+  const present = witnesses.filter((id) => world.actors[id]).sort();
+  const fact = retainFact(world, {
+    id: `repair:${entry.seq}`,
+    text,
+    source: {
+      kind: "repair",
+      eventSeq: entry.seq,
+      turn: entry.turn,
+      actorId: entry.actorId,
+      locationId: entry.locationId,
+      witnesses: present,
+      topic: null,
+      answers,
+    },
+  });
+  if (!fact) return null;
+  for (const actor of present)
     remember(world, actor, fact, "witnessed", null, entry.seq, entry.turn);
   return fact;
 }
@@ -517,6 +588,13 @@ export function knowledgeFacts(
 
 // Old news is told by age band, not turn number.
 const STALE_TURNS = 6;
+// A grievance goes dormant when no news has passed between the pair for a
+// full day on the world clock, or when a witnessed repair closed it. Its
+// strength is never decayed; a new incident wakes it from that floor.
+export const GRIEVANCE_DORMANT_TURNS = 24;
+export const grievanceActive = (world, g) =>
+  !g.repaired &&
+  world.turn - (g.lastTouched ?? g.turn) < GRIEVANCE_DORMANT_TURNS;
 export const ageText = (turns) =>
   turns <= 1
     ? "just now"
@@ -564,8 +642,9 @@ export function validKnowledge(
         "locationId",
         "witnesses",
         "topic",
+        ...(s.kind === "repair" ? ["answers"] : []),
       ]) ||
-      !["event", "topic", "ending", "lane"].includes(s.kind) ||
+      !["event", "topic", "ending", "lane", "repair"].includes(s.kind) ||
       !whole(s.eventSeq, world.eventSeq) ||
       s.eventSeq < 1 ||
       !whole(s.turn, world.turn) ||
@@ -580,6 +659,17 @@ export function validKnowledge(
       return false;
     if (s.kind === "event") {
       if (id !== `event:${s.eventSeq}` || s.topic !== null) return false;
+    } else if (s.kind === "repair") {
+      const a = s.answers;
+      if (
+        id !== `repair:${s.eventSeq}` ||
+        s.topic !== null ||
+        !fields(a, ["recipient", "incident"]) ||
+        !actors.includes(a.recipient) ||
+        !/^event:[1-9]\d*$/u.test(a.incident) ||
+        Number(a.incident.slice(6)) >= s.eventSeq
+      )
+        return false;
     } else if (s.kind === "lane") {
       if (laneText(id) !== fact.text || s.topic !== null) return false;
     } else if (s.kind === "ending") {

@@ -115,6 +115,34 @@ async fn complete(
     json!({"type":"complete","revision":context.revision,"reflections":entries})
 }
 
+/// A shared scene's reflections, generated after its line is journaled. Only
+/// the voices that spoke and are due one are asked; the rest return nothing,
+/// with no model call. The world journals them in a later `reflect` op.
+pub(crate) async fn shared(
+    config: &AiConfig,
+    scene: &Value,
+    actor: &str,
+    spoke: &[String],
+    models: &BTreeMap<String, String>,
+) -> Vec<Value> {
+    let Ok((context, settings)) = super::shared_scene(scene, actor, spoke) else {
+        return Vec::new();
+    };
+    let deadline = tokio::time::Instant::now() + settings.scene_timeout;
+    let mut entries = Vec::new();
+    for id in spoke {
+        if !reflection_due(&context, entity(&context, id)).0 {
+            continue;
+        }
+        if let Some(reflection) =
+            reflection::generate(config, &context, models, &settings, deadline, id).await
+        {
+            entries.push(json!({"id":id,"reflection":reflection}));
+        }
+    }
+    entries
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

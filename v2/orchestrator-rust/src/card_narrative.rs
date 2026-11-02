@@ -42,6 +42,7 @@ pub(crate) mod recital;
 mod reflection;
 #[path = "card_narrative/reflections.rs"]
 mod reflections;
+pub(crate) use reflections::shared as shared_reflections;
 #[cfg(test)]
 #[path = "card_narrative/voice_eval.rs"]
 mod voice_eval;
@@ -817,7 +818,7 @@ async fn generate(
 /// One scene: a separate plain-text call for each voiced entity. Private
 /// reflections (thought, persona, dream) come from `/card-game/reflections`
 /// after the line is shown, so they never delay or fail it (#2016). Shared
-/// scenes still journal them with their speech. The simulation chooses who
+/// scenes journal them in a later `reflect` op. The simulation chooses who
 /// is voiced and what each one is aware of; this validator decides what is
 /// published. Prompts carry only the entity's own words and awareness.
 ///
@@ -989,14 +990,12 @@ async fn complete_selected(
     Ok(json!({"revision":context.revision,"entries":entries,"omitted":omitted,"model":model}))
 }
 
-/// Generate only the voices chosen by the authenticated shared scene.
-pub(crate) async fn shared_lines(
-    config: &AiConfig,
+/// The checked context and settings for a shared scene's chosen voices.
+fn shared_scene(
     scene: &Value,
     actor: &str,
     ids: &[String],
-    models: &BTreeMap<String, String>,
-) -> Result<Value, String> {
+) -> Result<(Context, VoiceSettings), String> {
     let mut context: Context = serde_json::from_value(scene.clone())
         .map_err(|_| "The saved scene needs another moment.")?;
     if ids.is_empty()
@@ -1023,7 +1022,20 @@ pub(crate) async fn shared_lines(
         .map_err(|_| "The story service needs its voice settings.")?
         .clone();
     settings.line_limit = 240;
-    let value = complete_selected(config, &context, models, &settings, ids, true, None)
+    Ok((context, settings))
+}
+
+/// Generate only the voices chosen by the authenticated shared scene.
+pub(crate) async fn shared_lines(
+    config: &AiConfig,
+    scene: &Value,
+    actor: &str,
+    ids: &[String],
+    models: &BTreeMap<String, String>,
+) -> Result<Value, String> {
+    let (context, settings) = shared_scene(scene, actor, ids)?;
+    // Reflections follow in their own journal op (reflections::shared).
+    let value = complete_selected(config, &context, models, &settings, ids, false, None)
         .await
         .map_err(|_| "The play is saved. Its words need another moment.")?;
     // A shared scene that voices the acting avatar requires its line. A
@@ -2377,7 +2389,7 @@ fn mentions(text: &str, name: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use axum::{
         body::{to_bytes, Body},
@@ -3483,7 +3495,7 @@ mod tests {
         server.abort();
     }
 
-    pub(super) fn plain_provider(
+    pub(crate) fn plain_provider(
         seen: Arc<Mutex<Vec<Value>>>,
         reply: impl Fn(&Value, &str) -> String + Clone + Send + Sync + 'static,
     ) -> Router {
@@ -3506,7 +3518,7 @@ mod tests {
         )
     }
 
-    fn stem_reply(stem: &str) -> String {
+    pub(crate) fn stem_reply(stem: &str) -> String {
         if stem.ends_with(", to myself:") {
             "I felt welcome.".into()
         } else if stem.ends_with(", who I am now:") {
@@ -4421,7 +4433,7 @@ mod tests {
         assert_eq!(in_flight.count(b), 0);
     }
 
-    pub(super) fn test_config(address: SocketAddr) -> AiConfig {
+    pub(crate) fn test_config(address: SocketAddr) -> AiConfig {
         AiConfig {
             api_key: "test-secret".into(),
             base_url: format!("http://{address}"),
@@ -4683,7 +4695,7 @@ mod tests {
         server.abort();
     }
     /// Serves a mock provider on a loopback port.
-    pub(super) async fn serve(provider: Router) -> (SocketAddr, tokio::task::JoinHandle<()>) {
+    pub(crate) async fn serve(provider: Router) -> (SocketAddr, tokio::task::JoinHandle<()>) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let server = tokio::spawn(async move {

@@ -2829,6 +2829,8 @@ fn each_shared_home_rescue_commits_through_c_and_replays() {
 
 #[path = "learning_tests.rs"]
 mod learning_tests;
+#[path = "reflect_tests.rs"]
+mod reflect_tests;
 
 #[test]
 fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {

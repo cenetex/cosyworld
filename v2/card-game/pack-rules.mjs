@@ -466,16 +466,13 @@ export function disturb(s, place) {
     return t.disturbed;
   });
 }
-/** The player waiting quietly calms residents here and eases grievances. */
-export function calm(s, place, player) {
+/** The player waiting quietly calms residents here. Grievances close only by
+ * a witnessed repair (#2020). */
+export function calm(s, place) {
   for (const id of residentsAt(s, place)) {
     const t = packPeople[id].temperament,
       a = s.actors[id];
     a.irritation = Math.max(0, a.irritation - t.calm);
-    if (s.motives?.grievances?.[id])
-      s.motives.grievances[id] = s.motives.grievances[id]
-        .map((g) => (g.other === player ? { ...g, weight: g.weight - 1 } : g))
-        .filter((g) => g.weight > 0);
   }
 }
 

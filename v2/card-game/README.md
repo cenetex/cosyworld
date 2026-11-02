@@ -748,7 +748,7 @@ The rule is data in `forest.json`: `things.oil.refuels` names the lamp and
 and the `returnLocationId` where the flask waits. The Bell rings as before but
 no longer makes oil at the pond.
 
-Trades compare each character’s value for both objects, including attached cloth. A grievance raises the requested price. A favour can lower it. Ringing beside the Keeper, spoiling Pip’s light, threats, and repeated requests can create grievances. Only witnesses remember a slight. A useful gift softens the receiver’s grievances toward its giver and earns a bounded favour. Grievances retain the other avatar, incident, turn, and strength across reloads.
+Trades compare each character’s value for both objects, including attached cloth. A grievance raises the requested price. A favour can lower it. Ringing beside the Keeper, spoiling Pip’s light, threats, and repeated requests can create grievances. Only witnesses remember a slight. A useful gift earns a bounded favour. Grievances retain the other avatar, the incident's event id, its turn, strength, and the turn of the latest news between the pair. Strength never decays, but a grievance with no news between the pair for 24 turns goes dormant: it leaves prompts and hostile choices until a new incident wakes it and adds to its strength. Friendly contact keeps an active grievance on mind but never wakes a dormant or repaired one. A gift handed in person to an aggrieved recipient is a witnessed repair. Everyone who sees it, or later hears of it in Talk, closes their grievance for that incident (dormant, not deleted). A gift the aggrieved does not see repairs nothing, and a quiet Wait no longer eases grievances. While a grievance stands, the shared fact store keeps the witnessed account of its incident when older news is dropped, up to half the store (active grievances first, repaired last) ([grievance evidence](../../docs/design/grievance-evidence.md)).
 
 Give and Trade are always offered when the item fits in the other person's
 hands; a trade needs room on both sides. The answer comes when the card is
@@ -819,9 +819,9 @@ informs the persona revision. A dream may come with the thought, alongside the
 persona. Each accepted revision keeps its source events, previous persona and
 the model used for each part. Four revisions stay in the save. Thoughts stay at
 least six turns apart. A dream needs two thoughts since the last dream and at
-least 24 turns since it. These gaps apply in both modes. Shared publication commits the
-reflection with its speech through the world journal. Retrying the publication
-keeps its original play identity. The server rejects a thought, persona or
+least 24 turns since it. These gaps apply in both modes. Shared publication journals the
+reflection in its own `reflect` op after the speech, dated to the speech's
+turn. Retrying the publication keeps its original play identity. The server rejects a thought, persona or
 dream that is not first person, carries a `," she called` tag, or names an
 item kind the scene does not know ("my compass is ready"). It also leaves a
 kept thought or dream that names such a thing out of later prompts, so a
@@ -1069,9 +1069,10 @@ late reply for an older turn is ignored. A failed reflection is simply
 skipped. Omitted cards keep their saved words. Shared
 play requires both selected voices and journals the committed text through the
 existing shared dialogue event. Shared speech uses the same transcript and
-visible-state checks. Shared reflections are still generated with their
-speech and saved with it through the world journal, so journal order and
-replay are unchanged.
+visible-state checks. From rules v88, shared reflections are generated after
+the line is journaled and saved in a later `reflect` journal op, so they never
+delay or fail the line
+([shared worlds](../docs/card-table/shared-worlds.md#learning-and-private-reflection)).
 
 Optional voice tiers are enabled with exact model IDs in
 `COSYWORLD_CARD_REFLECTION_MODEL` and `COSYWORLD_CARD_ESCALATION_MODEL`.

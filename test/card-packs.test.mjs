@@ -332,6 +332,10 @@ describe("the Steam Clock's own bell", () => {
     expect(s.motives.grievances.badger.some((g) => g.kind === "noise")).toBe(
       true,
     );
+    // A quiet Wait calms Badger but no longer eases its grievance (#2020).
+    const held = structuredClone(s.motives.grievances.badger);
+    s = act(s, "wait");
+    expect(s.motives.grievances.badger).toEqual(held);
   });
 
   it("sounds for three following plays, survives reload, and can be rung again", () => {

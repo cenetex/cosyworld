@@ -431,6 +431,12 @@ and verify the resulting bundle hash and journal cursor before cutting the next
 tag. Prefer a forward fix over rolling an active persistent world back across a
 schema or world-pack boundary.
 
+Shared rules v88 added the `reflect` journal op
+([shared worlds](../v2/docs/card-table/shared-worlds.md#learning-and-private-reflection)).
+A build from before v88 cannot replay it, so a rollback past v88 leaves any
+world that journaled a reflection unable to load until a v88 build returns.
+This rollback limit is accepted. Roll forward instead.
+
 ## Lonely Forest operations
 
 Provisioning, data authority, DNS cutover, and rollback are documented in
