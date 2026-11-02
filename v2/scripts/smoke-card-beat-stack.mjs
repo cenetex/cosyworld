@@ -239,24 +239,13 @@ try {
       );
       // The earlier beat is a card behind, with the speech on one line
       // peeking above the front card. The action sits under the speech.
-      // Phones show the current beat alone in a fixed box over the hand
-      // (option D), so the earlier beat is reached with the arrow keys.
-      const narrow = width < 700,
-        stackHits = narrow ? { front: true, behind: false } : undefined;
+      // Phones keep both inside the fixed box over the hand (#1897).
       const behind = page.locator("#beat-behind");
-      const stepBack = async () => {
-        if (!narrow) return behind.click({ position: { x: 80, y: 8 } });
-        await page.locator("#dialogue-advance").focus();
-        await page.keyboard.press("ArrowUp");
-      };
-      assert.equal(
-        await behind.isVisible(),
-        !narrow,
-        "An earlier beat waits behind on wide screens only.",
-      );
+      const stepBack = () => behind.click({ position: { x: 80, y: 6 } });
+      assert(await behind.isVisible(), "An earlier beat waits behind.");
       assert.match(await behind.textContent(), /Vale\s*Pip, wait\./u);
       assert.equal(await page.locator("#live-line").isVisible(), false);
-      const layout = await page.evaluate((narrow) => {
+      const layout = await page.evaluate(() => {
         const box = (selector) =>
           document.querySelector(selector).getBoundingClientRect();
         const back = box("#beat-behind"),
@@ -268,10 +257,12 @@ try {
         return {
           nameOnTop: name.height > 0 && name.bottom <= text.top + 1,
           fullWidth: text.left - card.left < 24 && card.right - text.right < 24,
-          wholeLine: words.scrollHeight <= words.clientHeight + 1,
+          wholeLine: [words, document.querySelector("#dialogue-advance")].every(
+            (box) => box.scrollHeight <= box.clientHeight + 1,
+          ),
           peek: card.top - back.top,
           narrower: back.width < card.width,
-          stack: card.bottom - (narrow ? card.top : back.top),
+          stack: card.bottom - back.top,
           captionBelow: caption.top >= text.bottom - 1,
           captionLines: Math.round(
             caption.height /
@@ -281,21 +272,20 @@ try {
               ),
           ),
         };
-      }, narrow);
-      if (!narrow) {
-        assert(layout.narrower, "The card behind is smaller than the front.");
-        assert(
-          layout.peek > 12 && layout.peek <= 32,
-          `One line of the card behind peeks out: ${layout.peek}`,
-        );
-      }
+      });
+      assert(layout.narrower, "The card behind is smaller than the front.");
+      assert(
+        layout.peek > 12 && layout.peek <= 32,
+        `One line of the card behind peeks out: ${layout.peek}`,
+      );
       assert(layout.captionBelow, "The action caption sits under the speech.");
       assert(layout.nameOnTop, "The speaker's name sits above the speech.");
       assert(layout.fullWidth, "The speech runs the card's full width.");
       assert(layout.wholeLine, "The front card shows the whole line.");
       if (width < 700) {
         assert.equal(layout.captionLines, 1, "The phone caption is one line.");
-        // Name row, a two-line reply and one caption line, in a fixed box.
+        // The peek, name row, a two-line reply and one caption line, in
+        // the fixed box.
         assert(
           layout.stack <= 100,
           `The phone stack stays compact: ${layout.stack}`,
@@ -353,7 +343,6 @@ try {
         page,
         () => page.locator("#dialogue-advance").click(),
         `forward-${width}-${motion}`,
-        stackHits,
       );
       assert.equal(await front(), "Pip");
       // Both directions fade the leaving card out as an inert copy.
