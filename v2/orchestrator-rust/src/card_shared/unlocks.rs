@@ -5,7 +5,7 @@
 //! for the talker's passkey here and opens that avatar's own world.
 use super::full_world::{actor_id, actor_index};
 use super::store::{sql_error, Result};
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
@@ -114,4 +114,33 @@ pub(super) fn pick(c: &Connection, user: &str, world: &str, a: usize) -> Result<
         .map(|i| actor_id(*i))
         .collect();
     Ok(json!({"hidden": actor_id(locked[n]), "absent": absent}))
+}
+// The unlocks a committed play's lines name, for the passkey bound to the
+// talker's seat. Idempotent; returns the ones new to their passkey.
+pub(super) fn record(
+    c: &Connection,
+    world: &str,
+    result: &Value,
+    seq: i64,
+) -> Result<Vec<(String, usize)>> {
+    let mut found = vec![];
+    for line in result["events"].as_array().into_iter().flatten() {
+        let (Some(avatar), Some(by)) = (line["unlock"].as_str(), line["actorId"].as_str()) else {
+            continue;
+        };
+        let (a, seat) = (actor_index(avatar)?, actor_index(by)?);
+        let Some(user) = super::bindings::holder(c, world, seat)? else {
+            continue;
+        };
+        let added = c
+            .execute(
+                "INSERT OR IGNORE INTO card_unlocks(user,actor,world,seq) VALUES(?,?,?,?)",
+                params![user, a, world, seq],
+            )
+            .map_err(sql_error)?;
+        if added > 0 {
+            found.push((user, a));
+        }
+    }
+    Ok(found)
 }

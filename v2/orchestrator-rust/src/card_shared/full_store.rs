@@ -200,7 +200,8 @@ pub(super) fn commit(
         params![id, command.to_string(), now],
     )
     .map_err(sql_error)?;
-    checkpoint(c, id, w, c.last_insert_rowid())?;
+    let seq = c.last_insert_rowid();
+    checkpoint(c, id, w, seq)?;
     // A committed play's dialogue context comes from the narrator, never the
     // rules. Replay applies commands directly and never asks for it.
     // The play is already journaled, so nothing here may return an error.
@@ -219,6 +220,7 @@ pub(super) fn commit(
                 tracing::error!(error = %error, "could not keep an avatar's upgrades")
             }
         }
+        unlock(c, id, &result, seq, now);
         let mut scene = w.request("context", a);
         scene["action"] = command["action"].clone();
         match super::narrator::context(&scene) {
@@ -229,6 +231,30 @@ pub(super) fn commit(
         }
     }
     Ok(result)
+}
+// A Talk that met the hidden avatar unlocks it for the talker's passkey and
+// opens that avatar's own world, which hides the next (#1936). With all
+// eight world slots used, the unlock stays and the world waits.
+fn unlock(c: &Connection, id: &str, result: &Value, seq: i64, now: i64) {
+    let found = super::unlocks::record(c, id, result, seq).unwrap_or_else(|error| {
+        tracing::error!(%error, "could not record an unlock");
+        vec![]
+    });
+    for (user, a) in found {
+        // A world that cannot open leaves nothing half-made behind.
+        let opened = c
+            .execute_batch("SAVEPOINT unlock_world")
+            .map_err(sql_error)
+            .and_then(|()| super::full::found(c, &user, a, None, now));
+        let end = if opened.is_ok() {
+            "RELEASE unlock_world"
+        } else {
+            "ROLLBACK TO unlock_world; RELEASE unlock_world"
+        };
+        if let Err(error) = opened.and(c.execute_batch(end).map_err(sql_error)) {
+            tracing::warn!(%error, "an unlocked avatar's world waits for a free slot");
+        }
+    }
 }
 pub(super) fn expire(c: &Connection, id: &str, w: &mut World, now: i64) -> Result<()> {
     let mut q = c
