@@ -5,9 +5,10 @@ import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 
 // ☰'s world slots (#1877, #1891): a seat is in colour only while online, a
-// tap shows its stats, and two taps on a grey seat move its avatar there.
-// A friend's world shows while your avatar sits there, and a second tap on
-// your seat there offers Step away, which releases it and keeps its level.
+// tap shows its avatar's card with its actions, and a grey seat whose
+// avatar may go there offers it on the card. A friend's world shows while
+// your avatar sits there; Step away on your avatar's card releases it and
+// keeps its level.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -117,22 +118,19 @@ try {
     }
     // Vale is online in the world being played, in colour there only.
     const lit = await menu
-      .locator('[data-avatar="vale"]')
+      .locator('.slot-seat[data-avatar="vale"]')
       .evaluateAll((seats) => seats.map((seat) => seat.dataset.lit));
     assert.deepEqual(lit, ["true", "false", "false"]);
-    // Your Tavi in the friend's world: one tap shows Play and Release, a
-    // second offers Step away, and that releases the seat (no reset).
-    const yours = friend.locator('[data-avatar="tavi"] button');
-    await yours.click();
+    // The card starts on the avatar being played.
+    const card = menu.locator(".profile-card");
+    assert.equal(await card.getAttribute("data-avatar"), "vale");
+    // Your Tavi in the friend's world: the card holds Play, Step away and
+    // Release; Step away asks with a second tap and releases (no reset).
+    await friend.locator('[data-avatar="tavi"] button').click();
+    assert.equal(await card.getAttribute("data-avatar"), "tavi");
+    assert.match(await card.innerText(), /Play[\s\S]*Release · start over/);
     const step = menu.locator("#avatar-step-away");
-    assert.equal(await step.count(), 0);
-    assert.ok(
-      await friend
-        .getByText("Release · start over", { exact: true })
-        .isVisible(),
-    );
-    await yours.click();
-    await step.waitFor();
+    await step.click();
     assert.match(
       await menu.locator(".avatar-status").innerText(),
       /Tavi's level goes with Tavi\./,
@@ -144,27 +142,29 @@ try {
     await friend.waitFor({ state: "detached" });
     assert.deepEqual(commands.shift(), ["friend", { op: "release" }]);
     assert.equal(await menu.locator(".world-slot").count(), 2);
-    // Someone's offline Mara is grey, and a tap only shows who plays her.
+    // Someone's offline Mara is grey; her card says who plays her, and the
+    // owner may free her.
     const spare = menu.locator('.world-slot[data-slot="spare"]');
     await spare.locator("summary").click();
     await spare.locator('[data-avatar="mara"] button').click();
-    const stats = menu.locator(".avatar-stats");
-    assert.match(await stats.innerText(), /Mara\nPlayed by Someone · offline/);
-    // Vale's grey seat in the spare world: one tap selects, two move.
-    const vale = spare.locator('[data-avatar="vale"] button');
-    await vale.click();
-    assert.match(
-      await stats.innerText(),
-      /^Vale\nLives here on their own · your Vale is in .+$/,
-    );
-    assert.match(
-      await menu.locator(".avatar-status").innerText(),
-      /Tap Vale again to bring Vale here\./,
+    assert.match(await card.innerText(), /Someone · offline/);
+    assert.deepEqual(await card.locator(".avatar-act").allInnerTexts(), [
+      "Free Mara",
+    ]);
+    // Vale's grey seat in the spare world offers Vale on the card.
+    await spare.locator('[data-avatar="vale"] button').click();
+    assert.equal(await card.getAttribute("data-avatar"), "vale");
+    const bring = menu.locator("#avatar-bring");
+    assert.match(await bring.innerText(), /^Bring to /);
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll("#world-menu img")].every(
+        (i) => i.complete,
+      ),
     );
     await page.screenshot({
       path: `output/card-world-slots-${width}.png`,
     });
-    await Promise.all([page.waitForURL(/\?world=spare$/), vale.click()]);
+    await Promise.all([page.waitForURL(/\?world=spare$/), bring.click()]);
     assert.deepEqual(commands.shift(), [
       "spare",
       { op: "claim", avatar: "vale" },
@@ -185,7 +185,7 @@ try {
     await page.close();
   }
   console.log(
-    "World slots: colour is presence, a tap shows stats, two taps move an avatar, and two on yours step it away, at 390 and 1440.",
+    "World slots: colour is presence, a tap shows the avatar's card and its actions, a grey seat offers a move, and Step away, at 390 and 1440.",
   );
 } finally {
   await browser.close();

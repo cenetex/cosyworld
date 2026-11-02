@@ -148,21 +148,17 @@ try {
     ]);
     assert.equal(await current.locator('[data-lit="true"]').count(), 3);
     assert.doesNotMatch(await menu.innerText(), /Black pond|Empty station/);
-    // Each avatar shows once: no avatar list, no Send to… or Step away.
+    // Each avatar shows once: no avatar list and no Send to….
     assert.equal(await menu.locator(".avatar-row, .avatar-list").count(), 0);
-    assert.doesNotMatch(await menu.innerText(), /Send to|Step away/);
-    // No Free button waits under the seats; tapping a held seat shows it.
-    assert.equal(await menu.locator(".avatar-delete").count(), 0);
+    assert.doesNotMatch(await menu.innerText(), /Send to/);
+    // The card below shows the avatar being played and its actions; a
+    // tapped seat shows that avatar's card instead.
+    const card = menu.locator(".profile-card");
+    assert.match(await card.innerText(), /Vale[\s\S]*online[\s\S]*Release/);
+    assert.equal(await card.getAttribute("data-avatar"), "vale");
     await seats.nth(4).locator("button").click();
-    assert.match(
-      await current.locator(".seat-note").innerText(),
-      /Mara · Sable Swift · Level 1/,
-    );
+    assert.match(await card.innerText(), /Mara[\s\S]*Sable Swift · online/);
     await seats.nth(3).locator("button").click();
-    assert.match(
-      await current.locator(".avatar-actions").innerText(),
-      /Vale · You · Level 1[\s\S]*Release/,
-    );
     await page.screenshot({
       path: new URL(`menu-${width}.png`, output).pathname,
     });
@@ -178,7 +174,7 @@ try {
     await toggle.click();
     await menu.waitFor({ state: "visible" });
     await seats.nth(1).locator("button").click();
-    const free = current.locator(".avatar-delete");
+    const free = card.locator(".avatar-delete");
     assert.equal(await free.innerText(), "Free Ash");
     await page.screenshot({
       path: new URL(`table-${width}.png`, output).pathname,
