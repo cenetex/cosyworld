@@ -34,15 +34,34 @@ export const questCards = (world, actor = currentActor(world)) =>
 export const questCard = (world, actor = currentActor(world)) =>
   questCards(world, actor)[0] ?? null;
 
-// The rules' words for the want; a target not yet uncovered is unnamed.
-export function questCaption(quest, covered = false) {
+// The rules' action in words; an uncovered target gets its name, while a
+// covered target gets a clear description of what remains to be discovered.
+export function questCaption(quest, covered = false, verb = null) {
   const words = wantText({
     kind: quest.kind,
     target: quest.target,
     ...(quest.step ? { step: quest.step } : {}),
   });
-  const shown =
-    covered && quest.target ? words.replace(nameOf(quest.target), "…") : words;
+  const unknown = {
+    item: "something you have not found yet",
+    person: "someone you have not met yet",
+    place: "a place you have not found yet",
+  };
+  let shown =
+    covered && quest.target
+      ? quest.kind === "place" && !quest.step
+        ? "go somewhere you have not found yet"
+        : words.replace(nameOf(quest.target), unknown[quest.kind])
+      : words;
+  // The accessible goal names the same verb as the place card, including
+  // places whose name is known but which this avatar has not visited yet.
+  if (quest.kind === "place" && (verb === "Discover" || verb === "Go to")) {
+    const target = covered
+      ? "somewhere you have not found yet"
+      : nameOf(quest.target);
+    shown = `${verb === "Discover" ? "discover" : covered ? "go" : "go to"} ${target}`;
+    if (quest.step?.verb === "rest") shown += " and rest there";
+  }
   const caption = shown[0].toUpperCase() + shown.slice(1);
   return quest.level ? `Level ${romanLevel(quest.level)}: ${caption}` : caption;
 }

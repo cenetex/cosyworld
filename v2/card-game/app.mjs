@@ -1789,10 +1789,7 @@ function renderActions() {
   $("play-readout").textContent = selected.length
     ? `${selectionName}. ${ready.map(playLabel).join(". ") || hint}`
     : questOpen && (shownQuests[questPick] || sealedQuests[0])
-      ? questCaption(
-          shownQuests[questPick] || sealedQuests[0],
-          questCovered(shownQuests[questPick] || sealedQuests[0]),
-        )
+      ? shownQuestCaption(shownQuests[questPick] || sealedQuests[0])
       : "";
 }
 function updateCardSelection(frame) {
@@ -2065,6 +2062,10 @@ const stackLabel = (stack) =>
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near and plays nothing.
 const questCovered = (quest) => !quest.target || cardIsCovered(quest.target);
+function shownQuestCaption(quest) {
+  const hidden = questCovered(quest);
+  return questCaption(quest, hidden, questVerb(world, quest, hidden));
+}
 const questArt = {
   url: (src) => imageUrl(src, "card"),
   portrait: (id) => portrait(id, null, world),
@@ -2091,8 +2092,8 @@ function questFrame({ id, quest, met }) {
   el.setAttribute(
     "aria-label",
     met
-      ? `Quest met: ${questCaption(quest, hidden)}. Select to clear it.`
-      : `Quest${quest.index ? ` ${quest.index + 1}` : ""}: ${questCaption(quest, hidden)}${near ? ", near" : ""}`,
+      ? `Quest met: ${shownQuestCaption(quest)}. Select to clear it.`
+      : `Quest${quest.index ? ` ${quest.index + 1}` : ""}: ${shownQuestCaption(quest)}${near ? ", near" : ""}`,
   );
   if (met) {
     el.dataset.met = "true";
@@ -2193,6 +2194,17 @@ function syncQuestFold(fold) {
       : !questCovered(quest) && questNear(world, quest)
         ? "near"
         : "none";
+  const count = shownQuests.length + sealedQuests.length;
+  const caption = shownQuestCaption(sealedQuests[0] || quest);
+  fold.dataset.count = String(count);
+  fold.setAttribute(
+    "aria-label",
+    sealedQuests.length
+      ? `Quest met: ${caption}. Open it.`
+      : count > 1
+        ? `${count} quests: ${caption}. Open them.`
+        : `Quest: ${caption}. Open it.`,
+  );
 }
 function questFold(quest) {
   const fold = node("button", undefined, "quest-fold");
@@ -2200,16 +2212,6 @@ function questFold(quest) {
   fold.style.setProperty("--tier-color", questTier(quest).color);
   fold.style.setProperty("--card-back", cardBackImage());
   syncQuestFold(fold);
-  const count = shownQuests.length + sealedQuests.length;
-  fold.dataset.count = String(count);
-  fold.setAttribute(
-    "aria-label",
-    sealedQuests.length
-      ? "Quest met: open it"
-      : count > 1
-        ? `${count} quests: open them`
-        : "Quest",
-  );
   fold.addEventListener("click", (event) => {
     event.stopPropagation();
     toggleQuest();
