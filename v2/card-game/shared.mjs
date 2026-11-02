@@ -6,7 +6,6 @@ import { worldNameOf } from "./world-name.mjs";
 import { INVITE_KEY, PLAYING_KEY } from "./avatar-world.mjs";
 
 export const humanAvatars = roster.avatars;
-const avatarName = (id) => humanAvatars.find((a) => a.id === id)?.name || id;
 const $ = (id) => document.getElementById(id);
 let modal;
 // The table's status line, for errors outside the shared-world dialog.
@@ -158,7 +157,7 @@ export async function connectSharedWorld(id) {
         } catch {}
         return location.replace("/");
       }
-      // A full room waits at the table (renderSharedQueue).
+      // A full room waits at the table (renderRoomStatus).
       value = await worldRequest({ op: "enter" });
       modal?.close();
       resolve(value);
@@ -319,12 +318,6 @@ export function installSharedControls({
   share.id = "shared-worlds-button";
   document.querySelector(".top-actions").prepend(share);
   if (!session) return;
-  const queue = node("ol", undefined, "shared-play-queue");
-  queue.id = "shared-queue";
-  queue.setAttribute("aria-label", "Plays at the table");
-  const portraits = node("div", undefined, "shared-portraits");
-  portraits.append(queue);
-  document.querySelector(".dialogue").append(portraits);
   const roomStatus = node("div", undefined, "shared-room-status");
   roomStatus.id = "shared-room-status";
   roomStatus.hidden = true;
@@ -342,31 +335,16 @@ export function installSharedControls({
     }),
   );
 }
-let renderedQueue = "";
-export function renderSharedQueue(
-  session,
-  portraitFor,
-  {
-    liveActor = null,
-    needsLive = false,
-    onLive = null,
-    onWithdraw = (key) => session.command({ op: "cancel", key }),
-  } = {},
-) {
+// A full room waits at the table, with a way to check again. Waiting plays
+// have no chips (owner, 2026-11-01): the action beat holds your own.
+let renderedRoom = "";
+export function renderRoomStatus(session) {
   const { state } = session;
-  const queue = $("shared-queue");
-  if (!queue) return;
-  const key = JSON.stringify([
-    state.actor,
-    state.present,
-    state.queue,
-    liveActor,
-    needsLive,
-  ]);
-  if (key === renderedQueue) return;
-  renderedQueue = key;
-  queue.replaceChildren();
   const roomStatus = $("shared-room-status");
+  if (!roomStatus) return;
+  const key = JSON.stringify([state.actor, state.present]);
+  if (key === renderedRoom) return;
+  renderedRoom = key;
   roomStatus.replaceChildren();
   roomStatus.hidden = hasSharedPlace(state);
   if (!hasSharedPlace(state)) {
@@ -378,42 +356,6 @@ export function renderSharedQueue(
       button("Check for a place", () => session.command({ op: "enter" })),
     );
     roomStatus.append(waiting);
-  }
-  const entries = state.queue || [];
-  const liveEntry = entries.find((entry) => entry.actor === liveActor);
-  const ordered = liveEntry
-    ? [liveEntry, ...entries.filter((entry) => entry.id !== liveEntry.id)]
-    : entries;
-  for (const entry of ordered) {
-    const canWithdraw =
-      entry.actor === state.actor && entry.status === "waiting";
-    const returnsLive = entry.actor === liveActor && needsLive && onLive;
-    // Other players' plays are private until they resolve: name the player
-    // and what the table is doing with it, never the play itself.
-    const label = `${avatarName(entry.actor)} is ${entry.status === "waiting" ? "thinking" : entry.status === "working" ? "playing" : "reading"}…`;
-    const face = returnsLive
-      ? button("", onLive)
-      : canWithdraw
-        ? button("", () => onWithdraw(entry.id))
-        : node("span");
-    face.className = "shared-play-avatar";
-    face.dataset.actor = entry.actor;
-    face.dataset.status = entry.status;
-    face.title = returnsLive
-      ? "Return to live dialogue · " + avatarName(entry.actor)
-      : canWithdraw
-        ? label + " · Withdraw your play"
-        : label;
-    face.setAttribute("aria-label", face.title);
-    if (returnsLive) {
-      face.dataset.returnLive = "true";
-      face.dataset.live = "false";
-    }
-    if (!canWithdraw && !returnsLive) face.setAttribute("role", "img");
-    face.append(portraitFor(entry.actor));
-    const row = node("li");
-    row.append(face);
-    queue.append(row);
   }
 }
 const sharedLineDuration = (line) =>
@@ -536,21 +478,6 @@ export function sharedLiveLine(state, now, room) {
     if (elapsed < 0) return line;
   }
   return scene.lines.at(-1);
-}
-
-export function sharedNextActor(state, now, room) {
-  const queued =
-    state.queue?.find((entry) => entry.status === "waiting") ||
-    state.queue?.find((entry) => entry.status === "working");
-  if (queued) return queued.actor;
-  const scene = state.history?.find(
-    (entry) => entry.room === room && entry.lines?.length,
-  );
-  const live = sharedLiveLine(state, now, room);
-  const next = scene?.lines
-    .slice(scene.lines.indexOf(live) + 1)
-    .find((line) => line.actorId);
-  return next?.actorId || live?.actorId || scene?.actor || state.actor;
 }
 
 export function sharedSpeechState(state, room) {
