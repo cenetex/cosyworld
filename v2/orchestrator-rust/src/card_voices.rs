@@ -2,6 +2,8 @@
 //! (#1924). A line spends one credit before the provider call and is
 //! refunded when the call fails. Its request id is the account, cast
 //! revision, speaker and words, so a line already bought never costs again.
+//! In a shared world the world's pool pays, once per line for every player,
+//! and the world keeps the clip (`credits::clips`).
 
 use std::{
     path::Path,
@@ -21,7 +23,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-use super::credits::{self, Spend, SpendKind};
+use super::credits::{self, clips, Payer, Spend, SpendKind};
 use crate::{ai_gateway::AiConfig, AppState};
 
 const VOICES: &str = include_str!("../../card-game/voices.json");
@@ -37,12 +39,20 @@ pub(crate) fn router() -> Router<AppState> {
 struct Line {
     speaker: String,
     text: String,
+    /// The shared world whose pool pays; absent for the player's own.
+    #[serde(default)]
+    world: Option<String>,
 }
 
 #[derive(Debug, PartialEq)]
 enum Failure {
     Unknown,
-    Credits { balance: i64, price: i64 },
+    Outsider,
+    Credits {
+        balance: i64,
+        price: i64,
+        pool: bool,
+    },
     Provider(String),
     Store(String),
 }
@@ -51,9 +61,9 @@ fn reply(status: StatusCode, body: Value) -> Response {
     (status, [(header::CACHE_CONTROL, "no-store")], Json(body)).into_response()
 }
 
-fn request_id(user: &str, cast: &Value, speaker: &str, text: &str) -> String {
+fn request_id(owner: &str, cast: &Value, speaker: &str, text: &str) -> String {
     let digest =
-        Sha256::digest(json!([user, cast["revision"], cast["model"], speaker, text]).to_string());
+        Sha256::digest(json!([owner, cast["revision"], cast["model"], speaker, text]).to_string());
     format!("tts:{}", hex(&digest))
 }
 
@@ -111,7 +121,29 @@ async fn synthesize(config: &AiConfig, body: &Value) -> Result<Vec<u8>, String> 
     Ok(bytes.to_vec())
 }
 
-/// Spend, speak, and refund the spend if the provider failed.
+enum Step {
+    Outsider,
+    Cached(Vec<u8>),
+    Spent(Spend),
+}
+
+/// Run one store step off the async workers.
+async fn store<T: Send + 'static>(
+    path: &Path,
+    step: impl FnOnce(&mut rusqlite::Connection) -> rusqlite::Result<T> + Send + 'static,
+) -> Result<T, Failure> {
+    let path = path.to_owned();
+    tokio::task::spawn_blocking(move || {
+        let mut c = credits::open(&path).map_err(|e| e.to_string())?;
+        step(&mut c).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| Failure::Store(e.to_string()))?
+    .map_err(Failure::Store)
+}
+
+/// Spend, speak, and refund the spend if the provider failed. A world's
+/// line is spent from its pool and kept for its other players.
 async fn speak(
     path: &Path,
     config: &AiConfig,
@@ -124,35 +156,63 @@ async fn speak(
         return Err(Failure::Unknown);
     }
     let body = payload(&cast, &line.speaker, text).ok_or(Failure::Unknown)?;
-    let id = request_id(user, &cast, &line.speaker, text);
-    let store = |f: fn(&mut rusqlite::Connection, &str, &str) -> rusqlite::Result<Spend>| {
-        let (path, user, id) = (path.to_owned(), user.to_owned(), id.clone());
-        tokio::task::spawn_blocking(move || {
-            let mut c = credits::open(&path).map_err(|e| e.to_string())?;
-            f(&mut c, &user, &id).map_err(|e| e.to_string())
-        })
+    let world = line.world.clone().unwrap_or_default();
+    let owner = match world.as_str() {
+        "" => user.to_owned(),
+        world => format!("world:{world}"),
     };
-    let spent = store(|c, u, id| credits::spend(c, u, SpendKind::Tts, id))
-        .await
-        .map_err(|e| Failure::Store(e.to_string()))?
-        .map_err(Failure::Store)?;
-    if let Spend::Insufficient { balance, price } = spent {
-        return Err(Failure::Credits { balance, price });
-    }
-    match synthesize(config, &body).await {
-        Ok(audio) => Ok(audio),
-        Err(reason) => {
-            let refunded = store(|c, u, id| {
-                credits::refund(c, u, SpendKind::Tts, id, "voice provider failed")
-                    .map(|_| Spend::Spent { balance: 0 })
-            })
-            .await;
-            if !matches!(refunded, Ok(Ok(_))) {
-                tracing::error!(user, request_id = %id, "card voice refund failed");
+    let id = request_id(&owner, &cast, &line.speaker, text);
+    let (w, u, i) = (world.clone(), user.to_owned(), id.clone());
+    let step = store(path, move |c| {
+        if !w.is_empty() {
+            if !clips::plays_in(c, &w, &u)? {
+                return Ok(Step::Outsider);
             }
-            Err(Failure::Provider(reason))
+            if let Some(audio) = clips::clip(c, &w, &i)? {
+                return Ok(Step::Cached(audio));
+            }
         }
+        credits::spend(c, Payer::of(&w, &u), SpendKind::Tts, &i).map(Step::Spent)
+    })
+    .await?;
+    match step {
+        Step::Outsider => return Err(Failure::Outsider),
+        Step::Cached(audio) => return Ok(audio),
+        Step::Spent(Spend::Insufficient { balance, price }) => {
+            return Err(Failure::Credits {
+                balance,
+                price,
+                pool: !world.is_empty(),
+            })
+        }
+        Step::Spent(_) => {}
     }
+    let synthesized = synthesize(config, &body).await;
+    let (w, u, i) = (world, user.to_owned(), id.clone());
+    let kept = match &synthesized {
+        Ok(audio) if !w.is_empty() => {
+            let audio = audio.clone();
+            store(path, move |c| clips::keep(c, &w, &i, &audio)).await
+        }
+        Ok(_) => Ok(()),
+        Err(_) => {
+            store(path, move |c| {
+                credits::refund(
+                    c,
+                    Payer::of(&w, &u),
+                    SpendKind::Tts,
+                    &i,
+                    "voice provider failed",
+                )
+                .map(|_| ())
+            })
+            .await
+        }
+    };
+    if kept.is_err() {
+        tracing::error!(user, request_id = %id, "card voice clip or refund was not stored");
+    }
+    synthesized.map_err(Failure::Provider)
 }
 
 fn admit(user: &str) -> bool {
@@ -226,9 +286,18 @@ async fn speech(
             StatusCode::BAD_REQUEST,
             json!({"error": "Choose a current character line."}),
         ),
-        Err(Failure::Credits { balance, price }) => reply(
+        Err(Failure::Outsider) => reply(
+            StatusCode::FORBIDDEN,
+            json!({"error": "Join this world to hear its voices."}),
+        ),
+        Err(Failure::Credits {
+            balance,
+            price,
+            pool,
+        }) => reply(
             StatusCode::PAYMENT_REQUIRED,
-            json!({"error": "Out of credits for voices.", "reason": "credits", "balance": balance, "price": price}),
+            json!({"error": if pool { "This world's pool is out of credits for voices." } else { "Out of credits for voices." },
+                "reason": if pool { "pool" } else { "credits" }, "balance": balance, "price": price}),
         ),
         Err(Failure::Provider(reason)) => reply(
             StatusCode::BAD_GATEWAY,
@@ -293,6 +362,7 @@ mod tests {
         let line = |speaker: &str, text: &str| Line {
             speaker: speaker.into(),
             text: text.into(),
+            world: None,
         };
         let balance = || credits::balance(&credits::open(&path).unwrap(), "u1").unwrap();
         // No credits: nothing reaches the provider.
@@ -300,7 +370,8 @@ mod tests {
             speak(&path, &config, "u1", &line("vale", "A fair trade.")).await,
             Err(Failure::Credits {
                 balance: 0,
-                price: 1
+                price: 1,
+                pool: false
             })
         );
         assert!(seen.lock().unwrap().is_empty());
@@ -331,6 +402,67 @@ mod tests {
             speak(&path, &config, "u1", &line("echo", "bong")).await,
             Err(Failure::Unknown)
         );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn a_world_pool_pays_each_line_once_and_every_player_hears_its_clip() {
+        let path =
+            std::env::temp_dir().join(format!("cosyworld-pool-{}.sqlite", crate::random_hex(8)));
+        credits::open(&path)
+            .unwrap()
+            .execute_batch(
+                "CREATE TABLE card_members(world TEXT, actor INTEGER, user TEXT, seen INTEGER);
+                 CREATE TABLE card_bindings(world TEXT, actor INTEGER, user TEXT);
+                 INSERT INTO card_members VALUES ('w1', 0, 'u1', 0);
+                 INSERT INTO card_bindings VALUES ('w1', 1, 'u2');",
+            )
+            .unwrap();
+        let (fail, seen) = (
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(Mutex::new(Vec::new())),
+        );
+        let config = provider(fail.clone(), seen.clone()).await;
+        let line = |text: &str| Line {
+            speaker: "vale".into(),
+            text: text.into(),
+            world: Some("w1".into()),
+        };
+        let pool = || {
+            let by = "";
+            credits::balance(
+                &credits::open(&path).unwrap(),
+                Payer::World { world: "w1", by },
+            )
+            .unwrap()
+        };
+        assert_eq!(
+            speak(&path, &config, "u1", &line("Hello.")).await,
+            Err(Failure::Credits {
+                balance: 0,
+                price: 1,
+                pool: true
+            })
+        );
+        let mut c = credits::open(&path).unwrap();
+        credits::grant(&mut c, "u3", 3, "pack", "test").unwrap();
+        credits::pool::commit(&mut c, "u3", "w1", 3, "c-1").unwrap();
+        assert_eq!(
+            speak(&path, &config, "u3", &line("Hello.")).await,
+            Err(Failure::Outsider),
+            "a committer who does not play there cannot spend the pool"
+        );
+        let first = speak(&path, &config, "u1", &line("Hello.")).await.unwrap();
+        let second = speak(&path, &config, "u2", &line("Hello.")).await.unwrap();
+        assert_eq!((first, pool()), (second, 2));
+        assert_eq!(seen.lock().unwrap().len(), 1, "the clip is made once");
+        assert_eq!(credits::balance(&c, "u2").unwrap(), 0);
+        fail.store(true, Ordering::SeqCst);
+        assert!(matches!(
+            speak(&path, &config, "u2", &line("Again?")).await,
+            Err(Failure::Provider(_))
+        ));
+        assert_eq!(pool(), 2, "a failed voice is refunded to the pool");
         let _ = std::fs::remove_file(&path);
     }
 }
