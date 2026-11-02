@@ -7,9 +7,9 @@ import { worldName } from "../card-game/world-name.mjs";
 
 // ☰'s world slots (#1877, #1891): a world shows the avatars that entered
 // it, in colour only while online, then "+" for an open seat. A tap shows
-// an avatar's card with its actions; "+" offers your avatar on the card. A friend's world shows while
-// your avatar sits there; Step away on your avatar's card releases it and
-// keeps its level. A world of yours nobody is in is no row: + New world
+// an avatar's card; a second tap arms it with its actions. "+" offers your
+// avatar on the card. A friend's world shows while your avatar sits there;
+// Leave on your armed avatar's card releases it and keeps its level. A world of yours nobody is in is no row: + New world
 // takes its name and brings an avatar back into it.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -138,31 +138,47 @@ try {
     // The card starts on the avatar being played.
     const card = menu.locator(".profile-card");
     assert.equal(await card.getAttribute("data-avatar"), "vale");
-    // Your Tavi in the friend's world: the card holds Play, Step away and
-    // Release; Step away asks with a second tap and releases (no reset).
-    await friend.locator('[data-avatar="tavi"] button').click();
+    // Your Tavi in the friend's world: one tap chooses her (she glows) with
+    // no actions; a second arms her with Start and Leave, and one tap on
+    // Leave releases her (no reset).
+    const taviFace = friend.locator('[data-avatar="tavi"] button');
+    const actions = card.locator(".avatar-act");
+    await taviFace.click();
     assert.equal(await card.getAttribute("data-avatar"), "tavi");
-    assert.match(await card.innerText(), /Play[\s\S]*Release · start over/);
-    const step = menu.locator("#avatar-step-away");
-    await step.click();
+    assert.equal(await taviFace.getAttribute("aria-pressed"), "true");
+    assert.equal(await actions.count(), 0);
+    await shot(`output/card-world-slots-selected-${width}.png`);
+    await taviFace.click();
+    assert.equal(await taviFace.getAttribute("data-armed"), "true");
+    assert.deepEqual(await actions.allInnerTexts(), ["Start", "Leave"]);
     assert.match(
-      await menu.locator(".avatar-status").innerText(),
-      /Tavi's level goes with Tavi\./,
+      await card.locator(".avatar-note").innerText(),
+      new RegExp(
+        `^Tavi keeps their level; the seat in ${worldName(3)} opens\\.$`,
+      ),
     );
-    await shot(`output/card-world-slots-step-away-${width}.png`);
-    await step.click();
+    await shot(`output/card-world-slots-armed-${width}.png`);
+    // A tap elsewhere disarms; two more arm her again.
+    await card.locator(".profile-art").click();
+    assert.equal(await actions.count(), 0);
+    await taviFace.click();
+    await taviFace.click();
+    await menu.locator("#avatar-leave").click();
     await friend.waitFor({ state: "detached" });
     assert.deepEqual(commands.shift(), ["friend", { op: "release" }]);
-    // The second-tap note goes with the card that asked.
-    assert.equal(await menu.locator(".avatar-status").innerText(), "");
+    assert.equal(
+      await menu.locator(".avatar-status").innerText(),
+      `Tavi left ${worldName(3)}.`,
+    );
     assert.equal(await menu.locator(".world-slot").count(), 2);
-    // Someone's offline Mara is grey; her card says who plays her, and the
-    // owner may free her.
+    // Someone's offline Mara is grey; her card says who plays her, and,
+    // armed, the owner may free her.
     const spare = menu.locator('.world-slot[data-slot="spare"]');
     await spare.locator('[data-avatar="mara"] button').click();
     assert.match(await card.innerText(), /Someone · offline/);
+    await spare.locator('[data-avatar="mara"] button').click();
     assert.deepEqual(await card.locator(".avatar-act").allInnerTexts(), [
-      "Free Mara",
+      "Free",
     ]);
     // "+" in the spare world offers Vale on the card, and each tap the next
     // avatar that may go there, up to Tavi, who stepped away; she comes.
@@ -214,7 +230,7 @@ try {
     await page.close();
   }
   console.log(
-    "World slots: entered avatars and +, colour is presence, the card and its actions, + offers a move, Step away, and an emptied world folded into + New world, at 390 and 1440.",
+    "World slots: entered avatars and +, colour is presence, the card, armed with its actions, + offers a move, Leave, and an emptied world folded into + New world, at 390 and 1440.",
   );
 } finally {
   await browser.close();

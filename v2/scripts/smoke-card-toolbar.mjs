@@ -151,11 +151,13 @@ try {
     // Each avatar shows once: no avatar list and no Send to….
     assert.equal(await menu.locator(".avatar-row, .avatar-list").count(), 0);
     assert.doesNotMatch(await menu.innerText(), /Send to/);
-    // The card below shows the avatar being played and its actions; a
-    // tapped seat shows that avatar's card instead.
+    // The card below shows the avatar being played, with no actions until
+    // a portrait is tapped twice; a tapped seat shows that avatar's card.
     const card = menu.locator(".profile-card");
-    assert.match(await card.innerText(), /Vale[\s\S]*online[\s\S]*Release/);
+    const actions = card.locator(".avatar-act");
+    assert.match(await card.innerText(), /Vale[\s\S]*online/);
     assert.equal(await card.getAttribute("data-avatar"), "vale");
+    assert.equal(await actions.count(), 0);
     await seats.nth(2).locator("button").click();
     assert.match(await card.innerText(), /Mara[\s\S]*Sable Swift · online/);
     await seats.nth(1).locator("button").click();
@@ -164,28 +166,32 @@ try {
     });
     const tools = await menu.locator(".menu-tools").boundingBox();
     assert(tools.y + tools.height <= height, `tools stay in view at ${width}`);
-    await page.keyboard.press("Escape");
+    // Armed, Vale offers Start and Leave; Start in the world being played
+    // just closes ☰.
+    await seats.nth(1).locator("button").click();
+    assert.deepEqual(await actions.allInnerTexts(), ["Start", "Leave"]);
+    await menu.locator("#avatar-start").click();
     await menu.waitFor({ state: "hidden" });
     await menuToggle.click();
     // A real pointer press outside the popover performs light dismissal.
     await page.mouse.click(5, 100);
     await menu.waitFor({ state: "hidden" });
-    // The owner frees a seat with a second tap.
+    // The owner arms another's seat with a second tap: one Free.
     await toggle.click();
     await menu.waitFor({ state: "visible" });
     await seats.nth(0).locator("button").click();
-    const free = card.locator(".avatar-delete");
-    assert.equal(await free.innerText(), "Free Ash");
+    assert.equal(await actions.count(), 0);
+    await seats.nth(0).locator("button").click();
+    const free = card.locator("#avatar-free");
+    assert.deepEqual(await actions.allInnerTexts(), ["Free"]);
+    assert.match(
+      await card.locator(".avatar-note").innerText(),
+      /Removes Amber Heron's hold and resets Ash/,
+    );
     await page.screenshot({
       path: new URL(`table-${width}.png`, output).pathname,
     });
     if (width === 1440) {
-      await free.click();
-      assert.equal(await free.innerText(), "Free Ash?");
-      assert.match(
-        await menu.locator(".avatar-status").innerText(),
-        /removes Amber Heron's hold and resets Ash/,
-      );
       present[2] = 0;
       await page.waitForFunction(
         () =>
@@ -194,10 +200,10 @@ try {
           ).length === 2,
       );
       assert.match(await toggle.getAttribute("aria-label"), /1 friend online/);
-      // A redrawn card drops the note its second tap asked with, so a note
-      // never names an avatar the card no longer shows.
-      assert.equal(await menu.locator(".avatar-status").innerText(), "");
-      assert.equal(await free.innerText(), "Free Ash");
+      // A presence redraw keeps the card armed; a tap elsewhere disarms.
+      assert.equal(await free.innerText(), "Free");
+      await card.locator(".profile-art").click();
+      assert.equal(await actions.count(), 0);
     }
     await page.keyboard.press("Escape");
     await menu.waitFor({ state: "hidden" });

@@ -65,11 +65,11 @@ function stored(key, value) {
   return null;
 }
 
-// What stepping away costs: the level goes along, and the seat frees (#1846).
+// What Leave costs, on one line: the level goes along, and the seat frees
+// (#1846).
 export function leaveNote(avatar, place) {
-  const name = place?.name || "This world";
   if (!place) return "";
-  return `${avatar.name}'s level goes with ${avatar.name}. ${avatar.name}'s things and quests stay in ${name}, and the seat there opens for someone else.`;
+  return `${avatar.name} keeps their level; the seat in ${place.name || "this world"} opens.`;
 }
 
 // A shared world this avatar can go to: one this person holds no avatar in,
@@ -240,10 +240,10 @@ export function installAvatarMenu({
     // The card's avatar: a tapped seat { id, slot }, or one "+" offers
     // { id, to, first }.
     chosen = null,
-    drawn = "",
-    // A second-tap note belongs to the card that asked; a redrawn card
-    // clears it, so it never names another avatar.
-    confirming = false;
+    // A second tap on the chosen portrait arms it: its card then shows its
+    // actions. A tap anywhere else disarms.
+    armed = false,
+    drawn = "";
   const here = () => {
     const world = getWorld();
     const actor = session ? session.state.actor : currentActor(world);
@@ -294,21 +294,6 @@ export function installAvatarMenu({
     });
     location.href = sharedLink(made.id);
   }
-  // A button that asks with a second tap, then runs; red unless `calm`.
-  function twoTap(label, armed, note, run, calm) {
-    const button = act(label, async () => {
-      if (button.dataset.armed !== "true") {
-        button.dataset.armed = "true";
-        button.textContent = armed;
-        status.textContent = note;
-        confirming = true;
-        return;
-      }
-      await run();
-    });
-    if (!calm) button.classList.add("avatar-delete");
-    return button;
-  }
   // Your world is empty once its last entered avatar leaves.
   const emptiedBy = (slot, seat) => {
     if (
@@ -317,65 +302,57 @@ export function installAvatarMenu({
     )
       remember(slot.shared);
   };
-  // The card's actions: Play, Step away and Release for yours; the owner's
-  // Free for another's.
+  // The armed card's actions, in the dialogue's action box: Start and Leave
+  // for yours, the owner's Free for another's, each acting on one tap, with
+  // a one-line note naming the avatar and world.
   function seatActions(slot, seat) {
-    const name = slot.name || "this world";
     const bar = el("div", "avatar-actions");
+    const note = (text) => bar.append(el("small", "avatar-note", text));
     if (seat.kind === "human") {
-      if (slot.owner)
-        bar.append(
-          twoTap(
-            `Free ${seat.name}`,
-            `Free ${seat.name}?`,
-            `Free ${seat.name}: removes ${seat.holder}'s hold and resets ${seat.name}.`,
-            async () => {
-              await command(slot.shared, { op: "reset", avatar: seat.id });
-              location.reload();
-            },
-          ),
-        );
+      if (!slot.owner) return null;
+      bar.append(
+        act(
+          "Free",
+          async () => {
+            await command(slot.shared, { op: "reset", avatar: seat.id });
+            location.reload();
+          },
+          "avatar-free",
+        ),
+      );
+      note(`Removes ${seat.holder}'s hold and resets ${seat.name}.`);
       return bar;
     }
-    if (seat.kind !== "you") return bar;
-    if (!slot.current)
-      bar.append(
-        act("Play", () => {
-          location.href = sharedLink(slot.shared);
-        }),
-      );
-    // Step away frees the seat and keeps the avatar's level and binding, so
-    // it is in no world until + New world or a move (was Move to your deck).
-    const away = twoTap(
-      "Step away",
-      "Step away?",
-      leaveNote(
-        humanAvatars.find((a) => a.id === seat.id),
-        slot,
-      ),
-      async () => {
-        await leave(slot);
-        emptiedBy(slot, seat);
-        if (slot.current) return leaveHere();
-        chosen = null;
-        await load();
-      },
-      true,
-    );
-    away.id = "avatar-step-away";
+    if (seat.kind !== "you") return null;
     bar.append(
-      away,
-      twoTap(
-        "Release · start over",
-        `Release ${seat.name} and start over?`,
-        `${seat.name} starts over at level 1. Their things and quests stay in ${name}, and anyone may take ${seat.name} there.`,
+      act(
+        "Start",
+        () => {
+          if (slot.current) menu.hidePopover();
+          else location.href = sharedLink(slot.shared);
+        },
+        "avatar-start",
+      ),
+      // Leave frees the seat and keeps the avatar's level and binding, so
+      // it is in no world until + New world or a move.
+      act(
+        "Leave",
         async () => {
-          await command(slot.shared, { op: "reset", avatar: seat.id });
+          await leave(slot);
           emptiedBy(slot, seat);
           if (slot.current) return leaveHere();
           chosen = null;
+          armed = false;
           await load();
+          status.textContent = `${seat.name} left ${slot.name || "the world"}.`;
         },
+        "avatar-leave",
+      ),
+    );
+    note(
+      leaveNote(
+        humanAvatars.find((a) => a.id === seat.id),
+        slot,
       ),
     );
     return bar;
@@ -388,8 +365,9 @@ export function installAvatarMenu({
     face.type = "button";
     face.dataset.keepMenu = "true";
     if (world && seat.kind === "you") face.id = "avatar-move";
-    const picked = shown?.id === seat.id && shown.slot === slot.key;
-    face.setAttribute("aria-pressed", String(Boolean(picked)));
+    const picked = chosen?.id === seat.id && chosen.slot === slot.key;
+    face.setAttribute("aria-pressed", String(picked));
+    if (picked && armed) face.dataset.armed = "true";
     face.setAttribute("aria-label", `${seat.name} · ${seat.holder}`);
     const image =
       (world && avatarImage(world, seat.id)) ||
@@ -400,7 +378,9 @@ export function installAvatarMenu({
     face.append(portrait);
     // Colour is presence: someone online in the seat. Every other is grey.
     item.dataset.lit = String(Boolean(seat.online));
+    // The first tap chooses (it glows), the second arms it.
     face.onclick = () => {
+      armed = picked;
       chosen = { id: seat.id, slot: slot.key };
       status.textContent = "";
       render();
@@ -430,6 +410,7 @@ export function installAvatarMenu({
       const at = chosen?.to === slot.key ? can.indexOf(chosen.avatar) : -1;
       const avatar = can[(at + 1) % can.length];
       chosen = { id: avatar.id, avatar, to: slot.key, first };
+      armed = false;
       status.textContent = "";
       render();
     };
@@ -453,6 +434,10 @@ export function installAvatarMenu({
     const box = el("article", "profile-card");
     Object.assign(box.dataset, { avatar: id, lit: Boolean(seat.online) });
     box.style.setProperty("--tier-color", tier.color);
+    const bar = to
+      ? view.slots.find((s) => s.key === to) && el("div", "avatar-actions")
+      : slot && armed && chosen && seatActions(slot, seat);
+    if (bar && !to) box.dataset.armed = "true";
     const art = el("div", "profile-art");
     const image = el("img");
     image.src = imageUrl(
@@ -478,11 +463,6 @@ export function installAvatarMenu({
     if (held?.length)
       facts.append(el("small", "", held.map(nameOf).join(", ")));
     const target = to && view.slots.find((s) => s.key === to);
-    const bar = target
-      ? el("div", "avatar-actions")
-      : slot
-        ? seatActions(slot, seat)
-        : el("div");
     if (target)
       bar.append(
         act(
@@ -491,7 +471,7 @@ export function installAvatarMenu({
           "avatar-bring",
         ),
       );
-    facts.append(bar);
+    if (bar) facts.append(bar);
     box.append(art, facts);
     return box;
   }
@@ -515,11 +495,9 @@ export function installAvatarMenu({
       view.slots.find((s) => s.current) || view.slots.find((s) => s.mine);
     const shown = chosen || (mine && { id: mine.mine, slot: mine.key });
     // Presence ticks redraw only when something shown has changed.
-    const key = JSON.stringify([view, shown]);
+    const key = JSON.stringify([view, shown, armed]);
     if (key === drawn) return;
     drawn = key;
-    if (confirming) status.textContent = "";
-    confirming = false;
     box.replaceChildren();
     // A world: its name, a portrait per avatar that has entered it, in
     // colour while online, then "+" while a seat is open (owner, 2026-11-01).
@@ -560,6 +538,12 @@ export function installAvatarMenu({
     }
     if (shown) box.append(stats(view, shown));
   }
+  // A tap anywhere but a portrait or the action box disarms.
+  menu.addEventListener("click", (event) => {
+    if (!armed || event.target.closest(".seat-face, .avatar-actions")) return;
+    armed = false;
+    render();
+  });
   menu.addEventListener("toggle", () => {
     if (!menu.matches(":popover-open")) {
       // A friend's world shows once, until ☰ closes or an avatar goes there.
@@ -568,6 +552,7 @@ export function installAvatarMenu({
       return;
     }
     chosen = null;
+    armed = false;
     status.textContent = "";
     redraw();
     load(stored(INVITE_KEY));
