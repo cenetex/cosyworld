@@ -22,6 +22,8 @@ use super::*;
 pub(crate) mod card_game;
 #[path = "card_voices.rs"]
 mod card_voices;
+#[path = "card_video.rs"]
+mod card_video;
 #[path = "credits.rs"]
 pub(crate) mod credits;
 
@@ -140,6 +142,7 @@ fn app_router_with_dependencies(
         .merge(crate::card_shared::router())
         .merge(credits::router())
         .merge(card_voices::router())
+        .merge(card_video::router())
         .merge(card_game::router())
         .merge(card_game::text_router(
             state.ai_config.clone(),
