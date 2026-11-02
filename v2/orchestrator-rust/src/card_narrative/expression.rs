@@ -24,6 +24,15 @@ fn symbols() -> &'static BTreeMap<String, String> {
     })
 }
 
+/// A spoken line's direction: a conversation turn whose facts are
+/// background, not a script (owner, 2026-11-02).
+pub(super) fn line_direction(mode: Mode, own: &str) -> String {
+    match mode {
+        Mode::Speech => "I answer in one or two short sentences, in my own voice, with only my own next words. What I know is background: I use it only when it fits, in my own words.".into(),
+        _ => direction(mode, own),
+    }
+}
+
 pub(super) fn direction(mode: Mode, own: &str) -> String {
     match mode {
         Mode::Speech => "My next reply is one or two short sentences in my own voice. I speak only my next words. The current scene supplies my facts.".into(),

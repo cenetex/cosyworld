@@ -54,6 +54,8 @@ function step(world, kind, target, turnIndex) {
   }));
   return {
     context,
+    // This turn's recorded lines: a Talk's target answers the actor's line.
+    lines: Object.fromEntries(entries.map(({ id, text }) => [id, text])),
     world: applyGeneratedText(result.state, context, {
       revision: context.revision,
       model: "voice-eval-fixture",
@@ -73,7 +75,11 @@ export function stationConversation(turns = 6) {
   for (let i = 0; i < turns; i++) {
     const kind = i % 3 === 2 ? "wait" : "talk";
     const next = step(world, kind, kind === "talk" ? "moth" : null, i);
-    cases.push({ name: `station talk ${i + 1}`, context: next.context });
+    cases.push({
+      name: `station talk ${i + 1}`,
+      context: next.context,
+      lines: next.lines,
+    });
     world = next.world;
   }
   return cases;
@@ -83,7 +89,11 @@ export function stationConversation(turns = 6) {
 // scenes that voice someone are measured.
 export function voiceEvalCases() {
   return [
-    ...narrativeContractCases().map(({ name, context }) => ({ name, context })),
+    ...narrativeContractCases().map(({ name, context }) => ({
+      name,
+      context,
+      lines: {},
+    })),
     ...stationConversation(),
   ].filter(({ context }) => !voicesNobody(context));
 }

@@ -11,8 +11,21 @@ use super::voice_metrics::{Budget, Section};
 use super::*;
 use serde_json::Map;
 
+/// One eval scene and the lines its speakers said in it.
+type Case = (String, Context, BTreeMap<String, String>);
+
+/// The scene a speaker answers in, as `complete_selected` builds it: a Talk's
+/// target hears the actor's line from this turn.
+fn scene_for(context: &Context, lines: &BTreeMap<String, String>, id: &str) -> Option<Context> {
+    let voiced = voiced(context);
+    let (actor, target) = conversation::reply_target(context, &voiced)?;
+    (target == id)
+        .then(|| conversation::with_line(context, &actor, lines.get(&actor)?))
+        .flatten()
+}
+
 /// The eval scenes, built by the real browser rules and request builder.
-pub(super) fn cases() -> Vec<(String, Context)> {
+pub(super) fn cases() -> Vec<Case> {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -40,7 +53,8 @@ pub(super) fn cases() -> Vec<(String, Context)> {
             let context: Context = serde_json::from_value(case["context"].clone())
                 .unwrap_or_else(|e| panic!("{name}: {e}"));
             assert!(valid(&context), "{name}: invalid context");
-            (name, context)
+            let lines = serde_json::from_value(case["lines"].clone()).unwrap_or_default();
+            (name, context, lines)
         })
         .collect()
 }
@@ -176,9 +190,11 @@ pub(super) fn report() -> Value {
     let mut talk: Vec<u64> = Vec::new();
     let mut talk_sections: BTreeMap<&str, u64> = BTreeMap::new();
     let mut per_case = Vec::new();
-    for (name, context) in &cases {
+    for (name, context, lines) in &cases {
         let mut voices = Map::new();
         for id in voiced(context) {
+            let heard = scene_for(context, lines, &id);
+            let context = heard.as_ref().unwrap_or(context);
             let entity = entity(context, &id);
             let budget =
                 Budget::measure(&idiolect(entity, Part::Line), context, entity, Part::Line);
@@ -223,14 +239,19 @@ pub(super) fn report() -> Value {
     let mut mismatches = Vec::new();
     let replies = recorded();
     for reply in &replies {
-        let (_, context) = cases
+        let (_, context, lines) = cases
             .iter()
-            .find(|(name, _)| *name == reply.case)
+            .find(|(name, ..)| *name == reply.case)
             .unwrap_or_else(|| panic!("missing eval case {}", reply.case));
+        let heard = scene_for(context, lines, &reply.speaker);
+        let context = heard.as_ref().unwrap_or(context);
         let speaker = entity(context, &reply.speaker);
         let check = Check::new(context, speaker, Part::Line);
+        // What would be published: a reply that only missed its fact is
+        // spoken untold, with no retry.
         let outcome = match check.clean(&reply.reply, true) {
             Ok(_) => "ok",
+            Err("knowledge_fact") if check.untold(&reply.reply, true).is_ok() => "untold",
             Err(reason) => reason,
         };
         *reasons.entry(outcome.to_string()).or_default() += 1;
@@ -258,7 +279,67 @@ pub(super) fn report() -> Value {
             "mismatches": mismatches,
         },
         "per_case": per_case,
+        "example": example(&cases),
     })
+}
+
+/// A second Talk with Pip, both turns as sent: the actor opens, then Pip
+/// answers the actor's line from this turn.
+fn example(cases: &[Case]) -> Value {
+    let Some((_, context, lines)) = cases.iter().find(|(name, ..)| name == "station talk 4") else {
+        return Value::Null;
+    };
+    ["vale", "moth"]
+        .iter()
+        .map(|id| {
+            let heard = scene_for(context, lines, id);
+            let context = heard.as_ref().unwrap_or(context);
+            let (system, user) = conversation::messages(context, entity(context, id), 0);
+            json!({"speaker": id, "system": system, "user": user})
+        })
+        .collect()
+}
+
+/// The conversation cases (owner, 2026-11-02): an opener drawn from the
+/// talk here, a reply to this turn's line, the group chat, and a second Talk
+/// with the same person.
+#[test]
+fn conversation_turns_answer_one_line_with_the_talk_here() {
+    let cases = cases();
+    let (_, context, lines) = cases
+        .iter()
+        .find(|(name, ..)| name == "station talk 4")
+        .unwrap();
+    let action = context.action.clone().unwrap();
+    // The opener: never the caption, and no cue.
+    let (system, user) = conversation::messages(context, entity(context, "vale"), 0);
+    assert!(!system.contains(&action) && !user.contains(&action));
+    assert!(!system.contains("Just now:"));
+    assert!(!user.ends_with(':'));
+    // The reply answers Vale's line from this turn, the second Talk with Pip.
+    let heard = scene_for(context, lines, "moth").unwrap();
+    let (system, user) = conversation::messages(&heard, entity(&heard, "moth"), 0);
+    assert_eq!(user, "Tell me again what the pond wants.");
+    // The group chat: earlier lines here, by both speakers, oldest first.
+    let talk = system.split_once("Recent talk here:\n").unwrap().1;
+    let vale = talk
+        .find("Vale: I could carry the lamp for you a while.")
+        .unwrap();
+    let pip = talk
+        .find("Pip: The lamp would help, if you trust me with it.")
+        .unwrap();
+    assert!(vale < pip);
+    assert!(talk.lines().count() <= conversation::CHAT_LINES + 2);
+    // Pip's own earlier line, said again, is a repeat; Vale's, parroted, too.
+    let check = Check::new(&heard, entity(&heard, "moth"), Part::Line);
+    assert_eq!(
+        check.clean("The lamp would help, if you trust me with it.", true),
+        Err("repeat")
+    );
+    assert_eq!(
+        check.clean("Ha, you could carry the lamp for me a while.", true),
+        Ok("Ha, you could carry the lamp for me a while.".into())
+    );
 }
 
 #[test]

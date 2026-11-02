@@ -54,7 +54,7 @@ function refusalFact(played) {
       : played.verb === "accompany"
         ? `invitation to ${nameOf(played.destinationId)}`
         : `offer of ${nameOf(played.itemId)}`;
-  return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed. Say why in your own words.`;
+  return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed.`;
 }
 
 // The player's play this turn. A topic's story choice commits at the Talk
@@ -361,7 +361,7 @@ export function narrativeContext(world, action = null) {
   const rest = resting ? cast.rest : null;
   const defeated =
     cast.defeat &&
-    `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}. Say one line.`;
+    `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}.`;
   const disclosures = knowledgeDisclosures(
     world,
     speakers,
@@ -400,7 +400,8 @@ export function narrativeContext(world, action = null) {
       : null;
   const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
   // Authored sounds such as the clock's echo stay in the scene/history, but
-  // the speech API's conversation contains only registered avatar voices.
+  // the speech API's conversation contains only registered avatar voices:
+  // the recent talk at this place, which each speaker reads as a group chat.
   const conversation = beforeFirstLight
     ? []
     : world.log
@@ -412,7 +413,7 @@ export function narrativeContext(world, action = null) {
             entry.locationId === location &&
             entry.turn < world.turn,
         )
-        .slice(-4)
+        .slice(-6)
         .map(({ actorId, text, cast, witnesses }) => ({
           actorId,
           text,
@@ -540,8 +541,8 @@ export function narrativeContext(world, action = null) {
         else if (movement && speakers.includes(id))
           facts.push(
             movement.leaving
-              ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now. Say goodbye to ${nameOf(currentActor(world))} and name your destination and reason as you leave.`
-              : `Just arrived from ${nameOf(movement.from)}. Greet the people here and explain what brought you.`,
+              ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now.`
+              : `Just arrived from ${nameOf(movement.from)}.`,
           );
         const conflict = standoffFor(world, id);
         if (conflict)
@@ -574,7 +575,7 @@ export function narrativeContext(world, action = null) {
         }
         if (world.opening?.met[id] === world.turn && id !== currentActor(world))
           facts.push(
-            `This is your first meeting with ${nameOf(currentActor(world))}. You were already here when ${nameOf(currentActor(world))} arrived. Greet this newcomer in your own voice.`,
+            `This is your first meeting with ${nameOf(currentActor(world))}. You were already here when ${nameOf(currentActor(world))} arrived.`,
           );
         const helpers = Object.entries(world.actors[id].trust)
           .filter(([, n]) => n > 0)

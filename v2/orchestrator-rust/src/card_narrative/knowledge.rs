@@ -46,6 +46,8 @@ pub(super) fn valid(context: &Context) -> bool {
         })
 }
 
+/// The speaker's reserved fact, in its own voice, for the prompt to offer as
+/// something to mention if it fits (`conversation::MENTION`).
 pub(super) fn directions(context: &Context, id: &str) -> Vec<String> {
     let cast: Vec<String> = context
         .entities
@@ -57,15 +59,11 @@ pub(super) fn directions(context: &Context, id: &str) -> Vec<String> {
         .iter()
         .filter(|fact| fact.speaker == id)
         .map(|fact| {
-            format!(
-                "I tell {} this as one sentence: {} I may add one short sentence of my own.",
-                super::name(&fact.listener),
-                spoken(
-                    &fact.text,
-                    &super::name(&fact.speaker),
-                    &super::name(&fact.listener),
-                    &cast,
-                )
+            spoken(
+                &fact.text,
+                &super::name(&fact.speaker),
+                &super::name(&fact.listener),
+                &cast,
             )
         })
         .collect()
@@ -499,10 +497,7 @@ mod tests {
     #[test]
     fn tense_person_and_pronouns_fold_but_names_and_items_hold() {
         let context = vale_saw("Pip gives the Lamp to Vale.");
-        assert_eq!(
-            directions(&context, "vale")[0],
-            "I tell Pip this as one sentence: You gave the Lamp to me. I may add one short sentence of my own."
-        );
+        assert_eq!(directions(&context, "vale")[0], "You gave the Lamp to me.");
         assert!(delivered(&context, "vale", "You gave the lamp to me."));
         assert!(delivered(&context, "vale", "Pip gave the Lamp to me."));
         assert!(!delivered(&context, "vale", "You gave the cloth to me."));
@@ -526,7 +521,7 @@ mod tests {
             let context = vale_saw(seen);
             assert!(valid(&context));
             let prompt = directions(&context, "vale").join(" ");
-            assert!(prompt.contains(&format!(": {told} ")), "{prompt}");
+            assert_eq!(prompt, told);
             assert!(delivered(&context, "vale", told), "{told}");
         }
         for (verb, told) in [
