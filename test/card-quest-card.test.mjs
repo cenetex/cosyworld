@@ -33,7 +33,103 @@ describe("the quest card", () => {
       target: "lamp",
     });
     expect(questCaption(quest)).toBe("Hold Lamp");
-    expect(questCaption(quest, true)).toBe("Hold …");
+    expect(questCaption(quest, true)).toBe(
+      "Hold something you have not found yet",
+    );
+  });
+
+  it("explains an undiscovered destination without naming it", () => {
+    const s = createWorld();
+    const quest = { ...questCard(s), kind: "place", target: "clearing" };
+    expect(questCaption(quest, true)).toBe(
+      "Go somewhere you have not found yet",
+    );
+    expect(questCaption(quest)).toBe("Go to Forest Clearing");
+    expect(questVerb(s, quest, true)).toBe("Discover");
+  });
+
+  it("uses the visible place verb for covered, known, and visited destinations", () => {
+    const s = createWorld();
+    const quest = { ...questCard(s), kind: "place", target: "clearing" };
+    const caption = (covered) =>
+      questCaption(quest, covered, questVerb(s, quest, covered));
+    expect(caption(true)).toBe("Discover somewhere you have not found yet");
+    expect(caption(false)).toBe("Discover Forest Clearing");
+    s.actors.vale.visited.push("clearing");
+    expect(caption(false)).toBe("Go to Forest Clearing");
+  });
+
+  it("keeps the level and rest instruction alongside the visible place verb", () => {
+    const s = createWorld();
+    const quest = {
+      ...questCard(s),
+      kind: "place",
+      target: "pond",
+      level: 3,
+      step: { verb: "rest" },
+    };
+    expect(questCaption(quest, true, questVerb(s, quest, true))).toBe(
+      "Level III: Discover somewhere you have not found yet and rest there",
+    );
+    expect(questCaption(quest, false, questVerb(s, quest))).toBe(
+      "Level III: Go to Black pond and rest there",
+    );
+  });
+
+  it("describes an unmet person without revealing their name", () => {
+    const quest = {
+      ...questCard(createWorld()),
+      kind: "person",
+      target: "moth",
+    };
+    expect(questCaption(quest, true)).toBe(
+      "Talk with someone you have not met yet",
+    );
+    expect(questCaption(quest)).toBe("Talk with Pip");
+  });
+
+  it("keeps the homecoming action and home when its belonging is covered", () => {
+    const quest = {
+      ...questCard(createWorld()),
+      actor: "mara",
+      target: "mask",
+      step: { verb: "bring", at: "theatre" },
+    };
+    expect(questCaption(quest, true)).toBe(
+      "Bring something you have not found yet home to Paper theatre",
+    );
+    expect(questCaption(quest)).toBe(
+      "Bring Theatre mask home to Paper theatre",
+    );
+  });
+
+  it("keeps level and step context while covering only the target", () => {
+    const quest = {
+      ...questCard(createWorld()),
+      level: 3,
+      step: { verb: "bring", to: "moth", at: "pond" },
+    };
+    expect(questCaption(quest, true)).toBe(
+      "Level III: Bring something you have not found yet to Pip at Black pond",
+    );
+    expect(questCaption(quest)).toBe(
+      "Level III: Bring Lamp to Pip at Black pond",
+    );
+    expect(
+      questCaption(
+        { ...quest, kind: "place", target: "pond", step: { verb: "rest" } },
+        true,
+      ),
+    ).toBe("Level III: Rest at a place you have not found yet");
+  });
+
+  it("keeps a connection quest without inventing an undiscovered target", () => {
+    const quest = {
+      ...questCard(createWorld()),
+      kind: "connect",
+      target: null,
+    };
+    expect(questCaption(quest, true)).toBe("Introduce two people");
   });
 
   it("shows only near or far, never who holds the target or how far", () => {
