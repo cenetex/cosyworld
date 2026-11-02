@@ -78,18 +78,18 @@
 .combat-telegraph[data-verb="intercept"] {
   color: #b8d2e8;
 }
-.combat-reticle::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 30%;
-  width: 46%;
-  aspect-ratio: 1;
-  translate: -50% 0;
-  border: 2px dashed var(--gold);
-  border-radius: 50%;
-  opacity: 0.85;
-  pointer-events: none;
+/* The fighter a strike aims at takes a soft gold rim light over the
+   telegraph (no target circle). */
+.combat-aim .portrait-body > img {
+  filter: drop-shadow(0 0 7px #e9c27ab3) drop-shadow(0 8px 14px #08091390)
+    var(--tod-figure,);
+  animation: combat-rim 0.3s ease-out;
+}
+@keyframes combat-rim {
+  from {
+    filter: drop-shadow(0 0 0 #e9c27a00) drop-shadow(0 8px 14px #08091390)
+      var(--tod-figure,);
+  }
 }
 /* Reduced motion swaps the lunge and recoil for an outline. */
 .combat-outline .portrait-body {
@@ -98,33 +98,29 @@
   border-radius: 10px;
 }
 
+/* Resolve: a slim bar with rounded ends, cut into four, under each
+   fighter. The fill cools from warm gold toward moon blue as it drains and
+   pulses slowly at the last point. */
 .combat-pips {
   position: absolute;
   z-index: 4;
   left: 50%;
-  bottom: -4px;
-  width: clamp(48px, 46%, 96px);
-  height: 7px;
+  bottom: -2px;
+  width: clamp(56px, 54%, 112px);
+  height: 4px;
   translate: -50% 0;
-  border: 1px solid #0009;
-  border-radius: 4px;
-  background: #0b0c14cc;
+  border-radius: 2px;
+  background: #0b0c1480;
   overflow: hidden;
-}
-/* Four resolve pips: gaps cut the bar into quarters. */
-.combat-pips::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
+  mask-image: linear-gradient(
     90deg,
-    #0000 calc(25% - 1px),
-    #0b0c14 0 25%,
-    #0000 0 calc(50% - 1px),
-    #0b0c14 0 50%,
-    #0000 0 calc(75% - 1px),
-    #0b0c14 0 75%,
-    #0000 0
+    #000 calc(25% - 1.5px),
+    #0000 0 25%,
+    #000 0 calc(50% - 1.5px),
+    #0000 0 50%,
+    #000 0 calc(75% - 1.5px),
+    #0000 0 75%,
+    #000 0
   );
 }
 .combat-pips-ghost,
@@ -134,10 +130,23 @@
   width: 100%;
 }
 .combat-pips-ghost {
-  background: #f1e8d5a8;
+  background: #f1e8d580;
 }
 .combat-pips-fill {
-  background: linear-gradient(180deg, #f0d79e, #c49a52);
+  background: #f0c67a;
+  box-shadow: 0 0 6px #f0c67a66;
+}
+.combat-pips[data-resolve="2"] .combat-pips-fill {
+  background: #d6cbb0;
+}
+.combat-pips[data-resolve="1"] .combat-pips-fill {
+  background: #a9c2e6;
+  animation: resolve-pulse 1.6s ease-in-out infinite;
+}
+@keyframes resolve-pulse {
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .combat-word {
@@ -220,6 +229,10 @@
 @media (prefers-reduced-motion: reduce) {
   .stage[data-combat="true"] #cast[data-battle] .portrait {
     transition: none;
+  }
+  .combat-aim .portrait-body > img,
+  .combat-pips[data-resolve="1"] .combat-pips-fill {
+    animation: none;
   }
 }
 
