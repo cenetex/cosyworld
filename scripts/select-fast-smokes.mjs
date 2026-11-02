@@ -39,9 +39,9 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
+  // A deleted smoke script has nothing to run.
   const changed = readFileSync(process.argv[2], "utf8")
     .split("\n")
-    // A deleted smoke script has nothing to run.
     .filter(
       (file) => file && (!file.startsWith("v2/scripts/") || existsSync(file)),
     );
