@@ -261,8 +261,16 @@ body.local-app #scene-video-button {
 [data-kind="you"] .seat-face img {
   border: 2px solid #f3ead6;
 }
+/* One tap chooses a portrait (it glows); a second arms it in its level
+   tier's colour (--tier-color). */
 .world-menu .seat-face[aria-pressed="true"] img {
   outline: 2px solid var(--gold);
+  box-shadow: 0 0 10px #dfc38daa;
+}
+.world-menu .seat-face[data-armed="true"] img {
+  outline-color: var(--tier-color, var(--gold));
+  box-shadow: 0 0 14px var(--tier-color, var(--gold));
+  filter: none;
 }
 /* The shown avatar as a hand card: art, name, level numeral, tier edge. */
 .profile-card {
@@ -291,6 +299,15 @@ body.local-app #scene-video-button {
 .profile-card:not([data-lit="true"]) .profile-art img {
   filter: saturate(0.35) brightness(0.6);
 }
+.profile-card[data-armed="true"] .profile-art {
+  border-color: var(--tier-color);
+  box-shadow:
+    0 0 0 1px var(--tier-color),
+    0 0 18px var(--tier-color);
+}
+.profile-card[data-armed="true"] .profile-art img {
+  filter: none;
+}
 .profile-name {
   position: absolute;
   inset: auto 0 0;
@@ -315,24 +332,35 @@ body.local-app #scene-video-button {
   gap: 2px;
   min-width: 0;
 }
+/* The action box matches the dialogue's front beat (.beat-front); unify
+   with the dialogue's action beat box once that lands. */
 .avatar-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin-top: auto;
-  padding-top: 6px;
+  padding: 8px;
+  border: 1px solid #b09a6a55;
+  border-radius: 8px;
+  background: #10151ded;
+  box-shadow: 0 10px 35px #08091470;
 }
 .world-menu .avatar-act {
+  flex: 1 0 auto;
+  justify-content: center;
   width: auto;
-  min-height: 36px;
+  min-height: 40px;
   padding: 6px 12px;
-  border: 1px solid var(--edge);
-  border-radius: 8px;
+  border: 1px solid #b09a6a88;
+  border-radius: 7px;
+  color: #f2e3c4;
+  font:
+    15px/1.2 Georgia,
+    serif;
 }
-.world-menu .avatar-delete[data-armed="true"] {
-  border-color: #d9534f;
-  background: #d9534f;
-  color: #fff;
+.avatar-note {
+  flex-basis: 100%;
+  color: var(--muted);
 }
 .world-menu .slot-new {
   width: 100%;

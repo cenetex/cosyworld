@@ -10,10 +10,10 @@ Owner rules, 2026-11-01 (#1825): no takeover.
 - The world's owner can **Free** an avatar (2026-11-01: it removes that
   passkey's hold). It starts over as a fresh level-1 starter, drops what it
   held where it stood, and its place is free.
-- The holder can **Release** their own avatar the same way: they give the
-  seat back, and its quests and things stay there.
-- Release became Leave, then Step away, and is now moving the avatar to the
-  deck in ☰, which keeps the binding. Move became Send to…, and is now a tap
+- The holder could once **Release** their own avatar the same way. The
+  menu dropped that button on 2026-11-01; the server's `reset` is unchanged.
+- Release became Leave, then Step away, and is now **Leave** on an armed
+  portrait in ☰, which keeps the binding. Move became Send to…, and is now a tap
   on a lit world slot (#1877).
 - Since #1846 an avatar is in one world at a time. Any claim of an avatar
   empties its seats elsewhere: each starts over through the same `reset`.

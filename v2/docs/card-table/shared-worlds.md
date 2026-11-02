@@ -165,7 +165,7 @@ experience from its last seat (`progress` on the journaled `claim`).
 A person's passkey binds them to the avatar they take in a shared world
 ([#1825](https://github.com/cenetex/cosyworld/issues/1825)). The server keeps
 the binding in `card_bindings(world, actor, user)`, written by each new claim
-and by creating a world. Step away (`leave`/`release`) keeps it: the person
+and by creating a world. Leave in ☰ (`leave`/`release`) keeps it: the person
 always
 returns there as that avatar, and nobody else can claim it. A person bound in
 a world can claim only their own avatar there. When all eight avatars are

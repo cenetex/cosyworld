@@ -41,10 +41,11 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
   passkey that took it, even after it leaves. Its seat there
   shows in colour for everyone else, and the person bound to it sees it free
   for that avatar only. With all eight taken nobody new can join. The world's
-  owner can **Free *Mara*** and the holder can **Release** their own avatar.
-  Each asks with a second tap and starts that avatar over as a fresh
-  level-1 starter that leaves everything where it stood
-  ([avatar bindings](../../../docs/design/avatar-bindings.md)).
+  owner can **Free** another person's avatar, which starts it over as a
+  fresh level-1 starter that leaves everything where it stood
+  ([avatar bindings](../../../docs/design/avatar-bindings.md)). The menu has
+  no Release · start over for your own avatar any more (owner, 2026-11-01);
+  the server's `reset` command is unchanged.
 - **A player has at most one avatar in a world.** The server already enforces
   this (`card_members` holds one row per account and world). Two avatars of one
   person in one room would fill two of its four seats, would let one person
@@ -97,8 +98,8 @@ only the tools. ☰ opens a list of **world slots**:
   wait behind it: once the shown one is filled again, the next appears.
   With no empty world, **+ New world** starts a fresh world for the first
   avatar in no world.
-- **There is no Delete world.** Emptying a world (Step away or Release of
-  its last avatar) is how it goes. The server has no delete for shared
+- **There is no Delete world.** Emptying a world (Leave of its last
+  avatar) is how it goes: a world with nobody in it vanishes from the list. The server has no delete for shared
   worlds and none is added: an empty world keeps its journal and still
   counts toward the eight, which is why + New world reuses it instead of
   creating a ninth. A world holding anyone else's avatar is never empty.
@@ -106,7 +107,13 @@ only the tools. ☰ opens a list of **world slots**:
   portrait, name, the faint level numeral and the level tier's edge colour),
   then online or offline, its world, and what it holds where that world is
   loaded. It shows the avatar being played until a portrait is tapped (else
-  the first of yours in a world), and it holds every seat action.
+  the first of yours in a world), with no buttons until a portrait is armed.
+
+**Tap a portrait once** to choose it: it glows and the card shows it, with no
+buttons. **Tap it again** to arm it: the portrait and the card's edge turn
+its level tier's colour, and the action box appears below its facts
+(owner, 2026-11-01). A tap anywhere else in the menu disarms; presence
+redraws keep it armed. Each action acts on one tap, with no second confirm.
 
 **Tap +** in a world one of your avatars may go to (its seat there is free,
 you hold no avatar there, and it is not already there): the card shows that
@@ -118,22 +125,23 @@ player picks what comes next.
 
 | Card | Actions |
 | --- | --- |
-| Yours | **Play** (in another slot), **Step away**, **Release · start over** |
-| Another person's | its holder, and **Free** for the world's owner |
-| Yours, offered by + | **Bring to *Hollowmere*** |
+| Yours, armed | **Start**, **Leave** |
+| Another person's, armed | **Free** for the world's owner; nothing for anyone else |
+| Yours, offered by + | **Bring to *Hollowmere*** (no arming) |
 
-- **Step away** frees your seat and keeps the avatar's level and its binding
-  there; the avatar is then in no world (grey everywhere), ready for + New
-  world or a move. Its first tap asks "Step away?" and says "Mara's level
-  goes with Mara. Mara's things and quests stay in *Hollowmere*, and the
-  seat there opens for someone else." It sends the `release` command, as
-  Move to your deck did before #1891.
-- **Release · start over** gives a shared seat back and starts the avatar
-  over. The first tap turns it red: "Release *Mara* and start over?" and
-  "Mara starts over at level 1. Their things and quests stay in Hollowmere,
-  and anyone may take Mara there." It sends `reset`.
-- **Free** (owner) asks "Free Ash?" and says "Free Ash: removes Amber
-  Heron's hold and resets Ash."
+- **Start** plays that avatar in that world. In the world being played it
+  just closes ☰.
+- **Leave** frees your seat and keeps the avatar's level and its binding
+  there; the avatar is then in no world, ready for + New world or a move.
+  The box notes "Mara keeps their level; the seat in *Hollowmere* opens.",
+  and after it the status reads "Mara left *Hollowmere*." It sends the
+  `release` command (was Step away, and Move to your deck before #1891).
+- **Free** (owner) notes "Removes Amber Heron's hold and resets Ash." and
+  sends `reset`.
+
+The action box takes the dialogue's front beat style (`.beat-front`: the
+same border, background and shadow, Georgia buttons). When the dialogue's
+action beat box for ready plays lands, the two should share one component.
 
 **A friend's link** (`/?world=…`) signs the person in, then opens their own
 table with ☰ open and the linked world as an extra slot marked ✉
@@ -151,23 +159,27 @@ out) and Controls. It holds no world actions.
 
 The menu shows now, not a log: where each avatar is now. There is no list of
 past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` checks
-the portraits and +, colour, the card and its actions, a move from + and
-Step away, and an emptied world folded into + New world, at 390 and 1440
-pixels.
+the portraits and +, colour, choosing and arming, a move from +, Leave,
+and an emptied world folded into + New world, at 390 and 1440 pixels.
 
-**Notes go with the card.** The note a second tap shows ("Step away?",
-"Release *Mara* and start over?", "Free Ash?") names the card's avatar and
-clears whenever the card is redrawn or shows another avatar, so it never
-describes an earlier selection.
+**Notes go with the card.** The armed box's note names the card's avatar
+and world and lives inside the box, so it goes when the card disarms or
+shows another avatar.
 
 + tapped in another world until it offers Tavi, who stepped away:
 
 ![Phone: Bring Tavi](avatar-menu/slots-move-390.jpg)
 ![Desktop: Bring Tavi](avatar-menu/slots-move-1440.jpg)
 
-Your Tavi in a friend's world, Step away tapped once:
+Your Tavi in a friend's world, tapped once (chosen, glowing):
 
-![Phone: Step away](avatar-menu/slots-step-away-390.jpg)
+![Phone: chosen](avatar-menu/slots-selected-390.jpg)
+![Desktop: chosen](avatar-menu/slots-selected-1440.jpg)
+
+Tapped again (armed, with Start and Leave):
+
+![Phone: armed](avatar-menu/slots-armed-390.jpg)
+![Desktop: armed](avatar-menu/slots-armed-1440.jpg)
 
 An emptied world as the + row (here "+ Silverhook"):
 
@@ -192,13 +204,14 @@ Desktop (1440 × 900):
 
 ### Words
 
-Play, Step away, Step away?, Release · start over, Free, Bring to
+Start, Leave, Free, Bring to
 *Hollowmere*, +, + New world, + *The Borrowed Station*, You, Memory, Inner life, Invite, Settings. Gone: Worlds,
-Share, Your worlds (`/?shared=1` opens the table), on this
+Share, Play, Step away, Step away?, Release · start over, Free *Mara*,
+Your worlds (`/?shared=1` opens the table), on this
 device, Delete world (local), `?avatar=`, Continue as, Continue
 shared world, Return to my game, Send to…, Join, Choose your
 avatar, Return as *Mara*, Move *Mara* here?, This world is full (panel), A
-place will open shortly, Leave, Refresh avatars, the avatar list under the
+place will open shortly, Refresh avatars, the avatar list under the
 seats, Release this avatar, Leave this room, Players in this world, 👥, Claimed,
 open seat, "The reflected shore · N avatars available", a friend's world,
 invited, the letter strip, "Mara · You".

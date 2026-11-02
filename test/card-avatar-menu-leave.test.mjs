@@ -9,10 +9,10 @@ import {
 
 const mara = { id: "mara", name: "Mara" };
 
-describe("stepping away", () => {
+describe("leaving", () => {
   it("takes the level along and frees the seat (#1846)", () => {
     expect(leaveNote(mara, { shared: "w1", name: "The Quiet Ferry" })).toBe(
-      "Mara's level goes with Mara. Mara's things and quests stay in The Quiet Ferry, and the seat there opens for someone else.",
+      "Mara keeps their level; the seat in The Quiet Ferry opens.",
     );
     expect(leaveNote(mara, null)).toBe("");
   });
