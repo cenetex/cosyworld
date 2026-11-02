@@ -38,7 +38,6 @@ function speech(world) {
   const reflection = {
     thought: "I expected an easy gift. I should offer something useful.",
     persona: "I am learning to listen before I ask again.",
-    dream: "A small boat carried a gift across the pond.",
     evidence: context.entities
       .find((e) => e.id === "vale")
       .memories.filter((m) => m.kind === "event")
@@ -46,7 +45,6 @@ function speech(world) {
     models: {
       thought: "thought-model",
       persona: "persona-model",
-      dream: "dream-model",
     },
   };
   return {

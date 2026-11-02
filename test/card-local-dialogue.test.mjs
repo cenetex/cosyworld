@@ -35,7 +35,6 @@ const update = (context) => ({
       reflection: {
         thought: "Someone trusted me with their light.",
         persona: "I am learning to share.",
-        dream: "A lamp floated above the pond.",
       },
     },
   ],
@@ -99,7 +98,11 @@ describe("local dialogue arrives before private thoughts", () => {
       turn: world.turn,
       thought: "Someone trusted me with their light.",
       persona: "I am learning to share.",
-      models: { thought: "local-reflection", persona: "local-reflection" },
+      models: {
+        thought: "local-reflection",
+        persona: "local-reflection",
+        dream: "rules",
+      },
     });
     expect(decodeSave(encodeSave(next)).memories.vale.innerLife.persona).toBe(
       "I am learning to share.",

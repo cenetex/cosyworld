@@ -9,6 +9,7 @@ import { sceneChanges } from "./scene.mjs";
 import { locationWeather } from "./weather.mjs";
 import { locationDaylight } from "./daylight.mjs";
 import { profiles, validInnerLife } from "./memory.mjs";
+import { ruleDream } from "./dreams.mjs";
 import {
   entityActive,
   packEntity,
@@ -596,7 +597,8 @@ export function narrativeContext(world, action = null) {
 
 // Thoughts come only to the avatar who waited, after something new happened
 // to them. Dreams are rarer: two thoughts must settle since the last one.
-// The server's reflection_due applies the same gate.
+// The server's reflection_due applies the thought gate. The rules make the
+// dream itself (dreams.mjs), so a model never writes one.
 export const THOUGHT_GAP = 6;
 export const DREAM_GAP = 24;
 export const THOUGHTS_PER_DREAM = 2;
@@ -643,11 +645,10 @@ function validReflection(entry, world, context) {
     !r ||
     Object.keys(r).some(
       (key) =>
-        !["thought", "persona", "dream", "models", "evidence"].includes(key),
+        !["thought", "persona", "models", "evidence"].includes(key),
     )
   )
     return false;
-  if (r.dream !== undefined && !due.dream) return false;
   const sources = reflectionSources(world, context, entry.id);
   if (
     r.evidence !== undefined &&
@@ -668,7 +669,7 @@ function validReflection(entry, world, context) {
       ) ||
       Object.entries(r.models).some(
         ([k, v]) =>
-          !["thought", "persona", "dream"].includes(k) ||
+          !["thought", "persona"].includes(k) ||
           typeof v !== "string" ||
           !v.trim() ||
           v.length > 160,
@@ -679,8 +680,7 @@ function validReflection(entry, world, context) {
     {
       persona: r.persona,
       thoughts: [{ turn: world.turn, text: r.thought }],
-      dreams:
-        r.dream === undefined ? [] : [{ turn: world.turn, text: r.dream }],
+      dreams: [],
     },
     world.turn,
   );
@@ -737,6 +737,9 @@ function saveReflection(world, context, entry, fallbackModel) {
     dreams: [],
   };
   const r = entry.reflection;
+  const dream = reflectionDue(context, entry.id, previous).dream
+    ? ruleDream(context, entry.id, previous)
+    : null;
   memory.reflections = [
     ...(memory.reflections || []),
     {
@@ -744,12 +747,11 @@ function saveReflection(world, context, entry, fallbackModel) {
       previousPersona: previous.persona,
       persona: r.persona,
       thought: r.thought,
-      dream: r.dream || null,
+      dream,
       sources: reflectionSources(world, context, entry.id),
-      models: r.models || {
-        thought: fallbackModel,
-        persona: fallbackModel,
-        ...(r.dream ? { dream: fallbackModel } : {}),
+      models: {
+        ...(r.models || { thought: fallbackModel, persona: fallbackModel }),
+        ...(dream ? { dream: "rules" } : {}),
       },
     },
   ].slice(-4);
@@ -759,8 +761,8 @@ function saveReflection(world, context, entry, fallbackModel) {
       ...previous.thoughts,
       { turn: world.turn, text: r.thought },
     ].slice(-4),
-    dreams: r.dream
-      ? [...previous.dreams, { turn: world.turn, text: r.dream }].slice(-4)
+    dreams: dream
+      ? [...previous.dreams, { turn: world.turn, text: dream }].slice(-4)
       : previous.dreams,
   };
 }
