@@ -1,0 +1,848 @@
+{
+  "created": "2026-11-02",
+  "generator": "OpenAI built-in image generation",
+  "purpose": "First nine standoff effect designs from issue #1920, supplied as transparent single stills.",
+  "issue": "https://github.com/cenetex/cosyworld/issues/1920",
+  "source_commit": "4ae13118fb0b251e57cd458dff222d32b03ee434",
+  "canvas_contract": {
+    "square": [
+      512,
+      512
+    ],
+    "trail": [
+      1024,
+      512
+    ],
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "direction": "Left/right means screen travel direction.",
+    "scope": "Published art only; runtime overlay integration remains separate."
+  },
+  "encoder_versions": {
+    "sharp": "0.35.5",
+    "vips": "8.18.7",
+    "webp": "1.6.0"
+  },
+  "assets": [
+    {
+      "id": "hit-1",
+      "file": "hit-1.png",
+      "generation_id": "exec-442e93b6-70e2-4207-8bd1-27f7b13e8ded",
+      "dimensions": [
+        512,
+        512
+      ],
+      "bytes": 79865,
+      "sha256": "44b8f038718ced1dcfd11d7f46a6cfe88c9e78ccb77cbe3025dbcdf6151ebf64",
+      "original_generated_file": "exec-442e93b6-70e2-4207-8bd1-27f7b13e8ded.png",
+      "original_png_sha256": "b90b34b65ba19afd0cf10a46acd4bdb873a580a3451cc4d11943ddddeb5d26a0",
+      "original_png_bytes": 383820,
+      "original_dimensions": [
+        1254,
+        1254
+      ],
+      "has_alpha": true,
+      "alpha_sha256": "6dd4e4c8a6d1c9eeb69f6d4d7950168b1a829291571c87a8bd4fb7667477eaaf",
+      "alpha": {
+        "sha256": "6dd4e4c8a6d1c9eeb69f6d4d7950168b1a829291571c87a8bd4fb7667477eaaf",
+        "min": 0,
+        "max": 255,
+        "zero_fraction": 0.9071044921875,
+        "semi_transparent_fraction": 0.09179306030273438,
+        "visible_bounds_alpha_above_8": [
+          159,
+          170,
+          357,
+          353
+        ],
+        "visible_margins_left_top_right_bottom": [
+          159,
+          170,
+          155,
+          159
+        ],
+        "edge_max": 0,
+        "edge_nonzero_pixels": 0
+      },
+      "original_alpha_preserved_exactly": false,
+      "processing": "Whole original canvas resized with Lanczos3 into 512x512, then transparent padding of 0 pixels left/right and 0 pixels top/bottom to 512x512. No cropping, repainting, compositing, mirroring, thresholding or colour adjustment. Alpha is resampled with the pixels.",
+      "generation_references": [
+        {
+          "role": "effect-family style and edit reference",
+          "file": "hit-2.png",
+          "generation_id": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f"
+        }
+      ],
+      "variants": {
+        "stage": {
+          "file": "assets/optimized/stage/png/combat/effects/hit-1.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 18130,
+          "sha256": "bb6ac770223197d5e12fe39daef2f6b0db6279e9a7cbab0c30ef3611d040baf8",
+          "has_alpha": true,
+          "alpha_sha256": "6dd4e4c8a6d1c9eeb69f6d4d7950168b1a829291571c87a8bd4fb7667477eaaf",
+          "alpha_matches_source_after_resize": true
+        },
+        "card": {
+          "file": "assets/optimized/stage/png/combat/effects/hit-1.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 18130,
+          "sha256": "bb6ac770223197d5e12fe39daef2f6b0db6279e9a7cbab0c30ef3611d040baf8",
+          "has_alpha": true,
+          "alpha_sha256": "6dd4e4c8a6d1c9eeb69f6d4d7950168b1a829291571c87a8bd4fb7667477eaaf",
+          "alpha_matches_source_after_resize": true
+        },
+        "phone": {
+          "file": "assets/optimized/stage/png/combat/effects/hit-1.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 18130,
+          "sha256": "bb6ac770223197d5e12fe39daef2f6b0db6279e9a7cbab0c30ef3611d040baf8",
+          "has_alpha": true,
+          "alpha_sha256": "6dd4e4c8a6d1c9eeb69f6d4d7950168b1a829291571c87a8bd4fb7667477eaaf",
+          "alpha_matches_source_after_resize": true
+        }
+      },
+      "visual_review": "Reviewed at 120 and 200 pixels over the existing warm attic and night ship paintings and checkerboard. Clear silhouette, centered canvas, fully transparent borders, no visible background rectangle, text or clipped paint. Stage WebP keeps the same decoded alpha."
+    },
+    {
+      "id": "hit-2",
+      "file": "hit-2.png",
+      "generation_id": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f",
+      "dimensions": [
+        512,
+        512
+      ],
+      "bytes": 153665,
+      "sha256": "41a3fc4342854f7451b3051698439cf9ca4592e013bbde98559db5e615ed5c22",
+      "original_generated_file": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f.png",
+      "original_png_sha256": "d3f35fd1d43f04c9712f95ea9a0fc32fe2c3a859463571e3153cee41199186f5",
+      "original_png_bytes": 723965,
+      "original_dimensions": [
+        1254,
+        1254
+      ],
+      "has_alpha": true,
+      "alpha_sha256": "598fff011fe443994876751a5ccf5394421b1b23855b08bc901a436c2c6143df",
+      "alpha": {
+        "sha256": "598fff011fe443994876751a5ccf5394421b1b23855b08bc901a436c2c6143df",
+        "min": 0,
+        "max": 255,
+        "zero_fraction": 0.8211669921875,
+        "semi_transparent_fraction": 0.17443084716796875,
+        "visible_bounds_alpha_above_8": [
+          87,
+          69,
+          436,
+          431
+        ],
+        "visible_margins_left_top_right_bottom": [
+          87,
+          69,
+          76,
+          81
+        ],
+        "edge_max": 0,
+        "edge_nonzero_pixels": 0
+      },
+      "original_alpha_preserved_exactly": false,
+      "processing": "Whole original canvas resized with Lanczos3 into 512x512, then transparent padding of 0 pixels left/right and 0 pixels top/bottom to 512x512. No cropping, repainting, compositing, mirroring, thresholding or colour adjustment. Alpha is resampled with the pixels.",
+      "generation_references": [],
+      "variants": {
+        "stage": {
+          "file": "assets/optimized/stage/png/combat/effects/hit-2.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 37652,
+          "sha256": "e84af22de69412eae52e8c4a4c8deb60f80a71ce1f2e69ea780cd3a40faffcf0",
+          "has_alpha": true,
+          "alpha_sha256": "598fff011fe443994876751a5ccf5394421b1b23855b08bc901a436c2c6143df",
+          "alpha_matches_source_after_resize": true
+        },
+        "card": {
+          "file": "assets/optimized/stage/png/combat/effects/hit-2.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 37652,
+          "sha256": "e84af22de69412eae52e8c4a4c8deb60f80a71ce1f2e69ea780cd3a40faffcf0",
+          "has_alpha": true,
+          "alpha_sha256": "598fff011fe443994876751a5ccf5394421b1b23855b08bc901a436c2c6143df",
+          "alpha_matches_source_after_resize": true
+        },
+        "phone": {
+          "file": "assets/optimized/stage/png/combat/effects/hit-2.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 37652,
+          "sha256": "e84af22de69412eae52e8c4a4c8deb60f80a71ce1f2e69ea780cd3a40faffcf0",
+          "has_alpha": true,
+          "alpha_sha256": "598fff011fe443994876751a5ccf5394421b1b23855b08bc901a436c2c6143df",
+          "alpha_matches_source_after_resize": true
+        }
+      },
+      "visual_review": "Reviewed at 120 and 200 pixels over the existing warm attic and night ship paintings and checkerboard. Clear silhouette, centered canvas, fully transparent borders, no visible background rectangle, text or clipped paint. Stage WebP keeps the same decoded alpha."
+    },
+    {
+      "id": "hit-3",
+      "file": "hit-3.png",
+      "generation_id": "exec-d7c7119c-c623-46f6-b32f-53d64195e5f7",
+      "dimensions": [
+        512,
+        512
+      ],
+      "bytes": 284970,
+      "sha256": "aee16c38b398d812a896e699f3c6962e84ddd095a94c04b52741bd06c36e8a7b",
+      "original_generated_file": "exec-d7c7119c-c623-46f6-b32f-53d64195e5f7.png",
+      "original_png_sha256": "4bf5fa770ae8f7e51ebc002fdb374658e5f2c85d5a37bea40bcfcf05a64cca2d",
+      "original_png_bytes": 1576528,
+      "original_dimensions": [
+        1254,
+        1254
+      ],
+      "has_alpha": true,
+      "alpha_sha256": "e3a0c1517e05517bfaa206b7286c732927de9279dbfdc94f286082b170c11768",
+      "alpha": {
+        "sha256": "e3a0c1517e05517bfaa206b7286c732927de9279dbfdc94f286082b170c11768",
+        "min": 0,
+        "max": 255,
+        "zero_fraction": 0.6535224914550781,
+        "semi_transparent_fraction": 0.3380088806152344,
+        "visible_bounds_alpha_above_8": [
+          46,
+          37,
+          471,
+          457
+        ],
+        "visible_margins_left_top_right_bottom": [
+          46,
+          37,
+          41,
+          55
+        ],
+        "edge_max": 0,
+        "edge_nonzero_pixels": 0
+      },
+      "original_alpha_preserved_exactly": false,
+      "processing": "Whole original canvas resized with Lanczos3 into 480x480, then transparent padding of 16 pixels left/right and 16 pixels top/bottom to 512x512. No cropping, repainting, compositing, mirroring, thresholding or colour adjustment. Alpha is resampled with the pixels.",
+      "generation_references": [
+        {
+          "role": "effect-family style and edit reference",
+          "file": "hit-2.png",
+          "generation_id": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f"
+        }
+      ],
+      "variants": {
+        "stage": {
+          "file": "assets/optimized/stage/png/combat/effects/hit-3.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 81872,
+          "sha256": "c5cbcd10694831776ec179aa6111837c5a328cfef0b419500f72a91a65fe2e90",
+          "has_alpha": true,
+          "alpha_sha256": "e3a0c1517e05517bfaa206b7286c732927de9279dbfdc94f286082b170c11768",
+          "alpha_matches_source_after_resize": true
+        },
+        "card": {
+          "file": "assets/optimized/stage/png/combat/effects/hit-3.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 81872,
+          "sha256": "c5cbcd10694831776ec179aa6111837c5a328cfef0b419500f72a91a65fe2e90",
+          "has_alpha": true,
+          "alpha_sha256": "e3a0c1517e05517bfaa206b7286c732927de9279dbfdc94f286082b170c11768",
+          "alpha_matches_source_after_resize": true
+        },
+        "phone": {
+          "file": "assets/optimized/stage/png/combat/effects/hit-3.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 81872,
+          "sha256": "c5cbcd10694831776ec179aa6111837c5a328cfef0b419500f72a91a65fe2e90",
+          "has_alpha": true,
+          "alpha_sha256": "e3a0c1517e05517bfaa206b7286c732927de9279dbfdc94f286082b170c11768",
+          "alpha_matches_source_after_resize": true
+        }
+      },
+      "visual_review": "Reviewed at 120 and 200 pixels over the existing warm attic and night ship paintings and checkerboard. Clear silhouette, centered canvas, fully transparent borders, no visible background rectangle, text or clipped paint. Stage WebP keeps the same decoded alpha."
+    },
+    {
+      "id": "brace-raise",
+      "file": "brace-raise.png",
+      "generation_id": "exec-da0927ef-dc8a-4336-bc75-20c73b0d2ecd",
+      "dimensions": [
+        512,
+        512
+      ],
+      "bytes": 271990,
+      "sha256": "651ece841ee438fe36ca0f100de44ae578da226564a5b79d4888d07d58eee6ec",
+      "original_generated_file": "exec-da0927ef-dc8a-4336-bc75-20c73b0d2ecd.png",
+      "original_png_sha256": "a502124cd9a034374b9a2979e26fd8928820ecb15ebb52a048e134e6720a8d14",
+      "original_png_bytes": 1075749,
+      "original_dimensions": [
+        1254,
+        1254
+      ],
+      "has_alpha": true,
+      "alpha_sha256": "a293bff76919343e45ee162926a0b156a834af1673d59e851547549db15a53bb",
+      "alpha": {
+        "sha256": "a293bff76919343e45ee162926a0b156a834af1673d59e851547549db15a53bb",
+        "min": 0,
+        "max": 255,
+        "zero_fraction": 0.67474365234375,
+        "semi_transparent_fraction": 0.32391357421875,
+        "visible_bounds_alpha_above_8": [
+          96,
+          61,
+          417,
+          457
+        ],
+        "visible_margins_left_top_right_bottom": [
+          96,
+          61,
+          95,
+          55
+        ],
+        "edge_max": 0,
+        "edge_nonzero_pixels": 0
+      },
+      "original_alpha_preserved_exactly": false,
+      "processing": "Whole original canvas resized with Lanczos3 into 508x508, then transparent padding of 2 pixels left/right and 2 pixels top/bottom to 512x512. No cropping, repainting, compositing, mirroring, thresholding or colour adjustment. Alpha is resampled with the pixels.",
+      "generation_references": [
+        {
+          "role": "style reference",
+          "generation_id": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f",
+          "generated_file": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f.png"
+        }
+      ],
+      "generation_review": "Intact frontal soot-ink and warm-ivory shield, matte moonlight-blue wash, no text/objects/background; genuinely translucent interior. Visible paint centered within broad empty margins.",
+      "original_generation_caveat": "The generator left 391 nearly invisible alpha=1 pixels within the outer 6.25% margin. Visible paint (alpha>8) stays at least 10.5% from every edge. Whole-canvas normalization remains with root.",
+      "variants": {
+        "stage": {
+          "file": "assets/optimized/stage/png/combat/effects/brace-raise.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 46444,
+          "sha256": "31b4ef66d44b545a883381ae7f9ac78100e59bb2690deef64887082398587e16",
+          "has_alpha": true,
+          "alpha_sha256": "a293bff76919343e45ee162926a0b156a834af1673d59e851547549db15a53bb",
+          "alpha_matches_source_after_resize": true
+        },
+        "card": {
+          "file": "assets/optimized/stage/png/combat/effects/brace-raise.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 46444,
+          "sha256": "31b4ef66d44b545a883381ae7f9ac78100e59bb2690deef64887082398587e16",
+          "has_alpha": true,
+          "alpha_sha256": "a293bff76919343e45ee162926a0b156a834af1673d59e851547549db15a53bb",
+          "alpha_matches_source_after_resize": true
+        },
+        "phone": {
+          "file": "assets/optimized/stage/png/combat/effects/brace-raise.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 46444,
+          "sha256": "31b4ef66d44b545a883381ae7f9ac78100e59bb2690deef64887082398587e16",
+          "has_alpha": true,
+          "alpha_sha256": "a293bff76919343e45ee162926a0b156a834af1673d59e851547549db15a53bb",
+          "alpha_matches_source_after_resize": true
+        }
+      },
+      "visual_review": "Reviewed at 120 and 200 pixels over the existing warm attic and night ship paintings and checkerboard. Clear silhouette, centered canvas, fully transparent borders, no visible background rectangle, text or clipped paint. Stage WebP keeps the same decoded alpha."
+    },
+    {
+      "id": "brace-absorb",
+      "file": "brace-absorb.png",
+      "generation_id": "exec-6070d4a0-e333-4c90-98ea-9681b1625710",
+      "dimensions": [
+        512,
+        512
+      ],
+      "bytes": 273919,
+      "sha256": "90c808e77fce050dd20c0a8c0a786e94be953895f77cce592374efb56ebe358b",
+      "original_generated_file": "exec-6070d4a0-e333-4c90-98ea-9681b1625710.png",
+      "original_png_sha256": "92029c31f01ee2fd68ef4a563458666a2acac50392e353ff60b3e3ba3ba7a177",
+      "original_png_bytes": 1000395,
+      "original_dimensions": [
+        1254,
+        1254
+      ],
+      "has_alpha": true,
+      "alpha_sha256": "5e95c76f85a090ee6194b721fab798fba34abafc5a40e9f9b0bab86ec0157a37",
+      "alpha": {
+        "sha256": "5e95c76f85a090ee6194b721fab798fba34abafc5a40e9f9b0bab86ec0157a37",
+        "min": 0,
+        "max": 255,
+        "zero_fraction": 0.6732597351074219,
+        "semi_transparent_fraction": 0.3256187438964844,
+        "visible_bounds_alpha_above_8": [
+          96,
+          60,
+          418,
+          457
+        ],
+        "visible_margins_left_top_right_bottom": [
+          96,
+          60,
+          94,
+          55
+        ],
+        "edge_max": 0,
+        "edge_nonzero_pixels": 0
+      },
+      "original_alpha_preserved_exactly": false,
+      "processing": "Whole original canvas resized with Lanczos3 into 508x508, then transparent padding of 2 pixels left/right and 2 pixels top/bottom to 512x512. No cropping, repainting, compositing, mirroring, thresholding or colour adjustment. Alpha is resampled with the pixels.",
+      "generation_references": [
+        {
+          "role": "edit target and exact silhouette/translucency master",
+          "asset_id": "brace-raise",
+          "generation_id": "exec-da0927ef-dc8a-4336-bc75-20c73b0d2ecd",
+          "generated_file": "exec-da0927ef-dc8a-4336-bc75-20c73b0d2ecd.png"
+        },
+        {
+          "role": "ripple and short cracks reference only",
+          "generation_id": "exec-e9778f22-beb9-4909-ba83-7f25175abc4d",
+          "generated_file": "exec-e9778f22-beb9-4909-ba83-7f25175abc4d.png"
+        }
+      ],
+      "generation_review": "Matched shield with two broad contained circular ripple crests and three short central cracks; intact rim, no missing shards or fragments. Shape and center remain within 1–2 source pixels of raise. Broad blue wash has partial alpha; brightest ripple crest is near opaque.",
+      "original_generation_caveat": "The generator left 456 nearly invisible alpha=1 pixels within the outer 6.25% margin. Visible paint (alpha>8) stays at least 10% from every edge. Absorb is intentionally denser at its ivory ripple crests than raise.",
+      "variants": {
+        "stage": {
+          "file": "assets/optimized/stage/png/combat/effects/brace-absorb.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 41754,
+          "sha256": "f8f3a90697d23833aaae48f46957673c26bab2d4da0c7edd5cd17250b3adc0e6",
+          "has_alpha": true,
+          "alpha_sha256": "5e95c76f85a090ee6194b721fab798fba34abafc5a40e9f9b0bab86ec0157a37",
+          "alpha_matches_source_after_resize": true
+        },
+        "card": {
+          "file": "assets/optimized/stage/png/combat/effects/brace-absorb.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 41754,
+          "sha256": "f8f3a90697d23833aaae48f46957673c26bab2d4da0c7edd5cd17250b3adc0e6",
+          "has_alpha": true,
+          "alpha_sha256": "5e95c76f85a090ee6194b721fab798fba34abafc5a40e9f9b0bab86ec0157a37",
+          "alpha_matches_source_after_resize": true
+        },
+        "phone": {
+          "file": "assets/optimized/stage/png/combat/effects/brace-absorb.webp",
+          "dimensions": [
+            512,
+            512
+          ],
+          "bytes": 41754,
+          "sha256": "f8f3a90697d23833aaae48f46957673c26bab2d4da0c7edd5cd17250b3adc0e6",
+          "has_alpha": true,
+          "alpha_sha256": "5e95c76f85a090ee6194b721fab798fba34abafc5a40e9f9b0bab86ec0157a37",
+          "alpha_matches_source_after_resize": true
+        }
+      },
+      "visual_review": "Reviewed at 120 and 200 pixels over the existing warm attic and night ship paintings and checkerboard. Clear silhouette, centered canvas, fully transparent borders, no visible background rectangle, text or clipped paint. Stage WebP keeps the same decoded alpha."
+    },
+    {
+      "id": "swipe-left",
+      "file": "swipe-left.png",
+      "generation_id": "exec-b31399cc-da45-4bfd-8f50-f314fd4b098f",
+      "dimensions": [
+        1024,
+        512
+      ],
+      "bytes": 282428,
+      "sha256": "58e8ed9376b82fd0813e265bcab73c11c577812f21b0ce9f34ac4acc3cc226df",
+      "original_generated_file": "exec-b31399cc-da45-4bfd-8f50-f314fd4b098f.png",
+      "original_png_sha256": "ab276bb7f51b620fccc87a8d19d4b9bb4d108199c9022c28cc972a3bccf939ec",
+      "original_png_bytes": 697263,
+      "original_dimensions": [
+        1774,
+        887
+      ],
+      "has_alpha": true,
+      "alpha_sha256": "c18f61003d52b2b21df135519e928e2ca58d0471607ca516cefaae91395e430c",
+      "alpha": {
+        "sha256": "c18f61003d52b2b21df135519e928e2ca58d0471607ca516cefaae91395e430c",
+        "min": 0,
+        "max": 255,
+        "zero_fraction": 0.8218727111816406,
+        "semi_transparent_fraction": 0.17697906494140625,
+        "visible_bounds_alpha_above_8": [
+          83,
+          130,
+          939,
+          379
+        ],
+        "visible_margins_left_top_right_bottom": [
+          83,
+          130,
+          85,
+          133
+        ],
+        "edge_max": 0,
+        "edge_nonzero_pixels": 0
+      },
+      "original_alpha_preserved_exactly": false,
+      "processing": "Whole original canvas resized with Lanczos3 into 960x480, then transparent padding of 32 pixels left/right and 16 pixels top/bottom to 1024x512. No cropping, repainting, compositing, mirroring, thresholding or colour adjustment. Alpha is resampled with the pixels.",
+      "generation_references": [
+        {
+          "role": "matched direction edit target",
+          "file": "swipe-right.png",
+          "generation_id": "exec-520198e4-4c47-4296-ae07-00926fe89ba9"
+        }
+      ],
+      "variants": {
+        "stage": {
+          "file": "assets/optimized/stage/png/combat/effects/swipe-left.webp",
+          "dimensions": [
+            1024,
+            512
+          ],
+          "bytes": 57462,
+          "sha256": "f9dfebc4f8763cf8f6cb423040f4f7a8a3bbc042a6df01a1eccab89fdc67843d",
+          "has_alpha": true,
+          "alpha_sha256": "c18f61003d52b2b21df135519e928e2ca58d0471607ca516cefaae91395e430c",
+          "alpha_matches_source_after_resize": true
+        },
+        "card": {
+          "file": "assets/optimized/card/png/combat/effects/swipe-left.webp",
+          "dimensions": [
+            512,
+            256
+          ],
+          "bytes": 21468,
+          "sha256": "5951dc533c49319aa6361f4329287a978b66664d3538ff2f5555ed179af7f980",
+          "has_alpha": true,
+          "alpha_sha256": "c509af9c55328a083fb1b5f04f4b4ac98e36c4586178ebbe0631a1416f6f4da0",
+          "alpha_matches_source_after_resize": true
+        },
+        "phone": {
+          "file": "assets/optimized/phone/png/combat/effects/swipe-left.webp",
+          "dimensions": [
+            960,
+            480
+          ],
+          "bytes": 53406,
+          "sha256": "6d00d198461b07e9e02749d52c06a7b097e9b8da578c14fb54c28b13c1d705a3",
+          "has_alpha": true,
+          "alpha_sha256": "e1a8ac1d37a4251100e58a2b789c30d1da0353a5fe7b476857f37c016b0dff59",
+          "alpha_matches_source_after_resize": true
+        }
+      },
+      "visual_review": "Reviewed at 120 and 200 pixels over the existing warm attic and night ship paintings and checkerboard. Clear silhouette, centered canvas, fully transparent borders, no visible background rectangle, text or clipped paint. Stage WebP keeps the same decoded alpha."
+    },
+    {
+      "id": "swipe-right",
+      "file": "swipe-right.png",
+      "generation_id": "exec-520198e4-4c47-4296-ae07-00926fe89ba9",
+      "dimensions": [
+        1024,
+        512
+      ],
+      "bytes": 277838,
+      "sha256": "30f1fc0f572f0635026e205e1bafa1b4f88214588f37732754ef62dc97c06e64",
+      "original_generated_file": "exec-520198e4-4c47-4296-ae07-00926fe89ba9.png",
+      "original_png_sha256": "f678fdf026e048870407bc873221ac57242b80d86f9639eae6e05d8e263cc812",
+      "original_png_bytes": 712040,
+      "original_dimensions": [
+        1774,
+        887
+      ],
+      "has_alpha": true,
+      "alpha_sha256": "466ae4bd7174b14ad79d22288dcd3e0e1ad489e77ea4162fd6b468bf2cce16d5",
+      "alpha": {
+        "sha256": "466ae4bd7174b14ad79d22288dcd3e0e1ad489e77ea4162fd6b468bf2cce16d5",
+        "min": 0,
+        "max": 255,
+        "zero_fraction": 0.8262119293212891,
+        "semi_transparent_fraction": 0.17170333862304688,
+        "visible_bounds_alpha_above_8": [
+          92,
+          130,
+          931,
+          377
+        ],
+        "visible_margins_left_top_right_bottom": [
+          92,
+          130,
+          93,
+          135
+        ],
+        "edge_max": 0,
+        "edge_nonzero_pixels": 0
+      },
+      "original_alpha_preserved_exactly": false,
+      "processing": "Whole original canvas resized with Lanczos3 into 960x480, then transparent padding of 32 pixels left/right and 16 pixels top/bottom to 1024x512. No cropping, repainting, compositing, mirroring, thresholding or colour adjustment. Alpha is resampled with the pixels.",
+      "generation_references": [
+        {
+          "role": "effect-family style and edit reference",
+          "file": "hit-2.png",
+          "generation_id": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f"
+        }
+      ],
+      "variants": {
+        "stage": {
+          "file": "assets/optimized/stage/png/combat/effects/swipe-right.webp",
+          "dimensions": [
+            1024,
+            512
+          ],
+          "bytes": 61744,
+          "sha256": "8c86ace06d111b48ec6fbff12fa29d016f79695f9cc776d400892ad3fc87dd1c",
+          "has_alpha": true,
+          "alpha_sha256": "466ae4bd7174b14ad79d22288dcd3e0e1ad489e77ea4162fd6b468bf2cce16d5",
+          "alpha_matches_source_after_resize": true
+        },
+        "card": {
+          "file": "assets/optimized/card/png/combat/effects/swipe-right.webp",
+          "dimensions": [
+            512,
+            256
+          ],
+          "bytes": 21528,
+          "sha256": "14698ae47e2f16f8c58ff0aed9c268925eb899e6774174d0d634892464b9e9f7",
+          "has_alpha": true,
+          "alpha_sha256": "a928dbfbc7d476c0b5ca27ad705dcb19ea9dcacbd1fa7e2a2528ba58c5d86432",
+          "alpha_matches_source_after_resize": true
+        },
+        "phone": {
+          "file": "assets/optimized/phone/png/combat/effects/swipe-right.webp",
+          "dimensions": [
+            960,
+            480
+          ],
+          "bytes": 56514,
+          "sha256": "ebc86315b378a7ae11c9e6a14e4c83c9c969c4a968adb839ae9bf4d60a693e87",
+          "has_alpha": true,
+          "alpha_sha256": "4377fd41923b1ed7e51b771b4b9916b906b8a34b3e3bf5b5001307ec788f706f",
+          "alpha_matches_source_after_resize": true
+        }
+      },
+      "visual_review": "Reviewed at 120 and 200 pixels over the existing warm attic and night ship paintings and checkerboard. Clear silhouette, centered canvas, fully transparent borders, no visible background rectangle, text or clipped paint. Stage WebP keeps the same decoded alpha."
+    },
+    {
+      "id": "jab-left",
+      "file": "jab-left.png",
+      "generation_id": "exec-3039c7aa-4b80-4b5b-b9f5-eddbb8c583be",
+      "dimensions": [
+        1024,
+        512
+      ],
+      "bytes": 183055,
+      "sha256": "cc190b4587ce35a8ceb9308411a64dd63ceea34d86d32dadb681586575a0fda1",
+      "original_generated_file": "exec-3039c7aa-4b80-4b5b-b9f5-eddbb8c583be.png",
+      "original_png_sha256": "3ba99fa153f6a2044073f1555e9a943b53bbb24cf22b3df8f20440972c19e05f",
+      "original_png_bytes": 437660,
+      "original_dimensions": [
+        1774,
+        887
+      ],
+      "has_alpha": true,
+      "alpha_sha256": "4757c31d1f19e516054c8f9d5c75e78eec21796f14355d916aa7f3854e6b9990",
+      "alpha": {
+        "sha256": "4757c31d1f19e516054c8f9d5c75e78eec21796f14355d916aa7f3854e6b9990",
+        "min": 0,
+        "max": 255,
+        "zero_fraction": 0.8841991424560547,
+        "semi_transparent_fraction": 0.11415672302246094,
+        "visible_bounds_alpha_above_8": [
+          210,
+          180,
+          814,
+          349
+        ],
+        "visible_margins_left_top_right_bottom": [
+          210,
+          180,
+          210,
+          163
+        ],
+        "edge_max": 0,
+        "edge_nonzero_pixels": 0
+      },
+      "original_alpha_preserved_exactly": false,
+      "processing": "Whole original canvas resized with Lanczos3 into 960x480, then transparent padding of 32 pixels left/right and 16 pixels top/bottom to 1024x512. No cropping, repainting, compositing, mirroring, thresholding or colour adjustment. Alpha is resampled with the pixels.",
+      "generation_references": [
+        {
+          "role": "matched direction edit target",
+          "file": "jab-right.png",
+          "generation_id": "exec-bf8cec26-c185-4b0e-b817-db7da99329a6"
+        }
+      ],
+      "variants": {
+        "stage": {
+          "file": "assets/optimized/stage/png/combat/effects/jab-left.webp",
+          "dimensions": [
+            1024,
+            512
+          ],
+          "bytes": 33946,
+          "sha256": "ae3b817f638c386ee203c3882b14f38472ee2e53eedb1cee04f92e8e8d7524b4",
+          "has_alpha": true,
+          "alpha_sha256": "4757c31d1f19e516054c8f9d5c75e78eec21796f14355d916aa7f3854e6b9990",
+          "alpha_matches_source_after_resize": true
+        },
+        "card": {
+          "file": "assets/optimized/card/png/combat/effects/jab-left.webp",
+          "dimensions": [
+            512,
+            256
+          ],
+          "bytes": 12178,
+          "sha256": "0f8b4d82cad7df03e7e4db93ab350bf2dc219e29692551a91010796dae9da7c6",
+          "has_alpha": true,
+          "alpha_sha256": "4fb9de576d07fdc1b0b92bb5e29a921fc2ef0ff6c30edb7279bbafcc029b706f",
+          "alpha_matches_source_after_resize": true
+        },
+        "phone": {
+          "file": "assets/optimized/phone/png/combat/effects/jab-left.webp",
+          "dimensions": [
+            960,
+            480
+          ],
+          "bytes": 31760,
+          "sha256": "3c50677c746358c1a48a780470fdc557492189f584d84d40a8e050e5c778c78a",
+          "has_alpha": true,
+          "alpha_sha256": "e6eb8abf0f15050ec9b0c6ae7784c2ee1ae82bde5850e7fc2a124f75545b26fb",
+          "alpha_matches_source_after_resize": true
+        }
+      },
+      "visual_review": "Reviewed at 120 and 200 pixels over the existing warm attic and night ship paintings and checkerboard. Clear silhouette, centered canvas, fully transparent borders, no visible background rectangle, text or clipped paint. Stage WebP keeps the same decoded alpha."
+    },
+    {
+      "id": "jab-right",
+      "file": "jab-right.png",
+      "generation_id": "exec-bf8cec26-c185-4b0e-b817-db7da99329a6",
+      "dimensions": [
+        1024,
+        512
+      ],
+      "bytes": 184627,
+      "sha256": "58337105abc9a74b94de454d0398ce85451323015f00d35df83ad8df4aec3bd2",
+      "original_generated_file": "exec-bf8cec26-c185-4b0e-b817-db7da99329a6.png",
+      "original_png_sha256": "55ba1f3599ec77eb89fff72af9293ea26efd7c164c6a669028def789b66dbd3d",
+      "original_png_bytes": 460070,
+      "original_dimensions": [
+        1774,
+        887
+      ],
+      "has_alpha": true,
+      "alpha_sha256": "f238114826252d93cd75c8a8c56ebdd7ed0427ce5e38636b2e420486ee45c35f",
+      "alpha": {
+        "sha256": "f238114826252d93cd75c8a8c56ebdd7ed0427ce5e38636b2e420486ee45c35f",
+        "min": 0,
+        "max": 255,
+        "zero_fraction": 0.8843441009521484,
+        "semi_transparent_fraction": 0.11452674865722656,
+        "visible_bounds_alpha_above_8": [
+          212,
+          181,
+          812,
+          348
+        ],
+        "visible_margins_left_top_right_bottom": [
+          212,
+          181,
+          212,
+          164
+        ],
+        "edge_max": 0,
+        "edge_nonzero_pixels": 0
+      },
+      "original_alpha_preserved_exactly": false,
+      "processing": "Whole original canvas resized with Lanczos3 into 960x480, then transparent padding of 32 pixels left/right and 16 pixels top/bottom to 1024x512. No cropping, repainting, compositing, mirroring, thresholding or colour adjustment. Alpha is resampled with the pixels.",
+      "generation_references": [
+        {
+          "role": "effect-family style and edit reference",
+          "file": "hit-2.png",
+          "generation_id": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f"
+        }
+      ],
+      "variants": {
+        "stage": {
+          "file": "assets/optimized/stage/png/combat/effects/jab-right.webp",
+          "dimensions": [
+            1024,
+            512
+          ],
+          "bytes": 38844,
+          "sha256": "f033bf138375783dac179f661300baf15d102a01d47d3543dd321764a3896d79",
+          "has_alpha": true,
+          "alpha_sha256": "f238114826252d93cd75c8a8c56ebdd7ed0427ce5e38636b2e420486ee45c35f",
+          "alpha_matches_source_after_resize": true
+        },
+        "card": {
+          "file": "assets/optimized/card/png/combat/effects/jab-right.webp",
+          "dimensions": [
+            512,
+            256
+          ],
+          "bytes": 12638,
+          "sha256": "b6f9281159108693c61db65468c27afe3c393c36fc9b3426f3dcaf7047f0e601",
+          "has_alpha": true,
+          "alpha_sha256": "dd6d0b4a7f04e65adfde3527ddbee02909ee237b83098b63e0cbea3c11032d68",
+          "alpha_matches_source_after_resize": true
+        },
+        "phone": {
+          "file": "assets/optimized/phone/png/combat/effects/jab-right.webp",
+          "dimensions": [
+            960,
+            480
+          ],
+          "bytes": 35392,
+          "sha256": "f4a863e32205b717032aa4ade99a6c5d0d2e1f04ca022f4ddfe4482339ac82c4",
+          "has_alpha": true,
+          "alpha_sha256": "fa6ca9b4f9a297537d898e83458c612d697be9237cf6019b1b97b1e5c3b46f26",
+          "alpha_matches_source_after_resize": true
+        }
+      },
+      "visual_review": "Reviewed at 120 and 200 pixels over the existing warm attic and night ship paintings and checkerboard. Clear silhouette, centered canvas, fully transparent borders, no visible background rectangle, text or clipped paint. Stage WebP keeps the same decoded alpha."
+    }
+  ],
+  "runtime_stage_bytes": 417848,
+  "variant_builder": {
+    "command": "npm run v2:card:images:build",
+    "settings": {
+      "quality": 88,
+      "alphaQuality": 100,
+      "cardWidth": 512,
+      "effort": 6,
+      "phoneSize": 960
+    },
+    "source": "v2/scripts/build-card-images.mjs",
+    "note": "Original generation alpha is resampled during canvas normalization. Every optimized WebP has byte-identical decoded alpha to its normalized PNG at the corresponding size."
+  }
+}
