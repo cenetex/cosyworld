@@ -3935,6 +3935,9 @@ function showSharedPlay(state, reason = "") {
   sharedPlay.state = state;
   if (state === "played" || state === "rejected") sharedPlay = null;
   if (state === "sending") sharedRefusal = null;
+  // A play the server did not take wakes its rested beat, so the player
+  // can play it again from the beat.
+  if (["rejected", "uncertain"].includes(state)) restedChoice = null;
   const shown = $("play-status").dataset.playStatus;
   if (state === "rejected") {
     sharedRefusal = { reason, text: refusalText(play, reason) };

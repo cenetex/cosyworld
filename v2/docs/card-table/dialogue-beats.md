@@ -102,7 +102,9 @@ Burial Decree.") and its buttons (the play, Cancel play, Nudge or Look) under
 the status line. The spoken beat settles behind it as one dimmed line that
 still takes taps. When the play commits or is cancelled the action beat leaves
 and the spoken beat returns; after a play it rests until the player chooses a
-card or taps the raised hand. The hand never moves for it.
+card or taps the raised hand. A shared play the server refused or did not
+confirm brings the beat back with its button, so the player can try again.
+The hand never moves for it.
 
 Combat keeps its stage animations. Each fighter's step also becomes a beat as
 it lands, for example "⚔ Pip struck Vale. Vale stumbled.", and the defeat lands on
