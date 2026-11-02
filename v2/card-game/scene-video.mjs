@@ -3,7 +3,7 @@ import {
   sceneVideoOptions,
   sceneVideoPrompt,
 } from "./scene-video-context.mjs";
-import { playerCredits } from "./credits.mjs";
+import { buySpeechPack, playerCredits } from "./credits.mjs";
 
 // The stage as a reference frame for a video model.
 function stageFrame() {
@@ -135,8 +135,14 @@ export function installSceneVideo({ getWorld, getScene }) {
     $("scene-video-create").disabled =
       !credits.affords("video") || !snapshot?.dialogue.length || !!controller;
     $("scene-video-stop").hidden = !controller;
+    // Out of credits for a film of your own: buy a pack right here.
+    const { checkout, signed_in } = credits.state;
+    $("scene-video-buy").hidden =
+      !checkout || !signed_in || !!credits.world || credits.affords("video");
   }
   credits.subscribe(ready);
+  $("scene-video-buy").onclick = () =>
+    buySpeechPack().catch((error) => report(error.message));
   function clearResult() {
     $("scene-video-player").removeAttribute("src");
     $("scene-video-player").hidden = true;

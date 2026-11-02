@@ -96,6 +96,22 @@ export function creditsText(state) {
   return `Credits: ${state.balance}. A spoken line costs ${tts}; a scene video costs ${video}.`;
 }
 
+// Start a Stripe Checkout for one speech pack; Stripe returns the player
+// here and its webhook grants the credits.
+export async function buySpeechPack({
+  fetcher = globalThis.fetch,
+  go = (url) => globalThis.location.assign(url),
+} = {}) {
+  const response = await fetcher("/card-game/credits/checkout", {
+    method: "POST",
+    credentials: "same-origin",
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.url)
+    throw new Error(body.error || "Checkout needs another moment.");
+  go(body.url);
+}
+
 // The world's pool and who filled it, most first.
 export function poolText(pool) {
   if (!pool) return "";

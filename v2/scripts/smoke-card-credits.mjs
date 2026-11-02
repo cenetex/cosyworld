@@ -137,6 +137,7 @@ try {
         body: JSON.stringify({
           signed_in: signedIn,
           balance: signedIn ? 142 : 0,
+          checkout: signedIn,
           prices: { tts: 1, video: 100 },
         }),
       }),
@@ -219,11 +220,17 @@ try {
     const text = await page.textContent("#credits-status");
     if (signedIn) assert.match(text, /Credits: 142\. A spoken line costs 1/u);
     else assert.match(text, /Sign in with your passkey/u);
-    assert.equal(
-      await page.getAttribute("#speech-pack", "href"),
-      "https://github.com/cenetex/cosyworld/issues/1924",
-    );
+    // With Stripe on, a signed-in passkey buys the pack through Checkout.
+    assert.equal(await page.locator("#speech-pack").isVisible(), !signedIn);
+    assert.equal(await page.locator("#buy-speech-pack").isVisible(), signedIn);
     await page.screenshot({ path: `output/credits/settings-${width}.png` });
+    if (signedIn) {
+      await page.route("**/card-game/credits/checkout", (route) =>
+        route.fulfill({ json: { url: `${origin()}/?credits=bought` } }),
+      );
+      await page.locator("#buy-speech-pack").click();
+      await page.waitForURL(/credits=bought/u);
+    }
     assert.deepEqual(errors, []);
     console.log(`Settings showed credits at ${width}px.`);
     await page.close();

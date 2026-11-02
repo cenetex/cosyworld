@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  buySpeechPack,
   createCredits,
   creditsText,
   poolText,
@@ -113,5 +114,20 @@ describe("passkey credits in the browser", () => {
       text: "Hello.",
       world: "w1",
     });
+  });
+
+  it("sends the player to Stripe Checkout for a speech pack", async () => {
+    const go = vi.fn();
+    await buySpeechPack({
+      fetcher: async () => json({ url: "https://checkout.stripe.com/c/1" }),
+      go,
+    });
+    expect(go).toHaveBeenCalledWith("https://checkout.stripe.com/c/1");
+    await expect(
+      buySpeechPack({
+        fetcher: async () => json({ error: "Not found." }, 404),
+        go,
+      }),
+    ).rejects.toThrow("Not found.");
   });
 });
