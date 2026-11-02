@@ -218,6 +218,7 @@ pub(crate) fn balance<'a>(c: &Connection, payer: impl Into<Payer<'a>>) -> rusqli
 
 /// Take a feature's price before its provider call. A request that already
 /// paid and was not refunded is not charged again.
+#[cfg(test)]
 pub(crate) fn spend<'a>(
     c: &mut Connection,
     payer: impl Into<Payer<'a>>,
