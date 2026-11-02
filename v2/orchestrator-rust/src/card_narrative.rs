@@ -1,6 +1,7 @@
 use crate::ai_gateway::ModelCapability;
 use crate::ai_gateway::{request_chat_completion, AiConfig, ChatCompletionRequest};
 use crate::rate_limit::{RateLimit, RateLimiter};
+use crate::routes::signed_envelope::Envelope;
 use axum::{
     extract::{ConnectInfo, DefaultBodyLimit, State},
     http::{HeaderMap, StatusCode},
@@ -21,6 +22,8 @@ use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
 #[path = "card_narrative/atmosphere.rs"]
 mod atmosphere;
+#[path = "card_narrative/authored.rs"]
+mod authored;
 #[path = "card_narrative/browser.rs"]
 pub(crate) mod browser;
 #[path = "card_narrative/custody.rs"]
@@ -43,6 +46,8 @@ mod reflection;
 #[path = "card_narrative/reflections.rs"]
 mod reflections;
 pub(crate) use reflections::shared as shared_reflections;
+#[path = "card_narrative/untrusted.rs"]
+mod untrusted;
 #[cfg(test)]
 #[path = "card_narrative/voice_eval.rs"]
 mod voice_eval;
@@ -285,6 +290,10 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
     Router::new()
         .route("/card-game/text", post(generate))
         .route("/card-game/reflections", post(reflections::generate))
+        .route(
+            "/.well-known/cosyworld-signing-keys.json",
+            axum::routing::get(crate::routes::signed_envelope::well_known),
+        )
         .layer(DefaultBodyLimit::max(64 * 1024))
         .with_state(TextState {
             ai,
@@ -316,6 +325,8 @@ struct Memory {
     turn: u64,
     kind: String,
     text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    signed: Option<Envelope>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -327,6 +338,8 @@ struct Entity {
     desire: Option<Desire>,
     memories: Vec<Memory>,
     previous: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    previous_signed: Option<Envelope>,
     #[serde(default)]
     inner_life: Option<InnerLife>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -346,6 +359,8 @@ struct Hope {
 struct InnerLife {
     #[serde(default)]
     persona: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    persona_signed: Option<Envelope>,
     #[serde(default)]
     thoughts: Vec<InnerMoment>,
     #[serde(default)]
@@ -357,6 +372,8 @@ struct InnerLife {
 struct InnerMoment {
     turn: u64,
     text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    signed: Option<Envelope>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -379,6 +396,8 @@ struct SpokenLine {
     witnesses: Option<Vec<String>>,
     actor_id: String,
     text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    signed: Option<Envelope>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -717,12 +736,15 @@ async fn generate(
     if !same_origin(&headers) {
         return error(StatusCode::FORBIDDEN, "Open the card game on this site.");
     }
-    if !valid(&context) {
+    let Some(context) = valid(&context)
+        .then(|| untrusted::trusted(context))
+        .flatten()
+    else {
         return error(
             StatusCode::BAD_REQUEST,
             "Use the current scene and its saved memories.",
         );
-    }
+    };
     let Some(config) = state.ai.as_ref().as_ref() else {
         return error(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -793,7 +815,11 @@ async fn generate(
                 _ = sender.closed() => {},
                 result = complete(&config, &context, &character_models, &settings, Some(&emit)) => {
                     let event = match result {
-                        Ok(mut value) => { value["type"] = json!("complete"); value },
+                        Ok(mut value) => {
+                            untrusted::sign_lines(&mut value, &context);
+                            value["type"] = json!("complete");
+                            value
+                        }
                         Err(_) => json!({"type":"error","message":"Story text will try again with your next play"}),
                     };
                     let _ = sender.send(Event::default().data(event.to_string()));
@@ -810,7 +836,10 @@ async fn generate(
             .into_response();
     }
     match complete(config, &context, character_models, settings, None).await {
-        Ok(value) => ([("cache-control", "no-store")], Json(value)).into_response(),
+        Ok(mut value) => {
+            untrusted::sign_lines(&mut value, &context);
+            ([("cache-control", "no-store")], Json(value)).into_response()
+        }
         Err(response) => response,
     }
 }
@@ -2416,10 +2445,12 @@ pub(crate) mod tests {
             .get_or_insert_with(InnerLife::default)
             .thoughts = vec![
             InnerMoment {
+                signed: None,
                 turn: 2,
                 text: "The road is long.".into(),
             },
             InnerMoment {
+                signed: None,
                 turn: 9,
                 text: "Someone kept a light on.".into(),
             },
@@ -2564,6 +2595,7 @@ pub(crate) mod tests {
         let mut c = context();
         c.outcome = Some(solo_departure());
         c.entities[0].memories.push(Memory {
+            signed: None,
             seq: None,
             turn: 1,
             kind: "event".into(),
@@ -2585,12 +2617,14 @@ pub(crate) mod tests {
     fn plain_replies_keep_the_words_and_drop_labels_quotes_and_directions() {
         let mut c = context();
         c.conversation.push(SpokenLine {
+            signed: None,
             witnesses: Some(vec!["vale".into(), "moth".into(), "keeper".into()]),
             actor_id: "moth".into(),
             text: "Bring that lamp to the pond.".into(),
         });
         c.entities[3].previous = Some("My sleeves are dry.".into());
         c.entities[3].memories.push(Memory {
+            signed: None,
             seq: None,
             turn: 2,
             kind: "event".into(),
@@ -2851,6 +2885,7 @@ pub(crate) mod tests {
         let vale = c.entities[0].id.clone();
         assert_eq!(reflection_due(&c, &c.entities[0]), (false, false));
         c.entities[0].memories.push(Memory {
+            signed: None,
             seq: None,
             turn: 1,
             kind: "event".into(),
@@ -2863,8 +2898,10 @@ pub(crate) mod tests {
         // A first thought never arrives with a dream: two must settle first.
         assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
         c.entities[0].inner_life = Some(InnerLife {
+            persona_signed: None,
             persona: Some("I am learning to trust gifts.".into()),
             thoughts: vec![InnerMoment {
+                signed: None,
                 turn: 1,
                 text: "That was generous.".into(),
             }],
@@ -2874,6 +2911,7 @@ pub(crate) mod tests {
         c.turn = 7;
         c.revision = 7;
         c.entities[0].memories.push(Memory {
+            signed: None,
             seq: None,
             turn: 6,
             kind: "event".into(),
@@ -2882,12 +2920,14 @@ pub(crate) mod tests {
         assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
         let life = c.entities[0].inner_life.as_mut().unwrap();
         life.thoughts.push(InnerMoment {
+            signed: None,
             turn: 7,
             text: "Sharing felt easy.".into(),
         });
         c.turn = 13;
         c.revision = 13;
         c.entities[0].memories.push(Memory {
+            signed: None,
             seq: None,
             turn: 12,
             kind: "event".into(),
@@ -2897,10 +2937,12 @@ pub(crate) mod tests {
         // After a dream, two more thoughts and a long night must pass.
         let life = c.entities[0].inner_life.as_mut().unwrap();
         life.dreams.push(InnerMoment {
+            signed: None,
             turn: 13,
             text: "A lamp became a small sun.".into(),
         });
         life.thoughts.push(InnerMoment {
+            signed: None,
             turn: 13,
             text: "The water held still.".into(),
         });
@@ -2914,6 +2956,7 @@ pub(crate) mod tests {
             .unwrap()
             .thoughts
             .push(InnerMoment {
+                signed: None,
                 turn: 19,
                 text: "Again the pond.".into(),
             });
@@ -2928,6 +2971,7 @@ pub(crate) mod tests {
             .unwrap()
             .thoughts
             .push(InnerMoment {
+                signed: None,
                 turn: 25,
                 text: "The lamp again.".into(),
             });
@@ -3628,6 +3672,7 @@ pub(crate) mod tests {
         );
         let mut c = context();
         c.entities[0].memories.push(Memory {
+            signed: None,
             seq: None,
             turn: 1,
             kind: "event".into(),
@@ -3635,6 +3680,7 @@ pub(crate) mod tests {
         });
         dream_due(&mut c);
         c.entities[3].inner_life = Some(InnerLife {
+            persona_signed: None,
             persona: Some("Moth private persona sentinel.".into()),
             thoughts: vec![],
             dreams: vec![],
@@ -4036,6 +4082,7 @@ pub(crate) mod tests {
     fn chosen_combat_sets_intent_even_after_an_earlier_apology() {
         let mut c = context();
         c.conversation.push(SpokenLine {
+            signed: None,
             witnesses: Some(vec!["vale".into(), "moth".into(), "keeper".into()]),
             actor_id: "vale".into(),
             text: "I am sorry. I will ask gently.".into(),
@@ -4173,7 +4220,9 @@ pub(crate) mod tests {
             .header("content-type", "application/json")
             .header("host", "localhost")
             .header("origin", "http://localhost")
-            .body(Body::from(serde_json::to_vec(context).unwrap()))
+            .body(Body::from(
+                serde_json::to_vec(&untrusted::signed(context)).unwrap(),
+            ))
             .unwrap();
         request
             .extensions_mut()
@@ -4214,6 +4263,7 @@ pub(crate) mod tests {
         let mut c = context();
         c.events = vec!["Pip leaves for Black pond.".into()];
         c.conversation = vec![SpokenLine {
+            signed: None,
             witnesses: Some(vec!["vale".into(), "moth".into(), "keeper".into()]),
             actor_id: "vale".into(),
             text: "Where are you going?".into(),
@@ -4563,6 +4613,7 @@ pub(crate) mod tests {
         });
         let mut c = context();
         c.entities[0].memories.push(Memory {
+            signed: None,
             seq: None,
             turn: 1,
             kind: "event".into(),
@@ -4828,6 +4879,7 @@ pub(crate) mod tests {
         };
         let mut c = context();
         c.entities[0].memories.push(Memory {
+            signed: None,
             seq: None,
             turn: 1,
             kind: "event".into(),
@@ -5312,6 +5364,7 @@ pub(crate) mod tests {
         card.kind = "talk".into();
         card.target = Some("moth".into());
         c.conversation = vec![SpokenLine {
+            signed: None,
             actor_id: "vale".into(),
             text: "A secret between us.".into(),
             witnesses: Some(vec!["vale".into()]),
@@ -5337,6 +5390,7 @@ pub(crate) mod tests {
         card.target = Some("moth".into());
         let all = vec!["vale".to_string(), "moth".into(), "keeper".into()];
         let said = |actor: &str, text: &str| SpokenLine {
+            signed: None,
             witnesses: Some(all.clone()),
             actor_id: actor.into(),
             text: text.into(),
@@ -5348,6 +5402,7 @@ pub(crate) mod tests {
             said("moth", "Only if you bring the lamp."),
         ];
         c.entities[0].memories.push(Memory {
+            signed: None,
             seq: None,
             turn: 3,
             kind: "expression".into(),
@@ -5411,6 +5466,7 @@ pub(crate) mod tests {
         let (address, server) = serve(provider).await;
         let mut c = context();
         c.entities[0].memories.push(Memory {
+            signed: None,
             seq: Some(4),
             turn: 1,
             kind: "event".into(),

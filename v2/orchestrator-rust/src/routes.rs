@@ -28,6 +28,8 @@ mod card_voices;
 pub(crate) use card_voices::authority::line as shared_voice_line;
 #[path = "credits.rs"]
 pub(crate) mod credits;
+#[path = "signed_envelope.rs"]
+pub(crate) mod signed_envelope;
 
 // Keep command work bounded without making routine player and resident activity
 // contend for a single slot. Saturated callers fail fast and can safely retry

@@ -98,27 +98,33 @@ mod tests {
         let vale = c.entities.iter().position(|e| e.id == "vale").unwrap();
         c.turn = 40;
         c.entities[vale].memories.push(Memory {
+            signed: None,
             seq: Some(3),
             turn: 39,
             kind: "event".into(),
             text: "Pip carried the lamp across the black pond at dusk.".into(),
         });
         c.entities[vale].inner_life = Some(InnerLife {
+            persona_signed: None,
             persona: Some("PERSONA SENTINEL".into()),
             thoughts: vec![InnerMoment {
+                signed: None,
                 turn: 30,
                 text: "The pond hums.".into(),
             }],
             dreams: vec![
                 InnerMoment {
+                    signed: None,
                     turn: 5,
                     text: "A staircase grew feathers.".into(),
                 },
                 InnerMoment {
+                    signed: None,
                     turn: 20,
                     text: "The feathers became trains.".into(),
                 },
                 InnerMoment {
+                    signed: None,
                     turn: 30,
                     text: "The storybook map's right here.".into(),
                 },
