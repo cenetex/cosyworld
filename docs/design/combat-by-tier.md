@@ -7,23 +7,15 @@ instead of fixed.
 
 ## Tiers
 
-The tiers are the card border bands in `v2/card-game/level-tiers.mjs`:
-Common 0–9, Uncommon 10–19, Rare 20–29, Epic 30–49, Legendary 50–99 and
-Mythic 100+. The browser's colours (`rarity.mjs`) and the shared rules
-(`world.mjs`) import the same table, so there is one set of thresholds. Each
-tier carries a `rank` (0–5) that the rules compare.
+The tiers are the card border bands in `v2/card-game/level-tiers.mjs`
+(Common 0–9 up to Mythic 100+). The browser's colours (`rarity.mjs`) and the
+rules (`world.mjs`) import that one table and compare each tier's `rank`.
 
 ## Strikes
 
 `strikePower` is the most a strike can land, by the attacker's tier against
 the target's: 3 when higher, 2 when the same, 1 when lower. A gap of several
-tiers is still one step. `strikeDamage` rolls 1 to that most, so:
-
-| Attacker's tier | Damage |
-| --- | --- |
-| higher | 1–3 |
-| same | 1–2 |
-| lower | 1 |
+tiers is still one step. `strikeDamage` rolls 1 to that most: 1–3, 1–2 or 1.
 
 Brace still takes one off, with a minimum of one. Four resolve lasts two to
 four strikes between equals.
@@ -49,8 +41,7 @@ Kept on levels (progression and gating, not a contest):
 - Experience to level (`levelFor`) and the level quest (`want.mjs`).
 - Quest steps: Threaten and Attack join drawn steps from quest level 20
   (`HOSTILE_LEVEL`), which is the Rare threshold written as a level.
-- Pack `startLevel` validation, save validation of `level`, and rarity
-  portraits chosen by level.
+- `startLevel` and saved `level` validation; rarity portraits by level.
 
 ## Replay
 
