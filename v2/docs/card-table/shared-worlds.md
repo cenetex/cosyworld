@@ -192,7 +192,9 @@ Table in ☰, and the holder can **Release** their own. Both are the journaled
 `reset` command, guard kind 13 (`CT_SHARED_RESET`): the rules put a fresh
 level-1 starter in that avatar's place (its starting place, experience, quest,
 memory, learning and routes), drop everything it held where it stood, and end
-any standoff it was in. The server then frees the binding and the claim, so
+any standoff it was in. A telling a Talk reserved for or by that avatar goes
+with what it knew; before rules 85 one left behind made the reset fail
+validation, so the seat could be neither freed nor reused. The server then frees the binding and the claim, so
 anyone may take that avatar. A `reset` without `avatar` releases the sender's
 own. Anyone else is refused: "Only this world's owner can free an avatar."
 Rules before the batch that added `reset` refuse it, so it is never journaled

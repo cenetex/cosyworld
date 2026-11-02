@@ -305,6 +305,23 @@ describe("a button in each traveler's own colour", () => {
     expect(reload(world).packs[PACK].revision).toBe(3);
   });
 
+  // Shared worlds from before revision 2 kept RATi's first want, the story
+  // button, after the button left the world, so they asked for a fresh
+  // start on every load under rules 83 (validateWorld < decodeSave < load,
+  // 2026-11-01). A wish for a retired thing is let go; the stack keeps the rest.
+  it("lets go of wishes for the retired things in a revision 1 save", () => {
+    const save = JSON.parse(fixture("forest-revision-1-garden.json"));
+    const want = (target) => ({ kind: "item", target, since: 0, refusals: 0 });
+    save.actors.rati.want = want("forest-story-button");
+    save.actors.vale.want = want("lamp");
+    save.actors.vale.under = [want("forest-watch-bell")];
+    const world = decodeSave(JSON.stringify(save));
+    expect(world.actors.rati.want).toBeNull();
+    expect(world.actors.vale.want).toEqual(want("lamp"));
+    expect(world.actors.vale.under).toBeUndefined();
+    expect(reload(world).packs[PACK].revision).toBe(3);
+  });
+
   // A retired fork's deed passes to the step that took it in (2026-11-01:
   // a shared world that had set the stones could not open on revision 3).
   it("moves a save holding a retired fork onto the step that replaced it", () => {

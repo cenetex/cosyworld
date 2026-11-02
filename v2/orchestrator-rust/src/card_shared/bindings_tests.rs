@@ -179,3 +179,27 @@ fn a_claim_carries_the_avatars_level() {
         .unwrap_err();
     assert!(refused.contains("Choose the avatar's level."), "{refused}");
 }
+
+// A world from Lonely Forest revision 1 kept RATi's first want, the story
+// button, after revision 2 retired the button, so every load under rules 83
+// asked for a fresh start (validateWorld < decodeSave < load, 2026-11-01).
+// The world now opens through the journal and a seat can be taken.
+#[test]
+fn a_forest_revision_one_world_lets_go_of_the_retired_button() {
+    let path = std::env::temp_dir().join(format!("card-forest-1-{}.sqlite", crate::random_hex(12)));
+    let mut c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "e".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    let mut w = World::create(None).unwrap();
+    w.game["packs"]["lonely-forest"]["revision"] = 1.into();
+    w.game["actors"]["rati"]["want"] = serde_json::json!(
+        {"kind":"item","target":"forest-story-button","since":0,"refusals":0}
+    );
+    full_store::seed(&c, &id, &w, "test-create", now()).unwrap();
+    run(&mut c, &id, "ann", &body("claim", Some("mara"))).unwrap();
+    let w = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(w.game["actors"]["rati"]["want"], serde_json::Value::Null);
+    assert_eq!(w.claimed[actor_index("mara").unwrap()], 1);
+    full_store::snapshot(&c, &id, "ann", now()).unwrap();
+}

@@ -33,6 +33,13 @@ that walked every pack:
   refusal, which had opened the Open Door, so a refusal world that went on
   to Athens loses its Open Door steps there instead of its whole world.
 
+Rules 85 let go of the wishes, lessons and standoffs over the things Lonely
+Forest revision 2 retired (the story button, the dewbright button and the
+watch bell). RATi's first want was the story button, so a world started
+before revision 2 asked for a fresh start on its next load, at
+`validateWorld < decodeSave < load` (2026-11-01). It now opens and RATi
+draws another want at the next play.
+
 A refused shared world logs its ID, the error and where the rules refused it
 (function names and bundle lines), so the next 409 is diagnosable from the
 host log.
@@ -42,6 +49,9 @@ the existing "needs a fresh start" message, so a stale save shows New game
 instead of a raw `TypeError` toast. A shared world never shows that
 message: the shared client says the world is waiting for an update and that
 everything in it is kept, because no single player can start it over.
+The server's reply names where the rules refused the save; the browser
+writes that trace to the console and shows only the sentence
+(`playerText` in `shared-auth.mjs`).
 
 Released bundles 2–62 keep their bytes; a shared world loaded at an earlier
 version records an upgrade to 63 through the new bundle.

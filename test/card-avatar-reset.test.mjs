@@ -65,6 +65,31 @@ describe("an owner deletes an avatar from a shared world (#1825)", () => {
     expect(after.standoffs).toEqual([]);
   });
 
+  // A Talk reserves a telling for its speaker. Resetting that speaker left
+  // the reservation behind, so the reset failed validation and the seat
+  // could neither be freed nor reused (#1903, #1913; 2026-11-01).
+  it("drops a telling the avatar's last Talk reserved", () => {
+    const claimed = ["mara", "ash", "rue"];
+    let world = dispatchShared({ op: "create" }).world;
+    world.actors.ash.place = world.actors.mara.place;
+    const playAs = (actor, test) => {
+      const { actions } = ask(world, "view", actor, claimed);
+      const action = actions.find(test);
+      expect(action).toBeDefined();
+      const played = ask(world, "play", actor, claimed, { action });
+      expect(played.ok, played.error).toBe(true);
+      world = played.world;
+    };
+    playAs("mara", (a) => a.kind === "take");
+    playAs("mara", (a) => a.kind === "give" && a.target === "ash");
+    world.actors.rue.place = world.actors.mara.place;
+    playAs("mara", (a) => a.kind === "talk" && a.target === "rue");
+    expect(world.knowledge.pending.map((p) => p.speaker)).toContain("mara");
+    const after = ask(world, "reset", "mara", claimed).world;
+    expect(after.knowledge.pending).toEqual([]);
+    expect(() => validateWorld(after)).not.toThrow();
+  });
+
   it("is deterministic for replay", () => {
     const world = along();
     world.actors.ash.xp = 3;

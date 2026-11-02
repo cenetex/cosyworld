@@ -16600,6 +16600,7 @@
       for (const id of FOREST_RETIRED_ITEMS) delete life.attachments?.[id];
       forget(life);
     }
+    forgetRetiredThings(s, retired);
     saved.revision = 2;
   }
   var FOREST_FORKS = {
