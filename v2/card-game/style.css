@@ -1682,10 +1682,17 @@ body[data-hand-expanded="true"] .card .name {
 /* A resting hand shares the bottom edge with the dialogue on wide screens. */
 @media (min-width: 1100px) and (min-aspect-ratio: 3/2) {
   :root {
-    /* Two upright cards, as the 2:3 frames are, inside the hand's padding. */
-    --resting-hand-width: calc(
-      var(--card-height) * 4 / 3 + 14px + var(--hand-inline) * 2
+    /* As wide as the fanned cards (fitRestingHand, app.mjs), else two
+       upright cards, as the 2:3 frames are, inside the hand's padding. */
+    --resting-hand-width: var(
+      --resting-hand-fit,
+      calc(var(--card-height) * 4 / 3 + 14px + var(--hand-inline) * 2)
     );
+  }
+  body[data-hand-expanded="false"]
+    .play-dock:not([data-selected="true"])
+    .hand {
+    --fan-overlap: var(--resting-fan-overlap, calc(var(--card-height) * 0.14));
   }
   body[data-hand-expanded="false"] .play-dock {
     left: auto;

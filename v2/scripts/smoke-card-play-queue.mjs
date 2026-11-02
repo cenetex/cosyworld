@@ -125,21 +125,18 @@ try {
             return {
               dialogue: rect(".dialogue"),
               hand: rect("#hand"),
-              cardWidth: parseFloat(
-                getComputedStyle(document.querySelector(".card-frame")).width,
-              ),
-              // Both sides of the hand share one inline padding.
-              handPadding: 2 * parseFloat(getComputedStyle(hand).paddingLeft),
+              // The resting hand holds every card without scrolling.
+              overflow: hand.scrollWidth - hand.clientWidth,
+              viewport: innerWidth,
             };
           });
         const resting = await layout();
         if (width === 1512) {
           assert(resting.dialogue.right < resting.hand.x);
+          assert(resting.overflow <= 1, JSON.stringify(resting));
           assert(
-            Math.abs(
-              resting.hand.width -
-                (resting.cardWidth * 2 + 14 + resting.handPadding),
-            ) < 2,
+            resting.hand.right <= resting.viewport,
+            JSON.stringify(resting),
           );
         }
         assert.equal(await page.locator(".hand-scroll").count(), 0);
