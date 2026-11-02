@@ -3,7 +3,6 @@ import {
   decodeSave,
   encodeSave,
   legalActions,
-  nameOf,
   play,
 } from "../v2/card-game/world.mjs";
 import {
@@ -17,7 +16,6 @@ import {
   rarityForms,
 } from "../v2/card-game/rarity-portraits.mjs";
 import { levelOf, newWant } from "../v2/card-game/want.mjs";
-import { sceneVideoContext } from "../v2/card-game/scene-video-context.mjs";
 import {
   flipStagePortrait,
   portraitFraming,
@@ -69,11 +67,6 @@ describe("earned Hoppy Cat portraits", () => {
         sceneScript(world).avatars.find((actor) => actor.id === id)
           .nativeFacing,
       ).toBe(form.facing);
-      expect(
-        sceneVideoContext(world, {
-          locationId: world.actors[id].place,
-        }).people.find((person) => person.name === nameOf(id)).appearance,
-      ).toBe(form.appearance);
       world.actors[id].xp += 1000;
       expect(portrait(id, null, decodeSave(encodeSave(world)))).toBe(
         `./${form.portrait}`,

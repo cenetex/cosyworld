@@ -86,10 +86,9 @@ Spoken audio and letter sounds follow speech replies.
 A committed ring at your place strikes a synthesized bell (`sfx.mjs`), softer from next door; it follows the music switch and volume.
 
 Players do not connect an OpenRouter account. Written dialogue uses the game's
-account and stays free. Spoken voices and scene videos spend the signed-in
-passkey's credits ([#1924](https://github.com/cenetex/cosyworld/issues/1924)):
-a new spoken line costs 1 credit, a scene video 100, and a speech pack is 100
-credits. Settings shows the balance from `GET /card-game/credits` and a "Get a
+account and stays free. Spoken voices spend the signed-in passkey's credits
+([#1924](https://github.com/cenetex/cosyworld/issues/1924)): a new spoken line
+costs 1 credit and a speech pack is 100 credits. Settings shows the balance from `GET /card-game/credits` and a "Get a
 speech pack" link. `credits.mjs` asks `POST /card-game/speech` for each new
 line; the server spends the credit, voices the line on its own OpenRouter key
 and refunds a failed new purchase. A line already bought plays again for free;
@@ -117,7 +116,7 @@ Queued, missing and scene-only legacy records cannot spend the pool. Old
 shared clients must refresh. Personal local speech still sends speaker/text,
 and local Chatterbox stays free.
 
-The Settings footer and the COSYWORLD wordmark tooltip name the build from the
+The Settings footer and the brand tooltip name the build from the
 server's `/meta` (`v1.2.104 · 94ff0b8 · rules 57`, commit linked); a static
 server shows none.
 
@@ -863,25 +862,6 @@ avatar's recorded expressions as their witness evidence.
 Shared rules version 18 adds measured action values and exploration. Versions
 2–17 retain their released interpreter bytes. An explicit upgrade keeps the
 existing world, possessions, quest, memory and persona.
-
-## Scene video
-
-The video camera sits beside the CosyWorld title at every width. Click it to
-film the last two displayed dialogue lines for 100 credits
-([#1924](https://github.com/cenetex/cosyworld/issues/1924)); the camera greys
-out when the passkey cannot afford one. The prompt (`scene-video-context.mjs`)
-uses the current place, character appearances, visible items, their holders,
-light, and other visible states. The current stage supplies a reference frame
-where the model supports one.
-
-The server fixes the model to TBC Mischief 1 (`tbc/mischief-1`).
-`GET /card-game/video/model` gives its clip options; the clip aims for ten
-seconds and uses the nearest supported length (five seconds for Mischief 1).
-`POST /card-game/video` spends the credits and starts the job on the server's
-OpenRouter key. The browser polls `GET /card-game/video/{id}` every three
-seconds for up to 15 minutes, then plays `/content` and offers a download. A
-failed, cancelled or expired job returns its credits once. Stop waiting ends
-the browser wait; the film's credits stay spent unless it fails.
 
 ## Threats and standoffs
 

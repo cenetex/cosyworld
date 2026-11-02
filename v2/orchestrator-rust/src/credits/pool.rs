@@ -1,6 +1,6 @@
 //! A shared world's credit pool (#1924). Any passkey may commit credits from
 //! its balance to a world; commits are never withdrawn. The world's voices
-//! and videos spend from the pool, once per line for the whole world.
+//! spend from the pool, once per line for the whole world.
 use axum::{
     extract::{Query, State},
     http::{HeaderMap, StatusCode},
@@ -266,13 +266,6 @@ mod tests {
         assert_eq!(
             spend(&mut c, pool("w1", "u2"), SpendKind::Tts, "line-a").unwrap(),
             Spend::AlreadyPaid { balance: 1 }
-        );
-        assert_eq!(
-            spend(&mut c, pool("w1", "u2"), SpendKind::Video, "film").unwrap(),
-            Spend::Insufficient {
-                balance: 1,
-                price: 100
-            }
         );
         spend(&mut c, pool("w1", "u2"), SpendKind::Tts, "line-b").unwrap();
         assert!(refund(&mut c, pool("w1", "u1"), SpendKind::Tts, "line-b", "503").unwrap());

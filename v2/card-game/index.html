@@ -14,7 +14,6 @@
     <link rel="stylesheet" href="./style.css" />
     <link rel="stylesheet" href="./weather.css" />
     <link rel="stylesheet" href="./toolbar.css" />
-    <link rel="stylesheet" href="./scene-video.css" />
     <link rel="stylesheet" href="./combat.css" />
     <link rel="stylesheet" href="./card-tiers.css" />
     <!-- card-image-preload:start -->
@@ -25,24 +24,7 @@
     <audio id="room-music" preload="none" hidden></audio>
     <header class="topbar">
       <div class="brand">
-        <button
-          id="scene-video-button"
-          type="button"
-          aria-label="Make a video of the last two dialogue lines"
-          title="Make a 10 second scene video · 100 credits"
-        >
-          <strong>COSYWORLD</strong
-          ><svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            aria-hidden="true"
-          >
-            <rect x="3" y="6" width="12" height="12" rx="2" />
-            <path d="m15 10 6-3v10l-6-3Z" />
-          </svg>
-        </button>
+        <strong>COSYWORLD</strong>
         <span>…</span>
       </div>
       <div class="top-actions">
@@ -318,26 +300,6 @@
       </section>
       <p id="table-slot" class="music-status" hidden></p>
       <button id="new-game" hidden>New game</button>
-    </dialog>
-    <dialog id="scene-video-dialog" aria-labelledby="scene-video-title">
-      <div class="modal-heading">
-        <h2 id="scene-video-title">Your scene as a film</h2>
-        <button id="scene-video-close" type="button">Close</button>
-      </div>
-      <p id="scene-video-status" role="status" aria-live="polite"></p>
-      <p id="scene-video-lines"></p>
-      <div class="scene-video-actions">
-        <button id="scene-video-buy" type="button" hidden>
-          Get a speech pack
-        </button>
-        <button id="scene-video-create" type="button" disabled>
-          Create scene video</button
-        ><button id="scene-video-stop" type="button" hidden>
-          Stop waiting
-        </button>
-      </div>
-      <video id="scene-video-player" controls playsinline hidden></video>
-      <a id="scene-video-download" hidden>Save scene video</a>
     </dialog>
     <dialog id="reset-dialog">
       <h2>Start a fresh world?</h2>
