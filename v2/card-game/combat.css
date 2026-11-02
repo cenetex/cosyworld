@@ -35,10 +35,11 @@
   transform-origin: 50% 62%;
 }
 
+/* The caption reads under the top bar, never over the place name. */
 .combat-caption {
   position: absolute;
   z-index: 5;
-  top: 14px;
+  top: 64px;
   left: 50%;
   translate: -50% 0;
   width: max-content;
@@ -208,6 +209,16 @@
   }
 }
 
+/* While the beats play, the locked hand tucks down to a strip of card tops,
+   so it covers neither the fighters' feet nor the impact; it rises back to
+   where the player left it as the beats end. */
+.stage[data-combat="true"] ~ .play-dock {
+  translate: 0 calc(100% - 44px);
+}
+.play-dock {
+  transition: translate 280ms ease-in-out;
+}
+
 /* In battle the current exchange steps to the front slots and the other
    combatants wait behind, dimmed (phones draw combat art at one depth, so
    the rows set it). Reduced motion swaps with a fade. */
@@ -234,6 +245,11 @@
   #cast[data-battle] .portrait[data-battle-row] {
     left: var(--battle-x, var(--stage-x));
   }
+  /* The exchange shares one scale whatever each painting's framing, so a
+     strike painting swapping in never resizes its fighter. */
+  #cast[data-battle] .portrait[data-battle-row="front"] {
+    height: min(calc(var(--stage-size) * 0.8), 96vw);
+  }
   /* Those waiting stand further back, smaller, between the two sides. */
   #cast[data-battle] .portrait[data-battle-row="back"] {
     height: calc(var(--stage-size) * 0.5);
@@ -241,7 +257,8 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .stage[data-combat="true"] #cast[data-battle] .portrait {
+  .stage[data-combat="true"] #cast[data-battle] .portrait,
+  .play-dock {
     transition: none;
   }
   .combat-aim .portrait-body > img,

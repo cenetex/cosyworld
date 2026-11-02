@@ -217,11 +217,28 @@ try {
     // The telegraph and the rules line appear on stage before the new place.
     await page.locator("#combat-caption:not([hidden])").waitFor();
     await page.waitForTimeout(400);
+    // The locked hand tucks straight down out of the fighters' way, keeping
+    // its layout, and the caption reads below the top bar.
+    const tucked = await handRect();
     assert.deepEqual(
-      await handRect(),
-      raisedHand,
-      "The strikes leave the raised hand exactly where it was",
+      [tucked[0], tucked[2], tucked[3]],
+      [raisedHand[0], raisedHand[2], raisedHand[3]],
+      "The strikes keep the raised hand's layout",
     );
+    assert.ok(
+      tucked[1] >= height - 60,
+      `The hand tucks down during the beats ${tucked} from ${raisedHand}`,
+    );
+    if (width > 640)
+      assert.ok(
+        await page.evaluate(
+          () =>
+            document.querySelector("#combat-caption").getBoundingClientRect()
+              .top >=
+            document.querySelector(".topbar").getBoundingClientRect().bottom,
+        ),
+        "The caption reads below the top bar",
+      );
     // From the first combat frame the two fighters face each other.
     assert.deepEqual(
       await page.evaluate(
@@ -274,6 +291,32 @@ try {
         document.querySelector("#combat-caption").textContent,
       ),
     );
+    // Those behind the exchange face it, and on phones the exchange shares
+    // one scale whatever each painting's framing.
+    const rowsNow = await page.evaluate(() => {
+      const box = (el) => el.getBoundingClientRect();
+      const centre = (el) => box(el).left + box(el).width / 2;
+      const front = [
+        ...document.querySelectorAll('#cast [data-battle-row="front"]'),
+      ];
+      const middle =
+        front.reduce((sum, el) => sum + centre(el), 0) / front.length;
+      return {
+        heights: front.map((el) => box(el).height),
+        away: [...document.querySelectorAll('#cast [data-battle-row="back"]')]
+          .filter((el) => Math.abs(centre(el) - middle) > 5)
+          .filter(
+            (el) => (el.dataset.facing === "right") !== middle > centre(el),
+          )
+          .map((el) => el.dataset.avatar),
+      };
+    });
+    assert.deepEqual(rowsNow.away, [], "The back row faces the exchange");
+    if (width <= 700 && rowsNow.heights.length > 1)
+      assert.ok(
+        Math.max(...rowsNow.heights) - Math.min(...rowsNow.heights) < 2,
+        `The exchange shares one scale ${rowsNow.heights}`,
+      );
     // The trail runs toward the target and stays on screen.
     const trail = await page.evaluate(() => {
       const el = document.querySelector(
@@ -443,6 +486,15 @@ try {
       await page.locator('.play-dock[data-covered="false"]').count(),
       1,
       "The hand unlocks once the new place is drawn",
+    );
+    await page.waitForTimeout(400);
+    assert.match(
+      await page.$eval(
+        ".play-dock",
+        (dock) => getComputedStyle(dock).translate,
+      ),
+      /^(none|0px)$/u,
+      "The hand rises back once the beats end",
     );
     assert.equal(
       await page.locator('.dialogue[data-dropped="false"]').count(),
