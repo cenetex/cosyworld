@@ -81,7 +81,7 @@ export function factWords(sentence, speaker, listener) {
     [nameWords(listener), "you"],
   ].filter(([name]) => name.length);
   const out = [];
-  for (let i = 0; i < words.length;) {
+  for (let i = 0; i < words.length; ) {
     const person = people.find(([name]) =>
       name.every((w, j) => words[i + j] === w),
     );
@@ -135,16 +135,32 @@ function remember(world, actor, fact, kind, teller, eventSeq, learnedTurn) {
   return owns(known, fact.id);
 }
 
+// A standing grievance keeps the witnessed incident it was taken from: the
+// event its other avatar did on the grievance's turn, seen by its holder.
+// Nothing is stored; the pin lasts exactly as long as the grievance does.
+export function grievanceEvidence(world, fact) {
+  const s = fact.source;
+  if (s.kind !== "event") return false;
+  return Object.entries(world.motives?.grievances || {}).some(
+    ([holder, list]) =>
+      s.witnesses.includes(holder) &&
+      list.some((g) => g.other === s.actorId && g.turn === s.turn),
+  );
+}
+
 function retainFact(world, fact) {
   const knowledge = world.knowledge;
   if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
   // Authored facts keep their stable identity. Event and ending news ages in
-  // source order.
+  // source order, skipping evidence under a standing grievance. If every
+  // aging fact is evidence, the oldest goes anyway so the store stays bounded.
   const eventFacts = Object.values(knowledge.facts)
     .filter((f) => f.source.kind !== "topic")
     .sort(compareFacts);
   if (Object.keys(knowledge.facts).length >= KNOWLEDGE_FACT_LIMIT) {
-    const old = eventFacts.at(-1);
+    const old =
+      [...eventFacts].reverse().find((f) => !grievanceEvidence(world, f)) ||
+      eventFacts.at(-1);
     if (!old) return null;
     delete knowledge.facts[old.id];
     for (const known of Object.values(knowledge.known)) delete known[old.id];

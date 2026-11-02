@@ -748,7 +748,7 @@ The rule is data in `forest.json`: `things.oil.refuels` names the lamp and
 and the `returnLocationId` where the flask waits. The Bell rings as before but
 no longer makes oil at the pond.
 
-Trades compare each character’s value for both objects, including attached cloth. A grievance raises the requested price. A favour can lower it. Ringing beside the Keeper, spoiling Pip’s light, threats, and repeated requests can create grievances. Only witnesses remember a slight. A useful gift softens the receiver’s grievances toward its giver and earns a bounded favour. Grievances retain the other avatar, incident, turn, and strength across reloads.
+Trades compare each character’s value for both objects, including attached cloth. A grievance raises the requested price. A favour can lower it. Ringing beside the Keeper, spoiling Pip’s light, threats, and repeated requests can create grievances. Only witnesses remember a slight. A useful gift softens the receiver’s grievances toward its giver and earns a bounded favour. Grievances retain the other avatar, incident, turn, and strength across reloads. While a grievance stands, the shared fact store keeps the witnessed account of its incident when older news is dropped ([grievance evidence](../../docs/design/grievance-evidence.md)).
 
 Give and Trade are always offered when the item fits in the other person's
 hands; a trade needs room on both sides. The answer comes when the card is

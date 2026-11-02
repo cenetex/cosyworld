@@ -295,6 +295,78 @@ describe("saved public knowledge", () => {
     );
   });
 
+  it("keeps the incident under a standing grievance through news churn", () => {
+    const w = bare();
+    w.turn = 1;
+    const fight = source(w, {
+      verb: "threaten",
+      actorId: "vale",
+      cast: ["vale", "moth"],
+      witnesses: ["vale", "moth"],
+      text: "Vale threatens Pip over the Black cloth.",
+    });
+    w.motives = {
+      version: 1,
+      grievances: {
+        moth: [
+          {
+            other: "vale",
+            kind: "threat",
+            reason: "Vale picked a fight.",
+            turn: 1,
+            weight: 1,
+          },
+        ],
+      },
+    };
+    w.turn = 2;
+    const next = source(w, {
+      text: "Pip carried the first shell to the pond.",
+    });
+    for (let i = 0; i < KNOWLEDGE_FACT_LIMIT - 2; i++)
+      source(w, { text: `Pip carried shell number ${i} to the pond.` });
+    expect(Object.keys(w.knowledge.facts)).toHaveLength(KNOWLEDGE_FACT_LIMIT);
+    source(w, { text: "Pip carried one more shell to the pond." });
+    expect(Object.keys(w.knowledge.facts)).toHaveLength(KNOWLEDGE_FACT_LIMIT);
+    expect(knowsFact(w, "moth", fight.id)).toBe(true);
+    expect(w.knowledge.facts[next.id]).toBeUndefined();
+    // A gift that clears the grievance releases the pin.
+    w.motives.grievances.moth = [];
+    source(w, { text: "Pip carried a last shell to the pond." });
+    expect(w.knowledge.facts[fight.id]).toBeUndefined();
+    expect(Object.keys(w.knowledge.facts)).toHaveLength(KNOWLEDGE_FACT_LIMIT);
+  });
+
+  it("still bounds the store when every aging fact is grievance evidence", () => {
+    const w = bare();
+    w.turn = 1;
+    w.motives = {
+      version: 1,
+      grievances: {
+        vale: [
+          {
+            other: "moth",
+            kind: "threat",
+            reason: "Pip picked a fight.",
+            turn: 1,
+            weight: 1,
+          },
+        ],
+      },
+    };
+    const first = source(w, {
+      witnesses: ["moth", "vale"],
+      text: "Pip carried shell number first to the pond.",
+    });
+    for (let i = 0; i < KNOWLEDGE_FACT_LIMIT; i++)
+      source(w, {
+        witnesses: ["moth", "vale"],
+        text: `Pip carried shell number ${i} to the pond.`,
+      });
+    expect(Object.keys(w.knowledge.facts)).toHaveLength(KNOWLEDGE_FACT_LIMIT);
+    expect(w.knowledge.facts[first.id]).toBeUndefined();
+  });
+
   it("validates source, teller, and pending references strictly", () => {
     const w = bare();
     source(w);
