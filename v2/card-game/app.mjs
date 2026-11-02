@@ -568,10 +568,10 @@ const exchange = createExchange({
     const speakerId = line.entityId || line.actorId;
     if (speakerId && !shownSpeakers.includes(speakerId))
       shownSpeakers.push(speakerId);
-    reviewing = false;
-    reviewBeat = null;
     lineSeq = line.seq;
-    // The stack brings the new beat in front as it renders.
+    // The stack brings the new beat in front as it renders. A player who
+    // stepped back stays there: the line raises the live count and types
+    // when they return (#2017).
     renderScene();
   },
   settled: () => {

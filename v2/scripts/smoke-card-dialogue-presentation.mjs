@@ -157,6 +157,18 @@ async function local(width) {
   while (!held.length) await t.page.waitForTimeout(50);
   await held.shift()();
   await t.waits(`local ${width} reply after a play`);
+  // A new line never pulls a player who stepped back forward (#2017).
+  await t.tap(t.page.locator("#speaker-portrait"));
+  await t.page.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
+  const back = await t.page.locator("#speaker").innerText();
+  // The next line arrives after the finished line's reading pause.
+  await t.page.waitForFunction(
+    () => /·\s*[2-9]/.test(document.querySelector("#live-line").textContent),
+    null,
+    { timeout: 15000 },
+  );
+  assert.equal(await t.page.locator("#speaker").innerText(), back);
+  await t.page.locator("#live-line").click();
   // D5: a play chosen while the last line rests shows Thinking at once.
   await t.readAll();
   mode = "hold";
