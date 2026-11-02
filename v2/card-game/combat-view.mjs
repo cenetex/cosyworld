@@ -49,7 +49,7 @@ export function renderStandingResolve(cast, world, locationId) {
   const guarding = new Set();
   for (const c of world.standoffs || [])
     if (c.location === locationId)
-      for (const id of [c.challenger, c.defender]) {
+      for (const id of Object.keys(c.resolve || {})) {
         standing.set(id, c.resolve?.[id] ?? MAX_RESOLVE);
         if (c.guarding?.[id]) guarding.add(id);
       }
@@ -100,6 +100,8 @@ const ICONS = {
   threaten:
     '<path d="M32 6 58 54H6z"/><path d="M32 24v14M32 44v4" stroke-linecap="round"/>',
   guard: '<path d="M32 6 54 14v16c0 14-10 24-22 28C20 54 10 44 10 30V14z"/>',
+  intercept:
+    '<path d="M32 6 54 14v16c0 14-10 24-22 28C20 54 10 44 10 30V14z"/><path d="M22 32h20M34 24l8 8-8 8"/>',
   attack:
     '<path d="M12 52 44 20M44 20l6-10 4 4-10 6M20 44l-6 6M52 52 20 20M20 20l-6-10-4 4 10 6M44 44l6 6"/>',
 };
@@ -210,8 +212,70 @@ export function createCombatView({
     );
   };
   const pose = (id, value) => {
-    portraits.pose(id, value);
+    portraits.pose(id, value === "intercept" ? "guard" : value);
   };
+  // Each exchange's fighters step into the front slots, facing each other;
+  // the other combatants take the slots behind and dim. The slots are the
+  // scene's own, so phone framing holds.
+  let slots = null;
+  const STAGE_VARS = ["--stage-x", "--stage-floor", "--stage-size"];
+  const slotOf = (el) => ({
+    el,
+    vars: STAGE_VARS.map((v) => el.style.getPropertyValue(v)),
+    depth: el.dataset.depth,
+  });
+  const DEPTHS = ["foreground", "middle", "back"];
+  const stageExchange = (beat, combatants) => {
+    const els = combatants.map(fighter).filter(Boolean);
+    if (els.length < 2) return;
+    slots ??= els
+      .map(slotOf)
+      .sort(
+        (a, b) =>
+          DEPTHS.indexOf(a.depth) - DEPTHS.indexOf(b.depth) ||
+          parseFloat(b.vars[2]) - parseFloat(a.vars[2]),
+      );
+    const front = beat.front.map(fighter).filter((el) => els.includes(el));
+    const x = (el) => parseFloat(el.style.getPropertyValue("--stage-x"));
+    const ahead = slots
+      .slice(0, front.length)
+      .sort((a, b) => parseFloat(a.vars[0]) - parseFloat(b.vars[0]));
+    if (front.length > 1 && x(front[0]) > x(front.at(-1))) ahead.reverse();
+    // A guard stands between the striker and the one it covers.
+    if (front.length === 3) front.splice(1, 2, front[2], front[1]);
+    const rest = els
+      .filter((el) => !front.includes(el))
+      .sort((a, b) => x(a) - x(b));
+    [...front, ...rest].forEach((el, i) => {
+      const slot = i < front.length ? ahead[i] : slots[i];
+      const shift = el.style.getPropertyValue("--stage-x") !== slot.vars[0];
+      STAGE_VARS.forEach((v, n) => el.style.setProperty(v, slot.vars[n]));
+      el.dataset.depth = i < front.length ? "foreground" : slot.depth;
+      el.dataset.battleRow = i < front.length ? "front" : "back";
+      if (shift && reduced())
+        animate(el, [{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
+    });
+    stage.querySelector("#cast").dataset.battle = "true";
+    const at = (el) => parseFloat(el.style.getPropertyValue("--stage-x"));
+    const aim = fighter(beat.coveredId || beat.targetId);
+    for (const el of front) {
+      const other = el === fighter(beat.actorId) ? aim : fighter(beat.actorId);
+      if (other)
+        portraits.face(
+          el.dataset.avatar,
+          other.dataset.avatar,
+          at(other) > at(el) ? "right" : "left",
+        );
+    }
+  };
+  // The redrawn scene keeps the last exchange in front (scene.mjs).
+  const releaseExchange = () => {
+    for (const el of stage.querySelectorAll("[data-battle-row]"))
+      delete el.dataset.battleRow;
+    slots = null;
+    delete stage.querySelector("#cast")?.dataset.battle;
+  };
+
   const pushIn = () => {
     if (cut) return;
     stage.dataset.combat = "true";
@@ -341,8 +405,11 @@ export function createCombatView({
       pushIn();
       const actor = fighter(beat.actorId);
       add(actor, svgIcon(beat.kind));
+      stageExchange(beat, Object.keys(beat.resolve || {}));
       if (beat.kind === "attack")
-        fighter(beat.targetId)?.classList.add("combat-reticle");
+        fighter(beat.coveredId || beat.targetId)?.classList.add(
+          "combat-reticle",
+        );
       pose(beat.actorId, beat.kind === "attack" ? "threaten" : beat.kind);
       setCaption(`${telegraphText(beat)}…`);
       return;
@@ -363,14 +430,16 @@ export function createCombatView({
     if (phase === "resolve") {
       for (const el of stage.querySelectorAll(".combat-telegraph")) el.remove();
       if (beat.kind === "attack") {
-        fighter(beat.targetId)?.classList.remove("combat-reticle");
+        fighter(beat.coveredId || beat.targetId)?.classList.remove(
+          "combat-reticle",
+        );
         return;
       }
       setCaption(beat.text);
       revealLine(beat.seq);
       pose(beat.actorId, beat.kind);
-      for (const id of [beat.actorId, beat.targetId])
-        showResolve(id, beat.resolve?.[id] ?? MAX_RESOLVE);
+      for (const id of Object.keys(beat.resolve || {}))
+        showResolve(id, beat.resolve[id]);
       floatWord(beat.actorId, outcomeWord(beat), beat.kind);
       return;
     }
@@ -417,8 +486,8 @@ export function createCombatView({
     },
     async play(beats) {
       const mine = ++portraitRun;
-      for (const { actorId, targetId } of beats) {
-        portraits.face(actorId, targetId);
+      for (const { actorId, targetId, coveredId } of beats) {
+        portraits.face(actorId, coveredId || targetId);
         portraits.face(targetId, actorId);
       }
       await portraits.prepare(beats);
@@ -465,6 +534,7 @@ export function createCombatView({
       animations = [];
       for (const el of added) el.remove();
       added = [];
+      releaseExchange();
       cut = null;
       delete stage.dataset.combat;
       for (const el of stage.querySelectorAll(

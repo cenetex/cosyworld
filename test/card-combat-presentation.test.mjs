@@ -275,6 +275,55 @@ describe("beat timing", () => {
   });
 });
 
+describe("battle beats", () => {
+  it("reads a Guard and the redirected hit, and alignment from the latest plays", () => {
+    const before = {
+      actors: { vale: { place: "station" } },
+      standoffs: [
+        {
+          location: "station",
+          resolve: { vale: 4, moth: 4, keeper: 4 },
+          covering: { vale: "moth" },
+        },
+      ],
+      log: [],
+    };
+    const at = { fromLocationId: "station", locationId: "station" };
+    const after = {
+      log: [
+        {
+          seq: 1,
+          verb: "intercept",
+          actorId: "keeper",
+          targetId: "moth",
+          ...at,
+        },
+        {
+          ...{ seq: 2, verb: "attack", actorId: "vale", targetId: "keeper" },
+          ...{
+            coveredId: "moth",
+            damage: 1,
+            resolveBefore: 4,
+            resolveAfter: 3,
+          },
+          ...{ outcome: "hit", ...at },
+        },
+      ],
+    };
+    const [guard, hit] = combatBeats(before, after, { viewer: "vale" });
+    expect(telegraphText(guard)).toBe("The keeper sides with Pip");
+    expect(outcomeWord(guard)).toBe("Guarding");
+    // Vale had been guarding Pip, so striking at Pip is turning on Pip; the
+    // keeper steps between and takes the hit.
+    expect(hit).toMatchObject({
+      front: ["vale", "keeper", "moth"],
+      turnsOn: true,
+      resolve: { vale: 4, moth: 4, keeper: 3 },
+    });
+    expect(telegraphText(hit)).toBe("Vale turns on Pip");
+  });
+});
+
 describe("coming to after a defeat", () => {
   it("names the arrival and gives the line to one voice", () => {
     const after = act(atPond(), "guard");

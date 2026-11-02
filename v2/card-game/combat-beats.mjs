@@ -6,7 +6,7 @@
 // standoff state before the play and the rules' own English lines fill in.
 import { nameOf } from "./world.mjs";
 
-export const COMBAT_VERBS = ["threaten", "guard", "attack"];
+export const COMBAT_VERBS = ["threaten", "guard", "intercept", "attack"];
 export const DEFEAT_MOVES = ["retreat", "sent-home"];
 export const MAX_RESOLVE = 4;
 const YIELDED = /after yielding to/u;
@@ -54,8 +54,6 @@ export function isCombatLine(entry, viewer) {
 
 export const lastSeq = (world) => world?.log?.at(-1)?.seq ?? 0;
 
-const pairKey = (a, b) => [a, b].sort().join("|");
-
 function outcomeOf(entry, after) {
   if (["hit", "guarded", "yield", "sent-home"].includes(entry.outcome))
     return entry.outcome;
@@ -66,6 +64,7 @@ function outcomeOf(entry, after) {
 export function outcomeWord(beat) {
   if (beat.kind === "threaten") return "Standoff";
   if (beat.kind === "guard") return "Bracing";
+  if (beat.kind === "intercept") return "Guarding";
   if (beat.outcome === "sent-home") return "Sent home";
   if (beat.outcome === "yield") return "Yields";
   if (beat.outcome === "guarded") return `Braced −${beat.damage}`;
@@ -80,7 +79,10 @@ export function telegraphText(beat) {
       ? `${who} eyes ${theName(beat.itemId)}`
       : `${who} squares up to ${other}`;
   if (beat.kind === "guard") return `${who} braces`;
-  return `${who} strikes ${other}`;
+  // Alignment is read from the latest plays only; the rules keep no sides.
+  if (beat.kind === "intercept") return `${who} sides with ${other}`;
+  const aimed = inSentence(beat.coveredId || beat.targetId);
+  return `${who} ${beat.turnsOn ? "turns on" : "strikes"} ${aimed}`;
 }
 
 // The beats of every standoff line after `sinceSeq` that the viewer saw from
@@ -91,48 +93,52 @@ export function combatBeats(before, after, { viewer, place, sinceSeq } = {}) {
   const fresh = (after?.log || []).filter(
     (entry) => entry.seq > since && !entry.generated,
   );
-  const resolve = new Map();
-  for (const c of before?.standoffs || [])
-    resolve.set(pairKey(c.challenger, c.defender), { ...c.resolve });
+  // Each combatant is in one battle, so one map holds every resolve, and
+  // `sides` holds who guards whom after the latest plays.
+  const pool = {},
+    sides = new Map();
+  for (const c of before?.standoffs || []) {
+    Object.assign(pool, c.resolve);
+    for (const [guard, ward] of Object.entries(c.covering || {}))
+      sides.set(guard, ward);
+  }
   const beats = [];
   for (const entry of fresh) {
     if (!COMBAT_VERBS.includes(entry.verb)) continue;
     const at = entry.locationId || entry.fromLocationId;
     if (at !== here && entry.fromLocationId !== here) continue;
     const actorId = entry.actorId,
-      targetId = entry.targetId;
+      targetId = entry.targetId,
+      coveredId = entry.coveredId || null;
     // A Brace names no target.
     if (!actorId || (!targetId && entry.verb !== "guard")) continue;
-    const key = pairKey(actorId, targetId);
     const base = {
       seq: entry.seq,
       kind: entry.verb,
       actorId,
       targetId,
+      coveredId,
+      // Who steps forward for this exchange: the actor, a guard taking the
+      // hit, and the one aimed at.
+      front: [actorId, targetId, coveredId].filter(Boolean),
       itemId: entry.itemId || null,
       locationId: here,
       text: entry.text,
-      viewerInvolved: [actorId, targetId].includes(viewer),
+      viewerInvolved: [actorId, targetId, coveredId].includes(viewer),
     };
     if (entry.verb === "threaten") {
-      resolve.set(key, {
-        [actorId]: entry.resolveBefore ?? MAX_RESOLVE,
-        [targetId]: MAX_RESOLVE,
-      });
-      beats.push({
-        ...base,
-        resolve: { ...resolve.get(key) },
-      });
+      pool[actorId] = entry.resolveBefore ?? MAX_RESOLVE;
+      pool[targetId] = MAX_RESOLVE;
+    }
+    if (entry.verb === "intercept") sides.set(actorId, targetId);
+    if (entry.verb !== "attack") {
+      beats.push({ ...base, resolve: { ...pool } });
       continue;
     }
-    if (entry.verb === "guard") {
-      beats.push({ ...base, resolve: { ...(resolve.get(key) || {}) } });
-      continue;
-    }
-    const pool = resolve.get(key) || {
-      [actorId]: MAX_RESOLVE,
-      [targetId]: MAX_RESOLVE,
-    };
+    const aimed = coveredId || targetId;
+    const turnsOn =
+      sides.get(actorId) === aimed || sides.get(aimed) === actorId;
+    sides.delete(actorId);
     const damage = Number.isFinite(entry.damage)
       ? entry.damage
       : Number(/loses (\d+) resolve/u.exec(entry.text || "")?.[1] || 0);
@@ -143,10 +149,10 @@ export function combatBeats(before, after, { viewer, place, sinceSeq } = {}) {
       ? entry.resolveAfter
       : Math.max(0, resolveBefore - damage);
     pool[targetId] = resolveAfter;
-    resolve.set(key, pool);
     const outcome = outcomeOf(entry, resolveAfter);
     const beat = {
       ...base,
+      turnsOn,
       damage,
       resolveBefore,
       resolveAfter,
