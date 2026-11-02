@@ -159,8 +159,8 @@ let world = sharedSession
   selectionRevision = 0,
   dragging = [],
   // The hand rests folded until a card is touched. Only a click outside
-  // the card area, Escape, or a play folds it again; changing the
-  // selection, deselecting included, never does. A held item stays raised.
+  // the card area or Escape folds it again; a play, changing the selection
+  // and deselecting never do. A held item stays raised.
   rowCollapsed = true,
   // A click off the hand folds it with its selection and chosen play intact;
   // the next tap on the hand only raises it again.
@@ -518,21 +518,20 @@ const playQueue = createPlayQueue({
     else performAction(action, revision);
   },
   changed: () => {
-    // Capture the hand before a queued play folds it; refresh progress labels
-    // even when the hand's render key is unchanged.
+    // Refresh progress labels even when the hand's render key is unchanged.
     const handBefore = renderedHand;
     render();
     if (renderedHand === handBefore) renderActions();
   },
 });
-// Strikes and journeys have the screen: the hand, locked through them
-// anyway, drops away the moment they start and rises once the scene is drawn.
-// The dialogue sinks with it to a strip at the foot of the stage, so the
-// fighters stay in view, and rises for the speech that follows.
+// Strikes and journeys have the screen. The hand is locked through them but
+// stays exactly where the player left it: only the player lowers it. The
+// dialogue steps aside, so the fighters stay in view, and returns for the
+// speech that follows.
 function syncHandDrop() {
   const dock = document.querySelector(".play-dock"),
     dialogue = document.querySelector(".dialogue");
-  dock.dataset.dropped = String(covering);
+  dock.dataset.covered = String(covering);
   dock.inert = covering;
   dialogue.dataset.dropped = String(covering);
   dialogue.inert = covering;
@@ -1164,9 +1163,7 @@ function commitAction(action, revision, renderedAt = -Infinity) {
     // Shared plays cancel through their own visible control.
     if (!sharedSession) playQueue.clear();
   } else {
-    // Playing is one of the things that fold the hand.
-    foldedChoice = false;
-    rowCollapsed = true;
+    // A play leaves the hand where it is: raised stays raised.
     playQueue.submit(action, revision);
   }
 }
@@ -3516,8 +3513,8 @@ document.addEventListener("click", (e) => {
       );
   if (rowCollapsed) {
     // A folded row with a held item opens from any dock click; a resting
-    // hand opens from a card. A play folds the row from its own button, so
-    // that click must not reopen it.
+    // hand opens from a card. A play leaves the row as it is, so its own
+    // button must not reopen it.
     if (selected.length && within(".play-dock") && !within("#card-actions")) {
       foldedChoice = false;
       rowCollapsed = false;

@@ -20,7 +20,7 @@ const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await browserType.launch({ headless: true });
 try {
-  for (const width of [1440, 390]) {
+  for (const width of [1440, 1900, 390]) {
     for (const reducedMotion of ["no-preference", "reduce"]) {
       const world = enableMotives(createWorld());
       world.actors.vale.place = "pond";
@@ -36,7 +36,7 @@ try {
       const key = `cosyworld.reflected-shore.v1.${table}`;
       // A context, so a second tab can share this page's storage.
       const context = await browser.newContext({
-        viewport: { width, height: width === 390 ? 844 : 900 },
+        viewport: { width, height: { 390: 844, 1900: 1000 }[width] ?? 900 },
         reducedMotion,
         hasTouch: width === 390,
       });
@@ -269,7 +269,7 @@ try {
           "browsing preserves the saved world",
         );
         assert.deepEqual(requests, []);
-        // Only an outside click, Escape or a play folds the hand. Choosing,
+        // Only an outside click or Escape folds the hand. A play, choosing,
         // changing the pair and deselecting all keep it open.
         const open = () =>
           page.evaluate(() => document.body.dataset.handExpanded);
@@ -310,13 +310,38 @@ try {
               document.querySelector("#hand").getAttribute("aria-busy") ===
                 "false",
           );
+        // The hand's box and each card's spot, before and after a play.
+        const handRect = () =>
+          page.locator("#hand").evaluate((hand) => {
+            const { left, top, width, height } = hand.getBoundingClientRect();
+            return {
+              rect: [left, top, width, height].map(Math.round),
+              scroll: Math.round(hand.scrollLeft),
+            };
+          });
         await tap("vale");
         await tap("lamp");
         assert.deepEqual(await selected(), ["lamp", "vale"]);
+        await settleHand();
+        const beforePlay = await handRect();
         await action("light").click();
+        assert.deepEqual(
+          await handRect(),
+          beforePlay,
+          "committing a play leaves the hand where it is",
+        );
         await settled();
         await action("snuff").waitFor();
-        assert.equal(await open(), "false", "a play folds the hand");
+        await settleHand();
+        assert.equal(await open(), "true", "a play keeps the hand raised");
+        assert.deepEqual(
+          await handRect(),
+          beforePlay,
+          "the played hand stays exactly where it was",
+        );
+        await page.screenshot({
+          path: new URL(`${table}-after-play.png`, output).pathname,
+        });
         assert.deepEqual(
           await selected(),
           ["lamp", "vale"],
@@ -479,6 +504,11 @@ try {
         await tap("vale");
         assert.equal(await handExpanded(), "true");
         const choice = await selected();
+        // The redraw drops a pointer's hover lift; measure without one. A
+        // touch keeps its hover until the next tap, here on the dialogue,
+        // which leaves the hand be.
+        if (width === 390) await page.locator("#dialogue-advance").tap();
+        else await page.mouse.move(1, 1);
         await settleHand();
         const layout = await handLayout();
         const other = await context.newPage();
@@ -498,7 +528,7 @@ try {
         assert.deepEqual(
           await handLayout(),
           layout,
-          "another tab moves nothing",
+          `${table}: another tab moves nothing`,
         );
         assert.deepEqual(errors, []);
         console.log(

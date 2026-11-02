@@ -139,19 +139,37 @@ try {
         attributeFilter: ["data-source"],
       });
     });
+    const handRect = () =>
+      page.locator("#hand").evaluate((hand) => {
+        const { left, top, width, height } = hand.getBoundingClientRect();
+        return [left, top, width, height].map(Math.round);
+      });
+    const raisedHand = await handRect();
     await page.locator("#card-actions button", { hasText: /^Brace/ }).click();
-    // The hand drops away, untappable, as soon as the play commits.
+    // The hand locks, untappable, as soon as the play commits, and the
+    // dialogue steps aside; only the player lowers the hand.
     assert.deepEqual(
       await page.evaluate(() => {
         const dock = document.querySelector(".play-dock"),
           dialogue = document.querySelector(".dialogue");
-        return [dock.dataset.dropped, dock.inert, dialogue.dataset.dropped];
+        return [
+          dock.dataset.covered,
+          dock.inert,
+          dialogue.dataset.dropped,
+          document.body.dataset.handExpanded,
+        ];
       }),
-      ["true", true, "true"],
-      "The hand and the dialogue are down before the strikes resolve",
+      ["true", true, "true", "true"],
+      "The hand stays raised and locked while the strikes resolve",
     );
     // The telegraph and the rules line appear on stage before the new place.
     await page.locator("#combat-caption:not([hidden])").waitFor();
+    await page.waitForTimeout(400);
+    assert.deepEqual(
+      await handRect(),
+      raisedHand,
+      "The strikes leave the raised hand exactly where it was",
+    );
     // From the first combat frame the two fighters face each other.
     assert.deepEqual(
       await page.evaluate(() =>
@@ -274,14 +292,14 @@ try {
     assert.match(log, /You came to at /);
     assert.equal(await page.locator(".combat-dim").count(), 0);
     assert.equal(
-      await page.locator('.play-dock[data-dropped="false"]').count(),
+      await page.locator('.play-dock[data-covered="false"]').count(),
       1,
-      "The hand rises once the new place is drawn",
+      "The hand unlocks once the new place is drawn",
     );
     assert.equal(
       await page.locator('.dialogue[data-dropped="false"]').count(),
       1,
-      "The dialogue rises with the hand",
+      "The dialogue returns with the hand",
     );
     assert.equal(
       await page.locator("#combat-caption:not([hidden])").count(),

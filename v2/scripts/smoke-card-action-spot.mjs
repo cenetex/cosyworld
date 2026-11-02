@@ -149,7 +149,12 @@ try {
     await page.waitForTimeout(400);
     const offer = await box("#card-actions .card-primary"),
       spoken = await box(".dialogue");
-    assert(offer.top >= spoken.bottom - 1, "offer under the dialogue");
+    // On phones and tablets the dialogue lies over the hand's foot (#1897),
+    // so the offer sits above it; elsewhere it sits under it.
+    assert(
+      offer.top >= spoken.bottom - 1 || offer.bottom <= spoken.top + 1,
+      `offer clear of the dialogue: ${JSON.stringify([offer, spoken])}`,
+    );
     await handUncut();
     await shot("ready-dialogue");
     await give.click();
