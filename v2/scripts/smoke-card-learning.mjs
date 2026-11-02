@@ -168,12 +168,35 @@ try {
         ),
         "inner-life",
       );
-      const text = await inner.innerText();
-      assert(text.includes("I'm Vale. The Lamplighter."));
-      // "I'm becoming" is one intention: the newest thought, not the persona.
-      assert(text.includes("A fair offer may help."));
+      // The region's name is visually hidden: what shows opens on "I'm",
+      // then "I dream".
+      const text = await inner.evaluate((section) =>
+        [...section.children]
+          .filter((child) => !child.classList.contains("sr-only"))
+          .map((child) => child.textContent)
+          .join("\n"),
+      );
+      assert(text.startsWith("I'm Vale. The Lamplighter."), text);
+      assert(!text.includes("inner life"));
+      assert(!text.includes("I'm becoming"));
+      assert(!text.includes("A fair offer may help."));
       assert(!text.includes("learning to listen"));
+      assert(text.includes("I dream"));
       assert(text.includes("little boat"));
+      assert(text.trim().endsWith("— Vale"));
+      assert.equal(
+        await dialog.evaluate((box) => {
+          const visible = [...box.querySelectorAll("h2, h3")].filter(
+            (h) => h.closest(".memory-visit") === null,
+          );
+          return visible.filter((h) => h.offsetWidth > 1).length;
+        }),
+        0,
+      );
+      assert.equal(
+        await dialog.getByRole("button", { name: "Save conversation" }).count(),
+        0,
+      );
       // Measured attempts guide the planner; the panel never shows them.
       assert(!text.includes("measured attempt"));
       assert(!text.includes("Keeper private sentinel"));
@@ -184,8 +207,16 @@ try {
           path: `${output}/memory-inner-life-${width}.png`,
           fullPage: true,
         });
-      await dialog.getByRole("button", { name: "Close", exact: true }).click();
-      if (!attempt) await page.reload();
+      const close = dialog.getByRole("button", { name: "Close", exact: true });
+      const at = await close.boundingBox();
+      assert(at.x + at.width > box.x + box.width - 48 && at.y < box.y + 48);
+      if (attempt) await close.click();
+      else {
+        // Escape closes it too.
+        await page.keyboard.press("Escape");
+        await dialog.waitFor({ state: "hidden" });
+        await page.reload();
+      }
     }
     assert.deepEqual(errors, []);
     await page.close();

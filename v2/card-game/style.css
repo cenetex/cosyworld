@@ -2035,6 +2035,37 @@ body .beat-live {
 }
 /* Memory: the avatar's inner life now, then the same beats, opened on
    purpose, newest visit first. */
+.memory-dialog .messages {
+  margin-bottom: 0;
+  padding-right: 18px;
+}
+.memory-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  opacity: 0.6;
+  cursor: pointer;
+}
+.memory-close:hover,
+.memory-close:focus-visible {
+  opacity: 1;
+  color: var(--ink);
+  background: transparent;
+}
+.memory-close:focus-visible {
+  outline: 1px solid var(--gold);
+  outline-offset: 1px;
+}
 .inner-life {
   margin-bottom: 18px;
   padding-bottom: 14px;

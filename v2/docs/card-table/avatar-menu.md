@@ -83,8 +83,8 @@ only the tools. ☰ opens a list of **world slots**:
   `online` seats (a heartbeat in the last minute) and its avatars' `level`
   and `xp` from the last checkpoint (`actors`), so this holds in every slot,
   not only the world being played. The tools (Memory, Invite, Settings) stay
-  pinned at the bottom; Memory opens on the avatar's inner life, then the
-  past visits.
+  pinned at the bottom; Memory opens on the avatar's inner life ("I'm …",
+  then "I dream"), with no title and a quiet × close, then the past visits.
 - **A world nobody is in closes** (owner, 2026-11-01). When the last avatar
   leaves a world of yours (Leave, the owner's Free, or a claim elsewhere) and
   nobody else holds a seat there, the server retires it

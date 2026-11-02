@@ -239,6 +239,14 @@ try {
       await page.locator(`#${button}`).click();
       await menu.waitFor({ state: "hidden" });
       assert(await page.locator(`#${target}`).evaluate((node) => node.open));
+      if (target === "history-dialog") {
+        // Memory has no title bar: a quiet × in the corner, no export.
+        const memory = page.getByRole("dialog", { name: "Memory" });
+        assert.equal(await memory.getByRole("button").count(), 1);
+        await memory
+          .getByRole("button", { name: "Close", exact: true })
+          .waitFor();
+      }
       await page.keyboard.press("Escape");
       await page.waitForFunction(
         () => document.activeElement?.id === "toolbar-menu-button",

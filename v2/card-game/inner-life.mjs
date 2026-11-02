@@ -82,17 +82,16 @@ export function innerLifeSection(chain) {
     if (className) node.className = className;
     section.append(node);
   };
-  add("h3", `${chain.name}'s inner life`, "memory-place");
+  // The region keeps its name for assistive tech; Memory shows no heading.
+  add("h3", `${chain.name}'s inner life`, "sr-only");
   section.firstChild.id = "inner-life-title";
   // The authored sentence opens the chain; it already says "I'm".
   add("p", chain.im, "inner-life-im");
-  for (const [heading, lines] of [
-    ["I'm becoming", chain.becoming],
-    ["I dream", chain.dreams],
-  ]) {
-    if (!lines.length) continue;
-    add("h4", heading);
-    for (const line of lines) add("p", line);
+  // "I'm becoming" stays in the chain for other readers; Memory leaves it
+  // out (owner, 2026-11-01).
+  if (chain.dreams.length) {
+    add("h4", "I dream");
+    for (const line of chain.dreams) add("p", line);
   }
   add("p", `— ${chain.name}`, "inner-life-name");
   return section;

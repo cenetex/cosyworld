@@ -126,8 +126,10 @@ the loser's beat.
 
 The Memory panel replaces the Conversation chat log. It is opened on purpose
 from the toolbar. It shows the same beat cards, grouped by visit with the
-place's name, newest visit first. Save conversation still exports the spoken
-lines.
+place's name, newest visit first, below the avatar's inner life. It has no
+title or export button, only a quiet × close in the corner; Escape also
+closes it. Settings → Save backup still writes the local world, its log
+included; there is no separate transcript export.
 
 ## Accessibility
 
