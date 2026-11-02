@@ -100,8 +100,40 @@
 [data-time-of-day="night"][data-weather="cloud"] {
   --weather-light: brightness(0.9) saturate(0.85);
 }
-.stage[data-time-of-day="night"] .portrait-body {
-  filter: brightness(0.88) saturate(0.85);
+/* Time of day (stage-light.mjs): the hour's shade and edge vignette multiply
+   the painting, its desaturation greys it, and the figures take the same
+   light as a filter (style.css). The hand and dialogue are never graded. */
+/* The layer itself makes no stacking context, so each blend reaches the
+   painting below. */
+.stage-grade {
+  position: absolute;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+}
+.stage[data-graded="true"] > .stage-grade {
+  display: block;
+}
+.stage-grade::before,
+.stage-grade::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+.stage-grade::before {
+  background: rgb(128 128 128 / var(--tod-desat, 0));
+  mix-blend-mode: saturation;
+}
+.stage-grade::after {
+  background:
+    radial-gradient(
+      ellipse 80% 75% at 50% 45%,
+      transparent 45%,
+      rgb(10 12 34 / var(--tod-vignette, 0))
+    ),
+    var(--tod-shade, #fff);
+  mix-blend-mode: multiply;
 }
 @keyframes scene-rain {
   to {

@@ -33,7 +33,7 @@
       "smokes": ["smoke-card-credits"]
     },
     {
-      "paths": "^v2/card-game/weather",
+      "paths": "^v2/card-game/(weather|stage-light)",
       "smokes": ["smoke-card-weather"]
     },
     {

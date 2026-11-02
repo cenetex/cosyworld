@@ -204,7 +204,7 @@ main {
   left: var(--sprite-left);
   top: var(--sprite-top);
   transform: translate(-50%, -92%);
-  filter: drop-shadow(0 5px 4px #17201570);
+  filter: drop-shadow(0 5px 4px #17201570) var(--tod-figure,);
 }
 .scene-shade {
   z-index: -1;
@@ -261,7 +261,7 @@ main {
   height: 100%;
   object-fit: contain;
   object-position: bottom;
-  filter: drop-shadow(0 8px 14px #08091390);
+  filter: drop-shadow(0 8px 14px #08091390) var(--tod-figure,);
 }
 .portrait img[data-flip="true"] {
   transform: scaleX(-1);
@@ -321,7 +321,7 @@ main {
   position: absolute;
   inset: 0;
   object-position: center bottom;
-  filter: drop-shadow(0 2px 3px #08091390);
+  filter: drop-shadow(0 2px 3px #08091390) var(--tod-figure,);
 }
 .portrait-held-item[data-lit="true"] > img:first-child {
   filter: drop-shadow(0 0 7px #e0a94a99);
@@ -400,7 +400,7 @@ main {
   height: 100%;
   object-fit: contain;
   object-position: center bottom;
-  filter: drop-shadow(0 5px 5px #08091399);
+  filter: drop-shadow(0 5px 5px #08091399) var(--tod-figure,);
 }
 .floor-item[data-lit="true"] > img:first-child {
   filter: drop-shadow(0 5px 5px #08091399) drop-shadow(0 0 9px #e0a94a99);

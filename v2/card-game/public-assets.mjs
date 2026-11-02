@@ -193,6 +193,8 @@ const files = [
   "daylight.mjs",
   ...daylightAssets,
   "weather-view.mjs",
+  "stage-light.mjs",
+  "stage-light-view.mjs",
   "transitions.mjs",
   "weather-shader.mjs",
   "weather.css",

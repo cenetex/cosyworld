@@ -25,6 +25,8 @@ import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
+import { renderStageLight } from "./stage-light-view.mjs";
+import { GENTLE } from "./stage-light.mjs";
 import {
   CHANGE_FADE_MS,
   CARD_ARRIVE_MS,
@@ -2393,6 +2395,13 @@ function renderScene() {
   if (scene.daylight) img.alt += ` ${scene.daylight.description}`;
   img.dataset.locationVariant = scene.variant;
   $("stage").dataset.timeOfDay = scene.daylight?.phase || "day";
+  // A painted night or a lamp-dimmed room already carries its own dark.
+  renderStageLight($("stage"), {
+    turn: view.turn,
+    strength:
+      phase === "night" || document.body.dataset.dim === "true" ? GENTLE : 1,
+    ease: stayed,
+  });
   renderWeather($("stage"), scene.weather, { ease: stayed });
   let overlay = $("location-overlay");
   if (scene.overlay && !overlay) {
