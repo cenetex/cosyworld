@@ -17,44 +17,48 @@
   border: 1px solid #67606b;
   border-radius: 6px;
 }
+/* Who plays next sits in the front beat's header row, at its right end, as
+   overlapping avatar chips: inside the dialogue's box, clear of the hand and
+   the scene. The speaker's name keeps room to the left of the chips. */
 .shared-portraits {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: start;
+  position: absolute;
+  z-index: 3;
+  top: 8px;
+  right: 12px;
 }
 .shared-play-queue {
   display: flex;
-  flex-direction: column;
+  flex-direction: row-reverse;
   align-items: center;
-  gap: 4px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
+.shared-play-queue > li + li {
+  margin-right: -6px;
+}
 .shared-play-queue:empty {
   display: none;
 }
-body .dialogue:has(.shared-portraits) {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 28px;
-  column-gap: 12px;
+body .dialogue:has(.shared-play-queue > li) .dialogue-heading {
+  padding-right: 32px;
 }
-body .dialogue > .speech-row {
-  grid-column: 1;
-  grid-row: 1;
-  align-self: end;
+body .dialogue:has(.shared-play-queue > li:nth-child(2)) .dialogue-heading {
+  padding-right: 52px;
+}
+body .dialogue:has(.shared-play-queue > li:nth-child(3)) .dialogue-heading {
+  padding-right: 72px;
+}
+body .dialogue:has(.shared-play-queue > li:nth-child(4)) .dialogue-heading {
+  padding-right: 92px;
 }
 .shared-play-avatar {
   display: block;
   position: relative;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
   overflow: hidden;
   padding: 0;
   border: 1px solid #a899765e;
