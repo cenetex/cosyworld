@@ -194,6 +194,10 @@ try {
           ).length === 2,
       );
       assert.match(await toggle.getAttribute("aria-label"), /1 friend online/);
+      // A redrawn card drops the note its second tap asked with, so a note
+      // never names an avatar the card no longer shows.
+      assert.equal(await menu.locator(".avatar-status").innerText(), "");
+      assert.equal(await free.innerText(), "Free Ash");
     }
     await page.keyboard.press("Escape");
     await menu.waitFor({ state: "hidden" });

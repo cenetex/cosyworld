@@ -83,7 +83,25 @@ only the tools. ☰ opens a list of **world slots**:
   and `xp` from the last checkpoint (`actors`), so this holds in every slot,
   not only the world being played. The tools (Memory, Inner life, Invite,
   Settings) stay pinned at the bottom.
-- **+ New world** starts a world for the first avatar in no world.
+- **A world nobody is in folds into + New world** (owner, 2026-11-01). A
+  world of yours with no entered avatar left (no claimed or bound seat but
+  your own stepped-away one) is not a row. The **+ New world** row instead
+  carries the most recently emptied world's name, "+ *The Borrowed
+  Station*", and tapping it brings an avatar back into that same world: the
+  card's avatar when it is in no world, else the one that stepped away
+  there, else the first in no world. A stepped-away seat there that belongs
+  to another of your avatars is started over first (`reset`, which keeps its
+  level for its next seat), then the avatar is claimed. This browser
+  remembers which world it last saw emptied (`cosyworld.emptied`); without
+  that, the newest empty world is used. Older empty worlds are not shown and
+  wait behind it: once the shown one is filled again, the next appears.
+  With no empty world, **+ New world** starts a fresh world for the first
+  avatar in no world.
+- **There is no Delete world.** Emptying a world (Step away or Release of
+  its last avatar) is how it goes. The server has no delete for shared
+  worlds and none is added: an empty world keeps its journal and still
+  counts toward the eight, which is why + New world reuses it instead of
+  creating a ninth. A world holding anyone else's avatar is never empty.
 - Below, the **profile card**: one avatar shown as a hand card (full
   portrait, name, the faint level numeral and the level tier's edge colour),
   then online or offline, its world, and what it holds where that world is
@@ -134,7 +152,13 @@ out) and Controls. It holds no world actions.
 The menu shows now, not a log: where each avatar is now. There is no list of
 past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` checks
 the portraits and +, colour, the card and its actions, a move from + and
-Step away, at 390 and 1440 pixels.
+Step away, and an emptied world folded into + New world, at 390 and 1440
+pixels.
+
+**Notes go with the card.** The note a second tap shows ("Step away?",
+"Release *Mara* and start over?", "Free Ash?") names the card's avatar and
+clears whenever the card is redrawn or shows another avatar, so it never
+describes an earlier selection.
 
 + tapped in another world until it offers Tavi, who stepped away:
 
@@ -144,6 +168,11 @@ Step away, at 390 and 1440 pixels.
 Your Tavi in a friend's world, Step away tapped once:
 
 ![Phone: Step away](avatar-menu/slots-step-away-390.jpg)
+
+An emptied world as the + row (here "+ Silverhook"):
+
+![Phone: emptied world](avatar-menu/slots-emptied-390.jpg)
+![Desktop: emptied world](avatar-menu/slots-emptied-1440.jpg)
 
 ### #1737 mockups (replaced by the slots above)
 
@@ -164,7 +193,7 @@ Desktop (1440 × 900):
 ### Words
 
 Play, Step away, Step away?, Release · start over, Free, Bring to
-*Hollowmere*, +, + New world, You, Memory, Inner life, Invite, Settings. Gone: Worlds,
+*Hollowmere*, +, + New world, + *The Borrowed Station*, You, Memory, Inner life, Invite, Settings. Gone: Worlds,
 Share, Your worlds (`/?shared=1` opens the table), on this
 device, Delete world (local), `?avatar=`, Continue as, Continue
 shared world, Return to my game, Send to…, Join, Choose your
