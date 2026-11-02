@@ -1,0 +1,267 @@
+{
+  "created": "2026-11-02",
+  "generator": "OpenAI built-in image generation",
+  "issue": "https://github.com/cenetex/cosyworld/issues/1851",
+  "brief_source": "https://github.com/cenetex/cosyworld/issues/1851#issuecomment-6564242922",
+  "brief": "Five distinct Greek document item cutouts replace shared or placeholder art: a guard wax tablet, burial papyrus folio, pyre clay record, Marathon wax diptych and bronze-sealed writ. Material and silhouette identify each document while all writing faces remain blank.",
+  "art_direction_feedback": [
+    "Match the established Greek item family with warm upper-left amber light, deep subdued blue-indigo self-shadow, matte painterly texture and worn natural materials.",
+    "Use complete square transparent cutouts for cards and floor items, with generous outer margins and a quiet lower card-name area.",
+    "Keep materials and silhouettes distinct at small display sizes. The Guard and Marathon records remain wax; the sealed palace writ remains visibly sealed.",
+    "No readable or unreadable text, pseudoletters, glyphs, ruled rows, sigils or pictorial emblems. Plain material grain and natural wear are allowed.",
+    "No people, hands, scenery, floor, cast ground shadow, extra props or painted background.",
+    "Preserve exact final prompts and every earlier prompt used in the reference chain. Generated references are identified by generation ID and PNG hash; repository references are pinned to the base commit."
+  ],
+  "assets": [
+    {
+      "id": "guard-tablet",
+      "file": "../guard-tablet.webp",
+      "card_id": "greek-guard-tablet",
+      "material": "Narrow single-panel dark wax tablet in worn walnut, with a bound bronze stylus.",
+      "generation_id": "exec-63489dfa-f8f1-407b-a62a-9d8379173cb1",
+      "references": [
+        {
+          "role": "Identity-preserving edit target; correct canvas placement while retaining the accepted object.",
+          "generation_id": "exec-271bc72c-611e-4978-8e47-4feeaed6ec8d",
+          "original_png_sha256": "67c2e0b1b8f1e1d3af795aae16aa3c976232e3954115cdddb1f944dab20e62c5",
+          "original_png_bytes": 1252575,
+          "dimensions": [
+            1254,
+            1254
+          ]
+        }
+      ],
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit. Make a CANVAS-PLACEMENT correction to this approved CosyWorld document cutout. Preserve the exact same object identity, materials, colours, light, wax surface, worn wood, perspective, proportions, cord details and hand-painted texture. Do not redesign or add anything. Keep a square1254x1254 canvas; ONLY make the complete object assembly smaller and reposition it inside that same transparent canvas.\nReduce the whole tablet-and-stylus assembly to about80% of its current size, keeping it centered horizontally, then move it upward enough that its very lowest point is at74% of canvas height and its highest point is at8%. Keep the same slight tilt. The entire bound assembly must have at least12% empty space on its left and right.\nThe lower25% of the image must be entirely transparent so a card title can overlay that area. All outer margins must remain genuinely alpha0, with no faint dust or speckles; preserve transparency in the gaps and opaque painted material inside the object. Do not fill the empty space. No background, surface, floor, drop shadow, frame or checkerboard. Preserve the completely BLANK wax faces: no letters, pseudoletters, rows of marks, numbers, runes or symbols. Keep all corners and attached parts fully visible. Return one correctly framed cutout of this same object, no other changes.",
+      "generation_history": [
+        {
+          "role": "Initial generation used as the final layout-edit reference.",
+          "generation_id": "exec-271bc72c-611e-4978-8e47-4feeaed6ec8d",
+          "original_png_sha256": "67c2e0b1b8f1e1d3af795aae16aa3c976232e3954115cdddb1f944dab20e62c5",
+          "original_png_bytes": 1252575,
+          "dimensions": [
+            1254,
+            1254
+          ],
+          "transparent_background": true,
+          "selected": false,
+          "revision_reason": "Increase clear margins and reserve the lower quarter for the card name.",
+          "references": [
+            {
+              "role": "Blank single-panel wax-tablet edit target and painterly material reference.",
+              "repository_path": "v2/card-game/assets/greek-drama/refuge-tablet.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/refuge-tablet.png",
+              "sha256": "205ff4d39046d294b8aa7a64e67544e237bf1a56571122042b2d5e50df8e6e2e"
+            },
+            {
+              "role": "Dark worn wood and bronze craftsmanship reference only; exclude its writing and two-panel form.",
+              "repository_path": "v2/card-game/assets/greek-drama/testimony.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/testimony.png",
+              "sha256": "98374962809e259ecba2e1aa26643f3397c37c038f7f0ab7dc6a42a43b24e7bf"
+            }
+          ],
+          "prompt": "Use case: precise-object-edit, storybook item-art family. Produce ONE complete ancient Greek document object as a square 1254x1254 RGBA cutout for CosyWorld. Match the supplied Greek item references' softly painted natural materials, warm upper-left amber light, restrained deep blue-indigo shadows, delicate dark contours, matte textured brushwork and tactile worn edges. Object only, viewed from a gentle three-quarter angle, with no human hand or setting. The whole object, all corners, stylus or tied cord must fit within the central75% of the square width and between10% and77% of its height, leaving the lower~23% quiet transparent for a card title. Preserve generous entirely transparent margins, actual alpha gaps, and a clean full silhouette for both150px cards and72px floor props. No floor, surface, backdrop, painted ground shadow, vignette or matte rectangle. No photograph, glossy3D, neon or modern object.\nCRITICAL NEW ART DIRECTION: all writing faces must be completely blank natural material. Do NOT copy the reference's Greek-like scratches. No letters, numbers, writing, pseudoletters, runes, lines of marks, stamps, emblems, symbols, heraldry or decorative handwriting. No text anywhere. No additional props or floating fragments. One complete object assembly only, isolated on genuine transparent alpha.\nAsset: THE GUARD'S TABLET. Image1 is the blank wax-tablet edit target and painterly-material reference; image2 supplies the darker worn wood/bronze craftsmanship only, never its letters or two-panel form. Transform image1 into a NARROW SINGLE-PANEL upright wooden wax tablet, one dark walnut frame around soot-brown black beeswax. A practical battered gatekeeper's board, not ornate. Height about64% of canvas and width about40%, tilted slightly in three-quarter view while the full rectangular frame remains visible. Keep the wax face a smooth, gently scuffed BLANK dark surface with organic mottling, never scratches arranged as writing. Bind one small plain aged-bronze stylus vertically along the outside RIGHT edge using a simple short linen cord loop; stylus is part of this one assembly and stays inside the clear margins. No second panel, hinge or book. The narrow dark slab and slim bronze stylus must be its strong small-size identity. Place center around(0.5,0.43), bottom clear. Light the upper-left wood edges warmly and the right edge in cool subdued shade. No seal, laurel, decorative carving or implied magical aura."
+        }
+      ]
+    },
+    {
+      "id": "burial-account",
+      "file": "../burial-account.webp",
+      "card_id": "greek-burial-account",
+      "material": "Loose partly unrolled pale papyrus folio with a plain linen tie.",
+      "generation_id": "exec-455da182-6517-4e6c-b4bc-41cc75771acb",
+      "references": [
+        {
+          "role": "Identity-preserving edit target; correct canvas placement while retaining the accepted object.",
+          "generation_id": "exec-a0849940-b0f9-442c-a93e-f2aa3f9c9c0b",
+          "original_png_sha256": "749a79e3817bba7f4561957e0c585c906ce5db2c0ed133e84d65123e0cd34038",
+          "original_png_bytes": 1453961,
+          "dimensions": [
+            1254,
+            1254
+          ]
+        }
+      ],
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "transparent_background": true,
+      "prompt": "Make an identity-preserving layout correction to this one supplied inventory-item image. The supplied image is the exact accepted object and style to preserve. Keep its same material, silhouette, pose, lighting, surface grain, blank face, worn edges and plain linen tie. Do not add, remove, reinterpret or decorate any part of the object. Change only its size and placement on the canvas so that it has substantially more transparent breathing room. Render exactly one complete object.\n\nThe output is square 1254 by 1254 RGBA, with a genuine alpha-transparent background. Every empty pixel away from the object's natural anti-aliased edge must be fully transparent (alpha 0): no backdrop, floor, cast shadow, haze, halo, noise, dust specks, particles or checkerboard. Keep all object pixels and every tie end inside the specified safe region. The entire lower quarter of the canvas must be completely empty and fully transparent. The image should visibly look like a smaller object sitting toward the upper middle of a spacious transparent square, not an object enlarged to fill the square. No cropping.\n\nMaintain the original textless design. The surface must remain completely blank: no readable or unreadable text, pseudoletters, scribbles, glyphs, repeated rows, ruled lines, symbols, stamps, sigils or pictorial emblems. No annotations, guides, margin markers, additional props or people. Preserve the warm amber upper-left lighting and deep cool self-shadows on the object.\n\nFor this pale partly unrolled papyrus folio: shrink the current entire object to approximately 83 percent of its present size. Place its visual center at x=50%, y=41% of the full square. The complete object, including all curls and linen fibers, should occupy approximately x=19% to x=81% and y=10% to y=72%. Preserve the delicate, irregular papyrus silhouette and existing plain tie. Keep the natural papyrus grain, with no deliberate horizontal markings. Leave the lower 28 percent completely empty.",
+      "generation_history": [
+        {
+          "role": "Initial generation used as the final layout-edit reference.",
+          "generation_id": "exec-a0849940-b0f9-442c-a93e-f2aa3f9c9c0b",
+          "original_png_sha256": "749a79e3817bba7f4561957e0c585c906ce5db2c0ed133e84d65123e0cd34038",
+          "original_png_bytes": 1453961,
+          "dimensions": [
+            1254,
+            1254
+          ],
+          "transparent_background": true,
+          "selected": false,
+          "revision_reason": "Object footprint extended beyond the requested canvas safe area.",
+          "references": [
+            {
+              "role": "Painterly material and amber-light style reference only; exclude writing, ornate rollers, seal and ornament.",
+              "repository_path": "v2/card-game/assets/greek-drama/decree.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/decree.png",
+              "sha256": "ed08e73661fcb7ed7f5cf653cfbb4c035784fdab0597b9f4de73eaf8ab9df877"
+            },
+            {
+              "role": "Plain undyed linen material and pigment-handling style reference only.",
+              "repository_path": "v2/card-game/assets/greek-drama/funeral-cloth.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/funeral-cloth.png",
+              "sha256": "495f882672ce8513a65f789b919741ef3f49f22a76c73551847cefb5d217e0a0"
+            }
+          ],
+          "prompt": "Create one finished inventory-item illustration for CosyWorld's Greek drama. This is a new object, not a copy of either supplied object.\n\nREFERENCE ROLES: Reference 1, decree.png, is ONLY a reference for the game's hand-painted natural-material rendering, aged surfaces, amber highlights and richly shaded depth. Do not copy its ornate rollers, shape, red seal, ornament, any marks, or any lettering. Reference 2, funeral-cloth.png, is ONLY a reference for the tactile plain undyed linen and soft warmly lit pigment handling; do not include the cloth bundle itself. Match these references' painterly storybook realism: tangible worn material, fine dry-brush grain, soft irregular pigment edges, warm amber upper-left lighting, restrained ochre/ivory highlights and deep desaturated blue-indigo shadows within the object. This must look like a painted game item, not a flat vector icon, glossy 3D render, or photographic product shot.\n\nCOMPOSITION AND ALPHA: A square 1254 by 1254 RGBA canvas with a genuinely transparent background. Exactly one complete, isolated object, shown slightly from above in a readable three-quarter view. Keep the entire object including every fiber, tie end and worn edge between x=14% and x=86%, and between y=8% and y=75% of the whole canvas. Place its visual center near x=50%, y=42%. Leave at least the entire bottom 22% of the image absolutely empty and transparent for the card name. Do not zoom in or crop any part. Preserve generous transparent breathing room on all four sides. Every gap around or through the object is truly transparent, with no opaque fill. No floor, pedestal, cast ground shadow, ambient halo, drop shadow, vignette, backdrop, scenery, smoke, particles or checkerboard pattern. Natural self-shadow on the object itself is welcome. Bold, clear silhouette and broad material masses must remain identifiable when the whole square is displayed at 150 pixels.\n\nABSOLUTELY TEXTLESS: All surfaces are intentionally blank. No letters, words, numbers, handwriting, unreadable scribbles, pseudoletters, glyphs, runes, ruled lines, repeated rows, tally marks, symbols, sigils, stamps, embossed motifs, pictorial emblems, logos or watermark anywhere. Only unstructured natural material grain and irregular wear. No people, faces, hands, body parts, weapons, decorative props, modern stationery, or UI.\n\nOBJECT — BURIAL ACCOUNT: This portable account belongs to the household's burial rite: the grave was dug, cloth and oil were brought, and witnesses saw it. Express its humble, hand-carried nature only through the material and silhouette; do not illustrate the story and do not put writing on it. Paint a single loose, partly unrolled pale papyrus folio, a supple ivory sheet with an irregular fibrous edge and a softly curled upper edge, one lower corner naturally turned under. Its overall silhouette is taller than it is wide, gently tilted, airy and distinctly made of thin pale papyrus. The blank broad central face catches warm light; the thin curled lip and underside show cool indigo-umber self-shadow. Subtle dusty wear, faint creases and papyrus fibers are natural and randomly oriented, never arranged in lines or resembling writing. A simple narrow undyed linen tie loosely loops around one edge of the folio, with a small plain knot and short frayed ends, all within the required safe area. The sheet is partly unfurled enough to read clearly as a blank record sheet rather than a tightly rolled scroll. No wooden or metal rollers, no frame, no wax or official seal, no ribbon badge, no ornament. Keep it light, intimate, plain, and materially distinct from a thick clay tablet."
+        }
+      ]
+    },
+    {
+      "id": "pyre-account",
+      "file": "../pyre-account.webp",
+      "card_id": "greek-pyre-account",
+      "material": "Squat thick ash-grey and terracotta clay record with a scorched rim and plain linen binding.",
+      "generation_id": "exec-72221693-39ea-45ee-9843-2aed3035e75a",
+      "references": [
+        {
+          "role": "Identity-preserving edit target; correct canvas placement while retaining the accepted object.",
+          "generation_id": "exec-b35b2d72-6098-4cff-8cff-15f184e3f389",
+          "original_png_sha256": "97e76ca054cc6567e7035b31e5181efa93a35a3edbf666272adec45af0fcba67",
+          "original_png_bytes": 1648781,
+          "dimensions": [
+            1254,
+            1254
+          ]
+        }
+      ],
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "transparent_background": true,
+      "prompt": "Make an identity-preserving layout correction to this one supplied inventory-item image. The supplied image is the exact accepted object and style to preserve. Keep its same material, silhouette, pose, lighting, surface grain, blank face, worn edges and plain linen tie. Do not add, remove, reinterpret or decorate any part of the object. Change only its size and placement on the canvas so that it has substantially more transparent breathing room. Render exactly one complete object.\n\nThe output is square 1254 by 1254 RGBA, with a genuine alpha-transparent background. Every empty pixel away from the object's natural anti-aliased edge must be fully transparent (alpha 0): no backdrop, floor, cast shadow, haze, halo, noise, dust specks, particles or checkerboard. Keep all object pixels and every tie end inside the specified safe region. The entire lower quarter of the canvas must be completely empty and fully transparent. The image should visibly look like a smaller object sitting toward the upper middle of a spacious transparent square, not an object enlarged to fill the square. No cropping.\n\nMaintain the original textless design. The surface must remain completely blank: no readable or unreadable text, pseudoletters, scribbles, glyphs, repeated rows, ruled lines, symbols, stamps, sigils or pictorial emblems. No annotations, guides, margin markers, additional props or people. Preserve the warm amber upper-left lighting and deep cool self-shadows on the object.\n\nFor this squat thick clay record: shrink the current entire object to approximately 76 percent of its present size. Place its visual center at x=50%, y=42% of the full square. The complete object, including all linen fibers, should occupy approximately x=16% to x=84% and y=19% to y=66%. Preserve the exact heavy rounded-rectangle clay silhouette, clay thickness, subtly scorched rim, blank ash-grey face and plain linen wrap. Leave the lower 30 percent completely empty.",
+      "generation_history": [
+        {
+          "role": "Initial generation used as the final layout-edit reference.",
+          "generation_id": "exec-b35b2d72-6098-4cff-8cff-15f184e3f389",
+          "original_png_sha256": "97e76ca054cc6567e7035b31e5181efa93a35a3edbf666272adec45af0fcba67",
+          "original_png_bytes": 1648781,
+          "dimensions": [
+            1254,
+            1254
+          ],
+          "transparent_background": true,
+          "selected": false,
+          "revision_reason": "Object footprint extended beyond the requested canvas safe area.",
+          "references": [
+            {
+              "role": "Painterly material and amber-light style reference only; exclude writing, ornate rollers, seal and ornament.",
+              "repository_path": "v2/card-game/assets/greek-drama/decree.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/decree.png",
+              "sha256": "ed08e73661fcb7ed7f5cf653cfbb4c035784fdab0597b9f4de73eaf8ab9df877"
+            },
+            {
+              "role": "Plain undyed linen material and pigment-handling style reference only.",
+              "repository_path": "v2/card-game/assets/greek-drama/funeral-cloth.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/funeral-cloth.png",
+              "sha256": "495f882672ce8513a65f789b919741ef3f49f22a76c73551847cefb5d217e0a0"
+            }
+          ],
+          "prompt": "Create one finished inventory-item illustration for CosyWorld's Greek drama. This is a new object, not a copy of either supplied object.\n\nREFERENCE ROLES: Reference 1, decree.png, is ONLY a reference for the game's hand-painted natural-material rendering, aged surfaces, amber highlights and richly shaded depth. Do not copy its ornate rollers, shape, red seal, ornament, any marks, or any lettering. Reference 2, funeral-cloth.png, is ONLY a reference for the tactile plain undyed linen and soft warmly lit pigment handling; do not include the cloth bundle itself. Match these references' painterly storybook realism: tangible worn material, fine dry-brush grain, soft irregular pigment edges, warm amber upper-left lighting, restrained ochre/ivory highlights and deep desaturated blue-indigo shadows within the object. This must look like a painted game item, not a flat vector icon, glossy 3D render, or photographic product shot.\n\nCOMPOSITION AND ALPHA: A square 1254 by 1254 RGBA canvas with a genuinely transparent background. Exactly one complete, isolated object, shown slightly from above in a readable three-quarter view. Keep the entire object including every fiber, tie end and worn edge between x=14% and x=86%, and between y=8% and y=75% of the whole canvas. Place its visual center near x=50%, y=42%. Leave at least the entire bottom 22% of the image absolutely empty and transparent for the card name. Do not zoom in or crop any part. Preserve generous transparent breathing room on all four sides. Every gap around or through the object is truly transparent, with no opaque fill. No floor, pedestal, cast ground shadow, ambient halo, drop shadow, vignette, backdrop, scenery, smoke, particles or checkerboard pattern. Natural self-shadow on the object itself is welcome. Bold, clear silhouette and broad material masses must remain identifiable when the whole square is displayed at 150 pixels.\n\nABSOLUTELY TEXTLESS: All surfaces are intentionally blank. No letters, words, numbers, handwriting, unreadable scribbles, pseudoletters, glyphs, runes, ruled lines, repeated rows, tally marks, symbols, sigils, stamps, embossed motifs, pictorial emblems, logos or watermark anywhere. Only unstructured natural material grain and irregular wear. No people, faces, hands, body parts, weapons, decorative props, modern stationery, or UI.\n\nOBJECT — THE PYRE ACCOUNT: This portable record preserves Aethra's account of the funeral rite at Eleusis: the mothers received the ashes and the losses beside the pyre were remembered. Express the solemn, handled record only through material and silhouette; do not illustrate the story and do not put writing on it. Paint one squat, broad rounded-rectangle clay record, noticeably thicker and wider than it is tall, tilted gently so its thick lower/right edge is visible. It is an old ash-grey clay slab with subdued warm terracotta exposed at a few chipped edges. Its blank matte face is softly uneven and thumb-worn, with fine granular clay texture, a little pale ash in crevices, and a few faint irregular darkened/scorched areas confined to the rim. No deep cracks, fissure patterns, impressed symbols, carved strokes or deliberate grooves on the broad face. Warm upper-left amber touches the worn bevels; cool desaturated blue-indigo self-shadow gives the slab weight. A simple narrow pale linen binding wraps only around the left end, held with a modest plain knot near the edge; the cloth is undyed and lightly frayed, its short ends contained within the object safe area. This must have a heavy compact rounded rectangular silhouette, unmistakably different from a pale unfurling papyrus folio. No parchment sheet, scroll rollers, wooden frame, wax seal, bronze seal, decorative border, urn, vessel, ashes pile, flame, smoke, pyre scene or other props."
+        }
+      ]
+    },
+    {
+      "id": "marathon-record",
+      "file": "../marathon-record.webp",
+      "card_id": "greek-marathon-record",
+      "material": "Broad open wax diptych with muted red-ochre faces, pale olive-wood frames and cord hinges.",
+      "generation_id": "exec-9768aadc-f23e-45a2-b453-390afc2601c0",
+      "references": [
+        {
+          "role": "Identity-preserving edit target; correct canvas placement while retaining the accepted object.",
+          "generation_id": "exec-a17fb87a-8677-498c-b4f0-4841ad0edbd6",
+          "original_png_sha256": "299ddd53efceb7b92802c99cff1ee4e0f9f8b983a1e1dfe7636dad583c55a152",
+          "original_png_bytes": 1653370,
+          "dimensions": [
+            1254,
+            1254
+          ]
+        }
+      ],
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit. Make a CANVAS-PLACEMENT correction to this approved CosyWorld document cutout. Preserve the exact same object identity, materials, colours, light, wax surface, worn wood, perspective, proportions, cord details and hand-painted texture. Do not redesign or add anything. Keep a square1254x1254 canvas; ONLY make the complete object assembly smaller and reposition it inside that same transparent canvas.\nReduce the whole diptych assembly to about78% of its current size, keeping it centered horizontally. Move it upward so its lowest outer corner is at74% of canvas height, all paint lies between12.5% and87.5% of canvas width, and at least12% empty space remains above it. Keep the same open two-panel angle and relative panel geometry.\nThe lower25% of the image must be entirely transparent so a card title can overlay that area. All outer margins must remain genuinely alpha0, with no faint dust or speckles; preserve transparency in the gaps and opaque painted material inside the object. Do not fill the empty space. No background, surface, floor, drop shadow, frame or checkerboard. Preserve the completely BLANK wax faces: no letters, pseudoletters, rows of marks, numbers, runes or symbols. Keep all corners and attached parts fully visible. Return one correctly framed cutout of this same object, no other changes.",
+      "generation_history": [
+        {
+          "role": "Initial generation used as the final layout-edit reference.",
+          "generation_id": "exec-a17fb87a-8677-498c-b4f0-4841ad0edbd6",
+          "original_png_sha256": "299ddd53efceb7b92802c99cff1ee4e0f9f8b983a1e1dfe7636dad583c55a152",
+          "original_png_bytes": 1653370,
+          "dimensions": [
+            1254,
+            1254
+          ],
+          "transparent_background": true,
+          "selected": false,
+          "revision_reason": "Increase clear margins and reserve the lower quarter for the card name.",
+          "references": [
+            {
+              "role": "Open diptych edit target and Greek craft reference; remove all writing and the stylus.",
+              "repository_path": "v2/card-game/assets/greek-drama/testimony.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/testimony.png",
+              "sha256": "98374962809e259ecba2e1aa26643f3397c37c038f7f0ab7dc6a42a43b24e7bf"
+            },
+            {
+              "role": "Pale worn olive-wood and blank wax material reference.",
+              "repository_path": "v2/card-game/assets/greek-drama/refuge-tablet.png",
+              "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+              "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/refuge-tablet.png",
+              "sha256": "205ff4d39046d294b8aa7a64e67544e237bf1a56571122042b2d5e50df8e6e2e"
+            }
+          ],
+          "prompt": "Use case: precise-object-edit, storybook item-art family. Produce ONE complete ancient Greek document object as a square 1254x1254 RGBA cutout for CosyWorld. Match the supplied Greek item references' softly painted natural materials, warm upper-left amber light, restrained deep blue-indigo shadows, delicate dark contours, matte textured brushwork and tactile worn edges. Object only, viewed from a gentle three-quarter angle, with no human hand or setting. The whole object, all corners, stylus or tied cord must fit within the central75% of the square width and between10% and77% of its height, leaving the lower~23% quiet transparent for a card title. Preserve generous entirely transparent margins, actual alpha gaps, and a clean full silhouette for both150px cards and72px floor props. No floor, surface, backdrop, painted ground shadow, vignette or matte rectangle. No photograph, glossy3D, neon or modern object.\nCRITICAL NEW ART DIRECTION: all writing faces must be completely blank natural material. Do NOT copy the reference's Greek-like scratches. No letters, numbers, writing, pseudoletters, runes, lines of marks, stamps, emblems, symbols, heraldry or decorative handwriting. No text anywhere. No additional props or floating fragments. One complete object assembly only, isolated on genuine transparent alpha.\nAsset: THE MARATHON RECORD. Image1 is the existing open diptych edit target: keep its convincing warm painted Greek craft and readable two-panel construction; image2 gives pale worn olive-wood and a genuinely blank wax surface. Make a BROAD OPEN TWO-PANEL WAX RECORD, with thick pale olive-wood frames and muted deep RED-OCHRE wax on both faces, clearly different from a dark single tablet. Two simple visible cord hinges join the panels; the book is opened at a slight angle in one coherent three-quarter perspective, both panels fully visible. The wax is matte rust/ochre pigment, not fresh red liquid. Both wax faces are absolutely BLANK, with only subtle irregular smoothing texture and no rows, letters, grooves resembling script, or pictograms. Remove the stylus entirely. No trophy, wreath, laurel, weapon, victory emblem or seal: this is a sober altar keeper's record of a difficult story, not a triumphal award. Total width about72% canvas, height about50%, center(0.5,0.43); all four outside corners and the gap between the panels fully inside generous transparent padding. Warm light on pale wood, cool shadow in the hinge. No extra accessories."
+        }
+      ]
+    },
+    {
+      "id": "creon-writ",
+      "file": "../creon-writ.webp",
+      "card_id": "greek-creon-writ",
+      "material": "Compact rolled cream papyrus writ with wine-red cords and a plain bronze seal.",
+      "generation_id": "exec-1e19da46-ed49-4117-b992-0f9d52a32ad0",
+      "references": [
+        {
+          "role": "Open decree edit target and painterly papyrus/bronze reference; change to a closed writ and remove all writing and emblems.",
+          "repository_path": "v2/card-game/assets/greek-drama/decree.png",
+          "commit": "6fa9600a88a68c21d03c883f2eb991edb3500fa3",
+          "url": "https://github.com/cenetex/cosyworld/blob/6fa9600a88a68c21d03c883f2eb991edb3500fa3/v2/card-game/assets/greek-drama/decree.png",
+          "sha256": "ed08e73661fcb7ed7f5cf653cfbb4c035784fdab0597b9f4de73eaf8ab9df877"
+        }
+      ],
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit, storybook Greek document companion. Edit the supplied open decree into CREON'S WRIT, a visibly different sealed palace permission document. Retain the existing reference's warm tactile painterly papyrus, aged bronze craftsmanship, softly inked edges, amber upper-left light and subdued blue-indigo shaded sides. Change its form to ONE tightly ROLLED CREAM PAPYRUS WRIT with a plain large bronze seal: the scroll is closed, with all writing rolled inward and NONE visible. One bound object assembly only.\nThe compact thick roll lies diagonally from lower-left toward upper-right, gently viewed from three-quarter above. The creamy layered roll ends are visible; no elaborate spindle knobs. Two restrained dark wine-red cords wrap the roll, fastened at its center by ONE large round plain aged-bronze seal disk, slightly oval in perspective, resting against the papyrus. The seal has a smooth blank face, a plain raised rim and subtle warm metal patina only: absolutely no crest, portrait, stamp, letters, emblem, pictogram or carved design. The bronze seal must be the strongest visual cue at150px and the rolled capsule silhouette must read at72px. This sealed concession must look distinct from an open public decree and from a loose account folio.\nSquare1254x1254 RGBA canvas. Place the complete object centered around(0.5,0.43), total width no more than70% and height no more than60%; all cord ends, roll ends and the seal fully inside generous clear margins. Leave the lower~23% of the square empty transparent for the card-name area. True transparent alpha surrounding the roll and through all cord gaps. No ground, floor, background, surface, cast/drop shadow, black matte, paper backdrop, haze or painted checkerboard. No people, hands, pen, other document, flowers, weapons, extra loose objects or magic glow.\nCRITICAL: completely remove the reference's text. No writing anywhere, including hidden-looking pseudoletters, fake Greek, runes, rows of incisions, decorative script, numerals or labels. No heraldic imagery. Matte painterly storybook textures, not a photo or shiny3D render. One fully visible cutout, no frame, watermark or border."
+    }
+  ]
+}
