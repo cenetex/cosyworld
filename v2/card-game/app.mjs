@@ -79,7 +79,7 @@ import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
-import { creditsText, playerCredits } from "./credits.mjs";
+import { creditsText, installCreditPool, playerCredits } from "./credits.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
 import {
   createTextReveal,
@@ -641,9 +641,11 @@ const characterSpeech = createCharacterSpeech({
     $("voice-retry").hidden = state !== "error";
     $("voice-status").textContent =
       state === "connect"
-        ? playerCredits().state.signed_in
-          ? "Out of credits for voices. Get a speech pack below."
-          : "Sign in with your passkey to hear character voices."
+        ? playerCredits().world
+          ? "This world's pool is out of credits for voices. Commit credits below."
+          : playerCredits().state.signed_in
+            ? "Out of credits for voices. Get a speech pack below."
+            : "Sign in with your passkey to hear character voices."
         : state === "error"
           ? message
           : state === "loading"
@@ -4177,6 +4179,10 @@ installToolbar({
   },
   // ☰'s seat actions are a beat in front of the dialogue.
   actionBeat: { show: showActionBeat, clear: clearActionBeat },
+});
+installCreditPool({
+  actionBeat: { show: showActionBeat, clear: clearActionBeat },
+  closeSettings: () => $("menu-dialog").close(),
 });
 // The root page resumes whichever avatar was played last.
 if (!tableName && !startingPack)

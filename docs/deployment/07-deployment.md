@@ -188,6 +188,15 @@ line costs 1 and a scene video 100
 an account's balance is their sum. `GET /card-game/credits` shows the
 signed-in balance and prices.
 
+A shared world has a credit pool in the same ledger. `POST
+/card-game/credits/commit` (`{world, credits, request_id}`) writes a `commit`
+row that moves credits from the account to the world, once per request id;
+there is no withdrawal. A pool is its commits less its spends plus refunds. A
+player of the world (seated or bound) who sends `world` with
+`/card-game/speech` or `/card-game/video` spends the pool; a voiced line is
+spent once per world and its clip is kept in `credit_world_clips` (newest 256
+per world), and a failed call is refunded to the pool.
+
 Until payments exist, an operator hands out packs. Each grant is a ledger row
 with its note and an `operator granted credits` log line; a repeated
 `request_id` grants once.

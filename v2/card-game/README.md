@@ -89,6 +89,14 @@ and refunds a failed call. A line already bought plays again for free. Signed
 out or out of credits, lines are simply not voiced. The Mac app keeps its
 local voices without credits.
 
+In a shared world the world's credit pool pays instead. Any passkey can commit
+credits to it from Settings ("Commit 10 credits" / "Commit 100 credits"); the
+action beat confirms, since a commit is never taken back. Settings shows the
+pool and its largest contributors (`GET /card-game/credits/pool?world=`). The
+server spends each voiced line once for the whole world and keeps the clip, so
+every player hears the same audio; the camera films on the pool. An empty pool
+leaves lines unvoiced and greys out the camera.
+
 The Settings footer and the COSYWORLD wordmark tooltip name the build from the
 server's `/meta` (`v1.2.104 · 94ff0b8 · rules 57`, commit linked); a static
 server shows none.
