@@ -160,10 +160,16 @@ try {
           return Math.abs(measured - height) < 1;
         });
         const open = await layout();
-        // Wide screens set speech above the open hand; phones lay it over
-        // the hand's foot, below the raised cards' tops.
-        if (width === 1512) assert(open.dialogue.bottom <= open.hand.y + 1);
-        else assert(open.dialogue.y > open.hand.y + 100);
+        // Every width lays speech over the open hand's foot, below the
+        // raised cards' tops.
+        assert(open.dialogue.y > open.hand.y + 100);
+        // Wide screens centre it over the raised row; it rested beside the
+        // small deck and slid here with the cards.
+        if (width === 1512)
+          assert(
+            Math.abs(open.dialogue.x + open.dialogue.width / 2 - width / 2) <
+              2 && open.dialogue.width <= 720,
+          );
         // The queue sits inside the dialogue's box.
         const chips = await page.evaluate(() => {
           const box = document
