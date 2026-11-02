@@ -77,7 +77,7 @@ import {
   markWaking,
 } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
-import { createRoomMusic } from "./music.mjs";
+import { createRoomMusic, openingRevealed } from "./music.mjs";
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
@@ -868,10 +868,34 @@ updateSoundButton();
 $("voice-retry").onclick = () => characterSpeech.retry();
 let musicEnabled = true,
   musicVolume = 0.3;
-function musicHasStarted() {
+function musicPlayed() {
   return sharedSession
     ? sharedSession.state.music_started === true
     : world.turn > 0;
+}
+// The opening attic stays silent until the lamp goes out and its mirror
+// first shows the Black pond. This world's id is remembered at that moment,
+// so the music keeps playing after a reload even if the lamp is lit again.
+const MUSIC_REVEAL_KEY = "cosyworld.music-revealed";
+const musicWorldId = () =>
+  sharedSession
+    ? `shared:${sharedWorldId}:${sharedSession.state.actor}`
+    : `local:${SAVE_KEY}:${world.run?.seed ?? ""}`;
+let revealedWorld = null;
+try {
+  revealedWorld = localStorage.getItem(MUSIC_REVEAL_KEY);
+} catch {}
+function musicRevealed() {
+  if (revealedWorld === musicWorldId()) return true;
+  if (!openingRevealed(world, currentActor(world))) return false;
+  revealedWorld = musicWorldId();
+  try {
+    localStorage.setItem(MUSIC_REVEAL_KEY, revealedWorld);
+  } catch {}
+  return true;
+}
+function musicHasStarted() {
+  return musicPlayed() && musicRevealed();
 }
 try {
   const saved = JSON.parse(localStorage.getItem("cosyworld.room-music"));
@@ -887,7 +911,9 @@ const music = createRoomMusic({
     $("music-status").textContent = !enabled
       ? "Music paused"
       : !started
-        ? "Play your first card to start music."
+        ? musicPlayed()
+          ? "Music waits for the dark."
+          : "Play your first card to start music."
         : failed
           ? "Music is taking a moment. Switch it off and on to retry."
           : playing
