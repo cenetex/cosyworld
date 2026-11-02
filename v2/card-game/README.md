@@ -85,7 +85,9 @@ a new spoken line costs 1 credit, a scene video 100, and a speech pack is 100
 credits. Settings shows the balance from `GET /card-game/credits` and a "Get a
 speech pack" link. `credits.mjs` asks `POST /card-game/speech` for each new
 line; the server spends the credit, voices the line on its own OpenRouter key
-and refunds a failed call. A line already bought plays again for free. Signed
+and refunds a failed new purchase. A line already bought plays again for free;
+a failed replay keeps its original purchase charged. Requests for the same line
+wait for the active attempt to settle; saved completion survives clip eviction. Signed
 out or out of credits, lines are simply not voiced. The Mac app keeps its
 local voices without credits.
 
