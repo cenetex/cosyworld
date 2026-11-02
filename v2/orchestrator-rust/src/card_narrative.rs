@@ -461,6 +461,9 @@ struct Context {
     /// The speaker's own card or place, while its player has not uncovered it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     covered: Vec<String>,
+    /// Why this play speaks (the narrator's speech occasion), for metrics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    occasion: Option<String>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -488,6 +491,10 @@ fn valid(context: &Context) -> bool {
         && context.outcome.as_ref().is_none_or(valid_outcome)
         && observations::valid(context)
         && knowledge::valid(context)
+        && context
+            .occasion
+            .as_deref()
+            .is_none_or(|name| voice_metrics::occasion_label(name).is_some())
         && context.events.len() <= 8
         && context.events.iter().all(|text| bounded(text, 650))
         && context.conversation.len() <= 4
@@ -1856,7 +1863,8 @@ async fn speak(
         id,
         part,
         voice_metrics::Budget::measure(&system, context, entity, part),
-    );
+    )
+    .labelled(context);
     let spoken = voice_attempts(
         settings,
         deadline,

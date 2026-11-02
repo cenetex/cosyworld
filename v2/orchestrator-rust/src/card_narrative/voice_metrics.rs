@@ -121,6 +121,71 @@ impl Outcome {
     }
 }
 
+/// The play kinds a scene can name; anything else counts as "other".
+const PLAYS: [&str; 19] = [
+    "arrive",
+    "wait",
+    "move",
+    "course",
+    "accompany",
+    "talk",
+    "ask",
+    "take",
+    "drop",
+    "give",
+    "trade",
+    "light",
+    "snuff",
+    "ring",
+    "cover",
+    "threaten",
+    "guard",
+    "attack",
+    "choose",
+];
+
+/// The narrator's fixed speech occasions (narrative.mjs `SPEECH_OCCASIONS`).
+const OCCASIONS: [&str; 13] = [
+    "talk",
+    "refused",
+    "want_met",
+    "first_meeting",
+    "threatened",
+    "defeat",
+    "companion",
+    "battle_wait",
+    "long_rest",
+    "thought_due",
+    "new_place",
+    "signal_echo",
+    "opening",
+];
+
+/// The static label for a known occasion name.
+pub(super) fn occasion_label(name: &str) -> Option<&'static str> {
+    OCCASIONS.iter().copied().find(|known| *known == name)
+}
+
+/// The play kind a scene answers: its outcome card, or the opening.
+fn play_label(context: &Context) -> &'static str {
+    match context.outcome.as_ref() {
+        Some(outcome) => PLAYS
+            .iter()
+            .copied()
+            .find(|kind| *kind == outcome.card.kind)
+            .unwrap_or("other"),
+        None if context.turn == 0 => "opening",
+        None => "none",
+    }
+}
+
+/// Calls and spoken replies under one label.
+#[derive(Debug, Default, serde::Serialize)]
+struct Tally {
+    calls: u64,
+    spoken: u64,
+}
+
 /// Aggregate counters since this process started.
 #[derive(Debug, Default)]
 pub(super) struct Totals {
@@ -130,6 +195,8 @@ pub(super) struct Totals {
     rejections: BTreeMap<&'static str, u64>,
     tokens: [u64; 9],
     max_tokens: u64,
+    plays: BTreeMap<&'static str, Tally>,
+    occasions: BTreeMap<&'static str, Tally>,
 }
 
 impl Totals {
@@ -141,16 +208,27 @@ impl Totals {
             rejections: BTreeMap::new(),
             tokens: [0; 9],
             max_tokens: 0,
+            plays: BTreeMap::new(),
+            occasions: BTreeMap::new(),
         }
     }
 
     pub(super) fn record(
         &mut self,
+        labels: Labels,
         budget: &Budget,
         attempts: u8,
         outcome: Outcome,
         reasons: &[&'static str],
     ) {
+        let spoken = u64::from(matches!(outcome, Outcome::Spoken | Outcome::Untold));
+        for tally in [
+            self.plays.entry(labels.play).or_default(),
+            self.occasions.entry(labels.occasion).or_default(),
+        ] {
+            tally.calls += 1;
+            tally.spoken += spoken;
+        }
         self.calls += 1;
         self.attempts += u64::from(attempts);
         *self.outcomes.entry(outcome.label()).or_default() += 1;
@@ -178,6 +256,8 @@ impl Totals {
             "attempts": self.attempts,
             "outcomes": self.outcomes,
             "rejections": self.rejections,
+            "by_play": self.plays,
+            "by_occasion": self.occasions,
             "prompt_tokens": {
                 "approximate": true,
                 "mean": total / calls,
@@ -204,12 +284,42 @@ struct State {
     outcome: Option<Outcome>,
 }
 
+/// The play kind and speech occasion a call answers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct Labels {
+    play: &'static str,
+    occasion: &'static str,
+}
+
+impl Default for Labels {
+    fn default() -> Self {
+        Self {
+            play: "none",
+            occasion: "none",
+        }
+    }
+}
+
+impl Labels {
+    pub(super) fn of(context: &Context) -> Self {
+        Self {
+            play: play_label(context),
+            occasion: context
+                .occasion
+                .as_deref()
+                .and_then(occasion_label)
+                .unwrap_or("none"),
+        }
+    }
+}
+
 /// One voice call being measured. It is logged and counted once, when it
 /// is dropped, so a call cancelled at the scene deadline still counts.
 pub(super) struct Call<'a> {
     entity: &'a str,
     part: Part,
     budget: Budget,
+    labels: Labels,
     state: Mutex<State>,
 }
 
@@ -219,12 +329,19 @@ impl<'a> Call<'a> {
             entity,
             part,
             budget,
+            labels: Labels::default(),
             state: Mutex::new(State {
                 attempts: 0,
                 reasons: Vec::new(),
                 outcome: None,
             }),
         }
+    }
+
+    /// Label the call with the scene's play kind and speech occasion.
+    pub(super) fn labelled(mut self, context: &Context) -> Self {
+        self.labels = Labels::of(context);
+        self
     }
 
     fn with(&self, change: impl FnOnce(&mut State)) {
@@ -270,6 +387,8 @@ impl Drop for Call<'_> {
             feature = "card_voice",
             entity = self.entity,
             part = ?self.part,
+            play = self.labels.play,
+            occasion = self.labels.occasion,
             attempts = state.attempts,
             outcome = outcome.label(),
             reasons = %reasons.join(","),
@@ -285,7 +404,7 @@ impl Drop for Call<'_> {
             "card voice call"
         );
         if let Ok(mut totals) = TOTALS.lock() {
-            totals.record(&self.budget, state.attempts, outcome, &reasons);
+            totals.record(self.labels, &self.budget, state.attempts, outcome, &reasons);
         }
     }
 }
@@ -308,8 +427,18 @@ mod tests {
         assert_eq!(budget.get(Section::Conversation), 0);
         assert_eq!(budget.total(), 3 + 7 + 8 + 6);
         let mut totals = Totals::new();
-        totals.record(&budget, 2, Outcome::Spoken, &["repeat"]);
-        totals.record(&budget, 3, Outcome::Silent, &["repeat", "custody", "shape"]);
+        let wait = Labels {
+            play: "wait",
+            occasion: "thought_due",
+        };
+        totals.record(wait, &budget, 2, Outcome::Spoken, &["repeat"]);
+        totals.record(
+            Labels::default(),
+            &budget,
+            3,
+            Outcome::Silent,
+            &["repeat", "custody", "shape"],
+        );
         let value = totals.snapshot();
         assert_eq!(value["calls"], 2);
         assert_eq!(value["attempts"], 5);
@@ -317,6 +446,26 @@ mod tests {
         assert_eq!(value["rejections"]["repeat"], 2);
         assert_eq!(value["prompt_tokens"]["mean_by_section"]["earlier"], 6);
         assert_eq!(value["prompt_tokens"]["max"], 24);
+        assert_eq!(value["by_play"]["wait"], json!({"calls": 1, "spoken": 1}));
+        assert_eq!(
+            value["by_occasion"]["none"],
+            json!({"calls": 1, "spoken": 0})
+        );
         assert!(!value.to_string().contains("Vale"));
+    }
+
+    #[test]
+    fn calls_are_labelled_with_the_play_and_a_known_occasion() {
+        let mut context = super::super::tests::context();
+        assert!(super::super::valid(&context));
+        assert_eq!(Labels::of(&context), Labels::default());
+        context.occasion = Some("thought_due".into());
+        assert_eq!(Labels::of(&context).occasion, "thought_due");
+        assert!(super::super::valid(&context));
+        context.turn = 0;
+        assert_eq!(Labels::of(&context).play, "opening");
+        context.occasion = Some("chatter".into());
+        assert_eq!(Labels::of(&context).occasion, "none");
+        assert!(!super::super::valid(&context));
     }
 }
