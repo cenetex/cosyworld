@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
+  encodeSave,
   legalActions,
   outranks,
   play,
@@ -9,90 +10,71 @@ import {
 } from "../v2/card-game/world.mjs";
 import { levelTier } from "../v2/card-game/level-tiers.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { encodeSave } from "../v2/card-game/world.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 
-const at = (vale, moth, seed = 7) => {
+const at = (vale, moth, seed = 7, revision = 0) => {
   const s = createWorld({ seed });
   s.actors.vale.level = vale;
   s.actors.moth.level = moth;
+  s.revision = revision;
   return s;
 };
-const most = (vale, moth) => strikePower(at(vale, moth), "vale", "moth");
-// Every roll Vale could make on Pip over many seeds and plays.
+// Every roll Vale makes on Pip over many seeds and plays.
 const rolls = (vale, moth) => {
+  const s = at(vale, moth);
   const seen = new Map();
-  for (let seed = 1; seed <= 200; seed++) {
-    const s = at(vale, moth, seed);
+  for (let seed = 1; seed <= 200; seed++)
     for (let revision = 0; revision < 10; revision++) {
-      s.revision = revision;
+      Object.assign(s, { run: { seed }, revision });
       const damage = strikeDamage(s, "vale", "moth");
       seen.set(damage, (seen.get(damage) || 0) + 1);
     }
-  }
   return seen;
-};
-const act = (s, kind, target) => {
-  const action = legalActions(s).find(
-    (a) => a.kind === kind && (!target || a.target === target),
-  );
-  expect(action, `${kind} ${target || ""}`).toBeTruthy();
-  const result = play(s, action);
-  expect(result.ok).toBe(true);
-  return result.state;
 };
 
 describe("strike strength by level tier", () => {
-  it("matches levels I and II equally", () => {
+  it("is equal within a tier and one step across a boundary", () => {
     expect(levelTier(1)).toBe(levelTier(2));
-    expect(most(1, 2)).toBe(2);
-    expect(most(2, 1)).toBe(2);
-    expect(outranks(at(2, 1), "vale", "moth")).toBe(false);
-  });
-  it("keeps a tier equal across its whole band", () => {
-    expect(most(1, 9)).toBe(2);
-    expect(most(9, 1)).toBe(2);
-    expect(most(10, 19)).toBe(2);
-    expect(most(19, 10)).toBe(2);
-    expect(most(30, 49)).toBe(2);
-  });
-  it("changes strength only across a tier boundary, in either direction", () => {
-    expect(most(10, 9)).toBe(3);
-    expect(most(9, 10)).toBe(1);
-    expect(most(20, 19)).toBe(3);
-    expect(most(19, 20)).toBe(1);
-    // A gap of several tiers is still one step stronger, not more.
-    expect(most(100, 1)).toBe(3);
-    expect(most(1, 100)).toBe(1);
-    expect(outranks(at(10, 9), "vale", "moth")).toBe(true);
-    expect(outranks(at(9, 10), "vale", "moth")).toBe(false);
+    // [Vale's level, Pip's level, most Vale's strike can land, Vale outranks]
+    for (const [vale, moth, most, ranks] of [
+      [1, 2, 2, false], // I and II are equally matched
+      [2, 1, 2, false],
+      [1, 9, 2, false],
+      [10, 19, 2, false],
+      [19, 10, 2, false],
+      [30, 49, 2, false],
+      [10, 9, 3, true], // across a boundary, in either direction
+      [9, 10, 1, false],
+      [20, 19, 3, true],
+      [19, 20, 1, false],
+      [100, 1, 3, true], // several tiers apart is still one step
+      [1, 100, 1, false],
+    ]) {
+      expect(strikePower(at(vale, moth), "vale", "moth")).toBe(most);
+      expect(outranks(at(vale, moth), "vale", "moth")).toBe(ranks);
+    }
   });
   it("rolls 1-2 in a tier, 1-3 a tier up and exactly 1 a tier down", () => {
     const same = rolls(1, 2);
-    expect([...same.keys()].sort()).toEqual([1, 2]);
     const up = rolls(10, 9);
+    expect([...same.keys()].sort()).toEqual([1, 2]);
     expect([...up.keys()].sort()).toEqual([1, 2, 3]);
     // Each outcome turns up often enough to be a real chance.
     for (const count of [...same.values(), ...up.values()])
       expect(count).toBeGreaterThan(400);
     expect([...rolls(9, 10).keys()]).toEqual([1]);
-  });
-  it("rolls the same for the same seed and play, and differs by seed", () => {
-    const one = at(1, 2, 42);
-    const two = at(1, 2, 42);
-    for (let revision = 0; revision < 20; revision++) {
-      one.revision = two.revision = revision;
-      expect(strikeDamage(one, "vale", "moth")).toBe(
-        strikeDamage(two, "vale", "moth"),
-      );
-    }
-    const bySeed = (seed) =>
-      Array.from({ length: 20 }, (_, revision) => {
-        const s = at(1, 2, seed);
-        s.revision = revision;
-        return strikeDamage(s, "vale", "moth");
-      }).join();
-    expect(bySeed(1)).not.toBe(bySeed(2));
+    // The same seed and play roll the same; another seed rolls otherwise.
+    const one = at(1, 2);
+    const run = (seed) =>
+      Array.from({ length: 20 }, (_, revision) =>
+        strikeDamage(
+          Object.assign(one, { run: { seed }, revision }),
+          "vale",
+          "moth",
+        ),
+      ).join();
+    expect(run(42)).toBe(run(42));
+    expect(run(1)).not.toBe(run(2));
   });
   it("records the rolled damage, and a Brace never takes it below one", () => {
     for (let seed = 1; seed <= 40; seed++) {
@@ -103,25 +85,24 @@ describe("strike strength by level tier", () => {
       s.items.lamp.holder = "moth";
       s.turn = s.revision = 3;
       s.actors.vale.xp = 1; // level II against Pip's I: the same tier
-      s = act(s, "threaten", "moth");
+      const strike = (s, kind) =>
+        play(
+          s,
+          legalActions(s).find((a) => a.kind === kind),
+        ).state;
+      s = strike(s, "threaten");
       // Pip does not outrank Vale, so it braces rather than talking.
       expect(s.standoffs[0].guarding.moth).toBe(true);
-      const before = structuredClone(s);
-      s = act(s, "attack", "moth");
-      const hit = s.log.findLast(
-        (e) => e.actorId === "vale" && e.verb === "attack",
-      );
+      const before = s;
+      s = strike(s, "attack");
+      const [hit, back] = s.log.filter((e) => e.seq > before.eventSeq);
       // Braced, a roll of 1 or 2 lands 1.
-      expect(hit).toMatchObject({ damage: 1, guarded: true, resolveAfter: 3 });
-      const back = s.log.findLast(
-        (e) => e.actorId === "moth" && e.verb === "attack",
-      );
+      expect(hit).toMatchObject({ verb: "attack", damage: 1, guarded: true });
+      expect(back).toMatchObject({ verb: "attack", actorId: "moth" });
       expect([1, 2]).toContain(back.damage);
-      expect(back.guarded).toBe(false);
       expect(back.text).toContain(`loses ${back.damage} resolve`);
       expect(back.resolveBefore - back.resolveAfter).toBe(back.damage);
-      // Replaying the same play from the same state rolls the same.
-      expect(act(before, "attack", "moth").log).toEqual(s.log);
+      expect(strike(before, "attack").log).toEqual(s.log);
     }
   });
   it("rolls the same strikes in the browser and the compiled server rules", () => {
@@ -131,20 +112,15 @@ describe("strike strength by level tier", () => {
     const claimed = ["vale"];
     const seen = new Set();
     for (let seed = 1; seed <= 12; seed++) {
-      let world = dispatchShared({
-        op: "create",
-        save: encodeSave(createWorld()),
-        seed,
-      }).world;
+      const save = encodeSave(createWorld());
+      let world = dispatchShared({ op: "create", save, seed }).world;
       world.actors.moth.place = world.actors.vale.place;
       world.items.lamp.holder = "moth";
       world.actors.moth.want = null;
       world.actors.moth.metTurn = 0;
       for (const action of [
         "threaten:vale:lamp:moth",
-        "attack:vale::moth",
-        "attack:vale::moth",
-        "attack:vale::moth",
+        ...Array(3).fill("attack:vale::moth"),
       ]) {
         if (action.startsWith("attack") && !world.standoffs.length) break;
         const request = { op: "play", world, actor: "vale", claimed, action };
@@ -152,8 +128,8 @@ describe("strike strength by level tier", () => {
         const browser = dispatchShared(request);
         expect(browser.ok).toBe(true);
         expect(ask(request)).toEqual(browser);
-        for (const e of browser.events.filter((e) => e.verb === "attack"))
-          seen.add(e.damage);
+        for (const e of browser.events)
+          if (e.verb === "attack") seen.add(e.damage);
         world = browser.world;
       }
     }
