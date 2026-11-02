@@ -52,7 +52,7 @@ fn request(plan: &AvatarReplyPlan) -> VoiceAttemptRequest {
         prompt: resident_voice_prompt(plan, "", &gate.requirements),
         temperature: 0.7,
         max_tokens: 224,
-        referer: "https://cosyworld.fly.dev",
+        referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
         model_binding: None,
         room_id: plan.source_location_id,
     }

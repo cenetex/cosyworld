@@ -45,7 +45,7 @@ export function createOpenRouter({
       headers: {
         ...(body === undefined ? {} : { "Content-Type": "application/json" }),
         ...(key ? { Authorization: `Bearer ${key}` } : {}),
-        "X-OpenRouter-Title": "CosyWorld",
+        "X-OpenRouter-Title": "Lonely Forest",
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: signal || AbortSignal.timeout(60_000),

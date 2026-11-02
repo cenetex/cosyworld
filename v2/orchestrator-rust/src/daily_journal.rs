@@ -629,7 +629,7 @@ async fn complete_daily_journal_page(
                 max_tokens: 260,
                 timeout: Duration::from_secs(18),
                 max_attempts: 1,
-                referer: "https://cosy.world/",
+                referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
                 response_format: None,
                 room_id: Some(page.location_id),
             },
@@ -656,7 +656,7 @@ async fn complete_daily_journal_page(
                 reference: None,
                 timeout: Duration::from_secs(90),
                 max_attempts: 1,
-                referer: "https://cosy.world/",
+                referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
             },
             &format!("daily-journal-image:{}:{}", actor_id, day_index),
         )
