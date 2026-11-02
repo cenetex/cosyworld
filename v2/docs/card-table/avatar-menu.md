@@ -206,10 +206,15 @@ hashes and replay do not change.
   alpha saves are not migrated. `?table=` stays a developer slot outside the
   menu.
 - **Shared worlds.** The avatar's world is the account's `card_members` row
-  for that avatar. Today every Share claims Vale, so an account can hold Vale
-  in several worlds. The newest is shown. The others stay untouched and are
-  released only when the player next moves that avatar. Nothing disappears
-  unexpectedly, and no journal row is written on upgrade.
+  for that avatar. Shares before #1846 could leave a passkey holding one
+  avatar in several worlds. The next time that passkey reads its world list,
+  the most recently used seat (latest heartbeat, else the avatar's latest
+  journal command there) is kept and the others are emptied as a claim
+  elsewhere empties them: ordinary reset (or, for older rules, release)
+  commands are appended, and the binding and member rows go. No world or
+  journal row is deleted, and the level kept between seats is unchanged
+  (`full_dedupe.rs`). Every claim and Share already empties the avatar's
+  other seats, so the duplicate cannot come back.
 - **Links.** A world link opens ☰ with that world as an invited slot; moving
   an avatar there frees its seat elsewhere (#1877).
 - **Starts.** Vale's local world opens in the attic.
