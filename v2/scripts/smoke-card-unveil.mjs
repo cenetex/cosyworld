@@ -243,15 +243,17 @@ try {
       assert.equal(lateLid, "0");
       // A tap during the reveal skips it without selecting, then the card,
       // with no layers or animations left, takes the next click itself. A
-      // place widens first as it opens; tap once it holds still.
-      await pond.evaluate((el) =>
-        Promise.all(
+      // place widens first as it opens; tap once it holds still. The card's
+      // own reveal holds meanwhile, so a slow runner still taps mid-reveal.
+      await pond.evaluate((el) => {
+        for (const a of el.getAnimations({ subtree: true })) a.pause();
+        return Promise.all(
           el
             .closest(".card-frame")
             .getAnimations()
             .map((a) => a.finished),
-        ),
-      );
+        );
+      });
       await pond.click();
       assert.equal(await pond.getAttribute("data-revealing"), null);
       assert.equal(await pond.getAttribute("aria-pressed"), "false");
