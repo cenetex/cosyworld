@@ -182,95 +182,74 @@ body.local-app #scene-video-button {
   text-align: right;
 }
 
-/* ☰ is an accordion of world slots, then the tools (avatar-menu.mjs). Each
-   world is one line of seats: in colour while someone is online there, in
-   grey otherwise. */
-.world-slots summary {
-  display: grid;
-  grid-template-columns: 1fr auto;
+/* ☰ lists worlds, then the shown avatar's card (avatar-menu.mjs). A world
+   is its name and a portrait per avatar there, in colour while online and
+   in grey otherwise, then "+" for an open seat. */
+.world-slot {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 2px 8px;
-  padding: 8px;
+  gap: 4px 8px;
+  padding: 6px 8px;
   border-radius: 7px;
-  cursor: pointer;
 }
-.world-slot[data-current="true"] > summary {
+.world-slot[data-current="true"] {
   background: #dfc38d1c;
 }
-.world-slots summary small,
+.slot-name {
+  flex: 1 0 96px;
+  font-size: 13px;
+}
+.slot-mark {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
 .profile-facts small,
 .avatar-status {
   color: var(--muted);
 }
-.world-slots summary small {
-  grid-column: 1;
-}
-.slot-letters {
-  display: flex;
-  grid-row: 1 / span 2;
-  grid-column: 2;
-  gap: 2px;
-  font-size: 10px;
-}
-.slot-letters .lit {
-  color: var(--gold);
-  font-weight: 700;
-}
-.slot-letters span:not(.lit) {
-  opacity: 0.4;
-}
 .slot-seats {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin: 0;
-  padding: 4px 8px 8px;
+  padding: 0;
   list-style: none;
 }
 .world-menu .seat-face {
-  position: relative;
-  display: grid;
-  gap: 2px;
+  display: block;
+  width: 32px;
   min-height: 0;
   padding: 0;
-  font-size: 10px;
-  text-align: center;
 }
-.seat-face img {
-  width: 100%;
-  aspect-ratio: 2 / 3;
+.seat-face img,
+.world-menu .seat-open {
+  display: block;
+  width: 32px;
+  height: 43px;
   border: 1px solid #44444c;
   border-radius: 6px;
   object-fit: cover;
   object-position: 50% 12%;
 }
+.world-menu .seat-open {
+  justify-content: center;
+  border-style: dashed;
+  color: var(--muted);
+  font-size: 18px;
+}
+.world-menu .seat-open:disabled {
+  opacity: 0.35;
+}
 .slot-seat:not([data-lit="true"]) .seat-face img {
   filter: grayscale(1) brightness(0.7);
-}
-.world-menu [data-kind="resident"] .seat-face:disabled {
-  opacity: 1;
 }
 [data-kind="you"] .seat-face img {
   border: 2px solid #f3ead6;
 }
 .world-menu .seat-face[aria-pressed="true"] img {
   outline: 2px solid var(--gold);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .world-slot::details-content {
-    interpolate-size: allow-keywords;
-    height: 0;
-    overflow: clip;
-    opacity: 0;
-    transition:
-      height 200ms ease,
-      opacity 200ms ease,
-      content-visibility 200ms allow-discrete;
-  }
-  .world-slot[open]::details-content {
-    height: auto;
-    opacity: 1;
-  }
 }
 /* The shown avatar as a hand card: art, name, level numeral, tier edge. */
 .profile-card {

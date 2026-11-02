@@ -8,10 +8,9 @@ import { nameOf } from "./world.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { levelTier, romanLevel } from "./rarity.mjs";
 
-// ☰ is one accordion of the passkey's world slots, then + New world and the
-// shown avatar's card with its actions (v2/docs/card-table/avatar-menu.md,
-// #1877). Each world shows the whole cast; a grey seat whose avatar may go
-// there offers it on the card.
+// ☰ lists the passkey's worlds, each with the avatars that have entered it
+// and "+" for an open seat, then + New world and the shown avatar's card
+// with its actions (v2/docs/card-table/avatar-menu.md, #1877).
 const $ = (id) => document.getElementById(id);
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -205,14 +204,12 @@ export function installAvatarMenu({
   status.id = "avatar-status";
   status.setAttribute("role", "status");
   menu.prepend(box, status);
-  const phone = matchMedia("(max-width: 700px)");
   let rows = [],
     shared = Boolean(session),
     invite = null,
-    // The card's avatar: a tapped seat { id, slot }, or one a grey seat
-    // offers { id, to }.
+    // The card's avatar: a tapped seat { id, slot }, or one "+" offers
+    // { id, to, first }.
     chosen = null,
-    opened = new Set(),
     drawn = "";
   const here = () => {
     const world = getWorld();
@@ -330,7 +327,7 @@ export function installAvatarMenu({
     );
     return bar;
   }
-  function seatButton(slot, seat, world, view) {
+  function seatButton(slot, seat, world, shown) {
     const item = el("li", "slot-seat");
     item.dataset.avatar = seat.id;
     item.dataset.kind = seat.kind;
@@ -338,34 +335,52 @@ export function installAvatarMenu({
     face.type = "button";
     face.dataset.keepMenu = "true";
     if (world && seat.kind === "you") face.id = "avatar-move";
-    const picked =
-      chosen?.id === seat.id && (chosen.slot || chosen.to) === slot.key;
-    face.setAttribute("aria-pressed", String(picked));
+    const picked = shown?.id === seat.id && shown.slot === slot.key;
+    face.setAttribute("aria-pressed", String(Boolean(picked)));
     face.setAttribute("aria-label", `${seat.name} · ${seat.holder}`);
-    // A grey seat whose avatar may come here offers it on the card.
-    const avatar = humanAvatars.find((a) => a.id === seat.id);
-    const from = view.slots.find((s) => s.mine === seat.id) || null;
-    const move =
-      seat.kind === "resident" &&
-      targetsFor(avatar, from, view).worlds.includes(slot.key);
-    if (move) face.classList.add("slot-target");
     const image =
       (world && avatarImage(world, seat.id)) ||
       humanAvatars.find((a) => a.id === seat.id).image;
     const portrait = el("img");
     portrait.src = imageUrl(`/card-game/${image}`, "card");
     portrait.alt = "";
-    face.append(portrait, el("span", "seat-name", seat.name));
+    face.append(portrait);
     // Colour is presence: someone online in the seat. Every other is grey.
     item.dataset.lit = String(Boolean(seat.online));
     face.onclick = () => {
-      chosen = move
-        ? { id: seat.id, to: slot.key }
-        : { id: seat.id, slot: slot.key };
+      chosen = { id: seat.id, slot: slot.key };
       status.textContent = "";
       render();
     };
     item.append(face);
+    return item;
+  }
+  // "+" for an open seat. Each tap offers on the card the next of your
+  // avatars that may come here: the shown one, then the one being played,
+  // first. With none it is dim.
+  function openSeat(slot, view, shown) {
+    const first = chosen?.to ? chosen.first : shown?.id;
+    const rank = (a) => [first, here().actor].indexOf(a.id) >>> 0;
+    const can = byInitial(humanAvatars)
+      .sort((a, b) => rank(a) - rank(b))
+      .filter((avatar) => {
+        const from = view.slots.find((s) => s.mine === avatar.id) || null;
+        return targetsFor(avatar, from, view).worlds.includes(slot.key);
+      });
+    const item = el("li", "slot-seat slot-open");
+    const open = el("button", "seat-face seat-open", "+");
+    open.type = "button";
+    open.dataset.keepMenu = "true";
+    open.disabled = !can.length;
+    open.setAttribute("aria-label", "Open seat");
+    open.onclick = () => {
+      const at = chosen?.to === slot.key ? can.indexOf(chosen.avatar) : -1;
+      const avatar = can[(at + 1) % can.length];
+      chosen = { id: avatar.id, avatar, to: slot.key, first };
+      status.textContent = "";
+      render();
+    };
+    item.append(open);
     return item;
   }
   // The shown avatar as a hand card, from what this page knows: its level,
@@ -446,35 +461,32 @@ export function installAvatarMenu({
       view.slots.find((s) => s.current) || view.slots.find((s) => s.mine);
     const shown = chosen || (mine && { id: mine.mine, slot: mine.key });
     // Presence ticks redraw only when something shown has changed.
-    const key = JSON.stringify([view, shown, [...opened], phone.matches]);
+    const key = JSON.stringify([view, shown]);
     if (key === drawn) return;
     drawn = key;
     box.replaceChildren();
+    // A world: its name, a portrait per avatar that has entered it, in
+    // colour while online, then "+" while a seat is open (owner, 2026-11-01).
     for (const slot of view.slots) {
-      const details = el("details", "world-slot");
-      details.dataset.slot = slot.key;
-      details.dataset.current = String(Boolean(slot.current));
-      // On a phone only one world is open at a time.
-      if (phone.matches) details.name = "world-slot";
-      details.open = opened.has(slot.key);
-      details.ontoggle = () => {
-        if (details.open) opened.add(slot.key);
-        else opened.delete(slot.key);
-      };
-      const summary = el("summary");
-      const label = slot.invite ? "invited" : !slot.owner && "a friend's world";
-      summary.append(el("strong", "", slot.name || "A world"));
-      if (label) summary.append(el("small", "", label));
-      const letters = el("span", "slot-letters");
-      letters.setAttribute("aria-hidden", "true");
-      for (const seat of slot.seats)
-        letters.append(el("span", seat.online ? "lit" : "", seat.name[0]));
-      summary.append(letters);
+      const row = el("section", "world-slot");
+      row.dataset.slot = slot.key;
+      row.dataset.current = String(Boolean(slot.current));
+      const title = el("strong", "slot-name", slot.name || "A world");
+      if (slot.invite || !slot.owner) {
+        const mark = el("span", "slot-mark", slot.invite ? "✉" : "♥");
+        mark.title = slot.invite ? "Invited" : "A friend's world";
+        mark.setAttribute("aria-label", mark.title);
+        title.append(mark);
+      }
       const world = slot.current ? session?.state.world || getWorld() : null;
       const seats = el("ul", "slot-seats");
-      seats.append(...slot.seats.map((s) => seatButton(slot, s, world, view)));
-      details.append(summary, seats);
-      box.append(details);
+      for (const seat of slot.seats)
+        if (seat.kind !== "resident")
+          seats.append(seatButton(slot, seat, world, shown));
+      if (slot.seats.some((seat) => seat.kind === "resident"))
+        seats.append(openSeat(slot, view, shown));
+      row.append(title, seats);
+      box.append(row);
     }
     if (view.deck.length && view.canCreate) {
       const fresh = act(
@@ -494,9 +506,7 @@ export function installAvatarMenu({
       invite = null;
       return;
     }
-    const now = here();
     chosen = null;
-    opened = new Set([now.place.shared]);
     status.textContent = "";
     redraw();
     load(stored(INVITE_KEY));
@@ -513,8 +523,7 @@ export function installAvatarMenu({
       if (!inviteId) return;
       const view = await request(`/card-game/shared/worlds/${inviteId}`);
       invite = { ...view, id: inviteId };
-      opened.add(inviteId);
-      status.textContent = "Tap an avatar there to bring it in.";
+      status.textContent = "Tap + there to bring an avatar in.";
     } catch {
     } finally {
       redraw();
