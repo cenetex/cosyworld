@@ -206,6 +206,17 @@ SHA-256 hash of their account id over two frozen 64-word lists in
 `holders` gives the name for each bound avatar (or `null`); account ids and
 passkey data never reach other players.
 
+A world closes when nobody is in it: no `card_members` row and no binding but
+its owner's. The owner's release, Free, or claim elsewhere that empties it
+sets `card_tables.retired_at` in the same transaction, after an ordinary
+`reset` of the owner's own seat there (which keeps its level). The owner's
+world list retires any left over in one transaction, writing nothing once
+clean, and keeps them with a warning on failure. Only the owner's passkey
+retires a world, and never one where anyone else is bound. A retired world
+leaves the list and the eight-world count, refuses commands and views with
+"This world has closed.", and keeps its journal, checkpoints and plays, so
+replay is unchanged (`full_retire.rs`).
+
 ## Saving, replay, and earlier worlds
 
 Sharing validates the host's current save. It keeps the source browser save and

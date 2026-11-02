@@ -232,6 +232,8 @@ fn a_cosmetic_upgrade_stays_with_the_passkey_in_every_world() {
     full::run(&tx, &second, "u", &body("claim", Some("mara")), now()).unwrap();
     let new = full_store::world(&tx, &second, now()).unwrap();
     assert_eq!(new.game["actors"]["mara"]["upgrades"], json!(["scarf"]));
+    // The owner sits there too, so freeing Mara leaves the world open.
+    full::run(&tx, &second, "owner", &body("claim", Some("ash")), now()).unwrap();
     full::run(&tx, &second, "owner", &body("reset", Some("mara")), now()).unwrap();
     assert_eq!(
         super::bindings::upgrades(&tx, "u", mara).unwrap(),

@@ -117,6 +117,8 @@ fn only_the_owner_frees_someone_elses_avatar() {
 fn the_owner_deletes_an_avatar_and_frees_its_place() {
     let (_path, mut c, id) = fixture();
     run(&mut c, &id, "ann", &body("claim", Some("mara"))).unwrap();
+    // The owner sits there, so the world stays open (full_retire.rs).
+    run(&mut c, &id, "owner", &body("claim", Some("vale"))).unwrap();
     run(&mut c, &id, "owner", &body("reset", Some("mara"))).unwrap();
     let mara = actor_index("mara").unwrap();
     let w = full_store::world(&c, &id, now()).unwrap();
