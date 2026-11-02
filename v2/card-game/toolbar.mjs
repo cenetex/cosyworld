@@ -75,6 +75,11 @@ export function installToolbar({
   menuButton.setAttribute("popovertarget", menu.id);
   menuButton.setAttribute("aria-controls", menu.id);
   menuButton.setAttribute("aria-expanded", "false");
+  menuButton.addEventListener("click", () => {
+    // Keep the native popover target and its existing controls available
+    // if it was detached while the toolbar button stayed in place.
+    if (!menu.isConnected) document.body.append(menu);
+  });
   menu.addEventListener("toggle", () => {
     menuButton.setAttribute(
       "aria-expanded",
