@@ -25,6 +25,8 @@ use std::{
 };
 #[path = "full_browser.rs"]
 mod browser;
+#[path = "full_dedupe.rs"]
+mod dedupe;
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
@@ -99,7 +101,12 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
     reply(
         blocking(move || {
             let u = user(&state, &h, false)?;
-            let c = db(&state)?;
+            let mut c = db(&state)?;
+            if dedupe::pending(&c, &u)? {
+                if let Err(error) = dedupe_seats(&state, &mut c, &u) {
+                    tracing::warn!(%error, "duplicate avatar seats kept for now");
+                }
+            }
             let mut value = super::store::list(&c, &u)?;
             let time = now();
             for row in value["worlds"]
@@ -120,6 +127,17 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
         })
         .await,
     )
+}
+// Legacy duplicate seats are emptied on the passkey's next list (full_dedupe.rs).
+fn dedupe_seats(state: &AppState, c: &mut rusqlite::Connection, u: &str) -> Result<()> {
+    store::schema(c)?;
+    let gate = writer(state);
+    let _turn = turn(&gate);
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sql_error)?;
+    dedupe::run(&tx, u, now())?;
+    tx.commit().map_err(sql_error)
 }
 async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Create>) -> Response {
     let result = blocking(move || {
