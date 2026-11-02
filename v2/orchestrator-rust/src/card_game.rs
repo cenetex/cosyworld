@@ -29,17 +29,9 @@ use axum::{
 
 const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://openrouter.ai; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'";
 
-pub(super) fn router<S: Clone + Send + Sync + 'static>(primary: bool) -> Router<S> {
+pub(super) fn router<S: Clone + Send + Sync + 'static>() -> Router<S> {
     Router::new()
-        .route(
-            "/",
-            if primary {
-                get(index)
-            } else {
-                get(crate::index)
-            },
-        )
-        .route("/classic", get(crate::index))
+        .route("/", get(index))
         .route(
             "/card-game",
             get(|| async { Redirect::permanent("/card-game/") }),
@@ -123,8 +115,8 @@ mod tests {
     };
     use tower::ServiceExt;
 
-    async fn request(primary: bool, path: &str, method: &str) -> Response {
-        router::<()>(primary)
+    async fn request(path: &str, method: &str) -> Response {
+        router::<()>()
             .oneshot(
                 Request::builder()
                     .uri(path)
@@ -137,8 +129,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn primary_page_and_named_worlds_choose_their_own_shell() {
-        let response = request(true, "/?table=release-check", "GET").await;
+    async fn the_root_page_is_the_card_table_and_classic_is_retired() {
+        let response = request("/?table=release-check", "GET").await;
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
             response.headers()["x-cosyworld-card-version"],
@@ -147,11 +139,8 @@ mod tests {
         assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         assert_eq!(&body[..], include_bytes!("../../card-game/index.html"));
-        for (primary, path) in [(false, "/"), (true, "/classic")] {
-            let response = request(primary, path, "GET").await;
-            let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
-            assert_eq!(&body[..], crate::INDEX_HTML.as_bytes());
-        }
+        let response = request("/classic", "GET").await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
     #[tokio::test]
@@ -215,7 +204,7 @@ mod tests {
             "assets/keeper-right.png",
         ] {
             let url = format!("/card-game/{path}");
-            let response = request(true, &url, "GET").await;
+            let response = request(&url, "GET").await;
             assert_eq!(response.status(), StatusCode::OK, "{path}");
             let content_type = response.headers()[header::CONTENT_TYPE]
                 .to_str()
@@ -241,7 +230,7 @@ mod tests {
             } else if path.ends_with(".mjs") {
                 assert_eq!(content_type, "text/javascript; charset=utf-8");
             }
-            let head = request(true, &url, "HEAD").await;
+            let head = request(&url, "HEAD").await;
             assert_eq!(head.status(), StatusCode::OK);
             assert!(to_bytes(head.into_body(), usize::MAX)
                 .await
@@ -249,17 +238,15 @@ mod tests {
                 .is_empty());
         }
         assert_eq!(
-            request(true, "/card-game/serve.mjs", "GET").await.status(),
+            request("/card-game/serve.mjs", "GET").await.status(),
             StatusCode::NOT_FOUND
         );
         assert_eq!(
-            request(true, "/card-game/../Cargo.toml", "GET")
-                .await
-                .status(),
+            request("/card-game/../Cargo.toml", "GET").await.status(),
             StatusCode::NOT_FOUND
         );
         assert_eq!(
-            request(true, "/", "POST").await.status(),
+            request("/", "POST").await.status(),
             StatusCode::METHOD_NOT_ALLOWED
         );
     }
@@ -302,7 +289,7 @@ mod tests {
         }
         assert!(!media.is_empty());
         for path in media {
-            let response = request(true, &format!("/card-game/{path}"), "GET").await;
+            let response = request(&format!("/card-game/{path}"), "GET").await;
             assert_eq!(response.status(), StatusCode::OK, "{path}");
             let expected = if path.ends_with(".svg") {
                 "image/svg+xml"
@@ -327,7 +314,7 @@ mod tests {
             ("bytes=9-2", None),
             ("bytes=-0", None),
         ] {
-            let response = router::<()>(true)
+            let response = router::<()>()
                 .oneshot(
                     Request::builder()
                         .uri("/card-game/assets/music/attic-1.mp3")
@@ -360,7 +347,7 @@ mod tests {
     async fn html_aliases_stay_fresh_while_static_assets_use_content_validators() {
         use sha2::{Digest, Sha256};
         for path in ["/", "/card-game/", "/card-game/index.html"] {
-            let response = request(true, path, "HEAD").await;
+            let response = request(path, "HEAD").await;
             assert_eq!(response.status(), StatusCode::OK);
             assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
             assert!(!response.headers().contains_key(header::ETAG));
@@ -372,7 +359,6 @@ mod tests {
         let song = include_bytes!("../../card-game/assets/music/attic-1.mp3");
         let hash = format!("{:x}", Sha256::digest(song));
         let response = request(
-            true,
             &format!("/card-game/assets/music/attic-1.mp3?v={hash}"),
             "HEAD",
         )
@@ -401,7 +387,7 @@ mod tests {
             if let Some(range) = range {
                 builder = builder.header(header::RANGE, range);
             }
-            let response = router::<()>(true)
+            let response = router::<()>()
                 .layer(super::super::response_compression())
                 .oneshot(builder.body(Body::empty()).unwrap())
                 .await
@@ -430,7 +416,7 @@ mod tests {
             );
         }
         for path in ["shared.mjs", "assets/greek-drama/antigone.svg"] {
-            let response = router::<()>(true)
+            let response = router::<()>()
                 .layer(super::super::response_compression())
                 .oneshot(
                     Request::builder()
@@ -445,7 +431,7 @@ mod tests {
             assert_eq!(response.headers()[header::VARY], "accept-encoding");
             let etag = response.headers()[header::ETAG].clone();
             assert!(etag.to_str().unwrap().starts_with("W/"));
-            let revalidated = router::<()>(true)
+            let revalidated = router::<()>()
                 .layer(super::super::response_compression())
                 .oneshot(
                     Request::builder()

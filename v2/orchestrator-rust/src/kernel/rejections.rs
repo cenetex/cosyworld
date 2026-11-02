@@ -184,13 +184,5 @@ mod tests {
             command_event_output(&legacy_unknown).as_deref(),
             Some(UNKNOWN_KERNEL_REJECTION_MESSAGE)
         );
-        assert!(INDEX_HTML.contains(
-            "return String(event.content || \"\").trim()\n          || \"That action could not be completed. Refresh the room and try again.\";"
-        ));
-
-        let cli = include_str!("../../../cli/cosy_cli.py");
-        assert!(cli.contains("reason = \" \".join(str(event.get(\"content\") or \"\").split())"));
-        assert!(cli.contains(UNKNOWN_KERNEL_REJECTION_MESSAGE));
-        assert!(!cli.contains("Rule rejected for {actor} (reason"));
     }
 }

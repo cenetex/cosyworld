@@ -4,7 +4,6 @@ fn main() {
     build_card_assets();
     println!("cargo:rerun-if-changed=../core-c/include/cosy_kernel.h");
     println!("cargo:rerun-if-changed=../core-c/src/cosy_kernel.c");
-    println!("cargo:rerun-if-changed=src/index.html");
     println!("cargo:rerun-if-changed=../card-game");
 
     println!("cargo:rerun-if-changed=../core-c/include/card_table.h");

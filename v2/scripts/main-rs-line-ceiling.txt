@@ -477,4 +477,6 @@
 # and its pack policy. The client, draws, policy, and tests live in the module.
 # 59471 -> 59472: one module line for the shared card table. Rules, storage,
 # routes and tests live in card_shared and the C kernel.
-59472
+# 59472 -> 58665: the classic /classic page is retired. Its shell handler and
+# the Rust tests that read its HTML are gone.
+58665

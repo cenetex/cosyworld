@@ -46,7 +46,8 @@ contracts; each has a named scope in metadata.
 
 ## Classic compatibility
 
-The classic source packs include `v2/content/core/`, `hoppycat-archive/`, and their
+The `/classic` client is retired; `/` serves only the card table. The classic
+source packs include `v2/content/core/`, `hoppycat-archive/`, and their
 compiled bundles. `v2/worlds/official/` and `v2/content/official/` select and build
 that runtime. Its `actors.json` and `registry.json` files describe the classic
 cast. The classic compiler and release bundle guards keep saved history valid.

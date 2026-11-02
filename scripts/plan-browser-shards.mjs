@@ -10,10 +10,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = new URL("../", import.meta.url);
 const CONFIG = fileURLToPath(new URL("./browser-shards.json", import.meta.url));
 
-// Name the file a check runs, or the browser-check mode.
+// Name the file a check runs.
 export function checkSource(check) {
-  const mode = check.match(/^browser-check:(baseline|living-world)$/);
-  if (mode) return { mode: mode[1] };
   const journey = check.match(/^((?:smoke|check)-[\w-]+)(?:@(\d+))?$/);
   if (!journey) throw new Error(`Unknown browser check: ${check}`);
   return { script: `v2/scripts/${journey[1]}.mjs`, width: journey[2] };

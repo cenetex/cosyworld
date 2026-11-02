@@ -1149,14 +1149,6 @@ mod tests {
         assert!(payload.get("prompt").is_none());
     }
 
-    #[test]
-    fn browser_transcript_has_a_strict_resident_image_renderer() {
-        assert!(INDEX_HTML.contains("function residentImageMetadata(event)"));
-        assert!(INDEX_HTML.contains("/assets/generated/resident-images/${assetId}.image"));
-        assert!(INDEX_HTML.contains("loading=\"lazy\" decoding=\"async\""));
-        assert!(INDEX_HTML.contains("[\"message.created\", \"image.created\"]"));
-    }
-
     #[tokio::test]
     async fn only_an_approved_digest_checked_image_is_served_publicly() {
         const PNG_1X1: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";

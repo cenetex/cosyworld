@@ -4513,33 +4513,4 @@ mod tests {
         drop(conn);
         let _ = fs::remove_file(path);
     }
-
-    #[test]
-    fn browser_has_a_certificate_bound_non_speech_interaction_flow() {
-        for contract in [
-            "const buildModelInteractionAction",
-            "action(\n          \"/actions/model-interaction\"",
-            "function beginPendingModelInteraction",
-            "function modelInteractionMetadata",
-            "function modelInteractionOutputHtml",
-            "const modelInteractionPresentations",
-            "find_resonance",
-            "rank_echoes",
-            "batch_talk",
-            "OpenRouter retains batch inputs and results for 30 days",
-            "durableBatchInteraction",
-            "modelInteractionPresentation(offer)",
-            "clientModelInteractionProfile",
-            "<audio controls preload=\"metadata\"",
-            "<video controls preload=\"metadata\"",
-            "There is no typed prompt or spoken line.",
-        ] {
-            assert!(
-                INDEX_HTML.contains(contract),
-                "missing browser contract: {contract}"
-            );
-        }
-        assert!(INDEX_HTML.contains("modelInteractionContainsForbiddenPayload"));
-        assert!(INDEX_HTML.contains("[\"prompt\", \"vector\", \"embedding\", \"embeddings\"]"));
-    }
 }

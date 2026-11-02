@@ -14,7 +14,8 @@ Released engine bundles retain their recorded behavior for replay. The current
 rules version comes from the shared engine constant and appears in `/meta`.
 Save migrations and explicit world upgrades preserve earlier accepted history.
 
-The classic client and native C world kernel support compatibility history.
+The classic client is retired. The native C world kernel remains for
+compatibility history until #1652's later phases remove it.
 Their pack catalog and metadata have an explicit classic scope.
 
 ## Engineering priorities

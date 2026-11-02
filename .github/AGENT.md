@@ -204,8 +204,6 @@ Do not edit or commit these directly:
   bundle and asset manifest, and commits; it stops only on a conflict in the branch's work;
 - `v2/worlds/official/pack.lock.json` except through the lock command;
 - `package-lock.json` except through an intentional dependency/version update;
-- `v2/tests/visual-baselines/**` except for a reviewed UI change using the
-  documented baseline update flow;
 - build outputs such as `target/`, `dist/`, coverage, generated runtime assets,
   or `.runtime/`.
 

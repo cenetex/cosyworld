@@ -10,10 +10,6 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 const registry = JSON.parse(
   fs.readFileSync(path.join(repoRoot, "v2/content/core-ruby/registry.json"), "utf8"),
 );
-const browser = fs.readFileSync(
-  path.join(repoRoot, "v2/orchestrator-rust/src/index.html"),
-  "utf8",
-);
 const checkerPath = path.join(repoRoot, "v2/scripts/check-worldpack.mjs");
 
 describe("Core + Ruby High composition", () => {
@@ -92,7 +88,6 @@ describe("Core + Ruby High composition", () => {
         pack_id: "ruby-high.first-bell",
       }),
     );
-    expect(browser).toContain("composition_id: offer.composition_id");
   });
 
   it("rejects a reusable pack that claims a cross-pack path", () => {

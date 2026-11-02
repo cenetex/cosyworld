@@ -8,10 +8,9 @@ const config = JSON.parse(read("scripts/browser-shards.json"));
 const checks = Object.keys(config.checks);
 
 describe("full-suite browser shards", () => {
-  it("names an existing journey or browser-check mode for every check", () => {
+  it("names an existing journey for every check", () => {
     for (const check of checks) {
-      const { script, mode } = checkSource(check);
-      if (mode) continue;
+      const { script } = checkSource(check);
       expect(
         existsSync(new URL(`../../${script}`, import.meta.url)),
         check,

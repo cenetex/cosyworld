@@ -216,38 +216,6 @@ function reportWritingRegisterAdvisories({ actors, cards, locations }) {
       warn(`writing register advisory: pack ${packId} uses the "X is A, B, and ..." formula ${count} times (threshold 4)`);
     }
   }
-
-  const indexPath = path.join(scriptDir, "../orchestrator-rust/src/index.html");
-  let indexSource = "";
-  try {
-    indexSource = fs.readFileSync(indexPath, "utf8");
-  } catch (error) {
-    warn(`writing register advisory: could not inspect browser chrome: ${error.message}`);
-    return;
-  }
-  const longChrome = [];
-  const indexLines = indexSource.split("\n");
-  for (const [index, line] of indexLines.entries()) {
-    const assignment = line.match(/\bmodalSummary:(.*)$/);
-    if (!assignment) continue;
-    // Required authority and input-boundary disclosures may opt out explicitly.
-    if (indexLines[index - 1]?.includes("writing-register: allow-long-modal-summary")) continue;
-    const literal = assignment[1].match(/"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|`([^`]*)`/);
-    if (literal) {
-      const text = (literal[1] ?? literal[2] ?? literal[3])
-        .replace(/\$\{[^}]+\}/g, "value")
-        .trim();
-      const words = text.split(/\s+/).filter(Boolean).length;
-      if (words > 8) longChrome.push({ line: index + 1, words, text });
-    }
-  }
-  if (longChrome.length) {
-    const examples = longChrome
-      .slice(0, 8)
-      .map((entry) => `${entry.line} (${entry.words} words): ${entry.text}`)
-      .join(" | ");
-    warn(`writing register advisory: ${longChrome.length} static modal summaries exceed 8 words; ${examples}`);
-  }
 }
 
 function reportGenreAdvisories(content) {

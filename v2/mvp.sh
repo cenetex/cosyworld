@@ -21,7 +21,6 @@ load_env_file "$PROJECT_ROOT/.env.local"
 
 HOST="${COSYWORLD_V2_HOST:-127.0.0.1}"
 PORT="${COSYWORLD_V2_PORT:-3102}"
-COSYWORLD_BROWSER_CHECK_RUNTIME=""
 BASE_URL="${COSYWORLD_V2_BASE_URL:-http://${HOST}:${PORT}}"
 SESSION="${COSYWORLD_V2_SCREEN_SESSION:-cosyworld-v2}"
 LOG="${COSYWORLD_V2_LOG:-/tmp/cosyworld-v2-web.log}"
@@ -31,16 +30,13 @@ URL="${BASE_URL}/"
 
 usage() {
   cat <<EOF
-Usage: v2/mvp.sh [start|open|smoke|browser-check|check|status|logs|stop|restart]
+Usage: v2/mvp.sh [start|open|check|status|logs|stop|restart]
 
 Commands:
-  start    Build and start the browser MVP server, then open ${URL}
+  start    Build and start the game server, then open ${URL}
   open     Open ${URL}
-  smoke    Run the browser MVP smoke against ${BASE_URL}
-  browser-check
-           Start a fresh deterministic server, run browser and terminal
-           smokes, then stop the server
-  check    Run kernel/Rust/JS/CLI checks, production-profile smoke, browser smoke, and print status
+  check    Run kernel, Rust, and JS checks plus the composition, card
+           narrative, and production-profile smokes
   status   Print health and listener information
   logs     Tail the server log
   stop     Stop the detached MVP server
@@ -204,62 +200,8 @@ run_architecture_checks() {
 }
 
 run_js_checks() {
-  node --check "$ROOT/scripts/smoke-browser.mjs"
   node --check "$ROOT/scripts/smoke-production-profile.mjs"
   node --check "$ROOT/scripts/smoke-standalone-compositions.mjs"
-}
-
-run_cli_checks() {
-  python3 -m py_compile "$ROOT/cli/cosy_cli.py"
-  python3 -m unittest discover -s "$ROOT/cli" -p "test_*.py"
-}
-
-start_deterministic_smoke_server() {
-  unset COSYWORLD_AI_API_KEY OPENROUTER_API_KEY OPENAI_API_KEY
-  unset COSYWORLD_AI_BASE_URL COSYWORLD_AI_PROVIDER
-  export COSYWORLD_CARD_REACTION_HEARTBEAT_DELAY_MS="${COSYWORLD_CARD_REACTION_HEARTBEAT_DELAY_MS:-75}"
-  start_server
-}
-
-run_smoke() {
-  local mode="${COSYWORLD_BROWSER_CHECK_MODE:-all}"
-  case "$mode" in
-    all|baseline|living-world)
-      ;;
-    *)
-      echo "Unknown browser check mode: $mode" >&2
-      return 2
-      ;;
-  esac
-
-  if [ "$mode" != "living-world" ]; then
-    COSYWORLD_SMOKE_URL="${BASE_URL}/?reset=1" node "$ROOT/scripts/smoke-browser.mjs"
-    COSYWORLD_SMOKE_URL="${BASE_URL}/" node "$ROOT/scripts/smoke-passkey-avatar.mjs"
-    COSYWORLD_SMOKE_URL="${BASE_URL}/" node "$ROOT/scripts/smoke-player-reachability.mjs"
-  fi
-  if [ "$mode" = "baseline" ]; then
-    return 0
-  fi
-
-  local attempt status
-  for attempt in 1 2 3; do
-    if COSYWORLD_SMOKE_URL="${BASE_URL}/?reset=1" \
-      COSYWORLD_SMOKE_LIVING_WORLD_STRESS=1 \
-      node "$ROOT/scripts/smoke-browser.mjs"; then
-      return 0
-    else
-      status=$?
-    fi
-    if ! health_check; then
-      echo "living-world stress lost the local smoke server; restarting (${attempt}/3)" >&2
-      start_deterministic_smoke_server
-    elif [ "$status" -eq 75 ]; then
-      echo "living-world stress avatar was defeated before a choice; retrying (${attempt}/3)" >&2
-    else
-      echo "living-world stress assertion raced shared-world activity; retrying (${attempt}/3)" >&2
-    fi
-  done
-  return "$status"
 }
 
 run_production_profile_smoke() {
@@ -271,114 +213,6 @@ run_composition_smoke() {
   node "$ROOT/scripts/smoke-core-ruby-composition.mjs"
 }
 
-create_cli_smoke_actor() {
-  python3 - "$BASE_URL" "$1" <<'PY'
-import json
-import sys
-import urllib.request
-
-body = json.dumps({"name": sys.argv[2]}).encode("utf-8")
-request = urllib.request.Request(
-    f"{sys.argv[1]}/avatar",
-    data=body,
-    headers={"content-type": "application/json"},
-    method="POST",
-)
-with urllib.request.urlopen(request, timeout=5) as response:
-    data = json.loads(response.read().decode("utf-8"))
-if not data.get("ok"):
-    raise SystemExit(f"avatar creation failed: {data}")
-print(data["actor"]["id"], data["actor_session"])
-PY
-}
-
-run_cli_smoke() {
-  local actor_info actor_id actor_session button_output heartbeat_output card_output command_output
-  actor_info="$(create_cli_smoke_actor "Terminal Button Smoke")"
-  read -r actor_id actor_session <<<"$actor_info"
-
-  button_output="$(printf 'q' | python3 "$ROOT/cli/cosy_cli.py" --base-url "$BASE_URL" --actor-id "$actor_id" --actor-session "$actor_session")"
-  grep -q "\\[Enter\\]" <<<"$button_output"
-  grep -q "\\[P\\].*Think" <<<"$button_output"
-  if grep -q "Action failed" <<<"$button_output"; then
-    echo "$button_output" >&2
-    return 1
-  fi
-
-  actor_info="$(create_cli_smoke_actor "Terminal Heartbeat Smoke")"
-  read -r actor_id actor_session <<<"$actor_info"
-  heartbeat_output="$(printf 'q' | python3 "$ROOT/cli/cosy_cli.py" --base-url "$BASE_URL" --actor-id "$actor_id" --actor-session "$actor_session" --command-mode)"
-  if grep -q "Command failed\\|Action failed" <<<"$heartbeat_output"; then
-    echo "$heartbeat_output" >&2
-    return 1
-  fi
-  grep -q "Presence: active\." <<<"$heartbeat_output"
-
-  # Play a dealt card end to end so the client stays on the live hand and envelope contract.
-  actor_info="$(create_cli_smoke_actor "Terminal Card Smoke")"
-  read -r actor_id actor_session <<<"$actor_info"
-  card_output="$(printf 'act\n1\nq\n' | python3 "$ROOT/cli/cosy_cli.py" --base-url "$BASE_URL" --actor-id "$actor_id" --actor-session "$actor_session" --command-mode)"
-  if ! grep -q "  1\\. \\[" <<<"$card_output" \
-    || grep -q "^! \\|Command failed\\|Action failed\\|does not match\\|not in your Story Hand" <<<"$card_output"; then
-    echo "$card_output" >&2
-    return 1
-  fi
-
-  actor_info="$(create_cli_smoke_actor "Terminal Command Smoke")"
-  read -r actor_id actor_session <<<"$actor_info"
-  command_output="$(printf 'look\nsay terminal smoke\nevents 0\nq\n' | python3 "$ROOT/cli/cosy_cli.py" --base-url "$BASE_URL" --actor-id "$actor_id" --actor-session "$actor_session" --command-mode)"
-  grep -q "HTTP Error 404: Not Found" <<<"$command_output"
-  if grep -q "terminal smoke" <<<"$command_output"; then
-    echo "$command_output" >&2
-    return 1
-  fi
-  grep -q "\\[" <<<"$command_output"
-  if grep -q "Command failed\\|Action failed" <<<"$command_output"; then
-    echo "$command_output" >&2
-    return 1
-  fi
-}
-
-run_browser_check() {
-  local check_runtime
-  check_runtime="$(mktemp -d "${TMPDIR:-/tmp}/cosyworld-browser-check.XXXXXX")"
-  COSYWORLD_BROWSER_CHECK_RUNTIME="$check_runtime"
-  cleanup_browser_check() {
-    local runtime_path="${COSYWORLD_BROWSER_CHECK_RUNTIME:-}"
-    stop_server
-    case "$runtime_path" in
-      */cosyworld-browser-check.*)
-        for _ in {1..50}; do
-          rm -rf -- "$runtime_path" || true
-          sleep 0.1
-          if [ ! -e "$runtime_path" ]; then
-            sleep 0.1
-            if [ ! -e "$runtime_path" ]; then
-              break
-            fi
-          fi
-          sleep 0.1
-        done
-        if [ -e "$runtime_path" ]; then
-          echo "browser-check runtime cleanup did not settle: $runtime_path" >&2
-          return 1
-        fi
-        ;;
-    esac
-    COSYWORLD_BROWSER_CHECK_RUNTIME=""
-  }
-  export COSYWORLD_V2_EVENT_DB_PATH="$check_runtime/events.sqlite"
-  export COSYWORLD_V2_SNAPSHOT_PATH=off
-  export COSYWORLD_V2_RESIDENT_CONTINUITY_PATH="$check_runtime/resident-continuity.json"
-  trap cleanup_browser_check EXIT INT TERM
-  start_deterministic_smoke_server
-  run_smoke
-  run_cli_smoke
-  status
-  cleanup_browser_check
-  trap - EXIT INT TERM
-}
-
 check_all() {
   run_worldpack_check
   run_kernel_check
@@ -386,14 +220,9 @@ check_all() {
   run_rust_checks
   run_architecture_checks
   run_js_checks
-  run_cli_checks
   run_composition_smoke
   node "$ROOT/scripts/smoke-card-narrative-contract.mjs"
   run_production_profile_smoke
-  start_deterministic_smoke_server
-  run_smoke
-  run_cli_smoke
-  status
 }
 
 cmd="${1:-start}"
@@ -410,12 +239,6 @@ case "$cmd" in
     ;;
   open)
     open_browser
-    ;;
-  smoke)
-    run_smoke
-    ;;
-  browser-check)
-    run_browser_check
     ;;
   check)
     check_all

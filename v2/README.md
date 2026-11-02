@@ -33,7 +33,6 @@ when a local file supplies that setting. `npm run v2:stop` stops the local serve
   catalog URLs, and current shared rules version.
 - `/meta.metadata_scopes` marks the classic world, worldpack, combat, and
   content-engine fields. Deployment and recovery tools retain these fields.
-- `/classic` serves the classic compatibility client.
 
 Both live sites select the card game at `/`. The testing site follows `main`;
 Lonely Forest follows a versioned release. See the

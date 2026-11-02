@@ -432,7 +432,8 @@ describe("deploy workflow", () => {
       "matrix: ${{ fromJSON(needs.smoke-binary.outputs.browser-shards) }}",
     );
     expect(browser).toContain('node "v2/scripts/$check.mjs"');
-    expect(browser).toContain("npm run v2:browser:check");
+    // The classic shell and its fresh-seed browser gate are retired.
+    expect(browser).not.toContain("v2:browser:check");
     expect(browser).toContain("actions/download-artifact@v8");
     for (const job of ["node", "runtime", "smoke-binary", "rust-quality"])
       expect(build).toContain(job);

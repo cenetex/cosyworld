@@ -37,7 +37,6 @@ struct MetadataScopes {
     world: &'static str,
     combat: &'static str,
     content_engine_version: &'static str,
-    classic_entry_url: &'static str,
 }
 
 impl GameMetadata {
@@ -66,7 +65,6 @@ impl GameMetadata {
                 world: "classic-compatibility",
                 combat: "classic-compatibility",
                 content_engine_version: "classic-compatibility",
-                classic_entry_url: "/classic",
             },
         }
     }
@@ -98,7 +96,7 @@ mod tests {
                 "classic-compatibility"
             );
             assert_eq!(meta["metadata_scopes"]["world"], "classic-compatibility");
-            let router = super::super::router::<()>(cards);
+            let router = super::super::router::<()>();
             let entry = meta["card_game"]["entry_url"].as_str().unwrap();
             let response = router
                 .clone()
