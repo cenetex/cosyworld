@@ -215,6 +215,18 @@ gh secret set COSYWORLD_DEV_TEST_PASSKEY_SECRET --repo cenetex/cosyworld \
   < ~/.config/cosyworld/dev-test-passkey.json
 ```
 
+### Setting Fly secrets
+
+`fly secrets set` makes a release at once. If it starts while a Deploy run
+is rolling out the same app, it waits for the machine lease and then writes
+back the machine config it read earlier, which restores the previous image
+after `flyctl deploy` has reported success. On 2026-11-02 this left `.dev`
+on 0456b60d9 for two trains. The `.dev` rollout now checks that its machines
+kept the train's commit (`scripts/fly-machines-serve-commit.mjs`) and rolls
+out again when they did not. Set secrets when
+`gh run list --workflow deploy.yml --status in_progress` is empty, or add
+`--stage` so the next rollout applies them.
+
 ## Volume headroom
 
 Both Fly data volumes extend automatically at 80% usage in 1 GB increments,

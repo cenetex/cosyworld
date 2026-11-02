@@ -156,10 +156,25 @@ jobs:
         if: steps.impact.outputs.deploy == 'true'
         run: bash scripts/serialize-primary-rollout.sh dev
 
+      # A Fly release started outside the train while this one runs (a
+      # `fly secrets set` without --stage) waits for the machine lease and
+      # then writes back the config it read earlier, restoring the previous
+      # image after flyctl has reported success. Check the machines kept this
+      # commit and roll out again when they did not.
       - name: Roll out .dev
         id: rollout
         if: steps.impact.outputs.deploy == 'true'
-        run: flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
+        run: |
+          for attempt in 1 2 3; do
+            flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
+            sleep 20
+            if node scripts/fly-machines-serve-commit.mjs cosyworld "$GITHUB_SHA"; then
+              exit 0
+            fi
+            echo "::warning::Another Fly release replaced rollout $attempt; rolling out again"
+          done
+          echo "::error::.dev machines did not keep $GITHUB_SHA after three rollouts" >&2
+          exit 1
         env:
           RELEASE_IMAGE: ${{ steps.image.outputs.image }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
