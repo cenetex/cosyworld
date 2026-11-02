@@ -17845,11 +17845,13 @@
     const target = near(played?.targetId) ? played.targetId : hailed || null;
     const waited = cast.resting === actor;
     const conflict = standoffFor(world, actor);
+    const closedNow = (id) => world.peaceUntil?.[id] === world.turn + 3;
+    const fighters = conflict ? fightersOf(conflict) : closedNow(actor) ? Object.keys(world.actors).filter(closedNow) : [];
     const roles = {
       actor: [actor],
       target: [target],
       host: cast.defeat ? [cast.speakers[0]] : [],
-      opponent: conflict ? fightersOf(conflict).filter(near) : [],
+      opponent: fighters.filter(near),
       newcomer: cast.present.filter(
         (id) => near(id) && world.opening?.met[id] === world.turn
       ),
@@ -17876,7 +17878,7 @@
       talk: talked || Boolean(hailed),
       refused: REFUSED_VERBS.includes(verb) && played.accepted === false,
       threatened: verb === "threaten" && Boolean(target),
-      battle_wait: waited && Boolean(conflict),
+      battle_wait: waited && fighters.length > 0,
       companion: verb === "accompany" && played.accepted === true,
       first_meeting: roles.newcomer.length > 0,
       want_met: roles.met.length > 0,
