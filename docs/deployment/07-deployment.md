@@ -19,7 +19,8 @@ The root [Dockerfile](../../Dockerfile) builds the Rust service.
 [fly.lonelyforest.toml](../../fly.lonelyforest.toml) configures production.
 Both serve the card game at `/`. The card game's current saves live in the
 player's browser. The Rust service supplies game files and generated dialogue.
-The shared world at `/classic` uses SQLite on the mounted `/data` volume.
+The shared card worlds and the append-only journal use SQLite on the mounted
+`/data` volume.
 Lonely Forest's named worlds have their own processes and data paths; see the
 [production runbook](lonelyforest-fly.md).
 

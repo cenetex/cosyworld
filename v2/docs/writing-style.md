@@ -180,8 +180,7 @@ it lands
 
 This reverses an earlier stance under which combat hid its arithmetic while
 ordinary checks exposed theirs — the same kernel roll with two opposite rules.
-Both browser assertions in `v2/scripts/smoke-browser.mjs` now pin exact
-arithmetic. See issue #464.
+The retired classic browser smoke pinned that arithmetic. See issue #464.
 
 ## Review checklist
 
