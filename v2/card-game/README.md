@@ -334,7 +334,9 @@ dialogue is always that fixed box at the foot of the screen, over the hand,
 with the earlier beat peeking dimmed above the current one inside it: resting
 cards show their tops and names above it, and a tap on a card raises the hand
 above it with each card's foot still tucked behind it. A tap on the scene
-drops the hand again; there the dialogue never moves. Short landscape screens keep the dialogue above the hand. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, cards fade out at an edge that hides more of the hand, and a sideways swipe stays inside the hand.
+drops the hand again; there the dialogue never moves. Before the first beat there is no dialogue, and the hand leaves no hole for
+it: raised cards show whole, name and all, and the first beat lifts the row
+under its box. Short landscape screens keep the dialogue above the hand. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, cards fade out at an edge that hides more of the hand, and a sideways swipe stays inside the hand.
 Play stays available during an exchange. A play that has not resolved shows
 what the avatar is doing on its own button, as a rules caption from its kind:
 **Waiting…**, **Striking…** or **Travelling…**. In a local game tapping it again cancels it. Selecting another
