@@ -4,6 +4,7 @@ import {
   cardActions,
   cardPlay,
   playLabel,
+  TOO_MANY_ITEMS,
   playProgress,
   playText,
 } from "../v2/card-game/cards.mjs";
@@ -138,6 +139,21 @@ describe("named card actions", () => {
       expect(result.hint).toBeTruthy();
     }
     expect(encodeSave(world)).toBe(before);
+  });
+  it("says why Take is missing when the avatar's hands are full", () => {
+    const world = createWorld({ opening: false });
+    world.items.oil.holder = "station";
+    expect(kinds(world, ["oil"])).toEqual(["take"]);
+    for (const id of ["lamp", "bell", "hoppycat-red-thread-spool"])
+      world.items[id].holder = "vale";
+    world.items.cloth.holder = "station";
+    for (const cards of [["oil"], ["vale", "oil"], ["oil", "vale"]]) {
+      expect(cardPlay(world, cards).action).toBeFalsy();
+      expect(cardActions(world, cards).hint).toBe(TOO_MANY_ITEMS);
+    }
+    // A free hand hears the old pairing hint, not the full-hands reason.
+    world.items.bell.holder = "station";
+    expect(cardActions(world, ["oil"]).hint).not.toBe(TOO_MANY_ITEMS);
   });
   it("places carried and nested items directly after their holders", () => {
     const world = meeting();

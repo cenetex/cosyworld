@@ -98,6 +98,21 @@ export function placePlays(world, id) {
   );
 }
 
+// Why a Take is missing when the actor's hands are full (#2018). The rules
+// own the carry limit: an item within reach, in a room no battle locks, is
+// refused only for space, so its missing Take says so.
+export const TOO_MANY_ITEMS = "You have too many items, give one away.";
+function carryFull(world, id) {
+  const actor = currentActor(world),
+    here = world.actors[actor].place;
+  return (
+    itemPlace(world, id) === here &&
+    !people[rootHolder(world, id)] &&
+    !world.standoffs?.some((c) => c.location === here) &&
+    !legalActions(world).some((a) => a.kind === "take" && a.item === id)
+  );
+}
+
 // Resolve the primary play for drag gestures and other shortcuts.
 // cardActions adds every named choice for the shared row.
 export function cardPlay(world, selected) {
@@ -152,7 +167,9 @@ export function cardPlay(world, selected) {
     if (holder !== currentActor(world))
       return result(
         find("take", id),
-        "Pair a carried item with this place to make room.",
+        carryFull(world, id)
+          ? TOO_MANY_ITEMS
+          : "Pair a carried item with this place to make room.",
       );
     if (id === "lamp") return result(use(id), "Pair the Lamp with Oil flask.");
     if (id === "bell")

@@ -451,7 +451,11 @@ every card.
 
 With one card raised, each other card should show the verb it would play, and
 tapping a labelled card plays that verb. Cards with no play are dimmed, and the
-screen-reader readout still works. Today the hints go only to `#play-readout`.
+screen-reader readout still works. Today the hints go only to `#play-readout`,
+with one exception: an item lying within reach whose Take the rules refuse for
+space (an avatar carries at most three things) shows "You have too many items,
+give one away." in the action beat, the card's tooltip and its description
+(#2018).
 #1699 dims every unraised card, but no partner card shows its verb and tapping
 a partner still only selects. The single action bar (#1725) does not replace
 this preview. UI only.
