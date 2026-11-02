@@ -1467,7 +1467,7 @@ export function legalActions(s, actor = currentActor(s)) {
           actor,
           null,
           other,
-          `${nameOf(actor)} asks ${nameOf(other)} what they want.`,
+          `${nameOf(actor)} has a conversation with ${nameOf(other)}.`,
           [other],
         ),
       );
