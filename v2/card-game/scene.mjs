@@ -59,6 +59,18 @@ export function backdrop(id, world = null) {
     : placeBackdrop(world, id);
   return file ? `./${file}` : `./assets/${id}.png`;
 }
+// A place card shows a place as you would find it on arriving: you and what
+// you carry are there. A lamp lit at the Black Pond opens the mirror, so the
+// attic card shows the lit attic; the stage itself keeps placeBackdrop.
+export function placeCardArt(world, id) {
+  const who = world?.actors && currentActor(world);
+  const actor = who && world.actors[who];
+  if (!actor || actor.place === id) return backdrop(id, world);
+  return backdrop(id, {
+    ...world,
+    actors: { ...world.actors, [who]: { ...actor, place: id } },
+  });
+}
 // A matching state painting is final, including its authored lighting.
 // Only the ordinary base painting falls through to the legacy night table.
 export function placeBackdrop(world, id) {
@@ -166,7 +178,7 @@ export function travelCard(world, id) {
   // the place's own current painting (the ship's deck, lit for the hour and
   // weather), the same art the action beat shows for that place.
   return c?.scenery
-    ? { name: c.scenery.cardName || nameOf(id), art: backdrop(id, world) }
+    ? { name: c.scenery.cardName || nameOf(id), art: placeCardArt(world, id) }
     : null;
 }
 const personIds = Object.keys(people);

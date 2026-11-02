@@ -123,7 +123,7 @@ import {
   sceneStaging,
   selectedHandItem,
   portrait,
-  backdrop,
+  placeCardArt,
   locationOverlay,
   locationVariant,
   stageOf,
@@ -320,7 +320,7 @@ const cardArt = (id) =>
 // A place card shows that place as you would find it there: the same
 // painting the action beat shows, so a destination card shows where you are
 // going (the ship's deck from its berth), lit for the hour and weather.
-const placeArt = (id) => backdrop(id, world);
+const placeArt = (id) => placeCardArt(world, id);
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
 // The screen names a card only once its player has uncovered it (#1575),
 // and the world's hidden avatar only once this avatar has met it (#1936).
