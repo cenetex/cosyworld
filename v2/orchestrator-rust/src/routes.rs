@@ -136,6 +136,7 @@ fn app_router_with_dependencies(
     let request_log_context = RequestLogContext::from_state(&state);
     Router::new()
         .merge(crate::card_shared::router())
+        .merge(credits::router())
         .merge(card_game::router())
         .merge(card_game::text_router(
             state.ai_config.clone(),
