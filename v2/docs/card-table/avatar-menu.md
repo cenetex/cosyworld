@@ -39,7 +39,7 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
   (#1825).
 - **Nobody takes over an avatar.** In a shared world an avatar belongs to the
   passkey that took it, even after it steps away to the deck. Its seat there
-  shows in colour for everyone else, and the person bound to it sees it free
+  shows as held for everyone else, and the person bound to it sees it free
   for that avatar only. With all eight taken nobody new can join. The world's
   owner can **Free *Mara*** and the holder can **Release** their own avatar.
   Each asks with a second tap and starts that avatar over as a fresh
@@ -67,10 +67,13 @@ Redesigned in [#1877](https://github.com/cenetex/cosyworld/issues/1877).
   open, even when it is local and you are signed in ("on this device").
 - **Each slot** is a header (the name, "a friend's world" or "invited" where
   that applies, and a letter strip R·A·T·V·M·I·C·S) and one line of its
-  eight seats. Only your avatar that lives there is in colour; every other
-  seat is grey: other humans (with a green dot while here), the residents of
-  unheld seats, and the seat you are bound to but stepped away from (owner,
-  2026-11-01). The seats say who is here, so the header has no count. On a
+  eight seats. Colour is presence: a seat is in colour while a person is
+  online in it (you in the world being played, or someone else here now),
+  and grey otherwise: residents of unheld seats, offline players, and your
+  avatar in a world you are not playing (owner, 2026-11-01). Your own seat
+  keeps its light frame either way. Presence is known only for the world
+  being played; other worlds show every seat grey. The seats say who is
+  here, so the header has no count. On a
   phone only one slot is open at a time, and the tools (Memory, Inner life,
   Invite, Settings) stay pinned at the bottom.
 - Panels open and fold over 200 ms (height and opacity), and at once with
@@ -81,7 +84,8 @@ Redesigned in [#1877](https://github.com/cenetex/cosyworld/issues/1877).
   shared world; signed out a local one. On the world being played locally,
   it is the table's own New game ("Start a fresh world?").
 - **Your deck** is a panel like a world, with the whole cast in the same
-  order: your avatars in no world in colour, the others grey.
+  order: your avatars in no world in colour (you are "there"), the others
+  grey.
 
 Each avatar appears once. **Tap one of your avatars** (in a slot or the deck)
 and the places it can go light up: your deck, where its grey copy moves it
@@ -133,7 +137,7 @@ past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` taps an
 avatar, checks the lit targets and moves it, at 390 and 1440 pixels.
 
 Vale tapped in the world being played, with the deck, a free slot and + New
-world lit. Vale is grey everywhere but its own world:
+world lit. Vale is in colour only in the world being played:
 
 ![Phone: Vale's targets](avatar-menu/slots-move-390.jpg)
 ![Desktop: Vale's targets](avatar-menu/slots-move-1440.jpg)

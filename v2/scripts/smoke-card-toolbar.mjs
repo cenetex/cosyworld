@@ -146,7 +146,8 @@ try {
       "resident",
       "resident",
     ]);
-    assert.equal(await menu.locator(".table-online").count(), 3);
+    // Colour is presence: the three people online here (owner, 2026-11-01).
+    assert.equal(await current.locator('[data-lit="true"]').count(), 3);
     // The seats say who is here; the header carries no count (owner,
     // 2026-11-01).
     assert.doesNotMatch(
@@ -198,7 +199,10 @@ try {
       );
       present[2] = 0;
       await page.waitForFunction(
-        () => document.querySelectorAll(".table-online").length === 2,
+        () =>
+          document.querySelectorAll(
+            '.world-slot[data-current="true"] [data-lit="true"]',
+          ).length === 2,
       );
       assert.match(await toggle.getAttribute("aria-label"), /2 online/);
     }
@@ -228,6 +232,7 @@ try {
   await page.locator("#world-menu").waitFor({ state: "visible" });
   // Solo play: the local world is the one slot, with Vale marked yours.
   const solo = page.locator('.world-slot[data-current="true"]');
+  await solo.locator('[data-kind="you"]').waitFor({ state: "attached" });
   assert.equal(await solo.locator('[data-kind="you"]').count(), 1);
   assert.equal(await solo.locator('[data-kind="resident"]').count(), 7);
   console.log(

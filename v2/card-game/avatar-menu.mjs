@@ -79,9 +79,9 @@ export function leaveNote(avatar, place) {
 export const joinable = (row, avatar) =>
   !row.actor && (row.bound ? row.bound === avatar.id : !row.full);
 
-// A world's eight seats: yours is marked, other humans have a green dot
-// while here, and an unheld seat is the resident who lives there (#1846,
-// #1866). Only your avatar there is in colour (owner, 2026-11-01). The seat
+// A world's eight seats: yours is marked, other humans are held, and an
+// unheld seat is the resident who lives there (#1846, #1866). A seat is in
+// colour only while a person is online in it (owner, 2026-11-01). The seat
 // this passkey is bound to but has stepped away from is free for it, so it
 // shows as a resident too. The owner may free any held seat but their own.
 function seatsOf(
@@ -186,6 +186,9 @@ export function worldSlots({ shared, rows = [], here, invite = null, local }) {
         },
   );
   for (const slot of slots) slot.seats ??= seatsOf([], slot.mine, {});
+  // The player is online in the world being played.
+  for (const seat of slots[0].seats)
+    if (seat.kind === "you") seat.online = true;
   const placed = new Set(slots.map((slot) => slot.mine));
   const deck = byInitial(humanAvatars).filter((a) => !placed.has(a.id));
   const used = slots.filter((slot) => (shared ? slot.owner : slot.local));
@@ -435,7 +438,9 @@ export function installAvatarMenu({
     portrait.src = imageUrl(`/card-game/${image}`, "card");
     portrait.alt = "";
     face.append(portrait, el("span", "seat-name", seat.name));
-    if (seat.online) face.append(el("span", "table-online"));
+    // Colour is presence: someone online in a world's seat, or your avatar
+    // in the deck. Every other seat is grey.
+    item.dataset.lit = String(Boolean(seat.online) || seat.kind === "deck");
     // A resident lives there on its own, and an avatar elsewhere is tapped
     // where it is; neither has anything to tap here.
     face.disabled = seat.kind === "resident" || seat.kind === "away";
@@ -500,7 +505,13 @@ export function installAvatarMenu({
       const strip = el("span", "slot-letters");
       strip.setAttribute("aria-hidden", "true");
       for (const seat of letters)
-        strip.append(el("span", `letter-${seat.kind}`, seat.name[0]));
+        strip.append(
+          el(
+            "span",
+            seat.online || seat.kind === "deck" ? "letter-lit" : "",
+            seat.name[0],
+          ),
+        );
       summary.append(strip);
       details.replaceChildren(summary);
       return details;

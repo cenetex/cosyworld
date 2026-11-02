@@ -183,8 +183,9 @@ body.local-app #scene-video-button {
 }
 
 /* ☰ is an accordion of world slots and the deck, then the tools
-   (avatar-menu.mjs). Each panel is one line of the whole cast: your avatar
-   that lives there in colour, every other seat in grey. */
+   (avatar-menu.mjs). Each panel is one line of the whole cast: a seat
+   someone is online in (or your avatar in the deck) in colour, every other
+   seat in grey. */
 .world-slots summary {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -212,14 +213,11 @@ body.local-app #scene-video-button {
   gap: 2px;
   font-size: 10px;
 }
-.slot-letters .letter-you,
-.slot-letters .letter-deck {
+.slot-letters .letter-lit {
   color: var(--gold);
   font-weight: 700;
 }
-.slot-letters .letter-resident,
-.slot-letters .letter-human,
-.slot-letters .letter-away {
+.slot-letters span:not(.letter-lit) {
   opacity: 0.4;
 }
 .world-menu summary .slot-target {
@@ -255,9 +253,7 @@ body.local-app #scene-video-button {
   object-fit: cover;
   object-position: 50% 12%;
 }
-[data-kind="resident"] .seat-face img,
-[data-kind="human"] .seat-face img,
-[data-kind="away"] .seat-face img {
+.slot-seat:not([data-lit="true"]) .seat-face img {
   filter: grayscale(1) brightness(0.7);
 }
 .world-menu [data-kind="resident"] .seat-face:disabled,
@@ -270,16 +266,6 @@ body.local-app #scene-video-button {
 .world-menu .seat-face[aria-pressed="true"] img,
 .world-menu .seat-face.slot-target img {
   outline: 2px solid var(--gold);
-}
-.table-online {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #4ade80;
-  box-shadow: 0 0 0 2px #0b0e16;
 }
 /* Panels open and fold smoothly where the browser can size to auto. */
 @media (prefers-reduced-motion: no-preference) {

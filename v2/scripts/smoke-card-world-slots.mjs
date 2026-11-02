@@ -130,6 +130,22 @@ try {
     await friend.waitFor({ state: "detached" });
     assert.deepEqual(commands.shift(), ["friend", { op: "release" }]);
     assert.equal(await ghost.getAttribute("data-kind"), "deck");
+    // Vale is online in the world being played, in colour there only; the
+    // spare world's held Mara is offline, so grey.
+    assert.deepEqual(
+      await menu
+        .locator('[data-avatar="vale"][data-lit="true"]')
+        .evaluateAll((seats) =>
+          seats.map((seat) => seat.closest(".world-slot").dataset.slot),
+        ),
+      ["here"],
+    );
+    assert.equal(
+      await menu
+        .locator('.world-slot[data-slot="spare"] [data-avatar="mara"]')
+        .getAttribute("data-lit"),
+      "false",
+    );
     // Vale lives in the world being played, so the deck shows it grey.
     assert.equal(
       await deck.locator('[data-avatar="vale"]').getAttribute("data-kind"),
