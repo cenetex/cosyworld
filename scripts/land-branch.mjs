@@ -44,6 +44,7 @@ export const GENERATED = [
   'v2/orchestrator-rust/src/card_assets.rs',
   `${rulesDir}/narrator.js`,
   `${rulesDir}/content.json`,
+  'v2/orchestrator-rust/src/card_narrative/authored-text.json',
 ];
 export const isRulesBundle = (file) => /^v2\/orchestrator-rust\/src\/card_shared\/engine-v\d+\.js$/u.test(file);
 
@@ -187,6 +188,7 @@ function land({ base, branch, name }) {
 
   run(process.execPath, ['v2/scripts/next-shared-rules.mjs', base]);
   run(process.execPath, ['v2/scripts/build-card-shared-narrator.mjs']);
+  run(process.execPath, ['v2/scripts/build-card-authored-text.mjs']);
   run(process.execPath, ['v2/scripts/build-card-shared-content.mjs']);
   run(process.execPath, ['v2/scripts/build-card-assets.mjs']);
 

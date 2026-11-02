@@ -296,6 +296,7 @@ fn voice_eval_measures_contract_prompts_and_recorded_replies() {
 fn false_claim_detector_reads_the_resolved_frame() {
     let mut c = super::tests::context();
     c.entities[0].memories.push(Memory {
+        signed: None,
         seq: None,
         turn: 2,
         kind: "event".into(),

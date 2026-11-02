@@ -69,6 +69,7 @@ import { enableMotives } from "./motives.mjs";
 import { seatActors } from "./human-cast.mjs";
 import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
+import { signedRequest } from "./signed-words.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
 import {
   forgetCovered,
@@ -971,13 +972,17 @@ const narrator = createNarrator({
     const unseen = forgetUnfound(world, context, cardIsCovered);
     return markWaking(world, forgetCovered(world, unseen, covered), covered);
   },
-  request: localRuntime()
-    ? (context, signal, progress) =>
-        requestNarrative(context, signal, progress, "/card-game/text", true)
-    : undefined,
+  // Remembered words go back with the envelopes the service signed them with.
+  request: signedRequest(
+    localRuntime()
+      ? (context, signal, progress) =>
+          requestNarrative(context, signal, progress, "/card-game/text", true)
+      : requestNarrative,
+  ),
   // Thoughts, persona and dreams come after the line, so they never delay it.
-  reflect: (context, signal) =>
+  reflect: signedRequest((context, signal) =>
     requestNarrative(context, signal, () => {}, "/card-game/reflections"),
+  ),
   // A silent play ends its exchange at once; the beat is its caption.
   silent: () => exchange.cancel(),
   started: (context) => {

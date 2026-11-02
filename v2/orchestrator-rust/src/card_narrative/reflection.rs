@@ -38,6 +38,7 @@ pub(super) async fn generate(
         .get_or_insert_with(InnerLife::default)
         .thoughts
         .push(InnerMoment {
+            signed: None,
             turn: context.turn,
             text: thought.clone(),
         });

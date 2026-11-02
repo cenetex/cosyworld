@@ -43,9 +43,12 @@ pub(super) async fn generate(
     let Ok(settings) = state.settings.as_ref() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
-    if !same_origin(&headers) || !valid(&context) {
+    let Some(context) = (same_origin(&headers) && valid(&context))
+        .then(|| super::untrusted::trusted(context))
+        .flatten()
+    else {
         return StatusCode::BAD_REQUEST.into_response();
-    }
+    };
     let (Some(config), Ok(models)) = (state.ai.as_ref(), state.character_models.as_ref()) else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
@@ -81,7 +84,8 @@ pub(super) async fn generate(
         tokio::select! {
             _ = sender.closed() => {},
             _ = cancelled => {},
-            value = complete(&config, &context, &models, &settings) => {
+            mut value = complete(&config, &context, &models, &settings) => {
+                super::untrusted::sign_reflections(&mut value, &context);
                 let _ = sender.send(Event::default().data(value.to_string())).await;
             }
         }
@@ -179,6 +183,7 @@ mod tests {
         let (address, server) = super::super::tests::serve(provider).await;
         let mut c = super::super::tests::context();
         c.entities[0].memories.push(Memory {
+            signed: None,
             seq: Some(1),
             turn: 1,
             kind: "event".into(),
