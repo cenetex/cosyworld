@@ -389,6 +389,7 @@ dependencies = [
  "futures-util",
  "image",
  "llama-cpp-2",
+ "openssl",
  "qrcode",
  "rand 0.8.6",
  "reqwest",

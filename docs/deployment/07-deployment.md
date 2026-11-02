@@ -72,6 +72,9 @@ secret values through Fly's secret store for the selected app.
 - `COSYWORLD_PASSKEYS` is `open` (the default) or `members`. Members mode
   refuses new passkey sign-ups and signed-out play; `.dev` uses it (see
   [release operations](../release.md)).
+- `COSYWORLD_DEV_TEST_PASSKEY` (members mode only) installs the public key of
+  the `agent-test` passkey that agents and CI smokes use on `.dev` (see
+  [release operations](../release.md#agent-test-passkey)).
 - `OPENROUTER_API_KEY` supplies the configured text provider. Image generation
   uses the configured Replicate credentials. See the
   [runtime guide](../../v2/README.md) for provider settings.
