@@ -4646,7 +4646,7 @@
             text: "A written account of the rite on the battlefield: who dug, who brought cloth and oil, and who saw.",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             holder: "greek-battlefield",
-            art: "assets/greek-drama/testimony.png",
+            art: "assets/greek-drama/burial-account.webp",
             requires: [
               {
                 kind: "flag",
@@ -4660,7 +4660,7 @@
             text: "A sealed writ from the palace. It grants the household a burial under witness.",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             holder: "greek-palace",
-            art: "assets/greek-drama/decree.png",
+            art: "assets/greek-drama/creon-writ.webp",
             requires: [
               {
                 kind: "flag",
@@ -4674,7 +4674,7 @@
             text: "A wax tablet from the gate. It records a warning that the household meant to bury the brother.",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             holder: "greek-gate",
-            art: "assets/greek-drama/testimony.svg",
+            art: "assets/greek-drama/guard-tablet.webp",
             requires: [
               {
                 kind: "flag",
@@ -4688,7 +4688,7 @@
             text: "Aethra\u2019s written account of the rite at Eleusis: the cloths, the urn in the mothers\u2019 care, and the losses beside the pyre.",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             holder: "greek-eleusis",
-            art: "assets/greek-drama/testimony.png",
+            art: "assets/greek-drama/pyre-account.webp",
             requires: [
               {
                 kind: "flag",
@@ -4707,7 +4707,7 @@
             text: "The altar keeper\u2019s wax record of the tale under Demophon: the daughter\u2019s gift, the battle, and the claim against the captive king.",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             holder: "greek-marathon",
-            art: "assets/greek-drama/testimony.png",
+            art: "assets/greek-drama/marathon-record.webp",
             requires: [
               {
                 kind: "flag",
