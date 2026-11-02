@@ -156,12 +156,19 @@ try {
     ]);
     for (let attempt = 0; attempt < 2; attempt++) {
       await page.getByRole("button", { name: "Menu", exact: true }).click();
-      await page
-        .getByRole("button", { name: "Inner life", exact: true })
-        .click();
-      const dialog = page.getByRole("dialog", { name: "Vale's inner life" });
+      // Inner life opens Memory: the present first, the past below (#1579).
+      await page.getByRole("button", { name: "Memory", exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: "Memory" });
       await dialog.waitFor();
-      const text = await dialog.innerText();
+      const inner = dialog.getByRole("region", { name: "Vale's inner life" });
+      await inner.waitFor();
+      assert.equal(
+        await dialog.evaluate(
+          (box) => box.querySelector("#messages > *")?.className,
+        ),
+        "inner-life",
+      );
+      const text = await inner.innerText();
       assert(text.includes("I'm Vale. The Lamplighter."));
       // "I'm becoming" is one intention: the newest thought, not the persona.
       assert(text.includes("A fair offer may help."));
@@ -174,7 +181,7 @@ try {
       assert(box.x >= 0 && box.x + box.width <= width + 1);
       if (!attempt)
         await page.screenshot({
-          path: `${output}/inner-life-${width}.png`,
+          path: `${output}/memory-inner-life-${width}.png`,
           fullPage: true,
         });
       await dialog.getByRole("button", { name: "Close", exact: true }).click();

@@ -129,7 +129,7 @@ try {
     await menu.waitFor({ state: "visible" });
     assert.deepEqual(
       await menu.locator(".menu-tools button").allTextContents(),
-      ["Memory", "Inner life", "Invite", "Settings"],
+      ["Memory", "Invite", "Settings"],
     );
     // ☰ lists world slots; the world played now shows, on one line, the
     // avatars that entered it and "+" for its open seats (#1877).

@@ -735,10 +735,11 @@ The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and
 
 ## Learning and inner life
 
-Open **Menu → Inner life** to read your avatar's inner life as a short chain:
+Open **Menu → Memory**: it starts with your avatar's inner life as a short chain,
 **I'm** (the authored name and title, "I'm Vale. The Lamplighter."), **I'm
 becoming** (one current intention: the newest grounded thought, else the
-persona) and **I dream** (recent dreams), closed by the avatar's name. Lines
+persona) and **I dream** (recent dreams), closed by the avatar's name; the
+remembered visits follow below it. Lines
 that read as an assistant talking about the scene are hidden, and so are
 lines that are not first person, break their quotes, or name an item kind
 the avatar was never near ("my compass is ready"). A quest target the
@@ -991,7 +992,7 @@ for six turns. A dream colours speech for two turns after waking.
 
 The browser saves the current persona and the latest four thoughts and four
 dreams per avatar beside the existing witnessed memories and landmarks.
-`History` → `Inner life` shows them for discovered characters. Every avatar
+The top of **Memory** shows the playing avatar's own. Every avatar
 starts from its seed sentence and gains an inner life as play continues.
 Dreams and thoughts are marked as private impressions. They are separate from
 witnessed events and public conversation.

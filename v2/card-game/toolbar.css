@@ -175,26 +175,6 @@ body.local-app #scene-video-button {
   }
 }
 
-.inner-life-dialog {
-  max-height: 80dvh;
-  overflow-y: auto;
-}
-.inner-life-dialog h3 {
-  margin: 1.2rem 0 0.4rem;
-}
-.inner-life-dialog p {
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.inner-life-dialog .inner-life-im {
-  font-size: 1.1rem;
-}
-.inner-life-dialog .inner-life-name {
-  margin-top: 1.2rem;
-  font-style: italic;
-  text-align: right;
-}
-
 /* ☰ lists worlds, then the shown avatar's card (avatar-menu.mjs). A world
    is its name and a portrait per avatar there, in colour while online and
    in grey otherwise, then "+" for an open seat. */

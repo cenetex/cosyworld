@@ -70,63 +70,30 @@ export function innerLifeChain(world, actor = currentActor(world)) {
   };
 }
 
-// This panel reads only the current player's private projection.
-export function installInnerLife(menu, getWorld) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.id = "inner-life-button";
-  button.textContent = "Inner life";
-  button.setAttribute("aria-haspopup", "dialog");
-  button.setAttribute("aria-controls", "inner-life-dialog");
-  const dialog = document.createElement("dialog");
-  dialog.id = "inner-life-dialog";
-  dialog.className = "players-dialog inner-life-dialog";
-  dialog.setAttribute("aria-labelledby", "inner-life-title");
-  const content = document.createElement("div");
-  const close = document.createElement("button");
-  close.type = "button";
-  close.className = "players-close";
-  close.textContent = "Close";
-  close.onclick = () => dialog.close();
-  dialog.append(content, close);
-  menu.append(button);
-  document.body.append(dialog);
-  const changed = () =>
-    document.dispatchEvent(new Event("shared-dialog-change"));
-  dialog.addEventListener("close", () => {
-    changed();
-    button.focus();
-  });
-  button.onclick = () => {
-    const chain = innerLifeChain(getWorld());
-    content.replaceChildren();
-    const title = document.createElement("h2");
-    title.id = "inner-life-title";
-    title.textContent = `${chain.name}'s inner life`;
-    content.append(title);
-    const section = (heading, lines) => {
-      if (!lines.length) return;
-      const h = document.createElement("h3");
-      h.textContent = heading;
-      content.append(h);
-      for (const line of lines) {
-        const p = document.createElement("p");
-        p.textContent = line;
-        content.append(p);
-      }
-    };
-    // The authored sentence opens the chain; it already says "I'm".
-    const im = document.createElement("p");
-    im.className = "inner-life-im";
-    im.textContent = chain.im;
-    content.append(im);
-    section("I'm becoming", chain.becoming);
-    section("I dream", chain.dreams);
-    const signature = document.createElement("p");
-    signature.className = "inner-life-name";
-    signature.textContent = `— ${chain.name}`;
-    content.append(signature);
-    dialog.showModal();
-    changed();
+// Memory opens on the avatar's inner life, the present, before the past
+// visits below it. It reads only the current player's private projection.
+export function innerLifeSection(chain) {
+  const section = document.createElement("section");
+  section.className = "inner-life";
+  section.setAttribute("aria-labelledby", "inner-life-title");
+  const add = (tag, text, className) => {
+    const node = document.createElement(tag);
+    node.textContent = text;
+    if (className) node.className = className;
+    section.append(node);
   };
+  add("h3", `${chain.name}'s inner life`, "memory-place");
+  section.firstChild.id = "inner-life-title";
+  // The authored sentence opens the chain; it already says "I'm".
+  add("p", chain.im, "inner-life-im");
+  for (const [heading, lines] of [
+    ["I'm becoming", chain.becoming],
+    ["I dream", chain.dreams],
+  ]) {
+    if (!lines.length) continue;
+    add("h4", heading);
+    for (const line of lines) add("p", line);
+  }
+  add("p", `— ${chain.name}`, "inner-life-name");
+  return section;
 }

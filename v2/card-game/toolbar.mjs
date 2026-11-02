@@ -1,4 +1,3 @@
-import { installInnerLife } from "./inner-life.mjs";
 import { humanAvatars } from "./human-cast.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { imageUrl } from "./images.mjs";
@@ -103,11 +102,6 @@ export function installToolbar({
     decorate(button, icon, label);
     tools.append(button);
   }
-  installInnerLife(tools, getWorld);
-  tools.append(
-    tools.querySelector("#shared-worlds-button"),
-    tools.querySelector("#menu-button"),
-  );
   const seats = installAvatarMenu({
     menu,
     session,
