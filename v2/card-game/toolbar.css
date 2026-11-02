@@ -198,8 +198,7 @@ body.local-app #scene-video-button {
   background: #dfc38d1c;
 }
 .world-slots summary small,
-.avatar-stats small,
-.seat-note,
+.profile-facts small,
 .avatar-status {
   color: var(--muted);
 }
@@ -273,20 +272,63 @@ body.local-app #scene-video-button {
     opacity: 1;
   }
 }
-.avatar-stats {
+/* The shown avatar as a hand card: art, name, level numeral, tier edge. */
+.profile-card {
   display: grid;
-  padding: 8px;
+  grid-template-columns: 104px 1fr;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 10px 8px;
   border-top: 1px solid #ffffff1a;
+}
+.profile-art {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border: 1px solid var(--tier-color);
+  border-radius: 10px;
+  background: radial-gradient(ellipse at 50% 66%, #70543c6e, #141b2499);
+  box-shadow: 0 6px 20px #0006;
+}
+.profile-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 12%;
+}
+.profile-card:not([data-lit="true"]) .profile-art img {
+  filter: saturate(0.35) brightness(0.6);
+}
+.profile-name {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 24px 6px 8px;
+  background: linear-gradient(transparent, #080b12eb 65%);
+  color: #f2e3c4;
+  font:
+    15px/1.2 Georgia,
+    serif;
+  text-align: center;
+  text-shadow: 0 2px 5px #000;
+}
+.profile-art .card-level {
+  left: 9px;
+  visibility: visible;
+  opacity: 0.8;
+  transform: none;
+}
+.profile-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 .avatar-actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: 6px;
-  padding: 0 8px 8px;
-}
-.seat-note {
-  flex-basis: 100%;
+  margin-top: auto;
+  padding-top: 6px;
 }
 .world-menu .avatar-act {
   width: auto;

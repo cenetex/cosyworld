@@ -77,29 +77,31 @@ Redesigned in [#1877](https://github.com/cenetex/cosyworld/issues/1877).
   time, and the tools (Memory, Inner life, Invite, Settings) stay pinned at
   the bottom. Panels fold over 200 ms.
 - **+ New world** starts a world for the first avatar in no world.
-- Below, the **tapped seat's stats**: its level in that world, holdings where
-  the world is loaded, and who plays it.
+- Below, the **profile card**: one avatar shown as a hand card (full
+  portrait, name, the faint level numeral and the level tier's edge colour),
+  then online or offline, its world, and what it holds where that world is
+  loaded. It shows the avatar being played until a portrait is tapped (else
+  the first of yours in a world), and it holds every seat action.
 
 **Tap a grey seat** in a world its avatar may go to (its seat is free, and
-you hold no avatar there), then again to move it. A claim frees its
-old seat and carries its level (#1870). When the avatar being played leaves, the bare address
-opens with ☰ so the player picks what comes next.
+you hold no avatar there): the card shows your avatar with **Bring to
+*Hollowmere***. A claim frees its old seat and carries its level (#1870).
+When the avatar being played leaves, the bare address opens with ☰ so the
+player picks what comes next.
 
-A tapped seat also shows its own actions under the line of seats:
-
-| Seat | Actions |
+| Card | Actions |
 | --- | --- |
-| Yours | **Play** (in another slot), **Release · start over**; a second tap on the portrait adds **Step away** |
-| Another person's | its holder and level, and **Free** for the world's owner |
+| Yours | **Play** (in another slot), **Step away**, **Release · start over** |
+| Another person's | its holder, and **Free** for the world's owner |
+| Yours, offered by a grey seat | **Bring to *Hollowmere*** |
 | A resident | none |
 
 - **Step away** frees your seat and keeps the avatar's level and its binding
   there; the avatar is then in no world (grey everywhere), ready for + New
-  world or a move. It shows after a second tap on your own portrait, with
-  "Mara's level goes with Mara. Mara's things and quests stay in
-  *Hollowmere*, and the seat there opens for someone else." It sends the
-  `release` command, as Move to your
-  deck did before #1891.
+  world or a move. Its first tap asks "Step away?" and says "Mara's level
+  goes with Mara. Mara's things and quests stay in *Hollowmere*, and the
+  seat there opens for someone else." It sends the `release` command, as
+  Move to your deck did before #1891.
 - **Release · start over** gives a shared seat back and starts the avatar
   over. The first tap turns it red: "Release *Mara* and start over?" and
   "Mara starts over at level 1. Their things and quests stay in Hollowmere,
@@ -109,7 +111,7 @@ A tapped seat also shows its own actions under the line of seats:
 
 **A friend's link** (`/?world=…`) signs the person in, then opens their own
 table with ☰ open and the linked world as an extra slot marked "invited",
-with its seats. Tapping a free seat there twice brings that avatar in (a
+with its seats. Tapping a free seat there offers that avatar on the card (a
 person bound there sees their own avatar's seat free). There are no separate
 join, "Return as", full-world or full-room panels. A full room waits at the
 table: "Your room is full. Your avatar and belongings are saved."
@@ -123,7 +125,8 @@ out) and Controls. It holds no world actions.
 
 The menu shows now, not a log: where each avatar is now. There is no list of
 past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` checks
-colour, stats, a two-tap move and Step away, at 390 and 1440 pixels.
+colour, the card and its actions, a move from a grey seat and Step away, at
+390 and 1440 pixels.
 
 Vale's grey seat tapped once in another world:
 
@@ -152,8 +155,8 @@ Desktop (1440 × 900):
 
 ### Words
 
-Play, Step away, Release · start over, Free, + New world, Tap *Vale* again to bring
-*Vale* here, a friend's
+Play, Step away, Step away?, Release · start over, Free, Bring to
+*Hollowmere*, + New world, a friend's
 world, invited, You, Memory, Inner life, Invite, Settings. Gone: Worlds,
 Share, Your worlds (`/?shared=1` opens the table), on this
 device, Delete world (local), `?avatar=`, Continue as, Continue
