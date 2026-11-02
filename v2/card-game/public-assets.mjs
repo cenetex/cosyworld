@@ -73,6 +73,7 @@ const files = [
   ),
   "cast-combat-art.mjs",
   "assets/combat/cast-roster.json",
+  "assets/combat/pose-fit.json",
   ...castCombatAssets,
   "level-tiers.mjs",
   "rarity.mjs",

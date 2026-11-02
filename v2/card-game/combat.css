@@ -1,5 +1,11 @@
 /* Standoff beats: poses, telegraphs, resolve pips, outcome words, the
    defeat card. Motion runs through element.animate in combat-view.mjs. */
+/* A painting's measured fit (combat-portraits.mjs) about the figure's foot. */
+.portrait-body > img {
+  transform-origin: 50% 100%;
+  translate: 0 var(--pose-drop, 0);
+  scale: var(--pose-scale, 1);
+}
 .portrait[data-combat-art] .portrait-held-item {
   visibility: hidden;
 }

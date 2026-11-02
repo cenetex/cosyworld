@@ -1,0 +1,478 @@
+{
+  "assets/combat/badger-attack.webp": {
+    "drop": 0.05,
+    "scale": 0.735
+  },
+  "assets/combat/badger-hit.webp": {
+    "drop": 0.013,
+    "scale": 0.735
+  },
+  "assets/combat/badger-guard.webp": {
+    "drop": 0.044,
+    "scale": 0.735
+  },
+  "assets/combat/greek-antigone-attack.webp": {
+    "drop": 0.085,
+    "scale": 1.148
+  },
+  "assets/combat/greek-antigone-hit.webp": {
+    "drop": 0.077,
+    "scale": 1.148
+  },
+  "assets/combat/greek-antigone-guard.webp": {
+    "drop": 0.066,
+    "scale": 1.148
+  },
+  "assets/combat/greek-ismene-attack.webp": {
+    "drop": 0.023,
+    "scale": 1
+  },
+  "assets/combat/greek-ismene-hit.webp": {
+    "drop": 0.016,
+    "scale": 1
+  },
+  "assets/combat/greek-ismene-guard.webp": {
+    "drop": 0.016,
+    "scale": 1
+  },
+  "assets/combat/greek-creon-attack.webp": {
+    "drop": 0.022,
+    "scale": 1
+  },
+  "assets/combat/greek-creon-hit.webp": {
+    "drop": 0.025,
+    "scale": 1
+  },
+  "assets/combat/greek-creon-guard.webp": {
+    "drop": 0.021,
+    "scale": 1
+  },
+  "assets/combat/greek-guard-attack.webp": {
+    "drop": 0.01,
+    "scale": 1
+  },
+  "assets/combat/greek-baker-attack.webp": {
+    "drop": 0.034,
+    "scale": 1
+  },
+  "assets/combat/greek-baker-guard.webp": {
+    "drop": 0.018,
+    "scale": 1
+  },
+  "assets/combat/greek-elder-attack.webp": {
+    "drop": 0.041,
+    "scale": 1
+  },
+  "assets/combat/greek-elder-hit.webp": {
+    "drop": 0.025,
+    "scale": 1
+  },
+  "assets/combat/greek-elder-guard.webp": {
+    "drop": 0.027,
+    "scale": 1
+  },
+  "assets/combat/greek-shipmaster-attack.webp": {
+    "drop": 0.089,
+    "scale": 1
+  },
+  "assets/combat/greek-shipmaster-hit.webp": {
+    "drop": 0.018,
+    "scale": 1
+  },
+  "assets/combat/greek-rhapsode-attack.webp": {
+    "drop": 0.023,
+    "scale": 1
+  },
+  "assets/combat/greek-rhapsode-hit.webp": {
+    "drop": 0.023,
+    "scale": 1
+  },
+  "assets/combat/greek-rhapsode-guard.webp": {
+    "drop": 0.033,
+    "scale": 1
+  },
+  "assets/combat/greek-market-neighbor-attack.webp": {
+    "drop": 0.025,
+    "scale": 1
+  },
+  "assets/combat/greek-market-neighbor-hit.webp": {
+    "drop": 0.023,
+    "scale": 1
+  },
+  "assets/combat/greek-temple-attendant-attack.webp": {
+    "drop": 0.05,
+    "scale": 1
+  },
+  "assets/combat/greek-temple-attendant-hit.webp": {
+    "drop": 0.016,
+    "scale": 1
+  },
+  "assets/combat/greek-temple-attendant-guard.webp": {
+    "drop": 0.025,
+    "scale": 1
+  },
+  "assets/combat/greek-ferryman-attack.webp": {
+    "drop": 0.043,
+    "scale": 1
+  },
+  "assets/combat/greek-ferryman-hit.webp": {
+    "drop": 0.018,
+    "scale": 1
+  },
+  "assets/combat/greek-ferryman-guard.webp": {
+    "drop": 0.018,
+    "scale": 1
+  },
+  "assets/combat/greek-helen-egypt-attack.webp": {
+    "drop": 0.012,
+    "scale": 1
+  },
+  "assets/combat/greek-helen-egypt-hit.webp": {
+    "drop": 0.016,
+    "scale": 1
+  },
+  "assets/combat/greek-helen-egypt-guard.webp": {
+    "drop": 0.027,
+    "scale": 1
+  },
+  "assets/combat/greek-menelaus-egypt-attack.webp": {
+    "drop": 0.029,
+    "scale": 1
+  },
+  "assets/combat/greek-menelaus-egypt-guard.webp": {
+    "drop": 0.013,
+    "scale": 1
+  },
+  "assets/combat/greek-electra-aeschylus-attack.webp": {
+    "drop": 0.026,
+    "scale": 1
+  },
+  "assets/combat/greek-electra-aeschylus-hit.webp": {
+    "drop": 0.013,
+    "scale": 1
+  },
+  "assets/combat/greek-electra-aeschylus-guard.webp": {
+    "drop": 0.019,
+    "scale": 1
+  },
+  "assets/combat/greek-orestes-aeschylus-attack.webp": {
+    "drop": 0.075,
+    "scale": 1.085
+  },
+  "assets/combat/greek-orestes-aeschylus-hit.webp": {
+    "drop": -0.004,
+    "scale": 1.085
+  },
+  "assets/combat/greek-orestes-aeschylus-guard.webp": {
+    "drop": 0.042,
+    "scale": 1.085
+  },
+  "assets/combat/greek-aethra-attack.webp": {
+    "drop": 0.073,
+    "scale": 1
+  },
+  "assets/combat/greek-aethra-hit.webp": {
+    "drop": 0.029,
+    "scale": 1
+  },
+  "assets/combat/greek-aethra-guard.webp": {
+    "drop": 0.019,
+    "scale": 1
+  },
+  "assets/combat/greek-adrastus-attack.webp": {
+    "drop": 0.136,
+    "scale": 1.136
+  },
+  "assets/combat/greek-adrastus-hit.webp": {
+    "drop": 0.064,
+    "scale": 1.136
+  },
+  "assets/combat/greek-adrastus-guard.webp": {
+    "drop": 0.076,
+    "scale": 1.136
+  },
+  "assets/combat/greek-argive-mother-attack.webp": {
+    "drop": 0.016,
+    "scale": 1
+  },
+  "assets/combat/greek-argive-mother-guard.webp": {
+    "drop": 0.012,
+    "scale": 1
+  },
+  "assets/combat/greek-iphis-attack.webp": {
+    "drop": 0.046,
+    "scale": 1.084
+  },
+  "assets/combat/greek-iphis-hit.webp": {
+    "drop": 0.04,
+    "scale": 1.084
+  },
+  "assets/combat/greek-iphis-guard.webp": {
+    "drop": 0.063,
+    "scale": 1.084
+  },
+  "assets/combat/greek-theseus-attack.webp": {
+    "drop": 0.033,
+    "scale": 1
+  },
+  "assets/combat/greek-theseus-guard.webp": {
+    "drop": 0.033,
+    "scale": 1
+  },
+  "assets/combat/greek-quay-host-attack.webp": {
+    "drop": 0.044,
+    "scale": 1
+  },
+  "assets/combat/greek-quay-host-guard.webp": {
+    "drop": 0.016,
+    "scale": 1
+  },
+  "assets/combat/greek-colonus-keeper-attack.webp": {
+    "drop": 0.051,
+    "scale": 1
+  },
+  "assets/combat/greek-colonus-keeper-guard.webp": {
+    "drop": 0.033,
+    "scale": 1
+  },
+  "assets/combat/greek-marathon-keeper-attack.webp": {
+    "drop": 0.029,
+    "scale": 1
+  },
+  "assets/combat/greek-marathon-keeper-hit.webp": {
+    "drop": 0.019,
+    "scale": 1
+  },
+  "assets/combat/greek-marathon-keeper-guard.webp": {
+    "drop": 0.023,
+    "scale": 1
+  },
+  "assets/combat/greek-household-witness-hit.webp": {
+    "drop": 0.023,
+    "scale": 1
+  },
+  "assets/combat/greek-household-witness-guard.webp": {
+    "drop": 0.022,
+    "scale": 1
+  },
+  "assets/combat/greek-ajax-tecmessa-guard.webp": {
+    "drop": 0.015,
+    "scale": 1
+  },
+  "assets/combat/greek-ajax-teucer-attack.webp": {
+    "drop": 0.012,
+    "scale": 1
+  },
+  "assets/combat/greek-ajax-teucer-hit.webp": {
+    "drop": 0.014,
+    "scale": 1
+  },
+  "assets/combat/greek-ajax-teucer-guard.webp": {
+    "drop": 0.025,
+    "scale": 1
+  },
+  "assets/combat/greek-ajax-odysseus-hit.webp": {
+    "drop": 0.035,
+    "scale": 1
+  },
+  "assets/combat/greek-ajax-odysseus-guard.webp": {
+    "drop": 0.027,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-tapi-lilt-attack.webp": {
+    "drop": 0.085,
+    "scale": 1.185
+  },
+  "assets/combat/hoppycat-tapi-lilt-hit.webp": {
+    "drop": 0.084,
+    "scale": 1.185
+  },
+  "assets/combat/hoppycat-tapi-lilt-guard.webp": {
+    "drop": 0.007,
+    "scale": 1.185
+  },
+  "assets/combat/hoppycat-penny-vellum-attack.webp": {
+    "drop": 0.023,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-rill-current-attack.webp": {
+    "drop": 0.133,
+    "scale": 1.222
+  },
+  "assets/combat/hoppycat-rill-current-hit.webp": {
+    "drop": 0.061,
+    "scale": 1.222
+  },
+  "assets/combat/hoppycat-rill-current-guard.webp": {
+    "drop": 0.124,
+    "scale": 1.222
+  },
+  "assets/combat/hoppycat-patch-fern-attack.webp": {
+    "drop": 0.011,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-lumen-facet-attack.webp": {
+    "drop": 0.124,
+    "scale": 1.164
+  },
+  "assets/combat/hoppycat-lumen-facet-hit.webp": {
+    "drop": 0.009,
+    "scale": 1.164
+  },
+  "assets/combat/hoppycat-lumen-facet-guard.webp": {
+    "drop": 0.083,
+    "scale": 1.164
+  },
+  "assets/combat/hoppycat-mira-meraki-attack.webp": {
+    "drop": 0.08,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-mira-meraki-hit.webp": {
+    "drop": 0.021,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-mira-meraki-guard.webp": {
+    "drop": 0.031,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-glim-twice-attack.webp": {
+    "drop": 0.03,
+    "scale": 1.109
+  },
+  "assets/combat/hoppycat-glim-twice-hit.webp": {
+    "drop": 0.025,
+    "scale": 1.109
+  },
+  "assets/combat/hoppycat-glim-twice-guard.webp": {
+    "drop": 0.089,
+    "scale": 1.109
+  },
+  "assets/combat/hoppycat-nix-fermata-attack.webp": {
+    "drop": 0.107,
+    "scale": 1.234
+  },
+  "assets/combat/hoppycat-nix-fermata-hit.webp": {
+    "drop": 0.119,
+    "scale": 1.234
+  },
+  "assets/combat/hoppycat-nix-fermata-guard.webp": {
+    "drop": 0.072,
+    "scale": 1.234
+  },
+  "assets/combat/hoppycat-hoppy-cat-attack.webp": {
+    "drop": 0.052,
+    "scale": 1.113
+  },
+  "assets/combat/hoppycat-hoppy-cat-hit.webp": {
+    "drop": 0.047,
+    "scale": 1.113
+  },
+  "assets/combat/hoppycat-hoppy-cat-guard.webp": {
+    "drop": 0.075,
+    "scale": 1.113
+  },
+  "assets/combat/hoppycat-fable-attack.webp": {
+    "drop": 0.049,
+    "scale": 1.115
+  },
+  "assets/combat/hoppycat-fable-hit.webp": {
+    "drop": 0.009,
+    "scale": 1.115
+  },
+  "assets/combat/hoppycat-fable-guard.webp": {
+    "drop": 0.047,
+    "scale": 1.115
+  },
+  "assets/combat/hoppycat-phase-two-attack.webp": {
+    "drop": 0.02,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-arc-attack.webp": {
+    "drop": 0.027,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-staticwashere-attack.webp": {
+    "drop": 0.085,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-staticwashere-guard.webp": {
+    "drop": 0.018,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-solwashere-attack.webp": {
+    "drop": 0.074,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-ledger-opus-attack.webp": {
+    "drop": 0.044,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-ledger-opus-guard.webp": {
+    "drop": 0.011,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-ledger-sonnet-attack.webp": {
+    "drop": 0.025,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-ledger-sonnet-hit.webp": {
+    "drop": 0.031,
+    "scale": 1
+  },
+  "assets/combat/hoppycat-ledger-sonnet-guard.webp": {
+    "drop": 0.014,
+    "scale": 1
+  },
+  "assets/combat/willows-swede-attack.webp": {
+    "drop": 0.033,
+    "scale": 1
+  },
+  "assets/combat/willows-swede-hit.webp": {
+    "drop": 0.025,
+    "scale": 1
+  },
+  "assets/combat/willows-swede-guard.webp": {
+    "drop": 0.016,
+    "scale": 1
+  },
+  "assets/combat/rati-hit.webp": {
+    "drop": 0.039,
+    "scale": 1
+  },
+  "assets/combat/skull-attack.webp": {
+    "drop": 0.121,
+    "scale": 1.303
+  },
+  "assets/combat/skull-hit.webp": {
+    "drop": 0.195,
+    "scale": 1.303
+  },
+  "assets/combat/skull-guard.webp": {
+    "drop": 0.16,
+    "scale": 1.303
+  },
+  "assets/combat/whiskerwind-attack.webp": {
+    "drop": 0.123,
+    "scale": 1.175
+  },
+  "assets/combat/whiskerwind-hit.webp": {
+    "drop": 0.091,
+    "scale": 1.175
+  },
+  "assets/combat/whiskerwind-guard.webp": {
+    "drop": 0.127,
+    "scale": 1.175
+  },
+  "assets/combat/boardyai-attack.webp": {
+    "drop": 0.067,
+    "scale": 1.128
+  },
+  "assets/combat/boardyai-hit.webp": {
+    "drop": 0.063,
+    "scale": 1.128
+  },
+  "assets/combat/boardyai-guard.webp": {
+    "drop": 0.018,
+    "scale": 1.128
+  }
+}
