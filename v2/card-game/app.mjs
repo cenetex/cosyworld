@@ -2769,19 +2769,10 @@ function renderScene() {
     ]);
     if (behindButton.dataset.key !== behindKey) {
       behindButton.dataset.key = behindKey;
-      const face = behindButton.querySelector(".beat-behind-portrait");
-      releaseImages(face);
-      face.replaceChildren();
-      const source = beatPortrait(behind.speakerId);
-      if (source) {
-        const image = node("img");
-        image.alt = "";
-        image.decoding = "async";
-        image.src = source;
-        face.dataset.kind = people[behind.speakerId] ? "avatar" : "scene";
-        if (people[behind.speakerId]) frameFigure(image);
-        face.append(image);
-      }
+      fillPortrait(
+        behindButton.querySelector(".beat-behind-portrait"),
+        behind.speakerId,
+      );
       const words = behindButton.querySelector(".beat-behind-text");
       const first = behind.actions[0];
       const caption = node("span", undefined, "beat-behind-caption");
@@ -2839,6 +2830,19 @@ function releaseImages(root) {
   for (const image of root.querySelectorAll("img"))
     image.removeAttribute("src");
 }
+function fillPortrait(face, id) {
+  releaseImages(face);
+  face.replaceChildren();
+  const source = beatPortrait(id);
+  if (!source) return;
+  const image = node("img");
+  image.alt = "";
+  image.decoding = "async";
+  image.src = source;
+  face.dataset.kind = people[id] ? "avatar" : "scene";
+  if (people[id]) frameFigure(image);
+  face.append(image);
+}
 function beatPortrait(id) {
   if (!id) return "";
   return imageUrl(
@@ -2880,9 +2884,12 @@ function stackGhost(card) {
 // forward it settles behind the new card; going back, or crossfading for
 // reduced motion, it leaves over it.
 function frontGhost(direction) {
-  const card = $("speech-row"),
-    ghost = ghostOf(card),
-    under = direction === "forward" && !reducedMotion.matches;
+  const under = direction === "forward" && !reducedMotion.matches;
+  return pinnedGhost($("speech-row"), under ? "1" : "3");
+}
+// A copy pinned to the card's box, with the look the card had.
+function pinnedGhost(card, zIndex) {
+  const ghost = ghostOf(card);
   // The card's styles hang on its ids, which the copy cannot share, so the
   // copy keeps the look it had.
   const copies = [ghost, ...ghost.querySelectorAll("*")];
@@ -2899,7 +2906,7 @@ function frontGhost(direction) {
     top: `${card.offsetTop}px`,
     width: `${card.offsetWidth}px`,
     height: `${card.offsetHeight}px`,
-    zIndex: under ? "1" : "3",
+    zIndex,
   });
   // After the card, so lookups by class still find the real one first.
   card.after(ghost);
