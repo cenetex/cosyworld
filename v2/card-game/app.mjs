@@ -3336,7 +3336,7 @@ function render() {
       .querySelector(`[data-card="${focusId}"]`)
       ?.focus({ preventScroll: true });
   }
-  updateHandArrows();
+  updateHandEdges();
 }
 function playLevelUps() {
   for (const button of $("hand").querySelectorAll(".card[data-card]")) {
@@ -3388,8 +3388,8 @@ function fanHand() {
     frame.style.setProperty("--fan-at", String(i - (shown.length - 1) / 2)),
   );
 }
-// Arrows beside the hand reach cards past either edge.
-function updateHandArrows() {
+// Fade only the hand's edges that hide more cards.
+function updateHandEdges() {
   fanHand();
   const hand = $("hand"),
     overflow = hand.scrollWidth > hand.clientWidth + 2,
@@ -3400,29 +3400,17 @@ function updateHandArrows() {
       hand.offsetLeft -
       (parseFloat(getComputedStyle(hand).scrollPaddingLeft) || 0)
     : 0;
-  $("hand-previous").hidden = $("hand-next").hidden = !overflow;
-  $("hand-previous").disabled = hand.scrollLeft <= Math.max(0, start) + 1;
-  $("hand-next").disabled =
-    hand.scrollLeft + hand.clientWidth >= hand.scrollWidth - 2;
-  // Fade only the edges that hide more cards.
   const fade = [
-    overflow && !$("hand-previous").disabled && "start",
-    overflow && !$("hand-next").disabled && "end",
+    overflow && hand.scrollLeft > Math.max(0, start) + 1 && "start",
+    overflow &&
+      hand.scrollLeft + hand.clientWidth < hand.scrollWidth - 2 &&
+      "end",
   ].filter(Boolean);
   if (fade.length) hand.dataset.fade = fade.join(" ");
   else delete hand.dataset.fade;
 }
-for (const [id, direction] of [
-  ["hand-previous", -1],
-  ["hand-next", 1],
-])
-  $(id).onclick = () =>
-    $("hand").scrollBy({
-      left: direction * $("hand").clientWidth * 0.75,
-      behavior: reducedMotion.matches ? "instant" : "smooth",
-    });
-$("hand").addEventListener("scroll", updateHandArrows, { passive: true });
-new ResizeObserver(updateHandArrows).observe($("hand"));
+$("hand").addEventListener("scroll", updateHandEdges, { passive: true });
+new ResizeObserver(updateHandEdges).observe($("hand"));
 new ResizeObserver(([entry]) => {
   document.documentElement.style.setProperty(
     "--dock-height",

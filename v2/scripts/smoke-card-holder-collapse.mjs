@@ -293,11 +293,6 @@ try {
           await page.locator("#hand").tap({ position: { x: 4, y: 4 } });
         else await page.locator("#hand").click({ position: { x: 4, y: 4 } });
         assert.equal(await open(), "true", "empty hand space keeps it open");
-        // The scroll arrows hide as the hand reaches an end, so dispatch the click.
-        for (const arrow of ["#hand-next", "#hand-previous"]) {
-          await page.locator(arrow).dispatchEvent("click");
-          assert.equal(await open(), "true", "the hand arrows keep it open");
-        }
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
         assert.equal(await open(), "false", "an outside click folds it");
         await tap("vale");
