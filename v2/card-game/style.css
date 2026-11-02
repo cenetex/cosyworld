@@ -2403,6 +2403,35 @@ body .beat-live {
   -webkit-mask-image: radial-gradient(ellipse 50% 50%, #000 55%, transparent);
   mask-image: radial-gradient(ellipse 50% 50%, #000 55%, transparent);
 }
+/* A chosen avatar's small card: its tier's edge and level numeral, grey
+   while nobody is online in it. */
+.beat-face {
+  position: relative;
+  display: block;
+}
+.action-beat-cards .beat-face {
+  align-self: center;
+}
+.beat-face img {
+  width: 44px;
+  height: auto;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  object-position: 50% 12%;
+  border: 1px solid var(--tier-color, #a48d63b3);
+  border-radius: 4px;
+  background: #181b22;
+  filter: none;
+}
+.beat-face[data-lit="false"] img {
+  filter: saturate(0.35) brightness(0.6);
+}
+.beat-face .card-level {
+  top: 4px;
+  font-size: 10px;
+  visibility: visible;
+  opacity: 0.8;
+}
 /* The note reads under the heading. */
 .action-beat-heading {
   order: -2;
@@ -2597,6 +2626,9 @@ main > .dialogue {
   }
   body[data-dialogue-over="true"] .action-beat-cards .beat-figure {
     height: 66px;
+  }
+  body[data-dialogue-over="true"] .action-beat-cards .beat-face img {
+    width: 36px;
   }
   body[data-dialogue-over="true"] .action-beat-note {
     overflow: hidden;

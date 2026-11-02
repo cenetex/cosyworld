@@ -108,7 +108,8 @@ the words and from each other by a thin divider, a serif verb centred,
 tinting the whole segment on hover, focus and press, with a focus ring for
 the keyboard. Where the row is too narrow the buttons wrap into a strip
 along the foot under the same divider; the fixed box over the hand on a
-phone keeps them on the right and wraps their words instead. The spoken beat settles behind it as one dimmed line that
+phone keeps them on the right and wraps their words instead. ☰ borrows the
+same beat for a chosen avatar ([avatar menu](avatar-menu.md)). The spoken beat settles behind it as one dimmed line that
 still takes taps. When the play commits or is cancelled the action beat leaves
 and the spoken beat returns; after a play it rests until the player chooses a
 card or taps the raised hand. A shared play the server refused or did not
