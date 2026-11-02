@@ -85,16 +85,19 @@ export const isNeutral = (light) =>
   Math.abs(light.saturate - 1) < 0.005;
 
 // How a stage moves from the hour on screen to the committed turn: a play
-// eases over EASE_MS; a longer jump (a long rest) sweeps through the hours
-// between; going back in time (a new game) or a new place cuts.
+// eases over EASE_MS; a longer jump (a long rest) is a short time-lapse that
+// sweeps through the hours between; going back in time (a new game) or a new
+// place cuts.
 export const EASE_MS = 4000;
+export const LAPSE_MS = 3000;
 export function lightPath(fromTurn, toTurn) {
   if (fromTurn == null || toTurn < fromTurn || toTurn - fromTurn > DAY_TURNS)
     return { from: toTurn, to: toTurn, duration: 0 };
+  const jump = toTurn - fromTurn;
   return {
     from: fromTurn,
     to: toTurn,
-    duration: toTurn > fromTurn ? EASE_MS : 0,
+    duration: jump > 4 ? LAPSE_MS : jump > 0 ? EASE_MS : 0,
   };
 }
 

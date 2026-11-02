@@ -28,11 +28,12 @@ function apply(stage, light) {
 }
 
 // turn is the committed world turn; strength is the share of the grade the
-// painting takes; pools are the place's lights, each on or off; ease is false
-// on arrival at a new place. Pools glow as the hour darkens.
+// painting takes; pools are the place's lights, each on or off; sky is where
+// its stars and moon come out; ease is false on arrival at a new place. Pools
+// glow as the hour darkens.
 export function renderStageLight(
   stage,
-  { turn, strength = 1, pools = [], ease = true },
+  { turn, strength = 1, pools = [], sky = {}, ease = true },
 ) {
   let state = states.get(stage);
   if (!state) states.set(stage, (state = { frame: 0 }));
@@ -74,6 +75,7 @@ export function renderStageLight(
     state.shown = now;
     const hour = hourOf(now.turn);
     const light = lightAt(hour, now.strength);
+    light.sky = sky;
     light.pools = pools.map((pool, i) => ({
       ...pool,
       on: now.lit[i] * nightness(hour),

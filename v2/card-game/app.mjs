@@ -2446,6 +2446,7 @@ function renderScene() {
       ...pool,
       on: !pool.item || lampLitHere(view, scene.locationId),
     })),
+    sky: authored,
     ease: stayed,
   });
   renderWeather($("stage"), scene.weather, { ease: stayed });
