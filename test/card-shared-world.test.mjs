@@ -64,8 +64,8 @@ describe("the full world shared by human avatars", () => {
   it.each(humanAvatars.filter((a) => a.id !== "vale"))(
     "$name starts with an item on the floor and opens the home path by carrying it",
     (avatar) => {
-      const destination = avatar.home.connection || "pond";
       let world = shared();
+      const destination = world.doors[avatar.home.id];
       let view = ask(world, "view", avatar.id);
       expect(world.items[avatar.item.id].holder).toBe(avatar.home.id);
       expect(availableCards(view.world)).toContain(avatar.item.id);
@@ -146,17 +146,16 @@ describe("the full world shared by human avatars", () => {
   it("moves the selected human and preserves every other human's position", () => {
     const world = shared();
     world.items.mask.holder = "mara";
+    const door = world.doors.theatre;
     const before = Object.fromEntries(
       humanAvatarIds.map((id) => [id, world.actors[id].place]),
     );
     const view = ask(world, "view", "mara");
     const result = ask(world, "play", "mara", {
-      action: view.actions.find(
-        (a) => a.kind === "move" && a.target === "pond",
-      ),
+      action: view.actions.find((a) => a.kind === "move" && a.target === door),
     });
     expect(result.ok).toBe(true);
-    expect(result.world.actors.mara.place).toBe("pond");
+    expect(result.world.actors.mara.place).toBe(door);
     for (const id of humanAvatarIds.filter((id) => id !== "mara"))
       expect(result.world.actors[id].place).toBe(before[id]);
     validateWorld(result.world);
@@ -164,28 +163,29 @@ describe("the full world shared by human avatars", () => {
   it("hides full human rooms and rejects queued travel after the fourth arrival", () => {
     const world = shared();
     world.items.mask.holder = "mara";
+    const door = world.doors.theatre;
     for (const id of ["vale", "ash", "nell", "tavi"])
-      world.actors[id].place = "pond";
+      world.actors[id].place = door;
     const view = ask(world, "view", "mara");
-    expect(view.exits).not.toContain("pond");
+    expect(view.exits).not.toContain(door);
     expect(
-      view.actions.some((a) => a.kind === "move" && a.target === "pond"),
+      view.actions.some((a) => a.kind === "move" && a.target === door),
     ).toBe(false);
     expect(
-      ask(world, "play", "mara", { action: { key: "move:mara::pond" } }).ok,
+      ask(world, "play", "mara", { action: { key: `move:mara::${door}` } }).ok,
     ).toBe(false);
     expect(
       ask(world, "view", "mara", {
         present: humanAvatarIds.filter((id) => id !== "tavi"),
       }).exits,
-    ).toContain("pond");
+    ).toContain(door);
   });
   // Passkey v2 (#1846): an away holder's avatar stays as a resident.
   it("keeps a home open while its away carrier stands near, and closes it when they walk off", () => {
     const world = shared();
     world.items.mask.holder = "mara";
-    world.actors.vale.place = "pond";
-    world.actors.mara.place = "pond";
+    world.actors.vale.place = world.doors.theatre;
+    world.actors.mara.place = world.doors.theatre;
     expect(ask(world, "view").exits).toContain("theatre");
     const present = humanAvatarIds.filter((id) => id !== "mara");
     expect(ask(world, "view", "vale", { present }).exits).toContain("theatre");
@@ -193,7 +193,7 @@ describe("the full world shared by human avatars", () => {
     expect(ask(world, "view", "vale", { present }).exits).not.toContain(
       "theatre",
     );
-    world.items.mask.holder = "pond";
+    world.items.mask.holder = world.doors.theatre;
     expect(ask(world, "view", "vale", { present }).exits).toContain("theatre");
   });
   it("records a two-line exchange after its human leaves, with shared sequence IDs", () => {
@@ -471,7 +471,7 @@ it.each(["mara", "rue"])(
   },
 );
 
-it("connects Rue's carriage to the pond through pickup, drop, travel and reload", () => {
+it("connects Rue's carriage to the station through pickup, drop, travel and reload", () => {
   let world = shared();
   const act = (kind, target, item) => {
     const view = ask(world, "view", "rue");
@@ -489,21 +489,21 @@ it("connects Rue's carriage to the pond through pickup, drop, travel and reload"
   };
   act("take", null, "routes");
   let view = ask(world, "view", "rue");
-  expect(view.exits).toContain("pond");
-  expect(view.exits).not.toContain("station");
+  expect(view.exits).toContain("station");
+  expect(view.exits).not.toContain("pond");
   const earlier = view.actions.find(
-    (a) => a.kind === "move" && a.target === "pond",
+    (a) => a.kind === "move" && a.target === "station",
   );
   act("drop", "train", "routes");
   expect(ask(world, "play", "rue", { action: earlier }).ok).toBe(false);
   act("take", null, "routes");
-  act("move", "pond");
-  expect(world.actors.rue.place).toBe("pond");
+  act("move", "station");
+  expect(world.actors.rue.place).toBe("station");
   expect(ask(world, "view", "rue").exits).toContain("train");
-  act("drop", "pond", "routes");
+  act("drop", "station", "routes");
   act("move", "train");
-  expect(ask(world, "view", "rue").exits).toContain("pond");
+  expect(ask(world, "view", "rue").exits).toContain("station");
   expect(Object.keys(world.crossings)).toEqual(
-    expect.arrayContaining(["pond-train", "train-pond"]),
+    expect.arrayContaining(["station-train", "train-station"]),
   );
 });

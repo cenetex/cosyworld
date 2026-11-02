@@ -164,7 +164,11 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(narrativeContext(s).speakers).toContain("badger");
     s = act(s, "move", null, "pond");
     expect(availableCards(s)).not.toContain("clearing");
-    s = reach(ring(ring(decodeSave(encodeSave(s)))));
+    s = decodeSave(encodeSave(s));
+    // The pond's regulars keep away again, so the two rings stay unbroken.
+    s.actors.moth.place = "attic";
+    s.actors.keeper.place = "station";
+    s = reach(ring(ring(s)));
     expect(s.actors.badger.awake).toBe(true);
     // Badger keeps to the clearing, so he never sets out on a want.
     expect(s.actors.badger.place).toBe("clearing");

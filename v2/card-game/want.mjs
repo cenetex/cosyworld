@@ -425,11 +425,12 @@ function stepMet(s, actor, want, action) {
         : action.target === want.target);
   if (verb === "find") return placeOfItem(s, want.target) === me.place;
   if (verb === "give") return by("give");
+  // Bring with no one to bring it to: home, as a homecoming wants.
   if (verb === "bring")
     return (
       rootOf(s, want.target) === actor &&
       me.place === at &&
-      together(s, actor, to)
+      (!to || together(s, actor, to))
     );
   if (verb === "meet")
     return together(s, actor, want.target) && (!at || me.place === at);
@@ -615,9 +616,12 @@ export function fillWants(s, api, now = false) {
 const STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
 function validStep(s, w) {
   const { verb, ...cards } = w.step;
-  const named = STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+  const home = verb === "bring" && w.story && !cards.to;
+  const named = home
+    ? ["at"]
+    : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
   return (
-    Boolean(w.quest) &&
+    (Boolean(w.quest) || home) &&
     (STEP_VERBS[w.kind] || []).includes(verb) &&
     Object.keys(cards).length === named.length &&
     named.every((key) => typeof cards[key] === "string") &&

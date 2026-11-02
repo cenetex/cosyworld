@@ -67,7 +67,7 @@ describe("one hidden avatar per world (#1936)", () => {
     expect(() => create(7, { absent: ["mara"] })).toThrow(/hides/);
   });
 
-  it("unlocks on the first Talk and never again", () => {
+  it("unlocks on the first Talk and never again for the same seat holder", () => {
     const first = talk(create());
     expect(first.error).toBeUndefined();
     const unlocks = (events) => events.filter((e) => e.unlock);
@@ -82,6 +82,24 @@ describe("one hidden avatar per world (#1936)", () => {
 
   it("replays the same unlock from the same journal", () => {
     expect(talk(create()).world).toEqual(talk(create()).world);
+  });
+
+  it("lets the next holder of a reset seat seek and unlock the hidden avatar", () => {
+    const first = talk(create()).world;
+    first.hidden.met.push("ash");
+    const reset = ask(first, "reset").world;
+    expect(reset.hidden.met).toEqual(["ash"]);
+    const joined = ask(reset, "join").world;
+    const sought = ask(joined, "seek").world;
+    expect(questsOf(sought, "vale")[0]).toMatchObject({
+      kind: "person",
+      target: "mara",
+    });
+    const next = talk(sought);
+    expect(next.events.filter((e) => e.unlock)).toEqual([
+      expect.objectContaining({ unlock: "mara", actorId: "vale" }),
+    ]);
+    expect(talk(next.world).events.filter((e) => e.unlock)).toEqual([]);
   });
 
   it("gives the player the quest to talk to the hidden avatar", () => {

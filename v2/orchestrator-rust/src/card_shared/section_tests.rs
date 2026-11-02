@@ -112,7 +112,9 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     super::full_tests::quest_free_log(&old.game["log"])
                 );
                 for (key, value) in old.game["crossings"].as_object().unwrap() {
-                    assert_eq!(&upgraded.game["crossings"][key], value);
+                    if !super::full_tests::moved_door(key) {
+                        assert_eq!(&upgraded.game["crossings"][key], value);
+                    }
                 }
                 for field in ["choices", "flags", "receipts", "met", "scope", "recitals"] {
                     assert_eq!(

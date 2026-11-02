@@ -863,7 +863,7 @@ Each world has one sanctuary, marked `"sanctuary": true` on a place in its pack 
 
 Going home this way crosses nothing. It does not discover a crossing, move a crossing's signal, or anchor the attic during the opening.
 
-Every home has a way out for its own avatar. The attic and each visitor's home open a narrow path to Black pond when the lamp or belonging is out of reach. Getting back in still needs the lamp or the belonging. A test checks every active home with empty hands.
+Every home has a way out for its own avatar. The attic opens a narrow path to Black pond, and each visitor's home one to the Empty station, when the lamp or belonging is out of reach. Getting back in still needs the lamp or the belonging. A test checks every active home with empty hands.
 
 ### Fight events
 
@@ -941,7 +941,7 @@ Owner decision (generic, deterministic, fair to an idle human):
    visitor's home is private and the sent-home loser lands there, so no one
    waits at a spawn.
 6. Item drops and sent-home follow the repeated-defeats rule above. A
-   visitor's home keeps its rescue path to Black pond.
+   visitor's home keeps its rescue path to the Empty station.
 
 Residents defending against a human keep using their quest plan; humans choose
 their own Brace and Strike. Evidence: `test/card-combat.test.mjs` cases for

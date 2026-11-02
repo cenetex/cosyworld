@@ -12,6 +12,7 @@ import {
 } from "./roaming-routes.mjs";
 import { arriveRecitals, arriveRoamingRecitals } from "./pack-recital.mjs";
 import { meetHidden, validHidden } from "./hidden-avatar.mjs";
+import { placeDoors, validDoors } from "./homecoming.mjs";
 import {
   currentActor,
   humanAvatar,
@@ -289,6 +290,18 @@ function installPacks(s) {
       s.items[id] = structuredClone(item);
       s.memories[id] ??= fresh[id];
     }
+  // A crossing these rules no longer have, such as a home's old pond door,
+  // leaves the save.
+  for (const home of Object.keys(humanHomeGates))
+    for (const id of [`pond-${home}`, `${home}-pond`])
+      if (!crossings.some((c) => c.id === id)) delete s.crossings[id];
+  // So does a known way through one.
+  const ways = new Set(authoredRouteEdges().map((e) => e.join(">")));
+  for (const [id, known] of Object.entries(s.routeKnowledge || {}))
+    s.routeKnowledge[id] = known.filter(
+      (e) => !e.some((p) => humanHomeGates[p]) || ways.has(e.join(">")),
+    );
+  if (!s.doors) placeDoors(s);
   for (const pack of packDefinitions) {
     for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
     if (s.packs[pack.id]) continue;
@@ -327,6 +340,8 @@ function installPacks(s) {
 export function seedRun(s, seed) {
   if (s.run || !validSeed(seed)) return s;
   s.run = { seed };
+  // Doors placed before the world had a seed move to the seed's picks.
+  delete s.doors;
   installPacks(s);
   return s;
 }
@@ -590,7 +605,9 @@ export function wantText(want) {
     verb = step?.verb === "attack" ? "strike" : step?.verb;
   if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
   if (step?.verb === "bring")
-    return `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`;
+    return step.to
+      ? `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`
+      : `bring ${what} home to ${nameOf(step.at)}`;
   if (step?.at) return `${verb} ${what} at ${nameOf(step.at)}`;
   if (step?.verb === "rest") return `rest at ${what}`;
   if (step) return `${verb} ${what}`;
@@ -2764,6 +2781,7 @@ export function validateWorld(s) {
   if (
     !validOpenedRoutes(s.openedRoutes) ||
     !validHidden(s) ||
+    !validDoors(s) ||
     (s.hidden && !Object.hasOwn(places, s.hidden.place))
   )
     fail();

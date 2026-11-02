@@ -27,6 +27,9 @@ export function resetAvatar(world, id) {
     else delete world.life.actors[id];
   }
   if (world.knowledge?.known) delete world.knowledge.known[id];
+  // The next holder can meet the hidden avatar for their own passkey.
+  if (world.hidden)
+    world.hidden.met = world.hidden.met.filter((actor) => actor !== id);
   // A telling a Talk reserved for or by the avatar goes with what it knew,
   // or the world would hold a speaker who no longer knows the fact.
   if (Array.isArray(world.knowledge?.pending))

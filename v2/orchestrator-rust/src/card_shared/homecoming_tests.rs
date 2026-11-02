@@ -265,7 +265,9 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
                     .as_object()
                     .unwrap()
                 {
-                    assert_eq!(&world.game[field][key], value);
+                    if !super::full_tests::moved_door(key) {
+                        assert_eq!(&world.game[field][key], value);
+                    }
                 }
             }
             for key in ["receipts", "choices", "flags", "recitals"] {

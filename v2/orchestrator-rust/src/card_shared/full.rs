@@ -187,10 +187,13 @@ pub(super) fn found(
     let id = crate::random_hex(24);
     let seed = super::full_world::run_seed(&id);
     leave_elsewhere(tx, &id, u, a, time)?;
-    let hide = match save {
+    let mut hide = match save {
         None => unlocks::pick(tx, u, &id, a)?,
         Some(_) => Value::Null,
     };
+    if save.is_none() && actor_id(a) != "vale" {
+        hide["homecoming"] = json!(actor_id(a));
+    }
     let mut w = World::hiding(save, Some(seed), &hide)?;
     super::store::create(tx, &id, u, time)?;
     store::seed(tx, &id, &w, "share-existing-card-world", time)?;

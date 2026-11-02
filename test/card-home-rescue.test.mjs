@@ -98,9 +98,10 @@ describe("a path out of a stranded home", () => {
       expect(view(w, avatar.id).exits).toEqual([]);
       w.items[item].holder = "station";
       const stranded = view(w, avatar.id);
-      expect(stranded.exits).toEqual(["pond"]);
+      // The way out is the station, never the pond, which stays Vale's.
+      expect(stranded.exits).toEqual(["station"]);
       const action = stranded.actions.find(
-        (a) => a.kind === "move" && a.target === "pond",
+        (a) => a.kind === "move" && a.target === "station",
       );
       const result = dispatchShared({
         op: "play",
@@ -111,24 +112,22 @@ describe("a path out of a stranded home", () => {
         action,
       });
       expect(result.ok).toBe(true);
-      expect(result.world.actors[avatar.id].place).toBe("pond");
+      expect(result.world.actors[avatar.id].place).toBe("station");
       expect(result.world.items[item].holder).toBe("station");
       w.items[item].holder = home;
       expect(view(w, avatar.id).exits).toEqual([]);
       w.items[item].holder = "vale";
       w.actors.vale.place = home;
-      expect(view(w, avatar.id).exits).toEqual([
-        avatar.home.connection || "pond",
-      ]);
+      expect(view(w, avatar.id).exits).toEqual([w.doors[home]]);
       expect(
         view(
           w,
           avatar.id,
           humanAvatarIds.filter((a) => a !== "vale"),
         ).exits,
-      ).toEqual(["pond"]);
+      ).toEqual([w.doors[home]]);
       w.actors.vale.place = "pond";
-      expect(view(w, avatar.id).exits).toEqual(["pond"]);
+      expect(view(w, avatar.id).exits).toEqual(["station"]);
     },
   );
   // An away holder's avatar stays as a resident, lamp in hand (#1846).
@@ -144,19 +143,19 @@ describe("a path out of a stranded home", () => {
     w.actors.mara.place = "station";
     expect(view(w, "vale", ["vale"]).exits).toEqual(["pond"]);
   });
-  it("keeps crowding as a wait and respects pond capacity", () => {
+  it("keeps crowding as a wait and respects door and station capacity", () => {
     const w = shared();
     const a = humanAvatars[1];
     w.items[a.item.id].holder = a.id;
     for (const id of ["vale", "ash", "nell", "tavi"])
-      w.actors[id].place = "pond";
+      w.actors[id].place = w.doors[a.home.id];
     expect(view(w, a.id).exits).toEqual([]);
     w.items[a.item.id].holder = "attic";
     for (const id of ["vale", "ash", "nell", "tavi"])
-      w.actors[id].place = "pond";
+      w.actors[id].place = "station";
     expect(view(w, a.id).exits).toEqual([]);
-    w.actors.tavi.place = "station";
-    expect(view(w, a.id).exits).toEqual(["pond"]);
+    w.actors.tavi.place = "pond";
+    expect(view(w, a.id).exits).toEqual(["station"]);
   });
   it("keeps an accepted trade with a slighted resident as a recovery route", () => {
     const s = enableMotives(opening());

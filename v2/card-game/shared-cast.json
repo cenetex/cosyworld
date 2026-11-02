@@ -7,6 +7,7 @@
     "text": "A doorframe stands in the still water. Its reflection holds a window from somewhere else.",
     "image": "assets/shared/places/pond.png"
   },
+  "lampless": ["pond", "station", "clearing"],
   "avatars": [
     {
       "id": "vale",
@@ -59,7 +60,8 @@
         "entrance": {
           "name": "Parted curtains",
           "text": "The mask hangs between sage curtains. Their folds open onto the paper theatre."
-        }
+        },
+        "doors": ["clearing"]
       },
       "image": "assets/shared/characters/mara.png"
     },
@@ -87,7 +89,8 @@
         "entrance": {
           "name": "Diving bell",
           "text": "The float draws a diving bell to the shore. Its open hatch leads into the dry belfry."
-        }
+        },
+        "doors": ["willows-camp", "willows-bank", "clearing"]
       },
       "image": "assets/shared/characters/ash.png"
     },
@@ -115,7 +118,8 @@
         "entrance": {
           "name": "Growing gate",
           "text": "Water touches the shore. A gate of new shoots opens into the glasshouse."
-        }
+        },
+        "doors": ["forest-cottage", "clearing"]
       },
       "image": "assets/shared/characters/nell.png"
     },
@@ -143,7 +147,8 @@
         "entrance": {
           "name": "Wind path",
           "text": "The kite pulls a ribbon of path into the air. It curls up to the clear hilltop."
-        }
+        },
+        "doors": ["forest-oak", "clearing"]
       },
       "image": "assets/shared/characters/tavi.png"
     },
@@ -170,10 +175,9 @@
         "image": "assets/shared/places/train.png",
         "entrance": {
           "name": "Carriage door",
-          "text": "The route board opens a carriage door beside the pond. Morning shines through the far window."
+          "text": "The route board opens a carriage door on the empty platform. Morning shines through the far window."
         },
-        "connection": "pond",
-        "returnTravel": "back to the pond"
+        "doors": ["station"]
       },
       "image": "assets/shared/characters/rue.png"
     },
@@ -201,7 +205,8 @@
         "entrance": {
           "name": "Game-tile bridge",
           "text": "The board unfolds a short bridge of game tiles. It leads across the water to the pavilion."
-        }
+        },
+        "doors": ["willows-bank", "clearing", "station"]
       },
       "image": "assets/shared/characters/orin.png"
     },
@@ -229,7 +234,8 @@
         "entrance": {
           "name": "Open seam",
           "text": "The shears find a seam in the air. It parts like cloth and opens into the sail loft."
-        }
+        },
+        "doors": ["greek-ship", "forest-cottage", "clearing"]
       },
       "image": "assets/shared/characters/ada.png"
     }

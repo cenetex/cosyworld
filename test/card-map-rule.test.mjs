@@ -11,6 +11,8 @@ import {
   packPlaces,
   transports,
 } from "../v2/card-game/pack-registry.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { visitors } from "../v2/card-game/human-cast.mjs";
 
 const TOWNS = {
   "wine-dark-harbor": [
@@ -133,7 +135,16 @@ const OVER_CAP_FOR_NOW = new Set([
   "greek-marathon",
 ]);
 const ships = new Set(Object.values(transports).map((t) => t.place));
-function links() {
+// A home's door opens at one of its authored places, the world's pick, so
+// the rule holds in each world: the plain worlds and every homecoming.
+const worlds = [null, ...visitors.map((a) => a.id)].flatMap((homecoming) =>
+  [1, 2, 3, 4, 5, 6].map(
+    (seed) =>
+      dispatchShared({ op: "create", seed, ...(homecoming && { homecoming }) })
+        .world.doors,
+  ),
+);
+function links(doors = worlds[0]) {
   const places = { ...forest.places, ...packPlaces };
   const out = new Map();
   const add = (from, to) => {
@@ -147,7 +158,12 @@ function links() {
   for (const pack of packDefinitions)
     for (const r of pack.routes || []) add(r.from, r.to);
   for (const c of crossings)
-    if (!c.retired)
+    if (
+      !c.retired &&
+      c.requires.every(
+        (r) => r.kind !== "home_door" || doors[r.home] === r.place,
+      )
+    )
       add(c.from, c.transport ? transports[c.transport].place : c.to);
   return out;
 }
@@ -240,11 +256,12 @@ describe("the map rule", () => {
   });
 
   it("gives every place at most three links, and an interior only its parent", () => {
-    for (const [id, to] of links())
-      if (!OVER_CAP_FOR_NOW.has(id))
-        expect(to.size, `${id}: ${[...to].join(", ")}`).toBeLessThanOrEqual(
-          LINK_CAP,
-        );
+    for (const doors of worlds)
+      for (const [id, to] of links(doors))
+        if (!OVER_CAP_FOR_NOW.has(id))
+          expect(to.size, `${id}: ${[...to].join(", ")}`).toBeLessThanOrEqual(
+            LINK_CAP,
+          );
     for (const [id, parent] of Object.entries(INTERIORS))
       expect([...(links().get(id) || [])], id).toEqual([parent]);
   });

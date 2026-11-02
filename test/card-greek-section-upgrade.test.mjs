@@ -6,7 +6,7 @@ import {
   entityActive,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
-import { upgradedActor, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
+import { upgradedActor, upgradedItems, withoutHomeDoors } from "./fixtures/card-upgraded-items.mjs";
 
 const context = vm.createContext({});
 vm.runInContext(
@@ -66,8 +66,8 @@ describe("Greek section save upgrade", () => {
       });
       for (const field of ["turn", "revision", "eventSeq", "log"])
         expect(after[field]).toEqual(before[field]);
-      expect(after.crossings).toEqual({
-        ...before.crossings,
+      expect(withoutHomeDoors(after.crossings)).toEqual({
+        ...withoutHomeDoors(before.crossings),
         "greek-ship-willows-landing": { discovered: false },
         "willows-landing-greek-ship": { discovered: false },
         "willows-landing-pond": { discovered: false },
