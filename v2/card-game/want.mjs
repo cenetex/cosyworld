@@ -109,7 +109,7 @@ export const KNOWN_LIMIT = 256;
 function learn(a, ids) {
   const fresh = new Set(ids.filter((id) => typeof id === "string" && id));
   if (!fresh.size) return;
-  a.known = [...a.known.filter((id) => !fresh.has(id)), ...fresh].slice(
+  a.known = [...(a.known || []).filter((id) => !fresh.has(id)), ...fresh].slice(
     -KNOWN_LIMIT,
   );
 }
@@ -130,7 +130,9 @@ function noteKnowledge(s, ids, api, talk) {
   for (let i = s.log.length - 1; i >= 0 && s.log[i].turn === s.turn; i--)
     events.push(s.log[i]);
   const named = (id) =>
-    Object.hasOwn(s.items, id) || Object.hasOwn(s.actors, id) || api.isPlace(id);
+    Object.hasOwn(s.items, id) ||
+    Object.hasOwn(s.actors, id) ||
+    api.isPlace(id);
   for (const id of ids) {
     const a = s.actors[id];
     if (!a) continue;
@@ -393,7 +395,7 @@ export function reviseStalledWants(s, actors, api) {
   }
 }
 
-export function validWant(s, id, isPlace = () => true) {
+export function validWant(s, id) {
   const a = s.actors[id];
   const whole = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
   const list = (v, of) =>
@@ -416,11 +418,10 @@ export function validWant(s, id, isPlace = () => true) {
     Array.isArray(a.known) &&
     a.known.length <= KNOWN_LIMIT &&
     new Set(a.known).size === a.known.length &&
+    // A name heard may outlive its thing: a save upgrade can retire an item
+    // or a place. The draw reads only what still exists.
     a.known.every(
-      (x) =>
-        Object.hasOwn(s.items, x) ||
-        Object.hasOwn(s.actors, x) ||
-        (typeof x === "string" && isPlace(x)),
+      (x) => typeof x === "string" && x.length > 0 && x.length <= 160,
     ) &&
     !a.known.includes(id) &&
     !a.talked.includes(id) &&

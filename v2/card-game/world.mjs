@@ -2355,7 +2355,7 @@ export function validateWorld(s) {
     )
       fail();
     if (
-      !validWant(s, id, (x) => Object.hasOwn(places, x)) ||
+      !validWant(s, id) ||
       a.visited.length > Object.keys(places).length ||
       a.visited.some((place) => !Object.hasOwn(places, place)) ||
       (a.want?.kind === "place" && !Object.hasOwn(places, a.want.target))
