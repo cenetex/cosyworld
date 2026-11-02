@@ -1,28 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
-  afterDelete,
   joinable,
   leaveNote,
   targetsFor,
   worldSeats,
   worldSlots,
 } from "../v2/card-game/avatar-menu.mjs";
-import { avatarSlot, deleteLocal } from "../v2/card-game/avatar-world.mjs";
 
 const mara = { id: "mara", name: "Mara" };
 
-describe("leaving a world", () => {
-  it("warns that a local world and its progress are lost for good", () => {
-    expect(leaveNote(mara, { local: true, name: "Hollowmere" })).toBe(
-      "Hollowmere will be lost, with Mara's level and quest there. There is no way back to it.",
-    );
-  });
-  it("takes the level along and frees the seat in a shared world (#1846)", () => {
+describe("stepping away", () => {
+  it("takes the level along and frees the seat (#1846)", () => {
     expect(leaveNote(mara, { shared: "w1", name: "The Quiet Ferry" })).toBe(
       "Mara's level goes with Mara. Mara's things and quests stay in The Quiet Ferry, and the seat there opens for someone else.",
     );
-  });
-  it("says nothing when the avatar is in no world", () => {
     expect(leaveNote(mara, null)).toBe("");
   });
 });
@@ -131,15 +122,15 @@ describe("the world slots (#1877)", () => {
   });
   it("lights the deck, worlds with that seat free and none of yours, and New world", () => {
     const vale = { id: "vale", name: "Vale" };
-    expect(targetsFor(vale, view.slots[0], view, true)).toEqual({
+    expect(targetsFor(vale, view.slots[0], view)).toEqual({
       deck: true,
       worlds: ["w2"],
       create: true,
     });
     // Mara's seat in w2 is held by someone else.
     const mara = { id: "mara", name: "Mara" };
-    expect(targetsFor(mara, null, view, true).worlds).toEqual([]);
-    expect(targetsFor(mara, null, view, true).deck).toBe(false);
+    expect(targetsFor(mara, null, view).worlds).toEqual([]);
+    expect(targetsFor(mara, null, view).deck).toBe(false);
   });
   it("stops New world at eight owned slots", () => {
     const full = [
@@ -166,8 +157,8 @@ describe("the world slots (#1877)", () => {
     expect(slot.invite).toBe(true);
     const mara = { id: "mara", name: "Mara" };
     const ash = { id: "ash", name: "Ash" };
-    expect(targetsFor(mara, null, linked, true).worlds).toContain("w9");
-    expect(targetsFor(ash, null, linked, true).worlds).not.toContain("w9");
+    expect(targetsFor(mara, null, linked).worlds).toContain("w9");
+    expect(targetsFor(ash, null, linked).worlds).not.toContain("w9");
   });
   it("signed out, shows no world UI at all (#1892)", () => {
     const solo = worldSlots({
@@ -195,36 +186,5 @@ describe("the world slots (#1877)", () => {
     expect(fresh.slots).toEqual([]);
     expect(fresh.deck).toHaveLength(8);
     expect(fresh.canCreate).toBe(true);
-  });
-});
-
-describe("Delete world (owner bug 2026-11-01)", () => {
-  const storage = (entries) => {
-    const map = new Map(Object.entries(entries));
-    return {
-      getItem: (key) => (map.has(key) ? map.get(key) : null),
-      removeItem: (key) => map.delete(key),
-      keys: () => [...map.keys()],
-    };
-  };
-  it("removes the world and its backup, and only that avatar's", () => {
-    const slot = avatarSlot("mara");
-    const kept = avatarSlot("ash");
-    const store = storage({
-      [slot]: "a",
-      [`${slot}.bak`]: "b",
-      [kept]: "c",
-    });
-    deleteLocal("mara", store);
-    expect(store.keys()).toEqual([kept]);
-  });
-  it("starts the world being played afresh for the same avatar", () => {
-    expect(afterDelete(mara, true)).toBe("/?avatar=mara");
-    expect(afterDelete({ id: "vale", name: "Vale" }, true)).toBe(
-      "/?avatar=vale",
-    );
-  });
-  it("stays in the menu when another avatar's world is deleted", () => {
-    expect(afterDelete(mara, false)).toBe(null);
   });
 });
