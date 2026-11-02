@@ -4,7 +4,9 @@
 //! before a paid provider call, and a refund returns a spend whose call
 //! failed. A balance is the sum of an account's rows. Every spend and refund
 //! carries a request id, so a retried request never charges twice. A new paid
-//! feature is one more `SpendKind` with its price.
+//! feature is one more `SpendKind` with its price. Each row names the shared
+//! world it belongs to ("" for an account's own), so a world's pool can
+//! hold committed credits.
 use std::path::Path;
 
 use axum::{
@@ -55,25 +57,56 @@ pub(crate) enum Spend {
     Insufficient { balance: i64, price: i64 },
 }
 
+const TABLE: &str = "(
+    id INTEGER PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    request_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('grant', 'spend', 'refund', 'commit')),
+    spend_kind TEXT,
+    delta INTEGER NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    created_at_unix INTEGER NOT NULL,
+    world_id TEXT NOT NULL DEFAULT ''
+)";
+
+/// A ledger from before world pools cannot hold a commit: copy its rows,
+/// unchanged, into the current table once.
+fn migrate(c: &Connection) -> rusqlite::Result<()> {
+    let sql: Option<String> = c
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'credit_events'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if sql.is_none_or(|sql| sql.contains("world_id")) {
+        return Ok(());
+    }
+    c.execute_batch(&format!(
+        "SAVEPOINT credit_pools;
+        CREATE TABLE credit_events_pools {TABLE};
+        INSERT INTO credit_events_pools
+            (id, user_id, request_id, kind, spend_kind, delta, note, created_at_unix)
+            SELECT id, user_id, request_id, kind, spend_kind, delta, note, created_at_unix
+            FROM credit_events;
+        DROP TABLE credit_events;
+        ALTER TABLE credit_events_pools RENAME TO credit_events;
+        RELEASE credit_pools;"
+    ))
+}
+
 fn schema(c: &Connection) -> rusqlite::Result<()> {
-    c.execute_batch(
-        "CREATE TABLE IF NOT EXISTS credit_events (
-            id INTEGER PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            request_id TEXT NOT NULL,
-            kind TEXT NOT NULL CHECK (kind IN ('grant', 'spend', 'refund')),
-            spend_kind TEXT,
-            delta INTEGER NOT NULL,
-            note TEXT NOT NULL DEFAULT '',
-            created_at_unix INTEGER NOT NULL
-        );
+    migrate(c)?;
+    c.execute_batch(&format!(
+        "CREATE TABLE IF NOT EXISTS credit_events {TABLE};
         CREATE INDEX IF NOT EXISTS idx_credit_events_request
             ON credit_events(user_id, request_id);
+
         CREATE TRIGGER IF NOT EXISTS credit_events_no_update BEFORE UPDATE ON credit_events
             BEGIN SELECT RAISE(ABORT, 'credit_events is append-only'); END;
         CREATE TRIGGER IF NOT EXISTS credit_events_no_delete BEFORE DELETE ON credit_events
-            BEGIN SELECT RAISE(ABORT, 'credit_events is append-only'); END;",
-    )
+            BEGIN SELECT RAISE(ABORT, 'credit_events is append-only'); END;"
+    ))
 }
 
 fn insert(
@@ -434,6 +467,39 @@ mod tests {
             .is_err());
         assert!(c.execute("DELETE FROM credit_events", []).is_err());
         assert_eq!(balance(&c, "u1").unwrap(), 100);
+    }
+
+    #[test]
+    fn an_older_ledger_keeps_its_rows_and_its_guards() {
+        let mut c = Connection::open_in_memory().unwrap();
+        c.execute_batch(
+            "CREATE TABLE credit_events (id INTEGER PRIMARY KEY, user_id TEXT NOT NULL,
+                request_id TEXT NOT NULL,
+                kind TEXT NOT NULL CHECK (kind IN ('grant', 'spend', 'refund')),
+                spend_kind TEXT, delta INTEGER NOT NULL, note TEXT NOT NULL DEFAULT '',
+                created_at_unix INTEGER NOT NULL);
+             CREATE TRIGGER credit_events_no_delete BEFORE DELETE ON credit_events
+                BEGIN SELECT RAISE(ABORT, 'credit_events is append-only'); END;
+             INSERT INTO credit_events VALUES (1, 'u1', 'pack', 'grant', NULL, 100, 'pack', 0),
+                (2, 'u1', 'tts:a', 'spend', 'tts', -1, '', 0);",
+        )
+        .unwrap();
+        assert_eq!(balance(&c, "u1").unwrap(), 99);
+        assert_eq!(
+            spend(&mut c, "u1", SpendKind::Tts, "tts:a").unwrap(),
+            Spend::AlreadyPaid { balance: 99 }
+        );
+        let sql: String = c
+            .query_row(
+                "SELECT sql FROM sqlite_master WHERE name = 'credit_events'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(sql.contains("'commit'") && sql.contains("world_id"));
+        assert!(c.execute("DELETE FROM credit_events", []).is_err());
+        assert!(c.execute("UPDATE credit_events SET delta = 0", []).is_err());
+        assert_eq!(balance(&c, "u1").unwrap(), 99);
     }
 
     #[test]
