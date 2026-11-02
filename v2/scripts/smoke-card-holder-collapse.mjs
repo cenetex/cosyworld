@@ -194,6 +194,29 @@ try {
         );
         await tap("vale");
         assert.equal(await frame("cloth").getAttribute("hidden"), null);
+        // Before the first beat there is no dialogue, and the raised hand
+        // leaves no hole for it: each card shows whole, name and all.
+        await settleHand();
+        const whole = await page.evaluate(() => ({
+          quiet: document.querySelector(".dialogue").hidden,
+          over: document.body.dataset.dialogueOver,
+          // A fanned card's lean may overhang the edge by a few pixels.
+          cut: [
+            ...document.querySelectorAll(
+              "#hand .card-frame:not([hidden]) .name",
+            ),
+          ]
+            .map((name) => name.getBoundingClientRect().bottom)
+            .filter((bottom) => bottom > innerHeight + 4),
+        }));
+        assert.deepEqual(
+          whole,
+          { quiet: true, over: "false", cut: [] },
+          "no dialogue, whole cards",
+        );
+        await page.screenshot({
+          path: new URL(`${table}-no-dialogue.png`, output).pathname,
+        });
         await tap("vale");
         await collapsed();
         assert.equal(await frame("lamp").getAttribute("hidden"), "");
@@ -324,21 +347,22 @@ try {
         assert.deepEqual(await selected(), ["lamp", "vale"]);
         await settleHand();
         const beforePlay = await handRect();
+        // The first beat brings the dialogue, which lies over the raised
+        // hand's foot: the row keeps its place and scroll but grows taller.
+        const quiet = await page.locator(".dialogue").isHidden();
+        const sameHand = async (label) => {
+          const now = await handRect(),
+            kept = ({ rect, scroll }) => [rect[0], rect[2], scroll];
+          if (quiet) assert.deepEqual(kept(now), kept(beforePlay), label);
+          else assert.deepEqual(now, beforePlay, label);
+        };
         await action("light").click();
-        assert.deepEqual(
-          await handRect(),
-          beforePlay,
-          "committing a play leaves the hand where it is",
-        );
+        await sameHand("committing a play leaves the hand where it is");
         await settled();
         await action("snuff").waitFor();
         await settleHand();
         assert.equal(await open(), "true", "a play keeps the hand raised");
-        assert.deepEqual(
-          await handRect(),
-          beforePlay,
-          "the played hand stays exactly where it was",
-        );
+        await sameHand("the played hand stays exactly where it was");
         await page.screenshot({
           path: new URL(`${table}-after-play.png`, output).pathname,
         });
@@ -639,7 +663,14 @@ try {
       // On phones the new beat's dialogue covers the raised cards' feet, so
       // keep the pointer off the cards: a hover lift is not a move.
       await page.mouse.move(0, 0);
-      const raised = await layout();
+      const raised = await layout(),
+        // The first beat brings the dialogue over the raised hand's foot,
+        // which lifts the row once; it keeps each card's place across.
+        quiet = await page.locator(".dialogue").isHidden(),
+        across = (shown) =>
+          quiet
+            ? { ...shown, cards: shown.cards.map((c) => c.split(",")[0]) }
+            : shown;
       assert.equal(raised.expanded, "true");
       const words = "The reeds lean over the water.";
       addLog(world, "Mara", words, {
@@ -664,7 +695,11 @@ try {
           document.querySelector("#dialogue-text").textContent === words,
         words,
       );
-      assert.deepEqual(await layout(), raised, "a new beat moves nothing");
+      assert.deepEqual(
+        across(await layout()),
+        across(raised),
+        "a new beat moves nothing",
+      );
       snapshot.queue = [
         { id: "thinking-play", actor: "vale", status: "working" },
       ];

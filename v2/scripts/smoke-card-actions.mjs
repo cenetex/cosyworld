@@ -29,7 +29,8 @@ async function measureHand(page, selector) {
       start = button.closest(".card-frame").getBoundingClientRect().top,
       nameStart = button.querySelector(".name").getBoundingClientRect().top,
       hand = () => document.querySelector("#hand").getBoundingClientRect(),
-      handStart = hand();
+      handStart = hand(),
+      quiet = document.querySelector(".dialogue").hidden;
     document.querySelector(selector).click();
     const current = document.querySelector('#hand [data-card="vale"]'),
       frame = current.closest(".card-frame"),
@@ -67,7 +68,8 @@ async function measureHand(page, selector) {
       clocks,
       nameStart,
       nameImmediate,
-      handMoved: ["x", "y", "width", "height"].some(
+      // The first beat's dialogue lies over the hand's foot and lifts it.
+      handMoved: (quiet ? ["x", "width"] : ["x", "y", "width", "height"]).some(
         (side) => Math.abs(hand()[side] - handStart[side]) >= 1,
       ),
     };

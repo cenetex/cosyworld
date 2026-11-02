@@ -612,10 +612,12 @@ const wideLayout = matchMedia(
   ),
   LAYOUT_MS = 280;
 // The dialogue lies over the hand's foot on phones and tablets, and on wide
-// screens once the hand is raised (style.css).
+// screens once the hand is raised (style.css). With no beat yet the hand
+// leaves no dialogue-shaped hole: its cards show whole.
 function syncLayering() {
   document.body.dataset.dialogueOver = String(
-    !wideLayout.matches || document.body.dataset.handExpanded === "true",
+    !document.querySelector(".dialogue").hidden &&
+      (!wideLayout.matches || document.body.dataset.handExpanded === "true"),
   );
 }
 wideLayout.addEventListener("change", syncLayering);
@@ -2715,6 +2717,7 @@ function renderScene() {
   const showFront = Boolean(front) || wordsFailed;
   document.querySelector(".dialogue").hidden =
     !showFront && !sharedSession?.state.queue?.length;
+  syncLayering();
   document.querySelector(".dialogue").dataset.behind = String(Boolean(behind));
   $("speech-row").hidden = !showFront;
   $("speech-row").dataset.beat = front?.line
