@@ -4,9 +4,9 @@ import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 
-// ☰'s world slots (#1877, #1891): a seat is in colour only while online, a
-// tap shows its avatar's card with its actions, and a grey seat whose
-// avatar may go there offers it on the card. A friend's world shows while
+// ☰'s world slots (#1877, #1891): a world shows the avatars that entered
+// it, in colour only while online, then "+" for an open seat. A tap shows
+// an avatar's card with its actions; "+" offers your avatar on the card. A friend's world shows while
 // your avatar sits there; Step away on your avatar's card releases it and
 // keeps its level.
 const server = createServer();
@@ -53,6 +53,15 @@ try {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     const commands = [];
+    // Screenshots wait for the menu's portraits.
+    const shot = async (path) => {
+      await page.waitForFunction(() =>
+        [...document.querySelectorAll("#world-menu img")].every(
+          (i) => i.complete,
+        ),
+      );
+      await page.screenshot({ path });
+    };
     let tavi = "tavi";
     await page.route("**/auth/account", (route) =>
       route.fulfill({ json: { authenticated: true } }),
@@ -104,23 +113,17 @@ try {
     const friend = menu.locator('.world-slot[data-slot="friend"]');
     await friend.waitFor();
     assert.equal(await menu.locator(".world-slot").count(), 3);
-    assert.match(
-      await friend.locator("summary").innerText(),
-      /a friend's world/,
+    assert.equal(
+      await friend.locator(".slot-mark").getAttribute("aria-label"),
+      "A friend's world",
     );
-
-    await friend.locator("summary").click();
-    if (width <= 390) {
-      const open = await menu
-        .locator(".world-slot")
-        .evaluateAll((slots) => slots.filter((slot) => slot.open).length);
-      assert.equal(open, 1, "a phone opens one world at a time");
-    }
-    // Vale is online in the world being played, in colour there only.
+    // A world shows only the avatars that entered it, then "+": Vale is in
+    // colour where she is played now, and nowhere else.
     const lit = await menu
       .locator('.slot-seat[data-avatar="vale"]')
       .evaluateAll((seats) => seats.map((seat) => seat.dataset.lit));
-    assert.deepEqual(lit, ["true", "false", "false"]);
+    assert.deepEqual(lit, ["true"]);
+    assert.equal(await friend.locator(".slot-seat").count(), 2);
     // The card starts on the avatar being played.
     const card = menu.locator(".profile-card");
     assert.equal(await card.getAttribute("data-avatar"), "vale");
@@ -135,9 +138,7 @@ try {
       await menu.locator(".avatar-status").innerText(),
       /Tavi's level goes with Tavi\./,
     );
-    await page.screenshot({
-      path: `output/card-world-slots-step-away-${width}.png`,
-    });
+    await shot(`output/card-world-slots-step-away-${width}.png`);
     await step.click();
     await friend.waitFor({ state: "detached" });
     assert.deepEqual(commands.shift(), ["friend", { op: "release" }]);
@@ -145,29 +146,28 @@ try {
     // Someone's offline Mara is grey; her card says who plays her, and the
     // owner may free her.
     const spare = menu.locator('.world-slot[data-slot="spare"]');
-    await spare.locator("summary").click();
     await spare.locator('[data-avatar="mara"] button').click();
     assert.match(await card.innerText(), /Someone · offline/);
     assert.deepEqual(await card.locator(".avatar-act").allInnerTexts(), [
       "Free Mara",
     ]);
-    // Vale's grey seat in the spare world offers Vale on the card.
-    await spare.locator('[data-avatar="vale"] button').click();
+    // "+" in the spare world offers Vale on the card, and each tap the next
+    // avatar that may go there, up to Tavi, who stepped away; she comes.
+    const open = spare.locator(".seat-open");
+    await open.click();
     assert.equal(await card.getAttribute("data-avatar"), "vale");
     const bring = menu.locator("#avatar-bring");
     assert.match(await bring.innerText(), /^Bring to /);
-    await page.waitForFunction(() =>
-      [...document.querySelectorAll("#world-menu img")].every(
-        (i) => i.complete,
-      ),
-    );
-    await page.screenshot({
-      path: `output/card-world-slots-${width}.png`,
-    });
+    await open.click();
+    assert.equal(await card.getAttribute("data-avatar"), "rue");
+    await open.click();
+    await open.click();
+    assert.equal(await card.getAttribute("data-avatar"), "tavi");
+    await shot(`output/card-world-slots-${width}.png`);
     await Promise.all([page.waitForURL(/\?world=spare$/), bring.click()]);
     assert.deepEqual(commands.shift(), [
       "spare",
-      { op: "claim", avatar: "vale" },
+      { op: "claim", avatar: "tavi" },
     ]);
     // Signed in at Vale's local table, ☰ lists only the shared worlds: the
     // local save is its own passkey, never an "on this device" slot (#1892).
@@ -185,7 +185,7 @@ try {
     await page.close();
   }
   console.log(
-    "World slots: colour is presence, a tap shows the avatar's card and its actions, a grey seat offers a move, and Step away, at 390 and 1440.",
+    "World slots: entered avatars and +, colour is presence, the card and its actions, + offers a move, and Step away, at 390 and 1440.",
   );
 } finally {
   await browser.close();

@@ -122,30 +122,21 @@ try {
       await menu.locator(".menu-tools button").allTextContents(),
       ["Memory", "Inner life", "Invite", "Settings"],
     );
-    // ☰ is one accordion of world slots; the world played now is open,
-    // with one line of its eight seats (#1877).
+    // ☰ lists world slots; the world played now shows, on one line, the
+    // avatars that entered it and "+" for its open seats (#1877).
     const current = menu.locator('.world-slot[data-current="true"]');
-    assert(await current.evaluate((node) => node.open));
-    const seats = current.locator(".slot-seat");
-    assert.equal(await seats.count(), 8);
+    const seats = current.locator(".slot-seat:not(.slot-open)");
+    await current.locator(".seat-open").waitFor();
+    assert.equal(await seats.count(), 4);
+    assert.equal(await current.locator(".seat-open").count(), 1);
     const tops = await seats.evaluateAll((rows) =>
       rows.map((row) => Math.round(row.getBoundingClientRect().top)),
     );
     assert.equal(new Set(tops).size, 1, `one line of seats at ${width}`);
     const kinds = () =>
       seats.evaluateAll((rows) => rows.map((row) => row.dataset.kind));
-    // Rue, Ash, Tavi, Vale, Mara, Iris, Cass, Sage (#1846): yours, other
-    // humans in colour, residents in grey.
-    assert.deepEqual(await kinds(), [
-      "resident",
-      "human",
-      "resident",
-      "you",
-      "human",
-      "human",
-      "resident",
-      "resident",
-    ]);
+    // In R·A·T·V·M·I·C·S order (#1846): Ash, Vale, Mara and Iris.
+    assert.deepEqual(await kinds(), ["human", "you", "human", "human"]);
     assert.equal(await current.locator('[data-lit="true"]').count(), 3);
     assert.doesNotMatch(await menu.innerText(), /Black pond|Empty station/);
     // Each avatar shows once: no avatar list and no Send to….
@@ -156,9 +147,9 @@ try {
     const card = menu.locator(".profile-card");
     assert.match(await card.innerText(), /Vale[\s\S]*online[\s\S]*Release/);
     assert.equal(await card.getAttribute("data-avatar"), "vale");
-    await seats.nth(4).locator("button").click();
+    await seats.nth(2).locator("button").click();
     assert.match(await card.innerText(), /Mara[\s\S]*Sable Swift · online/);
-    await seats.nth(3).locator("button").click();
+    await seats.nth(1).locator("button").click();
     await page.screenshot({
       path: new URL(`menu-${width}.png`, output).pathname,
     });
@@ -173,7 +164,7 @@ try {
     // 👥 opens the same ☰. The owner frees a seat with a second tap.
     await toggle.click();
     await menu.waitFor({ state: "visible" });
-    await seats.nth(1).locator("button").click();
+    await seats.nth(0).locator("button").click();
     const free = card.locator(".avatar-delete");
     assert.equal(await free.innerText(), "Free Ash");
     await page.screenshot({

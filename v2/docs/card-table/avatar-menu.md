@@ -60,22 +60,25 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
 ## The ☰ menu
 
 Redesigned in [#1877](https://github.com/cenetex/cosyworld/issues/1877).
-☰ (and 👥, which counts who is here) opens one accordion of **world slots**:
+☰ (and 👥, which counts who is here) opens a list of **world slots**:
 
 - **Signed in only.** The slots are your shared worlds, up to eight per passkey
   (the server refuses a ninth: "You have 8 worlds."). A friend's world is
-  listed, marked "a friend's world", only while one of your avatars sits
-  there, and it does not use one of your eight. The shared world being
-  played is the first slot, open. At Vale's local table no slot is current.
-- **Each slot** is a header (the name, "a friend's world" or "invited", and
-  a letter strip R·A·T·V·M·I·C·S) and one line of its eight seats, in colour
-  only while someone is online there now, grey otherwise (owner, 2026-11-01).
+  listed, marked ♥ ("A friend's world" to screen readers), only while one
+  of your avatars sits there, and it does not use one of your eight. The
+  shared world being played is the first slot, highlighted. At Vale's local
+  table no slot is current.
+- **Each slot** is one line: the world's name, then a portrait for each
+  avatar a person has entered it with (a claimed or bound seat: yours and
+  other players'), in R·A·T·V·M·I·C·S order, in colour only while that
+  person is online there now, grey otherwise, then one **+** while a seat
+  is open (owner, 2026-11-01). Residents' unheld seats show no portrait; with
+  all eight held there is no +. There are no sublabels or letter strip.
   The world list (`GET /card-game/shared/worlds`) gives each world's
   `online` seats (a heartbeat in the last minute) and its avatars' `level`
   and `xp` from the last checkpoint (`actors`), so this holds in every slot,
-  not only the world being played. On a phone only one slot is open at a
-  time, and the tools (Memory, Inner life, Invite, Settings) stay pinned at
-  the bottom. Panels fold over 200 ms.
+  not only the world being played. The tools (Memory, Inner life, Invite,
+  Settings) stay pinned at the bottom.
 - **+ New world** starts a world for the first avatar in no world.
 - Below, the **profile card**: one avatar shown as a hand card (full
   portrait, name, the faint level numeral and the level tier's edge colour),
@@ -83,9 +86,11 @@ Redesigned in [#1877](https://github.com/cenetex/cosyworld/issues/1877).
   loaded. It shows the avatar being played until a portrait is tapped (else
   the first of yours in a world), and it holds every seat action.
 
-**Tap a grey seat** in a world its avatar may go to (its seat is free, and
-you hold no avatar there): the card shows your avatar with **Bring to
-*Hollowmere***. A claim frees its old seat and carries its level (#1870).
+**Tap +** in a world one of your avatars may go to (its seat there is free,
+you hold no avatar there, and it is not already there): the card shows that
+avatar with **Bring to *Hollowmere***. It offers the card's avatar first,
+then the one being played; each further tap offers the next, so an avatar
+that stepped away is reached the same way. With none, + is dim. A claim frees its old seat and carries its level (#1870).
 When the avatar being played leaves, the bare address opens with ☰ so the
 player picks what comes next.
 
@@ -93,8 +98,7 @@ player picks what comes next.
 | --- | --- |
 | Yours | **Play** (in another slot), **Step away**, **Release · start over** |
 | Another person's | its holder, and **Free** for the world's owner |
-| Yours, offered by a grey seat | **Bring to *Hollowmere*** |
-| A resident | none |
+| Yours, offered by + | **Bring to *Hollowmere*** |
 
 - **Step away** frees your seat and keeps the avatar's level and its binding
   there; the avatar is then in no world (grey everywhere), ready for + New
@@ -110,9 +114,9 @@ player picks what comes next.
   Heron's hold and resets Ash."
 
 **A friend's link** (`/?world=…`) signs the person in, then opens their own
-table with ☰ open and the linked world as an extra slot marked "invited",
-with its seats. Tapping a free seat there offers that avatar on the card (a
-person bound there sees their own avatar's seat free). There are no separate
+table with ☰ open and the linked world as an extra slot marked ✉
+("Invited"), with its avatars and +. Tapping + there offers an avatar that
+may come in on the card (a person bound there is offered their own avatar). There are no separate
 join, "Return as", full-world or full-room panels. A full room waits at the
 table: "Your room is full. Your avatar and belongings are saved."
 
@@ -125,15 +129,15 @@ out) and Controls. It holds no world actions.
 
 The menu shows now, not a log: where each avatar is now. There is no list of
 past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` checks
-colour, the card and its actions, a move from a grey seat and Step away, at
-390 and 1440 pixels.
+the portraits and +, colour, the card and its actions, a move from + and
+Step away, at 390 and 1440 pixels.
 
-Vale's grey seat tapped once in another world:
++ tapped in another world until it offers Tavi, who stepped away:
 
-![Phone: Vale's targets](avatar-menu/slots-move-390.jpg)
-![Desktop: Vale's targets](avatar-menu/slots-move-1440.jpg)
+![Phone: Bring Tavi](avatar-menu/slots-move-390.jpg)
+![Desktop: Bring Tavi](avatar-menu/slots-move-1440.jpg)
 
-Your Tavi in a friend's world, tapped twice:
+Your Tavi in a friend's world, Step away tapped once:
 
 ![Phone: Step away](avatar-menu/slots-step-away-390.jpg)
 
@@ -156,15 +160,15 @@ Desktop (1440 × 900):
 ### Words
 
 Play, Step away, Step away?, Release · start over, Free, Bring to
-*Hollowmere*, + New world, a friend's
-world, invited, You, Memory, Inner life, Invite, Settings. Gone: Worlds,
+*Hollowmere*, +, + New world, You, Memory, Inner life, Invite, Settings. Gone: Worlds,
 Share, Your worlds (`/?shared=1` opens the table), on this
 device, Delete world (local), `?avatar=`, Continue as, Continue
 shared world, Return to my game, Send to…, Join, Choose your
 avatar, Return as *Mara*, Move *Mara* here?, This world is full (panel), A
 place will open shortly, Leave, Refresh avatars, the avatar list under the
 seats, Release this avatar, Leave this room, Players in this world, Claimed,
-open seat, "The reflected shore · N avatars available".
+open seat, "The reflected shore · N avatars available", a friend's world,
+invited, the letter strip, "Mara · You".
 
 ## Later: the cast ledger
 
