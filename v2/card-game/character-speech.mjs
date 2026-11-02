@@ -1,12 +1,11 @@
 import cast from "./voices.json" with { type: "json" };
 import { packEntity } from "./pack-registry.mjs";
 import { expressionOf } from "./expression.mjs";
-import { playerOpenRouter } from "./openrouter.mjs";
 import { localVoiceClient } from "./local-service.mjs";
 
-const connected = (client) =>
-  client.available?.() ?? Boolean(client.connection?.()?.key);
-const voiceClient = () => localVoiceClient() || playerOpenRouter();
+const connected = (client) => Boolean(client.available?.());
+// Hosted voices return as a credits purchase on the server (#1924).
+const voiceClient = () => localVoiceClient() || { available: () => false };
 const audioType = (blob) => ["audio/mpeg", "audio/wav"].includes(blob.type);
 
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -20,23 +19,14 @@ export const characterVoices = Object.freeze(
   ),
 );
 
-function base64(bytes) {
-  let text = "";
-  for (let i = 0; i < bytes.length; i += 8192)
-    text += String.fromCharCode(...bytes.subarray(i, i + 8192));
-  return btoa(text);
-}
-
-// Cache only generated audio. Credentials stay in the OpenRouter client.
+// Cache only generated audio; the voice client makes each clip.
 export function createVoiceClips({
   client = voiceClient(),
-  fetcher = globalThis.fetch,
   storage = globalThis.caches,
   crypto = globalThis.crypto,
 } = {}) {
   const memory = new Map(),
-    pending = new Map(),
-    references = new Map();
+    pending = new Map();
   const remember = (key, blob) => {
     memory.set(key, blob);
     if (memory.size > MAX_CLIPS) memory.delete(memory.keys().next().value);
@@ -83,40 +73,8 @@ export function createVoiceClips({
     }
     signal.throwIfAborted();
     if (!connected(client))
-      throw new Error(
-        "Connect OpenRouter in Settings to hear character voices.",
-      );
-    if (!client.clip && !references.has(speaker)) {
-      const response = await fetcher(new URL(voice.file, import.meta.url), {
-        signal,
-      });
-      if (!response.ok)
-        throw new Error("The voice reference needs another try.");
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      if (!bytes.length || bytes.length > MAX_BYTES)
-        throw new Error("The voice reference needs another try.");
-      references.set(speaker, `data:audio/mpeg;base64,${base64(bytes)}`);
-    }
-    const blob = client.clip
-      ? await client.clip(speaker, text, signal)
-      : await client.request("audio/speech", {
-          signal,
-          raw: true,
-          body: {
-            model: cast.model,
-            input: text,
-            instructions: voice.direction,
-            speed: voice.speed ?? 1,
-            response_format: "mp3",
-            input_references: [
-              {
-                type: "input_audio",
-                input_audio: { data: references.get(speaker) },
-              },
-              { type: "text", text: voice.transcript },
-            ],
-          },
-        });
+      throw new Error("Character voices are not available here yet.");
+    const blob = await client.clip(speaker, text, signal);
     signal.throwIfAborted();
     if (!audioType(blob) || !blob.size || blob.size > MAX_BYTES)
       throw new Error("This voice needs another try.");

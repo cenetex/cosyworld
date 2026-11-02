@@ -78,30 +78,27 @@ The server reads the expression type from the authored character profile.
 Spoken audio and letter sounds follow speech replies.
 A committed ring at your place strikes a synthesized bell (`sfx.mjs`), softer from next door; it follows the music switch and volume.
 
-Spoken character voices use the player's OpenRouter credits and account routing
-settings. Written dialogue uses the game's account. Provider retention follows
-the chosen account settings and provider policy. Temporary provider errors can
-retry; request, account, and routing errors return control to the player
-immediately.
+Players do not connect an OpenRouter account. Written dialogue uses the game's
+account and stays free. Spoken voices and scene videos are paused on hosted
+tables until they return as a credits purchase
+([#1924](https://github.com/cenetex/cosyworld/issues/1924)). The Mac app keeps
+its local voices.
 
 The Settings footer and the COSYWORLD wordmark tooltip name the build from the
 server's `/meta` (`v1.2.104 · 94ff0b8 · rules 57`, commit linked); a static
 server shows none.
 
-Connect OpenRouter in Settings and leave **Voices: on** to hear Vale, Mara,
-Pip (`moth`), the Keeper, Badger, and Dione (`greek-baker`). The first tap or
-key press enables audio. The voice reads the character’s actual dialogue.
-Tapping once reveals the words; tapping again advances to the next speaker.
-The automatic reading pause waits for audio to finish. Menus and hidden tabs
-pause the voice. **Retry voice** repeats a failed request for the current line.
+Leave **Voices: on** to hear Vale, Mara, Pip (`moth`), the Keeper, Badger, and
+Dione (`greek-baker`) where a voice client is available. The first tap or key
+press enables audio. The voice reads the character’s actual dialogue. Tapping
+once reveals the words; tapping again advances to the next speaker. The
+automatic reading pause waits for audio to finish. Menus and hidden tabs pause
+the voice. **Retry voice** repeats a failed request for the current line.
 
 `voices.json` maps the cast to six original Seed Audio references in
-`assets/voices/`. `character-speech.mjs` sends the reference, transcript, and
-current dialogue to `fish-audio/drama-3` through the player's browser OpenRouter
-connection. [Drama 3](https://openrouter.ai/fish-audio/drama-3) supports voice
-cloning and natural-language performance direction. The saved references keep
-each character's original voice. A provider error appears in Settings and enables
-**Retry voice** by the line.
+`assets/voices/` for `fish-audio/drama-3`, which supports voice cloning and
+natural-language performance direction. `character-speech.mjs` asks its voice
+client for each clip.
 
 Each character can set its own speaking speed. Vale, Mara, Pip, the Keeper,
 Badger, and Dione use 1.12× speed for a slightly quicker delivery. Voice settings
@@ -118,7 +115,7 @@ speech request's `instructions` field. A direction change gives that character
 fresh generated clips through the voice cache key.
 
 Generated clips stay in this browser’s cache for replay and reload, up to
-32 clips and 16 MiB. Cached clips also play after disconnecting OpenRouter.
+32 clips and 16 MiB.
 Cache identity includes the model, reference hash, direction, transcript, and
 spoken words. Audio stays separate from saves and shared world history.
 Shared viewers hear their own copy of the room dialogue in order. Reference
@@ -630,7 +627,7 @@ When a play calls for speech, the browser sends the current local entities and d
 
 Each server voice call writes one `card voice call` log record with the entity, part, attempt count, outcome (`spoken`, `untold`, `silent` or `cancelled`), each attempt's rejection reason, and approximate prompt tokens (characters / 4) for every section: `system`, `now`, `facts`, `directions`, `memories`, `earlier`, `conversation` and `inner`. It never records prompt or reply text. `GET /meta` reports the same counters since the process started under `card_voice`. `npm run v2:voice:eval` builds every prompt for the narrative-contract scenes and a scripted station conversation, prints token and section statistics, and replays the recorded replies in `test/fixtures/card-voice-replies.json` through the validator. The eval also counts first-person possession and deed claims that the resolved turn does not support (`false_claim`); the live validator does not check those yet ([#1537](https://github.com/cenetex/cosyworld/issues/1537)).
 
-The dialogue is a depth stack of beats, not a chat log: the current beat in front and one earlier beat behind it ([dialogue beats](../docs/card-table/dialogue-beats.md)). Earlier visits are in the optional Memory panel, which builds its portraits only while open and drops them when closed. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the front card to finish a line, then tap again to bring the next speaker's beat in front. The hand pauses for up to 2.5 seconds while words are generated. A slow request can be replaced by another play. Once a complete reply arrives, the hand locks through scene preparation and every speaker, then becomes ready after the last reply. A blinking cursor marks the end. Tap the card behind, press ↑, scroll or swipe down to step back in time; tap the front card, press ↓ or swipe up to step forward, or use ● live. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Vale, Mara, Pip, the Keeper, Badger, and Dione speak with their original cloned voices when OpenRouter is connected. Settings toggles voices. Other speakers keep their soft, pitched voice sounds. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A spoken card play immediately shows its first speaker with a loading mark. The waiting portrait names whoever speaks next, in speaking order: after Talk or Ask, the player's avatar thinks first, then the reply partner thinks while a streamed reply is still being written. Shared play waits on the acting avatar. The browser saves complete text before playback begins. Fresh tables request an opening exchange: at turn 0 the browser asks `/card-game/text` for Vale's first line, with no action and Vale as the only speaker. The World narration from `forest.json` stays as the authored scene-setting event. If that request fails or times out, Vale shows the unsaved silent "…"; Retry dialogue asks the model again. A reload keeps the Retry dialogue control instead of asking again, and a save from another tab never starts a request in this one. Shared worlds have no browser opening line; their server publishes speech. Reloading resumes saved dialogue from the current turn. If the current turn's words failed before the reload, the dialogue panel keeps its Retry dialogue control. Action records remain in the saved world and scene export. A declined Give, Trade or Ask appears as a caption on the giver's beat and in Memory. Every Give and Trade sends its recorded answer as `accepted` in the resolved-turn record, so the cast can voice a refusal.
+The dialogue is a depth stack of beats, not a chat log: the current beat in front and one earlier beat behind it ([dialogue beats](../docs/card-table/dialogue-beats.md)). Earlier visits are in the optional Memory panel, which builds its portraits only while open and drops them when closed. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the front card to finish a line, then tap again to bring the next speaker's beat in front. The hand pauses for up to 2.5 seconds while words are generated. A slow request can be replaced by another play. Once a complete reply arrives, the hand locks through scene preparation and every speaker, then becomes ready after the last reply. A blinking cursor marks the end. Tap the card behind, press ↑, scroll or swipe down to step back in time; tap the front card, press ↓ or swipe up to step forward, or use ● live. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Vale, Mara, Pip, the Keeper, Badger, and Dione speak with their original cloned voices where a voice client is available. Settings toggles voices. Other speakers keep their soft, pitched voice sounds. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A spoken card play immediately shows its first speaker with a loading mark. The waiting portrait names whoever speaks next, in speaking order: after Talk or Ask, the player's avatar thinks first, then the reply partner thinks while a streamed reply is still being written. Shared play waits on the acting avatar. The browser saves complete text before playback begins. Fresh tables request an opening exchange: at turn 0 the browser asks `/card-game/text` for Vale's first line, with no action and Vale as the only speaker. The World narration from `forest.json` stays as the authored scene-setting event. If that request fails or times out, Vale shows the unsaved silent "…"; Retry dialogue asks the model again. A reload keeps the Retry dialogue control instead of asking again, and a save from another tab never starts a request in this one. Shared worlds have no browser opening line; their server publishes speech. Reloading resumes saved dialogue from the current turn. If the current turn's words failed before the reload, the dialogue panel keeps its Retry dialogue control. Action records remain in the saved world and scene export. A declined Give, Trade or Ask appears as a caption on the giver's beat and in Memory. Every Give and Trade sends its recorded answer as `accepted` in the resolved-turn record, so the cast can voice a refusal.
 
 The stage holds up to three avatars. Vale stands in the foreground, with the other two farther back. The composition mirrors when Vale returns from the other side of a route. Seats and sizes stay fixed throughout an exchange. The speaker and listener face each other; another witness looks toward the speaker. The keeper has a separate right-facing cutout, so the clock face keeps its painted detail. A soft lean and light change mark the speaker. Carried item symbols follow recorded custody, including covered items. A figure carrying a lit light holds it up in its hand cutout while no card is raised, so Vale wakes visibly holding the lit lamp. Things lying in the current place, whether put down or there from the start, stand on the painted floor as untappable props: the bare item cutout from the hand card, hand-sized beside the cast, behind the avatars and clear of the dialogue. Each keeps a stable spot from its id and the place. Wide screens show up to six; narrow and short ones show up to three. Every such thing keeps its hand card, and a prop leaves the stage as soon as someone takes it. Actual arrivals fade in together for an accepted accompany play. Quiet actions update the stage cast immediately to match the hand and current locations. Reduced motion uses still poses. The scene script exports each actor's position, depth, scale, facing, gaze, pose, travel companions, and carried items for each beat, plus the floor items and their spots. The browser uses `portrait-facing.mjs` to match each painted portrait to that gaze. This presentation-only map covers the human cast, pack portraits and Keeper variants; add new portrait files here with their native direction. Hand thumbnails keep their native artwork. A pack resident may list `poses`: each names a portrait in the pack, a place (`at`), saved conditions (`requires`), or both, and an optional stage `scale` from 0.3 to 1. The first pose that holds replaces the standing portrait on stage. Poses read committed state only, so local and shared tables show the same sprite; `portrait(id, null, world)` in `scene.mjs` returns its path, and `residentPose(world, id)` returns the chosen entry. The Swede sits by the fire at camp, listens at the bank and once the humming has been heard or the watch is chosen, and looks worried after the signs are shared. A pack place may list `backdrops` the same way: each names a backdrop in the pack and saved conditions (`requires`), and the first that holds replaces the place's `backdrop`. A hub place in `forest.json` may list `backdrops` too; the same lookup tests them against the forest rules, as for the lit or doused attic. `placeBackdrop(world, id)` in `scene.mjs` returns it. State entries name their own lighting through `daylight` conditions; a matching painting is final, so the ordinary night table cannot erase an observed sign. Backdrop conditions use the same closed vocabulary as crossings, including weather and ship position. Crossing scenery takes priority; an unmatched base keeps the existing day/night fallback. A place whose backdrop conditions name daylight uses the saved clock for scene lighting and day/night crossfades, including before a sign is known; an unmatched sign keeps its ordinary painting.
 
@@ -781,50 +778,16 @@ Shared rules version 18 adds measured action values and exploration. Versions
 2–17 retain their released interpreter bytes. An explicit upgrade keeps the
 existing world, possessions, quest, memory and persona.
 
-## Your OpenRouter account
+## Scene video
 
 Hover over the CosyWorld title to reveal the video camera. Keyboard focus also
-reveals it. Phones show the camera beside the title. Click it to film the last
-two displayed dialogue lines. The video uses the current place, character
+reveals it. Phones show the camera beside the title. Click it to see the last
+two displayed dialogue lines. Making the film itself returns as a credits
+purchase ([#1924](https://github.com/cenetex/cosyworld/issues/1924)). The
+prompt (`scene-video-context.mjs`) uses the current place, character
 appearances, visible items, their holders, light, and other visible states.
-The default model is TBC Mischief 1 (`tbc/mischief-1`); Settings can choose another.
-The current stage supplies a reference frame where the model supports one.
-The clip aims for ten seconds and uses the nearest supported model duration
-(five seconds for Mischief 1).
-The camera uses the player's OpenRouter credits. Its window shows progress,
-playback, and a download link. Stop waiting ends the browser wait.
-
-Connect OpenRouter opens a separate sign-in window. The callback carries its
-own state value. It returns the connection to the original game tab through a
-same-origin browser channel. The game stays open during approval. A browser
-that blocks the window uses the same-tab PKCE return.
-The sign-in page loads before it opens OpenRouter. A Continue to OpenRouter
-link supports browsers that ask for another click before leaving the page.
-The return accepts the approval code and state on its saved callback path.
-If the provider replaces the query, the browser restores the original game
-link after it checks the state. The PKCE verifier stays in the game tab.
-
-Open Settings and choose Connect OpenRouter. The browser uses an S256 PKCE
-challenge and a fresh state value. The return must match the stored callback and
-arrive within ten minutes. The browser clears the return code before exchange.
-The connected key lives in session storage for that tab. Disconnect clears it;
-the OpenRouter keys page offers revocation and spending controls.
-
-Normal dialogue uses the server's OpenRouter key in local play and shared
-worlds. Each character keeps their authored model and account routing settings.
-The server generates and checks the words. Saved shared plays and retries use
-the server, including plays queued by an earlier browser-funded session.
-
-Speech audio and video use the connected player's OpenRouter account directly
-from the browser. The player's key stays in browser session storage.
-
-The media section accepts a prompt, audio model, voice, and video model. The
-model lists come from OpenRouter. Each Create button uses the player's credits.
-Audio uses `/audio/speech`. Video uses `/videos`, polls the job, and fetches
-the fixed OpenRouter content path. The player can play and save the result.
-Stop waiting ends browser polling; submitted work remains in OpenRouter activity.
-A failed, cancelled or expired job stops polling and shows OpenRouter's reason.
-Rejected requests (400, 422) and provider errors (5xx) add OpenRouter's message.
+The default model is TBC Mischief 1 (`tbc/mischief-1`), and the current stage
+supplies a reference frame where the model supports one.
 
 ## Threats and standoffs
 

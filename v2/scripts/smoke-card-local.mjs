@@ -115,7 +115,6 @@ try {
     await page.locator("#toolbar-menu-button").click();
     await page.locator("#menu-button").click();
     await page.locator("#local-settings").waitFor({ state: "visible" });
-    assert.equal(await page.locator(".openrouter-settings").isVisible(), false);
     assert.equal(await page.locator("#owned-worlds-button").isVisible(), false);
     const download = page.waitForEvent("download");
     await page.locator("#local-export").click();

@@ -54,7 +54,7 @@ function fixture() {
       return source;
     },
   };
-  const client = { connection: () => ({ key: "fixture-key" }) };
+  const client = { available: () => true };
   const load = vi.fn(async () => audio());
   const speech = createCharacterSpeech({
     client,
@@ -167,68 +167,42 @@ describe("the six card character voices", () => {
       ).toBe(voice.reference_sha256);
     }
   });
-  it("clones each saved reference with Drama 3 and reuses clips across reloads", async () => {
+  it("reuses clips across reloads and keeps the spoken words out of cache keys", async () => {
     const storage = cacheStore();
+    let available = true;
     const client = {
-      connection: () => ({ key: "private-fixture-key" }),
-      request: vi.fn(async () => audio()),
+      available: () => available,
+      clip: vi.fn(async () => audio()),
     };
-    const fetcher = vi.fn(async () => new Response(new Uint8Array([1, 2, 3])));
-    const options = { client, fetcher, storage, crypto: webcrypto };
+    const options = { client, storage, crypto: webcrypto };
     const signal = new AbortController().signal;
     const load = createVoiceClips(options);
-    for (const speaker of Object.keys(characterVoices)) {
+    for (const speaker of Object.keys(characterVoices))
       await load(speaker, "A fair trade.", signal);
-      const [path, request] = client.request.mock.calls.at(-1);
-      expect(path).toBe("audio/speech");
-      expect(request.body.model).toBe("fish-audio/drama-3");
-      expect(request.body.input).toBe("A fair trade.");
-      expect(request.body.speed).toBe(1.12);
-      expect(request.body.instructions).toBe(
-        characterVoices[speaker].direction,
-      );
-      expect(request.body.input_references[1].text).toBe(
-        characterVoices[speaker].transcript,
-      );
-      expect(request.body.input_references[0].input_audio.data).toBe(
-        "data:audio/mpeg;base64,AQID",
-      );
-      expect(request.raw).toBe(true);
-    }
-    expect(client.request).toHaveBeenCalledTimes(6);
-    await load("vale", "A fair trade.", signal);
-    client.connection = () => null;
+    expect(client.clip).toHaveBeenCalledTimes(6);
+    expect(client.clip.mock.calls[0].slice(0, 2)).toEqual([
+      "vale",
+      "A fair trade.",
+    ]);
+    available = false;
     await createVoiceClips(options)("vale", "A fair trade.", signal);
-    expect(client.request).toHaveBeenCalledTimes(6);
-    expect([...storage.saved.keys()].join()).not.toContain(
-      "private-fixture-key",
-    );
+    expect(client.clip).toHaveBeenCalledTimes(6);
     expect([...storage.saved.keys()].join()).not.toContain("fair trade");
   });
   it("bounds the persistent cache and evicts damaged clips for a fresh retry", async () => {
     const storage = cacheStore();
-    const client = {
-      connection: () => ({ key: "fixture" }),
-      request: vi.fn(async () => audio()),
-    };
-    const load = createVoiceClips({
-      client,
-      storage,
-      crypto: webcrypto,
-      fetcher: async () => new Response("reference"),
-    });
+    const client = { available: () => true, clip: vi.fn(async () => audio()) };
+    const load = createVoiceClips({ client, storage, crypto: webcrypto });
     const signal = new AbortController().signal;
     for (let i = 0; i < 35; i++) await load("vale", `Line ${i}`, signal);
     expect(storage.saved.size).toBe(32);
     await load.remove("vale", "Line 34");
     await load("vale", "Line 34", signal);
-    expect(client.request).toHaveBeenCalledTimes(36);
+    expect(client.clip).toHaveBeenCalledTimes(36);
     await expect(load("unknown", "Line", signal)).rejects.toThrow(
       "current character",
     );
-    client.request.mockResolvedValueOnce(
-      new Blob(["bad"], { type: "text/html" }),
-    );
+    client.clip.mockResolvedValueOnce(new Blob(["bad"], { type: "text/html" }));
     await expect(load("vale", "Bad data", signal)).rejects.toThrow(
       "another try",
     );

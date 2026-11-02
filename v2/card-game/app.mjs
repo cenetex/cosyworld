@@ -623,7 +623,7 @@ const characterSpeech = createCharacterSpeech({
     $("voice-retry").hidden = state !== "error";
     $("voice-status").textContent =
       state === "connect"
-        ? "Connect OpenRouter below to hear character voices."
+        ? "Character voices are coming back soon, paid with credits."
         : state === "error"
           ? message
           : state === "loading"
@@ -809,9 +809,6 @@ $("speech-sound").onclick = () => {
 };
 updateSoundButton();
 $("voice-retry").onclick = () => characterSpeech.retry();
-document.addEventListener("openrouter-change", () =>
-  characterSpeech.connectionChanged(),
-);
 let musicEnabled = true,
   musicVolume = 0.3;
 function musicHasStarted() {

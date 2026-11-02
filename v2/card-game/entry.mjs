@@ -1,11 +1,9 @@
-import { setupOpenRouter } from "./openrouter-settings.mjs";
 import { setupLocalService } from "./local-service.mjs";
 import { showBuildInfo } from "./build-info.mjs";
 import { membersLock } from "./shared-auth.mjs";
 const local = await setupLocalService();
 // A members-only test server shows its sign-in lock instead of the table.
 const locked = !local && (await membersLock());
-if (!local && !locked) await setupOpenRouter();
 const params = new URLSearchParams(location.search);
 // The old "Your worlds" address (`?shared=1`) is ☰ now (#1877).
 if (params.has("shared") || (local && params.has("world"))) {
