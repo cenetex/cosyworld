@@ -27,7 +27,9 @@ async function measureHand(page, selector) {
   return page.evaluate(async (selector) => {
     const button = document.querySelector('#hand [data-card="vale"]'),
       start = button.closest(".card-frame").getBoundingClientRect().top,
-      nameStart = button.querySelector(".name").getBoundingClientRect().top;
+      nameStart = button.querySelector(".name").getBoundingClientRect().top,
+      hand = () => document.querySelector("#hand").getBoundingClientRect(),
+      handStart = hand();
     document.querySelector(selector).click();
     const current = document.querySelector('#hand [data-card="vale"]'),
       frame = current.closest(".card-frame"),
@@ -65,6 +67,9 @@ async function measureHand(page, selector) {
       clocks,
       nameStart,
       nameImmediate,
+      handMoved: ["x", "y", "width", "height"].some(
+        (side) => Math.abs(hand()[side] - handStart[side]) >= 1,
+      ),
     };
   }, selector);
 }
@@ -216,37 +221,22 @@ try {
         "the card passes through an intermediate position",
       );
     }
-    const lowering = await measureHand(
+    const played = await measureHand(
       page,
       '#card-actions [data-action="wait"]',
     );
     assert.equal(
-      lowering.same,
+      played.same,
       false,
       "a committed play refreshes the card contents and handlers",
     );
-    if (width === 320) assert(Math.abs(lowering.immediate - lowering.end) < 1);
-    else {
-      assert(
-        Math.abs(lowering.immediate - lowering.start) < 1,
-        "a committed play lowers the hand from its current position",
-      );
-      assert(
-        Math.abs(lowering.nameImmediate - lowering.nameStart) < 1,
-        "the refreshed card name starts in the same position",
-      );
-      assert(
-        lowering.during > lowering.start && lowering.during < lowering.end,
-        "the hand passes through its lowering midpoint",
-      );
-      assert.deepEqual(
-        lowering.clocks.sort((a, b) => a.target.localeCompare(b.target)),
-        [
-          { target: "action-panel", state: "running", duration: 220 },
-          { target: "hand", state: "running", duration: 220 },
-        ],
-      );
-    }
+    // A play leaves the raised hand where the player left it (#1922); only
+    // the played card's own lift settles.
+    assert.equal(
+      played.handMoved,
+      false,
+      `a play keeps the hand up at ${width}`,
+    );
     await ready();
     assert.equal((await state()).turn, 1);
     assert.equal(await page.locator(".action-panel").isVisible(), false);

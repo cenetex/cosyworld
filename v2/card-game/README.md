@@ -324,14 +324,17 @@ A person or place holding things shows the first of them peeking out behind
 its card. Hover lifts a card and its preview stack together. The name shade reaches the
 card edge, so a raised card clipped by the folded row shows no stray art.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
-On wide screens, the resting hand occupies two card widths at the right. Dialogue
-sits at the left. Selecting a card opens the hand across the screen and moves
-dialogue above it. On phones and tablets the dialogue is one fixed box at the
-foot of the screen, over the hand, with the earlier beat peeking dimmed
-above the current one inside it: resting cards show their tops and names
-above it, and a tap on a card raises the hand above it with each card's foot
-still tucked behind it. A tap on the scene drops the hand again; the dialogue
-never moves. Short landscape screens keep the dialogue above the hand. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, cards fade out at an edge that hides more of the hand, and a sideways swipe stays inside the hand.
+On wide screens, the resting hand is a small deck two card widths wide at the
+right, and the dialogue sits at the left with the earlier beat peeking above
+it. Selecting a card raises the hand into the phone layering: in one 280 ms
+motion the deck grows into a full row across the screen while the dialogue
+slides to the middle (at most 720 px wide) and lies over the cards' feet, and
+lowering slides both back. Reduced motion crossfades. On phones and tablets the
+dialogue is always that fixed box at the foot of the screen, over the hand,
+with the earlier beat peeking dimmed above the current one inside it: resting
+cards show their tops and names above it, and a tap on a card raises the hand
+above it with each card's foot still tucked behind it. A tap on the scene
+drops the hand again; there the dialogue never moves. Short landscape screens keep the dialogue above the hand. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, cards fade out at an edge that hides more of the hand, and a sideways swipe stays inside the hand.
 Play stays available during an exchange. A play that has not resolved shows
 what the avatar is doing on its own button, as a rules caption from its kind:
 **Waiting…**, **Striking…** or **Travelling…**. In a local game tapping it again cancels it. Selecting another

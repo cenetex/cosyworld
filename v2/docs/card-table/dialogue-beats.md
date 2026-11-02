@@ -66,7 +66,8 @@ Beats are cards in depth, not rows in a scroll:
   captions sit under the speech. The card grows to show the whole line, up to
   about seven lines (fewer on a short phone screen), with no scrollbar. On a
   phone only the first action shows, as one truncated line.
-- On phones and tablets the stack sits in a fixed box over the hand's foot.
+- On phones and tablets, and on wide screens while the hand is raised, the
+  stack sits in a fixed box over the hand's foot.
   The card behind peeks out inside the box, one dimmed line as on wide
   screens, and the front card takes the rest; a long line scrolls inside it.
   Tap the card behind, swipe or use the arrow keys to step back in time.

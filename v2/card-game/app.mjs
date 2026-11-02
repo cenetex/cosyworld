@@ -605,6 +605,20 @@ const exchange = createExchange({
   },
 });
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+// Wide screens rest the hand as a small deck beside the dialogue; raising it
+// slides both into the phone layering. Keep in step with style.css.
+const wideLayout = matchMedia(
+    "(min-width: 1100px) and (min-aspect-ratio: 3/2)",
+  ),
+  LAYOUT_MS = 280;
+// The dialogue lies over the hand's foot on phones and tablets, and on wide
+// screens once the hand is raised (style.css).
+function syncLayering() {
+  document.body.dataset.dialogueOver = String(
+    !wideLayout.matches || document.body.dataset.handExpanded === "true",
+  );
+}
+wideLayout.addEventListener("change", syncLayering);
 const speechSounds = createSpeechSounds();
 let completedSpokenLine = null;
 function finishSpokenLine() {
@@ -1520,6 +1534,7 @@ function renderActions(animate = false) {
   document.body.dataset.handExpanded = String(
     dragging.length > 0 || !rowCollapsed,
   );
+  syncLayering();
   const revision = world.revision;
   const nudgeTarget =
     sharedSession &&
@@ -3269,6 +3284,7 @@ function render() {
         }
     for (const motion of handMotions.values()) motion.cancel();
     handMotions.clear();
+    const wasExpanded = document.body.dataset.handExpanded;
     renderedHand = handKey;
     renderedHandRevision = world.revision;
     renderedHandPlace = world.actors[currentActor(world)].place;
@@ -3286,6 +3302,18 @@ function render() {
     fanHand();
     $("hand").scrollLeft = stayed ? scroll : 0;
     renderActions(animate);
+    // On wide screens raising or lowering the hand is one motion: the deck
+    // grows from its corner into the row while the dialogue slides from
+    // beside it to the middle (style.css). Reduced motion crossfades.
+    const reshaped =
+      wideLayout.matches &&
+      wasExpanded !== undefined &&
+      wasExpanded !== document.body.dataset.handExpanded;
+    if (reshaped && reducedMotion.matches)
+      for (const part of [".play-dock", ".dialogue"])
+        document
+          .querySelector(part)
+          .animate({ opacity: [0, 1] }, { duration: LAYOUT_MS });
     if (!sameWorld) playLevelUps();
     if (arriving) revealHandCard(renderedHandPlace, true, true);
     if (animate)
@@ -3309,16 +3337,24 @@ function render() {
           dx = previous.left - next.left,
           dy = previous.top - next.top;
         if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1 || !before.has(id))
-          moveHandPart(`frame:${id}`, frame, {
-            translate: [`${dx}px ${dy}px`, "0 0"],
-            opacity: [before.has(id) ? 1 : 0.3, 1],
-          });
+          moveHandPart(
+            `frame:${id}`,
+            frame,
+            {
+              translate: [`${dx}px ${dy}px`, "0 0"],
+              opacity: [before.has(id) ? 1 : 0.3, 1],
+            },
+            reshaped ? LAYOUT_MS : undefined,
+          );
         const name = frame.querySelector(".name"),
           nameBottom = name && getComputedStyle(name).bottom;
         if (name && before.has(id) && previous.nameBottom !== nameBottom)
-          moveHandPart(`name:${id}`, name, {
-            bottom: [previous.nameBottom, nameBottom],
-          });
+          moveHandPart(
+            `name:${id}`,
+            name,
+            { bottom: [previous.nameBottom, nameBottom] },
+            reshaped ? LAYOUT_MS : undefined,
+          );
       }
   }
   renderScene();
