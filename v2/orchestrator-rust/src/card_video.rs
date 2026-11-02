@@ -89,6 +89,8 @@ async fn provider_json(
 }
 
 /// The signed-in account, its store and the server's AI settings.
+// The error is the HTTP reply itself; handlers return it unchanged.
+#[allow(clippy::result_large_err)]
 fn context(state: &AppState, headers: &HeaderMap) -> Result<(String, PathBuf, AiConfig), Response> {
     if headers
         .get("sec-fetch-site")
@@ -136,6 +138,7 @@ fn jobs(c: &rusqlite::Connection) -> rusqlite::Result<()> {
 }
 
 /// Run one store step off the async workers.
+#[allow(clippy::result_large_err)]
 async fn store<T: Send + 'static>(
     path: &FsPath,
     step: impl FnOnce(&mut rusqlite::Connection) -> rusqlite::Result<T> + Send + 'static,

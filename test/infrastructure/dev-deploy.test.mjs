@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { lastRollout, rolledOut } from "../../scripts/last-dev-rollout.mjs";
+import { staleMachines } from "../../scripts/fly-machines-serve-commit.mjs";
 
 const sha = "a".repeat(40);
 
@@ -66,13 +67,26 @@ describe("a .dev train compares with the commit .dev runs", () => {
   });
 
   it("counts a running train once its rollout job finished", async () => {
-    const train = { id: 9, status: "in_progress", display_title: `.dev train ${"9".repeat(40)}`, head_sha: "9".repeat(40) };
+    const train = {
+      id: 9,
+      status: "in_progress",
+      display_title: `.dev train ${"9".repeat(40)}`,
+      head_sha: "9".repeat(40),
+    };
     const deploy = (status) => [
-      { name: "Deploy main to .dev", status, steps: [step("Roll out .dev", "success")] },
+      {
+        name: "Deploy main to .dev",
+        status,
+        steps: [step("Roll out .dev", "success")],
+      },
       { name: "Production Rust gate", status: "in_progress", steps: [] },
     ];
     const find = (status) =>
-      lastRollout({ runs: [train, ...runs.slice(1)], currentRunId: 10, jobsFor: async (id) => (id === 9 ? deploy(status) : jobs[id]) });
+      lastRollout({
+        runs: [train, ...runs.slice(1)],
+        currentRunId: 10,
+        jobsFor: async (id) => (id === 9 ? deploy(status) : jobs[id]),
+      });
     expect(await find("completed")).toBe("9".repeat(40));
     expect(await find("in_progress")).toBe("7".repeat(40));
   });
@@ -325,5 +339,52 @@ describe("each .dev train labels its drop", () => {
   it("says so when main has not moved", () => {
     const result = summarize(sha, "false", []);
     expect(result.stdout).toContain("main has not moved");
+  });
+});
+
+describe("a .dev rollout confirms its machines kept the commit", () => {
+  const machine = (id, state, commit, group = "app") => ({
+    id,
+    state,
+    config: {
+      env: { COSYWORLD_SOURCE_COMMIT: commit },
+      metadata: { fly_process_group: group },
+    },
+  });
+
+  it("finds a machine another release returned to the previous commit", () => {
+    // 2026-11-02: a concurrent `fly secrets set` wrote back 0456b60d9's config.
+    expect(
+      staleMachines(
+        [
+          machine("e8262d2fd31de8", "started", "0456b60d9fce"),
+          machine("857311c4952dd8", "stopped", undefined, undefined),
+        ],
+        sha,
+      ),
+    ).toEqual([{ id: "e8262d2fd31de8", commit: "0456b60d9fce" }]);
+  });
+
+  it("accepts started app machines on the commit and ignores stopped ones", () => {
+    expect(
+      staleMachines(
+        [machine("a", "started", sha), machine("b", "stopped", "0456b60d9fce")],
+        sha,
+      ),
+    ).toEqual([]);
+  });
+
+  it("rolls out again from the workflow when the check fails", () => {
+    const workflow = readFileSync(
+      new URL("../../.github/workflows/deploy.yml", import.meta.url),
+      "utf8",
+    );
+    const rollout = workflow.slice(workflow.indexOf("- name: Roll out .dev"));
+    expect(rollout.indexOf("flyctl deploy --config fly.toml")).toBeLessThan(
+      rollout.indexOf(
+        'node scripts/fly-machines-serve-commit.mjs cosyworld "$GITHUB_SHA"',
+      ),
+    );
+    expect(rollout).toContain("for attempt in 1 2 3");
   });
 });

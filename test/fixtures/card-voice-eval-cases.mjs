@@ -7,6 +7,7 @@ import { enableMotives } from "../../v2/card-game/motives.mjs";
 import {
   narrativeContext,
   applyGeneratedText,
+  voicesNobody,
 } from "../../v2/card-game/narrative.mjs";
 import { narrativeContractCases } from "./card-narrative-contexts.mjs";
 
@@ -78,9 +79,11 @@ export function stationConversation(turns = 6) {
   return cases;
 }
 
+// A silent play (Light, Put down, Take, ...) sends no voice request, so only
+// scenes that voice someone are measured.
 export function voiceEvalCases() {
   return [
     ...narrativeContractCases().map(({ name, context }) => ({ name, context })),
     ...stationConversation(),
-  ];
+  ].filter(({ context }) => !voicesNobody(context));
 }
