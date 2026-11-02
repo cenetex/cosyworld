@@ -876,39 +876,54 @@ async fn complete_selected(
     let mut lines: BTreeMap<String, (String, String)> = BTreeMap::new();
     // A Talk is two turns of one conversation: the target answers the
     // actor's line from this turn, so it speaks after the actor. Everyone
-    // else speaks alongside the actor.
-    let reply = conversation::reply_target(context, voiced);
-    let first: Vec<String> = voiced
-        .iter()
-        .filter(|id| reply.as_ref().is_none_or(|(_, target)| target != *id))
-        .cloned()
-        .collect();
-    voice_lines(
-        config,
-        context,
-        character_models,
-        settings,
-        deadline,
-        &first,
-        on_delta,
-        &mut lines,
-    )
-    .await?;
-    if let Some((actor, target)) = reply {
-        let heard = lines
-            .get(&actor)
-            .and_then(|(text, _)| conversation::with_line(context, &actor, text));
-        voice_lines(
-            config,
-            heard.as_ref().unwrap_or(context),
-            character_models,
-            settings,
-            deadline,
-            &[target],
-            on_delta,
-            &mut lines,
-        )
-        .await?;
+    // else speaks alongside them until the scene's deadline.
+    match conversation::reply_target(context, voiced) {
+        None => {
+            voice_lines(
+                config,
+                context,
+                character_models,
+                settings,
+                deadline,
+                voiced,
+                on_delta,
+                &mut lines,
+            )
+            .await?
+        }
+        Some((actor, target)) => {
+            let others: Vec<String> = voiced
+                .iter()
+                .filter(|id| **id != actor && **id != target)
+                .cloned()
+                .collect();
+            let mut talk = BTreeMap::new();
+            let (left, right) = tokio::join!(
+                voice_lines(
+                    config,
+                    context,
+                    character_models,
+                    settings,
+                    deadline,
+                    &others,
+                    on_delta,
+                    &mut lines,
+                ),
+                exchange(
+                    config,
+                    context,
+                    character_models,
+                    settings,
+                    deadline,
+                    (&actor, &target),
+                    on_delta,
+                    &mut talk,
+                ),
+            );
+            left?;
+            right?;
+            lines.extend(talk);
+        }
     }
     let mut private = BTreeMap::new();
     if reflections {
@@ -979,6 +994,52 @@ async fn complete_selected(
         "card-voices-v1".to_string()
     };
     Ok(json!({"revision":context.revision,"entries":entries,"omitted":omitted,"model":model}))
+}
+
+/// A Talk's two turns. The actor speaks within the first 55% of the scene,
+/// so the target always keeps the rest to answer it; with no line from the
+/// actor this turn there is nothing to answer, and an earlier turn's line is
+/// not this conversation.
+#[allow(clippy::too_many_arguments)]
+async fn exchange(
+    config: &AiConfig,
+    context: &Context,
+    character_models: &BTreeMap<String, String>,
+    settings: &VoiceSettings,
+    deadline: tokio::time::Instant,
+    (actor, target): (&str, &str),
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+    lines: &mut BTreeMap<String, (String, String)>,
+) -> Result<(), Response> {
+    let reserve = conversation::reply_reserve(settings.scene_timeout);
+    voice_lines(
+        config,
+        context,
+        character_models,
+        settings,
+        deadline - reserve,
+        &[actor.to_string()],
+        on_delta,
+        lines,
+    )
+    .await?;
+    let Some(heard) = lines
+        .get(actor)
+        .and_then(|(text, _)| conversation::with_line(context, actor, text))
+    else {
+        return Ok(());
+    };
+    voice_lines(
+        config,
+        &heard,
+        character_models,
+        settings,
+        deadline,
+        &[target.to_string()],
+        on_delta,
+        lines,
+    )
+    .await
 }
 
 /// Voice `ids` side by side until the scene deadline, adding each validated
@@ -1607,9 +1668,21 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         context.outcome.is_some()
             && (fact.starts_with("Just arrived from ") || fact.starts_with("Leaving "))
     };
+    // A conversation turn's "Here:" line and custody already say who and
+    // what is at the scene.
+    let chatting_turn = conversation::applies(context, entity, part);
+    // What the speaker learned about its approaches is for planning, not
+    // speech: said aloud it is mechanics ("This approach helped reach my
+    // goal 0 times."), so a line never sees it.
     lines.extend(tagged(
         Section::Facts,
-        entity.facts.iter().filter(|f| !restated(f)).cloned(),
+        entity
+            .facts
+            .iter()
+            .filter(|f| !restated(f))
+            .filter(|f| part != Part::Line || !conversation::strategy(f))
+            .filter(|f| !chatting_turn || !f.starts_with("At the dialogue scene: "))
+            .cloned(),
     ));
     // A fact the rules reserved for this Talk: background to weave in.
     let mentions = if part == Part::Line {
@@ -2204,9 +2277,13 @@ impl<'a> Check<'a> {
             },
             labels,
             recent: recent_own_lines(context, entity),
-            answered: (part == Part::Line)
-                .then(|| answered(context, entity).map(|line| line.text.clone()))
-                .flatten(),
+            answered: if chatting {
+                conversation::heard(context, entity).map(|line| line.text.clone())
+            } else {
+                (part == Part::Line)
+                    .then(|| answered(context, entity).map(|line| line.text.clone()))
+                    .flatten()
+            },
             others: if chatting {
                 conversation::others_lines(context, entity)
             } else {
@@ -2420,6 +2497,13 @@ impl<'a> Check<'a> {
                 .chain(self.answered.iter())
                 .any(|line| words(line).concat() == key);
         let spoken = words(&freely_spoken);
+        // Saying the whole line answered again, even inside a longer reply
+        // ("Yes, the lamp would help, if you trust me with it."), is a repeat.
+        let restates = |line: &String| {
+            let line = words(line);
+            line.len() >= 4 && spoken.windows(line.len()).any(|run| run == line)
+        };
+        let repeats = repeats || self.answered.iter().any(restates);
         let run = |line: &String| {
             let line = words(line);
             spoken
@@ -2445,7 +2529,15 @@ impl<'a> Check<'a> {
         if kind(&self.entity.id, "avatar") && (marks % 2 == 1 || dialogue_tag(&kept)) {
             return Err("narration tag");
         }
-        if self.labels.iter().any(|label| kept.contains(label)) || self.brief.iter().any(run) {
+        if self
+            .labels
+            .iter()
+            .any(|label| conversation::reads_label(&lower, label))
+            || conversation::SCAFFOLD
+                .iter()
+                .any(|phrase| lower.contains(phrase))
+            || self.brief.iter().any(run)
+        {
             return Err("echoed brief");
         }
         // Inner life is the avatar's own first person, about things the
@@ -2568,7 +2660,7 @@ pub(crate) mod tests {
         assert!(browser::complete(&scene, None, answers("I hear you,")).is_err());
     }
 
-    fn solo_departure() -> TurnOutcome {
+    pub(super) fn solo_departure() -> TurnOutcome {
         serde_json::from_value(json!({
             "card":{"kind":"wait","target":null,"item":null,"receive":null,"destination":null,"accepted":null},
             "avatars":[
