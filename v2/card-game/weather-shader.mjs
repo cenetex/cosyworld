@@ -26,6 +26,11 @@ uniform float u_hard;
 // of the height) and how lit; each with its own tint.
 uniform vec4 u_lights[4];
 uniform vec3 u_lightTint[4];
+// Stars come out in the painting's open sky (x0, y0, x1, y1); the moon is
+// x, y and radius.
+uniform float u_stars;
+uniform vec4 u_starBox;
+uniform vec3 u_moon;
 
 float hash(float n) { return fract(sin(n) * 43758.5453123); }
 float hash2(vec2 p) {
@@ -78,6 +83,23 @@ void main() {
   vec2 st = vec2(uv.x * aspect, uv.y);
   vec3 color = vec3(0.0);
   float alpha = 0.0;
+
+  // Stars and moon sit behind the weather; cloud hides them.
+  if (u_stars > 0.0) {
+    vec2 inBox = smoothstep(u_starBox.xy, u_starBox.xy + 0.03, uv) *
+      smoothstep(u_starBox.zw, u_starBox.zw - 0.03, uv);
+    vec2 g = gl_FragCoord.xy / 3.0;
+    vec2 id = floor(g);
+    float star = step(0.986, hash2(id)) * (0.35 + 0.65 * hash2(id + 1.3)) *
+      smoothstep(0.5, 0.1, length(fract(g) - 0.5));
+    float d = length((uv - u_moon.xy) * vec2(aspect, 1.0));
+    float moon = u_moon.z > 0.0 ? smoothstep(u_moon.z, u_moon.z * 0.7, d) * (0.5 + 0.12 * smoothstep(0.0, u_moon.z, d)) +
+      0.22 * exp(-d / (u_moon.z * 2.0)) : 0.0;
+    float sky = u_stars * (1.0 - 0.8 * u_cloud);
+    float lit = clamp(sky * (star * inBox.x * inBox.y + moon), 0.0, 1.0);
+    color = vec3(0.86, 0.9, 1.0) * lit;
+    alpha = lit;
+  }
 
   // Cloud shadow drifts slowly across the scene and gathers overhead.
   if (u_cloud > 0.0) {
@@ -269,6 +291,9 @@ export function createWeatherRenderer(canvas) {
         "hard",
         "lights",
         "lightTint",
+        "stars",
+        "starBox",
+        "moon",
       ].map((name) => [name, at(name)]),
     );
     return {
@@ -300,6 +325,9 @@ export function createWeatherRenderer(canvas) {
           u.lightTint,
           pools.flatMap((l) => l?.tint ?? [1, 1, 1]),
         );
+        gl.uniform1f(u.stars, uniforms.stars ?? 0);
+        gl.uniform4fv(u.starBox, uniforms.starBox ?? [0, 0, 0, 0]);
+        gl.uniform3fv(u.moon, uniforms.moon ?? [0, 0, 0]);
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.drawArrays(gl.TRIANGLES, 0, 3);

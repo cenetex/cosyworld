@@ -74,6 +74,8 @@ describe("stage time of day", () => {
   it("eases forward, sweeps a long rest and cuts going back", () => {
     expect(lightPath(10, 11)).toMatchObject({ from: 10, to: 11 });
     expect(lightPath(10, 11).duration).toBeGreaterThan(0);
+    // A long rest is a shorter time-lapse through the hours between.
+    expect(lightPath(30, 48).duration).toBeLessThan(lightPath(30, 31).duration);
     expect(lightPath(30, 48).duration).toBeGreaterThan(0);
     expect(lightPath(30, 2)).toMatchObject({ from: 2, duration: 0 });
     expect(lightPath(null, 5)).toMatchObject({ from: 5, duration: 0 });
@@ -102,7 +104,9 @@ describe("stage light pools", () => {
   });
 
   it("keeps authored light conservative and in the painting", () => {
-    expect(placeLight("forest-garden")).toEqual({ sky: 1 });
+    const garden = placeLight("forest-garden");
+    expect(garden.stars).toHaveLength(4);
+    expect(garden.moon).toHaveLength(3);
     expect(placeLight("nowhere")).toEqual({});
     expect(placeLight("attic").lights[0]).toMatchObject({ item: "lamp" });
     for (const id of ["attic", "forest-cottage"])

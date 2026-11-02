@@ -18,20 +18,27 @@ function wake() {
 document.addEventListener("visibilitychange", wake);
 reducedMotion.addEventListener("change", wake);
 
-// Pools sit on the painting, so they follow its frame on the stage.
-function pools(stage, light) {
+// Pools, stars and moon sit on the painting, so they follow its frame on the
+// stage: painting percent becomes the canvas's 0..1, bottom up.
+function onPainting(stage, light) {
   const art = stage.querySelector(".stage-figures")?.getBoundingClientRect();
   const box = stage.getBoundingClientRect();
-  if (!art?.height || !box.height) return [];
-  return (light?.pools || []).map((pool) => ({
-    at: [
-      (art.left - box.left + (art.width * pool.x) / 100) / box.width,
-      1 - (art.top - box.top + (art.height * pool.y) / 100) / box.height,
-      (art.height * pool.r) / box.height,
-      pool.on,
-    ],
-    tint: LIGHT_TINTS[pool.tint] || LIGHT_TINTS.lamp,
-  }));
+  if (!art?.height || !box.height || !light) return {};
+  const x = (v) => (art.left - box.left + (art.width * v) / 100) / box.width;
+  const y = (v) =>
+    1 - (art.top - box.top + (art.height * v) / 100) / box.height;
+  const r = (v) => (art.height * v) / box.height;
+  const [x0, y0, x1, y1] = light.sky?.stars || [];
+  const moon = light.sky?.moon;
+  return {
+    lights: (light.pools || []).map((pool) => ({
+      at: [x(pool.x), y(pool.y), r(pool.r), pool.on],
+      tint: LIGHT_TINTS[pool.tint] || LIGHT_TINTS.lamp,
+    })),
+    stars: x1 === undefined ? 0 : light.stars,
+    starBox: x1 === undefined ? undefined : [x(x0), y(y1), x(x1), y(y0)],
+    moon: moon && [x(moon[0]), y(moon[1]), r(moon[2] / 100)],
+  };
 }
 // The time of day eases on its own clock; each eased frame redraws.
 onStageLight((stage) => {
@@ -76,7 +83,7 @@ function animate(layer, weather, ease) {
       const uniforms = {
         ...blendUniforms(state.from, state.uniforms, progress),
         dark: light ? nightness(light.hour) : 0,
-        lights: pools(stage, light),
+        ...onPainting(stage, light),
         shade: light?.shade ?? [1, 1, 1],
         vignette: light?.vignette ?? 0,
       };
