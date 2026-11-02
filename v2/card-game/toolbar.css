@@ -183,8 +183,8 @@ body.local-app #scene-video-button {
 }
 
 /* ☰ is an accordion of world slots, then the tools (avatar-menu.mjs). Each
-   world is one line of seats: yours is marked, other humans in colour, the
-   residents of unheld seats in grey, as on the board. */
+   world is one line of seats: in colour while someone is online there, in
+   grey otherwise. */
 .world-slots summary {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -198,7 +198,7 @@ body.local-app #scene-video-button {
   background: #dfc38d1c;
 }
 .world-slots summary small,
-.avatar-deck > small,
+.avatar-stats small,
 .seat-note,
 .avatar-status {
   color: var(--muted);
@@ -213,21 +213,12 @@ body.local-app #scene-video-button {
   gap: 2px;
   font-size: 10px;
 }
-.slot-letters .letter-you {
+.slot-letters .lit {
   color: var(--gold);
   font-weight: 700;
 }
-.slot-letters .letter-resident {
+.slot-letters span:not(.lit) {
   opacity: 0.4;
-}
-.world-menu summary .slot-target {
-  grid-column: 1 / -1;
-}
-[data-target="true"] > summary,
-.avatar-deck[data-target="true"],
-.world-menu .slot-new[data-target="true"] {
-  outline: 2px solid var(--gold);
-  outline-offset: -2px;
 }
 .slot-seats {
   display: grid;
@@ -254,7 +245,7 @@ body.local-app #scene-video-button {
   object-fit: cover;
   object-position: 50% 12%;
 }
-[data-kind="resident"] .seat-face img {
+.slot-seat:not([data-lit="true"]) .seat-face img {
   filter: grayscale(1) brightness(0.7);
 }
 .world-menu [data-kind="resident"] .seat-face:disabled {
@@ -266,22 +257,26 @@ body.local-app #scene-video-button {
 .world-menu .seat-face[aria-pressed="true"] img {
   outline: 2px solid var(--gold);
 }
-.table-online {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #4ade80;
-  box-shadow: 0 0 0 2px #0b0e16;
+@media (prefers-reduced-motion: no-preference) {
+  .world-slot::details-content {
+    interpolate-size: allow-keywords;
+    height: 0;
+    overflow: clip;
+    opacity: 0;
+    transition:
+      height 200ms ease,
+      opacity 200ms ease,
+      content-visibility 200ms allow-discrete;
+  }
+  .world-slot[open]::details-content {
+    height: auto;
+    opacity: 1;
+  }
 }
-.avatar-deck {
-  padding: 6px 0 0;
-  border-radius: 7px;
-}
-.avatar-deck > small {
-  padding-inline: 8px;
+.avatar-stats {
+  display: grid;
+  padding: 8px;
+  border-top: 1px solid #ffffff1a;
 }
 .avatar-actions {
   display: flex;

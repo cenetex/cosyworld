@@ -4,9 +4,9 @@ import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 
-// ☰'s world slots (#1877): tapping one of your avatars lights the places it
-// can go (your deck, a slot with its seat free, + New world), and tapping
-// one moves it there. A friend's world shows while your avatar sits there.
+// ☰'s world slots (#1877, #1891): a seat is in colour only while online, a
+// tap shows its stats, and two taps on a grey seat move its avatar there.
+// A friend's world shows while your avatar sits there.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -107,7 +107,6 @@ try {
       /a friend's world/,
     );
 
-    // Tavi, in a friend's world, goes back to the deck.
     await friend.locator("summary").click();
     if (width <= 390) {
       const open = await menu
@@ -115,45 +114,32 @@ try {
         .evaluateAll((slots) => slots.filter((slot) => slot.open).length);
       assert.equal(open, 1, "a phone opens one world at a time");
     }
-    await friend.locator('[data-avatar="tavi"] button').click();
-    const deck = menu.locator(".avatar-deck");
-    assert.equal(await deck.getAttribute("data-target"), "true");
-    await deck.locator(".slot-target").click();
-    await friend.waitFor({ state: "detached" });
-    assert.deepEqual(commands.shift(), ["friend", { op: "release" }]);
-    assert.equal(await deck.locator('[data-avatar="tavi"]').count(), 1);
-    // Your Tavi shows once; elsewhere Tavi's seat is a resident.
-    assert.equal(
-      await menu
-        .locator('[data-avatar="tavi"]:not([data-kind="resident"])')
-        .count(),
-      1,
+    // Vale is online in the world being played, in colour there only.
+    const lit = await menu
+      .locator('[data-avatar="vale"]')
+      .evaluateAll((seats) => seats.map((seat) => seat.dataset.lit));
+    assert.deepEqual(lit, ["true", "false", "false"]);
+    // Someone's offline Mara is grey, and a tap only shows who plays her.
+    const spare = menu.locator('.world-slot[data-slot="spare"]');
+    await spare.locator("summary").click();
+    await spare.locator('[data-avatar="mara"] button').click();
+    const stats = menu.locator(".avatar-stats");
+    assert.match(await stats.innerText(), /Mara\nPlayed by Someone · offline/);
+    // Vale's grey seat in the spare world: one tap selects, two move.
+    const vale = spare.locator('[data-avatar="vale"] button');
+    await vale.click();
+    assert.match(
+      await stats.innerText(),
+      /^Vale\nLives here on their own · your Vale is in .+$/,
     );
-
-    // Vale lights the deck, the spare slot and + New world, and moves.
-    const current = menu.locator('.world-slot[data-current="true"]');
-    if (!(await current.evaluate((slot) => slot.open)))
-      await current.locator("summary").click();
-    await page.locator("#avatar-move").click();
-    assert.deepEqual(
-      await menu
-        .locator('.world-slot[data-target="true"]')
-        .evaluateAll((slots) => slots.map((slot) => slot.dataset.slot)),
-      ["spare"],
-    );
-    assert.equal(await deck.getAttribute("data-target"), "true");
-    assert.equal(
-      await page.locator("#avatar-new-world").getAttribute("data-target"),
-      "true",
+    assert.match(
+      await menu.locator(".avatar-status").innerText(),
+      /Tap Vale again to bring Vale here\./,
     );
     await page.screenshot({
       path: `output/card-world-slots-${width}.png`,
     });
-    const spare = menu.locator('.world-slot[data-slot="spare"]');
-    await Promise.all([
-      page.waitForURL(/\?world=spare$/),
-      spare.locator(".slot-target").click(),
-    ]);
+    await Promise.all([page.waitForURL(/\?world=spare$/), vale.click()]);
     assert.deepEqual(commands.shift(), [
       "spare",
       { op: "claim", avatar: "vale" },
@@ -162,7 +148,7 @@ try {
     await page.close();
   }
   console.log(
-    "World slots: an avatar lights its targets, steps away to the deck, and moves to a free slot at 390 and 1440.",
+    "World slots: colour is presence, a tap shows stats, and two taps move an avatar, at 390 and 1440.",
   );
 } finally {
   await browser.close();

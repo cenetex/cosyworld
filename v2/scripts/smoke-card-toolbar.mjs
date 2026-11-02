@@ -146,11 +146,7 @@ try {
       "resident",
       "resident",
     ]);
-    assert.equal(await menu.locator(".table-online").count(), 3);
-    assert.match(
-      await current.locator("summary").innerText(),
-      /3 here · 4 of 8 free/,
-    );
+    assert.equal(await current.locator('[data-lit="true"]').count(), 3);
     assert.doesNotMatch(await menu.innerText(), /Black pond|Empty station/);
     // Each avatar shows once: no avatar list, no Send to… or Step away.
     assert.equal(await menu.locator(".avatar-row, .avatar-list").count(), 0);
@@ -196,7 +192,10 @@ try {
       );
       present[2] = 0;
       await page.waitForFunction(
-        () => document.querySelectorAll(".table-online").length === 2,
+        () =>
+          document.querySelectorAll(
+            '.world-slot[data-current="true"] [data-lit="true"]',
+          ).length === 2,
       );
       assert.match(await toggle.getAttribute("aria-label"), /2 online/);
     }
@@ -226,6 +225,7 @@ try {
   await page.locator("#world-menu").waitFor({ state: "visible" });
   // Solo play: the local world is the one slot, with Vale marked yours.
   const solo = page.locator('.world-slot[data-current="true"]');
+  await solo.locator('[data-kind="you"]').waitFor({ state: "attached" });
   assert.equal(await solo.locator('[data-kind="you"]').count(), 1);
   assert.equal(await solo.locator('[data-kind="resident"]').count(), 7);
   console.log(

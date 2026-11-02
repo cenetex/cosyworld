@@ -74,7 +74,6 @@ try {
   assert.match(await deleteAsh.innerText(), /^Delete .+ and its progress\?$/);
   await deleteAsh.click();
   await ashSlot.waitFor({ state: "detached" });
-  await menu.locator('.avatar-deck [data-avatar="ash"]').waitFor();
   assert.match(await menu.locator(".avatar-status").innerText(), /is gone\./);
   assert.equal(new URL(page.url()).search, "?avatar=vale");
   assert.deepEqual(
