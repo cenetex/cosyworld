@@ -239,13 +239,15 @@ describe("deploy workflow", () => {
     expect(dev).not.toContain("lonelyforest");
     expect(dev).not.toContain("FLY_LONELYFOREST_API_TOKEN");
 
-    // Tags and dispatches keep the Node and Rust gates and the backup.
-    expect(nodeGate).toContain(
-      `needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`,
-    );
-    // The Rust gate and lint also run after a train's rollout, so its
-    // promotion and a version-bump tag reuse them; the train never waits.
-    for (const rust of [rustGate, rustLint]) {
+    // Tags and dispatches keep the Node and Rust gates and the backup. All
+    // three also run after a train's rollout: promotion takes only a train
+    // whose gates passed, and its run and a version-bump tag reuse the Rust
+    // passes. The train never waits for them.
+    for (const rust of [nodeGate, rustGate, rustLint]) {
+      expect(rust).toContain(
+        "needs: [dev-deploy, deployment-impact, release-owner]",
+      );
+      expect(rust).toContain("!cancelled() &&");
       expect(rust).toContain(
         `needs.release-owner.outputs.owns == 'true' &&\n        ${fullRelease}) ||`,
       );

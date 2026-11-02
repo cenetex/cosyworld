@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  TRAIN_GATES,
   chooseTrain,
   isProductionRun,
   liveBlock,
@@ -11,11 +12,12 @@ import {
 
 const minute = 60_000;
 const sha = (digit) => String(digit).repeat(40);
-const train = (digit, rolledAt, passed = true) => ({
+const train = (digit, rolledAt, passed = true, pending = false) => ({
   sha: sha(digit),
   runId: digit,
   rolledAt,
   passed,
+  pending,
 });
 const soakMs = 25 * minute;
 
@@ -44,6 +46,27 @@ describe("production promotes the soaked .dev train", () => {
     const result = chooseTrain({ trains, now: 100 * minute, soakMs });
     expect(result.train).toBeUndefined();
     expect(result.reason).toContain("failed its .dev checks");
+  });
+
+  it("promotes an older passing train while the newest still runs its gates", () => {
+    const now = 100 * minute;
+    const trains = [train(4, 90 * minute, false, true), train(3, 40 * minute)];
+    expect(chooseTrain({ trains, now, soakMs }).train.sha).toBe(sha(3));
+    // The soak still ends when the pending train replaced it on .dev.
+    const brief = [train(4, 50 * minute, false, true), train(3, 40 * minute)];
+    expect(chooseTrain({ trains: brief, now, soakMs }).train).toBeUndefined();
+    // A pending train never stands in for a failed one behind it.
+    const failed = [
+      train(4, 90 * minute, false, true),
+      train(3, 40 * minute, false),
+      train(2, 0),
+    ];
+    expect(chooseTrain({ trains: failed, now, soakMs }).reason).toContain(
+      "failed",
+    );
+    expect(
+      chooseTrain({ trains: [train(4, 0, false, true)], now, soakMs }).reason,
+    ).toContain("still running their gates");
   });
 
   it("never promotes a failed older train", () => {
@@ -121,22 +144,69 @@ describe("promotion reads Deploy runs", () => {
       ],
     },
   ];
-  const run = { id: 7, head_sha: sha(7) };
+  const gate = (name, status = "completed", conclusion = "success") => ({
+    name,
+    status,
+    conclusion,
+  });
+  const gates = TRAIN_GATES.map((name) => gate(name));
+  const run = { id: 7, head_sha: sha(7), status: "completed" };
 
-  it("counts a rollout and whether its smokes passed", () => {
-    expect(trainRollout(run, job("success"))).toEqual({
+  it("counts a rollout and whether its smokes and gates passed", () => {
+    expect(trainRollout(run, [...job("success"), ...gates])).toEqual({
       sha: sha(7),
       runId: 7,
       rolledAt: Date.parse("2026-11-01T00:05:00Z"),
       passed: true,
+      pending: false,
     });
     expect(trainRollout(run, job("failure")).passed).toBe(false);
+    expect(trainRollout(run, job("failure")).pending).toBe(false);
     expect(trainRollout(run, job("cancelled", "skipped"))).toBeNull();
     expect(trainRollout(run, [])).toBeNull();
     // A train still running its rollout job does not count yet.
     expect(
       trainRollout(run, [{ ...job("success")[0], status: "in_progress" }]),
     ).toBeNull();
+  });
+
+  it("promotes only a train whose post-rollout gates all passed", () => {
+    for (const name of TRAIN_GATES) {
+      for (const conclusion of ["failure", "cancelled", "skipped"]) {
+        const jobs = [
+          ...job("success"),
+          ...gates.map((g) =>
+            g.name === name ? gate(name, "completed", conclusion) : g,
+          ),
+        ];
+        expect(trainRollout(run, jobs)).toMatchObject({
+          passed: false,
+          pending: false,
+        });
+      }
+      // Running gates leave the train pending.
+      const running = [
+        ...job("success"),
+        ...gates.map((g) =>
+          g.name === name ? gate(name, "in_progress", null) : g,
+        ),
+      ];
+      expect(
+        trainRollout({ ...run, status: "in_progress" }, running),
+      ).toMatchObject({
+        passed: false,
+        pending: true,
+      });
+      // A finished run without one of them did not pass it.
+      const missing = [
+        ...job("success"),
+        ...gates.filter((g) => g.name !== name),
+      ];
+      expect(trainRollout(run, missing)).toMatchObject({
+        passed: false,
+        pending: false,
+      });
+    }
   });
 
   it("tells trains from production runs", () => {
@@ -166,6 +236,7 @@ describe("promotion reads Deploy runs", () => {
     );
     expect(deploy).toContain("name: Deploy main to .dev");
     expect(deploy).toContain("- name: Roll out .dev");
+    for (const name of TRAIN_GATES) expect(deploy).toContain(`name: ${name}\n`);
     // The promotion dispatch deploys Lonely Forest with its gates.
     expect(deploy).toContain("- lonelyforest");
     expect(deploy).toContain(

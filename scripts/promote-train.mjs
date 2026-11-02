@@ -4,9 +4,11 @@
 // (production). The primary app is .dev, so it already runs every train;
 // promotion deploys only Lonely Forest, by dispatching deploy.yml with
 // target=lonelyforest on a `promote/<sha>` branch at the train's commit.
-// That run keeps every production gate (Node, Rust, lint, worldpack
-// compatibility, volume space, backup), so a commit that fails one never
-// reaches production. See docs/release.md#production-promotion.
+// Only a train whose post-rollout gates (Node, Rust, lint) all passed is a
+// candidate, and the promotion run keeps every production gate (Node, Rust,
+// lint, worldpack compatibility, volume space, backup), reusing the train's
+// Rust passes, so a commit that fails one never reaches production. See
+// docs/release.md#production-promotion.
 //
 // Environment: GH_REPO, GH_TOKEN, and optionally
 //   COSYWORLD_PROMOTE_SOAK_MINUTES  minutes a train must be live (default 20)
@@ -19,11 +21,20 @@ import path from "node:path";
 export const TRAIN_JOB = "Deploy main to .dev";
 export const TRAIN_ROLLOUT_STEP = "Roll out .dev";
 export const PRODUCTION_URL = "https://lonelyforest.com/meta";
+// The gates a train runs after its rollout. Each must pass for that commit.
+export const TRAIN_GATES = [
+  "Production Node and content gate",
+  "Production Rust gate",
+  "Production Rust architecture and lint",
+];
 
 const SHA = /^[0-9a-f]{40}$/;
 
-// A train rolled out when its rollout step succeeded; it passed when the
-// whole job, including the readiness and card-game smokes, succeeded.
+// A train rolled out when its rollout step succeeded. It passed when the
+// whole job, including the readiness and card-game smokes, succeeded and
+// then every post-rollout gate passed. It is pending while a gate has not
+// finished; a gate that is missing from a finished run, skipped, cancelled,
+// or failed fails the train.
 export function trainRollout(run, jobs) {
   const job = jobs.find((candidate) => candidate.name === TRAIN_JOB);
   const step = job?.steps?.find(
@@ -39,13 +50,26 @@ export function trainRollout(run, jobs) {
     !SHA.test(run.head_sha ?? "")
   )
     return null;
+  const gates = TRAIN_GATES.map((name) =>
+    jobs.find((candidate) => candidate.name === name),
+  );
+  const smokes = job.conclusion === "success";
+  const pending =
+    smokes &&
+    gates.some((gate) =>
+      gate ? gate.status !== "completed" : run.status !== "completed",
+    );
   return {
     sha: run.head_sha,
     runId: run.id,
     rolledAt: Date.parse(
       step.completed_at ?? job.completed_at ?? run.updated_at,
     ),
-    passed: job.conclusion === "success",
+    passed:
+      smokes &&
+      !pending &&
+      gates.every((gate) => gate?.conclusion === "success"),
+    pending,
   };
 }
 
@@ -58,22 +82,28 @@ export function isProductionRun(run) {
   );
 }
 
-// Trains arrive newest first. The newest train must have passed: a failing
-// train is a stop signal for everything behind it. The candidate is the
+// Trains arrive newest first. The newest finished train must have passed: a
+// failing train is a stop signal for everything behind it. A train whose
+// gates are still running neither stops nor counts. The candidate is the
 // newest passing train that stayed live on .dev for the soak, measured until
 // the next train replaced it (or now, for the newest).
 export function chooseTrain({ trains, now, soakMs }) {
   if (!trains.length) return { reason: "No .dev train has rolled out yet." };
-  if (!trains[0].passed) {
+  const settled = trains.find((train) => !train.pending);
+  if (settled && !settled.passed) {
     return {
-      reason: `The newest train ${trains[0].sha.slice(0, 7)} failed its .dev checks; holding.`,
+      reason: `The newest finished train ${settled.sha.slice(0, 7)} failed its .dev checks or gates; holding.`,
     };
   }
   for (const [index, train] of trains.entries()) {
     const liveUntil = index === 0 ? now : trains[index - 1].rolledAt;
     if (train.passed && liveUntil - train.rolledAt >= soakMs) return { train };
   }
-  return { reason: "No passing train has soaked on .dev long enough yet." };
+  return {
+    reason: settled
+      ? "No passing train has soaked on .dev long enough yet."
+      : "The newest trains are still running their gates.",
+  };
 }
 
 // Why `sha` must not be promoted now, or null. A queued or running production
