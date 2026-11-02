@@ -294,3 +294,22 @@ body.local-app #scene-video-button {
   gap: 2px;
   font-size: 12px;
 }
+/* The world's Lonely Forest logo in place of the COSYWORLD wordmark
+   (title-logo.mjs): its own aspect ratio, capped to the toolbar height. */
+#scene-video-button .brand-logo {
+  display: block;
+  height: 40px;
+  width: auto;
+  max-width: min(150px, 34vw);
+  object-fit: contain;
+  border-radius: 6px;
+}
+.topbar .brand:has(.brand-logo) {
+  display: flex;
+  align-items: center;
+}
+@media (max-width: 700px) {
+  #scene-video-button .brand-logo {
+    height: 34px;
+  }
+}

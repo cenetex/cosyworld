@@ -189,6 +189,8 @@ const files = [
   "style.css",
   "entry.mjs",
   "title-intro.mjs",
+  "title-logo.mjs",
+  "title-logos.json",
   "local-service.mjs",
   "local-saves.mjs",
   "scene-video.mjs",

@@ -2,20 +2,28 @@ import { setupLocalService } from "./local-service.mjs";
 import { showBuildInfo } from "./build-info.mjs";
 import { membersLock } from "./shared-auth.mjs";
 import { playTitleIntro, titleIntroWanted } from "./title-intro.mjs";
-// A new world opens with the Lonely Forest title over the booting table.
+import { logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
+// A new world opens with the Lonely Forest title over the booting table; the
+// same logo stands in the toolbar for as long as that world is played.
 let storage = null;
 try {
   storage = localStorage;
 } catch {}
-if (
-  titleIntroWanted({
-    href: location.href,
-    storage,
-    local: !!document.querySelector('meta[name="cosy-local-app"]'),
-    webdriver: navigator.webdriver,
-  })
-)
-  playTitleIntro({ storage });
+const page = {
+  href: location.href,
+  local: !!document.querySelector('meta[name="cosy-local-app"]'),
+};
+const introWanted = titleIntroWanted({
+  ...page,
+  storage,
+  webdriver: navigator.webdriver,
+});
+if (logoSite(page)) {
+  // A bare address with no save is a new world: it never repeats the last logo.
+  const logo = worldLogo({ href: page.href, storage, fresh: introWanted });
+  showToolbarLogo(logo);
+  if (introWanted) playTitleIntro({ storage, logo });
+}
 const local = await setupLocalService();
 // A members-only test server shows its sign-in lock instead of the table.
 const locked = !local && (await membersLock());
