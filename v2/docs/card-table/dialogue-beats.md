@@ -109,7 +109,7 @@ acts on, drawn as the quest card pairs them (borderless cut-out figures with
 a drop shadow, a little over each other, facing; an item or place a small
 borderless picture); in the middle what the play will do ("Vale takes the
 Burial Decree.", up to two lines) and the status line; on the right its
-buttons (the play, Cancel play, Nudge or Look). Its border takes the level
+buttons (the play, Nudge or Look). Its border takes the level
 tier colour (`level-tiers.mjs`) of the rarest card in the play: actor,
 target, item or place. A play of Common cards keeps the plain border. The buttons are flush
 segments of the box itself, not boxes inside it: full height, split from
@@ -130,7 +130,12 @@ front card, the beat the play became (its caption line, or the Thinking card
 when a reply is coming), and fades as that card arrives, in the stack's
 300 ms. The earlier beat recedes behind. Reduced motion crossfades. The
 folded line is a beat read from the committed event, so Memory shows it too.
-A cancelled play's box just leaves and the spoken beat returns. Once a
+A chosen play's box leaves at once. Until its scene starts (after any scene
+being read), the play is one Thinking card: the speaker's portrait,
+"Thinking…" and no button. The first tap reads "Tap again to cancel" and the
+second cancels; three seconds, Escape or a tap elsewhere puts it back. A play
+still waiting is withdrawn and its button returns. A committed one (a shared
+retry) stays saved: its caption shows with no line, never "undone". Once a
 play commits (a local play, or a shared play the room is playing) the beat
 leaves and its reply types into the full-size front card. After a play the
 beat rests until the player chooses a card or taps the raised hand. Choosing a quest in the open fan takes no

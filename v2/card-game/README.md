@@ -361,14 +361,10 @@ above it with each card's foot still tucked behind it. A tap on the scene
 drops the hand again; there the dialogue never moves. Before the first beat there is no dialogue, and the hand leaves no hole for
 it: raised cards show whole, name and all, and the first beat lifts the row
 under its box. Short landscape screens keep the dialogue above the hand. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, cards fade out at an edge that hides more of the hand, and a sideways swipe stays inside the hand.
-Play stays available during an exchange. A play that has not resolved shows
-what the avatar is doing on its own button, as a rules caption from its kind:
-**Waiting…**, **Striking…** or **Travelling…**. In a local game tapping it again cancels it. Selecting another
-card clears the waiting play. Shared play waits for the player's current turn
+Play stays available during an exchange. Until its scene starts, a chosen play is one **Thinking…** card with no button ([dialogue beats](../docs/card-table/dialogue-beats.md)); two taps cancel it. Selecting another
+card clears a play queued here. Shared play waits for the player's current turn
 to finish, then checks the chosen action against the current table before
-sending it. There a second tap keeps the play; **Cancel play** withdraws it.
-The button keeps that caption while the shared play is sent; once the room
-plays it, the action beat leaves and the reply types into the full-size front
+sending it. Once the room plays it, the reply types into the full-size front
 card.
 Nothing floats over the stage. Words the player must see, such as **Not played**
 with the server's reason, an unsaved world, a lost connection or a nudge, read

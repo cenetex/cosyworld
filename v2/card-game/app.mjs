@@ -1219,7 +1219,9 @@ function commitAction(action, revision, renderedAt = -Infinity) {
     // Shared plays cancel through their own visible control.
     if (!sharedSession) playQueue.clear();
   } else {
-    // A play leaves the hand where it is: raised stays raised.
+    // A play leaves the hand where it is: raised stays raised. Its beat
+    // rests at once; the Thinking card stands for it until its scene.
+    if (action.kind !== "focus") restedChoice = choiceKey();
     playQueue.submit(action, revision);
   }
 }
@@ -1655,15 +1657,9 @@ function renderActions() {
   if (restedChoice !== choiceKey()) restedChoice = null;
   const rested = restedChoice !== null;
   const { actions: ready, hint } = cardActions(world, selected);
-  // A committed play (shared playing or played) has left the beat, so its
+  // A chosen play leaves the beat: the Thinking card stands for it, and its
   // reply types into the full-size front card.
-  const actions = ready.filter(
-    (action) =>
-      !rested ||
-      playQueue.pending?.action.key === action.key ||
-      (["sending", "sent"].includes(sharedPlay?.state) &&
-        sharedPlay.actionKey === action.key),
-  );
+  const actions = rested ? [] : ready;
   const selectionName = selected.map(nameOf).join(" + ");
   $("selection-name").textContent = selected.length
     ? selectionName
@@ -1741,22 +1737,6 @@ function renderActions() {
       return button;
     }),
   );
-  const withdrawable = ownSharedEntry();
-  if (
-    sharedSession &&
-    (playQueue.pending ||
-      (withdrawable && ["waiting", "retry"].includes(withdrawable.status)))
-  ) {
-    const cancel = node("button", "Cancel play", "card-action");
-    cancel.type = "button";
-    cancel.dataset.cancelPlay = "true";
-    cancel.title = "Withdraw your play";
-    cancel.onclick = () =>
-      playQueue.pending
-        ? playQueue.clear()
-        : withdrawSharedPlay(withdrawable.id);
-    row.append(cancel);
-  }
   if (nudgeTarget) {
     const nudge = node("button", "Nudge", "card-action");
     nudge.type = "button";
@@ -2705,9 +2685,19 @@ function renderScene() {
     url: (source) => imageUrl(source),
   });
   renderStandingResolve($("cast"), world, scene.locationId);
-  const sharedSpeech = sharedSession
+  let sharedSpeech = sharedSession
     ? sharedSpeechState(sharedSession.state, scene.locationId)
     : null;
+  // A committed play the player stopped waiting for stays saved and shows
+  // its caption with no line, never an error.
+  if (
+    sharedSpeech?.status === "retry" &&
+    stoppedSharedPlay &&
+    sharedSession.state.history?.find(
+      (entry) => entry.room === scene.locationId,
+    )?.play === stoppedSharedPlay
+  )
+    sharedSpeech = { status: "ready", retryKey: null };
   if (sharedSpeech) storyStatus = sharedSpeech.status;
   const waitingSpeaker =
     sharedSpeech?.status === "pending"
@@ -2771,6 +2761,16 @@ function renderScene() {
     { speakerId: waiting ? waitingSpeaker || "" : null, turn: world.turn },
   );
   const beats = stack.beats;
+  // The player's own play in flight, before its scene: one Thinking card.
+  const own =
+    !waiting &&
+    !(sharedSession
+      ? sharedSession.state.queue?.some((entry) =>
+          ["working", "playing"].includes(entry.status),
+        )
+      : exchange.active)
+      ? ownPlayInFlight()
+      : null;
   const pendingCard =
     stack.pending ||
     (waiting
@@ -2781,7 +2781,16 @@ function renderScene() {
           actions: [],
           pending: true,
         }
-      : null);
+      : own
+        ? {
+            key: `p:${world.turn}:${viewer}`,
+            speakerId: viewer,
+            line: null,
+            actions: [],
+            pending: true,
+            own,
+          }
+        : null);
   const liveIndex = pendingCard ? beats.length : beats.length - 1;
   let frontIndex = -1;
   if (reviewing) {
@@ -2836,14 +2845,26 @@ function renderScene() {
     ? line?.speaker || (front.speakerId ? nameOf(front.speakerId) : "")
     : "";
   const canRetryWords = !sharedSession || Boolean(sharedSpeech.retryKey);
-  $("story-status").hidden =
-    behindLive ||
-    wordsFailed ||
-    (storyStatus === "ready" && !exchange.preparing);
-  $("story-status").setAttribute("aria-label", "Thinking about this scene");
+  const ownFront = behindLive ? null : front?.own || null;
+  if (!ownFront?.cancel) disarmThinking(false);
+  $("story-status").hidden = ownFront
+    ? false
+    : behindLive ||
+      wordsFailed ||
+      (storyStatus === "ready" && !exchange.preparing);
+  $("story-status").lastElementChild.textContent = thinkingArmed
+    ? "Tap again to cancel"
+    : "Thinking…";
+  $("story-status").dataset.armed = String(thinkingArmed);
+  $("story-status").setAttribute(
+    "aria-label",
+    thinkingArmed
+      ? "Tap again to cancel this play"
+      : "Thinking about this scene",
+  );
   $("speech-row").setAttribute("aria-busy", String(!$("story-status").hidden));
   const retryWords = $("story-retry");
-  retryWords.hidden = !wordsFailed || behindLive;
+  retryWords.hidden = !wordsFailed || behindLive || Boolean(ownFront);
   $("story-error").hidden = retryWords.hidden;
   retryWords.disabled = storyRetrying || !canRetryWords;
   retryWords.title = canRetryWords ? "Retry dialogue" : "Waiting for dialogue";
@@ -2897,7 +2918,9 @@ function renderScene() {
       ? "pending"
       : "action";
   $("dialogue-text").hidden = !text;
-  $("dialogue-advance").hidden = !text && !front?.actions.length;
+  // The Thinking card of a play that can be cancelled takes taps.
+  $("dialogue-advance").hidden =
+    !text && !front?.actions.length && !ownFront?.cancel;
   $("speech-hint").hidden = true;
   if (text) {
     const speaker = line.entityId || line.actorId || scene.locationId;
@@ -3261,6 +3284,24 @@ function advanceFront() {
   }
 }
 $("dialogue-advance").onclick = advanceFront;
+$("speech-row").addEventListener(
+  "click",
+  (event) => {
+    const { pending, frontIndex, liveIndex } = stackView;
+    if (!pending?.own || frontIndex !== liveIndex) return;
+    event.stopPropagation();
+    tapThinking();
+  },
+  true,
+);
+document.addEventListener(
+  "pointerdown",
+  (event) => {
+    if (thinkingArmed && !event.target.closest?.("#speech-row"))
+      disarmThinking();
+  },
+  true,
+);
 $("beat-behind").onclick = () => {
   stepBack();
 };
@@ -3808,6 +3849,10 @@ for (const zone of [$("stage"), document.querySelector(".dialogue")]) {
   });
 }
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && thinkingArmed) {
+    disarmThinking();
+    return;
+  }
   if (
     e.key === "Escape" &&
     !document.querySelector("dialog[open], .world-menu:popover-open") &&
@@ -4080,6 +4125,66 @@ function trackSharedPlay(value) {
     return true;
   } else showSharedPlay("played");
   return false;
+}
+// The player's own play before its scene: queued here, or waiting or
+// retrying at the shared table. Only a queued or waiting play can be
+// withdrawn; a retrying one is committed, so cancelling only stops waiting
+// for its line.
+let stoppedSharedPlay = null;
+function ownPlayInFlight() {
+  const queued = playQueue.pending;
+  if (queued && queued.action.kind !== "focus")
+    return {
+      cancel: () => {
+        playQueue.clear();
+        restedChoice = null;
+      },
+    };
+  if (!sharedSession) return null;
+  const entry = ownSharedEntry();
+  if (entry?.status === "waiting")
+    return {
+      cancel: () => {
+        restedChoice = null;
+        void withdrawSharedPlay(entry.id);
+      },
+    };
+  if (entry?.status === "retry")
+    return {
+      committed: true,
+      cancel: () => {
+        stoppedSharedPlay = entry.id;
+        void withdrawSharedPlay(entry.id);
+      },
+    };
+  // Sent but not yet at the table: nothing to withdraw yet.
+  if (sharedSending || ["sending", "accepted"].includes(sharedPlay?.state))
+    return { cancel: null };
+  return null;
+}
+// The Thinking card cancels in two taps: the first asks, the second
+// cancels. A pause, Escape or a tap elsewhere puts it back.
+const THINKING_CONFIRM_MS = 3000;
+let thinkingArmed = false,
+  thinkingTimer = null;
+function disarmThinking(rerender = true) {
+  clearTimeout(thinkingTimer);
+  if (!thinkingArmed) return;
+  thinkingArmed = false;
+  if (rerender) renderScene();
+}
+function tapThinking() {
+  const own = stackView.pending?.own;
+  if (!own?.cancel) return;
+  if (!thinkingArmed) {
+    thinkingArmed = true;
+    thinkingTimer = setTimeout(disarmThinking, THINKING_CONFIRM_MS);
+    renderScene();
+    return;
+  }
+  disarmThinking(false);
+  own.cancel();
+  render();
 }
 function withdrawSharedPlay(key) {
   if (sharedPlay?.key === key) sharedPlay = null;

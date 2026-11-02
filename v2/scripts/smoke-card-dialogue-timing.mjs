@@ -260,10 +260,8 @@ try {
             queuedTurn = (await state()).turn;
             await selectCard(page, "vale");
             await page.locator("#card-actions .card-primary").click();
-            assert.equal(
-              await page.locator("#card-actions .card-primary").innerText(),
-              "Waiting…",
-            );
+            // The queued play leaves the beat for its Thinking card.
+            assert.equal(await page.locator("#card-actions button").count(), 0);
             assert.equal((await state()).turn, queuedTurn);
           }
           await page.locator("#dialogue-advance").click();
