@@ -290,57 +290,45 @@ body.local-app #scene-video-button {
 .profile-card[data-armed="true"] .profile-art img {
   filter: none;
 }
-/* Arming shuffles three card backs out from behind the card and back. */
-.profile-shuffle {
-  position: absolute;
-  top: 10px;
-  left: 8px;
-  width: 104px;
-  aspect-ratio: 2 / 3;
+/* Going to another of your worlds deals the table over: card backs
+   shuffle in front of it while the page changes (avatar-menu.mjs). Reduced
+   motion only fades it. */
+.table-shuffle {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: #090d12;
   pointer-events: none;
 }
-.profile-shuffle img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: 10px;
-  opacity: 0;
-  animation: profile-shuffle 360ms ease-in-out;
+.table-shuffle img {
+  grid-area: 1 / 1;
+  width: min(32vw, 190px);
+  aspect-ratio: 2 / 3;
+  border-radius: 12px;
+  box-shadow: 0 10px 35px #000a;
+  animation: table-shuffle 420ms ease-in-out both;
 }
-.profile-shuffle img:nth-child(2) {
-  --shuffle-x: 40px;
+.table-shuffle img:nth-child(2) {
+  --shuffle-x: 70px;
   --shuffle-turn: 9deg;
   animation-delay: 40ms;
 }
-.profile-shuffle img:nth-child(3) {
-  --shuffle-x: -26px;
+.table-shuffle img:nth-child(3) {
+  --shuffle-x: -52px;
   --shuffle-turn: -7deg;
   animation-delay: 80ms;
 }
-@keyframes profile-shuffle {
-  0%,
-  100% {
-    opacity: 1;
-    transform: none;
-  }
+@keyframes table-shuffle {
   50% {
-    opacity: 1;
     transform: translateX(var(--shuffle-x, 58px))
       rotate(var(--shuffle-turn, 14deg));
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .profile-shuffle {
+  .table-shuffle img {
     display: none;
-  }
-  .profile-shuffle + .profile-art {
-    animation: profile-fade 240ms ease-out;
-  }
-}
-@keyframes profile-fade {
-  from {
-    opacity: 0.3;
   }
 }
 .profile-name {

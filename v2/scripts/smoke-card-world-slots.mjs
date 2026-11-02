@@ -7,9 +7,11 @@ import { worldName } from "../card-game/world-name.mjs";
 
 // ☰'s world slots (#1877, #1891): a world shows the avatars that entered
 // it, in colour only while online, then "+" for an open seat. A tap shows
-// an avatar's card; a second tap arms it with its actions. "+" offers your
-// avatar on the card. A friend's world shows while your avatar sits there;
-// Leave on your armed avatar's card releases it and keeps its level. A world of yours nobody is in is no row: + New world
+// an avatar's card; on yours it also offers Leave as a beat in front of
+// the dialogue, and a second tap plays it, dealing the table over to its
+// world. On another's a second tap arms it for the owner's Free. "+" offers
+// your avatar on the card. A friend's world shows while your avatar sits
+// there; Leave releases it and keeps its level. A world of yours nobody is in is no row: + New world
 // takes its name and brings an avatar back into it.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -138,37 +140,40 @@ try {
     // The card starts on the avatar being played.
     const card = menu.locator(".profile-card");
     assert.equal(await card.getAttribute("data-avatar"), "vale");
-    // Your Tavi in the friend's world: one tap chooses her (she glows) with
-    // no actions; a second arms her with Start and Leave, and one tap on
-    // Leave releases her (no reset).
+    // Your Tavi in the friend's world: one tap chooses her (she glows) and
+    // offers Leave in front of the dialogue; a second tap goes to her world
+    // over a shuffle of card backs.
     const taviFace = friend.locator('[data-avatar="tavi"] button');
-    // Its actions are a beat in front of the dialogue, outside ☰.
-    const beat = page.locator(".dialogue > .action-panel");
-    const actions = beat.locator("#card-actions button");
+    const actions = page.locator(
+      ".dialogue > .action-panel #card-actions button",
+    );
+    const note = page.locator(".dialogue > .action-panel .action-beat-note");
     await taviFace.click();
     assert.equal(await card.getAttribute("data-avatar"), "tavi");
     assert.equal(await taviFace.getAttribute("aria-pressed"), "true");
-    assert.equal(await actions.count(), 0);
-    await shot(`output/card-world-slots-selected-${width}.png`);
-    await taviFace.click();
-    assert.equal(await taviFace.getAttribute("data-armed"), "true");
-    // Arming deals the card over a shuffle of card backs (hidden here, with
-    // reduced motion).
-    assert.equal(await card.locator(".profile-shuffle img").count(), 3);
-    assert.deepEqual(await actions.allInnerTexts(), ["Start", "Leave"]);
+    assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
     assert.match(
-      await beat.locator(".action-beat-note").innerText(),
+      await note.innerText(),
       new RegExp(
         `^Tavi keeps their level; the seat in ${worldName(3)} opens\\.$`,
       ),
     );
-    await shot(`output/card-world-slots-armed-${width}.png`);
-    // A tap elsewhere disarms; two more arm her again.
-    await card.locator(".profile-art").click();
-    assert.equal(await actions.count(), 0);
+    await shot(`output/card-world-slots-selected-${width}.png`);
+    await page.route(/\?world=friend$/, (route) =>
+      route.fulfill({ contentType: "text/html", body: "<p>friend</p>" }),
+    );
+    await Promise.all([
+      page.waitForURL(/\?world=friend$/),
+      (async () => {
+        await taviFace.click();
+        await page.locator(".table-shuffle").waitFor({ state: "attached" });
+        assert.equal(await page.locator(".table-shuffle img").count(), 3);
+      })(),
+    ]);
+    await page.goBack();
+    await page.waitForFunction(() => document.body.inert === false);
+    await page.locator("#toolbar-menu-button").click();
     await taviFace.click();
-    await taviFace.click();
-    // The tap outside closes ☰, which opens again to say what happened.
     await page.locator("#avatar-leave").click();
     await friend.waitFor({ state: "detached" });
     assert.deepEqual(commands.shift(), ["friend", { op: "release" }]);

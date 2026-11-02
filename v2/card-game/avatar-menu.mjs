@@ -44,6 +44,23 @@ function guard(run) {
   };
 }
 const face = (path) => imageUrl(`/card-game/${path}`, "card");
+// Going to another world deals it in: card backs shuffle over the table
+// before the page changes. Reduced motion fades the table out instead.
+async function dealTo(href) {
+  const veil = el("div", "table-shuffle");
+  for (let i = 0; i < 3; i += 1) {
+    const back = el("img");
+    back.src = face("assets/card-back.webp");
+    back.alt = "";
+    veil.append(back);
+  }
+  document.body.append(veil);
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  await veil
+    .animate({ opacity: [0, 1] }, { duration: still ? 240 : 420 })
+    .finished.catch(() => {});
+  location.href = href;
+}
 // Avatars show in initial order, R·A·T·V·M·I·C·S (#1846). Seat indices and
 // ids keep the cast's own order.
 export const byInitial = (avatars) =>
@@ -247,11 +264,9 @@ export function installAvatarMenu({
     // The card's avatar: a tapped seat { id, slot }, or one "+" offers
     // { id, to, first }.
     chosen = null,
-    // A second tap on the chosen portrait arms it: its actions then show as
-    // a beat in front of the dialogue. A tap anywhere else disarms.
+    // A second tap on someone else's chosen portrait arms it, so the owner
+    // may free it. A tap anywhere else disarms.
     armed = false,
-    // The armed card shuffles in once, not on every presence redraw.
-    shuffle = false,
     // What a seat action did, said when ☰ next opens.
     result = "",
     drawn = "";
@@ -313,13 +328,11 @@ export function installAvatarMenu({
     )
       remember(slot.shared);
   };
-  // The armed seat's actions, as a beat in front of the dialogue: Start and
-  // Leave for yours, the owner's Free for another's, each acting on one
-  // tap, with a one-line note naming the avatar and world.
+  // The chosen seat's action, as a beat in front of the dialogue: Leave for
+  // yours, the owner's Free for another's once armed, with a one-line note.
   function seatBeat(slot, seat, image) {
-    if (!armed) return null;
     if (seat.kind === "human") {
-      if (!slot.owner) return null;
+      if (!slot.owner || !armed) return null;
       const free = async () => {
         await command(slot.shared, { op: "reset", avatar: seat.id });
         location.reload();
@@ -332,10 +345,6 @@ export function installAvatarMenu({
       };
     }
     if (seat.kind !== "you") return null;
-    const start = () => {
-      if (slot.current) menu.hidePopover();
-      else location.href = sharedLink(slot.shared);
-    };
     // Leave frees the seat and keeps the avatar's level and binding, so it
     // is in no world until + New world or a move.
     const leaveSeat = async () => {
@@ -353,10 +362,7 @@ export function installAvatarMenu({
         humanAvatars.find((a) => a.id === seat.id),
         slot,
       ),
-      buttons: [
-        { label: "Start", id: "avatar-start", run: guard(start) },
-        { label: "Leave", id: "avatar-leave", run: guard(leaveSeat) },
-      ],
+      buttons: [{ label: "Leave", id: "avatar-leave", run: guard(leaveSeat) }],
     };
   }
   function seatButton(slot, seat, world, shown) {
@@ -380,9 +386,15 @@ export function installAvatarMenu({
     face.append(portrait);
     // Colour is presence: someone online in the seat. Every other is grey.
     item.dataset.lit = String(Boolean(seat.online));
-    // The first tap chooses (it glows), the second arms it.
+    // The first tap chooses (it glows). On one of yours the second tap
+    // plays it: the table deals over to its world, or ☰ just closes when it
+    // is the one being played. On another's it arms it.
     face.onclick = () => {
-      shuffle = picked && !armed;
+      if (picked && seat.kind === "you") {
+        menu.hidePopover();
+        if (!slot.current) dealTo(sharedLink(slot.shared));
+        return;
+      }
       armed = picked;
       chosen = { id: seat.id, slot: slot.key };
       status.textContent = "";
@@ -438,18 +450,6 @@ export function installAvatarMenu({
     Object.assign(box.dataset, { avatar: id, lit: Boolean(seat.online) });
     box.style.setProperty("--tier-color", tier.color);
     const art = el("div", "profile-art");
-    // Arming deals the card in over a quick shuffle of card backs.
-    if (armed && shuffle && !to) {
-      const deck = el("div", "profile-shuffle");
-      for (let i = 0; i < 3; i += 1) {
-        const back = el("img");
-        back.src = face("assets/card-back.webp");
-        back.alt = "";
-        deck.append(back);
-      }
-      box.append(deck);
-      shuffle = false;
-    }
     const image = el("img");
     image.src = face((world && avatarImage(world, id)) || avatar.image);
     image.alt = "";

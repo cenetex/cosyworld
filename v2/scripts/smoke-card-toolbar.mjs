@@ -151,29 +151,33 @@ try {
     // Each avatar shows once: no avatar list and no Send to….
     assert.equal(await menu.locator(".avatar-row, .avatar-list").count(), 0);
     assert.doesNotMatch(await menu.innerText(), /Send to/);
-    // The card below shows the avatar being played, with no actions until
-    // a portrait is tapped twice; a tapped seat shows that avatar's card.
+    // The card below shows the avatar being played, with no action until
+    // a portrait is tapped; a tapped seat shows that avatar's card. A seat's
+    // action is a beat in front of the dialogue, outside ☰.
     const card = menu.locator(".profile-card");
-    // Its actions are a beat in front of the dialogue, outside ☰.
-    const beat = page.locator(".dialogue > .action-panel");
-    const actions = beat.locator("#card-actions button");
+    const actions = page.locator(
+      ".dialogue .action-panel #card-actions button",
+    );
+    const note = page.locator(".dialogue > .action-panel .action-beat-note");
     assert.match(await card.innerText(), /Vale[\s\S]*online/);
     assert.equal(await card.getAttribute("data-avatar"), "vale");
     assert.equal(await actions.count(), 0);
     await seats.nth(2).locator("button").click();
     assert.match(await card.innerText(), /Mara[\s\S]*Sable Swift · online/);
     await seats.nth(1).locator("button").click();
+    // Choosing your own avatar offers Leave, with what it costs.
+    assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
+    assert.match(await note.innerText(), /^Vale keeps their level/);
     await page.screenshot({
       path: new URL(`menu-${width}.png`, output).pathname,
     });
     const tools = await menu.locator(".menu-tools").boundingBox();
     assert(tools.y + tools.height <= height, `tools stay in view at ${width}`);
-    // Armed, Vale offers Start and Leave; Start in the world being played
-    // just closes ☰.
+    // A second tap plays the chosen avatar; here it is the one being
+    // played, so ☰ just closes and its beat leaves.
     await seats.nth(1).locator("button").click();
-    assert.deepEqual(await actions.allInnerTexts(), ["Start", "Leave"]);
-    await page.locator("#avatar-start").click();
     await menu.waitFor({ state: "hidden" });
+    await actions.first().waitFor({ state: "detached" });
     await menuToggle.click();
     // A real pointer press outside the popover performs light dismissal.
     await page.mouse.click(5, 100);
@@ -187,8 +191,21 @@ try {
     const free = page.locator("#avatar-free");
     assert.deepEqual(await actions.allInnerTexts(), ["Free"]);
     assert.match(
-      await beat.locator(".action-beat-note").innerText(),
+      await note.innerText(),
       /Removes Amber Heron's hold and resets Ash/,
+    );
+    // ☰ stays open beside the beat: they do not overlap, except on a short
+    // landscape phone, where ☰ lies over part of it until it closes.
+    const [menuBox, beatBox] = await Promise.all(
+      [menu, page.locator(".dialogue > .action-panel")].map((l) =>
+        l.boundingBox(),
+      ),
+    );
+    assert(
+      height < 500 ||
+        menuBox.y + menuBox.height <= beatBox.y ||
+        menuBox.x >= beatBox.x + beatBox.width,
+      `☰ clear of the beat at ${width}`,
     );
     await page.screenshot({
       path: new URL(`table-${width}.png`, output).pathname,

@@ -108,14 +108,18 @@ only the tools. ☰ opens a list of **world slots**:
   portrait, name, the faint level numeral and the level tier's edge colour),
   then online or offline, its world, and what it holds where that world is
   loaded. It shows the avatar being played until a portrait is tapped (else
-  the first of yours in a world), with no buttons until a portrait is armed.
+  the first of yours in a world), with no buttons until a portrait is tapped.
 
-**Tap a portrait once** to choose it: it glows and the card shows it, with no
-buttons. **Tap it again** to arm it: the portrait and the card's edge turn
-its level tier's colour, three card backs shuffle out from behind the card
-and back (about 360 ms; with reduced motion the card fades in instead), and
-its actions appear as the action beat in front of the dialogue, outside ☰. A tap anywhere else in the menu disarms; presence
-redraws keep it armed. Each action acts on one tap, with no second confirm.
+**Tap a portrait once** to choose it: it glows and the card shows it. On one
+of yours, **Leave** appears with its note in the action beat in front of the
+dialogue. **Tap it again** to play it (owner, 2026-11-01): three card backs
+shuffle over the table (about 420 ms; with reduced motion the table only
+fades) and the page goes to that avatar in its world. When it is the avatar
+being played, the second tap just closes ☰. On another person's avatar the
+second tap arms it instead: the portrait and the card's edge turn its level
+tier's colour, and the owner gets **Free**. A tap anywhere else in the menu
+disarms; presence redraws keep it armed. Each action acts on one tap, with
+no second confirm.
 
 **Tap +** in a world one of your avatars may go to (its seat there is free,
 you hold no avatar there, and it is not already there): the card shows that
@@ -127,12 +131,10 @@ player picks what comes next.
 
 | Card | Actions |
 | --- | --- |
-| Yours, armed | **Start**, **Leave** |
+| Yours, chosen | **Leave** (a second tap plays it) |
 | Another person's, armed | **Free** for the world's owner; nothing for anyone else |
 | Yours, offered by + | **Bring to *Hollowmere*** (no arming) |
 
-- **Start** plays that avatar in that world. In the world being played it
-  just closes ☰.
 - **Leave** frees your seat and keeps the avatar's level and its binding
   there; the avatar is then in no world, ready for + New world or a move.
   The beat notes "Mara keeps their level; the seat in *Hollowmere* opens.",
@@ -175,16 +177,12 @@ world, so it goes when the card disarms, shows another avatar or ☰ closes.
 ![Phone: Bring Tavi](avatar-menu/slots-move-390.jpg)
 ![Desktop: Bring Tavi](avatar-menu/slots-move-1440.jpg)
 
-Your Tavi in a friend's world, tapped once (chosen, glowing):
+Your Tavi in a friend's world, tapped once (chosen, glowing, with Leave in
+the action beat):
 
 ![Phone: chosen](avatar-menu/slots-selected-390.jpg)
 ![Desktop: chosen](avatar-menu/slots-selected-1440.jpg)
 
-Tapped again (armed, with Start and Leave), and mid-shuffle:
-
-![Phone: armed](avatar-menu/slots-armed-390.jpg)
-![Desktop: armed](avatar-menu/slots-armed-1440.jpg)
-![Phone: the shuffle](avatar-menu/slots-shuffle-390.jpg)
 
 An emptied world as the + row (here "+ Silverhook"):
 
