@@ -1024,6 +1024,8 @@ export function createNarrator({
   apply,
   status,
   started = () => {},
+  // A silent play: nothing to show beyond its caption.
+  silent = () => {},
   request = requestNarrative,
   preview = () => {},
   early = false,
@@ -1143,7 +1145,10 @@ export function createNarrator({
         if (voicesNobody(quiet)) {
           started(quiet);
           preview(null);
-          apply(applySilentScene(getWorld(), quiet));
+          // Only a crossing's authored echo is written and played.
+          const next = applySilentScene(getWorld(), quiet);
+          if (next !== getWorld()) apply(next);
+          else silent(quiet);
           status("ready");
           continue;
         }

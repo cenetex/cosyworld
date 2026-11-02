@@ -958,6 +958,8 @@ const narrator = createNarrator({
     ? (context, signal) =>
         requestNarrative(context, signal, () => {}, "/card-game/reflections")
     : null,
+  // A silent play ends its exchange at once; the beat is its caption.
+  silent: () => exchange.cancel(),
   started: (context) => {
     if (localRuntime()) characterSpeech.clear();
     // A speaker who left this turn speaks at the destination, not here.

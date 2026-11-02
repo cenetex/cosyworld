@@ -79,6 +79,7 @@ describe("speech occasions", () => {
     const status = vi.fn();
     const started = vi.fn();
     const apply = vi.fn();
+    const quiet = vi.fn();
     const silent = (context) => ({
       ...context,
       speakers: [],
@@ -90,6 +91,7 @@ describe("speech occasions", () => {
       apply,
       status,
       started,
+      silent: quiet,
       request,
       limit: silent,
     }).changed();
@@ -97,6 +99,7 @@ describe("speech occasions", () => {
     expect(voicesNobody(started.mock.lastCall[0])).toBe(true);
     expect(request).not.toHaveBeenCalled();
     expect(status.mock.calls).toEqual([["ready"]]);
-    expect(apply).toHaveBeenCalledWith(world);
+    expect(apply).not.toHaveBeenCalled();
+    expect(quiet).toHaveBeenCalledTimes(1);
   });
 });
