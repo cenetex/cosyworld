@@ -2272,7 +2272,8 @@ body .beat-live {
   display: none;
 }
 /* The spoken beat in the slot behind reads as the card behind does: one
-   dimmed line of portrait, name, speech and first action. */
+   dimmed line of portrait, name, speech and first action. A tap on its line
+   still moves the lines on. */
 .beat-stack[data-action="true"]:not([data-dropped="true"]) > #speech-row {
   position: absolute;
   z-index: 1;
@@ -2291,7 +2292,6 @@ body .beat-live {
     serif;
   opacity: 0.72;
   transform: var(--beat-slot);
-  pointer-events: none;
 }
 .beat-stack[data-action="true"]:not([data-dropped="true"])
   > :is(#beat-behind, #live-line),
