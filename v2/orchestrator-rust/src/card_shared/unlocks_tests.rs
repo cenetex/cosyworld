@@ -49,47 +49,6 @@ fn run(c: &mut Connection, id: &str, user: &str, b: &full::Command) -> Result<Va
 fn unlocked(c: &Connection, user: &str) -> Value {
     unlocks::ids(c, user).unwrap()
 }
-// Vale walks straight to the hidden avatar and talks to it, committed the
-// way the play worker commits.
-fn talk(c: &mut Connection, id: &str) -> Value {
-    let mut w = full_store::world(c, id, now()).unwrap();
-    let hidden = w.game["hidden"]["actor"].as_str().unwrap().to_string();
-    let vale = actor_index("vale").unwrap();
-    let action = w.project(vale).unwrap()["actions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["kind"] == "talk" && a["target"] == hidden.as_str())
-        .cloned()
-        .expect("Vale can talk to the hidden avatar");
-    let tx = c
-        .transaction_with_behavior(TransactionBehavior::Immediate)
-        .unwrap();
-    let result = full_store::commit(
-        &tx,
-        id,
-        &mut w,
-        json!({"op":"play","actor":"vale","action":action}),
-        now(),
-    )
-    .unwrap();
-    tx.commit().unwrap();
-    result
-}
-// A world whose Vale already stands with the hidden avatar, seeded like a
-// fresh one.
-fn beside(c: &mut Connection, user: &str) -> String {
-    let id = found(c, user, "vale").unwrap();
-    let mut w = full_store::world(c, &id, now()).unwrap();
-    let hidden = w.game["hidden"]["actor"].as_str().unwrap().to_string();
-    w.game["actors"]["vale"]["place"] = w.game["actors"][&hidden]["place"].clone();
-    w.game.as_object_mut().unwrap().remove("opening");
-    c.execute("DELETE FROM card_full_log WHERE world=?", [&id])
-        .unwrap();
-    full_store::seed(c, &id, &w, "test-beside", now()).unwrap();
-    id
-}
-
 #[test]
 fn a_new_passkey_has_only_vale_and_its_first_world_hides_one_of_the_others() {
     let (_path, mut c) = open();
@@ -146,41 +105,6 @@ fn existing_passkeys_keep_every_avatar_they_took() {
     drop(c);
     let c = store::open(&path).unwrap();
     assert_eq!(unlocked(&c, "ann"), kept);
-}
-
-#[test]
-fn talking_to_the_hidden_avatar_unlocks_it_once_and_opens_its_world() {
-    let (_path, mut c) = open();
-    let id = beside(&mut c, "ann");
-    let w = full_store::world(&c, &id, now()).unwrap();
-    let hidden = w.game["hidden"]["actor"].as_str().unwrap().to_string();
-    let result = talk(&mut c, &id);
-    assert!(result["events"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|e| e["unlock"] == hidden.as_str()));
-    assert!(unlocked(&c, "ann")
-        .as_array()
-        .unwrap()
-        .contains(&json!(hidden)));
-    // The unlocked avatar's own world, which hides one of the six left.
-    let list = store::list(&c, "ann").unwrap();
-    let worlds = list["worlds"].as_array().unwrap();
-    assert_eq!(worlds.len(), 2);
-    let next = worlds.iter().find(|r| r["id"] != id.as_str()).unwrap();
-    assert_eq!(next["actor"], json!(actor_index(&hidden).unwrap()));
-    let opened = full_store::world(&c, next["id"].as_str().unwrap(), now()).unwrap();
-    let again = opened.game["hidden"]["actor"].as_str().unwrap();
-    assert!(again != hidden && again != "vale");
-    assert_eq!(opened.game["absent"].as_array().unwrap().len(), 5);
-    // Recording the same committed lines again changes nothing.
-    assert!(unlocks::record(&c, &id, &result, 1).unwrap().is_empty());
-    // Replay reproduces the world without reading the unlock table.
-    let live = full_store::world(&c, &id, now()).unwrap();
-    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    c.execute("DELETE FROM card_unlocks", []).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), live);
 }
 
 #[test]

@@ -217,6 +217,22 @@ leaves the list and the eight-world count, refuses commands and views with
 "This world has closed.", and keeps its journal, checkpoints and plays, so
 replay is unchanged (`full_retire.rs`).
 
+## Unlocking the cast
+
+A passkey unlocks the cast one hidden avatar at a time (#1936,
+[passkey v2](../../../docs/design/passkey-v2.md)). `card_unlocks(user, actor,
+world, seq)` holds what each passkey has found; Vale is always found. When the
+table is new, a one-time grandfather pass counts every avatar a passkey
+already holds, took or carried a level for (`card_bindings`, `card_members`,
+`card_avatar_progress`). A claim of an avatar the passkey has not found, or a
+world for one, is refused: "Mara is still hidden from you." A fresh world
+hides one of its creator's locked avatars, picked by the first four bytes of
+SHA-256 over the passkey and the world id, and leaves the others out; the
+server passes both on `create` (`unlocks.rs`), so the seeded world records
+them and replay never reads the table. Once nobody is left to find, a passkey
+with a world makes no new one: "Everyone is found." The world list returns
+`unlocked`, and `seek` journals the quest to talk to the hidden avatar.
+
 ## Saving, replay, and earlier worlds
 
 Sharing validates the host's current save. It keeps the source browser save and
