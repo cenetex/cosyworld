@@ -1,4 +1,5 @@
 import { expressionOf } from "./expression.mjs";
+import { levelTier } from "./level-tiers.mjs";
 import { recordLearning, beginLearning, reconsiderPlan } from "./learning.mjs";
 import {
   roamingActors,
@@ -133,6 +134,7 @@ import {
   validPackState,
   conditionMet,
   DAYLIGHT_TURNS,
+  runHash,
 } from "./pack-rules.mjs";
 import {
   installTransports,
@@ -1057,8 +1059,19 @@ export function standoffFor(s, actor) {
 export function opponentOf(c, actor) {
   return c.challenger === actor ? c.defender : c.challenger;
 }
+// Strength in a contest goes by level tier: avatars in one tier are equal.
+const tierOf = (s, id) => levelTier(levelOf(s, id)).rank;
+export const outranks = (s, actor, other) =>
+  tierOf(s, actor) > tierOf(s, other);
+// The most a strike can land: 3 on a lower tier, 2 on the same, 1 on a higher.
 export function strikePower(s, actor, target) {
-  return 2 + Math.sign(levelOf(s, actor) - levelOf(s, target));
+  return 2 + Math.sign(tierOf(s, actor) - tierOf(s, target));
+}
+// A strike lands a seeded 1 to strikePower, rolled from the run seed and the
+// play, so every table and every replay agrees on it.
+export function strikeDamage(s, actor, target) {
+  const roll = runHash(s, `strike:${s.revision}:${actor}:${target}`);
+  return 1 + (roll % strikePower(s, actor, target));
 }
 function closeStandoff(s, c) {
   s.standoffs = s.standoffs.filter((entry) => entry !== c);
@@ -1814,7 +1827,7 @@ function performPlay(s, a, round = null, settle = []) {
       const guarded = conflict.guarding[a.target];
       const damage = Math.max(
         1,
-        strikePower(s, a.actor, a.target) - Number(guarded),
+        strikeDamage(s, a.actor, a.target) - Number(guarded),
       );
       const resolveBefore = conflict.resolve[a.target];
       conflict.guarding[a.target] = false;
@@ -2247,7 +2260,7 @@ function wantPlan(s, actor) {
     const answer = (action) => (action ? { action } : idle());
     if (actor === conflict.defender && !conflict.answered)
       return answer(
-        levelOf(s, actor) > levelOf(s, other)
+        outranks(s, actor, other)
           ? find("talk", (a) => a.target === other)
           : find("guard"),
       );
@@ -2354,7 +2367,7 @@ function wantPlan(s, actor) {
     want.refusals >= 1 &&
     (resentment(s, actor, owner) > 0 ||
       want.refusals >= 2 ||
-      levelOf(s, actor) > levelOf(s, owner));
+      outranks(s, actor, owner));
   const threat = bold && find("threaten", (a) => a.target === owner);
   if (threat) return { action: threat };
   return idle();

@@ -217,7 +217,7 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   authored ahead.
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
   who learn the roads keep to the routes they know), then ask, trade their
-  least valued spare, and threaten when bold enough by resentment, level or
+  least valued spare, and threaten when bold enough by resentment, a higher level tier or
   earlier refusals. `expects()` lets them skip some offers they expect to be
   refused, but refusals still happen: each refusal of the quest item counts,
   and after three, or a long spell with no way forward, the quest is set aside
@@ -384,10 +384,12 @@ gives no first line, the avatar shows the silent "…". This filter lives in the
 because it uses that browser's covered set. Rules-owned knowledge will replace
 it.
 Borders use Signal's level-tier colours: Common 0–9, Uncommon 10–19, Rare 20–29,
-Epic 30–49 and Legendary 50+. A selected person or thing shows its exact level
+Epic 30–49, Legendary 50–99 and Mythic 100+ (`level-tiers.mjs`, shared with
+the rules). A selected person or thing shows its exact level
 as one faint, matching Roman numeral at its top; places have no level of their
 own and show none. These fixed bands use existing avatar levels; items
-currently have level 1. They do not change progression.
+currently have level 1. They do not change progression, but they set strength
+in a standoff.
 When a shown card's level rises, it glows once from its old tier colour to the
 new one, lifts slightly and changes its numeral in place, in about a second;
 reduced motion shows the new level at once.
@@ -825,7 +827,7 @@ Rejected requests (400, 422) and provider errors (5xx) add OpenRouter's message.
 
 ## Threats and standoffs
 
-Avatar cards offer Talk and Threaten. A threat opens a standoff between the two avatars and adds Brace and Strike to their cards. Each has four resolve. A strike removes two resolve between equal levels, three against a lower level, and one against a higher level. Brace softens the next hit by one, with a minimum of one damage, until that avatar's next play.
+Avatar cards offer Talk and Threaten. A threat opens a standoff between the two avatars and adds Brace and Strike to their cards. Each has four resolve. Strength goes by level tier, the card's border colour, not by the exact level: avatars in one tier are equally matched, so levels I and II fight as equals, and only a higher tier is stronger. A strike rolls its damage: 1 or 2 against the same tier, 1 to 3 against a lower tier, and exactly 1 against a higher tier. The roll is seeded from the world's run seed and the play (never `Math.random`), so the browser and the shared server agree and journals replay, and the attack event records the number rolled. Brace softens the next hit by one, with a minimum of one damage, until that avatar's next play. Four resolve now lasts two to four strikes between equals, so fights run longer and less predictably than the old fixed two. Residents compare tiers too: a threatened resident talks only when its tier is higher, and a higher tier is one reason a resident grows bold enough to threaten. The [combat by tier note](../../docs/design/combat-by-tier.md) has the reasoning.
 
 A threat stays in force until both sides have stood down: each fighter's latest play is something other than Strike or Brace, such as Talk or Wait. One side standing down alone leaves it open, and a Strike or Brace, by either side, never counts and takes that fighter back into the fight. Releasing the disputed item settles it at once, so handing over the demanded item is still the quick way out. While a standoff is open, its whole room is locked: nobody present, fighters or bystanders, can move, accompany, set a course, take, drop an item, give, trade, ask or cover. The only exception is that the threatened side may hand the demanded item to the challenger, which ends the standoff. Newcomers may still arrive and are then locked in. Bystanders can still Talk but cannot Strike. Residents stop wandering until the standoff ends. The hand shows only the people, plus the demanded item. A resident strikes while the other side is still fighting, once blows have landed or when it is the challenger that wants the item; once the other side stands down it stands down too. One that has set the item aside lets it go. The [standoff endings note](../../docs/design/standoff-endings.md) has the reasoning. At zero resolve, the losing avatar drops the disputed item (or an item the winner needs) and retreats along an open path. Both avatars get three turns to recover before another threat. Saved levels retain their combat effect.
 
