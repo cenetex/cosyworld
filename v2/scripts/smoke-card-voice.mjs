@@ -82,13 +82,16 @@ try {
       }
       throw Error("Voice flow stayed busy");
     };
-    const playCards = async (kind, ids) => {
+    const playCards = async (kind, ids, speaks = true) => {
       const before = requests.length;
       // A held item stays raised after its play; start each play fresh.
       await page.keyboard.press("Escape");
       for (const id of ids) await selectCard(page, id);
       await page.locator(`#card-actions [data-action="${kind}"]`).click();
       await finish();
+      // Ordinary plays are silent: their beat is the caption.
+      if (!speaks)
+        return assert.equal(requests.length, before, `${kind} stays silent`);
       assert.equal(requests.length, before + 1, `${kind} requests speech once`);
       assert.equal(requests.at(-1).speakers[0], "vale");
       assert.equal(requests.at(-1).outcome.card.kind, kind);
@@ -201,7 +204,7 @@ try {
         kind: "item",
         target: "lamp",
       });
-      await playCards("light", ["lamp"]);
+      await playCards("light", ["lamp"], false);
       // A replaced slow reply keeps the met quest in the saved history.
       assert.ok(
         await page.evaluate(
@@ -228,25 +231,31 @@ try {
         !saved.log.some((line) => line.text === reaction("snuff")),
         "Stale dialogue stays out of the current turn",
       );
+      // Waking from a long rest in the attic speaks.
       await playCards("wait", ["attic"]);
-      await playCards("drop", ["lamp", "attic"]);
-      await playCards("take", ["lamp"]);
+      await playCards("drop", ["lamp", "attic"], false);
+      await playCards("take", ["lamp"], false);
       if (width === 390) {
-        // A quick first Put out reply also crosses the discovery and quest cues.
+        // A new game's first Put out crosses the discovery and quest cues.
         await startNewGame(page);
         await finish();
-        await playCards("snuff", ["lamp"]);
+        await playCards("snuff", ["lamp"], false);
       }
-      if (width < 700) {
+      // A new game's first Put out is silent, so only the narrowest phone
+      // steps back to Vale's long Stay reply.
+      if (width === 320) {
         // Step back through the beat stack to Vale's long reply.
         for (
           let line = 0;
-          line < 8 && (await page.locator("#speaker").innerText()) !== "Vale";
+          line < 8 &&
+          !/My reaction to/.test(
+            await page.locator("#dialogue-text").textContent(),
+          );
           line++
         ) {
-          await page
-            .locator("#beat-behind")
-            .click({ position: { x: 80, y: 6 } });
+          // ↑ steps back; phones hide the card behind (#1897).
+          await page.evaluate(() => document.activeElement?.blur());
+          await page.keyboard.press("ArrowUp");
         }
         assert.match(
           await page.locator("#dialogue-text").textContent(),
@@ -276,7 +285,7 @@ try {
       });
       assert.deepEqual(errors, []);
       console.log(
-        `Opening, Put out replacement, quest completion, Stay, Put down and Take speech passed in ${type} at ${width}px.`,
+        `Opening, Put out replacement, quest completion and Stay speech, and silent Light, Put down and Take passed in ${type} at ${width}px.`,
       );
     } finally {
       await page.close();
