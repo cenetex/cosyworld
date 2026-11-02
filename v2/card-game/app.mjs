@@ -4229,7 +4229,7 @@ async function submitSharedPlay(action) {
     key: crypto.randomUUID(),
     action: current,
     choice: selected.join("+"),
-    label: playLabel(current),
+    label: playLabel(action),
     notice: sharedSession.state.notice || "",
   };
   showSharedPlay("sending");
