@@ -93,6 +93,10 @@ async function checkPool(width) {
   assert.match(await status.textContent(), /Nobody has committed/u);
   await page.screenshot({ path: `output/credits/pool-settings-${width}.png` });
   await page.locator('[data-commit="10"]').click();
+  assert.match(
+    await page.textContent(".action-beat-heading"),
+    /Commit 10 credits to this world\?/u,
+  );
   await page.locator("#credit-commit-confirm").click();
   await page.locator("#credit-commit-done").waitFor({ state: "visible" });
   assert.match(

@@ -23,21 +23,28 @@ more: took a big hit, went down hard), picked by the event's seq so replay
 shows the same words. A guarded blow is "braced and took only a glancing
 blow", a yield is "gave way", and the defeat is "was beaten and sent home".
 
-| Icon   | Captions                                                                           |
-| ------ | ---------------------------------------------------------------------------------- |
-| ➜      | arrivals, departures, travelling with someone                                      |
-| ⚔     | threaten, brace, strike and how the blow landed, a standoff ending                 |
-| ↳      | a defeat on the loser's beat: "Vale was beaten and sent home.", "You came to at …" |
-| ⇄      | give, trade and ask, including refusals                                            |
-| ✦      | discoveries, a want met, a pack choice                                             |
-| ⛽     | refuelling                                                                         |
-| ✋ ◌ ♪ | take or put down, light or snuff, ring                                             |
+| Icon   | Captions                                                                            |
+| ------ | ----------------------------------------------------------------------------------- |
+| ➜      | arrivals, departures, travelling with someone, the viewer's own arrival or boarding |
+| ⌛     | a wait: "Vale waited a turn."                                                       |
+| ⚔     | threaten, brace, strike and how the blow landed, a standoff ending                  |
+| ↳      | a defeat on the loser's beat: "Vale was beaten and sent home.", "You came to at …"  |
+| ⇄      | give, trade and ask, including refusals                                             |
+| ✦      | discoveries, a want met, a pack choice                                              |
+| ⛽     | refuelling                                                                          |
+| ✋ ◌ ♪ | take or put down, light or snuff, ring                                              |
 
 Each glyph is the caption's data key. The table draws it as a line-art SVG in
 the toolbar's style (`beatIcons` in `app.mjs`): a hand for take, a smoking
 candle for snuff, a bell for ring, a drop over a lamp for refuelling.
 
-An action with no speech is a beat with only the portrait and its caption. Most plays are like this: only Talk, Ask and the rules' speech occasions speak (see the card guide), so a silent play shows its caption beat with no loading line.
+An action with no speech is a beat with only the portrait and its caption,
+drawn as one line: a small round figure, then the caption, which names who
+acted. Most plays are like this: only Talk, Ask and the rules' speech
+occasions speak (see the card guide), so a silent play, a Wait included,
+still leaves its line in the stream. The viewer's own journey opens the new
+visit with one ("Vale boarded the Greek ship.", "Vale arrived from the
+Agora."); Talk is the speech itself and leaves none.
 A character's actions join their first spoken beat of that turn.
 
 Only events at the player's current place, during the current visit, become
@@ -102,17 +109,28 @@ acts on, drawn as the quest card pairs them (borderless cut-out figures with
 a drop shadow, a little over each other, facing; an item or place a small
 borderless picture); in the middle what the play will do ("Vale takes the
 Burial Decree.", up to two lines) and the status line; on the right its
-buttons (the play, Cancel play, Nudge or Look). The buttons are flush
+buttons (the play, Cancel play, Nudge or Look). Its border takes the level
+tier colour (`level-tiers.mjs`) of the rarest card in the play: actor,
+target, item or place. A play of Common cards keeps the plain border. The buttons are flush
 segments of the box itself, not boxes inside it: full height, split from
 the words and from each other by a thin divider, a serif verb centred,
 tinting the whole segment on hover, focus and press, with a focus ring for
 the keyboard. Where the row is too narrow the buttons wrap into a strip
 along the foot under the same divider; the fixed box over the hand on a
 phone keeps them on the right and wraps their words instead. ☰ borrows the
-same beat for a chosen avatar ([avatar menu](avatar-menu.md)). The spoken beat settles behind it as one dimmed line that
-still takes taps. When the play commits or is cancelled the action beat leaves
-and the spoken beat returns; after a play it rests until the player chooses a
-card or taps the raised hand. Choosing a quest in the open fan takes no
+same beat for a chosen avatar ([avatar menu](avatar-menu.md)). The spoken beat settles behind it as one dimmed line: the card behind. With
+a card chosen the player still steps through the stack: tap that line, use
+↑ and ↓ (from the hand too), the wheel or a swipe anywhere on the stack, and
+"● live" returns. The line crossfades as it steps.
+
+When a play commits, its box folds into the stream: it eases down onto the
+front card, the beat the play became (its caption line, or the Thinking card
+when a reply is coming), and fades as that card arrives, in the stack's
+300 ms. The earlier beat recedes behind. Reduced motion crossfades. The
+folded line is a beat read from the committed event, so Memory shows it too.
+A cancelled play's box just leaves and the spoken beat returns. After a
+play the beat rests until the player chooses a card or taps the raised
+hand. Choosing a quest in the open fan takes no
 turn, so it does not rest the beat: the chosen top quest still offers Drop
 quest. A shared play the server refused or did not
 confirm brings the beat back with its button, so the player can try again.

@@ -194,6 +194,7 @@ const beatIcons = {
   "✋": '<path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V11M11 10.5V4.5a1.5 1.5 0 0 1 3 0v6M14 10.5V6a1.5 1.5 0 0 1 3 0v5M17 11V9a1.5 1.5 0 0 1 3 0v5a7 7 0 0 1-7 7h-.8a6 6 0 0 1-4.7-2.3l-3-3.9a1.6 1.6 0 0 1 2.4-2L8 15"/>',
   "◌": '<path d="M9 21v-9h6v9M7 21h10M12 12V9M12 7c-1.5-1.3 1.5-2.4 0-4"/>',
   "♪": '<path d="M5 17h14l-2-3v-4a5 5 0 0 0-10 0v4zM10 19.5a2 2 0 0 0 4 0"/>',
+  "⌛": '<path d="M7 3h10M7 21h10M8 3c0 6 8 5 8 9s-8 3-8 9M16 3c0 6-8 5-8 9s8 3 8 9"/>',
   "⛽": '<path d="M12 3c-1.6 2.2-2.5 3.5-2.5 4.7a2.5 2.5 0 0 0 5 0C14.5 6.5 13.6 5.2 12 3ZM4 14h16l-2.5 6h-11ZM9 14a3 3 0 0 1 6 0"/>',
 };
 function beatIcon(glyph) {
@@ -1590,6 +1591,7 @@ function showBorrowedBeat(row, heading) {
     panel = $("action-beat"),
     cards = document.querySelector(".action-beat-cards");
   panel.dataset.avatar = beat.avatar || "";
+  panel.dataset.tier = "common";
   $("selection-name").textContent = beat.name || "Card actions";
   // A play's beat draws its own cards again after this one.
   cards.dataset.cards = "borrowed";
@@ -1663,11 +1665,16 @@ function renderActions() {
   // Who acts, then what it acts on: the chosen cards, or the place it
   // waits in.
   const others = selected.filter((id) => id !== actor);
-  showBeatCards(
-    sentence
-      ? [actor, ...(others.length ? others : [world.actors[actor].place])]
-      : [],
-  );
+  const involved = sentence
+    ? [actor, ...(others.length ? others : [world.actors[actor].place])]
+    : [];
+  showBeatCards(involved);
+  // The box's edge takes the rarest card's tier colour; Common stays plain.
+  const rarest = involved
+    .map((id) => levelTier(cardLevel(world, id)))
+    .reduce((top, tier) => (tier.rank > top.rank ? tier : top), levelTier(0));
+  $("action-beat").dataset.tier = rarest.id;
+  $("action-beat").style.setProperty("--tier-color", rarest.color);
   heading.lastElementChild.replaceChildren(
     ...(sentence.startsWith(`${name} `)
       ? [node("strong", name), sentence.slice(name.length)]
@@ -2977,7 +2984,8 @@ let stackRendered = { key: null, speaker: null, place: null };
 // barely overlap.
 const STACK_MS = 300,
   STACK_LEAVE_MS = 200,
-  STACK_FADE_MS = 160;
+  STACK_FADE_MS = 160,
+  STACK_NEARER = "translateY(8px) scale(1.015)";
 // A leaving card is an inert copy that never takes pointer hits.
 function ghostOf(card) {
   const ghost = card.cloneNode(true);
@@ -3108,10 +3116,25 @@ function syncActionBeat() {
   if (still) return fadeGhost(ghost, {}, STACK_FADE_MS);
   playMotion(panel, show ? "arrive" : null);
   if (!front.hidden) playMotion(front, show ? "settle" : "return");
+  // A play folds into the stream: once this render has drawn the beat it
+  // became, the box eases down onto that front card as it fades. A cancelled
+  // play just leaves.
+  if (!show && restedChoice !== null) queueMicrotask(() => foldGhost(ghost));
+  else fadeGhost(ghost, { transform: STACK_NEARER }, STACK_LEAVE_MS);
+}
+function foldGhost(ghost) {
+  const front = $("speech-row");
+  if (front.hidden)
+    return fadeGhost(ghost, { transform: STACK_NEARER }, STACK_LEAVE_MS);
+  const from = ghost.getBoundingClientRect(),
+    to = front.getBoundingClientRect();
+  ghost.style.transformOrigin = "0 0";
   fadeGhost(
     ghost,
-    { transform: "translateY(8px) scale(1.015)" },
-    STACK_LEAVE_MS,
+    {
+      transform: `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${to.width / from.width}, ${to.height / from.height})`,
+    },
+    STACK_MS,
   );
 }
 function animateStack(direction, ghost) {
@@ -3126,8 +3149,11 @@ function animateStack(direction, ghost) {
   }
   const showBehind = !behind.hidden;
   // Reduced motion turns off CSS animation, so the old cards' copies fade
-  // out over the new ones instead.
-  if (reducedMotion.matches) {
+  // out over the new ones instead. Behind the action beat the one dimmed
+  // line crossfades as it steps.
+  const behindAction = front.parentElement.dataset.action === "true";
+  if (behindAction && !reducedMotion.matches) playMotion(front, "fade");
+  if (reducedMotion.matches || behindAction) {
     fadeGhost(ghost.front, {}, STACK_FADE_MS);
     fadeGhost(ghost.behind, {}, STACK_FADE_MS);
     return;
@@ -3147,7 +3173,7 @@ function animateStack(direction, ghost) {
     parseFloat(stack.getPropertyValue("--beat-behind-scale")) || 0.94;
   const slot = `translateY(-${peek}px) scale(${scale})`;
   const deeper = `translateY(-${peek * 2}px) scale(${scale * scale})`;
-  const nearer = "translateY(8px) scale(1.015)";
+  const nearer = STACK_NEARER;
   if (direction === "forward") {
     // The new beat fades in front; the old front settles into the slot.
     playMotion(front, "arrive");
@@ -3203,6 +3229,21 @@ $("dialogue-advance").onclick = advanceFront;
 $("beat-behind").onclick = () => {
   stepBack();
 };
+// Behind the action beat the spoken beat is the card behind: a tap on its
+// line steps back in time once the exchange is read; until then it moves
+// the lines on.
+$("speech-row").addEventListener(
+  "click",
+  (event) => {
+    const stack = $("speech-row").parentElement;
+    if (stack.dataset.action !== "true" || !reveal.complete) return;
+    if (exchange.current && !reviewing) return;
+    if (event.target.closest("#story-retry, #voice-retry")) return;
+    event.stopPropagation();
+    if (!stepBack()) advanceFront();
+  },
+  true,
+);
 $("dialogue-advance").addEventListener("keydown", (event) => {
   const amount = {
     PageDown: speechHeight,
@@ -3228,8 +3269,8 @@ document.addEventListener("keydown", (event) => {
   )
     return;
   const target = event.target;
-  if (target !== document.body && !target.closest?.(".dialogue")) return;
-  if (target.closest?.(".action-panel")) return;
+  // A chosen hand card or the action beat's buttons step the stack too.
+  if (target !== document.body && !target.closest?.(".dialogue, #hand")) return;
   // A long line scrolls first, then the arrows step through the beats.
   const words = $("dialogue-text");
   if (target === $("dialogue-advance") && !words.hidden) {
@@ -3253,7 +3294,6 @@ document.addEventListener("keydown", (event) => {
     "wheel",
     (event) => {
       if (Math.abs(event.deltaY) < 4) return;
-      if (event.target.closest?.(".action-panel")) return;
       const words = $("dialogue-text");
       const scrolls =
         words.contains(event.target) &&
@@ -3275,10 +3315,7 @@ document.addEventListener("keydown", (event) => {
     "touchstart",
     (event) => {
       const point = event.touches[0];
-      touch =
-        point && !event.target.closest?.(".action-panel")
-          ? { x: point.clientX, y: point.clientY }
-          : null;
+      touch = point ? { x: point.clientX, y: point.clientY } : null;
     },
     { passive: true },
   );
@@ -4103,8 +4140,8 @@ function adoptShared(value) {
     sharedWorldKey = key;
     if (found)
       showActionBeat({
-        images: [`./${found.image}`],
-        text: `${found.name} remembers you`,
+        cards: [{ src: `./${found.image}` }],
+        name: `${found.name} remembers you`,
         note: `${found.name}'s own world is in ☰ now.`,
         buttons: [
           { label: "OK", id: "unlock-ok", run: () => clearActionBeat() },

@@ -2024,8 +2024,25 @@ body .beat-live {
 .beat-stack .speech-line {
   cursor: pointer;
 }
-.beat-stack .beat-front[data-beat="action"] .dialogue-heading {
-  min-height: 22px;
+/* An action with no speech is one line, as a play folds into the stream:
+   the figure, then the caption, which names who acted. */
+#speech-row[data-beat="action"] {
+  grid-template-areas: "portrait line heading";
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto;
+  align-content: center;
+  align-items: center;
+}
+#speech-row[data-beat="action"] .speaker-portrait {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+#speech-row[data-beat="action"] :is(#speaker, .speech-hint) {
+  display: none;
+}
+#speech-row[data-beat="action"] .dialogue-heading {
+  min-height: 0;
 }
 .beat-stack .beat-front[data-beat="silent"] #dialogue-text {
   color: var(--muted);
@@ -2285,6 +2302,13 @@ body .beat-live {
   backdrop-filter: blur(12px);
   transform-origin: 50% 0;
 }
+/* The rarest card in the play edges the box in its tier colour. */
+.beat-stack > .action-panel:not([data-tier="common"]) {
+  border-color: var(--tier-color);
+  box-shadow:
+    0 0 14px color-mix(in srgb, var(--tier-color) 30%, transparent),
+    0 10px 35px #08091470;
+}
 .beat-stack[data-dropped="true"] > .action-panel {
   display: none;
 }
@@ -2310,8 +2334,7 @@ body .beat-live {
   opacity: 0.72;
   transform: var(--beat-slot);
 }
-.beat-stack[data-action="true"]:not([data-dropped="true"])
-  > :is(#beat-behind, #live-line),
+.beat-stack[data-action="true"]:not([data-dropped="true"]) > #beat-behind,
 .beat-stack[data-action="true"]
   > #speech-row
   :is(.speech-hint, .line-controls, .beat-caption + .beat-caption) {
