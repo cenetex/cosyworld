@@ -511,7 +511,13 @@ pub(super) fn run(
                 retire::if_empty(c, id, u, time)?;
             }
             "seek" => {
-                store::commit(c, id, &mut w, json!({"op":"seek","actor":actor_id(a)}), time)?;
+                store::commit(
+                    c,
+                    id,
+                    &mut w,
+                    json!({"op":"seek","actor":actor_id(a)}),
+                    time,
+                )?;
             }
             "play" => {
                 if b.key.len() < 16

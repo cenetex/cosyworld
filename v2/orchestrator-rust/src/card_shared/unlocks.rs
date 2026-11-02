@@ -66,20 +66,31 @@ pub(super) fn unlocked(c: &Connection, user: &str) -> Result<[bool; 8]> {
 }
 pub(super) fn ids(c: &Connection, user: &str) -> Result<Value> {
     let open = unlocked(c, user)?;
-    Ok(json!((0..8).filter(|a| open[*a]).map(actor_id).collect::<Vec<_>>()))
+    Ok(json!((0..8)
+        .filter(|a| open[*a])
+        .map(actor_id)
+        .collect::<Vec<_>>()))
 }
 // A claim or a new world needs the avatar unlocked.
 pub(super) fn require(c: &Connection, user: &str, a: usize) -> Result<()> {
     if unlocked(c, user)?[a] {
         return Ok(());
     }
-    let name = super::cast()["avatars"][a]["name"].as_str().unwrap_or("That avatar");
-    Err(format!("{name} is still hidden from you. Find them in one of your worlds first."))
+    let name = super::cast()["avatars"][a]["name"]
+        .as_str()
+        .unwrap_or("That avatar");
+    Err(format!(
+        "{name} is still hidden from you. Find them in one of your worlds first."
+    ))
 }
 // Once nobody is left to find, a passkey that has a world makes no more.
 pub(super) fn may_create(c: &Connection, user: &str) -> Result<()> {
     let owned: i64 = c
-        .query_row("SELECT count(*) FROM card_tables WHERE owner=?", [user], |r| r.get(0))
+        .query_row(
+            "SELECT count(*) FROM card_tables WHERE owner=? AND retired_at IS NULL",
+            [user],
+            |r| r.get(0),
+        )
         .map_err(sql_error)?;
     if enforced() && owned > 0 && unlocked(c, user)?.iter().all(|a| *a) {
         return Err("Everyone is found. Send an avatar to one of your worlds.".into());

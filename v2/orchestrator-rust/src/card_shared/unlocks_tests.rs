@@ -28,14 +28,18 @@ fn body(op: &str, avatar: Option<&str>) -> full::Command {
     }
 }
 fn found(c: &mut Connection, user: &str, avatar: &str) -> Result<String, String> {
-    let tx = c.transaction_with_behavior(TransactionBehavior::Immediate).unwrap();
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .unwrap();
     unlocks::may_create(&tx, user)?;
     let id = full::found(&tx, user, actor_index(avatar)?, None, now())?;
     tx.commit().unwrap();
     Ok(id)
 }
 fn run(c: &mut Connection, id: &str, user: &str, b: &full::Command) -> Result<Value, String> {
-    let tx = c.transaction_with_behavior(TransactionBehavior::Immediate).unwrap();
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .unwrap();
     let result = full::run(&tx, id, user, b, now());
     if result.is_ok() {
         tx.commit().unwrap();
@@ -58,7 +62,9 @@ fn talk(c: &mut Connection, id: &str) -> Value {
         .find(|a| a["kind"] == "talk" && a["target"] == hidden.as_str())
         .cloned()
         .expect("Vale can talk to the hidden avatar");
-    let tx = c.transaction_with_behavior(TransactionBehavior::Immediate).unwrap();
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .unwrap();
     let result = full_store::commit(
         &tx,
         id,
@@ -78,7 +84,8 @@ fn beside(c: &mut Connection, user: &str) -> String {
     let hidden = w.game["hidden"]["actor"].as_str().unwrap().to_string();
     w.game["actors"]["vale"]["place"] = w.game["actors"][&hidden]["place"].clone();
     w.game.as_object_mut().unwrap().remove("opening");
-    c.execute("DELETE FROM card_full_log WHERE world=?", [&id]).unwrap();
+    c.execute("DELETE FROM card_full_log WHERE world=?", [&id])
+        .unwrap();
     full_store::seed(c, &id, &w, "test-beside", now()).unwrap();
     id
 }
@@ -107,7 +114,9 @@ fn a_locked_avatar_cannot_be_claimed_or_given_a_world() {
     let id = found(&mut c, "ann", "vale").unwrap();
     let refused = run(&mut c, &id, "bob", &body("claim", Some("mara"))).unwrap_err();
     assert!(refused.contains("Mara is still hidden"), "{refused}");
-    assert!(found(&mut c, "bob", "mara").unwrap_err().contains("still hidden"));
+    assert!(found(&mut c, "bob", "mara")
+        .unwrap_err()
+        .contains("still hidden"));
     run(&mut c, &id, "bob", &body("claim", Some("vale"))).unwrap_err();
 }
 
@@ -123,11 +132,17 @@ fn existing_passkeys_keep_every_avatar_they_took() {
     .unwrap();
     drop(c);
     let c = store::open(&path).unwrap();
-    let kept = json!((0..8).filter(|a| [0, 1, 4].contains(a) || actor_id(*a) == "vale").map(actor_id).collect::<Vec<_>>());
+    let kept = json!((0..8)
+        .filter(|a| [0, 1, 4].contains(a) || actor_id(*a) == "vale")
+        .map(actor_id)
+        .collect::<Vec<_>>());
     assert_eq!(unlocked(&c, "ann"), kept);
     // The pass runs once: a later binding is not an unlock.
-    c.execute("INSERT INTO card_bindings(world,actor,user) VALUES('y',5,'ann')", [])
-        .unwrap();
+    c.execute(
+        "INSERT INTO card_bindings(world,actor,user) VALUES('y',5,'ann')",
+        [],
+    )
+    .unwrap();
     drop(c);
     let c = store::open(&path).unwrap();
     assert_eq!(unlocked(&c, "ann"), kept);
@@ -140,8 +155,15 @@ fn talking_to_the_hidden_avatar_unlocks_it_once_and_opens_its_world() {
     let w = full_store::world(&c, &id, now()).unwrap();
     let hidden = w.game["hidden"]["actor"].as_str().unwrap().to_string();
     let result = talk(&mut c, &id);
-    assert!(result["events"].as_array().unwrap().iter().any(|e| e["unlock"] == hidden.as_str()));
-    assert!(unlocked(&c, "ann").as_array().unwrap().contains(&json!(hidden)));
+    assert!(result["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["unlock"] == hidden.as_str()));
+    assert!(unlocked(&c, "ann")
+        .as_array()
+        .unwrap()
+        .contains(&json!(hidden)));
     // The unlocked avatar's own world, which hides one of the six left.
     let list = store::list(&c, "ann").unwrap();
     let worlds = list["worlds"].as_array().unwrap();
@@ -183,5 +205,7 @@ fn once_everyone_is_found_no_new_world_opens() {
         .unwrap();
     }
     assert_eq!(unlocks::pick(&c, "ann", "z", 3).unwrap(), json!({}));
-    assert!(found(&mut c, "ann", actor_id(0)).unwrap_err().contains("Everyone is found"));
+    assert!(found(&mut c, "ann", actor_id(0))
+        .unwrap_err()
+        .contains("Everyone is found"));
 }
