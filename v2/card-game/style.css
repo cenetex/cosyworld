@@ -884,27 +884,17 @@ main {
   border: 0;
   pointer-events: none;
 }
-/* A play's strikes and journeys drop the locked hand to a sliver. */
-.play-dock {
-  transition:
-    transform 280ms ease-in-out,
-    opacity 280ms ease-in-out;
-}
-.play-dock[data-dropped="true"] {
-  transform: translateY(calc(100% - 28px));
-  opacity: 0.6;
-}
-/* The dialogue sinks with the hand to just above its sliver, below the
-   fighters; beside a resting hand it sinks to a strip. Reduced motion fades
-   it out and back in place. */
+/* A play's strikes and journeys leave the locked hand where it is: only the
+   player lowers it. The dialogue above a raised hand fades out of the
+   fighters' way; beside a resting hand it sinks to a strip. Reduced motion
+   fades it out and back in place. */
 body .dialogue {
   transition:
     translate 280ms ease-in-out,
     opacity 280ms ease-in-out;
 }
 body .dialogue[data-dropped="true"] {
-  translate: 0 calc(var(--dock-height) - 34px);
-  opacity: 0.85;
+  opacity: 0;
 }
 .dialogue .beat-behind {
   transition: opacity 280ms ease-in-out;
@@ -1411,9 +1401,10 @@ body .card.want-card[data-met="true"] {
   order: -1;
   padding-bottom: 4px;
 }
-/* A strike or journey drops the hand; its buttons leave with it. */
-.play-dock[data-dropped="true"] > .action-panel {
-  display: none;
+/* A strike or journey hides the buttons and keeps their room, so the hand
+   and the dialogue stay where they are. */
+.play-dock[data-covered="true"] > .action-panel {
+  visibility: hidden;
 }
 /* The action bar's status line: words only, never over the stage (#1725). */
 .play-status {
@@ -1699,6 +1690,7 @@ body[data-hand-expanded="true"] .card .name {
   }
   body[data-hand-expanded="false"] .dialogue[data-dropped="true"] {
     translate: 0 calc(100% - 38px);
+    opacity: 0.85;
   }
   body[data-hand-expanded="false"] .dialogue {
     left: 22px;
@@ -2281,6 +2273,7 @@ main > .dialogue {
     }
     :root body .dialogue[data-dropped="true"] {
       translate: none;
+      opacity: 0.85;
     }
     /* The earlier beat peeks above the front one inside the same box, as
        on wide screens: one dimmed line. The front card gives up the peek's
