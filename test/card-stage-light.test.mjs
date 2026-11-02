@@ -6,6 +6,9 @@ import {
   lightAt,
   lightPath,
   lightStyle,
+  LIGHT_TINTS,
+  nightness,
+  placeLight,
 } from "../v2/card-game/stage-light.mjs";
 import { DAYLIGHT_TURNS, isNight } from "../v2/card-game/daylight.mjs";
 
@@ -83,6 +86,30 @@ describe("stage time of day", () => {
       "--tod-desat": "0",
       "--tod-vignette": "0",
       "--tod-figure": "brightness(1) saturate(1)",
+      "--light-x": "0.5",
+      "--light-y": "0.5",
+      "--light-r": "0.3",
+      "--light-on": "0",
     });
+  });
+});
+
+describe("stage light pools", () => {
+  it("lights pools only as the hour darkens", () => {
+    expect(nightness(12)).toBe(0);
+    expect(nightness(0)).toBeCloseTo(1);
+    expect(nightness(19)).toBeGreaterThan(0);
+  });
+
+  it("keeps authored light conservative and in the painting", () => {
+    expect(placeLight("forest-garden")).toEqual({ sky: 1 });
+    expect(placeLight("nowhere")).toEqual({});
+    expect(placeLight("attic").lights[0]).toMatchObject({ item: "lamp" });
+    for (const id of ["attic", "forest-cottage"])
+      for (const pool of placeLight(id).lights) {
+        expect(pool.x).toBeGreaterThanOrEqual(0);
+        expect(pool.x).toBeLessThanOrEqual(100);
+        expect(LIGHT_TINTS[pool.tint]).toBeDefined();
+      }
   });
 });

@@ -136,6 +136,12 @@
 .stage-grade::after {
   background:
     radial-gradient(
+      circle at calc(var(--art-left) + var(--art-w) * var(--light-x, 0.5))
+        calc(var(--art-top) + var(--art-h) * var(--light-y, 0.5)),
+      rgb(255 226 178 / var(--light-on, 0)),
+      transparent calc(var(--art-h) * var(--light-r, 0.3))
+    ),
+    radial-gradient(
       ellipse 80% 75% at 50% 45%,
       transparent 45%,
       rgb(10 12 34 / var(--tod-vignette, 0))

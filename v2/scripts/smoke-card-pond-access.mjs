@@ -217,8 +217,19 @@ try {
     );
     assert.equal(await card("pond").count(), 0);
     await painted("attic-lit");
-    // Its own paintings carry the light; the stage dims them only at night.
+    // Its own paintings carry the light; the stage dims them only at night,
+    // when the lamp's pool (stage-light.json) stays lit. By day it is unlit.
     assert.equal(await page.locator("body").getAttribute("data-dim"), "false");
+    assert.deepEqual(
+      await page
+        .locator("#stage")
+        .evaluate((stage) =>
+          ["--light-x", "--light-on"].map((name) =>
+            stage.style.getPropertyValue(name),
+          ),
+        ),
+      ["0.65", "0"],
+    );
     // Dousing it shows the Black Pond in the glass and the way out.
     await selectCard(page, "lamp");
     await page.locator("#card-actions .card-primary").click();
