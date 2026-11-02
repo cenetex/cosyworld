@@ -1,5 +1,6 @@
 //! Multiplayer extends the existing authored card world and save format.
 use super::bindings;
+use super::unlocks;
 use super::{
     admit, capacity, db, full_store as store,
     full_world::{actor_id, actor_index, World},
@@ -115,6 +116,8 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
                 }
             }
             let mut value = super::store::list(&c, &u)?;
+            // The avatars this passkey has found (#1936).
+            value["unlocked"] = unlocks::ids(&c, &u)?;
             let time = now();
             for row in value["worlds"]
                 .as_array_mut()
@@ -162,34 +165,51 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
         let tx = c
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sql_error)?;
-        let id = crate::random_hex(24);
-        let time = now();
-        let seed = super::full_world::run_seed(&id);
         let a = actor_index(body.avatar.as_deref().unwrap_or("vale"))?;
-        leave_elsewhere(&tx, &id, &u, a, time)?;
-        let mut w = World::seeded(body.save.as_deref(), Some(seed))?;
-        super::store::create(&tx, &id, &u, time)?;
-        store::seed(&tx, &id, &w, "share-existing-card-world", time)?;
-        let claim = claim_command(&tx, &w, &u, a)?;
-        store::commit(&tx, &id, &mut w, claim, time)?;
-        store::commit(
-            &tx,
-            &id,
-            &mut w,
-            json!({"op":"enter","actor":actor_id(a)}),
-            time,
-        )?;
-        tx.execute(
-            "INSERT INTO card_members(world,actor,user,seen) VALUES(?,?,?,?)",
-            params![id, a, u, time],
-        )
-        .map_err(sql_error)?;
-        bindings::claim(&tx, &id, &u, a)?;
+        unlocks::may_create(&tx, &u)?;
+        let id = found(&tx, &u, a, body.save.as_deref(), now())?;
         tx.commit().map_err(sql_error)?;
         Ok(json!({"id":id}))
     })
     .await;
     reply(result)
+}
+// A new world for one of the passkey's unlocked avatars. A fresh one hides
+// one of its still-locked avatars (unlocks.rs).
+pub(super) fn found(
+    tx: &rusqlite::Connection,
+    u: &str,
+    a: usize,
+    save: Option<&str>,
+    time: i64,
+) -> Result<String> {
+    unlocks::require(tx, u, a)?;
+    let id = crate::random_hex(24);
+    let seed = super::full_world::run_seed(&id);
+    leave_elsewhere(tx, &id, u, a, time)?;
+    let hide = match save {
+        None => unlocks::pick(tx, u, &id, a)?,
+        Some(_) => Value::Null,
+    };
+    let mut w = World::hiding(save, Some(seed), &hide)?;
+    super::store::create(tx, &id, u, time)?;
+    store::seed(tx, &id, &w, "share-existing-card-world", time)?;
+    let claim = claim_command(tx, &w, u, a)?;
+    store::commit(tx, &id, &mut w, claim, time)?;
+    store::commit(
+        tx,
+        &id,
+        &mut w,
+        json!({"op":"enter","actor":actor_id(a)}),
+        time,
+    )?;
+    tx.execute(
+        "INSERT INTO card_members(world,actor,user,seen) VALUES(?,?,?,?)",
+        params![id, a, u, time],
+    )
+    .map_err(sql_error)?;
+    bindings::claim(tx, &id, u, a)?;
+    Ok(id)
 }
 async fn view(State(state): State<AppState>, Path(id): Path<String>, h: HeaderMap) -> Response {
     let worker = state.clone();
@@ -452,6 +472,7 @@ pub(super) fn run(
             return Err("You already have an avatar in this world.".into());
         }
         let a = actor_index(b.avatar.as_deref().ok_or("Choose an avatar.")?)?;
+        unlocks::require(c, u, a)?;
         bindings::claim(c, id, u, a)?;
         leave_elsewhere(c, id, u, a, time)?;
         let claim = claim_command(c, &w, u, a)?;
@@ -488,6 +509,15 @@ pub(super) fn run(
             "release" => {
                 leave(c, id, &mut w, a, &b.op, time)?;
                 retire::if_empty(c, id, u, time)?;
+            }
+            "seek" => {
+                store::commit(
+                    c,
+                    id,
+                    &mut w,
+                    json!({"op":"seek","actor":actor_id(a)}),
+                    time,
+                )?;
             }
             "play" => {
                 if b.key.len() < 16
