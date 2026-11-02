@@ -18,6 +18,7 @@ const RULES = [
   "knowledge.mjs",
   "learning.mjs",
   "legacy-saves.mjs",
+  "level-tiers.mjs",
   "life.mjs",
   "memory.mjs",
   "motives.mjs",

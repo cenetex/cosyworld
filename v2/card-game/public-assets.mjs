@@ -51,6 +51,7 @@ const files = [
   "cast-combat-art.mjs",
   "assets/combat/cast-roster.json",
   ...castCombatAssets,
+  "level-tiers.mjs",
   "rarity.mjs",
   "rarity-portraits.mjs",
   ...rarityPortraitAssets,

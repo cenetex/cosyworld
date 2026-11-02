@@ -6,6 +6,8 @@ mod bindings_tests;
 #[cfg(test)]
 mod boardy_tests;
 #[cfg(test)]
+mod combat_tests;
+#[cfg(test)]
 mod concurrency_tests;
 mod content;
 mod engine;

@@ -75,10 +75,11 @@ describe("card standoffs", () => {
   });
   it("keeps a threat open until both sides stand down", () => {
     let s = meeting();
-    // The more experienced keeper answers with words: one side stands down.
+    // The keeper, a tier above (Uncommon), answers with words: one side
+    // stands down.
     s.actors.keeper.place = "station";
     s.turn = s.revision = 3;
-    s.actors.keeper.xp = 3;
+    s.actors.keeper.carried = s.actors.keeper.xp = 45;
     s = act(s, "threaten", "keeper");
     expect(s.log.some((e) => e.verb === "talk" && e.actorId === "keeper")).toBe(
       true,
@@ -115,7 +116,7 @@ describe("card standoffs", () => {
     s = meeting();
     s.actors.keeper.place = "station";
     s.turn = s.revision = 3;
-    s.actors.keeper.xp = 3;
+    s.actors.keeper.carried = s.actors.keeper.xp = 45;
     s = act(s, "threaten", "keeper");
     expect(standoffFor(s, "vale").steppedBack.keeper).toBe(true);
     s = act(s, "attack", "keeper");
@@ -346,15 +347,17 @@ describe("card standoffs", () => {
   it("lets the winning avatar collect the released item as a card play", () => {
     let s = meeting();
     s.turn = s.revision = 3;
-    s.actors.vale.xp = 1;
+    // Level 10 is a tier above Pip, so Vale outlasts Pip's one-resolve strikes.
+    s.actors.vale.carried = s.actors.vale.xp = 45;
     s = act(s, "threaten", "moth");
-    s = act(s, "attack", "moth");
-    s = act(s, "attack", "moth");
+    // Strikes roll 1 to 3 a tier up, so the fight lasts two to four rounds.
+    for (let i = 0; i < 4 && s.standoffs.length; i++)
+      s = act(s, "attack", "moth");
     expect(s.items.lamp.holder).toBe("station");
     expect(s.items.cloth.holder).toBe("moth");
     expect(s.actors.moth.place).toBe("pond");
     expect(s.standoffs).toEqual([]);
-    expect(levelOf(s, "vale")).toBe(2);
+    expect(levelOf(s, "vale")).toBe(10);
     s = act(s, "take", null, "lamp");
     expect(s.items.lamp.holder).toBe("vale");
   });

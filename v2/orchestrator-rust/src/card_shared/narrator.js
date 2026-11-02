@@ -269,6 +269,22 @@
   var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
   var orderedSymbols = Object.keys(emoji_symbols_default).sort((a, b) => b.length - a.length);
 
+  // v2/card-game/level-tiers.mjs
+  var tiers = [
+    [0, "Common", "#c8dce6"],
+    [10, "Uncommon", "#8cdcff"],
+    [20, "Rare", "#be82ff"],
+    [30, "Epic", "#ffc85a"],
+    [50, "Legendary", "#fff082"],
+    [100, "Mythic", "#ff9ce6"]
+  ].map(([minLevel, label, color], rank) => ({
+    id: label.toLowerCase(),
+    label,
+    color,
+    minLevel,
+    rank
+  }));
+
   // v2/card-game/forest.json
   var forest_default = {
     questsBeginAt: { kind: "arrived", place: "pond" },
@@ -1968,19 +1984,20 @@
         return locationWeather(s, c.place)?.condition === c.condition;
       // A seeded chance: true for `lasts` turns at a time, one window in
       // `odds`, hashed from the run seed so every table agrees.
-      case "chance": {
-        let h = 2166136261;
-        const window = Math.floor((s.turn || 0) / c.lasts);
-        for (const ch of `${s.run?.seed ?? 0}:${c.key}:${window}`)
-          h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
-        return h % c.odds === 0;
-      }
+      case "chance":
+        return runHash(s, `${c.key}:${Math.floor((s.turn || 0) / c.lasts)}`) % c.odds === 0;
       // A transport docked (or just arrived) at a port, or "@sea" between ports.
       case "ship_at":
         return c.dock === "@sea" ? shipAtSea(s, c.transport) : shipDock(s, c.transport) === c.dock;
       default:
         return false;
     }
+  }
+  function runHash(s, key) {
+    let h = 2166136261;
+    for (const ch of `${s.run?.seed ?? 0}:${key}`)
+      h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+    return h;
   }
   var signalReady = (s, c, senses2) => (c.signal?.while || []).every((r) => conditionMet(s, r, senses2, c.packId));
   var windowOpen = (s, c) => !c.signal || (c.signal.opens === null ? crossingState(s, c.id)?.phase === c.signal.steps.length : s.turn < (crossingState(s, c.id)?.until ?? 0));

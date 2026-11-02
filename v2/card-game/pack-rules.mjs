@@ -190,13 +190,12 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return locationWeather(s, c.place)?.condition === c.condition;
     // A seeded chance: true for `lasts` turns at a time, one window in
     // `odds`, hashed from the run seed so every table agrees.
-    case "chance": {
-      let h = 2166136261;
-      const window = Math.floor((s.turn || 0) / c.lasts);
-      for (const ch of `${s.run?.seed ?? 0}:${c.key}:${window}`)
-        h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
-      return h % c.odds === 0;
-    }
+    case "chance":
+      return (
+        runHash(s, `${c.key}:${Math.floor((s.turn || 0) / c.lasts)}`) %
+          c.odds ===
+        0
+      );
     // A transport docked (or just arrived) at a port, or "@sea" between ports.
     case "ship_at":
       return c.dock === "@sea"
@@ -205,6 +204,14 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
     default:
       return false;
   }
+}
+// A seeded number from the run seed and a key (FNV-1a), never Math.random,
+// so the browser and the shared server roll alike and journals replay.
+export function runHash(s, key) {
+  let h = 2166136261;
+  for (const ch of `${s.run?.seed ?? 0}:${key}`)
+    h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return h;
 }
 const signalReady = (s, c, senses) =>
   (c.signal?.while || []).every((r) => conditionMet(s, r, senses, c.packId));

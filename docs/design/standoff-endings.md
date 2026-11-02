@@ -28,7 +28,8 @@ once blows have landed or when it is the challenger that wants the item.
 Once the other side stands down, the resident stands down too, so a
 standoff between a player and a resident ends in the round the player
 stands down. A threatened resident first answers as before: Talk if it
-outranks the challenger, otherwise Brace.
+outranks the challenger (a higher level tier, see
+[combat by tier](combat-by-tier.md)), otherwise Brace.
 
 This is a rules change (`engine` label). `perform()` wraps the play: it
 reads the standoff before the play and records the fighter's stance
