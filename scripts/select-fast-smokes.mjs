@@ -2,7 +2,7 @@
 // Choose the browser smokes for the fast check from the changed paths, using
 // scripts/fast-smokes.json. Prints a JSON array of script names.
 // Usage: node scripts/select-fast-smokes.mjs changed-files.txt
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -41,7 +41,10 @@ if (
 ) {
   const changed = readFileSync(process.argv[2], "utf8")
     .split("\n")
-    .filter(Boolean);
+    // A deleted smoke script has nothing to run.
+    .filter(
+      (file) => file && (!file.startsWith("v2/scripts/") || existsSync(file)),
+    );
   const config = JSON.parse(readFileSync(CONFIG, "utf8"));
   const { checks } = JSON.parse(readFileSync(SHARDS, "utf8"));
   console.log(JSON.stringify(selectSmokes(changed, config, checks)));
