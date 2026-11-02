@@ -142,7 +142,9 @@ try {
     // no actions; a second arms her with Start and Leave, and one tap on
     // Leave releases her (no reset).
     const taviFace = friend.locator('[data-avatar="tavi"] button');
-    const actions = card.locator(".avatar-act");
+    // Its actions are a beat in front of the dialogue, outside ☰.
+    const beat = page.locator(".dialogue > .action-panel");
+    const actions = beat.locator("#card-actions button");
     await taviFace.click();
     assert.equal(await card.getAttribute("data-avatar"), "tavi");
     assert.equal(await taviFace.getAttribute("aria-pressed"), "true");
@@ -155,7 +157,7 @@ try {
     assert.equal(await card.locator(".profile-shuffle img").count(), 3);
     assert.deepEqual(await actions.allInnerTexts(), ["Start", "Leave"]);
     assert.match(
-      await card.locator(".avatar-note").innerText(),
+      await beat.locator(".action-beat-note").innerText(),
       new RegExp(
         `^Tavi keeps their level; the seat in ${worldName(3)} opens\\.$`,
       ),
@@ -166,7 +168,8 @@ try {
     assert.equal(await actions.count(), 0);
     await taviFace.click();
     await taviFace.click();
-    await menu.locator("#avatar-leave").click();
+    // The tap outside closes ☰, which opens again to say what happened.
+    await page.locator("#avatar-leave").click();
     await friend.waitFor({ state: "detached" });
     assert.deepEqual(commands.shift(), ["friend", { op: "release" }]);
     assert.equal(
@@ -180,15 +183,13 @@ try {
     await spare.locator('[data-avatar="mara"] button').click();
     assert.match(await card.innerText(), /Someone · offline/);
     await spare.locator('[data-avatar="mara"] button').click();
-    assert.deepEqual(await card.locator(".avatar-act").allInnerTexts(), [
-      "Free",
-    ]);
+    assert.deepEqual(await actions.allInnerTexts(), ["Free"]);
     // "+" in the spare world offers Vale on the card, and each tap the next
     // avatar that may go there, up to Tavi, who stepped away; she comes.
     const open = spare.locator(".seat-open");
     await open.click();
     assert.equal(await card.getAttribute("data-avatar"), "vale");
-    const bring = menu.locator("#avatar-bring");
+    const bring = page.locator("#avatar-bring");
     assert.match(await bring.innerText(), /^Bring to /);
     await open.click();
     assert.equal(await card.getAttribute("data-avatar"), "rue");

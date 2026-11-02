@@ -154,7 +154,9 @@ try {
     // The card below shows the avatar being played, with no actions until
     // a portrait is tapped twice; a tapped seat shows that avatar's card.
     const card = menu.locator(".profile-card");
-    const actions = card.locator(".avatar-act");
+    // Its actions are a beat in front of the dialogue, outside ☰.
+    const beat = page.locator(".dialogue > .action-panel");
+    const actions = beat.locator("#card-actions button");
     assert.match(await card.innerText(), /Vale[\s\S]*online/);
     assert.equal(await card.getAttribute("data-avatar"), "vale");
     assert.equal(await actions.count(), 0);
@@ -170,7 +172,7 @@ try {
     // just closes ☰.
     await seats.nth(1).locator("button").click();
     assert.deepEqual(await actions.allInnerTexts(), ["Start", "Leave"]);
-    await menu.locator("#avatar-start").click();
+    await page.locator("#avatar-start").click();
     await menu.waitFor({ state: "hidden" });
     await menuToggle.click();
     // A real pointer press outside the popover performs light dismissal.
@@ -182,10 +184,10 @@ try {
     await seats.nth(0).locator("button").click();
     assert.equal(await actions.count(), 0);
     await seats.nth(0).locator("button").click();
-    const free = card.locator("#avatar-free");
+    const free = page.locator("#avatar-free");
     assert.deepEqual(await actions.allInnerTexts(), ["Free"]);
     assert.match(
-      await card.locator(".avatar-note").innerText(),
+      await beat.locator(".action-beat-note").innerText(),
       /Removes Amber Heron's hold and resets Ash/,
     );
     await page.screenshot({
