@@ -1,0 +1,15 @@
+{
+  "opening": ["actor", "place"],
+  "defeat": ["host"],
+  "talk": ["actor", "target"],
+  "refused": ["target"],
+  "threatened": ["target"],
+  "battle_wait": ["actor", "opponent"],
+  "companion": ["target"],
+  "first_meeting": ["newcomer"],
+  "want_met": ["met"],
+  "long_rest": ["actor"],
+  "thought_due": ["actor"],
+  "signal_echo": [],
+  "new_place": ["place"]
+}

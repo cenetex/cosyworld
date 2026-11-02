@@ -42,6 +42,8 @@ import {
 import { knownActors, wantOf } from "./want.mjs";
 import { forgetUnfound, groundedInner } from "./speech-knowledge.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
+import { reflectionDue } from "./reflections.mjs";
+import speech from "./speech.json" with { type: "json" };
 
 // A refusal reaches the brief as its committed code; the refuser's line
 // says why in its own words.
@@ -219,6 +221,137 @@ function groundedLife(world, id) {
   if (!life?.persona || groundedInner(world, id, life.persona))
     return life || null;
   return { ...life, persona: null };
+}
+
+// The occasions on which a play speaks, in the order they are checked.
+// speech.json names who speaks on each; every other play is silent and its
+// action caption carries the beat.
+export const SPEECH_OCCASIONS = [
+  "opening",
+  "defeat",
+  "talk",
+  "refused",
+  "threatened",
+  "battle_wait",
+  "companion",
+  "first_meeting",
+  "want_met",
+  "long_rest",
+  "thought_due",
+  "signal_echo",
+  "new_place",
+];
+
+// The actor's first arrival at this place, read from committed travel.
+function firstArrival(world, location) {
+  const actor = currentActor(world);
+  const arrived = (entry) =>
+    !entry.generated &&
+    entry.locationId === location &&
+    entry.fromLocationId &&
+    entry.fromLocationId !== location &&
+    (entry.actorId === actor ||
+      (entry.verb === "accompany" &&
+        entry.accepted &&
+        entry.targetId === actor));
+  return (
+    world.log.some((entry) => entry.turn === world.turn && arrived(entry)) &&
+    !world.log.some((entry) => entry.turn < world.turn && arrived(entry)) &&
+    (world.actors[actor].visited?.at(-1) ?? location) === location
+  );
+}
+
+// Which occasions this committed play meets, and who speaks for them.
+export function speechOccasions(world, cast) {
+  const actor = currentActor(world);
+  const played = playedEntry(world);
+  const verb = played?.verb;
+  const awake = (id) => !hasTemperament(id) || world.actors[id]?.awake;
+  const near = (id) =>
+    Boolean(id) && id !== actor && cast.audience.includes(id) && awake(id);
+  const thisTurn = world.log.filter(
+    (entry) => entry.turn === world.turn && !entry.generated,
+  );
+  const talked = verb === "talk" || verb === "ask";
+  // The first resident who sought the player out with Talk is answered too.
+  const hailed = talked
+    ? null
+    : thisTurn.find(
+        (e) => e.verb === "talk" && e.targetId === actor && near(e.actorId),
+      )?.actorId;
+  const target = near(played?.targetId) ? played.targetId : hailed || null;
+  const waited = cast.resting === actor;
+  // A battle open now, or one this play closed: closing sets three turns
+  // of peace for each fighter.
+  const conflict = standoffFor(world, actor);
+  const closedNow = (id) => world.peaceUntil?.[id] === world.turn + 3;
+  const fighters = conflict
+    ? fightersOf(conflict)
+    : closedNow(actor)
+      ? Object.keys(world.actors).filter(closedNow)
+      : [];
+  const roles = {
+    actor: [actor],
+    target: [target],
+    host: cast.defeat ? [cast.speakers[0]] : [],
+    opponent: fighters.filter(near),
+    newcomer: cast.present.filter(
+      (id) => near(id) && world.opening?.met[id] === world.turn,
+    ),
+    met: [actor, target].filter((id) =>
+      thisTurn.some((e) => e.verb === "want_met" && e.actorId === id),
+    ),
+    place: [],
+  };
+  const thought = () =>
+    reflectionDue(
+      {
+        rest: cast.rest,
+        resting: actor,
+        turn: world.turn,
+        entities: [
+          { id: actor, memories: speechMemories(world.memories[actor]) },
+        ],
+      },
+      actor,
+      world.memories[actor]?.innerLife,
+    ).thought;
+  const meets = {
+    opening: world.turn === 0,
+    defeat: Boolean(cast.defeat),
+    talk: talked || Boolean(hailed),
+    refused: REFUSED_VERBS.includes(verb) && played.accepted === false,
+    threatened: verb === "threaten" && Boolean(target),
+    battle_wait: waited && fighters.length > 0,
+    companion: verb === "accompany" && played.accepted === true,
+    first_meeting: roles.newcomer.length > 0,
+    want_met: roles.met.length > 0,
+    long_rest: waited && cast.rest === "long",
+    thought_due: waited && thought(),
+    signal_echo: Boolean(
+      played && signalEcho(world, cast.location, turnOutcome(world).card),
+    ),
+    new_place: firstArrival(world, cast.location),
+  };
+  // A defeat has exactly one voice.
+  const occasions = meets.defeat
+    ? ["defeat"]
+    : SPEECH_OCCASIONS.filter((name) => meets[name]);
+  const named = occasions.flatMap((name) => speech[name] || []);
+  const voices = [
+    ...new Set(named.flatMap((role) => roles[role] || [])),
+  ].filter(
+    (id) => id && cast.ids.includes(id) && profiles[id]?.kind === "avatar",
+  );
+  return {
+    occasion: occasions[0] || null,
+    // The player's avatar speaks first, so a waiting avatar can reflect.
+    speakers: [
+      ...voices.filter((id) => id === actor),
+      ...voices.filter((id) => id !== actor),
+    ].slice(0, 3),
+    scenery: named.includes("place"),
+  };
 }
 
 export function narrativeContext(world, action = null) {
@@ -559,6 +692,40 @@ export function applyGeneratedReflections(world, context, response) {
   return validateWorld(next);
 }
 
+// An unfinished crossing signal can get one small reply where it was made.
+function writeEcho(next, context) {
+  const echo =
+    context.outcome?.card &&
+    signalEcho(next, context.location, context.outcome.card);
+  if (!echo) return false;
+  if (
+    !next.log.some(
+      (entry) =>
+        entry.turn === next.turn &&
+        entry.generated &&
+        entry.speaker === echo.speaker,
+    )
+  )
+    addLog(next, echo.speaker, echo.text, {
+      kind: "dialogue",
+      entityId: context.location,
+      generated: true,
+      locationId: context.location,
+    });
+  return true;
+}
+
+// A silent play voices nobody, so it sends no request.
+export function voicesNobody(context) {
+  return !context.speakers.length && !context.scenery && !context.focus;
+}
+
+// A silent play keeps its caption; only an authored echo is written.
+export function applySilentScene(world, context) {
+  const next = structuredClone(world);
+  return writeEcho(next, context) ? validateWorld(next) : world;
+}
+
 export function applyGeneratedText(
   world,
   context,
@@ -612,27 +779,7 @@ export function applyGeneratedText(
     if (entry.reflection)
       saveReflection(next, context, entry, entry.model || response.model);
   }
-  // An unfinished crossing signal can get one small reply where it was made.
-  const echo =
-    context.outcome?.card &&
-    signalEcho(next, context.location, context.outcome.card);
-  if (echo) {
-    if (
-      !next.log.some(
-        (entry) =>
-          entry.turn === next.turn &&
-          entry.generated &&
-          entry.speaker === echo.speaker,
-      )
-    )
-      addLog(next, echo.speaker, echo.text, {
-        kind: "dialogue",
-        entityId: context.location,
-        generated: true,
-        locationId: context.location,
-      });
-    return validateWorld(next);
-  }
+  if (writeEcho(next, context)) return validateWorld(next);
   const changes = sceneChanges(next);
   // Words are written after the play commits, so a speaker who left this turn
   // already stands at the destination. The line belongs to that scene's cast.
@@ -1002,6 +1149,14 @@ export function createNarrator({
       while (pending) {
         const { action, version } = pending;
         pending = null;
+        const quiet = limit(narrativeContext(getWorld(), action));
+        if (voicesNobody(quiet)) {
+          started(quiet);
+          preview(null);
+          apply(applySilentScene(getWorld(), quiet));
+          status("ready");
+          continue;
+        }
         controller = new AbortController();
         status("pending");
         const revision = getWorld().revision;
