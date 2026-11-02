@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { narrativeContractCases } from "../../test/fixtures/card-narrative-contexts.mjs";
+import { createNarrator, voicesNobody } from "../card-game/narrative.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const binary =
@@ -73,6 +74,7 @@ async function send(name, context, expected, headers = {}, raw) {
       JSON.parse(body).error,
       "Story generation is waiting for its model connection.",
     );
+  return body;
 }
 
 try {
@@ -95,10 +97,41 @@ try {
   }
   assert.ok(ready, `Contract server did not start: ${output}`);
   const cases = narrativeContractCases();
+  const voiced = cases.filter(({ context }) => !voicesNobody(context));
+  const silent = cases.filter(({ context }) => voicesNobody(context));
+  assert.ok(voiced.length > 0, "Voiced fixture coverage is required");
+  assert.ok(silent.length > 0, "Silent fixture coverage is required");
   // 503 with this exact body proves a real browser request passed Rust's JSON
   // extraction and semantic validation, then stopped before any model call.
-  for (const { name, context } of cases) await send(name, context, 503);
-  const context = cases[0].context;
+  for (const { name, context } of voiced) await send(name, context, 503);
+  // Silent plays finish locally; sending one directly must still be rejected.
+  for (const { name, context, world } of silent) {
+    let current = world,
+      requests = 0;
+    const statuses = [];
+    const narrator = createNarrator({
+      getWorld: () => current,
+      apply: (next) => (current = next),
+      status: (value) => statuses.push(value),
+      request: async () => {
+        requests++;
+        throw new Error(`${name}: a silent scene requested generation`);
+      },
+    });
+    try {
+      narrator.changed();
+      await new Promise(setImmediate);
+      assert.equal(requests, 0, name);
+      assert.deepEqual(statuses, ["ready"], name);
+    } finally {
+      narrator.invalidate();
+    }
+    assert.equal(
+      JSON.parse(await send(name, context, 400)).error,
+      "Use the current scene and its saved memories.",
+    );
+  }
+  const context = voiced[0].context;
   await send(
     "null conversation actor",
     { ...context, conversation: [{ actorId: null, text: "bong" }] },
@@ -119,7 +152,7 @@ try {
     Origin: "https://elsewhere.example",
   });
   console.log(
-    `Card narrative contract: ${cases.length} real browser scenes accepted; rejection classes remain distinct; no model calls.`,
+    `Card narrative contract: ${voiced.length} voiced scenes accepted; ${silent.length} silent scenes skip generation and reject direct requests; rejection classes remain distinct; no model calls.`,
   );
 } finally {
   if (server.exitCode === null && !spawnError) {
