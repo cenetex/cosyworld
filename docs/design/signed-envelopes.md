@@ -61,38 +61,55 @@ The code is `v2/orchestrator-rust/src/signed_envelope.rs` (`KeyRing::sign`,
 
 ## Keys
 
-- `COSYWORLD_SIGNING_KEY` holds the current private key as
-  `<kid>:<base64url 32-byte Ed25519 seed>`. It is a Fly secret, generated
-  outside the repository. No key is committed; tests generate their own.
-- `COSYWORLD_SIGNING_PUBLIC_KEYS` lists retired public keys as
-  comma-separated `<kid>:<base64url public key>`, so content they signed keeps
-  verifying.
+- **First start makes the key.** With no key yet, the server generates an
+  Ed25519 key and keeps it in a `signing_keys` table (`kid`, `seed`,
+  `created_at`, `retired_at`) in its event database
+  (`COSYWORLD_V2_EVENT_DB_PATH`, on the app's volume), so volume backups
+  carry it with the journal. Later starts load it. The log names the new
+  `kid` once and never the seed. No secret needs setting.
+- **Elsewhere.** The desktop runtime (`COSYWORLD_LOCAL_APP=1`) keeps its keys
+  in `<COSYWORLD_LOCAL_DATA_DIR>/signing-keys.json` (mode 600). A process
+  with only a snapshot path keeps them in `cosyworld-signing-keys.json` beside
+  the snapshot. A process with neither (tests) signs with a temporary
+  `ephemeral-…` key and logs a warning; its envelopes stop verifying on
+  restart, and the words they carried are left out of context, not refused.
+- **Override.** `COSYWORLD_SIGNING_KEY` (`<kid>:<base64url 32-byte seed>`)
+  is optional. When set it signs instead of the stored key, for recovery or
+  for several machines that must share one key; the stored keys keep
+  verifying. A set but malformed value stops startup.
+- **Rotation.** Start once with `COSYWORLD_SIGNING_KEY_ROTATE=<new kid>`. If
+  the store has no key by that id, startup makes it current and marks the old
+  one retired; retired keys keep verifying. Leaving the variable set is
+  harmless, because the rotation happens only once per id. A leaked key is
+  rotated the same way, then its row is deleted so it stops verifying.
+- `COSYWORLD_SIGNING_PUBLIC_KEYS` lists further public keys to accept, as
+  comma-separated `<kid>:<base64url public key>` (for example another
+  server's or a deleted key's).
 - `GET /.well-known/cosyworld-signing-keys.json` publishes every key with its
   `kid`, `alg`, `current` flag and public key.
-- Without a configured key, each process makes an ephemeral one (kid
-  `ephemeral-…`). Its envelopes stop verifying on restart or on another
-  machine, and the words they carried are left out of context, not refused.
 
-Create a key (the seed never leaves your terminal and the secret store):
+**Machines.** `.dev` (`cosyworld`) and Lonely Forest (`cosyworld-lonelyforest`)
+each run one machine with one `/data` volume (`fly.toml`,
+`fly.lonelyforest.toml`), so each app's key lives on that volume. Processes
+that share one event database share its keys. Machines with separate volumes
+would each make their own key, and a word signed on one would be left out on
+another; give such a deployment one `COSYWORLD_SIGNING_KEY` instead.
+
+To make a key for the override:
 
 ```sh
 node -e 'const {generateKeyPairSync}=require("crypto");
 const {privateKey,publicKey}=generateKeyPairSync("ed25519");
 const seed=privateKey.export({format:"der",type:"pkcs8"}).subarray(-32);
 const pub=publicKey.export({format:"der",type:"spki"}).subarray(-32);
-const kid="lf-"+new Date().toISOString().slice(0,7);
+const kid=process.argv[1]+"-"+new Date().toISOString().slice(0,7);
 console.log("COSYWORLD_SIGNING_KEY="+kid+":"+seed.toString("base64url"));
-console.log("public: "+kid+":"+pub.toString("base64url"));'
+console.log("public: "+kid+":"+pub.toString("base64url"));' lf
 ```
 
-Set it with `fly secrets set --stage COSYWORLD_SIGNING_KEY=… -a <app>` and let
-the next deploy pick it up. A plain `fly secrets set` during a rollout has
+Stage it with `fly secrets set --stage COSYWORLD_SIGNING_KEY=… -a <app>` so
+the next deploy picks it up. A plain `fly secrets set` during a rollout has
 reverted that rollout before.
-
-Rotate: make a new key, append the old `kid:public` to
-`COSYWORLD_SIGNING_PUBLIC_KEYS`, stage both secrets, and deploy. Drop a
-retired key from the list only when nothing it signed still matters. A
-leaked key is rotated the same way but dropped at once.
 
 ## First use: local dialogue
 
@@ -102,6 +119,24 @@ leaked key is rotated the same way but dropped at once.
 (`v2/card-game/signed-words.mjs`) and sends them back with the words they
 cover. The server refuses an unsigned or altered word with 400 and leaves out
 a word signed by an unlisted key ([untrusted input](../../v2/docs/card-table/shared-worlds.md#untrusted-input)).
+
+What a returned word is checked against (`card_narrative/untrusted.rs`):
+
+| Claim                       | Enforced                                                                                                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content`, `kind`, `entity` | Must match the word, its field and its speaker; otherwise 400.                                                                                                      |
+| `world`                     | Must be `local`; otherwise 400.                                                                                                                                     |
+| `rules`                     | Must name this build family (`cosyworld-orchestrator/…`); otherwise 400. Any version verifies, so remembered words survive a release.                               |
+| `turn`                      | No later than the scene's turn. A thought or dream must carry its own turn, and a remembered line must be no later than its memory. Otherwise the word is left out. |
+| `seq`                       | No later than the scene's revision; otherwise left out.                                                                                                             |
+| `iat`                       | No more than five minutes in the future; otherwise left out.                                                                                                        |
+
+A word that fails a binding check is left out rather than refused, because
+the browser keeps envelopes by text and an honest player can meet the same
+words in another save. Local play has no world or run id, so `seq` is not
+checked as strictly increasing per run: a word replayed into the same save
+at an equal or later point still verifies. Shared journal rows, which carry
+a world id and sequence, would close that.
 
 ## Toward everything (sketch)
 

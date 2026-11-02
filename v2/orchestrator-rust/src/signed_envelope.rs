@@ -188,18 +188,270 @@ impl KeyRing {
     }
 }
 
-/// The server's key ring, read once from `COSYWORLD_SIGNING_KEY` and
-/// `COSYWORLD_SIGNING_PUBLIC_KEYS`. Without a key, each process makes an
-/// ephemeral one: content it signed stops verifying after a restart.
+/// Where a server keeps the signing keys it generates for itself.
+#[derive(Clone, Debug, Default)]
+pub(crate) enum KeyStore {
+    /// A `signing_keys` table in the event database on the app's volume, so
+    /// volume backups and restores carry the keys with the journal.
+    Sqlite(std::path::PathBuf),
+    /// A JSON file (mode 600), for a runtime without an event database such
+    /// as the desktop app.
+    File(std::path::PathBuf),
+    /// Nowhere: tests and throwaway processes sign with a temporary key.
+    #[default]
+    Memory,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct KeyPolicy {
+    pub store: KeyStore,
+    /// `COSYWORLD_SIGNING_KEY_ROTATE`: a new key id. When the store has no
+    /// key by that id, startup makes one, makes it current and retires the
+    /// old one, whose public key keeps verifying.
+    pub rotate: Option<String>,
+}
+
+impl KeyPolicy {
+    /// The store for this process: the desktop app's data folder, else the
+    /// event database, else a file beside the snapshot.
+    pub(crate) fn from_env() -> Self {
+        let var = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty());
+        let local_app = std::env::var("COSYWORLD_LOCAL_APP").as_deref() == Ok("1");
+        let store = match (
+            var("COSYWORLD_LOCAL_DATA_DIR").filter(|_| local_app),
+            var("COSYWORLD_V2_EVENT_DB_PATH"),
+            var("COSYWORLD_V2_SNAPSHOT_PATH"),
+        ) {
+            (Some(dir), _, _) => {
+                KeyStore::File(std::path::PathBuf::from(dir).join("signing-keys.json"))
+            }
+            (None, Some(db), _) => KeyStore::Sqlite(db.into()),
+            (None, None, Some(snapshot)) => KeyStore::File(
+                std::path::Path::new(&snapshot).with_file_name("cosyworld-signing-keys.json"),
+            ),
+            _ => KeyStore::Memory,
+        };
+        Self {
+            store,
+            rotate: std::env::var("COSYWORLD_SIGNING_KEY_ROTATE")
+                .ok()
+                .map(|kid| kid.trim().to_string())
+                .filter(|kid| !kid.is_empty()),
+        }
+    }
+}
+
+/// A key the server made for itself.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct StoredKey {
+    kid: String,
+    seed: String,
+    created_at: u64,
+    retired_at: Option<u64>,
+}
+
+fn unix_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
+fn new_key(kid: Option<&str>) -> StoredKey {
+    let key = SigningKey::from_bytes(&rand::random::<[u8; 32]>());
+    let kid = kid.map_or_else(
+        || {
+            format!(
+                "k-{}",
+                &content_hash(&URL_SAFE_NO_PAD.encode(key.verifying_key().as_bytes()))[..12]
+            )
+        },
+        str::to_string,
+    );
+    StoredKey {
+        kid,
+        seed: URL_SAFE_NO_PAD.encode(key.to_bytes()),
+        created_at: unix_now(),
+        retired_at: None,
+    }
+}
+
+/// The stored keys after first start and any rotation: exactly one current.
+/// `Ok(Some(kid))` names a key made now.
+fn settle(keys: &mut Vec<StoredKey>, rotate: Option<&str>) -> Result<Option<String>, String> {
+    if let Some(kid) = rotate {
+        if !printable(kid) || kid.contains(['"', '\\', ':', ',']) {
+            return Err("COSYWORLD_SIGNING_KEY_ROTATE must be a short printable key id".into());
+        }
+        if !keys.iter().any(|k| k.kid == kid) {
+            let now = unix_now();
+            for key in keys.iter_mut().filter(|k| k.retired_at.is_none()) {
+                key.retired_at = Some(now);
+            }
+            keys.push(new_key(Some(kid)));
+            return Ok(Some(kid.to_string()));
+        }
+    }
+    if keys.iter().any(|k| k.retired_at.is_none()) {
+        return Ok(None);
+    }
+    let key = new_key(None);
+    let kid = key.kid.clone();
+    keys.push(key);
+    Ok(Some(kid))
+}
+
+fn sqlite_keys(
+    path: &std::path::Path,
+    rotate: Option<&str>,
+) -> Result<(Vec<StoredKey>, Option<String>), String> {
+    let failed = |e: rusqlite::Error| format!("signing keys in {}: {e}", path.display());
+    let mut conn = rusqlite::Connection::open(path).map_err(failed)?;
+    conn.busy_timeout(std::time::Duration::from_secs(10))
+        .map_err(failed)?;
+    let tx = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(failed)?;
+    tx.execute_batch(
+        "CREATE TABLE IF NOT EXISTS signing_keys (
+            kid TEXT PRIMARY KEY,
+            seed TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            retired_at INTEGER
+        )",
+    )
+    .map_err(failed)?;
+    let mut keys: Vec<StoredKey> = tx
+        .prepare(
+            "SELECT kid, seed, created_at, retired_at FROM signing_keys ORDER BY created_at, kid",
+        )
+        .map_err(failed)?
+        .query_map([], |row| {
+            Ok(StoredKey {
+                kid: row.get(0)?,
+                seed: row.get(1)?,
+                created_at: row.get::<_, i64>(2)?.max(0) as u64,
+                retired_at: row.get::<_, Option<i64>>(3)?.map(|t| t.max(0) as u64),
+            })
+        })
+        .map_err(failed)?
+        .collect::<Result<_, _>>()
+        .map_err(failed)?;
+    let made = settle(&mut keys, rotate)?;
+    for key in &keys {
+        tx.execute(
+            "INSERT INTO signing_keys (kid, seed, created_at, retired_at) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(kid) DO UPDATE SET retired_at = excluded.retired_at",
+            rusqlite::params![
+                key.kid,
+                key.seed,
+                key.created_at as i64,
+                key.retired_at.map(|t| t as i64)
+            ],
+        )
+        .map_err(failed)?;
+    }
+    tx.commit().map_err(failed)?;
+    Ok((keys, made))
+}
+
+fn file_keys(
+    path: &std::path::Path,
+    rotate: Option<&str>,
+) -> Result<(Vec<StoredKey>, Option<String>), String> {
+    let mut keys: Vec<StoredKey> = match std::fs::read_to_string(path) {
+        Ok(text) => serde_json::from_str(&text)
+            .map_err(|e| format!("signing keys in {}: {e}", path.display()))?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(e) => return Err(format!("signing keys in {}: {e}", path.display())),
+    };
+    let made = settle(&mut keys, rotate)?;
+    if made.is_some() {
+        let temp = path.with_extension("json.tmp");
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+        let text = serde_json::to_vec(&keys).expect("keys serialize");
+        options
+            .open(&temp)
+            .and_then(|mut file| std::io::Write::write_all(&mut file, &text))
+            .and_then(|()| std::fs::rename(&temp, path))
+            .map_err(|e| format!("signing keys in {}: {e}", path.display()))?;
+    }
+    Ok((keys, made))
+}
+
+/// The key ring: `COSYWORLD_SIGNING_KEY` (`signing`) when set, otherwise the
+/// current key in the store, made on first start. Every stored key and every
+/// `COSYWORLD_SIGNING_PUBLIC_KEYS` entry (`retired`) keeps verifying.
+pub(crate) fn load(
+    signing: Option<&str>,
+    retired: Option<&str>,
+    policy: &KeyPolicy,
+) -> Result<KeyRing, String> {
+    let configured = signing.filter(|s| !s.trim().is_empty());
+    let (stored, made) = match &policy.store {
+        KeyStore::Sqlite(path) => sqlite_keys(path, policy.rotate.as_deref())?,
+        KeyStore::File(path) => file_keys(path, policy.rotate.as_deref())?,
+        KeyStore::Memory => (Vec::new(), None),
+    };
+    if let Some(kid) = made {
+        tracing::info!(%kid, "made a new signing key");
+    }
+    let current = stored.iter().rev().find(|k| k.retired_at.is_none());
+    let mut ring = match (configured, current) {
+        (Some(_), _) => KeyRing::new(configured, retired)?,
+        (None, Some(key)) => KeyRing::new(Some(&format!("{}:{}", key.kid, key.seed)), retired)?,
+        (None, None) => {
+            tracing::warn!(
+                "no signing key store: this process signs with a temporary key, so \
+                 remembered words stop verifying on restart"
+            );
+            KeyRing::new(None, retired)?
+        }
+    };
+    for key in &stored {
+        let (kid, seed) = key_part(&format!("{}:{}", key.kid, key.seed))
+            .ok_or_else(|| format!("stored signing key {} is malformed", key.kid))?;
+        let seed: [u8; 32] = seed.try_into().expect("32 bytes");
+        ring.verifying
+            .entry(kid)
+            .or_insert_with(|| SigningKey::from_bytes(&seed).verifying_key());
+    }
+    Ok(ring)
+}
+
+static KEYS: OnceLock<KeyRing> = OnceLock::new();
+
+/// Load the key ring at startup (`load` with `KeyPolicy::from_env`). `Err`,
+/// such as a malformed `COSYWORLD_SIGNING_KEY` or an unreadable store,
+/// stops the server.
+pub(crate) fn init() -> Result<(), String> {
+    let signing = std::env::var("COSYWORLD_SIGNING_KEY").ok();
+    let retired = std::env::var("COSYWORLD_SIGNING_PUBLIC_KEYS").ok();
+    let ring = load(
+        signing.as_deref(),
+        retired.as_deref(),
+        &KeyPolicy::from_env(),
+    )?;
+    tracing::info!(kid = %ring.kid, "signing with key");
+    let _ = KEYS.set(ring);
+    Ok(())
+}
+
+/// The server's key ring (`init`). A process that never ran `init`, such as
+/// a test, signs with a temporary key.
 pub(crate) fn keys() -> &'static KeyRing {
-    static KEYS: OnceLock<KeyRing> = OnceLock::new();
     KEYS.get_or_init(|| {
         let signing = std::env::var("COSYWORLD_SIGNING_KEY").ok();
         let retired = std::env::var("COSYWORLD_SIGNING_PUBLIC_KEYS").ok();
-        KeyRing::new(signing.as_deref(), retired.as_deref()).unwrap_or_else(|failure| {
-            tracing::error!(%failure, "signing keys are invalid; using an ephemeral key");
-            KeyRing::new(None, None).expect("ephemeral key")
-        })
+        load(
+            signing.as_deref(),
+            retired.as_deref(),
+            &KeyPolicy::default(),
+        )
+        .or_else(|_| KeyRing::new(None, None))
+        .expect("temporary key")
     })
 }
 
@@ -268,6 +520,66 @@ mod tests {
         assert_eq!(listed["keys"][0]["current"], true);
         assert_eq!(listed["keys"][1]["kid"], "k7");
         assert!(KeyRing::new(Some("no-colon"), None).is_err());
+    }
+
+    fn temp(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("cosy-signing-{}", rand::random::<u64>()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.join(name)
+    }
+
+    #[test]
+    fn first_start_makes_a_key_and_later_starts_reload_it() {
+        for store in [
+            KeyStore::Sqlite(temp("events.sqlite")),
+            KeyStore::File(temp("signing-keys.json")),
+        ] {
+            let policy = KeyPolicy {
+                store: store.clone(),
+                rotate: None,
+            };
+            let first = load(None, None, &policy).unwrap();
+            assert!(first.kid.starts_with("k-"), "{store:?}");
+            let envelope = first.sign(claims("Hello."));
+            let again = load(None, None, &policy).unwrap();
+            assert_eq!(again.kid, first.kid, "{store:?}");
+            assert_eq!(again.verify(&envelope), Verdict::Valid);
+            if let KeyStore::File(path) = &store {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let mode = std::fs::metadata(path).unwrap().permissions().mode();
+                    assert_eq!(mode & 0o077, 0);
+                }
+            }
+            // The environment key overrides the stored one, which still verifies.
+            let overridden = load(Some(&seed(7)), None, &policy).unwrap();
+            assert_eq!(overridden.kid, "k7");
+            assert_eq!(overridden.verify(&envelope), Verdict::Valid);
+            // Rotation makes a new current key once; old words keep verifying.
+            let rotate = KeyPolicy {
+                store: store.clone(),
+                rotate: Some("k-2026-12".into()),
+            };
+            let rotated = load(None, None, &rotate).unwrap();
+            assert_eq!(rotated.kid, "k-2026-12");
+            assert_eq!(rotated.verify(&envelope), Verdict::Valid);
+            assert_eq!(load(None, None, &rotate).unwrap().kid, "k-2026-12");
+            let listed = load(None, None, &policy).unwrap().public_keys();
+            assert_eq!(listed["keys"][0]["kid"], "k-2026-12");
+            assert!(listed["keys"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|k| k["kid"] == first.kid.as_str() && k["current"] == false));
+        }
+        // A set but malformed override stops startup; no store signs with a
+        // temporary key.
+        assert!(load(Some("k1:short"), None, &KeyPolicy::default()).is_err());
+        assert!(load(None, None, &KeyPolicy::default())
+            .unwrap()
+            .kid
+            .starts_with("ephemeral-"));
     }
 
     #[test]
