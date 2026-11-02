@@ -807,6 +807,15 @@ h2 {
 .travel.travelling {
   opacity: 1;
 }
+/* Driven off: the scene slowly fades to black under the defeat card. */
+.travel.fainting {
+  opacity: 1;
+  background: #000;
+  transition-duration: var(--faint-ms, 1.4s);
+}
+.travel.fainting:not(.travelling) > * {
+  visibility: hidden;
+}
 
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -2751,7 +2760,7 @@ main > .dialogue {
   color: #e5cb92;
   font-size: 14px;
 }
-/* First-arrival Lonely Forest title (title-intro.mjs). */
+/* The new-world Lonely Forest title (title-intro.mjs). */
 .title-intro {
   position: fixed;
   inset: 0;

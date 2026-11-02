@@ -2,7 +2,7 @@ import { setupLocalService } from "./local-service.mjs";
 import { showBuildInfo } from "./build-info.mjs";
 import { membersLock } from "./shared-auth.mjs";
 import { playTitleIntro, titleIntroWanted } from "./title-intro.mjs";
-// A first arrival sees the Lonely Forest title over the booting table.
+// A new world opens with the Lonely Forest title over the booting table.
 let storage = null;
 try {
   storage = localStorage;

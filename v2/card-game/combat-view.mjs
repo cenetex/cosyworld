@@ -21,6 +21,7 @@ import {
 } from "./combat-beats.mjs";
 
 const SPEED_KEY = "cosyworld.combat-speed";
+const FAINT_MS = 1400;
 
 export function combatSpeed() {
   try {
@@ -133,6 +134,7 @@ export function createCombatView({
   reducedMotion,
   revealLine,
   dialog,
+  veil,
 }) {
   let animations = [],
     added = [],
@@ -521,6 +523,15 @@ export function createCombatView({
     finishAnimations();
     runner.finishBeat();
   };
+  // Being driven off is losing consciousness: the scene fades slowly to
+  // black (faster at 2x; reduced motion cuts) under the defeat card. It stays
+  // dark until the travel veil takes over (app.mjs removes `fainting`).
+  const faint = async () => {
+    if (!veil) return;
+    veil.style.setProperty("--faint-ms", `${Math.round(FAINT_MS / speed)}ms`);
+    veil.classList.add("fainting");
+    await Promise.allSettled(veil.getAnimations().map((a) => a.finished));
+  };
   let defeatDone = null;
   const continueButton = dialog.querySelector("[data-combat-continue]");
   const closeDefeat = () => {
@@ -557,7 +568,7 @@ export function createCombatView({
     },
     finishBeat,
     // Wait for the player on a defeat card. Resolves on Continue.
-    defeat(beat) {
+    async defeat(beat) {
       const summary = defeatSummary(beat);
       dialog.querySelector("[data-combat-title]").textContent = summary.title;
       const list = dialog.querySelector("[data-combat-changes]");
@@ -569,6 +580,10 @@ export function createCombatView({
         }),
       );
       announce.textContent = `${summary.title}. ${summary.changes.join(" ")}`;
+      const mine = portraitRun;
+      await faint();
+      // A cleanup during the fade (a cancelled scene) shows no card.
+      if (mine !== portraitRun) return;
       return new Promise((resolve) => {
         defeatDone = resolve;
         dialog.showModal();

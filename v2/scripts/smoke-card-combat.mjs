@@ -288,6 +288,13 @@ try {
       .locator('#cast [data-avatar="vale"] .combat-word')
       .last()
       .textContent();
+    // The scene fades toward black before the defeat card opens.
+    await page.locator("#travel.fainting").waitFor();
+    await page.waitForTimeout(motion === "reduce" ? 0 : 500);
+    await page.screenshot({
+      path: new URL(`faint-${opponent}-${width}-${motion}.png`, output)
+        .pathname,
+    });
     await page.locator("#defeat-dialog[open]").waitFor();
     // The striker and Vale step forward together; Pip waits behind.
     const rows = await page.evaluate(() => window.battleRows);
@@ -349,9 +356,19 @@ try {
       new RegExp(`${nameOf(opponent)} drove you off`, "u"),
     );
     // The player decides when to move on; the place has not changed yet.
+    // Being driven off fades the scene to black under the card.
     await page.waitForTimeout(600);
     assert.equal(await page.locator("#defeat-dialog[open]").count(), 1);
     assert.equal(await page.locator("#travel.travelling").count(), 0);
+    assert.deepEqual(
+      await page.$eval("#travel", (veil) => [
+        veil.classList.contains("fainting"),
+        getComputedStyle(veil).opacity,
+        getComputedStyle(veil).backgroundColor,
+      ]),
+      [true, "1", "rgb(0, 0, 0)"],
+      "The scene has faded to black",
+    );
     await page.screenshot({
       path: new URL(`defeat-${opponent}-${width}-${motion}.png`, output)
         .pathname,
@@ -382,6 +399,7 @@ try {
     await page.waitForFunction(
       () => !document.querySelector("#travel.travelling"),
     );
+    assert.equal(await page.locator("#travel.fainting").count(), 0);
     // Each fighter's step and the defeat join Memory as beats.
     await page.evaluate(() =>
       document.querySelector("#history-button").click(),
