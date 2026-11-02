@@ -121,9 +121,10 @@ phone keeps them on the right and wraps their words instead. ☰ borrows the
 same beat for a chosen avatar ([avatar menu](avatar-menu.md)). The spoken beat settles behind it as one dimmed line: the card behind. With
 a card chosen the player still steps through the stack: use ↑ and ↓ (from
 the hand too), the wheel or a swipe anywhere on the stack, and "● live"
-returns. A tap on that line moves the lines on; it never steps back. The
-line crossfades as it steps. Nothing steps back in time without the
-player's input.
+returns. The line crossfades as it steps. A tap on the dimmed line
+moves the lines on; it never steps back. Nothing steps back in time without
+the player's input. The action beat shows only while choosing
+([what is in front](#what-is-in-front)).
 
 When a play commits, its box folds into the stream: it eases down onto the
 front card, the beat the play became (its caption line, or the Thinking card
@@ -147,6 +148,27 @@ The hand never moves for it.
 Combat keeps its stage animations. Each fighter's step also becomes a beat as
 it lands, for example "⚔ Pip struck Vale. Vale stumbled.", and the defeat lands on
 the loser's beat.
+
+## What is in front
+
+One phase decides what the dialogue box shows (`phase()` in
+`v2/card-game/presentation.mjs`, #2017). In order of precedence:
+
+| Phase     | When                                                      | In front                                   |
+| --------- | --------------------------------------------------------- | ------------------------------------------ |
+| revealing | the live line is being written, or the exchange has more  | the line, in its full-size card            |
+| thinking  | a play is queued or committed and its words have not come | the Thinking card                          |
+| choosing  | the hand is raised with a choice, and none of the above   | the action beat, the spoken beat behind it |
+| failed    | the scene's words did not arrive                          | the beat with Retry                        |
+| reviewing | the player stepped back behind live                       | the earlier beat, with ● live              |
+| idle      | otherwise                                                 | the latest beat                            |
+
+The action beat shows only while choosing. Cards chosen during a line wait
+for it: the line keeps its full card, and the play comes forward once the
+exchange is read. A shared refusal waits for the line too. A tap anywhere
+on a card that is being written, portrait and name included, finishes it.
+Clicking off the cards, like Escape, clears the choice: the action beat
+fades and the full dialogue card comes back.
 
 ## Memory
 
