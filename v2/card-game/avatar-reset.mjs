@@ -27,6 +27,12 @@ export function resetAvatar(world, id) {
     else delete world.life.actors[id];
   }
   if (world.knowledge?.known) delete world.knowledge.known[id];
+  // A telling a Talk reserved for or by the avatar goes with what it knew,
+  // or the world would hold a speaker who no longer knows the fact.
+  if (Array.isArray(world.knowledge?.pending))
+    world.knowledge.pending = world.knowledge.pending.filter(
+      (p) => p.speaker !== id && p.listener !== id,
+    );
   if (world.routeKnowledge) {
     if (fresh.routeKnowledge?.[id])
       world.routeKnowledge[id] = structuredClone(fresh.routeKnowledge[id]);

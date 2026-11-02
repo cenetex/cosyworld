@@ -21,8 +21,24 @@ export async function request(path, body, headers = {}) {
   });
   const result = await response.json();
   if (!response.ok || result.error)
-    throw new Error(result.error || "The world is taking a moment. Try again.");
+    throw new Error(
+      playerText(result.error) || "The world is taking a moment. Try again.",
+      { cause: result.error },
+    );
   return result;
+}
+// A shared world belongs to everyone in it, so a rules refusal to load it
+// reads as a world waiting for an update, never a local fresh start.
+export const WORLD_UPDATE =
+  "This world is waiting for an update. Everything in it is kept. Try again soon.";
+// The server names where the rules refused a save ("validateWorld:7217 <
+// ..."). That trace is for the console; the player reads one sentence.
+export function playerText(message) {
+  if (typeof message !== "string" || !message) return message;
+  const trace = /\s*\((?:[\w$.]+:\d+)(?: < [\w$.]+:\d+)*\)$/u;
+  if (trace.test(message)) console.warn(`Shared rules refusal: ${message}`);
+  const text = message.replace(trace, "");
+  return /fresh start|New game/u.test(text) ? WORLD_UPDATE : text;
 }
 export async function passkey(register = false) {
   if (!window.PublicKeyCredential || !navigator.credentials)

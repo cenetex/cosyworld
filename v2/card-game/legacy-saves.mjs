@@ -1149,6 +1149,10 @@ export function upgradeForestButtonsSave(s) {
     for (const id of FOREST_RETIRED_ITEMS) delete life.attachments?.[id];
     forget(life);
   }
+  // A wish, lesson or standoff over a retired thing is let go too: RATi's
+  // first want was the story button, so without this every revision-1 world
+  // failed validation on its next load (2026-11-01).
+  forgetRetiredThings(s, retired);
   saved.revision = 2;
 }
 

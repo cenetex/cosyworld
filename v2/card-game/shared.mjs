@@ -1,5 +1,5 @@
 import { imageUrl } from "./images.mjs";
-import { request, passkey } from "./shared-auth.mjs";
+import { request, passkey, WORLD_UPDATE } from "./shared-auth.mjs";
 import { createSharedSync } from "./shared-sync.mjs";
 import roster from "./shared-cast.json" with { type: "json" };
 import { worldNameOf } from "./world-name.mjs";
@@ -52,8 +52,6 @@ function showError(error) {
 }
 // A shared world belongs to everyone in it, so no one starts it over. A
 // rules refusal to load it means the world waits for an update.
-const WORLD_UPDATE =
-  "This world is waiting for an update. Everything in it is kept. Try again soon.";
 const PAUSED = "The world is taking a moment. Everything in it is kept.";
 export function sharedError(error) {
   return /fresh start|New game/.test(error?.message || "")
