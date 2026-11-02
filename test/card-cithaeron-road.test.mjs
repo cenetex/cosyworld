@@ -3,9 +3,9 @@ import { decodeSave, encodeSave, exits } from "../v2/card-game/world.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 
-// The Cithaeron road leads from the battlefield to Eleusis while a Theban
+// The Cithaeron road leads from the battlefield to Eleusis once a Theban
 // account of the burial is at the battlefield or on Dione's table in the
-// courtyard: the
+// courtyard, and stays open after: the
 // Burial Account, Creon's Writ or the Guard's Tablet. The way back from
 // Eleusis is always open.
 const reload = (s) => decodeSave(encodeSave(s));
@@ -22,13 +22,10 @@ describe("the Cithaeron road", () => {
     const s = fixture.closed;
     expect(s.items["greek-burial-account"].holder).toBe("greek-courtyard");
     expect(out(s)).toBe(true);
-    // Taken from Dione's table, it closes the road.
-    s.items["greek-burial-account"].holder = "greek-well";
-    expect(out(s)).toBe(false);
-    // Laid at the battlefield, the account opens it again.
-    s.items["greek-burial-account"].holder = "greek-battlefield";
-    expect(out(s)).toBe(true);
-    s.items["greek-burial-account"].holder = "greek-well";
+    // Taken from Dione's table, it leaves the road open.
+    const opened = reload(s);
+    opened.items["greek-burial-account"].holder = "greek-well";
+    expect(out(opened)).toBe(true);
     // Creon's Writ and the Guard's Tablet open it the same way.
     const gates = packDefinition("greek-drama").routes.filter(
       (r) => r.to === ROAD,

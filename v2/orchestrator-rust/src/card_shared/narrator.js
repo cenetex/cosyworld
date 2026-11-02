@@ -1944,6 +1944,8 @@
         return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));
       case "shared_world":
         return sharedEnabled(s);
+      case "gate_open":
+        return Boolean(s.openedRoutes?.includes(`${c.from}>${c.to}`));
       case "connected_humans":
         return sharedEnabled(s) && humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum;
       case "item_near": {
@@ -2627,14 +2629,9 @@
                     phase: "night"
                   },
                   {
-                    kind: "holding",
-                    item: "greek-decree",
-                    actor: "greek-guard"
-                  },
-                  {
-                    kind: "item_near",
-                    item: "greek-decree",
-                    place: "greek-gate"
+                    kind: "gate_open",
+                    from: "greek-gate",
+                    to: "greek-battlefield"
                   }
                 ]
               },
@@ -2646,14 +2643,9 @@
                     phase: "day"
                   },
                   {
-                    kind: "holding",
-                    item: "greek-decree",
-                    actor: "greek-guard"
-                  },
-                  {
-                    kind: "item_near",
-                    item: "greek-decree",
-                    place: "greek-gate"
+                    kind: "gate_open",
+                    from: "greek-gate",
+                    to: "greek-battlefield"
                   }
                 ]
               }
@@ -12523,6 +12515,7 @@
         routes: [
           {
             from: "forest-oak",
+            live: true,
             to: "forest-trail",
             requires: [
               {
@@ -13890,7 +13883,8 @@
     "ship_at",
     "drawn",
     "chance",
-    "upgraded"
+    "upgraded",
+    "gate_open"
   ];
   var AT_SEA = "@sea";
   var WEATHER_CONDITIONS = ["clear", "cloud", "rain", "mist"];
@@ -14415,6 +14409,10 @@
           case "shared_world":
             ok = keysOk(c, ["kind"]);
             break;
+          // A gate route this world has opened for good (pack-registry.mjs).
+          case "gate_open":
+            ok = keysOk(c, ["kind", "from", "to"]) && anyPlace(c.from) && anyPlace(c.to);
+            break;
           case "connected_humans":
             ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
             break;
@@ -14480,7 +14478,8 @@
       "daylight",
       "drawn",
       "chance",
-      "upgraded"
+      "upgraded",
+      "gate_open"
     ].includes(c?.kind);
     const requirements = (cs, what, persistent = true) => {
       if (cs === void 0) return;
@@ -14554,7 +14553,7 @@
     const routes = pack.routes || [];
     for (const r of routes) {
       check(
-        keysOk(r, ["from", "to", "requires"]) && owns2(places2, r.from) && owns2(places2, r.to) && r.from !== r.to,
+        keysOk(r, ["from", "to", "requires", "live"]) && (r.live === void 0 || r.live === true) && owns2(places2, r.from) && owns2(places2, r.to) && r.from !== r.to,
         "routes must stay within their pack"
       );
       requirements(r.requires, "route requires");
@@ -15224,10 +15223,26 @@
       return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place);
     return pack.release.places.includes(id) || pack.release.avatars.includes(id) || pack.release.items.includes(id);
   }
+  var routeKey = (r) => `${r.from}>${r.to}`;
+  var latching = packDefinitions.flatMap(
+    (pack) => (pack.routes || []).filter((r) => r.requires?.length && !r.live).map((route) => ({ pack: pack.id, route }))
+  );
+  var latchKeys = new Set(latching.map(({ route }) => routeKey(route)));
+  var routeOpen = (world, packId, r) => !r.live && Boolean(world.openedRoutes?.includes(routeKey(r))) || conditionsMet(world, packId, r.requires);
+  function latchRoutes(world) {
+    for (const { pack, route } of latching) {
+      const key = routeKey(route);
+      if (route.live || world.openedRoutes?.includes(key)) continue;
+      if (!conditionsMet(world, pack, route.requires)) continue;
+      world.openedRoutes = [...world.openedRoutes || [], key].sort();
+    }
+    return world;
+  }
+  var validOpenedRoutes = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.every((key, i) => latchKeys.has(key) && (!i || list[i - 1] < key));
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
-        (r) => r.from === place && conditionsMet(world, pack.id, r.requires) && (humanAvatarIds.includes(actor) || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || owns3(pack.places, r.from) && owns3(pack.places, r.to))
+        (r) => r.from === place && routeOpen(world, pack.id, r) && (humanAvatarIds.includes(actor) || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || owns3(pack.places, r.from) && owns3(pack.places, r.to))
       ).map((r) => r.to)
     );
     return routes.filter(
@@ -17218,7 +17233,7 @@
     if (s.run !== void 0 && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
       fail();
     if (!validPackState(s, sensesFor(s))) fail();
-    if (!validHidden(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
+    if (!validOpenedRoutes(s.openedRoutes) || !validHidden(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
       fail();
     if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)))
       fail();
@@ -17382,6 +17397,7 @@
     const s = JSON.parse(text2);
     try {
       upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
+      latchRoutes(s);
       validateWorld(s);
       preserveTransportAccess(s);
     } catch (error) {

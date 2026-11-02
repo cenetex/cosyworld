@@ -83,6 +83,7 @@ export const CONDITION_KINDS = [
   "drawn",
   "chance",
   "upgraded",
+  "gate_open",
 ];
 // The `ship_at` dock for a ship sailing between ports.
 export const AT_SEA = "@sea";
@@ -933,6 +934,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "shared_world":
           ok = keysOk(c, ["kind"]);
           break;
+        // A gate route this world has opened for good (pack-registry.mjs).
+        case "gate_open":
+          ok =
+            keysOk(c, ["kind", "from", "to"]) &&
+            anyPlace(c.from) &&
+            anyPlace(c.to);
+          break;
         case "connected_humans":
           ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
           break;
@@ -1046,6 +1054,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           "drawn",
           "chance",
           "upgraded",
+          "gate_open",
         ].includes(c?.kind);
   const requirements = (cs, what, persistent = true) => {
     if (cs === undefined) return;
@@ -1138,7 +1147,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   const routes = pack.routes || [];
   for (const r of routes) {
     check(
-      keysOk(r, ["from", "to", "requires"]) &&
+      keysOk(r, ["from", "to", "requires", "live"]) &&
+        (r.live === undefined || r.live === true) &&
         owns(places, r.from) &&
         owns(places, r.to) &&
         r.from !== r.to,

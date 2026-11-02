@@ -90,6 +90,8 @@ import {
   entityActive,
   actorCanVisit,
   packExits,
+  latchRoutes,
+  validOpenedRoutes,
   packChoices,
   applyPackChoice,
   applyMeetingChoices,
@@ -2606,6 +2608,8 @@ export function play(
   fillWants(next, wantAPI(next));
   // A round of waits still ends a standoff nobody would carry on.
   settleStandoffs(next);
+  // A gate whose condition now holds stays open from here on.
+  latchRoutes(next);
   for (const [id, allowance] of Object.entries(
     next.sharedMigration?.inventoryAllowances || {},
   )) {
@@ -2758,6 +2762,7 @@ export function validateWorld(s) {
     fail();
   if (!validPackState(s, sensesFor(s))) fail();
   if (
+    !validOpenedRoutes(s.openedRoutes) ||
     !validHidden(s) ||
     (s.hidden && !Object.hasOwn(places, s.hidden.place))
   )
@@ -3129,6 +3134,8 @@ export function decodeSave(text) {
   const s = JSON.parse(text);
   try {
     upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
+    // An earlier save records the gates already open as it loads.
+    latchRoutes(s);
     validateWorld(s);
     preserveTransportAccess(s);
   } catch (error) {

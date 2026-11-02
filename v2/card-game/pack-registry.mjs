@@ -360,13 +360,41 @@ export function entityEnabled(world, id, saved = false) {
     pack.release.items.includes(id)
   );
 }
+// A gate stays open once opened: the first time a pack route's condition
+// holds, the world records it in `openedRoutes` and the way stays open for
+// everyone, even after the condition lapses. A `live: true` route is a
+// toggle that only opens while its condition holds.
+const routeKey = (r) => `${r.from}>${r.to}`;
+const latching = packDefinitions.flatMap((pack) =>
+  (pack.routes || [])
+    .filter((r) => r.requires?.length && !r.live)
+    .map((route) => ({ pack: pack.id, route })),
+);
+const latchKeys = new Set(latching.map(({ route }) => routeKey(route)));
+const routeOpen = (world, packId, r) =>
+  (!r.live && Boolean(world.openedRoutes?.includes(routeKey(r)))) ||
+  conditionsMet(world, packId, r.requires);
+export function latchRoutes(world) {
+  for (const { pack, route } of latching) {
+    const key = routeKey(route);
+    if (route.live || world.openedRoutes?.includes(key)) continue;
+    if (!conditionsMet(world, pack, route.requires)) continue;
+    world.openedRoutes = [...(world.openedRoutes || []), key].sort();
+  }
+  return world;
+}
+export const validOpenedRoutes = (list) =>
+  list === undefined ||
+  (Array.isArray(list) &&
+    list.length > 0 &&
+    list.every((key, i) => latchKeys.has(key) && (!i || list[i - 1] < key)));
 export function packExits(world, place, actor = null) {
   const routes = packDefinitions.flatMap((pack) =>
     (pack.routes || [])
       .filter(
         (r) =>
           r.from === place &&
-          conditionsMet(world, pack.id, r.requires) &&
+          routeOpen(world, pack.id, r) &&
           (humanAvatarIds.includes(actor) ||
             roamingQuestActor(actor) ||
             packPeople[actor]?.personalQuests ||

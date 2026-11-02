@@ -126,6 +126,8 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));
     case "shared_world":
       return sharedEnabled(s);
+    case "gate_open":
+      return Boolean(s.openedRoutes?.includes(`${c.from}>${c.to}`));
     case "connected_humans":
       return (
         sharedEnabled(s) &&

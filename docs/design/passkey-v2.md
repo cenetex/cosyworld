@@ -82,7 +82,12 @@ The owner settled this on 2026-11-01.
   narration line with `unlock: <avatar>` ("Mara remembers Vale.") and
   records the talker in `hidden.met`. Later Talks add nothing.
 - **Seek.** The `seek` command gives its avatar the plain person quest to
-  talk to the hidden avatar: the menu's "+ Find *Mara*".
+  talk to the hidden avatar: the menu's "+ Find _Mara_".
+
+The same mint latches gates (owner, 2026-11-01): a pack route opens for good
+the first time its condition holds, recorded in `world.openedRoutes`, unless
+it is marked `live`. An earlier save records the gates already open as it
+loads ([pack guide](../../v2/docs/card-packs.md)).
 
 Rules 85 and earlier replay unchanged; worlds created before rules 86 hide
 nobody.
