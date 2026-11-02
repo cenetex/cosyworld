@@ -25,6 +25,7 @@ import {
   upgradeTransportState,
 } from "./pack-transport.mjs";
 import { installKnowledge } from "./knowledge.mjs";
+import { questSteps } from "./want.mjs";
 import { newTemperament } from "./pack-rules.mjs";
 import forest from "./forest.json" with { type: "json" };
 
@@ -106,6 +107,12 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     // Rules 89 replaced sleeping until the light changes with Sleep: a
     // sleeper from before simply wakes.
     for (const a of Object.values(s.actors || {})) delete a?.sleepUntil;
+    // Rules 90 shortened level quests: one in progress keeps at most the
+    // steps its level now has.
+    for (const a of Object.values(s.actors || {}))
+      for (const w of [a?.want, ...(a?.under || [])])
+        if (w?.quest && w.quest.left > questSteps(w.quest.level) + 1)
+          w.quest.left = questSteps(w.quest.level) + 1;
     // An open standoff gains who has stood down; nobody has yet.
     for (const c of Array.isArray(s.standoffs) ? s.standoffs : [])
       if (c && !c.steppedBack && c.challenger && c.defender)

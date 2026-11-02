@@ -138,11 +138,27 @@ const grievanceRules = [
 export function recordReaction(s, a, witnesses, accepted, entry) {
   if (!hasMotives(s)) return;
   const incident = `event:${entry.seq}`;
+  // What the incident took or damaged: a threat's stake or what a beaten
+  // avatar dropped, or the light spoiled. A gift of it answers the incident.
+  const involved = (kind) =>
+    kind === "threat"
+      ? (entry.droppedItemIds?.[0] ?? a.item)
+      : kind === "light"
+        ? s.items[a.target]
+          ? a.target
+          : a.item
+        : null;
   const add = (id, reason, kind) => {
     if (id === a.actor || !witnesses.includes(id)) return;
     const list = s.motives.grievances[id];
     const prior = list.find((g) => g.other === a.actor && g.kind === kind);
-    const fresh = { incident, lastTouched: s.turn, repaired: false };
+    const item = involved(kind);
+    const fresh = {
+      incident,
+      lastTouched: s.turn,
+      repaired: false,
+      ...(item ? { item } : {}),
+    };
     if (prior) {
       Object.assign(prior, fresh, {
         weight: Math.min(3, prior.weight + 1),
@@ -199,24 +215,32 @@ export function recordReaction(s, a, witnesses, accepted, entry) {
 }
 const touchVerbs = ["give", "trade", "attack", "threaten", "accompany"];
 // An accepted gift handed to a recipient present and aggrieved with its giver
-// answers the recipient's latest open incident. Otherwise it repairs nothing.
+// repairs only when it answers an open incident: it returns what the incident
+// took or damaged, or it is the recipient's current want. Any other gift is
+// an ordinary gift. The want is read before the gift settles it.
 export function repairAnswer(s, a, accepted, witnesses) {
   if (a.kind !== "give" || !accepted || !witnesses.includes(a.target))
     return null;
+  const want = s.actors[a.target]?.want;
+  const wanted = want?.kind === "item" && want.target === a.item;
   const g = (s.motives?.grievances[a.target] || [])
-    .filter((g) => g.other === a.actor && !g.repaired && g.incident)
+    .filter(
+      (g) =>
+        g.other === a.actor &&
+        !g.repaired &&
+        g.incident &&
+        (wanted || g.item === a.item),
+    )
     .at(-1);
   return g ? { recipient: a.target, incident: g.incident } : null;
 }
-// Whoever knows a repair, by witnessing or hearing it, closes its grievance
-// against the giver for that incident. Closed is dormant, not deleted.
-export function closeRepaired(s, holder, fact) {
-  if (fact.source.kind !== "repair") return;
-  for (const g of s.motives?.grievances[holder] || [])
-    if (
-      g.other === fact.source.actorId &&
-      g.incident === fact.source.answers.incident
-    )
+// A repair closes the recipient's own grievance for that incident and no
+// one else's: witnesses and hearers learn of it, and their grudges keep to
+// the dormancy clock. Closed is dormant, not deleted.
+export function closeRepaired(s, fact) {
+  const { recipient, incident } = fact.source.answers;
+  for (const g of s.motives?.grievances[recipient] || [])
+    if (g.other === fact.source.actorId && g.incident === incident)
       g.repaired = true;
 }
 // Tastes steer valuations only; a liking stated in the prompt became the
@@ -264,7 +288,9 @@ export function validMotives(s) {
               (Number.isSafeInteger(g.lastTouched) &&
                 g.lastTouched >= g.turn &&
                 g.lastTouched <= s.turn)) &&
-            (g.repaired === undefined || typeof g.repaired === "boolean"),
+            (g.repaired === undefined || typeof g.repaired === "boolean") &&
+            (g.item === undefined ||
+              (typeof g.item === "string" && g.item.length <= 80)),
         ),
     )
   );

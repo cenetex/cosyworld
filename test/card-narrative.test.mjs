@@ -198,13 +198,10 @@ describe("entity memories and model text", () => {
         .find((e) => e.id === "lamp")
         .memories.some((e) => e.text.includes("Vale takes")),
     ).toBe(true);
+    // Met with nothing beneath, Vale is content until she sleeps.
     const vale = context.entities.find((e) => e.id === "vale");
-    const want = world.actors.vale.want;
-    expect(vale.desire).toEqual({
-      items: want.kind === "item" ? [want.target] : [],
-      location: want.kind === "place" ? want.target : null,
-      avatars: want.kind === "person" ? [want.target] : [],
-    });
+    expect(world.actors.vale).toMatchObject({ want: null, content: true });
+    expect(vale.desire).toEqual({ items: [], location: null, avatars: [] });
     expect(context.entities.every((e) => e.facts.length <= 16)).toBe(true);
     context.scenery = true;
     const next = applyGeneratedText(world, context, response(context));
