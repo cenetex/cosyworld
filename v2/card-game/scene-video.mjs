@@ -164,6 +164,9 @@ export function installSceneVideo({ getWorld, getScene }) {
       ).json();
       const options = sceneVideoOptions(model, frame);
       const id = crypto.randomUUID();
+      const scope = credits.world
+        ? `?world=${encodeURIComponent(credits.world)}`
+        : "";
       report(`Making a ${options.duration} second video from these lines…`);
       await call("/card-game/video", {
         method: "POST",
@@ -180,13 +183,15 @@ export function installSceneVideo({ getWorld, getScene }) {
       for (const deadline = Date.now() + 15 * 60_000; ; ) {
         await wait(3000, signal);
         const job = await (
-          await call(`/card-game/video/${id}`, { signal })
+          await call(`/card-game/video/${id}${scope}`, { signal })
         ).json();
         if (job.status === "completed") break;
         if (job.status !== "processing") {
           void credits.refresh();
           throw new Error(
-            `The video needs a fresh request (${job.status}). ${job.error || ""}${job.refunded ? " Your credits were returned." : ""}`,
+            job.status === "submission_unknown"
+              ? job.error
+              : `The video needs a fresh request (${job.status}). ${job.error || ""}${job.refunded ? " Your credits were returned." : ""}`,
           );
         }
         if (Date.now() > deadline)
@@ -194,7 +199,7 @@ export function installSceneVideo({ getWorld, getScene }) {
         report("Your video is being made…");
       }
       const blob = await (
-        await call(`/card-game/video/${id}/content`, { signal })
+        await call(`/card-game/video/${id}/content${scope}`, { signal })
       ).blob();
       resultUrl = URL.createObjectURL(blob);
       $("scene-video-player").src = resultUrl;

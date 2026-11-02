@@ -6,7 +6,7 @@
 use std::path::{Path as FsPath, PathBuf};
 
 use axum::{
-    extract::{DefaultBodyLimit, Path, State},
+    extract::{DefaultBodyLimit, Path, Query, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -18,6 +18,9 @@ use serde_json::{json, Map, Value};
 
 use super::credits::{self, clips, Payer, Spend, SpendKind};
 use crate::{ai_gateway::AiConfig, AppState};
+
+#[path = "card_video/reservations.rs"]
+mod reservations;
 
 /// TBC Mischief 1, the camera's default film model.
 const MODEL: &str = "tbc/mischief-1";
@@ -46,11 +49,11 @@ async fn provider(
     config: &AiConfig,
     path: &str,
     body: Option<&Value>,
-) -> Result<reqwest::Response, String> {
+) -> Result<reqwest::Response, (String, bool)> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(60))
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| (e.to_string(), false))?;
     let url = format!("{}/{path}", config.base_url);
     let request = match body {
         Some(body) => client.post(url).json(body),
@@ -65,13 +68,26 @@ async fn provider(
         )
         .send()
         .await
-        .map_err(|_| "The video provider could not be reached.".to_string())?;
+        .map_err(|_| {
+            (
+                "The video provider could not be reached.".to_string(),
+                false,
+            )
+        })?;
     if response.status().is_success() {
         Ok(response)
     } else {
-        Err(format!(
-            "The video provider answered {}.",
-            response.status().as_u16()
+        // Timeout/conflict and server errors may still concern accepted work.
+        let rejected = matches!(
+            response.status().as_u16(),
+            400 | 401 | 402 | 403 | 404 | 413 | 415 | 422 | 429
+        );
+        Err((
+            format!(
+                "The video provider answered {}.",
+                response.status().as_u16()
+            ),
+            rejected,
         ))
     }
 }
@@ -82,7 +98,8 @@ async fn provider_json(
     body: Option<&Value>,
 ) -> Result<Value, String> {
     provider(config, path, body)
-        .await?
+        .await
+        .map_err(|(reason, _)| reason)?
         .json()
         .await
         .map_err(|e| e.to_string())
@@ -134,7 +151,7 @@ fn jobs(c: &rusqlite::Connection) -> rusqlite::Result<()> {
             "ALTER TABLE credit_video_jobs ADD COLUMN world_id TEXT NOT NULL DEFAULT ''",
         )?;
     }
-    Ok(())
+    reservations::schema(c)
 }
 
 /// Run one store step off the async workers.
@@ -164,20 +181,6 @@ async fn store<T: Send + 'static>(
             "Credits need another moment.",
         )),
     }
-}
-
-/// A film's provider job and the world whose pool paid ("" for the player).
-fn job_of(
-    c: &mut rusqlite::Connection,
-    user: &str,
-    id: &str,
-) -> rusqlite::Result<Option<(String, String)>> {
-    c.query_row(
-        "SELECT job_id, world_id FROM credit_video_jobs WHERE user_id = ?1 AND request_id = ?2",
-        params![user, id],
-        |row| Ok((row.get(0)?, row.get(1)?)),
-    )
-    .optional()
 }
 
 fn valid_id(id: &str) -> bool {
@@ -276,84 +279,177 @@ async fn begin(
     {
         return fail(StatusCode::FORBIDDEN, "Join this world to film it.");
     }
-    let (u, w, i) = (user.to_owned(), world.to_owned(), id.to_owned());
-    let spent = match store(path, move |c| {
-        if job_of(c, &u, &i)?.is_some() {
-            return Ok(None);
-        }
-        credits::spend(c, Payer::of(&w, &u), SpendKind::Video, &i).map(Some)
-    })
-    .await
-    {
+    let (u, w, i, body) = (
+        user.to_owned(),
+        world.to_owned(),
+        id.to_owned(),
+        request.clone(),
+    );
+    let spent = match store(path, move |c| reservations::reserve(c, &u, &w, &i, &body)).await {
         Ok(spent) => spent,
         Err(response) => return response,
     };
     match spent {
-        None => {
-            return reply(
-                StatusCode::OK,
-                json!({"request_id": id, "status": "submitted"}),
+        reservations::Reservation::Existing(state) => return submission_status(id, &state),
+        reservations::Reservation::Conflict => {
+            return fail(
+                StatusCode::CONFLICT,
+                "This request ID cannot be used for these video settings.",
             )
         }
-        Some(Spend::Insufficient { balance, price }) => {
+        reservations::Reservation::Insufficient { balance, price } => {
             let reason = if world.is_empty() { "credits" } else { "pool" };
             return reply(
                 StatusCode::PAYMENT_REQUIRED,
                 json!({"error": "A scene video needs 100 credits.", "reason": reason, "balance": balance, "price": price}),
             );
         }
-        Some(_) => {}
+        reservations::Reservation::Ready => {}
     }
-    let submitted =
-        match crate::ai_gateway::enforce_server_paid_daily_limit(config, "card_video").await {
-            Ok(_budget) => provider_json(config, "videos", Some(request)).await,
-            Err(_) => Err("The server video budget is spent for today.".into()),
+    let (path, config, u, w, i, body) = (
+        path.to_owned(),
+        config.clone(),
+        user.to_owned(),
+        world.to_owned(),
+        id.to_owned(),
+        request.clone(),
+    );
+    // Keep the receipt write alive when the browser disconnects.
+    match tokio::spawn(async move { submit(&path, &config, &u, &w, &i, &body).await }).await {
+        Ok(response) => response,
+        Err(_) => submission_status(id, "submission_unknown"),
+    }
+}
+
+fn submission_status(id: &str, state: &str) -> Response {
+    reply(
+        StatusCode::OK,
+        json!({"request_id": id, "status": state,
+        "refunded": state == "rejected" || state == "failed",
+        "error": if state == "submission_unknown" { "The provider may have accepted this video. Do not submit it again; its receipt needs review." } else { "" }}),
+    )
+}
+
+async fn submit(
+    path: &FsPath,
+    config: &AiConfig,
+    user: &str,
+    world: &str,
+    id: &str,
+    request: &Value,
+) -> Response {
+    let budget = crate::ai_gateway::enforce_server_paid_daily_limit(config, "card_video").await;
+    if budget.is_err() {
+        let (u, w, i) = (user.to_owned(), world.to_owned(), id.to_owned());
+        return match store(path, move |c| {
+            reservations::finish(
+                c,
+                &u,
+                &w,
+                &i,
+                "failed",
+                "",
+                "Server video budget unavailable",
+            )
+        })
+        .await
+        {
+            Ok(changed) => submission_status(id, if changed { "failed" } else { "processing" }),
+            Err(response) => response,
         };
+    }
+    let (u, w, i) = (user.to_owned(), world.to_owned(), id.to_owned());
+    match store(path, move |c| reservations::claim(c, &u, &w, &i)).await {
+        Ok(true) => {}
+        Ok(false) => return submission_status(id, "processing"),
+        Err(response) => return response,
+    }
+    let submitted = match provider(config, "videos", Some(request)).await {
+        Ok(response) => response
+            .json::<Value>()
+            .await
+            .map_err(|e| (e.to_string(), false)),
+        Err(error) => Err(error),
+    };
     let job = submitted.and_then(|job| {
         job["id"]
             .as_str()
             .filter(|j| !j.is_empty() && j.len() <= 200)
             .map(str::to_owned)
-            .ok_or_else(|| "The video provider sent no job.".to_string())
+            .ok_or_else(|| ("The video provider sent no job.".to_string(), false))
     });
     let (u, w, i) = (user.to_owned(), world.to_owned(), id.to_owned());
-    match job {
-        Ok(job) => match store(path, move |c| {
-            c.execute(
-                "INSERT INTO credit_video_jobs (user_id, request_id, job_id, created_at_unix, world_id) VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![u, i, job, crate::util::now_unix_secs() as i64, w],
-            )
-        })
-        .await
-        {
-            Ok(_) => reply(StatusCode::OK, json!({"request_id": id, "status": "submitted"})),
-            Err(response) => response,
-        },
-        Err(reason) => {
-            let note = reason.clone();
-            let _ = store(path, move |c| credits::refund(c, Payer::of(&w, &u), SpendKind::Video, &i, &note)).await;
-            reply(StatusCode::BAD_GATEWAY, json!({"error": "The video needs a fresh request.", "detail": reason}))
-        }
+    let (status, job, detail) = match job {
+        Ok(job) => ("submitted", job, String::new()),
+        Err((reason, rejected)) => (
+            if rejected {
+                "rejected"
+            } else {
+                "submission_unknown"
+            },
+            String::new(),
+            reason,
+        ),
+    };
+    match store(path, move |c| {
+        reservations::finish(c, &u, &w, &i, status, &job, &detail)
+    })
+    .await
+    {
+        Ok(_) => submission_status(id, status),
+        Err(response) => response,
     }
+}
+
+#[derive(Default, Deserialize)]
+struct Scope {
+    #[serde(default)]
+    world: String,
+}
+
+async fn lookup(
+    path: &FsPath,
+    user: &str,
+    world: &str,
+    id: &str,
+) -> Result<Option<(String, String, String)>, Response> {
+    let (u, w, i) = (user.to_owned(), world.to_owned(), id.to_owned());
+    store(path, move |c| {
+        if !w.is_empty() && !clips::plays_in(c, &w, &u)? {
+            return Ok(None);
+        }
+        reservations::get(c, &u, &w, &i)
+    })
+    .await
 }
 
 async fn status(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<String>,
+    Query(scope): Query<Scope>,
 ) -> Response {
     let (user, path, config) = match context(&state, &headers) {
         Ok(context) => context,
         Err(response) => return response,
     };
-    poll(&path, &config, &user, &id).await
+    poll(&path, &config, &user, &scope.world, &id).await
 }
 
-async fn poll(path: &FsPath, config: &AiConfig, user: &str, id: &str) -> Response {
-    let (u, i) = (user.to_owned(), id.to_owned());
-    let Ok(Some((job, world))) = store(path, move |c| job_of(c, &u, &i)).await else {
+async fn poll(path: &FsPath, config: &AiConfig, user: &str, world: &str, id: &str) -> Response {
+    let Ok(Some((job, world, state))) = lookup(path, user, world, id).await else {
         return fail(StatusCode::NOT_FOUND, "Film the current scene again.");
     };
+    if job.is_empty() {
+        return submission_status(
+            id,
+            if state == "reserved" || state == "submitting" {
+                "processing"
+            } else {
+                &state
+            },
+        );
+    }
     let job_status = match provider_json(config, &format!("videos/{}", urlencode(&job)), None).await
     {
         Ok(job) => job,
@@ -411,14 +507,21 @@ async fn content(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<String>,
+    Query(scope): Query<Scope>,
 ) -> Response {
     let (user, path, config) = match context(&state, &headers) {
         Ok(context) => context,
         Err(response) => return response,
     };
-    let Ok(Some((job, _))) = store(&path, move |c| job_of(c, &user, &id)).await else {
+    let Ok(Some((job, _, _))) = lookup(&path, &user, &scope.world, &id).await else {
         return fail(StatusCode::NOT_FOUND, "Film the current scene again.");
     };
+    if job.is_empty() {
+        return fail(
+            StatusCode::CONFLICT,
+            "This video has no confirmed provider receipt yet.",
+        );
+    }
     let bytes = match provider(
         &config,
         &format!("videos/{}/content?index=0", urlencode(&job)),
@@ -427,7 +530,7 @@ async fn content(
     .await
     {
         Ok(response) => response.bytes().await.map_err(|e| e.to_string()),
-        Err(reason) => Err(reason),
+        Err((reason, _)) => Err(reason),
     };
     match bytes {
         Ok(bytes) if !bytes.is_empty() && bytes.len() <= MAX_VIDEO => (
@@ -483,6 +586,229 @@ mod tests {
             .await
             .unwrap();
         (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    #[tokio::test]
+    async fn shared_routes_reserve_once_across_disconnect_and_unknown_acceptance() {
+        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+        use sha2::{Digest, Sha256};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use tokio::sync::{Notify, Semaphore};
+        use tower::ServiceExt;
+        let path = std::env::temp_dir().join(format!(
+            "video-reservations-{}.sqlite",
+            crate::random_hex(8)
+        ));
+        let count = Arc::new(AtomicUsize::new(0));
+        let entered = Arc::new(Notify::new());
+        let release = Arc::new(Semaphore::new(0));
+        let (n, arrive, gate) = (count.clone(), entered.clone(), release.clone());
+        let provider = Router::new()
+            .route(
+                "/videos",
+                post(move |Json(body): Json<Value>| {
+                    let (n, arrive, gate) = (n.clone(), arrive.clone(), gate.clone());
+                    async move {
+                        n.fetch_add(1, Ordering::SeqCst);
+                        arrive.notify_one();
+                        gate.acquire().await.unwrap().forget();
+                        if body["prompt"] == "rejected" {
+                            return (
+                                StatusCode::BAD_REQUEST,
+                                Json(json!({"error": "unsupported duration"})),
+                            );
+                        }
+                        (
+                            StatusCode::ACCEPTED,
+                            Json(if body["prompt"] == "lost receipt" {
+                                json!({"status": "pending"})
+                            } else {
+                                json!({"id": "job-one"})
+                            }),
+                        )
+                    }
+                }),
+            )
+            .route(
+                "/videos/{id}",
+                get(|| async { Json(json!({"status": "completed"})) }),
+            )
+            .route("/videos/{id}/content", get(|| async { "video bytes" }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let config = AiConfig {
+            api_key: "test-secret".into(),
+            base_url: format!("http://{}", listener.local_addr().unwrap()),
+            ..AiConfig::default()
+        };
+        let server = tokio::spawn(async move { axum::serve(listener, provider).await.unwrap() });
+        let mut state =
+            crate::test_support::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+        state.ai_config = Arc::new(Some(config));
+        let mut c = credits::open(&path).unwrap();
+        for user in ["u1", "u2", "outsider"] {
+            c.execute(
+                "INSERT INTO auth_users VALUES (?1, ?1, ?1, 'active', 0, 0)",
+                [user],
+            )
+            .unwrap();
+            let hash = URL_SAFE_NO_PAD.encode(Sha256::digest(user.as_bytes()));
+            c.execute(
+                "INSERT INTO auth_sessions VALUES (?1, ?2, 0, 0, 0, 9999999999, NULL)",
+                params![hash, user],
+            )
+            .unwrap();
+        }
+        c.execute_batch(
+            "CREATE TABLE card_members(world TEXT, actor INTEGER, user TEXT, seen INTEGER);
+            CREATE TABLE card_bindings(world TEXT, actor INTEGER, user TEXT);
+            INSERT INTO card_members VALUES ('w1', 0, 'u1', 0), ('w1', 1, 'u2', 0);",
+        )
+        .unwrap();
+        credits::grant(&mut c, "u1", 400, "pack", "").unwrap();
+        credits::pool::commit(&mut c, "u1", "w1", 300, "pool").unwrap();
+        jobs(&c).unwrap();
+        let body = json!({"model": MODEL, "prompt": "scene", "duration": 5});
+        assert!(matches!(
+            reservations::reserve(&mut c, "u1", "w1", "film-once", &body).unwrap(),
+            reservations::Reservation::Ready
+        ));
+        drop(c); // Recover the durable reservation after interruption before submit.
+        let c = credits::open(&path).unwrap();
+        let app = router().with_state(state);
+        let request = |user: &str, id: &str, prompt: &str| {
+            axum::http::Request::post("/card-game/video")
+            .header(header::COOKIE, format!("cosyworld_session={user}"))
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(axum::body::Body::from(json!({"request_id": id, "world": "w1", "prompt": prompt, "options": {"duration": 5}}).to_string())).unwrap()
+        };
+        let fetch = |user: &str, suffix: &str| {
+            axum::http::Request::get(format!("/card-game/video/film-once{suffix}?world=w1"))
+                .header(header::COOKIE, format!("cosyworld_session={user}"))
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        let first = tokio::spawn(app.clone().oneshot(request("u1", "film-once", "scene")));
+        tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified())
+            .await
+            .unwrap();
+        assert!(!reservations::finish(
+            &mut credits::open(&path).unwrap(),
+            "u1",
+            "w1",
+            "film-once",
+            "failed",
+            "",
+            "competing budget failure"
+        )
+        .unwrap());
+        assert_eq!(
+            read(
+                app.clone()
+                    .oneshot(request("u2", "film-once", "scene"))
+                    .await
+                    .unwrap()
+            )
+            .await
+            .0,
+            StatusCode::OK
+        );
+        assert_eq!(
+            read(
+                app.clone()
+                    .oneshot(request("u2", "film-once", "changed"))
+                    .await
+                    .unwrap()
+            )
+            .await
+            .0,
+            StatusCode::CONFLICT
+        );
+        assert_eq!(count.load(Ordering::SeqCst), 1);
+        assert_eq!(credits::balance(&c, Payer::of("w1", "u2")).unwrap(), 200);
+        first.abort(); // A disconnected browser cannot cancel the durable receipt write.
+        release.add_permits(10);
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                if read(app.clone().oneshot(fetch("u2", "")).await.unwrap())
+                    .await
+                    .1["status"]
+                    == "completed"
+                {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            app.clone()
+                .oneshot(fetch("u2", "/content"))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::OK
+        );
+        assert_eq!(
+            app.clone()
+                .oneshot(fetch("outsider", ""))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NOT_FOUND
+        );
+        for _ in 0..2 {
+            assert_eq!(
+                read(
+                    app.clone()
+                        .oneshot(request("u2", "film-lost", "lost receipt"))
+                        .await
+                        .unwrap()
+                )
+                .await
+                .1["status"],
+                "submission_unknown"
+            );
+        }
+        assert_eq!(
+            count.load(Ordering::SeqCst),
+            2,
+            "unknown acceptance must not submit again"
+        );
+        assert_eq!(
+            credits::balance(&credits::open(&path).unwrap(), Payer::of("w1", "u1")).unwrap(),
+            100
+        );
+        for _ in 0..2 {
+            let (_, reply) = read(
+                app.clone()
+                    .oneshot(request("u2", "film-rejected", "rejected"))
+                    .await
+                    .unwrap(),
+            )
+            .await;
+            assert_eq!(
+                (reply["status"].as_str(), reply["refunded"].as_bool()),
+                (Some("rejected"), Some(true))
+            );
+        }
+        assert_eq!(
+            count.load(Ordering::SeqCst),
+            3,
+            "definite rejection is terminal, not resubmitted"
+        );
+        assert_eq!(
+            credits::balance(&c, Payer::of("w1", "u1")).unwrap(),
+            100,
+            "definite rejection refunds once"
+        );
+        assert_eq!(
+            credits::balance(&c, "u1").unwrap(),
+            100,
+            "the pool alone pays"
+        );
+        server.abort();
+        let _ = std::fs::remove_file(path);
     }
 
     #[tokio::test]
@@ -546,20 +872,24 @@ mod tests {
             "one submit, one charge"
         );
         assert_eq!(
-            read(poll(&path, &config, "u1", "film-0001").await).await.1["status"],
+            read(poll(&path, &config, "u1", "", "film-0001").await)
+                .await
+                .1["status"],
             "processing"
         );
         assert_eq!(
-            read(poll(&path, &config, "u2", "film-0001").await).await.0,
+            read(poll(&path, &config, "u2", "", "film-0001").await)
+                .await
+                .0,
             StatusCode::NOT_FOUND
         );
         *job_status.lock().unwrap() = "failed";
-        let (_, reply) = read(poll(&path, &config, "u1", "film-0001").await).await;
+        let (_, reply) = read(poll(&path, &config, "u1", "", "film-0001").await).await;
         assert_eq!(
             (reply["status"].as_str(), reply["refunded"].as_bool()),
             (Some("failed"), Some(true))
         );
-        let (_, reply) = read(poll(&path, &config, "u1", "film-0001").await).await;
+        let (_, reply) = read(poll(&path, &config, "u1", "", "film-0001").await).await;
         assert_eq!(
             (reply["refunded"].as_bool(), balance()),
             (Some(false), 150),
@@ -588,7 +918,7 @@ mod tests {
         };
         assert_eq!((pool(), balance()), (0, 50));
         *job_status.lock().unwrap() = "failed";
-        poll(&path, &config, "u1", "film-0002").await;
+        poll(&path, &config, "u1", "w1", "film-0002").await;
         assert_eq!((pool(), balance()), (100, 50));
         let _ = std::fs::remove_file(&path);
     }
