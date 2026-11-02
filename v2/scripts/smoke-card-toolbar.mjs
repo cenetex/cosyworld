@@ -177,15 +177,20 @@ try {
     });
     const tools = await menu.locator(".menu-tools").boundingBox();
     assert(tools.y + tools.height <= height, `tools stay in view at ${width}`);
-    // A second tap plays the chosen avatar; here it is the one being
-    // played, so ☰ just closes and its beat leaves.
+    // Tapping the avatar being played again only keeps it chosen: ☰ stays
+    // open with Leave, and nothing arms.
     await seats.nth(1).locator("button").click();
-    await menu.waitFor({ state: "hidden" });
-    await actions.first().waitFor({ state: "detached" });
-    await menuToggle.click();
-    // A real pointer press outside the popover performs light dismissal.
+    assert(await menu.isVisible());
+    assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
+    assert.equal(
+      await seats.nth(1).locator("button").getAttribute("data-armed"),
+      null,
+    );
+    // A real pointer press outside the popover performs light dismissal,
+    // and the beat leaves with it.
     await page.mouse.click(5, 100);
     await menu.waitFor({ state: "hidden" });
+    await actions.first().waitFor({ state: "detached" });
     // The owner arms another's seat with a second tap: one Free.
     await toggle.click();
     await menu.waitFor({ state: "visible" });
