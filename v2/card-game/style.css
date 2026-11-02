@@ -2533,3 +2533,7 @@ main > .dialogue {
     --dialogue-height: 96px;
   }
 }
+#credits a {
+  color: #e5cb92;
+  font-size: 14px;
+}

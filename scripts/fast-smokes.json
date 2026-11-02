@@ -29,6 +29,10 @@
       "smokes": ["smoke-card-music"]
     },
     {
+      "paths": "^v2/card-game/credits",
+      "smokes": ["smoke-card-credits"]
+    },
+    {
       "paths": "^v2/card-game/weather",
       "smokes": ["smoke-card-weather"]
     },
