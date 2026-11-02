@@ -9,8 +9,9 @@ import { avatarImage } from "./scarves.mjs";
 import { levelTier, romanLevel } from "./rarity.mjs";
 
 // ☰ lists the passkey's worlds, each with the avatars that have entered it
-// and "+" for an open seat, then + New world and the shown avatar's card
-// with its actions (v2/docs/card-table/avatar-menu.md, #1877).
+// and "+" for an open seat, then + New world. A chosen avatar and its
+// action are a beat in front of the dialogue
+// (v2/docs/card-table/avatar-menu.md, #1877).
 const $ = (id) => document.getElementById(id);
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -282,23 +283,21 @@ export function installAvatarMenu({
     });
     location.href = sharedLink(made.id);
   }
-  // The chosen seat's action, as a beat in front of the dialogue: Leave for
-  // yours, the owner's Free for another's once armed, with a one-line note.
-  function seatBeat(slot, seat, image) {
+  // The chosen seat's action: Leave for yours, the owner's Free for
+  // another's once armed, each with a one-line note; none otherwise.
+  function seatAction(slot, seat) {
     if (seat.kind === "human") {
-      if (!slot.owner || !armed) return null;
+      if (!slot.owner || !armed) return {};
       const free = async () => {
         await command(slot.shared, { op: "reset", avatar: seat.id });
         location.reload();
       };
       return {
-        images: [image],
-        text: `${seat.name} · ${seat.holder}`,
         note: `Removes ${seat.holder}'s hold and resets ${seat.name}.`,
         buttons: [{ label: "Free", id: "avatar-free", run: guard(free) }],
       };
     }
-    if (seat.kind !== "you") return null;
+    if (seat.kind !== "you") return {};
     // Leave frees the seat and keeps the avatar's level and binding, so it
     // is in no world until + New world or a move.
     const leaveSeat = async () => {
@@ -309,8 +308,6 @@ export function installAvatarMenu({
       menu.showPopover();
     };
     return {
-      images: [image],
-      text: `${seat.name} in ${slot.name || "a world"}`,
       note: leaveNote(
         humanAvatars.find((a) => a.id === seat.id),
         slot,
@@ -385,10 +382,11 @@ export function installAvatarMenu({
     item.append(open);
     return item;
   }
-  // The shown avatar as a hand card, from what this page knows: its level,
-  // who plays it, its world and, where that is loaded, what it holds; then
-  // its seat's actions, or Bring to the world a grey seat offers it in.
-  function stats(view, { id, slot: key, to }) {
+  // The chosen avatar, as a beat in front of the dialogue (owner,
+  // 2026-11-01: ☰ has no profile card). Its small card carries its level
+  // and tier; its line says who plays it, whether they are online and
+  // where; then its seat's action, or Bring to the world a "+" offers it in.
+  function chosenBeat(view, { id, slot: key, to }) {
     const home = view.slots.find((s) => s.mine === id);
     const slot = to ? home : view.slots.find((s) => s.key === key);
     const avatar = humanAvatars.find((a) => a.id === id);
@@ -398,49 +396,39 @@ export function installAvatarMenu({
     };
     const world = slot?.current ? session?.state.world || getWorld() : null;
     const level = seat.level || (world ? levelOf(world, id) : 0);
-    const tier = levelTier(level);
-    const box = el("article", "profile-card");
-    Object.assign(box.dataset, { avatar: id, lit: Boolean(seat.online) });
-    box.style.setProperty("--tier-color", tier.color);
-    const art = el("div", "profile-art");
-    const image = el("img");
-    image.src = face((world && avatarImage(world, id)) || avatar.image);
-    image.alt = "";
-    art.append(image, el("span", "profile-name", seat.name));
-    if (level) art.append(el("span", "card-level", romanLevel(level)));
-    art.setAttribute(
-      "aria-label",
-      `${seat.name}, ${tier.label}, level ${level}`,
-    );
-    const facts = el("div", "profile-facts");
-    const who = seat.kind === "human" ? `${seat.holder} · ` : "";
-    facts.append(
-      el("small", "", `${who}${seat.online ? "online" : "offline"}`),
-      el("small", "", slot ? slot.name || "A world" : "In no world"),
-    );
-    const held =
-      world &&
-      Object.keys(world.items).filter((i) => world.items[i].holder === id);
-    if (held?.length)
-      facts.append(el("small", "", held.map(nameOf).join(", ")));
+    const card = {
+      src: face((world && avatarImage(world, id)) || avatar.image),
+      level: level ? romanLevel(level) : "",
+      color: levelTier(level).color,
+      lit: Boolean(seat.online),
+    };
+    const info = [
+      seat.kind === "human" ? seat.holder : "",
+      seat.online ? "online" : "offline",
+      slot ? slot.name || "A world" : "In no world",
+    ].filter(Boolean);
     const target = to && view.slots.find((s) => s.key === to);
-    const where = target?.name || "this world";
-    const beat = target
+    const action = target
       ? {
-          images: [image.src],
-          text: `${seat.name} from ${home?.name || "no world"}`,
           buttons: [
             {
-              label: `Bring to ${where}`,
+              label: `Bring to ${target.name || "this world"}`,
               id: "avatar-bring",
               run: guard(() => toWorld(avatar, home, target)),
             },
           ],
         }
-      : slot && chosen && seatBeat(slot, seat, image.src);
-    if (beat && !to) box.dataset.armed = "true";
-    box.append(art, facts);
-    return { box, beat };
+      : slot
+        ? seatAction(slot, seat)
+        : {};
+    return {
+      avatar: id,
+      cards: [card],
+      name: seat.name,
+      info: info.join(" · "),
+      buttons: [],
+      ...action,
+    };
   }
   function render() {
     // Signed out, ☰ has no world UI at all (#1892).
@@ -499,9 +487,7 @@ export function installAvatarMenu({
       fresh.classList.add("slot-new");
       box.append(fresh);
     }
-    const card = shown && stats(view, shown);
-    if (card) box.append(card.box);
-    if (card?.beat) actionBeat.show(card.beat);
+    if (chosen) actionBeat.show(chosenBeat(view, chosen));
     else actionBeat.clear();
   }
   // A tap anywhere but a portrait disarms.

@@ -104,26 +104,28 @@ only the tools. ☰ opens a list of **world slots**:
   worlds and none is added: an empty world closes, keeping its journal, and
   no longer counts toward the eight. A world holding anyone else's avatar is
   never empty.
-- Below, the **profile card**: one avatar shown as a hand card (full
-  portrait, name, the faint level numeral and the level tier's edge colour),
-  then online or offline, its world, and what it holds where that world is
-  loaded. It shows the avatar being played until a portrait is tapped (else
-  the first of yours in a world), with no buttons until a portrait is tapped.
+- ☰ has **no profile card** (owner, 2026-11-01). A chosen avatar shows in
+  the action beat in front of the dialogue instead.
 
-**Tap a portrait once** to choose it: it glows and the card shows it. On one
-of yours, **Leave** appears with its note in the action beat in front of the
-dialogue. **Tap it again** to play it (owner, 2026-11-01): three card backs
+**Tap a portrait once** to choose it: it glows and the action beat shows it:
+its small hand card (the faint level numeral and the level tier's edge, grey
+while offline) on the left; in the middle its name and one line, "Mara ·
+online · *Hollowmere*" (another person's seat adds who holds it: "Ash ·
+Amber Heron · online · *Hollowmere*"), then the note; and its action on the
+right. On one of yours that is **Leave**. A chosen avatar with no action
+(someone else's, unarmed, or anyone's for a non-owner) shows the line with
+no button. **Tap it again** to play it (owner, 2026-11-01): three card backs
 shuffle over the table (about 420 ms; with reduced motion the table only
 fades) and the page goes to that avatar in its world. When it is the avatar
 being played, the second tap just closes ☰. On another person's avatar the
-second tap arms it instead: the portrait and the card's edge turn its level
-tier's colour, and the owner gets **Free**. A tap anywhere else in the menu
+second tap arms it instead: the portrait turns its level tier's colour, and
+the owner gets **Free**. A tap anywhere else in the menu
 disarms; presence redraws keep it armed. Each action acts on one tap, with
 no second confirm.
 
 **Tap +** in a world one of your avatars may go to (its seat there is free,
-you hold no avatar there, and it is not already there): the card shows that
-avatar with **Bring to *Hollowmere***. It offers the card's avatar first,
+you hold no avatar there, and it is not already there): the beat shows that
+avatar with **Bring to *Hollowmere***. It offers the chosen avatar first,
 then the one being played; each further tap offers the next, so an avatar
 that stepped away is reached the same way. With none, + is dim. A claim frees its old seat and carries its level (#1870).
 When the avatar being played leaves, the bare address opens with ☰ so the
@@ -144,8 +146,8 @@ player picks what comes next.
   sends `reset`.
 
 The actions use the same action beat as a ready play (`showActionBeat` in
-`app.mjs`, passed to ☰ through `installToolbar`): the avatar's card, a line
-naming it and its world, the note and the buttons. ☰ stays open beside it at
+`app.mjs`, passed to ☰ through `installToolbar`): the avatar's card, its
+line, the note and the button on the right. ☰ stays open beside it at
 390 and 1440 pixels; on a short landscape phone ☰ lies over part of it. A tap
 on one of its buttons closes ☰ (it is outside it); after Leave ☰ opens again
 to say what happened.
@@ -153,7 +155,7 @@ to say what happened.
 **A friend's link** (`/?world=…`) signs the person in, then opens their own
 table with ☰ open and the linked world as an extra slot marked ✉
 ("Invited"), with its avatars and +. Tapping + there offers an avatar that
-may come in on the card (a person bound there is offered their own avatar). There are no separate
+may come in (a person bound there is offered their own avatar). There are no separate
 join, "Return as", full-world or full-room panels. A full room waits at the
 table: "Your room is full. Your avatar and belongings are saved."
 
@@ -169,8 +171,8 @@ past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` checks
 the portraits and +, colour, choosing and arming, a move from +, Leave,
 and + New world, at 390 and 1440 pixels.
 
-**Notes go with the card.** The beat's note names the card's avatar and
-world, so it goes when the card disarms, shows another avatar or ☰ closes.
+**Notes go with the chosen avatar.** The beat names it and its world, so it
+changes when another is chosen or disarmed, and goes when ☰ closes.
 
 + tapped in another world until it offers Tavi, who stepped away:
 
