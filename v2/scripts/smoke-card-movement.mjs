@@ -176,7 +176,6 @@ try {
           (key) => JSON.parse(localStorage.getItem(key)).turn === 0,
           key,
         );
-        assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
         await page.waitForFunction(
           () => document.querySelector("#hand").dataset.cooling === "false",
         );

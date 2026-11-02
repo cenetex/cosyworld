@@ -305,14 +305,6 @@ async function perform(page, kind, target = undefined, item = undefined) {
     );
   return finished;
 }
-async function dismissDiscoveries(page) {
-  for (let n = 0; n < 50; n++) {
-    const take = page.locator("#unveil-take");
-    if (!(await take.isVisible())) break;
-    await take.click();
-    await delay(180);
-  }
-}
 // A viewer hears the room only once they have uncovered their own avatar
 // and the place it stands in (#1575), so a new visitor taps both first.
 async function wake(page) {
@@ -491,7 +483,6 @@ try {
   }
   const [vale, mara, ash, nell, tavi, rue] = pages;
   await vale.reload();
-  await dismissDiscoveries(vale);
   await vale.locator("#toolbar-menu-button").click();
   await vale.locator("#shared-worlds-button").click();
   await vale
@@ -549,7 +540,6 @@ try {
     await vale.locator('#hand [data-card="station"]').count(),
     "the original station remains connected",
   );
-  await dismissDiscoveries(vale);
   await wake(vale);
   const requestStart = requests.length;
   await selectCard(vale, "moth");
@@ -632,7 +622,6 @@ try {
   await rue
     .locator('#hand [data-card="routes"]')
     .waitFor({ state: "attached" });
-  await dismissDiscoveries(rue);
   assert(!(await actionFor(rue, "move", "pond")));
   assert.equal(
     (
@@ -650,11 +639,9 @@ try {
   await ownAvatarFirst(rue);
   await rue.reload();
   await rue.locator('#hand [data-card="rue"]').waitFor();
-  await dismissDiscoveries(rue);
   assert(await actionFor(rue, "move", "train"));
   await perform(rue, "move", "train");
 
-  await dismissDiscoveries(mara);
   await mara.locator('#hand [data-card="mask"]').waitFor({ state: "attached" });
   assert.equal(await mara.locator('#hand [data-card="pond"]').count(), 0);
   await until(
@@ -711,7 +698,6 @@ try {
   );
   await mara.reload();
   await mara.locator('#hand [data-card="mask"]').waitFor({ state: "attached" });
-  await dismissDiscoveries(mara);
   assert.equal(await mara.locator('#hand [data-card="pond"]').count(), 0);
   await mara.setViewportSize({ width: 1440, height: 900 });
   await mara.screenshot({
@@ -1086,7 +1072,6 @@ try {
         ),
       "connection notice clears after recovery",
     );
-    await dismissDiscoveries(page);
     await until(
       async () =>
         await page.locator("#cast > .portrait").evaluateAll(

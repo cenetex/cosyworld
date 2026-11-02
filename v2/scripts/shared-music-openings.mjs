@@ -86,8 +86,6 @@ export async function checkSharedMusicOpenings(browser, origin) {
       await page
         .locator(`#hand [data-card="${avatar.item.id}"]`)
         .waitFor({ state: "attached" });
-      while (await page.locator("#unveil-dialog[open]").count())
-        await page.keyboard.press("Escape");
       await page.locator("#toolbar-menu-button").click();
       await page.locator("#menu-button").click();
       await page.locator("#music-toggle").click();

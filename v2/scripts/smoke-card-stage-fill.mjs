@@ -80,9 +80,7 @@ try {
     // layout does not wait on a hand that stays busy.
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
-      if (await page.locator("#unveil-dialog[open]").count())
-        await page.locator("#unveil-take").click();
-      else if (await page.locator("#dialogue-advance").isVisible())
+      if (await page.locator("#dialogue-advance").isVisible())
         await page.locator("#dialogue-advance").click();
       else if (
         (await page.evaluate(() => document.body.dataset.place)) === place &&

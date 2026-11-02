@@ -274,8 +274,7 @@ function wordsFailedOnLoad() {
   }
 }
 let encountered = new Set(),
-  discoveryDone = Promise.resolve(),
-  discoveryPending = false;
+  discoveryDone = Promise.resolve();
 const fresh = new Set();
 // The level each card last showed, so a rise plays on the card itself.
 const shownLevels = new Map();
@@ -483,8 +482,7 @@ function selectionBlocked() {
   return (
     saveBlocked ||
     covering ||
-    (sharedSession && !hasSharedPlace(sharedSession.state)) ||
-    (!sharedSession && discoveryPending)
+    (sharedSession && !hasSharedPlace(sharedSession.state))
   );
 }
 // The player's latest shared play, from sending until the table settles it.
@@ -591,7 +589,7 @@ const exchange = createExchange({
   },
   busy: (value) => {
     clearTimeout(handTimer);
-    cardsCooling = value || discoveryPending;
+    cardsCooling = value;
     updateCardCooldown();
     if (value && storyStatus === "pending")
       handTimer = setTimeout(releaseHand, HAND_WAIT);
@@ -748,7 +746,6 @@ reducedMotion.addEventListener("change", () => {
     speechSounds.stop();
     actionPanelMotion?.finish();
     for (const motion of handMotions.values()) motion.finish();
-    for (const motion of $("unveil-take").getAnimations()) motion.finish();
   }
 });
 function syncSpeechPlayback() {
@@ -768,7 +765,6 @@ function syncSpeechPlayback() {
   return paused;
 }
 function pauseSpeech() {
-  pauseDiscovery();
   const paused = syncSpeechPlayback();
   for (const animation of [
     ...$("cast").getAnimations({ subtree: true }),
@@ -778,10 +774,7 @@ function pauseSpeech() {
     else if (animation.playState === "paused") animation.play();
   }
   if (paused) speechSounds.stop();
-  else {
-    wakeDiscovery?.();
-    queueMicrotask(() => playQueue.flush());
-  }
+  else queueMicrotask(() => playQueue.flush());
 }
 document.addEventListener("visibilitychange", pauseSpeech);
 document.addEventListener("shared-dialog-change", pauseSpeech);
@@ -1334,7 +1327,6 @@ let covering = false,
 function cancelTravel() {
   endCombat();
   trip++;
-  cancelDiscovery();
   covering = false;
   syncHandDrop();
   revealTravel();
@@ -1398,111 +1390,6 @@ async function travel(place, arrive, landed, kicker = "Travelling to") {
   landed();
 }
 
-let discoveryTimer = null,
-  discoveryDue = 0,
-  discoveryRemaining = 0;
-let endDiscovery = null,
-  wakeDiscovery = null,
-  discoveryFlying = false;
-function cancelDiscovery() {
-  discoveryPending = false;
-  wakeDiscovery?.();
-  wakeDiscovery = null;
-  clearTimeout(discoveryTimer);
-  discoveryTimer = null;
-  discoveryRemaining = 0;
-  for (const animation of $("unveil-take").getAnimations()) animation.cancel();
-  $("unveil-dialog").close();
-  $("unveil-take").replaceChildren();
-  delete $("unveil-take").dataset.card;
-  endDiscovery?.();
-  endDiscovery = null;
-  discoveryFlying = false;
-}
-function discoveryPaused() {
-  return (
-    document.hidden ||
-    [
-      ...document.querySelectorAll("dialog[open], .world-menu:popover-open"),
-    ].some((dialog) => dialog.id !== "unveil-dialog")
-  );
-}
-function armDiscovery(delay) {
-  clearTimeout(discoveryTimer);
-  discoveryRemaining = delay;
-  discoveryDue = performance.now() + delay;
-  discoveryTimer = discoveryPaused() ? null : setTimeout(takeDiscovered, delay);
-}
-function pauseDiscovery() {
-  if (!$("unveil-dialog").open) return;
-  const paused = discoveryPaused();
-  if (paused && discoveryTimer !== null) {
-    discoveryRemaining = Math.max(0, discoveryDue - performance.now());
-    clearTimeout(discoveryTimer);
-    discoveryTimer = null;
-  } else if (!paused && !discoveryFlying) armDiscovery(discoveryRemaining);
-  for (const animation of $("unveil-take").getAnimations()) {
-    if (paused) animation.pause();
-    else if (animation.playState === "paused") animation.play();
-  }
-}
-document.addEventListener("visibilitychange", pauseDiscovery);
-function discoveryAnchor(id) {
-  const find = (key) => $("hand").querySelector(`[data-card="${key}"]`);
-  let target = find(id);
-  const visited = new Set();
-  while (target) {
-    const frame = target.closest(".card-frame");
-    if (!frame.hidden) return target;
-    const owner = frame.dataset.holder || rootHolder(world, id);
-    if (!owner || visited.has(owner)) break;
-    visited.add(owner);
-    target = find(owner);
-  }
-  return null;
-}
-async function flyCard(shown, target) {
-  if (!target || reducedMotion.matches) return;
-  // The hand never scrolls on its own: a slot out of sight takes no flight.
-  const visible = $("hand").getBoundingClientRect(),
-    cardBounds = target.getBoundingClientRect();
-  if (cardBounds.left < visible.left || cardBounds.right > visible.right)
-    return;
-  const start = shown.getBoundingClientRect(),
-    end = target.getBoundingClientRect();
-  const centered = { transform: "translate(0, 0) scale(1)", opacity: 1 };
-  const held = {
-    transform: `translate(${end.x - start.x}px, ${end.y - start.y}px) scale(${end.width / start.width}, ${end.height / start.height})`,
-    opacity: 0.65,
-  };
-  $("unveil-dialog").dataset.phase = "flight";
-  const animation = shown.animate([centered, held], {
-    duration: 480,
-    easing: "cubic-bezier(.3,.05,.4,1)",
-    fill: "forwards",
-  });
-  pauseDiscovery();
-  await animation.finished.catch(() => {});
-  animation.cancel();
-}
-async function takeDiscovered() {
-  if (!endDiscovery || discoveryFlying) return;
-  clearTimeout(discoveryTimer);
-  discoveryTimer = null;
-  discoveryFlying = true;
-  const version = trip,
-    done = endDiscovery;
-  const dialog = $("unveil-dialog"),
-    shown = $("unveil-take");
-  await flyCard(shown, discoveryAnchor(shown.dataset.card));
-  if (version !== trip || done !== endDiscovery) return;
-  dialog.close();
-  shown.replaceChildren();
-  delete shown.dataset.card;
-  endDiscovery = null;
-  discoveryFlying = false;
-  done();
-}
 function showItemView(id) {
   const dialog = $("item-view"),
     image = $("item-view-image");
@@ -1530,14 +1417,6 @@ $("item-view").addEventListener("click", (event) => {
       (offsetX / width) * image.offsetWidth - dialog.clientWidth / 2,
       (offsetY / height) * image.offsetHeight - dialog.clientHeight / 2,
     );
-});
-$("unveil-take").onclick = takeDiscovered;
-$("unveil-dialog").addEventListener("click", (event) => {
-  if (event.target === $("unveil-dialog")) void takeDiscovered();
-});
-$("unveil-dialog").addEventListener("cancel", (event) => {
-  event.preventDefault();
-  void takeDiscovered();
 });
 function queueDiscoveries() {
   const version = trip;

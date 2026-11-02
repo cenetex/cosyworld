@@ -1807,59 +1807,6 @@ body[data-hand-expanded="true"] .card .name {
   cursor: zoom-out;
 }
 
-/* A discovery uses the scene for a moment, then joins the hand. */
-.unveil[open] {
-  position: fixed;
-  inset: 0;
-  margin: auto;
-  z-index: 8;
-  --reveal-height: min(310px, 52dvh);
-  display: block;
-  width: calc(var(--reveal-height) * 0.7);
-  height: var(--reveal-height);
-  max-width: none;
-  max-height: none;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  overflow: visible;
-  box-shadow: none;
-}
-.unveil::backdrop {
-  background: #090d1255;
-  backdrop-filter: blur(2px);
-  transition:
-    background 180ms,
-    backdrop-filter 180ms;
-}
-.unveil[data-phase="flight"]::backdrop {
-  background: transparent;
-  backdrop-filter: none;
-}
-#unveil-take {
-  display: block;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: 13px;
-  background: transparent;
-  transform-origin: top left;
-}
-body .unveil .card-frame {
-  width: 100%;
-  height: 100%;
-  transform: none;
-}
-body .unveil .card {
-  display: block;
-  transform: none;
-  opacity: 1;
-  box-shadow: 0 0 35px #e5c78b55;
-}
-body .unveil .card .name {
-  bottom: 0;
-}
 body .card.new {
   border-color: #f2dba6;
   box-shadow:

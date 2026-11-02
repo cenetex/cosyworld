@@ -44,11 +44,6 @@ try {
   });
   const ready = async () => {
     for (let i = 0; i < 250; i++) {
-      // A newly met card is unveiled first; add it to the hand.
-      if (await page.locator("#unveil-dialog[open]").count()) {
-        await page.locator("#unveil-take").click();
-        continue;
-      }
       if (
         (await page.locator("#hand").getAttribute("data-cooling")) === "false"
       )

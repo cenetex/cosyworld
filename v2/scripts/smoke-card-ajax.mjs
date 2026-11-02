@@ -119,9 +119,7 @@ export async function checkAjax(browser, origin) {
         const settle = async () => {
           await page.waitForSelector("#hand .card");
           for (let turn = 0; turn < 250; turn++) {
-            if (await page.locator("#unveil-dialog[open]").count())
-              await page.keyboard.press("Escape");
-            else if (await page.locator("#dialogue-advance").isVisible())
+            if (await page.locator("#dialogue-advance").isVisible())
               await page.locator("#dialogue-advance").click();
             assert.equal(
               await page.locator("#story-retry").isVisible(),
