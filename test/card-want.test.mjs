@@ -20,7 +20,11 @@ import {
   wantMet,
   REFUSAL_LIMIT,
   STALL_TURNS,
+  CONTENT_TURNS,
+  contentOf,
 } from "../v2/card-game/want.mjs";
+import { questCards } from "../v2/card-game/quest-card.mjs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
@@ -95,7 +99,7 @@ describe("one want per avatar", () => {
     expect(wantMet(s, "vale", { actor: "vale", target: "keeper" })).toBe(false);
   });
 
-  it("commits want_met, adds experience and draws the next want where it is met", () => {
+  it("commits want_met, adds experience and leaves the avatar content until it sleeps", () => {
     let s = createWorld();
     s.actors.vale.want = newWant("place", "pond", 0);
     s = play(s, act(s, "move", { target: "pond" })).state;
@@ -104,12 +108,46 @@ describe("one want per avatar", () => {
     expect(s.actors.vale.xp).toBe(1);
     // The player's level waits for its level quest.
     expect(levelOf(s, "vale")).toBe(1);
-    // An ordinary quest ends where it is met: no way home follows.
-    expect(s.actors.vale.want).not.toMatchObject({ target: "attic" });
-    expect(s.actors.vale.want.since).toBe(s.turn);
-    expect(decodeSave(encodeSave(s)).actors.vale.want).toEqual(
-      s.actors.vale.want,
-    );
+    // Enough for now: no next want, and the rules say so.
+    expect(s.actors.vale).toMatchObject({ want: null, content: true });
+    expect(contentOf(s, "vale")).toBe(true);
+    expect(questCards(s, "vale")).toEqual([]);
+    expect(
+      narrativeContext(s).entities.find((e) => e.id === "vale").desire,
+    ).toEqual({ items: [], location: null, avatars: [] });
+    expect(decodeSave(encodeSave(s)).actors.vale).toEqual(s.actors.vale);
+    // A day of waiting draws nothing; Sleep does, on waking.
+    s.turn = s.revision = s.turn + CONTENT_TURNS;
+    s = play(s, act(s, "wait")).state;
+    expect(s.actors.vale.content).toBe(true);
+    s = play(
+      s,
+      legalActions(s).find((a) => a.sleep),
+    ).state;
+    expect(s.log.findLast((e) => e.actorId === "vale" && e.woke)).toBeTruthy();
+    expect(s.actors.vale.content).toBeUndefined();
+    expect(s.actors.vale.want).toMatchObject({ refusals: 0 });
+    expect(s.actors.vale.want.since).toBeGreaterThan(event.turn);
+    expect(validateWorld(s)).toBe(s);
+  });
+
+  it("lets a content resident wait, then draws its next want after a day", () => {
+    let s = createWorld();
+    s.actors.keeper.want = newWant("place", "station", 0);
+    s.actors.keeper.place = "pond";
+    s.actors.vale.place = "pond";
+    s = play(s, act(s, "wait")).state;
+    expect(s.actors.keeper).toMatchObject({ want: null, content: true });
+    const metAt = s.actors.keeper.metTurn;
+    // Without a want the resident still takes legal plays: it waits.
+    expect(plan(s, "keeper").action.kind).toBe("wait");
+    for (let i = 0; i < 3; i++) s = play(s, act(s, "wait")).state;
+    expect(s.actors.keeper.place).toBe("station");
+    s.turn = s.revision = metAt + CONTENT_TURNS;
+    s = play(s, act(s, "wait")).state;
+    expect(s.actors.keeper.want).not.toBeNull();
+    expect(s.actors.keeper.content).toBeUndefined();
+    expect(validateWorld(s)).toBe(s);
   });
 
   it("rests where a want is met, holding the next want", () => {
@@ -268,7 +306,7 @@ describe("one want per avatar", () => {
     });
   });
 
-  it("keeps one want on every active avatar through a long shared run", () => {
+  it("keeps a want on every active avatar but the content through a long shared run", () => {
     const players = humanAvatarIds.slice(0, 4);
     let world = dispatchShared({ op: "create" }).world;
     const ask = (op, actor, extra = {}) =>
@@ -288,6 +326,7 @@ describe("one want per avatar", () => {
         (id) =>
           entityActive(world, id) &&
           !world.actors[id].want &&
+          !world.actors[id].content &&
           !(
             (id === "vale" || players.includes(id)) &&
             waiting(world.actors[id])

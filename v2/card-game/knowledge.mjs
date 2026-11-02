@@ -256,8 +256,9 @@ export function witnessKnowledge(
   return fact;
 }
 
-// A gift handed to an aggrieved recipient in person is a witnessed repair:
-// the giver, the recipient and the incident it answers (#2020).
+// A gift handed in person that answers the recipient's grievance is a
+// witnessed repair: the giver, the recipient and the incident it answers
+// (#2020). Others learn of it; only the recipient's grievance closes.
 export function witnessRepair(world, entry, answers, text, witnesses) {
   installKnowledge(world);
   if (!validFactText(text) || !entry.seq) return null;

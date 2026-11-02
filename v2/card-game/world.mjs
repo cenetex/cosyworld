@@ -74,9 +74,11 @@ import {
   travels,
   resting,
   settleWants,
+  meetsItemWant,
   refuseWant,
   reviseStalledWants,
   fillWants,
+  renewWant,
   validWant,
   WANT_KINDS,
   CONNECT_TARGET,
@@ -990,7 +992,6 @@ export function publishKnowledgeSpeech(s, entry, disclosures) {
   for (const { fact, listener } of learned)
     if (fact.source.kind === "lane")
       learnLane(s, listener, ...fact.id.slice(5).split(">"));
-    else closeRepaired(s, listener, fact);
   return learned;
 }
 // Rules read recent history, so generated words never shorten the authoritative
@@ -1813,6 +1814,7 @@ function wakeUp(s, id, woke, text) {
   const sanctuary = here === z.place && sanctuaries.includes(here),
     long = sanctuary && s.turn - z.since >= LONG_SLEEP_TURNS;
   if (sanctuary && s.defeats?.[id]) delete s.defeats[id];
+  renewWant(s, id, wantAPI(s));
   if (long) wake(s, id, wantAPI(s));
   addLog(s, "World", text, {
     kind: "action",
@@ -2201,7 +2203,15 @@ function performPlay(s, a, round = null, settle = []) {
     ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
   });
   // A gift in person to an aggrieved recipient is a repair all present see.
-  const answer = repairAnswer(s, a, requestAccepted, witnesses);
+  const answer = repairAnswer(
+    s,
+    a,
+    requestAccepted,
+    witnesses,
+    a.kind === "give" &&
+      requestAccepted &&
+      meetsItemWant(s, a.target, a.item, { ...a, accepted: true }),
+  );
   recordReaction(s, a, witnesses, requestAccepted, s.log.at(-1));
   const repair =
     answer &&
@@ -2212,7 +2222,7 @@ function performPlay(s, a, round = null, settle = []) {
       `${who} makes amends to ${nameOf(a.target)}.`,
       witnesses,
     );
-  for (const id of repair?.source.witnesses || []) closeRepaired(s, id, repair);
+  if (repair) closeRepaired(s, repair);
   if (a.kind === "talk") talkKnowledge(s, a, s.log.at(-1));
   // A human's first Talk with the world's hidden avatar unlocks it (#1936).
   const met = meetHidden(s, a, controlledByHuman(s, a.actor));

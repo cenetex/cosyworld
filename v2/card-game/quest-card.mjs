@@ -2,8 +2,8 @@
 // target's art with the rules' own words for the want as the caption.
 // Nothing here is authored or decides anything; the rules own the stack
 // (want.mjs).
-import { CONNECT_TARGET, questSteps, questsOf } from "./want.mjs";
-import { romanLevel, stepTier } from "./rarity.mjs";
+import { CONNECT_TARGET, questsOf } from "./want.mjs";
+import { levelTier, romanLevel } from "./rarity.mjs";
 import {
   currentActor,
   exits,
@@ -108,9 +108,18 @@ export function questNear(world, quest) {
   return moves !== null && moves <= NEAR_MOVES;
 }
 
-// The quest's one short verb. An unvisited or covered place is discovered.
+// The quest's one short verb, the step's own when it has one. A rest step
+// shows the way there; an unvisited or covered place is discovered.
+const STEP_LABELS = {
+  find: "Find",
+  give: "Give",
+  bring: "Bring",
+  meet: "Meet",
+  threaten: "Threaten",
+  attack: "Strike",
+};
 export function questVerb(world, quest, covered = false) {
-  if (quest.step?.verb === "bring") return "Bring";
+  if (STEP_LABELS[quest.step?.verb]) return STEP_LABELS[quest.step.verb];
   if (quest.kind === "item") return "Hold";
   if (quest.kind === "person") return "Talk";
   if (quest.kind === "connect") return "Introduce";
@@ -118,9 +127,8 @@ export function questVerb(world, quest, covered = false) {
   return covered || !seen.includes(quest.target) ? "Discover" : "Go to";
 }
 
-// A quest's colour follows its size: the F(n) steps of its level.
-export const questTier = (quest) =>
-  stepTier(quest.level ? questSteps(quest.level) : 1);
+// A level quest's colour is the tier of the level it leads to.
+export const questTier = (quest) => levelTier(quest.level ?? 0);
 
 // The quests shown before that the rules have since met: each left the
 // stack, or moved on a step, with a `want_met` event after `seq`.

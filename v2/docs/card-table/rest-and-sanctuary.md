@@ -93,7 +93,10 @@ guttered."
    with no forced thought or dream. Because every Sleep ends by the next light
    change, two long rests cannot both begin and end within one light period,
    so a sanctuary gives at most one dream per period.
-6. Sleeping on at a dock calls no ship. Only the plain Wait before the Sleep
+6. Waking from any Sleep ends contentment (rules 90): an avatar whose last
+   ordinary want was met with nothing beneath has no want until then, and
+   `renewWant` draws its next one as it wakes.
+7. Sleeping on at a dock calls no ship. Only the plain Wait before the Sleep
    calls it one lane closer, so a long sleep does not haul the ship across the
    sea; a ship that docks there still wakes the sleeper.
 
@@ -130,7 +133,7 @@ shows "…", like any failed voice.
 ## Level quest
 
 When an avatar has enough XP for its next level and wakes from a long rest,
-the rules draw its level quest (#1583: F(n) steps, reaching further from home
+the rules draw its level quest (#1583: ceil(n / 5) steps, reaching further from home
 as n rises). It goes on top of the quest stack, above the ordinary quests,
 which wait beneath it (#1831). After its last step
 comes the way back: a rest step at the last sanctuary the avatar stood in
@@ -140,7 +143,9 @@ quest at a sanctuary, so the fallback to its home for one that never stood in
 a sanctuary only covers states from before #1824. Ordinary quests never send
 anyone home. The dream that comes with
 the waking gets the quest as facts, so the model voices it; no line is
-authored. Dropping a level quest costs half the avatar's XP; dropping an
+authored. Dropping a level quest halves the avatar's XP but never below
+the XP its current level took, so only progress toward the next level is
+lost; dropping an
 ordinary quest costs nothing.
 
 ## Later: a visit's length

@@ -132,52 +132,210 @@ describe("shore wants and grievances", () => {
     expect(facts.join(" ")).toContain("spoiled Pip's light");
   });
 
-  it("repairs a grievance by a gift in person, for those present and then those told", () => {
+  // A threat over the cloth, taken from a real committed event.
+  const threatened = (s) => {
+    s.actors.keeper.want = {
+      kind: "place",
+      target: "pond",
+      since: 0,
+      refusals: 0,
+    };
+    s.items.cloth.holder = "vale";
+    s.items.oil.holder = "vale";
+    slight(
+      s,
+      { kind: "threaten", actor: "vale", target: "keeper", item: "cloth" },
+      ["keeper"],
+    );
+    return s.motives.grievances.keeper[0];
+  };
+  const repairs = (s) =>
+    Object.values(s.knowledge.facts).filter((f) => f.source.kind === "repair");
+
+  it("records what an incident took or damaged on the grievance", () => {
+    let s = together(fresh());
+    s.items.lamp.holder = "vale";
+    s.items.lamp.lit = true;
+    s = act(s, "snuff", { item: "lamp" });
+    expect(s.motives.grievances.moth[0]).toMatchObject({
+      kind: "light",
+      item: "lamp",
+    });
+    expect(threatened(s)).toMatchObject({ kind: "threat", item: "cloth" });
+    s.items.lamp.holder = "station";
+    s.items.bell.holder = "vale";
+    s = act(s, "ring", { item: "bell" });
+    expect(s.motives.grievances.keeper.at(-1).item).toBeUndefined();
+    expect(validateWorld(s)).toBe(s);
+  });
+
+  it("repairs the recipient's grievance with a gift that returns what was taken", () => {
+    let s = together(fresh());
+    const g = threatened(s);
+    s = act(s, "give", { item: "cloth", target: "keeper" });
+    expect(repairs(s).map((f) => f.source.answers)).toEqual([
+      { recipient: "keeper", incident: g.incident },
+    ]);
+    expect(s.motives.grievances.keeper[0]).toMatchObject({
+      weight: 1,
+      repaired: true,
+    });
+    expect(resentment(s, "keeper", "vale")).toBe(0);
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+  });
+
+  it("treats an unrelated gift as an ordinary gift: no repair", () => {
+    let s = together(fresh());
+    threatened(s);
+    s = act(s, "give", { item: "oil", target: "keeper" });
+    expect(s.log.findLast((e) => e.verb === "give").accepted).toBe(true);
+    expect(repairs(s)).toEqual([]);
+    expect(s.motives.grievances.keeper[0].repaired).toBe(false);
+    expect(resentment(s, "keeper", "vale")).toBe(1);
+  });
+
+  for (const how of ["witnessed", "heard"])
+    it(`repairs with the recipient's current want; one who ${how} it keeps theirs`, () => {
+      let s = together(fresh());
+      s.items.bell.holder = "vale";
+      s = act(s, "ring", { item: "bell" });
+      const [g] = s.motives.grievances.keeper;
+      expect(g.incident).toBe(
+        `event:${s.log.findLast((e) => e.verb === "ring").seq}`,
+      );
+      // Pip took the same offence; it watches the gift or hears of it later.
+      s.motives.grievances.moth.push({ ...g });
+      if (how === "heard") s.actors.moth.place = "pond";
+      // The keeper wants the bell, so the gift answers the incident.
+      expect(s.actors.keeper.want).toMatchObject({
+        kind: "item",
+        target: "bell",
+      });
+      s = act(s, "give", { item: "bell", target: "keeper" });
+      expect(s.actors.keeper.trust.vale).toBe(1);
+      const [repair] = repairs(s);
+      expect(repair.source).toMatchObject({
+        actorId: "vale",
+        answers: { recipient: "keeper", incident: g.incident },
+      });
+      expect(s.motives.grievances.keeper).toMatchObject([
+        { weight: 1, repaired: true },
+      ]);
+      expect(resentment(s, "keeper", "vale")).toBe(0);
+      expect(decodeSave(encodeSave(s))).toEqual(s);
+      // The keeper tells Pip; hearing the repair closes nothing of Pip's.
+      s.actors.moth.place = s.actors.keeper.place;
+      for (let i = 0; i < 4 && !knowsFact(s, "moth", repair.id); i++) {
+        addLog(s, "The Keeper", "Listen.", {
+          kind: "dialogue",
+          generated: true,
+          actorId: "keeper",
+        });
+        const entry = s.log.at(-1);
+        const told = reserveKnowledge(s, "keeper", "moth", entry);
+        const text = s.knowledge.facts[told.factId].text;
+        entry.text = text;
+        const { factId, speaker, listener, eventSeq } = told;
+        const said = { factId, speaker, listener, eventSeq, text };
+        publishKnowledgeSpeech(s, entry, [said]);
+      }
+      expect(s.knowledge.known.moth[repair.id].kind).toBe(how);
+      expect(s.motives.grievances.moth[0].repaired).toBe(false);
+      expect(resentment(s, "moth", "vale")).toBe(1);
+      // Pip's goes dormant on the ordinary clock.
+      const touched = s.motives.grievances.moth[0].lastTouched;
+      s.turn = s.revision = touched + GRIEVANCE_DORMANT_TURNS - 1;
+      expect(resentment(s, "moth", "vale")).toBe(1);
+      s.turn = s.revision = touched + GRIEVANCE_DORMANT_TURNS;
+      expect(resentment(s, "moth", "vale")).toBe(0);
+      expect(s.motives.grievances.moth[0]).toMatchObject({
+        weight: 1,
+        repaired: false,
+      });
+    });
+
+  it("forgets an older item when a repeat incident takes nothing", () => {
+    let s = together(fresh());
+    threatened(s);
+    // An attack that drops nothing names no item.
+    s.eventSeq += 1;
+    slight(s, { kind: "attack", actor: "vale", target: "keeper" }, ["keeper"]);
+    expect(s.motives.grievances.keeper[0]).toMatchObject({ weight: 2 });
+    expect(s.motives.grievances.keeper[0].item).toBeUndefined();
+    s = act(s, "give", { item: "cloth", target: "keeper" });
+    expect(s.log.findLast((e) => e.verb === "give").accepted).toBe(true);
+    expect(repairs(s)).toEqual([]);
+    expect(s.motives.grievances.keeper[0].repaired).toBe(false);
+  });
+
+  it("files a guard's dropped item as the guard's loss, not the target's", () => {
+    const s = together(fresh());
+    s.eventSeq += 1;
+    recordReaction(
+      s,
+      { kind: "attack", actor: "vale", target: "keeper" },
+      ["keeper", "moth"],
+      false,
+      {
+        seq: s.eventSeq,
+        targetId: "moth",
+        coveredId: "keeper",
+        droppedItemIds: ["oil"],
+      },
+    );
+    expect(s.motives.grievances.keeper[0].kind).toBe("threat");
+    expect(s.motives.grievances.keeper[0].item).toBeUndefined();
+    expect(s.motives.grievances.moth[0]).toMatchObject({
+      other: "vale",
+      kind: "threat",
+      item: "oil",
+    });
+    expect(validateWorld(s)).toBe(s);
+  });
+
+  // An aggrieved Pip with no item on the grievance: only a want answers it.
+  const pestered = (s) => {
+    s.eventSeq += 1;
+    s.motives.grievances.moth.push({
+      other: "vale",
+      kind: "pestering",
+      reason: "Vale kept asking.",
+      turn: s.turn,
+      weight: 1,
+      incident: `event:${s.eventSeq}`,
+      lastTouched: s.turn,
+      repaired: false,
+    });
+  };
+  for (const lit of [false, true])
+    it(`answers a lit-lamp want only with the lamp ${lit ? "lit" : "dark"}: ${lit ? "repair" : "none"}`, () => {
+      let s = together(fresh());
+      expect(s.actors.moth.want).toMatchObject({ target: "lamp", lit: true });
+      s.items.lamp.holder = "vale";
+      s.items.lamp.lit = lit;
+      pestered(s);
+      s = act(s, "give", { item: "lamp", target: "moth" });
+      expect(s.log.findLast((e) => e.verb === "give").accepted).toBe(true);
+      expect(repairs(s).length).toBe(lit ? 1 : 0);
+      expect(s.motives.grievances.moth[0].repaired).toBe(lit);
+    });
+
+  it("answers an item want beneath the top of the recipient's stack", () => {
     let s = together(fresh());
     s.items.bell.holder = "vale";
     s = act(s, "ring", { item: "bell" });
-    const [g] = s.motives.grievances.keeper;
-    expect(g.incident).toBe(
-      `event:${s.log.findLast((e) => e.verb === "ring").seq}`,
-    );
-    // Pip took the same offence but is away when Vale makes amends.
-    s.motives.grievances.moth.push({ ...g });
-    s.actors.moth.place = "pond";
-    // The keeper wants the bell, so this gift also earns its trust.
+    const bell = s.actors.keeper.want;
+    expect(bell).toMatchObject({ kind: "item", target: "bell" });
+    s.actors.keeper.want = {
+      kind: "place",
+      target: "pond",
+      since: 0,
+      refusals: 0,
+    };
+    s.actors.keeper.under = [bell];
     s = act(s, "give", { item: "bell", target: "keeper" });
-    expect(s.actors.keeper.trust.vale).toBe(1);
-    const repair = Object.values(s.knowledge.facts).find(
-      (f) => f.source.kind === "repair",
-    );
-    expect(repair.source).toMatchObject({
-      actorId: "vale",
-      answers: { recipient: "keeper", incident: g.incident },
-    });
-    // Closed is dormant, not deleted, and the gift buys no strength off.
-    expect(s.motives.grievances.keeper).toMatchObject([
-      { weight: 1, repaired: true },
-    ]);
-    expect(resentment(s, "keeper", "vale")).toBe(0);
-    expect(resentment(s, "moth", "vale")).toBe(1);
-    expect(decodeSave(encodeSave(s))).toEqual(s);
-    // The keeper tells Pip; hearing the repair closes Pip's grievance too.
-    s.actors.moth.place = s.actors.keeper.place;
-    for (let i = 0; i < 4 && !knowsFact(s, "moth", repair.id); i++) {
-      addLog(s, "The Keeper", "Listen.", {
-        kind: "dialogue",
-        generated: true,
-        actorId: "keeper",
-      });
-      const entry = s.log.at(-1);
-      const told = reserveKnowledge(s, "keeper", "moth", entry);
-      const text = s.knowledge.facts[told.factId].text;
-      entry.text = text;
-      const { factId, speaker, listener, eventSeq } = told;
-      const said = { factId, speaker, listener, eventSeq, text };
-      publishKnowledgeSpeech(s, entry, [said]);
-    }
-    expect(s.knowledge.known.moth[repair.id].kind).toBe("heard");
-    expect(resentment(s, "moth", "vale")).toBe(0);
+    expect(repairs(s).length).toBe(1);
+    expect(s.motives.grievances.keeper[0].repaired).toBe(true);
   });
 
   it("repairs nothing when the aggrieved avatar is not there to see the gift", () => {

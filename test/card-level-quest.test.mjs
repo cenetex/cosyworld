@@ -1,11 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
+  decodeSave,
   legalActions,
   play,
   validateWorld,
 } from "../v2/card-game/world.mjs";
-import { levelOf, questSteps } from "../v2/card-game/want.mjs";
+import { readFileSync } from "node:fs";
+import {
+  drawStep,
+  levelOf,
+  questSteps,
+  questXp,
+  STEP_VERBS,
+} from "../v2/card-game/want.mjs";
+import { levelTier } from "../v2/card-game/level-tiers.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import {
   questCaption,
@@ -28,8 +37,50 @@ const ready = (xp = 1) => {
 };
 
 describe("the level quest", () => {
-  it("has a Fibonacci number of steps", () => {
-    expect([1, 2, 3, 4, 5, 6].map(questSteps)).toEqual([1, 1, 2, 3, 5, 8]);
+  it("has one step per five levels, as the level curve table says", () => {
+    expect([2, 5, 6, 10, 11, 50, 100].map(questSteps)).toEqual([
+      1, 1, 2, 2, 3, 10, 20,
+    ]);
+    // Each row of docs/design/level-curve.md: level, steps, cumulative steps,
+    // cumulative steps and rests.
+    const doc = readFileSync(
+      new URL("../docs/design/level-curve.md", import.meta.url),
+      "utf8",
+    );
+    const rows = [
+      ...doc.matchAll(
+        /^\| (\d+) \([A-Za-z]+\) \| (\d+) \| (\d+) \| (\d+) \|$/gmu,
+      ),
+    ];
+    expect(rows.map((r) => Number(r[1]))).toEqual([10, 20, 30, 50, 100]);
+    for (const [, level, steps, total, all] of rows) {
+      const upTo = (n) =>
+        Array.from({ length: n - 1 }, (_, i) => questSteps(i + 2));
+      const sum = upTo(Number(level)).reduce((a, b) => a + b, 0);
+      expect([questSteps(Number(level)), sum, sum + Number(level) - 1]).toEqual(
+        [Number(steps), Number(total), Number(all)],
+      );
+    }
+    // Legendary is in reach: at most 400 steps and rests from level 1, and
+    // the experience they give is the experience it asks.
+    const legendary = levelTier(50);
+    expect(legendary.id).toBe("legendary");
+    expect(questXp(legendary.minLevel)).toBeLessThanOrEqual(400);
+    let xp = 1;
+    for (let level = 2; level < 50; level++) {
+      expect(xp).toBeGreaterThanOrEqual(questXp(level));
+      xp += questSteps(level) + 1;
+    }
+  });
+
+  it("never draws a violent step, at any level", () => {
+    const s = createWorld();
+    for (let level = 2; level <= 120; level += 3)
+      for (let roll = 0; roll < 60; roll++) {
+        const step = drawStep(s, "vale", null, "person", "keeper", level, roll);
+        expect(["meet", undefined]).toContain(step?.verb);
+      }
+    expect(STEP_VERBS.person).toEqual(["meet"]);
   });
 
   it("holds the player's level at the threshold until a long rest brings the quest in a dream", () => {
@@ -48,9 +99,10 @@ describe("the level quest", () => {
     // The quest card shows the level quest in place of the want.
     const card = questCard(s);
     expect(questCaption(card)).toMatch(/^Level II: /);
-    // Its colour follows its F(n) steps: 1 is Common, 5 (level V) is Rare.
+    // Its colour is the tier of the level it leads to.
     expect(questTier(card).id).toBe("common");
-    expect(questTier({ ...card, level: 5 }).id).toBe("rare");
+    expect(questTier({ ...card, level: 20 }).id).toBe("rare");
+    expect(questTier({ ...card, level: 50 }).id).toBe("legendary");
     expect(validateWorld(s)).toBe(s);
   });
 
@@ -67,10 +119,13 @@ describe("the level quest", () => {
   });
 
   it("returns to the last sanctuary visited, where a long rest raises the level", () => {
-    let s = ready(3);
-    s.actors.vale.level = 2;
+    // Level VI is two steps and the rest.
+    let s = ready(questXp(6));
+    s.actors.vale.level = 5;
+    // A level V player has played a while.
+    s.turn = s.revision = 48;
     s = sleep(s);
-    expect(s.actors.vale.want.quest).toEqual({ level: 3, left: 3 });
+    expect(s.actors.vale.want.quest).toEqual({ level: 6, left: 3 });
     expect(s.actors.vale.sanctuary).toBe("attic");
     s.actors.vale.place = "attic";
     // Each step is pinned to a plain place step, whatever verb was drawn,
@@ -86,20 +141,20 @@ describe("the level quest", () => {
     };
     s.items.lamp.holder = "attic";
     s = go(s, "pond");
-    expect(s.actors.vale.want.quest).toEqual({ level: 3, left: 2 });
+    expect(s.actors.vale.want.quest).toEqual({ level: 6, left: 2 });
     // Vale has since slept at the Hillside Sanctuary: the way back leads there,
     // not to her home in the attic.
     s.actors.vale.sanctuary = "greek-sanctuary";
     s = go(s, "station");
-    expect(levelOf(s, "vale")).toBe(2);
+    expect(levelOf(s, "vale")).toBe(5);
     expect(s.actors.vale.want).toMatchObject({
       kind: "place",
       target: "greek-sanctuary",
-      quest: { level: 3, left: 1 },
+      quest: { level: 6, left: 1 },
       step: { verb: "rest" },
     });
     expect(questCaption(questCard(s))).toBe(
-      "Level III: Rest at The Hillside Sanctuary",
+      "Level VI: Rest at The Hillside Sanctuary",
     );
     expect(validateWorld(s)).toBe(s);
     // Being there is not enough: the long rest there raises the level.
@@ -112,7 +167,7 @@ describe("the level quest", () => {
     for (let i = 0; i < 8 && narrativeContext(s).rest !== "long"; i++)
       s = act(s, (a) => a.sleep);
     expect(narrativeContext(s).rest).toBe("long");
-    expect(levelOf(s, "vale")).toBe(3);
+    expect(levelOf(s, "vale")).toBe(6);
     expect(s.actors.vale.want?.quest).toBeUndefined();
     expect(validateWorld(s)).toBe(s);
   });
@@ -136,6 +191,77 @@ describe("the level quest", () => {
       actorId: "vale",
     });
     expect(validateWorld(s)).toBe(s);
+  });
+
+  it("never drops below the experience that earned the level", () => {
+    // At Legendary the quest's experience is mostly what level 50 took.
+    // A long-played world, so the experience is in range.
+    let s = ready(questXp(51));
+    s.turn = s.revision = 200;
+    s.actors.vale.level = 50;
+    s = sleep(s);
+    expect(s.actors.vale.want.quest.level).toBe(51);
+    s = act(s, dropQuest);
+    expect(s.actors.vale.xp).toBe(questXp(50));
+    expect(levelOf(s, "vale")).toBe(50);
+    // Experience well past the level, from the old curve, still halves.
+    s = ready(1000);
+    s.turn = s.revision = 200;
+    s.actors.vale.level = 6;
+    s = sleep(s);
+    s = act(s, dropQuest);
+    expect(s.actors.vale.xp).toBe(500);
+    expect(levelOf(s, "vale")).toBe(6);
+    expect(validateWorld(s)).toBe(s);
+  });
+
+  it("offers a player at old-curve experience one level quest per long rest", () => {
+    let s = ready(1000);
+    s.turn = s.revision = 200;
+    s.actors.vale.level = 1;
+    const levelQuests = (s) =>
+      [s.actors.vale.want, ...(s.actors.vale.under || [])].filter(
+        (w) => w?.quest,
+      );
+    s = sleep(s);
+    expect(narrativeContext(s).rest).toBe("long");
+    expect(levelQuests(s).map((w) => w.quest)).toEqual([{ level: 2, left: 2 }]);
+    // The quest done but its rest, the long rest that ends it brings no
+    // second offer; the next long rest brings the next level's quest alone.
+    s.actors.vale.want = {
+      kind: "place",
+      target: "attic",
+      since: s.turn,
+      refusals: 0,
+      quest: { level: 2, left: 1 },
+      step: { verb: "rest" },
+    };
+    s = sleep(s);
+    expect(narrativeContext(s).rest).toBe("long");
+    expect(levelOf(s, "vale")).toBe(2);
+    expect(levelQuests(s)).toEqual([]);
+    s.actors.vale.place = "attic";
+    s = sleep(s);
+    expect(narrativeContext(s).rest).toBe("long");
+    expect(levelQuests(s).map((w) => w.quest)).toEqual([{ level: 3, left: 2 }]);
+    expect(validateWorld(s)).toBe(s);
+  });
+
+  it("shortens a level quest saved before rules 90 to its level's steps", () => {
+    const s = createWorld();
+    s.turn = s.revision = 48;
+    s.actors.vale.level = 5;
+    s.actors.vale.xp = questXp(6);
+    s.actors.vale.want = {
+      kind: "place",
+      target: "pond",
+      since: 0,
+      refusals: 0,
+      quest: { level: 6, left: 9 },
+    };
+    const loaded = decodeSave(JSON.stringify(s));
+    expect(loaded.actors.vale.want.quest).toEqual({ level: 6, left: 3 });
+    expect(validateWorld(loaded)).toBe(loaded);
   });
 
   it("lets residents level on experience alone", () => {

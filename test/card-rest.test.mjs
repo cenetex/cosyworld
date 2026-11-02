@@ -119,7 +119,9 @@ describe("rest and sanctuary", () => {
     // A Sleep from just after the light changes lasts until it next does.
     // Pip carries the lamp, which would wake the attic as its oil ran low.
     expect(s.items.lamp.holder).toBe("moth");
+    // Pip, content with the lamp it wanted, keeps it where it stands.
     s.actors.moth.place = "station";
+    s.items.lamp.lit = false;
     s = sleep(at(s, 5 * DAYLIGHT_TURNS));
     const waking = woke(s, "vale");
     expect(waking).toMatchObject({
@@ -141,6 +143,9 @@ describe("rest and sanctuary", () => {
   it("sleeps several times in a row, each Sleep offered as the last ends", () => {
     let s = wait(at(createWorld(), 30));
     s.actors.vale.place = "station";
+    // Pip, content with the lamp, would keep it guttering beside Vale.
+    s.items.lamp.holder = "attic";
+    s.items.lamp.lit = false;
     const reasons = [];
     for (let i = 0; i < 4; i++) {
       s = act(s, (a) => a.sleep);

@@ -60,7 +60,7 @@ describe("quest step verbs", () => {
     );
   });
 
-  it("meets act verbs when the play resolves: Give only when accepted", () => {
+  it("meets act verbs when the play resolves: Give only when accepted, and saved Threaten steps", () => {
     const s = step(createWorld(), "item", "lamp", "give", { to: "moth" });
     const give = { kind: "give", actor: "vale", item: "lamp", target: "moth" };
     expect(wantMet(s, "vale", null, { ...give, accepted: false })).toBe(false);
@@ -91,7 +91,10 @@ describe("quest step verbs", () => {
     expect(validWant(s, "vale")).toBe(false);
     s.actors.vale.want.step = { verb: "give" };
     expect(validWant(s, "vale")).toBe(false);
-    expect(STEP_VERBS.person).toContain("attack");
+    // Rules 90 draws no violent step; one saved before stays valid.
+    expect(STEP_VERBS.person).toEqual(["meet"]);
+    step(s, "person", "moth", "attack");
+    expect(validWant(s, "vale")).toBe(true);
     step(s, "item", "lamp", "find");
     expect(validWant(s, "vale")).toBe(true);
   });
@@ -133,9 +136,7 @@ describe("quest step verbs", () => {
     s.actors.moth.place = s.actors.vale.place;
     expect(drawStep(s, "vale", api, "item", "lamp", 3, 7)).toBeNull();
     expect(drawStep(s, "vale", api, "person", "moth", 3, 14)).toBeNull();
-    expect(drawStep(s, "vale", api, "person", "moth", 20, 21)).toEqual({
-      verb: "attack",
-    });
+    expect(drawStep(s, "vale", api, "person", "moth", 20, 21)).toBeNull();
   });
 
   it("resolves both sides when giving meets another avatar's quest, through a long run", () => {

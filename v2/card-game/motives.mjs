@@ -138,12 +138,33 @@ const grievanceRules = [
 export function recordReaction(s, a, witnesses, accepted, entry) {
   if (!hasMotives(s)) return;
   const incident = `event:${entry.seq}`;
+  // The avatar a strike landed on: a guard who stepped in, or the target.
+  const struck = entry.targetId ?? a.target;
+  // What the incident took or damaged: a threat's stake or what the struck
+  // avatar dropped (its own loss, not the one it guarded), or the light
+  // spoiled. A gift of it answers the incident.
+  const involved = (kind, id) =>
+    kind === "threat"
+      ? ((id === struck ? entry.droppedItemIds?.[0] : null) ?? a.item)
+      : kind === "light"
+        ? s.items[a.target]
+          ? a.target
+          : a.item
+        : null;
   const add = (id, reason, kind) => {
     if (id === a.actor || !witnesses.includes(id)) return;
     const list = s.motives.grievances[id];
     const prior = list.find((g) => g.other === a.actor && g.kind === kind);
-    const fresh = { incident, lastTouched: s.turn, repaired: false };
+    const item = involved(kind, id);
+    const fresh = {
+      incident,
+      lastTouched: s.turn,
+      repaired: false,
+      ...(item ? { item } : {}),
+    };
     if (prior) {
+      // A repeat names only what it touched; an older item no longer counts.
+      if (!item) delete prior.item;
       Object.assign(prior, fresh, {
         weight: Math.min(3, prior.weight + 1),
         turn: s.turn,
@@ -178,6 +199,13 @@ export function recordReaction(s, a, witnesses, accepted, entry) {
         add(id, rule.reason.replace("{actor}", names[a.actor]), rule.kind);
   if (a.kind === "threaten" || a.kind === "attack")
     add(a.target, `${names[a.actor]} picked a fight.`, "threat");
+  // A guard beaten in the target's place lost what it dropped.
+  if (
+    a.kind === "attack" &&
+    struck !== a.target &&
+    entry.droppedItemIds?.length
+  )
+    add(struck, `${names[a.actor]} picked a fight.`, "threat");
   if (
     a.kind === "ask" &&
     !accepted &&
@@ -199,24 +227,31 @@ export function recordReaction(s, a, witnesses, accepted, entry) {
 }
 const touchVerbs = ["give", "trade", "attack", "threaten", "accompany"];
 // An accepted gift handed to a recipient present and aggrieved with its giver
-// answers the recipient's latest open incident. Otherwise it repairs nothing.
-export function repairAnswer(s, a, accepted, witnesses) {
+// repairs only when it answers an open incident: it returns what the incident
+// took or damaged, or it is the recipient's current want. Any other gift is
+// an ordinary gift. `wanted` says whether the gift meets an item quest in the
+// recipient's stack, lit-ness and all, read before the gift settles it.
+export function repairAnswer(s, a, accepted, witnesses, wanted = false) {
   if (a.kind !== "give" || !accepted || !witnesses.includes(a.target))
     return null;
   const g = (s.motives?.grievances[a.target] || [])
-    .filter((g) => g.other === a.actor && !g.repaired && g.incident)
+    .filter(
+      (g) =>
+        g.other === a.actor &&
+        !g.repaired &&
+        g.incident &&
+        (wanted || g.item === a.item),
+    )
     .at(-1);
   return g ? { recipient: a.target, incident: g.incident } : null;
 }
-// Whoever knows a repair, by witnessing or hearing it, closes its grievance
-// against the giver for that incident. Closed is dormant, not deleted.
-export function closeRepaired(s, holder, fact) {
-  if (fact.source.kind !== "repair") return;
-  for (const g of s.motives?.grievances[holder] || [])
-    if (
-      g.other === fact.source.actorId &&
-      g.incident === fact.source.answers.incident
-    )
+// A repair closes the recipient's own grievance for that incident and no
+// one else's: witnesses and hearers learn of it, and their grudges keep to
+// the dormancy clock. Closed is dormant, not deleted.
+export function closeRepaired(s, fact) {
+  const { recipient, incident } = fact.source.answers;
+  for (const g of s.motives?.grievances[recipient] || [])
+    if (g.other === fact.source.actorId && g.incident === incident)
       g.repaired = true;
 }
 // Tastes steer valuations only; a liking stated in the prompt became the
@@ -264,7 +299,9 @@ export function validMotives(s) {
               (Number.isSafeInteger(g.lastTouched) &&
                 g.lastTouched >= g.turn &&
                 g.lastTouched <= s.turn)) &&
-            (g.repaired === undefined || typeof g.repaired === "boolean"),
+            (g.repaired === undefined || typeof g.repaired === "boolean") &&
+            (g.item === undefined ||
+              (typeof g.item === "string" && g.item.length <= 80)),
         ),
     )
   );

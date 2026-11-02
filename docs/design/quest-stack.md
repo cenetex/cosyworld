@@ -27,11 +27,22 @@ first.
   level quest at a time, so a fourth quest always finds one to drop.
 - **Meet.** Every quest in the stack is checked after each play, and a play
   can meet several. A met quest leaves the stack and earns one point, as
-  before. A new quest is drawn only when the stack is empty. A rest step
-  anywhere in the stack counts on waking.
+  before. A rest step anywhere in the stack counts on waking.
+- **Enough for now.** Rules 90 (owner decision): an ordinary quest met with
+  nothing beneath leaves the avatar content (`actor.content: true`,
+  `want: null`, `contentOf`) instead of drawing at once. A player draws its
+  next quest on waking from any Sleep (`renewWant`); a resident, which never
+  sleeps, after a day (`CONTENT_TURNS`) as a want left empty always did. A
+  finished level quest still draws at once, and dropping or setting aside a
+  quest works as before. Any quest pushed on top (a level quest, a story
+  quest) ends contentment. A content resident takes the plays it takes with
+  no quest: it waits, and still answers threats, talk and its pack rules.
 - **Drop.** The player's `drop` play with no item names a quest index
   (`quest`). An ordinary quest costs nothing; its target goes into `gaveUp`.
-  A level quest also costs half the experience and keeps the level. Dropping
+  A level quest also halves the experience, but never below `questXp` of
+  the current level: the level stays and only progress toward the next is
+  lost (rules 90; ordinary wants are rate-limited by contentment, so a
+  plain halving could cost hundreds of Sleeps at high level). Dropping
   the last quest draws a new one at once.
 - **Focus.** The player's `focus` play moves a quest from beneath to the
   top. Owner decision, 2026-11-01: choosing the card is the whole act, with no
@@ -62,6 +73,10 @@ Tapping the chosen card folds the fan. The rules remove a met
 quest at once. The browser reads `want_met` events after the last event it saw
 (`metQuests`) and keeps those quests as sealed cards until the player clears
 them, in any order.
+
+A content player has no quest cards (`questCards` is empty). Not built yet:
+the client should read `contentOf(world, actor)` and show a resting quest
+card ("Enough for now") in place of the fold until the next Sleep.
 
 ## Engine
 

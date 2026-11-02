@@ -268,6 +268,13 @@ describe("the full world shared by human avatars", () => {
     world.items.mask.holder = "mara";
     world.actors.mara.place = "pond";
     world.actors.vale.place = "pond";
+    // A want one move away: residents content after a met want only wait.
+    world.actors.mara.want = {
+      kind: "place",
+      target: "station",
+      since: world.turn,
+      refusals: 0,
+    };
     const view = ask(world, "view", "vale", { present: ["vale"] });
     expect(
       view.actions.some((a) => a.kind === "talk" && a.target === "mara"),

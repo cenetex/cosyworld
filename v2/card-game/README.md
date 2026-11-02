@@ -172,7 +172,9 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   move on. The top quest offers **Drop quest**, the `drop` play with that
   index and no item; the rules accept a drop at any index. Dropping an
   ordinary quest costs nothing, and its target stays out of mind a while;
-  dropping a level quest costs half the experience and keeps the level.
+  dropping a level quest halves the experience but keeps the level and
+  never falls below the experience that level took (`questXp`), so it costs
+  only progress toward the next level.
   Dropping the last quest draws another at once, and a drop takes a turn.
 
 - **First quest.** A player holds no quest at the start: the attic opening
@@ -203,8 +205,12 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   Residents keep to what they know, since they must find a way there. A quest ends where it is met: nobody is sent home
   (#1824). A resident rests right there a few turns while it holds the next
   one.
-  Every active avatar, players and unseen residents too, always holds at
-  least one quest: with nothing near left, its curiosity starts over at once, and then
+  An avatar draws a quest whenever its stack is empty, except when it is
+  content: from rules 90 an ordinary quest met with nothing beneath is
+  enough for now (`actor.content`, `want: null`). A player draws its next
+  quest on waking from any Sleep, a resident after a day (`CONTENT_TURNS`).
+  A content resident waits and still answers plays. A draw takes something
+  near first; with nothing near left, curiosity starts over, and then
   anyone known, or what they hold, will do, reachable or not. A new world
   draws one for every avatar without an authored `want`; a quest left empty
   by an older rule set or a pack mounted later is drawn after a short rest.
@@ -213,8 +219,8 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   rises only through a level quest. Waking from a long rest at a sanctuary
   with experience enough for the next level brings that quest in the dream:
   the scene tells the model the quest as a fact, and it goes on top of the
-  stack, above the ordinary quests. The quest for level n has F(n) steps
-  (1, 1, 2, 3, 5 ...), each drawn from the whole known world among the half
+  stack, above the ordinary quests. The quest for level n has ceil(n / 5)
+  steps ([level curve](../../docs/design/level-curve.md)), each drawn from the whole known world among the half
   furthest from home. After the last step comes the way back: a **rest**
   step at the sanctuary the avatar last stood in (`actor.sanctuary`, or home
   for one that never reached a sanctuary). Being there is not enough; the
@@ -231,8 +237,9 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   by standing where it is, whoever holds it; **meet** a person by being
   together, without a Talk; **bring** an item to a person at a place by
   holding it there together. Act verbs are met when the avatar's own play
-  resolves: **give** only when accepted, **threaten** and **strike** (the attack play) whatever
-  the outcome, and only from Rare (level 20). Steps interlock with other
+  resolves: **give** only when accepted. No step is violent: a person step
+  is Talk or **meet** at every level (Threaten and Strike steps saved before
+  rules 90 are still met). Steps interlock with other
   avatars' quests: an item another known avatar wants to hold may be given
   or brought to them at home, meeting both quests in one play, and a person
   on the way to a place may be met there. A step already true where the
@@ -267,9 +274,9 @@ and appears only for the place itself or when the step happens where the
 player stands; elsewhere the figures stand on the card's dark ground. An
 unknown target shows a small carved card back in its slot, and an unknown
 place shows the back alone. The card names
-nothing: only one short verb (Hold, Talk, Go to, Discover, Introduce), the
-level numeral of a level quest and its tier colour, which follows the quest's
-F(n) steps (1 Common, 2–3 Uncommon, 5 Rare, 8 Epic, 13+ Legendary). It never
+nothing: only one short verb (Hold, Talk, Go to, Discover, Introduce, or a
+step's own: Find, Give, Bring, Meet), the level numeral of a level quest and
+its tier colour, the tier of the level it leads to. It never
 shows who holds the target or how far it is; it glows softly and steadily
 while the target is within two moves. Steps still to come lie face down behind
 the card, showing the card back. It plays nothing. The top quest folds behind the player's avatar card as
@@ -750,7 +757,7 @@ The rule is data in `forest.json`: `things.oil.refuels` names the lamp and
 and the `returnLocationId` where the flask waits. The Bell rings as before but
 no longer makes oil at the pond.
 
-Trades compare each character’s value for both objects, including attached cloth. A grievance raises the requested price. A favour can lower it. Ringing beside the Keeper, spoiling Pip’s light, threats, and repeated requests can create grievances. Only witnesses remember a slight. A useful gift earns a bounded favour. Grievances retain the other avatar, the incident's event id, its turn, strength, and the turn of the latest news between the pair. Strength never decays, but a grievance with no news between the pair for 24 turns goes dormant: it leaves prompts and hostile choices until a new incident wakes it and adds to its strength. Friendly contact keeps an active grievance on mind but never wakes a dormant or repaired one. A gift handed in person to an aggrieved recipient is a witnessed repair. Everyone who sees it, or later hears of it in Talk, closes their grievance for that incident (dormant, not deleted). A gift the aggrieved does not see repairs nothing, and a quiet Wait no longer eases grievances. While a grievance stands, the shared fact store keeps the witnessed account of its incident when older news is dropped, up to half the store (active grievances first, repaired last) ([grievance evidence](../../docs/design/grievance-evidence.md)).
+Trades compare each character’s value for both objects, including attached cloth. A grievance raises the requested price. A favour can lower it. Ringing beside the Keeper, spoiling Pip’s light, threats, and repeated requests can create grievances. Only witnesses remember a slight. A useful gift earns a bounded favour. Grievances retain the other avatar, the incident's event id, its turn, strength, and the turn of the latest news between the pair. Strength never decays, but a grievance with no news between the pair for 24 turns goes dormant: it leaves prompts and hostile choices until a new incident wakes it and adds to its strength. Friendly contact keeps an active grievance on mind but never wakes a dormant or repaired one. A gift handed in person to an aggrieved recipient is a witnessed repair only when it answers the incident: it returns what the incident took or damaged (the grievance's `item`), or it meets an item want in the recipient's stack (lit or dark as wanted). It closes only the recipient's grievance (dormant, not deleted); witnesses and those who hear of it keep theirs until they go dormant. Any other gift is an ordinary gift. A gift the aggrieved does not see repairs nothing, and a quiet Wait no longer eases grievances. While a grievance stands, the shared fact store keeps the witnessed account of its incident when older news is dropped, up to half the store (active grievances first, repaired last) ([grievance evidence](../../docs/design/grievance-evidence.md)).
 
 Give and Trade are always offered when the item fits in the other person's
 hands; a trade needs room on both sides. The answer comes when the card is

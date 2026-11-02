@@ -2185,9 +2185,10 @@
   var WANT_KINDS = ["item", "place", "person", "connect"];
   var STEP_VERBS = {
     item: ["find", "give", "bring"],
-    person: ["meet", "threaten", "attack"],
+    person: ["meet"],
     place: ["rest"]
   };
+  var SAVED_STEP_VERBS = ["threaten", "attack"];
   var CONNECT_TARGET = "humans";
   var REFUSAL_LIMIT = 3;
   var QUEST_LIMIT = 3;
@@ -2201,11 +2202,8 @@
   );
   var travels = (id, s = null) => !isPackActor(id) || freed(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
   var levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
-  var questSteps = (level) => {
-    let [a, b] = [1, 1];
-    for (let i = 1; i < level; i++) [a, b] = [b, a + b];
-    return a;
-  };
+  var QUEST_STEP_LEVELS = 5;
+  var questSteps = (level) => Math.ceil(level / QUEST_STEP_LEVELS);
   var startXp = (id) => {
     const level = isPackActor(id) ? packPeople[id].startLevel || 1 : 1;
     return level * (level - 1) / 2;
@@ -2241,7 +2239,10 @@
     const { verb, ...cards } = w.step;
     const home = verb === "bring" && w.story && !cards.to;
     const named = home ? ["at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
-    return (Boolean(w.quest) || home) && (STEP_VERBS[w.kind] || []).includes(verb) && Object.keys(cards).length === named.length && named.every((key) => typeof cards[key] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target);
+    return (Boolean(w.quest) || home) && [
+      ...STEP_VERBS[w.kind] || [],
+      ...w.kind === "person" ? SAVED_STEP_VERBS : []
+    ].includes(verb) && Object.keys(cards).length === named.length && named.every((key) => typeof cards[key] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target);
   }
   function validWant(s, id) {
     const a = s.actors[id];
@@ -2249,7 +2250,7 @@
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const quests = questsOf(s, id);
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want)) && (a.under === void 0 || Array.isArray(a.under) && a.want !== null && a.under.length >= 1 && a.under.length < QUEST_LIMIT && a.under.every((w) => validQuest(s, id, w))) && quests.filter((w) => w.quest).length <= 1 && new Set(quests.filter((w) => !w.quest).map((w) => `${w.kind}:${w.target}`)).size === quests.filter((w) => !w.quest).length;
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole4(a.metTurn)) && (a.content === void 0 || a.content === true) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole4(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want)) && (a.under === void 0 || Array.isArray(a.under) && a.want !== null && a.under.length >= 1 && a.under.length < QUEST_LIMIT && a.under.every((w) => validQuest(s, id, w))) && quests.filter((w) => w.quest).length <= 1 && new Set(quests.filter((w) => !w.quest).map((w) => `${w.kind}:${w.target}`)).size === quests.filter((w) => !w.quest).length;
   }
   function validQuest(s, id, w) {
     const whole4 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
@@ -15916,7 +15917,7 @@
     return m?.version === 1 && m.questPrograms === void 0 && Object.keys(m.grievances || {}).sort().join() === actors.slice().sort().join() && actors.every(
       (id) => Array.isArray(m.grievances[id]) && m.grievances[id].length <= 6 && m.grievances[id].every(
         (g) => actors.includes(g.other) && g.other !== id && ["noise", "light", "threat", "pestering"].includes(g.kind) && typeof g.reason === "string" && g.reason.length <= 180 && Number.isSafeInteger(g.turn) && g.turn >= 0 && g.turn <= s.turn && Number.isInteger(g.weight) && g.weight >= 1 && g.weight <= 3 && // Saves from before #2020 lack the incident and its touch.
-        (g.incident === void 0 || /^event:[1-9]\d*$/u.test(g.incident) && Number(g.incident.slice(6)) <= (s.eventSeq ?? Infinity)) && (g.lastTouched === void 0 || Number.isSafeInteger(g.lastTouched) && g.lastTouched >= g.turn && g.lastTouched <= s.turn) && (g.repaired === void 0 || typeof g.repaired === "boolean")
+        (g.incident === void 0 || /^event:[1-9]\d*$/u.test(g.incident) && Number(g.incident.slice(6)) <= (s.eventSeq ?? Infinity)) && (g.lastTouched === void 0 || Number.isSafeInteger(g.lastTouched) && g.lastTouched >= g.turn && g.lastTouched <= s.turn) && (g.repaired === void 0 || typeof g.repaired === "boolean") && (g.item === void 0 || typeof g.item === "string" && g.item.length <= 80)
       )
     );
   }
@@ -15976,6 +15977,10 @@
       for (const entry of Array.isArray(s.log) ? s.log : [])
         if (entry?.verb === "refill") entry.verb = "refuel";
       for (const a of Object.values(s.actors || {})) delete a?.sleepUntil;
+      for (const a of Object.values(s.actors || {}))
+        for (const w of [a?.want, ...a?.under || []])
+          if (w?.quest && w.quest.left > questSteps(w.quest.level) + 1)
+            w.quest.left = questSteps(w.quest.level) + 1;
       for (const c of Array.isArray(s.standoffs) ? s.standoffs : [])
         if (c && !c.steppedBack && c.challenger && c.defender)
           c.steppedBack = { [c.challenger]: false, [c.defender]: false };
