@@ -111,7 +111,6 @@ export function createCombatPortraits(fighter) {
             }),
         ),
       );
-      for (const figure of originals.keys()) figure.dataset.framing = "wide";
     },
     // Before the first frame the two fighters turn to face each other,
     // whoever they were watching. The keeper's clock is never mirrored:
@@ -155,7 +154,6 @@ export function createCombatPortraits(fighter) {
       );
       if (source && ready.has(source)) showCombatPortrait(figure, source, pose);
       else restore(figure, original);
-      figure.dataset.framing = "wide";
       figure.dataset.pose = value;
     },
     restore() {
