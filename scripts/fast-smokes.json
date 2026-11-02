@@ -37,6 +37,10 @@
       "smokes": ["smoke-card-weather"]
     },
     {
+      "paths": "^v2/card-game/(title-intro|entry)\\.",
+      "smokes": ["smoke-card-title-intro"]
+    },
+    {
       "paths": "^v2/card-game/toolbar",
       "smokes": ["smoke-card-toolbar"]
     },

@@ -1,6 +1,21 @@
 import { setupLocalService } from "./local-service.mjs";
 import { showBuildInfo } from "./build-info.mjs";
 import { membersLock } from "./shared-auth.mjs";
+import { playTitleIntro, titleIntroWanted } from "./title-intro.mjs";
+// A first arrival sees the Lonely Forest title over the booting table.
+let storage = null;
+try {
+  storage = localStorage;
+} catch {}
+if (
+  titleIntroWanted({
+    href: location.href,
+    storage,
+    local: !!document.querySelector('meta[name="cosy-local-app"]'),
+    webdriver: navigator.webdriver,
+  })
+)
+  playTitleIntro({ storage });
 const local = await setupLocalService();
 // A members-only test server shows its sign-in lock instead of the table.
 const locked = !local && (await membersLock());
