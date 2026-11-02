@@ -3,12 +3,14 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
+import { worldName } from "../card-game/world-name.mjs";
 
 // ☰'s world slots (#1877, #1891): a world shows the avatars that entered
 // it, in colour only while online, then "+" for an open seat. A tap shows
 // an avatar's card with its actions; "+" offers your avatar on the card. A friend's world shows while
 // your avatar sits there; Step away on your avatar's card releases it and
-// keeps its level.
+// keeps its level. A world of yours nobody is in is no row: + New world
+// takes its name and brings an avatar back into it.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -86,6 +88,15 @@ try {
               held: seats(0, 0, 0, 0, tavi ? 1 : 0),
               seed: 3,
             },
+            // Nobody is in this one any more; your Ash stepped away from it.
+            {
+              id: "gone",
+              owner: true,
+              actor: null,
+              bound: "ash",
+              held: seats(0, 0, 1),
+              seed: 4,
+            },
           ],
         },
       }),
@@ -142,6 +153,8 @@ try {
     await step.click();
     await friend.waitFor({ state: "detached" });
     assert.deepEqual(commands.shift(), ["friend", { op: "release" }]);
+    // The second-tap note goes with the card that asked.
+    assert.equal(await menu.locator(".avatar-status").innerText(), "");
     assert.equal(await menu.locator(".world-slot").count(), 2);
     // Someone's offline Mara is grey; her card says who plays her, and the
     // owner may free her.
@@ -181,11 +194,27 @@ try {
     );
     assert.doesNotMatch(await menu.innerText(), /on this device/);
     assert.equal(await page.locator("#new-game").getAttribute("hidden"), "");
+    // The emptied world is no row; + New world carries its name and brings
+    // the card's avatar back into it when that one is in no world, starting
+    // over the Ash who stepped away there first.
+    assert.equal(await menu.locator('[data-slot="gone"]').count(), 0);
+    const again = menu.locator("#avatar-new-world");
+    assert.equal(await again.innerText(), `+ ${worldName(4)}`);
+    await shot(`output/card-world-slots-emptied-${width}.png`);
+    const plus = menu.locator('.world-slot[data-slot="spare"] .seat-open');
+    await plus.click();
+    await plus.click();
+    assert.equal(await card.getAttribute("data-avatar"), "rue");
+    await Promise.all([page.waitForURL(/\?world=gone$/), again.click()]);
+    assert.deepEqual(commands.splice(0), [
+      ["gone", { op: "reset", avatar: "ash" }],
+      ["gone", { op: "claim", avatar: "rue" }],
+    ]);
     assert.deepEqual(errors, []);
     await page.close();
   }
   console.log(
-    "World slots: entered avatars and +, colour is presence, the card and its actions, + offers a move, and Step away, at 390 and 1440.",
+    "World slots: entered avatars and +, colour is presence, the card and its actions, + offers a move, Step away, and an emptied world folded into + New world, at 390 and 1440.",
   );
 } finally {
   await browser.close();
