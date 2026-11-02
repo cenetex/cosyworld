@@ -358,34 +358,6 @@ export function playLabel(action) {
   }[action?.kind];
 }
 
-// A play that has not resolved yet reads as what its actor is doing now: a
-// rules caption from the action kind, never authored dialogue.
-const progress = {
-  accompany: "inviting",
-  threaten: "threatening",
-  guard: "bracing",
-  intercept: "guarding",
-  attack: "striking",
-  take: "taking",
-  drop: "putting down",
-  focus: "choosing a quest",
-  give: "giving",
-  ask: "asking",
-  trade: "trading",
-  light: "lighting",
-  snuff: "putting out",
-  ring: "ringing",
-  cover: "covering",
-  move: "travelling",
-  talk: "talking",
-  wait: "waiting",
-};
-export function playProgress(action) {
-  return action?.kind === "move" && action.item
-    ? "carrying"
-    : progress[action?.kind] || "acting";
-}
-
 export function cardObservation(world, id) {
   const item = world.items[id];
   if (item) {

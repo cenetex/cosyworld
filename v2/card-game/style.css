@@ -1467,11 +1467,6 @@ body .card.want-card[data-met="true"] {
 #card-actions button:hover {
   background: #3c3325;
 }
-#card-actions button[data-queued="true"],
-#card-actions button[data-sent] {
-  border-color: var(--gold);
-  background: #3c3325;
-}
 body .card.drag-over {
   outline: 2px solid var(--gold);
 }
@@ -2562,8 +2557,7 @@ body .beat-live {
 .beat-action #card-actions button:is(:hover, :focus-visible) {
   background: #dfc38d1f;
 }
-.beat-action #card-actions button:active,
-.beat-action #card-actions button:is([data-queued="true"], [data-sent]) {
+.beat-action #card-actions button:active {
   background: #dfc38d33;
   color: var(--gold);
 }

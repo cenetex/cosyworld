@@ -6,7 +6,6 @@ import {
   cardPlay,
   playLabel,
   TOO_MANY_ITEMS,
-  playProgress,
   playText,
 } from "../v2/card-game/cards.mjs";
 import {
@@ -89,16 +88,12 @@ describe("named card actions", () => {
     expect(primary(world, ["lamp", "station"]).kind).toBe("snuff");
     expect(primary(world, ["bell", "station"]).kind).toBe("ring");
   });
-  it("shows the wait verb as Wait and an unresolved play as progress", () => {
+  it("shows the wait verb as Wait", () => {
     const world = createWorld();
     const { action, hint } = cardPlay(world, ["vale"]);
     expect(action.kind).toBe("wait");
     expect(playLabel(action)).toBe("Wait");
     expect(hint).toBe("Vale waits one turn.");
-    expect(playProgress(action)).toBe("waiting");
-    expect(playProgress({ kind: "attack" })).toBe("striking");
-    expect(playProgress({ kind: "move", item: "lamp" })).toBe("carrying");
-    expect(playProgress({ kind: "pack-choice" })).toBe("acting");
   });
 
   it("names the combat verbs Strike, Brace and Guard over the rules kinds", () => {
@@ -107,7 +102,6 @@ describe("named card actions", () => {
     const guard = { kind: "intercept", actor: "moth", target: "vale" };
     expect(playLabel(strike)).toBe("Strike");
     expect(playLabel(brace)).toBe("Brace");
-    expect(playProgress(strike)).toBe("striking");
     expect(playText(strike)).toBe("Vale strikes the keeper.");
     expect(playText(brace)).toBe("Pip braces.");
     expect(playText(guard)).toBe("Pip guards Vale.");
