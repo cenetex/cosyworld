@@ -261,8 +261,8 @@ const UNSAVED_NOTICE =
   "This browser could not save the world. Keep this tab open to keep playing.";
 if (storageBlocked) notice(UNSAVED_NOTICE);
 const SEEN_KEY = `${SAVE_KEY}.seen`;
-// The revision whose words failed, so a reload keeps Retry instead of a blank
-// or hidden dialogue panel.
+// Keep the revision whose words are still needed. A reload interrupts a
+// pending request too; a completed reply clears its Retry marker.
 const WORDS_FAILED_KEY = `${SAVE_KEY}.words-failed`;
 function rememberWordsFailed(revision) {
   if (sharedSession) return;
@@ -1020,6 +1020,7 @@ const narrator = createNarrator({
   },
   status: (value) => {
     storyStatus = value;
+    if (value === "pending") rememberWordsFailed(world.revision);
     if (value === "pending" && !exchange.active) exchange.begin();
     if (value === "retry") {
       rememberWordsFailed(world.revision);
@@ -2810,6 +2811,7 @@ function renderScene() {
   $("speech-row").setAttribute("aria-busy", String(!$("story-status").hidden));
   const retryWords = $("story-retry");
   retryWords.hidden = !wordsFailed || behindLive;
+  $("story-error").hidden = retryWords.hidden;
   retryWords.disabled = storyRetrying || !canRetryWords;
   retryWords.title = canRetryWords ? "Retry dialogue" : "Waiting for dialogue";
   retryWords.setAttribute("aria-label", retryWords.title);
@@ -3837,6 +3839,7 @@ $("confirm-reset").onclick = () => {
   reveal.cancel();
   speechSounds.stop();
   world = freshWorld();
+  rememberWordsFailed(null);
   loadSeen(true);
   completedSpeech.clear();
   reviewing = false;

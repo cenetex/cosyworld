@@ -1065,9 +1065,10 @@ try {
     });
     await retry.waitFor({ state: "visible" });
     assert.equal(await vale.locator("#story-status").isVisible(), false);
-    assert.equal(await retry.innerText(), "↻");
+    assert.equal(await retry.innerText(), "Retry");
+    assert.equal(await vale.locator("#story-error").isVisible(), true);
     const bounds = await retry.boundingBox();
-    assert(bounds.width <= 32 && bounds.height <= 32);
+    assert(bounds.width >= 32 && bounds.height <= 32);
     assert.doesNotMatch(
       await vale.locator("#play-status").innerText(),
       /play is saved|503/i,
