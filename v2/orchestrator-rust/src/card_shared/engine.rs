@@ -335,6 +335,11 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
 pub(super) fn takes_content(version: &str) -> bool {
     source(version).is_some_and(content::takes_content)
 }
+/// Whether `version` journals reflections in their own op after the speech
+/// they follow (#2016). Earlier rules only take them inside the speech.
+pub(super) fn takes_reflect(version: &str) -> bool {
+    source(version).is_some_and(|source| source.contains("op === \"reflect\""))
+}
 // Rules from v58 on receive the world's pack content; older rules carry theirs.
 pub(super) fn reduce_pack(version: &str, pack: Option<&str>, request: Value) -> Result<Value> {
     let source = source(version).ok_or("This world needs a supported rules version.")?;

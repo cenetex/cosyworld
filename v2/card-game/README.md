@@ -819,9 +819,9 @@ informs the persona revision. A dream may come with the thought, alongside the
 persona. Each accepted revision keeps its source events, previous persona and
 the model used for each part. Four revisions stay in the save. Thoughts stay at
 least six turns apart. A dream needs two thoughts since the last dream and at
-least 24 turns since it. These gaps apply in both modes. Shared publication commits the
-reflection with its speech through the world journal. Retrying the publication
-keeps its original play identity. The server rejects a thought, persona or
+least 24 turns since it. These gaps apply in both modes. Shared publication journals the
+reflection in its own `reflect` op after the speech, dated to the speech's
+turn. Retrying the publication keeps its original play identity. The server rejects a thought, persona or
 dream that is not first person, carries a `," she called` tag, or names an
 item kind the scene does not know ("my compass is ready"). It also leaves a
 kept thought or dream that names such a thing out of later prompts, so a
@@ -1069,9 +1069,10 @@ late reply for an older turn is ignored. A failed reflection is simply
 skipped. Omitted cards keep their saved words. Shared
 play requires both selected voices and journals the committed text through the
 existing shared dialogue event. Shared speech uses the same transcript and
-visible-state checks. Shared reflections are still generated with their
-speech and saved with it through the world journal, so journal order and
-replay are unchanged.
+visible-state checks. From rules v88, shared reflections are generated after
+the line is journaled and saved in a later `reflect` journal op, so they never
+delay or fail the line
+([shared worlds](../docs/card-table/shared-worlds.md#learning-and-private-reflection)).
 
 Optional voice tiers are enabled with exact model IDs in
 `COSYWORLD_CARD_REFLECTION_MODEL` and `COSYWORLD_CARD_ESCALATION_MODEL`.

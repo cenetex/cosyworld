@@ -28,6 +28,8 @@ use std::{
 mod browser;
 #[path = "full_dedupe.rs"]
 mod dedupe;
+#[path = "full_reflect.rs"]
+pub(super) mod reflect;
 #[path = "full_retire.rs"]
 mod retire;
 
@@ -730,11 +732,22 @@ fn kick(state: AppState, id: String) {
             let wid = id.clone();
             let work = tokio::task::spawn_blocking(move || take_work(&s, &wid)).await;
             let Ok(Ok(Some(work))) = work else { break };
+            reflect::replace(&id, work.actor);
             let lines = super::full_speech::generate(&state, work.actor, &work.context).await;
             let s = state.clone();
             let wid = id.clone();
+            let after = lines
+                .as_ref()
+                .ok()
+                .cloned()
+                .map(|lines| (work.clone(), lines));
             match tokio::task::spawn_blocking(move || finish_work(&s, &wid, work, lines)).await {
-                Ok(Ok(())) => {}
+                // The line is journaled and shown; its reflections follow.
+                Ok(Ok(())) => {
+                    if let Some((work, lines)) = after {
+                        reflect::spawn(state.clone(), id.clone(), work, &lines);
+                    }
+                }
                 other => {
                     tracing::warn!(result=?other,"shared card publication failed");
                     break;
@@ -831,7 +844,7 @@ fn finish_work_attempt(
                     &tx,
                     id,
                     &mut w,
-                    json!({"op":"speech","actor":actor_id(work.actor),"room":work.room,"lines":lines,
+                    json!({"op":"speech","actor":actor_id(work.actor),"room":work.room,"play":work.id,"lines":lines,
                     "disclosures":scene["context"]["disclosures"],
                     "entries":lines.as_array().into_iter().flatten().filter(|line| line["reflection"].is_object()).map(|line| json!({"id":line["entityId"],"model":line["model"],"reflection":line["reflection"]})).collect::<Vec<_>>()}),
                     time,

@@ -254,7 +254,9 @@ seed and recorded operations.
 Shared-world writes take turns in the server process before they open a SQLite
 write transaction, so concurrent views, plays and narration do not race each
 other on SQLite's busy timeout and fail with "database is locked". The journal
-is unchanged: one record per accepted play, in order.
+keeps one record per accepted play, in order. A play's speech and, from rules
+v88, its private reflections are later records of their own (see
+[Learning and private reflection](#learning-and-private-reflection)).
 
 Rule version 3 introduced the home-item floor start. Version 4 added Greek
 story cards and saved bard visits. Versions 5–8 added collected and shared quests,
@@ -430,9 +432,45 @@ after its journal has replayed; the upgrade preserves items and played time.
 
 Shared rules version 13 saves each avatar's checked lessons and private
 reflections. A lesson links an expected answer, the observed answer, and a
-revised approach to one completed request. The server checks reflection evidence
-against that avatar's witnessed events before it records speech and reflection
-in the same journal command. A reload or journal-only rebuild restores both.
+revised approach to one completed request. The rules check reflection evidence
+against that avatar's witnessed events before the journal keeps it. A reload or
+journal-only rebuild restores it.
+
+Through rules v87, the server generated reflections with the scene's lines and
+recorded them in the same `speech` command (`entries`). Those journals replay
+unchanged with their released bundles. From rules v88 a reflection can no
+longer delay or fail its line
+([#2016](https://github.com/cenetex/cosyworld/issues/2016)):
+
+- The `speech` command carries the lines, `entries: []` and its `play` key. It
+  is journaled and shown as soon as the lines pass validation.
+- Afterwards, outside the scene's capacity, the server asks for the due
+  thought, persona and dream of each avatar that spoke
+  (`card_shared/full_reflect.rs`). They have their own capacity of two. Only
+  the same seat's next scene cancels an unfinished one; another player's
+  scene never does. The world's next play does not wait for them.
+- They are journaled as one later command:
+  `{"op":"reflect","actor","play","turn","rest","entries":[{"id","reflection"}]}`.
+  `turn` is the speech's turn and each reflection's `evidence` lists its source
+  events. The rules (`applyLaterReflections` in `reflections.mjs`) refuse a
+  turn after the world's, evidence the avatar did not witness by then, or a
+  reflection no longer due. A thought older than the avatar's newest one is
+  never due. Saved thoughts, dreams and revisions carry the speech's turn.
+- The server writes at most one `reflect` per play, only after that play's
+  `speech` record, and only for rules that take it. A retry finds the earlier
+  record and stops.
+- A reflection that fails, is cancelled, or is refused is simply absent. The
+  world is valid without it. The op changes only the avatar's private memory
+  and the world revision, never a rules outcome. The C session guard checks it
+  as text, like speech: no claim, presence or room changes.
+
+Shared clients receive the saved reflection through their next view sync,
+like any other change to their own avatar's memory.
+
+A server build from before rules v88 cannot replay a `reflect` record. Rolling
+back past v88 is accepted for this change, but a world that journaled one then
+fails to load on the older build; see
+[release operations](../../../docs/release.md#upgrade-and-recovery).
 
 Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also

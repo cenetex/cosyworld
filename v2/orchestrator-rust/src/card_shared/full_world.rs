@@ -396,6 +396,19 @@ impl World {
                 *self = next;
                 return Ok(result);
             }
+            // Reflections journaled after their speech (#2016). Like speech,
+            // they move no one and may land after the speaker leaves.
+            "reflect" => {
+                let mut request = self.request("reflect", a);
+                for key in ["turn", "rest", "entries"] {
+                    request[key] = command[key].clone();
+                }
+                let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
+                next.game = result["world"].clone();
+                self.guard(&next, 12, a)?;
+                *self = next;
+                return Ok(result);
+            }
             _ => return Err("Choose an available play.".into()),
         };
         self.guard(&next, kind, a)?;

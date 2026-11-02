@@ -29,7 +29,10 @@ import {
 } from "./human-cast.mjs";
 import { profiles } from "./memory.mjs";
 import { enableMotives } from "./motives.mjs";
-import { applySharedReflections } from "./reflections.mjs";
+import {
+  applyLaterReflections,
+  applySharedReflections,
+} from "./reflections.mjs";
 import { resetAvatar } from "./avatar-reset.mjs";
 import { arrive, hideAvatar, seekHidden } from "./hidden-avatar.mjs";
 import { homecoming } from "./homecoming.mjs";
@@ -309,6 +312,14 @@ export function dispatchShared(request) {
     world.revision += 1;
     validateWorld(world);
     return response(world, { lines });
+  }
+  // Reflections journaled after their speech (#2016). They touch only the
+  // avatar's private memory, never a rules outcome.
+  if (request.op === "reflect") {
+    applyLaterReflections(world, request);
+    world.revision += 1;
+    validateWorld(world);
+    return response(world);
   }
   throw new Error("Choose a supported world operation.");
 }
