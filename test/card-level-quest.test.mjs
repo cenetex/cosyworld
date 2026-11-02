@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
+  decodeSave,
   legalActions,
   play,
   validateWorld,
@@ -190,6 +191,77 @@ describe("the level quest", () => {
       actorId: "vale",
     });
     expect(validateWorld(s)).toBe(s);
+  });
+
+  it("never drops below the experience that earned the level", () => {
+    // At Legendary the quest's experience is mostly what level 50 took.
+    // A long-played world, so the experience is in range.
+    let s = ready(questXp(51));
+    s.turn = s.revision = 200;
+    s.actors.vale.level = 50;
+    s = sleep(s);
+    expect(s.actors.vale.want.quest.level).toBe(51);
+    s = act(s, dropQuest);
+    expect(s.actors.vale.xp).toBe(questXp(50));
+    expect(levelOf(s, "vale")).toBe(50);
+    // Experience well past the level, from the old curve, still halves.
+    s = ready(1000);
+    s.turn = s.revision = 200;
+    s.actors.vale.level = 6;
+    s = sleep(s);
+    s = act(s, dropQuest);
+    expect(s.actors.vale.xp).toBe(500);
+    expect(levelOf(s, "vale")).toBe(6);
+    expect(validateWorld(s)).toBe(s);
+  });
+
+  it("offers a player at old-curve experience one level quest per long rest", () => {
+    let s = ready(1000);
+    s.turn = s.revision = 200;
+    s.actors.vale.level = 1;
+    const levelQuests = (s) =>
+      [s.actors.vale.want, ...(s.actors.vale.under || [])].filter(
+        (w) => w?.quest,
+      );
+    s = sleep(s);
+    expect(narrativeContext(s).rest).toBe("long");
+    expect(levelQuests(s).map((w) => w.quest)).toEqual([{ level: 2, left: 2 }]);
+    // The quest done but its rest, the long rest that ends it brings no
+    // second offer; the next long rest brings the next level's quest alone.
+    s.actors.vale.want = {
+      kind: "place",
+      target: "attic",
+      since: s.turn,
+      refusals: 0,
+      quest: { level: 2, left: 1 },
+      step: { verb: "rest" },
+    };
+    s = sleep(s);
+    expect(narrativeContext(s).rest).toBe("long");
+    expect(levelOf(s, "vale")).toBe(2);
+    expect(levelQuests(s)).toEqual([]);
+    s.actors.vale.place = "attic";
+    s = sleep(s);
+    expect(narrativeContext(s).rest).toBe("long");
+    expect(levelQuests(s).map((w) => w.quest)).toEqual([{ level: 3, left: 2 }]);
+    expect(validateWorld(s)).toBe(s);
+  });
+
+  it("shortens a level quest saved before rules 90 to its level's steps", () => {
+    const s = createWorld();
+    s.turn = s.revision = 48;
+    s.actors.vale.level = 5;
+    s.actors.vale.xp = questXp(6);
+    s.actors.vale.want = {
+      kind: "place",
+      target: "pond",
+      since: 0,
+      refusals: 0,
+      quest: { level: 6, left: 9 },
+    };
+    const loaded = decodeSave(JSON.stringify(s));
+    expect(loaded.actors.vale.want.quest).toEqual({ level: 6, left: 3 });
+    expect(validateWorld(loaded)).toBe(loaded);
   });
 
   it("lets residents level on experience alone", () => {

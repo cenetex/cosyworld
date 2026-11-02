@@ -39,7 +39,10 @@ first.
   no quest: it waits, and still answers threats, talk and its pack rules.
 - **Drop.** The player's `drop` play with no item names a quest index
   (`quest`). An ordinary quest costs nothing; its target goes into `gaveUp`.
-  A level quest also costs half the experience and keeps the level. Dropping
+  A level quest also halves the experience, but never below `questXp` of
+  the current level: the level stays and only progress toward the next is
+  lost (rules 90; ordinary wants are rate-limited by contentment, so a
+  plain halving could cost hundreds of Sleeps at high level). Dropping
   the last quest draws a new one at once.
 - **Focus.** The player's `focus` play moves a quest from beneath to the
   top. Owner decision, 2026-11-01: choosing the card is the whole act, with no

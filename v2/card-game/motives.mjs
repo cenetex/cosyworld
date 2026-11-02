@@ -138,11 +138,14 @@ const grievanceRules = [
 export function recordReaction(s, a, witnesses, accepted, entry) {
   if (!hasMotives(s)) return;
   const incident = `event:${entry.seq}`;
-  // What the incident took or damaged: a threat's stake or what a beaten
-  // avatar dropped, or the light spoiled. A gift of it answers the incident.
-  const involved = (kind) =>
+  // The avatar a strike landed on: a guard who stepped in, or the target.
+  const struck = entry.targetId ?? a.target;
+  // What the incident took or damaged: a threat's stake or what the struck
+  // avatar dropped (its own loss, not the one it guarded), or the light
+  // spoiled. A gift of it answers the incident.
+  const involved = (kind, id) =>
     kind === "threat"
-      ? (entry.droppedItemIds?.[0] ?? a.item)
+      ? ((id === struck ? entry.droppedItemIds?.[0] : null) ?? a.item)
       : kind === "light"
         ? s.items[a.target]
           ? a.target
@@ -152,7 +155,7 @@ export function recordReaction(s, a, witnesses, accepted, entry) {
     if (id === a.actor || !witnesses.includes(id)) return;
     const list = s.motives.grievances[id];
     const prior = list.find((g) => g.other === a.actor && g.kind === kind);
-    const item = involved(kind);
+    const item = involved(kind, id);
     const fresh = {
       incident,
       lastTouched: s.turn,
@@ -160,6 +163,8 @@ export function recordReaction(s, a, witnesses, accepted, entry) {
       ...(item ? { item } : {}),
     };
     if (prior) {
+      // A repeat names only what it touched; an older item no longer counts.
+      if (!item) delete prior.item;
       Object.assign(prior, fresh, {
         weight: Math.min(3, prior.weight + 1),
         turn: s.turn,
@@ -194,6 +199,13 @@ export function recordReaction(s, a, witnesses, accepted, entry) {
         add(id, rule.reason.replace("{actor}", names[a.actor]), rule.kind);
   if (a.kind === "threaten" || a.kind === "attack")
     add(a.target, `${names[a.actor]} picked a fight.`, "threat");
+  // A guard beaten in the target's place lost what it dropped.
+  if (
+    a.kind === "attack" &&
+    struck !== a.target &&
+    entry.droppedItemIds?.length
+  )
+    add(struck, `${names[a.actor]} picked a fight.`, "threat");
   if (
     a.kind === "ask" &&
     !accepted &&
@@ -217,12 +229,11 @@ const touchVerbs = ["give", "trade", "attack", "threaten", "accompany"];
 // An accepted gift handed to a recipient present and aggrieved with its giver
 // repairs only when it answers an open incident: it returns what the incident
 // took or damaged, or it is the recipient's current want. Any other gift is
-// an ordinary gift. The want is read before the gift settles it.
-export function repairAnswer(s, a, accepted, witnesses) {
+// an ordinary gift. `wanted` says whether the gift meets an item quest in the
+// recipient's stack, lit-ness and all, read before the gift settles it.
+export function repairAnswer(s, a, accepted, witnesses, wanted = false) {
   if (a.kind !== "give" || !accepted || !witnesses.includes(a.target))
     return null;
-  const want = s.actors[a.target]?.want;
-  const wanted = want?.kind === "item" && want.target === a.item;
   const g = (s.motives?.grievances[a.target] || [])
     .filter(
       (g) =>

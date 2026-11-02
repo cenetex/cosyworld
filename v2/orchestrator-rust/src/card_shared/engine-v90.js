@@ -2013,7 +2013,8 @@
   function dropQuest(s, actor, api, index = 0) {
     const a = s.actors[actor], list = questsOf(s, actor), want = list[index];
     if (!want) return;
-    if (want.quest) a.xp = Math.floor(a.xp / 2);
+    if (want.quest)
+      a.xp = Math.max(questXp(a.level ?? levelFor(a.xp)), Math.floor(a.xp / 2));
     a.gaveUp = { target: want.target, turn: s.turn };
     list.splice(index, 1);
     setQuests(a, list);
@@ -2121,6 +2122,9 @@
       talk && s.actors[want.target]?.place === s.actors[actor].place && (talk.actor === actor && talk.target === want.target || talk.actor === want.target && talk.target === actor)
     );
   }
+  var meetsItemWant = (s, actor, item, action = null) => questsOf(s, actor).some(
+    (w) => w.kind === "item" && w.target === item && questMet(s, actor, w, null, action)
+  );
   function holdsAsWanted(s, actor, want) {
     if (want.lit === void 0) return rootOf(s, want.target) === actor;
     const item = s.items[want.target];
@@ -4509,12 +4513,13 @@
   function recordReaction(s, a, witnesses, accepted, entry) {
     if (!hasMotives(s)) return;
     const incident = `event:${entry.seq}`;
-    const involved = (kind) => kind === "threat" ? entry.droppedItemIds?.[0] ?? a.item : kind === "light" ? s.items[a.target] ? a.target : a.item : null;
+    const struck = entry.targetId ?? a.target;
+    const involved = (kind, id) => kind === "threat" ? (id === struck ? entry.droppedItemIds?.[0] : null) ?? a.item : kind === "light" ? s.items[a.target] ? a.target : a.item : null;
     const add = (id, reason, kind) => {
       if (id === a.actor || !witnesses.includes(id)) return;
       const list = s.motives.grievances[id];
       const prior = list.find((g) => g.other === a.actor && g.kind === kind);
-      const item = involved(kind);
+      const item = involved(kind, id);
       const fresh = {
         incident,
         lastTouched: s.turn,
@@ -4522,6 +4527,7 @@
         ...item ? { item } : {}
       };
       if (prior) {
+        if (!item) delete prior.item;
         Object.assign(prior, fresh, {
           weight: Math.min(3, prior.weight + 1),
           turn: s.turn
@@ -4553,6 +4559,8 @@
           add(id, rule.reason.replace("{actor}", names[a.actor]), rule.kind);
     if (a.kind === "threaten" || a.kind === "attack")
       add(a.target, `${names[a.actor]} picked a fight.`, "threat");
+    if (a.kind === "attack" && struck !== a.target && entry.droppedItemIds?.length)
+      add(struck, `${names[a.actor]} picked a fight.`, "threat");
     if (a.kind === "ask" && !accepted && s.log.some(
       (e) => e.verb === "ask" && e.seq < entry.seq && e.actorId === a.actor && e.targetId === a.target && e.itemId === a.item && s.turn - e.turn <= 6
     ))
@@ -4563,11 +4571,9 @@
       );
   }
   var touchVerbs = ["give", "trade", "attack", "threaten", "accompany"];
-  function repairAnswer(s, a, accepted, witnesses) {
+  function repairAnswer(s, a, accepted, witnesses, wanted = false) {
     if (a.kind !== "give" || !accepted || !witnesses.includes(a.target))
       return null;
-    const want = s.actors[a.target]?.want;
-    const wanted = want?.kind === "item" && want.target === a.item;
     const g = (s.motives?.grievances[a.target] || []).filter(
       (g2) => g2.other === a.actor && !g2.repaired && g2.incident && (wanted || g2.item === a.item)
     ).at(-1);
@@ -7102,7 +7108,13 @@
       ...invitation ? { destinationId: a.destination, accepted: invitation.accepted } : {},
       ...a.kind === "attack" ? { locationId: here, ...combat } : {}
     });
-    const answer = repairAnswer(s, a, requestAccepted, witnesses);
+    const answer = repairAnswer(
+      s,
+      a,
+      requestAccepted,
+      witnesses,
+      a.kind === "give" && requestAccepted && meetsItemWant(s, a.target, a.item, { ...a, accepted: true })
+    );
     recordReaction(s, a, witnesses, requestAccepted, s.log.at(-1));
     const repair = answer && witnessRepair(
       s,

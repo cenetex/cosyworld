@@ -58,8 +58,15 @@ incident:
 - the item is the grievance's `item`, what the incident took or damaged: a
   threat's stake, the first thing a beaten avatar dropped (`droppedItemIds`),
   or the light that was spoiled (the lamp snuffed or covered); or
-- the item is the recipient's current item want, read before the gift
-  settles it.
+- the gift meets an item want anywhere in the recipient's stack, judged as
+  `settleWants` judges it (`meetsItemWant`): a want that names the item's
+  light is answered only by the item lit or dark as wanted. It is read
+  before the gift settles it.
+
+A dropped item belongs to the avatar who dropped it: a guard who steps in
+and is beaten takes a threat grievance of its own with that item, and the
+avatar it covered keeps the stake. A repeat incident names only what it
+touched, so one that takes nothing clears an older `item`.
 
 Noise and pestering take nothing, so only a wanted gift answers them.
 Grievances saved before rules 90 have no `item` and can be answered only by

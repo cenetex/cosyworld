@@ -254,6 +254,90 @@ describe("shore wants and grievances", () => {
       });
     });
 
+  it("forgets an older item when a repeat incident takes nothing", () => {
+    let s = together(fresh());
+    threatened(s);
+    // An attack that drops nothing names no item.
+    s.eventSeq += 1;
+    slight(s, { kind: "attack", actor: "vale", target: "keeper" }, ["keeper"]);
+    expect(s.motives.grievances.keeper[0]).toMatchObject({ weight: 2 });
+    expect(s.motives.grievances.keeper[0].item).toBeUndefined();
+    s = act(s, "give", { item: "cloth", target: "keeper" });
+    expect(s.log.findLast((e) => e.verb === "give").accepted).toBe(true);
+    expect(repairs(s)).toEqual([]);
+    expect(s.motives.grievances.keeper[0].repaired).toBe(false);
+  });
+
+  it("files a guard's dropped item as the guard's loss, not the target's", () => {
+    const s = together(fresh());
+    s.eventSeq += 1;
+    recordReaction(
+      s,
+      { kind: "attack", actor: "vale", target: "keeper" },
+      ["keeper", "moth"],
+      false,
+      {
+        seq: s.eventSeq,
+        targetId: "moth",
+        coveredId: "keeper",
+        droppedItemIds: ["oil"],
+      },
+    );
+    expect(s.motives.grievances.keeper[0].kind).toBe("threat");
+    expect(s.motives.grievances.keeper[0].item).toBeUndefined();
+    expect(s.motives.grievances.moth[0]).toMatchObject({
+      other: "vale",
+      kind: "threat",
+      item: "oil",
+    });
+    expect(validateWorld(s)).toBe(s);
+  });
+
+  // An aggrieved Pip with no item on the grievance: only a want answers it.
+  const pestered = (s) => {
+    s.eventSeq += 1;
+    s.motives.grievances.moth.push({
+      other: "vale",
+      kind: "pestering",
+      reason: "Vale kept asking.",
+      turn: s.turn,
+      weight: 1,
+      incident: `event:${s.eventSeq}`,
+      lastTouched: s.turn,
+      repaired: false,
+    });
+  };
+  for (const lit of [false, true])
+    it(`answers a lit-lamp want only with the lamp ${lit ? "lit" : "dark"}: ${lit ? "repair" : "none"}`, () => {
+      let s = together(fresh());
+      expect(s.actors.moth.want).toMatchObject({ target: "lamp", lit: true });
+      s.items.lamp.holder = "vale";
+      s.items.lamp.lit = lit;
+      pestered(s);
+      s = act(s, "give", { item: "lamp", target: "moth" });
+      expect(s.log.findLast((e) => e.verb === "give").accepted).toBe(true);
+      expect(repairs(s).length).toBe(lit ? 1 : 0);
+      expect(s.motives.grievances.moth[0].repaired).toBe(lit);
+    });
+
+  it("answers an item want beneath the top of the recipient's stack", () => {
+    let s = together(fresh());
+    s.items.bell.holder = "vale";
+    s = act(s, "ring", { item: "bell" });
+    const bell = s.actors.keeper.want;
+    expect(bell).toMatchObject({ kind: "item", target: "bell" });
+    s.actors.keeper.want = {
+      kind: "place",
+      target: "pond",
+      since: 0,
+      refusals: 0,
+    };
+    s.actors.keeper.under = [bell];
+    s = act(s, "give", { item: "bell", target: "keeper" });
+    expect(repairs(s).length).toBe(1);
+    expect(s.motives.grievances.keeper[0].repaired).toBe(true);
+  });
+
   it("repairs nothing when the aggrieved avatar is not there to see the gift", () => {
     let s = together(fresh());
     s.items.lamp.holder = "vale";

@@ -74,6 +74,7 @@ import {
   travels,
   resting,
   settleWants,
+  meetsItemWant,
   refuseWant,
   reviseStalledWants,
   fillWants,
@@ -2202,7 +2203,15 @@ function performPlay(s, a, round = null, settle = []) {
     ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
   });
   // A gift in person to an aggrieved recipient is a repair all present see.
-  const answer = repairAnswer(s, a, requestAccepted, witnesses);
+  const answer = repairAnswer(
+    s,
+    a,
+    requestAccepted,
+    witnesses,
+    a.kind === "give" &&
+      requestAccepted &&
+      meetsItemWant(s, a.target, a.item, { ...a, accepted: true }),
+  );
   recordReaction(s, a, witnesses, requestAccepted, s.log.at(-1));
   const repair =
     answer &&

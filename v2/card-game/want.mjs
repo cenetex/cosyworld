@@ -250,16 +250,18 @@ export function wake(s, actor, api) {
   if (rest >= 0) return commitMet(s, actor, api, [], rest);
   return offerLevelQuest(s, actor, api);
 }
-// A player may drop any quest in its stack. Dropping a level quest costs
-// half the avatar's experience and keeps its level; an ordinary quest costs
-// nothing. Its target stays out of mind a while, and the quest beneath comes
+// A player may drop any quest in its stack. Dropping a level quest halves
+// the experience gained toward the next level: the avatar keeps its level
+// and never falls below the experience that earned it. An ordinary quest
+// costs nothing. Its target stays out of mind a while, and the quest beneath comes
 // to the top; dropping the last one draws another at once.
 export function dropQuest(s, actor, api, index = 0) {
   const a = s.actors[actor],
     list = questsOf(s, actor),
     want = list[index];
   if (!want) return;
-  if (want.quest) a.xp = Math.floor(a.xp / 2);
+  if (want.quest)
+    a.xp = Math.max(questXp(a.level ?? levelFor(a.xp)), Math.floor(a.xp / 2));
   a.gaveUp = { target: want.target, turn: s.turn };
   list.splice(index, 1);
   setQuests(a, list);
@@ -463,6 +465,15 @@ function questMet(s, actor, want, talk, action) {
         (talk.actor === want.target && talk.target === actor)),
   );
 }
+// Whether holding this item now meets an item quest in the actor's stack,
+// as settleWants would judge it: a gift answers a want only if it meets one.
+export const meetsItemWant = (s, actor, item, action = null) =>
+  questsOf(s, actor).some(
+    (w) =>
+      w.kind === "item" &&
+      w.target === item &&
+      questMet(s, actor, w, null, action),
+  );
 // An item want may name the item's light: then it is met only in the
 // actor's own hands, lit (or dark) and uncovered, as a moth wants a flame.
 export function holdsAsWanted(s, actor, want) {
