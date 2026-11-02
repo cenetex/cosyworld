@@ -10,7 +10,7 @@ use axum::{
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json, Router,
+    Extension, Json, Router,
 };
 use rusqlite::{params, OptionalExtension};
 use serde::Deserialize;
@@ -19,6 +19,8 @@ use serde_json::{json, Map, Value};
 use super::credits::{self, clips, Payer, Spend, SpendKind};
 use crate::{ai_gateway::AiConfig, AppState};
 
+#[path = "card_video/callback.rs"]
+mod callback;
 #[path = "card_video/receipts.rs"]
 mod receipts;
 #[path = "card_video/reconcile.rs"]
@@ -32,6 +34,10 @@ const MODEL: &str = "tbc/mischief-1";
 const MAX_VIDEO: usize = 100 * 1024 * 1024;
 
 pub(crate) fn router() -> Router<AppState> {
+    router_with_callbacks(callback::Config::from_env())
+}
+
+fn router_with_callbacks(callbacks: callback::Config) -> Router<AppState> {
     Router::new()
         .route("/card-game/video/model", get(model))
         .route("/card-game/video/{id}", get(status))
@@ -40,6 +46,11 @@ pub(crate) fn router() -> Router<AppState> {
             "/card-game/video",
             post(start).layer(DefaultBodyLimit::max(3 * 1024 * 1024)),
         )
+        .route(
+            "/internal/video/callback/{token}",
+            post(callback::receive).layer(DefaultBodyLimit::max(64 * 1024)),
+        )
+        .layer(Extension(callbacks))
 }
 
 fn reply(status: StatusCode, body: Value) -> Response {
@@ -253,6 +264,7 @@ fn body(start: &Start) -> Option<Value> {
 
 async fn start(
     State(state): State<AppState>,
+    Extension(callbacks): Extension<callback::Config>,
     headers: HeaderMap,
     Json(start): Json<Start>,
 ) -> Response {
@@ -264,9 +276,19 @@ async fn start(
         return fail(StatusCode::BAD_REQUEST, "Film the current scene again.");
     };
     let world = start.world.clone().unwrap_or_default();
-    begin(&path, &config, &user, &world, &start.request_id, &request).await
+    begin_with_callback(
+        &path,
+        &config,
+        &user,
+        &world,
+        &start.request_id,
+        &request,
+        &callbacks,
+    )
+    .await
 }
 
+#[cfg(test)]
 async fn begin(
     path: &FsPath,
     config: &AiConfig,
@@ -275,6 +297,28 @@ async fn begin(
     id: &str,
     request: &Value,
 ) -> Response {
+    let callbacks = callback::Config::default();
+    begin_with_callback(path, config, user, world, id, request, &callbacks).await
+}
+
+async fn begin_with_callback(
+    path: &FsPath,
+    config: &AiConfig,
+    user: &str,
+    world: &str,
+    id: &str,
+    request: &Value,
+    callbacks: &callback::Config,
+) -> Response {
+    let target = match callbacks.target() {
+        Ok(target) => target,
+        Err(()) => {
+            return fail(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Scene video callbacks need operator setup.",
+            )
+        }
+    };
     let (u, w) = (user.to_owned(), world.to_owned());
     if !world.is_empty()
         && !matches!(
@@ -290,7 +334,11 @@ async fn begin(
         id.to_owned(),
         request.clone(),
     );
-    let spent = match store(path, move |c| reservations::reserve(c, &u, &w, &i, &body)).await {
+    let spent = match store(path, move |c| {
+        reservations::reserve_with_callback(c, &u, &w, &i, &body, target)
+    })
+    .await
+    {
         Ok(spent) => spent,
         Err(response) => return response,
     };
@@ -364,12 +412,30 @@ async fn submit(
         };
     }
     let (u, w, i) = (user.to_owned(), world.to_owned(), id.to_owned());
-    match store(path, move |c| reservations::claim(c, &u, &w, &i)).await {
-        Ok(true) => {}
-        Ok(false) => return submission_status(id, "processing"),
+    let mut request = request.clone();
+    let request = match store(path, move |c| {
+        if !reservations::claim(c, &u, &w, &i)? {
+            return Ok(None);
+        }
+        let url: Option<String> = c
+            .query_row(
+                "SELECT url FROM credit_video_callbacks WHERE payer = ?1 AND request_id = ?2",
+                params![reservations::scope(&u, &w), i],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if let Some(url) = url {
+            request["callback_url"] = json!(url);
+        }
+        Ok(Some(request))
+    })
+    .await
+    {
+        Ok(Some(request)) => request,
+        Ok(None) => return submission_status(id, "processing"),
         Err(response) => return response,
-    }
-    let submitted = match provider(config, "videos", Some(request)).await {
+    };
+    let submitted = match provider(config, "videos", Some(&request)).await {
         Ok(response) => response
             .json::<Value>()
             .await
@@ -397,11 +463,14 @@ async fn submit(
         ),
     };
     match store(path, move |c| {
-        reservations::finish(c, &u, &w, &i, status, &job, &detail)
+        reservations::finish(c, &u, &w, &i, status, &job, &detail)?;
+        Ok(reservations::get(c, &u, &w, &i)?
+            .map(|r| r.2)
+            .unwrap_or_else(|| "submission_unknown".into()))
     })
     .await
     {
-        Ok(_) => submission_status(id, status),
+        Ok(state) => submission_status(id, &state),
         Err(response) => response,
     }
 }

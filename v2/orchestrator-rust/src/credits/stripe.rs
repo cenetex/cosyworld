@@ -49,7 +49,7 @@ pub(super) fn router() -> Router<AppState> {
         .route(WEBHOOK_PATH, post(webhook))
 }
 
-fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
+pub(crate) fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
     let mut block = [0u8; 64];
     if key.len() > 64 {
         block[..32].copy_from_slice(&Sha256::digest(key));

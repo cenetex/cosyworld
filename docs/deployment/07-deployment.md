@@ -220,6 +220,17 @@ refund or resubmission. A late confirmed receipt can still recover that job.
 Unknown acceptance needs receipt reconciliation; it is never permission to
 start another paid provider job for the same request.
 
+Video callback hints are opt-in: set `COSYWORLD_VIDEO_CALLBACK_ORIGIN` to this
+store owner's canonical HTTPS origin and `COSYWORLD_VIDEO_WEBHOOK_SECRET` to
+the same signing secret (at least 32 bytes) configured in [OpenRouter workspace
+settings](https://openrouter.ai/docs/guides/overview/multimodal/video-generation#webhooks).
+Restart after changes. Partial/invalid settings block new videos before charging;
+both unset preserve polling. A private 256-bit token and callback URL persist
+with each new reservation. Permit POSTs to `/internal/video/callback/{token}`;
+do not log these URLs. The inbox checks raw-body HMAC and a five-minute timestamp
+window, then saves the job hint before acknowledgment. Hints alone cannot refund.
+Missing callbacks and old unknown receipts need review; there is no exactly-once guarantee.
+
 Until payments exist, an operator hands out packs. Each grant is a ledger row
 with its note and an `operator granted credits` log line; a repeated
 `request_id` grants once.

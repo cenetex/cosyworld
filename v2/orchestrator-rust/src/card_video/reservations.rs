@@ -20,6 +20,9 @@ pub(super) fn schema(c: &Connection) -> rusqlite::Result<()> {
         job_id TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL DEFAULT '', created_at_unix INTEGER NOT NULL,
         updated_at_unix INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (payer, request_id));
+        CREATE TABLE IF NOT EXISTS credit_video_callbacks (
+            token TEXT PRIMARY KEY, payer TEXT NOT NULL, request_id TEXT NOT NULL,
+            url TEXT NOT NULL, job_hint TEXT NOT NULL DEFAULT '', UNIQUE(payer, request_id));
         INSERT OR IGNORE INTO credit_video_requests
             (payer, request_id, user_id, world_id, content_hash, state, job_id, created_at_unix)
         SELECT CASE WHEN world_id = '' THEN 'person:' || user_id ELSE 'world:' || world_id END AS payer,
@@ -40,12 +43,24 @@ pub(super) enum Reservation {
     Insufficient { balance: i64, price: i64 },
 }
 
+#[cfg(test)]
 pub(super) fn reserve(
     c: &mut Connection,
     user: &str,
     world: &str,
     id: &str,
     body: &Value,
+) -> rusqlite::Result<Reservation> {
+    reserve_with_callback(c, user, world, id, body, None)
+}
+
+pub(super) fn reserve_with_callback(
+    c: &mut Connection,
+    user: &str,
+    world: &str,
+    id: &str,
+    body: &Value,
+    callback: Option<(String, String)>,
 ) -> rusqlite::Result<Reservation> {
     let tx = c.transaction_with_behavior(TransactionBehavior::Immediate)?;
     let payer = scope(user, world);
@@ -77,6 +92,11 @@ pub(super) fn reserve(
     };
     tx.execute("INSERT INTO credit_video_requests (payer, request_id, user_id, world_id, content_hash, state, created_at_unix)
         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)", params![payer, id, user, world, hash, state, crate::util::now_unix_secs() as i64])?;
+    if state == "reserved" {
+        if let Some((token, url)) = callback {
+            tx.execute("INSERT INTO credit_video_callbacks (token, payer, request_id, url) VALUES (?1, ?2, ?3, ?4)", params![token, payer, id, url])?;
+        }
+    }
     tx.commit()?;
     Ok(if state == "reserved" {
         Reservation::Ready
@@ -103,7 +123,9 @@ pub(super) fn finish(
     let changed = tx.execute(
         "UPDATE credit_video_requests SET state = ?3, job_id = ?4, detail = ?6, updated_at_unix = ?7
         WHERE payer = ?1 AND request_id = ?2 AND (state = ?5 OR
-        (state = 'submission_unknown' AND job_id = '' AND ?3 IN ('submitted', 'rejected')))",
+        (state = 'submission_unknown' AND job_id = '' AND ?3 IN ('submitted', 'rejected')))
+        AND NOT EXISTS (SELECT 1 FROM credit_video_callbacks WHERE payer = ?1 AND request_id = ?2
+        AND job_hint <> '' AND (?3 = 'rejected' OR (?3 = 'submitted' AND job_hint <> ?4)))",
         params![
             scope(user, world),
             id,
