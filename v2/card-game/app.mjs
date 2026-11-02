@@ -1545,6 +1545,47 @@ function showBeatCards(ids) {
     }),
   );
 }
+// Another part of the table, such as the ☰ menu, can borrow the action
+// beat: { images: [url], text, note, buttons: [{ label, id, run }] }.
+// It replaces the play's beat until cleared.
+let borrowedBeat = null;
+function showActionBeat(beat) {
+  borrowedBeat = beat;
+  renderActions();
+}
+function clearActionBeat(beat) {
+  if (!borrowedBeat || (beat && borrowedBeat !== beat)) return;
+  borrowedBeat = null;
+  renderActions();
+}
+function showBorrowedBeat(row, heading) {
+  const beat = borrowedBeat,
+    cards = document.querySelector(".action-beat-cards");
+  cards.dataset.cards = "";
+  cards.replaceChildren(
+    ...beat.images.map((src) => Object.assign(node("img"), { src, alt: "" })),
+  );
+  heading.hidden = !beat.text;
+  heading.lastElementChild.replaceChildren(beat.text || "");
+  const note = document.querySelector(".action-beat-note");
+  note.textContent = note.title = beat.note || "";
+  note.hidden = !beat.note;
+  row.replaceChildren(
+    ...beat.buttons.map(({ label, id, run }, index) => {
+      const button = node(
+        "button",
+        label,
+        index ? "card-action" : "card-primary",
+      );
+      button.type = "button";
+      button.id = id;
+      button.dataset.keepMenu = "true";
+      button.onclick = run;
+      return button;
+    }),
+  );
+  syncActionBeat();
+}
 // A play that commits rests the action beat, so the reply comes to the
 // front, until the player chooses or raises the hand again.
 let restedChoice = null;
@@ -1596,6 +1637,7 @@ function renderActions() {
     dragging.length > 0 || !rowCollapsed,
   );
   syncLayering();
+  if (borrowedBeat) return showBorrowedBeat(row, heading);
   const revision = world.revision;
   const nudgeTarget =
     !rested &&
@@ -1689,6 +1731,7 @@ function renderActions() {
     look.onclick = () => showItemView(viewed);
     row.append(look);
   }
+  document.querySelector(".action-beat-note").hidden = true;
   syncActionBeat();
   $("play-readout").textContent = selected.length
     ? `${selectionName}. ${ready.map(playLabel).join(". ") || hint}`
@@ -4125,6 +4168,8 @@ installToolbar({
     saveBlocked = true;
     playQueue.clear();
   },
+  // ☰'s seat actions are a beat in front of the dialogue.
+  actionBeat: { show: showActionBeat, clear: clearActionBeat },
 });
 // The root page resumes whichever avatar was played last.
 if (!tableName && !startingPack)

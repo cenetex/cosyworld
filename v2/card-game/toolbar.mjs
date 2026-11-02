@@ -60,6 +60,7 @@ export function installToolbar({
   getWorld,
   allowShared = () => true,
   stopSaving,
+  actionBeat,
 }) {
   const toolbar = document.querySelector(".top-actions");
   toolbar.setAttribute("role", "group");
@@ -108,6 +109,7 @@ export function installToolbar({
     getWorld,
     allowShared,
     stopSaving,
+    actionBeat,
   });
   document.body.append(menu);
   toolbar.append(menuButton);

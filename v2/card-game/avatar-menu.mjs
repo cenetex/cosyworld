@@ -23,9 +23,15 @@ function act(label, run, id) {
   button.type = "button";
   button.dataset.keepMenu = "true";
   if (id) button.id = id;
-  button.onclick = async (event) => {
+  button.onclick = guard(run);
+  return button;
+}
+// A seat's action runs once at a time; a failure reads on ☰'s status line.
+function guard(run) {
+  return async (event) => {
     // A target sits in a slot's summary; tapping it must not fold the slot.
     event.preventDefault();
+    const button = event.currentTarget;
     button.disabled = true;
     try {
       await run();
@@ -36,8 +42,8 @@ function act(label, run, id) {
       button.disabled = false;
     }
   };
-  return button;
 }
+const face = (path) => imageUrl(`/card-game/${path}`, "card");
 // Avatars show in initial order, R·A·T·V·M·I·C·S (#1846). Seat indices and
 // ids keep the cast's own order.
 export const byInitial = (avatars) =>
@@ -227,6 +233,7 @@ export function installAvatarMenu({
   getWorld,
   allowShared,
   stopSaving = () => {},
+  actionBeat = { show() {}, clear() {} },
 }) {
   const box = el("div", "world-slots");
   box.setAttribute("aria-label", "Your worlds");
@@ -240,11 +247,13 @@ export function installAvatarMenu({
     // The card's avatar: a tapped seat { id, slot }, or one "+" offers
     // { id, to, first }.
     chosen = null,
-    // A second tap on the chosen portrait arms it: its card then shows its
-    // actions. A tap anywhere else disarms.
+    // A second tap on the chosen portrait arms it: its actions then show as
+    // a beat in front of the dialogue. A tap anywhere else disarms.
     armed = false,
     // The armed card shuffles in once, not on every presence redraw.
     shuffle = false,
+    // What a seat action did, said when ☰ next opens.
+    result = "",
     drawn = "";
   const here = () => {
     const world = getWorld();
@@ -304,60 +313,51 @@ export function installAvatarMenu({
     )
       remember(slot.shared);
   };
-  // The armed card's actions, in the dialogue's action box: Start and Leave
-  // for yours, the owner's Free for another's, each acting on one tap, with
-  // a one-line note naming the avatar and world.
-  function seatActions(slot, seat) {
-    const bar = el("div", "avatar-actions");
-    const note = (text) => bar.append(el("small", "avatar-note", text));
+  // The armed seat's actions, as a beat in front of the dialogue: Start and
+  // Leave for yours, the owner's Free for another's, each acting on one
+  // tap, with a one-line note naming the avatar and world.
+  function seatBeat(slot, seat, image) {
+    if (!armed) return null;
     if (seat.kind === "human") {
       if (!slot.owner) return null;
-      bar.append(
-        act(
-          "Free",
-          async () => {
-            await command(slot.shared, { op: "reset", avatar: seat.id });
-            location.reload();
-          },
-          "avatar-free",
-        ),
-      );
-      note(`Removes ${seat.holder}'s hold and resets ${seat.name}.`);
-      return bar;
+      const free = async () => {
+        await command(slot.shared, { op: "reset", avatar: seat.id });
+        location.reload();
+      };
+      return {
+        images: [image],
+        text: `${seat.name} · ${seat.holder}`,
+        note: `Removes ${seat.holder}'s hold and resets ${seat.name}.`,
+        buttons: [{ label: "Free", id: "avatar-free", run: guard(free) }],
+      };
     }
     if (seat.kind !== "you") return null;
-    bar.append(
-      act(
-        "Start",
-        () => {
-          if (slot.current) menu.hidePopover();
-          else location.href = sharedLink(slot.shared);
-        },
-        "avatar-start",
-      ),
-      // Leave frees the seat and keeps the avatar's level and binding, so
-      // it is in no world until + New world or a move.
-      act(
-        "Leave",
-        async () => {
-          await leave(slot);
-          emptiedBy(slot, seat);
-          if (slot.current) return leaveHere();
-          chosen = null;
-          armed = false;
-          await load();
-          status.textContent = `${seat.name} left ${slot.name || "the world"}.`;
-        },
-        "avatar-leave",
-      ),
-    );
-    note(
-      leaveNote(
+    const start = () => {
+      if (slot.current) menu.hidePopover();
+      else location.href = sharedLink(slot.shared);
+    };
+    // Leave frees the seat and keeps the avatar's level and binding, so it
+    // is in no world until + New world or a move.
+    const leaveSeat = async () => {
+      await leave(slot);
+      emptiedBy(slot, seat);
+      if (slot.current) return leaveHere();
+      // The tap outside closed ☰; it opens again to say so.
+      result = `${seat.name} left ${slot.name || "the world"}.`;
+      menu.showPopover();
+    };
+    return {
+      images: [image],
+      text: `${seat.name} in ${slot.name || "a world"}`,
+      note: leaveNote(
         humanAvatars.find((a) => a.id === seat.id),
         slot,
       ),
-    );
-    return bar;
+      buttons: [
+        { label: "Start", id: "avatar-start", run: guard(start) },
+        { label: "Leave", id: "avatar-leave", run: guard(leaveSeat) },
+      ],
+    };
   }
   function seatButton(slot, seat, world, shown) {
     const item = el("li", "slot-seat");
@@ -437,17 +437,13 @@ export function installAvatarMenu({
     const box = el("article", "profile-card");
     Object.assign(box.dataset, { avatar: id, lit: Boolean(seat.online) });
     box.style.setProperty("--tier-color", tier.color);
-    const bar = to
-      ? view.slots.find((s) => s.key === to) && el("div", "avatar-actions")
-      : slot && armed && chosen && seatActions(slot, seat);
-    if (bar && !to) box.dataset.armed = "true";
     const art = el("div", "profile-art");
     // Arming deals the card in over a quick shuffle of card backs.
-    if (bar && shuffle && !to) {
+    if (armed && shuffle && !to) {
       const deck = el("div", "profile-shuffle");
       for (let i = 0; i < 3; i += 1) {
         const back = el("img");
-        back.src = imageUrl("/card-game/assets/card-back.webp", "card");
+        back.src = face("assets/card-back.webp");
         back.alt = "";
         deck.append(back);
       }
@@ -455,10 +451,7 @@ export function installAvatarMenu({
       shuffle = false;
     }
     const image = el("img");
-    image.src = imageUrl(
-      `/card-game/${(world && avatarImage(world, id)) || avatar.image}`,
-      "card",
-    );
+    image.src = face((world && avatarImage(world, id)) || avatar.image);
     image.alt = "";
     art.append(image, el("span", "profile-name", seat.name));
     if (level) art.append(el("span", "card-level", romanLevel(level)));
@@ -478,17 +471,23 @@ export function installAvatarMenu({
     if (held?.length)
       facts.append(el("small", "", held.map(nameOf).join(", ")));
     const target = to && view.slots.find((s) => s.key === to);
-    if (target)
-      bar.append(
-        act(
-          `Bring to ${target.name || "this world"}`,
-          () => toWorld(avatar, home, target),
-          "avatar-bring",
-        ),
-      );
-    if (bar) facts.append(bar);
+    const where = target?.name || "this world";
+    const beat = target
+      ? {
+          images: [image.src],
+          text: `${seat.name} from ${home?.name || "no world"}`,
+          buttons: [
+            {
+              label: `Bring to ${where}`,
+              id: "avatar-bring",
+              run: guard(() => toWorld(avatar, home, target)),
+            },
+          ],
+        }
+      : slot && chosen && seatBeat(slot, seat, image.src);
+    if (beat && !to) box.dataset.armed = "true";
     box.append(art, facts);
-    return box;
+    return { box, beat };
   }
   function render() {
     // Signed out, ☰ has no world UI at all (#1892).
@@ -551,16 +550,21 @@ export function installAvatarMenu({
       fresh.classList.add("slot-new");
       box.append(fresh);
     }
-    if (shown) box.append(stats(view, shown));
+    const card = shown && stats(view, shown);
+    if (card) box.append(card.box);
+    if (card?.beat) actionBeat.show(card.beat);
+    else actionBeat.clear();
   }
-  // A tap anywhere but a portrait or the action box disarms.
+  // A tap anywhere but a portrait disarms.
   menu.addEventListener("click", (event) => {
-    if (!armed || event.target.closest(".seat-face, .avatar-actions")) return;
+    if (!armed || event.target.closest(".seat-face")) return;
     armed = false;
     render();
   });
   menu.addEventListener("toggle", () => {
     if (!menu.matches(":popover-open")) {
+      // The seat's beat leaves with ☰, after a tap on its button has run.
+      setTimeout(() => actionBeat.clear(), 0);
       // A friend's world shows once, until ☰ closes or an avatar goes there.
       if (invite) stored(INVITE_KEY, null);
       invite = null;
@@ -568,7 +572,8 @@ export function installAvatarMenu({
     }
     chosen = null;
     armed = false;
-    status.textContent = "";
+    status.textContent = result;
+    result = "";
     redraw();
     load(stored(INVITE_KEY));
   });

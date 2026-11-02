@@ -2399,6 +2399,16 @@ body .beat-live {
   background: #181b22;
   box-shadow: 0 2px 6px #0008;
 }
+/* A borrowed beat's one-line note reads under its heading, above the
+   buttons. */
+.action-beat-heading {
+  order: -2;
+}
+.action-beat-note {
+  order: -1;
+  color: var(--muted);
+  font-size: 13px;
+}
 /* Its buttons share the beat cards' edges: no pill. */
 .beat-action #card-actions button {
   padding: 6px 18px;
@@ -2518,6 +2528,19 @@ main > .dialogue {
   }
   body[data-dialogue-over="true"] .action-beat-cards img {
     width: 36px;
+  }
+  /* The fixed box has room for one line above the buttons: the note, which
+     names the avatar and its world. */
+  body[data-dialogue-over="true"]
+    .action-beat-body:has(> .action-beat-note:not([hidden]))
+    > .action-beat-heading {
+    display: none;
+  }
+  body[data-dialogue-over="true"] .action-beat-note {
+    overflow: hidden;
+    font-size: 12px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   body[data-dialogue-over="true"] .beat-action #card-actions {
     padding-block: 1px;

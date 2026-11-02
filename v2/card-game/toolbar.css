@@ -369,19 +369,6 @@ body.local-app #scene-video-button {
   gap: 2px;
   min-width: 0;
 }
-/* The action box matches the dialogue's front beat (.beat-front); unify
-   with the dialogue's action beat box once that lands. */
-.avatar-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: auto;
-  padding: 8px;
-  border: 1px solid #b09a6a55;
-  border-radius: 8px;
-  background: #10151ded;
-  box-shadow: 0 10px 35px #08091470;
-}
 .world-menu .avatar-act {
   flex: 1 0 auto;
   justify-content: center;
@@ -394,10 +381,6 @@ body.local-app #scene-video-button {
   font:
     15px/1.2 Georgia,
     serif;
-}
-.avatar-note {
-  flex-basis: 100%;
-  color: var(--muted);
 }
 .world-menu .slot-new {
   width: 100%;

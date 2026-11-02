@@ -114,7 +114,7 @@ only the tools. ☰ opens a list of **world slots**:
 buttons. **Tap it again** to arm it: the portrait and the card's edge turn
 its level tier's colour, three card backs shuffle out from behind the card
 and back (about 360 ms; with reduced motion the card fades in instead), and
-the action box appears below its facts (owner, 2026-11-01). A tap anywhere else in the menu disarms; presence
+its actions appear as the action beat in front of the dialogue, outside ☰. A tap anywhere else in the menu disarms; presence
 redraws keep it armed. Each action acts on one tap, with no second confirm.
 
 **Tap +** in a world one of your avatars may go to (its seat there is free,
@@ -135,15 +135,18 @@ player picks what comes next.
   just closes ☰.
 - **Leave** frees your seat and keeps the avatar's level and its binding
   there; the avatar is then in no world, ready for + New world or a move.
-  The box notes "Mara keeps their level; the seat in *Hollowmere* opens.",
+  The beat notes "Mara keeps their level; the seat in *Hollowmere* opens.",
   and after it the status reads "Mara left *Hollowmere*." It sends the
   `release` command (was Step away, and Move to your deck before #1891).
 - **Free** (owner) notes "Removes Amber Heron's hold and resets Ash." and
   sends `reset`.
 
-The action box takes the dialogue's front beat style (`.beat-front`: the
-same border, background and shadow, Georgia buttons). When the dialogue's
-action beat box for ready plays lands, the two should share one component.
+The actions use the same action beat as a ready play (`showActionBeat` in
+`app.mjs`, passed to ☰ through `installToolbar`): the avatar's card, a line
+naming it and its world, the note and the buttons. ☰ stays open beside it at
+390 and 1440 pixels; on a short landscape phone ☰ lies over part of it. A tap
+on one of its buttons closes ☰ (it is outside it); after Leave ☰ opens again
+to say what happened.
 
 **A friend's link** (`/?world=…`) signs the person in, then opens their own
 table with ☰ open and the linked world as an extra slot marked ✉
@@ -164,9 +167,8 @@ past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` checks
 the portraits and +, colour, choosing and arming, a move from +, Leave,
 and an emptied world folded into + New world, at 390 and 1440 pixels.
 
-**Notes go with the card.** The armed box's note names the card's avatar
-and world and lives inside the box, so it goes when the card disarms or
-shows another avatar.
+**Notes go with the card.** The beat's note names the card's avatar and
+world, so it goes when the card disarms, shows another avatar or ☰ closes.
 
 + tapped in another world until it offers Tavi, who stepped away:
 
