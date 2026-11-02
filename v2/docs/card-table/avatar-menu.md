@@ -96,9 +96,17 @@ only the tools. ☰ opens a list of **world slots**:
   for replay. Your own avatar there starts over with an ordinary `reset`
   that keeps its level for its next seat. A world where anyone else is
   bound is never retired, and only its owner's passkey retires it. A link to
-  a retired world says "This world has closed." **+ New world** starts a
-  fresh world for the card's avatar when it is in no world, else the first
-  avatar in no world (#1936 will make this row "+ Find" the next avatar).
+  a retired world says "This world has closed."
+- **+ Find *Mara*** (#1936) names the avatar hidden in the world being
+  played while this avatar has not met them and the passkey has not found
+  them. A tap journals `seek`, which gives the player the quest card "Talk to
+  Mara"; ☰ closes and says "Find Mara here and talk to them." The world
+  shows Mara unnamed until that Talk, which unlocks Mara, shows the beat
+  "*Mara* remembers you" and opens Mara's own world. With nobody hidden here,
+  **+ New world** starts a fresh world, which hides the next, for the card's
+  avatar when it is in no world, else the first found avatar in no world.
+  Once all eight are found the row is gone. Avatars not yet found are card
+  backs under it ("6 still to find"), with no hint of where they are.
 - **There is no Delete world.** Emptying a world (Leave of its last
   avatar) is how it goes: a world with nobody in it vanishes from the list. The server has no delete for shared
   worlds and none is added: an empty world closes, keeping its journal, and
@@ -167,7 +175,8 @@ out) and Controls. It holds no world actions.
 The menu shows now, not a log: where each avatar is now. There is no list of
 past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` checks
 the portraits and +, colour, choosing and arming, a move from +, Leave,
-and + New world, at 390 and 1440 pixels.
+and + New world, at 390 and 1440 pixels; `smoke-card-find-hidden.mjs` checks
+"+ Find Mara", its `seek` and the card backs.
 
 **Notes go with the card.** The beat's note names the card's avatar and
 world, so it goes when the card disarms, shows another avatar or ☰ closes.
@@ -203,7 +212,7 @@ Desktop (1440 × 900):
 ### Words
 
 Start, Leave, Free, Bring to
-*Hollowmere*, +, + New world, + *The Borrowed Station*, You, Memory, Invite, Settings. Gone: Worlds, Inner life (now the top of Memory),
+*Hollowmere*, +, + New world, + Find *Mara*, *Mara* remembers you, You, Memory, Invite, Settings. Gone: Worlds, Inner life (now the top of Memory),
 Share, Play, Step away, Step away?, Release · start over, Free *Mara*,
 Your worlds (`/?shared=1` opens the table), on this
 device, Delete world (local), `?avatar=`, Continue as, Continue
