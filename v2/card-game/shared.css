@@ -17,48 +17,36 @@
   border: 1px solid #67606b;
   border-radius: 6px;
 }
-/* Who plays next sits in the front beat's header row, at its right end, as
-   overlapping avatar chips: inside the dialogue's box, clear of the hand and
-   the scene. The speaker's name keeps room to the left of the chips. */
+/* Who plays next stands just outside the dialogue's box, a column of
+   overlapping avatar chips beside its top-right corner: clear of its words,
+   the faded earlier beat, the action beat, the hand and the scene. Where the
+   box would leave no room beside it (phones and tablets), it narrows and
+   steps left while the queue has chips. */
 .shared-portraits {
   position: absolute;
   z-index: 3;
-  top: 8px;
-  right: 12px;
+  top: 0;
+  left: calc(100% + 6px);
 }
 .shared-play-queue {
   display: flex;
-  flex-direction: row-reverse;
+  flex-direction: column;
   align-items: center;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .shared-play-queue > li + li {
-  margin-right: -6px;
+  margin-top: -6px;
 }
 .shared-play-queue:empty {
   display: none;
 }
-body
-  .dialogue:has(.shared-play-queue > li)
-  :is(.dialogue-heading, .action-beat-heading) {
-  padding-right: 32px;
-}
-body
-  .dialogue:has(.shared-play-queue > li:nth-child(2))
-  :is(.dialogue-heading, .action-beat-heading) {
-  padding-right: 52px;
-}
-body
-  .dialogue:has(.shared-play-queue > li:nth-child(3))
-  :is(.dialogue-heading, .action-beat-heading) {
-  padding-right: 72px;
-}
-body
-  .dialogue:has(.shared-play-queue > li:nth-child(4))
-  :is(.dialogue-heading, .action-beat-heading) {
-  padding-right: 92px;
+@media not all and (min-width: 1100px) and (min-aspect-ratio: 3/2) {
+  body .dialogue:has(.shared-play-queue > li) {
+    left: calc(50% - 17px);
+    width: min(720px, calc(100% - 62px));
+  }
 }
 .shared-play-avatar {
   display: block;

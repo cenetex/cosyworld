@@ -2465,10 +2465,6 @@ main > .dialogue {
   body[data-dialogue-over="true"] .beat-stack .dialogue-heading {
     min-height: 20px;
   }
-  /* Who plays next stays in the front card's header row. */
-  body[data-dialogue-over="true"] .shared-portraits {
-    top: calc(var(--beat-peek) + 4px);
-  }
   body[data-dialogue-over="true"] .beat-stack .speech-line {
     align-self: stretch;
     min-height: 0;

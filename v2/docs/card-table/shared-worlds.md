@@ -320,8 +320,9 @@ reading clock. Tapping the card behind steps back; ● live, which shows only
 while behind, counts the newer beats and returns. The voice setting and
 reduced-motion setting apply to shared play. A thinking animation marks speech
 preparation. The hand, avatars, and held props use the same presented world
-while speech is pending. A column of circular portraits beside the stack shows
-the queued players, whoever plays next first.
+while speech is pending. A column of circular portraits just outside the
+stack's top-right corner shows the queued players, whoever plays next first;
+on phones and tablets the box narrows to make room for it.
 Figures shrink in order of their most recent completed play in the room. Their
 areas follow the Fibonacci steps 13, 8, 5, 3, 2, 1, so their heights change gently.
 The two most recent players stand in front. On phones, they move lower into a
