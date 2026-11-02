@@ -1,5 +1,7 @@
 {
   "assets/card-back.webp": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
+  "assets/title/lonely-forest-1.webp": "3161ccea9069db55962972a01da5be0e62d5faf5d6a8d4e29206293aa89986aa",
+  "assets/title/lonely-forest-2.webp": "89dbb2d6ee35c97f53710a2d1407d5d7f9673938dfc6541e66ea741792e4b770",
   "assets/rest/short-rest.webp": "061729cfd13b522f484185c365d375192d7220ff79bc150d2ef2800fa3427e5e",
   "assets/rest/long-rest.webp": "9cd6aea86be840fd030bfaf584c8b4f6c30641bbb104090840f92fb6d50a6a0e",
   "assets/combat/effects/hit-1.png": "44b8f038718ced1dcfd11d7f46a6cfe88c9e78ccb77cbe3025dbcdf6151ebf64",
@@ -1758,6 +1760,10 @@
   "assets/optimized/stage/png/station.webp": "07b39a224d9222b27fbeb2b438a4594eadd464081ac5415a601e69e8dc053bcf",
   "assets/optimized/card/png/station.webp": "fe2bf8467279c70cf3c7ce8b7c66bbc217493f34deec690715d364782eb6ddae",
   "assets/optimized/phone/png/station.webp": "065cf77fb1802165f6df3d1c219038680afd3733e5b6a9e0ba0fd42614adf3a6",
+  "assets/optimized/card/webp/title/lonely-forest-1.webp": "b235ee236a78be860b3df52aaa014c686cda96575f7a8a0e08447e2aa657113f",
+  "assets/optimized/phone/webp/title/lonely-forest-1.webp": "5ee5ac149074427dcdd3479565f3f1589ad94173b3fbcd64e31b68cbb81207c9",
+  "assets/optimized/card/webp/title/lonely-forest-2.webp": "dd82ef790f3e6620f17f9fd9e943683f4d03ac65e596f49493c5287b9f6fdd7c",
+  "assets/optimized/phone/webp/title/lonely-forest-2.webp": "03a8c5cdc94ac38f56364092396f98eeac35254c1fb67c4981b8b78470e15b19",
   "assets/optimized/stage/png/vale.webp": "3c5722173735cdf41cf6383bcc380e8673cf146d6f42c86e7f37525867d6adc3",
   "assets/optimized/card/png/vale.webp": "62ba8b48ac3a2bb0ce5872670282551e1666053f69da62305b03d5156c7e5f9e",
   "assets/optimized/phone/png/vale.webp": "5b8dccb569329a9f608021153b7572c6f6d2d406cfbde50660b280030458690c",

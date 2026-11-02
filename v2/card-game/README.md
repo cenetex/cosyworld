@@ -658,6 +658,23 @@ Schema 6 saves include location changes, favours and lasting memories. Earlier s
 
 ## Opening in Mirror attic
 
+### First-arrival title
+
+A browser's first visit to the bare Lonely Forest address starts black, fades in
+one of the two title wordmarks in `assets/title/` at random, holds it for
+about two seconds, then fades to the attic: about four seconds in all
+(`title-intro.mjs`, started from `entry.mjs`). The table boots and asks for
+Vale's opening line underneath it. A tap, click or key skips to the attic.
+Reduced motion crossfades without scaling. The image loads before it fades in;
+if it does not load within 2.5 seconds the black fades straight to the table.
+The title plays only when no save, no last-played world and no
+`cosyworld.title-intro` flag exists; it sets that flag as it starts. Shared
+worlds, `?table=`, `?pack=` and other query links, other sites' landings
+(`pack-landings.json`) and the local CosyWorld app never show it. Storage that
+cannot be read shows it once per load. Automated browsers skip it unless the
+address is exactly `?intro=1`; `v2/scripts/smoke-card-title-intro.mjs` plays
+it at desktop and phone width.
+
 New browser tables and shared worlds use `createWorld({ opening: true })`.
 Vale starts alone in the lamplit attic with a lit lamp; the mirror shows only
 the room. Dousing the lamp reveals the Black Pond and the path through

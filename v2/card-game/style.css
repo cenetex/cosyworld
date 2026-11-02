@@ -2549,3 +2549,24 @@ main > .dialogue {
   color: #e5cb92;
   font-size: 14px;
 }
+/* First-arrival Lonely Forest title (title-intro.mjs). */
+.title-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: grid;
+  place-items: center;
+  background: #000;
+  cursor: pointer;
+}
+.title-intro img {
+  width: min(76vw, 1400px);
+  max-height: 80dvh;
+  object-fit: contain;
+  opacity: 0;
+}
+@media (max-width: 640px) {
+  .title-intro img {
+    width: calc(100vw - 32px);
+  }
+}
