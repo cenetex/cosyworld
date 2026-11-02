@@ -13,6 +13,8 @@ use std::path::Path;
 pub(crate) mod clips;
 #[path = "credits/pool.rs"]
 pub(crate) mod pool;
+#[path = "credits/speech.rs"]
+pub(crate) mod speech;
 #[path = "credits/stripe.rs"]
 pub(crate) mod stripe;
 

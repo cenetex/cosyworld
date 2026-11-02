@@ -1,6 +1,6 @@
 //! Spoken card lines on the server's OpenRouter key, paid with credits
 //! (#1924). A line spends one credit before the provider call and is
-//! refunded when the call fails. Its request id is the account, cast
+//! refunded if that new attempt fails. Its request id is the account, cast
 //! revision, speaker and words, so a line already bought never costs again.
 //! In a shared world the world's pool pays, once per line for every player,
 //! and the world keeps the clip (`credits::clips`).
@@ -23,8 +23,9 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-use super::credits::{self, clips, Payer, Spend, SpendKind};
+use super::credits::{self, speech as purchases, Payer, Spend};
 use crate::{ai_gateway::AiConfig, AppState};
+use purchases::Start;
 
 const VOICES: &str = include_str!("../../card-game/voices.json");
 const MAX_TEXT: usize = 1200;
@@ -34,7 +35,7 @@ pub(crate) fn router() -> Router<AppState> {
     Router::new().route("/card-game/speech", post(speech))
 }
 
-#[derive(Deserialize)]
+#[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Line {
     speaker: String,
@@ -121,12 +122,6 @@ async fn synthesize(config: &AiConfig, body: &Value) -> Result<Vec<u8>, String> 
     Ok(bytes.to_vec())
 }
 
-enum Step {
-    Outsider,
-    Cached(Vec<u8>),
-    Spent(Spend),
-}
-
 /// Run one store step off the async workers.
 async fn store<T: Send + 'static>(
     path: &Path,
@@ -142,7 +137,7 @@ async fn store<T: Send + 'static>(
     .map_err(Failure::Store)
 }
 
-/// Spend, speak, and refund the spend if the provider failed. A world's
+/// Reserve, speak, and settle only this attempt's fresh charge. A world's
 /// line is spent from its pool and kept for its other players.
 async fn speak(
     path: &Path,
@@ -162,58 +157,46 @@ async fn speak(
         world => format!("world:{world}"),
     };
     let id = request_id(&owner, &cast, &line.speaker, text);
-    let (w, u, i) = (world.clone(), user.to_owned(), id.clone());
-    let step = store(path, move |c| {
-        if !w.is_empty() {
-            if !clips::plays_in(c, &w, &u)? {
-                return Ok(Step::Outsider);
+    let token = crate::random_hex(16);
+    let waiting = Instant::now();
+    loop {
+        let (w, u, i, t) = (world.clone(), user.to_owned(), id.clone(), token.clone());
+        match store(path, move |c| {
+            purchases::start(c, Payer::of(&w, &u), &i, &t)
+        })
+        .await?
+        {
+            Start::Outsider => return Err(Failure::Outsider),
+            Start::Cached(audio) => return Ok(audio),
+            Start::Spent(Spend::Insufficient { balance, price }) => {
+                return Err(Failure::Credits {
+                    balance,
+                    price,
+                    pool: !world.is_empty(),
+                });
             }
-            if let Some(audio) = clips::clip(c, &w, &i)? {
-                return Ok(Step::Cached(audio));
+            Start::Spent(_) => break,
+            Start::Busy if waiting.elapsed() < Duration::from_secs(75) => {
+                tokio::time::sleep(Duration::from_millis(50)).await;
             }
+            Start::Busy => return Err(Failure::Store("This voice is still being made.".into())),
         }
-        credits::spend(c, Payer::of(&w, &u), SpendKind::Tts, &i).map(Step::Spent)
-    })
-    .await?;
-    match step {
-        Step::Outsider => return Err(Failure::Outsider),
-        Step::Cached(audio) => return Ok(audio),
-        Step::Spent(Spend::Insufficient { balance, price }) => {
-            return Err(Failure::Credits {
-                balance,
-                price,
-                pool: !world.is_empty(),
-            })
-        }
-        Step::Spent(_) => {}
     }
     let synthesized = synthesize(config, &body).await;
-    let (w, u, i) = (world, user.to_owned(), id.clone());
-    let kept = match &synthesized {
-        Ok(audio) if !w.is_empty() => {
-            let audio = audio.clone();
-            store(path, move |c| clips::keep(c, &w, &i, &audio)).await
-        }
-        Ok(_) => Ok(()),
-        Err(_) => {
-            store(path, move |c| {
-                credits::refund(
-                    c,
-                    Payer::of(&w, &u),
-                    SpendKind::Tts,
-                    &i,
-                    "voice provider failed",
-                )
-                .map(|_| ())
-            })
-            .await
-        }
-    };
-    if kept.is_err() {
-        tracing::error!(user, request_id = %id, "card voice clip or refund was not stored");
+    let (w, u, audio) = (world, user.to_owned(), synthesized.as_ref().ok().cloned());
+    let finished = store(path, move |c| {
+        purchases::finish(c, Payer::of(&w, &u), &id, &token, audio.as_deref())
+    })
+    .await?;
+    if !finished {
+        return Err(Failure::Store("This voice was restarted.".into()));
     }
     synthesized.map_err(Failure::Provider)
 }
+
+#[cfg(test)]
+#[path = "card_voices/accounting_tests.rs"]
+mod accounting_tests;
 
 fn admit(user: &str) -> bool {
     use crate::rate_limit::{RateLimit, RateLimiter};
