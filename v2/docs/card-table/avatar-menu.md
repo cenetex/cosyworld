@@ -132,7 +132,7 @@ often. On another person's avatar a second tap arms it: the portrait turns
 its level tier's colour, and the owner gets **Free**. A tap anywhere else in
 the menu disarms; presence redraws keep it armed. Each action acts on one
 tap, with no second confirm. Switching without a page load, through the
-scene transition, is [#ISSUE](https://github.com/cenetex/cosyworld/issues/ISSUE).
+scene transition, is [#1990](https://github.com/cenetex/cosyworld/issues/1990).
 
 **Tap +** in a world one of your avatars may go to (its seat there is free,
 you hold no avatar there, and it is not already there): the beat shows that
