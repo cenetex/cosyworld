@@ -60,7 +60,11 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
 ## The ☰ menu
 
 Redesigned in [#1877](https://github.com/cenetex/cosyworld/issues/1877).
-☰ (and 👥, which counts who is here) opens a list of **world slots**:
+The toolbar has **one button**, ☰. Its face shows the friends online in the
+world being played now, as small round portraits (not yourself; past three a
+"+N"), and its accessible name says "Menu, 2 friends online". 👥 and its
+count are gone (owner, 2026-11-01). Signed out it is still there and opens
+only the tools. ☰ opens a list of **world slots**:
 
 - **Signed in only.** The slots are your shared worlds, up to eight per passkey
   (the server refuses a ninth: "You have 8 worlds."). A friend's world is
@@ -166,7 +170,7 @@ device, Delete world (local), `?avatar=`, Continue as, Continue
 shared world, Return to my game, Send to…, Join, Choose your
 avatar, Return as *Mara*, Move *Mara* here?, This world is full (panel), A
 place will open shortly, Leave, Refresh avatars, the avatar list under the
-seats, Release this avatar, Leave this room, Players in this world, Claimed,
+seats, Release this avatar, Leave this room, Players in this world, 👥, Claimed,
 open seat, "The reflected shore · N avatars available", a friend's world,
 invited, the letter strip, "Mara · You".
 
