@@ -1,7 +1,8 @@
 import { playNewWorldIntro } from "./title-intro.mjs";
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
-import { arriveCard, finishReveal, revealCard } from "./card-reveal.mjs";
+import { arriveCard, finishCardReveal, revealCard } from "./card-reveal.mjs";
+import { phase } from "./presentation.mjs";
 import { glowCard, levelUpCard, transformPortrait } from "./card-level-up.mjs";
 import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
@@ -170,12 +171,9 @@ let world = sharedSession
   selectionRevision = 0,
   dragging = [],
   // The hand rests folded until a card is touched. Only a click outside
-  // the card area or Escape folds it again; a play, changing the selection
-  // and deselecting never do. A held item stays raised.
-  rowCollapsed = true,
-  // A click off the hand folds it with its selection and chosen play intact;
-  // the next tap on the hand only raises it again.
-  foldedChoice = false;
+  // the card area or Escape folds it again, and clears the choice; a play,
+  // changing the selection and deselecting never do.
+  rowCollapsed = true;
 // Name the save slot: table saves are keyed off the URL param, so a player
 // landing through a different link silently lands in a different slot.
 {
@@ -760,6 +758,7 @@ const reveal = createTextReveal({
     if (speechComplete !== value.complete) {
       speechComplete = value.complete;
       updateSpeechControls(value.complete);
+      queueMicrotask(syncPhase);
     }
     // Layout is measured once per line or resize, then reused for each letter.
     const bottom = glyphBottoms[Math.max(0, shownLetters - 1)] || 0;
@@ -1143,7 +1142,7 @@ function selectCards(cards) {
   if (lastWait && cards.join("+") !== lastWait.key) lastWait = null;
 }
 function choose(id) {
-  if (finishReveal(id) || selectionBlocked()) return;
+  if (finishCardReveal(id) || selectionBlocked()) return;
   if (cardIsCovered(id)) {
     encountered.add(id);
     coveredCards.delete(id);
@@ -1156,13 +1155,6 @@ function choose(id) {
     if (sharedSession) syncSharedLine();
     return;
   }
-  if (rowCollapsed && foldedChoice && selected.length) {
-    foldedChoice = false;
-    rowCollapsed = false;
-    render();
-    return;
-  }
-  foldedChoice = false;
   playQueue.clear();
   lastPlayAt = -Infinity;
   fresh.delete(id);
@@ -1656,10 +1648,25 @@ function showBorrowedBeat(row, heading) {
 // front, until the player chooses or raises the hand again.
 let restedChoice = null;
 const choiceKey = () => `${selected.join("+")}:${rowCollapsed}`;
+// What the dialogue box shows now (presentation.mjs).
+let shownPhase = null;
+function presentPhase() {
+  if (restedChoice !== choiceKey()) restedChoice = null;
+  return phase({
+    reviewing: reviewing && stackView.frontIndex < stackView.liveIndex,
+    revealing: !reveal.complete || exchange.hasNext,
+    raised: !rowCollapsed,
+    chosen: selected.length > 0 || questOpen,
+    rested: restedChoice !== null,
+  });
+}
+function syncPhase() {
+  if (presentPhase() !== shownPhase) renderActions();
+}
 function renderActions() {
   const row = $("card-actions");
-  if (restedChoice !== choiceKey()) restedChoice = null;
-  const rested = restedChoice !== null;
+  shownPhase = presentPhase();
+  const rested = shownPhase !== "choosing";
   const { actions: offered, hint } = cardActions(world, selected);
   const ready = restPlays(
     world,
@@ -2171,12 +2178,6 @@ function pickQuest(quest) {
 }
 function toggleQuest() {
   if (selectionBlocked()) return;
-  if (rowCollapsed && foldedChoice && selected.length) {
-    foldedChoice = false;
-    rowCollapsed = false;
-    render();
-    return;
-  }
   playQueue.clear();
   questOpen = !questOpen;
   if (!questOpen) questPick = 0;
@@ -3004,6 +3005,7 @@ function renderScene() {
   liveButton.onclick = returnToLive;
   if (sharedSession) renderRoomStatus(sharedSession);
   animateStack(direction, ghost);
+  syncPhase();
 }
 // The art for a beat's speaker: a person, a place, or an item.
 // Dropping the address lets the browser free the decoded picture now rather
@@ -3145,7 +3147,7 @@ function syncActionBeat() {
     show =
       Boolean(borrowedBeat) ||
       $("card-actions").children.length > 0 ||
-      !$("play-status").hidden;
+      (!$("play-status").hidden && shownPhase !== "revealing");
   if (panel.hidden !== show) return;
   // A notice before the first render (storage refused) only shows the beat.
   const drawn = Boolean(document.body.dataset.handExpanded);
@@ -3306,15 +3308,11 @@ document.addEventListener(
 $("beat-behind").onclick = () => {
   stepBack();
 };
-// Behind the action beat the spoken beat is a strip: a tap on it moves the
-// lines on, never back in time. Only the card behind, the arrows, the wheel
-// and a swipe step back.
+// A tap anywhere on a typing card, portrait and name included, finishes it.
 $("speech-row").addEventListener(
   "click",
   (event) => {
-    const stack = $("speech-row").parentElement;
-    if (stack.dataset.action !== "true" || !reveal.complete) return;
-    if (exchange.current && !reviewing) return;
+    if (reveal.complete || $("dialogue-text").hidden) return;
     if (event.target.closest("#story-retry, #voice-retry")) return;
     event.stopPropagation();
     advanceFront();
@@ -3863,14 +3861,13 @@ document.addEventListener("keydown", (e) => {
     selected = [];
     questOpen = false;
     expandedHolders.clear();
-    foldedChoice = false;
     rowCollapsed = true;
     render();
   }
 });
-// A click outside the cards and the dialogue folds the row and keeps the
-// selection and any chosen play; the next tap on the hand raises it as it
-// was. Escape clears. A tap on the dialogue steps its beat and leaves the
+// A click outside the cards and the dialogue folds the row and clears the
+// choice, as Escape does: the action panel fades and the full dialogue card
+// is back. A tap on the dialogue steps its beat and leaves the
 // hand be, as do the toolbar, dialogs and buttons. Nothing else moves it.
 document.addEventListener("click", (e) => {
   const path = e.composedPath(),
@@ -3883,7 +3880,6 @@ document.addEventListener("click", (e) => {
     // hand opens from a card. A play leaves the row as it is, so its own
     // button must not reopen it.
     if (selected.length && within(".play-dock") && !within("#card-actions")) {
-      foldedChoice = false;
       rowCollapsed = false;
       render();
     }
@@ -3902,7 +3898,7 @@ document.addEventListener("click", (e) => {
   foldHand();
 });
 function foldHand() {
-  foldedChoice = selected.length > 0;
+  selected = [];
   questOpen = false;
   rowCollapsed = true;
   expandedHolders.clear();
@@ -4091,15 +4087,11 @@ function showSharedPlay(state, reason = "") {
   // A play the server did not take wakes its rested beat, so the player
   // can play it again from the beat.
   if (["rejected", "uncertain"].includes(state)) restedChoice = null;
-  // A committed play rests the beat even if the player chose again while it
-  // waited, so its reply types into the full-size front card.
   if (
     ["playing", "played"].includes(state) &&
     !["playing", "played"].includes(was)
-  ) {
-    restedChoice = choiceKey();
+  )
     rememberWait(play.action, play.choice);
-  }
   const shown = $("play-status").dataset.playStatus;
   if (state === "rejected") {
     sharedRefusal = { reason, text: refusalText(play, reason) };

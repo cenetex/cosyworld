@@ -213,6 +213,7 @@ const files = [
   "weather-shader.mjs",
   "weather.css",
   "portrait-facing.mjs",
+  "presentation.mjs",
   "cards.mjs",
   "motives.mjs",
   "life.mjs",
