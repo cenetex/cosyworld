@@ -26,7 +26,7 @@ blow", a yield is "gave way", and the defeat is "was beaten and sent home".
 | Icon   | Captions                                                                            |
 | ------ | ----------------------------------------------------------------------------------- |
 | ➜      | arrivals, departures, travelling with someone, the viewer's own arrival or boarding |
-| ⌛     | a wait: "Vale waited a turn."                                                       |
+| ⌛     | a wait, a sleep and its wake: "Vale waited a turn.", "Vale woke at dawn."           |
 | ⚔     | threaten, brace, strike and how the blow landed, a standoff ending                  |
 | ↳      | a defeat on the loser's beat: "Vale was beaten and sent home.", "You came to at …"  |
 | ⇄      | give, trade and ask, including refusals                                             |

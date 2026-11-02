@@ -358,6 +358,19 @@ export function playLabel(action) {
   }[action?.kind];
 }
 
+// Sleep is the Wait played again with the same cards still chosen (#2028);
+// otherwise the plain Wait. A sleeper may sleep on or wake by waiting.
+export function restPlays(world, actions, again) {
+  const legal = legalActions(world),
+    sleep = legal.find((a) => a.sleep),
+    wait = legal.find((a) => a.kind === "wait" && !a.sleep);
+  if (!sleep || !wait || !actions.some((a) => a.kind === "wait"))
+    return actions;
+  if (world.actors[currentActor(world)].sleeping)
+    return [sleep, wait, ...actions.filter((a) => a.kind !== "wait")];
+  return actions.map((a) => (a.kind === "wait" ? (again ? sleep : wait) : a));
+}
+
 export function cardObservation(world, id) {
   const item = world.items[id];
   if (item) {

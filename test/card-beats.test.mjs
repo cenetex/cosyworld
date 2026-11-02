@@ -220,6 +220,25 @@ describe("beat grouping", () => {
     expect(board.text).toBe("Vale boarded Black pond.");
   });
 
+  it("words a Sleep and its wake reason in the past", () => {
+    const say = (fields) =>
+      actionCaption(
+        { seq: 2, turn: 1, actorId: "vale", verb: "wait", ...fields },
+        { viewer: "vale", here: "attic" },
+      )?.text;
+    expect(say({ sleep: true, text: "Vale sleeps." })).toBe("Vale slept.");
+    expect(say({ woke: "lamp", text: "Vale wakes as the lamp gutters." })).toBe(
+      "Vale woke as the lamp guttered.",
+    );
+    expect(say({ woke: "arrival", text: "Vale wakes as Pip arrives." })).toBe(
+      "Vale woke as Pip arrived.",
+    );
+    expect(say({ woke: "dry", text: "Vale wakes as the lamp runs dry." })).toBe(
+      "Vale woke as the lamp ran dry.",
+    );
+    expect(say({ woke: "chose", text: "Vale wakes." })).toBe("Vale woke.");
+  });
+
   it("words every caption as a short sentence from the event fields", () => {
     const say = (entry, viewer = "moth") =>
       actionCaption({ seq: 2, turn: 1, ...entry }, { viewer, here: "pond" })

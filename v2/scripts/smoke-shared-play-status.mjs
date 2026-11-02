@@ -153,6 +153,12 @@ async function check(width) {
     if (!(await wait.isVisible()))
       await selectCard(page, "vale", { touch: width === 390 });
     await wait.waitFor();
+    // Vale again after a Wait offers Sleep; letting go brings back Wait.
+    if ((await wait.innerText()) === "Sleep") {
+      await selectCard(page, "vale", { touch: width === 390 });
+      await selectCard(page, "vale", { touch: width === 390 });
+    }
+    assert.equal(await wait.innerText(), "Wait");
   };
   try {
     await page.goto(`${origin}/?world=status`);
