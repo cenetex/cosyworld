@@ -255,6 +255,7 @@ pub(crate) fn spend_in(
 
 /// Return a standing spend once its provider call failed. Returns whether a
 /// refund row was written.
+#[cfg(test)]
 pub(crate) fn refund<'a>(
     c: &mut Connection,
     payer: impl Into<Payer<'a>>,

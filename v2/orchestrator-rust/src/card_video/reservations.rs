@@ -3,7 +3,7 @@ use super::*;
 use rusqlite::{Connection, TransactionBehavior};
 use sha2::{Digest, Sha256};
 
-fn scope(user: &str, world: &str) -> String {
+pub(super) fn scope(user: &str, world: &str) -> String {
     if world.is_empty() {
         format!("person:{user}")
     } else {
@@ -17,7 +17,12 @@ pub(super) fn schema(c: &Connection) -> rusqlite::Result<()> {
         payer TEXT NOT NULL, request_id TEXT NOT NULL, user_id TEXT NOT NULL,
         world_id TEXT NOT NULL, content_hash TEXT NOT NULL, state TEXT NOT NULL,
         job_id TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL DEFAULT '', created_at_unix INTEGER NOT NULL,
-        PRIMARY KEY (payer, request_id));",
+        PRIMARY KEY (payer, request_id));
+        INSERT OR IGNORE INTO credit_video_requests
+            (payer, request_id, user_id, world_id, content_hash, state, job_id, created_at_unix)
+        SELECT CASE WHEN world_id = '' THEN 'person:' || user_id ELSE 'world:' || world_id END AS payer,
+            request_id, MIN(user_id), world_id, 'legacy', 'submitted', MIN(job_id), MIN(created_at_unix)
+        FROM credit_video_jobs GROUP BY payer, request_id HAVING COUNT(DISTINCT job_id) = 1;",
     )
 }
 
@@ -122,14 +127,18 @@ pub(super) fn get(
     user: &str,
     world: &str,
     id: &str,
-) -> rusqlite::Result<Option<(String, String, String)>> {
-    let found = c.query_row("SELECT job_id, world_id, state FROM credit_video_requests WHERE payer = ?1 AND request_id = ?2",
-        params![scope(user, world), id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
+) -> rusqlite::Result<Option<(String, String, String, String)>> {
+    let found = c.query_row("SELECT job_id, world_id, state, detail FROM credit_video_requests WHERE payer = ?1 AND request_id = ?2",
+        params![scope(user, world), id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
     if found.is_some() {
         return Ok(found);
     }
-    c.query_row("SELECT job_id, world_id, 'submitted' FROM credit_video_jobs WHERE user_id = ?1 AND request_id = ?2 AND (?3 = '' OR world_id = ?3)",
-        params![user, id, world], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()
+    c.query_row("SELECT old.job_id, old.world_id, COALESCE(receipt.state, 'submitted'), COALESCE(receipt.detail, '')
+        FROM credit_video_jobs old LEFT JOIN credit_video_requests receipt ON receipt.request_id = old.request_id
+        AND receipt.job_id = old.job_id
+        AND receipt.payer = CASE WHEN old.world_id = '' THEN 'person:' || old.user_id ELSE 'world:' || old.world_id END
+        WHERE old.user_id = ?1 AND old.request_id = ?2 AND (?3 = '' OR old.world_id = ?3)",
+        params![user, id, world], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()
 }
 
 #[test]

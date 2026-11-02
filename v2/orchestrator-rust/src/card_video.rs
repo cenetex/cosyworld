@@ -19,6 +19,8 @@ use serde_json::{json, Map, Value};
 use super::credits::{self, clips, Payer, Spend, SpendKind};
 use crate::{ai_gateway::AiConfig, AppState};
 
+#[path = "card_video/receipts.rs"]
+mod receipts;
 #[path = "card_video/reservations.rs"]
 mod reservations;
 
@@ -412,13 +414,16 @@ async fn lookup(
     user: &str,
     world: &str,
     id: &str,
-) -> Result<Option<(String, String, String)>, Response> {
+) -> Result<Option<(String, String, String, String)>, Response> {
     let (u, w, i) = (user.to_owned(), world.to_owned(), id.to_owned());
     store(path, move |c| {
-        if !w.is_empty() && !clips::plays_in(c, &w, &u)? {
-            return Ok(None);
+        let found = reservations::get(c, &u, &w, &i)?;
+        if let Some((_, world, _, _)) = &found {
+            if !world.is_empty() && !clips::plays_in(c, world, &u)? {
+                return Ok(None);
+            }
         }
-        reservations::get(c, &u, &w, &i)
+        Ok(found)
     })
     .await
 }
@@ -437,9 +442,15 @@ async fn status(
 }
 
 async fn poll(path: &FsPath, config: &AiConfig, user: &str, world: &str, id: &str) -> Response {
-    let Ok(Some((job, world, state))) = lookup(path, user, world, id).await else {
+    let Ok(Some((job, world, state, detail))) = lookup(path, user, world, id).await else {
         return fail(StatusCode::NOT_FOUND, "Film the current scene again.");
     };
+    if receipts::terminal(&state) {
+        return reply(
+            StatusCode::OK,
+            json!({"status": state, "error": detail, "refunded": false}),
+        );
+    }
     if job.is_empty() {
         return submission_status(
             id,
@@ -450,43 +461,9 @@ async fn poll(path: &FsPath, config: &AiConfig, user: &str, world: &str, id: &st
             },
         );
     }
-    let job_status = match provider_json(config, &format!("videos/{}", urlencode(&job)), None).await
-    {
-        Ok(job) => job,
-        Err(reason) => {
-            return reply(
-                StatusCode::OK,
-                json!({"status": "processing", "detail": reason}),
-            )
-        }
-    };
-    let status = job_status["status"]
-        .as_str()
-        .unwrap_or("processing")
-        .to_owned();
-    if ["failed", "cancelled", "expired"].contains(&status.as_str()) {
-        let reason = job_status["error"]["message"]
-            .as_str()
-            .or(job_status["error"].as_str())
-            .unwrap_or("")
-            .to_owned();
-        let (u, i, note) = (
-            user.to_owned(),
-            id.to_owned(),
-            format!("video {status}: {reason}"),
-        );
-        let refunded = store(path, move |c| {
-            credits::refund(c, Payer::of(&world, &u), SpendKind::Video, &i, &note)
-        })
-        .await;
-        return reply(
-            StatusCode::OK,
-            json!({"status": status, "error": reason, "refunded": matches!(refunded, Ok(true))}),
-        );
-    }
     reply(
         StatusCode::OK,
-        json!({"status": if status == "completed" { "completed" } else { "processing" }}),
+        receipts::observe(path, config, user, &world, id, &job).await,
     )
 }
 
@@ -513,13 +490,13 @@ async fn content(
         Ok(context) => context,
         Err(response) => return response,
     };
-    let Ok(Some((job, _, _))) = lookup(&path, &user, &scope.world, &id).await else {
+    let Ok(Some((job, _, state, _))) = lookup(&path, &user, &scope.world, &id).await else {
         return fail(StatusCode::NOT_FOUND, "Film the current scene again.");
     };
-    if job.is_empty() {
+    if state != "completed" || job.is_empty() {
         return fail(
             StatusCode::CONFLICT,
-            "This video has no confirmed provider receipt yet.",
+            "This video needs confirmed completion before download.",
         );
     }
     let bytes = match provider(
@@ -550,7 +527,7 @@ mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
 
-    async fn stub(
+    pub(super) async fn stub(
         job_status: Arc<Mutex<&'static str>>,
         submits: Arc<Mutex<Vec<Value>>>,
     ) -> AiConfig {
@@ -559,15 +536,15 @@ mod tests {
                 "/videos",
                 post(move |Json(body): Json<Value>| async move {
                     submits.lock().unwrap().push(body);
-                    Json(json!({"id": "job/1", "status": "pending"}))
+                    Json(json!({"id": format!("job/{}", submits.lock().unwrap().len()), "status": "pending"}))
                 }),
             )
             .route(
                 "/videos/{job}",
                 get(move |Path(job): Path<String>| async move {
-                    assert_eq!(job, "job/1");
+                    assert!(job.starts_with("job/"));
                     let status = *job_status.lock().unwrap();
-                    Json(json!({"status": status, "error": {"message": "content rejected"}}))
+                    Json(json!({"id": if status == "mismatched" { "another-job" } else { &job }, "status": if status == "mismatched" { "failed" } else { status }, "error": {"message": "content rejected"}}))
                 }),
             );
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -580,7 +557,7 @@ mod tests {
         }
     }
 
-    async fn read(response: Response) -> (StatusCode, Value) {
+    pub(super) async fn read(response: Response) -> (StatusCode, Value) {
         let status = response.status();
         let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
             .await
@@ -622,6 +599,8 @@ mod tests {
                             StatusCode::ACCEPTED,
                             Json(if body["prompt"] == "lost receipt" {
                                 json!({"status": "pending"})
+                            } else if body["prompt"] == "terminal failure" {
+                                json!({"id": "job-failed"})
                             } else {
                                 json!({"id": "job-one"})
                             }),
@@ -631,7 +610,9 @@ mod tests {
             )
             .route(
                 "/videos/{id}",
-                get(|| async { Json(json!({"status": "completed"})) }),
+                get(|Path(id): Path<String>| async move {
+                    Json(json!({"status": if id == "job-failed" { "failed" } else { "completed" }, "id": id}))
+                }),
             )
             .route("/videos/{id}/content", get(|| async { "video bytes" }));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -681,8 +662,8 @@ mod tests {
             .header(header::CONTENT_TYPE, "application/json")
             .body(axum::body::Body::from(json!({"request_id": id, "world": "w1", "prompt": prompt, "options": {"duration": 5}}).to_string())).unwrap()
         };
-        let fetch = |user: &str, suffix: &str| {
-            axum::http::Request::get(format!("/card-game/video/film-once{suffix}?world=w1"))
+        let fetch = |user: &str, id: &str, suffix: &str| {
+            axum::http::Request::get(format!("/card-game/video/{id}{suffix}?world=w1"))
                 .header(header::COOKIE, format!("cosyworld_session={user}"))
                 .body(axum::body::Body::empty())
                 .unwrap()
@@ -729,9 +710,14 @@ mod tests {
         release.add_permits(10);
         tokio::time::timeout(std::time::Duration::from_secs(5), async {
             loop {
-                if read(app.clone().oneshot(fetch("u2", "")).await.unwrap())
-                    .await
-                    .1["status"]
+                if read(
+                    app.clone()
+                        .oneshot(fetch("u2", "film-once", ""))
+                        .await
+                        .unwrap(),
+                )
+                .await
+                .1["status"]
                     == "completed"
                 {
                     break;
@@ -743,7 +729,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             app.clone()
-                .oneshot(fetch("u2", "/content"))
+                .oneshot(fetch("u2", "film-once", "/content"))
                 .await
                 .unwrap()
                 .status(),
@@ -751,7 +737,7 @@ mod tests {
         );
         assert_eq!(
             app.clone()
-                .oneshot(fetch("outsider", ""))
+                .oneshot(fetch("outsider", "film-once", ""))
                 .await
                 .unwrap()
                 .status(),
@@ -807,6 +793,68 @@ mod tests {
             100,
             "the pool alone pays"
         );
+        app.clone()
+            .oneshot(request("u2", "film-terminal", "terminal failure"))
+            .await
+            .unwrap();
+        assert_eq!(
+            app.clone()
+                .oneshot(fetch("u2", "film-terminal", "/content"))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::CONFLICT
+        );
+        assert_eq!(
+            read(
+                app.clone()
+                    .oneshot(fetch("u2", "film-terminal", ""))
+                    .await
+                    .unwrap()
+            )
+            .await
+            .1["status"],
+            "failed"
+        );
+        assert_eq!(
+            app.clone()
+                .oneshot(fetch("u2", "film-terminal", "/content"))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::CONFLICT
+        );
+        assert_eq!(
+            credits::balance(&c, Payer::of("w1", "u1")).unwrap(),
+            100,
+            "failed film stays refunded even when provider has bytes"
+        );
+        c.execute(
+            "INSERT INTO credit_video_jobs VALUES ('u1', 'legacy-read', 'job-one', 0, 'w1')",
+            [],
+        )
+        .unwrap();
+        let legacy = |suffix: &str| {
+            axum::http::Request::get(format!("/card-game/video/legacy-read{suffix}"))
+                .header(header::COOKIE, "cosyworld_session=u1")
+                .body(axum::body::Body::empty())
+                .unwrap()
+        };
+        assert_eq!(
+            app.clone().oneshot(legacy("")).await.unwrap().status(),
+            StatusCode::OK
+        );
+        c.execute("DELETE FROM card_members WHERE user = 'u1'", [])
+            .unwrap();
+        c.execute("DELETE FROM card_bindings WHERE user = 'u1'", [])
+            .unwrap();
+        for suffix in ["", "/content"] {
+            assert_eq!(
+                app.clone().oneshot(legacy(suffix)).await.unwrap().status(),
+                StatusCode::NOT_FOUND,
+                "an omitted world cannot bypass revoked legacy membership"
+            );
+        }
         server.abort();
         let _ = std::fs::remove_file(path);
     }
@@ -883,6 +931,18 @@ mod tests {
                 .0,
             StatusCode::NOT_FOUND
         );
+        *job_status.lock().unwrap() = "mismatched";
+        assert_eq!(
+            read(poll(&path, &config, "u1", "", "film-0001").await)
+                .await
+                .1["status"],
+            "processing"
+        );
+        assert_eq!(
+            balance(),
+            50,
+            "a mismatched provider receipt cannot refund this film"
+        );
         *job_status.lock().unwrap() = "failed";
         let (_, reply) = read(poll(&path, &config, "u1", "", "film-0001").await).await;
         assert_eq!(
@@ -894,6 +954,14 @@ mod tests {
             (reply["refunded"].as_bool(), balance()),
             (Some(false), 150),
             "refunded once"
+        );
+        *job_status.lock().unwrap() = "completed";
+        assert_eq!(
+            read(poll(&path, &config, "u1", "", "film-0001").await)
+                .await
+                .1["status"],
+            "failed",
+            "terminal receipts cannot be overwritten"
         );
 
         // In a shared world the pool pays and takes the refund.

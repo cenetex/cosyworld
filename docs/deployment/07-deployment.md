@@ -201,6 +201,16 @@ player of the world (seated or bound) who sends `world` with
 spent once per world and its clip is kept in `credit_world_clips` (newest 256
 per world), and a failed call is refunded to the pool.
 
+Video reservations in `credit_video_requests` retain their terminal provider
+receipts. A terminal failure and its refund commit together, and a later poll
+cannot overwrite that result. Unique older receipts are adopted from
+`credit_video_jobs`. When several older jobs share a payer/request, an unresolved
+receipt needs review before refunds or downloads. Records and status stay available.
+Downloads require a durable completed receipt, so a failed/refunded job cannot
+deliver bytes if the provider later serves content.
+Status and content reads check membership in the resolved job's world, including
+older requests whose URLs omitted the world query parameter.
+
 Until payments exist, an operator hands out packs. Each grant is a ledger row
 with its note and an `operator granted credits` log line; a repeated
 `request_id` grants once.
