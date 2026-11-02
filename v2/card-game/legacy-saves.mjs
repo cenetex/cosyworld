@@ -103,6 +103,9 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     if (s.locations?.pond?.answer === "call") s.locations.pond.answer = null;
     for (const entry of Array.isArray(s.log) ? s.log : [])
       if (entry?.verb === "refill") entry.verb = "refuel";
+    // Rules 89 replaced sleeping until the light changes with Sleep: a
+    // sleeper from before simply wakes.
+    for (const a of Object.values(s.actors || {})) delete a?.sleepUntil;
     // An open standoff gains who has stood down; nobody has yet.
     for (const c of Array.isArray(s.standoffs) ? s.standoffs : [])
       if (c && !c.steppedBack && c.challenger && c.defender)

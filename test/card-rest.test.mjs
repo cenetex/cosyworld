@@ -7,14 +7,32 @@ import {
   sanctuaries,
   standoffFor,
   validateWorld,
+  decodeSave,
 } from "../v2/card-game/world.mjs";
 import { packDefinitions, packOf } from "../v2/card-game/pack-registry.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
 import { reflectionDue } from "../v2/card-game/reflections.mjs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
 
-const wait = (s, actor = "vale") =>
-  play(s, legalActions(s, actor).find((a) => a.kind === "wait"), s.revision, actor)
-    .state;
+const act = (s, pick, actor = "vale") => {
+  const action = legalActions(s, actor).find(pick);
+  expect(action, `${actor} at ${s.actors[actor].place}`).toBeTruthy();
+  return play(s, action, s.revision, actor).state;
+};
+const wait = (s, actor = "vale") => act(s, (a) => a.kind === "wait", actor);
+// Sleep is a Wait offered after a Wait.
+const sleep = (s, actor = "vale") => act(wait(s, actor), (a) => a.sleep, actor);
+const woke = (s, actor) =>
+  s.log.findLast((e) => e.actorId === actor && e.woke !== undefined);
+// A shared world seats these avatars; its clock moves on every seat's play.
+const seat = (ids) => {
+  const s = createWorld();
+  s.sharedVersion = 1;
+  s.controlledActors = [...ids];
+  s.presentActors = [...ids];
+  s.heldActors = [...ids];
+  return s;
+};
 
 describe("rest and sanctuary", () => {
   it("gives each world exactly one sanctuary, and the Willows none", () => {
@@ -44,30 +62,59 @@ describe("rest and sanctuary", () => {
     s.defeats = { vale: 2 };
     s = wait(s);
     expect(s.defeats).toEqual({ vale: 2 });
-    expect(s.actors.vale.sleepUntil).toBeUndefined();
+    expect(s.actors.vale.sleeping).toBeUndefined();
     s = wait(s);
     expect(s.defeats).toEqual({ vale: 2 });
   });
 
-  it("sleeps until the light changes at a sanctuary, then clears every loss", () => {
+  it("keeps a sanctuary Wait to one turn: losses clear, but no long rest or dream", () => {
     let s = createWorld();
     s.actors.vale.place = "attic";
+    s.actors.vale.xp = 1;
     s.defeats = { vale: 2 };
     s = wait(s);
-    // Alone, the world runs on until the sleeper wakes at the light change.
-    expect(s.turn).toBe(DAYLIGHT_TURNS);
-    expect(s.actors.vale.sleepUntil).toBeUndefined();
+    expect(s.turn).toBe(1);
     expect(s.defeats).toEqual({});
-    expect(
-      s.log.findLast((e) => e.verb === "wait" && e.actorId === "vale"),
-    ).toMatchObject({
-      actorId: "vale",
-      rest: "long",
-    });
-    expect(s.actors.vale.xp).toBe(0);
+    expect(s.actors.vale.sleeping).toBeUndefined();
+    expect(s.log.findLast((e) => e.verb === "wait").rest).toBeUndefined();
+    expect(narrativeContext(s).rest).toBeFalsy();
+    expect(s.actors.vale.want?.quest).toBeUndefined();
     expect(validateWorld(s)).toBe(s);
   });
 
+  it("sleeps after a Wait at a sanctuary and wakes into a long rest, a dream and the level quest", () => {
+    let s = createWorld();
+    s.actors.vale.place = "attic";
+    s.actors.vale.xp = 1;
+    s.actors.vale.level = 1;
+    s.defeats = { vale: 2 };
+    s = wait(s);
+    expect(legalActions(s).find((a) => a.sleep)).toMatchObject({
+      kind: "wait",
+      label: "Sleep",
+      key: "sleep:vale::",
+    });
+    s = act(s, (a) => a.sleep);
+    // Alone, the world runs on until something changes: Pip comes up.
+    expect(s.turn).toBeGreaterThan(3);
+    expect(s.actors.vale.sleeping).toBeUndefined();
+    expect(s.defeats).toEqual({});
+    expect(s.log.at(-1)).toMatchObject({
+      actorId: "vale",
+      verb: "wait",
+      woke: "arrival",
+      rest: "long",
+      text: "Vale wakes as Pip arrives.",
+    });
+    expect(s.actors.vale.want).toMatchObject({ quest: { level: 2 } });
+    const told = narrativeContext(s);
+    expect(told.rest).toBe("long");
+    expect(told.entities.find((e) => e.id === "vale").facts[0]).toMatch(
+      /^In a dream, the quest for level 2: /,
+    );
+    expect(s.actors.vale.xp).toBe(1);
+    expect(validateWorld(s)).toBe(s);
+  });
   it("clears a resident's losses when it waits at a sanctuary, and only there", () => {
     let s = createWorld();
     s.actors.vale.place = "station";
@@ -83,26 +130,154 @@ describe("rest and sanctuary", () => {
     expect(validateWorld(s)).toBe(s);
   });
 
-  it("keeps a shared sleeper to Wait until the light changes", () => {
-    let s = createWorld();
-    s.sharedVersion = 1;
-    s.actors.vale.place = "attic";
-    s.defeats = { vale: 1 };
-    s = wait(s);
-    expect(s.turn).toBe(1);
-    expect(s.actors.vale.sleepUntil).toBe(DAYLIGHT_TURNS);
-    expect(legalActions(s, "vale").map((a) => a.kind)).toEqual(["wait"]);
-    // Others move the one clock; the sleeper wakes on its first Wait after.
-    s.turn = s.revision = DAYLIGHT_TURNS;
-    s = wait(s);
-    expect(s.actors.vale.sleepUntil).toBeUndefined();
-    expect(s.defeats).toEqual({});
-    expect(
-      s.log.findLast((e) => e.verb === "wait" && e.actorId === "vale"),
-    ).toMatchObject({
-      actorId: "vale",
-      rest: "long",
+  it("wakes a shared sleeper when another seat arrives, on the shared clock", () => {
+    let s = seat(["mara", "nell"]);
+    s = act(s, (a) => a.kind === "move" && a.target === "clearing", "mara");
+    s = sleep(s, "mara");
+    expect(s.actors.mara.sleeping).toEqual({
+      since: s.turn,
+      place: "clearing",
+      present: ["mara"],
     });
+    // A sleeper's one play is to sleep on; the others move the clock.
+    expect(legalActions(s, "mara").map((a) => a.text)).toEqual([
+      "Mara sleeps.",
+    ]);
+    s = wait(s, "nell");
+    expect(s.actors.mara.sleeping).toBeDefined();
+    s = act(s, (a) => a.kind === "move" && a.target === "clearing", "nell");
+    expect(s.actors.mara.sleeping).toBeUndefined();
+    expect(woke(s, "mara")).toMatchObject({
+      turn: s.turn,
+      woke: "arrival",
+      text: "Mara wakes as Iris arrives.",
+    });
+    // The clearing is no sanctuary: no long rest.
+    expect(woke(s, "mara").rest).toBeUndefined();
+    expect(legalActions(s, "mara").length).toBeGreaterThan(1);
+    expect(validateWorld(s)).toBe(s);
+  });
+
+  it("wakes a sleeper at the first change where it sleeps", () => {
+    const asleep = (s, actor = "mara") => {
+      s.actors[actor].place ??= "clearing";
+      return sleep(s, actor);
+    };
+    const quiet = (turn = 0) => {
+      const s = seat(["mara"]);
+      s.actors.mara.place = "clearing";
+      s.turn = s.revision = turn;
+      return s;
+    };
+    // Someone leaves.
+    let s = seat(["mara", "nell"]);
+    s.actors.mara.place = s.actors.nell.place = "clearing";
+    s = act(
+      asleep(s),
+      (a) => a.kind === "move" && a.target === "glasshouse",
+      "nell",
+    );
+    expect(woke(s, "mara")).toMatchObject({
+      woke: "departure",
+      text: "Mara wakes as Iris leaves.",
+    });
+    // The lamp where it sleeps reaches its last oil.
+    s = quiet();
+    Object.assign(s.items.lamp, { holder: "mara", lit: true, fuel: 4 });
+    s = wait(asleep(s), "mara");
+    expect(s.items.lamp).toMatchObject({ lit: true, fuel: 1 });
+    expect(woke(s, "mara")).toMatchObject({
+      woke: "lamp",
+      text: "Mara wakes as the lamp gutters.",
+    });
+    // Dusk and dawn.
+    s = wait(asleep(quiet(21)), "mara");
+    expect(woke(s, "mara")).toMatchObject({
+      turn: 24,
+      woke: "dusk",
+      text: "Mara wakes at dusk.",
+    });
+    s = wait(asleep(quiet(45)), "mara");
+    expect(woke(s, "mara")).toMatchObject({
+      turn: 48,
+      woke: "dawn",
+      text: "Mara wakes at dawn.",
+    });
+    // The 24-turn cap.
+    s = asleep(quiet(30));
+    s.actors.mara.sleeping.since = s.turn - 23;
+    s = wait(s, "mara");
+    expect(woke(s, "mara")).toMatchObject({
+      woke: "rested",
+      text: "Mara wakes, rested.",
+    });
+    // A threat: Iris opens a standoff while another seat's play moves the clock.
+    s = seat(["mara", "rue"]);
+    s.actors.mara.place = s.actors.nell.place = "clearing";
+    s = asleep(s);
+    const none = { nell: false, mara: false };
+    s.standoffs.push({
+      challenger: "nell",
+      defender: "mara",
+      location: "clearing",
+      item: null,
+      opened: s.turn,
+      answered: false,
+      resolve: { nell: 4, mara: 4 },
+      guarding: { ...none },
+      struck: { ...none },
+      steppedBack: { ...none },
+      covering: {},
+      hitBy: {},
+    });
+    s = wait(s, "rue");
+    expect(woke(s, "mara")).toMatchObject({
+      woke: "threat",
+      text: "Mara wakes to a threat.",
+    });
+    // A ship docks where it sleeps.
+    s = seat(["vale"]);
+    s.actors.vale.place = "greek-piraeus";
+    s = sleep(s);
+    Object.assign(s.transports["greek-ship"], {
+      phase: "sea",
+      destination: "greek-piraeus",
+      since: s.turn,
+    });
+    s = wait(s);
+    expect(woke(s, "vale")).toMatchObject({
+      woke: "dock",
+      text: "Vale wakes as Greek ship docks.",
+    });
+    expect(validateWorld(s)).toBe(s);
+  });
+
+  it("offers Sleep only after a Wait, never aboard a ship", () => {
+    let s = createWorld();
+    expect(legalActions(s).some((a) => a.sleep)).toBe(false);
+    s = wait(s);
+    expect(legalActions(s).some((a) => a.sleep)).toBe(true);
+    s = act(s, (a) => a.kind === "move");
+    expect(legalActions(s).some((a) => a.sleep)).toBe(false);
+    // Residents never sleep.
+    expect(legalActions(s, "keeper").some((a) => a.sleep)).toBe(false);
+    let ship = seat(["ada"]);
+    ship = act(
+      ship,
+      (a) => a.kind === "move" && a.target === "greek-ship",
+      "ada",
+    );
+    ship = wait(ship, "ada");
+    expect(ship.actors.ada.place).toBe("greek-ship");
+    expect(legalActions(ship, "ada").some((a) => a.sleep)).toBe(false);
+  });
+
+  it("lets a save from before rules 89 wake from its old sleep", () => {
+    const s = createWorld();
+    s.actors.vale.sleepUntil = DAYLIGHT_TURNS;
+    const loaded = decodeSave(JSON.stringify(s));
+    expect(loaded.actors.vale.sleepUntil).toBeUndefined();
+    expect(loaded.actors.vale.sleeping).toBeUndefined();
   });
 
   it("brings a thought and a dream on waking from a long rest", () => {
@@ -117,13 +292,16 @@ describe("rest and sanctuary", () => {
     });
   });
 
-  it("never offers an attack at a sanctuary and wakes every sleeper at a light change through a long run", () => {
+  it("never offers an attack at a sanctuary and wakes every sleeper through a long run", () => {
     let s = createWorld();
     let longRests = 0,
       seen = 0;
     for (let step = 0; step < 300; step++) {
-      // Now and then the player is home in the attic, the hub's sanctuary.
-      if (step % 50 === 0) s.actors.vale.place = "attic";
+      // Now and then the player sleeps at home in the attic.
+      if (step % 50 === 0) {
+        s.actors.vale.place = "attic";
+        if (!standoffFor(s, "vale")) s = sleep(s);
+      }
       const actions = legalActions(s);
       const here = s.actors.vale.place;
       if (sanctuaries.includes(here))
@@ -131,9 +309,11 @@ describe("rest and sanctuary", () => {
       if (standoffFor(s, "vale") && !sanctuaries.includes(here))
         expect(actions.some((a) => a.kind === "attack")).toBe(true);
       s = play(s, actions[(step * 7919) % actions.length]).state;
-      expect(s.actors.vale.sleepUntil).toBeUndefined();
+      // Alone, a sleeper is always awake again when the play returns.
+      expect(s.actors.vale.sleeping).toBeUndefined();
       for (const e of s.log.filter((e) => e.seq > seen && e.rest === "long")) {
-        expect(e.turn % DAYLIGHT_TURNS).toBe(0);
+        expect(e.woke).toBeDefined();
+        expect(sanctuaries).toContain(e.locationId);
         longRests++;
       }
       seen = s.log.at(-1).seq;

@@ -52,7 +52,9 @@ describe("dousing the lamp in the attic", () => {
     s = decodeSave(encodeSave(s));
     s = act(s, "wait");
     // Its quest is still there, or was met and its next one drawn in rest.
-    expect(s.actors.vale.want !== null || s.actors.vale.metTurn !== undefined).toBe(true);
+    expect(
+      s.actors.vale.want !== null || s.actors.vale.metTurn !== undefined,
+    ).toBe(true);
     expect(s.actors.vale.visited).toContain("pond");
   });
 
@@ -76,11 +78,25 @@ describe("dousing the lamp in the attic", () => {
   it("opens the mirror when the full lamp burns out by itself, with no douse", () => {
     let s = fresh();
     expect(exits(s, "attic")).toEqual([]);
-    // The attic Wait sleeps until the light changes: all twelve fuel burn.
+    // Wait is one turn, even in the attic sanctuary.
+    s = act(s, "wait");
+    expect(s.turn).toBe(1);
+    expect(s.items.lamp).toMatchObject({ lit: true, fuel: 11 });
+    // Sleep wakes Vale as the lamp gutters, with one oil left.
+    s = act(s, "wait", { sleep: true });
+    expect(s.items.lamp).toMatchObject({ holder: "vale", lit: true, fuel: 1 });
+    expect(s.actors.vale.sleeping).toBeUndefined();
+    expect(s.log.at(-1)).toMatchObject({
+      verb: "wait",
+      woke: "lamp",
+      rest: "long",
+      text: "Vale wakes as the lamp gutters.",
+    });
+    expect(exits(s, "attic")).toEqual([]);
+    // The next one-turn Wait burns the last oil and opens the mirror.
     s = act(s, "wait");
     expect(s.log.some((e) => e.verb === "snuff")).toBe(false);
     expect(s.items.lamp).toMatchObject({ holder: "vale", lit: false, fuel: 0 });
-    expect(s.turn).toBeGreaterThanOrEqual(12);
     expect(exits(s, "attic")).toEqual(["pond"]);
     expect(act(s, "move", { target: "pond" }).actors.vale.place).toBe("pond");
   });
@@ -94,8 +110,7 @@ describe("dousing the lamp in the attic", () => {
       s.items.cloth,
     ];
     const before = structuredClone(held(s));
-    // The attic is a sanctuary: each Wait there sleeps until the light
-    // changes, so these waits span many nights.
+    // Each Wait is one turn, even in the attic sanctuary.
     for (let i = 0; i < 25; i++) s = act(s, "wait");
     expect(held(s)).toEqual(before);
     expect(knownActors(s)).toEqual(["vale"]);
@@ -274,7 +289,7 @@ describe("dousing the lamp in the attic", () => {
     expect(dropped.items.lamp.holder).toBe("vale");
     expect(dropped.actors.vale.place).toBe("attic");
     let s = fresh();
-    for (let i = 0; i < 8; i++) s = act(s, "wait");
+    for (let i = 0; i < 12; i++) s = act(s, "wait");
     expect(s.items.lamp.fuel).toBe(0);
     expect(s.opening.crossed).toBe(false);
     expect(knownActors(s)).toEqual(["vale"]);

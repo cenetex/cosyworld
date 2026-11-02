@@ -222,3 +222,57 @@ it("dates a later shared reflection to its speech and refuses stale ones", () =>
       .world,
   ).toEqual(later);
 });
+
+it("accepts a later reflection after a real Sleep long rest at a sanctuary", () => {
+  let s = enableMotives(createWorld());
+  s.actors.vale.place = "attic";
+  const pick = (test) => (s = play(s, legalActions(s).find(test)).state);
+  pick((a) => a.kind === "wait");
+  pick((a) => a.sleep);
+  const waking = s.log.at(-1);
+  expect(waking).toMatchObject({ actorId: "vale", verb: "wait", rest: "long" });
+  const world = dispatchShared({ op: "create", save: encodeSave(s) }).world;
+  const context = reflectionContext({
+    ...world,
+    playerActorId: "vale",
+    ...shared,
+  });
+  expect(context).toMatchObject({
+    turn: waking.turn,
+    resting: "vale",
+    rest: "long",
+  });
+  const evidence = context.entities
+    .find((e) => e.id === "vale")
+    .memories.filter((m) => m.kind === "event")
+    .map((m) => m.seq);
+  const entry = {
+    id: "vale",
+    model: "test-model",
+    reflection: {
+      thought: "I slept until the lamp guttered. Pip came up the stairs.",
+      persona: "I am someone who keeps watch even in sleep.",
+      dream: "A shore of black glass, and a lamp that would not go out.",
+      evidence,
+    },
+  };
+  const done = dispatchShared({
+    op: "reflect",
+    world,
+    actor: "vale",
+    ...shared,
+    turn: waking.turn,
+    resting: "vale",
+    rest: "long",
+    entries: [entry],
+  }).world;
+  const life = done.memories.vale.innerLife;
+  expect(life.thoughts.at(-1)).toEqual({
+    turn: waking.turn,
+    text: entry.reflection.thought,
+  });
+  expect(life.dreams.at(-1)).toEqual({
+    turn: waking.turn,
+    text: entry.reflection.dream,
+  });
+});

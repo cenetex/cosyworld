@@ -824,7 +824,12 @@ describe("witnessed departures and conversation continuity", () => {
       expect(seen.has(kind), kind).toBe(true);
   });
   it("lets Vale speak on waking from a long rest in the attic", () => {
-    const world = act(atticOpening(), "wait");
+    const waited = act(atticOpening(), "wait");
+    // Sleep is the Wait offered after a Wait.
+    const world = play(
+      waited,
+      legalActions(waited).find((a) => a.sleep),
+    ).state;
     const context = narrativeContext(world);
     expect(context.occasion).toBe("long_rest");
     expect(context.speakers).toEqual(["vale"]);

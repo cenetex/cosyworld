@@ -489,7 +489,9 @@ describe("cosmetic upgrades travel with the traveler (#1873)", () => {
     const start = sewn();
     start.items[SCARF].holder = "vale";
     delete start.actors.vale.upgrades;
-    const world = act(start, "wait");
+    // Hold choices apply after a play other than Wait; a resident makes one
+    // while Vale waits a second turn.
+    const world = act(act(start, "wait"), "wait");
     expect(world.actors.vale.upgrades).toEqual(["scarf"]);
     expect(entityActive(world, SCARF)).toBe(false);
   });

@@ -16,6 +16,8 @@ import {
 const act = (s, pick, actor = "vale") =>
   play(s, legalActions(s, actor).find(pick), s.revision, actor).state;
 const wait = (s) => act(s, (a) => a.kind === "wait");
+// Sleep is a Wait after a Wait; at a sanctuary it is a long rest.
+const sleep = (s) => act(wait(s), (a) => a.sleep);
 const dropQuest = (a) => a.kind === "drop" && !a.item;
 // Vale at home in the attic, the hub's sanctuary, with experience enough.
 const ready = (xp = 1) => {
@@ -36,7 +38,7 @@ describe("the level quest", () => {
     expect(levelOf(s, "vale")).toBe(4);
     s = ready();
     s.actors.vale.level = 1;
-    s = wait(s);
+    s = sleep(s);
     // One step, then the rest that raises the level.
     expect(s.actors.vale.want).toMatchObject({ quest: { level: 2, left: 2 } });
     expect(levelOf(s, "vale")).toBe(1);
@@ -54,20 +56,20 @@ describe("the level quest", () => {
 
   it("brings no quest below the threshold or while one is open", () => {
     let s = ready(0);
-    s = wait(s);
+    s = sleep(s);
     expect(s.actors.vale.want?.quest).toBeUndefined();
     s = ready();
-    s = wait(s);
+    s = sleep(s);
     const quest = s.actors.vale.want;
     s.actors.vale.place = "attic";
-    s = wait(s);
+    s = sleep(s);
     expect(s.actors.vale.want).toEqual(quest);
   });
 
   it("returns to the last sanctuary visited, where a long rest raises the level", () => {
     let s = ready(3);
     s.actors.vale.level = 2;
-    s = wait(s);
+    s = sleep(s);
     expect(s.actors.vale.want.quest).toEqual({ level: 3, left: 3 });
     expect(s.actors.vale.sanctuary).toBe("attic");
     s.actors.vale.place = "attic";
@@ -102,7 +104,9 @@ describe("the level quest", () => {
     expect(validateWorld(s)).toBe(s);
     // Being there is not enough: the long rest there raises the level.
     s.actors.vale.place = "greek-sanctuary";
-    s = wait(s);
+    // The Bard, walking there, would wake her as he arrives.
+    s.actors["greek-rhapsode"].place = "greek-palace";
+    s = sleep(s);
     expect(narrativeContext(s).rest).toBe("long");
     expect(levelOf(s, "vale")).toBe(3);
     expect(s.actors.vale.want?.quest).toBeUndefined();
@@ -112,7 +116,7 @@ describe("the level quest", () => {
   it("can be dropped for half the experience, keeping the level", () => {
     let s = ready(6);
     s.actors.vale.level = 3;
-    s = wait(s);
+    s = sleep(s);
     expect(s.actors.vale.want.quest.level).toBe(4);
     s = act(s, dropQuest);
     expect(s.actors.vale.xp).toBe(3);
