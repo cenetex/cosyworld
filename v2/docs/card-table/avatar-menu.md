@@ -69,13 +69,16 @@ Redesigned in [#1877](https://github.com/cenetex/cosyworld/issues/1877).
   played is the first slot, open. At Vale's local table no slot is current.
 - **Each slot** is a header (the name, "a friend's world" or "invited", and
   a letter strip R·A·T·V·M·I·C·S) and one line of its eight seats, in colour
-  only while someone is online there (only the world being played knows),
-  grey otherwise (owner, 2026-11-01). On a phone only one slot is open at a
+  only while someone is online there now, grey otherwise (owner, 2026-11-01).
+  The world list (`GET /card-game/shared/worlds`) gives each world's
+  `online` seats (a heartbeat in the last minute) and its avatars' `level`
+  and `xp` from the last checkpoint (`actors`), so this holds in every slot,
+  not only the world being played. On a phone only one slot is open at a
   time, and the tools (Memory, Inner life, Invite, Settings) stay pinned at
   the bottom. Panels fold over 200 ms.
 - **+ New world** starts a world for the first avatar in no world.
-- Below, the **tapped seat's stats**: level and holdings where the world is
-  loaded, and who plays it.
+- Below, the **tapped seat's stats**: its level in that world, holdings where
+  the world is loaded, and who plays it.
 
 **Tap a grey seat** in a world its avatar may go to (its seat is free, and
 you hold no avatar there), then again to move it. A claim frees its

@@ -46,6 +46,7 @@ mod travel_tests;
 mod weather_tests;
 #[cfg(test)]
 mod willows_tests;
+mod world_list;
 
 use crate::AppState;
 use axum::{

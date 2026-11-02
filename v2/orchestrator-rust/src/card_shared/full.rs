@@ -101,6 +101,7 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
             let u = user(&state, &h, false)?;
             let c = db(&state)?;
             let mut value = super::store::list(&c, &u)?;
+            let time = now();
             for row in value["worlds"]
                 .as_array_mut()
                 .ok_or("The world list needs a moment.")?
@@ -108,6 +109,7 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
                 // The run seed names the world in the menu (avatar-menu.md).
                 let id = row["id"].as_str().unwrap_or_default().to_string();
                 row["seed"] = json!(store::name_seed(&c, &id)?);
+                super::world_list::decorate(&c, row, time)?;
                 for key in ["actor", "bound"] {
                     if let Some(a) = row[key].as_u64().filter(|a| *a < 8) {
                         row[key] = json!(actor_id(a as usize));
