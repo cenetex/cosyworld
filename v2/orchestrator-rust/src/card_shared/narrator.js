@@ -17401,7 +17401,7 @@
     for (const [id, a] of Object.entries(s.actors)) {
       if (!a.trust || Object.keys(a.trust).sort().join() !== expectedTrustKeys[id] || Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3))
         fail();
-      if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn || a.sanctuary !== void 0 && !sanctuaries.includes(a.sanctuary) || a.sleeping !== void 0 && (!a.sleeping || Object.keys(a.sleeping).join() !== "since,place,present" || !Number.isSafeInteger(a.sleeping.since) || a.sleeping.since < 0 || a.sleeping.since > s.turn || s.turn - a.sleeping.since >= SLEEP_TURNS || !Object.hasOwn(places, a.sleeping.place) || !Array.isArray(a.sleeping.present) || a.sleeping.present.some(
+      if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn || a.sanctuary !== void 0 && !sanctuaries.includes(a.sanctuary) || a.sleeping !== void 0 && (!a.sleeping || Object.keys(a.sleeping).sort().join() !== "place,present,since" || !Number.isSafeInteger(a.sleeping.since) || a.sleeping.since < 0 || a.sleeping.since > s.turn || s.turn - a.sleeping.since >= SLEEP_TURNS || !Object.hasOwn(places, a.sleeping.place) || !Array.isArray(a.sleeping.present) || a.sleeping.present.some(
         (x, i, all) => !actorIds.includes(x) || i && all[i - 1] >= x
       )))
         fail();

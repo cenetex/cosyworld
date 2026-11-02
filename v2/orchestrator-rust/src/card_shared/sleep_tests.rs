@@ -31,8 +31,10 @@ fn rules_88_sleep_replays_and_rules_89_sleep_follows_a_wait() {
         pack,
     };
     full_store::seed(&c, &id, &old, "released-sleep", now()).unwrap();
-    let commit =
-        |w: &mut World, command: Value| full_store::commit(&c, &id, w, command, now()).unwrap();
+    let commit = |w: &mut World, command: Value| {
+        full_store::commit(&c, &id, w, command.clone(), now())
+            .unwrap_or_else(|e| panic!("{command}: {e}"))
+    };
     let play = |action: &str| json!({"op":"play","actor":"vale","action":action});
     commit(&mut old, json!({"op":"claim","actor":"vale"}));
     commit(&mut old, json!({"op":"enter","actor":"vale"}));

@@ -3002,7 +3002,7 @@ export function validateWorld(s) {
       (a.sanctuary !== undefined && !sanctuaries.includes(a.sanctuary)) ||
       (a.sleeping !== undefined &&
         (!a.sleeping ||
-          Object.keys(a.sleeping).join() !== "since,place,present" ||
+          Object.keys(a.sleeping).sort().join() !== "place,present,since" ||
           !Number.isSafeInteger(a.sleeping.since) ||
           a.sleeping.since < 0 ||
           a.sleeping.since > s.turn ||
