@@ -209,7 +209,9 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   content: from rules 90 an ordinary quest met with nothing beneath is
   enough for now (`actor.content`, `want: null`). A player draws its next
   quest on waking from any Sleep, a resident after a day (`CONTENT_TURNS`).
-  A content resident waits and still answers plays. A draw takes something
+  A content resident waits and still answers plays. While content, no quest
+  card is shown: the hand has no fold, no quest card and no Drop quest until
+  the next want is drawn (`v2/scripts/smoke-card-content.mjs`). A draw takes something
   near first; with nothing near left, curiosity starts over, and then
   anyone known, or what they hold, will do, reachable or not. A new world
   draws one for every avatar without an authored `want`; a quest left empty
