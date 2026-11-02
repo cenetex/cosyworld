@@ -89,10 +89,13 @@ describe("dousing the lamp in the attic", () => {
     expect(s.log.at(-1)).toMatchObject({
       verb: "wait",
       woke: "lamp",
-      rest: "long",
       text: "Vale wakes as the lamp gutters.",
     });
+    // Nine turns is a short rest: no dream.
+    expect(s.log.at(-1).rest).toBeUndefined();
     expect(exits(s, "attic")).toEqual([]);
+    // With one oil left, Sleep would sleep through the burnout: only Wait.
+    expect(legalActions(s).some((a) => a.sleep)).toBe(false);
     // The next one-turn Wait burns the last oil and opens the mirror.
     s = act(s, "wait");
     expect(s.log.some((e) => e.verb === "snuff")).toBe(false);

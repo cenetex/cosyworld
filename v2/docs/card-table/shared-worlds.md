@@ -344,12 +344,16 @@ over.
 
 Since rules 89 ([#2028](https://github.com/cenetex/cosyworld/issues/2028)),
 Wait is one turn and a seat's Wait right after a Wait is offered as Sleep
-(`wait` with `sleep: true`). Sleep is per seat: the sleeper's only play is to
-sleep on, and every accepted play, by any seat, checks every sleeper on the
-shared clock after the lamp burns. Another seat arriving or leaving, a
-standoff, a ship docking, dawn or dusk, or the lamp at its last oil wakes it,
-with a journaled wake event carrying `woke` and, after a Sleep at a sanctuary,
-`rest: "long"`. That event is the long rest the `reflect` op checks for.
+(`wait` with `sleep: true`). Sleep is per seat. A sleeper may sleep on or
+choose any of its normal plays, which wakes it first (`woke: "chose"`), so no
+seat is stranded asleep. Every accepted play, by any seat, checks every
+sleeper on the shared clock after the lamp burns. Another seat arriving or
+leaving, a way opening or closing, a standoff, a ship docking, dawn or dusk,
+or the lamp at its last oil or running dry wakes it, with a journaled wake
+event carrying `woke` and, after a Sleep of 12 turns or more at a sanctuary,
+`rest: "long"`. That event is the long rest the `reflect` op checks for. When
+another seat's play woke it, the sleeper's own next play is its waking scene,
+so its dream comes with that play's reflection.
 Journals before rules 89 replay on their own bundles; loading such a world
 drops a pending `sleepUntil`, so its sleeper is awake
 ([rest and sanctuary](rest-and-sanctuary.md#sleep)).

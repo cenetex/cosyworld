@@ -106,7 +106,11 @@ describe("the level quest", () => {
     s.actors.vale.place = "greek-sanctuary";
     // The Bard, walking there, would wake her as he arrives.
     s.actors["greek-rhapsode"].place = "greek-palace";
+    // A long rest needs a long sleep: she sleeps again as the Bard and
+    // Ismene come and go, until one sleep runs long.
     s = sleep(s);
+    for (let i = 0; i < 8 && narrativeContext(s).rest !== "long"; i++)
+      s = act(s, (a) => a.sleep);
     expect(narrativeContext(s).rest).toBe("long");
     expect(levelOf(s, "vale")).toBe(3);
     expect(s.actors.vale.want?.quest).toBeUndefined();

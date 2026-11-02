@@ -12,6 +12,7 @@ import {
   applySharedReflections as narrativeReflections,
 } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
 import {
   reflectionContext,
   applySharedReflections,
@@ -275,4 +276,79 @@ it("accepts a later reflection after a real Sleep long rest at a sanctuary", () 
     turn: waking.turn,
     text: entry.reflection.dream,
   });
+});
+
+it("gives a shared sleeper woken by another seat's play its dream at its own next scene", () => {
+  let s = enableMotives(createWorld());
+  s.actors.vale.place = "attic";
+  // Pip and BoardyAI, who would come up the stair, are elsewhere and want
+  // nothing, and the Sleep starts as the light changes.
+  s.actors.moth.place = "station";
+  s.actors.boardyai.place = "greek-palace";
+  s.actors.moth.want = s.actors.boardyai.want = null;
+  s.turn = s.revision = DAYLIGHT_TURNS + 1;
+  const seats = { claimed: ["vale", "mara"], present: ["vale", "mara"] };
+  let world = dispatchShared({ op: "create", save: encodeSave(s) }).world;
+  const run = (actor, pick) => {
+    const { actions } = dispatchShared({ op: "view", world, actor, ...seats });
+    const action = actions.find(pick);
+    expect(action, `${actor} can play`).toBeTruthy();
+    const done = dispatchShared({ op: "play", world, actor, action, ...seats });
+    expect(done.ok, done.error).toBe(true);
+    world = done.world;
+  };
+  run("vale", (a) => a.kind === "wait");
+  run("vale", (a) => a.sleep);
+  // Mara's plays move the shared clock until the light wakes Vale.
+  while (world.actors.vale.sleeping) run("mara", (a) => a.kind === "wait");
+  const waking = world.log.findLast((e) => e.woke);
+  expect(waking).toMatchObject({
+    actorId: "vale",
+    turn: 2 * DAYLIGHT_TURNS,
+    rest: "long",
+  });
+  // Mara's own scene is not Vale's rest.
+  const own = (actor) =>
+    dispatchShared({ op: "view", world, actor, ...seats }).world;
+  expect(reflectionContext(own("mara"))).toMatchObject({ resting: "mara" });
+  expect(reflectionContext(own("mara")).rest).toBeUndefined();
+  // Vale's next play, whatever it is, is the scene she wakes into.
+  run("vale", (a) => a.kind === "move");
+  const context = reflectionContext(own("vale"));
+  expect(context).toMatchObject({
+    turn: world.turn,
+    resting: "vale",
+    rest: "long",
+  });
+  const evidence = context.entities
+    .find((e) => e.id === "vale")
+    .memories.filter((m) => m.kind === "event")
+    .map((m) => m.seq);
+  const entry = {
+    id: "vale",
+    model: "test-model",
+    reflection: {
+      thought: "I slept the whole light through and woke to the dawn.",
+      persona: "I am someone who rests where the lamp once burned.",
+      dream: "A stair of lamps, each one going out as I passed.",
+      evidence,
+    },
+  };
+  const done = dispatchShared({
+    op: "reflect",
+    world,
+    actor: "vale",
+    ...seats,
+    turn: world.turn,
+    resting: "vale",
+    rest: "long",
+    entries: [entry],
+  }).world;
+  expect(done.memories.vale.innerLife.dreams.at(-1)).toEqual({
+    turn: world.turn,
+    text: entry.reflection.dream,
+  });
+  // Only once: her play after that is no longer the waking scene.
+  run("vale", (a) => a.kind === "wait" && !a.sleep);
+  expect(reflectionContext(own("vale")).rest).toBeUndefined();
 });

@@ -13,10 +13,12 @@ Status: decided by the owner on #1648 (2026-11-01). It ships with level quests
   verb, `wait`, everywhere.
 - **Long rest.** Wait is always one turn. A Wait right after a Wait can be
   Sleep (rules 89, [#2028](https://github.com/cenetex/cosyworld/issues/2028)).
-  Sleep at a sanctuary that lasts a turn or more is a long rest: when the
-  avatar wakes, every loss is cleared and a dream comes.
-- **No short rest.** Wait anywhere else changes no loss. The owner dropped
-  #1648's short rest on 2026-11-01, so players and residents share one rule.
+  Sleep at a sanctuary that lasts at least half a light period
+  (`LONG_SLEEP_TURNS`, 12 turns) is a long rest: when the avatar wakes, every
+  loss is cleared and a dream comes. A shorter Sleep there only clears losses.
+- **No short rest elsewhere.** Wait anywhere else changes no loss. The owner
+  dropped #1648's short rest on 2026-11-01, so players and residents share one
+  rule.
 - **No fighting in a sanctuary.** Threaten is allowed there; Attack is not. A
   standoff in a sanctuary ends by guarding, yielding or waiting it out.
 - **No XP for resting.** Experience still comes only from wants met, so
@@ -37,7 +39,9 @@ Status: decided by the owner on #1648 (2026-11-01). It ships with level quests
 The hub picks the Mirror attic, Vale's warm home, over the Empty station. The
 station is where the keeper lives and where a table without the opening
 starts. The opening starts in the attic: Sleep there wakes Vale as the lamp
-gutters at its last oil, and the next Wait burns it out and opens the mirror. Badger's glade, by the old Steam Clock, is a hidden part
+gutters at its last oil (nine turns, a short rest). Sleep is not offered beside
+a lit lamp with one oil left, so the next play is a plain Wait, which burns it
+out and opens the mirror. Badger's glade, by the old Steam Clock, is a hidden part
 of the Lonely Forest, so it shares the Cosy Cottage. Moving or adding a
 sanctuary is a one-line pack change.
 
@@ -50,31 +54,51 @@ nobody has found yet; that is fine (mystery over reachability).
 Sleep is the player's own play, in solo and shared play alike. There is no new
 verb: it is `wait` with `sleep: true`, labelled "Sleep" (key
 `sleep:<actor>::`). `legalActions` offers it after the plain Wait only when the
-actor's last committed play was a Wait, and never aboard a ship or during a
-standoff. Residents never sleep. The client keeps the card selection unchanged
-to show it.
+actor's last committed play was a Wait (a waking counts), and never aboard a
+ship, during a standoff, or where a lit lamp has one oil or less left: that
+Sleep would sleep through the burnout, so the player gets a plain Wait, which
+burns the last oil and opens the mirror. Residents never sleep. The client
+keeps the card selection unchanged to show it.
 
 1. Sleep sets `actor.sleeping = {since, place, present}`, where `present` is
-   the sorted set of active avatars in the place.
-2. While `sleeping` is set, the avatar's only play is to sleep on (a Wait).
+   the sorted set of avatars physically in the place (a seat counts while its
+   human is present). Being discovered or met is not arriving.
+2. While `sleeping` is set, the sleeper's plays are Sleep (sleep on), first,
+   plus its normal plays. Choosing any other play wakes it first (`woke:
+   "chose"`, "Vale wakes."), then performs that play. Picking a quest card
+   (`focus`) passes no time and does not wake it. So a shared seat is never
+   stranded asleep.
 3. Each round, after the lamp burns, every sleeper wakes at the first of:
-   the lit lamp where it sleeps at 1 oil (`lamp`), someone arriving
-   (`arrival`) or leaving (`departure`), a standoff holding it (`threat`), a
-   ship docking there (`dock`), dawn or dusk, when `turn % DAYLIGHT_TURNS` is
-   0 (`dawn`, `dusk`), or 24 turns asleep (`rested`). All are deterministic.
+   being moved from where it fell asleep (`moved`, "Vale wakes in Black
+   pond."), the lit lamp where it sleeps at 1 oil (`lamp`), the lamp running
+   dry there (`dry`), someone arriving (`arrival`) or leaving (`departure`), a
+   way out of the place opening or closing (`crossing`), a standoff holding it
+   (`threat`), a ship docking there (`dock`), dawn or dusk after it fell asleep,
+   when `turn % DAYLIGHT_TURNS` is 0 (`dawn`, `dusk`), or 24 turns asleep
+   (`rested`). No Sleep sleeps past the mirror opening. All are deterministic.
 4. Waking removes `sleeping` and logs a wait event with the reason in `woke`
    and a caption: "Vale wakes as the lamp gutters.", "Vale wakes as Pip
    arrives.", "Vale wakes at dawn." A travelling human is named before a
-   resident.
-5. A Sleep at a sanctuary that lasted a turn or more is a long rest: the wake
-   event carries `rest: "long"`, losses clear and `wake` (`want.mjs`) completes
-   a rest step or brings the level quest.
+   resident; the sleeper is never named as arriving or leaving itself.
+5. A Sleep in the sanctuary where it fell asleep that lasted `LONG_SLEEP_TURNS`
+   (12, half of `DAYLIGHT_TURNS`) or more is a long rest: the wake event
+   carries `rest: "long"`, losses clear and `wake` (`want.mjs`) completes a rest
+   step or brings the level quest. A shorter one is a short rest: losses clear,
+   with no forced thought or dream. Because every Sleep ends by the next light
+   change, two long rests cannot both begin and end within one light period,
+   so a sanctuary gives at most one dream per period.
+6. Sleeping on at a dock calls no ship. Only the plain Wait before the Sleep
+   calls it one lane closer, so a long sleep does not haul the ship across the
+   sea; a ship that docks there still wakes the sleeper.
 
 In **solo** play the clock moves only on the player's plays, so the rules run
-the sleeper's turns in the same play until it wakes; residents act meanwhile.
+the sleeper's turns in the same play until it wakes. The run stops at the
+first refused play and is bounded by the 24-turn cap; residents act meanwhile.
 In **shared** play the clock moves on every accepted play, so each round
 checks every seat's sleeper and others' plays wake it; nobody fast-forwards
-anyone else.
+anyone else. A long rest woken by another seat's play is that sleeper's
+waking scene at its own next play (`restingWake` in `scene-cast.mjs`), so its
+thought and dream are due then and the `reflect` op accepts them.
 
 Old journals replay unchanged on their own bundles. A save from before rules
 89 loses `sleepUntil` when it loads, so its sleeper is simply awake.

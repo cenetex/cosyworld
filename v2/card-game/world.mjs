@@ -1296,10 +1296,17 @@ export function legalActions(s, actor = currentActor(s)) {
   )
     return [];
   const here = s.actors[actor].place;
-  // A sleeper's only play is to sleep on until something wakes it.
-  if (s.actors[actor].sleeping)
-    return [offer("wait", actor, null, null, `${nameOf(actor)} sleeps.`, [])];
+  // Sleep is a Wait that lasts until something changes. A sleeper may sleep
+  // on or choose any other play, which wakes it first.
+  const asleep = Boolean(s.actors[actor].sleeping),
+    sleep = {
+      ...offer("wait", actor, null, null, `${nameOf(actor)} sleeps.`, []),
+      key: `sleep:${actor}::`,
+      label: "Sleep",
+      sleep: true,
+    };
   const out = [
+    ...(asleep ? [sleep] : []),
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
   const conflict = standoffFor(s, actor);
@@ -1307,20 +1314,18 @@ export function legalActions(s, actor = currentActor(s)) {
     out.push(
       offer("guard", actor, null, null, `${nameOf(actor)} braces.`, [actor]),
     );
-  // A player's Wait after a Wait may become Sleep, never aboard or mid-fight.
+  // A player's Wait after a Wait may become Sleep, never aboard, mid-fight,
+  // or beside a lamp about to burn its last oil.
   else if (
+    !asleep &&
     !transportPlace(here) &&
+    !lampGuttering(s, here) &&
     (actor === currentActor(s) || controlledByHuman(s, actor)) &&
     s.log.findLast(
       (e) => e.kind === "action" && e.actorId === actor && !e.generated,
     )?.verb === "wait"
   )
-    out.push({
-      ...offer("wait", actor, null, null, `${nameOf(actor)} sleeps.`, []),
-      key: `sleep:${actor}::`,
-      label: "Sleep",
-      sleep: true,
-    });
+    out.push(sleep);
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
     if (departureWaits(s, actor, to)) continue;
     // A course card aboard a docked ship sets the voyage for everyone aboard.
@@ -1756,26 +1761,37 @@ function trustGiver(s, recipient, item, giver) {
 function rest(s, actor, here, sleep = false) {
   if (standoffFor(s, actor)) return;
   if (sanctuaries.includes(here) && s.defeats?.[actor]) delete s.defeats[actor];
-  if (sleep)
+  if (sleep && !s.actors[actor].sleeping)
     s.actors[actor].sleeping = {
       since: s.turn,
       place: here,
-      present: presentAt(s, here),
+      present: bodiesAt(s, here),
     };
 }
-const presentAt = (s, place) =>
-  knownActors(s)
+// Who is physically in a place: being discovered or met is not arriving.
+const bodiesAt = (s, place) =>
+  actorIds
     .filter(
       (id) =>
-        entityActive(s, id) &&
         s.actors[id].place === place &&
         (!controlledByHuman(s, id) || humanPresent(s, id)),
     )
     .sort();
+const witnessesAt = (s, place) =>
+  knownActors(s)
+    .filter((id) => entityActive(s, id) && bodiesAt(s, place).includes(id))
+    .sort();
+// A lit lamp here about to burn its last oil: Sleep would sleep through it.
+const lampGuttering = (s, place) =>
+  s.items.lamp.lit && s.items.lamp.fuel <= 1 && itemPlace(s, "lamp") === place;
 const WAKE_REASONS = [
+  "chose",
+  "moved",
   "lamp",
+  "dry",
   "arrival",
   "departure",
+  "crossing",
   "threat",
   "dock",
   "dawn",
@@ -1783,9 +1799,34 @@ const WAKE_REASONS = [
   "rested",
 ];
 const SLEEP_TURNS = 24;
+// Sleep always ends by the next light change, so no sleep is longer than one
+// light period. A long rest needs half of one: two cannot both begin and end
+// within one light period, so a sanctuary dreams at most once per period.
+export const LONG_SLEEP_TURNS = DAYLIGHT_TURNS / 2;
+// A sleeper wakes in the place it now stands. A sleep of LONG_SLEEP_TURNS or
+// more in the sanctuary where it fell asleep is a long rest; a shorter one
+// there is a short rest that only clears losses.
+function wakeUp(s, id, woke, text) {
+  const z = s.actors[id].sleeping,
+    here = s.actors[id].place;
+  delete s.actors[id].sleeping;
+  const sanctuary = here === z.place && sanctuaries.includes(here),
+    long = sanctuary && s.turn - z.since >= LONG_SLEEP_TURNS;
+  if (sanctuary && s.defeats?.[id]) delete s.defeats[id];
+  if (long) wake(s, id, wantAPI(s));
+  addLog(s, "World", text, {
+    kind: "action",
+    actorId: id,
+    verb: "wait",
+    locationId: here,
+    witnesses: witnessesAt(s, here),
+    woke,
+    ...(long ? { rest: "long" } : {}),
+  });
+}
 // After the lamp burns each round, every sleeper wakes at the first change
-// where it sleeps. A sleep of a turn or more at a sanctuary is a long rest.
-function wakeSleepers(s, voyages) {
+// where it sleeps. `before` is the world as the round began.
+function wakeSleepers(s, before, voyages) {
   for (const id of actorIds) {
     const z = s.actors[id].sleeping;
     if (!z) continue;
@@ -1793,48 +1834,48 @@ function wakeSleepers(s, voyages) {
     const first = (list) =>
       list.find((x) => controlledByHuman(s, x)) ?? list[0];
     const who = nameOf(id),
-      now = presentAt(s, z.place),
+      here = s.actors[id].place,
+      now = bodiesAt(s, z.place).filter((x) => x !== id),
       came = first(now.filter((x) => !z.present.includes(x))),
-      left = first(z.present.filter((x) => !now.includes(x))),
+      left = first(z.present.filter((x) => x !== id && !now.includes(x))),
       dock = voyages.find((v) => v.kind === "arrive" && v.dock === z.place),
-      lamp = s.items.lamp;
-    const [woke, text] =
-      lamp.lit && lamp.fuel <= 1 && itemPlace(s, "lamp") === z.place
-        ? ["lamp", `${who} wakes as the lamp gutters.`]
-        : came
-          ? ["arrival", `${who} wakes as ${nameOf(came)} arrives.`]
-          : left
-            ? ["departure", `${who} wakes as ${nameOf(left)} leaves.`]
-            : standoffFor(s, id)
-              ? ["threat", `${who} wakes to a threat.`]
-              : dock
-                ? [
-                    "dock",
-                    `${who} wakes as ${nameOf(transports[dock.id].place)} docks.`,
-                  ]
-                : s.turn % DAYLIGHT_TURNS === 0
-                  ? Math.floor(s.turn / DAYLIGHT_TURNS) % 2
-                    ? ["dusk", `${who} wakes at dusk.`]
-                    : ["dawn", `${who} wakes at dawn.`]
-                  : s.turn - z.since >= SLEEP_TURNS
-                    ? ["rested", `${who} wakes, rested.`]
-                    : [];
-    if (!woke) continue;
-    delete s.actors[id].sleeping;
-    const long = sanctuaries.includes(z.place) && s.turn > z.since;
-    if (long) {
-      if (s.defeats?.[id]) delete s.defeats[id];
-      wake(s, id, wantAPI(s));
-    }
-    addLog(s, "World", text, {
-      kind: "action",
-      actorId: id,
-      verb: "wait",
-      locationId: s.actors[id].place,
-      witnesses: now,
-      woke,
-      ...(long ? { rest: "long" } : {}),
-    });
+      dry =
+        before.items.lamp.lit &&
+        !s.items.lamp.lit &&
+        s.items.lamp.fuel === 0 &&
+        itemPlace(s, "lamp") === z.place,
+      was = exits(before, z.place, id),
+      ways = exits(s, z.place, id);
+    const light = s.turn > z.since && s.turn % DAYLIGHT_TURNS === 0,
+      dusk = Math.floor(s.turn / DAYLIGHT_TURNS) % 2;
+    const [, woke, text] =
+      [
+        [here !== z.place, "moved", `wakes in ${nameOf(here)}`],
+        [lampGuttering(s, z.place), "lamp", "wakes as the lamp gutters"],
+        [dry, "dry", "wakes as the lamp runs dry"],
+        [came, "arrival", `wakes as ${came && nameOf(came)} arrives`],
+        [left, "departure", `wakes as ${left && nameOf(left)} leaves`],
+        [
+          ways.some((to) => !was.includes(to)),
+          "crossing",
+          "wakes as a way opens here",
+        ],
+        [
+          was.some((to) => !ways.includes(to)),
+          "crossing",
+          "wakes as a way here closes",
+        ],
+        [standoffFor(s, id), "threat", "wakes to a threat"],
+        [
+          dock,
+          "dock",
+          `wakes as ${dock && nameOf(transports[dock.id].place)} docks`,
+        ],
+        [light && dusk, "dusk", "wakes at dusk"],
+        [light, "dawn", "wakes at dawn"],
+        [s.turn - z.since >= SLEEP_TURNS, "rested", "wakes, rested"],
+      ].find(([hit]) => hit) ?? [];
+    if (woke) wakeUp(s, id, woke, `${who} ${text}.`);
   }
 }
 // A battle ends after one full round without a Strike: every combatant has
@@ -2603,6 +2644,9 @@ export function play(
   const round = beginRound(s, sensesFor(s));
   next.turn += 1;
   next.revision += 1;
+  // Any play but sleeping on wakes a sleeper first.
+  if (next.actors[actor].sleeping && !exact.sleep)
+    wakeUp(next, actor, "chose", `${nameOf(actor)} wakes.`);
   const reflectionSource = next.actors[actor].place;
   const wasOpen = reflectionOpen(next, reflectionSource);
   const active = knownActors(next);
@@ -2701,7 +2745,8 @@ export function play(
     if (next.actors[id].place !== from)
       arriveRoamingRecitals(next, packDefinitions, id);
   }
-  if (exact.kind === "wait")
+  // Sleeping at a dock calls no ship: only the Wait before it does.
+  if (exact.kind === "wait" && !exact.sleep)
     waitForTransport(next, next.actors[actor].place, actor);
   const voyages = sailTransports(next);
   for (const voyage of voyages) {
@@ -2715,7 +2760,7 @@ export function play(
       { locationId: ship },
     );
   }
-  wakeSleepers(next, voyages);
+  wakeSleepers(next, s, voyages);
   reviseStalledWants(
     next,
     wantActors(next, [...residents, ...roamingActors]).filter(
@@ -2737,15 +2782,19 @@ export function play(
   }
   validateWorld(next);
   // Alone, the world runs on around a sleeper until something wakes it.
+  // It stops at the first refused play, and the sleep cap bounds it.
   let slept = next;
   if (!s.actors[actor].sleeping && !sharedEnabled(next))
-    while (slept.actors[actor].sleeping)
-      slept = play(
+    for (let i = 0; i < SLEEP_TURNS && slept.actors[actor].sleeping; i++) {
+      const on = play(
         slept,
-        legalActions(slept, actor)[0],
+        legalActions(slept, actor).find((a) => a.sleep),
         slept.revision,
         actor,
-      ).state;
+      );
+      if (!on.ok) break;
+      slept = on.state;
+    }
   return { ok: true, state: slept };
 }
 export function validateWorld(s) {

@@ -21,7 +21,7 @@ export const sleepPortraitAssets = [
 ];
 
 export function sleepingPortrait(world, id) {
-  if (world?.actors?.[id]?.sleepUntil === undefined) return null;
+  if (!world?.actors?.[id]?.sleeping) return null;
   if (travelers.has(id)) {
     const scarf = avatarImage(world, id) === scarfPortrait(id);
     return `assets/shared/characters/${id}-sleeping${scarf ? "-scarf" : ""}.webp`;

@@ -17295,9 +17295,13 @@
   }
   var DEFEATS_TO_SEND_HOME = 3;
   var WAKE_REASONS = [
+    "chose",
+    "moved",
     "lamp",
+    "dry",
     "arrival",
     "departure",
+    "crossing",
     "threat",
     "dock",
     "dawn",
@@ -17305,6 +17309,7 @@
     "rested"
   ];
   var SLEEP_TURNS = 24;
+  var LONG_SLEEP_TURNS = DAYLIGHT_TURNS / 2;
   function validateWorld(s) {
     const fail = () => {
       throw new Error(
@@ -17573,6 +17578,16 @@
     }
     return false;
   }
+  function restingWake(log, actor, turn) {
+    const woke = log.findLast(
+      (e) => e.actorId === actor && e.woke !== void 0 && e.turn <= turn
+    );
+    if (!woke || woke.turn < turn && log.some(
+      (e) => e.actorId === actor && e.kind === "action" && !e.generated && e.woke === void 0 && e.turn >= woke.turn && e.turn < turn
+    ))
+      return null;
+    return woke;
+  }
   function dialogueCast(world, action = null) {
     const location = world.actors[currentActor(world)].place;
     const beforeFirstLight = Boolean(
@@ -17627,8 +17642,9 @@
       (id) => id && (id === location || audience.includes(id) || localItems.includes(id))
     ).slice(0, 8);
     const waited = speakers[0] === currentActor(world) && (played?.verb === "wait" ? played : !played && waitedThisTurn(world));
-    const resting2 = waited ? currentActor(world) : null;
-    const rest = waited?.rest === "long" ? "long" : null;
+    const rested = speakers[0] === currentActor(world) && restingWake(world.log, currentActor(world), world.turn)?.rest === "long";
+    const resting2 = waited || rested ? currentActor(world) : null;
+    const rest = waited?.rest === "long" || rested ? "long" : null;
     return {
       location,
       beforeFirstLight,

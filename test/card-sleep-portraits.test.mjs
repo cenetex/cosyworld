@@ -13,19 +13,26 @@ import {
 } from "../v2/card-game/portrait-facing.mjs";
 import { publicAssets } from "../v2/card-game/public-assets.mjs";
 
-const wait = (world) =>
-  play(
-    world,
-    legalActions(world).find((a) => a.kind === "wait"),
-  ).state;
+const choose = (world, pick, actor = "vale") =>
+  play(world, legalActions(world, actor).find(pick), world.revision, actor)
+    .state;
+const wait = (world, actor) => choose(world, (a) => a.kind === "wait", actor);
+// Sleep is the Wait offered after a Wait.
+const sleep = (world, actor) =>
+  choose(wait(world, actor), (a) => a.sleep, actor);
+// A shared world, where a sleeper sleeps on while other seats play.
+const seated = (ids, place = "glasshouse") => {
+  const world = createWorld();
+  world.sharedVersion = 1;
+  world.controlledActors = world.presentActors = world.heldActors = [...ids];
+  for (const id of ids) world.actors[id].place = place;
+  return world;
+};
 
 describe("sleeping art", () => {
-  it("follows the shared sleep state until the committed waking Wait", () => {
-    let world = createWorld();
-    world.sharedVersion = 1;
-    world.actors.vale.place = "attic";
-    world = wait(world);
-    expect(world.actors.vale.sleepUntil).toBeDefined();
+  it("follows the committed sleep state until the sleeper wakes", () => {
+    let world = sleep(seated(["vale"]), "vale");
+    expect(world.actors.vale.sleeping).toBeDefined();
     const file = "./assets/shared/characters/vale-sleeping.webp";
     expect(portrait("vale", null, world)).toBe(file);
     expect(sceneStaging(world, { cast: ["vale"] }).actors[0]).toMatchObject({
@@ -33,9 +40,11 @@ describe("sleeping art", () => {
       cutout: file,
       pose: "sleep",
     });
-    world.turn = world.revision = world.actors.vale.sleepUntil;
+    // Sleeping on keeps the art; choosing a Wait wakes her first.
+    world = choose(world, (a) => a.sleep);
     expect(portrait("vale", null, world)).toBe(file);
-    world = wait(world);
+    world = choose(world, (a) => a.kind === "wait" && !a.sleep);
+    expect(world.actors.vale.sleeping).toBeUndefined();
     expect(sleepingPortrait(world, "vale")).toBeNull();
     expect(portrait("vale", null, world)).toBe(
       "./assets/shared/characters/vale.png",
@@ -46,8 +55,13 @@ describe("sleeping art", () => {
     const world = createWorld();
     world.actors.vale.place = "station";
     expect(sleepingPortrait(wait(world), "vale")).toBeNull();
+    // Residents never Sleep; one marked asleep without art keeps its own.
     const before = portrait("greek-baker", null, world);
-    world.actors["greek-baker"].sleepUntil = 24;
+    world.actors["greek-baker"].sleeping = {
+      since: 0,
+      place: "x",
+      present: [],
+    };
     expect(portrait("greek-baker", null, world)).toBe(before);
     expect(sleepingPortrait(null, "vale")).toBeNull();
     expect(sleepingPortrait(world, "unknown")).toBeNull();
@@ -56,8 +70,9 @@ describe("sleeping art", () => {
   it.each(humanAvatarIds)(
     "preserves %s's scarf custody and permanent upgrade",
     (id) => {
-      const world = createWorld();
-      world.actors[id].sleepUntil = 24;
+      const world = sleep(seated([id]), id);
+      expect(world.actors[id].sleeping).toBeDefined();
+      const asleep = structuredClone(world);
       const plain = `assets/shared/characters/${id}-sleeping.webp`;
       const scarf = `assets/shared/characters/${id}-sleeping-scarf.webp`;
       expect(sleepingPortrait(world, id)).toBe(plain);
@@ -67,9 +82,12 @@ describe("sleeping art", () => {
       expect(sleepingPortrait(world, id)).toBe(plain);
       world.actors[id].upgrades = ["scarf"];
       expect(sleepingPortrait(world, id)).toBe(scarf);
-      delete world.actors[id].sleepUntil;
-      expect(sleepingPortrait(world, id)).toBeNull();
-      expect(portrait(id, null, world)).toBe(
+      // Choosing another play wakes the sleeper first.
+      const awake = choose(asleep, (a) => a.kind === "move", id);
+      expect(awake.actors[id].sleeping).toBeUndefined();
+      awake.actors[id].upgrades = ["scarf"];
+      expect(sleepingPortrait(awake, id)).toBeNull();
+      expect(portrait(id, null, awake)).toBe(
         `./assets/shared/characters/${id}-scarf.png`,
       );
     },
@@ -82,9 +100,11 @@ describe("sleeping art", () => {
       expect(published.has(file), file).toBe(true);
       expect(portraitFraming(file), file).toBe("wide");
     }
+    // Residents never Sleep under the rules; their art follows the same
+    // committed state should a later rule let them.
     const world = createWorld();
     for (const id of ["moth", "keeper"]) {
-      world.actors[id].sleepUntil = 24;
+      world.actors[id].sleeping = { since: 0, place: "attic", present: [] };
       expect(portrait(id, null, world)).toBe(
         `./assets/sleep/${id}-sleeping.webp`,
       );

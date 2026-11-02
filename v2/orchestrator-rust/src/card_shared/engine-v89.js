@@ -6347,9 +6347,14 @@
     if (!s.actors[actor] || !entityActive(s, actor) && !roamingQuestActor(actor))
       return [];
     const here = s.actors[actor].place;
-    if (s.actors[actor].sleeping)
-      return [offer("wait", actor, null, null, `${nameOf(actor)} sleeps.`, [])];
+    const asleep = Boolean(s.actors[actor].sleeping), sleep = {
+      ...offer("wait", actor, null, null, `${nameOf(actor)} sleeps.`, []),
+      key: `sleep:${actor}::`,
+      label: "Sleep",
+      sleep: true
+    };
     const out = [
+      ...asleep ? [sleep] : [],
       offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, [])
     ];
     const conflict = standoffFor(s, actor);
@@ -6357,15 +6362,10 @@
       out.push(
         offer("guard", actor, null, null, `${nameOf(actor)} braces.`, [actor])
       );
-    else if (!transportPlace(here) && (actor === currentActor(s) || controlledByHuman(s, actor)) && s.log.findLast(
+    else if (!asleep && !transportPlace(here) && !lampGuttering(s, here) && (actor === currentActor(s) || controlledByHuman(s, actor)) && s.log.findLast(
       (e) => e.kind === "action" && e.actorId === actor && !e.generated
     )?.verb === "wait")
-      out.push({
-        ...offer("wait", actor, null, null, `${nameOf(actor)} sleeps.`, []),
-        key: `sleep:${actor}::`,
-        label: "Sleep",
-        sleep: true
-      });
+      out.push(sleep);
     for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
       if (departureWaits(s, actor, to)) continue;
       if (isCourse(s, here, to)) {
@@ -6712,20 +6712,26 @@
   function rest(s, actor, here, sleep = false) {
     if (standoffFor(s, actor)) return;
     if (sanctuaries.includes(here) && s.defeats?.[actor]) delete s.defeats[actor];
-    if (sleep)
+    if (sleep && !s.actors[actor].sleeping)
       s.actors[actor].sleeping = {
         since: s.turn,
         place: here,
-        present: presentAt(s, here)
+        present: bodiesAt(s, here)
       };
   }
-  var presentAt = (s, place) => knownActors2(s).filter(
-    (id) => entityActive(s, id) && s.actors[id].place === place && (!controlledByHuman(s, id) || humanPresent(s, id))
+  var bodiesAt = (s, place) => actorIds.filter(
+    (id) => s.actors[id].place === place && (!controlledByHuman(s, id) || humanPresent(s, id))
   ).sort();
+  var witnessesAt = (s, place) => knownActors2(s).filter((id) => entityActive(s, id) && bodiesAt(s, place).includes(id)).sort();
+  var lampGuttering = (s, place) => s.items.lamp.lit && s.items.lamp.fuel <= 1 && itemPlace2(s, "lamp") === place;
   var WAKE_REASONS = [
+    "chose",
+    "moved",
     "lamp",
+    "dry",
     "arrival",
     "departure",
+    "crossing",
     "threat",
     "dock",
     "dawn",
@@ -6733,32 +6739,57 @@
     "rested"
   ];
   var SLEEP_TURNS = 24;
-  function wakeSleepers(s, voyages) {
+  var LONG_SLEEP_TURNS = DAYLIGHT_TURNS / 2;
+  function wakeUp(s, id, woke, text2) {
+    const z = s.actors[id].sleeping, here = s.actors[id].place;
+    delete s.actors[id].sleeping;
+    const sanctuary = here === z.place && sanctuaries.includes(here), long = sanctuary && s.turn - z.since >= LONG_SLEEP_TURNS;
+    if (sanctuary && s.defeats?.[id]) delete s.defeats[id];
+    if (long) wake(s, id, wantAPI(s));
+    addLog(s, "World", text2, {
+      kind: "action",
+      actorId: id,
+      verb: "wait",
+      locationId: here,
+      witnesses: witnessesAt(s, here),
+      woke,
+      ...long ? { rest: "long" } : {}
+    });
+  }
+  function wakeSleepers(s, before, voyages) {
     for (const id of actorIds) {
       const z = s.actors[id].sleeping;
       if (!z) continue;
       const first = (list) => list.find((x) => controlledByHuman(s, x)) ?? list[0];
-      const who = nameOf(id), now = presentAt(s, z.place), came = first(now.filter((x) => !z.present.includes(x))), left = first(z.present.filter((x) => !now.includes(x))), dock = voyages.find((v) => v.kind === "arrive" && v.dock === z.place), lamp = s.items.lamp;
-      const [woke, text2] = lamp.lit && lamp.fuel <= 1 && itemPlace2(s, "lamp") === z.place ? ["lamp", `${who} wakes as the lamp gutters.`] : came ? ["arrival", `${who} wakes as ${nameOf(came)} arrives.`] : left ? ["departure", `${who} wakes as ${nameOf(left)} leaves.`] : standoffFor(s, id) ? ["threat", `${who} wakes to a threat.`] : dock ? [
-        "dock",
-        `${who} wakes as ${nameOf(transports[dock.id].place)} docks.`
-      ] : s.turn % DAYLIGHT_TURNS === 0 ? Math.floor(s.turn / DAYLIGHT_TURNS) % 2 ? ["dusk", `${who} wakes at dusk.`] : ["dawn", `${who} wakes at dawn.`] : s.turn - z.since >= SLEEP_TURNS ? ["rested", `${who} wakes, rested.`] : [];
-      if (!woke) continue;
-      delete s.actors[id].sleeping;
-      const long = sanctuaries.includes(z.place) && s.turn > z.since;
-      if (long) {
-        if (s.defeats?.[id]) delete s.defeats[id];
-        wake(s, id, wantAPI(s));
-      }
-      addLog(s, "World", text2, {
-        kind: "action",
-        actorId: id,
-        verb: "wait",
-        locationId: s.actors[id].place,
-        witnesses: now,
-        woke,
-        ...long ? { rest: "long" } : {}
-      });
+      const who = nameOf(id), here = s.actors[id].place, now = bodiesAt(s, z.place).filter((x) => x !== id), came = first(now.filter((x) => !z.present.includes(x))), left = first(z.present.filter((x) => x !== id && !now.includes(x))), dock = voyages.find((v) => v.kind === "arrive" && v.dock === z.place), dry = before.items.lamp.lit && !s.items.lamp.lit && s.items.lamp.fuel === 0 && itemPlace2(s, "lamp") === z.place, was = exits(before, z.place, id), ways = exits(s, z.place, id);
+      const light = s.turn > z.since && s.turn % DAYLIGHT_TURNS === 0, dusk = Math.floor(s.turn / DAYLIGHT_TURNS) % 2;
+      const [, woke, text2] = [
+        [here !== z.place, "moved", `wakes in ${nameOf(here)}`],
+        [lampGuttering(s, z.place), "lamp", "wakes as the lamp gutters"],
+        [dry, "dry", "wakes as the lamp runs dry"],
+        [came, "arrival", `wakes as ${came && nameOf(came)} arrives`],
+        [left, "departure", `wakes as ${left && nameOf(left)} leaves`],
+        [
+          ways.some((to) => !was.includes(to)),
+          "crossing",
+          "wakes as a way opens here"
+        ],
+        [
+          was.some((to) => !ways.includes(to)),
+          "crossing",
+          "wakes as a way here closes"
+        ],
+        [standoffFor(s, id), "threat", "wakes to a threat"],
+        [
+          dock,
+          "dock",
+          `wakes as ${dock && nameOf(transports[dock.id].place)} docks`
+        ],
+        [light && dusk, "dusk", "wakes at dusk"],
+        [light, "dawn", "wakes at dawn"],
+        [s.turn - z.since >= SLEEP_TURNS, "rested", "wakes, rested"]
+      ].find(([hit]) => hit) ?? [];
+      if (woke) wakeUp(s, id, woke, `${who} ${text2}.`);
     }
   }
   function perform(s, a, round2 = null, settle = []) {
@@ -7373,6 +7404,8 @@
     const round2 = beginRound(s, sensesFor(s));
     next.turn += 1;
     next.revision += 1;
+    if (next.actors[actor].sleeping && !exact.sleep)
+      wakeUp(next, actor, "chose", `${nameOf(actor)} wakes.`);
     const reflectionSource = next.actors[actor].place;
     const wasOpen = reflectionOpen(next, reflectionSource);
     const active = knownActors2(next);
@@ -7444,7 +7477,7 @@
       if (next.actors[id].place !== from)
         arriveRoamingRecitals(next, packDefinitions, id);
     }
-    if (exact.kind === "wait")
+    if (exact.kind === "wait" && !exact.sleep)
       waitForTransport(next, next.actors[actor].place, actor);
     const voyages = sailTransports(next);
     for (const voyage of voyages) {
@@ -7456,7 +7489,7 @@
         { locationId: ship }
       );
     }
-    wakeSleepers(next, voyages);
+    wakeSleepers(next, s, voyages);
     reviseStalledWants(
       next,
       wantActors(next, [...residents, ...roamingActors]).filter(
@@ -7477,13 +7510,16 @@
     validateWorld(next);
     let slept = next;
     if (!s.actors[actor].sleeping && !sharedEnabled(next))
-      while (slept.actors[actor].sleeping)
-        slept = play(
+      for (let i = 0; i < SLEEP_TURNS && slept.actors[actor].sleeping; i++) {
+        const on = play(
           slept,
-          legalActions(slept, actor)[0],
+          legalActions(slept, actor).find((a) => a.sleep),
           slept.revision,
           actor
-        ).state;
+        );
+        if (!on.ok) break;
+        slept = on.state;
+      }
     return { ok: true, state: slept };
   }
   function validateWorld(s) {
@@ -7754,6 +7790,16 @@
     }
     return false;
   }
+  function restingWake(log, actor, turn) {
+    const woke = log.findLast(
+      (e) => e.actorId === actor && e.woke !== void 0 && e.turn <= turn
+    );
+    if (!woke || woke.turn < turn && log.some(
+      (e) => e.actorId === actor && e.kind === "action" && !e.generated && e.woke === void 0 && e.turn >= woke.turn && e.turn < turn
+    ))
+      return null;
+    return woke;
+  }
   function dialogueCast(world, action = null) {
     const location = world.actors[currentActor(world)].place;
     const beforeFirstLight = Boolean(
@@ -7808,8 +7854,9 @@
       (id) => id && (id === location || audience.includes(id) || localItems.includes(id))
     ).slice(0, 8);
     const waited = speakers[0] === currentActor(world) && (played?.verb === "wait" ? played : !played && waitedThisTurn(world));
-    const resting2 = waited ? currentActor(world) : null;
-    const rest2 = waited?.rest === "long" ? "long" : null;
+    const rested = speakers[0] === currentActor(world) && restingWake(world.log, currentActor(world), world.turn)?.rest === "long";
+    const resting2 = waited || rested ? currentActor(world) : null;
+    const rest2 = waited?.rest === "long" || rested ? "long" : null;
     return {
       location,
       beforeFirstLight,
@@ -7946,7 +7993,7 @@
   }
   var restedAt = (world, actor, turn, rest2) => world.log.some(
     (e) => e.verb === "wait" && e.actorId === actor && e.turn === turn && (rest2 !== "long" || e.rest === "long")
-  );
+  ) || rest2 === "long" && restingWake(world.log, actor, turn)?.rest === "long";
   function applyLaterReflections(world, request) {
     const { turn, entries } = request;
     const resting2 = request.resting ?? null;

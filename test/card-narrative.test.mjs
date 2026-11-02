@@ -824,7 +824,10 @@ describe("witnessed departures and conversation continuity", () => {
       expect(seen.has(kind), kind).toBe(true);
   });
   it("lets Vale speak on waking from a long rest in the attic", () => {
-    const waited = act(atticOpening(), "wait");
+    // A lit lamp would wake her within a short rest; this one is out.
+    const start = atticOpening();
+    start.items.lamp.lit = false;
+    const waited = act(start, "wait");
     // Sleep is the Wait offered after a Wait.
     const world = play(
       waited,

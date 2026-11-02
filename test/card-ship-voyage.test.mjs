@@ -113,16 +113,21 @@ describe("a real voyage", () => {
     // A companion can still board while the ship is at its harbour.
     s = act(s, "mara", "move", "greek-ship");
     s = act(s, "vale", "course", "greek-harbor");
-    expect(state(s)).toMatchObject({ phase: "sea", destination: "greek-harbor" });
-    expect(s.log.some((e) => /casts off for The Wine-Dark Harbor/.test(e.text))).toBe(true);
+    expect(state(s)).toMatchObject({
+      phase: "sea",
+      destination: "greek-harbor",
+    });
+    expect(
+      s.log.some((e) => /casts off for The Wine-Dark Harbor/.test(e.text)),
+    ).toBe(true);
     // At sea nobody disembarks, nobody boards and no course cards remain.
     for (const actor of ["vale", "mara"]) {
       expect(targets(s, actor, "move")).toEqual([]);
       expect(targets(s, actor, "course")).toEqual([]);
     }
-    expect(
-      ask(s, "ash").actions.some((a) => a.target === "greek-ship"),
-    ).toBe(false);
+    expect(ask(s, "ash").actions.some((a) => a.target === "greek-ship")).toBe(
+      false,
+    );
     s = act(s, "mara", "wait");
     expect(state(s)).toMatchObject({
       phase: "arrived",
@@ -131,16 +136,24 @@ describe("a real voyage", () => {
     });
     // On arrival the only Disembark card is that port.
     expect(targets(s, "vale", "move")).toEqual(["greek-harbor"]);
-    expect(playLabel(ask(s, "vale").actions.find((a) => a.kind === "move" && a.target === "greek-harbor"))).toBe(
-      "Disembark",
-    );
+    expect(
+      playLabel(
+        ask(s, "vale").actions.find(
+          (a) => a.kind === "move" && a.target === "greek-harbor",
+        ),
+      ),
+    ).toBe("Disembark");
     s = act(s, "vale", "move", "greek-harbor");
     expect(s.actors.vale.place).toBe("greek-harbor");
     // The first ashore keeps the ship there; Mara can only get off there.
     expect(state(s)).toMatchObject({ phase: "arrived", dock: "greek-harbor" });
     expect(targets(s, "mara", "move")).toEqual(["greek-harbor"]);
     s = act(s, "mara", "move", "greek-harbor");
-    expect(state(s)).toMatchObject({ phase: "docked", dock: "greek-harbor", riders: [] });
+    expect(state(s)).toMatchObject({
+      phase: "docked",
+      dock: "greek-harbor",
+      riders: [],
+    });
   });
 
   it("a rider can stay aboard for the next course; a new boarder cannot step back", () => {
@@ -167,7 +180,10 @@ describe("a real voyage", () => {
     expect(state(s)).toMatchObject({ phase: "arrived", dock: "greek-piraeus" });
     expect(targets(s, "vale", "move")).toEqual(["greek-piraeus"]);
     // Ash can step off with the provisions or leave them on deck.
-    expect(targets(s, "ash", "move")).toEqual(["greek-piraeus", "greek-piraeus"]);
+    expect(targets(s, "ash", "move")).toEqual([
+      "greek-piraeus",
+      "greek-piraeus",
+    ]);
   });
 
   it("an idle passenger cannot hold the ship: it sails its first lane after three rounds", () => {
@@ -179,7 +195,9 @@ describe("a real voyage", () => {
     }
     s = act(s, "vale", "wait");
     expect(state(s)).toMatchObject({ phase: "sea", destination: "pond" });
-    expect(s.log.some((e) => /sails on its own for Black pond/i.test(e.text))).toBe(true);
+    expect(
+      s.log.some((e) => /sails on its own for Black pond/i.test(e.text)),
+    ).toBe(true);
     s = act(s, "vale", "wait");
     expect(state(s)).toMatchObject({ phase: "arrived", dock: "pond" });
   });
@@ -202,6 +220,26 @@ describe("a real voyage", () => {
     const before = structuredClone(state(s));
     s = act(reload(s), "ash", "wait");
     expect(state(s)).toEqual({ ...before, since: state(s).since });
+  });
+
+  it("lets a sleeper at a port sleep without calling the ship", () => {
+    let s = setup("greek-piraeus");
+    for (const id of players) s.actors[id].place = "pond";
+    s.items["greek-provisions"].holder = "greek-ship";
+    s = reload(s);
+    // The Wait before Sleep calls the ship one lane; sleeping on calls none.
+    s = act(s, "mara", "wait");
+    expect(state(s)).toMatchObject({ phase: "docked", dock: "greek-harbor" });
+    const sleep = (world) => {
+      const action = ask(world, "mara").actions.find((a) => a.sleep);
+      return reload(ask(world, "mara", "play", { action }).world);
+    };
+    // Each Sleep play, falling asleep or sleeping on, leaves the ship be.
+    for (let i = 0; i < 4; i++) {
+      s = sleep(s);
+      expect(state(s).dock).toBe("greek-harbor");
+    }
+    expect(state(s).dock).toBe("greek-harbor");
   });
 
   it("route search plans across several lanes from aboard", () => {
@@ -246,9 +284,9 @@ describe("residents at sea", () => {
     // Pip, alone aboard and bound for the pond, sets the course himself.
     let world = ask(s, "vale").world;
     world.actors.moth.place = "greek-ship";
-    expect(
-      ["course", "wait"].includes(plan(world, "moth").action.kind),
-    ).toBe(true);
+    expect(["course", "wait"].includes(plan(world, "moth").action.kind)).toBe(
+      true,
+    );
   });
 });
 

@@ -46,7 +46,7 @@ item. Existing costume details and identity equipment remain part of each figure
 ## Selection in the game
 
 [`sleep-portraits.mjs`](../../sleep-portraits.mjs) selects these paintings only
-when the actor's committed `sleepUntil` field exists. The eight human travelers
+when the actor's committed `sleeping` field exists. The eight human travelers
 retain the wardrobe selected by the existing scarf system: a saved scarf upgrade,
 or their own scarf currently held in an older world. The selector does not infer
 sleep from a Wait action, darkness or a resting dialogue beat.
