@@ -28,6 +28,7 @@ uniform vec4 u_lights[4];
 uniform vec3 u_lightTint[4];
 // Stars come out in the painting's open sky (x0, y0, x1, y1); the moon is
 // x, y and radius.
+uniform float u_flash;
 uniform float u_stars;
 uniform vec4 u_starBox;
 uniform vec3 u_moon;
@@ -179,6 +180,8 @@ void main() {
   vec3 target = mid * grade * (1.0 - alpha) + color;
   vec3 layer = mix(target / (2.0 * mid),
     0.5 + (target - mid) / (2.0 * (1.0 - mid)), step(mid, target));
+  // A combat hit's flash lifts the whole scene toward warm white.
+  layer = mix(layer, vec3(1.0, 0.98, 0.93), u_flash * 0.5);
   layer += (hash2(gl_FragCoord.xy) - 0.5) / 255.0;
   gl_FragColor = vec4(layer, 1.0);
 }
@@ -291,6 +294,7 @@ export function createWeatherRenderer(canvas) {
         "hard",
         "lights",
         "lightTint",
+        "flash",
         "stars",
         "starBox",
         "moon",
@@ -325,6 +329,7 @@ export function createWeatherRenderer(canvas) {
           u.lightTint,
           pools.flatMap((l) => l?.tint ?? [1, 1, 1]),
         );
+        gl.uniform1f(u.flash, uniforms.flash ?? 0);
         gl.uniform1f(u.stars, uniforms.stars ?? 0);
         gl.uniform4fv(u.starBox, uniforms.starBox ?? [0, 0, 0, 0]);
         gl.uniform3fv(u.moon, uniforms.moon ?? [0, 0, 0]);

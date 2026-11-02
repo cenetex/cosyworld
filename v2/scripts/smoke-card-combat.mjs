@@ -261,6 +261,29 @@ try {
         document.querySelector("#combat-caption").textContent,
       ),
     );
+    // A hit lands: no target circle, a slim resolve bar under each fighter.
+    await page.screenshot({
+      path: new URL(`hit-${opponent}-${width}-${motion}.png`, output).pathname,
+    });
+    assert.equal(
+      await page.evaluate(
+        () =>
+          document.querySelectorAll(".combat-reticle").length +
+          [...document.querySelectorAll("#cast .portrait")].filter(
+            (el) => getComputedStyle(el, "::after").borderStyle === "dashed",
+          ).length,
+      ),
+      0,
+      "The target shows a rim light, not a dashed circle",
+    );
+    assert.ok(
+      (
+        await page.$$eval("#cast .combat-pips", (bars) =>
+          bars.map((bar) => bar.offsetHeight),
+        )
+      ).every((height) => height > 0 && height <= 4),
+      "Resolve bars are slim",
+    );
     report.word = await page
       .locator('#cast [data-avatar="vale"] .combat-word')
       .last()

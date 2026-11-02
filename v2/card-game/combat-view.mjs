@@ -4,6 +4,7 @@
 import { nameOf } from "./world.mjs";
 import { scaresEnabled } from "./transitions.mjs";
 import { imageUrl } from "./images.mjs";
+import { flashStage } from "./weather-view.mjs";
 import {
   combatPortrait,
   createCombatPortraits,
@@ -71,30 +72,39 @@ export function renderStandingResolve(cast, world, locationId) {
       );
     }
     const value = standing.get(figure.dataset.avatar);
-    let bar = figure.querySelector(":scope > .combat-pips");
-    if (value === undefined) {
-      bar?.remove();
-      continue;
-    }
-    if (!bar) {
-      bar = document.createElement("span");
-      bar.className = "combat-pips";
-      bar.setAttribute("role", "img");
-      for (const part of ["ghost", "fill"]) {
-        const layer = document.createElement("span");
-        layer.className = `combat-pips-${part}`;
-        bar.append(layer);
-      }
-      figure.append(bar);
-    }
-    bar.dataset.resolve = String(value);
-    bar.setAttribute(
-      "aria-label",
-      `${nameOf(figure.dataset.avatar)}: ${value} of ${MAX_RESOLVE} resolve`,
-    );
-    for (const layer of bar.children)
-      layer.style.width = `${(100 * value) / MAX_RESOLVE}%`;
+    const bar = figure.querySelector(":scope > .combat-pips");
+    if (value === undefined) bar?.remove();
+    else
+      setResolve(
+        bar || figure.appendChild(resolveBar()),
+        figure.dataset.avatar,
+        value,
+      );
   }
+}
+
+// One slim resolve bar under a fighter, cut into MAX_RESOLVE parts: a fill
+// that cools as it drains over a lagging ghost. Standing standoffs and
+// playing beats share it.
+function resolveBar() {
+  const bar = document.createElement("span");
+  bar.className = "combat-pips";
+  bar.setAttribute("role", "img");
+  for (const part of ["ghost", "fill"]) {
+    const layer = document.createElement("span");
+    layer.className = `combat-pips-${part}`;
+    bar.append(layer);
+  }
+  return bar;
+}
+const resolveWidth = (v) => `${(100 * Math.max(0, v)) / MAX_RESOLVE}%`;
+function setResolve(bar, id, value) {
+  bar.dataset.resolve = String(value);
+  bar.setAttribute(
+    "aria-label",
+    `${nameOf(id)}: ${value} of ${MAX_RESOLVE} resolve`,
+  );
+  for (const layer of bar.children) layer.style.width = resolveWidth(value);
 }
 
 const ICONS = {
@@ -152,33 +162,15 @@ export function createCombatView({
     caption.textContent = text;
     caption.hidden = !text;
   };
-  const pips = (id) => {
-    const el = fighter(id);
-    if (!el) return null;
-    let bar = el.querySelector(":scope > .combat-pips");
-    if (!bar) {
-      bar = document.createElement("span");
-      bar.className = "combat-pips";
-      bar.setAttribute("role", "img");
-      for (const part of ["ghost", "fill"]) {
-        const layer = document.createElement("span");
-        layer.className = `combat-pips-${part}`;
-        bar.append(layer);
-      }
-      add(el, bar);
-    }
-    return bar;
-  };
   const showResolve = (id, value, from = value) => {
-    const bar = pips(id);
-    if (!bar) return;
-    const width = (v) => `${(100 * Math.max(0, v)) / MAX_RESOLVE}%`;
-    bar.setAttribute("aria-label", `${nameOf(id)}: ${value} resolve`);
-    bar.dataset.resolve = String(value);
+    const el = fighter(id);
+    if (!el) return;
+    const bar =
+      el.querySelector(":scope > .combat-pips") || add(el, resolveBar());
+    setResolve(bar, id, value);
     const fill = bar.querySelector(".combat-pips-fill"),
       ghost = bar.querySelector(".combat-pips-ghost");
-    fill.style.width = width(value);
-    ghost.style.width = width(value);
+    const width = resolveWidth;
     if (from === value || reduced()) return;
     animate(fill, [{ width: width(from) }, { width: width(value) }], {
       duration: BEAT_MS.drain,
@@ -410,7 +402,8 @@ export function createCombatView({
     const t = target.getBoundingClientRect();
     const away = attacker ? Math.sign(t.x - attacker.x) || 1 : 1;
     // Hit-stop: the target holds still for a moment, then recoils and
-    // shakes with a decaying amplitude. One brightness flash, never red.
+    // shakes with a decaying amplitude, and the scene shakes by the recorded
+    // damage. One brightness flash, never red.
     animate(
       body,
       [
@@ -423,8 +416,27 @@ export function createCombatView({
       ],
       { duration: BEAT_MS.hitStop + 380, easing: "ease-out" },
     );
-    // Flashes follow the "Flashes and scares" setting.
-    if (scaresEnabled())
+    const shake = [0, 2, 4, 7][Math.min(3, beat.damage || 0)];
+    for (const layer of shake ? cut?.scene || [] : [])
+      animate(
+        layer,
+        [
+          { translate: "0 0" },
+          { translate: `${away * shake}px ${shake / 2}px`, offset: 0.25 },
+          { translate: `${away * -shake * 0.6}px 0`, offset: 0.5 },
+          { translate: `${away * shake * 0.3}px 0`, offset: 0.75 },
+          { translate: "0 0" },
+        ],
+        { duration: 260, delay: BEAT_MS.hitStop, easing: "ease-out" },
+      );
+    // Flashes follow the "Flashes and scares" setting. The stage shader
+    // brightens the whole scene, more for a harder hit; without it the
+    // target's body brightens.
+    const flash = 0.25 + 0.12 * Math.min(3, beat.damage || 0);
+    if (
+      scaresEnabled() &&
+      !flashStage(stage, flash, 180 / speed, BEAT_MS.hitStop / speed)
+    )
       animate(
         body,
         [
@@ -449,9 +461,7 @@ export function createCombatView({
       add(actor, svgIcon(beat.kind));
       stageExchange(beat, Object.keys(beat.resolve || {}));
       if (beat.kind === "attack")
-        fighter(beat.coveredId || beat.targetId)?.classList.add(
-          "combat-reticle",
-        );
+        fighter(beat.coveredId || beat.targetId)?.classList.add("combat-aim");
       pose(beat.actorId, beat.kind === "attack" ? "threaten" : beat.kind);
       setCaption(`${telegraphText(beat)}…`);
       return;
@@ -473,7 +483,7 @@ export function createCombatView({
       for (const el of stage.querySelectorAll(".combat-telegraph")) el.remove();
       if (beat.kind === "attack") {
         fighter(beat.coveredId || beat.targetId)?.classList.remove(
-          "combat-reticle",
+          "combat-aim",
         );
         return;
       }
@@ -582,10 +592,10 @@ export function createCombatView({
       cut = null;
       delete stage.dataset.combat;
       for (const el of stage.querySelectorAll(
-        ".combat-reticle, .combat-outline, .combat-targeted, .combat-beaten",
+        ".combat-aim, .combat-outline, .combat-targeted, .combat-beaten",
       ))
         el.classList.remove(
-          "combat-reticle",
+          "combat-aim",
           "combat-outline",
           "combat-targeted",
           "combat-beaten",

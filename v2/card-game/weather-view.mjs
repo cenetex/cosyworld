@@ -68,14 +68,16 @@ function animate(layer, weather, ease) {
       state.frame = 0;
       if (!layer.isConnected || document.hidden) return;
       const light = stageLight(stage);
-      const idle = !state.weather && (!light || isNeutral(light));
+      const now = performance.now();
+      const flash = state.flash ? (now - state.flash.at) / state.flash.ms : 1;
+      const flashing = flash < 1;
+      const idle = !state.weather && !flashing && (!light || isNeutral(light));
       canvas.style.visibility = idle ? "hidden" : "";
       if (idle) return;
       if (state.scaled !== Boolean(state.weather)) {
         state.scaled = Boolean(state.weather);
         resize();
       }
-      const now = performance.now();
       const time = reducedMotion.matches ? 17.3 : (now - state.start) / 1000;
       const progress = reducedMotion.matches
         ? 1
@@ -86,11 +88,20 @@ function animate(layer, weather, ease) {
         ...onPainting(stage, light),
         shade: light?.shade ?? [1, 1, 1],
         vignette: light?.vignette ?? 0,
+        // A hit's flash rises fast and fades.
+        flash:
+          flashing && flash > 0
+            ? state.flash.strength *
+              (flash < 0.3 ? flash / 0.3 : (1 - flash) / 0.7)
+            : 0,
       };
       state.shown = uniforms;
       if (!renderer.draw(uniforms, time, true)) return lost();
       const { rain, cloud, mist } = uniforms;
-      if (!reducedMotion.matches && (progress < 1 || rain + cloud + mist > 0))
+      if (
+        !reducedMotion.matches &&
+        (progress < 1 || rain + cloud + mist > 0 || flashing)
+      )
         state.frame = requestAnimationFrame(draw);
     };
     state.draw = draw;
@@ -122,6 +133,17 @@ function animate(layer, weather, ease) {
   layer.dataset.shader = "webgl";
   stage.dataset.stageShader = "webgl";
   if (!state.frame) state.draw();
+}
+
+// A combat hit brightens the whole stage once (never red) after delay ms.
+// Returns false without the stage shader, so the caller can fall back.
+export function flashStage(stage, strength, ms, delay = 0) {
+  const state = live.get(stage.querySelector(":scope > .weather-layer"));
+  if (!state || !stage.dataset.stageShader || reducedMotion.matches)
+    return false;
+  state.flash = { at: performance.now() + delay, ms, strength };
+  if (!state.frame) state.draw();
+  return true;
 }
 
 // Stage scenery and place cards use the same resolved location weather.
