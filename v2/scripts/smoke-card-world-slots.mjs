@@ -150,6 +150,9 @@ try {
     await shot(`output/card-world-slots-selected-${width}.png`);
     await taviFace.click();
     assert.equal(await taviFace.getAttribute("data-armed"), "true");
+    // Arming deals the card over a shuffle of card backs (hidden here, with
+    // reduced motion).
+    assert.equal(await card.locator(".profile-shuffle img").count(), 3);
     assert.deepEqual(await actions.allInnerTexts(), ["Start", "Leave"]);
     assert.match(
       await card.locator(".avatar-note").innerText(),
