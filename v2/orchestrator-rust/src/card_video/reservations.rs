@@ -120,6 +120,13 @@ pub(super) fn finish(
     detail: &str,
 ) -> rusqlite::Result<bool> {
     let tx = c.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    if state == "submitted" {
+        tx.execute("UPDATE credit_video_requests SET state = 'submission_conflict', job_id = ?3,
+            detail = 'The submit response and callback named different jobs; credits need review'
+            WHERE payer = ?1 AND request_id = ?2 AND state IN ('submitting', 'submission_unknown')
+            AND EXISTS (SELECT 1 FROM credit_video_callbacks WHERE payer = ?1 AND request_id = ?2 AND job_hint <> '' AND job_hint <> ?3)",
+            params![scope(user, world), id, job])?;
+    }
     let changed = tx.execute(
         "UPDATE credit_video_requests SET state = ?3, job_id = ?4, detail = ?6, updated_at_unix = ?7
         WHERE payer = ?1 AND request_id = ?2 AND (state = ?5 OR
