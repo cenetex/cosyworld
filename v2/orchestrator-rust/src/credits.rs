@@ -222,19 +222,29 @@ pub(crate) fn spend<'a>(
     kind: SpendKind,
     request_id: &str,
 ) -> rusqlite::Result<Spend> {
-    let payer = payer.into();
     let tx = c.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    schema(&tx)?;
-    let balance = sum(&tx, payer)?;
-    if request_net(&tx, payer, kind, request_id)? < 0 {
+    let result = spend_in(&tx, payer.into(), kind, request_id)?;
+    tx.commit()?;
+    Ok(result)
+}
+
+/// Join the caller's IMMEDIATE transaction so a reservation and debit commit together.
+pub(crate) fn spend_in(
+    c: &rusqlite::Transaction<'_>,
+    payer: Payer,
+    kind: SpendKind,
+    request_id: &str,
+) -> rusqlite::Result<Spend> {
+    schema(c)?;
+    let balance = sum(c, payer)?;
+    if request_net(c, payer, kind, request_id)? < 0 {
         return Ok(Spend::AlreadyPaid { balance });
     }
     let price = kind.price();
     if balance < price {
         return Ok(Spend::Insufficient { balance, price });
     }
-    insert(&tx, payer, request_id, "spend", Some(kind), -price, "")?;
-    tx.commit()?;
+    insert(c, payer, request_id, "spend", Some(kind), -price, "")?;
     Ok(Spend::Spent {
         balance: balance - price,
     })
@@ -249,15 +259,26 @@ pub(crate) fn refund<'a>(
     request_id: &str,
     reason: &str,
 ) -> rusqlite::Result<bool> {
-    let payer = payer.into();
     let tx = c.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    schema(&tx)?;
-    let net = request_net(&tx, payer, kind, request_id)?;
+    let result = refund_in(&tx, payer.into(), kind, request_id, reason)?;
+    tx.commit()?;
+    Ok(result)
+}
+
+/// Join the caller's IMMEDIATE transaction so a terminal receipt and refund commit together.
+pub(crate) fn refund_in(
+    c: &rusqlite::Transaction<'_>,
+    payer: Payer,
+    kind: SpendKind,
+    request_id: &str,
+    reason: &str,
+) -> rusqlite::Result<bool> {
+    schema(c)?;
+    let net = request_net(c, payer, kind, request_id)?;
     if net >= 0 {
         return Ok(false);
     }
-    insert(&tx, payer, request_id, "refund", Some(kind), -net, reason)?;
-    tx.commit()?;
+    insert(c, payer, request_id, "refund", Some(kind), -net, reason)?;
     Ok(true)
 }
 
@@ -442,6 +463,47 @@ mod tests {
         let c = Connection::open_in_memory().unwrap();
         schema(&c).unwrap();
         c
+    }
+
+    #[test]
+    fn reservations_and_receipts_can_roll_back_with_their_ledger_rows() {
+        let mut c = db();
+        grant(&mut c, "u1", 100, "pack", "").unwrap();
+        c.execute_batch("CREATE TABLE receipts (state TEXT NOT NULL)")
+            .unwrap();
+        {
+            let tx = c
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .unwrap();
+            assert_eq!(
+                spend_in(&tx, Payer::Person("u1"), SpendKind::Video, "film").unwrap(),
+                Spend::Spent { balance: 0 }
+            );
+            tx.execute("INSERT INTO receipts VALUES ('reserved')", [])
+                .unwrap();
+            // Dropping an uncommitted transaction models a failed reservation write.
+        }
+        assert_eq!(balance(&c, "u1").unwrap(), 100);
+        spend(&mut c, "u1", SpendKind::Video, "film").unwrap();
+        {
+            let tx = c
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .unwrap();
+            assert!(
+                refund_in(&tx, Payer::Person("u1"), SpendKind::Video, "film", "failed").unwrap()
+            );
+            tx.execute("INSERT INTO receipts VALUES ('failed')", [])
+                .unwrap();
+        }
+        assert_eq!(balance(&c, "u1").unwrap(), 0);
+        assert_eq!(
+            c.query_row("SELECT COUNT(*) FROM receipts", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        assert!(refund(&mut c, "u1", SpendKind::Video, "film", "failed").unwrap());
+        assert!(!refund(&mut c, "u1", SpendKind::Video, "film", "failed").unwrap());
     }
 
     #[test]
