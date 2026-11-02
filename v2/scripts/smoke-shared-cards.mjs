@@ -790,16 +790,12 @@ try {
   // the stage while the later Waits are still queued.
   for (const page of [vale, mara]) {
     await expectStage(page, ["vale", "nell", "ash", "mara"]);
-    await page.locator("#shared-queue .shared-play-avatar").nth(3).waitFor();
-    assert.equal(await page.locator("#live-line").isVisible(), false);
+    // Waiting plays have no chips (owner, 2026-11-01).
     assert.equal(
-      await page
-        .locator("#shared-queue .shared-play-avatar")
-        .first()
-        .getAttribute("data-actor"),
-      "mara",
-      "the live portrait is first in the queue",
+      await page.locator("#shared-queue, .shared-play-avatar").count(),
+      0,
     );
+    assert.equal(await page.locator("#live-line").isVisible(), false);
     await page.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
     const returnLive = page.getByRole("button", {
       name: /^Return to live dialogue/,
@@ -807,52 +803,6 @@ try {
     assert.equal(await returnLive.count(), 1);
     await returnLive.click();
     assert.equal(await page.locator("#live-line").isVisible(), false);
-    await page.waitForFunction(() =>
-      [...document.querySelectorAll("#shared-queue img")].every(
-        (image) => image.complete && image.naturalWidth > 0,
-      ),
-    );
-    const layout = await page.evaluate(() => {
-      const queue = document.getElementById("shared-queue");
-      const text = document
-        .getElementById("dialogue-text")
-        .getBoundingClientRect();
-      return {
-        textRight: text.right,
-        label: queue.innerText,
-        column: document
-          .querySelector(".shared-portraits")
-          .getBoundingClientRect().left,
-        faces: [...queue.querySelectorAll(".shared-play-avatar")].map(
-          (face) => {
-            const rect = face.getBoundingClientRect();
-            return {
-              left: rect.left,
-              top: rect.top,
-              width: rect.width,
-              height: rect.height,
-              radius: getComputedStyle(face).borderRadius,
-            };
-          },
-        ),
-      };
-    });
-    assert.equal(layout.label.trim(), "", "the queue uses profile pictures");
-    assert.equal(layout.faces.length, 4);
-    for (const [index, face] of layout.faces.entries()) {
-      assert(
-        face.left > layout.textRight,
-        "queue faces sit to the right of the text",
-      );
-      assert(
-        Math.abs(face.left - layout.column) < 1,
-        "every portrait shares one column",
-      );
-      assert.equal(face.width, 28);
-      assert.equal(face.height, 28);
-      assert.equal(face.radius, "50%");
-      if (index) assert(face.top > layout.faces[index - 1].top);
-    }
     await page.screenshot({
       path: join(
         output,
