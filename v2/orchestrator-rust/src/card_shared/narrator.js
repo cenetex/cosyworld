@@ -574,6 +574,7 @@
       text: "A doorframe stands in the still water. Its reflection holds a window from somewhere else.",
       image: "assets/shared/places/pond.png"
     },
+    lampless: ["pond", "station", "clearing"],
     avatars: [
       {
         id: "vale",
@@ -626,7 +627,8 @@
           entrance: {
             name: "Parted curtains",
             text: "The mask hangs between sage curtains. Their folds open onto the paper theatre."
-          }
+          },
+          doors: ["clearing"]
         },
         image: "assets/shared/characters/mara.png"
       },
@@ -654,7 +656,8 @@
           entrance: {
             name: "Diving bell",
             text: "The float draws a diving bell to the shore. Its open hatch leads into the dry belfry."
-          }
+          },
+          doors: ["willows-camp", "willows-bank", "clearing"]
         },
         image: "assets/shared/characters/ash.png"
       },
@@ -682,7 +685,8 @@
           entrance: {
             name: "Growing gate",
             text: "Water touches the shore. A gate of new shoots opens into the glasshouse."
-          }
+          },
+          doors: ["forest-cottage", "clearing"]
         },
         image: "assets/shared/characters/nell.png"
       },
@@ -710,7 +714,8 @@
           entrance: {
             name: "Wind path",
             text: "The kite pulls a ribbon of path into the air. It curls up to the clear hilltop."
-          }
+          },
+          doors: ["forest-oak", "clearing"]
         },
         image: "assets/shared/characters/tavi.png"
       },
@@ -737,10 +742,9 @@
           image: "assets/shared/places/train.png",
           entrance: {
             name: "Carriage door",
-            text: "The route board opens a carriage door beside the pond. Morning shines through the far window."
+            text: "The route board opens a carriage door on the empty platform. Morning shines through the far window."
           },
-          connection: "pond",
-          returnTravel: "back to the pond"
+          doors: ["station"]
         },
         image: "assets/shared/characters/rue.png"
       },
@@ -768,7 +772,8 @@
           entrance: {
             name: "Game-tile bridge",
             text: "The board unfolds a short bridge of game tiles. It leads across the water to the pavilion."
-          }
+          },
+          doors: ["willows-bank", "clearing", "station"]
         },
         image: "assets/shared/characters/orin.png"
       },
@@ -796,7 +801,8 @@
           entrance: {
             name: "Open seam",
             text: "The shears find a seam in the air. It parts like cloth and opens into the sail loft."
-          }
+          },
+          doors: ["greek-ship", "forest-cottage", "clearing"]
         },
         image: "assets/shared/characters/ada.png"
       }
@@ -805,6 +811,7 @@
 
   // v2/card-game/human-cast.mjs
   var humanAvatars = shared_cast_default.avatars;
+  var lamplessPlaces = shared_cast_default.lampless;
   var humanAvatarIds = humanAvatars.map((a) => a.id);
   var avatarById = /* @__PURE__ */ new Map();
   for (const a of humanAvatars)
@@ -827,7 +834,7 @@
   var humanRoomAvailable = (world, actor, place, count = 1) => !sharedEnabled(world) || !controlledByHuman(world, actor) || world.actors[actor]?.place === place || roomHumanCount(world, place) + count <= 4;
   var visitors = humanAvatars.filter((a) => a.id !== "vale");
   var humanHomeGates = Object.fromEntries(
-    visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "pond" }])
+    visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "station" }])
   );
   var humanHomePack = {
     schemaVersion: 1,
@@ -890,40 +897,44 @@
         }
       ])
     ),
-    crossings: visitors.flatMap((a) => [
-      {
-        // Crossing IDs stay stable in earlier saves and recorded actions.
-        id: `pond-${a.home.id}`,
-        from: a.home.connection || "pond",
-        to: a.home.id,
-        travelers: "player",
-        requires: [
-          { kind: "shared_world" },
+    // Each home's door opens at one of its authored places, the world's
+    // seeded pick (`doors`, homecoming.mjs), and only for its own belonging.
+    crossings: visitors.flatMap(
+      (a) => a.home.doors.flatMap((door) => {
+        const here = { kind: "home_door", home: a.home.id, place: door };
+        return [
           {
-            kind: "item_near",
-            item: a.item.id,
-            place: a.home.connection || "pond"
-          }
-        ],
-        travel: `through ${a.home.entrance.name.toLowerCase()}`,
-        scenery: { open: a.home.entrance.text, cardArt: a.home.image }
-      },
-      {
-        id: `${a.home.id}-pond`,
-        from: a.home.id,
-        to: a.home.connection || "pond",
-        travelers: "player",
-        requires: [
-          { kind: "shared_world" },
-          { kind: "item_near", item: a.item.id, place: a.home.id },
+            id: `${door}-${a.home.id}`,
+            from: door,
+            to: a.home.id,
+            travelers: "player",
+            requires: [
+              { kind: "shared_world" },
+              here,
+              { kind: "item_near", item: a.item.id, place: door }
+            ],
+            travel: `through ${a.home.entrance.name.toLowerCase()}`,
+            scenery: { open: a.home.entrance.text, cardArt: a.home.image }
+          },
           {
-            kind: "not",
-            condition: { kind: "item_at", item: a.item.id, place: a.home.id }
+            id: `${a.home.id}-${door}`,
+            from: a.home.id,
+            to: door,
+            travelers: "player",
+            requires: [
+              { kind: "shared_world" },
+              here,
+              { kind: "item_near", item: a.item.id, place: a.home.id },
+              {
+                kind: "not",
+                condition: { kind: "item_at", item: a.item.id, place: a.home.id }
+              }
+            ],
+            travel: "back outside"
           }
-        ],
-        travel: a.home.returnTravel || "back to the shore"
-      }
-    ])
+        ];
+      })
+    )
   };
 
   // v2/card-game/pack-recital.mjs
@@ -1188,9 +1199,9 @@
       for (let slot = 0; slot < (pack.specials.draw[kind] || 0); slot++) {
         const total = pool.reduce((n, e) => n + RARITY_WEIGHTS[e.rarity], 0);
         if (!total) break;
-        let pick = seedHash(`${seed}:${pack.id}:${kind}:${slot}`) % total;
+        let pick2 = seedHash(`${seed}:${pack.id}:${kind}:${slot}`) % total;
         const index = pool.findIndex(
-          (e) => (pick -= RARITY_WEIGHTS[e.rarity]) < 0
+          (e) => (pick2 -= RARITY_WEIGHTS[e.rarity]) < 0
         );
         const [entry] = pool.splice(index, 1);
         if (!entry.none) drawn.push(entry.id);
@@ -1946,6 +1957,8 @@
         return sharedEnabled(s);
       case "gate_open":
         return Boolean(s.openedRoutes?.includes(`${c.from}>${c.to}`));
+      case "home_door":
+        return s.doors?.[c.home] === c.place;
       case "connected_humans":
         return sharedEnabled(s) && humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum;
       case "item_near": {
@@ -2194,8 +2207,9 @@
   var STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
   function validStep(s, w) {
     const { verb, ...cards } = w.step;
-    const named = STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
-    return Boolean(w.quest) && (STEP_VERBS[w.kind] || []).includes(verb) && Object.keys(cards).length === named.length && named.every((key) => typeof cards[key] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target);
+    const home = verb === "bring" && w.story && !cards.to;
+    const named = home ? ["at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+    return (Boolean(w.quest) || home) && (STEP_VERBS[w.kind] || []).includes(verb) && Object.keys(cards).length === named.length && named.every((key) => typeof cards[key] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target);
   }
   function validWant(s, id) {
     const a = s.actors[id];
@@ -13891,7 +13905,8 @@
     "drawn",
     "chance",
     "upgraded",
-    "gate_open"
+    "gate_open",
+    "home_door"
   ];
   var AT_SEA = "@sea";
   var WEATHER_CONDITIONS = ["clear", "cloud", "rain", "mist"];
@@ -14420,6 +14435,10 @@
           case "gate_open":
             ok = keysOk(c, ["kind", "from", "to"]) && anyPlace(c.from) && anyPlace(c.to);
             break;
+          // Where this world's seed put a home's door (homecoming.mjs).
+          case "home_door":
+            ok = keysOk(c, ["kind", "home", "place"]) && owns2(places2, c.home) && anyPlace(c.place);
+            break;
           case "connected_humans":
             ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
             break;
@@ -14486,7 +14505,8 @@
       "drawn",
       "chance",
       "upgraded",
-      "gate_open"
+      "gate_open",
+      "home_door"
     ].includes(c?.kind);
     const requirements = (cs, what, persistent = true) => {
       if (cs === void 0) return;
@@ -15455,6 +15475,48 @@
     return h === void 0 || Boolean(h) && Object.keys(h).sort().join() === "actor,met,place" && Boolean(humanAvatar(h.actor)) && !world.absent?.includes(h.actor) && typeof h.place === "string" && avatarList(h.met) && !h.met.includes(h.actor);
   }
 
+  // v2/card-game/homecoming.mjs
+  var pick = (list, key) => list[seedHash(key) % list.length];
+  var lampless = (list) => {
+    const open = list.filter((place) => lamplessPlaces.includes(place));
+    return open.length ? open : list;
+  };
+  var LINK_CAP = 3;
+  var homes = new Set(visitors.map((a) => a.home.id));
+  var ships = new Set(Object.values(transports).map((t) => t.place));
+  var linked = /* @__PURE__ */ new Map();
+  var link = (from, to) => homes.has(to) || linked.set(from, (linked.get(from) || /* @__PURE__ */ new Set()).add(to));
+  for (const [id, p] of Object.entries({ ...forest_default.places, ...packPlaces }))
+    for (const to of p.exits || []) link(id, to);
+  for (const r of forest_default.reflectionRoutes || []) link(r.from, r.to);
+  for (const pack of packDefinitions)
+    for (const r of pack.routes || []) link(r.from, r.to);
+  for (const c of crossings)
+    if (!c.retired)
+      link(c.from, c.transport ? transports[c.transport].place : c.to);
+  function placeDoors(s, own = null) {
+    const seed = s.run?.seed ?? 0, used = {}, doors = {};
+    const order = [
+      ...visitors.filter((a) => a.home.doors.length === 1),
+      ...visitors.filter((a) => a.id === own && a.home.doors.length > 1),
+      ...visitors.filter((a) => a.id !== own && a.home.doors.length > 1)
+    ];
+    for (const a of order) {
+      const wanted = a.id === own ? lampless(a.home.doors) : a.home.doors;
+      const free = wanted.filter(
+        (p) => ships.has(p) || (linked.get(p)?.size ?? 0) + (used[p] || 0) < LINK_CAP
+      );
+      const door = pick(free.length ? free : wanted, `${seed}:door:${a.home.id}`);
+      used[door] = (used[door] || 0) + 1;
+      doors[a.home.id] = door;
+    }
+    s.doors = Object.fromEntries(
+      visitors.map((a) => [a.home.id, doors[a.home.id]])
+    );
+    return s;
+  }
+  var validDoors = (s) => s.doors === void 0 || Boolean(s.doors) && Object.keys(s.doors).length === visitors.length && visitors.every((a) => a.home.doors.includes(s.doors[a.home.id]));
+
   // v2/card-game/shared-rules.mjs
   var command = Object.freeze({
     claim: 1,
@@ -16103,7 +16165,7 @@
     });
   }
   function upgradeShoreRouteSave(s) {
-    const moved = /* @__PURE__ */ new Set(["attic", "train"]);
+    const moved = /* @__PURE__ */ new Set(["attic"]);
     for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
       if (!Array.isArray(known)) continue;
       let changed = false;
@@ -16156,14 +16218,14 @@
     const saved = s.packs?.[pack?.id];
     if (!pack || pack.revision < 2 || saved?.revision !== 1) return;
     const home = (place) => Object.hasOwn(pack.places, place);
-    const ships = new Set(Object.values(transports).map((t) => t.place));
+    const ships2 = new Set(Object.values(transports).map((t) => t.place));
     const visited = (actor) => home(s.actors[actor]?.place) || (s.log || []).some(
       (e) => e?.actorId === actor && (home(e.locationId) || home(e.fromLocationId))
     ) || Object.values(s.memories?.[actor]?.seen || {}).some(
       (v) => home(v?.place)
     ) || // A walked route into or out of Hoppy Cat; the new ship berth is no visit.
     (s.routeKnowledge?.[actor] || []).some(
-      (edge) => Array.isArray(edge) && edge.some(home) && !edge.some((p) => ships.has(p))
+      (edge) => Array.isArray(edge) && edge.some(home) && !edge.some((p) => ships2.has(p))
     );
     for (const actor of Object.keys(s.actors || {}).sort())
       if (!Object.hasOwn(pack.avatars, actor) && visited(actor))
@@ -16940,6 +17002,15 @@
         s.items[id] = structuredClone(item);
         s.memories[id] ??= fresh[id];
       }
+    for (const home of Object.keys(humanHomeGates))
+      for (const id of [`pond-${home}`, `${home}-pond`])
+        if (!crossings.some((c) => c.id === id)) delete s.crossings[id];
+    const ways = new Set(authoredRouteEdges().map((e) => e.join(">")));
+    for (const [id, known] of Object.entries(s.routeKnowledge || {}))
+      s.routeKnowledge[id] = known.filter(
+        (e) => !e.some((p) => humanHomeGates[p]) || ways.has(e.join(">"))
+      );
+    if (!s.doors) placeDoors(s);
     for (const pack of packDefinitions) {
       for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
       if (s.packs[pack.id]) continue;
@@ -17106,7 +17177,7 @@
     const step = want.step, what = nameOf(want.target), verb = step?.verb === "attack" ? "strike" : step?.verb;
     if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
     if (step?.verb === "bring")
-      return `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`;
+      return step.to ? `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}` : `bring ${what} home to ${nameOf(step.at)}`;
     if (step?.at) return `${verb} ${what} at ${nameOf(step.at)}`;
     if (step?.verb === "rest") return `rest at ${what}`;
     if (step) return `${verb} ${what}`;
@@ -17240,7 +17311,7 @@
     if (s.run !== void 0 && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
       fail();
     if (!validPackState(s, sensesFor(s))) fail();
-    if (!validOpenedRoutes(s.openedRoutes) || !validHidden(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
+    if (!validOpenedRoutes(s.openedRoutes) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
       fail();
     if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)))
       fail();

@@ -92,6 +92,37 @@ loads ([pack guide](../../v2/docs/card-packs.md)).
 Rules 85 and earlier replay unchanged; worlds created before rules 86 hide
 nobody.
 
+## Rules 87: homes away from the pond, and the homecoming (#1936)
+
+The owner settled this on 2026-11-02.
+
+- **Only Vale's way is at the pond.** Each visitor's home lists its door
+  places in `shared-cast.json` (`home.doors`). Every world picks one per home
+  from its seed and records `world.doors`; the door opens there, as before,
+  only while the home's own belonging is near (`home_door` condition).
+  `homecoming.mjs` gives a place at most three links in any one world (the
+  map rule) and lets a ship take any number. An avatar stranded at home
+  rescues to the station.
+- **`create` carries the homecoming.** A fresh world for an unlocked avatar
+  passes `homecoming: <avatar>`. That avatar starts at the pond, its
+  belonging lies at a seeded spot from the hiding pools and hub places, and
+  its home's door is one of its doors. Both are places in `lampless`, the
+  places any avatar reaches without Vale's lamp. Its want is a story item
+  want with a `bring` step `at` its home and no one `to` bring it to; it is
+  met when the avatar holds the belonging at home, for one experience point.
+  `full::found` passes it for a fresh non-Vale world, including the world a
+  committed unlock opens. Importing a save keeps its position, things and
+  quest. The quest card says "Bring".
+- **A freed seat can discover again.** Reset removes that seat from
+  `hidden.met`, so its next holder can Seek and Talk for their own passkey.
+  Other seats keep their meetings. The passkey's unlock table still records
+  each avatar once, so returning holders do not open duplicate worlds.
+- **No fallbacks.** In other worlds a door may stand behind Vale's lamp (the
+  forest, the Willows, the Greek ship). A Vale has to open the way.
+
+An earlier save forgets its pond doors and the ways it knew through them, and
+gets its doors from its seed as it loads.
+
 ## Phases
 
 0. Holder names, Free and Release, the Table (#1844, #1845).

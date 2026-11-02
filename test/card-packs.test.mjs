@@ -422,12 +422,15 @@ describe("a resident's temperament", () => {
 });
 
 it("joins homes through distinct hub places while checking every home has a route", () => {
-  expect(packProblems(humanHomePack, hub)).toEqual([]);
+  const mounted = packDefinitions
+    .filter((p) => p.id !== humanHomePack.id)
+    .flatMap((p) => Object.keys(p.places));
+  expect(packProblems(humanHomePack, hub, mounted)).toEqual([]);
   const disconnected = structuredClone(humanHomePack);
   disconnected.crossings = disconnected.crossings.filter(
     (c) => c.to !== "train",
   );
-  expect(packProblems(disconnected, hub)).toContain(
+  expect(packProblems(disconnected, hub, mounted)).toContain(
     "shared-homes: every place must be reachable from the entry",
   );
 });

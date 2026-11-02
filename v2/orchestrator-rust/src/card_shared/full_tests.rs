@@ -54,6 +54,13 @@ pub(super) fn assert_saved_actors(current: &Value, old: &Value) {
 }
 
 // The upgrade drops quest records from history, the way forgetQuests does.
+// A visitor's home door that rules 87 moved off the pond; an upgrade drops it.
+pub(super) fn moved_door(key: &str) -> bool {
+    super::cast()["avatars"].as_array().unwrap()[1..]
+        .iter()
+        .filter_map(|a| a["home"]["id"].as_str())
+        .any(|home| key == format!("pond-{home}") || key == format!("{home}-pond"))
+}
 pub(super) fn quest_free_log(log: &Value) -> Value {
     Value::Array(
         log.as_array()
@@ -572,13 +579,16 @@ fn occupied_ship_upgrade_preserves_shared_boarding_return_riders_and_replay() {
 }
 #[test]
 fn home_item_pickup_and_drop_control_authoritative_travel_and_replay() {
-    for (actor, index, item, home, destination) in [
-        ("mara", 1, "mask", "theatre", "pond"),
-        ("rue", 5, "routes", "train", "pond"),
+    for (actor, index, item, home) in [
+        ("mara", 1, "mask", "theatre"),
+        ("rue", 5, "routes", "train"),
     ] {
         let (_path, mut c, id) = fixture();
         claim(&mut c, &id, index);
         let mut w = full_store::world(&c, &id, now()).unwrap();
+        // Each home's door is the world's seeded pick, never the pond.
+        let destination = w.game["doors"][home].as_str().unwrap().to_string();
+        assert_ne!(destination, "pond");
         assert_eq!(w.game["items"][item]["holder"], home);
         assert!(!w.project(index).unwrap()["exits"]
             .as_array()
@@ -2193,9 +2203,27 @@ fn released_carriage_route_replays_before_the_station_connection_upgrade() {
         assert_saved_items(&w.game["items"], &earlier.game["items"]);
         assert_eq!(w.game["log"], quest_free_log(&earlier.game["log"]));
         for (key, value) in earlier.game["crossings"].as_object().unwrap() {
-            assert_eq!(&w.game["crossings"][key], value);
+            if !moved_door(key) {
+                assert_eq!(&w.game["crossings"][key], value);
+            }
         }
         assert_eq!(w.version, engine::VERSION);
+        // The carriage door now opens at the station, a walk from the pond.
+        let walk = w.project(5).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == "move" && a["target"] == "station")
+            .unwrap()
+            .clone();
+        full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":"rue","action":walk}),
+            now(),
+        )
+        .unwrap();
         assert!(w.project(5).unwrap()["exits"]
             .as_array()
             .unwrap()
@@ -2507,9 +2535,15 @@ fn bard_passage_help_uses_authoritative_home_and_ship_actions_and_replays() {
         w.game["items"]["lamp"]["holder"] = json!("vale");
         w.game["transports"]["greek-ship"]["dock"] = json!("pond");
         w.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
-        // The Bard's own want sends it to the shore; no quest record does.
+        // The Bard's own want sends it to the shore, or out through the
+        // theatre's door; no quest record does.
+        let goal = if sea {
+            json!("pond")
+        } else {
+            w.game["doors"]["theatre"].clone()
+        };
         w.game["actors"]["greek-rhapsode"]["want"] =
-            json!({"kind":"place","target":"pond","since":0,"refusals":0});
+            json!({"kind":"place","target":goal,"since":0,"refusals":0});
         full_store::seed(&c, &id, &w, "blocked-bard-passage", now()).unwrap();
         for op in ["claim", "enter"] {
             full_store::commit(&c, &id, &mut w, json!({"op":op,"actor":"vale"}), now()).unwrap();
@@ -2550,13 +2584,13 @@ fn bard_passage_help_uses_authoritative_home_and_ship_actions_and_replays() {
             assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], "theatre");
             play(&mut w, "take", "item", "mask");
         }
-        assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], "pond");
+        assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], goal);
         // Reaching the shore meets the want and is recorded once.
         assert_eq!(w.game["actors"]["greek-rhapsode"]["xp"], 1);
         assert!(w.game["log"].as_array().unwrap().iter().any(|e| {
             e["verb"] == "want_met"
                 && e["actorId"] == "greek-rhapsode"
-                && e["wantMet"]["target"] == "pond"
+                && e["wantMet"]["target"] == goal
         }));
         let arrived = w.clone();
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -2572,8 +2606,9 @@ fn invited_carriage_trip_preserves_agreement_visited_places_and_replays() {
         c.execute("DELETE FROM card_full_log", []).unwrap();
         let mut w = World::create(None).unwrap();
         w.game.as_object_mut().unwrap().remove("opening");
-        w.game["actors"]["rue"]["place"] = json!("pond");
-        w.game["actors"]["moth"]["place"] = json!("pond");
+        // The carriage door opens at the station (rules 87).
+        w.game["actors"]["rue"]["place"] = json!("station");
+        w.game["actors"]["moth"]["place"] = json!("station");
         w.game["actors"]["moth"]["trust"]["rue"] = json!(if agrees { 1 } else { 0 });
         w.game["items"]["routes"]["holder"] = json!("rue");
         full_store::seed(&c, &id, &w, "invited-carriage", now()).unwrap();
@@ -2598,7 +2633,7 @@ fn invited_carriage_trip_preserves_agreement_visited_places_and_replays() {
             now(),
         )
         .unwrap();
-        let place = if agrees { "train" } else { "pond" };
+        let place = if agrees { "train" } else { "station" };
         assert_eq!(w.game["actors"]["rue"]["place"], place);
         assert_eq!(w.game["actors"]["moth"]["place"], place);
         assert_eq!(w.game["items"]["routes"]["holder"], "rue");
@@ -2614,7 +2649,7 @@ fn invited_carriage_trip_preserves_agreement_visited_places_and_replays() {
         assert!(closed
             .apply(&json!({"op":"play","actor":"rue","action":action}))
             .is_err());
-        assert_eq!(closed.game["actors"]["moth"]["place"], "pond");
+        assert_eq!(closed.game["actors"]["moth"]["place"], "station");
         assert!(closed.game["invitedPlaces"].is_null());
     }
 }
@@ -2745,7 +2780,8 @@ fn each_shared_home_rescue_commits_through_c_and_replays() {
         w.present = [1; 8];
         w.game["items"][item]["holder"] = json!("station");
         full_store::seed(&c, &id, &w, "stranded-home", now()).unwrap();
-        assert_eq!(w.project(a).unwrap()["exits"], json!(["pond"]));
+        // A stranded home rescues to the station; the pond stays Vale's.
+        assert_eq!(w.project(a).unwrap()["exits"], json!(["station"]));
         let action = home_action(&w, a, "move");
         full_store::commit(
             &c,
@@ -2755,7 +2791,7 @@ fn each_shared_home_rescue_commits_through_c_and_replays() {
             now(),
         )
         .unwrap();
-        assert_eq!(w.game["actors"][actor_id(a)]["place"], "pond");
+        assert_eq!(w.game["actors"][actor_id(a)]["place"], "station");
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
     }
@@ -2861,6 +2897,9 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
         assert_saved_memories(&world.game["memories"], &old.game["memories"]);
         for field in ["packs", "crossings"] {
             for (key, saved) in old.game[field].as_object().unwrap() {
+                if moved_door(key) {
+                    continue;
+                }
                 let mut expected = saved.clone();
                 if field == "packs" && key == "greek-drama" {
                     expected["revision"] = greek_revision();

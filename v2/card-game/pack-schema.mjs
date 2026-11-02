@@ -84,6 +84,7 @@ export const CONDITION_KINDS = [
   "chance",
   "upgraded",
   "gate_open",
+  "home_door",
 ];
 // The `ship_at` dock for a ship sailing between ports.
 export const AT_SEA = "@sea";
@@ -941,6 +942,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             anyPlace(c.from) &&
             anyPlace(c.to);
           break;
+        // Where this world's seed put a home's door (homecoming.mjs).
+        case "home_door":
+          ok =
+            keysOk(c, ["kind", "home", "place"]) &&
+            owns(places, c.home) &&
+            anyPlace(c.place);
+          break;
         case "connected_humans":
           ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
           break;
@@ -1055,6 +1063,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           "chance",
           "upgraded",
           "gate_open",
+          "home_door",
         ].includes(c?.kind);
   const requirements = (cs, what, persistent = true) => {
     if (cs === undefined) return;

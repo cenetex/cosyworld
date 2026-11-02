@@ -91,6 +91,7 @@ export function questNear(world, quest) {
 
 // The quest's one short verb. An unvisited or covered place is discovered.
 export function questVerb(world, quest, covered = false) {
+  if (quest.step?.verb === "bring") return "Bring";
   if (quest.kind === "item") return "Hold";
   if (quest.kind === "person") return "Talk";
   if (quest.kind === "connect") return "Introduce";

@@ -137,15 +137,16 @@ describe("ordinary bard travel", () => {
     s.actors[singer].place = "theatre";
     s.items.mask.holder = "theatre";
     s.actors.mara.place = "theatre";
-    wants(s, "pond");
+    const door = s.doors.theatre;
+    wants(s, door);
     s = act(s);
     expect(s.actors[singer].place).toBe("theatre");
-    expect(exits(s, "theatre", singer)).not.toContain("pond");
+    expect(exits(s, "theatre", singer)).not.toContain(door);
     // Once Mara carries her mask, the door opens for the Bard as well.
     s = act(s, "take", { item: "mask" }, "mara");
-    expect(s.actors[singer].place).toBe("pond");
+    expect(s.actors[singer].place).toBe(door);
     const stale = legalActions(s, "mara").find(
-      (a) => a.kind === "move" && a.target === "pond",
+      (a) => a.kind === "move" && a.target === door,
     );
     s = act(s, "drop", { item: "mask" }, "mara");
     expect(play(s, stale, s.revision, "mara").ok).toBe(false);

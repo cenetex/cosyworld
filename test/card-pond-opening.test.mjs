@@ -173,7 +173,13 @@ describe("the attic opening and saved pond journeys", () => {
       if (place === "station") expect(roads).toEqual(["pond"]);
       if (roads.includes("station")) neighbors.push(place);
     }
-    expect(neighbors).toEqual(["pond", "boardyai-parlour"]);
+    // A home whose belonging lies elsewhere rescues to the station.
+    const homes = humanAvatars.slice(1).map((a) => a.home.id);
+    expect(neighbors.filter((p) => !homes.includes(p))).toEqual([
+      "pond",
+      "boardyai-parlour",
+    ]);
+    expect(homes.every((home) => neighbors.includes(home))).toBe(true);
     world.items["boardyai-calling-card"].holder = "station";
     expect(exits(world, "station", "vale").sort()).toEqual(["boardyai-parlour", "pond"]);
   });

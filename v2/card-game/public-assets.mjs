@@ -230,6 +230,7 @@ const files = [
   "pack-sections.mjs",
   "pack-specials.mjs",
   "hidden-avatar.mjs",
+  "homecoming.mjs",
   "pack-journeys.mjs",
   "pack-recital.mjs",
   "pack-rules.mjs",

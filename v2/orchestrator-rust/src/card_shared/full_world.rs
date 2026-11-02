@@ -48,13 +48,13 @@ impl World {
     pub fn seeded(save: Option<&str>, seed: Option<u32>) -> Result<Self> {
         Self::hiding(save, seed, &Value::Null)
     }
-    // A new world with its creator's hidden and absent avatars (#1936).
+    // A new world's hidden and absent avatars, and its creator's homecoming.
     pub fn hiding(save: Option<&str>, seed: Option<u32>, hide: &Value) -> Result<Self> {
         let mut request = json!({"op":"create","save":save});
         if let Some(seed) = seed {
             request["seed"] = json!(seed);
         }
-        for key in ["hidden", "absent"] {
+        for key in ["hidden", "absent", "homecoming"] {
             if !hide[key].is_null() {
                 request[key] = hide[key].clone();
             }
@@ -198,6 +198,7 @@ impl World {
                 engine::EIGHTY_THIRD_VERSION,
                 engine::EIGHTY_FOURTH_VERSION,
                 engine::EIGHTY_FIFTH_VERSION,
+                engine::EIGHTY_SIXTH_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
@@ -316,6 +317,7 @@ impl World {
             engine::EIGHTY_THIRD_VERSION,
             engine::EIGHTY_FOURTH_VERSION,
             engine::EIGHTY_FIFTH_VERSION,
+            engine::EIGHTY_SIXTH_VERSION,
         ]
         .contains(&self.version.as_str())
         {

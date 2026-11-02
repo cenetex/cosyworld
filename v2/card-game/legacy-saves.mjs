@@ -396,9 +396,10 @@ export function forgetRetiredThings(s, retired) {
 
 // Earlier station links to the attic and carriage pass through the pond.
 // Keep just the routes each traveler already knew, and preserve their journal.
-// The parlour door returned to the station in BoardyAI revision 2.
+// The parlour door returned to the station in BoardyAI revision 2, and the
+// carriage door in rules 87.
 export function upgradeShoreRouteSave(s) {
-  const moved = new Set(["attic", "train"]);
+  const moved = new Set(["attic"]);
   for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
     if (!Array.isArray(known)) continue;
     let changed = false;

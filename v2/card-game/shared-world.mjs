@@ -32,6 +32,7 @@ import { enableMotives } from "./motives.mjs";
 import { applySharedReflections } from "./reflections.mjs";
 import { resetAvatar } from "./avatar-reset.mjs";
 import { arrive, hideAvatar, seekHidden } from "./hidden-avatar.mjs";
+import { homecoming } from "./homecoming.mjs";
 
 function ids(value, fallback = []) {
   const result = value === undefined ? fallback : value;
@@ -162,6 +163,12 @@ export function dispatchShared(request) {
     enableShared(world);
     // The host's pick from its passkey's locked avatars (#1936).
     if (request.save == null) hideAvatar(world, request);
+    // A world opened for an unlocked avatar: its belonging is out there.
+    if (request.save == null && request.homecoming != null) {
+      if (request.homecoming === request.hidden)
+        throw new Error("Choose whose world this is.");
+      homecoming(world, request.homecoming);
+    }
     delete world.playerActorId;
     delete world.controlledActors;
     delete world.presentActors;

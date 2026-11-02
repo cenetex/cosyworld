@@ -28,10 +28,10 @@ function earlierPlay(place) {
   return { world, request };
 }
 describe("earlier station route knowledge", () => {
-  for (const place of ["attic", "station", "train"]) {
+  for (const place of ["attic", "station"]) {
     it(`upgrades an accepted old14 play at ${place} through the pond`, () => {
       const { world, request } = earlierPlay(place);
-      const moved = ["attic", "train"];
+      const moved = ["attic"];
       const expectedOld = place === "station" ? moved.map((to) => [place, to]) : [[place, "station"]];
       for (const edge of expectedOld) expect(world.routeKnowledge["greek-rhapsode"]).toContainEqual(edge);
       const next = dispatchShared(request("upgrade", { from: "full-card-world/14", to: "full-card-world/17" })).world;
@@ -59,7 +59,8 @@ describe("earlier station route knowledge", () => {
   it("deduplicates shared steps and preserves unrelated knowledge and history", () => {
     const world = { routeKnowledge: { bard: [["station", "attic"], ["station", "train"], ["station", "pond"]] }, log: [{ text: "An earlier walk." }] };
     upgradeShoreRouteSave(world);
-    expect(world.routeKnowledge.bard).toEqual([["station", "pond"], ["pond", "attic"], ["pond", "train"]]);
+    // The carriage door is back at the station (rules 87).
+    expect(world.routeKnowledge.bard).toEqual([["station", "pond"], ["pond", "attic"], ["station", "train"]]);
     expect(world.log).toEqual([{ text: "An earlier walk." }]);
     const unrelated = { routeKnowledge: { bard: [["station", "pond"], ["forest-garden", "forest-oak"]] }, log: [] };
     const before = structuredClone(unrelated);

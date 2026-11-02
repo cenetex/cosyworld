@@ -1,6 +1,8 @@
 import cast from "./shared-cast.json" with { type: "json" };
 
 export const humanAvatars = cast.avatars;
+// The places any avatar reaches without Vale's lamp.
+export const lamplessPlaces = cast.lampless;
 export const humanAvatarIds = humanAvatars.map((a) => a.id);
 // The first avatar per id, as find would return, without a closure per call.
 const avatarById = new Map();
@@ -42,11 +44,12 @@ export const humanRoomAvailable = (world, actor, place, count = 1) =>
   world.actors[actor]?.place === place ||
   roomHumanCount(world, place) + count <= 4;
 
-// These seven homes join the existing shore. Vale, the station, the attic,
-// the pond and the lamp keep their original definitions and behavior.
-const visitors = humanAvatars.filter((a) => a.id !== "vale");
+// These seven homes join the world away from the pond, which stays Vale's.
+// Vale, the station, the attic, the pond and the lamp keep their original
+// definitions and behavior.
+export const visitors = humanAvatars.filter((a) => a.id !== "vale");
 export const humanHomeGates = Object.fromEntries(
-  visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "pond" }]),
+  visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "station" }]),
 );
 export const humanHomePack = {
   schemaVersion: 1,
@@ -110,38 +113,42 @@ export const humanHomePack = {
       },
     ]),
   ),
-  crossings: visitors.flatMap((a) => [
-    {
-      // Crossing IDs stay stable in earlier saves and recorded actions.
-      id: `pond-${a.home.id}`,
-      from: a.home.connection || "pond",
-      to: a.home.id,
-      travelers: "player",
-      requires: [
-        { kind: "shared_world" },
+  // Each home's door opens at one of its authored places, the world's
+  // seeded pick (`doors`, homecoming.mjs), and only for its own belonging.
+  crossings: visitors.flatMap((a) =>
+    a.home.doors.flatMap((door) => {
+      const here = { kind: "home_door", home: a.home.id, place: door };
+      return [
         {
-          kind: "item_near",
-          item: a.item.id,
-          place: a.home.connection || "pond",
+          id: `${door}-${a.home.id}`,
+          from: door,
+          to: a.home.id,
+          travelers: "player",
+          requires: [
+            { kind: "shared_world" },
+            here,
+            { kind: "item_near", item: a.item.id, place: door },
+          ],
+          travel: `through ${a.home.entrance.name.toLowerCase()}`,
+          scenery: { open: a.home.entrance.text, cardArt: a.home.image },
         },
-      ],
-      travel: `through ${a.home.entrance.name.toLowerCase()}`,
-      scenery: { open: a.home.entrance.text, cardArt: a.home.image },
-    },
-    {
-      id: `${a.home.id}-pond`,
-      from: a.home.id,
-      to: a.home.connection || "pond",
-      travelers: "player",
-      requires: [
-        { kind: "shared_world" },
-        { kind: "item_near", item: a.item.id, place: a.home.id },
         {
-          kind: "not",
-          condition: { kind: "item_at", item: a.item.id, place: a.home.id },
+          id: `${a.home.id}-${door}`,
+          from: a.home.id,
+          to: door,
+          travelers: "player",
+          requires: [
+            { kind: "shared_world" },
+            here,
+            { kind: "item_near", item: a.item.id, place: a.home.id },
+            {
+              kind: "not",
+              condition: { kind: "item_at", item: a.item.id, place: a.home.id },
+            },
+          ],
+          travel: "back outside",
         },
-      ],
-      travel: a.home.returnTravel || "back to the shore",
-    },
-  ]),
+      ];
+    }),
+  ),
 };

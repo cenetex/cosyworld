@@ -1,3 +1,4 @@
+import { visitors } from "../../v2/card-game/human-cast.mjs";
 import { canonicalPlace } from "../../v2/card-game/pack-registry.mjs";
 
 // Save upgrades drop the old flask's dose count; one flask now fills one lamp.
@@ -36,3 +37,14 @@ export function upgradedActor(actor) {
     if (next[field]) next[field] = canonicalPlace(next[field]);
   return next;
 }
+
+// Home doors moved off the pond in rules 87; each world places its own, so
+// an upgrade replaces a save's home crossings rather than keeping them.
+const homes = visitors.map((a) => a.home.id);
+export const withoutHomeDoors = (crossings) =>
+  Object.fromEntries(
+    Object.entries(crossings).filter(
+      ([id]) =>
+        !homes.some((h) => id.startsWith(`${h}-`) || id.endsWith(`-${h}`)),
+    ),
+  );

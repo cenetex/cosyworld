@@ -80,14 +80,17 @@ fn talk(c: &mut Connection, id: &str) -> Value {
 // fresh one.
 fn beside(c: &mut Connection, user: &str) -> String {
     let id = found(c, user, "vale").unwrap();
-    let mut w = full_store::world(c, &id, now()).unwrap();
+    stand_beside(c, &id);
+    id
+}
+fn stand_beside(c: &Connection, id: &str) {
+    let mut w = full_store::world(c, id, now()).unwrap();
     let hidden = w.game["hidden"]["actor"].as_str().unwrap().to_string();
     w.game["actors"]["vale"]["place"] = w.game["actors"][&hidden]["place"].clone();
     w.game.as_object_mut().unwrap().remove("opening");
-    c.execute("DELETE FROM card_full_log WHERE world=?", [&id])
+    c.execute("DELETE FROM card_full_log WHERE world=?", [id])
         .unwrap();
-    full_store::seed(c, &id, &w, "test-beside", now()).unwrap();
-    id
+    full_store::seed(c, id, &w, "test-beside", now()).unwrap();
 }
 
 #[test]
@@ -174,6 +177,18 @@ fn talking_to_the_hidden_avatar_unlocks_it_once_and_opens_its_world() {
     let again = opened.game["hidden"]["actor"].as_str().unwrap();
     assert!(again != hidden && again != "vale");
     assert_eq!(opened.game["absent"].as_array().unwrap().len(), 5);
+    let avatar = &super::cast()["avatars"][actor_index(&hidden).unwrap()];
+    let item = avatar["item"]["id"].as_str().unwrap();
+    let home = avatar["home"]["id"].as_str().unwrap();
+    assert_eq!(opened.game["actors"][&hidden]["place"], "pond");
+    assert_eq!(opened.game["actors"][&hidden]["want"]["target"], item);
+    assert_eq!(
+        opened.game["actors"][&hidden]["want"]["step"],
+        json!({"verb":"bring", "at":home})
+    );
+    let spot = opened.game["items"][item]["holder"].as_str().unwrap();
+    assert_ne!(spot, hidden);
+    assert_ne!(spot, home);
     // Recording the same committed lines again changes nothing.
     assert!(unlocks::record(&c, &id, &result, 1).unwrap().is_empty());
     // Replay reproduces the world without reading the unlock table.
@@ -181,6 +196,98 @@ fn talking_to_the_hidden_avatar_unlocks_it_once_and_opens_its_world() {
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     c.execute("DELETE FROM card_unlocks", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), live);
+    assert_eq!(
+        full_store::world(&c, next["id"].as_str().unwrap(), now()).unwrap(),
+        opened
+    );
+}
+
+#[test]
+fn importing_a_save_does_not_start_the_homecoming_again() {
+    let (_path, mut c) = open();
+    let mara = actor_index("mara").unwrap();
+    c.execute(
+        "INSERT INTO card_unlocks(user,actor) VALUES('ann',?)",
+        [mara],
+    )
+    .unwrap();
+    let mut saved = super::full_world::World::create(None).unwrap().game;
+    saved["actors"]["mara"]["place"] = json!("clearing");
+    saved["items"]["mask"]["holder"] = json!("mara");
+    let want = saved["actors"]["mara"]["want"].clone();
+    let tx = c.transaction().unwrap();
+    let id = full::found(&tx, "ann", mara, Some(&saved.to_string()), now()).unwrap();
+    tx.commit().unwrap();
+    let imported = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(imported.game["actors"]["mara"]["place"], "clearing");
+    assert_eq!(imported.game["items"]["mask"]["holder"], "mara");
+    assert_eq!(imported.game["actors"]["mara"]["want"], want);
+}
+
+#[test]
+fn a_reassigned_seat_unlocks_for_its_new_passkey() {
+    let (_path, mut c) = open();
+    let id = beside(&mut c, "ann");
+    let hidden = full_store::world(&c, &id, now()).unwrap().game["hidden"]["actor"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    talk(&mut c, &id);
+    // Another holder keeps this world open when Ann frees Vale.
+    let guest = (0..8)
+        .find(|a| actor_id(*a) != "vale" && actor_id(*a) != hidden)
+        .unwrap();
+    c.execute(
+        "INSERT INTO card_unlocks(user,actor) VALUES('guest',?)",
+        [guest],
+    )
+    .unwrap();
+    run(&mut c, &id, "guest", &body("claim", Some(actor_id(guest)))).unwrap();
+    run(&mut c, &id, "ann", &body("reset", None)).unwrap();
+    run(&mut c, &id, "bob", &body("claim", Some("vale"))).unwrap();
+    let live = full_store::world(&c, &id, now()).unwrap();
+    assert!(!live.game["hidden"]["met"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("vale")));
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), live);
+    run(&mut c, &id, "bob", &body("seek", None)).unwrap();
+    stand_beside(&c, &id);
+    let result = talk(&mut c, &id);
+    assert!(result["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["unlock"] == hidden));
+    for user in ["ann", "bob"] {
+        assert!(unlocked(&c, user)
+            .as_array()
+            .unwrap()
+            .contains(&json!(hidden)));
+    }
+    let listed = store::list(&c, "bob").unwrap();
+    let worlds = listed["worlds"].as_array().unwrap();
+    assert_eq!(worlds.len(), 2);
+    assert!(worlds.iter().any(|world| world["id"] == id));
+    let owned: i64 = c
+        .query_row(
+            "SELECT count(*) FROM card_tables WHERE owner='bob'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(owned, 1);
+    stand_beside(&c, &id);
+    talk(&mut c, &id);
+    assert_eq!(
+        store::list(&c, "bob").unwrap()["worlds"]
+            .as_array()
+            .unwrap()
+            .len(),
+        worlds.len()
+    );
 }
 
 #[test]
