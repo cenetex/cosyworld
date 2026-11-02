@@ -328,7 +328,6 @@ try {
         const settled = () =>
           page.waitForFunction(
             () =>
-              !document.querySelector('#card-actions [data-queued="true"]') &&
               document.querySelector("#hand").dataset.cooling === "false" &&
               document.querySelector("#hand").getAttribute("aria-busy") ===
                 "false",

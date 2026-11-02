@@ -103,7 +103,7 @@ Beats are cards in depth, not rows in a scroll:
 
 ## The action beat
 
-A ready or pending play is a beat too: the action beat, in front of the
+A ready play is a beat too: the action beat, in front of the
 stack. It is one row, vertically centred: on the left who acts and what it
 acts on, drawn as the quest card pairs them (borderless cut-out figures with
 a drop shadow, a little over each other, facing; an item or place a small

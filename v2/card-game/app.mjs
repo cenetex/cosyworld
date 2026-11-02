@@ -133,7 +133,6 @@ import {
   cardType,
   cardPlay,
   playLabel,
-  playProgress,
   playText,
   cardActions,
   cardObservation,
@@ -504,12 +503,6 @@ function ownSharedEntry() {
   return sharedSession?.state.queue?.find(
     (entry) => entry.actor === currentActor(world),
   );
-}
-// The button of a chosen, unresolved play reads as what the avatar is
-// doing: "Waiting…".
-function progressLabel(action) {
-  const verb = playProgress(action);
-  return `${verb[0].toUpperCase()}${verb.slice(1)}…`;
 }
 const playQueue = createPlayQueue({
   ready: () =>
@@ -1215,15 +1208,12 @@ function commitAction(action, revision, renderedAt = -Infinity) {
     return;
   // The drone falls silent just before a discovery is revealed.
   if (action.choiceId) hum.hush();
-  if (playQueue.pending?.action.key === action.key) {
-    // Shared plays cancel through their own visible control.
-    if (!sharedSession) playQueue.clear();
-  } else {
-    // A play leaves the hand where it is: raised stays raised. Its beat
-    // rests at once; the Thinking card stands for it until its scene.
-    if (action.kind !== "focus") restedChoice = choiceKey();
-    playQueue.submit(action, revision);
-  }
+  // The same play chosen again keeps it; its Thinking card cancels it.
+  if (playQueue.pending?.action.key === action.key) return;
+  // A play leaves the hand where it is: raised stays raised. Its beat rests
+  // at once; the Thinking card stands for it until its scene.
+  if (action.kind !== "focus") restedChoice = choiceKey();
+  playQueue.submit(action, revision);
 }
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
@@ -1710,24 +1700,15 @@ function renderActions() {
     );
   row.replaceChildren(
     ...actions.map((action, index) => {
-      const sent =
-        sharedSession &&
-        ["sending", "sent"].includes(sharedPlay?.state) &&
-        sharedPlay.actionKey === action.key;
-      const queued = playQueue.pending?.action.key === action.key;
       const button = node(
         "button",
-        queued || sent ? progressLabel(action) : playLabel(action),
+        playLabel(action),
         index === 0 ? "card-primary" : "card-action",
       );
       button.type = "button";
       button.dataset.action = action.kind;
-      button.dataset.queued = String(queued);
-      if (sent && !queued) button.dataset.sent = sharedPlay.state;
-      button.title =
-        queued && !sharedSession ? "Cancel this play" : playText(action);
+      button.title = playText(action);
       button.disabled = selectionBlocked();
-      button.setAttribute("aria-pressed", String(queued));
       if (action.choiceId) {
         button.dataset.choice = action.choiceId;
         button.dataset.pack = action.packId;
@@ -4224,7 +4205,6 @@ async function submitSharedPlay(action) {
   sharedSending = true;
   sharedPlay = {
     key: crypto.randomUUID(),
-    actionKey: current.key,
     label: playLabel(current),
     notice: sharedSession.state.notice || "",
   };
