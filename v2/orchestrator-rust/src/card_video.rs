@@ -1,11 +1,11 @@
 //! Scene videos on the server's OpenRouter key, paid with credits (#1924).
 //! Starting a film spends a video's price; a job OpenRouter fails, cancels
-//! or lets expire is refunded once; this part starts the film.
+//! or lets expire is refunded once. The browser polls by its request id.
 
 use std::path::{Path as FsPath, PathBuf};
 
 use axum::{
-    extract::{DefaultBodyLimit, State},
+    extract::{DefaultBodyLimit, Path, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -20,10 +20,13 @@ use crate::{ai_gateway::AiConfig, AppState};
 
 /// TBC Mischief 1, the camera's default film model.
 const MODEL: &str = "tbc/mischief-1";
+const MAX_VIDEO: usize = 100 * 1024 * 1024;
 
 pub(crate) fn router() -> Router<AppState> {
     Router::new()
         .route("/card-game/video/model", get(model))
+        .route("/card-game/video/{id}", get(status))
+        .route("/card-game/video/{id}/content", get(content))
         .route(
             "/card-game/video",
             post(start).layer(DefaultBodyLimit::max(3 * 1024 * 1024)),
@@ -301,19 +304,136 @@ async fn begin(
     }
 }
 
+async fn status(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let (user, path, config) = match context(&state, &headers) {
+        Ok(context) => context,
+        Err(response) => return response,
+    };
+    poll(&path, &config, &user, &id).await
+}
+
+async fn poll(path: &FsPath, config: &AiConfig, user: &str, id: &str) -> Response {
+    let (u, i) = (user.to_owned(), id.to_owned());
+    let Ok(Some(job)) = store(path, move |c| job_of(c, &u, &i)).await else {
+        return fail(StatusCode::NOT_FOUND, "Film the current scene again.");
+    };
+    let job_status = match provider_json(config, &format!("videos/{}", urlencode(&job)), None).await
+    {
+        Ok(job) => job,
+        Err(reason) => {
+            return reply(
+                StatusCode::OK,
+                json!({"status": "processing", "detail": reason}),
+            )
+        }
+    };
+    let status = job_status["status"]
+        .as_str()
+        .unwrap_or("processing")
+        .to_owned();
+    if ["failed", "cancelled", "expired"].contains(&status.as_str()) {
+        let reason = job_status["error"]["message"]
+            .as_str()
+            .or(job_status["error"].as_str())
+            .unwrap_or("")
+            .to_owned();
+        let (u, i, note) = (
+            user.to_owned(),
+            id.to_owned(),
+            format!("video {status}: {reason}"),
+        );
+        let refunded = store(path, move |c| {
+            credits::refund(c, &u, SpendKind::Video, &i, &note)
+        })
+        .await;
+        return reply(
+            StatusCode::OK,
+            json!({"status": status, "error": reason, "refunded": matches!(refunded, Ok(true))}),
+        );
+    }
+    reply(
+        StatusCode::OK,
+        json!({"status": if status == "completed" { "completed" } else { "processing" }}),
+    )
+}
+
+fn urlencode(value: &str) -> String {
+    value
+        .bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || b"-_.~".contains(&b) {
+                (b as char).to_string()
+            } else {
+                format!("%{b:02X}")
+            }
+        })
+        .collect()
+}
+
+async fn content(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let (user, path, config) = match context(&state, &headers) {
+        Ok(context) => context,
+        Err(response) => return response,
+    };
+    let Ok(Some(job)) = store(&path, move |c| job_of(c, &user, &id)).await else {
+        return fail(StatusCode::NOT_FOUND, "Film the current scene again.");
+    };
+    let bytes = match provider(
+        &config,
+        &format!("videos/{}/content?index=0", urlencode(&job)),
+        None,
+    )
+    .await
+    {
+        Ok(response) => response.bytes().await.map_err(|e| e.to_string()),
+        Err(reason) => Err(reason),
+    };
+    match bytes {
+        Ok(bytes) if !bytes.is_empty() && bytes.len() <= MAX_VIDEO => (
+            [
+                (header::CONTENT_TYPE, "video/mp4"),
+                (header::CACHE_CONTROL, "private, no-store"),
+            ],
+            bytes,
+        )
+            .into_response(),
+        _ => fail(StatusCode::BAD_GATEWAY, "The video needs another moment."),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
 
-    async fn stub(submits: Arc<Mutex<Vec<Value>>>) -> AiConfig {
-        let app = Router::new().route(
-            "/videos",
-            post(move |Json(body): Json<Value>| async move {
-                submits.lock().unwrap().push(body);
-                Json(json!({"id": "job/1", "status": "pending"}))
-            }),
-        );
+    async fn stub(
+        job_status: Arc<Mutex<&'static str>>,
+        submits: Arc<Mutex<Vec<Value>>>,
+    ) -> AiConfig {
+        let app = Router::new()
+            .route(
+                "/videos",
+                post(move |Json(body): Json<Value>| async move {
+                    submits.lock().unwrap().push(body);
+                    Json(json!({"id": "job/1", "status": "pending"}))
+                }),
+            )
+            .route(
+                "/videos/{job}",
+                get(move |Path(job): Path<String>| async move {
+                    assert_eq!(job, "job/1");
+                    let status = *job_status.lock().unwrap();
+                    Json(json!({"status": status, "error": {"message": "content rejected"}}))
+                }),
+            );
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
@@ -333,11 +453,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_scene_video_spends_once_and_submits_once() {
+    async fn a_scene_video_spends_once_and_a_failed_job_is_refunded_once() {
         let path =
             std::env::temp_dir().join(format!("cosyworld-video-{}.sqlite", crate::random_hex(8)));
-        let submits = Arc::new(Mutex::new(Vec::new()));
-        let config = stub(submits.clone()).await;
+        let (job_status, submits) = (
+            Arc::new(Mutex::new("pending")),
+            Arc::new(Mutex::new(Vec::new())),
+        );
+        let config = stub(job_status.clone(), submits.clone()).await;
         let start = Start {
             request_id: "film-0001".into(),
             prompt: "Vale: \"Hello.\"".into(),
@@ -386,6 +509,26 @@ mod tests {
             (submits.lock().unwrap().len(), balance()),
             (1, 50),
             "one submit, one charge"
+        );
+        assert_eq!(
+            read(poll(&path, &config, "u1", "film-0001").await).await.1["status"],
+            "processing"
+        );
+        assert_eq!(
+            read(poll(&path, &config, "u2", "film-0001").await).await.0,
+            StatusCode::NOT_FOUND
+        );
+        *job_status.lock().unwrap() = "failed";
+        let (_, reply) = read(poll(&path, &config, "u1", "film-0001").await).await;
+        assert_eq!(
+            (reply["status"].as_str(), reply["refunded"].as_bool()),
+            (Some("failed"), Some(true))
+        );
+        let (_, reply) = read(poll(&path, &config, "u1", "film-0001").await).await;
+        assert_eq!(
+            (reply["refunded"].as_bool(), balance()),
+            (Some(false), 150),
+            "refunded once"
         );
         let _ = std::fs::remove_file(&path);
     }
