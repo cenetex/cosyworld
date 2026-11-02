@@ -55,9 +55,8 @@ import {
   connectSharedWorld,
   createSharedPlaybackClock,
   installSharedControls,
-  renderSharedQueue,
+  renderRoomStatus,
   sharedLiveLine,
-  sharedNextActor,
   sharedSilentLines,
   sharedSpeechState,
   hasSharedPlace,
@@ -1524,14 +1523,6 @@ function frameFigure(img) {
   if (img.complete && img.naturalWidth) measure();
   else img.addEventListener("load", measure, { once: true });
 }
-function sharedQueuePortrait(actor) {
-  const image = node("img");
-  image.decoding = "async";
-  image.src = imageUrl(portrait(actor, null, world), "card");
-  image.alt = "";
-  frameFigure(image);
-  return image;
-}
 // The action beat's small cards, at most three.
 function showBeatCards(ids) {
   const cards = document.querySelector(".action-beat-cards"),
@@ -2900,22 +2891,7 @@ function renderScene() {
     : "Return to live dialogue";
   liveButton.setAttribute("aria-label", liveButton.title);
   liveButton.onclick = returnToLive;
-  if (sharedSession) {
-    // The queue lists whoever plays next first.
-    const nextActor = sharedNextActor(
-      sharedSession.state,
-      sharedSession.now(),
-      scene.locationId,
-    );
-    renderSharedQueue(sharedSession, sharedQueuePortrait, {
-      liveActor: sharedSession.state.queue?.some(
-        (entry) => entry.actor === nextActor,
-      )
-        ? nextActor
-        : null,
-      onWithdraw: withdrawSharedPlay,
-    });
-  }
+  if (sharedSession) renderRoomStatus(sharedSession);
   animateStack(direction, ghost);
 }
 // The art for a beat's speaker: a person, a place, or an item.
@@ -3048,9 +3024,7 @@ function fadeGhost(ghost, to, duration) {
 // forward when it leaves; reduced motion crossfades. The hand never moves.
 function syncDialogueShown() {
   document.querySelector(".dialogue").hidden =
-    $("speech-row").hidden &&
-    document.querySelector(".action-panel").hidden &&
-    !sharedSession?.state.queue?.length;
+    $("speech-row").hidden && document.querySelector(".action-panel").hidden;
   syncLayering();
 }
 function syncActionBeat() {

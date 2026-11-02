@@ -358,10 +358,9 @@ The two most recent players stand in front. On phones, they move lower into a
 bust view as more people enter. Smaller figures sit higher behind them.
 Repeated plays by one person keep the others in order. Changes move smoothly.
 Reviewing older words keeps the figures and belongings in their current places.
-Waiting plays appear as small profile circles beside the dialogue. Their order
-runs from top to bottom. A player can select their waiting circle to withdraw
-their play; hover text and screen-reader labels read "Pip is thinking…" or
-"Pip is playing…", never the play itself.
+Waiting plays show no chips or circles (owner, 2026-11-01). A player's own
+waiting play stays in the action beat, whose **Cancel play** withdraws it;
+other players' plays stay private until they resolve.
 
 The approved OpenRouter request contains fictional profiles, scene facts,
 visible people and belongings, and the completed play. Passkey and account data
