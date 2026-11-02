@@ -997,8 +997,8 @@ Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, quiet de
 
 Run `node v2/scripts/smoke-card-dialogue-recovery.mjs` to check visible service failures, same-turn retry, incomplete responses, later plays and reload at desktop and phone widths. It uses local fixture responses and makes no model calls.
 
-Music loading starts when playback is ready: after the first accepted play,
-with music enabled and the page visible. A place triggers a song when music
+Music loading starts when playback is ready: after the first accepted play
+(in the attic opening, the pond reveal), with music enabled and the page visible. A place triggers a song when music
 is idle. Each song follows the player through travel until it ends. The current
 place chooses the next song. A quiet place lets the player hear the landscape.
 Mute and hidden tabs pause the same song for a later resume. River Camp chooses
@@ -1007,7 +1007,7 @@ playing through dusk and night. Run `node v2/scripts/smoke-card-music-network.mj
 for the throttled request and first-sound checks. `test/card-music.test.mjs`
 covers songs that follow travel.
 
-Room music starts with the first accepted card play in a new game. In a shared world, each avatar starts in silence until their own first accepted play, such as picking up or using their item. The saved play journal keeps that choice across reloads. The opening scene and menu wait for that play. Starting another new game resets this wait and keeps the saved music and volume settings.
+Room music starts with the first accepted card play in a new game. In the Vale attic opening it waits longer: the lamplit attic stays silent until the lamp goes out (doused or run dry) and the mirror first shows the Black pond; the music fades in at that moment. The browser remembers that world's reveal (`cosyworld.music-revealed`), so a reload keeps the music even if the lamp is lit again. A world without the attic opening, an avatar other than Vale, or Vale outside the attic plays music from the first play as before (`openingRevealed` in `music.mjs`). In a shared world, each avatar starts in silence until their own first accepted play, such as picking up or using their item. The saved play journal keeps that choice across reloads. The opening scene and menu wait for that play. Music off stays off at the reveal. Starting another new game resets this wait and keeps the saved music and volume settings. `smoke-card-music.mjs` checks the silent attic, the reveal fade, reload, a new world and music off (`music-reveal-check.mjs`).
 
 ## Character models and inner life
 
