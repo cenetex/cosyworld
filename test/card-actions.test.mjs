@@ -43,9 +43,13 @@ describe("named card actions", () => {
     const result = play(world, threat);
     expect(result.ok).toBe(true);
     world = result.state;
-    expect(kinds(world, ["moth"])).toEqual(["talk"]);
-    expect(kinds(world, ["vale", "moth"])).toEqual(["guard", "attack"]);
-    expect(kinds(world, ["vale"])).toEqual(["wait", "guard"]);
+    // In battle the selection names the verb, and Talk becomes Strike.
+    expect(kinds(world, ["moth"])).toEqual(["attack"]);
+    expect(kinds(world, ["vale", "moth"])).toEqual(["intercept"]);
+    expect(kinds(world, ["vale"])).toEqual(["guard"]);
+    const here = world.actors.vale.place;
+    expect(kinds(world, [here])).toEqual(["wait"]);
+    expect(playLabel(primary(world, ["vale", "moth"]))).toBe("Guard");
   });
   it("names the recipient, owner, trade items and invited person", () => {
     const world = meeting();
@@ -95,14 +99,16 @@ describe("named card actions", () => {
     expect(playProgress({ kind: "pack-choice" })).toBe("acting");
   });
 
-  it("names the combat verbs Strike and Brace over the rules kinds", () => {
+  it("names the combat verbs Strike, Brace and Guard over the rules kinds", () => {
     const strike = { kind: "attack", actor: "vale", target: "keeper" };
-    const brace = { kind: "guard", actor: "moth", target: "vale" };
+    const brace = { kind: "guard", actor: "moth", target: null };
+    const guard = { kind: "intercept", actor: "moth", target: "vale" };
     expect(playLabel(strike)).toBe("Strike");
     expect(playLabel(brace)).toBe("Brace");
     expect(playProgress(strike)).toBe("striking");
     expect(playText(strike)).toBe("Vale strikes the keeper.");
-    expect(playText(brace)).toBe("Pip braces against Vale.");
+    expect(playText(brace)).toBe("Pip braces.");
+    expect(playText(guard)).toBe("Pip guards Vale.");
   });
   it("lists local fixtures and carries spoken clues through Talk", () => {
     const world = createWorld();

@@ -87,3 +87,69 @@ fn released_level_strikes_replay_and_current_strikes_roll_by_tier_in_the_c_host(
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
     let _ = std::fs::remove_file(path);
 }
+
+#[test]
+fn rules_83_standoffs_replay_and_rules_84_battles_run_in_the_c_host() {
+    let path = std::env::temp_dir().join(format!("card-battle-{}.sqlite", crate::random_hex(12)));
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "f".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    // On rules 83, Vale threatens Pip over the lamp; the keeper looks on.
+    let version = engine::EIGHTY_THIRD_VERSION;
+    let mut game =
+        engine::reduce_version(version, json!({"op":"create","seed":9})).unwrap()["world"].clone();
+    game.as_object_mut().unwrap().remove("opening");
+    (game["turn"], game["revision"]) = (json!(3), json!(3));
+    for actor in ["vale", "moth", "keeper"] {
+        game["actors"][actor]["place"] = json!("station");
+        (
+            game["actors"][actor]["metTurn"],
+            game["actors"][actor]["want"],
+        ) = (json!(0), Value::Null);
+    }
+    game["items"]["lamp"]["holder"] = json!("moth");
+    let pack = engine::takes_content(version).then(|| content::current().into());
+    let mut old = World {
+        version: version.into(),
+        game,
+        claimed: [0; 8],
+        present: [0; 8],
+        pack,
+    };
+    full_store::seed(&c, &id, &old, "released-standoff", now()).unwrap();
+    let commit =
+        |w: &mut World, command: Value| full_store::commit(&c, &id, w, command, now()).unwrap();
+    let play = |action: &str| json!({"op":"play","actor":"vale","action":action});
+    commit(&mut old, json!({"op":"claim","actor":"vale"}));
+    commit(&mut old, json!({"op":"enter","actor":"vale"}));
+    commit(&mut old, play("threaten:vale:lamp:moth"));
+    assert_eq!(
+        old.game["standoffs"][0]["resolve"],
+        json!({"vale": 4, "moth": 4})
+    );
+
+    // The recorded upgrade keeps the rules 83 log, with or without the checkpoint.
+    let mut w = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(w.version, engine::VERSION);
+    assert_eq!(w.game["log"], quest_free_log(&old.game["log"]));
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+
+    // On rules 84 Talk is gone and Brace names no target. The keeper joins
+    // the battle as Vale plays, and the round without a Strike ends it once
+    // the keeper has played too.
+    let talk = w.apply(&play("talk:vale::moth"));
+    assert!(talk.map_or(true, |r| r["ok"] == false));
+    commit(&mut w, play("guard:vale::"));
+    let log = w.game["log"].as_array().unwrap();
+    assert!(log
+        .iter()
+        .any(|e| e["verb"] == "guard" && e["actorId"] == "vale"));
+    assert!(log
+        .iter()
+        .any(|e| e["text"] == "Nobody strikes for a whole round. The battle ends."));
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+    let _ = std::fs::remove_file(path);
+}

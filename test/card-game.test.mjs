@@ -285,6 +285,7 @@ describe("the reflected shore card game", () => {
 
   it("preserves unique objects and valid state across 4000 varied turns", async () => {
     let seed = 109,
+      picks = 0,
       s = createWorld();
     const itemIds = Object.keys(s.items).sort();
     for (let i = 0; i < 4000; i++) {
@@ -296,6 +297,7 @@ describe("the reflected shore card game", () => {
         i % 5 === 0 ? plan(s).action : actions[seed % actions.length];
       const result = play(s, action);
       expect(result.ok).toBe(true);
+      if (action.kind === "focus") picks += 1;
       s = result.state;
       expect(() => validateWorld(s)).not.toThrow();
       expect(Object.keys(s.items).sort()).toEqual(itemIds);
@@ -303,8 +305,8 @@ describe("the reflected shore card game", () => {
         s = decodeSave(encodeSave(s));
       }
     }
-    // Every play spends a turn; a long rest at the sanctuary sleeps on.
-    expect(s.turn).toBeGreaterThanOrEqual(4000);
+    // Choosing a quest spends no turn; a long rest at the sanctuary sleeps on.
+    expect(s.turn).toBeGreaterThanOrEqual(4000 - picks);
   }, 120_000);
 
   it("serves only the game assets and supports a clean browser reload", async () => {

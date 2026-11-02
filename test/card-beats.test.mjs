@@ -294,16 +294,17 @@ describe("combat beats from the rules", () => {
         guarding: { vale: false, moth: false },
         struck: { vale: true, moth: true },
         steppedBack: { vale: false, moth: false },
+      hitBy: { moth: "vale" },
       },
     ];
     const before = s.log.length;
-    const after = act(s, "guard", "moth");
+    const after = act(s, "guard");
     const fresh = after.log.slice(before);
     const beats = groupBeats(fresh, { viewer: "vale", here: "pond" });
     const text = beats.map((b) => [b.speakerId, b.actions.map((a) => a.text)]);
     // Each fighter's step is a beat; the defeat follows on the loser's beat.
     expect(text).toEqual([
-      ["vale", ["Vale braced against Pip."]],
+      ["vale", ["Vale braced."]],
       ["moth", ["Pip struck Vale. Vale gave way."]],
       [
         "vale",

@@ -1,8 +1,4 @@
-import {
-  entityActive,
-  packPlaces,
-  packDefinitions,
-} from "./pack-registry.mjs";
+import { entityActive, packPlaces, packDefinitions } from "./pack-registry.mjs";
 import {
   currentActor,
   places,
@@ -40,14 +36,14 @@ export function availableCards(world) {
       world.presentActors.filter((id) => world.actors[id]?.place === place)
         .length < 4,
   );
-  // A standoff here locks the room: no leaving and no changing items. The
-  // hand keeps the people, and the demanded item while it can be handed over.
+  // A battle here locks the room: no leaving and no changing items. The
+  // hand keeps the people, this place (Wait), and the demanded item while
+  // it can be handed over.
   const fight = world.standoffs?.find((c) => c.location === here);
   if (fight) {
-    const mine = [fight.challenger, fight.defender].includes(player);
     const demanded =
-      mine && fight.defender === player && fight.item ? [fight.item] : [];
-    return [...cast, ...demanded.filter((id) => items.includes(id))];
+      fight.defender === player && fight.item ? [fight.item] : [];
+    return [...cast, ...demanded.filter((id) => items.includes(id)), here];
   }
   const road = packPlaces[here]?.road;
   return [
@@ -62,6 +58,10 @@ export function cardType(id) {
   return things[id] ? "item" : people[id] ? "avatar" : "location";
 }
 
+const PLAY_ORDER = ["talk", "wait", "threaten", "guard", "intercept", "attack"];
+// In battle the selection names the verb: yourself is Brace, yourself and
+// another combatant is Guard, another combatant alone is Strike, and this
+// place is Wait. There is no Talk.
 export function avatarPlays(world, id) {
   if (!people[id] || !availableCards(world).includes(id)) return [];
   return legalActions(world)
@@ -69,13 +69,9 @@ export function avatarPlays(world, id) {
       id === currentActor(world)
         ? a.kind === "guard"
         : a.target === id &&
-          ["talk", "threaten", "guard", "attack"].includes(a.kind),
+          ["talk", "threaten", "intercept", "attack"].includes(a.kind),
     )
-    .sort(
-      (a, b) =>
-        ["talk", "wait", "threaten", "guard", "attack"].indexOf(a.kind) -
-        ["talk", "wait", "threaten", "guard", "attack"].indexOf(b.kind),
-    );
+    .sort((a, b) => PLAY_ORDER.indexOf(a.kind) - PLAY_ORDER.indexOf(b.kind));
 }
 export function cardChoices(world, id) {
   if (!availableCards(world).includes(id)) return [];
@@ -135,9 +131,13 @@ export function cardPlay(world, selected) {
           : find("move", null, id) || find("course", null, id),
         `Travel to ${nameOf(id)}.`,
       );
-    if (id === currentActor(world)) return result(find("wait"));
+    if (id === currentActor(world))
+      return result(find("guard") || find("wait"));
     if (people[id])
-      return result(find("talk", null, id), `Meet ${nameOf(id)} here.`);
+      return result(
+        find("talk", null, id) || find("attack", null, id),
+        `Meet ${nameOf(id)} here.`,
+      );
     const holder = world.items[id].holder;
     if (
       people[rootHolder(world, id)] &&
@@ -180,7 +180,7 @@ export function cardPlay(world, selected) {
   ) {
     const other = cards.find((id) => people[id] && id !== currentActor(world));
     return result(
-      find("threaten", undefined, other) || find("guard", undefined, other),
+      find("threaten", undefined, other) || find("intercept", undefined, other),
       `Select ${nameOf(other)} on their own to talk.`,
     );
   }
@@ -280,7 +280,9 @@ export function cardActions(world, selected) {
   } else if (cards.includes(currentActor(world))) {
     const other = cards.find((id) => id !== currentActor(world));
     if (people[other]) {
-      actions = avatarPlays(world, other).filter((a) => a.kind !== "talk");
+      actions = avatarPlays(world, other).filter((a) =>
+        ["threaten", "intercept"].includes(a.kind),
+      );
       hint = actions.length ? "" : primary.hint;
     }
   }
@@ -298,7 +300,8 @@ export function playText(action) {
   const who = nameOf(action?.actor),
     other = nameOf(action?.target).replace(/^The /u, "the ");
   if (action?.kind === "attack") return `${who} strikes ${other}.`;
-  if (action?.kind === "guard") return `${who} braces against ${other}.`;
+  if (action?.kind === "guard") return `${who} braces.`;
+  if (action?.kind === "intercept") return `${who} guards ${other}.`;
   return action?.text;
 }
 
@@ -322,6 +325,7 @@ export function playLabel(action) {
     accompany: "Accompany",
     threaten: "Threaten",
     guard: "Brace",
+    intercept: "Guard",
     attack: "Strike",
     take: "Take",
     drop: "Put down",
@@ -343,6 +347,7 @@ const progress = {
   accompany: "inviting",
   threaten: "threatening",
   guard: "bracing",
+  intercept: "guarding",
   attack: "striking",
   take: "taking",
   drop: "putting down",

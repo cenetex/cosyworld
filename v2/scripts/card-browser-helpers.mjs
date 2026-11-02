@@ -61,20 +61,15 @@ export async function clearSelection(page) {
   if (await page.locator('#hand .card[aria-pressed="true"]').count())
     await page.keyboard.press("Escape");
 }
-// A standoff locks its room until both fighters stand down, so a scripted
-// walk talks its way out first. A resident opponent answers a stand-down by
-// standing down in the same round, which ends it.
+// A battle locks its room until a round passes without a Strike, so a
+// scripted walk waits it out by playing the place card (Wait). Residents
+// nobody is striking wait too, which ends it.
 export async function endStandoff(page, world, actor = "vale") {
-  const fight = world.standoffs?.find((c) =>
-    [c.challenger, c.defender].includes(actor),
-  );
-  if (!fight) return false;
+  if (!world.standoffs?.some((c) => Object.hasOwn(c.resolve, actor)))
+    return false;
   await clearSelection(page);
-  await selectCard(
-    page,
-    fight.challenger === actor ? fight.defender : fight.challenger,
-  );
-  await page.locator('#card-actions [data-action="talk"]').click();
+  await selectCard(page, world.actors[actor].place);
+  await page.locator('#card-actions [data-action="wait"]').click();
   return true;
 }
 export async function selectCard(page, id, { touch = false } = {}) {

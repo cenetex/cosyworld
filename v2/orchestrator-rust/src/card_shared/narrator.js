@@ -17099,11 +17099,9 @@
   var fuelItems = Object.keys(forest_default.things).filter(
     (id) => forest_default.things[id].refuels
   );
+  var fightersOf = (c) => Object.keys(c.resolve);
   function standoffFor(s, actor) {
-    return s.standoffs.find((c) => [c.challenger, c.defender].includes(actor));
-  }
-  function opponentOf(c, actor) {
-    return c.challenger === actor ? c.defender : c.challenger;
+    return s.standoffs.find((c) => Object.hasOwn(c.resolve, actor));
   }
   var DEFEATS_TO_SEND_HOME = 3;
   function validateWorld(s) {
@@ -17176,8 +17174,9 @@
     for (const c of s.standoffs) {
       if (!c || !actorIds.includes(c.challenger) || !actorIds.includes(c.defender) || c.challenger === c.defender || !Object.hasOwn(places, c.location) || c.item !== null && !ids.includes(c.item) || typeof c.answered !== "boolean" || !Number.isSafeInteger(c.opened) || c.opened < 1 || c.opened > s.turn)
         fail();
-      const pair = [c.challenger, c.defender];
-      if (pair.some((id) => fighting.has(id))) fail();
+      const pair = c.resolve && typeof c.resolve === "object" ? fightersOf(c) : [];
+      if (pair.length < 2 || pair.some((id) => !actorIds.includes(id) || fighting.has(id)))
+        fail();
       for (const id of pair) fighting.add(id);
       if (pair.some(
         (id) => s.actors[id].place !== c.location || s.peaceUntil[id] > s.turn
@@ -17185,6 +17184,11 @@
         fail();
       for (const field of ["resolve", "guarding", "struck", "steppedBack"])
         if (!c[field] || Object.keys(c[field]).sort().join() !== pair.slice().sort().join())
+          fail();
+      for (const map of [c.covering, c.hitBy])
+        if (map !== void 0 && (!map || typeof map !== "object" || Object.entries(map).some(
+          ([id, other]) => !pair.includes(id) || !pair.includes(other) || id === other
+        )))
           fail();
       if (pair.some(
         (id) => !Number.isInteger(c.resolve[id]) || c.resolve[id] < 1 || c.resolve[id] > 4 || typeof c.guarding[id] !== "boolean" || typeof c.struck[id] !== "boolean" || typeof c.steppedBack[id] !== "boolean"
@@ -17236,6 +17240,7 @@
       "accompany",
       "threaten",
       "guard",
+      "intercept",
       "attack",
       "retreat",
       "sent-home",
@@ -17882,7 +17887,9 @@
           const conflict = standoffFor(world, id);
           if (conflict)
             facts.push(
-              `Standoff with ${nameOf(opponentOf(conflict, id))}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: ${conflict.guarding[id] ? "braced" : "open stance"}. Talk, trade, brace, strike or leave are available.`
+              `In a battle with ${fightersOf(conflict).filter((other) => other !== id).map(nameOf).join(
+                ", "
+              )}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: ${conflict.guarding[id] ? "braced" : "open stance"}. Brace, guard, strike or wait are available.`
             );
           const want2 = wantHeard(world, played, id, currentActor(world)) ? wantOf2(world, id) : null;
           desire = {
