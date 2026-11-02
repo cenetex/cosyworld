@@ -2799,3 +2799,6 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
         std::fs::remove_file(path).unwrap();
     }
 }
+
+#[path = "fight_tests.rs"]
+mod fight_tests;

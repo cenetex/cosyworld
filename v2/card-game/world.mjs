@@ -895,6 +895,23 @@ export function opponentOf(c, actor) {
 export function strikePower(s, actor, target) {
   return 2 + Math.sign(levelOf(s, actor) - levelOf(s, target));
 }
+// A human chooses their own plays, so the rules wait for them. An attack on
+// a human needs that human's play since the threat and since the last hit.
+function canStrike(s, c, target) {
+  if (!controlledByHuman(s, target)) return true;
+  return (target !== c.defender || c.answered) && c.owed !== target;
+}
+// An unanswered threat on a human lapses after this many world turns.
+export const STANDOFF_ANSWER_TURNS = 3;
+// In shared play only a present human can be threatened, and a human at
+// their own home neither threatens nor is threatened there.
+function threatAllowed(s, actor, other) {
+  if (!sharedEnabled(s)) return true;
+  if (controlledByHuman(s, other) && !humanPresent(s, other)) return false;
+  return [actor, other].every(
+    (id) => !controlledByHuman(s, id) || s.actors[id].place !== homeOf(id),
+  );
+}
 function closeStandoff(s, c) {
   s.standoffs = s.standoffs.filter((entry) => entry !== c);
   for (const id of [c.challenger, c.defender]) s.peaceUntil[id] = s.turn + 3;
@@ -968,14 +985,20 @@ function settleStandoffs(s) {
       (id) => s.actors[id].place !== c.location,
     );
     const released = c.item && rootHolder(s, c.item) !== c.defender;
-    if (separated || released) {
+    const lapsed =
+      controlledByHuman(s, c.defender) &&
+      !c.answered &&
+      s.turn - c.opened >= STANDOFF_ANSWER_TURNS;
+    if (separated || released || lapsed) {
       closeStandoff(s, c);
       addLog(
         s,
         "World",
         separated
           ? `${nameOf(c.challenger)} and ${nameOf(c.defender)} part. The standoff ends.`
-          : `The ${nameOf(c.item)} changes hands. The standoff ends.`,
+          : released
+            ? `The ${nameOf(c.item)} changes hands. The standoff ends.`
+            : `${nameOf(c.defender)} does not answer. The standoff ends.`,
         {
           kind: "narration",
           actorId: c.challenger,
@@ -1139,22 +1162,25 @@ export function legalActions(s, actor = currentActor(s)) {
           `${nameOf(actor)} guards against ${nameOf(other)}.`,
           [other],
         ),
-        offer(
-          "attack",
-          actor,
-          null,
-          other,
-          `${nameOf(actor)} attacks ${nameOf(other)}.`,
-          [other],
-        ),
       );
+      if (canStrike(s, conflict, other))
+        out.push(
+          offer(
+            "attack",
+            actor,
+            null,
+            other,
+            `${nameOf(actor)} attacks ${nameOf(other)}.`,
+            [other],
+          ),
+        );
     } else if (
-      !(sharedEnabled(s) && controlledByHuman(s, other)) &&
       !avoidsStandoffs(other) &&
       !conflict &&
       !standoffFor(s, other) &&
       s.peaceUntil[actor] <= s.turn &&
-      s.peaceUntil[other] <= s.turn
+      s.peaceUntil[other] <= s.turn &&
+      threatAllowed(s, actor, other)
     ) {
       const stake =
         ids.find(
@@ -1445,6 +1471,7 @@ function perform(s, a, round = null, settle = []) {
   if (conflict) {
     conflict.guarding[a.actor] = false;
     if (a.actor === conflict.defender) conflict.answered = true;
+    if (conflict.owed === a.actor) delete conflict.owed;
   }
   if (a.kind === "wait") {
     const learningStart = beginLearning(s, a);
@@ -1533,6 +1560,7 @@ function perform(s, a, round = null, settle = []) {
       const resolveBefore = conflict.resolve[a.target];
       conflict.guarding[a.target] = false;
       conflict.struck[a.actor] = true;
+      if (controlledByHuman(s, a.target)) conflict.owed = a.target;
       conflict.resolve[a.target] = Math.max(0, resolveBefore - damage);
       text += ` ${guarded ? "The guard softens the blow. " : ""}${nameOf(a.target)} loses ${damage} resolve.`;
       combat = {
@@ -2342,6 +2370,7 @@ export function validateWorld(s) {
       !Object.hasOwn(places, c.location) ||
       (c.item !== null && !ids.includes(c.item)) ||
       typeof c.answered !== "boolean" ||
+      (c.owed !== undefined && ![c.challenger, c.defender].includes(c.owed)) ||
       !Number.isSafeInteger(c.opened) ||
       c.opened < 1 ||
       c.opened > s.turn

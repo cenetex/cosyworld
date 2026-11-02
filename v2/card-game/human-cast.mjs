@@ -67,7 +67,6 @@ export const humanHomePack = {
           "Speak briefly about this shared moment. The player chooses this avatar's actions.",
         requires: [{ kind: "shared_world" }],
         portrait: a.image,
-        standoffs: false,
         tastes: {
           likes: a.pleasure,
           sore: "Someone deciding for them",

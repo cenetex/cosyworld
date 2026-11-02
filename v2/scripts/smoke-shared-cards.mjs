@@ -1003,10 +1003,84 @@ try {
     async () => (await snapshot(mara)).nudge === "vale",
     "nudge reaches friend",
   );
+  // Two humans fight under the shared rules. Nobody strikes a human who has
+  // not answered, and nobody strikes a human twice before they play again.
+  const fightView = async (page) => {
+    const state = await snapshot(page);
+    const ids = (list) =>
+      (list || [])
+        .map((value, i) => (typeof value === "string" ? value : value && names[i]))
+        .filter(Boolean);
+    return {
+      ...state.world,
+      playerActorId: state.actor,
+      controlledActors: ids(state.claimed),
+      presentActors: ids(state.present),
+    };
+  };
+  const fightAction = async (page, kind, target) =>
+    legalActions(await fightView(page)).find(
+      (a) => a.kind === kind && a.target === target,
+    );
+  const fightPlay = async (page, action) => {
+    assert(action, "fight play is offered");
+    const result = await api(page, {
+      op: "play",
+      key: crypto.randomUUID(),
+      action,
+    });
+    await idle(page);
+    return result;
+  };
+  await fightPlay(vale, await fightAction(vale, "threaten", "mara"));
+  assert.equal(
+    (await snapshot(vale)).world.standoffs.find((c) => c.defender === "mara")
+      ?.challenger,
+    "vale",
+    "one human threatens another",
+  );
+  assert(
+    !(await fightAction(vale, "attack", "mara")),
+    "an unanswered human is not struck",
+  );
+  await fightPlay(mara, await fightAction(mara, "guard", "vale"));
+  const strike = await fightAction(vale, "attack", "mara");
+  await fightPlay(vale, strike);
+  const struck = (await snapshot(vale)).world;
+  const blows = struck.log.filter(
+    (e) => e.verb === "attack" && e.actorId === "vale" && e.targetId === "mara",
+  );
+  assert.equal(blows.length, 1);
+  assert.equal(blows[0].guarded, true, "the guard softens the first blow");
+  assert(
+    !(await fightAction(vale, "attack", "mara")),
+    "a second strike waits for the defender",
+  );
+  // A replayed attack reaches the authority and is refused there.
+  await fightPlay(vale, strike);
+  const after = (await snapshot(vale)).world;
+  assert.equal(
+    after.log.filter(
+      (e) =>
+        e.verb === "attack" && e.actorId === "vale" && e.targetId === "mara",
+    ).length,
+    1,
+    "the session refuses a double strike",
+  );
+  assert.deepEqual(
+    after.standoffs.find((c) => c.defender === "mara")?.resolve,
+    struck.standoffs.find((c) => c.defender === "mara")?.resolve,
+  );
   await perform(vale, "give", "mara", "lamp");
   assert.equal((await snapshot(vale)).world.items.lamp.holder, "mara");
   await perform(mara, "move", "station");
   assert.equal((await snapshot(mara)).world.actors.mara.place, "station");
+  assert(
+    !(await snapshot(mara)).world.standoffs.some((c) =>
+      [c.challenger, c.defender].includes("mara"),
+    ),
+    "leaving ends the humans' standoff",
+  );
   const stationBackdrop = await mara.evaluate(async () =>
     (await import("/card-game/images.mjs")).imageUrl("./assets/station.png"),
   );
@@ -1169,7 +1243,7 @@ try {
     );
   }
   console.log(
-    "Shared original world: progressed save, eight passkeys, original pond/station/attic, NPCs, packs, quests (wants), room capacity, shared speech, item handoff, nudge, restart, desktop and phone passed.",
+    "Shared original world: progressed save, eight passkeys, original pond/station/attic, NPCs, packs, quests (wants), room capacity, shared speech, a two-human standoff, item handoff, nudge, restart, desktop and phone passed.",
   );
 } catch (error) {
   console.error(
