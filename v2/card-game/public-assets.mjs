@@ -229,6 +229,7 @@ const files = [
   "pack-transport.mjs",
   "legacy-saves.mjs",
   "forest.json",
+  "speech.json",
   "packs.json",
   "music.mjs",
   "hum.mjs",
