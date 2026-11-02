@@ -392,7 +392,15 @@ try {
     assert.equal((await state()).standoffs.length, 1);
     await selectCard(page, "vale");
     await selectCard(page, "moth");
-    assert.deepEqual(await labels(), ["Brace", "Strike"]);
+    // In battle the selection names the verb: yourself and Pip is Guard,
+    // Pip alone is Strike, yourself alone is Brace.
+    assert.deepEqual(await labels(), ["Guard"]);
+    await page.keyboard.press("Escape");
+    await selectCard(page, "moth");
+    assert.deepEqual(await labels(), ["Strike"]);
+    await page.keyboard.press("Escape");
+    await selectCard(page, "vale");
+    assert.deepEqual(await labels(), ["Brace"]);
     await shot("standoff");
     await page.getByRole("button", { name: "Brace", exact: true }).click();
     await ready();

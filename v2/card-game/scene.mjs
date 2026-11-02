@@ -406,7 +406,26 @@ export function sceneStaging(
   const focal = ids.includes(currentActor(world))
     ? currentActor(world)
     : ids[0];
-  const order = [focal, ...ids.filter((id) => id !== focal)].filter(Boolean);
+  // In a battle the latest exchange (striker, any guard, the one aimed at)
+  // keeps the front between plays; the other combatants stand behind.
+  const fight = world.standoffs?.find((c) => c.location === locationId);
+  const last = fight
+    ? world.log.findLast(
+        (e) =>
+          ["threaten", "intercept", "attack"].includes(e.verb) &&
+          (e.locationId ?? e.fromLocationId) === locationId,
+      )
+    : null;
+  const exchange = [last?.actorId, last?.targetId, last?.coveredId].filter(
+    (id) => ids.includes(id) && Object.hasOwn(fight.resolve, id),
+  );
+  if (exchange.length < 2) exchange.length = 0;
+  const order = [
+    ...exchange,
+    ...[focal, ...ids.filter((id) => id !== focal)].filter(
+      (id) => !exchange.includes(id),
+    ),
+  ].filter(Boolean);
   // Recent players take more space. Fibonacci areas make the change in height
   // gentle, and repeated plays by one person keep the others in order.
   const recent = world.controlledActors
@@ -437,13 +456,21 @@ export function sceneStaging(
         ]),
       ]
     : [];
-  const front = ids.filter((id) => recent.slice(0, 2).includes(id));
+  const front = exchange.length
+    ? exchange
+    : ids.filter((id) => recent.slice(0, 2).includes(id));
   const back = ids.filter((id) => !front.includes(id));
   const size = (id) => Math.sqrt([13, 8, 5, 3, 2, 1][recent.indexOf(id)] / 13);
   const positions = world.controlledActors
     ? order.map((id) =>
         front.includes(id)
-          ? [front.length === 1 ? 50 : 30 + front.indexOf(id) * 40, size(id), 0]
+          ? [
+              front.length === 1
+                ? 50
+                : 30 + (front.indexOf(id) * 40) / (front.length - 1),
+              size(id),
+              0,
+            ]
           : [
               back.length === 1
                 ? 15
@@ -548,12 +575,13 @@ export function sceneStaging(
     focalId: focal || null,
     floorItems,
     actors: order.map((id, index) => {
-      // Fighters in an open standoff here watch each other, whoever speaks.
-      const fight = world.standoffs?.find(
-        (c) =>
-          c.location === locationId && [c.challenger, c.defender].includes(id),
-      );
-      const foe = fight?.challenger === id ? fight.defender : fight?.challenger;
+      // Combatants watch the latest exchange, whoever speaks.
+      const foe = !Object.hasOwn(fight?.resolve || {}, id)
+        ? null
+        : id === exchange[0]
+          ? exchange.at(-1)
+          : exchange[0] ||
+            (id === fight.challenger ? fight.defender : fight.challenger);
       let gazeTargetId = ids.includes(foe)
         ? foe
         : activeSpeaker && ids.includes(activeSpeaker)
