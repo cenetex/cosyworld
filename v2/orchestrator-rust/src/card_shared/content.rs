@@ -84,6 +84,30 @@ pub(super) fn preload(c: &Connection, pack: &str) -> Result<()> {
     Ok(())
 }
 
+/// This binary's content less what rules 86 added (hiding places, `live`
+/// routes, `gate_open`), which earlier released rules refuse. Tests that seed
+/// a world on those rules read it. The cut keeps every other byte in order.
+#[cfg(test)]
+pub(super) fn released() -> &'static str {
+    fn cut(text: &mut String, open: &str, close: &str) {
+        while let Some(at) = text.find(open) {
+            let end = text[at..].find(close).expect("a closed field") + at + close.len();
+            text.replace_range(at..end, "");
+        }
+    }
+    static HASH: OnceLock<String> = OnceLock::new();
+    HASH.get_or_init(|| {
+        let mut text = CURRENT.replace("\"live\":true,", "");
+        cut(&mut text, ",\"hiding\":{\"pool\":[", "]}");
+        cut(&mut text, ",{\"kind\":\"gate_open\"", "}");
+        let name = hash(&text);
+        if let Ok(mut loaded) = loaded().lock() {
+            loaded.insert(name.clone(), Arc::from(text));
+        }
+        name
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
