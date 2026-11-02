@@ -58,6 +58,7 @@
     "smoke-card-movement": 23,
     "smoke-card-beat-stack": 28,
     "smoke-card-combat": 20,
+    "smoke-card-invalid-save": 5,
     "smoke-card-shared-discovery": 13,
     "smoke-card-bard-travel": 30,
     "smoke-card-voice": 43

@@ -214,6 +214,7 @@ function node(tag, text, className) {
   if (className) el.className = className;
   return el;
 }
+let borrowedBeat = null;
 // Nothing floats over the stage. A failure the player must see (a refused
 // play, an unsaved world, a lost connection, a nudge) reads on the action
 // beat's status line; a pending play reads on its own button.
@@ -1594,8 +1595,8 @@ function showBeatCards(ids) {
 // beat: { avatar, cards: [{ src, level, color, lit }], name, info, note,
 // buttons: [{ label, id, run }] }. The name and its info line read in the
 // middle, then the note; the buttons sit on the right, and a beat may have
-// none. It replaces the play's beat until cleared.
-let borrowedBeat = null;
+// none. It replaces the play's beat until cleared. `borrowedBeat` is
+// declared before notice(), which a refused save calls during boot.
 function showActionBeat(beat) {
   borrowedBeat = beat;
   renderActions();
