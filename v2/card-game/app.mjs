@@ -206,7 +206,7 @@ function node(tag, text, className) {
 }
 // Nothing floats over the stage. A failure the player must see (a refused
 // play, an unsaved world, a lost connection, a nudge) reads on the action
-// bar's status line above the hand; a pending play reads on its own button.
+// beat's status line; a pending play reads on its own button.
 function notice(text, playStatus = "") {
   // Saved speech failures use the small dialogue retry control.
   if (/^(The|Your) play is saved\./.test(text)) return;
@@ -214,9 +214,7 @@ function notice(text, playStatus = "") {
   line.textContent = text;
   line.hidden = !text;
   line.dataset.playStatus = text ? playStatus : "";
-  const panel = document.querySelector(".action-panel");
-  if (text) panel.hidden = false;
-  else panel.hidden = !$("card-actions").children.length;
+  syncActionBeat();
 }
 const localBackups =
   localRuntime()?.backups && !sharedSession
@@ -399,7 +397,6 @@ let storyStatus = "ready",
   renderedHandRevision = null,
   renderedHandPlace = null,
   renderedHandState = null,
-  actionPanelMotion = null,
   speechKey = null,
   speechGlyphs = [],
   shownLetters = 0,
@@ -516,6 +513,7 @@ const playQueue = createPlayQueue({
     !document.hidden &&
     !document.querySelector("dialog[open], .world-menu:popover-open"),
   play: (action, revision) => {
+    restedChoice = choiceKey();
     if (sharedSession) void submitSharedPlay(action);
     else performAction(action, revision);
   },
@@ -774,7 +772,6 @@ reducedMotion.addEventListener("change", () => {
   if (reducedMotion.matches) {
     reveal.finish();
     speechSounds.stop();
-    actionPanelMotion?.finish();
     for (const motion of handMotions.values()) motion.finish();
   }
 });
@@ -1529,18 +1526,45 @@ function sharedQueuePortrait(actor) {
   frameFigure(image);
   return image;
 }
-function renderActions(animate = false) {
-  const row = $("card-actions"),
-    panel = document.querySelector(".action-panel"),
-    fromHeight = panel.getBoundingClientRect().height;
-  actionPanelMotion?.cancel();
-  actionPanelMotion = null;
-  const { actions, hint } = cardActions(world, selected);
+// A play that commits rests the action beat, so the reply comes to the
+// front, until the player chooses or raises the hand again.
+let restedChoice = null;
+const choiceKey = () => `${selected.join("+")}:${rowCollapsed}`;
+function renderActions() {
+  const row = $("card-actions");
+  if (restedChoice !== choiceKey()) restedChoice = null;
+  const rested = restedChoice !== null;
+  const { actions: ready, hint } = cardActions(world, selected);
+  const actions = ready.filter(
+    (action) =>
+      !rested ||
+      playQueue.pending?.action.key === action.key ||
+      (["sending", "sent", "playing"].includes(sharedPlay?.state) &&
+        sharedPlay.actionKey === action.key),
+  );
   const selectionName = selected.map(nameOf).join(" + ");
   $("selection-name").textContent = selected.length
     ? selectionName
     : "Card actions";
-  panel.hidden = !actions.length && $("play-status").hidden;
+  // The beat says what the play will do, under the actor's portrait.
+  const heading = document.querySelector(".action-beat-heading"),
+    actor = currentActor(world),
+    name = nameOf(actor),
+    // Rule texts can double a name's article ("the The Burial Decree").
+    sentence = ((actions[0] && playText(actions[0])) || "").replace(
+      /\b(the|an?) (?:the|an?) /giu,
+      "$1 ",
+    );
+  heading.hidden = !sentence;
+  if (heading.dataset.actor !== actor) {
+    heading.dataset.actor = actor;
+    fillPortrait(heading.firstElementChild, actor);
+  }
+  heading.lastElementChild.replaceChildren(
+    ...(sentence.startsWith(`${name} `)
+      ? [node("strong", name), sentence.slice(name.length)]
+      : [sentence]),
+  );
   // A folded row lies low even with a choice in it.
   document.querySelector(".play-dock").dataset.selected = String(
     selected.length > 0 && !rowCollapsed,
@@ -1551,6 +1575,7 @@ function renderActions(animate = false) {
   syncLayering();
   const revision = world.revision;
   const nudgeTarget =
+    !rested &&
     sharedSession &&
     selected.find(
       (id) => id !== currentActor(world) && world.presentActors?.includes(id),
@@ -1599,7 +1624,6 @@ function renderActions(animate = false) {
         ? playQueue.clear()
         : withdrawSharedPlay(withdrawable.id);
     row.append(cancel);
-    panel.hidden = false;
   }
   if (nudgeTarget) {
     const nudge = node("button", "Nudge", "card-action");
@@ -1609,11 +1633,10 @@ function renderActions(animate = false) {
         .command({ op: "nudge", target: nudgeTarget })
         .catch((error) => notice(error.message));
     row.append(nudge);
-    panel.hidden = false;
   }
   // The top quest, chosen in the open fan, can be dropped (a level quest
   // costs half the experience). Choosing a card beneath brings it to the top.
-  const picked = questOpen ? shownQuests[questPick] : null;
+  const picked = questOpen && !rested ? shownQuests[questPick] : null;
   for (const action of picked?.index === 0
     ? legalActions(world).filter(
         (a) => a.kind === "drop" && !a.item && a.quest === 0,
@@ -1632,43 +1655,20 @@ function renderActions(animate = false) {
       commitAction(action, revision);
     };
     row.append(button);
-    panel.hidden = false;
   }
   // An item with its own view offers a client-only Look; it plays nothing.
   const viewed = selected.length === 1 && selected[0];
-  if (viewed && things[viewed]?.view && !cardIsCovered(viewed)) {
+  if (!rested && viewed && things[viewed]?.view && !cardIsCovered(viewed)) {
     const look = node("button", "Look", "card-action");
     look.type = "button";
     look.dataset.look = viewed;
     look.title = `Look at ${theName(viewed)} up close`;
     look.onclick = () => showItemView(viewed);
     row.append(look);
-    panel.hidden = false;
   }
-  if (animate) {
-    const toHeight = panel.getBoundingClientRect().height;
-    if (Math.abs(fromHeight - toHeight) > 1) {
-      panel.hidden = false;
-      // The row grows with the hand's 220 ms move and fades in as it opens.
-      const motion = panel.animate(
-        {
-          height: [`${fromHeight}px`, `${toHeight}px`],
-          opacity: [fromHeight < 1 ? 0 : 1, 1],
-        },
-        { duration: 220, easing: "ease-out" },
-      );
-      actionPanelMotion = motion;
-      motion.finished
-        .then(() => {
-          if (actionPanelMotion !== motion) return;
-          actionPanelMotion = null;
-          panel.hidden = !row.children.length && $("play-status").hidden;
-        })
-        .catch(() => {});
-    }
-  }
+  syncActionBeat();
   $("play-readout").textContent = selected.length
-    ? `${selectionName}. ${actions.map(playLabel).join(". ") || hint}`
+    ? `${selectionName}. ${ready.map(playLabel).join(". ") || hint}`
     : questOpen && (shownQuests[questPick] || sealedQuests[0])
       ? questCaption(
           shownQuests[questPick] || sealedQuests[0],
@@ -2727,11 +2727,9 @@ function renderScene() {
   }
   captions.hidden = !front?.actions.length;
   const showFront = Boolean(front) || wordsFailed;
-  document.querySelector(".dialogue").hidden =
-    !showFront && !sharedSession?.state.queue?.length;
-  syncLayering();
   document.querySelector(".dialogue").dataset.behind = String(Boolean(behind));
   $("speech-row").hidden = !showFront;
+  syncDialogueShown();
   $("speech-row").dataset.beat = front?.line
     ? front.silent
       ? "silent"
@@ -2938,7 +2936,7 @@ function playMotion(card, motion) {
   void card.offsetWidth;
   card.dataset.motion = motion;
 }
-for (const id of ["speech-row", "beat-behind"]) {
+for (const id of ["speech-row", "beat-behind", "action-beat"]) {
   const card = $(id),
     settle = (event) => {
       if (event.target === card) delete card.dataset.motion;
@@ -2961,6 +2959,55 @@ function fadeGhost(ghost, to, duration) {
       easing: "cubic-bezier(.22,.61,.36,1)",
     })
     .finished.then(done, done);
+}
+// A ready or pending play, or words the player must see, are a beat in
+// front of the dialogue. The spoken beat settles behind it and comes back
+// forward when it leaves; reduced motion crossfades. The hand never moves.
+function syncDialogueShown() {
+  document.querySelector(".dialogue").hidden =
+    $("speech-row").hidden &&
+    document.querySelector(".action-panel").hidden &&
+    !sharedSession?.state.queue?.length;
+  syncLayering();
+}
+function syncActionBeat() {
+  const panel = document.querySelector(".action-panel"),
+    front = $("speech-row"),
+    show = $("card-actions").children.length > 0 || !$("play-status").hidden;
+  if (panel.hidden !== show) return;
+  // A notice before the first render (storage refused) only shows the beat.
+  const drawn = Boolean(document.body.dataset.handExpanded);
+  if (!drawn) {
+    panel.hidden = !show;
+    panel.parentElement.dataset.action = String(show);
+    panel.parentElement.hidden &&= !show;
+    return;
+  }
+  const still = reducedMotion.matches,
+    moves = panel.parentElement.dataset.dropped !== "true";
+  const ghost =
+    moves && (show ? still && !front.hidden && front : panel)
+      ? pinnedGhost(show ? front : panel, "4")
+      : null;
+  if (ghost && !show) {
+    // The stack keeps its foot as it shrinks, and the leaving copy must
+    // not hold the spoken beat behind it.
+    ghost.style.top = "auto";
+    ghost.style.bottom = `${panel.parentElement.clientHeight - panel.offsetTop - panel.offsetHeight}px`;
+    ghost.classList.remove("action-panel");
+  }
+  panel.hidden = !show;
+  panel.parentElement.dataset.action = String(show);
+  syncDialogueShown();
+  if (!moves) return;
+  if (still) return fadeGhost(ghost, {}, STACK_FADE_MS);
+  playMotion(panel, show ? "arrive" : null);
+  if (!front.hidden) playMotion(front, show ? "settle" : "return");
+  fadeGhost(
+    ghost,
+    { transform: "translateY(8px) scale(1.015)" },
+    STACK_LEAVE_MS,
+  );
 }
 function animateStack(direction, ghost) {
   const front = $("speech-row"),
@@ -3077,6 +3124,7 @@ document.addEventListener("keydown", (event) => {
     return;
   const target = event.target;
   if (target !== document.body && !target.closest?.(".dialogue")) return;
+  if (target.closest?.(".action-panel")) return;
   // A long line scrolls first, then the arrows step through the beats.
   const words = $("dialogue-text");
   if (target === $("dialogue-advance") && !words.hidden) {
@@ -3100,6 +3148,7 @@ document.addEventListener("keydown", (event) => {
     "wheel",
     (event) => {
       if (Math.abs(event.deltaY) < 4) return;
+      if (event.target.closest?.(".action-panel")) return;
       const words = $("dialogue-text");
       const scrolls =
         words.contains(event.target) &&
@@ -3121,7 +3170,10 @@ document.addEventListener("keydown", (event) => {
     "touchstart",
     (event) => {
       const point = event.touches[0];
-      touch = point ? { x: point.clientX, y: point.clientY } : null;
+      touch =
+        point && !event.target.closest?.(".action-panel")
+          ? { x: point.clientX, y: point.clientY }
+          : null;
     },
     { passive: true },
   );
@@ -3327,7 +3379,7 @@ function render() {
     // it was to its fanned place.
     fanHand();
     $("hand").scrollLeft = stayed ? scroll : 0;
-    renderActions(animate);
+    renderActions();
     // On wide screens raising or lowering the hand is one motion: the deck
     // grows from its corner into the row while the dialogue slides from
     // beside it to the middle (style.css). Reduced motion crossfades.
@@ -3583,6 +3635,12 @@ document.addEventListener("click", (e) => {
       render();
     }
     return;
+  }
+  // A play rests its beat; a tap on the raised hand's empty space brings
+  // the held cards' next plays back without changing the choice.
+  if (restedChoice && within(".play-dock") && !within(".card-frame")) {
+    restedChoice = null;
+    renderActions();
   }
   if (
     within(".play-dock, .card-frame, dialog, .topbar, .dialogue, .world-menu")

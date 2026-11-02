@@ -208,11 +208,8 @@ try {
     } else {
       assert.deepEqual(
         movement.clocks.sort((a, b) => a.target.localeCompare(b.target)),
-        [
-          { target: "action-panel", state: "running", duration: 220 },
-          { target: "hand", state: "running", duration: 220 },
-        ],
-        "the hand and action row both animate for 220 ms",
+        [{ target: "hand", state: "running", duration: 220 }],
+        "the hand animates for 220 ms",
       );
       assert(
         Math.abs(movement.immediate - movement.start) < 1,

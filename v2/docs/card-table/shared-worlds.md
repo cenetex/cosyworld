@@ -36,7 +36,7 @@ The existing Play buttons add an action to the room queue. A room holds four
 pending plays, including the current play. Each person has one pending play.
 Waiting plays can be withdrawn with **Cancel play**. The play's button reads
 as what the avatar is doing while it is sent and playing. A refusal names the
-server's reason on the action bar's status line. Nudge asks a present human for attention. People
+server's reason on the action beat's status line. Nudge asks a present human for attention. People
 can sit quietly while the scene runs. Presence has a 60-second reconnect grace;
 the avatar claim remains saved.
 

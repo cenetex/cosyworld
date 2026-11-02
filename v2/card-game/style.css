@@ -1411,33 +1411,9 @@ body .card.want-card[data-met="true"] {
   height: 64%;
   border-radius: 4px;
 }
-.action-panel {
-  pointer-events: auto;
-  text-align: center;
-  overflow: clip;
-}
-/* A ready or pending play's buttons sit under the dialogue, above the hand,
-   so nothing lies between the cards and the screen edge. The dock grows
-   upward, the hand stays put, and the dialogue rides on the dock's height.
-   This is also the spot for the action bar's status line (#1725). */
-.play-dock {
-  display: flex;
-  flex-direction: column;
-}
-.play-dock > .action-panel {
-  position: relative; /* above the hand's top room, so buttons get taps */
-  z-index: 1;
-  order: -1;
-  padding-bottom: 4px;
-}
-/* A strike or journey hides the buttons and keeps their room, so the hand
-   and the dialogue stay where they are. */
-.play-dock[data-covered="true"] > .action-panel {
-  visibility: hidden;
-}
-/* The action bar's status line: words only, never over the stage (#1725). */
+/* The action beat's status line: words only, never over the stage (#1725). */
 .play-status {
-  margin: 0 0 4px;
+  margin: 0;
   color: #f2e3c4;
   font-size: 13px;
   text-align: left;
@@ -1467,12 +1443,6 @@ body .card.want-card[data-met="true"] {
     15px/1.25 Georgia,
     serif;
   white-space: normal;
-}
-#card-actions button:first-child {
-  margin-left: auto;
-}
-#card-actions button:last-child {
-  margin-right: auto;
 }
 #card-actions button:hover {
   background: #3c3325;
@@ -1740,18 +1710,6 @@ body[data-hand-expanded="true"] .card .name {
       bottom 280ms ease-out,
       translate 280ms ease-in-out,
       opacity 280ms ease-in-out;
-  }
-  /* Beside a resting hand, the buttons sit under the dialogue, which rises
-     to make room for them. */
-  body[data-hand-expanded="false"] .play-dock > .action-panel {
-    position: fixed;
-    left: 22px;
-    bottom: max(18px, env(safe-area-inset-bottom));
-    width: min(calc(100% - var(--resting-hand-width) - 110px), 620px);
-  }
-  body[data-hand-expanded="false"]:has(.action-panel:not([hidden]))
-    .dialogue {
-    bottom: calc(max(22px, env(safe-area-inset-bottom)) + 52px);
   }
   @media (prefers-reduced-motion: reduce) {
     :root body[data-hand-expanded] .dialogue {

@@ -1,7 +1,8 @@
-// A ready play's buttons sit under the dialogue, above a hand that does not
-// move, and nothing between the hand and the screen edge clips its cards.
-// Vale takes the Burial Decree at the Theban Palace Forecourt (one "the" in
-// the caption) and offers it to Creon.
+// A ready play is a beat in front of the dialogue: what the play will do,
+// with its buttons. The spoken beat fades behind it, nothing sits between
+// the dialogue and the hand, and the hand never moves for it. Vale takes the
+// Burial Decree at the Theban Palace Forecourt (one "the" in the caption)
+// and offers it to Creon.
 import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
@@ -68,26 +69,52 @@ try {
           const r = e.getBoundingClientRect();
           return { top: r.top, bottom: r.bottom, left: r.left, right: r.right };
         });
-    // Every card's frame reaches the hand's foot: nothing cuts it short.
-    // The hand's top padding is clear room for a lean or a lift that rises
-    // under the action row; the row itself ends above the cards' row.
-    async function handUncut() {
-      const { clipped, handBottom } = await page.evaluate(() => {
-        const el = document.querySelector("#hand");
-        const hand = el.getBoundingClientRect();
-        const row = hand.top + parseFloat(getComputedStyle(el).paddingTop);
-        const panel = document.querySelector(".action-panel");
-        const p = panel.hidden ? null : panel.getBoundingClientRect();
+    const settled = () =>
+      page.waitForFunction(
+        () => !document.querySelector(".beat-ghost, .beat-card[data-motion]"),
+      );
+    // The action beat sits in front of the dialogue and takes the taps; the
+    // spoken beat, if any, peeks dimmed above it; the dock holds no row.
+    async function actionBeat(label) {
+      await settled();
+      const beat = await page.evaluate(() => {
+        const panel = document.querySelector(".action-panel"),
+          front = document.querySelector("#speech-row"),
+          button = panel.querySelector(".card-primary"),
+          p = panel.getBoundingClientRect(),
+          b = button.getBoundingClientRect(),
+          f = front.getBoundingClientRect(),
+          hit = document.elementFromPoint(
+            (b.left + b.right) / 2,
+            (b.top + b.bottom) / 2,
+          );
         return {
-          handBottom: hand.bottom,
-          clipped:
-            p &&
-            p.bottom > row + 1 &&
-            p.left < hand.right &&
-            p.right > hand.left,
+          inDialogue: Boolean(panel.closest(".dialogue")),
+          dockRow: document.querySelector(".play-dock .action-panel"),
+          heading: panel.querySelector(".action-beat-heading").textContent,
+          buttonInside: b.top >= p.top && b.bottom <= p.bottom + 1,
+          takesTaps: button.contains(hit),
+          spoken: !front.hidden,
+          peek: p.top - f.top,
+          dim: Number(getComputedStyle(front).opacity),
+          frontTaps: front.contains(
+            document.elementFromPoint((f.left + f.right) / 2, f.top + 4),
+          ),
         };
       });
-      assert(!clipped, "the action row overlaps the hand");
+      assert(beat.inDialogue && !beat.dockRow, `${label}: a dialogue beat`);
+      assert(beat.buttonInside, `${label}: its button is inside it`);
+      assert(beat.takesTaps, `${label}: its button takes taps`);
+      if (beat.spoken) {
+        assert(beat.peek > 12 && beat.peek <= 32, `${label}: ${beat.peek}`);
+        assert(beat.dim < 1, `${label}: the spoken beat is dimmed`);
+        assert(beat.frontTaps, `${label}: its peeking line takes taps`);
+      }
+      return beat;
+    }
+    // Every card's frame reaches the screen's foot: nothing cuts it short.
+    async function handUncut() {
+      const handBottom = (await box("#hand")).bottom;
       assert(handBottom >= height - 2, `hand ends at ${handBottom}`);
     }
     const shot = (name) =>
@@ -102,34 +129,21 @@ try {
     release?.();
     await page.waitForTimeout(800);
     release?.();
-    const restHand = await box("#hand");
     await handUncut();
     await shot("idle");
 
     await selectCard(page, "greek-decree");
     await page.locator("#card-actions .card-primary").waitFor();
-    await page.waitForTimeout(400);
-    const button = await box("#card-actions .card-primary"),
-      dialogue = await box(".dialogue"),
-      hand = await box("#hand"),
-      // The highest card, the chosen one lifted with its lean.
-      cardsTop = await page.evaluate(() =>
-        Math.min(
-          ...[
-            ...document.querySelectorAll("#hand .card-frame:not([hidden])"),
-          ].map((f) => f.getBoundingClientRect().top),
-        ),
-      );
-    assert(button.top >= dialogue.bottom - 1, "button under the dialogue");
-    assert(
-      button.bottom <= cardsTop + 1,
-      `button above the hand: ends ${button.bottom}, cards at ${cardsTop}`,
-    );
-    assert(button.bottom <= height, "button on screen");
-    assert(Math.abs(hand.bottom - restHand.bottom) < 2, "hand stays put");
+    const restHand = await box("#hand"),
+      restDialogue = await box(".dialogue");
+    const taking = await actionBeat("take");
+    assert.match(taking.heading, /^\s*Vale takes the Burial Decree/u);
+    // Selecting raised the hand; the beat appearing moves nothing more.
+    await page.waitForTimeout(300);
+    assert.deepEqual(await box("#hand"), restHand, "hand stays put");
+    assert.deepEqual(await box(".dialogue"), restDialogue, "dialogue stays");
     await handUncut();
     await shot("ready");
-
     await page.locator("#card-actions .card-primary").click();
     await page.waitForFunction(() =>
       [...document.querySelectorAll(".beat-caption, .dialogue")].some((e) =>
@@ -146,15 +160,8 @@ try {
     await selectCard(page, "greek-creon");
     const give = page.locator("#card-actions .card-primary");
     assert.match(await give.innerText(), /Give/);
-    await page.waitForTimeout(400);
-    const offer = await box("#card-actions .card-primary"),
-      spoken = await box(".dialogue");
-    // On phones and tablets the dialogue lies over the hand's foot (#1897),
-    // so the offer sits above it; elsewhere it sits under it.
-    assert(
-      offer.top >= spoken.bottom - 1 || offer.bottom <= spoken.top + 1,
-      `offer clear of the dialogue: ${JSON.stringify([offer, spoken])}`,
-    );
+    const offering = await actionBeat("give");
+    assert(offering.spoken, "the spoken beat waits behind the offer");
     await handUncut();
     await shot("ready-dialogue");
     await give.click();
