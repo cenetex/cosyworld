@@ -459,6 +459,7 @@ export function installAvatarMenu({
     // Signed out, Settings keeps New game for Vale's local table.
     const restart = $("new-game");
     if (restart) restart.hidden = shared;
+    if (!shared) return;
     const view = worldSlots({
       shared,
       rows,
@@ -514,9 +515,9 @@ export function installAvatarMenu({
       fresh.classList.add("slot-new");
       box.append(fresh);
     }
-    box.append(
-      stats(view, chosen || { id: here().actor, slot: view.slots[0].key }),
-    );
+    // With nothing tapped, the stats are yours in the world being played.
+    const shown = chosen || (view.slots[0]?.current && { id: here().actor });
+    if (shown) box.append(stats(view, { slot: view.slots[0].key, ...shown }));
   }
   menu.addEventListener("toggle", () => {
     if (!menu.matches(":popover-open")) {
