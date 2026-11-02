@@ -52,4 +52,3 @@ export function assertPlayerReachability(view, label, clientActions = null) {
     `${label}: the client hand needs a runnable dealt action`);
   }
 }
-
