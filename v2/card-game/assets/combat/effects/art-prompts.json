@@ -1,0 +1,150 @@
+{
+  "created": "2026-11-02",
+  "generator": "OpenAI built-in image generation",
+  "purpose": "First nine standoff effect designs from issue #1920, supplied as transparent single stills.",
+  "issue": "https://github.com/cenetex/cosyworld/issues/1920",
+  "assets": [
+    {
+      "id": "hit-1",
+      "file": "hit-1.png",
+      "generation_id": "exec-442e93b6-70e2-4207-8bd1-27f7b13e8ded",
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit / battle-effect family. Edit the supplied HIT-2 battle sprite into the requested companion, keeping its handmade ink-and-gouache technique, deep soot-brown contour, warm ivory and honey amber pigment, small blue-grey painted shadow accent, matte dry brush texture and genuine RGBA transparency. One isolated scalable still on a square 1024x1024 canvas, no background or other artwork. Exact contact point at canvas center. Preserve clear, unpainted transparent margins and transparent gaps. Bold clean silhouette readable at120px over warm amber interiors and moonlit blue sea. No full-canvas wash, checkerboard pixels, character, body parts, weapons, ground, shadow, lettering, labels, numbers, watermark, blood, red, neon, fire or scene. Do not crop the canvas.\nTarget: HIT-1, a SMALL glancing knock. Replace the pointed starburst with a soft compact irregular rounded ivory dust puff, lightly amber in its interior and inked along its uneven cloud-like rim. A few rounded lobes, two or three tiny short brush ticks to suggest a light bump. No sharp large rays, ring or dramatic debris. The whole puff and every tiny tick occupies only the central 50-55% of canvas width and height. It must be visibly gentler and smaller than the reference at exactly the same canvas size. It conveys a harmless moment of force and surprise, not smoke from a fire. The puff center is exactly the contact point.",
+      "references": [
+        {
+          "role": "effect-family style and edit reference",
+          "file": "hit-2.png",
+          "generation_id": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f"
+        }
+      ]
+    },
+    {
+      "id": "hit-2",
+      "file": "hit-2.png",
+      "generation_id": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f",
+      "transparent_background": true,
+      "prompt": "Use case: illustration-story. Asset type: ONE production-ready transparent 2D game battle-effect sprite, medium impact HIT-2, for CosyWorld's hand-painted storybook card-table squabbles.\nGenerate one isolated compact starburst at peak impact. Square 1024x1024 RGBA canvas, genuinely transparent background. No environment, character, fist, weapon, floor or shadow. The exact impact center is the canvas center. Keep all paint, detached chips and ink marks within the central 70 percent of the canvas with generous completely clear padding on all four sides. Do not crop or trim.\nSilhouette: an irregular, lively seven-to-nine-point ivory pressure star, a compact burst of force and surprise; broad brush-painted warm amber wedges inside; six or fewer distinct small soot ink splashes or angular flecks outside. Bold simple shapes, one coherent burst. A rough hand-inked deep brown-black outer contour and pale ivory fill must both remain readable when the sprite is shown only 120 pixels across over a warm amber attic or dark blue night sea.\nStyle: exquisite restrained storybook fantasy ink-and-gouache, slightly ragged dry-brush contours, visibly loose painterly washes inside the shape, matching delicately inked warm fantasy character portraits. Ivory, warm honey amber, soot black, a very small muted blue-grey shadow accent. Matte pigment, not glossy or vector-flat. Transparent gaps between rays and around every fleck. No full-canvas wash, no ambient glow rectangle, no photographic texture backdrop.\nNo blood, red, gore, injuries, fire, explosion cloud, smoke background, neon, lens flare, letters, numbers, icons inside the burst, watermarks, frames, text, checkerboard pixels or labels. This is a scalable still, not a sheet of frames. Preserve clean real alpha transparency and all negative space."
+    },
+    {
+      "id": "hit-3",
+      "file": "hit-3.png",
+      "generation_id": "exec-d7c7119c-c623-46f6-b32f-53d64195e5f7",
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit / battle-effect family. Edit the supplied HIT-2 battle sprite into the requested companion, keeping its handmade ink-and-gouache technique, deep soot-brown contour, warm ivory and honey amber pigment, small blue-grey painted shadow accent, matte dry brush texture and genuine RGBA transparency. One isolated scalable still on a square 1024x1024 canvas, no background or other artwork. Exact contact point at canvas center. Preserve clear, unpainted transparent margins and transparent gaps. Bold clean silhouette readable at120px over warm amber interiors and moonlit blue sea. No full-canvas wash, checkerboard pixels, character, body parts, weapons, ground, shadow, lettering, labels, numbers, watermark, blood, red, neon, fire or scene. Do not crop the canvas.\nTarget: HIT-3, a HEAVY impact. Replace the medium star with a broader, bolder jagged ivory-and-amber pressure burst, surrounded by ONE clearly visible broken circular shockwave ring and a few distinct flying pigment chips. Inner central burst about55% canvas width, outer ring about76%, no paint beyond central82% of canvas in either direction. The ring is a thin hand-inked imperfect circle, with transparent gaps and open transparent negative space between ring and burst; it must read as force, not a solid disk, planet, gear or explosion. About five substantial irregular chips, no fine particle noise. Keep all elements balanced around the exact canvas center; generous even transparent padding. Visually heavier than the supplied reference but the same quiet storybook pigment and line. No red, orange fire, weapon or letters.",
+      "references": [
+        {
+          "role": "effect-family style and edit reference",
+          "file": "hit-2.png",
+          "generation_id": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f"
+        }
+      ]
+    },
+    {
+      "id": "brace-raise",
+      "file": "brace-raise.png",
+      "generation_id": "exec-da0927ef-dc8a-4336-bc75-20c73b0d2ecd",
+      "transparent_background": true,
+      "prompt": "Use case: style-transfer.\nAsset type: CosyWorld combat overlay, brace-raise, one transparent square production sprite.\nInput image 1 is a STYLE REFERENCE ONLY: copy its tactile hand-inked, matte gouache brushwork, ragged dark soot contours and warm ivory contrast, not its burst shape or orange fire.\n\nCreate ONE intact frontal protective shield effect, centered exactly at canvas coordinates (0.5, 0.5). A simple broad rounded top, gently narrowing sides and one modest pointed bottom; a bold recognizable shield silhouette with no heraldry. This is a painted translucent barrier, not a metallic prop. Its irregular soot-black outer contour and slim warm-ivory inner edge should read over either a warm amber attic or a dark blue sea. Inside the rim, use a desaturated moonlight-blue translucent wash with subtle dry-brush texture: genuinely partly transparent pigment, no solid blue background panel. Restrained and reassuring, ready to absorb a blow. No damage, cracks, impact, ripples or broken pieces yet.\n\nComposition: square canvas. The shield's full visible paint, including all ragged edges, fits within the central 70–75 percent of the canvas height; its width is around 55–60 percent. Maintain completely transparent space on all four sides, never less than 6.25 percent of the canvas on any edge. Keep it upright, facing the viewer straight on, no perspective tilt. Balanced around the exact center, with even visual padding; no cropped paint. Bold few-part design readable when reduced to 120 pixels, and complete as one still frame.\n\nMedium: the reference's storybook soot ink and handmade matte gouache, irregular painterly edges, gentle ivory highlight and cool pale-blue wash. No photorealism, glossy 3D, chrome, neon or smooth vector geometry. A cosy fantasy squabble effect, no gore.\n\nCRITICAL: genuine transparent alpha background, including all outside space. Do not paint black, white, coloured, gradient, paper or checkerboard backing. Preserve semitransparency in the shield's blue interior. No people, body parts, weapons, handles, straps, ornaments, letters, numbers, runes, symbols, caption, border, floor, environment, cast shadow, glow cloud, sparks or additional effects. Output one single centered shield sprite only.",
+      "references": [
+        {
+          "role": "style reference",
+          "generation_id": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f",
+          "generated_file": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f.png"
+        }
+      ]
+    },
+    {
+      "id": "brace-absorb",
+      "file": "brace-absorb.png",
+      "generation_id": "exec-6070d4a0-e333-4c90-98ea-9681b1625710",
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit.\nAsset: corrected brace-absorb transparent combat sprite.\nInput image 1 is the EDIT TARGET and exact shape/alpha master: brace-raise, the pale-blue intact shield with genuinely translucent blue wash.\nInput image 2 is ONLY the ripple-and-short-cracks reference: the first brace-absorb version. Its blue face became almost opaque; do NOT copy that opacity.\n\nMake a precise correction: start from image 1 and add the contained central compression ripple from image 2 while retaining image 1's semi-transparent blue face. SAME exact square canvas, shield silhouette, size, center, soot-black contour, ivory border, pointed top/bottom, curved shoulders and original hand-painted texture. No camera, outline or positioning change. The face should carry the two broad curved ivory/blue ripple arcs and three short fine central cracks of image 2, clearly distinguishable at small game size, without breaking the rim or creating a hole. No fragments.\n\nThe crucial deliverable is REAL PARTIAL ALPHA in the blue face, not a painted impression of transparency. The blue interior must remain a thin translucent wash through which the eventual game background will be visible, like image 1: aim at alpha about 150–190/255 across broad blue areas; keep the dark outer contour and warm ivory rim strongly opaque. Let the ripple crest be a delicate higher-opacity stroke over the translucent wash, not an opaque white or blue sheet covering the face. The current correction is specifically to remove the unwanted almost-opaque blue fill from image 2. Preserve the original matte gouache colour and texture; no glass rendering, no glossy highlights, no neon glow.\n\nOutside the shield preserve actual transparent alpha. Every pixel of the outermost 8 percent of the square canvas must be fully alpha zero: no stray translucent speckles. No black, white, coloured, paper, gradient or checkerboard background. No text, letters, runes, symbols, heraldry, people, body parts, weapon, floor, environment, shadow, extra spark or new object. One frontal shield only, as a complete still, exact matched framing to image 1.",
+      "references": [
+        {
+          "role": "edit target and exact silhouette/translucency master",
+          "asset_id": "brace-raise",
+          "generation_id": "exec-da0927ef-dc8a-4336-bc75-20c73b0d2ecd",
+          "generated_file": "exec-da0927ef-dc8a-4336-bc75-20c73b0d2ecd.png"
+        },
+        {
+          "role": "ripple and short cracks reference only",
+          "generation_id": "exec-e9778f22-beb9-4909-ba83-7f25175abc4d",
+          "generated_file": "exec-e9778f22-beb9-4909-ba83-7f25175abc4d.png"
+        }
+      ],
+      "generation_history": [
+        {
+          "generation_id": "exec-e9778f22-beb9-4909-ba83-7f25175abc4d",
+          "prompt": "Use case: precise-object-edit, identity-preserve.\nAsset type: CosyWorld combat overlay, brace-absorb, one transparent square production sprite.\nInput image 1 is the APPROVED EDIT TARGET, brace-raise. Produce its matched absorption state, not a redesigned shield.\n\nPreserve the EXACT full square canvas, exact shield outer silhouette, scale, center, alignment, upper peak, curved shoulders, tapering sides, bottom point, ragged soot-black outline, slim warm-ivory border and the original desaturated moonlight-blue washed interior. Keep the same hand-inked matte gouache texture and real translucent alpha. The pair must swap in place without the shield jumping or changing identity. Do not crop, zoom, rotate, move, widen or shrink the shield. Preserve all empty margins.\n\nChange ONLY the inside of the shield to show one blow being absorbed at its exact center, canvas (0.5,0.5): a bold shallow compression dimple with TWO broad curved ivory-and-cool-blue ripple arcs spreading within the face, plus two or three short controlled dark hairline cracks confined close to the center. This is a flexible barrier briefly rippling and taking the force; the shield remains a continuous, intact closed shape. The ripple must be readable at 120 pixels as a clear difference from the calm raise state. Restrained matte ivory paint on the ripple crest, deeper desaturated blue beside it. Keep the palette and overall brightness close to the raise reference. No hole, no missing shard, no exploding fragment, no new exterior spikes. Do not shatter the rim. The effect must be understandable as a single still frame.\n\nCRITICAL: preserve genuine transparent alpha everywhere outside the paint, and partial transparency in the blue interior. The outermost 8 percent of every canvas edge must be completely empty alpha zero, including invisible low-opacity speckles. No black, white, coloured, paper, gradient or checkerboard backdrop. No glow cloud or cast shadow. No people, body parts, weapons, impact object, straps, handles, runes, letters, numbers, text, logo, heraldic emblem, environment, floor, border, sparks or extra effects. One shield only, same composition and dimensions as the reference.",
+          "references": [
+            {
+              "role": "edit target",
+              "asset_id": "brace-raise",
+              "generation_id": "exec-da0927ef-dc8a-4336-bc75-20c73b0d2ecd"
+            }
+          ],
+          "source_sha256": "2d6377f5c205bf0a294cd079990bb653d0eca234ad77d534944f7c4048361ff5",
+          "selected": false,
+          "revision_reason": "Silhouette and contained ripple were correct, but blue interior became almost opaque (central alpha251–254); final correction restores partial alpha to broad blue areas.",
+          "generated_file": "exec-e9778f22-beb9-4909-ba83-7f25175abc4d.png"
+        }
+      ]
+    },
+    {
+      "id": "swipe-left",
+      "file": "swipe-left.png",
+      "generation_id": "exec-b31399cc-da45-4bfd-8f50-f314fd4b098f",
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit. Produce SWIPE-LEFT, the matched opposite-direction companion of the supplied SWIPE-RIGHT CosyWorld battle-effect sprite. Make only a horizontal left/right reflection of the artwork: the blunt bright leading edge must now be on SCREEN LEFT and the tapering trailing strokes must extend to SCREEN RIGHT. Preserve the EXACT same silhouette, curve or straightness, proportions, occupied area, centered placement, canvas aspect ratio2:1, ink contour thickness, ivory and amber painterly pigment, tiny blue-grey accents, detached flecks, fine dry brush texture and genuine transparent alpha background. No redesign, no added flourish, no rotation, no tilt, no scaling, no cropping and no perspective change. The two assets must form a matched directional pair. Preserve all transparent negative space and padding; no painted checkerboard or full-canvas haze. One isolated scalable still, no characters, text, labels, arrows, weapons, blood, red, neon, scenery or background. Wide two-to-one RGBA canvas matching the provided reference.",
+      "references": [
+        {
+          "role": "matched direction edit target",
+          "file": "swipe-right.png",
+          "generation_id": "exec-520198e4-4c47-4296-ae07-00926fe89ba9"
+        }
+      ]
+    },
+    {
+      "id": "swipe-right",
+      "file": "swipe-right.png",
+      "generation_id": "exec-520198e4-4c47-4296-ae07-00926fe89ba9",
+      "transparent_background": true,
+      "prompt": "Use case: style-transfer companion sprite. Edit the provided CosyWorld effect-family reference into ONE directional battle trail, replacing the impact star entirely while retaining exactly its rough hand-inked soot-dark contours, warm ivory/honey-amber pigment washes, matte gouache texture and small muted blue-grey shadow accents. Output a wide landscape canvas at a TWO-TO-ONE aspect ratio, 1536x768, with real alpha transparency. This is one isolated effect overlay, not an illustration, scene or contact sheet. All paint and marks fully inside the canvas, with generous even clear transparent padding of at least 96px horizontally and48px vertically; entire effect centered at the canvas center. No opaque background, paper, full-canvas haze, drop shadow, glow rectangle or checkerboard pixels. The painted silhouette must read at200px wide against both warm amber floorboards and blue-black night sea. Few bold marks, no fine particle noise. No character, body parts, literal fist, weapon, blood, red, fire, neon, lettering, labels, numbers, watermark or border. No impact star, no separate target. Whole canvas centered and uncropped.\nTarget SWIPE-RIGHT: one powerful curved lunge smear sweeping to SCREEN RIGHT. A broad crescent brushstroke that arches shallowly upward across the middle of the canvas, with a firm rounded bright leading edge on the RIGHT, and three elegant progressively thinner curved tapering brush tails trailing to the LEFT. The bright ivory leading edge is thickest at about70% canvas width, level with the center. Curve the tails leftward toward20% width; keep open transparent space inside/below the arc. It should read as the quick curved motion of a harmless fantasy scuffle, never a scythe/blade or physical object. Predominantly ivory with amber inner wash and a rough dark ink edge; dynamic but clean and compact, about72% canvas width and45% height.",
+      "references": [
+        {
+          "role": "effect-family style and edit reference",
+          "file": "hit-2.png",
+          "generation_id": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f"
+        }
+      ]
+    },
+    {
+      "id": "jab-left",
+      "file": "jab-left.png",
+      "generation_id": "exec-3039c7aa-4b80-4b5b-b9f5-eddbb8c583be",
+      "transparent_background": true,
+      "prompt": "Use case: precise-object-edit. Produce JAB-LEFT, the matched opposite-direction companion of the supplied JAB-RIGHT CosyWorld battle-effect sprite. Make only a horizontal left/right reflection of the artwork: the blunt bright leading edge must now be on SCREEN LEFT and the tapering trailing strokes must extend to SCREEN RIGHT. Preserve the EXACT same silhouette, curve or straightness, proportions, occupied area, centered placement, canvas aspect ratio2:1, ink contour thickness, ivory and amber painterly pigment, tiny blue-grey accents, detached flecks, fine dry brush texture and genuine transparent alpha background. No redesign, no added flourish, no rotation, no tilt, no scaling, no cropping and no perspective change. The two assets must form a matched directional pair. Preserve all transparent negative space and padding; no painted checkerboard or full-canvas haze. One isolated scalable still, no characters, text, labels, arrows, weapons, blood, red, neon, scenery or background. Wide two-to-one RGBA canvas matching the provided reference.",
+      "references": [
+        {
+          "role": "matched direction edit target",
+          "file": "jab-right.png",
+          "generation_id": "exec-bf8cec26-c185-4b0e-b817-db7da99329a6"
+        }
+      ]
+    },
+    {
+      "id": "jab-right",
+      "file": "jab-right.png",
+      "generation_id": "exec-bf8cec26-c185-4b0e-b817-db7da99329a6",
+      "transparent_background": true,
+      "prompt": "Use case: style-transfer companion sprite. Edit the provided CosyWorld effect-family reference into ONE directional battle trail, replacing the impact star entirely while retaining exactly its rough hand-inked soot-dark contours, warm ivory/honey-amber pigment washes, matte gouache texture and small muted blue-grey shadow accents. Output a wide landscape canvas at a TWO-TO-ONE aspect ratio, 1536x768, with real alpha transparency. This is one isolated effect overlay, not an illustration, scene or contact sheet. All paint and marks fully inside the canvas, with generous even clear transparent padding of at least 96px horizontally and48px vertically; entire effect centered at the canvas center. No opaque background, paper, full-canvas haze, drop shadow, glow rectangle or checkerboard pixels. The painted silhouette must read at200px wide against both warm amber floorboards and blue-black night sea. Few bold marks, no fine particle noise. No character, body parts, literal fist, weapon, blood, red, fire, neon, lettering, labels, numbers, watermark or border. No impact star, no separate target. Whole canvas centered and uncropped.\nTarget JAB-RIGHT: a SHORT STRAIGHT punch trail moving to SCREEN RIGHT. A compact horizontal pressure smear centered across the canvas, roughly58% canvas width and25% height. Its blunt rounded ivory leading pressure mark is on the RIGHT at about70% canvas width; two or three short straight parallel brush streaks taper behind it to the LEFT at about25% width. It must feel quick, direct and smaller than a curved swipe, with almost no curvature. No arrowhead and no arrow symbol, no starburst, no broad crescent, no explosion, no fist. The ivory/amber painted core has ragged soot-black ink around its silhouette and a tiny blue-grey lower edge. Keep all floating ticks minimal and aligned horizontally. Generous transparent space above and below.",
+      "references": [
+        {
+          "role": "effect-family style and edit reference",
+          "file": "hit-2.png",
+          "generation_id": "exec-16ce5a8d-7e92-47ae-9a37-75179fbe0d5f"
+        }
+      ]
+    }
+  ]
+}

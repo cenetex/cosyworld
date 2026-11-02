@@ -36,6 +36,18 @@ const files = [
   // Rest card paintings for issue #1849; the rest-card feature follows.
   "assets/rest/short-rest.webp",
   "assets/rest/long-rest.webp",
+  // Standoff effect art for issue #1920; runtime overlays follow.
+  ...[
+    "hit-1",
+    "hit-2",
+    "hit-3",
+    "brace-raise",
+    "brace-absorb",
+    "swipe-left",
+    "swipe-right",
+    "jab-left",
+    "jab-right",
+  ].map((id) => `assets/combat/effects/${id}.png`),
   // Combat pose art, chosen by combat-portraits.mjs.
   ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].flatMap(
     (id) =>
