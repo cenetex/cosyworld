@@ -27,6 +27,8 @@ use std::{
 mod browser;
 #[path = "full_dedupe.rs"]
 mod dedupe;
+#[path = "full_retire.rs"]
+mod retire;
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
@@ -103,8 +105,13 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
             let u = user(&state, &h, false)?;
             let mut c = db(&state)?;
             if dedupe::pending(&c, &u)? {
-                if let Err(error) = dedupe_seats(&state, &mut c, &u) {
+                if let Err(error) = tidy(&state, &mut c, |tx| dedupe::run(tx, &u, now())) {
                     tracing::warn!(%error, "duplicate avatar seats kept for now");
+                }
+            }
+            if !retire::pending(&c, &u)?.is_empty() {
+                if let Err(error) = tidy(&state, &mut c, |tx| retire::sweep(tx, &u, now())) {
+                    tracing::warn!(%error, "empty worlds kept for now");
                 }
             }
             let mut value = super::store::list(&c, &u)?;
@@ -128,15 +135,20 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
         .await,
     )
 }
-// Legacy duplicate seats are emptied on the passkey's next list (full_dedupe.rs).
-fn dedupe_seats(state: &AppState, c: &mut rusqlite::Connection, u: &str) -> Result<()> {
+// The passkey's next list empties legacy duplicate seats (full_dedupe.rs)
+// and retires its empty worlds (full_retire.rs), each in one transaction.
+fn tidy(
+    state: &AppState,
+    c: &mut rusqlite::Connection,
+    f: impl FnOnce(&rusqlite::Connection) -> Result<usize>,
+) -> Result<()> {
     store::schema(c)?;
     let gate = writer(state);
     let _turn = turn(&gate);
     let tx = c
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(sql_error)?;
-    dedupe::run(&tx, u, now())?;
+    f(&tx)?;
     tx.commit().map_err(sql_error)
 }
 async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Create>) -> Response {
@@ -274,6 +286,7 @@ pub(super) fn view_as(state: &AppState, id: &str, u: &str, cursor: Option<&str>)
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(sql_error)?;
     let time = now();
+    retire::open(&tx, id)?;
     let mut w = store::world(&tx, id, time)?;
     store::expire(&tx, id, &mut w, time)?;
     let value = store::snapshot(&tx, id, u, time)?;
@@ -356,6 +369,7 @@ fn reset(
         return Err("Only this world's owner can free an avatar.".into());
     }
     vacate(c, id, w, a, time)?;
+    retire::if_empty(c, id, u, time)?;
     store::snapshot(c, id, u, time)
 }
 // A seat empties: it starts over for whoever takes that avatar here next,
@@ -395,6 +409,7 @@ fn leave_elsewhere(c: &rusqlite::Connection, id: &str, u: &str, a: usize, time: 
             }
             bindings::free(c, &other, a)?;
         }
+        retire::if_empty(c, &other, u, time)?;
     }
     Ok(())
 }
@@ -425,6 +440,7 @@ pub(super) fn run(
     b: &Command,
     time: i64,
 ) -> Result<Value> {
+    retire::open(c, id)?;
     let mut w = store::world(c, id, time)?;
     store::expire(c, id, &mut w, time)?;
     let member = super::store::member(c, id, u)?;
@@ -468,7 +484,11 @@ pub(super) fn run(
                     }
                 }
             }
-            "leave" | "release" => leave(c, id, &mut w, a, &b.op, time)?,
+            "leave" => leave(c, id, &mut w, a, &b.op, time)?,
+            "release" => {
+                leave(c, id, &mut w, a, &b.op, time)?;
+                retire::if_empty(c, id, u, time)?;
+            }
             "play" => {
                 if b.key.len() < 16
                     || b.key.len() > 80

@@ -57,6 +57,19 @@ pub(super) fn open_sqlite(path: &Path, busy_timeout: Duration) -> rusqlite::Resu
       CREATE INDEX IF NOT EXISTS card_scenes_room ON card_scenes(world,room,seq);
       CREATE TABLE IF NOT EXISTS card_nudges(world TEXT NOT NULL, target INTEGER NOT NULL, sender INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY(world,target));
     ")?;
+    // A world nobody is in retires (full_retire.rs): it leaves the list and
+    // the eight, and its journal and rows stay for replay.
+    let retired = c
+        .prepare("SELECT 1 FROM pragma_table_info('card_tables') WHERE name='retired_at'")?
+        .exists([])?;
+    if !retired {
+        if let Err(e) = c.execute("ALTER TABLE card_tables ADD COLUMN retired_at INTEGER", []) {
+            // Another connection added it first.
+            if !e.to_string().contains("duplicate column") {
+                return Err(e);
+            }
+        }
+    }
     // Current members are bound; an avatar released before bindings existed
     // was never recorded.
     if new_bindings {
@@ -203,7 +216,7 @@ pub(super) fn expire(c: &Connection, id: &str, w: &mut World, now: i64) -> Resul
 pub(super) fn create(c: &Connection, id: &str, user: &str, now: i64) -> Result<()> {
     let count: i64 = c
         .query_row(
-            "SELECT count(*) FROM card_tables WHERE owner=?",
+            "SELECT count(*) FROM card_tables WHERE owner=? AND retired_at IS NULL",
             [user],
             |r| r.get(0),
         )
@@ -223,7 +236,7 @@ pub(super) fn list(c: &Connection, user: &str) -> Result<Value> {
     // `bound` is the avatar this person returns as there (bindings.rs), and
     // `full` says every avatar there belongs to someone. `owner` marks the
     // person's own world slots, and `held` the seats someone holds (#1877).
-    let mut q=c.prepare("SELECT t.id,m.actor,(SELECT count(*) FROM card_members c WHERE c.world=t.id),b.actor,(SELECT count(*) FROM card_bindings f WHERE f.world=t.id),t.owner=?,(SELECT group_concat(actor) FROM card_members c WHERE c.world=t.id),(SELECT group_concat(actor) FROM card_bindings f WHERE f.world=t.id) FROM card_tables t LEFT JOIN card_members m ON m.world=t.id AND m.user=? LEFT JOIN card_bindings b ON b.world=t.id AND b.user=? WHERE t.owner=? OR m.user=? OR b.user=? ORDER BY t.created DESC LIMIT 64").map_err(err)?;
+    let mut q=c.prepare("SELECT t.id,m.actor,(SELECT count(*) FROM card_members c WHERE c.world=t.id),b.actor,(SELECT count(*) FROM card_bindings f WHERE f.world=t.id),t.owner=?,(SELECT group_concat(actor) FROM card_members c WHERE c.world=t.id),(SELECT group_concat(actor) FROM card_bindings f WHERE f.world=t.id) FROM card_tables t LEFT JOIN card_members m ON m.world=t.id AND m.user=? LEFT JOIN card_bindings b ON b.world=t.id AND b.user=? WHERE t.retired_at IS NULL AND (t.owner=? OR m.user=? OR b.user=?) ORDER BY t.created DESC LIMIT 64").map_err(err)?;
     let rows=q.query_map(params![user,user,user,user,user,user],|r|{
         let mut held=[0;8];
         for seats in [r.get::<_,Option<String>>(6)?,r.get::<_,Option<String>>(7)?].into_iter().flatten() {
