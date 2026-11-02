@@ -176,14 +176,29 @@ export function saveReflection(
 // speech they follow, so they never delay its line (#2016). The op names the
 // speech's turn and evidence; the check and the saved moments use that turn.
 // Each avatar's thoughts move forward: an older reflection arriving after a
-// newer one is no longer due.
+// newer one is no longer due. The op journals the scene's resting avatar and
+// rest kind; only the op's own actor can be resting, and only by a Wait the
+// log still holds for that turn, so a long rest wakes that one avatar.
+const restedAt = (world, actor, turn, rest) =>
+  world.log.some(
+    (e) =>
+      e.verb === "wait" &&
+      e.actorId === actor &&
+      e.turn === turn &&
+      (rest !== "long" || e.rest === "long"),
+  );
 export function applyLaterReflections(world, request) {
-  const { turn, entries, rest } = request;
+  const { turn, entries } = request;
+  const resting = request.resting ?? null;
+  const rest = request.rest ?? null;
   if (
     !Number.isInteger(turn) ||
     turn < 1 ||
     turn > world.turn ||
-    (rest !== undefined && rest !== null && rest !== "long") ||
+    (rest !== null && rest !== "long") ||
+    (rest === "long" && resting === null) ||
+    (resting !== null &&
+      (resting !== request.actor || !restedAt(world, resting, turn, rest))) ||
     !Array.isArray(entries) ||
     !entries.length ||
     entries.length > 2 ||
@@ -203,7 +218,7 @@ export function applyLaterReflections(world, request) {
       throw new Error("Use a reflection grounded in the saved scene.");
     const context = {
       turn,
-      resting: entry.id,
+      resting,
       ...(rest ? { rest } : {}),
       entities: [
         {

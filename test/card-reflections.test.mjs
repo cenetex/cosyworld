@@ -140,6 +140,8 @@ it("dates a later shared reflection to its speech and refuses stale ones", () =>
     },
   };
   const spoke = context.turn;
+  const scene = { resting: context.resting, rest: context.rest ?? null };
+  expect(scene.resting).toBe("vale");
   // Another play lands before the reflection does.
   const wait = dispatchShared({
     op: "view",
@@ -163,7 +165,11 @@ it("dates a later shared reflection to its speech and refuses stale ones", () =>
       ...shared,
       ...request,
     });
-  const done = reflect(later, { turn: spoke, entries: [entry] }).world;
+  const done = reflect(later, {
+    turn: spoke,
+    ...scene,
+    entries: [entry],
+  }).world;
   const life = done.memories.vale.innerLife;
   expect(life.thoughts.at(-1)).toEqual({
     turn: spoke,
@@ -179,20 +185,37 @@ it("dates a later shared reflection to its speech and refuses stale ones", () =>
   const { memories: _c, revision: _d, ...rulesBefore } = later;
   expect(rulesAfter).toEqual(rulesBefore);
   // Replays the same way, and a second copy is no longer due.
-  expect(reflect(later, { turn: spoke, entries: [entry] }).world).toEqual(done);
-  expect(() => reflect(done, { turn: spoke, entries: [entry] })).toThrow(
-    "Use a reflection grounded in the saved scene.",
-  );
+  expect(
+    reflect(later, { turn: spoke, ...scene, entries: [entry] }).world,
+  ).toEqual(done);
+  expect(() =>
+    reflect(done, { turn: spoke, ...scene, entries: [entry] }),
+  ).toThrow("Use a reflection grounded in the saved scene.");
   // A future turn, missing evidence, or a non-avatar is refused.
   expect(() =>
-    reflect(later, { turn: later.turn + 1, entries: [entry] }),
+    reflect(later, { ...scene, turn: later.turn + 1, entries: [entry] }),
   ).toThrow("Use the saved scene's character reflections.");
   for (const bad of [
     { ...entry, reflection: { ...entry.reflection, evidence: [999999] } },
     { ...entry, reflection: { ...entry.reflection, evidence: [] } },
     { ...entry, id: "station" },
   ])
-    expect(() => reflect(later, { turn: spoke, entries: [bad] })).toThrow();
+    expect(() =>
+      reflect(later, { turn: spoke, ...scene, entries: [bad] }),
+    ).toThrow();
+  // The journaled rest gates the thought: no resting avatar, another avatar,
+  // or a long rest the log does not hold is refused.
+  for (const bad of [
+    { resting: null, rest: null },
+    { resting: null, rest: "long" },
+    { resting: "moth", rest: null },
+    { resting: "vale", rest: "long" },
+    { resting: "vale", rest: "short" },
+  ])
+    expect(
+      () => reflect(later, { turn: spoke, ...bad, entries: [entry] }),
+      JSON.stringify(bad),
+    ).toThrow();
   // The world without the reflection is valid as it stands.
   expect(
     dispatchShared({ op: "validate", world: later, actor: "vale", ...shared })

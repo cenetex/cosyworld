@@ -400,7 +400,7 @@ impl World {
             // they move no one and may land after the speaker leaves.
             "reflect" => {
                 let mut request = self.request("reflect", a);
-                for key in ["turn", "rest", "entries"] {
+                for key in ["turn", "resting", "rest", "entries"] {
                     request[key] = command[key].clone();
                 }
                 let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;

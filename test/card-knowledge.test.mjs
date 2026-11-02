@@ -12,6 +12,9 @@ import {
   validKnowledge,
   validFactText,
   KNOWLEDGE_FACT_LIMIT,
+  GRIEVANCE_PIN_LIMIT,
+  GRIEVANCE_DORMANT_TURNS,
+  pinnedFacts,
   knowledgeFacts,
   ageText,
 } from "../v2/card-game/knowledge.mjs";
@@ -334,11 +337,92 @@ describe("saved public knowledge", () => {
     expect(Object.keys(w.knowledge.facts)).toHaveLength(KNOWLEDGE_FACT_LIMIT);
     expect(knowsFact(w, "moth", fight.id)).toBe(true);
     expect(w.knowledge.facts[next.id]).toBeUndefined();
-    // A gift that clears the grievance releases the pin.
+    // A grievance that is gone releases the pin. (A gift no longer clears
+    // one: a witnessed repair keeps it, dormant, with its pin.)
     w.motives.grievances.moth = [];
     source(w, { text: "Pip carried a last shell to the pond." });
     expect(w.knowledge.facts[fight.id]).toBeUndefined();
     expect(Object.keys(w.knowledge.facts)).toHaveLength(KNOWLEDGE_FACT_LIMIT);
+  });
+
+  it("caps grievance pins at half the store and keeps fresh news", () => {
+    // 66 avatars, each holding six grievances: 10 active, 20 dormant and 36
+    // repaired holders. Their incidents are the oldest news in the store.
+    const ids = Array.from({ length: 66 }, (_, i) => `a${i}`);
+    const w = {
+      ...bare(),
+      turn: 100,
+      actors: Object.fromEntries(ids.map((id) => [id, { place: "station" }])),
+      motives: { version: 1, grievances: {} },
+    };
+    const status = (h) => (h < 10 ? "active" : h < 30 ? "dormant" : "repaired");
+    let seq = w.eventSeq;
+    const plays = [];
+    // Insert holders in reverse so output never leans on key order.
+    for (let h = 65; h >= 0; h--) w.motives.grievances[ids[h]] = [];
+    ids.forEach((holder, h) => {
+      for (let i = 0; i < 6; i++) {
+        const other = ids[(h + i + 1) % 66];
+        const incident = `event:${++seq}`;
+        plays.push({ holder, other });
+        w.motives.grievances[holder].push({
+          other,
+          kind: "threat",
+          reason: "A fight.",
+          turn: 0,
+          weight: 1,
+          incident,
+          repaired: status(h) === "repaired",
+          lastTouched:
+            status(h) === "active"
+              ? w.turn - (h % 5)
+              : w.turn - GRIEVANCE_DORMANT_TURNS - h * 6 - i,
+        });
+      }
+    });
+    plays.forEach(({ holder, other }, k) =>
+      expect(
+        source(w, {
+          actorId: other,
+          cast: [other],
+          witnesses: [holder, other],
+          text: `Fight number ${k} broke out by the pond.`,
+        })?.id,
+      ).toBe(`event:${seq - plays.length + k + 1}`),
+    );
+    const fresh = Array.from({ length: 100 }, (_, k) =>
+      source(w, {
+        actorId: "a0",
+        cast: ["a0"],
+        witnesses: ["a0"],
+        text: `Pip carried fresh shell ${k} to the pond.`,
+      }),
+    );
+    const facts = w.knowledge.facts;
+    expect(Object.keys(facts)).toHaveLength(KNOWLEDGE_FACT_LIMIT);
+    expect(fresh.every((f) => facts[f.id])).toBe(true);
+    const pinned = pinnedFacts(w);
+    expect(pinned.size).toBe(GRIEVANCE_PIN_LIMIT);
+    const kept = (h) =>
+      w.motives.grievances[ids[h]].filter(
+        (g) => facts[g.incident] && pinned.has(g.incident),
+      ).length;
+    // Every active grievance keeps its evidence; dormant ones keep theirs by
+    // most recent touch; no repaired one holds a pin while others need it.
+    // (The newest unpinned incidents survive by age alone.)
+    for (let h = 0; h < 10; h++) expect(kept(h), ids[h]).toBe(6);
+    const dormant = Array.from({ length: 20 }, (_, d) => kept(10 + d));
+    expect(dormant.reduce((n, k) => n + k, 0)).toBe(GRIEVANCE_PIN_LIMIT - 60);
+    expect(dormant).toEqual([...dormant].sort((a, b) => b - a));
+    expect(dormant[0]).toBe(6);
+    expect(dormant.at(-1)).toBe(0);
+    for (let h = 30; h < 66; h++) expect(kept(h), ids[h]).toBe(0);
+    // The same grievances in another key order pin the same facts.
+    const shuffled = structuredClone(w);
+    shuffled.motives.grievances = Object.fromEntries(
+      Object.entries(w.motives.grievances).reverse(),
+    );
+    expect([...pinnedFacts(shuffled)].sort()).toEqual([...pinned].sort());
   });
 
   it("still bounds the store when every aging fact is grievance evidence", () => {

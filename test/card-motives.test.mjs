@@ -26,6 +26,7 @@ import {
 } from "../v2/card-game/knowledge.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { cardPlay } from "../v2/card-game/cards.mjs";
+import { stayingWith } from "../v2/card-game/life.mjs";
 
 const fresh = () => enableMotives(createWorld());
 // A slight taken from the latest committed event.
@@ -208,6 +209,77 @@ describe("shore wants and grievances", () => {
       lastTouched: GRIEVANCE_DORMANT_TURNS,
     });
     expect(resentment(s, "keeper", "vale")).toBe(3);
+  });
+
+  it("lets friendly company keep an active grudge on mind but never wake a dormant one", () => {
+    let s = together(fresh());
+    s.actors.moth.want = {
+      kind: "place",
+      target: "pond",
+      since: 0,
+      refusals: 0,
+    };
+    slight(s, { kind: "threaten", actor: "vale", target: "moth" }, [
+      "moth",
+      "vale",
+    ]);
+    const [g] = s.motives.grievances.moth;
+    s.turn = s.revision = GRIEVANCE_DORMANT_TURNS + 3;
+    expect(resentment(s, "moth", "vale")).toBe(0);
+    expect(accompanyDecision(s, "vale", "moth", "pond").accepted).toBe(true);
+    s = act(s, "accompany", { target: "moth", destination: "pond" });
+    expect(s.log.findLast((e) => e.verb === "accompany").accepted).toBe(true);
+    // The accepted journey neither touches nor wakes the dormant grudge,
+    // so Pip stays with Vale.
+    expect(s.motives.grievances.moth[0]).toMatchObject({
+      lastTouched: g.lastTouched,
+      weight: 1,
+    });
+    expect(resentment(s, "moth", "vale")).toBe(0);
+    expect(stayingWith(s, "moth")).toBe("vale");
+    // While a grudge is still active, the same contact keeps it on mind.
+    const t = together(fresh());
+    slight(t, { kind: "threaten", actor: "vale", target: "moth" }, [
+      "moth",
+      "vale",
+    ]);
+    t.turn = t.revision = 5;
+    recordReaction(
+      t,
+      { kind: "give", actor: "vale", target: "moth" },
+      ["moth", "vale"],
+      false,
+      { seq: t.eventSeq },
+    );
+    expect(t.motives.grievances.moth[0].lastTouched).toBe(5);
+  });
+
+  it("wakes a dormant grudge from its floor only by a new hostile incident", () => {
+    let s = together(fresh());
+    slight(s, { kind: "threaten", actor: "vale", target: "moth" }, [
+      "moth",
+      "vale",
+    ]);
+    s.motives.grievances.moth[0].repaired = true;
+    s.turn = s.revision = 2;
+    // A repaired grudge stays closed through a friendly gift.
+    recordReaction(
+      s,
+      { kind: "give", actor: "vale", target: "moth" },
+      ["moth", "vale"],
+      true,
+      { seq: s.eventSeq },
+    );
+    expect(s.motives.grievances.moth[0]).toMatchObject({
+      repaired: true,
+      lastTouched: 0,
+    });
+    s.turn = s.revision = GRIEVANCE_DORMANT_TURNS + 3;
+    s = act(s, "threaten", { target: "moth" });
+    expect(s.motives.grievances.moth).toMatchObject([
+      { weight: 2, repaired: false, lastTouched: s.turn },
+    ]);
+    expect(resentment(s, "moth", "vale")).toBe(2);
   });
 
   it("rejects malformed and oversized grievance state", () => {

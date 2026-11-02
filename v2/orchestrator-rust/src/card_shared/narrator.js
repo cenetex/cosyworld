@@ -52,21 +52,37 @@
     );
     return owns(known, fact.id);
   }
-  function grievanceEvidence(world, fact) {
-    const s = fact.source;
-    if (s.kind !== "event") return false;
-    return Object.entries(world.motives?.grievances || {}).some(
-      ([holder, list]) => list.some(
-        (g) => g.incident ? g.incident === fact.id : g.other === s.actorId && g.turn === s.turn && s.witnesses.includes(holder)
-      )
+  var GRIEVANCE_PIN_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
+  function pinnedFacts(world) {
+    const facts = world.knowledge?.facts || {};
+    const byPlay = {};
+    for (const f of Object.values(facts).sort(compareFacts))
+      if (f.source.kind === "event")
+        (byPlay[`${f.source.actorId}|${f.source.turn}`] ??= []).push(f);
+    const rank = (g) => g.repaired ? 2 : grievanceActive(world, g) ? 0 : 1;
+    const grievances = world.motives?.grievances || {};
+    const standing = Object.keys(grievances).sort().flatMap((holder) => grievances[holder].map((g, i) => ({ holder, g, i }))).sort(
+      (a, b) => rank(a.g) - rank(b.g) || (b.g.lastTouched ?? b.g.turn) - (a.g.lastTouched ?? a.g.turn) || a.holder.localeCompare(b.holder) || a.i - b.i
     );
+    const pinned = /* @__PURE__ */ new Set();
+    for (const { holder, g } of standing) {
+      const evidence = g.incident ? owns(facts, g.incident) ? [facts[g.incident]] : [] : (byPlay[`${g.other}|${g.turn}`] || []).filter(
+        (f) => f.source.witnesses.includes(holder)
+      );
+      for (const f of evidence) {
+        if (pinned.size >= GRIEVANCE_PIN_LIMIT) return pinned;
+        if (f.source.kind === "event") pinned.add(f.id);
+      }
+    }
+    return pinned;
   }
   function retainFact(world, fact) {
     const knowledge = world.knowledge;
     if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
-    const eventFacts = Object.values(knowledge.facts).filter((f) => f.source.kind !== "topic").sort(compareFacts);
     if (Object.keys(knowledge.facts).length >= KNOWLEDGE_FACT_LIMIT) {
-      const old = [...eventFacts].reverse().find((f) => !grievanceEvidence(world, f)) || eventFacts.at(-1);
+      const eventFacts = Object.values(knowledge.facts).filter((f) => f.source.kind !== "topic").sort(compareFacts);
+      const pinned = pinnedFacts(world);
+      const old = [...eventFacts].reverse().find((f) => !pinned.has(f.id)) || eventFacts.at(-1);
       if (!old) return null;
       delete knowledge.facts[old.id];
       for (const known of Object.values(knowledge.known)) delete known[old.id];

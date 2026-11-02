@@ -137,35 +137,58 @@ function remember(world, actor, fact, kind, teller, eventSeq, learnedTurn) {
 
 // A standing grievance keeps the witnessed incident it was taken from, by
 // its id. Saves from before #2020 kept no id: there the incident is the event
-// its other avatar did on the grievance's turn, seen by its holder. The pin
-// lasts exactly as long as the grievance does, dormant or repaired.
-export function grievanceEvidence(world, fact) {
-  const s = fact.source;
-  if (s.kind !== "event") return false;
-  return Object.entries(world.motives?.grievances || {}).some(
-    ([holder, list]) =>
-      list.some((g) =>
-        g.incident
-          ? g.incident === fact.id
-          : g.other === s.actorId &&
-            g.turn === s.turn &&
-            s.witnesses.includes(holder),
-      ),
-  );
+// its other avatar did on the grievance's turn, seen by its holder. Pins take
+// at most half the store. Active grievances keep their evidence first, then
+// dormant ones by most recent touch; repaired ones are released first.
+export const GRIEVANCE_PIN_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
+export function pinnedFacts(world) {
+  const facts = world.knowledge?.facts || {};
+  const byPlay = {};
+  for (const f of Object.values(facts).sort(compareFacts))
+    if (f.source.kind === "event")
+      (byPlay[`${f.source.actorId}|${f.source.turn}`] ??= []).push(f);
+  const rank = (g) => (g.repaired ? 2 : grievanceActive(world, g) ? 0 : 1);
+  const grievances = world.motives?.grievances || {};
+  const standing = Object.keys(grievances)
+    .sort()
+    .flatMap((holder) => grievances[holder].map((g, i) => ({ holder, g, i })))
+    .sort(
+      (a, b) =>
+        rank(a.g) - rank(b.g) ||
+        (b.g.lastTouched ?? b.g.turn) - (a.g.lastTouched ?? a.g.turn) ||
+        a.holder.localeCompare(b.holder) ||
+        a.i - b.i,
+    );
+  const pinned = new Set();
+  for (const { holder, g } of standing) {
+    const evidence = g.incident
+      ? owns(facts, g.incident)
+        ? [facts[g.incident]]
+        : []
+      : (byPlay[`${g.other}|${g.turn}`] || []).filter((f) =>
+          f.source.witnesses.includes(holder),
+        );
+    for (const f of evidence) {
+      if (pinned.size >= GRIEVANCE_PIN_LIMIT) return pinned;
+      if (f.source.kind === "event") pinned.add(f.id);
+    }
+  }
+  return pinned;
 }
 
 function retainFact(world, fact) {
   const knowledge = world.knowledge;
   if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
   // Authored facts keep their stable identity. Event and ending news ages in
-  // source order, skipping evidence under a standing grievance. If every
-  // aging fact is evidence, the oldest goes anyway so the store stays bounded.
-  const eventFacts = Object.values(knowledge.facts)
-    .filter((f) => f.source.kind !== "topic")
-    .sort(compareFacts);
+  // source order, skipping pinned grievance evidence. If every aging fact is
+  // pinned, the oldest goes anyway so the store stays bounded.
   if (Object.keys(knowledge.facts).length >= KNOWLEDGE_FACT_LIMIT) {
+    const eventFacts = Object.values(knowledge.facts)
+      .filter((f) => f.source.kind !== "topic")
+      .sort(compareFacts);
+    const pinned = pinnedFacts(world);
     const old =
-      [...eventFacts].reverse().find((f) => !grievanceEvidence(world, f)) ||
+      [...eventFacts].reverse().find((f) => !pinned.has(f.id)) ||
       eventFacts.at(-1);
     if (!old) return null;
     delete knowledge.facts[old.id];

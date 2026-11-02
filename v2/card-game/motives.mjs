@@ -161,14 +161,16 @@ export function recordReaction(s, a, witnesses, accepted, entry) {
       });
     s.motives.grievances[id] = list.slice(-6);
   };
-  // News between the pair, seen by both, keeps their grievances on mind.
+  // News between the pair, seen by both, keeps an active grievance on mind.
+  // Only a new incident (below) wakes a dormant or repaired one: friendly
+  // contact never brings an old grudge back.
   if (touchVerbs.includes(a.kind) && witnesses.includes(a.target))
     for (const [holder, other] of [
       [a.actor, a.target],
       [a.target, a.actor],
     ])
       for (const g of s.motives.grievances[holder] || [])
-        if (g.other === other) g.lastTouched = s.turn;
+        if (g.other === other && grievanceActive(s, g)) g.lastTouched = s.turn;
   // Grievances a resident takes from a witnessed play are profile data.
   for (const [id, rules] of grievanceRules)
     for (const rule of rules)

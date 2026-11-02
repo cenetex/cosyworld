@@ -92,21 +92,37 @@
     );
     return owns(known, fact.id);
   }
-  function grievanceEvidence(world, fact) {
-    const s = fact.source;
-    if (s.kind !== "event") return false;
-    return Object.entries(world.motives?.grievances || {}).some(
-      ([holder2, list]) => list.some(
-        (g) => g.incident ? g.incident === fact.id : g.other === s.actorId && g.turn === s.turn && s.witnesses.includes(holder2)
-      )
+  var GRIEVANCE_PIN_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
+  function pinnedFacts(world) {
+    const facts = world.knowledge?.facts || {};
+    const byPlay = {};
+    for (const f of Object.values(facts).sort(compareFacts))
+      if (f.source.kind === "event")
+        (byPlay[`${f.source.actorId}|${f.source.turn}`] ??= []).push(f);
+    const rank = (g) => g.repaired ? 2 : grievanceActive(world, g) ? 0 : 1;
+    const grievances = world.motives?.grievances || {};
+    const standing = Object.keys(grievances).sort().flatMap((holder2) => grievances[holder2].map((g, i) => ({ holder: holder2, g, i }))).sort(
+      (a, b) => rank(a.g) - rank(b.g) || (b.g.lastTouched ?? b.g.turn) - (a.g.lastTouched ?? a.g.turn) || a.holder.localeCompare(b.holder) || a.i - b.i
     );
+    const pinned = /* @__PURE__ */ new Set();
+    for (const { holder: holder2, g } of standing) {
+      const evidence = g.incident ? owns(facts, g.incident) ? [facts[g.incident]] : [] : (byPlay[`${g.other}|${g.turn}`] || []).filter(
+        (f) => f.source.witnesses.includes(holder2)
+      );
+      for (const f of evidence) {
+        if (pinned.size >= GRIEVANCE_PIN_LIMIT) return pinned;
+        if (f.source.kind === "event") pinned.add(f.id);
+      }
+    }
+    return pinned;
   }
   function retainFact(world, fact) {
     const knowledge = world.knowledge;
     if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
-    const eventFacts = Object.values(knowledge.facts).filter((f) => f.source.kind !== "topic").sort(compareFacts);
     if (Object.keys(knowledge.facts).length >= KNOWLEDGE_FACT_LIMIT) {
-      const old = [...eventFacts].reverse().find((f) => !grievanceEvidence(world, f)) || eventFacts.at(-1);
+      const eventFacts = Object.values(knowledge.facts).filter((f) => f.source.kind !== "topic").sort(compareFacts);
+      const pinned = pinnedFacts(world);
+      const old = [...eventFacts].reverse().find((f) => !pinned.has(f.id)) || eventFacts.at(-1);
       if (!old) return null;
       delete knowledge.facts[old.id];
       for (const known of Object.values(knowledge.known)) delete known[old.id];
@@ -4512,7 +4528,7 @@
         [a.target, a.actor]
       ])
         for (const g of s.motives.grievances[holder2] || [])
-          if (g.other === other) g.lastTouched = s.turn;
+          if (g.other === other && grievanceActive(s, g)) g.lastTouched = s.turn;
     }
     for (const [id, rules] of grievanceRules)
       for (const rule of rules)
@@ -7876,9 +7892,14 @@
       dreams: r.dream ? [...previous.dreams, { turn, text: r.dream }].slice(-4) : previous.dreams
     };
   }
+  var restedAt = (world, actor, turn, rest2) => world.log.some(
+    (e) => e.verb === "wait" && e.actorId === actor && e.turn === turn && (rest2 !== "long" || e.rest === "long")
+  );
   function applyLaterReflections(world, request) {
-    const { turn, entries, rest: rest2 } = request;
-    if (!Number.isInteger(turn) || turn < 1 || turn > world.turn || rest2 !== void 0 && rest2 !== null && rest2 !== "long" || !Array.isArray(entries) || !entries.length || entries.length > 2 || new Set(entries.map((e) => e?.id)).size !== entries.length)
+    const { turn, entries } = request;
+    const resting2 = request.resting ?? null;
+    const rest2 = request.rest ?? null;
+    if (!Number.isInteger(turn) || turn < 1 || turn > world.turn || rest2 !== null && rest2 !== "long" || rest2 === "long" && resting2 === null || resting2 !== null && (resting2 !== request.actor || !restedAt(world, resting2, turn, rest2)) || !Array.isArray(entries) || !entries.length || entries.length > 2 || new Set(entries.map((e) => e?.id)).size !== entries.length)
       throw new Error("Use the saved scene's character reflections.");
     for (const entry of entries) {
       const memory = world.memories[entry.id];
@@ -7891,7 +7912,7 @@
         throw new Error("Use a reflection grounded in the saved scene.");
       const context = {
         turn,
-        resting: entry.id,
+        resting: resting2,
         ...rest2 ? { rest: rest2 } : {},
         entities: [
           {

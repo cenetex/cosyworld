@@ -446,18 +446,24 @@ longer delay or fail its line
   is journaled and shown as soon as the lines pass validation.
 - Afterwards, outside the scene's capacity, the server asks for the due
   thought, persona and dream of each avatar that spoke
-  (`card_shared/full_reflect.rs`). They have their own capacity of two. Only
-  the same seat's next scene cancels an unfinished one; another player's
-  scene never does. The world's next play does not wait for them.
+  (`card_shared/full_reflect.rs`). They have their own capacity of two and
+  wait at most 20 seconds for it. Each seat counts its scenes; a reflection
+  is dropped once its own seat's count moves, even while it waits, so only
+  the same seat's next scene cancels it and another player's never does. The
+  world's next play does not wait for them.
 - They are journaled as one later command:
-  `{"op":"reflect","actor","play","turn","rest","entries":[{"id","reflection"}]}`.
-  `turn` is the speech's turn and each reflection's `evidence` lists its source
+  `{"op":"reflect","actor","play","turn","resting","rest","entries":[{"id","reflection"}]}`.
+  `turn` is the speech's turn, `resting` and `rest` the scene's resting
+  avatar and rest kind, and each reflection's `evidence` lists its source
   events. The rules (`applyLaterReflections` in `reflections.mjs`) refuse a
-  turn after the world's, evidence the avatar did not witness by then, or a
-  reflection no longer due. A thought older than the avatar's newest one is
+  turn after the world's, a resting avatar other than the op's actor or one
+  with no Wait (or long rest) in the log on that turn, evidence the avatar did
+  not witness by then, or a reflection no longer due. Only the resting avatar
+  can be due a thought, and a long rest wakes only that avatar. A thought older than the avatar's newest one is
   never due. Saved thoughts, dreams and revisions carry the speech's turn.
 - The server writes at most one `reflect` per play, only after that play's
-  `speech` record, and only for rules that take it. A retry finds the earlier
+  `speech` record, and only for rules that take it (read from the live world
+  when it commits). A retry finds the earlier
   record and stops.
 - A reflection that fails, is cancelled, or is refused is simply absent. The
   world is valid without it. The op changes only the avatar's private memory

@@ -2389,7 +2389,7 @@ fn mentions(text: &str, name: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use axum::{
         body::{to_bytes, Body},
@@ -3495,7 +3495,7 @@ mod tests {
         server.abort();
     }
 
-    pub(super) fn plain_provider(
+    pub(crate) fn plain_provider(
         seen: Arc<Mutex<Vec<Value>>>,
         reply: impl Fn(&Value, &str) -> String + Clone + Send + Sync + 'static,
     ) -> Router {
@@ -3518,7 +3518,7 @@ mod tests {
         )
     }
 
-    fn stem_reply(stem: &str) -> String {
+    pub(crate) fn stem_reply(stem: &str) -> String {
         if stem.ends_with(", to myself:") {
             "I felt welcome.".into()
         } else if stem.ends_with(", who I am now:") {
@@ -4433,7 +4433,7 @@ mod tests {
         assert_eq!(in_flight.count(b), 0);
     }
 
-    pub(super) fn test_config(address: SocketAddr) -> AiConfig {
+    pub(crate) fn test_config(address: SocketAddr) -> AiConfig {
         AiConfig {
             api_key: "test-secret".into(),
             base_url: format!("http://{address}"),
@@ -4695,7 +4695,7 @@ mod tests {
         server.abort();
     }
     /// Serves a mock provider on a loopback port.
-    pub(super) async fn serve(provider: Router) -> (SocketAddr, tokio::task::JoinHandle<()>) {
+    pub(crate) async fn serve(provider: Router) -> (SocketAddr, tokio::task::JoinHandle<()>) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let server = tokio::spawn(async move {

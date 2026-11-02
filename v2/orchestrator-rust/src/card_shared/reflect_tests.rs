@@ -133,3 +133,58 @@ fn refused_or_orphan_reflections_leave_the_world_whole() {
     };
     assert!(old.apply(&orphan).is_err());
 }
+
+// The whole path a shared reflection takes: after the line is journaled,
+// `spawn` asks the provider and journals one `reflect` row for the resting
+// speaker, dated to its speech, and a newer scene for the seat cancels it.
+#[tokio::test(flavor = "multi_thread")]
+async fn spawn_journals_the_reflection_after_its_line() {
+    use crate::routes::card_game::narrative::tests::{
+        plain_provider, serve, stem_reply, test_config,
+    };
+    let (path, mut c, id) = fixture();
+    claim(&mut c, &id, 0);
+    let mut w = full_store::world(&c, &id, now()).unwrap();
+    let snuff = home_action(&w, 0, "snuff");
+    let snuff = json!({"op":"play","actor":"vale","action":snuff});
+    full_store::commit(&c, &id, &mut w, snuff, now()).unwrap();
+    let mut queued = body("play", None);
+    queued.key = "reflect-after-spawned-speech".into();
+    queued.action = home_action(&full_store::world(&c, &id, now()).unwrap(), 0, "wait");
+    full::run(&c, &id, "user0", &queued, now()).unwrap();
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let (address, server) = serve(plain_provider(seen, |_, stem| stem_reply(stem))).await;
+    let mut app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    app.ai_config = std::sync::Arc::new(Some(test_config(address)));
+    let work = full::take_work(&app, &id).unwrap().unwrap();
+    let (_, ids) = full_speech::prepared(0, &work.context).unwrap();
+    let entries: Vec<_> = ids
+        .iter()
+        .map(|id| json!({"id":id,"text":if id=="vale" {"I can see the shore."} else {"Mist gathers."}}))
+        .collect();
+    let raw = json!({ "entries": entries }).to_string();
+    let lines = full_speech::parse(&raw, "stop", &work.context, 0, &ids).unwrap();
+    full::finish_work(&app, &id, work.clone(), Ok(lines.clone())).unwrap();
+    // A newer scene for the same seat drops a reflection still in flight.
+    full::reflect::spawn(app.clone(), id.clone(), work.clone(), &lines);
+    full::reflect::replace(&id, 0);
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    assert_eq!(reflect_count(&c, &id), 0);
+    full::reflect::spawn(app.clone(), id.clone(), work.clone(), &lines);
+    for _ in 0..100 {
+        if reflect_count(&c, &id) > 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    assert_eq!(reflect_count(&c, &id), 1);
+    let row: String = c
+        .query_row("SELECT command FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='reflect'", [&id], |r| r.get(0))
+        .unwrap();
+    let row: Value = serde_json::from_str(&row).unwrap();
+    assert_eq!(row["resting"], "vale");
+    assert_eq!(row["turn"], work.context["turn"]);
+    let life = &full_store::world(&c, &id, now()).unwrap().game["memories"]["vale"]["innerLife"];
+    assert_eq!(life["thoughts"][0]["turn"], work.context["turn"]);
+    server.abort();
+}
