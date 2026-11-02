@@ -233,6 +233,12 @@ them and replay never reads the table. Once nobody is left to find, a passkey
 with a world makes no new one: "Everyone is found." The world list returns
 `unlocked`, and `seek` journals the quest to talk to the hidden avatar.
 
+A committed play's `unlock` line adds the avatar for the passkey bound to the
+talker's seat, idempotently, and opens that avatar's own world for them in the
+same transaction, which hides the next locked avatar. With eight open worlds
+the unlock stays and the world waits; a failed opening rolls back to a
+savepoint and leaves the play committed. Replay never writes the table.
+
 ## Saving, replay, and earlier worlds
 
 Sharing validates the host's current save. It keeps the source browser save and
