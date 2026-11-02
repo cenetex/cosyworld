@@ -52,6 +52,21 @@ function snapshot() {
     history: [],
   };
 }
+async function waitForMenu(page, open) {
+  await page.locator("#world-menu").waitFor({
+    state: open ? "visible" : "hidden",
+  });
+  // Native visibility changes before the queued toggle event updates ARIA.
+  await page.waitForFunction(
+    (open) =>
+      document.getElementById("world-menu")?.matches(":popover-open") ===
+        open &&
+      document
+        .getElementById("toolbar-menu-button")
+        ?.getAttribute("aria-expanded") === String(open),
+    open,
+  );
+}
 try {
   for (const [width, height] of [
     [1440, 900],
@@ -123,10 +138,23 @@ try {
       path: new URL(`toolbar-${width}.png`, output).pathname,
     });
     const menuToggle = toggle;
+    const originalMenu = await page.locator("#world-menu").elementHandle();
+    const saved = await page.evaluate(() =>
+      localStorage.getItem("cosyworld.reflected-shore.v1"),
+    );
+    // Reproduce the reported missing popover target without changing the save.
+    await originalMenu.evaluate((element) => element.remove());
+    assert.equal(await page.locator("#world-menu").count(), 0);
     await menuToggle.focus();
     await page.keyboard.press("Enter");
     const menu = page.locator("#world-menu");
-    await menu.waitFor({ state: "visible" });
+    await waitForMenu(page, true);
+    assert(
+      await menu.evaluate(
+        (element, original) => element === original,
+        originalMenu,
+      ),
+    );
     assert.deepEqual(
       await menu.locator(".menu-tools button").allTextContents(),
       ["Memory", "Invite", "Settings"],
@@ -189,11 +217,19 @@ try {
     // A real pointer press outside the popover performs light dismissal,
     // and the beat leaves with it.
     await page.mouse.click(5, 100);
-    await menu.waitFor({ state: "hidden" });
+    await waitForMenu(page, false);
     await actions.first().waitFor({ state: "detached" });
     // The owner arms another's seat with a second tap: one Free.
+    await originalMenu.evaluate((element) => element.remove());
     await toggle.click();
-    await menu.waitFor({ state: "visible" });
+    await waitForMenu(page, true);
+    assert.equal(await page.locator("#world-menu").count(), 1);
+    assert.equal(
+      await page.evaluate(() =>
+        localStorage.getItem("cosyworld.reflected-shore.v1"),
+      ),
+      saved,
+    );
     await seats.nth(0).locator("button").click();
     assert.equal(await actions.count(), 0);
     await seats.nth(0).locator("button").click();
@@ -235,14 +271,14 @@ try {
       assert.equal(await card.getAttribute("data-avatar"), "ash");
     }
     await page.keyboard.press("Escape");
-    await menu.waitFor({ state: "hidden" });
+    await waitForMenu(page, false);
     for (const [button, target] of [
       ["menu-button", "menu-dialog"],
       ["history-button", "history-dialog"],
     ]) {
       await menuToggle.click();
       await page.locator(`#${button}`).click();
-      await menu.waitFor({ state: "hidden" });
+      await waitForMenu(page, false);
       assert(await page.locator(`#${target}`).evaluate((node) => node.open));
       if (target === "history-dialog") {
         // Memory has no title bar: a quiet × in the corner, no export.
@@ -270,7 +306,7 @@ try {
     "Menu",
   );
   await page.locator("#toolbar-menu-button").click();
-  await page.locator("#world-menu").waitFor({ state: "visible" });
+  await waitForMenu(page, true);
   // Signed out, ☰ has no world UI at all, only its tools (#1892).
   await page.locator("#history-button").waitFor({ state: "visible" });
   assert(await page.locator(".world-slots").isHidden());
