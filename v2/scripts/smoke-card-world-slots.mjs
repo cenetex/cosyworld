@@ -6,7 +6,8 @@ import { createWorld, encodeSave } from "../card-game/world.mjs";
 
 // ☰'s world slots (#1877, #1891): a seat is in colour only while online, a
 // tap shows its stats, and two taps on a grey seat move its avatar there.
-// A friend's world shows while your avatar sits there.
+// A friend's world shows while your avatar sits there, and a second tap on
+// your seat there offers Step away, which releases it and keeps its level.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -119,6 +120,30 @@ try {
       .locator('[data-avatar="vale"]')
       .evaluateAll((seats) => seats.map((seat) => seat.dataset.lit));
     assert.deepEqual(lit, ["true", "false", "false"]);
+    // Your Tavi in the friend's world: one tap shows Play and Release, a
+    // second offers Step away, and that releases the seat (no reset).
+    const yours = friend.locator('[data-avatar="tavi"] button');
+    await yours.click();
+    const step = menu.locator("#avatar-step-away");
+    assert.equal(await step.count(), 0);
+    assert.ok(
+      await friend
+        .getByText("Release · start over", { exact: true })
+        .isVisible(),
+    );
+    await yours.click();
+    await step.waitFor();
+    assert.match(
+      await menu.locator(".avatar-status").innerText(),
+      /Tavi's level goes with Tavi\./,
+    );
+    await page.screenshot({
+      path: `output/card-world-slots-step-away-${width}.png`,
+    });
+    await step.click();
+    await friend.waitFor({ state: "detached" });
+    assert.deepEqual(commands.shift(), ["friend", { op: "release" }]);
+    assert.equal(await menu.locator(".world-slot").count(), 2);
     // Someone's offline Mara is grey, and a tap only shows who plays her.
     const spare = menu.locator('.world-slot[data-slot="spare"]');
     await spare.locator("summary").click();
@@ -148,7 +173,7 @@ try {
     await page.close();
   }
   console.log(
-    "World slots: colour is presence, a tap shows stats, and two taps move an avatar, at 390 and 1440.",
+    "World slots: colour is presence, a tap shows stats, two taps move an avatar, and two on yours step it away, at 390 and 1440.",
   );
 } finally {
   await browser.close();

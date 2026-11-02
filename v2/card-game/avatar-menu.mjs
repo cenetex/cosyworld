@@ -240,7 +240,7 @@ export function installAvatarMenu({
   let rows = [],
     shared = Boolean(session),
     invite = null,
-    // The tapped seat: { id, slot }.
+    // The tapped seat: { id, slot, away }, away after a second tap on yours.
     chosen = null,
     opened = new Set(),
     drawn = "";
@@ -306,7 +306,8 @@ export function installAvatarMenu({
     return button;
   }
   // The tapped seat's actions, under its world's line of seats: Play and
-  // Release or Delete world for yours, the owner's Free for another's.
+  // Release or Delete world for yours, and Step away after a second tap on
+  // it; the owner's Free for another's.
   function seatActions(slot, seat) {
     const name = slot.name || "this world";
     const bar = el("div", "avatar-actions");
@@ -337,12 +338,27 @@ export function installAvatarMenu({
             : localLink(seat.id);
         }),
       );
+    // Step away frees the seat and keeps the avatar's level and binding, so
+    // it is in no world until + New world or a move (was Move to your deck).
+    if (chosen?.away)
+      bar.append(
+        act(
+          "Step away",
+          async () => {
+            await leave(seat.id, slot);
+            if (slot.current) return leaveHere();
+            chosen = null;
+            await load();
+          },
+          "avatar-step-away",
+        ),
+      );
     if (slot.shared)
       bar.append(
         twoTap(
-          "Release",
-          `Release ${seat.name} from ${name}?`,
-          `${seat.name} keeps their level. Their things and quests stay in ${name}, and anyone may take ${seat.name} there.`,
+          "Release · start over",
+          `Release ${seat.name} and start over?`,
+          `${seat.name} starts over at level 1. Their things and quests stay in ${name}, and anyone may take ${seat.name} there.`,
           async () => {
             await command(slot.shared, { op: "reset", avatar: seat.id });
             if (slot.current) return leaveHere();
@@ -400,15 +416,19 @@ export function installAvatarMenu({
     // Colour is presence: someone online in the seat. Every other is grey.
     item.dataset.lit = String(Boolean(seat.online));
     // A tap selects the seat: its stats show below, and your seat its
-    // actions. Leaving a local world says what is lost before the second tap.
+    // actions; a second tap on yours offers Step away. Leaving a local world
+    // says what is lost before the second tap.
     face.onclick = async () => {
       if (!picked || !move) {
-        chosen = { id: seat.id, slot: slot.key };
-        status.textContent = !move
-          ? ""
-          : from?.local
-            ? leaveNote(avatar, from)
-            : `Tap ${avatar.name} again to bring ${avatar.name} here.`;
+        const away = picked && seat.kind === "you";
+        chosen = { id: seat.id, slot: slot.key, away };
+        status.textContent = away
+          ? leaveNote(avatar, slot)
+          : !move
+            ? ""
+            : from?.local
+              ? leaveNote(avatar, from)
+              : `Tap ${avatar.name} again to bring ${avatar.name} here.`;
         return render();
       }
       face.disabled = true;
