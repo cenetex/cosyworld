@@ -18,8 +18,9 @@ const want = (kind, target, since = 0) => ({
   since,
   refusals: 0,
 });
-// The Bard wants the shore. The theatre door opens to it only while someone
-// carries the mask, so its journey waits on an ordinary item play.
+// The Bard wants the place behind the theatre's seeded home door. The door
+// opens to it only while someone carries the mask, so its journey waits on
+// an ordinary item play.
 function fixture() {
   const s = enableMotives(createWorld());
   s.sharedVersion = 1;
@@ -28,7 +29,7 @@ function fixture() {
   s.actors.vale.place = "theatre";
   s.actors[singer].place = "theatre";
   s.items.mask.holder = "theatre";
-  s.actors[singer].want = want("place", "pond");
+  s.actors[singer].want = want("place", s.doors.theatre);
   return play(
     s,
     legalActions(s).find((a) => a.kind === "wait"),
@@ -176,7 +177,7 @@ try {
       world.controlledActors = ["rue"];
       world.presentActors = ["rue"];
       world.playerActorId = "rue";
-      world.actors.rue.place = world.actors.moth.place = "pond";
+      world.actors.rue.place = world.actors.moth.place = "station";
       world.items.routes.holder = "rue";
       world.actors.moth.trust.rue = 1;
       const table = `carriage-invitation-${width}`,
@@ -234,6 +235,7 @@ try {
       await page.close();
     }
     const world = fixture();
+    const door = world.doors.theatre;
     assert.equal(world.actors[singer].place, "theatre");
     const key = `cosyworld.reflected-shore.v1.bard-${width}`;
     const page = await browser.newPage({
@@ -279,9 +281,9 @@ try {
     await selectCard(page, "mask");
     await page.locator('#card-actions [data-action="take"]').click();
     await page.waitForFunction(
-      ({ key, singer }) =>
-        JSON.parse(localStorage.getItem(key)).actors[singer].place === "pond",
-      { key, singer },
+      ({ key, singer, door }) =>
+        JSON.parse(localStorage.getItem(key)).actors[singer].place === door,
+      { key, singer, door },
     );
     let saved = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)),
@@ -294,16 +296,16 @@ try {
     );
     assert.deepEqual(
       met.map((e) => e.wantMet),
-      [{ kind: "place", target: "pond" }],
+      [{ kind: "place", target: door }],
     );
     await page.reload();
     await page.waitForSelector('#hand [data-card="vale"]');
-    await selectCard(page, "pond");
+    await selectCard(page, door);
     await page.locator('#card-actions [data-action="move"]').click();
     await page.waitForFunction(
-      (key) =>
-        JSON.parse(localStorage.getItem(key)).actors.vale.place === "pond",
-      key,
+      ({ key, door }) =>
+        JSON.parse(localStorage.getItem(key)).actors.vale.place === door,
+      { key, door },
     );
     saved = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)),
