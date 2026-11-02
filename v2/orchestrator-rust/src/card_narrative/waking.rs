@@ -111,10 +111,11 @@ mod tests {
         assert!(full.contains("Current scene:"));
     }
 
-    /// Client/server agreement: every player avatar's new local world sends
-    /// an opening request the route accepts, built by the real browser rules.
+    /// Client/server agreement: a new local world, which only Vale plays
+    /// since #1895, sends an opening request the route accepts, built by the
+    /// browser's real New game rules.
     #[test]
-    fn every_avatar_opens_a_valid_local_world() {
+    fn vale_opens_a_valid_local_world() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap()
@@ -125,26 +126,19 @@ mod tests {
             .args([
                 "--input-type=module",
                 "-e",
-                "import { createAvatarWorld } from './v2/card-game/avatar-world.mjs'; \
+                "import { createLandingWorld } from './v2/card-game/pack-landing.mjs'; \
                  import { narrativeContext } from './v2/card-game/narrative.mjs'; \
-                 import { humanAvatars } from './v2/card-game/human-cast.mjs'; \
-                 console.log(JSON.stringify(humanAvatars.map((a) => \
-                   [a.id, narrativeContext(createAvatarWorld(a.id))])));",
+                 console.log(JSON.stringify(narrativeContext(createLandingWorld(null, 1))));",
             ])
             .output()
-            .expect("Node builds each avatar's opening request");
+            .expect("Node builds Vale's opening request");
         assert!(
             output.status.success(),
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
-        let openings: Vec<(String, Value)> = serde_json::from_slice(&output.stdout).unwrap();
-        assert!(openings.len() > 1 && openings.iter().any(|(id, _)| id == "tavi"));
-        for (id, value) in openings {
-            let context: Context =
-                serde_json::from_value(value).unwrap_or_else(|e| panic!("{id}: {e}"));
-            assert!(valid(&context), "{id}: opening request rejected");
-            assert_eq!(context.speakers, [id.as_str()]);
-        }
+        let context: Context = serde_json::from_slice(&output.stdout).unwrap();
+        assert!(valid(&context), "Vale's opening request rejected");
+        assert_eq!(context.speakers, ["vale"]);
     }
 }
