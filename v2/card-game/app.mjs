@@ -482,7 +482,7 @@ function selectionBlocked() {
   return (
     saveBlocked ||
     covering ||
-    (sharedSession && !hasSharedPlace(sharedSession.state))
+    Boolean(sharedSession && !hasSharedPlace(sharedSession.state))
   );
 }
 // The player's latest shared play, from sending until the table settles it.
