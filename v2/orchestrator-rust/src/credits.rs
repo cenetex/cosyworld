@@ -13,6 +13,8 @@ use std::path::Path;
 pub(crate) mod clips;
 #[path = "credits/pool.rs"]
 pub(crate) mod pool;
+#[path = "credits/stripe.rs"]
+pub(crate) mod stripe;
 
 use axum::{
     extract::State,
@@ -302,6 +304,7 @@ pub(crate) fn router() -> Router<AppState> {
     Router::new()
         .route("/card-game/credits", get(view))
         .merge(pool::router())
+        .merge(stripe::router())
         .route("/internal/credits/grant", post(operator_grant))
 }
 
@@ -326,7 +329,7 @@ async fn view(State(state): State<AppState>, headers: HeaderMap) -> Response {
     let (Some(user), Some(path)) = (user, state.event_store_path.clone()) else {
         return reply(
             StatusCode::OK,
-            json!({"signed_in": false, "balance": 0, "prices": prices()}),
+            json!({"signed_in": false, "balance": 0, "prices": prices(), "checkout": stripe::enabled()}),
         );
     };
     let result = tokio::task::spawn_blocking(move || -> Result<i64, String> {
@@ -336,7 +339,7 @@ async fn view(State(state): State<AppState>, headers: HeaderMap) -> Response {
     match result {
         Ok(Ok(balance)) => reply(
             StatusCode::OK,
-            json!({"signed_in": true, "balance": balance, "prices": prices()}),
+            json!({"signed_in": true, "balance": balance, "prices": prices(), "checkout": stripe::enabled()}),
         ),
         _ => reply(
             StatusCode::SERVICE_UNAVAILABLE,
