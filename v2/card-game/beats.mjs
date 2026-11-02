@@ -10,7 +10,7 @@ import { currentActor, nameOf as fullName } from "./world.mjs";
 import { isSceneText } from "./scene.mjs";
 import { inSentence, theName } from "./combat-beats.mjs";
 
-const QUIET_VERBS = new Set(["talk", "wait"]);
+const QUIET_VERBS = new Set(["talk"]);
 const DAMAGE = /loses (\d+) resolve/u;
 const YIELDED = /after yielding to/u;
 const STANDOFF_ENDS = /(standoff|battle) ends/u;
@@ -97,7 +97,17 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
       if (leaving)
         return caption("➜", `${a} left for ${nameOf(entry.locationId)}.`);
       if (arriving) {
-        if (entry.actorId === viewer) return null;
+        // The viewer's own journey opens the new visit's stream; a crossing
+        // says how it was made ("Vale boards the Ship.").
+        if (entry.actorId === viewer)
+          return caption(
+            "➜",
+            / boards /u.test(entry.text || "")
+              ? `${a} boarded ${nameOf(entry.locationId)}.`
+              : / disembarks at /u.test(entry.text || "")
+                ? `${a} came ashore at ${nameOf(entry.locationId)}.`
+                : `${a} arrived from ${nameOf(entry.fromLocationId)}.`,
+          );
         // Someone who came the same way on the viewer's arrival followed.
         const followed =
           arrival?.turn === entry.turn &&
@@ -147,6 +157,14 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
         entry.itemId
           ? `${a} squared up to ${t} over ${the(entry.itemId)}.`
           : `${a} squared up to ${t}.`,
+      );
+    case "wait":
+      // A sign noticed while waiting reads as its own words.
+      return caption(
+        "⌛",
+        / waits one turn/u.test(entry.text || "")
+          ? `${a} waited a turn.`
+          : entry.text,
       );
     case "guard":
       return caption("⚔", `${a} braced.`);

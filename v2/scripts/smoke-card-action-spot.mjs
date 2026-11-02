@@ -9,12 +9,15 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
+import { cardLevel, levelTier } from "../card-game/rarity.mjs";
 
 const output = new URL("../../output/action-spot/", import.meta.url);
 await mkdir(output, { recursive: true });
 const world = createWorld();
 world.actors.vale.place = "greek-palace";
 world.items["greek-decree"].holder = "greek-palace";
+// Creon is Rare, so a play with him edges its box in his tier's colour.
+world.actors["greek-creon"].level = 25;
 const server = createServer();
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const browser = await chromium.launch({
@@ -41,6 +44,26 @@ try {
     page.setDefaultTimeout(12000);
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
+    // An occupied seat lets the menu borrow the beat without changing the
+    // chosen hand or leaving this local table.
+    await page.route("**/auth/account", (route) =>
+      route.fulfill({ json: { authenticated: true } }),
+    );
+    await page.route(/\/card-game\/shared\/worlds$/, (route) =>
+      route.fulfill({
+        json: {
+          worlds: [
+            {
+              id: "spare",
+              owner: true,
+              actor: null,
+              held: [0, 1, 0, 0, 0, 0, 0, 0],
+              seed: 2,
+            },
+          ],
+        },
+      }),
+    );
     // Hold each reply until released, so the pending play can be seen.
     let release;
     await page.route("**/card-game/text", async (route) => {
@@ -99,6 +122,8 @@ try {
           inDialogue: Boolean(panel.closest(".dialogue")),
           dockRow: document.querySelector(".play-dock .action-panel"),
           heading: panel.querySelector(".action-beat-heading").textContent,
+          tier: panel.dataset.tier,
+          edge: getComputedStyle(panel).borderTopColor,
           cards: panel.querySelectorAll(".action-beat-cards img").length,
           // Square-ish, as the beat cards are: no pill.
           corner: parseFloat(getComputedStyle(button).borderTopLeftRadius),
@@ -150,6 +175,8 @@ try {
     const taking = await actionBeat("take");
     assert.match(taking.heading, /^\s*Vale takes the Burial Decree/u);
     assert.equal(taking.cards, 2, "Vale and the decree");
+    // The decree is the rarest card in the take, so its tier edges the box.
+    assert.equal(taking.tier, levelTier(cardLevel(world, "greek-decree")).id);
     // Selecting raised the hand; the beat appearing moves nothing more.
     await page.waitForTimeout(300);
     assert.deepEqual(await box("#hand"), restHand, "hand stays put");
@@ -167,6 +194,25 @@ try {
     release?.();
     await page.waitForTimeout(600);
     release?.();
+    // Taking keeps the same decree chosen and rests the committed play.
+    // Opening a menu beat is an arrival, with no outgoing action to fold.
+    await settled();
+    const panel = page.locator(".action-panel");
+    assert(await panel.isHidden(), `${name}: the taken play is at rest`);
+    assert(await page.locator("#speech-row").isVisible());
+    await page.locator("#toolbar-menu-button").click();
+    await page
+      .locator('#world-menu [data-slot="spare"] [data-avatar="mara"] button')
+      .click();
+    await settled();
+    assert(await panel.isVisible(), `${name}: the borrowed beat arrives`);
+    assert.equal(await panel.getAttribute("data-avatar"), "mara");
+    assert.match(await panel.innerText(), /Mara · Someone · offline/);
+    assert.deepEqual(errors, [], `${name}: borrowing after play is safe`);
+    await page.locator("#toolbar-menu-button").click();
+    await panel.waitFor({ state: "hidden" });
+    await settled();
+    assert(await panel.isHidden(), `${name}: closing restores the rest`);
     await page.keyboard.press("Escape");
     await selectCard(page, "greek-decree");
     await selectCard(page, "greek-creon");
@@ -175,6 +221,7 @@ try {
     const offering = await actionBeat("give");
     assert.equal(offering.cards, 3, "Vale, the decree and Creon");
     assert(offering.spoken, "the spoken beat waits behind the offer");
+    assert.equal(offering.tier, taking.tier, "the decree outranks Rare Creon");
     await handUncut();
     await shot("ready-dialogue");
     await give.click();
@@ -185,6 +232,32 @@ try {
     await page.waitForTimeout(600);
     release?.();
     await handUncut();
+    // With a card chosen, the stack behind the beat still steps back and
+    // forward in time: from the hand by the arrows, and by the wheel.
+    await page.keyboard.press("Escape");
+    await selectCard(page, "greek-creon");
+    await actionBeat("talk");
+    const strip = () => page.locator("#speech-row").innerText();
+    const live = await strip();
+    await page.locator('#hand [data-card="greek-creon"]').focus();
+    await page.keyboard.press("ArrowUp");
+    await settled();
+    assert.notEqual(await strip(), live, `${name}: ↑ steps back`);
+    assert(await page.locator("#live-line").isVisible(), "the live control");
+    await page.keyboard.press("ArrowDown");
+    await settled();
+    assert.equal(await strip(), live, `${name}: ↓ returns to live`);
+    const panelBox = await box(".action-panel");
+    await page.mouse.move(
+      panelBox.left + 40,
+      (panelBox.top + panelBox.bottom) / 2,
+    );
+    await page.mouse.wheel(0, -120);
+    await settled();
+    assert.notEqual(await strip(), live, `${name}: the wheel steps back`);
+    await page.locator("#live-line").click();
+    await settled();
+    assert.equal(await strip(), live, `${name}: live again`);
     assert.deepEqual(errors, []);
     await page.close();
   }

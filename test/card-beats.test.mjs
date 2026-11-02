@@ -120,8 +120,12 @@ describe("beat grouping", () => {
     ];
     const beats = sceneBeats(worldOf(log));
     // Earlier visits, other places and unwitnessed acts stay out of the stack.
-    expect(beats.map((b) => b.key)).toEqual(["s:8"]);
-    expect(beats[0].actions.map((a) => a.text)).toEqual(["Pip lit the Lamp."]);
+    // The viewer's own arrival opens the visit's stream.
+    expect(beats.map((b) => b.key)).toEqual(["a:1:vale", "s:8"]);
+    expect(beats[0].actions.map((a) => a.text)).toEqual([
+      "Vale arrived from Mirror attic.",
+    ]);
+    expect(beats[1].actions.map((a) => a.text)).toEqual(["Pip lit the Lamp."]);
     // Memory keeps every visit, newest first.
     const visits = memoryVisits(worldOf(log));
     expect(visits.map((v) => v.placeId)).toEqual(["pond", "attic", "pond"]);
@@ -141,6 +145,7 @@ describe("beat grouping", () => {
     ];
     const beats = sceneBeats(worldOf(log));
     expect(beats.flatMap((b) => b.actions.map((a) => a.text))).toEqual([
+      "Vale arrived from Mirror attic.",
       "Pip followed from Mirror attic.",
       "Mara arrived from Forest Clearing.",
     ]);
@@ -162,6 +167,36 @@ describe("beat grouping", () => {
     expect(beatSummary(beat).text).toBe(
       "⚔ Pip struck Vale. Vale staggered back.",
     );
+  });
+
+  it("leaves a line for a silent wait and the viewer's own crossing", () => {
+    const at = { viewer: "vale", here: "pond" };
+    const wait = (text) =>
+      actionCaption(
+        { seq: 1, turn: 1, actorId: "vale", verb: "wait", text },
+        at,
+      );
+    expect(wait("Vale waits one turn.")).toMatchObject({
+      icon: "⌛",
+      text: "Vale waited a turn.",
+    });
+    // A sign noticed while waiting keeps its own words.
+    expect(wait("Vale notices the reeds bend.").text).toBe(
+      "Vale notices the reeds bend.",
+    );
+    const board = actionCaption(
+      {
+        seq: 2,
+        turn: 1,
+        actorId: "vale",
+        verb: "move",
+        text: "Vale boards Black pond.",
+        fromLocationId: "attic",
+        locationId: "pond",
+      },
+      { viewer: "vale", here: "pond" },
+    );
+    expect(board.text).toBe("Vale boarded Black pond.");
   });
 
   it("words every caption as a short sentence from the event fields", () => {
@@ -294,7 +329,7 @@ describe("combat beats from the rules", () => {
         guarding: { vale: false, moth: false },
         struck: { vale: true, moth: true },
         steppedBack: { vale: false, moth: false },
-      hitBy: { moth: "vale" },
+        hitBy: { moth: "vale" },
       },
     ];
     const before = s.log.length;

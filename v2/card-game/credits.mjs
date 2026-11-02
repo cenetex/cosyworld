@@ -146,8 +146,8 @@ export function installCreditPool({ actionBeat, closeSettings }) {
   });
   const notice = (text) => {
     const beat = {
-      images: [],
-      text,
+      cards: [],
+      name: text,
       buttons: [
         {
           label: "OK",
@@ -165,8 +165,8 @@ export function installCreditPool({ actionBeat, closeSettings }) {
     if (!amount) return;
     closeSettings();
     const beat = {
-      images: [],
-      text: `Commit ${amount} credits to this world?`,
+      cards: [],
+      name: `Commit ${amount} credits to this world?`,
       note: "Everyone here hears its voices from the pool. A commit can't be taken back.",
       buttons: [
         {

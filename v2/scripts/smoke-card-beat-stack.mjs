@@ -294,12 +294,13 @@ try {
       await page.waitForTimeout(400);
       await page.screenshot({ path: `${output}/live-${width}-${motion}.png` });
       // Tap behind: back in time. Vale comes forward; the live count shows.
-      // Vale's line opens this visit to the pond: the first quest waits for
-      // the pond (#1768), so no earlier beat is left to sit behind it.
+      // Vale's arrival at the pond opens this visit, as one action line
+      // behind Vale's speech.
       const back = await watchStep(page, stepBack, `back-${width}-${motion}`, {
         front: true,
-        behind: null,
+        behind: true,
       });
+      assert.match(await behind.textContent(), /Vale arrived from/u);
       assert.equal(await front(), "Vale");
       assert.equal(await words(), lines.vale);
       assert(await page.locator("#live-line").isVisible());
@@ -309,20 +310,31 @@ try {
       );
       await page.waitForTimeout(400);
       await page.screenshot({ path: `${output}/back-${width}-${motion}.png` });
-      // ↑ at the visit's first beat stays put while the stack has focus.
+      // ↑ steps back to the arrival line, then stays put at the visit's
+      // first beat while the stack has focus.
       await page.locator("#dialogue-advance").focus();
       await page.keyboard.press("ArrowUp");
-      await page.waitForTimeout(200);
-      assert.equal(
-        await front(),
-        "Vale",
-        "Nothing lies before the first beat.",
+      await page.waitForFunction(() =>
+        /arrived from/u.test(
+          document.querySelector("#beat-captions").textContent,
+        ),
       );
+      assert.equal(
+        await page.locator("#speech-row").getAttribute("data-beat"),
+        "action",
+      );
+      await page.keyboard.press("ArrowUp");
+      await page.waitForTimeout(200);
       assert.match(
         await page.locator("#live-line").textContent(),
-        /live\s*·\s*1/u,
+        /live\s*·\s*2/u,
+        "Nothing lies before the first beat.",
       );
       // ↓ comes forward to live; step back to Vale again.
+      await page.keyboard.press("ArrowDown");
+      await page.waitForFunction(() =>
+        /live\s*·\s*1/u.test(document.querySelector("#live-line").textContent),
+      );
       await page.keyboard.press("ArrowDown");
       await page.waitForFunction(
         () => document.querySelector("#speaker").textContent === "Pip",
