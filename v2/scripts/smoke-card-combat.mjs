@@ -217,11 +217,28 @@ try {
     // The telegraph and the rules line appear on stage before the new place.
     await page.locator("#combat-caption:not([hidden])").waitFor();
     await page.waitForTimeout(400);
+    // The locked hand tucks straight down out of the fighters' way, keeping
+    // its layout, and the caption reads below the top bar.
+    const tucked = await handRect();
     assert.deepEqual(
-      await handRect(),
-      raisedHand,
-      "The strikes leave the raised hand exactly where it was",
+      [tucked[0], tucked[2], tucked[3]],
+      [raisedHand[0], raisedHand[2], raisedHand[3]],
+      "The strikes keep the raised hand's layout",
     );
+    assert.ok(
+      tucked[1] >= height - 60,
+      `The hand tucks down during the beats ${tucked} from ${raisedHand}`,
+    );
+    if (width > 640)
+      assert.ok(
+        await page.evaluate(
+          () =>
+            document.querySelector("#combat-caption").getBoundingClientRect()
+              .top >=
+            document.querySelector(".topbar").getBoundingClientRect().bottom,
+        ),
+        "The caption reads below the top bar",
+      );
     // From the first combat frame the two fighters face each other.
     assert.deepEqual(
       await page.evaluate(
@@ -469,6 +486,15 @@ try {
       await page.locator('.play-dock[data-covered="false"]').count(),
       1,
       "The hand unlocks once the new place is drawn",
+    );
+    await page.waitForTimeout(400);
+    assert.match(
+      await page.$eval(
+        ".play-dock",
+        (dock) => getComputedStyle(dock).translate,
+      ),
+      /^(none|0px)$/u,
+      "The hand rises back once the beats end",
     );
     assert.equal(
       await page.locator('.dialogue[data-dropped="false"]').count(),
