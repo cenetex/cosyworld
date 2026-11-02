@@ -88,6 +88,29 @@ function waitedThisTurn(world) {
   return false;
 }
 
+// A sleeper's waking belongs to its own first scene at or after it: the
+// play it woke in, or, when another seat's play woke it, its next play.
+export function restingWake(log, actor, turn) {
+  const woke = log.findLast(
+    (e) => e.actorId === actor && e.woke !== undefined && e.turn <= turn,
+  );
+  if (
+    !woke ||
+    (woke.turn < turn &&
+      log.some(
+        (e) =>
+          e.actorId === actor &&
+          e.kind === "action" &&
+          !e.generated &&
+          e.woke === undefined &&
+          e.turn >= woke.turn &&
+          e.turn < turn,
+      ))
+  )
+    return null;
+  return woke;
+}
+
 // The scene's place, audience, speakers and the entities it describes.
 export function dialogueCast(world, action = null) {
   const location = world.actors[currentActor(world)].place;
@@ -179,9 +202,13 @@ export function dialogueCast(world, action = null) {
   const waited =
     speakers[0] === currentActor(world) &&
     (played?.verb === "wait" ? played : !played && waitedThisTurn(world));
-  const resting = waited ? currentActor(world) : null;
-  // Waking from a long rest at a sanctuary brings a dream.
-  const rest = waited?.rest === "long" ? "long" : null;
+  // Waking from a long rest at a sanctuary brings a dream, in the waking
+  // play or the sleeper's own next one.
+  const rested =
+    speakers[0] === currentActor(world) &&
+    restingWake(world.log, currentActor(world), world.turn)?.rest === "long";
+  const resting = waited || rested ? currentActor(world) : null;
+  const rest = waited?.rest === "long" || rested ? "long" : null;
   return {
     location,
     beforeFirstLight,

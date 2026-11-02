@@ -15975,6 +15975,7 @@
       if (s.locations?.pond?.answer === "call") s.locations.pond.answer = null;
       for (const entry of Array.isArray(s.log) ? s.log : [])
         if (entry?.verb === "refill") entry.verb = "refuel";
+      for (const a of Object.values(s.actors || {})) delete a?.sleepUntil;
       for (const c of Array.isArray(s.standoffs) ? s.standoffs : [])
         if (c && !c.steppedBack && c.challenger && c.defender)
           c.steppedBack = { [c.challenger]: false, [c.defender]: false };
@@ -17293,6 +17294,22 @@
     return s.standoffs.find((c) => Object.hasOwn(c.resolve, actor));
   }
   var DEFEATS_TO_SEND_HOME = 3;
+  var WAKE_REASONS = [
+    "chose",
+    "moved",
+    "lamp",
+    "dry",
+    "arrival",
+    "departure",
+    "crossing",
+    "threat",
+    "dock",
+    "dawn",
+    "dusk",
+    "rested"
+  ];
+  var SLEEP_TURNS = 24;
+  var LONG_SLEEP_TURNS = DAYLIGHT_TURNS / 2;
   function validateWorld(s) {
     const fail = () => {
       throw new Error(
@@ -17389,7 +17406,9 @@
     for (const [id, a] of Object.entries(s.actors)) {
       if (!a.trust || Object.keys(a.trust).sort().join() !== expectedTrustKeys[id] || Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3))
         fail();
-      if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn || a.sanctuary !== void 0 && !sanctuaries.includes(a.sanctuary) || a.sleepUntil !== void 0 && (!Number.isSafeInteger(a.sleepUntil) || a.sleepUntil < 0 || a.sleepUntil > s.turn + DAYLIGHT_TURNS))
+      if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn || a.sanctuary !== void 0 && !sanctuaries.includes(a.sanctuary) || a.sleeping !== void 0 && (!a.sleeping || Object.keys(a.sleeping).sort().join() !== "place,present,since" || !Number.isSafeInteger(a.sleeping.since) || a.sleeping.since < 0 || a.sleeping.since > s.turn || s.turn - a.sleeping.since >= SLEEP_TURNS || !Object.hasOwn(places, a.sleeping.place) || !Array.isArray(a.sleeping.present) || a.sleeping.present.some(
+        (x, i, all) => !actorIds.includes(x) || i && all[i - 1] >= x
+      )))
         fail();
       if (!validWant(s, id) || a.visited.length > Object.keys(places).length || a.visited.some((place) => !Object.hasOwn(places, place)) || questsOf(s, id).some(
         (w) => w.kind === "place" && !Object.hasOwn(places, w.target)
@@ -17484,7 +17503,7 @@
       if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
         fail();
       if (e.accepted !== void 0 && typeof e.accepted !== "boolean") fail();
-      if (e.rest !== void 0 && (e.rest !== "long" || e.verb !== "wait"))
+      if (e.rest !== void 0 && (e.rest !== "long" || e.verb !== "wait") || e.sleep !== void 0 && (e.sleep !== true || e.verb !== "wait") || e.woke !== void 0 && (!WAKE_REASONS.includes(e.woke) || e.verb !== "wait"))
         fail();
       if (e.reason !== void 0 && (!REFUSED_VERBS.includes(e.verb) || e.accepted !== false || !REFUSAL_REASONS.includes(e.reason)))
         fail();
@@ -17559,6 +17578,16 @@
     }
     return false;
   }
+  function restingWake(log, actor, turn) {
+    const woke = log.findLast(
+      (e) => e.actorId === actor && e.woke !== void 0 && e.turn <= turn
+    );
+    if (!woke || woke.turn < turn && log.some(
+      (e) => e.actorId === actor && e.kind === "action" && !e.generated && e.woke === void 0 && e.turn >= woke.turn && e.turn < turn
+    ))
+      return null;
+    return woke;
+  }
   function dialogueCast(world, action = null) {
     const location = world.actors[currentActor(world)].place;
     const beforeFirstLight = Boolean(
@@ -17613,8 +17642,9 @@
       (id) => id && (id === location || audience.includes(id) || localItems.includes(id))
     ).slice(0, 8);
     const waited = speakers[0] === currentActor(world) && (played?.verb === "wait" ? played : !played && waitedThisTurn(world));
-    const resting2 = waited ? currentActor(world) : null;
-    const rest = waited?.rest === "long" ? "long" : null;
+    const rested = speakers[0] === currentActor(world) && restingWake(world.log, currentActor(world), world.turn)?.rest === "long";
+    const resting2 = waited || rested ? currentActor(world) : null;
+    const rest = waited?.rest === "long" || rested ? "long" : null;
     return {
       location,
       beforeFirstLight,

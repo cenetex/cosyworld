@@ -3,7 +3,7 @@
 // scene. Dialogue wording lives in narrative.mjs, outside the shared engine.
 // See docs/design/pack-content-outside-the-engine.md.
 import { profiles, validInnerLife } from "./memory.mjs";
-import { dialogueCast, speechMemories } from "./scene-cast.mjs";
+import { dialogueCast, restingWake, speechMemories } from "./scene-cast.mjs";
 
 // The part of a dialogue context that reflections read.
 export function reflectionContext(world, action = null) {
@@ -186,7 +186,8 @@ const restedAt = (world, actor, turn, rest) =>
       e.actorId === actor &&
       e.turn === turn &&
       (rest !== "long" || e.rest === "long"),
-  );
+  ) ||
+  (rest === "long" && restingWake(world.log, actor, turn)?.rest === "long");
 export function applyLaterReflections(world, request) {
   const { turn, entries } = request;
   const resting = request.resting ?? null;
