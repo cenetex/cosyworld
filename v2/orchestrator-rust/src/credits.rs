@@ -5,11 +5,28 @@
 //! failed. A balance is the sum of an account's rows. Every spend and refund
 //! carries a request id, so a retried request never charges twice. A new paid
 //! feature is one more `SpendKind` with its price.
-// The balance route, operator grant and gated provider routes call these
-// next (#1924); until then only the tests do.
+// The credit-gated speech and video routes spend and refund next (#1924).
 #![cfg_attr(not(test), allow(dead_code))]
 
+use std::path::Path;
+
+use axum::{
+    extract::State,
+    http::{header, HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
+    routing::{get, post},
+    Json, Router,
+};
+
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
+use serde::Deserialize;
+use serde_json::{json, Value};
+
+use crate::AppState;
+
+/// The operator grant endpoint stays off (404) until this is set.
+pub(crate) const OPERATOR_TOKEN_ENV: &str = "COSYWORLD_CREDITS_OPERATOR_TOKEN";
+const MAX_GRANT: i64 = 100_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SpendKind {
@@ -18,6 +35,7 @@ pub(crate) enum SpendKind {
 }
 
 impl SpendKind {
+    pub(crate) const ALL: [SpendKind; 2] = [Self::Tts, Self::Video];
     pub(crate) fn name(self) -> &'static str {
         match self {
             Self::Tts => "tts",
@@ -188,6 +206,142 @@ pub(crate) fn grant(
     Ok((balance, !seen))
 }
 
+pub(crate) fn open(path: &Path) -> std::io::Result<Connection> {
+    crate::canonical_journal::open_event_store(path)
+}
+
+pub(crate) fn router() -> Router<AppState> {
+    Router::new()
+        .route("/card-game/credits", get(view))
+        .route("/internal/credits/grant", post(operator_grant))
+}
+
+fn reply(status: StatusCode, body: Value) -> Response {
+    (status, [(header::CACHE_CONTROL, "no-store")], Json(body)).into_response()
+}
+
+fn prices() -> Value {
+    SpendKind::ALL
+        .iter()
+        .map(|kind| (kind.name().to_string(), json!(kind.price())))
+        .collect::<serde_json::Map<_, _>>()
+        .into()
+}
+
+async fn view(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let user = state
+        .account_auth
+        .authenticated_user_id(&headers)
+        .ok()
+        .flatten();
+    let (Some(user), Some(path)) = (user, state.event_store_path.clone()) else {
+        return reply(
+            StatusCode::OK,
+            json!({"signed_in": false, "balance": 0, "prices": prices()}),
+        );
+    };
+    let result = tokio::task::spawn_blocking(move || -> Result<i64, String> {
+        balance(&open(&path).map_err(|e| e.to_string())?, &user).map_err(|e| e.to_string())
+    })
+    .await;
+    match result {
+        Ok(Ok(balance)) => reply(
+            StatusCode::OK,
+            json!({"signed_in": true, "balance": balance, "prices": prices()}),
+        ),
+        _ => reply(
+            StatusCode::SERVICE_UNAVAILABLE,
+            json!({"error": "Credits need another moment."}),
+        ),
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GrantRequest {
+    /// An account id or username.
+    user: String,
+    credits: i64,
+    request_id: String,
+    note: String,
+}
+
+fn operator_authorized(expected: Option<&str>, headers: &HeaderMap) -> bool {
+    expected
+        .is_some_and(|token| crate::moderation::moderation_authorized_token(Some(token), headers))
+}
+
+async fn operator_grant(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Json<GrantRequest>,
+) -> Response {
+    let token = std::env::var(OPERATOR_TOKEN_ENV)
+        .ok()
+        .filter(|t| t.trim().len() >= 16);
+    if token.is_none() {
+        return reply(StatusCode::NOT_FOUND, json!({"error": "Not found."}));
+    }
+    if !operator_authorized(token.as_deref().map(str::trim), &headers) {
+        return reply(
+            StatusCode::UNAUTHORIZED,
+            json!({"error": "Operator token required."}),
+        );
+    }
+    let Json(body) = body;
+    let bounded = |v: &str, n: usize| {
+        !v.trim().is_empty() && v.len() <= n && !v.chars().any(char::is_control)
+    };
+    if !(1..=MAX_GRANT).contains(&body.credits)
+        || !bounded(&body.user, 128)
+        || !bounded(&body.request_id, 128)
+        || !bounded(&body.note, 300)
+    {
+        return reply(
+            StatusCode::BAD_REQUEST,
+            json!({"error": "Give a user, 1-100000 credits, a request id and a note."}),
+        );
+    }
+    let Some(path) = state.event_store_path.clone() else {
+        return reply(
+            StatusCode::SERVICE_UNAVAILABLE,
+            json!({"error": "Credits need the event store."}),
+        );
+    };
+    let result = tokio::task::spawn_blocking(move || -> Result<Option<(String, i64, bool)>, String> {
+        let mut c = open(&path).map_err(|e| e.to_string())?;
+        let user: Option<String> = c
+            .query_row(
+                "SELECT id FROM auth_users WHERE (id = ?1 OR username = ?1) AND status = 'active'",
+                params![body.user.trim()],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?;
+        let Some(user) = user else { return Ok(None) };
+        let (balance, fresh) =
+            grant(&mut c, &user, body.credits, body.request_id.trim(), body.note.trim()).map_err(|e| e.to_string())?;
+        tracing::info!(user = %user, credits = body.credits, request_id = %body.request_id.trim(),
+            note = %body.note.trim(), fresh, balance, "operator granted credits");
+        Ok(Some((user, balance, fresh)))
+    })
+    .await;
+    match result {
+        Ok(Ok(Some((user, balance, fresh)))) => reply(
+            StatusCode::OK,
+            json!({"user": user, "balance": balance, "granted": fresh}),
+        ),
+        Ok(Ok(None)) => reply(
+            StatusCode::NOT_FOUND,
+            json!({"error": "No active account by that id or username."}),
+        ),
+        _ => reply(
+            StatusCode::SERVICE_UNAVAILABLE,
+            json!({"error": "Credits need another moment."}),
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -283,5 +437,90 @@ mod tests {
             .is_err());
         assert!(c.execute("DELETE FROM credit_events", []).is_err());
         assert_eq!(balance(&c, "u1").unwrap(), 100);
+    }
+
+    #[test]
+    fn the_operator_endpoint_needs_its_own_token() {
+        let mut headers = HeaderMap::new();
+        assert!(!operator_authorized(None, &headers));
+        headers.insert(
+            header::AUTHORIZATION,
+            "Bearer operator-secret-token".parse().unwrap(),
+        );
+        assert!(!operator_authorized(None, &headers));
+        assert!(operator_authorized(Some("operator-secret-token"), &headers));
+        assert!(!operator_authorized(Some("another-secret-token"), &headers));
+    }
+
+    #[tokio::test]
+    async fn the_grant_route_is_off_until_its_token_is_set_and_grants_once() {
+        use tower::ServiceExt;
+        let path =
+            std::env::temp_dir().join(format!("cosyworld-credits-{}.sqlite", crate::random_hex(8)));
+        let state =
+            crate::test_support::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+        open(&path).unwrap().execute_batch(
+            "CREATE TABLE IF NOT EXISTS auth_users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE,
+                display_name TEXT NOT NULL, status TEXT NOT NULL, created_at_unix INTEGER NOT NULL,
+                updated_at_unix INTEGER NOT NULL);
+             INSERT INTO auth_users VALUES ('user-1', 'moss', 'Moss', 'active', 0, 0);",
+        ).unwrap();
+        let app = router().with_state(state);
+        let call = |token: &str| {
+            axum::http::Request::post("/internal/credits/grant")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(
+                    r#"{"user":"moss","credits":100,"request_id":"pack-1","note":"speech pack"}"#,
+                ))
+                .unwrap()
+        };
+        let send = |request: axum::http::Request<axum::body::Body>| {
+            let app = app.clone();
+            async move {
+                let response = app.oneshot(request).await.unwrap();
+                let status = response.status();
+                let bytes = axum::body::to_bytes(response.into_body(), 4096)
+                    .await
+                    .unwrap();
+                (status, serde_json::from_slice::<Value>(&bytes).unwrap())
+            }
+        };
+        std::env::remove_var(OPERATOR_TOKEN_ENV);
+        assert_eq!(
+            send(call("operator-secret-token")).await.0,
+            StatusCode::NOT_FOUND
+        );
+        std::env::set_var(OPERATOR_TOKEN_ENV, "operator-secret-token");
+        assert_eq!(
+            send(call("wrong-secret-token!")).await.0,
+            StatusCode::UNAUTHORIZED
+        );
+        let (status, body) = send(call("operator-secret-token")).await;
+        assert_eq!(
+            (status, body["balance"].clone(), body["granted"].clone()),
+            (StatusCode::OK, json!(100), json!(true))
+        );
+        let (_, body) = send(call("operator-secret-token")).await;
+        assert_eq!(
+            (body["balance"].clone(), body["granted"].clone()),
+            (json!(100), json!(false))
+        );
+        std::env::remove_var(OPERATOR_TOKEN_ENV);
+        let (status, body) = send(
+            axum::http::Request::get("/card-game/credits")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(
+            (
+                status,
+                body["signed_in"].clone(),
+                body["prices"]["video"].clone()
+            ),
+            (StatusCode::OK, json!(false), json!(100))
+        );
+        let _ = std::fs::remove_file(path);
     }
 }

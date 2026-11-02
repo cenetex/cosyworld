@@ -59,6 +59,9 @@ secret values through Fly's secret store for the selected app.
 
 - `COSYWORLD_DEPLOY_PROFILE=production` enables the deployed runtime checks.
 - `COSYWORLD_MODERATION_TOKEN` protects moderation operations.
+- `COSYWORLD_CREDITS_OPERATOR_TOKEN` (at least 16 characters) turns on the
+  operator credit grant; unset, `/internal/credits/grant` answers 404. See
+  [credits](#credits).
 - `COSYWORLD_V2_EVENT_DB_PATH` names the SQLite journal;
   `COSYWORLD_V2_SNAPSHOT_PATH` names its snapshot file.
 - `COSYWORLD_PROCESS_ID` names the process. The compatibility setting
@@ -172,3 +175,27 @@ Use `/health` for readiness and persistence, `/health/live` for process
 liveness, and `/meta` for version and bundle identity. The
 [production logs guide](production-logs.md) covers retained logs, incident
 queries, and the cross-app ingestion check.
+
+## Credits
+
+Credits belong to a passkey account. A speech pack is 100 credits; a spoken
+line costs 1 and a scene video 100
+([#1924](https://github.com/cenetex/cosyworld/issues/1924)). The append-only
+`credit_events` table in the event store holds every grant, spend and refund;
+an account's balance is their sum. `GET /card-game/credits` shows the
+signed-in balance and prices.
+
+Until payments exist, an operator hands out packs. Each grant is a ledger row
+with its note and an `operator granted credits` log line; a repeated
+`request_id` grants once.
+
+```sh
+TOKEN="$(openssl rand -hex 24)"   # keep it in your password manager
+fly secrets set COSYWORLD_CREDITS_OPERATOR_TOKEN="$TOKEN" --app cosyworld
+curl -s -X POST https://cosyworld.fly.dev/internal/credits/grant \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"user":"USERNAME","credits":100,"request_id":"pack-USERNAME-1","note":"speech pack"}'
+```
+
+`user` takes an account id or username. The reply gives the new balance and
+whether this call granted (`granted: false` for a repeated `request_id`).
