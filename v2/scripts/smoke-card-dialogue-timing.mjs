@@ -105,6 +105,31 @@ try {
           wait: "pond",
         }[kind];
         await selectCard(page, id);
+        if (kind === "light") {
+          // An ordinary play is silent: no request, and the hand frees at once.
+          await page.locator("#card-actions .card-primary").click();
+          await page.waitForFunction(
+            () => document.querySelector("#hand").dataset.cooling === "false",
+          );
+          await page.waitForTimeout(600);
+          assert.equal(request, undefined);
+          assert.equal(await card("vale").isDisabled(), false);
+          const world = await state();
+          assert.equal(world.items.lamp.lit, true);
+          const cast = await page
+            .locator('#cast [data-avatar][aria-hidden="false"]')
+            .evaluateAll((nodes) => nodes.map((node) => node.dataset.avatar));
+          // Pip wants the lamp, so Pip stays to ask Vale for it; the keeper
+          // leaves for the bell at the station.
+          assert.deepEqual(cast.sort(), ["moth", "vale"]);
+          assert.equal(await card("keeper").count(), 0);
+          assert.equal(world.actors.moth.want?.target, "lamp");
+          assert.equal(world.actors.keeper.place, "station");
+          assert.deepEqual(errors, []);
+          report.passed = true;
+          // Skip the speech checks below; the page still closes.
+          throw null;
+        }
         const requested = page.waitForRequest("**/card-game/text");
         const start = performance.now();
         await page.locator("#card-actions .card-primary").click();
@@ -259,29 +284,15 @@ try {
           assert.equal((await state()).turn, queuedTurn + 1);
         report.spoken = spoken;
         report.finishedMs = Math.round(performance.now() - start);
-        if (kind === "light") {
-          const world = await state();
-          assert.equal(world.items.lamp.lit, true);
-          const cast = await page
-            .locator('#cast [data-avatar][aria-hidden="false"]')
-            .evaluateAll((nodes) => nodes.map((node) => node.dataset.avatar));
-          // Pip wants the lamp, so Pip stays to ask Vale for it; the keeper
-          // leaves for the bell at the station.
-          assert.deepEqual(cast.sort(), ["moth", "vale"]);
-          assert.equal(await card("moth").count(), 1);
-          assert.equal(await card("keeper").count(), 0);
-          assert.equal(world.actors.moth.place, "pond");
-          assert.equal(world.actors.moth.want?.target, "lamp");
-          assert.equal(world.items.lamp.holder, "vale");
-          assert.equal(world.actors.keeper.place, "station");
-        }
         assert.deepEqual(errors, []);
         report.passed = true;
       } catch (error) {
-        report.error = error.stack;
-        await page.screenshot({
-          path: new URL(`${kind}-failure-${width}.png`, output).pathname,
-        });
+        // The silent play's checks end early by throwing null.
+        if (error !== null) report.error = error.stack;
+        if (error !== null)
+          await page.screenshot({
+            path: new URL(`${kind}-failure-${width}.png`, output).pathname,
+          });
       } finally {
         await page.close();
       }

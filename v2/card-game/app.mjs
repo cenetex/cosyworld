@@ -960,6 +960,8 @@ const narrator = createNarrator({
     ? (context, signal) =>
         requestNarrative(context, signal, () => {}, "/card-game/reflections")
     : null,
+  // A silent play ends its exchange at once; the beat is its caption.
+  silent: () => exchange.cancel(),
   started: (context) => {
     if (localRuntime()) characterSpeech.clear();
     // A speaker who left this turn speaks at the destination, not here.
@@ -2852,6 +2854,8 @@ function renderScene() {
   // The card behind is one earlier beat: tap it to step back in time.
   const behindButton = $("beat-behind");
   behindButton.hidden = !behind;
+  // A hidden card runs no animation, so its motion would never end.
+  if (!behind) delete behindButton.dataset.motion;
   if (behind) {
     const summary = beatSummary(behind);
     const behindKey = JSON.stringify([

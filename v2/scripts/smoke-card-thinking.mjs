@@ -17,6 +17,8 @@ try {
     const world = createWorld();
     world.actors.vale.place = "pond";
     world.actors.moth.place = "pond";
+    // Pip stays at the pond to be talked with.
+    world.actors.moth.want = null;
     world.items.lamp.holder = "station";
     const table = `thinking-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
@@ -151,19 +153,23 @@ try {
         await page.locator("#dialogue-advance").click();
       await page.waitForTimeout(50);
     }
-    const travelRequest = page.waitForRequest("**/card-game/text");
-    await selectCard(page, "station");
-    await page.locator('#card-actions [data-action="move"]').click();
-    await travelRequest;
+    // A Talk asks for words; a silent move made before they arrive
+    // supersedes them and sends no request of its own.
+    const talkRequest = page.waitForRequest("**/card-game/text");
+    await selectCard(page, "moth");
+    await page.locator('#card-actions [data-action="talk"]').click();
+    await talkRequest;
     const replaced = requests.at(-1);
+    const asked = requests.length;
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
-    const nextRequest = page.waitForRequest("**/card-game/text");
-    await selectCard(page, "pond");
+    await selectCard(page, "station");
     await page.locator('#card-actions [data-action="move"]').click();
-    await nextRequest;
-    const latest = requests.at(-1);
+    await page.waitForFunction(
+      (title) => document.querySelector("#place-title").textContent === title,
+      nameOf("station"),
+    );
     await replaced.route
       .fulfill({
         json: {
@@ -177,32 +183,16 @@ try {
       })
       .catch(() => {});
     await page.waitForFunction(
-      (title) => document.querySelector("#place-title").textContent === title,
-      nameOf("pond"),
+      () => document.querySelector("#hand").dataset.cooling === "false",
     );
     const superseded = await snapshot();
+    assert.equal(requests.length, asked);
     assert.deepEqual(superseded.cast, superseded.hand);
     assert.equal(superseded.stageRevision, superseded.handRevision);
     assert.doesNotMatch(
       await page.locator("#dialogue-text").innerText(),
       /previous room/,
     );
-    await latest.route.fulfill({
-      json: {
-        revision: latest.input.revision,
-        model: "current-thinking-fixture",
-        entries: latest.input.entities.map(({ id }) => ({
-          id,
-          text: "These words belong to the pond.",
-        })),
-      },
-    });
-    await page.waitForFunction(() =>
-      document
-        .querySelector("#dialogue-text")
-        .textContent.includes("These words belong to the pond."),
-    );
-    assert.deepEqual((await snapshot()).cast, (await snapshot()).hand);
     assert.deepEqual(errors, []);
     await page.close();
   }

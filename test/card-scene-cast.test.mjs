@@ -47,9 +47,10 @@ it("selects the same cast, speakers and remembered events as the narrative", () 
     const told = narrativeContext(world, action);
     const cast = dialogueCast(world, action);
     expect(cast.location).toBe(told.location);
-    expect(cast.speakers).toEqual(told.speakers);
-    expect(cast.focus).toBe(told.focus);
-    expect(cast.resting).toBe(told.resting);
+    // The narrative voices only the play's speech occasions, from this cast.
+    for (const id of told.speakers) expect(cast.ids).toContain(id);
+    expect(told.focus).toBeNull();
+    expect([null, cast.resting]).toContain(told.resting);
     expect(cast.ids).toEqual(told.entities.map((e) => e.id));
     expect(sceneChanges(world)).toEqual(stagedChanges(world));
     expect(

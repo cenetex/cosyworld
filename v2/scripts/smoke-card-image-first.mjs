@@ -351,12 +351,8 @@ try {
         await page.locator("#backdrop").getAttribute("alt"),
         /flash|signal|twice|cover/i,
       );
-      assert.equal(
-        requests.length,
-        2,
-        "each cloth play receives a spoken reaction",
-      );
-      assert(requests.every((request) => request.speakers[0] === "vale"));
+      // Cloth plays are silent; a signal's echo needs no request.
+      assert.equal(requests.length, 0, "cloth plays send no speech request");
       await page.reload();
       await card("cloth").waitFor({ state: "attached" });
       await assertHeldItem(null);

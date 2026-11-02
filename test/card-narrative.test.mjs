@@ -22,7 +22,10 @@ import {
   silentSpeakers,
   silentLines,
   SILENT_TEXT,
+  SPEECH_OCCASIONS,
+  voicesNobody,
 } from "../v2/card-game/narrative.mjs";
+import { dialogueCast } from "../v2/card-game/scene-cast.mjs";
 import { profiles } from "../v2/card-game/memory.mjs";
 import { sceneScript, currentScene } from "../v2/card-game/scene.mjs";
 
@@ -43,6 +46,12 @@ const response = (context) => ({
     id,
     text: `${profiles[id].name} remembers the warm lamp.`,
   })),
+});
+// The scene with every candidate speaker, to test how words are placed
+// when the cast does speak (most plays are silent).
+const castContext = (world, action = null) => ({
+  ...narrativeContext(world, action),
+  speakers: dialogueCast(world, action).speakers,
 });
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 const wantPlace = (target) => ({ kind: "place", target, since: 0, refusals: 0 });
@@ -171,7 +180,10 @@ describe("entity memories and model text", () => {
   it("sends current desires and per-entity memories and keeps generated text through reload", () => {
     const world = act(createWorld(), "take", "lamp");
     const context = narrativeContext(world, { item: "lamp" });
-    expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
+    // Taking the lamp is silent except that it met Vale's want.
+    expect(context.occasion).toBe("want_met");
+    expect(context.speakers).toEqual(["vale"]);
+    expect(context.focus).toBeNull();
     expect(context.action).toBe("Vale takes the Lamp.");
     // Taking the lamp met Vale's want; the card carries that outcome.
     expect(context.outcome.card.wantMet).toEqual({ kind: "item", target: "lamp" });
@@ -199,10 +211,10 @@ describe("entity memories and model text", () => {
     expect(next.actors).toEqual(world.actors);
     expect(next.items).toEqual(world.items);
     expect(next.revision).toBe(world.revision);
-    for (const id of ["station", "lamp", "vale", "moth"]) {
+    for (const id of ["station", "lamp", "vale", "moth"])
       expect(next.memories[id].text).toContain("remembers");
+    for (const id of ["station", "vale"])
       expect(next.log.some((e) => e.entityId === id && e.generated)).toBe(true);
-    }
     expect(currentScene(next).line.generated).toBe(true);
     expect(sceneScript(next).memories).toEqual(next.memories);
     expect(decodeSave(encodeSave(next))).toEqual(next);
@@ -309,7 +321,7 @@ describe("entity memories and model text", () => {
   });
 
   it("keeps omitted cards unchanged and publishes only supplied speakers", () => {
-    const world = act(createWorld(), "wait");
+    const world = act(act(createWorld(), "take", "lamp"), "talk", null, "keeper");
     const context = narrativeContext(world);
     const reply = response(context);
     const silent = context.speakers.at(-1);
@@ -475,10 +487,10 @@ describe("entity memories and model text", () => {
       await vi.advanceTimersByTimeAsync(0);
       expect(request).toHaveBeenCalledTimes(2);
       expect(
-        request.mock.calls.map(([context]) => [context.turn, context.focus]),
+        request.mock.calls.map(([context]) => [context.turn, context.occasion]),
       ).toEqual([
-        [1, "lamp"],
-        [1, "lamp"],
+        [1, "want_met"],
+        [1, "want_met"],
       ]);
       expect(world.actors).toEqual(before.actors);
       expect(world.items).toEqual(before.items);
@@ -663,7 +675,7 @@ describe("entity memories and model text", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("retries failed dialogue without a world turn, keeps its focus and rejects duplicate retries", async () => {
+  it("retries failed dialogue without a world turn, keeps its scene and rejects duplicate retries", async () => {
     vi.useFakeTimers();
     let world = act(createWorld(), "take", "lamp");
     const before = structuredClone(world);
@@ -690,11 +702,11 @@ describe("entity memories and model text", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(request).toHaveBeenCalledTimes(3);
     expect(
-      request.mock.calls.map(([context]) => [context.turn, context.focus]),
+      request.mock.calls.map(([context]) => [context.turn, context.occasion]),
     ).toEqual([
-      [1, "lamp"],
-      [1, "lamp"],
-      [1, "lamp"],
+      [1, "want_met"],
+      [1, "want_met"],
+      [1, "want_met"],
     ]);
     expect(world.actors).toEqual(before.actors);
     expect(world.items).toEqual(before.items);
@@ -761,7 +773,7 @@ describe("entity memories and model text", () => {
 });
 
 describe("witnessed departures and conversation continuity", () => {
-  it("gives Vale the first reaction to each available kind of play", () => {
+  it("speaks on Talk and Ask and on rules occasions, and keeps other plays silent", () => {
     const held = createWorld();
     held.actors.moth.place = held.actors.keeper.place = "station";
     for (const item of ["lamp", "cloth"]) held.items[item].holder = "vale";
@@ -780,10 +792,16 @@ describe("witnessed departures and conversation continuity", () => {
       for (const action of legalActions(world)) {
         const result = play(world, action);
         expect(result.ok).toBe(true);
-        expect(
-          narrativeContext(result.state, action).speakers[0],
-          action.kind,
-        ).toBe("vale");
+        const context = narrativeContext(result.state, action);
+        // The player's avatar still leads any exchange it is part of.
+        expect(dialogueCast(result.state, action).speakers[0]).toBe("vale");
+        if (["talk", "ask"].includes(action.kind)) {
+          expect(context.occasion, action.kind).toBe("talk");
+          expect(context.speakers[0]).toBe("vale");
+        } else if (context.occasion)
+          expect(SPEECH_OCCASIONS, action.kind).toContain(context.occasion);
+        else expect(voicesNobody(context), action.kind).toBe(true);
+        expect(context.focus).toBeNull();
         seen.add(action.kind);
       }
     }
@@ -800,9 +818,10 @@ describe("witnessed departures and conversation continuity", () => {
     ])
       expect(seen.has(kind), kind).toBe(true);
   });
-  it("lets Vale speak on Stay when nobody departs", () => {
+  it("lets Vale speak on waking from a long rest in the attic", () => {
     const world = act(atticOpening(), "wait");
     const context = narrativeContext(world);
+    expect(context.occasion).toBe("long_rest");
     expect(context.speakers).toEqual(["vale"]);
     const next = applyGeneratedText(world, context, response(context));
     expect(
@@ -817,15 +836,19 @@ describe("witnessed departures and conversation continuity", () => {
     start.actors.keeper.place = "attic";
     let world = act(start, "wait");
     expect(world.actors.moth.place).toBe("pond");
-    const context = narrativeContext(world);
+    // A resident's own departure is silent: no goodbye is asked for.
+    expect(narrativeContext(world).speakers).not.toContain("moth");
+    expect(
+      narrativeContext(world)
+        .entities.find((e) => e.id === "moth")
+        .facts.join(" "),
+    ).not.toContain("Say goodbye");
+    const context = castContext(world);
     expect(context.speakers).toEqual(["vale", "moth"]);
     expect(
       context.events.some((text) => text.includes("Pip goes to Black pond")),
     ).toBe(true);
     const pip = context.entities.find((e) => e.id === "moth");
-    expect(pip.facts.join(" ")).toContain(
-      "Leaving Empty station for Black pond",
-    );
     expect(pip.facts.join(" ")).toContain("Location now: Black pond");
     const next = applyGeneratedText(world, context, response(context));
     const lines = next.log.filter(
@@ -862,7 +885,7 @@ describe("witnessed departures and conversation continuity", () => {
     expect(next.memories.moth.text).toBe(words.text);
     expect(decodeSave(encodeSave(next))).toEqual(next);
     const later = act(next, "wait");
-    expect(narrativeContext(later).speakers).not.toContain("moth");
+    expect(dialogueCast(later).speakers).not.toContain("moth");
   });
   it("keeps same-route solo arrivals separate from an accepted accompany play", () => {
     const world = createWorld();
@@ -915,12 +938,14 @@ describe("witnessed departures and conversation continuity", () => {
     ).toEqual(["vale"]);
   });
 
-  it("gives both arrivals a voice, with one ordered exchange for the next turn", () => {
+  it("keeps arrivals quiet, places their words when they speak and orders the next exchange", () => {
     const start = createWorld();
     start.actors.moth.want = wantPlace("station");
     start.actors.keeper.want = wantPlace("station");
     let world = act(start, "wait");
-    let context = narrativeContext(world);
+    expect(narrativeContext(world).speakers).not.toContain("moth");
+    expect(narrativeContext(world).speakers).not.toContain("keeper");
+    let context = castContext(world);
     expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
     world = applyGeneratedText(world, context, response(context));
     expect(
@@ -938,7 +963,8 @@ describe("witnessed departures and conversation continuity", () => {
       "moth",
       "keeper",
     ]);
-    expect(context.speakers.slice(0, 2)).toEqual(["vale", "keeper"]);
+    expect(context.occasion).toBe("talk");
+    expect(context.speakers).toEqual(["vale", "keeper"]);
     expect(
       context.entities.every(
         (e) =>
@@ -950,20 +976,22 @@ describe("witnessed departures and conversation continuity", () => {
     const world = act(leavingStation("keeper"), "wait");
     expect(world.actors.moth.place).toBe("station");
     expect(world.actors.keeper.place).toBe("pond");
-    expect(narrativeContext(world).speakers).toEqual(["vale", "keeper"]);
-    expect(narrativeContext(world, { target: "moth" }).speakers).toEqual([
+    expect(dialogueCast(world).speakers).toEqual(["vale", "keeper"]);
+    expect(dialogueCast(world, { target: "moth" }).speakers).toEqual([
       "vale",
       "moth",
       "keeper",
     ]);
+    // The departure itself asks nobody to speak.
+    expect(narrativeContext(world).speakers).not.toContain("keeper");
   });
   it("handles two departures and removes each speaker from later casts", () => {
     const world = act(leavingStation("moth", "keeper"), "wait");
-    const context = narrativeContext(world);
+    const context = castContext(world);
     expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
     // A partner who left after another avatar speaks after that departure,
     // so it never mentions someone gone who is still on screen.
-    expect(narrativeContext(world, { target: "keeper" }).speakers).toEqual([
+    expect(dialogueCast(world, { target: "keeper" }).speakers).toEqual([
       "vale",
       "moth",
       "keeper",
@@ -992,7 +1020,9 @@ describe("witnessed departures and conversation continuity", () => {
     world = act(world, "threaten", null, "moth");
     world.standoffs[0].resolve.moth = 1;
     world = act(world, "attack", null, "moth");
-    const context = narrativeContext(world);
+    // A strike is silent; its caption carries the retreat.
+    expect(voicesNobody(narrativeContext(world))).toBe(true);
+    const context = castContext(world);
     expect(context.speakers[0]).toBe("vale");
     expect(context.speakers).toContain("moth");
     expect(context.action).toContain("retreats");

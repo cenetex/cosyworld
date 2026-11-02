@@ -1,28 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
+import {
+  createWorld,
+  decodeSave,
+  encodeSave,
+  legalActions,
+  play,
+} from "../v2/card-game/world.mjs";
 import {
   applyGeneratedText,
   narrativeContext,
-  sceneryDue,
+  voicesNobody,
 } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
 
 describe("occasional location atmosphere", () => {
-  it("chooses one varied turn per block with space between captions", () => {
-    const selected = [];
-    for (let turn = 0; turn < 2048; turn++)
-      if (sceneryDue(turn)) selected.push(turn);
-    expect(selected[0]).toBe(0);
-    expect(selected).toHaveLength(512);
-    const gaps = selected.slice(1).map((turn, i) => turn - selected[i]);
-    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(3);
-    expect(Math.max(...gaps)).toBeLessThanOrEqual(5);
-    expect(new Set(gaps).size).toBeGreaterThan(1);
-    for (let block = 1; block < 512; block++)
-      expect(
-        selected.filter((turn) => Math.floor(turn / 4) === block),
-      ).toHaveLength(1);
+  it("captions a place at the opening and on the avatar's first arrival only", () => {
+    let world = createWorld();
+    expect(narrativeContext(world)).toMatchObject({
+      occasion: "opening",
+      scenery: true,
+    });
+    const from = world.actors.vale.place;
+    const travel = (to) =>
+      play(
+        world,
+        legalActions(world).find(
+          (a) => a.kind === "move" && (!to || a.target === to),
+        ),
+      ).state;
+    world = travel();
+    const first = narrativeContext(world);
+    expect(first).toMatchObject({ occasion: "new_place", scenery: true });
+    expect(first.speakers).toEqual([]);
+    world = travel(from);
+    // A return is routine travel: no caption and no request.
+    expect(narrativeContext(world).scenery).toBe(false);
+    expect(voicesNobody(narrativeContext(world))).toBe(true);
   });
 
   it("keeps the same choice through repeat requests, saved copies and shared clients", () => {
@@ -48,43 +62,28 @@ describe("occasional location atmosphere", () => {
     }
   });
 
-  it("keeps complete actor dialogue on quiet turns and leaves the room's saved words alone", () => {
+  it("keeps a quiet turn silent and leaves the room's saved words alone", () => {
     const world = createWorld();
     world.turn = world.revision = 1;
     const context = narrativeContext(world);
     expect(context.scenery).toBe(false);
+    expect(voicesNobody(context)).toBe(true);
+    // An older response can still carry a place description; this turn stays quiet.
     const response = {
       revision: context.revision,
       model: "fixture",
-      entries: context.speakers.map((id) => ({
-        id,
-        text: "The lamp is within reach.",
-      })),
+      entries: [{ id: context.location, text: "Dust lies across the boards." }],
       omitted: context.entities
-        .filter((e) => !context.speakers.includes(e.id))
+        .filter((e) => e.id !== context.location)
         .map((e) => e.id),
     };
     const result = applyGeneratedText(world, context, response);
-    expect(result.log.at(-1).actorId).toBe("vale");
-    expect(result.memories[context.location].text).toBe(
-      world.memories[context.location].text,
-    );
-    expect(result.memories[context.location].turn).toBe(
-      world.memories[context.location].turn,
+    expect(result.memories[context.location]).toEqual(
+      world.memories[context.location],
     );
     expect(
       result.log.filter((e) => e.generated && e.entityId === context.location),
     ).toEqual([]);
-    // An older response can still carry a place description; this turn stays quiet.
-    response.entries.push({
-      id: context.location,
-      text: "Dust lies across the boards.",
-    });
-    response.omitted = response.omitted.filter((id) => id !== context.location);
-    expect(
-      applyGeneratedText(world, context, response).memories[context.location]
-        .text,
-    ).toBe(world.memories[context.location].text);
   });
 
   it("commits and reloads a shared actor-only reply", () => {

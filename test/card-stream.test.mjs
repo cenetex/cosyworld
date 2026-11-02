@@ -141,7 +141,8 @@ describe("live story text", () => {
     expect(encodeSave(world)).toBe(before);
     world = play(
       world,
-      legalActions(world).find((a) => a.kind === "take" && a.item === "lamp"),
+      // A first arrival asks for the new place's caption.
+      legalActions(world).find((a) => a.kind === "move"),
     ).state;
     narrator.changed();
     expect(requests[0].signal.aborted).toBe(true);

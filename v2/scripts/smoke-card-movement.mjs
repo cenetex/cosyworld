@@ -227,8 +227,19 @@ try {
         report.passed = true;
         continue;
       }
-      await page.waitForFunction(() =>
-        document.querySelector("#dialogue-text .revealed"),
+      // Routine travel is silent: its beat is the caption. An agreed
+      // companion and a first meeting speak.
+      const speaks = kind !== "follow";
+      await page.waitForFunction(
+        (speaks) =>
+          speaks
+            ? document.querySelector("#dialogue-text .revealed")
+            : document.querySelector("#hand").dataset.cooling === "false" &&
+              !document.querySelector("#cast .entering") &&
+              Number(
+                getComputedStyle(document.querySelector("#travel")).opacity,
+              ) === 0,
+        speaks,
       );
       const captured = await page.evaluate(() => {
         window.movementCheck.active = false;
@@ -239,7 +250,10 @@ try {
         (await import("/card-game/images.mjs")).imageUrl("./assets/pond.png"),
       );
       const firstPond = captured.frames.find((f) => f.backdrop === pondImage);
-      const firstSpeech = captured.frames.find((f) => f.speech);
+      const firstSpeech = speaks
+        ? captured.frames.find((f) => f.speech)
+        : captured.frames.at(-1);
+      if (!speaks) assert.equal(request, undefined, "Travel sends no request.");
       report.firstPond = firstPond;
       report.firstSpeech = firstSpeech;
       assert.equal(firstPond.placeCard, "pond");
@@ -261,10 +275,11 @@ try {
           captured.animations.every((a) => a.opacity <= 0.01),
           "Entrances play in view.",
         );
-        assert(
-          captured.animations.every((a) => a.end <= firstSpeech.at),
-          "Speech follows the entrances.",
-        );
+        if (speaks)
+          assert(
+            captured.animations.every((a) => a.end <= firstSpeech.at),
+            "Speech follows the entrances.",
+          );
         const vale = captured.animations.find((a) => a.avatar === "vale");
         const pip = captured.animations.find((a) => a.avatar === "moth");
         assert(vale);
@@ -296,11 +311,12 @@ try {
       report.caption = caption;
       // New cards arrive covered in the hand (#1566), so discovery no longer
       // holds the hand while the arrival speaks.
-      assert.deepEqual(
-        request.outcome.avatars.find((a) => a.id === "moth").travel
-          ?.companions ?? [],
-        kind === "shared" ? ["vale"] : [],
-      );
+      if (speaks)
+        assert.deepEqual(
+          request.outcome.avatars.find((a) => a.id === "moth").travel
+            ?.companions ?? [],
+          kind === "shared" ? ["vale"] : [],
+        );
       await page.screenshot({ path: new URL(`${table}.png`, output).pathname });
       assert.deepEqual(report.errors, []);
       report.passed = true;

@@ -431,10 +431,12 @@ describe("card standoffs", () => {
     };
     const s = act(start, "threaten", "moth");
     const context = narrativeContext(s, { target: "moth" });
-    expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
+    // The threatened avatar reacts; the arriving Keeper stays quiet.
+    expect(context.occasion).toBe("threatened");
+    expect(context.speakers).toEqual(["moth"]);
     expect(
       context.entities.find((e) => e.id === "keeper").facts.join(" "),
-    ).toContain("Just arrived from Black pond");
+    ).not.toContain("Just arrived from Black pond");
     for (const id of ["vale", "moth", "lamp", "station"])
       expect(
         s.memories[id].events.some((e) => e.text.includes("threatens")),
