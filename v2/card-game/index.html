@@ -225,13 +225,16 @@
       aria-live="assertive"
       aria-atomic="true"
     ></span>
-    <dialog id="history-dialog" aria-labelledby="memory-title">
-      <div class="modal-heading">
-        <h2 id="memory-title">Memory</h2>
-        <button data-close="history-dialog">Close</button>
-      </div>
+    <dialog id="history-dialog" class="memory-dialog" aria-label="Memory">
+      <button
+        type="button"
+        class="memory-close"
+        data-close="history-dialog"
+        aria-label="Close"
+      >
+        ×
+      </button>
       <div id="messages" class="messages"></div>
-      <button id="export-script">Save conversation</button>
     </dialog>
     <dialog id="menu-dialog" aria-labelledby="settings-title">
       <div class="modal-heading">

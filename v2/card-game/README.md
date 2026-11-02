@@ -420,7 +420,7 @@ Accessible descriptions report the same observable facts, not extra puzzle clues
 
 Lamp and cloth manipulations need no generated commentary. Social exchanges,
 travel and the existing authored bell echo retain their speech. The optional
-The Memory panel shows remembered beats; the export contains spoken lines, not an objective journal.
+The Memory panel shows remembered beats, not an objective journal.
 Basic controls are available on request in Menu, without combination recipes.
 
 This presentation change preserves the existing simulation and save fields;
@@ -767,11 +767,13 @@ The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and
 
 ## Learning and inner life
 
-Open **Menu → Memory**: it starts with your avatar's inner life as a short chain,
-**I'm** (the authored name and title, "I'm Vale. The Lamplighter."), **I'm
-becoming** (one current intention: the newest grounded thought, else the
-persona) and **I dream** (recent dreams), closed by the avatar's name; the
-remembered visits follow below it. Lines
+Open **Menu → Memory**: it has no title bar, only a quiet × in the corner
+(Escape also closes it). It opens straight onto your avatar's inner life,
+**I'm** (the authored name and title, "I'm Vale. The Lamplighter.") and
+**I dream** (recent dreams, left out when there are none), signed by the
+avatar's name; the remembered visits follow below a divider. The chain still
+holds an **I'm becoming** line (one current intention: the newest grounded
+thought, else the persona) for other readers, but Memory does not show it. Lines
 that read as an assistant talking about the scene are hidden, and so are
 lines that are not first person, break their quotes, or name an item kind
 the avatar was never near ("my compass is ready"). A quest target the

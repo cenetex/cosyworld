@@ -114,7 +114,6 @@ import { variantOf } from "./pack-rules.mjs";
 import { hiddenFor, unlockedSince } from "./unlock-view.mjs";
 import {
   currentScene,
-  isSceneText,
   sceneCast,
   nextSpeaker,
   sceneStaging,
@@ -3779,33 +3778,6 @@ document
   .querySelectorAll("dialog")
   .forEach((dialog) => dialog.addEventListener("close", pauseSpeech));
 $("history-dialog").addEventListener("close", () => renderLog(false));
-$("export-script").onclick = () => {
-  const url = URL.createObjectURL(
-    new Blob(
-      [
-        JSON.stringify(
-          world.log
-            .filter(
-              (entry) =>
-                isSceneText(entry, Boolean(sharedSession)) &&
-                entry.generated === true,
-            )
-            .map(({ speaker, text }) => ({ speaker, text })),
-          null,
-          2,
-        ),
-      ],
-      {
-        type: "application/json",
-      },
-    ),
-  );
-  const link = node("a");
-  link.href = url;
-  link.download = "cosyworld-conversation.json";
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
 $("new-game").onclick = () => {
   $("menu-dialog").close();
   $("reset-dialog").showModal();
