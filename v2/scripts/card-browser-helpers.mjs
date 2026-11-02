@@ -25,6 +25,15 @@ export async function tapCard(card) {
   await card.click({ position: { x: width / 2, y: 16 } });
 }
 
+// Signed out, ☰ > Settings holds New game, which asks before Vale's local
+// table starts over (#1892).
+export async function startNewGame(page) {
+  await page.locator("#toolbar-menu-button").click();
+  await page.locator("#menu-button").click();
+  await page.locator("#new-game").click();
+  await page.locator("#confirm-reset").click();
+}
+
 // Use the same holder reveal and selection gestures as a player.
 export async function revealCard(page, id) {
   const card = page.locator(`#hand [data-card="${id}"]`);

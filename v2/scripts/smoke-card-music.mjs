@@ -1,5 +1,9 @@
 import { checkSharedMusicOpenings } from "./shared-music-openings.mjs";
-import { clearSelection, selectCard } from "./card-browser-helpers.mjs";
+import {
+  clearSelection,
+  selectCard,
+  startNewGame,
+} from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
@@ -384,10 +388,7 @@ try {
     [],
     "Songs finish their fade before the next room starts music",
   );
-  await page.locator("#toolbar-menu-button").click();
-  await page.locator("#avatar-move").click();
-  await page.locator("#avatar-new-world").click();
-  await page.locator("#confirm-reset").click();
+  await startNewGame(page);
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await page.reload();
   await page.locator("#toolbar-menu-button").click();

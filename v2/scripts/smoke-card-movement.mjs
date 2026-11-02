@@ -1,5 +1,9 @@
 import { atticOpening } from "../../test/fixtures/card-attic-opening.mjs";
-import { revealCard, selectCard } from "./card-browser-helpers.mjs";
+import {
+  revealCard,
+  selectCard,
+  startNewGame,
+} from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -167,10 +171,7 @@ try {
       await selectCard(page, "pond");
       await page.locator("#card-actions .card-primary").click();
       if (kind === "reset") {
-        await page.locator("#toolbar-menu-button").click();
-        await page.locator("#avatar-move").click();
-        await page.locator("#avatar-new-world").click();
-        await page.locator("#confirm-reset").click();
+        await startNewGame(page);
         // A new game opens on the attic without a quest reveal.
         await page.waitForFunction(
           (key) => JSON.parse(localStorage.getItem(key)).turn === 0,
@@ -280,8 +281,9 @@ try {
         if (kind === "resident") assert.equal(pip, undefined);
       }
       // Arrivals are beats in the stack; a resident who was already here
-      // did nothing, so has no caption.
-      const caption = await page.locator(".dialogue").innerText();
+      // did nothing, so has no caption. Phones show only the front beat
+      // (#1897) and keep the earlier one hidden in the stack, so read both.
+      const caption = await page.locator(".dialogue").textContent();
       if (kind === "resident")
         assert.doesNotMatch(caption, /Pip (arrived|followed|travelled)/);
       else
