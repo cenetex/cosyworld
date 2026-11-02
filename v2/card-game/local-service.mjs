@@ -13,8 +13,6 @@ export async function setupLocalService({ fetcher = globalThis.fetch } = {}) {
   if (value.schema !== 1) throw new Error("The local app needs an update.");
   runtime = value;
   document.body.classList.add("local-app");
-  const account = document.querySelector(".openrouter-settings");
-  if (account) account.hidden = true;
   const brand = document.getElementById("scene-video-button");
   if (brand) {
     brand.disabled = true;

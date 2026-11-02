@@ -89,7 +89,7 @@ const origin = externalOrigin
   ? new URL(externalOrigin).origin
   : `http://127.0.0.1:${server.address().port}`;
 const documentPath = externalOrigin
-  ? "/card-game/openrouter-callback.html?openrouter=callback"
+  ? "/card-game/voices.json"
   : "/cache-check";
 const browser = await chromium.launch({ headless: true });
 const results = [];

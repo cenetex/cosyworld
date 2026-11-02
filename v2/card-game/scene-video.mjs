@@ -1,13 +1,7 @@
-import { playerOpenRouter } from "./openrouter.mjs";
-import { connectOpenRouter } from "./openrouter-connect.mjs";
-import {
-  DEFAULT_VIDEO_MODEL,
-  sceneVideoContext,
-  sceneVideoOptions,
-  sceneVideoPrompt,
-} from "./scene-video-context.mjs";
+import { sceneVideoContext } from "./scene-video-context.mjs";
 
-function stageFrame() {
+// The stage as a reference frame for a video model.
+export function stageFrame() {
   const stage = document.getElementById("stage"),
     rect = stage.getBoundingClientRect();
   const canvas = document.createElement("canvas"),
@@ -85,132 +79,24 @@ function stageFrame() {
   }
 }
 
+// Players no longer bring an OpenRouter key; scene videos return as a
+// credits purchase on the server (#1924). The camera still shows the lines.
 export function installSceneVideo({ getWorld, getScene }) {
-  const client = playerOpenRouter(),
-    $ = (id) => document.getElementById(id);
-  const dialog = $("scene-video-dialog"),
-    status = $("scene-video-status");
-  let snapshot,
-    frame,
-    controller,
-    resultUrl,
-    waitingConnection = false;
-  const report = (message) => {
-    status.textContent = message;
-  };
+  const $ = (id) => document.getElementById(id);
+  const dialog = $("scene-video-dialog");
   const pause = () => document.dispatchEvent(new Event("shared-dialog-change"));
-  function ready() {
-    const connected = Boolean(client.connection()?.key);
-    $("scene-video-connect").hidden = connected;
-    $("scene-video-create").disabled =
-      !connected || !snapshot?.dialogue.length || Boolean(controller);
-    $("scene-video-model").disabled = Boolean(controller);
-  }
-  function clearResult() {
-    $("scene-video-player").pause();
-    $("scene-video-player").removeAttribute("src");
-    $("scene-video-player").load();
-    $("scene-video-player").hidden = true;
-    $("scene-video-download").hidden = true;
-    if (resultUrl) URL.revokeObjectURL(resultUrl);
-    resultUrl = null;
-  }
-  async function generate() {
-    if (controller || !snapshot?.dialogue.length) return;
-    if (!client.connection()?.key) {
-      waitingConnection = true;
-      ready();
-      return;
-    }
-    waitingConnection = false;
-    const active = new AbortController();
-    controller = active;
-    ready();
-    clearResult();
-    $("scene-video-stop").hidden = false;
-    report("Reading the video model’s clip options…");
-    try {
-      const modelId =
-        $("scene-video-model").value.trim() || DEFAULT_VIDEO_MODEL;
-      const catalog = await client.request("videos/models", {
-        key: "",
-        signal: AbortSignal.any([active.signal, AbortSignal.timeout(30_000)]),
-      });
-      const options = sceneVideoOptions(
-        catalog.data.find((model) => model.id === modelId),
-        frame,
-      );
-      client.setVideoModel(modelId);
-      report(`Making a ${options.duration} second video from these lines…`);
-      const blob = await client.video(
-        modelId,
-        sceneVideoPrompt(snapshot, options.duration),
-        AbortSignal.any([active.signal, AbortSignal.timeout(15 * 60_000)]),
-        report,
-        options,
-      );
-      active.signal.throwIfAborted();
-      resultUrl = URL.createObjectURL(blob);
-      $("scene-video-player").src = resultUrl;
-      $("scene-video-player").hidden = false;
-      $("scene-video-download").href = resultUrl;
-      $("scene-video-download").download = "cosyworld-scene.mp4";
-      $("scene-video-download").hidden = false;
-      report("Your scene video is ready.");
-    } catch (error) {
-      if (!active.signal.aborted) report(error.message);
-    } finally {
-      controller = null;
-      $("scene-video-stop").hidden = true;
-      ready();
-    }
-  }
   $("scene-video-button").onclick = () => {
-    if (controller) {
-      if (!dialog.open) dialog.showModal();
-      pause();
-      return;
-    }
-    snapshot = sceneVideoContext(getWorld(), getScene());
-    frame = stageFrame();
-    clearResult();
+    const snapshot = sceneVideoContext(getWorld(), getScene());
     $("scene-video-lines").textContent = snapshot.dialogue
       .map((line) => `${line.speaker}: ${line.text}`)
       .join("\n\n");
-    $("scene-video-model").value =
-      client.connection()?.videoModel ||
-      $("openrouter-video-model").value.trim() ||
-      DEFAULT_VIDEO_MODEL;
-    ready();
+    $("scene-video-create").disabled = true;
+    $("scene-video-status").textContent = snapshot.dialogue.length
+      ? "Scene videos are coming back soon, paid with credits."
+      : "Play a card to give this scene its first words.";
     dialog.showModal();
     pause();
-    if (!snapshot.dialogue.length) {
-      report("Play a card to give this scene its first words.");
-      return;
-    }
-    if (!client.connection()?.key) {
-      waitingConnection = true;
-      report("Connect OpenRouter to make this scene video with your credits.");
-    } else void generate();
-  };
-  $("scene-video-connect").onclick = () => connectOpenRouter(report);
-  $("scene-video-create").onclick = () => void generate();
-  $("scene-video-stop").onclick = () => {
-    controller?.abort();
-    report(
-      "Waiting stopped. Check OpenRouter activity for your submitted video.",
-    );
   };
   $("scene-video-close").onclick = () => dialog.close();
-  dialog.addEventListener("close", () => {
-    waitingConnection = false;
-    $("scene-video-player").pause();
-    pause();
-  });
-  document.addEventListener("openrouter-change", () => {
-    if (!client.connection()?.key) controller?.abort();
-    ready();
-    if (waitingConnection && dialog.open && client.connection()?.key)
-      void generate();
-  });
+  dialog.addEventListener("close", pause);
 }

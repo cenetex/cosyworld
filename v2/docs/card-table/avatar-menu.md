@@ -13,7 +13,7 @@ is organised around the player's avatars. Every world has a name.
 | Friend's link | "Choose your avatar", eight cards marked "Claimed" or with their pleasure, "Refresh avatars", "Your worlds" |
 | Full room | "A place will open shortly", "Check for a place", "Release this avatar", "Your worlds" |
 | Share | "Share this world … You will continue as Vale.", then "Invite someone", "Copy link" |
-| Settings | Controls, Voices, Flashes and scares, Fight speed, Music and volume, OpenRouter, Local game backup, "Your game saves in this browser…", the `?table=` warning, **New game**; in a shared world also Add a passkey, Leave this room, Release this avatar, Sign out |
+| Settings | Controls, Voices, Flashes and scares, Fight speed, Music and volume, Local game backup, "Your game saves in this browser…", the `?table=` warning, **New game**; in a shared world also Add a passkey, Leave this room, Release this avatar, Sign out |
 | New game | "Start a fresh world?", "This replaces this table's saved game. Its levels, quests and progress are lost, and there is no way back to it.", "Keep playing", "Start new game" |
 
 World actions are spread over four places (☰ Worlds, Share, Settings, the
@@ -155,7 +155,7 @@ table: "Your room is full. Your avatar and belongings are saved."
 world online (passkey), then shows the link.
 
 **Settings** is a small separate panel: Voices, Music and volume, Flashes and
-scares, Fast fights, OpenRouter, Backup (Save · Restore), Passkey (Add · Sign
+scares, Fast fights, Backup (Save · Restore), Passkey (Add · Sign
 out) and Controls. It holds no world actions.
 
 The menu shows now, not a log: where each avatar is now. There is no list of

@@ -33,19 +33,12 @@
 #scene-video-dialog {
   width: min(740px, calc(100% - 28px));
 }
-#scene-video-dialog label {
-  display: block;
-  margin: 12px 0 6px;
-}
-#scene-video-model {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 10px;
-  background: #14151d;
-  color: var(--ink);
-  border: 1px solid #817053;
-  border-radius: 6px;
-  font: inherit;
+.scene-video-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
 }
 #scene-video-lines {
   white-space: pre-wrap;
