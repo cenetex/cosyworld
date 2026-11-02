@@ -19,6 +19,8 @@ primary_region = "sjc"
   COSYWORLD_GENERATED_ASSET_DIR = "/data/generated"
   COSYWORLD_WEBAUTHN_RP_ID = "cosyworld.fly.dev"
   COSYWORLD_WEBAUTHN_ORIGIN = "https://cosyworld.fly.dev"
+  # .dev is for existing passkey holders: no sign-ups, no signed-out play.
+  COSYWORLD_PASSKEYS = "members"
   COSYWORLD_RENDEZVOUS_PARTY_MAX_GUESTS = "4"
   COSYWORLD_RENDEZVOUS_PARTY_MAX_ACTIVE_PER_GUEST = "4"
   COSYWORLD_RENDEZVOUS_PARTY_TTL_SECS = "7200"

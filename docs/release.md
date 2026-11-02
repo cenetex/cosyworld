@@ -167,6 +167,17 @@ The workflow deploys `fly.toml` to the primary app and
 same committed release with independent volumes and WebAuthn relying-party
 domains.
 
+`.dev` is for existing passkey holders. `fly.toml` sets
+`COSYWORLD_PASSKEYS = "members"`, so the primary app refuses new passkey
+sign-ups ("Sign-ups are closed on this test server.") and answers 401 to every
+play, text, and shared-world request without a passkey session. The page,
+static files, `/health`, `/meta`, `/auth/*` sign-in, moderation, and internal
+process calls stay public, so the deploy smokes still pass. Signed out, the
+table shows a sign-in lock with a link to lonelyforest.com. Existing passkeys
+sign in normally, and a signed-in passkey may add another. The setting takes
+effect on the next `.dev` deploy. Lonely Forest leaves it unset, which means
+`open` (no change); any other value stops startup.
+
 ## Volume headroom
 
 Both Fly data volumes extend automatically at 80% usage in 1 GB increments,
