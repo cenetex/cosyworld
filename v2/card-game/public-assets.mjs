@@ -202,6 +202,7 @@ const files = [
   "emoji-symbols.json",
   "dialogue.mjs",
   "character-speech.mjs",
+  "credits.mjs",
   "voices.json",
   ...Object.values(voiceCast.voices).map(({ file }) => file),
   "pack-schema.mjs",

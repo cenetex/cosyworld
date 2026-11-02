@@ -79,10 +79,15 @@ Spoken audio and letter sounds follow speech replies.
 A committed ring at your place strikes a synthesized bell (`sfx.mjs`), softer from next door; it follows the music switch and volume.
 
 Players do not connect an OpenRouter account. Written dialogue uses the game's
-account and stays free. Spoken voices and scene videos are paused on hosted
-tables until they return as a credits purchase
-([#1924](https://github.com/cenetex/cosyworld/issues/1924)). The Mac app keeps
-its local voices.
+account and stays free. Spoken voices and scene videos spend the signed-in
+passkey's credits ([#1924](https://github.com/cenetex/cosyworld/issues/1924)):
+a new spoken line costs 1 credit, a scene video 100, and a speech pack is 100
+credits. Settings shows the balance from `GET /card-game/credits` and a "Get a
+speech pack" link. `credits.mjs` asks `POST /card-game/speech` for each new
+line; the server spends the credit, voices the line on its own OpenRouter key
+and refunds a failed call. A line already bought plays again for free. Signed
+out or out of credits, lines are simply not voiced. The Mac app keeps its
+local voices without credits.
 
 The Settings footer and the COSYWORLD wordmark tooltip name the build from the
 server's `/meta` (`v1.2.104 · 94ff0b8 · rules 57`, commit linked); a static

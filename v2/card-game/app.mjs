@@ -76,6 +76,7 @@ import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
+import { creditsText, playerCredits } from "./credits.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
 import {
   createTextReveal,
@@ -639,7 +640,9 @@ const characterSpeech = createCharacterSpeech({
     $("voice-retry").hidden = state !== "error";
     $("voice-status").textContent =
       state === "connect"
-        ? "Character voices are coming back soon, paid with credits."
+        ? playerCredits().state.signed_in
+          ? "Out of credits for voices. Get a speech pack below."
+          : "Sign in with your passkey to hear character voices."
         : state === "error"
           ? message
           : state === "loading"
@@ -651,6 +654,17 @@ const characterSpeech = createCharacterSpeech({
     });
   },
 });
+// Hosted voices and scene videos spend the passkey's credits (#1924).
+$("credits").hidden = Boolean(localRuntime());
+let creditsSeen;
+playerCredits().subscribe((credits) => {
+  $("credits-status").textContent = creditsText(credits);
+  const key = `${credits.signed_in}:${playerCredits().affords("tts")}`;
+  if (creditsSeen !== undefined && key !== creditsSeen)
+    characterSpeech.connectionChanged();
+  creditsSeen = key;
+});
+if (!localRuntime()) void playerCredits().refresh();
 let soundEnabled = true;
 try {
   soundEnabled = localStorage.getItem("cosyworld.dialogue.sound") !== "off";

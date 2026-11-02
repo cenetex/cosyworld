@@ -2,10 +2,11 @@ import cast from "./voices.json" with { type: "json" };
 import { packEntity } from "./pack-registry.mjs";
 import { expressionOf } from "./expression.mjs";
 import { localVoiceClient } from "./local-service.mjs";
+import { playerCredits } from "./credits.mjs";
 
 const connected = (client) => Boolean(client.available?.());
-// Hosted voices return as a credits purchase on the server (#1924).
-const voiceClient = () => localVoiceClient() || { available: () => false };
+// Hosted voices spend one of the passkey's credits per new line (#1924).
+const voiceClient = () => localVoiceClient() || playerCredits().voices;
 const audioType = (blob) => ["audio/mpeg", "audio/wav"].includes(blob.type);
 
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -73,7 +74,7 @@ export function createVoiceClips({
     }
     signal.throwIfAborted();
     if (!connected(client))
-      throw new Error("Character voices are not available here yet.");
+      throw new Error("Sign in and add credits to hear character voices.");
     const blob = await client.clip(speaker, text, signal);
     signal.throwIfAborted();
     if (!audioType(blob) || !blob.size || blob.size > MAX_BYTES)
