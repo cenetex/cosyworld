@@ -711,12 +711,14 @@ Schema 6 saves include location changes, favours and lasting memories. Earlier s
 
 Every new world on Lonely Forest opens black, then shows the land
 acknowledgement (`title-intro.mjs`, started from `entry.mjs`), silent, while
-the table boots underneath. Its text is data in `acknowledgement.json`: the
-RATi Open Software Foundation's statement, word for word from
-<https://rati.foundation/about/#land> (paragraphs with a `source`), then
-Lonely Forest's own, and the Foundation and Cenetex credit in small type. It
-scrolls in its panel when it does not fit. Its tap, click or key (Continue
-takes focus; the arrows scroll) is the gesture browsers ask for before sound:
+the table boots underneath. Its text is data in `acknowledgement.json`: five
+short paragraphs set like a film's opening card, in a narrow measure with
+generous leading, then the Foundation and Cenetex credit in small type. The
+paragraphs fade in one after another (at once under reduced motion), and the
+panel scrolls when it does not fit. A quiet "click to continue" line ("tap to
+continue" on touch screens) sits under it: a button with no chrome that takes
+focus, with a ring only from the keyboard. A tap or click anywhere, or a key
+(the arrows scroll), is the gesture browsers ask for before sound:
 the world's logo fades in with the title song and lifts over one face-down
 card, the game's own card back, with a small Privacy link (`/privacy`) under
 it. The card is a button named "Reveal your traveller" and takes focus. A

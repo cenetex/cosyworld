@@ -1,41 +1,21 @@
 {
-  "about": "The land acknowledgement on the new-world title (title-intro.mjs). Paragraphs with a source are quoted word for word from it; links name a phrase in the text.",
-  "title": "The land we are on",
+  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card. The title names the panel for screen readers; it is not shown.",
+  "title": "Before this forest",
   "paragraphs": [
     {
-      "text": "This statement is our own. It has not been reviewed by the Nations named here, and we welcome their teaching.",
-      "note": true,
-      "source": "https://rati.foundation/about/#land"
+      "text": "Before this forest, there was land. Before our story, there were peoples who walked it, named its waters, sang its seasons, and cared for its living things. In many places, they walk it still. The names are spoken. The songs go on."
     },
     {
-      "text": "The RATi Open Software Foundation has no single home. Our people live and work across the lands of many First Nations, Inuit and Métis peoples, in the place now called Canada. Many of us came here recently. Our work happens online, but the internet is not placeless: every person, server and cable rests on someone’s land.",
-      "links": {
-        "RATi Open Software Foundation": "https://rati.foundation/about/#land"
-      },
-      "source": "https://rati.foundation/about/#land"
+      "text": "This game took shape upon their homelands: along the coasts, beside the lakes, and in the valleys where its makers live; on the distant ground where its machines hum through the night; and in all the places whose voices taught those machines to speak. Its characters have travelled to us through generations of telling. Its words carry something of innumerable lives: what people loved, what they feared, what they could not bear to forget."
     },
     {
-      "text": "Today our work centres on the unceded lands of the Coast Salish peoples, whose home this has always been, in Richmond, British Columbia. We are guests here, though we were not invited.",
-      "source": "https://rati.foundation/about/#land"
+      "text": "So we pause at the threshold. We honour the first keepers of the lands that have sustained this work, and those who tend them still: the peoples whose names we know, and those whose names we have yet to learn."
     },
     {
-      "text": "Words are not enough on their own, so our door is open. If you would like to teach us, work with us, or use our engineering time, write to us at info@rati.foundation. We will answer, and we will share what we learn.",
-      "links": {
-        "info@rati.foundation": "mailto:info@rati.foundation"
-      },
-      "source": "https://rati.foundation/about/#land"
+      "text": "Then, quietly, we offer back what we have made: a wooden box, intricately carved, with a forest folded inside."
     },
     {
-      "text": "Lonely Forest is operated from Toronto, on the ancestral and continuing homelands of the Anishinaabe, Haudenosaunee and Huron-Wendat peoples, and of the many other Nations who have cared for these lands since long before there was a city, and who care for them still."
-    },
-    {
-      "text": "Its servers run in what is now called California, on the ancestral and continuing homelands of the Ohlone peoples, whose communities are still here."
-    },
-    {
-      "text": "The voices in this forest are made by artificial intelligence, and artificial intelligence is made from all of us: the words, songs, stories and knowledge of every people, from every land, gathered from across the earth. It runs on machines that draw on land, water and energy all over the world."
-    },
-    {
-      "text": "And so we offer back to all the peoples of the earth, and to those on whose lands we do and do not yet live, work and make stories, this intricately carved wooden box: free to play, to open and to change."
+      "text": "We leave the lid open. Whoever you are, wherever you have come from, there is a path here for you."
     }
   ],
   "credit": "Designed by the RATi Open Software Foundation · Operated as a service by Cenetex Inc. · All revenue goes to the Foundation"
