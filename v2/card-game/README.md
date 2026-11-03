@@ -735,8 +735,8 @@ stanzas (`STANZA_MS`). Eight held words keep a breath of their own
 "box" and "yours"), and one long silence (1.8 s) falls after "Nothing here
 began with us." before "Before you sits": `pauses` in `acknowledgement.json`
 names each word, which time it appears, its `pauseMs` and, for a held word,
-its card rarity `tier` (`level-tiers.mjs`) and the `phrase` around it that
-lights; the larger of that and any punctuation or
+its card rarity `tier` (`level-tiers.mjs`), with the phrase around it that
+lights in `phrases`; the larger of that and any punctuation or
 stanza breath wins. About 20 seconds in all. The tiers climb as the poem goes:
 Common "there was land" and "there were peoples", Uncommon "care for them
 still" and "the keepers", Rare "the voices old and living", Epic "Nothing here

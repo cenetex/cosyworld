@@ -153,14 +153,15 @@ const link = (text, href) => {
 export const STANZA_MS = 650;
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Where each pause falls: its line, the span that lights (a held word's
-// phrase on its line, else the word), the offset its breath follows, and how
-// many letters of the whole run are written once that span is.
-export function acknowledgementPauses({ stanzas, pauses = [] }) {
+// phrase on its line, from `phrases`, else the word), the offset its breath
+// follows, and how many letters of the whole run are written once that span is.
+export function acknowledgementPauses({ stanzas, pauses = [], phrases = {} }) {
   const lines = stanzas.flat();
   const before = lines.map(
     (_, line) => splitLetters(lines.slice(0, line).join("")).length,
   );
-  return pauses.flatMap(({ word, occurrence = 1, pauseMs, tier, phrase }) => {
+  return pauses.flatMap(({ word, occurrence = 1, pauseMs, tier }) => {
+    const phrase = tier && phrases[word];
     const pattern = new RegExp(
       `(?<![\\p{L}\\p{N}])${escape(word)}(?![\\p{L}\\p{N}])(?:[.,;:!?…—]|\\s—)*`,
       "gu",

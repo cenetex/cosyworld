@@ -1,5 +1,5 @@
 {
-  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card: each stanza a list of lines, shown as written. The title names the panel for screen readers; it is not shown. Pauses hold a breath after a word: which time it appears (from 1), the ms (replacing any shorter punctuation or stanza breath after it and any punctuation touching it) and, for a held word, the card rarity tier (level-tiers.mjs) whose colour its phrase takes on, climbing as the poem goes. The phrase is the words around the held word on its line that light with it; it lights once its last letter is written, its glow rising over glowInMs, and stays lit. A pause with no tier is a silence only, like the long hold before the carved box stanza.",
+  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card: each stanza a list of lines, shown as written. The title names the panel for screen readers; it is not shown. Pauses hold a breath after a word: which time it appears (from 1), the ms (replacing any shorter punctuation or stanza breath after it and any punctuation touching it) and, for a held word, the card rarity tier (level-tiers.mjs) whose colour its phrase takes on, climbing as the poem goes. Its phrase (`phrases`, by held word) is the words around it on its line that light with it; it lights once its last letter is written, its glow rising over glowInMs, and stays lit. A pause with no tier is a silence only, like the long hold before the carved box stanza.",
   "title": "Before this forest",
   "glowInMs": 350,
   "stanzas": [
@@ -30,66 +30,24 @@
     ["Open the box. The path is yours."]
   ],
   "pauses": [
-    {
-      "word": "land",
-      "occurrence": 1,
-      "pauseMs": 320,
-      "tier": "common",
-      "phrase": "there was land"
-    },
-    {
-      "word": "peoples",
-      "occurrence": 1,
-      "pauseMs": 320,
-      "tier": "common",
-      "phrase": "there were peoples"
-    },
-    {
-      "word": "still",
-      "occurrence": 1,
-      "pauseMs": 320,
-      "tier": "uncommon",
-      "phrase": "care for them still"
-    },
-    {
-      "word": "keepers",
-      "occurrence": 1,
-      "pauseMs": 300,
-      "tier": "uncommon",
-      "phrase": "the keepers"
-    },
-    {
-      "word": "living",
-      "occurrence": 1,
-      "pauseMs": 320,
-      "tier": "rare",
-      "phrase": "the voices old and living"
-    },
-    {
-      "word": "Nothing",
-      "occurrence": 1,
-      "pauseMs": 300,
-      "tier": "epic",
-      "phrase": "Nothing here began with us."
-    },
-    {
-      "word": "us",
-      "occurrence": 2,
-      "pauseMs": 1800
-    },
-    {
-      "word": "box",
-      "occurrence": 1,
-      "pauseMs": 320,
-      "tier": "legendary",
-      "phrase": "an intricately carved wooden box"
-    },
-    {
-      "word": "yours",
-      "occurrence": 1,
-      "pauseMs": 350,
-      "tier": "mythic",
-      "phrase": "The path is yours."
-    }
-  ]
+    { "word": "land", "occurrence": 1, "pauseMs": 320, "tier": "common" },
+    { "word": "peoples", "occurrence": 1, "pauseMs": 320, "tier": "common" },
+    { "word": "still", "occurrence": 1, "pauseMs": 320, "tier": "uncommon" },
+    { "word": "keepers", "occurrence": 1, "pauseMs": 300, "tier": "uncommon" },
+    { "word": "living", "occurrence": 1, "pauseMs": 320, "tier": "rare" },
+    { "word": "Nothing", "occurrence": 1, "pauseMs": 300, "tier": "epic" },
+    { "word": "us", "occurrence": 2, "pauseMs": 1800 },
+    { "word": "box", "occurrence": 1, "pauseMs": 320, "tier": "legendary" },
+    { "word": "yours", "occurrence": 1, "pauseMs": 350, "tier": "mythic" }
+  ],
+  "phrases": {
+    "land": "there was land",
+    "peoples": "there were peoples",
+    "still": "care for them still",
+    "keepers": "the keepers",
+    "living": "the voices old and living",
+    "Nothing": "Nothing here began with us.",
+    "box": "an intricately carved wooden box",
+    "yours": "The path is yours."
+  }
 }

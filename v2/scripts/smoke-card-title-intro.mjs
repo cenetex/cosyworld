@@ -6,7 +6,7 @@ import { startNewGame } from "./card-browser-helpers.mjs";
 import { REVEAL_HINT, TITLES, WAKE_FADE } from "../card-game/title-intro.mjs";
 import acknowledgement from "../card-game/acknowledgement.json" with { type: "json" };
 const held = acknowledgement.pauses.filter(({ tier }) => tier);
-const phrases = held.map(({ phrase }) => phrase);
+const phrases = held.map(({ word }) => acknowledgement.phrases[word]);
 import {
   cardShown,
   checkTitleMusicAlone,
@@ -74,67 +74,68 @@ async function newContext(
     viewport: { width, height },
     reducedMotion: reducedMotion || "no-preference",
   });
-  await context.addInitScript(
-    ([music, sound]) => {
-      if (!sessionStorage.getItem("seeded")) {
-        sessionStorage.setItem("seeded", "1");
-        localStorage.setItem("cosyworld.dialogue.sound", sound ? "on" : "off");
-        localStorage.setItem(
-          "cosyworld.room-music",
-          JSON.stringify({ enabled: music, volume: 0.3 }),
+  await context.addInitScript((music) => {
+    if (!sessionStorage.getItem("seeded")) {
+      sessionStorage.setItem("seeded", "1");
+      localStorage.setItem("cosyworld.dialogue.sound", "off");
+      localStorage.setItem(
+        "cosyworld.room-music",
+        JSON.stringify({ enabled: music, volume: 0.3 }),
+      );
+    }
+    window.__plays = [];
+    window.__overlaps = 0;
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      window.__plays.push(this.id || this.src);
+      const room = document.getElementById("room-music");
+      const song = this === room ? window.__titleSong : room;
+      if (song && !song.paused) window.__overlaps++;
+      if (/title-attic-lamp/.test(this.src)) window.__titleSong = this;
+      const started = play.call(this);
+      if (/title-attic-lamp/.test(this.src))
+        window.__titlePlay = started.then(
+          () => "resolved",
+          (error) => error.name,
         );
-      }
-      window.__plays = [];
-      window.__overlaps = 0;
-      const play = HTMLMediaElement.prototype.play;
-      HTMLMediaElement.prototype.play = function () {
-        window.__plays.push(this.id || this.src);
-        const room = document.getElementById("room-music");
-        const song = this === room ? window.__titleSong : room;
-        if (song && !song.paused) window.__overlaps++;
-        if (/title-attic-lamp/.test(this.src)) window.__titleSong = this;
-        const started = play.call(this);
-        if (/title-attic-lamp/.test(this.src))
-          window.__titlePlay = started.then(
-            () => "resolved",
-            (error) => error.name,
-          );
-        return started;
+      return started;
+    };
+    // Every gain node gets a listener, so the smoke hears what plays.
+    const Context = window.AudioContext;
+    window.__listeners = [];
+    window.AudioContext = function (...args) {
+      const context = new Context(...args);
+      const createGain = context.createGain.bind(context);
+      context.createGain = () => {
+        const gain = createGain();
+        const analyser = context.createAnalyser();
+        gain.connect(analyser);
+        window.__listeners.push(analyser);
+        return gain;
       };
-      // Every gain node gets a listener, so the smoke hears what plays.
-      const Context = window.AudioContext;
-      window.__listeners = [];
-      window.AudioContext = function (...args) {
-        const context = new Context(...args);
-        const createGain = context.createGain.bind(context);
-        context.createGain = () => {
-          const gain = createGain();
-          const analyser = context.createAnalyser();
-          gain.connect(analyser);
-          window.__listeners.push(analyser);
-          return gain;
-        };
-        return context;
-      };
-      window.AudioContext.prototype = Context.prototype;
-      // The dialogue's letter blips: a 70 ms triangle (createSpeechSounds).
-      window.__blips = 0;
-      const { start, stop } = OscillatorNode.prototype;
-      OscillatorNode.prototype.start = function (when = 0) {
-        this.__at = when;
-        return start.call(this, when);
-      };
-      OscillatorNode.prototype.stop = function (when = 0) {
-        if (
-          this.type === "triangle" &&
-          Math.abs(when - this.__at - 0.07) < 1e-3
-        )
-          window.__blips++;
-        return stop.call(this, when);
-      };
-    },
-    [music, sound],
-  );
+      return context;
+    };
+    window.AudioContext.prototype = Context.prototype;
+    // The dialogue's letter blips: a 70 ms triangle (createSpeechSounds).
+    window.__blips = 0;
+    const { start, stop } = OscillatorNode.prototype;
+    OscillatorNode.prototype.start = function (when = 0) {
+      this.__at = when;
+      return start.call(this, when);
+    };
+    OscillatorNode.prototype.stop = function (when = 0) {
+      if (this.type === "triangle" && Math.abs(when - this.__at - 0.07) < 1e-3)
+        window.__blips++;
+      return stop.call(this, when);
+    };
+  }, music);
+  // The letters' blips need the table's Voices on.
+  if (sound)
+    await context.addInitScript(() => {
+      if (sessionStorage.getItem("voiced")) return;
+      sessionStorage.setItem("voiced", "1");
+      localStorage.setItem("cosyworld.dialogue.sound", "on");
+    });
   return context;
 }
 const blips = (page) => page.evaluate(() => window.__blips);

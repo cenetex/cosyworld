@@ -179,7 +179,7 @@ test("its held phrases light in rarity tiers that climb, and stay lit", () => {
   // Each phrase is set in the data and found around its held word.
   assert.deepEqual(
     pauses.map(({ phrase }) => phrase),
-    acknowledgement.pauses.filter(({ tier }) => tier).map((p) => p.phrase),
+    pauses.map(({ word }) => acknowledgement.phrases[word]),
   );
   const rank = (id) => tiers.find((tier) => tier.id === id).rank;
   const ranks = pauses.map(({ tier }) => rank(tier));
