@@ -190,6 +190,9 @@ export function createCombatView({
   const floatWord = (id, text, tone) => {
     const el = fighter(id);
     if (!el) return;
+    // A new word replaces the fighter's last one ("Yields", then "Beaten").
+    for (const old of el.querySelectorAll(":scope > .combat-word"))
+      old.remove();
     const word = add(el, document.createElement("span"));
     word.className = "combat-word";
     word.dataset.tone = tone;
@@ -341,17 +344,21 @@ export function createCombatView({
       stage.querySelector("#cast"),
       stage.querySelector("#floor-items"),
     ].filter(Boolean);
-    cut = { dim, scene };
+    // Phones already step from the close-up into a wider two-shot, so a
+    // push-in would fight that move and crowd the fighters off the edges.
+    const zoom = !phone();
+    cut = { dim, scene, zoom };
     if (reduced()) {
       dim.style.opacity = "1";
       return;
     }
-    for (const el of scene)
-      animate(el, [{ scale: 1 }, { scale: 1.08 }], {
-        duration: 260,
-        easing: "ease-out",
-        fill: "forwards",
-      });
+    if (zoom)
+      for (const el of scene)
+        animate(el, [{ scale: 1 }, { scale: 1.08 }], {
+          duration: 260,
+          easing: "ease-out",
+          fill: "forwards",
+        });
     animate(dim, [{ opacity: 0 }, { opacity: 1 }], {
       duration: 260,
       fill: "forwards",
@@ -359,10 +366,10 @@ export function createCombatView({
   };
   const releaseCut = async () => {
     if (!cut) return;
-    const { dim, scene } = cut;
+    const { dim, scene, zoom } = cut;
     cut = null;
     if (!reduced()) {
-      const back = [...scene, dim].map((el) =>
+      const back = [...(zoom ? scene : []), dim].map((el) =>
         el.animate(
           el === dim
             ? [{ opacity: 1 }, { opacity: 0 }]
