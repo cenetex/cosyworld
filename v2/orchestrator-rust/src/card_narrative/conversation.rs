@@ -174,7 +174,9 @@ pub(super) fn meta(entity: &Entity) -> Vec<String> {
 }
 
 /// The context with the actor's fresh line added to the table talk, so the
-/// Talk target answers it. Everyone voiced this turn heard it.
+/// Talk target answers it. Everyone voiced this turn heard it. The line was
+/// generated and validated on this server this turn, after the browser's
+/// lines were verified (`untrusted::trusted`), so it needs no envelope.
 pub(super) fn with_line(context: &Context, actor: &str, text: &str) -> Option<Context> {
     let mut next: Context = serde_json::from_value(serde_json::to_value(context).ok()?).ok()?;
     next.acting_avatar = context.acting_avatar.clone();
@@ -186,6 +188,7 @@ pub(super) fn with_line(context: &Context, actor: &str, text: &str) -> Option<Co
         witnesses: Some(witnesses),
         actor_id: actor.to_string(),
         text: text.to_string(),
+        signed: None,
     });
     Some(next)
 }
@@ -330,6 +333,7 @@ mod tests {
         .await;
         let mut c = talk();
         c.conversation = vec![SpokenLine {
+            signed: None,
             witnesses: Some(vec!["vale".into(), "moth".into()]),
             actor_id: "vale".into(),
             text: "An old question from yesterday.".into(),
@@ -409,11 +413,13 @@ mod tests {
         let all = Some(vec!["vale".to_string(), "moth".into(), "keeper".into()]);
         c.conversation = vec![
             SpokenLine {
+                signed: None,
                 witnesses: all.clone(),
                 actor_id: "keeper".into(),
                 text: "The night boats for the far shore are late again.".into(),
             },
             SpokenLine {
+                signed: None,
                 witnesses: all,
                 actor_id: "vale".into(),
                 text: "Which boats for the far shore leave from the east quay, Pip?".into(),
