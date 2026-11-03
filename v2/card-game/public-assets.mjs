@@ -193,6 +193,7 @@ const files = [
   "title-intro.mjs",
   "title-logo.mjs",
   "title-logos.json",
+  "acknowledgement.json",
   "title-song.mjs",
   "local-service.mjs",
   "local-saves.mjs",

@@ -1061,7 +1061,7 @@ body .card {
 body .card[data-selected="true"] {
   outline-color: #fffaf0;
 }
-body .card:focus-visible {
+:is(body, :where(.title-intro)) .card:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
@@ -1107,7 +1107,7 @@ body .card:focus-visible {
     filter: brightness(1.12);
   }
 }
-body .card {
+:is(body, :where(.title-intro)) .card {
   position: relative;
   width: 100%;
   height: 100%;
@@ -1124,7 +1124,7 @@ body .card {
 body .card:hover {
   background: #181b22;
 }
-body .card .art {
+:is(body, :where(.title-intro)) .card .art {
   position: absolute;
   inset: 0;
   display: block;
@@ -1132,7 +1132,7 @@ body .card .art {
   border-radius: inherit;
   background: radial-gradient(ellipse at 50% 66%, #70543c6e, #141b2499);
 }
-body .card .art img {
+:is(body, :where(.title-intro)) .card .art img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1146,7 +1146,7 @@ body .card.item .art img {
   object-fit: contain;
   filter: drop-shadow(0 8px 10px #0009);
 }
-body .card.avatar .art img {
+:is(body, :where(.title-intro)) .card.avatar .art img {
   --shown: calc(var(--figure-height, 1) * 0.78);
   inset: auto;
   top: calc(6% - 100% * var(--figure-top, 0) / var(--shown));
@@ -1156,7 +1156,7 @@ body .card.avatar .art img {
   translate: calc(-100% * var(--head-x, 0.5)) 0;
   object-fit: fill;
 }
-body .card .name {
+:is(body, :where(.title-intro)) .card .name {
   position: absolute;
   inset: auto 0 calc(var(--card-height) * 0.25);
   z-index: 1;
@@ -2790,27 +2790,96 @@ main > .dialogue {
   place-items: center;
   background: #000;
   cursor: pointer;
+  outline: none;
 }
-.title-intro img {
+.title-intro > img {
   width: min(76vw, 1400px);
   max-height: 80dvh;
   object-fit: contain;
   opacity: 0;
 }
 @media (max-width: 640px) {
-  .title-intro img {
+  .title-intro > img {
     width: calc(100vw - 32px);
   }
 }
 .title-intro[data-phase="wake"] {
   cursor: default;
 }
-/* The first tap lifts the logo; Wake enters the world. */
-.title-wake {
+/* The land acknowledgement comes first, as real text that scrolls in place. */
+.title-ack {
   position: absolute;
-  top: 62%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(660px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  color: #fff4dc;
+  font: 1rem/1.5 Georgia, serif;
+  opacity: 0;
+}
+.title-ack-text {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 4px;
+}
+.title-ack h2 {
+  margin: 0 0 0.6em;
+  font: 1.3rem Georgia, serif;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.title-ack p {
+  margin: 0 0 0.7em;
+}
+.title-ack-note {
+  font-style: italic;
+  opacity: 0.8;
+}
+.title-intro a {
+  color: inherit;
+  text-decoration-color: rgba(255, 244, 220, 0.5);
+}
+.title-ack .title-credit {
+  margin: 1em 0 0;
+  font-size: 0.75rem;
+  opacity: 0.65;
+  text-align: center;
+}
+.title-ack-text:focus-visible,
+.title-intro a:focus-visible {
+  outline: 2px solid #fff4dc;
+  outline-offset: 3px;
+}
+/* The logo lifts; Wake enters the world, with Privacy beside it. */
+.title-reveal {
+  position: absolute;
+  top: 55%;
   left: 50%;
   translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  opacity: 0;
+}
+/* One face-down card, sized as in the hand; its reveal enters the world. */
+.title-card {
+  --card-height: clamp(200px, 30dvh, 280px);
+  position: relative;
+  width: calc(var(--card-height) * 2 / 3);
+  height: var(--card-height);
+}
+.title-card .card {
+  cursor: pointer;
+}
+.title-privacy {
+  color: #fff4dc;
+  font: 0.85rem Georgia, serif;
+  opacity: 0.7;
+}
+.title-continue {
   padding: 12px 28px;
   border: 1px solid rgba(255, 244, 220, 0.55);
   border-radius: 999px;
@@ -2819,17 +2888,16 @@ main > .dialogue {
   font: 1.15rem Georgia, serif;
   letter-spacing: 0.04em;
   cursor: pointer;
-  opacity: 0;
 }
 @media (max-width: 640px) {
-  .title-wake {
+  .title-reveal {
     top: 52%;
   }
 }
-.title-wake:hover {
+.title-continue:hover {
   background: rgba(255, 244, 220, 0.16);
 }
-.title-wake:focus-visible {
+.title-continue:focus-visible {
   outline: 2px solid #fff4dc;
   outline-offset: 3px;
 }

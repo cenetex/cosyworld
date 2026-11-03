@@ -709,19 +709,25 @@ Schema 6 saves include location changes, favours and lasting memories. Earlier s
 
 ### New-world title
 
-Every new world on Lonely Forest opens black and fades in that world's logo
-(`title-intro.mjs`, started from `entry.mjs`). The logo then holds, silent,
-while the table boots and asks for Vale's opening line underneath it. The
-player's first tap, click or key on the title starts the title song, lifts the
-logo, and shows a **Wake Vale** button named for the avatar this world opens
-with (the joining avatar in a shared world). The button takes focus, so Enter
-or Space presses it. Wake fades the song out over a second and fades the title
-to the attic. Escape skips straight in at any point and fades the song the same
-way. If the player never presses Wake, the song plays once to its end and the
-button stays. Browsers refuse sound before a gesture, so the title waits for
-one instead of playing music on load. Reduced motion crossfades the logo
-without scaling and moves it up at once. The image loads before it fades in;
-if it does not load within 2.5 seconds the black fades straight to the table.
+Every new world on Lonely Forest opens black, then shows the land
+acknowledgement (`title-intro.mjs`, started from `entry.mjs`), silent, while
+the table boots underneath. Its text is data in `acknowledgement.json`: the
+RATi Open Software Foundation's statement, word for word from
+<https://rati.foundation/about/#land> (paragraphs with a `source`), then
+Lonely Forest's own, and the Foundation and Cenetex credit in small type. It
+scrolls in its panel when it does not fit. Its tap, click or key (Continue
+takes focus; the arrows scroll) is the gesture browsers ask for before sound:
+the world's logo fades in with the title song and lifts over one face-down
+card, the game's own card back, with a small Privacy link (`/privacy`) under
+it. The card is a button named "Reveal your traveller" and takes focus. A
+click, Enter or Space turns it with the hand's reveal (`card-reveal.mjs`) to
+the face of the avatar this world opens with (the joining avatar in a shared
+world), cloned from the hand and named for screen readers. The face holds for
+0.8 seconds, then the song fades out over a second and the title fades to the
+table. Escape skips straight in at any step and fades the song the same way.
+Reduced motion crossfades each step, moves the logo up at once and swaps the
+face in without the flip. If the logo does not load within 2.5 seconds, the
+card shows without it.
 
 The song is _The Attic Keeps Its Lamp × Moonstone Sanctum_
 (`assets/music/title-attic-lamp.mp3`, `title-song.mjs`). It follows the saved
@@ -748,8 +754,9 @@ not a button. Other sites' landings and the local CosyWorld app keep
 the COSYWORLD wordmark.
 Automated browsers skip it unless the address has `intro=1`;
 `v2/scripts/smoke-card-title-intro.mjs` plays it at desktop and phone width,
-including after New game, music off, reduced motion, and a Rue and a Vale
-world where room music waits for the song (`title-music-alone.mjs`)
+including after New game, music off, reduced motion and the keyboard, and
+for a Rue and a Vale world where room music waits for the song
+(`title-music-alone.mjs`)
 (`TITLE_INTRO_SHOTS=<dir>` saves its screenshots there).
 
 New browser tables and shared worlds use `createWorld({ opening: true })`.
@@ -1017,7 +1024,7 @@ Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, quiet de
 
 Run `node v2/scripts/smoke-card-dialogue-recovery.mjs` to check visible service failures, same-turn retry, incomplete responses, later plays and reload at desktop and phone widths. It uses local fixture responses and makes no model calls.
 
-The new-world title plays its own song between the first tap and Wake (see New-world title); room music waits until the title is gone and its song has faded.
+The new-world title plays its own song between the acknowledgement and the card reveal (see New-world title); room music waits until the title is gone and its song has faded.
 
 Music loading starts when playback is ready: after the first accepted play
 (in the attic opening, the pond reveal), with music enabled and the page visible. A place triggers a song when music

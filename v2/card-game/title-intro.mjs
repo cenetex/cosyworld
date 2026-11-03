@@ -1,12 +1,15 @@
+import acknowledgement from "./acknowledgement.json" with { type: "json" };
 import landings from "./pack-landings.json" with { type: "json" };
 import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
 import { imageUrl } from "./images.mjs";
 import { count } from "./metrics.mjs";
+import { revealCard } from "./card-reveal.mjs";
 import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { createTitleSong } from "./title-song.mjs";
 
-// The Lonely Forest title opens every new world: black, the world's logo
-// (title-logo.mjs), its song and Wake button, then the table. A reload or a return to a world never replays it.
+// The Lonely Forest title opens every new world: black, the land
+// acknowledgement (acknowledgement.json), the world's logo (title-logo.mjs)
+// with its song, a face-down card that turns to the avatar, then the table. A reload or a return to a world never replays it.
 // The key holds the id of a shared world just created or joined whose title
 // is still due.
 export const INTRO_KEY = "cosyworld.title-intro";
@@ -69,14 +72,13 @@ export function playNewWorldIntro() {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// The Wake button names the avatar this world opens with. The table boots
-// under the title and names it here once the world is known.
+// The face-down card turns to the avatar this world opens with. The table
+// boots under the title and names it here once the world is known.
 let wakeName = "",
-  wakeButton = null;
-export const wakeLabel = (name) => (name ? `Wake ${name}` : "Wake up");
-export function nameTitleWaker(name) {
+  wakeId = "";
+export function nameTitleWaker(name, id = "") {
   wakeName = typeof name === "string" ? name.trim() : "";
-  if (wakeButton) wakeButton.textContent = wakeLabel(wakeName);
+  wakeId = id;
 }
 
 // No room music plays under the title, nor until its song has faded out:
@@ -84,11 +86,63 @@ export function nameTitleWaker(name) {
 let musicHold = null;
 export const titleMusicHold = () => musicHold;
 
+const element = (tag, className, text) => {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text) node.textContent = text;
+  return node;
+};
+const link = (text, href) => {
+  const anchor = element("a", "", text);
+  anchor.href = href;
+  anchor.target = "_blank";
+  anchor.rel = "noopener";
+  return anchor;
+};
+// Real text from acknowledgement.json; each named phrase becomes its link.
+function acknowledgementPanel() {
+  const panel = element("section", "title-ack");
+  const text = element("div", "title-ack-text");
+  text.tabIndex = 0;
+  const heading = element("h2", "", acknowledgement.title);
+  heading.id = "title-ack-heading";
+  text.setAttribute("aria-labelledby", heading.id);
+  text.append(heading);
+  for (const { text: words, links = {}, note } of acknowledgement.paragraphs) {
+    const paragraph = element("p", note ? "title-ack-note" : "");
+    const phrases = Object.keys(links);
+    const split = phrases.length
+      ? new RegExp(
+          `(${phrases.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
+        )
+      : null;
+    for (const part of split ? words.split(split) : [words])
+      paragraph.append(links[part] ? link(part, links[part]) : part);
+    text.append(paragraph);
+  }
+  text.append(element("p", "title-credit", acknowledgement.credit));
+  const next = element("button", "title-continue", "Continue");
+  next.type = "button";
+  panel.append(text, next);
+  return { panel, next };
+}
+
+const SCROLL_KEYS = [
+  "ArrowUp",
+  "ArrowDown",
+  "PageUp",
+  "PageDown",
+  "Home",
+  "End",
+];
+
 // The overlay sits outside the inert body and over the table, which boots
-// and asks for Vale's opening line underneath it. The logo waits, silent, for
-// the first tap or key: that gesture starts the title song (title-song.mjs),
-// lifts the logo and shows the Wake button. Wake fades the song and enters;
-// Escape skips straight in. Resolves when the overlay is gone.
+// underneath it. The land acknowledgement shows first, silent. Its tap, click
+// or key (the gesture browsers ask for before sound) brings the logo and the
+// title song (title-song.mjs); the logo lifts over one face-down card and a
+// Privacy link. The card turns to the avatar (card-reveal.mjs), then the song
+// fades and the table shows. Escape skips straight in at any step.
+// Resolves when the overlay is gone.
 export function playTitleIntro({
   logo = LOGOS[0],
   storage = globalThis.localStorage,
@@ -98,12 +152,14 @@ export function playTitleIntro({
     storage.removeItem(INTRO_KEY);
   } catch {}
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const layer = document.createElement("div");
-  layer.className = "title-intro";
+  const layer = element("div", "title-intro");
   layer.dataset.phase = "black";
-  layer.setAttribute("role", "img");
+  layer.tabIndex = -1;
+  layer.setAttribute("role", "dialog");
+  layer.setAttribute("aria-modal", "true");
   layer.setAttribute("aria-label", logo.name);
-  const image = document.createElement("img");
+  const { panel, next } = acknowledgementPanel();
+  const image = element("img");
   image.alt = "";
   image.decoding = "async";
   const source = logo.src;
@@ -111,56 +167,135 @@ export function playTitleIntro({
   layer.append(image);
   document.documentElement.append(layer);
 
-  let woken = false,
+  let phase = "black",
     leaving = false,
     songDone = Promise.resolve(),
     leave;
   const left = new Promise((resolve) => (leave = resolve));
+  const race = (promise) => Promise.race([promise, left]);
   const finish = () => {
     if (leaving) return;
     leaving = true;
     songDone = song.stop(1);
     leave();
   };
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "title-wake";
-  button.addEventListener("click", () => {
-    if (!leaving) count("intro.wake");
-    finish();
-  });
-  // The first gesture on the title: the song, the lifted logo, Wake.
-  const wake = () => {
-    if (woken || leaving) return;
-    woken = true;
-    song.start();
-    layer.dataset.phase = "wake";
-    layer.removeAttribute("role");
-    layer.setAttribute("role", "dialog");
-    layer.setAttribute("aria-modal", "true");
-    image.alt = logo.name;
-    image.getAnimations().forEach((animation) => animation.finish());
-    image.animate(
-      [
-        { opacity: 1, transform: "none" },
-        { opacity: 1, transform: "translateY(-14dvh) scale(0.8)" },
-      ],
-      { duration: reduced ? 0 : 900, easing: "ease", fill: "both" },
-    );
-    wakeButton = button;
-    button.textContent = wakeLabel(wakeName);
-    layer.append(button);
-    button.animate([{ opacity: 0 }, { opacity: 1 }], {
-      duration: reduced ? 250 : 600,
-      delay: reduced ? 0 : 300,
+  const fade = (node, duration, delay = 0) =>
+    node.animate([{ opacity: 0 }, { opacity: 1 }], {
+      duration,
+      delay,
       easing: "ease",
       fill: "both",
     });
-    button.focus({ preventScroll: true });
+  // The game's own face-down card, as in ☰; its reveal is the way in.
+  const card = element("button", "card avatar");
+  card.type = "button";
+  card.dataset.unrevealed = "true";
+  card.dataset.card = "title-traveller";
+  card.setAttribute("aria-label", "Reveal your traveller");
+  const back = element("img", "card-back");
+  back.alt = "";
+  back.src = imageUrl("./assets/card-back.webp", "card");
+  card.append(back);
+  const frame = element("div", "card-frame title-card");
+  frame.append(card);
+  const row = element("div", "title-reveal");
+  row.append(frame, link("Privacy", "/privacy"));
+  row.lastChild.className = "title-privacy";
+
+  const loaded = new Promise((resolve) => {
+    image.onload = () => resolve(true);
+    image.onerror = () => resolve(false);
+    setTimeout(() => resolve(false), LOAD_LIMIT_MS);
+  });
+  image.src = imageUrl(source);
+
+  // The face is the avatar's card from the hand, as the table drew it. The
+  // revealed card holds a moment, so the player sees who wakes, then enters.
+  const turn = async () => {
+    if (phase !== "card" || leaving) return;
+    phase = layer.dataset.phase = "revealed";
+    count("intro.wake");
+    const face =
+      wakeId &&
+      document.querySelector(`#hand .card[data-card="${CSS.escape(wakeId)}"]`);
+    if (face) {
+      card.style.cssText = face.style.cssText;
+      card.dataset.tier = face.dataset.tier;
+      const art = face.querySelector(":scope > .art");
+      if (art) card.prepend(art.cloneNode(true));
+    }
+    back.before(element("span", "name", wakeName));
+    card.dataset.unrevealed = "false";
+    card.setAttribute("aria-label", wakeName || "Your traveller");
+    if (!reduced) await race(revealCard(card));
+    await race(wait(800));
+    finish();
   };
-  const onPointer = (event) => {
-    if (event.target !== button) wake();
+  card.addEventListener("click", turn);
+  // The logo lifts over the card, with the Privacy page under it.
+  const showWake = () => {
+    if (phase !== "title" || leaving) return;
+    phase = layer.dataset.phase = "card";
+    image.getAnimations().forEach((animation) => animation.finish());
+    image.animate(
+      [{ transform: "none" }, { transform: "translateY(-14dvh) scale(0.8)" }],
+      {
+        duration: reduced ? 0 : 900,
+        easing: "ease",
+        fill: "both",
+      },
+    );
+    layer.append(row);
+    fade(row, reduced ? 250 : 600, reduced ? 0 : 300);
+    card.focus({ preventScroll: true });
   };
+  // The acknowledgement's gesture: the logo and the song.
+  const showTitle = async () => {
+    if (phase !== "ack" || leaving) return;
+    phase = layer.dataset.phase = "title";
+    song.start();
+    layer.focus({ preventScroll: true });
+    panel
+      .animate([{ opacity: 1 }, { opacity: 0 }], {
+        duration: reduced ? 0 : 400,
+        fill: "both",
+      })
+      .finished.then(
+        () => panel.remove(),
+        () => {},
+      );
+    if (!(await race(loaded)) || leaving) return showWake();
+    image.alt = logo.name;
+    await race(
+      image
+        .animate(
+          reduced || phase !== "title"
+            ? [{ opacity: 0 }, { opacity: 1 }]
+            : [
+                { opacity: 0, transform: "scale(0.97)" },
+                { opacity: 1, transform: "scale(1)" },
+              ],
+          {
+            duration: reduced ? 250 : 900,
+            easing: "ease",
+            fill: "both",
+          },
+        )
+        .finished.catch(() => {}),
+    );
+    await race(wait(reduced ? 600 : 1200));
+    showWake();
+  };
+  const advance = () => (phase === "ack" ? showTitle() : showWake());
+  next.addEventListener("click", advance);
+  layer.addEventListener("click", (event) => {
+    if (!event.target.closest?.("a, button")) advance();
+  });
+  // Keep focus on the step's button rather than the tapped title.
+  layer.addEventListener("mousedown", (event) => {
+    if (!event.target.closest?.("a, button, .title-ack-text"))
+      event.preventDefault();
+  });
   const onKey = (event) => {
     if (["Shift", "Control", "Alt", "Meta"].includes(event.key)) return;
     event.stopPropagation();
@@ -170,58 +305,43 @@ export function playTitleIntro({
       finish();
       return;
     }
-    // Enter and Space press the focused Wake button themselves.
-    if (woken && event.target === button && [" ", "Enter"].includes(event.key))
+    // Tab moves between the step's links and button; Enter and Space press
+    // them; the arrows scroll the acknowledgement.
+    if (
+      event.key === "Tab" ||
+      (phase === "ack" && SCROLL_KEYS.includes(event.key))
+    )
+      return;
+    if (
+      event.target.closest?.(".title-intro a, .title-intro button") &&
+      [" ", "Enter"].includes(event.key)
+    )
       return;
     event.preventDefault();
-    if (woken) button.focus({ preventScroll: true });
-    else wake();
+    if (phase === "card") card.focus({ preventScroll: true });
+    else if (phase === "ack" || phase === "title") advance();
   };
-  layer.addEventListener("pointerdown", onPointer);
-  // Keep focus on Wake rather than the tapped title.
-  layer.addEventListener("mousedown", (event) => {
-    if (event.target !== button) event.preventDefault();
-  });
   window.addEventListener("keydown", onKey, true);
-  const step = (promise) => Promise.race([promise, left]);
-
-  const loaded = new Promise((resolve) => {
-    image.onload = () => resolve(true);
-    image.onerror = () => resolve(false);
-    setTimeout(() => resolve(false), LOAD_LIMIT_MS);
-  });
-  image.src = imageUrl(source);
 
   const shown = (async () => {
-    const [ok] = await Promise.all([step(loaded), step(wait(BLACK_MS))]);
-    if (ok && !leaving) {
-      if (!woken) layer.dataset.phase = "title";
-      await step(
-        image.animate(
-          reduced || woken
-            ? [{ opacity: 0 }, { opacity: 1 }]
-            : [
-                { opacity: 0, transform: "scale(0.97)" },
-                { opacity: 1, transform: "scale(1)" },
-              ],
-          { duration: reduced ? 250 : 900, easing: "ease", fill: "both" },
-        ).finished,
-      ).catch(() => {});
-      // The logo holds until the player wakes their avatar or skips.
-      await left;
-    } else finish();
-    const quick = reduced || !ok;
+    await race(wait(BLACK_MS));
+    if (!leaving) {
+      phase = layer.dataset.phase = "ack";
+      layer.append(panel);
+      fade(panel, reduced ? 250 : 700);
+      next.focus({ preventScroll: true });
+    }
+    await left;
     layer.dataset.phase = "out";
     window.removeEventListener("keydown", onKey, true);
     await layer
       .animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: quick ? 250 : 900,
+        duration: reduced ? 250 : 900,
         easing: "ease",
         fill: "both",
       })
       .finished.catch(() => {});
     layer.remove();
-    if (wakeButton === button) wakeButton = null;
   })();
   const hold = shown.then(() => songDone);
   musicHold = hold;
