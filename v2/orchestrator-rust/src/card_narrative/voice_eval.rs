@@ -342,6 +342,39 @@ fn conversation_turns_answer_one_line_with_the_talk_here() {
     );
 }
 
+/// A return visit (#2078): the same pair before an incident, then after it
+/// and a quiet spell. Only the second prompt carries "Between us", and it
+/// never repeats what the talk here already shows.
+#[test]
+fn a_return_visit_remembers_what_is_between_us() {
+    let cases = cases();
+    let prompt = |case: &str, id: &str| {
+        let (_, context, lines) = cases.iter().find(|(name, ..)| name == case).unwrap();
+        let heard = scene_for(context, lines, id);
+        let context = heard.as_ref().unwrap_or(context);
+        conversation::messages(context, entity(context, id), 0).0
+    };
+    for id in ["vale", "moth"] {
+        assert!(!prompt("return visit before", id).contains("Between us:"));
+    }
+    let vale = prompt("return visit after", "vale");
+    let between = vale.split_once("Between us:\n").unwrap().1;
+    assert!(between.starts_with(
+        "I witnessed this a little while ago at Empty station: Pip threatens Vale over the Lamp.\n\
+         Pip gave me this Black cloth. I'm keeping it."
+    ));
+    assert!(
+        !vale.contains("last said"),
+        "the talk here already shows it"
+    );
+    let pip = prompt("return visit after", "moth");
+    assert!(pip.contains(
+        "Between us:\nI witnessed this some time ago at Empty station: Vale threatens Pip over the Black cloth."
+    ));
+    // Each fact appears once.
+    assert_eq!(pip.matches("Vale threatens Pip").count(), 1);
+}
+
 #[test]
 fn voice_eval_measures_contract_prompts_and_recorded_replies() {
     let report = report();

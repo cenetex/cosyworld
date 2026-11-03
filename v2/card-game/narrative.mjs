@@ -43,6 +43,7 @@ import { knownActors, wantOf } from "./want.mjs";
 import { forgetUnfound, groundedInner } from "./speech-knowledge.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import { reflectionDue } from "./reflections.mjs";
+import { betweenUs } from "./between-us.mjs";
 import speech from "./speech.json" with { type: "json" };
 
 // A refusal reaches the brief as its committed code; the refuser's line
@@ -637,6 +638,9 @@ export function narrativeContext(world, action = null) {
       facts.push(
         `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,
       );
+      const between = beforeFirstLight
+        ? []
+        : betweenUs(world, id, speakers, nameOf);
       return {
         id,
         poem: recitalContext(world, packDefinitions, id),
@@ -652,6 +656,7 @@ export function narrativeContext(world, action = null) {
               hope: null,
             }
           : {}),
+        ...(between.length ? { between } : {}),
       };
     }),
   });

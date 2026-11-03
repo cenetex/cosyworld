@@ -439,7 +439,11 @@ scene the browser built, so the service checks every field
   The "Recent talk here" lines and the line a speaker answers (its user
   message) come only from these verified heard lines. A Talk target's
   answer to this turn's actor line uses the line the service just wrote and
-  checked, so it never leaves the server unsigned. Who heard a line
+  checked, so it never leaves the server unsigned. "Between us" lines
+  (`entities[].between[].said`) are signed lines too, and their envelope's
+  turn must be the line's; its facts are matched as facts
+  ([Talk is a conversation](../../../docs/design/talk-conversation.md#between-us)).
+  Who heard a line
   (`witnesses`) is not signed: a client can change who heard a line, not its
   words.
 - **Unknown fields** are refused (serde `deny_unknown_fields`), and every

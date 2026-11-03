@@ -85,6 +85,46 @@ export function stationConversation(turns = 6) {
   return cases;
 }
 
+/** A return visit (#2078): Vale talks with Pip, threatens Pip over the
+ * Black cloth, and after the fight and a quiet spell talks with Pip again. */
+export function returnVisit() {
+  const { before, world } = beforeReturn();
+  const after = step(world, "talk", "moth", 3);
+  return [
+    {
+      name: "return visit before",
+      context: before.context,
+      lines: before.lines,
+    },
+    { name: "return visit after", context: after.context, lines: after.lines },
+  ];
+}
+
+// The world just after the return Talk is played.
+export function returnVisitWorld() {
+  const { world } = beforeReturn();
+  const action = legalActions(world).find(
+    (a) => a.kind === "talk" && a.target === "moth",
+  );
+  return play(world, action).state;
+}
+
+function beforeReturn() {
+  let world = enableMotives(createWorld());
+  world.actors.moth.place = "station";
+  world.actors.keeper.place = "station";
+  world.items.lamp.holder = "vale";
+  world.items.oil.holder = "keeper";
+  const before = step(world, "talk", "moth", 0);
+  world = step(before.world, "threaten", "moth", 1).world;
+  const talks = (w) =>
+    legalActions(w).some((a) => a.kind === "talk" && a.target === "moth");
+  for (let i = 0; i < 10 && !talks(world); i++)
+    world = step(world, "wait", null, 2).world;
+  for (let i = 0; i < 8; i++) world = step(world, "wait", null, 2).world;
+  return { before, world };
+}
+
 // A silent play (Light, Put down, Take, ...) sends no voice request, so only
 // scenes that voice someone are measured.
 export function voiceEvalCases() {
@@ -95,5 +135,6 @@ export function voiceEvalCases() {
       lines: {},
     })),
     ...stationConversation(),
+    ...returnVisit(),
   ].filter(({ context }) => !voicesNobody(context));
 }

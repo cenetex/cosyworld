@@ -17914,6 +17914,12 @@
       return {
         ...entity,
         facts: entity.facts.map(blur),
+        ...entity.between && {
+          between: entity.between.map((b) => ({
+            ...b,
+            facts: b.facts.map(blur)
+          }))
+        },
         desire: {
           items: entity.desire.items.filter(kept),
           location: kept(entity.desire.location) ? entity.desire.location : null,
@@ -17922,6 +17928,35 @@
       };
     });
     return changed ? { ...context, entities: entities2 } : context;
+  }
+
+  // v2/card-game/between-us.mjs
+  function incident(world, id, other, nameOf2) {
+    const known = world.knowledge?.known?.[id] || {};
+    const against = (holder, them) => (world.motives?.grievances?.[holder] || []).filter((g2) => g2.other === them && g2.incident).reverse();
+    const g = [...against(id, other), ...against(other, id)].find(
+      (g2) => known[g2.incident] && world.knowledge.facts[g2.incident]
+    );
+    return g ? knowledgeFacts(world, id, nameOf2, [g.incident])[0] : null;
+  }
+  var keepsake = (world, id, other) => {
+    const from = `${nameIn(world, other)} gave me this `.toLowerCase();
+    return lifeFacts(world, id).find(
+      (line) => line.toLowerCase().startsWith(from)
+    );
+  };
+  var lastSaid = (world, from, to) => world.log.filter(
+    (e) => e.generated && e.kind === "dialogue" && !e.silent && e.actorId === from && e.turn < world.turn && e.text.length <= 400 && [...e.witnesses || [], ...e.cast || []].includes(to)
+  ).map(({ actorId, text: text2, turn }) => ({ actorId, text: text2, turn })).at(-1);
+  function betweenUs(world, id, speakers, nameOf2) {
+    if (!speakers.includes(id)) return [];
+    return speakers.filter((other) => other !== id).map((other) => ({
+      with: other,
+      facts: [incident(world, id, other, nameOf2), keepsake(world, id, other)].filter(Boolean).map((text2) => text2.slice(0, 240)),
+      said: [lastSaid(world, other, id), lastSaid(world, id, other)].filter(
+        Boolean
+      )
+    })).filter((entry) => entry.facts.length || entry.said.length);
   }
 
   // v2/card-game/speech.json
@@ -18333,6 +18368,7 @@
         facts.push(
           `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`
         );
+        const between = beforeFirstLight ? [] : betweenUs(world, id, speakers, nameOf);
         return {
           id,
           poem: recitalContext(world, packDefinitions, id),
@@ -18345,7 +18381,8 @@
           ...kind === "avatar" ? {
             inner_life: groundedLife(world, id),
             hope: null
-          } : {}
+          } : {},
+          ...between.length ? { between } : {}
         };
       })
     });

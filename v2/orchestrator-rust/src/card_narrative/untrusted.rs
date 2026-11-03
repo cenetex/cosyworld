@@ -125,12 +125,16 @@ fn rules_text(context: &Context) -> impl Iterator<Item = &str> {
         .map(String::as_str)
         .chain(context.disclosures.iter().map(|d| d.text.as_str()))
         .chain(entities.flat_map(|e| {
-            e.facts.iter().map(String::as_str).chain(
-                e.memories
-                    .iter()
-                    .filter(|m| m.kind == "event")
-                    .map(|m| m.text.as_str()),
-            )
+            e.facts
+                .iter()
+                .chain(e.between.iter().flat_map(|b| &b.facts))
+                .map(String::as_str)
+                .chain(
+                    e.memories
+                        .iter()
+                        .filter(|m| m.kind == "event")
+                        .map(|m| m.text.as_str()),
+                )
         }))
 }
 
@@ -164,6 +168,10 @@ fn keep_authored(mut context: Context) -> Option<Context> {
         .retain(|fact| keep(&fact.text, 180, Field::Disclosures));
     for entity in &mut context.entities {
         entity.facts.retain(|text| keep(text, 240, Field::Facts));
+        // "Between us" quotes the same fact templates (between-us.mjs).
+        for between in &mut entity.between {
+            between.facts.retain(|text| keep(text, 240, Field::Facts));
+        }
         entity
             .memories
             .retain(|m| m.kind != "event" || keep(&m.text, 650, Field::Memories));
@@ -240,6 +248,32 @@ pub(super) fn trusted(context: Context) -> Option<Context> {
             }
         }
         entity.memories = memories;
+        // "Between us" words are signed lines; the envelope names who said
+        // them and when, so neither can be moved.
+        for between in &mut entity.between {
+            let mut said = Vec::new();
+            for line in std::mem::take(&mut between.said) {
+                let verdict = match check(
+                    line.signed.as_ref(),
+                    &scene,
+                    "line",
+                    &line.actor_id,
+                    &line.text,
+                ) {
+                    Check::Keep
+                        if line
+                            .signed
+                            .as_ref()
+                            .is_some_and(|e| e.claims.turn != line.turn) =>
+                    {
+                        Check::Drop
+                    }
+                    verdict => verdict,
+                };
+                said.extend(keep(line, verdict)?);
+            }
+            between.said = said;
+        }
         // The browser never sends a hope; shared scenes build theirs.
         if entity.hope.is_some() {
             return None;
@@ -332,6 +366,10 @@ pub(super) fn signed(context: &Context) -> Context {
     c.action.iter().chain(&c.events).for_each(|t| allow(t));
     for e in &c.entities {
         e.facts.iter().for_each(|t| allow(t));
+        e.between
+            .iter()
+            .flat_map(|b| &b.facts)
+            .for_each(|t| allow(t));
         e.memories
             .iter()
             .filter(|m| m.kind == "event")
@@ -347,6 +385,9 @@ pub(super) fn signed(context: &Context) -> Context {
         line.signed = sign("line", &line.actor_id, &line.text, c.turn);
     }
     for e in &mut c.entities {
+        for s in e.between.iter_mut().flat_map(|b| &mut b.said) {
+            s.signed = sign("line", &s.actor_id, &s.text, s.turn);
+        }
         if let Some(previous) = &e.previous {
             e.previous_signed = sign("line", &e.id, previous, c.turn);
         }

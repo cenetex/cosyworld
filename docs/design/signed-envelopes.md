@@ -122,14 +122,14 @@ a word signed by an unlisted key ([untrusted input](../../v2/docs/card-table/sha
 
 What a returned word is checked against (`card_narrative/untrusted.rs`):
 
-| Claim                       | Enforced                                                                                                                                                            |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content`, `kind`, `entity` | Must match the word, its field and its speaker; otherwise 400.                                                                                                      |
-| `world`                     | Must be `local`; otherwise 400.                                                                                                                                     |
-| `rules`                     | Must name this build family (`cosyworld-orchestrator/…`); otherwise 400. Any version verifies, so remembered words survive a release.                               |
-| `turn`                      | No later than the scene's turn. A thought or dream must carry its own turn, and a remembered line must be no later than its memory. Otherwise the word is left out. |
-| `seq`                       | No later than the scene's revision; otherwise left out.                                                                                                             |
-| `iat`                       | No more than five minutes in the future; otherwise left out.                                                                                                        |
+| Claim                       | Enforced                                                                                                                                                             |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content`, `kind`, `entity` | Must match the word, its field and its speaker; otherwise 400.                                                                                                       |
+| `world`                     | Must be `local`; otherwise 400.                                                                                                                                      |
+| `rules`                     | Must name this build family (`cosyworld-orchestrator/…`); otherwise 400. Any version verifies, so remembered words survive a release.                                |
+| `turn`                      | No later than the scene's turn. A thought, dream or between-us line has its own turn; a remembered line is no later than its memory. Otherwise the word is left out. |
+| `seq`                       | No later than the scene's revision; otherwise left out.                                                                                                              |
+| `iat`                       | No more than five minutes in the future; otherwise left out.                                                                                                         |
 
 A word that fails a binding check is left out rather than refused, because
 the browser keeps envelopes by text and an honest player can meet the same

@@ -24,6 +24,8 @@ use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 mod atmosphere;
 #[path = "card_narrative/authored.rs"]
 mod authored;
+#[path = "card_narrative/between.rs"]
+mod between;
 #[path = "card_narrative/browser.rs"]
 pub(crate) mod browser;
 #[path = "card_narrative/conversation.rs"]
@@ -346,6 +348,9 @@ struct Entity {
     inner_life: Option<InnerLife>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     hope: Option<Hope>,
+    /// What this speaker shares with each other voice here (between.rs).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    between: Vec<between::Between>,
 }
 
 /// The avatar's rule-owned hope, in their own words.
@@ -557,6 +562,7 @@ fn valid(context: &Context) -> bool {
                 && recital::valid(&e.id, e.poem.as_ref(), context.turn)
                 && e.facts.len() <= 16
                 && e.facts.iter().all(|s| bounded(s, 240))
+                && between::valid(context, e)
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
                 && e.hope.as_ref().is_none_or(|hope| {
                     kind(&e.id, "avatar") && bounded(&hope.wish, 240) && bounded(&hope.next, 240)
@@ -1559,6 +1565,13 @@ fn known(context: &Context) -> BTreeSet<String> {
     .concat()
     .into_iter()
     .chain(context.entities.iter().flat_map(|e| e.facts.iter()))
+    .chain(
+        context
+            .entities
+            .iter()
+            .flat_map(|e| &e.between)
+            .flat_map(|b| &b.facts),
+    )
     .chain(context.disclosures.iter().map(|d| &d.text))
     .map(String::as_str)
     .collect::<Vec<_>>()
@@ -2303,6 +2316,9 @@ struct Check<'a> {
     /// Other speakers' recent lines here: a six-word run from one is a
     /// parroted line ("Ships for Signal Jetty leave from ..."), not speech.
     others: Vec<String>,
+    /// "Between us" lines: one said whole is a recital, not speech; using
+    /// it in one's own words is not.
+    recital: Vec<String>,
 }
 
 impl<'a> Check<'a> {
@@ -2356,7 +2372,14 @@ impl<'a> Check<'a> {
                     .flatten()
             },
             others: if chatting {
-                conversation::others_lines(context, entity)
+                let mut others = conversation::others_lines(context, entity);
+                others.extend(between::quoted(context, entity));
+                others
+            } else {
+                Vec::new()
+            },
+            recital: if chatting {
+                between::lines(context, entity)
             } else {
                 Vec::new()
             },
@@ -2608,6 +2631,7 @@ impl<'a> Check<'a> {
                 .iter()
                 .any(|phrase| lower.contains(phrase))
             || self.brief.iter().any(run)
+            || self.recital.iter().any(restates)
         {
             return Err("echoed brief");
         }
