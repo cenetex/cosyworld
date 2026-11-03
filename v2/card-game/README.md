@@ -723,7 +723,7 @@ short paragraphs set like a film's opening card, in a narrow measure with
 generous leading, and nothing else. The
 text writes in with the dialogue's own reveal (`dialogue.mjs`) at the
 dialogue's pace: a letter every 28 ms behind a gold caret, each letter's ink
-fading in over 80 ms, the same rests after punctuation, and 650 ms between
+fading in over 60 ms, the same rests after punctuation, and 650 ms between
 paragraphs (`PARAGRAPH_MS`). A few weighty words hold a breath of their own
 (300–350 ms after "land", "peoples", "still", "keepers", "machines",
 "Nothing", "box", "open" and "yours"): `pauses` in `acknowledgement.json`

@@ -220,7 +220,7 @@ try {
               }
           }).observe(text, { subtree: true, attributeFilter: ["class"] });
           const tick = (now = performance.now()) => {
-            if (now - last > 50) calm = now + 150;
+            if (now - last > 34) calm = now + 150;
             if (now > calm) softest = Math.max(softest, window.softLetters(8));
             last = now;
             if (times.length >= 80 || performance.now() - start > 8000)
