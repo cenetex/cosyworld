@@ -2938,3 +2938,29 @@ main > .dialogue {
   outline: 2px solid #fff4dc;
   outline-offset: 3px;
 }
+
+/* A sealed card is the far side of a shut gate (rules 95): its painting is
+   dimmed behind two crossed bars. Tapping it gives the quest that opens it;
+   the reason is in the context button, never on the card. */
+.card.location[data-sealed="true"] .art img {
+  filter: grayscale(0.7) brightness(0.55);
+}
+.card.location[data-sealed="true"] .art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 44%,
+      rgb(58 42 26 / 0.92) 44% 56%,
+      transparent 56%
+    ),
+    linear-gradient(
+      0deg,
+      transparent 40%,
+      rgb(58 42 26 / 0.92) 40% 50%,
+      transparent 50%
+    );
+}

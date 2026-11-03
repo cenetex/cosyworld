@@ -116,6 +116,13 @@ const laneGate = (t, from, to) =>
       ((lane.from === from && lane.to === to) ||
         (!lane.oneWay && lane.from === to && lane.to === from)),
   )?.opensWith ?? null;
+// The authored lane a ship sails from one dock to another, or null.
+export const laneBetween = (t, from, to) =>
+  (t.lanes || []).find(
+    (lane) =>
+      (lane.from === from && lane.to === to) ||
+      (!lane.oneWay && lane.from === to && lane.to === from),
+  ) ?? null;
 export const laneGated = (from, to) =>
   Object.values(transports).some((t) => laneGate(t, from, to));
 // The authored conditions that open a gated lane, or null.
@@ -385,6 +392,7 @@ export function sailTransports(s) {
     pruneRiders(s, id);
     const aboard = passengerIds(s, id);
     if (state.phase === "sea") {
+      const from = state.dock;
       // Everyone who sailed the lane now knows it.
       for (const actor of aboard)
         learnLane(s, actor, state.dock, state.destination);
@@ -396,7 +404,13 @@ export function sailTransports(s) {
         since: s.turn,
       });
       if (!aboard.length && state.recall) settleEmpty(state, s.turn);
-      events.push({ id, kind: "arrive", dock: state.dock, riders: aboard });
+      events.push({
+        id,
+        kind: "arrive",
+        from,
+        dock: state.dock,
+        riders: aboard,
+      });
     } else if (state.phase === "course") {
       if (!aboard.length) settleEmpty(state, s.turn);
       else {

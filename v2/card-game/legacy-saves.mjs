@@ -28,6 +28,7 @@ import { installKnowledge } from "./knowledge.mjs";
 import { questSteps } from "./want.mjs";
 import { newTemperament } from "./pack-rules.mjs";
 import forest from "./forest.json" with { type: "json" };
+import { installItemCycle } from "./pack-items.mjs";
 
 // The quest machinery was replaced by one want per avatar. Its saved records
 // are dropped; each avatar's want is installed again from authored data.
@@ -178,10 +179,12 @@ export function reconcileContent(s) {
   for (const pack of packDefinitions)
     for (const [id, item] of Object.entries(pack.items || {}))
       authored[id] ??= { holder: item.holder, history: [] };
+  const added = [];
   for (const [id, item] of Object.entries(authored))
     if (!Object.hasOwn(s.items, id)) {
       s.items[id] = item;
       if (s.memories) s.memories[id] ??= fresh[id];
+      added.push(id);
     }
   const root = (id) => {
     let holder = s.items[id]?.holder;
@@ -203,6 +206,14 @@ export function reconcileContent(s) {
     if (s.memories) delete s.memories[id];
   }
   forgetRetiredThings(s, new Set(gone));
+  // A used-up thing waits where its content now starts it (rules 95).
+  if (Array.isArray(s.usedUp)) {
+    s.usedUp = s.usedUp.filter((id) => Object.hasOwn(s.items, id));
+    for (const pack of packDefinitions)
+      for (const [id, item] of Object.entries(pack.items || {}))
+        if (s.usedUp.includes(id)) s.items[id].holder = item.holder;
+    installItemCycle(s, added);
+  }
 }
 
 // A story step the content no longer leads to leaves a save from an earlier

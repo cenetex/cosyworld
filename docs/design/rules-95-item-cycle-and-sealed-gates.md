@@ -1,0 +1,75 @@
+# Rules 95: things used up and coming back, and sealed gates
+
+Status: Rules 95 (2026-11-03). Owner-approved generic item mechanics for the
+Thebes provisions loop and burial supplies, the Hoppy Cat scatter and the
+Willows kit (#1626). Prior design: [recipes and the item
+economy](../../v2/docs/card-table/recipes-and-item-economy.md) (#1748), whose
+combine card this replaces with a repeating give. Pack fields and examples
+are in [card packs](../../v2/docs/card-packs.md#things-used-up-and-coming-back-rules-95).
+
+## Decisions
+
+- **One record per thing.** Nothing is minted. A used-up thing keeps its id;
+  regrowth and drops only bring that record back. Uniqueness holds by
+  construction: a thing comes back only from the used-up list.
+- **Used up** (`world.usedUp`, sorted ids). `retire_item` now uses a thing
+  up. The thing waits at its authored holder with no history, inactive, and
+  item conditions ignore it. `useUp` (`item-use.mjs`) is the only way in: it
+  clears grievance `item` links (rules 90), keepsake attachments and standoff
+  stakes, so a regrown thing cannot repair an old incident.
+- **Repeating set give.** An `on: "give"` choice with `repeats: true` and one
+  `drop_item` fires again whenever that output is used up. The set is every
+  `holding role: actor` item; giving any one of them fires it. No new verb.
+  The receipt keeps the latest turn, so receipt validation replays it.
+- **Voyages spend cargo.** A `spends` lane uses up its opening cargo on
+  arrival (`sailTransports` now reports the lane's `from`). Only homed things
+  are spent. The return voyage leaves loose homed things at the quay it
+  leaves. A plain lane, such as a free home leg, spends nothing.
+- **Regrowth.** `home` plus `regrow: dawn | dusk | rest`. Rest is any long
+  rest ending this round. A thing regrows only while its home is active and
+  its own `requires` hold; otherwise it waits.
+- **Dawn safeguard.** At dawn a homed thing held by an absent traveler goes
+  home. Absent means a human avatar not in `presentActors`, which the shared
+  host sets per journaled request, so replay agrees. A thing lying unheld
+  away from both home and its starting holder goes home too, except a kit
+  thing, whose job is to lie abroad.
+- **Kits.** When every kit thing lies at home, the kit's event scatters them
+  to active listed places in any world, one per place until all have one.
+  The pick is FNV-1a over the run seed, kit, scatter count, turn and thing
+  (`runHash`). `world.scatters` counts each kit's scatters. This lifts the
+  `hide_item` limit, which sends every thing hidden by one choice to one spot.
+- **Sealed gates.** A route may declare `sealed: { reason, quest }`. While
+  shut, its far side is a sealed card; the `gate` play gives the story quest
+  without passing a turn, as `focus` does. A story quest may now carry a
+  `give` step. The reason shows in the context button, never on the card.
+- **Makers.** A resident whose want is a repeating give's output speaks the
+  set in Talk and never takes the output for itself.
+
+## Order in a round
+
+After `sailTransports`: spend cargo and the return quay. After
+`wakeSleepers`: regrowth, then the dawn safeguard, then kits, each in sorted
+id order.
+
+## Saves and replay
+
+Bundles up to v94 are unchanged and replay their own journals. The fold runs
+in `installPacks` (`installItemCycle`): a save without `usedUp` takes one,
+and a thing that now `startsUsed` and still lies untouched where it starts
+leaves play. `reconcileContent` keeps used-up things at their current
+authored holder and starts newly added `startsUsed` things used up.
+
+## Softlock proof in the pack check
+
+`pack-items-schema.mjs` checks that a thing used up by one choice and needed
+by another choice, a route, a lane or a `stayUntil` renews (regrows at home,
+or is made by a repeating give from things that renew); that a repeating
+give's inputs and a spending lane's cargo renew; and that a spending lane is
+one-way with a free lane back.
+
+## Tests
+
+`test/card-item-cycle.test.mjs` (primitives, uniqueness over three laps,
+absent holders, spending, repeat only after use-up, scatter determinism,
+sealed gates) and `test/card-item-cycle-agreement.test.mjs` (the hosted
+bundle and the browser rules commit the same worlds through the cycle).

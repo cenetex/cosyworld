@@ -15,6 +15,7 @@ import {
   rootHolder,
   exits,
   covered,
+  sealedWays,
 } from "./world.mjs";
 
 export function availableCards(world) {
@@ -51,12 +52,17 @@ export function availableCards(world) {
     return [...cast, ...demanded.filter((id) => items.includes(id)), here];
   }
   const road = packPlaces[here]?.road;
+  // A shut way that names its sealed card shows that card (rules 95).
+  const sealed = sealedWays(world, player)
+    .map((r) => r.to)
+    .filter((id) => !destinations.includes(id));
   return [
     ...cast.flatMap((id) => [id, ...after(id)]),
     ...(road && destinations.includes(road[0]) ? [road[0]] : []),
     here,
     ...after(here),
     ...destinations.filter((id) => !road || id !== road[0]),
+    ...new Set(sealed),
   ];
 }
 export function cardType(id) {
@@ -118,6 +124,11 @@ function carryFull(world, id) {
   );
 }
 
+// Why a sealed card's way is shut, from its pack data, or null.
+export const sealedReason = (world, id) =>
+  sealedWays(world, currentActor(world)).find((r) => r.to === id)?.sealed
+    .reason ?? null;
+
 // Resolve the primary play for drag gestures and other shortcuts.
 // cardActions adds every named choice for the shared row.
 export function cardPlay(world, selected) {
@@ -154,8 +165,10 @@ export function cardPlay(world, selected) {
       return result(
         id === here
           ? stay()
-          : find("move", null, id) || find("course", null, id),
-        `Travel to ${nameOf(id)}.`,
+          : find("move", null, id) ||
+              find("course", null, id) ||
+              find("gate", null, id),
+        sealedReason(world, id) || `Travel to ${nameOf(id)}.`,
       );
     if (id === currentActor(world))
       return result(find("guard") || find("wait"));
@@ -380,6 +393,7 @@ export function playLabel(action) {
     return `Invite ${nameOf(action.target)} along`;
   if (action?.kind === "drop" && !action.item) return "Drop quest";
   if (action?.kind === "focus") return "Choose quest";
+  if (action?.kind === "gate") return "Seek the way";
   if (action?.kind === "move" && action.item)
     return `Carry to ${nameOf(action.target)}`;
   return {

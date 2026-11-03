@@ -210,10 +210,11 @@ supplies this role. A condition with an explicit `actor` keeps that named
 character as its subject. Choices can supply `textTemplate` with `{actor}`
 for the acting avatar's name; ordinary `text` remains literal.
 
-Effects are choose, set_flag, custody-checked place_item, and three item
+Effects are choose, set_flag, custody-checked place_item, and four item
 moves. `give_item` hands a pack item to the acting avatar. `retire_item`
-needs the actor to hold the item; it returns the item, unseen, to its
-authored holder with an empty history. `hide_item` belongs only to a
+uses an item up (below); the actor must hold it, or the choice must require
+it `item_near` or `item_at` its own place. `drop_item` brings a used-up item
+back at the choice's place. `hide_item` belongs only to a
 meeting choice. `{"kind":"upgrade","upgrade":"scarf"}`, on a choice with
 `for`, adds a one-way cosmetic upgrade to the acting traveler's `upgrades`
 set. `{"kind":"upgraded","upgrade":"scarf","role":"actor"}` holds while the
@@ -339,6 +340,111 @@ wording a pack declares; the final-state facts guide other wording. Conflicting
 character replies receive one rewrite attempt. A second conflict uses the
 existing retry UI. Publication follows validation. The Lamp and Badger provide
 item and avatar examples of the same path.
+
+### Things used up and coming back (rules 95)
+
+Every item is one record with one id, so a world never holds two of
+anything. From rules 95 a used-up item is out of play: its id is listed in
+the save's `usedUp`, and it waits unseen, with no history, at its authored
+`holder`. Using an item up clears every grievance's link to it, its keepsake
+attachments and a standoff's stake, so a regrown loaf cannot answer an old
+theft. Item conditions (`item_present`, `item_at`, `item_near`) ignore it.
+
+Item fields:
+
+- `home`: a place of the pack where the item belongs.
+- `regrow`: `dawn`, `dusk` or `rest`. A used-up item with a `home` and
+  `regrow` reappears at home on the next such event: the next light change
+  of that kind, or any long rest ending. It never regrows while it is in
+  play, and it waits while its home or its own `requires` are inactive.
+- `startsUsed: true`: the item starts used up, for a thing someone makes.
+
+At dawn a homed item held by an absent traveler (a human avatar whose holder
+is not present, from the journaled presence) goes home. So does one lying
+unheld away from both its home and its starting `holder`, unless it belongs
+to a kit.
+
+```json
+"greek-figs": {
+  "name": "Dried Figs", "holder": "greek-sanctuary",
+  "home": "greek-sanctuary", "regrow": "dawn", ...
+},
+"greek-provisions": {
+  "name": "Travel Provisions", "holder": "greek-harbor",
+  "home": "greek-harbor", "startsUsed": true, ...
+}
+```
+
+A give choice can require a set and repeat. With `"repeats": true`, an
+`"on": "give"` choice may fire again whenever its one `drop_item` output is
+used up. Its effects are only `retire_item`, `drop_item` and `set_flag`. It
+fires when the actor gives the subject any item of the set while holding the
+whole set; no new verb. A resident whose `want` is that output wants it as a
+maker: Talk names the set ("I want the Travel Provisions: the Courtyard
+Bread, the Dried Figs and the Wine Skin."), and the resident leaves the
+output for others to carry.
+
+```json
+{
+  "id": "greek-pack-provisions",
+  "subject": "greek-shipmaster",
+  "at": "greek-harbor",
+  "on": "give",
+  "repeats": true,
+  "requires": [
+    { "kind": "holding", "item": "greek-bread", "role": "actor" },
+    { "kind": "holding", "item": "greek-figs", "role": "actor" },
+    { "kind": "holding", "item": "greek-wine-skin", "role": "actor" }
+  ],
+  "effects": [
+    { "kind": "retire_item", "item": "greek-bread" },
+    { "kind": "retire_item", "item": "greek-figs" },
+    { "kind": "retire_item", "item": "greek-wine-skin" },
+    { "kind": "drop_item", "item": "greek-provisions" }
+  ]
+}
+```
+
+A lane with `"spends": true` uses up the cargo that opened it when the ship
+arrives: each `item_present` item aboard, the first open alternative of an
+`any`, and one homed thing from a `pack_item_present` pack. Only a homed item
+is ever spent. A spending lane is one-way with a free lane back, and that
+return voyage leaves loose homed things on deck at the quay it sails from.
+
+A pack's `kits` scatter its things. When every item of a kit lies at its
+home, the kit's event (`on`: `dawn`, `dusk` or `rest`) moves each item to one
+of `places` (any mounted place that is active), each place taking one item
+until all have one. The pick hashes the run seed, the kit, its scatter count,
+the turn and the item, so every replay agrees. `requires` may hold it back.
+The save counts each kit's scatters in `scatters`.
+
+```json
+"kits": [{ "id": "willows-kit", "on": "dawn",
+  "items": ["willows-paddle", "willows-rope", "willows-sheet"],
+  "places": ["greek-harbor", "forest-cottage", "hoppycat-garden"],
+  "requires": [{ "kind": "flag", "key": "willows-swede-gone", "value": false }] }]
+```
+
+A gated route may show a sealed card. While the route is shut from `from`,
+`to` appears as a sealed travel card: dimmed and barred, with no words on
+it. Selecting it shows `reason` in the context button, and its play, Seek the
+way, gives the traveller the route's quest at once, as picking a quest does
+(no turn passes). The quest is a story quest: hold or give an item
+(`to` names who to give it to), reach a place, or talk with a person. Once
+the route opens, the card is an ordinary travel card.
+
+```json
+{ "from": "greek-gate", "to": "greek-battlefield", "requires": [ ... ],
+  "sealed": {
+    "reason": "The guard lifts the bar for an order from the palace: the Burial Decree or Creon's writ.",
+    "quest": { "kind": "item", "target": "greek-decree", "to": "greek-guard" } } }
+```
+
+The pack check proves the loops cannot strand a world. An item used up by
+one choice and still needed by another choice, a route, a lane or a
+resident's `stayUntil` must renew: it regrows at home, or a repeating give
+makes it from items that renew. A repeating give's inputs and a spending
+lane's cargo must renew too, and a spending lane needs its free way back.
 
 ### Transport and lamp signals
 

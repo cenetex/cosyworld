@@ -652,11 +652,13 @@ const STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
 function validStep(s, w) {
   const { verb, ...cards } = w.step;
   const home = verb === "bring" && w.story && !cards.to;
+  // A sealed gate's quest may ask for a gift (rules 95).
+  const gift = verb === "give" && w.story && !w.quest;
   const named = home
     ? ["at"]
     : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
   return (
-    (Boolean(w.quest) || home) &&
+    (Boolean(w.quest) || home || gift) &&
     [
       ...(STEP_VERBS[w.kind] || []),
       ...(w.kind === "person" ? SAVED_STEP_VERBS : []),
