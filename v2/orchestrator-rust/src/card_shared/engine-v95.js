@@ -1446,6 +1446,31 @@
       }
     }
   }
+  function stuckShip(s, id) {
+    const t = transports[id], state = read(s, id);
+    if (!state || !["docked", "arrived"].includes(state.phase)) return false;
+    if (!passengers(s, id).length || s.turn - state.since < IDLE_ROUNDS)
+      return false;
+    const gated = lanesFrom(t, state.dock).filter(
+      (to) => laneGate(t, state.dock, to) && entityActive(s, to)
+    );
+    return gated.length > 0 && !gated.some(
+      (to) => conditionsMet(s, t.packId, laneGate(t, state.dock, to))
+    ) && entityActive(s, t.at);
+  }
+  function sendShipHome(s, id) {
+    const t = transports[id], state = own(s, id), from = state.dock, ashore = passengerIds(s, id);
+    for (const actor of ashore) s.actors[actor].place = t.at;
+    Object.assign(state, {
+      phase: "docked",
+      dock: t.at,
+      destination: null,
+      riders: [],
+      since: s.turn,
+      recall: null
+    });
+    return { id, kind: "home", from, dock: t.at, ashore };
+  }
   function sailTransports(s) {
     const events = [];
     for (const [id, t] of Object.entries(transports)) {
@@ -1482,7 +1507,8 @@
             to: state.destination
           });
         }
-      } else if (aboard.length && s.turn - state.since >= IDLE_ROUNDS) {
+      } else if (stuckShip(s, id)) events.push(sendShipHome(s, id));
+      else if (aboard.length && s.turn - state.since >= IDLE_ROUNDS) {
         const lane = openLanes(s, t, state.dock)[0];
         if (!lane) continue;
         Object.assign(state, {
@@ -2245,6 +2271,9 @@
       const next = rest2.length ? null : nextWant(s, actor, api, want);
       setQuests(a, [...rest2, ...next ? [next] : [], aside]);
     }
+  }
+  function setAsideWant(s, actor, api) {
+    if (s.actors[actor]?.want) giveUp(s, actor, api);
   }
   function reviseStalledWants(s, actors2, api) {
     for (const id of actors2) {
@@ -4990,6 +5019,7 @@
   function upgradeSave(s, { installPacks: installPacks2, laneText = () => null }) {
     if (!s || ![6, 7].includes(s.schema))
       throw new Error("This save needs a fresh start.");
+    const beforeItemCycle = !Array.isArray(s.usedUp);
     const reworked = new Set(
       packDefinitions.filter((p) => (s.packs?.[p.id]?.revision ?? p.revision) < p.revision).map((p) => p.id)
     );
@@ -5069,6 +5099,10 @@
           (pack) => (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id }))
         )
       );
+    if (beforeItemCycle) {
+      for (const id of Object.keys(transports))
+        if (s.transports?.[id] && stuckShip(s, id)) sendShipHome(s, id);
+    }
     return s;
   }
   function reconcileContent(s) {
@@ -8079,9 +8113,13 @@
       addLog(
         next,
         "World",
-        voyage.kind === "arrive" ? `${nameOf(ship)} docks at ${nameOf(voyage.dock)}.` : `${nameOf(ship)} ${voyage.idle ? "sails on its own" : "casts off"} for ${nameOf(voyage.to)}.`,
-        { locationId: ship }
+        voyage.kind === "arrive" ? `${nameOf(ship)} docks at ${nameOf(voyage.dock)}.` : voyage.kind === "home" ? `With no cargo to sail on, ${nameOf(ship)} puts in at ${nameOf(voyage.dock)}, and everyone aboard goes ashore.` : `${nameOf(ship)} ${voyage.idle ? "sails on its own" : "casts off"} for ${nameOf(voyage.to)}.`,
+        { locationId: voyage.kind === "home" ? voyage.dock : ship }
       );
+      if (voyage.kind === "home") {
+        for (const id of voyage.ashore)
+          if (!controlledByHuman(next, id)) setAsideWant(next, id, wantAPI(next));
+      }
     }
     const worldLine = (text2, locationId) => addLog(next, "World", text2, { kind: "narration", locationId });
     settleVoyageCargo(next, voyages, nameOf, worldLine);

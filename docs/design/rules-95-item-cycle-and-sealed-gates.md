@@ -35,6 +35,16 @@ are in [card packs](../../v2/docs/card-packs.md#things-used-up-and-coming-back-r
   arrival (`sailTransports` now reports the lane's `from`). Only homed things
   are spent. The return voyage leaves loose homed things at the quay it
   leaves. A plain lane, such as a free home leg, spends nothing.
+- **A stuck ship goes home (owner decision).** A ship with anyone aboard
+  answers no call, so a rider who waits aboard for a shut cargo lane would
+  hold it for ever. At the end of a round, a ship lying at a dock with
+  someone aboard, idle for `IDLE_ROUNDS` (nobody set a course), whose every
+  cargo lane from that dock is shut, puts in at its home port, its authored
+  `at`, and everyone aboard, resident or player, goes ashore there. Things
+  aboard stay aboard. A resident put ashore sets that pursuit aside, as a
+  stalled want is. The empty ship then answers the next call. It replaces the
+  idle sail only at such a dock, so it is as deterministic as the idle rule.
+  A save from before rules 95 with a ship already stuck sends it home on load.
 - **Regrowth.** `home` plus `regrow: dawn | dusk | rest`. Rest is any long
   rest ending this round. A thing regrows only while its home is active and
   its own `requires` hold; otherwise it waits.

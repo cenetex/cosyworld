@@ -491,7 +491,9 @@ cargo; harbor to Piraeus and Piraeus to the Signal Jetty one way, each with
 one `any` of `item_present` (the Travel Provisions) and `pack_item_present`
 (a Hoppy Cat thing) aboard; and a free one-way lane back for each. The
 conditions bind only a voyage with riders: an empty ship called to a dock
-sails any lane between active docks. A ship route should give every dock a
+sails any lane between active docks. A ship idle for `IDLE_ROUNDS` with
+someone aboard, at a dock whose cargo lanes are all shut, is stuck: it puts
+in at its home port (`at`) and everyone aboard goes ashore (rules 95). A ship route should give every dock a
 free lane toward home, so a traveler ashore there is never stranded:
 `test/card-ship-port-roads.test.mjs` searches every walk, carry and free lane
 from every dock the empty ship can be called to. Myrto knows every lane; through

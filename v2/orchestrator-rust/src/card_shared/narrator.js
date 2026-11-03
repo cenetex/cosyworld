@@ -1729,6 +1729,7 @@
 
   // v2/card-game/pack-transport.mjs
   var TRANSPORT_VERSION = 3;
+  var IDLE_ROUNDS = 3;
   var PHASES = ["docked", "course", "sea", "arrived"];
   var shipAt = (place) => Object.entries(transports).find(([, t]) => t.place === place) || null;
   var passengers = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([, a]) => a);
@@ -1818,6 +1819,7 @@
     const state = s.transports?.[id];
     return state?.version === 2 ? upgradeTransportState(s, id, state) : state;
   };
+  var own = (s, id) => s.transports[id] = read(s, id);
   var freshState = (dock, turn = 0) => ({
     version: TRANSPORT_VERSION,
     phase: "docked",
@@ -1865,6 +1867,31 @@
     if (actor && s.actors[actor]?.place !== t.place) return [];
     if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
     return openLanes(s, t, state.dock, actor);
+  }
+  function stuckShip(s, id) {
+    const t = transports[id], state = read(s, id);
+    if (!state || !["docked", "arrived"].includes(state.phase)) return false;
+    if (!passengers(s, id).length || s.turn - state.since < IDLE_ROUNDS)
+      return false;
+    const gated = lanesFrom(t, state.dock).filter(
+      (to) => laneGate(t, state.dock, to) && entityActive(s, to)
+    );
+    return gated.length > 0 && !gated.some(
+      (to) => conditionsMet(s, t.packId, laneGate(t, state.dock, to))
+    ) && entityActive(s, t.at);
+  }
+  function sendShipHome(s, id) {
+    const t = transports[id], state = own(s, id), from = state.dock, ashore = passengerIds(s, id);
+    for (const actor of ashore) s.actors[actor].place = t.at;
+    Object.assign(state, {
+      phase: "docked",
+      dock: t.at,
+      destination: null,
+      riders: [],
+      since: s.turn,
+      recall: null
+    });
+    return { id, kind: "home", from, dock: t.at, ashore };
   }
   function transportExits(s, place, previous = null, actor = null) {
     const found2 = shipAt(place);
@@ -14248,9 +14275,9 @@
     return out;
   }
   function specialsProblems(pack) {
-    const sp = pack.specials, pool = Array.isArray(sp?.pool) ? sp.pool : [], ids3 = pool.map((e) => e?.id).filter(Boolean), own = (id) => ["places", "avatars", "items"].some((k) => owns3(pack[k], id));
+    const sp = pack.specials, pool = Array.isArray(sp?.pool) ? sp.pool : [], ids3 = pool.map((e) => e?.id).filter(Boolean), own2 = (id) => ["places", "avatars", "items"].some((k) => owns3(pack[k], id));
     const ok = keysOk(sp, ["draw", "pool"]) && keysOk(sp.draw, ["places", "avatars", "items"]) && Object.values(sp.draw).every((n) => intOk(n, 0, 8)) && pool.length > 0 && pool.length <= 64 && new Set(ids3).size === ids3.length && !ids3.includes(pack.entry) && pool.every(
-      (e) => Object.hasOwn(RARITY_WEIGHTS, e?.rarity) && (e.none === true ? keysOk(e, ["none", "rarity"]) : keysOk(e, ["id", "rarity", "anchor"]) && own(e.id) && (e.anchor === void 0 || owns3(pack.places, e.anchor) && !ids3.includes(e.anchor)))
+      (e) => Object.hasOwn(RARITY_WEIGHTS, e?.rarity) && (e.none === true ? keysOk(e, ["none", "rarity"]) : keysOk(e, ["id", "rarity", "anchor"]) && own2(e.id) && (e.anchor === void 0 || owns3(pack.places, e.anchor) && !ids3.includes(e.anchor)))
     );
     return ok ? [] : ["specials needs a bounded draw and a pool of own entities"];
   }
@@ -14429,7 +14456,7 @@
     check(record3(places2) && Object.keys(places2).length > 0, "needs places");
     check(record3(avatars), "avatars must be a map");
     check(record3(fixtures), "fixtures must be a map");
-    const own = [
+    const own2 = [
       ...Object.keys(places2),
       ...Object.keys(avatars),
       ...Object.keys(fixtures),
@@ -14441,11 +14468,11 @@
       ...hub2?.items || []
     ];
     check(
-      new Set(own).size === own.length && own.every(idOk2),
+      new Set(own2).size === own2.length && own2.every(idOk2),
       "entity ids must be distinct, lowercase and hyphenated"
     );
     check(
-      own.every((id) => !hubIds.includes(id)),
+      own2.every((id) => !hubIds.includes(id)),
       "entity ids must not reuse hub ids"
     );
     check(owns3(places2, pack.entry), "entry must name one of the pack's places");
@@ -14924,7 +14951,7 @@
           (r) => r.kind === "holding" && r.role === "actor" && r.item === c.subject
         ) || c.on === "give" && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor"
-        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && !choiceIds.has(c.id) && own.includes(c.subject) && owns3(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
+        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && !choiceIds.has(c.id) && own2.includes(c.subject) && owns3(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
@@ -15840,15 +15867,15 @@
   for (const c of crossings)
     if (!c.retired)
       link(c.from, c.transport ? transports[c.transport].place : c.to);
-  function placeDoors(s, own = null) {
+  function placeDoors(s, own2 = null) {
     const seed = s.run?.seed ?? 0, used = {}, doors = {};
     const order = [
       ...visitors.filter((a) => a.home.doors.length === 1),
-      ...visitors.filter((a) => a.id === own && a.home.doors.length > 1),
-      ...visitors.filter((a) => a.id !== own && a.home.doors.length > 1)
+      ...visitors.filter((a) => a.id === own2 && a.home.doors.length > 1),
+      ...visitors.filter((a) => a.id !== own2 && a.home.doors.length > 1)
     ];
     for (const a of order) {
-      const wanted = a.id === own ? lampless(a.home.doors) : a.home.doors;
+      const wanted = a.id === own2 ? lampless(a.home.doors) : a.home.doors;
       const free = wanted.filter(
         (p) => ships.has(p) || (linked.get(p)?.size ?? 0) + (used[p] || 0) < LINK_CAP
       );
@@ -16277,6 +16304,7 @@
   function upgradeSave(s, { installPacks: installPacks2, laneText = () => null }) {
     if (!s || ![6, 7].includes(s.schema))
       throw new Error("This save needs a fresh start.");
+    const beforeItemCycle = !Array.isArray(s.usedUp);
     const reworked = new Set(
       packDefinitions.filter((p) => (s.packs?.[p.id]?.revision ?? p.revision) < p.revision).map((p) => p.id)
     );
@@ -16356,6 +16384,10 @@
           (pack) => (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id }))
         )
       );
+    if (beforeItemCycle) {
+      for (const id of Object.keys(transports))
+        if (s.transports?.[id] && stuckShip(s, id)) sendShipHome(s, id);
+    }
     return s;
   }
   function reconcileContent(s) {
@@ -18178,11 +18210,11 @@
 
   // v2/card-game/speech-occasions.mjs
   function playedEntry(world) {
-    const own = world.log.filter(
+    const own2 = world.log.filter(
       (entry) => entry.turn === world.turn && !entry.generated && entry.kind === "action" && entry.actorId === currentActor(world)
     );
-    return own.findLast(
-      (entry) => !(entry.verb === "choose" && own.some(
+    return own2.findLast(
+      (entry) => !(entry.verb === "choose" && own2.some(
         (talk) => talk.seq < entry.seq && talk.verb === "talk" && talk.targetId === entry.targetId
       ))
     );
