@@ -1545,7 +1545,8 @@
           "greek-piraeus",
           "greek-athens-harbor",
           "greek-road-athens-harbor",
-          "greek-road-piraeus-eleusis"
+          "greek-road-piraeus-eleusis",
+          "greek-road-coast"
         ],
         open: [
           "greek-road-athens-piraeus",
@@ -1628,6 +1629,9 @@
       thrace: {
         coast: [
           "greek-thrace"
+        ],
+        open: [
+          "greek-road-north"
         ]
       },
       lemnos: {
@@ -2781,7 +2785,8 @@
             name: "Piraeus Quays",
             text: "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. The Long Walls run inland to Athens.",
             exits: [
-              "greek-road-athens-piraeus"
+              "greek-road-athens-piraeus",
+              "greek-road-coast"
             ],
             backdrop: "assets/greek-drama/piraeus-open-berth.webp",
             persona: "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler\u2019s chosen terms."
@@ -3509,6 +3514,34 @@
             backdrop: "assets/greek-drama/colonists-road.svg",
             retired: true
           },
+          "greek-road-coast": {
+            name: "The Coast Road",
+            text: "A long coast road winds west over the cliffs above the gulf. One end leads to Piraeus Quays; the other leads to The Wine-Dark Harbor. The ship makes the same passage sooner.",
+            persona: "A shared road between Piraeus Quays and The Wine-Dark Harbor. The left end always leads to Piraeus Quays. The right end always leads to The Wine-Dark Harbor. From Piraeus the road is always open. From the harbor it opens only once the herald\u2019s truce rests in the Agora, as the Long Walls do; until then the ship with the Travel Provisions is the way to Piraeus. Travelers can meet, talk, rest and carry their belongings here.",
+            exits: [
+              "greek-piraeus",
+              "greek-harbor"
+            ],
+            road: [
+              "greek-piraeus",
+              "greek-harbor"
+            ],
+            backdrop: "assets/greek-drama/black-sea-road.svg"
+          },
+          "greek-road-north": {
+            name: "The Northern Road",
+            text: "A long road runs north through Thessaly and Thrace and crosses the strait to Troy. One end leads to The Trojan Camp Landing; the other comes down to The Hillside Sanctuary above Thebes. The ship makes the same passage sooner.",
+            persona: "A shared road between The Trojan Camp Landing and The Hillside Sanctuary above Thebes. The left end always leads to The Trojan Camp Landing. The right end always leads to The Hillside Sanctuary, inside the city; the battlefield lies beyond the City Gate, not on this road. From the landing the road is always open. From the sanctuary it opens only once the guard has opened the City Gate. The ship is the quicker way. Travelers can meet, talk, rest and carry their belongings here.",
+            exits: [
+              "greek-ajax-landing",
+              "greek-sanctuary"
+            ],
+            road: [
+              "greek-ajax-landing",
+              "greek-sanctuary"
+            ],
+            backdrop: "assets/greek-drama/royal-road.svg"
+          },
           "greek-ajax-landing": {
             stage: {
               focus: {
@@ -3520,7 +3553,8 @@
             text: "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
             exits: [
-              "greek-greek-camp"
+              "greek-greek-camp",
+              "greek-road-north"
             ],
             backdrop: "assets/greek-drama/ajax-camp-day.webp",
             requires: [
@@ -4990,6 +5024,38 @@
                 kind: "item_near",
                 item: "greek-olive-branch",
                 place: "greek-athens"
+              }
+            ]
+          },
+          {
+            from: "greek-harbor",
+            to: "greek-road-coast",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-open-door-plea-registered",
+                value: true
+              },
+              {
+                kind: "item_near",
+                item: "greek-olive-branch",
+                place: "greek-athens"
+              }
+            ]
+          },
+          {
+            from: "greek-sanctuary",
+            to: "greek-road-north",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-decree",
+                actor: "greek-guard"
+              },
+              {
+                kind: "item_near",
+                item: "greek-decree",
+                place: "greek-gate"
               }
             ]
           }
@@ -9013,6 +9079,7 @@
             "greek-road-thebes",
             "greek-road-athens-harbor",
             "greek-road-athens-piraeus",
+            "greek-road-coast",
             "greek-road-athens-colonus",
             "greek-road-athens-eleusis",
             "greek-road-athens-marathon",
@@ -9024,6 +9091,7 @@
             "greek-ajax-landing",
             "greek-ajax-household",
             "greek-ajax-grave",
+            "greek-road-north",
             "greek-cithaeron"
           ],
           avatars: [
@@ -9428,7 +9496,8 @@
               "greek-greek-camp",
               "greek-ajax-landing",
               "greek-ajax-household",
-              "greek-ajax-grave"
+              "greek-ajax-grave",
+              "greek-road-north"
             ],
             requires: [
               {

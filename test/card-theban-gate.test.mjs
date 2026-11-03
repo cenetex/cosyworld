@@ -18,6 +18,10 @@ const reload = (s) => decodeSave(encodeSave(s));
 const out = (s) => exits(s, "greek-gate", "vale").includes("greek-battlefield");
 const painted = (s) => !backdrop("greek-gate", s).includes("closed");
 const pack = packDefinition("greek-drama");
+const OPENED = [
+  "greek-gate>greek-battlefield",
+  "greek-sanctuary>greek-road-north",
+];
 const route = pack.routes.find(
   (r) => r.from === "greek-gate" && r.to === "greek-battlefield",
 );
@@ -44,6 +48,8 @@ const walk = (s, ...ids) =>
 describe("the Theban City Gate", () => {
   it("paints the gate open once the road has opened", () => {
     expect(pack.places["greek-gate"].exits).not.toContain("greek-battlefield");
+    // The Northern Road from Troy comes down at the Hillside Sanctuary inside
+    // the walls, not here (#2049).
     expect(pack.places["greek-battlefield"].exits).toEqual(["greek-gate"]);
     for (const b of pack.places["greek-gate"].backdrops)
       expect(b.requires.filter((r) => r.kind !== "daylight")).toEqual([
@@ -75,7 +81,8 @@ describe("the Theban City Gate", () => {
     s = act(s, "move", { target: "greek-battlefield" });
     // The way back is always open.
     expect(exits(s, "greek-battlefield", "vale")).toContain("greek-gate");
-    expect(s.openedRoutes).toEqual(["greek-gate>greek-battlefield"]);
+    // The same decree opens the Northern Road from the Hillside Sanctuary.
+    expect(s.openedRoutes).toEqual(OPENED);
     // The guard leaves his post with the decree: the gate stays open.
     const away = structuredClone(s);
     away.actors["greek-guard"].place = "greek-well";
@@ -94,7 +101,7 @@ describe("the Theban City Gate", () => {
     s.items["greek-decree"].holder = "greek-guard";
     s.actors["greek-guard"].place = "greek-gate";
     const loaded = reload(s);
-    expect(loaded.openedRoutes).toEqual(["greek-gate>greek-battlefield"]);
+    expect(loaded.openedRoutes).toEqual(OPENED);
     loaded.items["greek-decree"].holder = "greek-palace";
     expect(out(reload(loaded))).toBe(true);
   });
@@ -106,7 +113,7 @@ describe("the Theban City Gate", () => {
       s.items["greek-decree"].holder = "greek-guard";
       s.actors["greek-guard"].place = "greek-gate";
       const open = reload(s);
-      expect(open.openedRoutes).toBeUndefined();
+      expect(open.openedRoutes).toEqual([OPENED[1]]);
       expect(out(open)).toBe(true);
       open.items["greek-decree"].holder = "greek-palace";
       expect(out(reload(open))).toBe(false);

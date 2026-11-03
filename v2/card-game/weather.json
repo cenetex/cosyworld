@@ -50,7 +50,8 @@
         "greek-piraeus",
         "greek-athens-harbor",
         "greek-road-athens-harbor",
-        "greek-road-piraeus-eleusis"
+        "greek-road-piraeus-eleusis",
+        "greek-road-coast"
       ],
       "open": [
         "greek-road-athens-piraeus",
@@ -133,6 +134,9 @@
     "thrace": {
       "coast": [
         "greek-thrace"
+      ],
+      "open": [
+        "greek-road-north"
       ]
     },
     "lemnos": {
