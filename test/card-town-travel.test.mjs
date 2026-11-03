@@ -95,9 +95,17 @@ describe("local town visits and road history", () => {
       expect(current.packs["greek-drama"].revision).toBe(
         packDefinition("greek-drama").revision,
       );
-      expect(exits(current, port, "vale")).toContain(town);
+      // The Long Walls inland wait for the herald's truce (rules 94).
+      expect(exits(current, port, "vale")).not.toContain(town);
+      const truce = structuredClone(current);
+      truce.openedRoutes = [
+        ...(truce.openedRoutes || []),
+        "greek-athens>greek-road-athens-piraeus",
+        "greek-piraeus>greek-road-athens-piraeus",
+      ].sort();
+      expect(exits(truce, port, "vale")).toContain(town);
       expect(
-        legalActions(current, "vale").some(
+        legalActions(truce, "vale").some(
           (a) => a.kind === "move" && a.target === town,
         ),
       ).toBe(true);
@@ -202,26 +210,21 @@ describe("local town visits and road history", () => {
       "greek-cithaeron",
       "greek-road-athens-eleusis",
       "greek-road-athens-piraeus",
-      "greek-road-coast",
       "greek-road-sacred-way",
     ]);
-    // The Long Walls open from the Agora only with the olive branch there.
+    // The Long Walls open from either end only with the herald's truce.
     expect(exits(w, "greek-athens", "vale")).toEqual(
       expect.arrayContaining(["greek-road-athens-eleusis", "greek-assembly"]),
     );
     expect(exits(w, "greek-colonus", "vale")).toEqual(
       expect.arrayContaining(["greek-eleusis", "greek-marathon"]),
     );
-    expect(exits(w, "greek-piraeus", "vale")).toEqual([
-      "greek-road-athens-piraeus",
-      "greek-road-coast",
-    ]);
+    expect(exits(w, "greek-piraeus", "vale")).toEqual([]);
     expect(roads.map(([id]) => id).sort()).toEqual([
       "greek-cithaeron",
       "greek-oeta",
       "greek-road-athens-eleusis",
       "greek-road-athens-piraeus",
-      "greek-road-coast",
       "greek-road-north",
       "greek-road-sacred-way",
       "greek-road-thebes",

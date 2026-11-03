@@ -3,7 +3,7 @@ import {
   narrativeContext,
   applyGeneratedText,
 } from "../../v2/card-game/narrative.mjs";
-import { openDoorJourney, playOpenDoor } from "./open-door.mjs";
+import { openDoorJourney, openDoorSteps, playOpenDoor } from "./open-door.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
 
 export const ajaxState = (world) => world.packs["greek-drama"];
@@ -21,7 +21,10 @@ export const ajaxMove = (world, ...places) =>
 
 let returned;
 export function ajaxStart() {
-  returned ||= openDoorJourney().world;
+  // Troy is a rumour in new worlds (rules 94); old full-scope worlds keep it.
+  returned ||= openDoorJourney(openDoorSteps({ rumours: true }), {
+    rumours: true,
+  }).world;
   return structuredClone(returned);
 }
 
@@ -59,12 +62,9 @@ export function ajaxTalk(
 export function ajaxCamp() {
   let world = ajaxMove(ajaxStart(), "greek-harbor");
   world = ajaxChoice(world, "invitation");
-  return ajaxMove(
-    world,
-    "greek-ship",
-    "greek-ajax-landing",
-    "greek-greek-camp",
-  );
+  // The Northern Road walks from the harbor to the Trojan landing: the
+  // Charybdis never sails to Troy (rules 94).
+  return ajaxMove(world, "greek-ajax-landing", "greek-greek-camp");
 }
 
 // Any of Teucer, Odysseus or Tecmessa can say where the shield belongs.
@@ -111,7 +111,6 @@ export function ajaxJourney(route = "public") {
   let world = ajaxMove(
     ajaxAccount(route),
     "greek-ajax-landing",
-    "greek-ship",
     "greek-harbor",
     "greek-courtyard",
   );

@@ -285,7 +285,7 @@ export const mediaPathOk = (pack, path) =>
  * Validate one compiled pack (source plus bridge) against the hub it joins.
  * Returns a list of readable problems; an empty list means the pack is valid.
  */
-export function packProblems(pack, hub, mountedPlaces = []) {
+export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
   const problems = [];
   const check = (ok, message) => {
     if (!ok) problems.push(`${pack?.id || "pack"}: ${message}`);
@@ -978,10 +978,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             idOk(c.tag) &&
             anyPlace(c.place);
           break;
+        // A thing from another mounted world may be named: a ship's cargo.
         case "item_present":
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
-            (owns(items, c.item) || hub.items.includes(c.item)) &&
+            (owns(items, c.item) ||
+              hub.items.includes(c.item) ||
+              mountedItems.includes(c.item)) &&
             anyPlace(c.place);
           break;
         case "item_at":

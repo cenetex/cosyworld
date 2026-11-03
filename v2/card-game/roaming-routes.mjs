@@ -25,16 +25,26 @@ export const authoredRouteEdges = () => [
       : [[c.from, c.to]],
   ),
 ];
+// A retired crossing stays a valid saved step, but nobody learns it anew: it
+// would read as a short way home that no longer opens.
+const retiredStep = ([from, to]) =>
+  crossings.some(
+    (c) => c.retired && !c.transport && c.from === from && c.to === to,
+  );
 export function initialRouteEdges(actor) {
   const home = packPeople[actor]?.packId;
-  return authoredRouteEdges().filter(([from, to]) =>
-    home
-      ? packPlaces[from]?.packId === home
-      : !packPlaces[from] && !packPlaces[to],
+  return authoredRouteEdges().filter(
+    (edge) =>
+      !retiredStep(edge) &&
+      (home
+        ? packPlaces[edge[0]]?.packId === home
+        : !packPlaces[edge[0]] && !packPlaces[edge[1]]),
   );
 }
 export const visibleRouteEdges = (place) =>
-  authoredRouteEdges().filter(([from]) => from === place);
+  authoredRouteEdges().filter(
+    (edge) => edge[0] === place && !retiredStep(edge),
+  );
 export const witnessedRouteEdges = (world, actor) =>
   world.log
     .filter(
@@ -91,7 +101,9 @@ export function validRouteKnowledge(world, edges) {
       new Set(known.map(edgeKey)).size === known.length &&
       known.every(
         (edge) =>
-          Array.isArray(edge) && edge.length === 2 && allowed.has(edgeKey(edge)),
+          Array.isArray(edge) &&
+          edge.length === 2 &&
+          allowed.has(edgeKey(edge)),
       ),
   );
 }

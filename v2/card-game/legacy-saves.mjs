@@ -12,6 +12,7 @@ import {
   conditionsMet,
   departed,
   entityEnabled,
+  latchingRoute,
   packEntity,
 } from "./pack-registry.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
@@ -132,6 +133,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     upgradeGreekOpenDoorSave(s);
     upgradeGreekEastSeaSave(s);
     upgradeGreekThreeLinksSave(s);
+    upgradeGreekLandRouteSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -246,6 +248,11 @@ export function reconcilePackProgress(s, reworked) {
       const c = pack.choices.find((choice) => choice.id === id);
       if (
         !c ||
+        // A step the release no longer holds (a rumoured place's story) is
+        // forgotten, and so is whatever followed from it.
+        (pack.release &&
+          state.scope !== "full" &&
+          !pack.release.choices.includes(id)) ||
         !holds(c.requires) ||
         !holds(pack.places[c.at]?.requires) ||
         !holds(packEntity(c.subject)?.requires) ||
@@ -629,6 +636,137 @@ export function upgradeGreekThreeLinksSave(s) {
   saved.revision = 17;
 }
 
+// Revision 18 makes the land route Piraeus to Thebes the walk home (#2049).
+// The Coast Road retires: anyone or anything on it goes to Piraeus, and its
+// gate and every known step along it are forgotten. The Northern Road comes
+// down at the harbor instead of the sanctuary. The Greek ship becomes the
+// Charybdis on the Black Pond route, and Marathon, Troy and the Far Shores
+// become rumours: whoever, and whatever, is there comes back. The island and
+// far-shore stops, which only the ship reached, retire into Piraeus.
+export function upgradeGreekLandRouteSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 18 || saved?.revision !== 17) return;
+  foldRetiredRoads(s);
+  if (Array.isArray(s.openedRoutes)) {
+    s.openedRoutes = s.openedRoutes.filter(latchingRoute);
+    // The Long Walls now open from both ends with the herald's truce.
+    if (s.openedRoutes.includes("greek-athens>greek-road-athens-piraeus"))
+      s.openedRoutes = [
+        ...new Set([
+          ...s.openedRoutes,
+          "greek-piraeus>greek-road-athens-piraeus",
+        ]),
+      ].sort();
+    if (!s.openedRoutes.length) delete s.openedRoutes;
+  }
+  leaveTheRumours(s, pack);
+  // The lanes beyond Piraeus are no longer sailed.
+  const sailed = new Set(laneEdges().map((edge) => JSON.stringify(edge)));
+  for (const [actor, edges] of Object.entries(s.routeKnowledge || {}))
+    if (Array.isArray(edges))
+      s.routeKnowledge[actor] = edges.filter(
+        (edge) => !laneOfEdge(edge) || sailed.has(JSON.stringify(edge)),
+      );
+  saved.revision = 18;
+}
+
+// Each rumoured place and the reachable place its visitors return to. Troy
+// is the Northern Road's far end, so its travelers come down at the harbor.
+const RUMOURS = {
+  "greek-marathon": "greek-piraeus",
+  "greek-ajax-landing": "greek-harbor",
+  "greek-greek-camp": "greek-harbor",
+  "greek-ajax-household": "greek-harbor",
+  "greek-ajax-grave": "greek-harbor",
+  "greek-road-north": "greek-harbor",
+};
+function leaveTheRumours(s, pack) {
+  const back = Object.fromEntries(
+    Object.entries(RUMOURS).filter(([place]) => !entityEnabled(s, place)),
+  );
+  // Visitors come back; a resident at home and a thing in its authored place
+  // stay with the rumour.
+  for (const [id, actor] of Object.entries(s.actors || {}))
+    if (back[actor.place] && pack.avatars[id]?.place !== actor.place)
+      actor.place = back[actor.place];
+  for (const [id, item] of Object.entries(s.items || {}))
+    if (back[item.holder] && pack.items[id]?.holder !== item.holder)
+      item.holder = back[item.holder];
+  // In a world of this release the rumours' people and things wait unmet at
+  // home, as any withheld story's do; reconcilePackProgress forgets its steps.
+  const saved = s.packs[pack.id];
+  if (pack.release && saved.scope !== "full") {
+    for (const [id, avatar] of Object.entries(pack.avatars))
+      if (
+        s.actors[id] &&
+        !pack.release.avatars.includes(id) &&
+        pack.recital?.actor !== id &&
+        !departed(pack, saved, id)
+      ) {
+        Object.assign(s.actors[id], {
+          place: avatar.place,
+          crossed: 0,
+          lastTalk: -9,
+        });
+        delete saved.met?.[id];
+        delete s.opening?.met?.[id];
+      }
+    for (const [id, item] of Object.entries(pack.items))
+      if (s.items[id] && !pack.release.items.includes(id))
+        Object.assign(s.items[id], { holder: item.holder, history: [] });
+    // A quest that names a rumour's place, person or thing, or a retired
+    // stop, is let go, a player's as well as a resident's; an emptied stack
+    // draws its next want as any empty one does.
+    const rumour = new Set([
+      ...Object.keys(back),
+      ...Object.keys(pack.places).filter((id) => pack.places[id].retired),
+      ...Object.keys(pack.avatars).filter(
+        (id) =>
+          !pack.release.avatars.includes(id) && pack.recital?.actor !== id,
+      ),
+      ...Object.keys(pack.items).filter(
+        (id) => !pack.release.items.includes(id),
+      ),
+    ]);
+    const names = (w) =>
+      [w.target, w.step?.to, w.step?.at].some((id) => rumour.has(id));
+    for (const a of Object.values(s.actors || {})) {
+      const quests = [a?.want, ...(a?.under || [])].filter(Boolean);
+      const kept = quests.filter((w) => !names(w));
+      if (kept.length === quests.length) continue;
+      a.want = kept[0] ?? null;
+      if (kept.length > 1) a.under = kept.slice(1);
+      else delete a.under;
+    }
+  }
+  // A ship at, or bound for, a port it no longer sails to comes in to
+  // Piraeus with everyone aboard.
+  const ship = transports["greek-ship"],
+    old = s.transports?.["greek-ship"];
+  if (!ship || !old) return;
+  const state =
+    old.version === 2 ? upgradeTransportState(s, "greek-ship", old) : old;
+  const sails = (dock) => !dock || ship.docks.includes(dock);
+  if (sails(state.dock) && sails(state.destination)) {
+    if (!sails(state.recall))
+      s.transports["greek-ship"] = { ...state, recall: null };
+    return;
+  }
+  const aboard = Object.keys(s.actors || {})
+    .filter((id) => s.actors[id].place === ship.place)
+    .sort();
+  s.transports["greek-ship"] = {
+    version: state.version,
+    phase: aboard.length ? "arrived" : "docked",
+    dock: "greek-piraeus",
+    destination: null,
+    riders: aboard,
+    since: s.turn || 0,
+    recall: null,
+  };
+}
+
 // Revision 14 sorts Athens into districts joined by gate roads. A known step
 // between districts becomes a walkable path through the gates.
 export function upgradeGreekDistrictRoadsSave(s) {
@@ -958,10 +1096,27 @@ function addGreekEntities(s, pack, avatars, items) {
     for (const other of avatars) if (other !== id) actor.trust[other] ??= 0;
 }
 
+// Until Greek revision 18 the Greek ship also sailed to Marathon, Troy and
+// the Far Shores; its revision 18 upgrade brings it back from them.
+const RUMOURED_DOCKS = [
+  "greek-ajax-landing",
+  "greek-marathon",
+  "greek-lemnos",
+  "greek-thrace",
+  "greek-egypt-tomb",
+  "greek-tauris",
+  "greek-sicily",
+];
+const savedDocks = (s, id) =>
+  id === "greek-ship" && (s.packs?.["greek-drama"]?.revision ?? 18) < 18
+    ? [...transports[id].docks, ...RUMOURED_DOCKS]
+    : transports[id].docks;
+
 // Earlier occupied ships used a null dock. Keep their saved destination and
 // restore the departure shore so companions can join the same trip.
 function upgradeBoardingSave(s) {
-  for (const [id, transport] of Object.entries(transports)) {
+  for (const id of Object.keys(transports)) {
+    const docks = savedDocks(s, id);
     const state = s.transports?.[id];
     if (!state || state.version !== undefined) continue;
     const occupied = passengers(s, id).length > 0;
@@ -969,14 +1124,13 @@ function upgradeBoardingSave(s) {
       Object.keys(state).sort().join() === "destination,dock,recall" &&
       (occupied
         ? state.dock === null &&
-          transport.docks.includes(state.destination) &&
-          (state.recall === null || transport.docks.includes(state.recall))
-        : transport.docks.includes(state.dock) &&
+          docks.includes(state.destination) &&
+          (state.recall === null || docks.includes(state.recall))
+        : docks.includes(state.dock) &&
           state.destination === null &&
           state.recall === null);
     if (!valid) throw new Error("This save has an invalid ship record.");
-    if (occupied)
-      state.dock = transport.docks.find((dock) => dock !== state.destination);
+    if (occupied) state.dock = docks.find((dock) => dock !== state.destination);
     state.version = 2;
   }
   // Version 3 ships sail lanes and take a world round at sea.
@@ -985,7 +1139,7 @@ function upgradeBoardingSave(s) {
     if (state?.version !== 2) continue;
     if (
       Object.keys(state).sort().join() !== "destination,dock,recall,version" ||
-      !transports[id].docks.includes(state.dock)
+      !savedDocks(s, id).includes(state.dock)
     )
       throw new Error("This save has an invalid ship record.");
     s.transports[id] = upgradeTransportState(s, id, state);
