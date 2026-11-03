@@ -17,6 +17,10 @@ permissions:
 
 # Every checkout is blobless with full history, which took a median 15 s
 # against 33 s for the default depth-1 checkout of the same tree (see ci.yml).
+# On 2026-11-03 GitHub served this repository's ~1 GB of files at 1-2 MB/s,
+# and checkouts ran past the 8-minute job limit. So each checkout borrows the
+# files' Git objects from an Actions cache that main's unit job refreshes
+# daily and whenever the card art changes, and fetches only files changed since.
 
 # Every job reads its runner label from the FAST_CHECK_RUNNER repository
 # variable, so switching to the Fly runner (#1565) needs no workflow edit.
@@ -32,7 +36,21 @@ jobs:
     outputs:
       smokes: ${{ steps.smokes.outputs.smokes }}
     steps:
-      - uses: actions/checkout@v7
+      - &restore-git-objects
+        name: Restore cached Git objects
+        id: git-objects
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/git-objects
+          key: git-objects-v1-${{ github.sha }}
+          restore-keys: git-objects-v1-
+      - &borrow-git-objects
+        name: Borrow cached Git objects
+        run: |
+          mkdir -p "$RUNNER_TEMP/git-objects"
+          echo "GIT_ALTERNATE_OBJECT_DIRECTORIES=$RUNNER_TEMP/git-objects" >> "$GITHUB_ENV"
+      - &checkout
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           filter: blob:none
@@ -93,10 +111,9 @@ jobs:
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: blob:none
+      - *restore-git-objects
+      - *borrow-git-objects
+      - *checkout
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -113,10 +130,9 @@ jobs:
     env:
       CI: true
     steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: blob:none
+      - *restore-git-objects
+      - *borrow-git-objects
+      - *checkout
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -124,6 +140,29 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci --prefer-offline --no-audit --no-fund
       - run: npm test
+      # Packs the checkout's files into one pack for later checkouts. The key
+      # changes daily and with the card art, so most main pushes save nothing.
+      - name: Pack Git objects for later checkouts
+        id: pack-git-objects
+        if: github.event_name == 'push'
+        env:
+          MATCHED: ${{ steps.git-objects.outputs.cache-matched-key }}
+        run: |
+          key="git-objects-v1-$(date -u +%Y%m%d)-$(git rev-parse HEAD:v2/card-game/assets)"
+          if [ "$key" != "$MATCHED" ]; then
+            fresh="$RUNNER_TEMP/git-objects-fresh"
+            mkdir -p "$fresh/pack"
+            git ls-tree -r --object-only HEAD | git pack-objects -q --window=0 "$fresh/pack/pack"
+            rm -rf "$RUNNER_TEMP/git-objects"
+            mv "$fresh" "$RUNNER_TEMP/git-objects"
+            echo "key=$key" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Save Git objects for later checkouts
+        if: steps.pack-git-objects.outputs.key
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/git-objects
+          key: ${{ steps.pack-git-objects.outputs.key }}
 
   # cargo fmt reads source only, so this job builds nothing and needs no
   # Cargo cache. It uses the same stable toolchain as ci.yml and deploy.yml
@@ -162,10 +201,9 @@ jobs:
     env:
       CI: true
     steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: blob:none
+      - *restore-git-objects
+      - *borrow-git-objects
+      - *checkout
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
