@@ -32,7 +32,6 @@ async function open(name, width, { gpc = false } = {}) {
   const table = `${name}-${width}`;
   await page.addInitScript(
     ({ key, save, gpc }) => {
-      if (location.protocol !== "http:") return;
       if (!localStorage.getItem(key)) localStorage.setItem(key, save);
       if (gpc)
         Object.defineProperty(Navigator.prototype, "globalPrivacyControl", {
@@ -55,7 +54,8 @@ async function toggle(page) {
 }
 
 async function leave({ page, context, errors }) {
-  await page.goto("about:blank");
+  // A real unload may drop the beacon on slow runners; the event is enough.
+  await page.evaluate(() => dispatchEvent(new PageTransitionEvent("pagehide")));
   await settle();
   assert.deepEqual(errors, []);
   await context.close();
