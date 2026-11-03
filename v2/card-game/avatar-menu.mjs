@@ -355,20 +355,82 @@ export function installAvatarMenu({
     // One tap on one of yours in another world switches to it: the page
     // goes there and ☰ opens with it chosen (owner, 2026-11-01). Any other
     // tap chooses (it glows); a second tap on another's arms it.
-    face.onclick = () => {
-      if (seat.kind === "you" && !slot.current) {
-        stored(INVITE_KEY, null);
-        stored(MENU_KEY, seat.id);
-        location.href = sharedLink(slot.shared);
-        return;
-      }
-      armed = picked && seat.kind === "human";
-      chosen = { id: seat.id, slot: slot.key };
-      status.textContent = "";
-      render();
-    };
+    face.onclick = () => tapSeat(slot, seat, picked);
     item.append(face);
     return item;
+  }
+  function tapSeat(slot, seat, picked = false) {
+    if (seat.kind === "you" && !slot.current) {
+      stored(INVITE_KEY, null);
+      stored(MENU_KEY, seat.id);
+      location.href = sharedLink(slot.shared);
+      return;
+    }
+    armed = picked && seat.kind === "human";
+    chosen = { id: seat.id, slot: slot.key };
+    status.textContent = "";
+    render();
+  }
+  // Your avatars under the worlds (owner, 2026-11-02): each one found,
+  // face up in R·A·T·V·M·I·C·S order, in colour while free for + New world
+  // and grey while in a world, then a card back for each still to find
+  // (#1936), with no hint of where they are. A tap on a free one chooses it
+  // for + New world; on a placed one it acts as its seat's portrait.
+  function castRow(view) {
+    const row = el("ul", "slot-seats slot-cast");
+    const found = byInitial(humanAvatars).filter(
+      (a) => !view.locked.includes(a),
+    );
+    row.setAttribute(
+      "aria-label",
+      view.locked.length
+        ? `Your avatars, ${view.locked.length} still to find`
+        : "Your avatars",
+    );
+    for (const avatar of found) {
+      const slot = view.slots.find((s) => s.mine === avatar.id);
+      const item = el("li", "slot-seat");
+      item.dataset.avatar = avatar.id;
+      item.dataset.lit = String(!slot);
+      const button = el("button", "seat-face");
+      button.type = "button";
+      button.dataset.keepMenu = "true";
+      button.setAttribute(
+        "aria-label",
+        slot
+          ? `${avatar.name}, in ${slot.name || "a world"}`
+          : `${avatar.name}, free`,
+      );
+      button.setAttribute(
+        "aria-pressed",
+        String(!slot && chosen?.id === avatar.id && !chosen.slot),
+      );
+      const img = el("img");
+      img.src = face(avatar.image);
+      img.alt = "";
+      button.append(img);
+      button.onclick = () => {
+        if (slot)
+          return tapSeat(
+            slot,
+            slot.seats.find((s) => s.id === avatar.id),
+          );
+        chosen = { id: avatar.id, slot: null };
+        armed = false;
+        status.textContent = "";
+        render();
+      };
+      item.append(button);
+      row.append(item);
+    }
+    for (const back of view.locked.map(() => el("li", "slot-seat slot-back"))) {
+      const img = el("img");
+      img.src = face("assets/card-back.webp");
+      img.alt = "";
+      back.append(img);
+      row.append(back);
+    }
+    return row;
   }
   // "+" for an open seat. Each tap offers on the card the next of your
   // avatars that may come here: the shown one, then the one being played,
@@ -511,19 +573,7 @@ export function installAvatarMenu({
       fresh.classList.add("slot-new");
       box.append(fresh);
     }
-    // Avatars not yet found are card backs, with no hint of where they are.
-    if (view.locked.length) {
-      const backs = el("ul", "slot-seats slot-locked");
-      backs.setAttribute("aria-label", `${view.locked.length} still to find`);
-      for (const back of view.locked.map(() => el("li", "slot-seat"))) {
-        const img = el("img");
-        img.src = face("assets/card-back.webp");
-        img.alt = "";
-        back.append(img);
-        backs.append(back);
-      }
-      box.append(backs);
-    }
+    box.append(castRow(view));
     if (chosen) actionBeat.show(chosenBeat(view, chosen));
     else actionBeat.clear();
   }

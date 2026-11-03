@@ -143,7 +143,7 @@ try {
     // A world shows only the avatars that entered it, then "+": Vale is in
     // colour where she is played now, and nowhere else.
     const lit = await menu
-      .locator('.slot-seat[data-avatar="vale"]')
+      .locator('.world-slot .slot-seat[data-avatar="vale"]')
       .evaluateAll((seats) => seats.map((seat) => seat.dataset.lit));
     assert.deepEqual(lit, ["true"]);
     assert.equal(await friend.locator(".slot-seat").count(), 2);

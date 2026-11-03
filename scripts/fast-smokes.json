@@ -43,14 +43,14 @@
     },
     {
       "paths": "^v2/card-game/toolbar",
-      "smokes": ["smoke-card-toolbar"]
+      "smokes": ["smoke-card-toolbar", "smoke-card-world-menu"]
     },
     {
       "paths": "^v2/card-game/(avatar-menu|avatar-world|unlock-view)",
       "smokes": [
+        "smoke-card-world-menu",
         "smoke-card-world-slots",
-        "smoke-card-find-hidden",
-        "smoke-card-toolbar"
+        "smoke-card-find-hidden"
       ]
     },
     {
