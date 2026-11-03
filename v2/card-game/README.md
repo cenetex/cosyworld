@@ -435,7 +435,8 @@ are still covered, including after a reload.
 
 The player's avatar knows only what its player has uncovered (#1575). Until a
 card is uncovered, the screen never names it: the place heading, world name
-and page title show "…", and card labels, screen-reader text and stage alt text
+and page title show "…" (beside a toolbar logo the covered world name is
+hidden instead), and card labels, screen-reader text and stage alt text
 leave it out. A new game's first line waits until its player uncovers both the
 avatar and its place; in shared play the room's lines wait the same way for
 each viewer. `speech-knowledge.mjs` removes covered items from every local

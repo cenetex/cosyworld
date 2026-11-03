@@ -313,6 +313,11 @@ body.local-app #shared-worlds-button {
   display: flex;
   align-items: center;
 }
+/* Beside the logo, a covered world's "…" reads as a stray mark: the logo
+   stands alone until the world's name is uncovered. */
+.topbar .brand:has(.brand-logo) span[data-covered] {
+  display: none;
+}
 @media (max-width: 700px) {
   .brand .brand-logo {
     height: 40px;
