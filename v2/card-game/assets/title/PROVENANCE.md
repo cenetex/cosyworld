@@ -29,10 +29,14 @@ cropping or resizing. No generation IDs were available for these images.
 The alternatives append to `title-logos.json`; the original entries stay at
 indices 0 and 1 so saved logo choices remain stable. The catalogue supplies
 the title, toolbar logo and public asset list. At toolbar height the whole
-wide artwork is too small to read, so each names its lettering instead: a
-`crop` of the artwork that the image build writes to `toolbar/` at 160 px tall.
-A supplied lettering file (for example a transparent one) can replace it by
-naming its `src`, `width` and `height` without a `crop`. Existing music, Wake,
+wide artwork is too small to read, so each names its lettering instead.
+Hearth and Oak shows the transparent teal `toolbar/lonely-forest-teal-lantern-left.webp`
+(its lantern, moth and acorns), and The Listening Wood shows
+`toolbar/lonely-forest-teal-bell-and-lantern.webp` (its tied bell); both are
+supplied 288 x 96 files with no `crop` (see `toolbar/TEAL-REVISIONS.md`).
+The Black Pond keeps a `crop` of its artwork, which the image build writes
+to `toolbar/` at 160 px tall. The earlier Hearth and Oak and Listening Wood
+crops stay in `toolbar/`, published but unused. Existing music, Wake,
 skip, reduced-motion and new-world behavior are unchanged.
 
 After adding source artwork, run `npm run v2:card:images:build`, then

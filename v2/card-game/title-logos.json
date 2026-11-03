@@ -21,15 +21,9 @@
       "height": 941,
       "background": "dark",
       "toolbar": {
-        "src": "assets/title/toolbar/lonely-forest-hearth-and-oak.webp",
-        "width": 424,
-        "height": 160,
-        "crop": {
-          "left": 44,
-          "top": 164,
-          "width": 1596,
-          "height": 602
-        }
+        "src": "assets/title/toolbar/lonely-forest-teal-lantern-left.webp",
+        "width": 288,
+        "height": 96
       }
     },
     {
@@ -39,15 +33,9 @@
       "height": 941,
       "background": "dark",
       "toolbar": {
-        "src": "assets/title/toolbar/lonely-forest-listening-wood.webp",
-        "width": 388,
-        "height": 160,
-        "crop": {
-          "left": 40,
-          "top": 125,
-          "width": 1602,
-          "height": 660
-        }
+        "src": "assets/title/toolbar/lonely-forest-teal-bell-and-lantern.webp",
+        "width": 288,
+        "height": 96
       }
     },
     {
