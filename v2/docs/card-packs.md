@@ -485,7 +485,7 @@ Signal Jetty is Hoppy Cat's, with one lane from Piraeus Quays.
 Course cards show only lanes the person knows. A lane can instead list
 `opensWith` conditions: such a gated lane is open, both ways, only while they
 hold, for everyone aboard, and knowing it opens nothing. Cargo is checked
-aboard, never used up. The Greek ship is the Charybdis, on the Black Pond
+aboard; only a `spends` lane (above) uses it up. The Greek ship is the Charybdis, on the Black Pond
 route (rules 94): Black Pond and the Wine-Dark Harbor both ways with no
 cargo; harbor to Piraeus and Piraeus to the Signal Jetty one way, each with
 one `any` of `item_present` (the Travel Provisions) and `pack_item_present`
