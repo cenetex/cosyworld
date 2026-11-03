@@ -8446,6 +8446,10 @@
       );
       if (!result.ok)
         return { ok: false, world: stored(world), error: result.error };
+      result.state.speechVoices = {
+        ...result.state.speechVoices,
+        [actor]: speechOccasions(result.state, dialogueCast(result.state)).speakers
+      };
       return response(result.state, {
         events: result.state.log.filter((entry) => entry.seq > before),
         ...view(result.state, actor)
@@ -8457,7 +8461,7 @@
       const room = request.room || world.actors[actor].place;
       if (!places[room]) throw new Error("Choose a real room.");
       const voices = [
-        ...speechOccasions(world, dialogueCast(world)).speakers,
+        ...world.speechVoices?.[actor] ?? speechOccasions(world, dialogueCast(world)).speakers,
         room
       ];
       const voice = (l) => l?.actorId ?? l?.entityId;

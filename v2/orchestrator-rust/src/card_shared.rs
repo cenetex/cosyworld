@@ -45,9 +45,9 @@ mod section_tests;
 #[cfg(test)]
 mod sleep_tests;
 #[cfg(test)]
-mod speech_tests;
-#[cfg(test)]
 mod speech;
+#[cfg(test)]
+mod speech_tests;
 mod store;
 mod sync;
 #[cfg(test)]

@@ -257,6 +257,13 @@ export function dispatchShared(request) {
     );
     if (!result.ok)
       return { ok: false, world: stored(world), error: result.error };
+    // The voices this play named, fixed now: an enter or expire before its
+    // speech must not change who may answer (a defeat's host, for one).
+    result.state.speechVoices = {
+      ...result.state.speechVoices,
+      [actor]: speechOccasions(result.state, dialogueCast(result.state))
+        .speakers,
+    };
     return response(result.state, {
       events: result.state.log.filter((entry) => entry.seq > before),
       ...view(result.state, actor),
@@ -275,9 +282,11 @@ export function dispatchShared(request) {
       throw new Error("An exchange needs one to four lines.");
     const room = request.room || world.actors[actor].place;
     if (!places[room]) throw new Error("Choose a real room.");
-    // The room may always caption the play.
+    // The voices the play named as it committed, and the room, which may
+    // always caption it. A world upgraded since that play asks again.
     const voices = [
-      ...speechOccasions(world, dialogueCast(world)).speakers,
+      ...(world.speechVoices?.[actor] ??
+        speechOccasions(world, dialogueCast(world)).speakers),
       room,
     ];
     const voice = (l) => l?.actorId ?? l?.entityId;

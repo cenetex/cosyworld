@@ -105,6 +105,54 @@ describe("shared speech from an occasion's own voices", () => {
       );
   });
 
+  it("keeps a defeat's host after a human enters before its speech", () => {
+    // Mara is locked away at the pond, where Ada lives as a resident.
+    const world = dispatchShared({ op: "create", absent: ["mara"] }).world;
+    world.actors.moth.place = world.actors.rue.place = "station";
+    world.actors.ada.place = world.actors.mara.place = "pond";
+    world.items.lamp.holder = "rue";
+    world.turn = world.revision = 2;
+    const pair = (rue, moth) => ({ rue, moth });
+    world.standoffs = [
+      {
+        ...{ challenger: "moth", defender: "rue", location: "station" },
+        ...{ item: "lamp", opened: 1, answered: true, hitBy: { moth: "rue" } },
+        resolve: pair(1, 4),
+        guarding: pair(false, false),
+        struck: pair(true, true),
+        steppedBack: pair(false, false),
+      },
+    ];
+    // Rue guards, is struck down and comes to at the pond: Ada hosts.
+    const { actions } = dispatchShared({ op: "view", world, ...seat("rue") });
+    const guard = actions.find((a) => a.kind === "guard");
+    const beaten = dispatchShared({
+      op: "play",
+      world,
+      ...seat("rue"),
+      action: guard,
+    });
+    expect(beaten.world.actors.rue.place).toBe("pond");
+    // Mara is claimed and arrives before the defeat's words come back.
+    const both = { claimed: ["rue", "mara"], present: ["rue", "mara"] };
+    const joined = dispatchShared({
+      op: "join",
+      world: beaten.world,
+      actor: "mara",
+      ...both,
+    }).world;
+    const result = dispatchShared({
+      op: "speech",
+      world: joined,
+      actor: "rue",
+      ...both,
+      room: "pond",
+      lines: [{ actorId: "ada", text: "Rest here a while." }],
+    });
+    expect(result.lines).toHaveLength(1);
+    expect(result.lines[0]).toMatchObject({ actorId: "ada" });
+  });
+
   it("still refuses an absent speaker or a fifth line", () => {
     expect(() =>
       dispatchShared(

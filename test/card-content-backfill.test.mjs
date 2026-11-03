@@ -56,7 +56,9 @@ const filled = (world) => {
 };
 
 describe("content added after a world was saved", () => {
-  it("is the rules 93 release", () => expect(version).toBe("93"));
+  // The backfill arrived in rules 93; every later release keeps it.
+  it("runs on rules 93 or later", () =>
+    expect(Number(version)).toBeGreaterThanOrEqual(93));
 
   it("asked rules 92 worlds for a fresh start", () => {
     const { world } = engine(92, content)({ op: "create", seed: 7 });

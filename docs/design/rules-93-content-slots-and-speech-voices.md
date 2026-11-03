@@ -25,7 +25,9 @@ Audit of the other per-entity slots a save keeps:
 - A resident added to a pack that a save already has mounted still has no
   actor record. That stays deliberate: a save missing a resident is refused,
   and a new resident joins through its pack's save upgrade, as the household
-  witness did (`upgradeGreekHomecomingSave`).
+  witness did (`upgradeGreekHomecomingSave`). The authoring rule is in
+  `v2/docs/card-packs.md`, and `test/card-content-repack.test.mjs` fails a
+  branch whose content a world saved on main cannot take.
 
 ## Speech keeps to the play's voices
 
@@ -34,11 +36,14 @@ speaker, and the same speaker more than once. Only the server builds speech
 ops, from the voices the narrator named, so this was not reachable. From
 rules 93 the rules check it themselves. `speechOccasions` moved from
 `narrative.mjs` into `speech-occasions.mjs`, in the rules bundle; the speech
-op asks it for the committed play's voices; the room may always caption. A
-line from any other voice, or a second line from one voice, is refused with
-"Each voice the play named speaks once." A threat's target still speaks
-alone. The server serializes a play and its speech, so the op
-reads the world the play left.
+op allows the voices it named as the play committed; the room may always
+caption. A line from any other voice, or a second line from one voice, is
+refused with "Each voice the play named speaks once." A threat's target
+still speaks alone. The play op records its voices in `speechVoices`, per
+actor, because an `enter` or `expire` can land between a play and its
+speech and change who is present: a defeat's host would otherwise switch
+from the resident to a human who just arrived. A world upgraded since its
+last play asks the occasions again.
 
 `speech.json` now reaches the rules as content, so the content revision
 changes and every shared world repacks once.
