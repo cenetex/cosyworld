@@ -141,15 +141,6 @@ try {
       );
       fixture.items["greek-provisions"].holder =
         journey.cargo === false ? "greek-athens" : "greek-ship";
-      // Roaming residents riding the ship go ashore: an occupied ship does
-      // not answer a call, and this journey tests the traveler's own way.
-      for (const actor of Object.values(fixture.actors))
-        if (actor.place === "greek-ship")
-          actor.place = fixture.transports["greek-ship"].dock;
-      Object.assign(fixture.transports["greek-ship"], {
-        phase: "docked",
-        riders: [],
-      });
       // The voyage to Piraeus uses the provisions up (rules 95); a Hoppy
       // Cat thing aboard carries the ship on to the jetty.
       if (journey.hoppy)
@@ -220,6 +211,10 @@ try {
           const next = nextVoyagePlay(await state(), "mara", target);
           await step(next.kind, next.target);
         }
+        // Waiting aboard with no course to set, a ship whose cargo lanes are
+        // shut puts in at its home port and sets everyone ashore (rules 95).
+        if (kind === "move" && (await state()).actors.mara.place === target)
+          return;
         if (target === "greek-ship")
           for (
             let n = 0;
