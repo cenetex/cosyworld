@@ -231,6 +231,7 @@ pub(super) struct Totals {
     models: BTreeMap<String, Mix>,
     providers: BTreeMap<String, Mix>,
     provider_failures: BTreeMap<&'static str, u64>,
+    flagged: BTreeMap<&'static str, u64>,
 }
 
 impl Totals {
@@ -247,6 +248,7 @@ impl Totals {
             models: BTreeMap::new(),
             providers: BTreeMap::new(),
             provider_failures: BTreeMap::new(),
+            flagged: BTreeMap::new(),
         }
     }
 
@@ -258,6 +260,7 @@ impl Totals {
         attempts: u8,
         outcome: Outcome,
         failures: &[&'static str],
+        flags: &[&'static str],
     ) {
         for tally in [
             mix(&mut self.models, model),
@@ -274,6 +277,9 @@ impl Totals {
         }
         for code in failures {
             *self.provider_failures.entry(code).or_default() += 1;
+        }
+        for reason in flags {
+            *self.flagged.entry(reason).or_default() += 1;
         }
     }
 
@@ -325,6 +331,7 @@ impl Totals {
             "by_model": self.models,
             "by_provider": self.providers,
             "provider_failures": self.provider_failures,
+            "flagged": self.flagged,
             "prompt_tokens": {
                 "approximate": true,
                 "mean": total / calls,
@@ -349,6 +356,7 @@ struct State {
     attempts: u8,
     reasons: Vec<&'static str>,
     failures: Vec<&'static str>,
+    flags: Vec<&'static str>,
     outcome: Option<Outcome>,
     model: String,
     provider: String,
@@ -406,6 +414,7 @@ impl<'a> Call<'a> {
                 attempts: 0,
                 reasons: Vec::new(),
                 failures: Vec::new(),
+                flags: Vec::new(),
                 outcome: None,
                 model: "none".into(),
                 provider: "none".into(),
@@ -432,6 +441,19 @@ impl<'a> Call<'a> {
             if state.model != model || state.provider != provider {
                 state.model = model.into();
                 state.provider = provider.into();
+            }
+        });
+    }
+
+    /// A published line the validator flagged rather than blocked. The line
+    /// still counts as spoken; `reason` is the validator's static label.
+    /// `reject` records the blocked reasons.
+    // Called once the validator publishes flagged lines (#2016).
+    #[allow(dead_code)]
+    pub(super) fn flag(&self, reason: &'static str) {
+        self.with(|state| {
+            if state.flags.len() < 8 {
+                state.flags.push(reason);
             }
         });
     }
@@ -497,6 +519,7 @@ impl Drop for Call<'_> {
             model = %state.model,
             provider = %state.provider,
             failures = %state.failures.join(","),
+            flags = %state.flags.join(","),
             ms,
             tokens = b.total(),
             system = b.get(Section::System),
@@ -516,6 +539,7 @@ impl Drop for Call<'_> {
                 state.attempts,
                 outcome,
                 &state.failures,
+                &state.flags,
             );
         }
     }
@@ -581,13 +605,17 @@ mod tests {
         );
         let mut totals = Totals::new();
         let route = ("openai/gpt-6-luna", "openrouter");
-        totals.record_route(route, 2, Outcome::Silent, &["inference_timeout"]);
-        totals.record_route(route, 1, Outcome::Spoken, &[]);
+        totals.record_route(route, 2, Outcome::Silent, &["inference_timeout"], &[]);
+        totals.record_route(route, 1, Outcome::Spoken, &[], &["echoed brief"]);
         let value = totals.snapshot();
         assert_eq!(value["by_model"]["openai/gpt-6-luna"]["calls"], 2);
         assert_eq!(value["by_model"]["openai/gpt-6-luna"]["silent"], 1);
         assert_eq!(value["by_provider"]["openrouter"]["attempts"], 3);
         assert_eq!(value["provider_failures"]["inference_timeout"], 1);
+        // A flagged line is spoken, and its flag is counted apart.
+        assert_eq!(value["by_model"]["openai/gpt-6-luna"]["spoken"], 1);
+        assert_eq!(value["flagged"]["echoed brief"], 1);
+        assert!(value["rejections"].as_object().unwrap().is_empty());
         let mut many = BTreeMap::new();
         for n in 0..30 {
             mix(&mut many, &format!("model-{n}")).calls += 1;
