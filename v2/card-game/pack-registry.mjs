@@ -30,6 +30,7 @@ export function validatePackDefinition(pack) {
     pack,
     compiled.hub,
     compiled.packs.flatMap((p) => Object.keys(p.places)),
+    compiled.packs.flatMap((p) => Object.keys(p.items || {})),
   );
   if (problems.length)
     throw new Error(
@@ -45,6 +46,7 @@ const problems =
           pack,
           compiled.hub,
           compiled.packs.flatMap((p) => Object.keys(p.places)),
+          compiled.packs.flatMap((p) => Object.keys(p.items || {})),
         ),
       )
     : ["packs.json needs schemaVersion 1 and a pack list"];

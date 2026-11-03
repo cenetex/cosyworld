@@ -25,7 +25,8 @@ function steps(route) {
     move("greek-road-thebes"),
     move("greek-harbor"),
     choose("invitation"),
-    move("greek-ship"),
+    // The Northern Road walks to Troy: the Charybdis never calls there.
+    move("greek-road-north"),
     move("greek-ajax-landing"),
     move("greek-greek-camp"),
     choose("learn-shield-teucer"),
@@ -50,7 +51,7 @@ function steps(route) {
     take("plea"),
     choose(`record-${route}`),
     move("greek-ajax-landing"),
-    move("greek-ship"),
+    move("greek-road-north"),
     move("greek-harbor"),
     move("greek-road-thebes"),
     move("greek-courtyard"),

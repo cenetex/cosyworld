@@ -491,14 +491,16 @@
     "greek-lemnos": {
       "name": "The Lemnian Cave",
       "text": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
-      "exits": [],
+      "exits": ["greek-piraeus"],
+      "retired": true,
       "backdrop": "assets/greek-drama/lemnian-cave-day.webp",
       "persona": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
     },
     "greek-thrace": {
       "name": "The Thracian Shore",
       "text": "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
-      "exits": [],
+      "exits": ["greek-piraeus"],
+      "retired": true,
       "backdrop": "assets/greek-drama/thracian-shore-day.webp",
       "persona": "A fleet waits beyond the breakers. Captive households search among the new arrivals."
     },
@@ -519,14 +521,16 @@
     "greek-tauris": {
       "name": "The Taurian Temple",
       "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
-      "exits": [],
+      "exits": ["greek-piraeus"],
+      "retired": true,
       "backdrop": "assets/greek-drama/tauris-shore-scene.webp",
       "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
     },
     "greek-sicily": {
       "name": "The Sicilian Cave",
       "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
-      "exits": [],
+      "exits": ["greek-piraeus"],
+      "retired": true,
       "backdrop": "assets/greek-drama/book-three-lemnos-day.webp",
       "persona": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
     },
@@ -541,7 +545,7 @@
     "greek-scythian-crag": {
       "name": "The Scythian Crag",
       "text": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
-      "exits": ["greek-tauris"],
+      "exits": ["greek-piraeus"],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
       "retired": true
@@ -571,9 +575,9 @@
       "retired": true
     },
     "greek-ship": {
-      "name": "Greek ship",
+      "name": "The Charybdis",
       "text": "Water passes beneath the hull. The shipmaster watches the shores. Open ports wait beyond the rail.",
-      "persona": "A shared ship. On the west sea it serves Black Pond, the Wine-Dark Harbor and Piraeus Quays; around the cape it reaches Marathon Bay. On the east sea it sails from Marathon to the Trojan camp landing and the Far Shores. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
+      "persona": "A named ship, the Charybdis, on the Black Pond route. It sails between Black Pond and the Wine-Dark Harbor with no cargo and always comes home that way. Beyond the harbor it sails out to Piraeus Quays and on to the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard; every way back toward Black Pond is free. Marathon Bay, the Trojan shore and the Far Shores are only rumours on the quays: no ship sails there now. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
       "exits": [],
       "backdrop": "assets/greek-drama/ship-deck.webp",
       "art": "assets/greek-drama/ship-card.webp",
@@ -6175,7 +6179,6 @@
       "greek-piraeus",
       "greek-colonus",
       "greek-eleusis",
-      "greek-marathon",
       "greek-road-thebes",
       "greek-road-athens-harbor",
       "greek-road-athens-piraeus",
@@ -6187,11 +6190,6 @@
       "greek-road-colonus-eleusis",
       "greek-road-colonus-marathon",
       "greek-athens-harbor",
-      "greek-greek-camp",
-      "greek-ajax-landing",
-      "greek-ajax-household",
-      "greek-ajax-grave",
-      "greek-road-north",
       "greek-cithaeron"
     ],
     "avatars": [
@@ -6210,12 +6208,8 @@
       "greek-theseus",
       "greek-quay-host",
       "greek-colonus-keeper",
-      "greek-marathon-keeper",
       "greek-market-neighbor",
-      "greek-household-witness",
-      "greek-ajax-tecmessa",
-      "greek-ajax-teucer",
-      "greek-ajax-odysseus"
+      "greek-household-witness"
     ],
     "items": [
       "greek-water-jar",
@@ -6235,16 +6229,11 @@
       "greek-grove-honey",
       "greek-shelter-blanket",
       "greek-refuge-tablet",
-      "greek-ajax-shield",
-      "greek-ajax-plea",
-      "greek-ajax-cloth",
-      "greek-ajax-tools",
       "greek-olive-branch",
       "greek-burial-account",
       "greek-creon-writ",
       "greek-guard-tablet",
-      "greek-pyre-account",
-      "greek-marathon-record"
+      "greek-pyre-account"
     ],
     "choices": [
       "greek-return-water-jar",
@@ -6274,11 +6263,6 @@
       "greek-open-door-colonus-daughters",
       "greek-open-door-colonus-farewell",
       "greek-open-door-colonus-custom",
-      "greek-open-door-marathon-enter",
-      "greek-open-door-marathon-blanket",
-      "greek-open-door-marathon-daughter",
-      "greek-open-door-marathon-battle",
-      "greek-open-door-marathon-captive",
       "greek-open-door-return-dione",
       "greek-homecoming-report-agora-truce",
       "greek-homecoming-report-eleusis-pledge",
@@ -6288,26 +6272,8 @@
       "greek-homecoming-agree-journey",
       "greek-homecoming-receive-family",
       "greek-ajax-invitation",
-      "greek-ajax-learn-shield-teucer",
-      "greek-ajax-learn-shield-odysseus",
-      "greek-ajax-learn-shield-tecmessa",
-      "greek-ajax-deliver-shield",
-      "greek-ajax-hear-plea",
-      "greek-ajax-deliver-plea",
-      "greek-ajax-choose-public",
-      "greek-ajax-choose-household",
-      "greek-ajax-choose-appeal",
-      "greek-ajax-witness-appeal",
-      "greek-ajax-prepare-grave",
-      "greek-ajax-lay-cloth",
-      "greek-ajax-bury-public",
-      "greek-ajax-record-public",
       "greek-ajax-return-public",
-      "greek-ajax-bury-household",
-      "greek-ajax-record-household",
       "greek-ajax-return-household",
-      "greek-ajax-bury-appeal",
-      "greek-ajax-record-appeal",
       "greek-ajax-return-appeal"
     ]
   },
@@ -6555,7 +6521,6 @@
       "name": "The Open Door",
       "places": [
         "greek-athens",
-        "greek-piraeus",
         "greek-colonus",
         "greek-eleusis",
         "greek-marathon",

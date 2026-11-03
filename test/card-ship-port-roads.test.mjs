@@ -1,11 +1,14 @@
-// The ship is the quick way to a port, never the only way (#2049). Every dock
-// a world can sail to has a walking way to its pack's start, so a traveler
-// whose ship is called away can walk home. From Attica that walk is the land
-// route, Piraeus to Athens, Eleusis, Cithaeron and the battlefield, and the
-// Theban City Gate guards the city: it needs the gate open (rules 94). The
-// walking roads home must not walk around the Greek story gates: each gate is
-// checked by search over every place a traveler could walk to and every thing
-// they could carry or hand over on the way.
+// A ship is the quick way to a port, never a trap (#2049). The Charybdis
+// sails the Black Pond route: Black Pond to the Wine-Dark Harbor and back
+// with no cargo, on to Piraeus and the Hoppy Cat jetty only with cargo
+// aboard, and every way back toward Black Pond free. So every dock it sails
+// to reaches home on foot or by a free leg, even with every gate shut.
+// Marathon, Troy and the Far Shores are rumours (rules 94): no way leads
+// there. The land route, Piraeus to Athens, Eleusis, Cithaeron and the
+// battlefield, enters Thebes only through the City Gate. The roads home must
+// not walk around the Greek story gates: each gate is checked by search over
+// every place a traveler could walk to and every thing they could carry or
+// hand over on the way.
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -57,8 +60,16 @@ const stages = {
       }),
     ),
 };
-// Old full-scope worlds keep four one-place island and far-shore stops whose
-// roads retired. New and shared worlds never open them.
+// Rumours: no way leads to them in a world of this release, even once the
+// Ajax flag is set. The island and far-shore stops retired into Piraeus.
+const RUMOURS = [
+  "greek-marathon",
+  "greek-road-north",
+  "greek-ajax-landing",
+  "greek-greek-camp",
+  "greek-ajax-household",
+  "greek-ajax-grave",
+];
 const FAR_SHORES = [
   "greek-lemnos",
   "greek-thrace",
@@ -92,14 +103,19 @@ const placeOf = (s, item) => {
   return s.actors[holder]?.place ?? holder;
 };
 
-// Where a traveler can get to. On foot only, unless `ship`: then any sea lane
-// whose conditions some carried thing aboard could meet joins its docks.
+// Where a traveler can get to. On foot, and by every free sea lane if `free`.
+// With `ship`, also any sea lane whose conditions some carried thing aboard
+// could meet joins its docks.
 // Every key not `pinned` that lies in a place already reached can be carried
 // to any reached place, set down there, put aboard, or handed to a resident
 // there; each hand-over that opens a gate latches it, as play does. So the
 // search is generous to the traveler: a gated place it never reaches cannot
 // be reached by any order of walking, carrying and giving.
-function reach(world, from, { pinned = [], ship = false, local = true } = {}) {
+function reach(
+  world,
+  from,
+  { pinned = [], ship = false, free = false, local = true } = {},
+) {
   const s = structuredClone(world);
   const seen = new Set([from]);
   const keep = (to) =>
@@ -114,7 +130,7 @@ function reach(world, from, { pinned = [], ship = false, local = true } = {}) {
         !packPeople[s.items[id].holder],
     );
   const lanes = (dock) =>
-    ship
+    ship || free
       ? Object.values(transports).flatMap((t) =>
           t.docks.includes(dock) ? lanesFrom(t, dock) : [],
         )
@@ -138,6 +154,7 @@ function reach(world, from, { pinned = [], ship = false, local = true } = {}) {
         const found = exits(s, place, "vale").filter(keep);
         for (const to of lanes(place)) {
           const gate = laneConditions(place, to) || [];
+          if (!ship && gate.length) continue;
           if (
             keep(to) &&
             entityActive(s, to) &&
@@ -179,39 +196,83 @@ function shipOnly(world, opened = []) {
     .filter((dock) => entityActive(world, dock))
     .filter(
       (dock) =>
-        !reach(bare, dock, { pinned: KEYS, local: false }).has(start(dock)),
+        !reach(bare, dock, { pinned: KEYS, free: true, local: false }).has(
+          start(dock),
+        ),
     );
 }
 
-// The Attic docks lie outside the Theban walls.
-const OUTSIDE_WALLS = ["greek-piraeus", "greek-marathon"];
+// Piraeus lies outside the Theban walls.
+const OUTSIDE_WALLS = ["greek-piraeus"];
 
-describe("ports reachable by land", () => {
+describe("ports reachable on foot or by a free leg home", () => {
   for (const [stage, make] of Object.entries(stages))
-    it(`leaves no dock ship-only once the City Gate is open: ${stage}`, () => {
-      const far = stage === "full" ? FAR_SHORES : [];
-      expect(shipOnly(make(), [CITY_GATE])).toEqual(far);
-      // Shut, the gate keeps only the Attic docks from home; their walkers
-      // still reach the battlefield outside it.
-      const shut = stage === "opening" ? [] : OUTSIDE_WALLS;
-      expect(shipOnly(make()).sort()).toEqual([...shut, ...far].sort());
-      for (const dock of shut)
-        expect(
-          reach(worstCase(make()), dock, { pinned: KEYS }).has(
-            "greek-battlefield",
-          ),
-          dock,
-        ).toBe(true);
+    it(`strands no dock, with the City Gate open or shut: ${stage}`, () => {
+      expect(shipOnly(make(), [CITY_GATE])).toEqual([]);
+      expect(shipOnly(make())).toEqual([]);
+      expect(transports["greek-ship"].docks).toEqual([
+        "pond",
+        "greek-harbor",
+        "greek-piraeus",
+        "hoppycat-signal-jetty",
+      ]);
     });
 
-  it("never calls at Piraeus before Dione's invitation", () => {
+  for (const stage of ["opening", "open door", "ajax"])
+    it(`sails home from Piraeus and the Hoppy Cat jetty with no cargo: ${stage}`, () => {
+      // Every way back toward Black Pond is free on the Charybdis, so a
+      // traveler at Piraeus is never stranded behind the shut City Gate.
+      const s = worstCase(stages[stage]());
+      for (const dock of ["greek-piraeus", "hoppycat-signal-jetty"]) {
+        const home = reach(s, dock, { pinned: KEYS, free: true, local: false });
+        expect(home.has("greek-harbor"), dock).toBe(true);
+        expect(home.has("pond"), dock).toBe(true);
+      }
+      expect(laneConditions("greek-piraeus", "greek-harbor")).toBe(null);
+      expect(laneConditions("hoppycat-signal-jetty", "greek-piraeus")).toBe(
+        null,
+      );
+    });
+
+  it("calls at Piraeus before Dione's invitation, with cargo aboard", () => {
+    // Piraeus is Thebes's sea exit: the provisions or a Hoppy Cat thing
+    // aboard sail there at once. Its road inland waits for the invitation.
     const s = stages.opening();
-    expect(entityActive(s, "greek-piraeus")).toBe(false);
+    expect(entityActive(s, "greek-piraeus")).toBe(true);
+    expect(entityActive(s, "greek-road-athens-piraeus")).toBe(false);
     expect(reach(s, "greek-harbor", { ship: true }).has("greek-piraeus")).toBe(
+      true,
+    );
+    const bare = { pinned: KEYS, free: true, local: false };
+    expect(reach(worstCase(s), "greek-harbor", bare).has("greek-piraeus")).toBe(
       false,
     );
-    expect(entityActive(stages["open door"](), "greek-piraeus")).toBe(true);
+    // The provisions or something from Hoppy Cat: one cargo rule for every
+    // leg out beyond the harbor. The leg home to Black Pond is free.
+    const cargo = laneConditions("greek-harbor", "greek-piraeus");
+    expect(cargo).toEqual(
+      laneConditions("greek-piraeus", "hoppycat-signal-jetty"),
+    );
+    expect(cargo[0].conditions.map((c) => c.kind)).toEqual([
+      "item_present",
+      "pack_item_present",
+    ]);
+    expect(laneConditions("pond", "greek-harbor")).toBe(null);
+    expect(laneConditions("greek-harbor", "pond")).toBe(null);
   });
+
+  for (const stage of ["opening", "open door", "ajax"])
+    it(`keeps Marathon, Troy and the Far Shores as rumours: ${stage}`, () => {
+      const s = stages[stage]();
+      for (const id of RUMOURS) expect(entityActive(s, id), id).toBe(false);
+      for (const id of FAR_SHORES) expect(pack.places[id].retired).toBe(true);
+      // Every walk, carry and voyage from the harbor stays short of them.
+      const seen = reach(s, "greek-harbor", { ship: true, local: false });
+      expect(has(seen, [...RUMOURS, ...FAR_SHORES])).toEqual([]);
+      // Nobody is sent there: no want, no lane.
+      for (const t of Object.values(transports))
+        expect(has(new Set(t.docks), [...RUMOURS, ...FAR_SHORES])).toEqual([]);
+    });
 
   it("walks home from Piraeus when another traveler calls the ship away", () => {
     // The #2049 strand, after the invitation: Vale ashore at Piraeus, the
@@ -254,24 +315,6 @@ describe("ports reachable by land", () => {
       step({ kind: "move", target });
     expect(s.actors.vale.place).toBe("greek-harbor");
   });
-
-  it("walks home from the Trojan landing by the Northern Road", () => {
-    const s = stages.ajax();
-    expect(exits(s, "greek-ajax-landing", "vale")).toContain(
-      "greek-road-north",
-    );
-    // The road comes down at the harbor, outside the city, and never passes
-    // the City Gate: the landing walks home with every gate shut.
-    expect(pack.places["greek-road-north"].road).toEqual([
-      "greek-ajax-landing",
-      "greek-harbor",
-    ]);
-    expect(reach(worstCase(s), "greek-ajax-landing").has("greek-harbor")).toBe(
-      true,
-    );
-    // The road waits for Myrto's invitation.
-    expect(entityActive(stages["open door"](), "greek-road-north")).toBe(false);
-  });
 });
 
 // The places behind each Greek story gate, and the ways in that a traveler
@@ -301,7 +344,6 @@ describe("the roads home keep the Greek story gates", () => {
     it(`keeps the battlefield behind the City Gate: ${stage}`, () => {
       const s = stages[stage]();
       const starts = ["greek-harbor"];
-      if (stage === "ajax") starts.push("greek-ajax-landing");
       for (const from of starts) {
         // Carrying anything else anywhere, without the guard holding the
         // decree no walker from the city passes the gate.
@@ -313,10 +355,7 @@ describe("the roads home keep the Greek story gates", () => {
           from,
         );
         expect(after.has("greek-battlefield"), from).toBe(true);
-        if (stage === "ajax") {
-          expect(after.has("greek-road-north")).toBe(true);
-          expect(after.has("greek-ajax-landing")).toBe(true);
-        }
+        expect(has(after, RUMOURS), from).toEqual([]);
       }
       // The search itself finds the gate's key: the decree from the palace.
       expect(reach(s, "greek-harbor").has("greek-battlefield")).toBe(true);
@@ -355,7 +394,6 @@ describe("the roads home keep the Greek story gates", () => {
         "greek-guard-tablet",
       ];
       const starts = ["greek-harbor"];
-      if (stage === "ajax") starts.push("greek-ajax-landing");
       for (const from of starts) {
         const before = reach(s, from, { pinned: outcomes });
         expect(before.has("greek-battlefield")).toBe(true);
@@ -385,7 +423,6 @@ describe("the roads home keep the Greek story gates", () => {
         "greek-provisions",
       ];
       const starts = ["greek-harbor"];
-      if (stage === "ajax") starts.push("greek-ajax-landing");
       for (const from of starts) {
         // On foot, without the petition, the truce or the provisions, nobody
         // reaches the city or Piraeus.
@@ -458,5 +495,75 @@ describe("a rules 93 save on the Coast Road", () => {
     expect(exits(w, "greek-piraeus", "vale")).toEqual([
       "greek-road-athens-piraeus",
     ]);
+  });
+});
+
+// A rules 93 world with travelers and things at Marathon and Troy, and the
+// ship bound for Marathon. Rules 94 makes them rumours: whoever and whatever
+// visited comes back, the ship comes in to Piraeus with its riders, the
+// rumours' own people and things wait unmet at home, and their story steps
+// are forgotten.
+describe("a rules 93 save at Marathon and Troy", () => {
+  const saved = (vale, ship) => {
+    const s = JSON.parse(encodeSave(openDoorStart("burial")));
+    s.packs["greek-drama"].revision = 17;
+    s.actors.vale.place = vale;
+    s.items["greek-water-jar"].holder = "greek-marathon";
+    s.items["greek-ajax-shield"].holder = "greek-ajax-landing";
+    s.transports["greek-ship"] = {
+      ...s.transports["greek-ship"],
+      phase: "sea",
+      riders: [],
+      ...ship,
+    };
+    s.routeKnowledge.vale = [
+      ...(s.routeKnowledge.vale || []),
+      ["sea:greek-piraeus", "sea:greek-marathon"],
+    ];
+    return decodeSave(JSON.stringify(s));
+  };
+  const home = (w, from) =>
+    reach(worstCase(w), from, { pinned: KEYS, free: true, local: false }).has(
+      "greek-harbor",
+    );
+
+  it("brings travelers and things back to reachable places", () => {
+    const w = saved("greek-ajax-landing", {
+      dock: "greek-marathon",
+      destination: "greek-ajax-landing",
+    });
+    // Troy's visitor comes down the Northern Road to the harbor.
+    expect(w.actors.vale.place).toBe("greek-harbor");
+    expect(w.items["greek-water-jar"].holder).toBe("greek-piraeus");
+    // The shield waits at the camp, unseen, with the Trojan story; the
+    // altar keeper stays home.
+    expect(w.items["greek-ajax-shield"].holder).toBe("greek-greek-camp");
+    expect(w.actors["greek-marathon-keeper"].place).toBe("greek-marathon");
+    // The empty ship comes in to Piraeus, which sails home free.
+    expect(w.transports["greek-ship"]).toMatchObject({
+      phase: "docked",
+      dock: "greek-piraeus",
+      destination: null,
+    });
+    expect(w.routeKnowledge.vale).not.toContainEqual([
+      "sea:greek-piraeus",
+      "sea:greek-marathon",
+    ]);
+    expect(home(w, "greek-piraeus")).toBe(true);
+  });
+
+  it("lands a ship bound for Marathon at Piraeus with its riders", () => {
+    const w = saved("greek-ship", {
+      dock: "greek-piraeus",
+      destination: "greek-marathon",
+    });
+    expect(w.actors.vale.place).toBe("greek-ship");
+    expect(w.transports["greek-ship"]).toMatchObject({
+      phase: "arrived",
+      dock: "greek-piraeus",
+      destination: null,
+      riders: ["vale"],
+    });
+    expect(home(w, "greek-piraeus")).toBe(true);
   });
 });

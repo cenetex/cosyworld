@@ -41,12 +41,12 @@ const openingPlaces = [
   "greek-road-thebes",
   "greek-ship",
 ];
+// Marathon, Troy and the Far Shores are rumours in new worlds (rules 94).
 const openDoorPlaces = [
   "greek-athens",
   "greek-piraeus",
   "greek-colonus",
   "greek-eleusis",
-  "greek-marathon",
 ];
 const sectionPlaces = pack.sections.flatMap((section) => section.places);
 const ajaxPlaces = pack.sections.find(
@@ -54,9 +54,9 @@ const ajaxPlaces = pack.sections.find(
 ).places;
 // Retired roads keep their IDs in the release for saved history only.
 const retired = (id) => pack.places[id]?.retired === true;
+const rumours = ["greek-marathon", ...ajaxPlaces];
 const openDoorReleasedPlaces = pack.release.places.filter(
-  (id) =>
-    !retired(id) && !["greek-road-athens-harbor", ...ajaxPlaces].includes(id),
+  (id) => !retired(id) && id !== "greek-road-athens-harbor",
 );
 const openDoorItems = [
   "greek-burial-petition",
@@ -113,7 +113,8 @@ describe("the Theban release and its ship", () => {
     s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual([...openingPlaces].sort());
     expect(reachable(s)).toHaveLength(9);
-    expect(pack.release.places).toHaveLength(30);
+    expect(pack.release.places).toHaveLength(24);
+    for (const id of rumours) expect(pack.release.places).not.toContain(id);
     expect(
       pack.release.places
         .filter((id) => !retired(id) && id !== "greek-road-athens-harbor")
@@ -121,9 +122,13 @@ describe("the Theban release and its ship", () => {
     ).toEqual(
       [
         ...openingPlaces,
-        // Piraeus Quays waits for Dione's invitation with the Open Door.
+        // Piraeus Quays is Thebes's sea exit, outside every section.
+        "greek-piraeus",
         ...sectionPlaces.filter(
-          (id) => !retired(id) && id !== "greek-road-athens-harbor",
+          (id) =>
+            !retired(id) &&
+            id !== "greek-road-athens-harbor" &&
+            !rumours.includes(id),
         ),
       ].sort(),
     );
@@ -149,7 +154,7 @@ describe("the Theban release and its ship", () => {
     expect(reachable(s)).not.toContain("greek-athens");
     s.items["greek-provisions"].holder = "greek-ship";
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
-    expect(reachable(s)).toHaveLength(17);
+    expect(reachable(s)).toHaveLength(16);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     for (const start of openDoorPlaces) {
@@ -281,7 +286,7 @@ describe("the Theban release and its ship", () => {
     s = act(s, "take", { item: "cloth" });
     expect(locationOverlay(s, "pond")).toMatch(/pond-ship-overlay\.png$/);
     expect(travelCard(s, "greek-ship")).toMatchObject({
-      name: "Greek ship",
+      name: "The Charybdis",
       art: expect.stringMatching(/\/ship-deck[^/]*\.webp$/),
     });
     s = act(s, "move", { target: "greek-ship" });
@@ -305,20 +310,20 @@ describe("the Theban release and its ship", () => {
     changed.actors["greek-helen-egypt"].place = "greek-harbor";
     expect(() => encodeSave(changed)).toThrow();
   });
-  it("keeps seven opening paintings and adds five section paintings", () => {
+  it("keeps seven opening paintings and adds four Attic paintings", () => {
     const openingImages = openingPlaces
       .filter((id) => id !== "greek-ship" && id !== "greek-road-thebes")
       .map(backdrop);
     const sectionImages = openDoorPlaces.map(backdrop);
     expect(new Set(openingImages).size).toBe(7);
-    expect(new Set(sectionImages).size).toBe(5);
+    expect(new Set(sectionImages).size).toBe(4);
     expect(
       sectionImages.every((image) =>
         /\/(open-door-|athens-grand-agora|piraeus-open-berth)/.test(image),
       ),
     ).toBe(true);
     const images = [...openingImages, ...sectionImages];
-    expect(new Set(images).size).toBe(12);
+    expect(new Set(images).size).toBe(11);
     expect(images.every((p) => p.endsWith(".webp"))).toBe(true);
     for (const image of images) {
       const bytes = readFileSync(

@@ -253,15 +253,13 @@ describe("a real voyage", () => {
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-harbor",
     ]);
-    // Aboard, they open Piraeus, Marathon Bay round the cape, and the east
-    // sea's open shores beyond it.
+    // Aboard, they open Piraeus and the Hoppy Cat jetty beyond it. No ship
+    // rounds the cape now: Marathon and the Far Shores are rumours.
     s.items["greek-provisions"].holder = "greek-ship";
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-harbor",
-      "greek-lemnos",
-      "greek-marathon",
       "greek-piraeus",
-      "greek-sicily",
+      "hoppycat-signal-jetty",
     ]);
   });
 });

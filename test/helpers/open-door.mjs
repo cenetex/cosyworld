@@ -5,12 +5,13 @@ import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
 import { openingFixture } from "./greek-opening.mjs";
 import { greekTravelTargets, greekMoveSteps } from "./greek-travel.mjs";
 
+// Marathon is a rumour in new worlds (rules 94): Dione's invitation opens
+// four places. Old full-scope worlds keep Marathon, Troy and their stories.
 export const OPEN_DOOR_PLACES = [
   "greek-athens",
   "greek-piraeus",
   "greek-colonus",
   "greek-eleusis",
-  "greek-marathon",
 ];
 
 export function openDoorAction(world, kind, fields = {}) {
@@ -70,11 +71,13 @@ export const openDoorWalk = (world, ...places) =>
     world,
   );
 
-// Giving Dione a Theban outcome opens the road to Eleusis.
-export function openDoorStart(branch = "exposure") {
+// Giving Dione a Theban outcome opens the road to Eleusis. With `rumours`,
+// the world is an old full-scope one, where Marathon and Troy still stand.
+export function openDoorStart(branch = "exposure", { rumours = false } = {}) {
   const world = openingFixture(branch).closed;
   if (!world.packs["greek-drama"].flags["greek-open-door-open"])
     throw new Error(`The road stayed closed after ${branch}`);
+  if (rumours) world.packs["greek-drama"].scope = "full";
   return playOpenDoor(world, "drop", {
     item: "lamp",
     target: "greek-courtyard",
@@ -84,7 +87,7 @@ export function openDoorStart(branch = "exposure") {
 // The Open Door is played with ordinary cards. Meeting someone tells their
 // part of the story, Waiting with a thing at its place does the deed, and
 // each outcome given to Dione is that story's report.
-export function openDoorSteps() {
+export function openDoorSteps({ rumours = false } = {}) {
   const move = greekMoveSteps("greek-courtyard");
   const take = (id) => ({ kind: "take", item: `greek-${id}` });
   const give = (id, to) => ({
@@ -137,17 +140,27 @@ export function openDoorSteps() {
     ...greekMoveSteps("greek-colonus")("athens", "harbor", "courtyard"),
     ...dione("pyre-account", "return-list", "refuge-tablet"),
     ...greekMoveSteps("greek-courtyard")("harbor", "piraeus"),
-    take("shelter-blanket"),
-    ...greekMoveSteps("greek-piraeus")("athens", "marathon"),
-    { kind: "drop", item: "greek-shelter-blanket", target: "greek-marathon" },
-    wait,
-    ...talk("marathon-keeper", 3),
-    take("marathon-record"),
-    ...greekMoveSteps("greek-marathon")("athens"),
+    ...(rumours
+      ? [
+          take("shelter-blanket"),
+          ...greekMoveSteps("greek-piraeus")("athens", "marathon"),
+          {
+            kind: "drop",
+            item: "greek-shelter-blanket",
+            target: "greek-marathon",
+          },
+          wait,
+          ...talk("marathon-keeper", 3),
+          take("marathon-record"),
+          ...greekMoveSteps("greek-marathon")("athens"),
+        ]
+      : greekMoveSteps("greek-piraeus")("athens")),
     take("olive-branch"),
     ...greekMoveSteps("greek-athens")("harbor", "courtyard"),
-    ...dione("olive-branch", "marathon-record"),
-    ...talk("baker"),
+    // The full return needs the Marathon Record: only where Marathon stands.
+    ...(rumours
+      ? [...dione("olive-branch", "marathon-record"), ...talk("baker")]
+      : dione("olive-branch")),
   ];
 }
 
@@ -159,8 +172,11 @@ export const myrineSteps =
   ].journey.path.slice(1);
 
 // The world before and after each step that commits a story choice.
-export function openDoorJourney(steps = openDoorSteps()) {
-  let world = openDoorStart();
+export function openDoorJourney(
+  steps = openDoorSteps(),
+  { rumours = false } = {},
+) {
+  let world = openDoorStart("exposure", { rumours });
   const before = {},
     after = {};
   for (const { kind, ...fields } of steps) {

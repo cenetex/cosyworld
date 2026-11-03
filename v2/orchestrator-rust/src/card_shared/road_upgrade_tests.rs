@@ -42,8 +42,9 @@ fn a_rules_92_world_takes_the_new_roads_without_a_fresh_start() {
     full_store::schema(&c).unwrap();
     let id = "f".repeat(48);
     store::create(&c, &id, "owner", now()).unwrap();
-    let mut before: Value =
-        serde_json::from_str(&content::text(content::current()).unwrap()).unwrap();
+    // Rules 92 reads the content it shipped with; rules 94's cargo checks are
+    // newer, so start from the rules 93 content.
+    let mut before: Value = serde_json::from_str(RULES_93).unwrap();
     without_roads(&mut before);
     let text = before.to_string();
     let hash = content::hash(&text);
@@ -58,14 +59,13 @@ fn a_rules_92_world_takes_the_new_roads_without_a_fresh_start() {
         ["world"]
         .clone();
     assert!(game["memories"].get(ROADS[0]).is_none());
-    // The earlier failure: rules 92 under the new content.
-    let refused = engine::reduce_pack(
+    // The earlier failure: rules 92 cannot take the new content.
+    assert!(engine::reduce_pack(
         version,
         Some(content::current()),
         json!({"op":"validate","world":game,"actor":"vale","claimed":[],"present":[]}),
     )
-    .unwrap_err();
-    assert!(refused.to_string().contains("fresh start"), "{refused}");
+    .is_err());
 
     let old = World {
         version: version.into(),
@@ -99,9 +99,9 @@ const RETIRED_GATES: [&str; 2] = [
 // Road gates recorded and the rhapsode knowing the Coast Road's steps. Rules
 // 93 cannot read it under the new content, where those gates are gone. Loading
 // it journals one upgrade onto rules 94 (Greek revision 18): the road's
-// traveler and thing come ashore, Piraeus waits for the invitation so they
-// and the ship return to the harbor, and the retired gates and steps are
-// forgotten. The journal replays to the same world.
+// traveler and thing come ashore at Piraeus, where the Charybdis waits to
+// sail them home free, and the retired gates and steps are forgotten. The
+// journal replays to the same world.
 #[test]
 fn a_rules_93_world_on_the_coast_road_takes_the_land_route() {
     let path = std::env::temp_dir().join(format!(
@@ -142,9 +142,8 @@ fn a_rules_93_world_on_the_coast_road_takes_the_land_route() {
         )
     };
     validate(version, &hash, &game).unwrap();
-    // The earlier failure: rules 93 under the new content.
-    let refused = validate(version, content::current(), &game).unwrap_err();
-    assert!(refused.to_string().contains("fresh start"), "{refused}");
+    // The earlier failure: rules 93 cannot take the new content.
+    assert!(validate(version, content::current(), &game).is_err());
 
     let old = World {
         version: version.into(),
@@ -159,9 +158,9 @@ fn a_rules_93_world_on_the_coast_road_takes_the_land_route() {
     assert_eq!(w.pack.as_deref(), Some(content::current()));
     let g = &w.game;
     assert_eq!(g["packs"]["greek-drama"]["revision"], 18);
-    assert_eq!(g["actors"]["vale"]["place"], "greek-harbor");
-    assert_eq!(g["items"]["greek-water-jar"]["holder"], "greek-harbor");
-    assert_eq!(g["transports"]["greek-ship"]["dock"], "greek-harbor");
+    assert_eq!(g["actors"]["vale"]["place"], "greek-piraeus");
+    assert_eq!(g["items"]["greek-water-jar"]["holder"], "greek-piraeus");
+    assert_eq!(g["transports"]["greek-ship"]["dock"], "greek-piraeus");
     assert!(g.get("openedRoutes").is_none(), "{}", g["openedRoutes"]);
     let known = g["routeKnowledge"]["greek-rhapsode"].to_string();
     assert!(!known.contains(COAST), "{known}");

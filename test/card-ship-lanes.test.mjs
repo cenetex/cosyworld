@@ -123,12 +123,12 @@ describe("knowing a lane is personal", () => {
     expect(courses(s, "vale")).toEqual(["greek-harbor"]);
     s = act(fresh("greek-harbor"), "vale", "move", "greek-ship");
     expect(courses(s, "vale")).toEqual(["pond"]);
-    // Before Dione's invitation the ship never calls at Piraeus, even with
-    // the provisions aboard (rules 94).
+    // Piraeus is Thebes's sea exit: before Dione's invitation the
+    // provisions aboard already sail there (rules 94).
     s = fresh("greek-harbor");
     s.items["greek-provisions"].holder = "greek-ship";
     s = act(reload(s), "vale", "move", "greek-ship");
-    expect(courses(s, "vale")).toEqual(["pond"]);
+    expect(courses(s, "vale")).toEqual(["greek-piraeus", "pond"]);
     // After it, Mara carries the provisions aboard. Neither has heard the
     // lane; the thing aboard opens it for both.
     s = fresh("greek-harbor", openDoorStart());
@@ -147,8 +147,12 @@ describe("knowing a lane is personal", () => {
     // The quay opens with the Open Door, and the Long Walls lead inland.
     expect(ask(s, "vale").exits).toContain("greek-road-athens-piraeus");
     // The lane home from Piraeus stays open, even with the provisions
-    // left on the quay; with them aboard the ship also rounds the cape.
-    expect(courses(s, "mara")).toEqual(["greek-harbor", "greek-marathon"]);
+    // left on the quay; with them aboard the ship also sails on to the
+    // Hoppy Cat jetty. It no longer rounds the cape to Marathon.
+    expect(courses(s, "mara")).toEqual([
+      "greek-harbor",
+      "hoppycat-signal-jetty",
+    ]);
     s.items["greek-provisions"].holder = "greek-piraeus";
     s = reload(s);
     expect(courses(s, "mara")).toEqual(["greek-harbor"]);
@@ -174,7 +178,7 @@ describe("knowing a lane is personal", () => {
     expect(disclosure.factId).toMatch(/^lane:greek-harbor>/);
     // A gated lane is told with the thing that opens it.
     expect(disclosure.text).toBe(
-      "Ships for Piraeus Quays leave from The Wine-Dark Harbor only with Travel Provisions aboard.",
+      "Ships for Piraeus Quays leave from The Wine-Dark Harbor only with Travel Provisions or something from Hoppy Cat aboard.",
     );
     // Talk context names the lanes Myrto knows from here.
     const myrto = context.entities.find((e) => e.id === "greek-shipmaster");

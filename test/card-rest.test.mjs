@@ -349,7 +349,7 @@ describe("rest and sanctuary", () => {
     s = wait(s);
     expect(woke(s, "vale")).toMatchObject({
       woke: "dock",
-      text: "Vale wakes as Greek ship docks.",
+      text: "Vale wakes as The Charybdis docks.",
     });
     expect(validateWorld(s)).toBe(s);
   });

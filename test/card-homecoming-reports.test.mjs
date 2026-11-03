@@ -11,6 +11,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   openDoorJourney,
   openDoorStart,
+  openDoorSteps,
   openDoorWalk,
   playOpenDoor,
 } from "./helpers/open-door.mjs";
@@ -37,8 +38,12 @@ const giveDione = (world, item) =>
     (a) => a.kind === "give" && a.item === item && a.target === "greek-baker",
   );
 let journey;
+// Marathon's report and the full account need Marathon: an old full-scope
+// world keeps it (a rumour in new worlds, rules 94).
 beforeAll(() => {
-  journey = openDoorJourney();
+  journey = openDoorJourney(openDoorSteps({ rumours: true }), {
+    rumours: true,
+  });
 });
 
 describe("early Open Door reports", () => {
@@ -139,7 +144,6 @@ describe("Open Door roads home", () => {
       "athens",
       "eleusis",
       "colonus",
-      "marathon",
       "eleusis",
     );
     expect(world.actors.vale.place).toBe("greek-eleusis");

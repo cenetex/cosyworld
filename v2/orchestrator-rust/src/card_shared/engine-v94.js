@@ -2426,7 +2426,7 @@
   var mediaPathOk = (pack, path) => typeof path === "string" && (new RegExp(`^assets/${pack}/[a-z0-9-]+\\.(?:png|svg|webp)$`).test(path) || /^assets\/shared\/(characters|places|items)\/[a-z0-9-]+\.(png|webp)$/.test(
     path
   ));
-  function packProblems(pack, hub2, mountedPlaces = []) {
+  function packProblems(pack, hub2, mountedPlaces = [], mountedItems = []) {
     const problems2 = [];
     const check = (ok, message) => {
       if (!ok) problems2.push(`${pack?.id || "pack"}: ${message}`);
@@ -2882,8 +2882,9 @@
           case "tag_held":
             ok = keysOk(c, ["kind", "tag", "place"]) && idOk(c.tag) && anyPlace(c.place);
             break;
+          // A thing from another mounted world may be named: a ship's cargo.
           case "item_present":
-            ok = keysOk(c, ["kind", "item", "place"]) && (owns2(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
+            ok = keysOk(c, ["kind", "item", "place"]) && (owns2(items2, c.item) || hub2.items.includes(c.item) || mountedItems.includes(c.item)) && anyPlace(c.place);
             break;
           case "item_at":
             ok = keysOk(c, ["kind", "item", "place"]) && owns2(items2, c.item) && anyPlace(c.place);
@@ -3471,7 +3472,8 @@
     const problems2 = packProblems(
       pack,
       packs_default.hub,
-      packs_default.packs.flatMap((p) => Object.keys(p.places))
+      packs_default.packs.flatMap((p) => Object.keys(p.places)),
+      packs_default.packs.flatMap((p) => Object.keys(p.items || {}))
     );
     if (problems2.length)
       throw new Error(
@@ -3483,7 +3485,8 @@
     (pack) => packProblems(
       pack,
       packs_default.hub,
-      packs_default.packs.flatMap((p) => Object.keys(p.places))
+      packs_default.packs.flatMap((p) => Object.keys(p.places)),
+      packs_default.packs.flatMap((p) => Object.keys(p.items || {}))
     )
   ) : ["packs.json needs schemaVersion 1 and a pack list"];
   if (problems.length)
@@ -4001,13 +4004,18 @@
       ] : [[c.from, c.to]]
     )
   ];
+  var retiredStep = ([from, to]) => crossings.some(
+    (c) => c.retired && !c.transport && c.from === from && c.to === to
+  );
   function initialRouteEdges(actor) {
     const home = packPeople[actor]?.packId;
     return authoredRouteEdges().filter(
-      ([from, to]) => home ? packPlaces[from]?.packId === home : !packPlaces[from] && !packPlaces[to]
+      (edge) => !retiredStep(edge) && (home ? packPlaces[edge[0]]?.packId === home : !packPlaces[edge[0]] && !packPlaces[edge[1]])
     );
   }
-  var visibleRouteEdges = (place) => authoredRouteEdges().filter(([from]) => from === place);
+  var visibleRouteEdges = (place) => authoredRouteEdges().filter(
+    (edge) => edge[0] === place && !retiredStep(edge)
+  );
   var edgeKey = ([from, to]) => `${from}>${to}`;
   function rememberRoutes(world, actor, edges) {
     const knowledge = world.routeKnowledge ??= {};
@@ -4775,7 +4783,9 @@
       const receipts = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
       for (const [id, turn] of receipts) {
         const c = pack.choices.find((choice) => choice.id === id);
-        if (!c || !holds(c.requires) || !holds(pack.places[c.at]?.requires) || !holds(packEntity(c.subject)?.requires) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || c.effects.some(
+        if (!c || // A step the release no longer holds (a rumoured place's story) is
+        // forgotten, and so is whatever followed from it.
+        pack.release && state.scope !== "full" && !pack.release.choices.includes(id) || !holds(c.requires) || !holds(pack.places[c.at]?.requires) || !holds(packEntity(c.subject)?.requires) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || c.effects.some(
           (e) => e.kind === "choose" && Object.hasOwn(choices, e.key)
         ))
           continue;
@@ -5074,22 +5084,68 @@
       s.openedRoutes = s.openedRoutes.filter(latchingRoute);
       if (!s.openedRoutes.length) delete s.openedRoutes;
     }
-    if (!entityEnabled(s, "greek-piraeus", true)) {
-      const away = ["greek-piraeus", "hoppycat-signal-jetty"];
-      const fix = (place) => away.includes(place) ? pack.entry : place;
-      for (const [id, state] of Object.entries(s.transports || {})) {
-        const dock = fix(state?.destination || state?.dock);
-        if (dock === (state?.destination || state?.dock) && fix(state?.recall) === state?.recall)
-          continue;
-        s.transports[id] = upgradeTransportState(s, id, {
-          ...state,
-          dock,
-          destination: dock,
-          recall: state.recall && fix(state.recall)
-        });
-      }
-    }
+    leaveTheRumours(s, pack);
+    const sailed = new Set(laneEdges().map((edge) => JSON.stringify(edge)));
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {}))
+      if (Array.isArray(edges))
+        s.routeKnowledge[actor] = edges.filter(
+          (edge) => !laneOfEdge(edge) || sailed.has(JSON.stringify(edge))
+        );
     saved.revision = 18;
+  }
+  var RUMOURS = {
+    "greek-marathon": "greek-piraeus",
+    "greek-ajax-landing": "greek-harbor",
+    "greek-greek-camp": "greek-harbor",
+    "greek-ajax-household": "greek-harbor",
+    "greek-ajax-grave": "greek-harbor",
+    "greek-road-north": "greek-harbor"
+  };
+  function leaveTheRumours(s, pack) {
+    const back = Object.fromEntries(
+      Object.entries(RUMOURS).filter(([place]) => !entityEnabled(s, place))
+    );
+    for (const [id, actor] of Object.entries(s.actors || {}))
+      if (back[actor.place] && pack.avatars[id]?.place !== actor.place)
+        actor.place = back[actor.place];
+    for (const [id, item] of Object.entries(s.items || {}))
+      if (back[item.holder] && pack.items[id]?.holder !== item.holder)
+        item.holder = back[item.holder];
+    const saved = s.packs[pack.id];
+    if (pack.release && saved.scope !== "full") {
+      for (const [id, avatar] of Object.entries(pack.avatars))
+        if (s.actors[id] && !pack.release.avatars.includes(id) && pack.recital?.actor !== id && !departed(pack, saved, id)) {
+          Object.assign(s.actors[id], {
+            place: avatar.place,
+            crossed: 0,
+            lastTalk: -9
+          });
+          delete saved.met?.[id];
+          delete s.opening?.met?.[id];
+        }
+      for (const [id, item] of Object.entries(pack.items))
+        if (s.items[id] && !pack.release.items.includes(id))
+          Object.assign(s.items[id], { holder: item.holder, history: [] });
+    }
+    const ship = transports["greek-ship"], old = s.transports?.["greek-ship"];
+    if (!ship || !old) return;
+    const state = old.version === 2 ? upgradeTransportState(s, "greek-ship", old) : old;
+    const sails = (dock) => !dock || ship.docks.includes(dock);
+    if (sails(state.dock) && sails(state.destination)) {
+      if (!sails(state.recall))
+        s.transports["greek-ship"] = { ...state, recall: null };
+      return;
+    }
+    const aboard = Object.keys(s.actors || {}).filter((id) => s.actors[id].place === ship.place).sort();
+    s.transports["greek-ship"] = {
+      version: state.version,
+      phase: aboard.length ? "arrived" : "docked",
+      dock: "greek-piraeus",
+      destination: null,
+      riders: aboard,
+      since: s.turn || 0,
+      recall: null
+    };
   }
   function upgradeGreekDistrictRoadsSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
@@ -5350,21 +5406,31 @@
     for (const [id, actor] of Object.entries(s.actors))
       for (const other of avatars) if (other !== id) actor.trust[other] ??= 0;
   }
+  var RUMOURED_DOCKS = [
+    "greek-ajax-landing",
+    "greek-marathon",
+    "greek-lemnos",
+    "greek-thrace",
+    "greek-egypt-tomb",
+    "greek-tauris",
+    "greek-sicily"
+  ];
+  var savedDocks = (s, id) => id === "greek-ship" && (s.packs?.["greek-drama"]?.revision ?? 18) < 18 ? [...transports[id].docks, ...RUMOURED_DOCKS] : transports[id].docks;
   function upgradeBoardingSave(s) {
-    for (const [id, transport] of Object.entries(transports)) {
+    for (const id of Object.keys(transports)) {
+      const docks = savedDocks(s, id);
       const state = s.transports?.[id];
       if (!state || state.version !== void 0) continue;
       const occupied = passengers(s, id).length > 0;
-      const valid = Object.keys(state).sort().join() === "destination,dock,recall" && (occupied ? state.dock === null && transport.docks.includes(state.destination) && (state.recall === null || transport.docks.includes(state.recall)) : transport.docks.includes(state.dock) && state.destination === null && state.recall === null);
+      const valid = Object.keys(state).sort().join() === "destination,dock,recall" && (occupied ? state.dock === null && docks.includes(state.destination) && (state.recall === null || docks.includes(state.recall)) : docks.includes(state.dock) && state.destination === null && state.recall === null);
       if (!valid) throw new Error("This save has an invalid ship record.");
-      if (occupied)
-        state.dock = transport.docks.find((dock) => dock !== state.destination);
+      if (occupied) state.dock = docks.find((dock) => dock !== state.destination);
       state.version = 2;
     }
     for (const id of Object.keys(transports)) {
       const state = s.transports?.[id];
       if (state?.version !== 2) continue;
-      if (Object.keys(state).sort().join() !== "destination,dock,recall,version" || !transports[id].docks.includes(state.dock))
+      if (Object.keys(state).sort().join() !== "destination,dock,recall,version" || !savedDocks(s, id).includes(state.dock))
         throw new Error("This save has an invalid ship record.");
       s.transports[id] = upgradeTransportState(s, id, state);
     }
@@ -6199,11 +6265,9 @@
     );
     return lanes.length ? laneFact(...lanes[0]) : null;
   }
-  var laneNeed = (gate) => [
-    ...new Set(
-      gate.map((c) => c.item ? nameOf(c.item) : "something from there")
-    )
-  ].join(" and ");
+  var worldName = (pack) => packDefinitions.find((p) => p.id === pack)?.name.split(":")[0] ?? "there";
+  var needOf = (c, choice = false) => c.kind === "any" ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ") : c.item ? nameOf(c.item) : choice && c.pack ? `something from ${worldName(c.pack)}` : "something from there";
+  var laneNeed = (gate) => [...new Set(gate.map((c) => needOf(c)))].join(" and ");
   var laneFact = (from, to) => {
     const gate = laneConditions(from, to);
     return {

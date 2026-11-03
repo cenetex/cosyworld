@@ -957,13 +957,20 @@ export function laneTalkFacts(s, actor) {
     : [`I know of no ship lane from ${nameOf(near)}.`];
 }
 // A gated lane is told with its condition; telling it never opens it. A
-// named thing is told by name; a world's things as "something from there".
+// named thing is told by name; a world's things as "something from there",
+// or by the world's short name when it is one of several choices.
+const worldName = (pack) =>
+  packDefinitions.find((p) => p.id === pack)?.name.split(":")[0] ?? "there";
+const needOf = (c, choice = false) =>
+  c.kind === "any"
+    ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ")
+    : c.item
+      ? nameOf(c.item)
+      : choice && c.pack
+        ? `something from ${worldName(c.pack)}`
+        : "something from there";
 const laneNeed = (gate) =>
-  [
-    ...new Set(
-      gate.map((c) => (c.item ? nameOf(c.item) : "something from there")),
-    ),
-  ].join(" and ");
+  [...new Set(gate.map((c) => needOf(c)))].join(" and ");
 export const laneFact = (from, to) => {
   const gate = laneConditions(from, to);
   return {

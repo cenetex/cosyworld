@@ -6,7 +6,6 @@ import { encodeSave, legalActions } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 import { openDoorAction, openSeas } from "../../test/helpers/open-door.mjs";
-import { ajaxCamp } from "../../test/helpers/greek-ajax.mjs";
 import { selectCard, wordsFellSilent } from "./card-browser-helpers.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 
@@ -71,18 +70,18 @@ try {
     "greek-road-thebes",
     "greek-harbor",
   ];
-  // In Ajax's story Mara walks home from the Trojan landing by the Northern
-  // Road, which comes down at the Wine-Dark Harbor outside the city, and
-  // back (#2049).
-  const north = [
-    "greek-road-north",
-    "greek-harbor",
-    "greek-road-thebes",
-    "greek-courtyard",
-    "greek-road-thebes",
-    "greek-harbor",
-    "greek-road-north",
-    "greek-ajax-landing",
+  // With the gate shut and no cargo aboard, the Charybdis still sails Mara
+  // home from Piraeus: every way back toward Black Pond is free (rules 94).
+  const free = ["greek-ship", "greek-harbor", "greek-ship", "pond"];
+  // The Black Pond route with the Travel Provisions aboard: out to Piraeus
+  // and the Hoppy Cat jetty, then back.
+  const charybdis = [
+    "greek-ship",
+    "greek-piraeus",
+    "greek-ship",
+    "hoppycat-signal-jetty",
+    "greek-ship",
+    "greek-piraeus",
   ];
   const gateOpen = () => {
     const world = openSeas();
@@ -99,16 +98,17 @@ try {
     {
       name: "land",
       start: "greek-piraeus",
-      route: [...land, ...back],
+      route: [...land, ...back, ...free],
       make: openSeas,
       shut: true,
+      cargo: false,
     },
     { name: "home", start: "greek-piraeus", route: home, make: gateOpen },
     {
-      name: "north",
-      start: "greek-ajax-landing",
-      route: north,
-      make: ajaxCamp,
+      name: "charybdis",
+      start: "greek-harbor",
+      route: charybdis,
+      make: openSeas,
     },
   ];
   for (const width of [1440, 390])
@@ -128,6 +128,9 @@ try {
         fixture.items["greek-provisions"].holder !== "greek-ship"
       )
         throw new Error("The opening fixture keeps the provisions aboard.");
+      // The free leg home carries no cargo: the provisions stay ashore.
+      if (journey.cargo === false)
+        fixture.items["greek-provisions"].holder = "greek-athens";
       const page = await browser.newPage({
         viewport: { width, height: width === 390 ? 844 : 900 },
         reducedMotion: "reduce",
@@ -288,6 +291,26 @@ try {
             fullPage: true,
           });
           await page.keyboard.press("Escape");
+        }
+        // The Charybdis at each port of its route, and on deck.
+        if (
+          ["land", "charybdis"].includes(journey.name) &&
+          [
+            "greek-ship",
+            "greek-harbor",
+            "greek-piraeus",
+            "hoppycat-signal-jetty",
+            "pond",
+          ].includes(target)
+        ) {
+          const at = (await state()).transports["greek-ship"].dock;
+          await page.screenshot({
+            path: new URL(
+              `${journey.name}-${target}-${at}-${width}.png`,
+              output,
+            ).pathname,
+            fullPage: true,
+          });
         }
         const road = packDefinition("greek-drama").places[target]?.road;
         // A road's two ends stack behind it and fan out in road order.

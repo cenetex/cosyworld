@@ -128,15 +128,13 @@ describe("Greek ports and fixed roads", () => {
       w = move(w, "mara", "greek-ship");
       // Course cards are the boarding port's lanes, never the port itself.
       // By day the Willows mist does not rise beside the rail.
-      expect(ask(w, "vale").exits).toEqual([
-        // The Signal Jetty waits for a Hoppy Cat thing aboard; the
-        // provisions on deck open the Wine-Dark Harbor to Piraeus lane.
-        ...lanesFrom(transports["greek-ship"], from).filter(
-          (d) =>
-            entityActive(w, d) &&
-            (!laneGated(from, d) || d !== "hoppycat-signal-jetty"),
+      // The provisions on deck open every leg beyond the harbor, on to
+      // Piraeus and the Signal Jetty (rules 94).
+      expect(ask(w, "vale").exits).toEqual(
+        lanesFrom(transports["greek-ship"], from).filter((d) =>
+          entityActive(w, d),
         ),
-      ]);
+      );
       const path = lanePath(w, "greek-ship", from, to);
       for (const lane of path.slice(1)) {
         const stale = ask(w, "mara").actions.find(
