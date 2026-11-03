@@ -583,7 +583,9 @@ someone who boarded there cannot step straight back. Passengers who stay
 aboard can set the next course. A ship left with passengers and no course for
 three rounds sails its first lane. An empty ship stays where it was left;
 waiting at a port to board brings it one lane closer each round. Residents
-use the same vessel and leave the course to a human aboard. The lamp signal
+use the same vessel and leave the course to a human aboard; with no
+player's avatar aboard, a resident sails the ship to its own destination,
+cargo or not (rules 96). The lamp signal
 still calls the ship to Black Pond. Existing saves keep their positions,
 belongings, stories and poems. The design is in
 [ship voyages and scattered things](../../docs/design/ship-voyages-and-scattered-things.md).

@@ -1868,7 +1868,10 @@
   var humanAboard = (s, t) => Object.entries(s.actors).some(
     ([who, a]) => a.place === t.place && controlledByHuman(s, who)
   );
-  var residentVoyage = (s, t, actor) => Boolean(actor) && s.actors[actor]?.place === t.place && !controlledByHuman(s, actor) && !humanAboard(s, t);
+  var playerAvatar = (s, who) => controlledByHuman(s, who) || Boolean(humanAvatar(who));
+  var residentVoyage = (s, t, actor) => Boolean(actor) && s.actors[actor]?.place === t.place && !playerAvatar(s, actor) && !Object.entries(s.actors).some(
+    ([who, a]) => a.place === t.place && playerAvatar(s, who)
+  );
   function canDisembark(s, id, actor) {
     const state = read(s, id);
     return Boolean(

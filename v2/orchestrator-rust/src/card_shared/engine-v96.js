@@ -1365,7 +1365,10 @@
   var humanAboard = (s, t) => Object.entries(s.actors).some(
     ([who, a]) => a.place === t.place && controlledByHuman(s, who)
   );
-  var residentVoyage = (s, t, actor) => Boolean(actor) && s.actors[actor]?.place === t.place && !controlledByHuman(s, actor) && !humanAboard(s, t);
+  var playerAvatar = (s, who) => controlledByHuman(s, who) || Boolean(humanAvatar(who));
+  var residentVoyage = (s, t, actor) => Boolean(actor) && s.actors[actor]?.place === t.place && !playerAvatar(s, actor) && !Object.entries(s.actors).some(
+    ([who, a]) => a.place === t.place && playerAvatar(s, who)
+  );
   function canDisembark(s, id, actor) {
     const state = read(s, id);
     return Boolean(
@@ -1408,7 +1411,7 @@
     if (!found) return null;
     const dock = read(s, found[0]).dock, free = residentVoyage(s, found[1], actor);
     if (dock === target)
-      return openLanes(s, found[1], dock, actor, free)[0] ?? null;
+      return free ? null : openLanes(s, found[1], dock, actor)[0] ?? null;
     return lanePath(s, found[0], dock, target, actor, free)?.[1] ?? null;
   }
   function waitForTransport(s, place, actor) {
@@ -1507,14 +1510,7 @@
           riders: aboard
         });
       } else if (state.phase === "course") {
-        const gate = laneGate(t, state.dock, state.destination);
         if (!aboard.length) settleEmpty(state, s.turn);
-        else if (gate && humanAboard(s, t) && !conditionsMet(s, t.packId, gate))
-          Object.assign(state, {
-            phase: "docked",
-            destination: null,
-            since: s.turn
-          });
         else {
           Object.assign(state, { phase: "sea", since: s.turn });
           events.push({
