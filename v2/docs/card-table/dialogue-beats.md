@@ -180,7 +180,9 @@ The action beat shows only while choosing. Cards chosen during a line wait
 for it: the line keeps its full card, and the play comes forward once the
 exchange is read. A shared refusal waits for the line too. A tap anywhere
 on a card that is being written, portrait and name included, finishes it.
-Clicking off the cards, like Escape, clears the choice: the action beat
+A reload shows a line already begun in full, and a play whose words were
+still on the way asks again with its Thinking card; only words that failed
+come back with Retry. Clicking off the cards, like Escape, clears the choice: the action beat
 fades and the full dialogue card comes back.
 
 Every play in flight is one Thinking card with the speaker's portrait: queued
