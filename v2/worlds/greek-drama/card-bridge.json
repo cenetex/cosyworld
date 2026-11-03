@@ -269,7 +269,8 @@
               "item": "greek-provisions",
               "place": "greek-ship"
             }
-          ]
+          ],
+          "spends": true
         },
         {
           "from": "greek-piraeus",

@@ -101,12 +101,15 @@ try {
       fixture.presentActors = ["mara"];
       fixture.actors.mara.place = journey.start;
       // Black Pond sails only to the Wine-Dark Harbor. The Travel Provisions
-      // on deck open the lane between Piraeus and the Wine-Dark Harbor.
-      if (
-        journey.name === "athens" &&
-        fixture.items["greek-provisions"].holder !== "greek-ship"
-      )
-        throw new Error("The opening fixture keeps the provisions aboard.");
+      // on deck open the lane between Piraeus and the Wine-Dark Harbor, and
+      // each voyage out uses a load up: this journey starts with one Myrto
+      // packed (rules 95).
+      if (journey.name === "athens") {
+        fixture.usedUp = fixture.usedUp.filter(
+          (id) => id !== "greek-provisions",
+        );
+        fixture.items["greek-provisions"].holder = "greek-ship";
+      }
       const page = await browser.newPage({
         viewport: { width, height: width === 390 ? 844 : 900 },
         reducedMotion: "reduce",

@@ -18,6 +18,7 @@ import { laneProblems, MAX_LANES } from "../v2/card-game/pack-schema.mjs";
 import { transports } from "../v2/card-game/pack-registry.mjs";
 import { availableCards, cardPlay, playLabel } from "../v2/card-game/cards.mjs";
 import bridge from "../v2/worlds/greek-drama/card-bridge.json" with { type: "json" };
+import { stowProvisions } from "./helpers/provisions.mjs";
 
 const players = ["vale", "mara", "ash"];
 const ship = () => transports["greek-ship"];
@@ -162,6 +163,8 @@ describe("a real voyage", () => {
     s = act(s, "vale", "course", "greek-harbor");
     s = act(s, "vale", "wait");
     s.actors.ash.place = "greek-harbor";
+    // Myrto has packed a load of provisions on the landing.
+    stowProvisions(s, "greek-harbor");
     s = reload(s);
     expect(targets(s, "vale", "course")).toEqual(["pond"]);
     // Ash carries the Travel Provisions aboard, which opens the Piraeus lane
@@ -179,11 +182,10 @@ describe("a real voyage", () => {
     s = act(s, "vale", "wait");
     expect(state(s)).toMatchObject({ phase: "arrived", dock: "greek-piraeus" });
     expect(targets(s, "vale", "move")).toEqual(["greek-piraeus"]);
-    // Ash can step off with the provisions or leave them on deck.
-    expect(targets(s, "ash", "move")).toEqual([
-      "greek-piraeus",
-      "greek-piraeus",
-    ]);
+    // The voyage out of Thebes used the provisions up (rules 95); Ash steps
+    // off empty-handed.
+    expect(s.usedUp).toContain("greek-provisions");
+    expect(targets(s, "ash", "move")).toEqual(["greek-piraeus"]);
   });
 
   it("an idle passenger cannot hold the ship: it sails its first lane after three rounds", () => {
@@ -206,7 +208,7 @@ describe("a real voyage", () => {
     let s = setup("greek-piraeus");
     for (const id of players) s.actors[id].place = "pond";
     // The Travel Provisions on deck keep the Piraeus lane open.
-    s.items["greek-provisions"].holder = "greek-ship";
+    stowProvisions(s, "greek-ship");
     s = reload(s);
     // Piraeus to Black Pond is two lanes, through the Wine-Dark Harbor.
     s = act(s, "mara", "wait");
@@ -225,7 +227,7 @@ describe("a real voyage", () => {
   it("lets a sleeper at a port sleep without calling the ship", () => {
     let s = setup("greek-piraeus");
     for (const id of players) s.actors[id].place = "pond";
-    s.items["greek-provisions"].holder = "greek-ship";
+    stowProvisions(s, "greek-ship");
     s = reload(s);
     // The Wait before Sleep calls the ship one lane; sleeping on calls none.
     s = act(s, "mara", "wait");
@@ -255,7 +257,7 @@ describe("a real voyage", () => {
     ]);
     // Aboard, they open Piraeus, Marathon Bay round the cape, and the east
     // sea's open shores beyond it.
-    s.items["greek-provisions"].holder = "greek-ship";
+    stowProvisions(s, "greek-ship");
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-harbor",
       "greek-lemnos",

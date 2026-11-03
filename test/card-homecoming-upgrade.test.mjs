@@ -8,7 +8,12 @@ const willowsItems = Object.fromEntries(
 );
 const ajaxItems = Object.fromEntries(
   Object.entries(currentPackDefinition("greek-drama").items)
-    .filter(([id]) => id.startsWith("greek-ajax-"))
+    // Rules 95 brought figs, a wine skin and libation wine too.
+    .filter(
+      ([id]) =>
+        id.startsWith("greek-ajax-") ||
+        ["greek-figs", "greek-wine-skin", "greek-libation"].includes(id),
+    )
     .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
 );
 import { readFileSync } from "node:fs";
@@ -16,7 +21,12 @@ import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
-import { branchItems, upgradedActor, upgradedItems, withoutHomeDoors } from "./fixtures/card-upgraded-items.mjs";
+import {
+  branchItems,
+  upgradedActor,
+  upgradedItems,
+  withoutHomeDoors,
+} from "./fixtures/card-upgraded-items.mjs";
 
 const context = vm.createContext({});
 vm.runInContext(
@@ -84,10 +94,9 @@ describe("the household save upgrade", () => {
           ]),
         ),
         ...Object.fromEntries(
-          Object.entries(currentPackDefinition("lonely-forest").items).map(([id, item]) => [
-            id,
-            { holder: item.holder, history: [] },
-          ]),
+          Object.entries(currentPackDefinition("lonely-forest").items).map(
+            ([id, item]) => [id, { holder: item.holder, history: [] }],
+          ),
         ),
       });
       // The version 2 ship keeps its dock as a version 3 record.
@@ -97,7 +106,9 @@ describe("the household save upgrade", () => {
       });
       for (const key of ["turn", "revision", "eventSeq", "log"])
         expect(after[key]).toEqual(before[key]);
-      expect(withoutHomeDoors(after.crossings)).toMatchObject(withoutHomeDoors(before.crossings));
+      expect(withoutHomeDoors(after.crossings)).toMatchObject(
+        withoutHomeDoors(before.crossings),
+      );
       // Quest progress is dropped; each avatar gains its want record.
       const lived = ({ want, xp, visited, talked, metTurn, gaveUp, ...a }) => a;
       for (const [id, { progress, ...actor }] of Object.entries(before.actors))

@@ -26,6 +26,7 @@ import {
   lanesFrom,
 } from "../v2/card-game/pack-transport.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 
 const pack = packDefinition("greek-drama");
 const ships = new Set(Object.values(transports).map((t) => t.place));
@@ -189,9 +190,9 @@ describe("ports reachable by land", () => {
     s.controlledActors = ["vale", "mara"];
     s.actors.vale.place = "greek-piraeus";
     s.transports["greek-ship"].dock = "greek-piraeus";
-    s.items["greek-provisions"].holder = "greek-ship";
+    stowProvisions(s, "greek-ship");
     callTransport(s, "greek-harbor");
-    s.items["greek-provisions"].holder = "greek-harbor";
+    stowProvisions(s, "greek-harbor");
     const step = (fields) => {
       const action = legalActions(s, "vale").find((a) =>
         Object.entries(fields).every(([k, v]) => a[k] === v),

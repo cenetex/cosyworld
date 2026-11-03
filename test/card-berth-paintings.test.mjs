@@ -5,6 +5,7 @@ import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 import { backdrop, stageOf, travelCard } from "../v2/card-game/scene.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
 import { ajaxStart, ajaxMove, ajaxChoice } from "./helpers/greek-ajax.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 
 const ship = "greek-ship", signal = "pond-greek-harbor";
 const players = ["vale", "mara", "ash"];
@@ -36,7 +37,7 @@ function setup(berth, night) {
   world.transports[ship].riders = [];
   world.actors.vale.place = world.actors.mara.place = berth.origin;
   world.actors.ash.place = berth.place;
-  world.items["greek-provisions"].holder = "vale";
+  stowProvisions(world, "vale");
   world.items["hoppycat-halfway-cup"].holder = "vale";
   world.crossings[signal].discovered = true;
   summonTransport(world, ship, berth.origin);

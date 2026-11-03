@@ -2618,6 +2618,15 @@
       "phone": "assets/optimized/phone/png/greek-drama/farm-testimony.webp",
       "phoneHash": "f5b8bdc972f5658d78183a2cf7e593ea4083f29e0379a290b687b8a0c57c72e9"
     },
+    "assets/greek-drama/figs.png": {
+      "sourceHash": "f04fecdaf3c2c03500440173dd00e4805bbc0de382cab8d60e60c0572b8d9c87",
+      "stage": "assets/optimized/stage/png/greek-drama/figs.webp",
+      "stageHash": "5c49e021e3f3c8720f4e5d1bb122cb829a354e3140ca1114a2f5294ca58b1c38",
+      "card": "assets/optimized/card/png/greek-drama/figs.webp",
+      "cardHash": "785670a4741c0fe98fa641923ebddb36223f91cb8f383fff16dac9f4def43166",
+      "phone": "assets/optimized/phone/png/greek-drama/figs.webp",
+      "phoneHash": "847722a311d29aab42df80800d913f2ee634855cefbe752f707069b021e01f9b"
+    },
     "assets/greek-drama/funeral-cloth.png": {
       "sourceHash": "495f882672ce8513a65f789b919741ef3f49f22a76c73551847cefb5d217e0a0",
       "stage": "assets/optimized/stage/png/greek-drama/funeral-cloth.webp",
@@ -2833,6 +2842,15 @@
       "cardHash": "05de193b85a6d729c21fd8df02aa6c8cc6372ca47baa90ed6945f132432388de",
       "phone": "assets/optimized/phone/webp/greek-drama/lemnian-cave-night.webp",
       "phoneHash": "352693dec9114ad2f2f6ca626d6ba6037e15d9253a2a09b601f6769a137116e1"
+    },
+    "assets/greek-drama/libation-cup.png": {
+      "sourceHash": "91116f8f4535702c2f6c6d948cb5a0efc4b8d4fcd6adb2ec0398e7968974600f",
+      "stage": "assets/optimized/stage/png/greek-drama/libation-cup.webp",
+      "stageHash": "210b0b34150f3bfe6bf2cd3746a7d009d17fd0113697ef6342a910e2d78d685a",
+      "card": "assets/optimized/card/png/greek-drama/libation-cup.webp",
+      "cardHash": "a02122ab83a96c15f2bed8dfae150c4eaa00d16c54f7f5492538b49a3b6cb2c1",
+      "phone": "assets/optimized/phone/png/greek-drama/libation-cup.webp",
+      "phoneHash": "314b45dac490910a4bacfa4168cca758eaa14a6277b3ecab07eb82659b4d40c3"
     },
     "assets/greek-drama/marathon-record.webp": {
       "sourceHash": "9f384e62a67c7de8151ea953ad4eedff882822c2650e9e0d32611778fd4fb36d",
@@ -3400,6 +3418,15 @@
       "cardHash": "4ac166f8bf8f5addeb8216e3d34ddd4aef246839e070eec18766de287dcc3e4b",
       "phone": "assets/optimized/phone/png/greek-drama/water-jar.webp",
       "phoneHash": "1de958209159be337e4c500da7d22b89ab590498a332ecef9d1f32bc161db1f4"
+    },
+    "assets/greek-drama/wine-skin.png": {
+      "sourceHash": "07d0e485f4b142aa6031eb9561718465769cb1285bb526cd816294d1df177678",
+      "stage": "assets/optimized/stage/png/greek-drama/wine-skin.webp",
+      "stageHash": "3b71572afd5c7cb4463e2a276d4de85ac077f5adba77efe1e9751eb5a4b848f3",
+      "card": "assets/optimized/card/png/greek-drama/wine-skin.webp",
+      "cardHash": "dc632d944c5b8b59f578e4f96cafb88a0f21d5b145145781c9f6d3f16b906ade",
+      "phone": "assets/optimized/phone/png/greek-drama/wine-skin.webp",
+      "phoneHash": "11feec74ebc0e9aaca3c4a4bfa45ee9879d7529a90bc3c4c6b3f27c87020335c"
     },
     "assets/hoppycat-archive/hoppycat-arc-cutout.png": {
       "sourceHash": "921b74b9477e89e2458ac560de0b47bafc8b9ab12f250957fc256e31b16d3ce3",

@@ -30,6 +30,8 @@ try {
     world.crossings["pond-greek-harbor"].discovered = true;
     // Mara carries the Travel Provisions, which open the Piraeus lane for
     // everyone aboard with her.
+    // Packed provisions in Mara's hands (rules 95 starts them used up).
+    world.usedUp = world.usedUp.filter((id) => id !== "greek-provisions");
     world.items["greek-provisions"].holder = "mara";
     const pages = [];
     const contexts = [];

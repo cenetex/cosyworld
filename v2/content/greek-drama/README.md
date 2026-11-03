@@ -20,14 +20,43 @@ Thebes has no story buttons. Its deeds are the ordinary verbs:
 - Meeting the guard at the gate tells the decree. Meeting the elder at the
   well after it gives the household a witness.
 - **Wait** on the battlefield with the shovel to dig the grave, then with the
-  cloth and oil laid there to bury the brother. The **Burial Account** then
-  lies on the battlefield.
+  cloth and oil laid there to bury the brother. The rite uses up the cloth and
+  oil; the shovel is a tool and stays. The **Burial Account** then lies on
+  the battlefield.
 - **Give** Creon the decree, with the household token in hand and the elder's
   witness, to petition. **Creon's Writ** then lies at the palace.
-- **Give** the guard the shovel to report the plan. **The Guard's Tablet**
-  then lies at the gate.
+- **Give** the guard the shovel with the funeral cloth in hand, the tools of
+  the burial, to report the plan. **The Guard's Tablet** then lies at the
+  gate. The shovel alone is no report: the guard declines it, so handing it
+  over by mistake decides nothing.
 - **Give** Dione the account, the writ or the tablet. It stays on her table,
   and her road to Eleusis opens.
+
+### The provisions loop (rules 95)
+
+Myrto will not sail her crew out of Thebes without bread, figs and wine. Her
+want names the set in Talk: "I want the Travel Provisions: the Courtyard
+Bread, the Dried Figs and the Wine Skin." The three come from three
+quarters: the bread from Dione's oven after the water jar (`home`: the
+courtyard), the figs from the Hillside Sanctuary and the wine skin from the
+guard's ration at the City Gate. **Give** Myrto any of them while holding all
+three, and she packs the Travel Provisions on the landing (a repeating give,
+`greek-pack-provisions`). Wine only: the water jar is no substitute, and a
+lone ingredient is an ordinary gift she declines. The provisions start used
+up, and the voyage from the Wine-Dark Harbor to Piraeus uses them up on
+arrival (`spends`); the way home is free. Each ingredient regrows at its
+home at dawn once it has been used, so there is only ever one of each, and
+Myrto packs again whenever the last load is gone. She declines the
+provisions as payment, so carrying them to her never takes them off the
+ship's way.
+
+The funeral cloth and oil start in Thebes but come from Attica: the cloth's
+`home` is the Eleusinian Sanctuary and the oil's is Colonus Grove. A Theban
+rite uses them up, and each regrows at its home at dawn once the Open Door
+makes it live. The same cloth and oil are meant for Ajax's grave when Troy
+opens again. The Libation Wine (`greek-libation`) is a separate cup of wine
+on the Cithaeron road, distinct from the provisions' wine skin; no rite needs
+it yet.
 
 The Market Well lies within the courtyard and opens only onto it. Objects
 keep their actual holders. The quiet sanctuary and the homeward road remain
@@ -35,13 +64,19 @@ available throughout. See the [Greek redesign](../../docs/card-table/greek-redes
 
 The City Gate opens onto the battlefield once the gate guard
 (`greek-guard`) holds the Burial Decree (`greek-decree`, first at the palace)
-at the gate, and stays open after (rules 86). In pack data it is a
-`greek-gate` → `greek-battlefield` route that `requires` a `holding`
-condition and an `item_near` condition at the gate. The first time they hold,
+or Creon's writ at the gate, and stays open after (rules 86). In pack data
+these are two `greek-gate` → `greek-battlefield` routes, one per order, each
+requiring a `holding` condition and an `item_near` condition at the gate;
+they share one saved gate. The guard accepts the writ (he values it at 2)
+and hands it back when asked, so it can still reach Dione. While the gate is
+shut, the battlefield shows at the gate as a sealed card (rules 95): its
+context button says the guard lifts the bar for an order from the palace,
+the Burial Decree or Creon's writ, and Seek the way gives the quest to give
+the guard the decree. His own line says the same. The first time they hold,
 the world records the gate in `openedRoutes`. The gate's open paintings
 require `gate_open` for that route, and `test/card-theban-gate.test.mjs`
-checks it, so the painting and the passage cannot disagree. While the gate is closed no
-travel card leads out. The gate only blocks the way out: anyone already on the
+checks it, so the painting and the passage cannot disagree. While the gate is
+closed the only card toward the battlefield is the sealed one. The gate only blocks the way out: anyone already on the
 battlefield can always walk back in. If the guard later gives the decree
 away or leaves his post, the gate stays open. A petition needs the decree in hand and
 returns it to the palace, so a petitioner carries it back to the guard
@@ -211,8 +246,8 @@ Wine-Dark Harbor, Piraeus or Marathon opens only while the Travel Provisions
 are aboard, and every way back is always open. Boarding the ship is a dock's
 one link to the sea. The lane between the
 Wine-Dark Harbor to Piraeus opens only while the Travel Provisions
-(`greek-provisions`, first at the harbour) are aboard; the way home from
-Piraeus is always open. Giving Theseus the mothers' petition brings the
+(`greek-provisions`, packed by Myrto) are aboard, and arriving uses them up;
+the way home from Piraeus is always open. Giving Theseus the mothers' petition brings the
 herald's truce (`greek-olive-branch`, the Open Door's Agora outcome) into the
 Agora. While it is in the Agora, the Long Walls open from the Agora to Piraeus.
 Its card uses `assets/greek-drama/olive-branch.webp`, the wool-bound branch

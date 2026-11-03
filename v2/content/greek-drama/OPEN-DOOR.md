@@ -2,8 +2,9 @@
 
 Dione's table opens the stories of five places: the Athenian Agora, Piraeus
 Quays, Colonus Grove, Eleusinian Sanctuary and Marathon Altar. Piraeus Quays
-lies outside the section: a ship with the Travel Provisions aboard reaches it
-from the Wine-Dark Harbor in any save, but its roads inland and Thaleia's
+lies outside the section: a ship with Myrto's packed Travel Provisions aboard
+reaches it from the Wine-Dark Harbor in any save, and the voyage uses them
+up. Its roads inland and Thaleia's
 work wait for the invitation. The Coast Road always leads from Piraeus back
 to the Wine-Dark Harbor, so a traveler whose ship sails away can walk home
 (#2049). From the harbor it opens only with the herald's truce in the Agora,
@@ -20,8 +21,9 @@ in that world, even after its thing moves away. It blocks only the way out:
 the way back is always open. These
 routes share Dione’s lasting invitation. Waiting at a port lets the empty ship complete its circuit.
 
-The opening invitation follows the public account of any of the four
-Theban responses: burial, permission, refusal or warning. Accepting the
+The opening invitation follows the public account of any of the three
+Theban responses: burial, permission or warning (the refusal was retired in
+revision 11). Accepting the
 invitation records `greek-open-door-open`. The choice and its reason remain
 part of the saved history. The region remains open for later visits.
 

@@ -56,6 +56,8 @@ describe("want data", () => {
       "greek-ismene": { kind: "place", target: "greek-sanctuary" },
       "greek-creon": { kind: "place", target: "greek-palace" },
       "greek-baker": { kind: "place", target: "greek-courtyard" },
+      // Myrto makes the provisions; Talk names the set (rules 95).
+      "greek-shipmaster": { kind: "item", target: "greek-provisions" },
       "willows-swede": { kind: "place", target: "willows-landing" },
       boardyai: { kind: "connect", target: "humans" },
     });

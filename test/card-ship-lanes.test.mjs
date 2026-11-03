@@ -15,6 +15,7 @@ import {
 } from "../v2/card-game/pack-transport.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import { openSeas } from "./helpers/open-door.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 
 const players = ["vale", "mara"];
 const reload = (s) => decodeSave(encodeSave(s));
@@ -126,7 +127,7 @@ describe("knowing a lane is personal", () => {
     // Mara carries the provisions aboard. Neither has heard the lane; the
     // thing aboard opens it for both.
     s = fresh("greek-harbor");
-    s.items["greek-provisions"].holder = "mara";
+    stowProvisions(s, "mara");
     s = act(reload(s), "vale", "move", "greek-ship");
     expect(courses(s, "vale")).toEqual(["pond"]);
     s = act(s, "mara", "move", "greek-ship");
@@ -143,7 +144,7 @@ describe("knowing a lane is personal", () => {
     // The lane home from Piraeus stays open, even with the provisions
     // left on the quay.
     expect(courses(s, "mara")).toEqual(["greek-harbor"]);
-    s.items["greek-provisions"].holder = "greek-piraeus";
+    stowProvisions(s, "greek-piraeus");
     s = reload(s);
     expect(courses(s, "mara")).toEqual(["greek-harbor"]);
   });

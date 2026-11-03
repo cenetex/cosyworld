@@ -5,9 +5,14 @@ const willowsItems = Object.fromEntries(
     { holder: item.holder, history: [] },
   ]),
 );
+// Rules 95 brought figs, a wine skin and libation wine to Greek worlds.
 const ajaxItems = Object.fromEntries(
   Object.entries(currentPackDefinition("greek-drama").items)
-    .filter(([id]) => id.startsWith("greek-ajax-"))
+    .filter(
+      ([id]) =>
+        id.startsWith("greek-ajax-") ||
+        ["greek-figs", "greek-wine-skin", "greek-libation"].includes(id),
+    )
     .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
 );
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
@@ -27,6 +32,7 @@ import {
   crowdedAgoraWorld,
 } from "./helpers/greek-capacity.mjs";
 import { branchItems, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 
 // The countryside reaches the harbour only through the city, so only Piraeus
 // reaches the harbor without passing through the Agora.
@@ -164,8 +170,8 @@ describe("roads around a full Agora", () => {
     ).not.toContain("greek-piraeus");
     const open = crowdedAgoraWorld();
     open.actors.vale.place = "greek-ship";
-    // The Travel Provisions ride on deck, which opens the Piraeus lane.
-    expect(open.items["greek-provisions"].holder).toBe("greek-ship");
+    // Packed Travel Provisions ride on deck, which opens the Piraeus lane.
+    stowProvisions(open, "greek-ship");
     open.transports["greek-ship"] = {
       version: 3,
       phase: "docked",

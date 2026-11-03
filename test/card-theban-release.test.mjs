@@ -29,6 +29,7 @@ import {
 } from "../v2/card-game/scene.mjs";
 import { createServer } from "../v2/card-game/serve.mjs";
 import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 const pack = packDefinition("greek-drama");
 const openingPlaces = [
   "greek-harbor",
@@ -138,7 +139,9 @@ describe("the Theban release and its ship", () => {
     let s = createWorld();
     s.crossings["pond-greek-harbor"].discovered = true;
     s.actors.vale.place = "greek-gate";
-    // Meeting the guard tells the decree; the shovel handed to him reports it.
+    // Meeting the guard tells the decree; the shovel handed to him with the
+    // funeral cloth in hand reports it.
+    s.items["greek-funeral-cloth"].holder = "vale";
     s = act(s, "take", { item: "greek-shovel" });
     s = act(s, "give", { item: "greek-shovel", target: "greek-guard" });
     s = act(s, "take", { item: "greek-guard-tablet" });
@@ -152,7 +155,7 @@ describe("the Theban release and its ship", () => {
     expect(reachable(s)).toContain("greek-eleusis");
     expect(reachable(s)).not.toContain("greek-athens");
     expect(reachable(s)).not.toContain("greek-road-coast");
-    s.items["greek-provisions"].holder = "greek-ship";
+    stowProvisions(s, "greek-ship");
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     expect(reachable(s)).toHaveLength(18);
     s = decodeSave(encodeSave(s));
@@ -246,6 +249,9 @@ describe("the Theban release and its ship", () => {
         "shears",
         ...openDoorItems,
         ...Object.keys(pack.items).filter((id) => id.startsWith("greek-ajax-")),
+        "greek-figs",
+        "greek-wine-skin",
+        "greek-libation",
         ...Object.keys(packDefinition("hoppycat-archive").items),
         ...Object.keys(packDefinition("willows").items),
         ...Object.keys(packDefinition("lonely-forest").items),

@@ -286,13 +286,30 @@ try {
     await travel("greek-gate");
     assert.equal(await card("greek-antigone").count(), 1);
     assert.equal(await card("greek-guard").count(), 1);
-    // Meeting the guard tells the decree. Handing him the shovel reports the
-    // plan; Thebes has no story buttons.
+    // Meeting the guard tells the decree. Handing him the shovel with the
+    // funeral cloth in hand, the tools of the burial, reports the plan;
+    // Thebes has no story buttons.
     let current = await state();
     assert.ok(current.packs["greek-drama"].receipts["greek-hear-decree"]);
     assert.ok(!legalActions(current).some((a) => a.kind === "choose"));
+    // The black cloth waits at the sanctuary while the hands carry the tools.
+    await travel("greek-courtyard");
+    await travel("greek-palace");
+    await travel("greek-sanctuary");
+    await pair("cloth", "greek-sanctuary");
+    await playCard("greek-funeral-cloth");
+    await travel("greek-palace");
+    await travel("greek-courtyard");
+    await travel("greek-gate");
     await playCard("greek-shovel");
     await pair("greek-shovel", "greek-guard");
+    await travel("greek-courtyard");
+    await travel("greek-palace");
+    await travel("greek-sanctuary");
+    await playCard("cloth");
+    await travel("greek-palace");
+    await travel("greek-courtyard");
+    await travel("greek-gate");
     current = await state();
     assert.equal(
       current.packs["greek-drama"].choices["greek-theban-response"],

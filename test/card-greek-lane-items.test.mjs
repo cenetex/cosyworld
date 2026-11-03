@@ -9,6 +9,7 @@ import {
   openDoorSteps,
   playOpenDoor,
 } from "./helpers/open-door.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 
 const BRANCH = "greek-olive-branch";
 // The docks one lane from `dock`, as Vale would see them.
@@ -30,12 +31,12 @@ describe("lanes that open with a thing aboard", () => {
     const s = pleaWorld();
     expect(s.items[BRANCH].holder).toBe("vale");
     expect(entityActive(s, BRANCH)).toBe(true);
-    s.items["greek-provisions"].holder = "greek-harbor";
+    stowProvisions(s, "greek-harbor");
     // Ashore in Vale's hands, the truce opens nothing at sea.
     expect(courses(s, "greek-harbor")).not.toContain("greek-piraeus");
     // The provisions aboard open Piraeus; the way home is always open.
     expect(courses(s, "greek-piraeus")).toContain("greek-harbor");
-    s.items["greek-provisions"].holder = "greek-ship";
+    stowProvisions(s, "greek-ship");
     expect(courses(s, "greek-harbor")).toContain("greek-piraeus");
   });
 });

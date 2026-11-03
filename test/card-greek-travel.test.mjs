@@ -29,6 +29,7 @@ import {
   upgradedActor,
   upgradedItems,
 } from "./fixtures/card-upgraded-items.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 
 const docks = ["pond", "greek-harbor", "greek-piraeus"];
 const players = ["vale", "mara"];
@@ -71,7 +72,7 @@ function shared(dock, seas = false, ajax = false) {
       for (const to of lanesFrom(ship, from)) learnLane(world, id, from, to);
   // The Travel Provisions ride on deck, which opens the Wine-Dark Harbor's
   // lane to Piraeus.
-  world.items["greek-provisions"].holder = "greek-ship";
+  stowProvisions(world, "greek-ship");
   // The Northern Road leaves Thebes once the guard has opened the City Gate.
   if (ajax)
     world.openedRoutes = [

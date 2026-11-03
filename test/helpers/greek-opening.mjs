@@ -12,6 +12,7 @@ import { needsVoyage, sailTo } from "./voyage.mjs";
 import { enableMotives } from "../../v2/card-game/motives.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
 import { endStandoff } from "./standoff.mjs";
+import { stowProvisions } from "./provisions.mjs";
 
 // Opening-only worlds reached through legal choices. Initial inventory setup
 // leaves the forest tools at the harbor and room for the funeral materials.
@@ -64,7 +65,7 @@ export function openingFixture(
   // Black Pond sails only to the Wine-Dark Harbor. The Travel Provisions
   // ride on deck, which opens the lane on to Piraeus, and Myrto has told the
   // traveller the lane from Piraeus to Athens Harbor.
-  world.items["greek-provisions"].holder = "greek-ship";
+  stowProvisions(world, "greek-ship");
   learnLane(world, "vale", "greek-piraeus", "greek-athens-harbor");
   act("snuff", { item: "lamp" });
   act("drop", { item: "cloth", target: "greek-harbor" });
@@ -86,7 +87,11 @@ export function openingFixture(
   walk("gate");
   states.decree = world;
   if (branch === "exposure") {
-    // Handing the guard the shovel reports the plan; his tablet records it.
+    // Handing the guard the tools of the burial, the shovel with the funeral
+    // cloth in hand, reports the plan; his tablet records it.
+    walk("sanctuary");
+    take("greek-funeral-cloth");
+    walk("gate");
     take("greek-shovel");
     give("greek-shovel", "greek-guard");
     states.choice = world;
