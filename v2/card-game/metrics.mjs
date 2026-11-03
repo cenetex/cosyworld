@@ -44,17 +44,21 @@ export function lineCounter(ms) {
 }
 
 export function createMetrics({
-  storage = globalThis.localStorage,
+  storage,
   nav = globalThis.navigator,
   desktop = false,
   now = () => Date.now(),
 } = {}) {
-  let counters = {};
+  // A choice made here holds even where storage is blocked (it throws).
+  let counters = {},
+    chosen = null;
+  const store = () =>
+    storage === undefined ? globalThis.localStorage : storage;
   const choice = () => {
     try {
-      return storage?.getItem(METRICS_KEY) ?? null;
+      return chosen ?? store()?.getItem(METRICS_KEY) ?? null;
     } catch {
-      return null;
+      return chosen;
     }
   };
   const gpc = () => nav?.globalPrivacyControl === true;
@@ -64,8 +68,9 @@ export function createMetrics({
     gpc,
     enabled,
     setEnabled(on) {
+      chosen = on ? "on" : "off";
       try {
-        storage?.setItem(METRICS_KEY, on ? "on" : "off");
+        store()?.setItem(METRICS_KEY, chosen);
       } catch {}
       if (!enabled()) counters = {};
     },
@@ -73,7 +78,6 @@ export function createMetrics({
       if (!COUNTERS.has(name) || !enabled()) return;
       counters[name] = Math.min((counters[name] || 0) + 1, MAX_COUNT);
     },
-    // One beacon per batch; a lost batch is not retried.
     flush() {
       const batch = counters;
       counters = {};
@@ -88,7 +92,6 @@ export function createMetrics({
   };
 }
 
-// Until the page starts counting, nothing is counted.
 let metrics = { count() {} };
 export const count = (name) => metrics.count(name);
 

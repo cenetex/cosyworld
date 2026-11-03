@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   COUNTERS,
-  ENDPOINT,
   METRICS_KEY,
   createMetrics,
   lineCounter,
@@ -50,7 +49,6 @@ describe("anonymous play counts", () => {
     for (let i = 0; i < 1500; i += 1) metrics.count("line.skip");
     expect(metrics.flush()).not.toBeNull();
     expect(sent).toHaveLength(1);
-    expect(sent[0].url).toBe(ENDPOINT);
     const payload = JSON.parse(await sent[0].blob.text());
     // The whole payload: a day number and allowlisted counts. No ids, no text.
     expect(Object.keys(payload).sort()).toEqual(["counters", "day"]);

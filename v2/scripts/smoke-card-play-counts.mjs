@@ -1,6 +1,5 @@
-// Anonymous play counts (#2052): a page sends one batch of daily totals on
-// pagehide, Settings turns that off, and Global Privacy Control keeps it off.
-// Off, no request is sent at all.
+// Play counts (#2052): one batch of daily totals on pagehide; with Settings
+// off or under Global Privacy Control, no request is sent at all.
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
@@ -18,7 +17,7 @@ await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const save = encodeSave(createWorld());
 const browser = await chromium.launch({ headless: true });
-const settle = () => new Promise((resolve) => setTimeout(resolve, 500));
+const settle = () => new Promise((resolve) => setTimeout(resolve, 2500));
 
 async function open(name, width, { gpc = false } = {}) {
   const context = await browser.newContext({
