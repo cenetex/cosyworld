@@ -394,11 +394,11 @@ try {
     }));
     assert.match(
       ack.words,
-      /^Before our forest, there was land\.\nBefore our story, there were peoples:\nwho named the waters,\n/,
+      /^Before our forest, there was land\.\nBefore our story, there were peoples\nwho named the waters,\n/,
     );
     assert.match(
       ack.words,
-      /with us\.\n\s*Behold this intricately carved wooden box,\nits surface rippling with stories\nolder than you, or I\.\n\s*Open the box/,
+      /with us\.\n\s*Before you sits a carved wooden box,\nits surface rippling with stories\nolder than either of us\.\n\s*Open the box/,
     );
     assert.match(ack.words, /Open the box\. The path is yours\.$/);
     assert.equal(ack.plain, acknowledgement.stanzas.flat().join(""));

@@ -147,8 +147,8 @@ const link = (text, href) => {
 // (`pauses` in acknowledgement.json: the word, which time it appears,
 // counting from 1, and the ms to hold after it and any punctuation touching
 // it, a spaced dash too; the larger breath wins; one long silence falls
-// before "Behold"). Each line is set as
-// written, wrapping under a hanging indent on a narrow screen. About 21
+// before "Before you sits"). Each line is set as
+// written, wrapping under a hanging indent on a narrow screen. About 20
 // seconds; a tap shows the rest, and the cue follows.
 export const STANZA_MS = 650;
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

@@ -1,5 +1,5 @@
 {
-  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card: each stanza a list of lines, shown as written. The title names the panel for screen readers; it is not shown. Pauses hold a breath after a word: which time it appears (from 1), the ms (replacing any shorter punctuation or stanza breath after it and any punctuation touching it) and, for a held word, the card rarity tier (level-tiers.mjs) whose colour it takes on once written, climbing as the poem goes. A pause with no tier is a silence only, like the long hold before Behold. A word's glow rises over glowInMs, holds for glowHoldMs of the reveal, then fades back over glowFadeMs, like a lamp passing; a word that stays keeps it once the text is whole.",
+  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card: each stanza a list of lines, shown as written. The title names the panel for screen readers; it is not shown. Pauses hold a breath after a word: which time it appears (from 1), the ms (replacing any shorter punctuation or stanza breath after it and any punctuation touching it) and, for a held word, the card rarity tier (level-tiers.mjs) whose colour it takes on once written, climbing as the poem goes. A pause with no tier is a silence only, like the long hold before the carved box stanza. A word's glow rises over glowInMs, holds for glowHoldMs of the reveal, then fades back over glowFadeMs, like a lamp passing; a word that stays keeps it once the text is whole.",
   "title": "Before this forest",
   "glowInMs": 350,
   "glowHoldMs": 1500,
@@ -7,27 +7,27 @@
   "stanzas": [
     [
       "Before our forest, there was land.",
-      "Before our story, there were peoples:",
+      "Before our story, there were peoples",
       "who named the waters,",
       "who sang the seasons,",
-      "who cared for these lands —",
+      "who cared for these lands—",
       "and who care for them still."
     ],
     [
       "We honour the keepers",
       "of the lands beneath our homes",
-      "and beneath the machines we built."
+      "and beneath the machines we use."
     ],
     [
-      "We honour, too, the voices, old and living,",
-      "whose stories taught those machines — and us —",
-      "to tell our own."
+      "We honour, too, the voices old and living",
+      "whose stories shaped us",
+      "and echo through our machines."
     ],
     ["Nothing here began with us."],
     [
-      "Behold this intricately carved wooden box,",
+      "Before you sits a carved wooden box,",
       "its surface rippling with stories",
-      "older than you, or I."
+      "older than either of us."
     ],
     ["Open the box. The path is yours."]
   ],
