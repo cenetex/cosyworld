@@ -1931,9 +1931,13 @@ function renderActions() {
     look.onclick = () => showItemView(viewed);
     row.append(look);
   }
-  // A sealed card says why its way is shut in the context button.
+  // A sealed card says why its way is shut in the context button once its
+  // quest is taken; until then Seek the way carries the reason.
   const sealed =
-    !rested && selected.length === 1 && sealedReason(world, selected[0]);
+    !rested &&
+    selected.length === 1 &&
+    !actions.some((a) => a.kind === "gate") &&
+    sealedReason(world, selected[0]);
   if (sealed) {
     const why = node("button", sealed, "card-action");
     why.type = "button";
