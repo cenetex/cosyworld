@@ -719,16 +719,17 @@ Schema 6 saves include location changes, favours and lasting memories. Earlier s
 Every new world on Lonely Forest opens black, then shows the land
 acknowledgement (`title-intro.mjs`, started from `entry.mjs`), silent, while
 the table boots underneath. Its text is data in `acknowledgement.json`: five
-short paragraphs set like a film's opening card, in a narrow measure with
-generous leading, and nothing else. The
+stanzas, each a list of lines, set like a film's opening card with generous
+leading, and nothing else. Each line shows as written; on a narrow phone a long
+line wraps under a hanging indent. The
 text writes in with the dialogue's own reveal (`dialogue.mjs`) at the
 dialogue's pace: a letter every 28 ms behind a gold caret, each letter's ink
 fading in over 60 ms, the same rests after punctuation, and 650 ms between
-paragraphs (`PARAGRAPH_MS`). A few weighty words hold a breath of their own
-(300–350 ms after "land", "peoples", "still", "keepers", "machines",
-"Nothing", "box", "open" and "yours"): `pauses` in `acknowledgement.json`
-names each word, which time it appears and its ms, and the larger of that and
-any punctuation or paragraph breath wins. About 16.5 seconds in all. Every
+stanzas (`STANZA_MS`). Ten weighty words hold a breath of their own
+(300–350 ms after "land", "peoples", "still", "keepers", "living", "us",
+"own", "us", "box" and "yours"): `pauses` in `acknowledgement.json` names each
+word, which time it appears and its `pauseMs`, and the larger of that and
+any punctuation or stanza breath wins. About 18 seconds in all. Every
 letter is laid out from the start, so nothing reflows and screen readers have
 the whole text at once; written whole, it folds back into plain text. Reduced
 motion shows it all at once, and a hidden tab pauses it. A quiet "click to
@@ -1088,7 +1089,22 @@ Music loading starts when playback is ready: after the first accepted play
 (in the attic opening, the pond reveal), with music enabled and the page visible. A place triggers a song when music
 is idle. Each song follows the player through travel until it ends. The current
 place chooses the next song. A quiet place lets the player hear the landscape.
-Mute and hidden tabs pause the same song for a later resume. River Camp chooses
+Mute and hidden tabs pause the same song for a later resume.
+
+Switching tabs or apps on a phone keeps the song's place. A hidden tab pauses
+the room song (after a one-second fade) or the title song (at once) in place.
+Phones also put Web Audio to sleep: Chrome reports `suspended`, iOS Safari
+`interrupted`, which plays the song silently. On `visibilitychange` or
+`pageshow` the player wakes its context (`audio-wake.mjs`) and fades back in
+from the same moment over 0.4 seconds. It resumes only what was playing, with
+music still on; the title song stays quiet once the intro has ended. iOS can
+refuse to wake audio without a gesture, so the next tap or key does it, with
+the same fade and no error. A call or Siri that interrupts audio in view is
+woken the same way. The hum and the bell wake their contexts too.
+`test/card-music.test.mjs` and `test/card-title-song.test.mjs` cover the
+return.
+
+River Camp chooses
 one of four supplied acid jazz songs during the day. An active camp song keeps
 playing through dusk and night. Run `node v2/scripts/smoke-card-music-network.mjs`
 for the throttled request and first-sound checks. `test/card-music.test.mjs`

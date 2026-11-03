@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { startNewGame } from "./card-browser-helpers.mjs";
 import { REVEAL_HINT, TITLES, WAKE_FADE } from "../card-game/title-intro.mjs";
+import acknowledgement from "../card-game/acknowledgement.json" with { type: "json" };
 import {
   cardShown,
   checkTitleMusicAlone,
@@ -329,7 +330,7 @@ try {
       JSON.stringify({ ...early, words: "" }),
     );
     assert.equal(early.cue, "0");
-    assert.match(early.words, /The lid is open\. The path is yours\./);
+    assert.match(early.words, /Open the box\. The path is yours\./);
     await page.waitForSelector("#hand .card");
     assert.equal(await titlePlays(page), 0, "silent before the first tap");
     // The first tap (desktop) or key (phone) shows it whole, the rest
@@ -364,17 +365,40 @@ try {
     assert.equal(await titlePlays(page), 1);
     await heard(page);
     // The acknowledgement is real text, readable, and scrolls in its panel.
+    // Its lines break as written, each one line wide on a desktop and
+    // never wider than the panel on a phone.
     const ack = await page.$eval(".title-ack-text", (text) => ({
       words: text.innerText,
+      plain: text.textContent,
+      lines: [...text.querySelectorAll(".title-ack-line")].map((line) =>
+        Math.round(
+          line.getBoundingClientRect().height /
+            parseFloat(getComputedStyle(line).lineHeight),
+        ),
+      ),
+      overflow: text.scrollWidth - text.clientWidth,
       size: parseFloat(getComputedStyle(text).fontSize),
       bottom: text.closest(".title-ack").getBoundingClientRect().bottom,
       faint: [...text.querySelectorAll("p")].filter(
         (line) => getComputedStyle(line).opacity !== "1",
       ).length,
     }));
-    assert.match(ack.words, /^Before our forest, there was land\./);
-    assert.match(ack.words, /a carved wooden box, with a forest folded inside/);
-    assert.match(ack.words, /The lid is open\. The path is yours\./);
+    assert.match(
+      ack.words,
+      /^Before our forest, there was land\.\nBefore our story, there were peoples;\nwho named the waters,\n/,
+    );
+    assert.match(
+      ack.words,
+      /wooden box,\na forest folded within\.\n\s*Open the box/,
+    );
+    assert.match(ack.words, /Open the box\. The path is yours\.$/);
+    assert.equal(ack.plain, acknowledgement.stanzas.flat().join(""));
+    assert.equal(ack.lines.length, 15);
+    assert.ok(
+      ack.lines.every((rows) => rows >= 1 && rows <= (desktop ? 1 : 2)),
+      JSON.stringify(ack.lines),
+    );
+    assert.ok(ack.overflow <= 0, `${ack.overflow}px wider than the panel`);
     assert.doesNotMatch(ack.words, /Cenetex|RATi|Foundation/u);
     assert.equal(await page.locator(".title-ack a").count(), 0);
     assert.ok(ack.size >= 17 && ack.bottom <= height, JSON.stringify(ack));
@@ -578,13 +602,13 @@ try {
     await skipContext.close();
   }
 
-  // Music off: the same title and card, no song.
-  const off = await newContext(390, 844, { music: false });
+  // Music off, on the narrowest phone: the same title and card, no song.
+  const off = await newContext(375, 667, { music: false });
   const muted = await open(off);
   await muted.goto(`${origin}/?intro=1`);
   await titlePhase(muted);
   await muted.waitForSelector("#hand .card");
-  // Left alone, it is written in about 16 seconds, then the cue shows,
+  // Left alone, it is written in about 18 seconds, then the cue shows,
   // and one key then goes on.
   const begun = Date.now();
   await muted.waitForFunction(
@@ -592,9 +616,10 @@ try {
     null,
     { timeout: 30000 },
   );
-  assert.ok(Date.now() - begun > 13000, `written in ${Date.now() - begun} ms`);
-  await muted.waitForTimeout(1000);
+  assert.ok(Date.now() - begun > 15000, `written in ${Date.now() - begun} ms`);
+  await muted.waitForTimeout(1500);
   assert.ok(whole(await streamState(muted)), "the stream ends on its own");
+  await shot(muted, "ack-375");
   await muted.keyboard.press("Space");
   await cardShown(muted);
   await muted.keyboard.press("Tab");

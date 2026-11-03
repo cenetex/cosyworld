@@ -133,8 +133,7 @@ const element = (tag, className, text) => {
   return node;
 };
 const link = (text, href) => {
-  const anchor = element("a", "", typeof text === "string" ? text : "");
-  if (typeof text !== "string") anchor.append(text);
+  const anchor = element("a", "", text);
   anchor.href = href;
   anchor.target = "_blank";
   anchor.rel = "noopener";
@@ -142,42 +141,60 @@ const link = (text, href) => {
 };
 // The acknowledgement writes in like dialogue, with the same reveal
 // (dialogue.mjs): one steady letter beat, the same rests after punctuation,
-// a longer breath between paragraphs, and a breath after its weighty words
+// a longer breath between stanzas, and a breath after its weighty words
 // (`pauses` in acknowledgement.json: the word, which time it appears,
 // counting from 1, and the ms to hold after it and any punctuation touching
-// it; the larger breath wins). About 16 seconds; a tap shows the rest, and
-// the cue follows.
-export const PARAGRAPH_MS = 650;
+// it, a spaced dash too; the larger breath wins). Each line is set as
+// written, wrapping under a hanging indent on a narrow screen. About 18
+// seconds; a tap shows the rest, and the cue follows.
+export const STANZA_MS = 650;
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-// The ms after each letter of the paragraphs, read as one run.
-export function acknowledgementDelays({ paragraphs, pauses = [] }) {
-  // Where each word pause lands: [paragraph, character offset it ends at].
-  const holds = paragraphs.map(() => new Map());
-  for (const { word, occurrence = 1, ms } of pauses) {
+// Where each pause falls: its line, the word's span in it, and the offset
+// its breath follows.
+export function acknowledgementPauses({ stanzas, pauses = [] }) {
+  const lines = stanzas.flat();
+  return pauses.flatMap(({ word, occurrence = 1, pauseMs }) => {
     const pattern = new RegExp(
-      `(?<![\\p{L}\\p{N}])${escape(word)}(?![\\p{L}\\p{N}])[.,;:!?…—]*`,
+      `(?<![\\p{L}\\p{N}])${escape(word)}(?![\\p{L}\\p{N}])(?:[.,;:!?…—]|\\s—)*`,
       "gu",
     );
     let seen = 0;
-    paragraphs.some(({ text }, p) => {
-      for (const match of text.matchAll(pattern))
-        if (++seen === occurrence) {
-          holds[p].set(match.index + match[0].length, ms);
-          return true;
-        }
-      return false;
-    });
-  }
-  return paragraphs.flatMap(({ text }, p) => {
+    for (const [line, text] of lines.entries())
+      for (const { index, 0: match } of text.matchAll(pattern))
+        if (++seen === occurrence)
+          return [
+            {
+              word,
+              pauseMs,
+              line,
+              start: index,
+              end: index + word.length,
+              hold: index + match.length,
+            },
+          ];
+    return [];
+  });
+}
+// The ms after each letter of the lines, read as one run.
+export function acknowledgementDelays(acknowledgement) {
+  const lines = acknowledgement.stanzas.flat();
+  const holds = lines.map(() => new Map());
+  for (const { line, hold, pauseMs } of acknowledgementPauses(acknowledgement))
+    holds[line].set(hold, pauseMs);
+  const stanzaEnds = new Set();
+  let last = -1;
+  for (const stanza of acknowledgement.stanzas.slice(0, -1))
+    stanzaEnds.add((last += stanza.length));
+  return lines.flatMap((text, line) => {
     let offset = 0;
     const letters = splitLetters(text);
     return letters.map((letter, i) => {
       offset += letter.length;
-      const end = i === letters.length - 1 && p < paragraphs.length - 1;
+      const end = i === letters.length - 1 && stanzaEnds.has(line);
       return Math.max(
         letterDelay(letter),
-        holds[p].get(offset) ?? 0,
-        end ? PARAGRAPH_MS : 0,
+        holds[line].get(offset) ?? 0,
+        end ? STANZA_MS : 0,
       );
     });
   });
@@ -196,18 +213,15 @@ function acknowledgementPanel() {
   text.tabIndex = 0;
   text.setAttribute("role", "region");
   text.setAttribute("aria-label", acknowledgement.title);
-  acknowledgement.paragraphs.forEach(({ text: words, links = {}, note }) => {
-    const paragraph = element("p", note ? "title-ack-note" : "");
-    const phrases = Object.keys(links);
-    const split = phrases.length
-      ? new RegExp(`(${phrases.map(escape).join("|")})`)
-      : null;
-    for (const part of split ? words.split(split) : [words])
-      paragraph.append(
-        links[part] ? link(streamed(part), links[part]) : streamed(part),
-      );
+  for (const stanza of acknowledgement.stanzas) {
+    const paragraph = element("p");
+    for (const words of stanza) {
+      const row = element("span", "title-ack-line");
+      row.append(streamed(words));
+      paragraph.append(row);
+    }
     text.append(paragraph);
-  });
+  }
   // A quiet line, still a real button for focus and Enter or Space.
   const tap = matchMedia("(pointer: coarse)").matches;
   const next = element(
@@ -232,7 +246,7 @@ function acknowledgementPanel() {
   const write = (instant) => {
     if (!instant) panel.dataset.stream = "";
     painter.start(glyphs);
-    const words = acknowledgement.paragraphs.map((p) => p.text).join("");
+    const words = acknowledgement.stanzas.flat().join("");
     reveal.show("acknowledgement", words, null, { instant });
   };
   return { panel, next, reveal, write };
