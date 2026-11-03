@@ -1072,6 +1072,7 @@
     world.presentActors = [...present];
     return world;
   }
+  var heldByHuman = (world, id) => (world.heldActors || world.controlledActors || ["vale"]).includes(id);
   var residentAvatar = (world, id) => sharedEnabled(world) && Boolean(humanAvatar(id)) && !controlledByHuman(world, id) && !world.absent?.includes(id);
   var roomHumanCount = (world, place) => humanAvatarIds.filter(
     (id) => humanPresent(world, id) && world.actors[id]?.place === place
@@ -1730,8 +1731,10 @@
   // v2/card-game/pack-transport.mjs
   var TRANSPORT_VERSION = 3;
   var IDLE_ROUNDS = 3;
+  var VOYAGE = "@voyage";
   var PHASES = ["docked", "course", "sea", "arrived"];
   var shipAt = (place) => Object.entries(transports).find(([, t]) => t.place === place) || null;
+  var transportPlace = (place) => Boolean(shipAt(place));
   var passengers = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([, a]) => a);
   var passengerIds = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([actor]) => actor).sort();
   function lanesFrom(t, dock) {
@@ -1852,6 +1855,16 @@
     }
     return s;
   }
+  function settleEmpty(state, turn) {
+    Object.assign(state, {
+      phase: "docked",
+      dock: state.recall || state.dock,
+      destination: null,
+      riders: [],
+      since: turn,
+      recall: null
+    });
+  }
   var humanAboard = (s, t) => Object.entries(s.actors).some(
     ([who, a]) => a.place === t.place && controlledByHuman(s, who)
   );
@@ -1873,6 +1886,8 @@
     if (!state || !["docked", "arrived"].includes(state.phase)) return false;
     if (!passengers(s, id).length || s.turn - state.since < IDLE_ROUNDS)
       return false;
+    if ((s.standoffs || []).some((c) => c?.location === t.place)) return false;
+    if (openLanes(s, t, state.dock)[0] === t.at) return false;
     const gated = lanesFrom(t, state.dock).filter(
       (to) => laneGate(t, state.dock, to) && entityActive(s, to)
     );
@@ -1888,9 +1903,9 @@
       dock: t.at,
       destination: null,
       riders: [],
-      since: s.turn,
-      recall: null
+      since: s.turn
     });
+    if (state.recall) settleEmpty(state, s.turn);
     return { id, kind: "home", from, dock: t.at, ashore };
   }
   function transportExits(s, place, previous = null, actor = null) {
@@ -2015,7 +2030,7 @@
         return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
       }
       case "holding":
-        return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
+        return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor) && !usedUp(s, c.item);
       // A one-way cosmetic upgrade the traveler carries between worlds (#1873).
       case "upgraded":
         return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));
@@ -2235,6 +2250,7 @@
   var SAVED_STEP_VERBS = ["threaten", "attack"];
   var CONNECT_TARGET = "humans";
   var REFUSAL_LIMIT = 3;
+  var CONTENT_TURNS = 24;
   var QUEST_LIMIT = 3;
   var knownActors = (s) => [
     .../* @__PURE__ */ new Set([
@@ -2257,6 +2273,60 @@
     const a = s.actors[id];
     return a?.want ? [a.want, ...a.under || []] : [];
   };
+  function setQuests(a, list) {
+    a.want = list[0] ?? null;
+    if (a.want) delete a.content;
+    if (list.length > 1) a.under = list.slice(1);
+    else delete a.under;
+  }
+  function questStep(s, actor, api, quest, previous = null) {
+    const home = api.home(actor) || s.actors[actor].place;
+    const away = (entry) => {
+      const [kind2, target2] = entry.split(":");
+      const at = kind2 === "item" ? api.placeOf(target2) : kind2 === "person" ? s.actors[target2].place : target2;
+      const steps = api.distance(home, at, actor);
+      return steps < 0 ? 64 : steps;
+    };
+    const pool = wantCandidates(s, actor, api, previous, true).map((entry) => [away(entry), entry]).sort((x, y) => y[0] - x[0] || (x[1] < y[1] ? -1 : 1)).map(([, entry]) => entry);
+    if (!pool.length) return nextWant(s, actor, api, previous);
+    const far = pool.slice(0, Math.ceil(pool.length / 2));
+    const roll = hash(`${actor}:${s.turn}`);
+    const [kind, target] = far[roll % far.length].split(":");
+    const step = drawStep(s, actor, api, kind, target, quest.level, roll);
+    return { ...newWant(kind, target, s.turn), quest, ...step ? { step } : {} };
+  }
+  function drawStep(s, actor, api, kind, target, level, roll) {
+    const wanting = kind === "item" && knownActors(s).find((id) => {
+      return id !== actor && questsOf(s, id).some(
+        (w) => w.kind === "item" && !w.step && w.target === target
+      );
+    });
+    const going = kind === "person" && s.actors[target]?.want;
+    const verbs = kind === "item" ? wanting ? ["give", "bring", "find"] : ["", "find"] : kind === "person" ? ["", "meet"] : [""];
+    const verb = verbs[Math.floor(roll / 7) % verbs.length];
+    const here = s.actors[actor].place;
+    if (!verb || verb === "find" && placeOfItem(s, target) === here || verb === "meet" && s.actors[target]?.place === here)
+      return null;
+    if (verb === "give") return { verb, to: wanting };
+    if (verb === "bring")
+      return {
+        verb,
+        to: wanting,
+        at: api.home(wanting) || s.actors[wanting].place
+      };
+    if (verb === "meet" && going?.kind === "place" && !going.step)
+      return { verb, at: going.target };
+    return { verb };
+  }
+  var restStep = (s, actor, api, quest) => ({
+    ...newWant(
+      "place",
+      s.actors[actor].sanctuary ?? api.home(actor) ?? s.actors[actor].place,
+      s.turn
+    ),
+    quest,
+    step: { verb: "rest" }
+  });
   var newWant = (kind, target, turn) => ({
     kind,
     target,
@@ -2277,6 +2347,82 @@
       a.visited ??= [a.place];
       a.talked ??= [];
     }
+  }
+  function hash(text2) {
+    let h = 2166136261;
+    for (const c of text2) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+    return h;
+  }
+  function wantCandidates(s, actor, api, previous = null, wide = false) {
+    const a = s.actors[actor];
+    const held = api.carried(actor);
+    const floor = Math.max(
+      1,
+      ...held.length ? [Math.min(...held.map((id) => api.valueOf(actor, id)))] : []
+    );
+    const reach = travels(actor, s) ? api.reachable(actor) : [];
+    const near = /* @__PURE__ */ new Set([a.place, ...reach]);
+    const whole5 = wide && Boolean(api.player?.(actor));
+    const within = (place) => wide || near.has(place);
+    const items2 = Object.keys(s.items).filter((id) => {
+      const owner2 = api.rootHolder(id);
+      const person = Object.hasOwn(s.actors, owner2);
+      return entityActive(s, id) && owner2 !== actor && (person || whole5) && within(person ? s.actors[owner2].place : owner2) && !(person && questsOf(s, owner2).some((w) => w.kind === "item" && w.target === id)) && api.valueOf(actor, id) > floor && (wide || !api.obtainable || api.obtainable(actor, id));
+    });
+    const places2 = whole5 ? api.places().filter((id) => id !== a.place && entityActive(s, id)) : reach.filter((id) => wide || !a.visited.includes(id));
+    const people2 = (whole5 ? Object.keys(s.actors).filter((id) => entityActive(s, id)) : knownActors(s)).filter(
+      (id) => id !== actor && (wide || !a.talked.includes(id)) && within(s.actors[id].place)
+    );
+    return [
+      ...items2.map((target) => ["item", target]),
+      ...places2.map((target) => ["place", target]),
+      ...people2.map((target) => ["person", target])
+    ].filter(
+      ([kind, target]) => (kind !== previous?.kind || target !== previous.target) && !(a.gaveUp?.target === target && s.turn - a.gaveUp.turn < CONTENT_TURNS)
+    ).map(([kind, target]) => `${kind}:${target}`).sort();
+  }
+  function nextWant(s, actor, api, previous = null) {
+    const roll = hash(`${actor}:${s.turn}`);
+    let pool = api.player?.(actor) && roll % 2 ? wantCandidates(s, actor, api, previous, true) : [];
+    if (!pool.length) pool = wantCandidates(s, actor, api, previous);
+    if (!pool.length) {
+      const a = s.actors[actor];
+      a.visited = [a.place];
+      a.talked = [];
+      pool = wantCandidates(s, actor, api, previous);
+    }
+    if (!pool.length) pool = wantCandidates(s, actor, api, previous, true);
+    if (!pool.length) pool = wantCandidates(s, actor, api, null, true);
+    if (!pool.length) return null;
+    const [kind, target] = pool[roll % pool.length].split(":");
+    return newWant(kind, target, s.turn);
+  }
+  var placeOfItem = (s, item) => {
+    const root = rootOf2(s, item);
+    return s.actors[root]?.place ?? root;
+  };
+  function rootOf2(s, id) {
+    let holder = s.items[id].holder;
+    const seen = /* @__PURE__ */ new Set([id]);
+    while (s.items[holder] && !seen.has(holder)) {
+      seen.add(holder);
+      holder = s.items[holder].holder;
+    }
+    return holder;
+  }
+  function giveUp(s, actor, api) {
+    const a = s.actors[actor], want = a.want;
+    a.gaveUp = { target: want.target, turn: s.turn };
+    if (want.step?.verb === "rest") a.want = restStep(s, actor, api, want.quest);
+    else if (want.quest) a.want = questStep(s, actor, api, want.quest, want);
+    else {
+      const aside = { ...want, since: s.turn, refusals: 0 }, rest = questsOf(s, actor).slice(1);
+      const next = rest.length ? null : nextWant(s, actor, api, want);
+      setQuests(a, [...rest, ...next ? [next] : [], aside]);
+    }
+  }
+  function setAsideWant(s, actor, api) {
+    if (s.actors[actor]?.want) giveUp(s, actor, api);
   }
   var STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
   function validStep(s, w) {
@@ -15165,17 +15311,17 @@
           r.places.includes(c.at) && [...r.places, ...r.avatars, ...r.items].includes(c.subject),
           "release choice is unavailable"
         );
-      const reachable = /* @__PURE__ */ new Set([pack.entry]);
-      for (const id of reachable)
+      const reachable2 = /* @__PURE__ */ new Set([pack.entry]);
+      for (const id of reachable2)
         for (const to of [
           ...places2[id].exits,
           ...Object.values(pack.transports || {}).filter((t) => Array.isArray(t.docks) && t.docks.includes(id)).map((t) => t.place),
           ...Object.values(pack.transports || {}).filter((t) => t.place === id).flatMap((t) => t.docks),
           ...routes.filter((r2) => r2.from === id).map((r2) => r2.to)
         ].filter((id2) => r.places.includes(id2)))
-          reachable.add(to);
+          reachable2.add(to);
       check(
-        r.places.every((p) => reachable.has(p) || places2[p]?.retired === true),
+        r.places.every((p) => reachable2.has(p) || places2[p]?.retired === true),
         "release contains a disconnected place"
       );
     }
@@ -15568,7 +15714,7 @@
       humanAvatar(actor)?.name || packPeople[actor]?.name || "An earlier traveler"
     );
   }
-  function rootOf2(world, id) {
+  function rootOf3(world, id) {
     let holder = world.items[id].holder;
     for (let step = 0; step < 32 && holder !== id; step++) {
       if (!world.items[holder]) return holder;
@@ -15584,7 +15730,7 @@
   }
   function entityActive(world, id) {
     if (world.items?.[id]) {
-      let holder = rootOf2(world, id);
+      let holder = rootOf3(world, id);
       if (humanAvatar(holder) && !humanPresent(world, holder) && !residentAvatar(world, holder))
         return false;
       if (holder === BOARDY && !boardyActive(world)) return false;
@@ -16006,6 +16152,42 @@
     for (const entry of world.log) rememberSightings(world, entry, missing);
     for (const id of missing) world.memories[id].seen ??= {};
   }
+  function rememberEvent(world, entry) {
+    const related2 = /* @__PURE__ */ new Set([
+      entry.locationId,
+      entry.fromLocationId,
+      entry.actorId,
+      entry.entityId,
+      entry.itemId,
+      entry.receiveId,
+      entry.targetId,
+      ...entry.witnesses || [],
+      ...entry.cast || [],
+      ...(entry.items || []).map((item) => item.id)
+    ]);
+    for (const id of related2) {
+      if (!profiles[id]) continue;
+      if (profiles[id].kind === "avatar" && world.controlledActors?.includes(id) && !world.presentActors?.includes(id) && entry.actorId !== id)
+        continue;
+      const memory = world.memories[id];
+      rememberSightings(world, entry, [id]);
+      if (memory.events.some((event) => event.seq === entry.seq)) continue;
+      memory.events.push({
+        seq: entry.seq,
+        turn: entry.turn,
+        kind: entry.generated ? "expression" : "event",
+        text: `${entry.speaker}: ${entry.text}`.slice(0, 650)
+      });
+      memory.events = memory.events.slice(-MEMORY_LIMIT);
+      if (entry.consequence || entry.kind === "action" && ["give", "trade", "threaten", "attack", "accompany", "choose"].includes(
+        entry.verb
+      )) {
+        memory.landmarks ??= [];
+        memory.landmarks.push({ ...memory.events.at(-1) });
+        memory.landmarks = memory.landmarks.slice(-6);
+      }
+    }
+  }
   function validInnerLife(life, turn) {
     if (life === void 0 || life === null) return true;
     const text2 = (value, limit) => typeof value === "string" && value.trim().length > 0 && value.length <= limit && !/[\u0000-\u001f\u007f]/u.test(value);
@@ -16301,7 +16483,8 @@
       s.log = s.log.filter((e) => e?.kind !== "quest" && !QUEST_VERBS.includes(e?.verb)).map(({ questPlan, consequence, questKey, ...e }) => e);
     migrateLife(s);
   }
-  function upgradeSave(s, { installPacks: installPacks2, laneText = () => null }) {
+  function upgradeSave(s, { installPacks: installPacks2, laneText = () => null, setAside = () => {
+  } }) {
     if (!s || ![6, 7].includes(s.schema))
       throw new Error("This save needs a fresh start.");
     const beforeItemCycle = !Array.isArray(s.usedUp);
@@ -16386,7 +16569,8 @@
       );
     if (beforeItemCycle) {
       for (const id of Object.keys(transports))
-        if (s.transports?.[id] && stuckShip(s, id)) sendShipHome(s, id);
+        if (s.transports?.[id] && stuckShip(s, id))
+          for (const actor of sendShipHome(s, id).ashore) setAside(s, actor);
     }
     return s;
   }
@@ -17609,6 +17793,7 @@
   var itemPlace2 = (s, id) => s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
   var carried = (s, actor) => ids.filter((id) => rootHolder(s, id) === actor);
   var covered = (s, id) => s.items.cloth.holder === id;
+  var shining = (s) => entityActive(s, "lamp") && s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
   var reflectionsFrom = (s, from) => (forest_default.reflectionRoutes || []).filter(
     (r) => r.from === from && r.requires.every((c) => conditionMet(s, c, null))
   ).map((r) => r.to);
@@ -17752,7 +17937,97 @@
   }
   var REFUSAL_REASONS = ["grudge", "needs-it", "wants-something-else"];
   var REFUSED_VERBS = ["give", "trade", "ask", "accompany"];
+  function reachable(s, actor) {
+    const from = s.actors[actor].place, seen = /* @__PURE__ */ new Set([from]), queue = [from];
+    for (let i = 0; i < queue.length; i++)
+      for (const next of exits(s, queue[i], actor))
+        if (!seen.has(next) && entityActive(s, next)) {
+          seen.add(next);
+          queue.push(next);
+        }
+    return [...seen].filter((id) => id !== from && !transportPlace(id)).sort();
+  }
   var homeOf2 = (id) => tastes[id]?.home || humanAvatar(id)?.home?.id || null;
+  function wantAPI(s) {
+    return {
+      carried: (actor) => carried(s, actor),
+      rootHolder: (item) => rootHolder(s, item),
+      valueOf: (actor, item) => valueOf(s, actor, item),
+      // A resident holding the item directly would give it, or take something
+      // the actor carries in trade. A human holder or a nested item may yet.
+      obtainable: (actor, item) => {
+        const owner2 = s.items[item].holder;
+        return !actorIds.includes(owner2) || controlledByHuman(s, owner2) || willingToGive(s, owner2, item, actor) || carried(s, actor).some(
+          (give) => give !== item && tradeWilling(s, actor, give, item)
+        );
+      },
+      reachable: (actor) => reachable(s, actor),
+      places: () => Object.keys(places),
+      home: homeOf2,
+      sanctuaries,
+      player: (id) => id === currentActor(s) || heldByHuman(s, id),
+      questsBeginAt: forest_default.questsBeginAt,
+      placeOf: (item) => itemPlace2(s, item),
+      distance: (from, to, actor) => from === to ? 0 : (routeBetween(s, from, to, actor)?.length ?? 0) - 1,
+      log: (actor, want) => addLog(
+        s,
+        "World",
+        want.kind === "item" ? `${nameOf(actor)} has the ${nameOf(want.target)} at last.` : want.kind === "place" ? `${nameOf(actor)} reaches ${nameOf(want.target)}.` : want.kind === "connect" ? `${nameOf(actor)} makes an introduction at last.` : `${nameOf(actor)} and ${nameOf(want.target)} talk at last.`,
+        {
+          kind: "narration",
+          actorId: actor,
+          verb: "want_met",
+          wantMet: { kind: want.kind, target: want.target },
+          ...want.kind === "item" ? { itemId: want.target } : {},
+          ...want.kind === "person" ? { targetId: want.target } : {}
+        }
+      )
+    };
+  }
+  function addLog(s, speaker, text2, detail = {}) {
+    const actorId = detail.actorId ?? actorIds.find((id) => nameOf(id) === speaker) ?? null;
+    const locationId = detail.locationId || s.actors[actorId || currentActor(s)].place;
+    if (s.eventSeq === void 0) {
+      s.log.forEach((entry2, index) => {
+        entry2.seq = index + 1;
+      });
+      s.eventSeq = s.log.length;
+    }
+    s.eventSeq += 1;
+    s.log.push({
+      seq: s.eventSeq,
+      turn: s.turn,
+      speaker,
+      text: text2,
+      kind: detail.kind || (speaker === "You" ? "input" : actorId ? "dialogue" : "narration"),
+      actorId,
+      locationId,
+      cast: knownActors2(s).filter(
+        (id) => s.actors[id].place === locationId && (!controlledByHuman(s, id) || humanPresent(s, id))
+      ),
+      items: ids.filter((id) => entityActive(s, id) && itemPlace2(s, id) === locationId).map((id) => {
+        const { history, ...item } = s.items[id];
+        return { id, ...item };
+      }),
+      light: shining(s) && itemPlace2(s, "lamp") === locationId,
+      ...detail
+    });
+    const entry = s.log.at(-1);
+    if (!entry.generated && entry.actorId === currentActor(s) && entry.fromLocationId && entry.fromLocationId !== entry.locationId && (["move", "retreat", "sent-home"].includes(entry.verb) || entry.verb === "accompany" && entry.accepted))
+      s.arrival = {
+        seq: entry.seq,
+        fromLocationId: entry.fromLocationId,
+        locationId: entry.locationId
+      };
+    rememberEvent(s, entry);
+    witnessKnowledge(
+      s,
+      entry,
+      (id) => entityActive(s, id) && (!controlledByHuman(s, id) || humanPresent(s, id)),
+      authoredKnowledgeTopics()
+    );
+    trimLog(s);
+  }
   var authoredKnowledgeTopics = () => packDefinitions.flatMap(
     (pack) => (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id }))
   );
@@ -17786,6 +18061,24 @@
   var LOG_LIMIT = 100;
   var LAMP_FUEL = 12;
   var GENERATED_LOG_LIMIT = 100;
+  function trimLog(s) {
+    const authoritative = () => s.log.filter((entry) => !entry.generated).length;
+    while (authoritative() > LOG_LIMIT) {
+      const last = s.log.findLastIndex((entry) => !entry.generated);
+      const hint = s.log.findIndex(
+        (entry, index) => !entry.generated && index < last && ["input", "hint"].includes(entry.kind)
+      );
+      s.log.splice(
+        hint >= 0 ? hint : s.log.findIndex((entry) => !entry.generated),
+        1
+      );
+    }
+    while (s.log.filter((entry) => entry.generated).length > GENERATED_LOG_LIMIT || s.log[0]?.generated)
+      s.log.splice(
+        s.log.findIndex((entry) => entry.generated),
+        1
+      );
+  }
   var fuelItems = Object.keys(forest_default.things).filter(
     (id) => forest_default.things[id].refuels
   );
@@ -17810,6 +18103,39 @@
   ];
   var SLEEP_TURNS = 24;
   var LONG_SLEEP_TURNS = DAYLIGHT_TURNS / 2;
+  function routeBetween(s, from, target, actor = null) {
+    const reads = planningReadsFor(s);
+    if (!reads) return readRouteBetween(s, from, target, actor);
+    const routes = reads.routes ??= /* @__PURE__ */ new Map();
+    if (!routes.has(actor)) routes.set(actor, /* @__PURE__ */ new Map());
+    const origins = routes.get(actor);
+    if (!origins.has(from)) origins.set(from, /* @__PURE__ */ new Map());
+    const destinations = origins.get(from);
+    if (!destinations.has(target))
+      destinations.set(target, readRouteBetween(s, from, target, actor));
+    return destinations.get(target)?.slice();
+  }
+  function readRouteBetween(s, from, target, actor = null) {
+    const queue = [[from]], visited = /* @__PURE__ */ new Set([from]);
+    while (queue.length) {
+      const route = queue.shift();
+      if (route.at(-1) === target) return route;
+      const here = route.at(-1);
+      const projected = s.actors[actor] && s.actors[actor].place !== here ? {
+        ...s,
+        actors: {
+          ...s.actors,
+          [actor]: { ...s.actors[actor], place: here }
+        }
+      } : s;
+      const previous = route.at(-2) ?? (transportPlace(here) ? VOYAGE : null);
+      for (const next of exits(projected, here, actor, previous))
+        if (!visited.has(next)) {
+          visited.add(next);
+          queue.push([...route, next]);
+        }
+    }
+  }
   function validateWorld(s) {
     const fail = () => {
       throw new Error(
@@ -18030,7 +18356,12 @@
   function decodeSave(text2) {
     const s = JSON.parse(text2);
     try {
-      upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
+      upgradeSave(s, {
+        actorIds,
+        installPacks,
+        laneText: laneFactText,
+        setAside: (world, id) => !controlledByHuman(world, id) && setAsideWant(world, id, wantAPI(world))
+      });
       latchRoutes(s);
       validateWorld(s);
       preserveTransportAccess(s);

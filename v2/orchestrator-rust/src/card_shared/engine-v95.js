@@ -1451,6 +1451,8 @@
     if (!state || !["docked", "arrived"].includes(state.phase)) return false;
     if (!passengers(s, id).length || s.turn - state.since < IDLE_ROUNDS)
       return false;
+    if ((s.standoffs || []).some((c) => c?.location === t.place)) return false;
+    if (openLanes(s, t, state.dock)[0] === t.at) return false;
     const gated = lanesFrom(t, state.dock).filter(
       (to) => laneGate(t, state.dock, to) && entityActive(s, to)
     );
@@ -1466,9 +1468,9 @@
       dock: t.at,
       destination: null,
       riders: [],
-      since: s.turn,
-      recall: null
+      since: s.turn
     });
+    if (state.recall) settleEmpty(state, s.turn);
     return { id, kind: "home", from, dock: t.at, ashore };
   }
   function sailTransports(s) {
@@ -1653,7 +1655,7 @@
         return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
       }
       case "holding":
-        return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
+        return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor) && !usedUp(s, c.item);
       // A one-way cosmetic upgrade the traveler carries between worlds (#1873).
       case "upgraded":
         return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));
@@ -5016,7 +5018,8 @@
       s.log = s.log.filter((e) => e?.kind !== "quest" && !QUEST_VERBS.includes(e?.verb)).map(({ questPlan, consequence, questKey, ...e }) => e);
     migrateLife(s);
   }
-  function upgradeSave(s, { installPacks: installPacks2, laneText = () => null }) {
+  function upgradeSave(s, { installPacks: installPacks2, laneText = () => null, setAside = () => {
+  } }) {
     if (!s || ![6, 7].includes(s.schema))
       throw new Error("This save needs a fresh start.");
     const beforeItemCycle = !Array.isArray(s.usedUp);
@@ -5101,7 +5104,8 @@
       );
     if (beforeItemCycle) {
       for (const id of Object.keys(transports))
-        if (s.transports?.[id] && stuckShip(s, id)) sendShipHome(s, id);
+        if (s.transports?.[id] && stuckShip(s, id))
+          for (const actor of sendShipHome(s, id).ashore) setAside(s, actor);
     }
     return s;
   }
@@ -8377,7 +8381,12 @@
   function decodeSave(text2) {
     const s = JSON.parse(text2);
     try {
-      upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
+      upgradeSave(s, {
+        actorIds,
+        installPacks,
+        laneText: laneFactText,
+        setAside: (world, id) => !controlledByHuman(world, id) && setAsideWant(world, id, wantAPI(world))
+      });
       latchRoutes(s);
       validateWorld(s);
       preserveTransportAccess(s);

@@ -759,7 +759,8 @@ export async function requestNarrative(
     signal,
   });
   if (!response.ok) {
-    // A 429 is never retried: the next request waits out its Retry-After.
+    // A 429 carries its Retry-After: the narrator retries a short one inside
+    // the dialogue grace, and the next request waits out a long one.
     const wait = Number(response.headers.get("retry-after"));
     throw Object.assign(
       new Error(`Story service returned ${response.status}.`),
@@ -857,6 +858,12 @@ async function boundedRequest(request, context, signal, progress, timeout) {
   }
 }
 const RETRY_DELAY = 750;
+// A busy 429 (the server's scene slots are full) is asked again at most
+// twice, after its Retry-After plus jitter, while the play is still inside
+// THINKING_GRACE_MS (presentation.mjs). A later or longer wait ends in "…".
+const BUSY_RETRIES = 2;
+const BUSY_GRACE = 5_000;
+const BUSY_JITTER = 400;
 // The service budgets each scene plus eight seconds for transport and recovery.
 // Leave its whole scene window and one second to deliver the first reply.
 const RETRY_RESERVE = 7_000;
@@ -893,6 +900,7 @@ export function createNarrator({
     globalThis.document?.querySelector('meta[name="cosy-story-budget-ms"]')
       ?.content,
   ) || 30_000,
+  random = Math.random,
 }) {
   let ticket = 0,
     pending = null,
@@ -903,7 +911,9 @@ export function createNarrator({
     controller,
     reflectionController;
   async function write(context, version, signal) {
-    const deadline = Date.now() + Math.max(30_000, Math.min(budget, 1_900_000));
+    const graceEnd = Date.now() + BUSY_GRACE;
+    let deadline = Date.now() + Math.max(30_000, Math.min(budget, 1_900_000));
+    let busy = 0;
     const published = new Map();
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -949,8 +959,12 @@ export function createNarrator({
         const next = applyGeneratedText(getWorld(), context, response, {
           incremental: early,
         });
+        // `code` lets the table count a reply the scene had outgrown.
         if (!next)
-          throw new Error("The story response did not match this scene.");
+          throw Object.assign(
+            new Error("The story response did not match this scene."),
+            { code: "mismatch" },
+          );
         preview(null);
         apply(next, { silent: silentSpeakers(context, response, next) });
         status("ready");
@@ -981,6 +995,21 @@ export function createNarrator({
           holdUntil = Math.max(holdUntil, Date.now() + error.retryAfter);
         if (signal.aborted || version !== ticket) return;
         preview(null);
+        const wait =
+          (error?.retryAfter || 0) + Math.floor(random() * BUSY_JITTER);
+        if (
+          error?.retryAfter !== undefined &&
+          busy < BUSY_RETRIES &&
+          Date.now() + wait <= graceEnd
+        ) {
+          // The server turned the scene away before starting it, so the
+          // pause extends the scene's deadline instead of spending it.
+          busy++;
+          attempt--;
+          deadline += wait;
+          await retryPause(signal, wait);
+          continue;
+        }
         if (
           attempt === 1 ||
           error?.retryable === false ||

@@ -58,7 +58,10 @@ export function forgetQuests(s) {
 // World-owned helpers keep pack installation on the same path as a new game,
 // while this module owns the schema order. Saves before schema 6 come from
 // the first alpha tables and start fresh.
-export function upgradeSave(s, { installPacks, laneText = () => null }) {
+export function upgradeSave(
+  s,
+  { installPacks, laneText = () => null, setAside = () => {} },
+) {
   if (!s || ![6, 7].includes(s.schema))
     throw new Error("This save needs a fresh start.");
   const beforeItemCycle = !Array.isArray(s.usedUp);
@@ -165,7 +168,9 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
   // waiting aboard for a shut cargo lane: it goes home now (rules 95).
   if (beforeItemCycle)
     for (const id of Object.keys(transports))
-      if (s.transports?.[id] && stuckShip(s, id)) sendShipHome(s, id);
+      if (s.transports?.[id] && stuckShip(s, id))
+        // Residents set that pursuit aside, as in play.
+        for (const actor of sendShipHome(s, id).ashore) setAside(s, actor);
   return s;
 }
 

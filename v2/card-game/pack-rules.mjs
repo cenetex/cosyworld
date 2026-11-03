@@ -121,7 +121,10 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
     }
     case "holding":
-      return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
+      return (
+        s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor) &&
+        !usedUp(s, c.item)
+      );
     // A one-way cosmetic upgrade the traveler carries between worlds (#1873).
     case "upgraded":
       return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));

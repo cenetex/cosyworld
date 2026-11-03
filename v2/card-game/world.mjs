@@ -3410,7 +3410,14 @@ export function encodeSave(s) {
 export function decodeSave(text) {
   const s = JSON.parse(text);
   try {
-    upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
+    upgradeSave(s, {
+      actorIds,
+      installPacks,
+      laneText: laneFactText,
+      setAside: (world, id) =>
+        !controlledByHuman(world, id) &&
+        setAsideWant(world, id, wantAPI(world)),
+    });
     // An earlier save records the gates already open as it loads.
     latchRoutes(s);
     validateWorld(s);

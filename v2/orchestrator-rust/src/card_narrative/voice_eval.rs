@@ -463,9 +463,9 @@ async fn each_voice_call_counts_its_attempts_reasons_and_tokens() {
         post(move |Json(body): Json<Value>| {
             let attempt = count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             async move {
-                // The first reply copies the play; the second is fresh speech.
+                // The first reply speaks as an assistant; the second is speech.
                 let text = if attempt == 0 {
-                    "Vale asks Pip what they want."
+                    "As an AI, I keep the lamp."
                 } else {
                     "I keep the lamp close and listen."
                 };
@@ -503,7 +503,7 @@ async fn each_voice_call_counts_its_attempts_reasons_and_tokens() {
     grew(&["calls"], 1);
     grew(&["attempts"], 2);
     grew(&["outcomes", "spoken"], 1);
-    grew(&["rejections", "repeat"], 1);
+    grew(&["rejections", "assistant"], 1);
     assert!(after["prompt_tokens"]["max"].as_u64().unwrap() > 0);
     // Counters carry labels and numbers, never prompt or reply text.
     assert!(!after.to_string().contains("lamp"));

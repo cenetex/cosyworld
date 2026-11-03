@@ -2,15 +2,33 @@
 //! knows (#1850): no dialogue tags, narrators, or invented items.
 use super::*;
 
-/// A closing quote after `,`, `!` or `?` and then a speaker tag:
-/// `first," she called` or `back," I say`.
+/// Verbs that tag a quotation with its speaker.
+const SAID: &str = "say says said ask asks asked call calls called tell tells told reply replies \
+    replied answer answers answered whisper whispers whispered murmur murmurs murmured \
+    mutter mutters muttered shout shouts shouted add adds added cry cries cried sigh \
+    sighs sighed continue continues continued";
+
+/// A closing quote after `,`, `!` or `?`, then a speaker and a speech verb:
+/// `first," she called`, `back," I say`, `"Stay," says Pip`. A quotation
+/// inside speech (`"Keep it lit," my mother told me`) is not a tag.
 pub(super) fn dialogue_tag(text: &str) -> bool {
     text.match_indices(['"', '\u{201d}']).any(|(at, quote)| {
+        let words: Vec<_> = text[at + quote.len()..]
+            .split_whitespace()
+            .take(2)
+            .map(|w| w.trim_end_matches(|c: char| !c.is_alphanumeric()))
+            .collect();
+        let said = |i: usize| {
+            words
+                .get(i)
+                .is_some_and(|w| SAID.split(' ').any(|said| said.eq_ignore_ascii_case(w)))
+        };
+        let speaker = words.first().is_some_and(|w| {
+            ["I", "he", "she", "they", "we"].contains(w) || w.starts_with(char::is_uppercase)
+        });
         text[..at].ends_with([',', '!', '?'])
-            && text[at + quote.len()..]
-                .strip_prefix(' ')
-                .and_then(|rest| rest.chars().next())
-                .is_some_and(|c| c.is_lowercase() || c == 'I')
+            && text[at + quote.len()..].starts_with(' ')
+            && ((speaker && said(1)) || said(0))
     })
 }
 
