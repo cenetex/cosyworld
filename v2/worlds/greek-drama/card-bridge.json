@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "shore-greek-drama",
   "pack": "greek-drama",
-  "description": "A shared ship sails authored lanes: from Black Pond only to the Wine-Dark Harbor, from there to Piraeus Quays, around the cape to Marathon Bay, and on the east sea to the Trojan camp landing and the Far Shores. The lamp signal calls it to the pond.",
+  "description": "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays and the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard, and every way back toward Black Pond is free. The lamp signal calls it to the pond.",
   "crossings": [
     {
       "id": "pond-greek-harbor",
@@ -43,9 +43,9 @@
       },
       "requires": [],
       "scenery": {
-        "open": "A ship waits on the black water.",
+        "open": "The Charybdis waits on the black water.",
         "overlay": "assets/greek-drama/pond-ship-overlay.png",
-        "cardName": "Greek ship",
+        "cardName": "The Charybdis",
         "cardArt": "assets/greek-drama/ship-card.webp"
       },
       "transport": "greek-ship"
@@ -60,9 +60,9 @@
       "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
-        "open": "The ship waits against the stone landing.",
+        "open": "The Charybdis waits against the stone landing.",
         "backdrop": "assets/greek-drama/harbor-ship-at-berth.webp",
-        "cardName": "Greek ship",
+        "cardName": "The Charybdis",
         "cardArt": "assets/greek-drama/ship-card.webp"
       }
     },
@@ -93,8 +93,8 @@
       "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Greek ship waits beside the quay.",
-        "cardName": "Greek ship",
+        "open": "The Charybdis waits beside the quay.",
+        "cardName": "The Charybdis",
         "cardArt": "assets/greek-drama/ship-card.webp",
         "backdrop": "assets/greek-drama/open-door-piraeus.webp"
       }
@@ -112,7 +112,6 @@
           "value": true
         }
       ],
-      "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
         "open": "The Greek ship waits at the camp landing.",
@@ -120,8 +119,12 @@
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp",
         "backdrop": "assets/greek-drama/ajax-landing-ship-at-berth.webp",
-        "focus": { "x": 80, "y": 50 }
-      }
+        "focus": {
+          "x": 80,
+          "y": 50
+        }
+      },
+      "retired": true
     },
     {
       "id": "hoppycat-signal-jetty-ship",
@@ -133,12 +136,15 @@
       "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
-        "open": "The Greek ship waits at the end of the jetty.",
-        "closed": "The shared ship is sailing elsewhere. The jetty points out over open water.",
-        "cardName": "Greek ship",
+        "open": "The Charybdis waits at the end of the jetty.",
+        "closed": "The Charybdis is sailing elsewhere. The jetty points out over open water.",
+        "cardName": "The Charybdis",
         "cardArt": "assets/greek-drama/ship-card.webp",
         "backdrop": "assets/greek-drama/hoppycat-signal-jetty-ship-at-berth.webp",
-        "focus": { "x": 90, "y": 50 }
+        "focus": {
+          "x": 90,
+          "y": 50
+        }
       }
     },
     {
@@ -148,14 +154,14 @@
       "travelers": "any",
       "travel": "aboard the ship",
       "requires": [],
-      "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
         "open": "The Greek ship waits offshore.",
         "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
-      }
+      },
+      "retired": true
     },
     {
       "id": "greek-lemnos-ship",
@@ -164,14 +170,14 @@
       "travelers": "any",
       "travel": "aboard the ship",
       "requires": [],
-      "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
         "open": "The Greek ship waits offshore.",
         "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
-      }
+      },
+      "retired": true
     },
     {
       "id": "greek-thrace-ship",
@@ -180,14 +186,14 @@
       "travelers": "any",
       "travel": "aboard the ship",
       "requires": [],
-      "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
         "open": "The Greek ship waits offshore.",
         "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
-      }
+      },
+      "retired": true
     },
     {
       "id": "greek-egypt-tomb-ship",
@@ -196,14 +202,14 @@
       "travelers": "any",
       "travel": "aboard the ship",
       "requires": [],
-      "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
         "open": "The Greek ship waits offshore.",
         "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
-      }
+      },
+      "retired": true
     },
     {
       "id": "greek-tauris-ship",
@@ -212,14 +218,14 @@
       "travelers": "any",
       "travel": "aboard the ship",
       "requires": [],
-      "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
         "open": "The Greek ship waits offshore.",
         "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
-      }
+      },
+      "retired": true
     },
     {
       "id": "greek-sicily-ship",
@@ -228,14 +234,14 @@
       "travelers": "any",
       "travel": "aboard the ship",
       "requires": [],
-      "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
         "open": "The Greek ship waits offshore.",
         "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
-      }
+      },
+      "retired": true
     }
   ],
   "transports": {
@@ -245,14 +251,7 @@
         "pond",
         "greek-harbor",
         "greek-piraeus",
-        "greek-ajax-landing",
-        "hoppycat-signal-jetty",
-        "greek-marathon",
-        "greek-lemnos",
-        "greek-thrace",
-        "greek-egypt-tomb",
-        "greek-tauris",
-        "greek-sicily"
+        "hoppycat-signal-jetty"
       ],
       "lanes": [
         {
@@ -265,9 +264,19 @@
           "oneWay": true,
           "opensWith": [
             {
-              "kind": "item_present",
-              "item": "greek-provisions",
-              "place": "greek-ship"
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "item_present",
+                  "item": "greek-provisions",
+                  "place": "greek-ship"
+                },
+                {
+                  "kind": "pack_item_present",
+                  "pack": "hoppycat-archive",
+                  "place": "greek-ship"
+                }
+              ]
             }
           ],
           "spends": true
@@ -279,94 +288,30 @@
         },
         {
           "from": "greek-piraeus",
-          "to": "greek-marathon",
+          "to": "hoppycat-signal-jetty",
           "oneWay": true,
           "opensWith": [
             {
-              "kind": "item_present",
-              "item": "greek-provisions",
-              "place": "greek-ship"
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "item_present",
+                  "item": "greek-provisions",
+                  "place": "greek-ship"
+                },
+                {
+                  "kind": "pack_item_present",
+                  "pack": "hoppycat-archive",
+                  "place": "greek-ship"
+                }
+              ]
             }
           ]
         },
         {
-          "from": "greek-marathon",
+          "from": "hoppycat-signal-jetty",
           "to": "greek-piraeus",
           "oneWay": true
-        },
-        {
-          "from": "greek-marathon",
-          "to": "greek-ajax-landing",
-          "oneWay": true,
-          "opensWith": [
-            {
-              "kind": "item_present",
-              "item": "greek-provisions",
-              "place": "greek-ship"
-            }
-          ]
-        },
-        {
-          "from": "greek-ajax-landing",
-          "to": "greek-marathon",
-          "oneWay": true
-        },
-        {
-          "from": "greek-marathon",
-          "to": "greek-lemnos",
-          "oneWay": true,
-          "opensWith": [
-            {
-              "kind": "item_present",
-              "item": "greek-provisions",
-              "place": "greek-ship"
-            }
-          ]
-        },
-        {
-          "from": "greek-lemnos",
-          "to": "greek-marathon",
-          "oneWay": true
-        },
-        {
-          "from": "greek-marathon",
-          "to": "greek-sicily",
-          "oneWay": true,
-          "opensWith": [
-            {
-              "kind": "item_present",
-              "item": "greek-provisions",
-              "place": "greek-ship"
-            }
-          ]
-        },
-        {
-          "from": "greek-sicily",
-          "to": "greek-marathon",
-          "oneWay": true
-        },
-        {
-          "from": "greek-lemnos",
-          "to": "greek-thrace"
-        },
-        {
-          "from": "greek-lemnos",
-          "to": "greek-egypt-tomb"
-        },
-        {
-          "from": "greek-thrace",
-          "to": "greek-tauris"
-        },
-        {
-          "from": "greek-piraeus",
-          "to": "hoppycat-signal-jetty",
-          "opensWith": [
-            {
-              "kind": "pack_item_present",
-              "pack": "hoppycat-archive",
-              "place": "greek-ship"
-            }
-          ]
         }
       ],
       "at": "greek-harbor",

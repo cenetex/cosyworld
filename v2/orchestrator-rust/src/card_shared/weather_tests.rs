@@ -238,7 +238,8 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
     // boards and sails by the Wine-Dark Harbor to Piraeus, opened by the
     // provisions aboard, a round at sea each, and steps ashore beside it.
     // Athens Harbor has joined Piraeus. Vale waits in the Agora, away from
-    // any port, so the ship stays at Piraeus and Mara walks the road to her.
+    // any port, so the ship stays at Piraeus. The Long Walls wait for the
+    // herald's truce, so Mara stays at the quays (rules 94).
     let plays = [
         ("mara", "wait", None),
         ("mara", "move", Some("greek-ship")),
@@ -248,8 +249,6 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         ("mara", "wait", None),
         ("mara", "move", Some("greek-piraeus")),
         ("vale", "wait", None),
-        ("mara", "move", Some("greek-road-athens-piraeus")),
-        ("mara", "move", Some("greek-athens")),
     ];
     for (step, (actor, kind, target)) in plays.into_iter().enumerate() {
         let action = world.project(usize::from(actor == "mara")).unwrap()["actions"]
@@ -291,7 +290,10 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
             );
         }
         if step == plays.len() - 1 {
-            assert_eq!(views[1]["background"], views[0]["background"]);
+            assert!(!world.project(1).unwrap()["exits"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("greek-road-athens-piraeus")));
         }
     }
     let views = [

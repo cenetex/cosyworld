@@ -30,6 +30,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { darkMist, isNight } from "../v2/card-game/daylight.mjs";
 import { locationWeather } from "../v2/card-game/weather.mjs";
 import { cardChoices, availableCards } from "../v2/card-game/cards.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 
 const pack = packDefinitions.find((p) => p.id === "willows");
 const find = (world, fields) =>
@@ -65,7 +66,10 @@ const take = (world, item) =>
 // Wait out the saved world clock until night and mist beside the ship's rail.
 // The jump skips the rounds between, so the ship counts its idle rounds from
 // here (a resident aboard would otherwise sail it off on the next round).
-function mist(world) {
+// The mist opens only with cargo aboard the Charybdis (rules 94): a packed
+// load of Travel Provisions rides along.
+function mist(world, cargo = true) {
+  if (cargo) stowProvisions(world, "greek-ship");
   while (!darkMist(world)) world.turn += 1;
   world.revision = Math.max(world.revision, world.turn);
   world.transports["greek-ship"].since = world.turn;
@@ -269,6 +273,11 @@ describe("The Willows", () => {
     expect(locationWeather(mistyDay, "greek-ship").condition).toBe("mist");
     expect(isNight(mistyDay)).toBe(false);
     expect(deck(mistyDay)).not.toContain("willows-landing");
+    // The dark mist alone opens nothing: the Willows is a Charybdis leg
+    // beyond the free one, so it needs the Travel Provisions or something
+    // from Hoppy Cat aboard.
+    const empty = mist(at(0), false);
+    expect(deck(empty)).not.toContain("willows-landing");
     const night = mist(at(0));
     expect(night.turn).toBe(24);
     expect(deck(night)).toContain("willows-landing");

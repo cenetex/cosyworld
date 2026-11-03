@@ -217,52 +217,15 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         world.game["packs"]["greek-drama"]["receipts"]["greek-ajax-record-appeal"],
         signed
     );
+    // Home from the landing by the Northern Road, outside the City Gate:
+    // the Charybdis never calls at Troy (rules 94).
     for target in [
         "greek-ajax-landing",
-        "greek-ship",
+        "greek-road-north",
         "greek-harbor",
         "greek-road-thebes",
         "greek-courtyard",
     ] {
-        if target == "greek-ship" {
-            for _ in 0..32 {
-                if action(&world, 1, &[("kind", "move"), ("target", target)]).is_some() {
-                    break;
-                }
-                play(&c, &id, &mut world, 1, &[("kind", "wait")]);
-            }
-        }
-        if target == "greek-harbor" {
-            // Home from the landing by Marathon Bay and Piraeus: a course
-            // card, then a round at sea, for each lane. A course card is
-            // only a lane Mara knows, which may be the lane back, so take
-            // only the next lane homeward; otherwise wait, and an idle ship
-            // sails its port's first lane by itself.
-            for _ in 0..24 {
-                if action(&world, 1, &[("kind", "move"), ("target", target)]).is_some() {
-                    break;
-                }
-                let homeward = match world.game["transports"]["greek-ship"]["dock"].as_str() {
-                    Some("greek-ajax-landing") => Some("greek-marathon"),
-                    Some("greek-marathon") => Some("greek-piraeus"),
-                    Some("greek-piraeus") => Some(target),
-                    _ => None,
-                };
-                let next = homeward.filter(|to| {
-                    action(&world, 1, &[("kind", "course"), ("target", to)]).is_some()
-                });
-                match next {
-                    Some(to) => play(
-                        &c,
-                        &id,
-                        &mut world,
-                        1,
-                        &[("kind", "course"), ("target", to)],
-                    ),
-                    None => play(&c, &id, &mut world, 1, &[("kind", "wait")]),
-                };
-            }
-        }
         play(
             &c,
             &id,
@@ -359,6 +322,8 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
             "greek-road-athens-eleusis",
             "greek-road-thebes",
             "greek-road-sacred-way",
+            // A rumour since rules 94, but still a road where it stands.
+            "greek-road-north",
         ];
         let along = |from: &str, to: &str| -> Option<&str> {
             let mut pair = [from, to];
@@ -556,9 +521,12 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
 }
 
 // Rules 21 delivered the shield without a spoken step. A world that did so
-// keeps its completed story through the rules 22 upgrade and a journal rebuild.
+// kept its completed story through the rules 22 upgrade. Rules 94 makes
+// Marathon and Troy rumours: in a world of this release their steps, and the
+// full return that needed Marathon, are forgotten. The upgrade replays from
+// the journal.
 #[test]
-fn ajax_shield_delivered_under_rules_twenty_one_stays_complete_after_upgrade() {
+fn ajax_shield_delivered_under_rules_twenty_one_is_forgotten_with_the_rumours() {
     // Saved by the released rules 21 code (main at 1348ab52), so this world
     // is exactly what a rules 21 player could have had. It took the exposure
     // branch at Thebes: a refusal save that went on to Athens starts fresh
@@ -612,8 +580,18 @@ fn ajax_shield_delivered_under_rules_twenty_one_stays_complete_after_upgrade() {
     ] {
         receipts.as_object_mut().unwrap().remove(retired).unwrap();
     }
+    assert!(receipts.get("greek-ajax-deliver-shield").is_some());
+    receipts.as_object_mut().unwrap().retain(|id, _| {
+        !id.starts_with("greek-ajax-")
+            && !id.starts_with("greek-open-door-marathon-")
+            && id != "greek-open-door-return-dione"
+    });
     assert_eq!(current.game["packs"]["greek-drama"]["receipts"], receipts);
-    // The delivered shield stays a receipt; story quest records are dropped.
+    assert_eq!(
+        current.game["items"]["greek-ajax-shield"]["holder"],
+        "greek-greek-camp"
+    );
+    // Story quest records are dropped.
     assert!(current.game.get("quests").is_none());
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), current);

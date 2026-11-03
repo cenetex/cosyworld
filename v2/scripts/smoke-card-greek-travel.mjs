@@ -6,7 +6,6 @@ import { encodeSave, legalActions } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 import { openDoorAction, openSeas } from "../../test/helpers/open-door.mjs";
-import { ajaxCamp } from "../../test/helpers/greek-ajax.mjs";
 import { selectCard, wordsFellSilent } from "./card-browser-helpers.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 
@@ -31,9 +30,7 @@ try {
       : {}),
   });
   // Mara walks the Long Walls to Piraeus and back, the Sacred Way to the
-  // countryside and back, then the ship takes her home from Piraeus. She
-  // walks the Coast Road to Piraeus and back, which the herald's truce opens
-  // from the harbor (#2049).
+  // countryside and back, then the ship takes her home from Piraeus.
   const athens = [
     "greek-road-athens-piraeus",
     "greek-piraeus",
@@ -49,45 +46,80 @@ try {
     "greek-piraeus",
     "greek-ship",
     "greek-harbor",
-    "greek-road-coast",
-    "greek-piraeus",
-    "greek-road-coast",
-    "greek-harbor",
     "greek-road-thebes",
     "greek-courtyard",
   ];
-  // In Ajax's story Mara walks home from the Trojan landing by the Northern
-  // Road, which comes down at the Hillside Sanctuary inside Thebes, and back
-  // once the guard has opened the City Gate (#2049).
-  const north = [
-    "greek-road-north",
-    "greek-sanctuary",
-    "greek-palace",
-    "greek-courtyard",
-    "greek-palace",
-    "greek-sanctuary",
-    "greek-road-north",
-    "greek-ajax-landing",
+  // The land route from Piraeus (#2049, rules 94): the Long Walls, the
+  // Agora, the Sacred Way, Eleusis and Cithaeron to the battlefield outside
+  // the Theban City Gate.
+  const land = [
+    "greek-road-athens-piraeus",
+    "greek-athens",
+    "greek-road-athens-eleusis",
+    "greek-eleusis",
+    "greek-cithaeron",
+    "greek-battlefield",
   ];
+  // While the gate is shut Mara walks back to Piraeus; once the guard has
+  // opened it she walks on through Thebes to the Wine-Dark Harbor.
+  const back = [...land].reverse().slice(1).concat("greek-piraeus");
+  const home = [
+    ...land,
+    "greek-gate",
+    "greek-courtyard",
+    "greek-road-thebes",
+    "greek-harbor",
+  ];
+  // With the gate shut and no cargo aboard, the Charybdis still sails Mara
+  // home from Piraeus: every way back toward Black Pond is free (rules 94).
+  const free = ["greek-ship", "greek-harbor", "greek-ship", "pond"];
+  // The Black Pond route with the Travel Provisions aboard: out to Piraeus
+  // and the Hoppy Cat jetty, then back.
+  const charybdis = [
+    "greek-ship",
+    "greek-piraeus",
+    "greek-ship",
+    "hoppycat-signal-jetty",
+    "greek-ship",
+    "greek-piraeus",
+  ];
+  // The Open Door fixture opened the City Gate with the decree; this one
+  // shuts it again, as after an exposure the gate never opened.
+  const gateShut = () => {
+    const world = openSeas();
+    world.items["greek-decree"].holder = "greek-palace";
+    world.openedRoutes = world.openedRoutes.filter(
+      (key) => key !== "greek-gate>greek-battlefield",
+    );
+    return world;
+  };
+  const gateOpen = () => {
+    const world = openSeas();
+    world.openedRoutes = [
+      ...new Set([...world.openedRoutes, "greek-gate>greek-battlefield"]),
+    ].sort();
+    return world;
+  };
   const journeys = [
     // After the plea, the petition and the Suppliant's Olive Branch rest in
-    // the Agora, so the Sacred Way and the Long Walls stand open.
+    // the Agora, so the Sacred Way and the Long Walls stand open from both
+    // ends. Thebes ended in exposure.
     { name: "athens", start: "greek-athens", route: athens, make: openSeas },
     {
-      name: "north",
-      start: "greek-ajax-landing",
-      route: north,
-      make: () => {
-        const world = ajaxCamp();
-        world.openedRoutes = [
-          ...new Set([
-            ...(world.openedRoutes || []),
-            "greek-gate>greek-battlefield",
-            "greek-sanctuary>greek-road-north",
-          ]),
-        ].sort();
-        return world;
-      },
+      name: "land",
+      start: "greek-piraeus",
+      route: [...land, ...back, ...free],
+      make: gateShut,
+      shut: true,
+      cargo: false,
+    },
+    { name: "home", start: "greek-piraeus", route: home, make: gateOpen },
+    {
+      name: "charybdis",
+      start: "greek-harbor",
+      route: charybdis,
+      make: openSeas,
+      hoppy: true,
     },
   ];
   for (const width of [1440, 390])
@@ -101,15 +133,19 @@ try {
       fixture.presentActors = ["mara"];
       fixture.actors.mara.place = journey.start;
       // Black Pond sails only to the Wine-Dark Harbor. The Travel Provisions
-      // on deck open the lane between Piraeus and the Wine-Dark Harbor, and
-      // each voyage out uses a load up: this journey starts with one Myrto
-      // packed (rules 95).
-      if (journey.name === "athens") {
-        fixture.usedUp = fixture.usedUp.filter(
-          (id) => id !== "greek-provisions",
-        );
-        fixture.items["greek-provisions"].holder = "greek-ship";
-      }
+      // on deck open the lane between Piraeus and the Wine-Dark Harbor.
+      if (
+        journey.make === openSeas &&
+        fixture.items["greek-provisions"].holder !== "greek-ship"
+      )
+        throw new Error("The opening fixture keeps the provisions aboard.");
+      // The free leg home carries no cargo: the provisions stay ashore.
+      if (journey.cargo === false)
+        fixture.items["greek-provisions"].holder = "greek-athens";
+      // The voyage to Piraeus uses the provisions up (rules 95); a Hoppy
+      // Cat thing aboard carries the ship on to the jetty.
+      if (journey.hoppy)
+        fixture.items["hoppycat-halfway-cup"].holder = "greek-ship";
       const page = await browser.newPage({
         viewport: { width, height: width === 390 ? 844 : 900 },
         reducedMotion: "reduce",
@@ -219,20 +255,34 @@ try {
         });
       }
       let branchSeen = false,
-        coastSeen = false;
+        shutSeen = false;
       for (const target of journey.route) {
         await step("move", target);
-        // At Piraeus the Coast Road card leads home to the Wine-Dark Harbor.
-        if (target === "greek-piraeus" && !coastSeen) {
-          coastSeen = true;
-          await selectCard(page, "greek-road-coast", { touch: width === 390 });
-          const card = page.locator('#hand [data-card="greek-road-coast"]');
-          assert.match(await card.innerText(), /Road to The Wine-Dark Harbor/u);
+        // The retired Coast Road never leads from Piraeus.
+        if (target === "greek-piraeus")
+          assert.equal(
+            await page.locator('#hand [data-card="greek-road-coast"]').count(),
+            0,
+          );
+        // Without the decree the City Gate keeps Thebes shut to the land
+        // route: the battlefield offers no way in.
+        if (journey.shut && target === "greek-battlefield" && !shutSeen) {
+          shutSeen = true;
+          const here = await state();
+          assert.ok(
+            !legalActions(here, "mara").some(
+              (a) => a.kind === "move" && a.target === "greek-gate",
+            ),
+          );
+          assert.equal(
+            await page.locator('#hand [data-card="greek-gate"]').count(),
+            0,
+          );
           await page.screenshot({
-            path: new URL(`piraeus-coast-road-${width}.png`, output).pathname,
+            path: new URL(`battlefield-gate-shut-${width}.png`, output)
+              .pathname,
             fullPage: true,
           });
-          await page.keyboard.press("Escape");
         }
         // The olive branch rests in the Agora, where it opens the Long Walls.
         if (target === "greek-athens" && !branchSeen) {
@@ -257,6 +307,26 @@ try {
           });
           await page.keyboard.press("Escape");
         }
+        // The Charybdis at each port of its route, and on deck.
+        if (
+          ["land", "charybdis"].includes(journey.name) &&
+          [
+            "greek-ship",
+            "greek-harbor",
+            "greek-piraeus",
+            "hoppycat-signal-jetty",
+            "pond",
+          ].includes(target)
+        ) {
+          const at = (await state()).transports["greek-ship"].dock;
+          await page.screenshot({
+            path: new URL(
+              `${journey.name}-${target}-${at}-${width}.png`,
+              output,
+            ).pathname,
+            fullPage: true,
+          });
+        }
         const road = packDefinition("greek-drama").places[target]?.road;
         // A road's two ends stack behind it and fan out in road order.
         if (road) {
@@ -271,6 +341,12 @@ try {
               ["mara", road[0], target, road[1]],
             );
           assert.deepEqual(visibleOrder, ["mara", target, road[0], road[1]]);
+          await page.screenshot({
+            path: new URL(`road-${journey.name}-${target}-${width}.png`, output)
+              .pathname,
+            fullPage: true,
+          });
+          await page.keyboard.press("Escape");
         }
         if (
           [

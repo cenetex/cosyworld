@@ -68,11 +68,7 @@ const TOWNS = {
     "greek-ajax-household",
     "greek-ajax-grave",
   ],
-  // The Far Shores are one-place ship stops on the east sea.
-  lemnos: ["greek-lemnos"],
-  thrace: ["greek-thrace"],
-  tauris: ["greek-tauris"],
-  sicily: ["greek-sicily"],
+  // The Far Shores retired into Piraeus (rules 94): only rumours now.
   "hoppy-cat-archive": [
     "hoppycat-signal-jetty",
     "hoppycat-halfway-tea-garden",

@@ -48,6 +48,7 @@ const RETIRED = [
   "greek-susa",
   "greek-scythian-crag",
 ];
+// Rules 94 retires them into Piraeus: no ship calls there now.
 const FAR_SHORES = [
   "greek-lemnos",
   "greek-thrace",
@@ -64,9 +65,12 @@ const CUT = [
 
 describe("purposeful Greek roads", () => {
   it("joins distant towns by one road, never a direct link", () => {
+    // A retired place's one exit names the place that took it in.
     for (const [a, b] of CUT) {
-      expect(places[a].exits, `${a} -> ${b}`).not.toContain(b);
-      expect(places[b].exits, `${b} -> ${a}`).not.toContain(a);
+      if (!places[a].retired)
+        expect(places[a].exits, `${a} -> ${b}`).not.toContain(b);
+      if (!places[b].retired)
+        expect(places[b].exits, `${b} -> ${a}`).not.toContain(a);
     }
     const town = towns();
     for (const [road, a, b] of ROADS) {
@@ -86,7 +90,7 @@ describe("purposeful Greek roads", () => {
       expect(between, `${a} and ${b} share one road`).toEqual([road]);
     }
     for (const id of RETIRED) expect(places[id].retired, id).toBe(true);
-    for (const id of FAR_SHORES) expect(places[id].exits, id).toEqual([]);
+    for (const id of FAR_SHORES) expect(places[id].retired, id).toBe(true);
     expect(town["greek-pherae"]).toBe(town["greek-trachis"]);
     expect(town["greek-thetis"]).toBe(town["greek-trachis"]);
     expect(town["greek-aulis"]).toBe(town["greek-gate"]);
@@ -133,7 +137,10 @@ describe("purposeful Greek roads", () => {
       expect(exits(w, b, "vale")).toContain(road);
       expect(exits(w, road, "vale")).toEqual(expect.arrayContaining([a, b]));
     }
-    for (const id of FAR_SHORES) expect(exits(w, id, "vale"), id).toEqual([]);
+    for (const id of FAR_SHORES) {
+      expect(places[id].retired, id).toBe(true);
+      expect(places[id].exits, id).toEqual(["greek-piraeus"]);
+    }
   });
 });
 
@@ -189,27 +196,17 @@ describe("purposeful road save upgrade", () => {
     expect(after.log).toEqual(before.log);
   });
 
-  it("keeps a way home from Sicily and Tauris by the east sea", () => {
+  it("brings travelers home from Sicily and Tauris to Piraeus", () => {
     const before = releasedWorld();
     before.actors.vale.place = "greek-sicily";
     before.actors.mara.place = "greek-tauris";
     before.actors.ash.place = "greek-scythian-crag";
     const after = decodeSave(JSON.stringify(before));
-    // The Far Shores are ship stops; the ship always sails home to Marathon.
-    expect(after.actors.vale.place).toBe("greek-sicily");
-    expect(exits(after, "greek-sicily", "vale")).toEqual([]);
-    const home = (from, to) =>
-      pack.transports["greek-ship"].lanes.some(
-        (l) =>
-          !l.opensWith &&
-          ((l.from === from && l.to === to) ||
-            (!l.oneWay && l.from === to && l.to === from)),
-      );
-    expect(home("greek-sicily", "greek-marathon")).toBe(true);
-    expect(home("greek-tauris", "greek-thrace")).toBe(true);
-    expect(home("greek-thrace", "greek-lemnos")).toBe(true);
-    expect(home("greek-lemnos", "greek-marathon")).toBe(true);
-    expect(home("greek-ajax-landing", "greek-marathon")).toBe(true);
+    // The Far Shores are rumours now (rules 94): no ship calls there, so
+    // they retire into Piraeus, the Charybdis's last port before them.
+    expect(after.actors.vale.place).toBe("greek-piraeus");
+    expect(after.actors.mara.place).toBe("greek-piraeus");
+    expect(pack.transports["greek-ship"].docks).not.toContain("greek-sicily");
     // The crag folds into the temple it stood above.
     expect(after.actors.ash.place).not.toBe("greek-scythian-crag");
   });

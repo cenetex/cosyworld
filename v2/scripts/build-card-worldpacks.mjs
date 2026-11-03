@@ -70,6 +70,7 @@ for (const pack of packs) {
       pack,
       table.hub,
       packs.flatMap((p) => Object.keys(p.places)),
+      packs.flatMap((p) => Object.keys(p.items || {})),
     ),
   );
   for (const id of [

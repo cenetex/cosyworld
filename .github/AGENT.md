@@ -76,7 +76,8 @@ Then run every row that matches the change:
 `fast-check.yml` runs on every pull request and every push to main, in about
 five minutes (eight at most). It runs the change budget, version alignment,
 the engine-gate warning, eslint, a prettier warning on changed files,
-`docs:check`, `npm test`, the boot smoke (`smoke-card-boot`, a cold start and
+`docs:check`, `npm test`, `cargo fmt --check` for the Rust orchestrator (no
+build; run `cargo fmt` in `v2/orchestrator-rust` when it fails), the boot smoke (`smoke-card-boot`, a cold start and
 every early notice path), and two or three browser smokes chosen by changed
 paths (`scripts/fast-smokes.json`; a changed smoke script runs itself). Each
 smoke serves the static card game; smokes that start the Rust server run only

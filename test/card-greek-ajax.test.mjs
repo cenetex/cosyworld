@@ -327,44 +327,15 @@ describe("shared Ajax testimony", () => {
     }
     expect(knowsFact(world, "mara", "greek-ajax-account-public")).toBe(true);
     expect(ajaxState(world).receipts["greek-ajax-record-public"]).toBe(receipt);
+    // Home from the landing by the Northern Road, outside the City Gate.
     for (const target of [
       "greek-ajax-landing",
-      "greek-ship",
+      "greek-road-north",
       "greek-harbor",
       "greek-road-thebes",
       "greek-courtyard",
-    ]) {
-      if (target === "greek-ship") {
-        for (
-          let i = 0;
-          i < 32 &&
-          !request("view", "mara").actions.some(
-            (a) => a.kind === "move" && a.target === target,
-          );
-          i++
-        )
-          act("mara", "wait");
-      }
-      // Home from the landing: by Marathon Bay and Piraeus, one lane at a
-      // time, each a course card and a round at sea.
-      for (
-        let i = 0;
-        i < 24 &&
-        target === "greek-harbor" &&
-        !request("view", "mara").actions.some(
-          (a) => a.kind === "move" && a.target === target,
-        );
-        i++
-      ) {
-        const lane = courseToward(world, "greek-ship", target, "mara");
-        const course = request("view", "mara").actions.some(
-          (a) => a.kind === "course" && a.target === lane,
-        );
-        if (course) act("mara", "course", { target: lane });
-        else act("mara", "wait");
-      }
+    ])
       act("mara", "move", { target });
-    }
     act("mara", "choose", { choiceId: "greek-ajax-return-public" });
     expect(world.items["greek-ajax-plea"].holder).toBe("greek-courtyard");
     expect(ajaxState(world).receipts["greek-ajax-return-public"]).toBe(

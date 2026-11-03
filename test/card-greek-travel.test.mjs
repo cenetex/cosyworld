@@ -73,13 +73,12 @@ function shared(dock, seas = false, ajax = false) {
   // The Travel Provisions ride on deck, which opens the Wine-Dark Harbor's
   // lane to Piraeus.
   stowProvisions(world, "greek-ship");
-  // The Northern Road leaves Thebes once the guard has opened the City Gate.
+  // The guard has opened the City Gate, so the land route enters Thebes.
   if (ajax)
     world.openedRoutes = [
       ...new Set([
         ...(world.openedRoutes || []),
         "greek-gate>greek-battlefield",
-        "greek-sanctuary>greek-road-north",
       ]),
     ].sort();
   return world;
@@ -130,15 +129,13 @@ describe("Greek ports and fixed roads", () => {
       w = move(w, "mara", "greek-ship");
       // Course cards are the boarding port's lanes, never the port itself.
       // By day the Willows mist does not rise beside the rail.
-      expect(ask(w, "vale").exits).toEqual([
-        // The Signal Jetty waits for a Hoppy Cat thing aboard; the
-        // provisions on deck open the Wine-Dark Harbor to Piraeus lane.
-        ...lanesFrom(transports["greek-ship"], from).filter(
-          (d) =>
-            entityActive(w, d) &&
-            (!laneGated(from, d) || d !== "hoppycat-signal-jetty"),
+      // The provisions on deck open every leg beyond the harbor, on to
+      // Piraeus and the Signal Jetty (rules 94).
+      expect(ask(w, "vale").exits).toEqual(
+        lanesFrom(transports["greek-ship"], from).filter((d) =>
+          entityActive(w, d),
         ),
-      ]);
+      );
       const path = lanePath(w, "greek-ship", from, to);
       for (const lane of path.slice(1)) {
         const stale = ask(w, "mara").actions.find(
@@ -178,11 +175,9 @@ describe("Greek ports and fixed roads", () => {
     // Athens Harbor has joined Piraeus, whose Long Walls lead to the city.
     expect(entityActive(after, "greek-athens-harbor")).toBe(false);
     expect(entityActive(after, "greek-road-athens-piraeus")).toBe(true);
-    // The Coast Road walks back to the harbor (#2049).
-    expect(exits(after, "greek-piraeus", "vale")).toEqual([
-      "greek-road-athens-piraeus",
-      "greek-road-coast",
-    ]);
+    // The Coast Road retired (#2049). Until the herald's truce opens the
+    // Long Walls, Piraeus has no road: the ship home is free.
+    expect(exits(after, "greek-piraeus", "vale")).toEqual([]);
     expect(exits(after, "greek-harbor", "vale")).toContain("greek-road-thebes");
     expect(exits(after, "greek-harbor", "vale")).not.toContain(
       "greek-courtyard",

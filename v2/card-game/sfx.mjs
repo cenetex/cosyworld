@@ -1,3 +1,5 @@
+import { wakeContext } from "./audio-wake.mjs";
+
 // World sound effects made in the browser: today a struck bell. They follow
 // the music switch and volume, wait for a user gesture, and keep their own
 // gain. Later effects (doors, card reveals) can add a voice beside the bell.
@@ -65,7 +67,7 @@ export function createSfx({
 
   function bell(seed = 1, { near = true } = {}) {
     if (!audible() || !build()) return false;
-    if (context.state === "suspended") context.resume?.().catch?.(() => {});
+    void wakeContext(context);
     const now = context.currentTime;
     // One ring at a time: a second strike waits until the first has faded.
     if (now < ringingUntil) return false;
@@ -115,8 +117,7 @@ export function createSfx({
     // Browsers allow audio only after a gesture.
     unlock() {
       unlocked = true;
-      if (enabled && build() && context.state === "suspended")
-        context.resume?.().catch?.(() => {});
+      if (enabled && build()) void wakeContext(context);
     },
   };
 }

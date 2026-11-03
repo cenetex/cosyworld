@@ -4,16 +4,14 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 import { backdrop, stageOf, travelCard } from "../v2/card-game/scene.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
-import { ajaxStart, ajaxMove, ajaxChoice } from "./helpers/greek-ajax.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 
 const ship = "greek-ship", signal = "pond-greek-harbor";
 const players = ["vale", "mara", "ash"];
 const reload = (world) => decodeSave(encodeSave(world));
-const invited = () => ajaxChoice(ajaxMove(ajaxStart(), "greek-harbor"), "invitation");
+// The Charybdis no longer calls at the Trojan landing (rules 94), so the
+// Hoppy Cat jetty is its one painted berth beyond Piraeus.
 const berths = [
-  { place: "greek-ajax-landing", origin: "greek-marathon", focus: 80,
-    painting: "ajax-landing-ship-at-berth", empty: "greek-drama/ajax-camp", daylight: true },
   { place: "hoppycat-signal-jetty", origin: "greek-piraeus", focus: 90,
     painting: "hoppycat-signal-jetty-ship-at-berth", empty: "hoppycat-archive/hoppycat-signal-jetty", daylight: false },
 ];
@@ -29,7 +27,7 @@ function act(world, actor, kind, target) {
   return reload(result.world);
 }
 function setup(berth, night) {
-  const local = berth.daylight ? invited() : createWorld({ packScopes: { "greek-drama": "full" } });
+  const local = createWorld({ packScopes: { "greek-drama": "full" } });
   const world = dispatchShared({ op: "create", save: encodeSave(local) }).world;
   world.turn = world.revision = Math.ceil(world.turn / (2 * DAYLIGHT_TURNS)) * 2 * DAYLIGHT_TURNS + (night ? DAYLIGHT_TURNS : 0);
   for (const actor of Object.values(world.actors))
@@ -52,7 +50,7 @@ function checkShore(world, berth, night, docked) {
   // The stage shows the ship at its berth; the ship's card shows where it
   // goes, the deck lit for the hour.
   expect(travelCard(shore, ship)).toEqual(docked ? {
-    name: "Greek ship", art: `./assets/greek-drama/ship-deck${night ? "-night" : ""}.webp`,
+    name: "The Charybdis", art: `./assets/greek-drama/ship-deck${night ? "-night" : ""}.webp`,
   } : null);
   expect(stageOf(shore, berth.place).focus).toEqual({ x: berth.focus, y: 50 });
 }
@@ -83,7 +81,7 @@ describe("painted ship berths", () => {
       check(false);
     },
   );
-  it("keeps the painted berth behind the signal and Trojan invitation", () => {
+  it("keeps the painted berth behind the signal", () => {
     for (const berth of berths) {
       const world = setup(berth, false);
       summonTransport(world, ship, berth.place);

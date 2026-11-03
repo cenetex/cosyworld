@@ -75,11 +75,12 @@ describe("the Signal Jetty lane", () => {
     const lanes = (dock) =>
       ship.lanes.filter((l) => l.from === dock || l.to === dock);
     expect(ship.docks).toContain(JETTY);
-    // Piraeus: the harbor and Marathon, each one way out and one back, and
-    // the jetty.
-    expect(lanes("greek-piraeus")).toHaveLength(5);
+    // Piraeus: the harbor and the jetty, each one way out and one back. The
+    // way back toward Black Pond is free (rules 94).
+    expect(lanes("greek-piraeus")).toHaveLength(4);
     expect(lanes(JETTY)).toEqual([
       expect.objectContaining({ from: "greek-piraeus", to: JETTY }),
+      { from: JETTY, to: "greek-piraeus", oneWay: true },
     ]);
   });
 
@@ -135,7 +136,6 @@ describe("the Signal Jetty lane", () => {
     let s = setup("greek-piraeus");
     learnLane(s, "vale", "greek-piraeus", "greek-harbor");
     learnLane(s, "vale", "greek-piraeus", "greek-athens-harbor");
-    learnLane(s, "vale", "greek-piraeus", "greek-marathon");
     s.actors["greek-shipmaster"].place = "greek-piraeus";
     s = reload(s);
     const talk = ask(s, "vale").actions.find(
@@ -147,7 +147,7 @@ describe("the Signal Jetty lane", () => {
     const disclosure = narrativeContext(result.state, talk).disclosures?.[0];
     expect(disclosure?.factId).toBe(`lane:greek-piraeus>${JETTY}`);
     expect(disclosure.text).toBe(
-      "Ships for Signal Jetty leave from Piraeus Quays only with something from there aboard.",
+      "Ships for Signal Jetty leave from Piraeus Quays only with Travel Provisions or something from Hoppy Cat aboard.",
     );
     const world = result.state;
     world.log.push({
@@ -250,10 +250,11 @@ describe("gate data", () => {
   };
   it("accepts the authored gate and rejects malformed ones", () => {
     expect(problems(() => {})).toBe("");
-    const lane = (g) => g.transports["greek-ship"].lanes.at(-1);
-    expect(problems((g) => (lane(g).opensWith[0].pack = "Not A Pack"))).toMatch(
-      /condition/,
-    );
+    const lane = (g) =>
+      g.transports["greek-ship"].lanes.find((l) => l.to === JETTY);
+    expect(
+      problems((g) => (lane(g).opensWith[0].conditions[1].pack = "Not A Pack")),
+    ).toMatch(/condition/);
     expect(problems((g) => (lane(g).opensWith = []))).toMatch(/opensWith/);
     expect(problems((g, h) => (h.crossings[0].retired = false))).toMatch(
       /only known fields/,

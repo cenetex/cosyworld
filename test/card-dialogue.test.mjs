@@ -38,6 +38,20 @@ describe("paced conversation", () => {
     expect(vi.getTimerCount()).toBe(0);
     expect(sound.mock.calls.map((call) => call[1]).join("")).toBe("HPp");
   });
+  it("takes a line's own rests, letter by letter", () => {
+    const { reveal, last } = player({
+      delay: (letter, i) => (i === 1 ? 600 : 28),
+    });
+    reveal.show("a", "Oh. No", "vale");
+    vi.advanceTimersByTime(56);
+    expect(last().shown).toBe(2);
+    vi.advanceTimersByTime(599);
+    expect(last().shown).toBe(2);
+    vi.advanceTimersByTime(1);
+    expect(last().shown).toBe(3);
+    reveal.finish();
+    expect(last()).toMatchObject({ shown: 6, complete: true });
+  });
   it("keeps combined letters and emoji whole", () => {
     const letters = splitLetters("e\u0301 👩🏽‍🚀 🌙");
     expect(letters).toEqual(["e\u0301", " ", "👩🏽‍🚀", " ", "🌙"]);
@@ -130,6 +144,11 @@ describe("paced conversation", () => {
     expect(frame.mock.lastCall[0].shown).toBe(2);
     tick(600);
     expect(frame.mock.lastCall[0].shown).toBe(3);
+    // After a stall it catches up at no more than twice the beat.
+    tick(610);
+    expect(frame.mock.lastCall[0].shown).toBe(3);
+    tick(614);
+    expect(frame.mock.lastCall[0].shown).toBe(4);
     expect(sound).toHaveBeenCalledTimes(2);
     reveal.finish();
     expect(cancelFrame).toHaveBeenLastCalledWith(1);

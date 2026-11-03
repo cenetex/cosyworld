@@ -157,6 +157,13 @@ try {
         subtree: true,
         childList: true,
       });
+      // The caption's width at each beat.
+      const caption = document.querySelector("#combat-caption");
+      window.captionWidths = [];
+      new MutationObserver(() => {
+        if (!caption.hidden)
+          window.captionWidths.push(caption.getBoundingClientRect().width);
+      }).observe(caption, { childList: true, attributeFilter: ["hidden"] });
       // Who stands in the front row at each step of the exchange.
       window.battleRows = [];
       new MutationObserver(() => {
@@ -504,6 +511,12 @@ try {
     assert.equal(
       await page.locator("#combat-caption:not([hidden])").count(),
       0,
+    );
+    // Its box kept one width through every beat, whatever the words.
+    const widths = await page.evaluate(() => window.captionWidths);
+    assert.ok(
+      widths.length >= 2 && Math.max(...widths) - Math.min(...widths) < 1,
+      `The caption keeps its width ${widths}`,
     );
     // One voice answers the defeat.
     await page.waitForFunction(() => Boolean(window.document.body));
