@@ -78,10 +78,18 @@ export function worldLogo({ href, storage, fresh = false }) {
   return LOGOS[index];
 }
 
+// The logo the toolbar shows for a world's logo. A wide artwork whose
+// lettering is too small at toolbar height names a wordmark (`toolbar`, an
+// index into LOGOS) to stand in for it there.
+export function toolbarLogo(logo) {
+  return (Number.isInteger(logo?.toolbar) && LOGOS[logo.toolbar]) || logo;
+}
+
 // The toolbar wordmark becomes the world's logo, a plain image named by its
 // alt text.
-export function showToolbarLogo(logo, root = document) {
+export function showToolbarLogo(chosen, root = document) {
   const mark = root.querySelector(".brand strong");
+  const logo = toolbarLogo(chosen);
   if (!mark || !logo) return;
   let image = mark.querySelector("img.brand-logo");
   if (!image) {

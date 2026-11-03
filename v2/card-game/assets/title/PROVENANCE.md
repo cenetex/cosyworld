@@ -28,7 +28,9 @@ cropping or resizing. No generation IDs were available for these images.
 
 The alternatives append to `title-logos.json`; the original entries stay at
 indices 0 and 1 so saved logo choices remain stable. The catalogue supplies
-the title, matching toolbar logo and public asset list. Existing music, Wake,
+the title, toolbar logo and public asset list. At toolbar height the wide
+artworks' lettering is too small to read, so each names the first wordmark
+(`"toolbar": 0`) to stand in for it there. Existing music, Wake,
 skip, reduced-motion and new-world behavior are unchanged.
 
 After adding source artwork, run `npm run v2:card:images:build`, then

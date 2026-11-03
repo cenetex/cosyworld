@@ -19,21 +19,24 @@
       "name": "Lonely Forest — Hearth and Oak",
       "width": 1672,
       "height": 941,
-      "background": "dark"
+      "background": "dark",
+      "toolbar": 0
     },
     {
       "src": "assets/title/lonely-forest-listening-wood.webp",
       "name": "Lonely Forest — The Listening Wood",
       "width": 1672,
       "height": 941,
-      "background": "dark"
+      "background": "dark",
+      "toolbar": 0
     },
     {
       "src": "assets/title/lonely-forest-black-pond.webp",
       "name": "Lonely Forest — The Black Pond",
       "width": 1672,
       "height": 941,
-      "background": "dark"
+      "background": "dark",
+      "toolbar": 0
     }
   ]
 }
