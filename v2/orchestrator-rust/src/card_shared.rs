@@ -37,11 +37,11 @@ mod opening_tests;
 #[cfg(test)]
 mod quest_core_tests;
 #[cfg(test)]
+mod road_upgrade_tests;
+#[cfg(test)]
 mod saved_items;
 #[cfg(test)]
 mod sea_steps;
-#[cfg(test)]
-mod road_upgrade_tests;
 #[cfg(test)]
 mod section_tests;
 #[cfg(test)]
