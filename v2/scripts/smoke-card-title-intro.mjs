@@ -206,8 +206,12 @@ try {
         new Promise((resolve) => {
           const times = [],
             text = document.querySelector(".title-ack-text");
-          let softest = 0;
+          // A stalled frame lets the clock catch up a few letters; the
+          // soft count is the steady beat's, so it skips the catch-up.
           const start = performance.now();
+          let softest = 0,
+            last = start,
+            calm = start;
           new MutationObserver((changes) => {
             for (const { target } of changes)
               if (target.matches(".revealed:not([data-at])")) {
@@ -215,11 +219,13 @@ try {
                 times.push([target.textContent, performance.now()]);
               }
           }).observe(text, { subtree: true, attributeFilter: ["class"] });
-          const tick = () => {
-            softest = Math.max(softest, window.softLetters(8));
+          const tick = (now = performance.now()) => {
+            if (now - last > 50) calm = now + 150;
+            if (now > calm) softest = Math.max(softest, window.softLetters(8));
+            last = now;
             if (times.length >= 80 || performance.now() - start > 8000)
               resolve({ times, softest });
-            else requestAnimationFrame(tick);
+            else requestAnimationFrame(() => tick());
           };
           tick();
         }),
