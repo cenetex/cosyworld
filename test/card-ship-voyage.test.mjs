@@ -295,7 +295,8 @@ describe("residents at sea", () => {
     expect(courses(s, "vale")).toEqual(["pond"]);
     s.actors.vale.place = "greek-harbor";
     s = reload(s);
-    expect(courses(s, "moth")).toEqual(["pond"]);
+    // Alone aboard, a resident's course needs no cargo (rules 96).
+    expect(courses(s, "moth")).toEqual(["pond", "greek-piraeus"]);
     // Pip, alone aboard and bound for the pond, sets the course himself.
     let world = ask(s, "vale").world;
     world.actors.moth.place = "greek-ship";

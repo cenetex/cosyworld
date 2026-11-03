@@ -1808,10 +1808,10 @@
     return gate ? empty || conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
   });
   function laneReach(s, id, from, actor = null) {
-    const t = transports[id];
+    const t = transports[id], free = residentVoyage(s, t, actor);
     const seen = /* @__PURE__ */ new Set([from]), queue = [from];
     for (let i = 0; i < queue.length; i++)
-      for (const next of openLanes(s, t, queue[i], actor))
+      for (const next of openLanes(s, t, queue[i], actor, free))
         if (!seen.has(next)) {
           seen.add(next);
           queue.push(next);
@@ -1868,6 +1868,7 @@
   var humanAboard = (s, t) => Object.entries(s.actors).some(
     ([who, a]) => a.place === t.place && controlledByHuman(s, who)
   );
+  var residentVoyage = (s, t, actor) => Boolean(actor) && s.actors[actor]?.place === t.place && !controlledByHuman(s, actor) && !humanAboard(s, t);
   function canDisembark(s, id, actor) {
     const state = read(s, id);
     return Boolean(
@@ -1879,7 +1880,7 @@
     if (!["docked", "arrived"].includes(state.phase)) return [];
     if (actor && s.actors[actor]?.place !== t.place) return [];
     if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
-    return openLanes(s, t, state.dock, actor);
+    return openLanes(s, t, state.dock, actor, residentVoyage(s, t, actor));
   }
   function stuckShip(s, id) {
     const t = transports[id], state = read(s, id);
