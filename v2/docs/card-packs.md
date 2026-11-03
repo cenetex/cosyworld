@@ -50,8 +50,11 @@ schema still accepts them so older pack files load.
 
 `{ "kind": "item_present", "item": "cloth", "place": "attic" }` checks an
 item's physical place. It follows custody through covered items and their
-carrier. Hub and pack items can use this crossing condition. An item on the
-floor and an item held by someone in that room satisfy the same condition.
+carrier. Hub and pack items can use this crossing condition, and a pack may
+name a thing of another mounted pack (rules 94): the Willows mist beside the
+Charybdis's rail names the Greek `greek-provisions` aboard `greek-ship`. An
+item on the floor and an item held by someone in that room satisfy the same
+condition.
 
 `{ "kind": "tag_held", "tag": "scarf", "place": "attic" }` holds while someone
 in the place carries an active pack thing whose `tags` list names that tag,
@@ -155,6 +158,13 @@ refuses one the content no longer authors. Retire the place with
 `retired: true` instead of deleting it, and add a pack revision upgrade that
 calls `foldRetiredRoads` and drops gates that no longer latch (as
 `upgradeGreekLandRouteSave` did for the Coast Road in rules 94).
+Withdrawing a region from the release (a rumour, as Marathon and Troy became
+in rules 94) is a third: the pack check needs its choices out of the
+release list too, and a world of the release refuses withheld residents or
+things that moved and receipts of withheld choices. The upgrade brings
+visitors back, sends the region's own people and things home unmet, and
+`reconcilePackProgress` forgets the withheld steps and what followed from
+them; old full-scope worlds keep the region.
 `test/card-content-repack.test.mjs` loads a world saved on main's content
 under the branch's rules and content, so the fast check fails such a change
 before it merges.
@@ -363,10 +373,17 @@ Signal Jetty is Hoppy Cat's, with one lane from Piraeus Quays.
 
 Course cards show only lanes the person knows. A lane can instead list
 `opensWith` conditions: such a gated lane is open, both ways, only while they
-hold, for everyone aboard, and knowing it opens nothing. The Piraeus–Signal
-Jetty lane opens with `pack_item_present` while a Hoppy Cat thing is aboard.
-Myrto knows every lane; through Talk she tells a gated lane together with its
-condition. A retired crossing closes in every loaded save, including one that
+hold, for everyone aboard, and knowing it opens nothing. Cargo is checked
+aboard, never used up. The Greek ship is the Charybdis, on the Black Pond
+route (rules 94): Black Pond and the Wine-Dark Harbor both ways with no
+cargo; harbor to Piraeus and Piraeus to the Signal Jetty one way, each with
+one `any` of `item_present` (the Travel Provisions) and `pack_item_present`
+(a Hoppy Cat thing) aboard; and a free one-way lane back for each. A ship
+route should give every dock a free lane toward home, so a traveler ashore
+there is never stranded: `test/card-ship-port-roads.test.mjs` searches every
+walk, carry and free lane from every dock. Myrto knows every lane; through
+Talk she tells a gated lane together with its condition, an `any` as its
+choices ("Travel Provisions or something from Hoppy Cat"). A retired crossing closes in every loaded save, including one that
 had already found it (shared rules 63), and anyone who had been in Hoppy Cat
 learns the jetty lane as knowledge. In a new game every Hoppy Cat thing starts inside Hoppy Cat, so the
 jetty waits for things scattered into other worlds.
