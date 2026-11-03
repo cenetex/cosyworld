@@ -592,6 +592,11 @@ function giveUp(s, actor, api) {
     setQuests(a, [...rest, ...(next ? [next] : []), aside]);
   }
 }
+// A resident put ashore by a stuck ship sets its pursuit aside at once, as a
+// stalled want is, so it does not board again for the same shut lane.
+export function setAsideWant(s, actor, api) {
+  if (s.actors[actor]?.want) giveUp(s, actor, api);
+}
 // A cast want with no way forward for a long spell is set aside. A resident
 // that keeps to its scene acts only when someone is there, so time spent
 // unseen is not a stall: its want can stall only after it has tried and been

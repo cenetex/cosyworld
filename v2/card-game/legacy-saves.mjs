@@ -23,6 +23,8 @@ import {
   laneOfEdge,
   learnLane,
   passengers,
+  sendShipHome,
+  stuckShip,
   upgradeTransportState,
 } from "./pack-transport.mjs";
 import { installKnowledge } from "./knowledge.mjs";
@@ -59,6 +61,7 @@ export function forgetQuests(s) {
 export function upgradeSave(s, { installPacks, laneText = () => null }) {
   if (!s || ![6, 7].includes(s.schema))
     throw new Error("This save needs a fresh start.");
+  const beforeItemCycle = !Array.isArray(s.usedUp);
   // Packs saved at an earlier revision follow their reworked story below.
   const reworked = new Set(
     packDefinitions
@@ -158,6 +161,11 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
         (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id })),
       ),
     );
+  // A save from before rules 95 may hold a ship already stuck, its riders
+  // waiting aboard for a shut cargo lane: it goes home now (rules 95).
+  if (beforeItemCycle)
+    for (const id of Object.keys(transports))
+      if (s.transports?.[id] && stuckShip(s, id)) sendShipHome(s, id);
   return s;
 }
 

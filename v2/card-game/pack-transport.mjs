@@ -387,8 +387,49 @@ export function moveTransport(s, from, to) {
   }
 }
 
-// End of a world round: a set course casts off, a ship at sea arrives, and a
-// ship left idle with passengers sails its first lane.
+// A ship out of cargo with nobody able to sail on goes home (rules 95). It
+// is stuck when it lies at a dock with someone aboard, idle for IDLE_ROUNDS
+// (nobody set a course), and every cargo lane from that dock is shut. Its
+// home port is the dock it starts at (`at`).
+export function stuckShip(s, id) {
+  const t = transports[id],
+    state = read(s, id);
+  if (!state || !["docked", "arrived"].includes(state.phase)) return false;
+  if (!passengers(s, id).length || s.turn - state.since < IDLE_ROUNDS)
+    return false;
+  const gated = lanesFrom(t, state.dock).filter(
+    (to) => laneGate(t, state.dock, to) && entityActive(s, to),
+  );
+  return (
+    gated.length > 0 &&
+    !gated.some((to) =>
+      conditionsMet(s, t.packId, laneGate(t, state.dock, to)),
+    ) &&
+    entityActive(s, t.at)
+  );
+}
+// The stuck ship puts in at its home port and everyone aboard goes ashore
+// there; things aboard stay aboard. Empty, it answers the next call.
+export function sendShipHome(s, id) {
+  const t = transports[id],
+    state = own(s, id),
+    from = state.dock,
+    ashore = passengerIds(s, id);
+  for (const actor of ashore) s.actors[actor].place = t.at;
+  Object.assign(state, {
+    phase: "docked",
+    dock: t.at,
+    destination: null,
+    riders: [],
+    since: s.turn,
+    recall: null,
+  });
+  return { id, kind: "home", from, dock: t.at, ashore };
+}
+
+// End of a world round: a set course casts off, a ship at sea arrives, a
+// stuck ship goes home, and a ship left idle with passengers sails its first
+// lane.
 export function sailTransports(s) {
   const events = [];
   for (const [id, t] of Object.entries(transports)) {
@@ -426,7 +467,8 @@ export function sailTransports(s) {
           to: state.destination,
         });
       }
-    } else if (aboard.length && s.turn - state.since >= IDLE_ROUNDS) {
+    } else if (stuckShip(s, id)) events.push(sendShipHome(s, id));
+    else if (aboard.length && s.turn - state.since >= IDLE_ROUNDS) {
       const lane = openLanes(s, t, state.dock)[0];
       if (!lane) continue;
       Object.assign(state, {

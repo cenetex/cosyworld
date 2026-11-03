@@ -78,6 +78,7 @@ import {
   meetsItemWant,
   refuseWant,
   reviseStalledWants,
+  setAsideWant,
   fillWants,
   renewWant,
   validWant,
@@ -2839,9 +2840,15 @@ export function play(
       "World",
       voyage.kind === "arrive"
         ? `${nameOf(ship)} docks at ${nameOf(voyage.dock)}.`
-        : `${nameOf(ship)} ${voyage.idle ? "sails on its own" : "casts off"} for ${nameOf(voyage.to)}.`,
-      { locationId: ship },
+        : voyage.kind === "home"
+          ? `With no cargo to sail on, ${nameOf(ship)} puts in at ${nameOf(voyage.dock)}, and everyone aboard goes ashore.`
+          : `${nameOf(ship)} ${voyage.idle ? "sails on its own" : "casts off"} for ${nameOf(voyage.to)}.`,
+      { locationId: voyage.kind === "home" ? voyage.dock : ship },
     );
+    // Residents put ashore set that pursuit aside.
+    if (voyage.kind === "home")
+      for (const id of voyage.ashore)
+        if (!controlledByHuman(next, id)) setAsideWant(next, id, wantAPI(next));
   }
   const worldLine = (text, locationId) =>
     addLog(next, "World", text, { kind: "narration", locationId });
