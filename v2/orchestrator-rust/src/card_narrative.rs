@@ -3,7 +3,7 @@ use crate::ai_gateway::{request_chat_completion, AiConfig, ChatCompletionRequest
 use crate::rate_limit::{RateLimit, RateLimiter};
 use crate::routes::signed_envelope::Envelope;
 use axum::{
-    extract::{ConnectInfo, DefaultBodyLimit, State},
+    extract::{rejection::JsonRejection, ConnectInfo, DefaultBodyLimit, State},
     http::{HeaderMap, StatusCode},
     response::{sse::Event, IntoResponse, Response, Sse},
     routing::post,
@@ -63,6 +63,8 @@ mod untrusted;
 mod voice_eval;
 #[path = "card_narrative/voice_metrics.rs"]
 pub(crate) mod voice_metrics;
+#[path = "card_narrative/voice_scenes.rs"]
+pub(crate) mod voice_scenes;
 #[path = "card_narrative/waking.rs"]
 mod waking;
 use voice_metrics::{tagged, Section};
@@ -791,19 +793,41 @@ async fn generate(
     State(state): State<TextState>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
-    Json(context): Json<Context>,
+    context: Result<Json<Context>, JsonRejection>,
 ) -> Response {
+    // Every refusal is counted by cause (`voice_scenes::refused`): the
+    // three 429s share a status, and none of them reaches a voice call.
+    let refuse = |reason, status, message: &str| {
+        voice_scenes::refused(reason);
+        error(status, message)
+    };
+    let context = match context {
+        Ok(Json(context)) => context,
+        Err(rejection) => {
+            voice_scenes::refused(if rejection.status() == StatusCode::PAYLOAD_TOO_LARGE {
+                "too_large"
+            } else {
+                "unreadable"
+            });
+            return rejection.into_response();
+        }
+    };
     if !same_origin(&headers) {
-        return error(StatusCode::FORBIDDEN, "Open the card game on this site.");
+        return refuse(
+            "forbidden",
+            StatusCode::FORBIDDEN,
+            "Open the card game on this site.",
+        );
     }
-    let refused = || {
-        error(
+    let refused = |reason| {
+        refuse(
+            reason,
             StatusCode::BAD_REQUEST,
             "Use the current scene and its saved memories.",
         )
     };
     if !valid(&context) {
-        return refused();
+        return refused("invalid");
     }
     // `peer` is already the derived client address (see
     // `rate_limit::client_addr`). Check this client's own limits before
@@ -812,44 +836,51 @@ async fn generate(
     // another client waits, nor spend the server's time on text matching.
     let client = peer.ip();
     let Some(_client_slot) = state.in_flight.try_enter(client, PER_CLIENT_CONCURRENCY) else {
+        voice_scenes::refused("client_busy");
         return busy("Your last story is still being written.");
     };
     {
         let Ok(mut limits) = state.limits.lock() else {
-            return error(
+            return refuse(
+                "unavailable",
                 StatusCode::SERVICE_UNAVAILABLE,
                 "The story service is restarting.",
             );
         };
         if !admit(&mut limits, client, Instant::now()) {
-            return error(
+            return refuse(
+                "rate_limited",
                 StatusCode::TOO_MANY_REQUESTS,
                 "The story service is taking a short break.",
             );
         }
     }
     let Some(context) = screened(context).await else {
-        return refused();
+        return refused("envelope");
     };
     let Some(config) = state.ai.as_ref().as_ref() else {
-        return error(
+        return refuse(
+            "unavailable",
             StatusCode::SERVICE_UNAVAILABLE,
             "Story generation is waiting for its model connection.",
         );
     };
     let Ok(character_models) = state.character_models.as_ref() else {
-        return error(
+        return refuse(
+            "unavailable",
             StatusCode::SERVICE_UNAVAILABLE,
             "Character voices are waiting for their model settings.",
         );
     };
     let Ok(settings) = state.settings.as_ref() else {
-        return error(
+        return refuse(
+            "unavailable",
             StatusCode::SERVICE_UNAVAILABLE,
             "Character voices are waiting for valid timing settings.",
         );
     };
     let Ok(_permit) = state.capacity.clone().try_acquire_owned() else {
+        voice_scenes::refused("busy");
         return busy("The story service is busy.");
     };
     // Only an admitted scene replaces this client's queued reflections: a
@@ -925,16 +956,17 @@ async fn complete(
     settings: &VoiceSettings,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
 ) -> Result<Value, Response> {
-    complete_selected(
+    let voiced = voiced(context);
+    let scene = complete_selected(
         config,
         context,
         character_models,
         settings,
-        &voiced(context),
+        &voiced,
         false,
         on_delta,
-    )
-    .await
+    );
+    voice_scenes::run("table", context, &voiced, on_delta.is_some(), scene).await
 }
 
 async fn complete_selected(
@@ -1243,7 +1275,8 @@ pub(crate) async fn shared_lines(
 ) -> Result<Value, String> {
     let (context, settings) = shared_scene(scene, actor, ids)?;
     // Reflections follow in their own journal op (reflections::shared).
-    let value = complete_selected(config, &context, models, &settings, ids, false, None)
+    let scene = complete_selected(config, &context, models, &settings, ids, false, None);
+    let value = voice_scenes::run("shared", &context, ids, false, scene)
         .await
         .map_err(|_| "The play is saved. Its words need another moment.")?;
     // A shared scene that voices the acting avatar requires its line. A
@@ -4777,6 +4810,12 @@ pub(crate) mod tests {
             app.oneshot(cross).await.unwrap().status(),
             StatusCode::FORBIDDEN
         );
+        // Each refusal is counted by its cause, each scene by its outcome.
+        let scenes = &voice_metrics::snapshot()["scenes"];
+        for reason in ["rate_limited", "too_large", "forbidden"] {
+            assert!(scenes["refused"][reason].as_u64() >= Some(1), "{reason}");
+        }
+        assert!(scenes["by_path"]["table"]["spoken"].as_u64() >= Some(30));
         server.abort();
     }
     #[tokio::test]
