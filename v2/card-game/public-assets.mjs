@@ -127,7 +127,6 @@ const files = [
   "assets/shared/places/pond.png",
   "assets/shared/places/attic-dark.webp",
   "assets/shared/places/attic-stairs.webp",
-  "assets/shared/places/station.png",
   "assets/attic/attic-lit.webp",
   "assets/attic/attic-lit-cottage.webp",
   "assets/shared/places/attic-lit-cottage.webp",
