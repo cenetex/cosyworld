@@ -162,7 +162,29 @@ export function createCombatView({
     added.push(el);
     return el;
   };
+  // The caption keeps one width (combat.css) and crossfades its words from
+  // beat to beat, so the box never jumps or re-centres.
+  let ghost = null;
   const setCaption = (text) => {
+    if (caption.textContent === text) return;
+    ghost?.remove();
+    if (text && !caption.hidden && !reduced()) {
+      const old = (ghost = caption.cloneNode(true));
+      old.removeAttribute("id");
+      old.removeAttribute("role");
+      old.removeAttribute("aria-live");
+      old.setAttribute("aria-hidden", "true");
+      caption.after(old);
+      const gone = () => old.remove();
+      animate(old, [{ opacity: 1 }, { opacity: 0 }], {
+        duration: 160,
+        fill: "forwards",
+      })?.finished.then(gone, gone);
+      const ink = getComputedStyle(caption).color;
+      animate(caption, [{ color: "transparent" }, { color: ink }], {
+        duration: 160,
+      });
+    }
     caption.textContent = text;
     caption.hidden = !text;
   };
