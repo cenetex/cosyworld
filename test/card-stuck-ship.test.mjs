@@ -19,6 +19,10 @@ import {
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
 import { openSeas } from "./helpers/open-door.mjs";
 
+// Since rules 96 a resident aboard sails to its own destination, so the
+// Bard here is bound for Marathon, a rumour no voyage reaches: the stuck
+// rule is the fallback.
+const NOWHERE = "greek-marathon";
 const SHIP = "greek-ship",
   BARD = "greek-rhapsode",
   HOME = transports[SHIP].at;
@@ -61,7 +65,7 @@ function stuck(rider) {
   if (rider === BARD)
     s.actors[BARD].want = {
       kind: "place",
-      target: "hoppycat-signal-jetty",
+      target: NOWHERE,
       since: s.turn,
       refusals: 0,
     };
@@ -100,15 +104,10 @@ describe("a stuck ship goes home", () => {
     idle.turn += 1;
     callTransport(idle, "greek-piraeus");
     expect(idle.transports[SHIP].dock).toBe("greek-piraeus");
-    // In play: Mara waits at Piraeus until the ship comes, then boards.
-    let home = false;
-    for (let i = 0; i < 16 && !boards(s); i++) {
-      s = act(s, "mara", "wait");
-      home ||= s.log.some((e) => /puts in at/u.test(e.text || ""));
-    }
-    expect(home).toBe(true);
-    expect(s.actors[BARD].place).not.toBe(SHIP);
-    expect(s.actors[BARD].want?.target).not.toBe("hoppycat-signal-jetty");
+    // In play: Mara waits at Piraeus until the ship comes, then boards. With
+    // no way to Marathon the Bard sails on to somewhere he can explore
+    // (rules 96) or is set ashore at home; either way the ship reaches her.
+    for (let i = 0; i < 16 && !boards(s); i++) s = act(s, "mara", "wait");
     s = act(s, "mara", "move", SHIP);
     expect(s.actors.mara.place).toBe(SHIP);
     expect(s.transports[SHIP].dock).toBe("greek-piraeus");
@@ -130,7 +129,7 @@ describe("a stuck ship goes home", () => {
     const w = decodeSave(JSON.stringify(saved));
     expect(w.actors[BARD].place).toBe(HOME);
     // He sets that pursuit aside on load too, as in play.
-    expect(w.actors[BARD].want?.target).not.toBe("hoppycat-signal-jetty");
+    expect(w.actors[BARD].want?.target).not.toBe(NOWHERE);
     expect(w.transports[SHIP]).toMatchObject({
       phase: "docked",
       dock: HOME,

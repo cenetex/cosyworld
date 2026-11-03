@@ -207,6 +207,7 @@ impl World {
                 engine::NINETY_SECOND_VERSION,
                 engine::NINETY_THIRD_VERSION,
                 engine::NINETY_FOURTH_VERSION,
+                engine::NINETY_FIFTH_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
@@ -334,6 +335,7 @@ impl World {
             engine::NINETY_SECOND_VERSION,
             engine::NINETY_THIRD_VERSION,
             engine::NINETY_FOURTH_VERSION,
+            engine::NINETY_FIFTH_VERSION,
         ]
         .contains(&self.version.as_str())
         {

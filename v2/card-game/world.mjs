@@ -1203,7 +1203,7 @@ function defeatInStandoff(s, c, winner, loser, here) {
   const outcome = sentHome ? "sent-home" : "yield";
   const to = sentHome
     ? home
-    : exits(s, here, loser).find((next) => !isCourse(s, here, next));
+    : exits(s, here, loser).find((next) => !isCourse(s, here, next, loser));
   // The loser leaves the battle; it ends with one combatant left or the
   // disputed item let go.
   leaveBattle(s, c, loser);
@@ -1373,7 +1373,7 @@ export function legalActions(s, actor = currentActor(s)) {
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
     if (departureWaits(s, actor, to)) continue;
     // A course card aboard a docked ship sets the voyage for everyone aboard.
-    if (isCourse(s, here, to)) {
+    if (isCourse(s, here, to, actor)) {
       const course = offer(
         "course",
         actor,

@@ -490,7 +490,9 @@ route (rules 94): Black Pond and the Wine-Dark Harbor both ways with no
 cargo; harbor to Piraeus and Piraeus to the Signal Jetty one way, each with
 one `any` of `item_present` (the Travel Provisions) and `pack_item_present`
 (a Hoppy Cat thing) aboard; and a free one-way lane back for each. The
-conditions bind only a voyage with riders: an empty ship called to a dock
+conditions bind only a voyage a human rides: with no human aboard, a
+resident aboard sets the course to its own destination along any lane
+(rules 96), and an empty ship called to a dock
 sails any lane between active docks. A ship idle for `IDLE_ROUNDS` with
 someone aboard, at a dock whose cargo lanes are all shut, is stuck: it puts
 in at its home port (`at`) and everyone aboard goes ashore (rules 95). A ship route should give every dock a
