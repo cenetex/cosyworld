@@ -575,7 +575,73 @@ describe("entity memories and model text", () => {
     vi.unstubAllGlobals();
   });
 
-  it("never retries a 429 and holds the next request for its Retry-After", async () => {
+  it("retries a busy 429 after its Retry-After and speaks", async () => {
+    vi.useFakeTimers();
+    let world = act(createWorld(), "wait");
+    const status = vi.fn();
+    const busy = Object.assign(new Error("busy"), {
+      retryable: false,
+      retryAfter: 1_000,
+    });
+    const request = vi
+      .fn()
+      .mockRejectedValueOnce(busy)
+      .mockRejectedValueOnce(busy)
+      .mockImplementation(async (context) => response(context));
+    const narrator = createNarrator({
+      getWorld: () => world,
+      apply: (next) => {
+        world = next;
+      },
+      status,
+      request,
+      random: () => 0.5,
+    });
+    narrator.changed();
+    await vi.advanceTimersByTimeAsync(1_199);
+    expect(request).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(request).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1_200);
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(status).toHaveBeenLastCalledWith("ready");
+    expect(status).not.toHaveBeenCalledWith("failed", expect.anything());
+    expect(world.memories.vale.turn).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("gives up on a busy 429 within the dialogue grace and shows silence", async () => {
+    vi.useFakeTimers();
+    let world = act(createWorld(), "wait");
+    const before = structuredClone(world);
+    const status = vi.fn();
+    const apply = vi.fn();
+    const busy = Object.assign(new Error("busy"), {
+      retryable: false,
+      retryAfter: 1_000,
+    });
+    const request = vi.fn().mockRejectedValue(busy);
+    const narrator = createNarrator({
+      getWorld: () => world,
+      apply,
+      status,
+      request,
+      random: () => 0.99,
+    });
+    narrator.changed();
+    // Two bounded retries, each after its Retry-After plus jitter.
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(status).toHaveBeenLastCalledWith("failed", busy);
+    expect(status).not.toHaveBeenCalledWith("retry", expect.anything());
+    expect(apply).not.toHaveBeenCalled();
+    expect(world).toEqual(before);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("never retries a long 429 and holds the next request for its Retry-After", async () => {
     vi.useFakeTimers();
     let world = createWorld();
     const status = vi.fn();
