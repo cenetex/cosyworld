@@ -68,6 +68,9 @@ speak alone, as the rules' speech occasions name them; when the rules refuse
 a play's words, the server fails that play at once instead of holding its
 seat for the working lease
 ([design](../../../docs/design/occasion-voices-in-shared-speech.md)).
+From rules 93 the rules accept only the voices the committed play named and
+the room, each once, and a place added to a pack joins every saved world with an empty
+memory ([design](../../../docs/design/rules-93-content-slots-and-speech-voices.md)).
 
 The server runs a checked-in bundle of those modules in QuickJS, a C interpreter.
 Rust supplies JSON and handles authentication, storage, queues, and provider IO.

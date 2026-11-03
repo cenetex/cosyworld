@@ -36,6 +36,8 @@ import {
 import { resetAvatar } from "./avatar-reset.mjs";
 import { arrive, hideAvatar, seekHidden } from "./hidden-avatar.mjs";
 import { homecoming } from "./homecoming.mjs";
+import { dialogueCast } from "./scene-cast.mjs";
+import { speechOccasions } from "./speech-occasions.mjs";
 
 function ids(value, fallback = []) {
   const result = value === undefined ? fallback : value;
@@ -263,6 +265,8 @@ export function dispatchShared(request) {
   if (request.op === "speech") {
     // An occasion voices up to three speakers and the place (speech.json).
     // Any of them may speak alone: a threat's target, or only the place.
+    // From rules 93 each voice the play named, and the room, speaks at most
+    // once, and no other voice speaks.
     if (
       !Array.isArray(request.lines) ||
       request.lines.length < 1 ||
@@ -271,6 +275,17 @@ export function dispatchShared(request) {
       throw new Error("An exchange needs one to four lines.");
     const room = request.room || world.actors[actor].place;
     if (!places[room]) throw new Error("Choose a real room.");
+    // The room may always caption the play.
+    const voices = [
+      ...speechOccasions(world, dialogueCast(world)).speakers,
+      room,
+    ];
+    const voice = (l) => l?.actorId ?? l?.entityId;
+    if (
+      request.lines.some((l) => !voices.includes(voice(l))) ||
+      new Set(request.lines.map(voice)).size !== request.lines.length
+    )
+      throw new Error("Each voice the play named speaks once.");
     if (
       (request.entries || []).some(
         (e) => !request.lines.some((l) => (l.actorId || l.entityId) === e.id),

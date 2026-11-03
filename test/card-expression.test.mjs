@@ -128,8 +128,17 @@ describe("authored character expression", () => {
 
   it("checks shared replies against the trusted profile and preserves their form", () => {
     profiles.moth.expression = "emoji";
-    const world = dispatchShared({ op: "create" }).world;
-    world.actors.moth.place = world.actors.vale.place = "station";
+    const created = dispatchShared({ op: "create" }).world;
+    created.actors.moth.place = created.actors.vale.place = "station";
+    // Vale talks to Pip; the replies that follow belong to that play.
+    const seat = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+    const { actions } = dispatchShared({ op: "view", world: created, ...seat });
+    const { world } = dispatchShared({
+      op: "play",
+      world: created,
+      ...seat,
+      action: actions.find((a) => a.kind === "talk" && a.target === "moth"),
+    });
     const request = {
       op: "speech",
       actor: "vale",
