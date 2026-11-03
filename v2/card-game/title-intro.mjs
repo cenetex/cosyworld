@@ -2,15 +2,15 @@ import landings from "./pack-landings.json" with { type: "json" };
 import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
 import { imageUrl } from "./images.mjs";
 import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
+import { createTitleSong } from "./title-song.mjs";
 
 // The Lonely Forest title opens every new world: black, the world's logo
-// (title-logo.mjs), then the table. A reload or a return to a world never replays it.
+// (title-logo.mjs), its song and Wake button, then the table. A reload or a return to a world never replays it.
 // The key holds the id of a shared world just created or joined whose title
 // is still due.
 export const INTRO_KEY = "cosyworld.title-intro";
 export const TITLES = LOGOS.map((logo) => logo.src);
 const BLACK_MS = 350,
-  HOLD_MS = 3500,
   LOAD_LIMIT_MS = 2500;
 
 // Only on Lonely Forest: no other site's landing, not the local CosyWorld
@@ -61,16 +61,32 @@ export function playNewWorldIntro() {
   if (!logoSite(context)) return;
   const logo = worldLogo({ href: context.href, storage, fresh: true });
   showToolbarLogo(logo);
-  if (titleIntroAllowed(context)) playTitleIntro({ storage: null, logo });
+  // The New game click is long past: the title still waits for its own tap.
+  if (titleIntroAllowed(context))
+    playTitleIntro({ storage: null, logo, song: createTitleSong({ storage }) });
 }
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// The Wake button names the avatar this world opens with. The table boots
+// under the title and names it here once the world is known.
+let wakeName = "",
+  wakeButton = null;
+export const wakeLabel = (name) => (name ? `Wake ${name}` : "Wake up");
+export function nameTitleWaker(name) {
+  wakeName = typeof name === "string" ? name.trim() : "";
+  if (wakeButton) wakeButton.textContent = wakeLabel(wakeName);
+}
+
 // The overlay sits outside the inert body and over the table, which boots
-// and asks for Vale's opening line underneath it. Resolves when it is gone.
+// and asks for Vale's opening line underneath it. The logo waits, silent, for
+// the first tap or key: that gesture starts the title song (title-song.mjs),
+// lifts the logo and shows the Wake button. Wake fades the song and enters;
+// Escape skips straight in. Resolves when the overlay is gone.
 export function playTitleIntro({
   logo = LOGOS[0],
   storage = globalThis.localStorage,
+  song = createTitleSong({ storage }),
 } = {}) {
   try {
     storage.removeItem(INTRO_KEY);
@@ -89,26 +105,74 @@ export function playTitleIntro({
   layer.append(image);
   document.documentElement.append(layer);
 
-  let skipped = false,
-    skip;
-  const skipping = new Promise((resolve) => (skip = resolve));
-  const onSkip = (event) => {
-    if (event.type === "keydown") {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    skipped = true;
-    skip();
+  let woken = false,
+    leaving = false,
+    leave;
+  const left = new Promise((resolve) => (leave = resolve));
+  const finish = () => {
+    if (leaving) return;
+    leaving = true;
+    song.stop(1);
+    leave();
   };
-  layer.addEventListener("pointerdown", onSkip);
-  window.addEventListener("keydown", onSkip, true);
-  // Either the step finishes or the player skips the rest.
-  const step = (promise) => Promise.race([promise, skipping]);
-  const fade = (target, keyframes, ms) =>
-    step(
-      target.animate(keyframes, { duration: ms, easing: "ease", fill: "both" })
-        .finished,
-    ).catch(() => {});
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "title-wake";
+  button.addEventListener("click", finish);
+  // The first gesture on the title: the song, the lifted logo, Wake.
+  const wake = () => {
+    if (woken || leaving) return;
+    woken = true;
+    song.start();
+    layer.dataset.phase = "wake";
+    layer.removeAttribute("role");
+    layer.setAttribute("role", "dialog");
+    layer.setAttribute("aria-modal", "true");
+    image.alt = logo.name;
+    image.getAnimations().forEach((animation) => animation.finish());
+    image.animate(
+      [
+        { opacity: 1, transform: "none" },
+        { opacity: 1, transform: "translateY(-14dvh) scale(0.8)" },
+      ],
+      { duration: reduced ? 0 : 900, easing: "ease", fill: "both" },
+    );
+    wakeButton = button;
+    button.textContent = wakeLabel(wakeName);
+    layer.append(button);
+    button.animate([{ opacity: 0 }, { opacity: 1 }], {
+      duration: reduced ? 250 : 600,
+      delay: reduced ? 0 : 300,
+      easing: "ease",
+      fill: "both",
+    });
+    button.focus({ preventScroll: true });
+  };
+  const onPointer = (event) => {
+    if (event.target !== button) wake();
+  };
+  const onKey = (event) => {
+    if (["Shift", "Control", "Alt", "Meta"].includes(event.key)) return;
+    event.stopPropagation();
+    if (event.key === "Escape") {
+      event.preventDefault();
+      finish();
+      return;
+    }
+    // Enter and Space press the focused Wake button themselves.
+    if (woken && event.target === button && [" ", "Enter"].includes(event.key))
+      return;
+    event.preventDefault();
+    if (woken) button.focus({ preventScroll: true });
+    else wake();
+  };
+  layer.addEventListener("pointerdown", onPointer);
+  // Keep focus on Wake rather than the tapped title.
+  layer.addEventListener("mousedown", (event) => {
+    if (event.target !== button) event.preventDefault();
+  });
+  window.addEventListener("keydown", onKey, true);
+  const step = (promise) => Promise.race([promise, left]);
 
   const loaded = new Promise((resolve) => {
     image.onload = () => resolve(true);
@@ -119,30 +183,33 @@ export function playTitleIntro({
 
   return (async () => {
     const [ok] = await Promise.all([step(loaded), step(wait(BLACK_MS))]);
-    const shown = ok && !skipped;
-    if (shown) {
-      layer.dataset.phase = "title";
-      await fade(
-        image,
-        reduced
-          ? [{ opacity: 0 }, { opacity: 1 }]
-          : [
-              { opacity: 0, transform: "scale(0.97)" },
-              { opacity: 1, transform: "scale(1)" },
-            ],
-        reduced ? 250 : 900,
-      );
-      if (!skipped) await step(wait(HOLD_MS));
-    }
+    if (ok && !leaving) {
+      if (!woken) layer.dataset.phase = "title";
+      await step(
+        image.animate(
+          reduced || woken
+            ? [{ opacity: 0 }, { opacity: 1 }]
+            : [
+                { opacity: 0, transform: "scale(0.97)" },
+                { opacity: 1, transform: "scale(1)" },
+              ],
+          { duration: reduced ? 250 : 900, easing: "ease", fill: "both" },
+        ).finished,
+      ).catch(() => {});
+      // The logo holds until the player wakes their avatar or skips.
+      await left;
+    } else finish();
+    const quick = reduced || !ok;
     layer.dataset.phase = "out";
-    window.removeEventListener("keydown", onSkip, true);
+    window.removeEventListener("keydown", onKey, true);
     await layer
       .animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: skipped || reduced || !shown ? 250 : 900,
+        duration: quick ? 250 : 900,
         easing: "ease",
         fill: "both",
       })
       .finished.catch(() => {});
     layer.remove();
+    if (wakeButton === button) wakeButton = null;
   })();
 }

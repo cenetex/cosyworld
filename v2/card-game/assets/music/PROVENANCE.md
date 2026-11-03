@@ -85,3 +85,19 @@ stereo. A fixed gain brought each to -16.0 LUFS integrated, matching
 | agora-1.mp3        | Wine, Black Sea-3.m4a                     | [Wine, Black Sea](https://suno.com/song/7612f431-99ca-4dee-9d6e-e308061ae13d)     | 3:58     | -0.8 dB | `ae20d76c6f281b6a8947b117ae774be6a735904bd05ef97ea89e78f410c38608` | `36e847559ea4e3438f4aab0eff4a3b779d48b01343c9cd0609bc5b0cbb24505a` |
 | agora-2.mp3        | Wine, Black Sea-4.m4a                     | [Wine, Black Sea II](https://suno.com/song/3e836c73-5073-4989-8c24-2d5d583a799e)  | 3:34     | -0.5 dB | `3a6b9708b628946f12a4b641f93f99b89a024beda1c72061454b727033b4d6bb` | `9acfbe6c585b03c6304197ccdd1f3af1231ff723beb557daa8ea6e933b0fdebf` |
 | greek-harbor-2.mp3 | Wine Dark Sea - 02 - Wine-Dark Harbor.m4a | [Wine-Dark Harbor II](https://suno.com/song/4f7cd1fa-d06e-46dc-9654-94b11e547b41) | 3:48     | -0.5 dB | `ccf64154f6c239e7b12ed6935afa51100708c07d1d450ccbdf5023b990b4e756` | `3b5ecd3be280df0771bad11d786559abb049d64f6645dab8f6b83127df5d4a53` |
+
+## New-world title — November 2, 2026
+
+The project owner made this song, a mashup of their The Attic Keeps Its Lamp
+and Moonstone Sanctum, in their Suno account and supplied it on 2026-11-02.
+They confirmed its inclusion as the new-world title song. It plays between the
+first tap on the title and Wake (`title-song.mjs`), once, never looped.
+
+The supplied M4A container holds Opus audio, so FFmpeg 9.0.2 made an MP3 copy
+with `libmp3lame -q:a 2` at 48 kHz stereo. A fixed gain of +0.2 dB brought it
+to -16.0 LUFS integrated, matching the other songs. The lyrics, subtitle track
+and Suno comment were dropped; only a display title tag is kept.
+
+| File                 | Supplied filename                                                            | Suno source                                                                                                | Duration | Size    | Source SHA-256                                                     | MP3 SHA-256                                                        |
+| -------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------- | ------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| title-attic-lamp.mp3 | 7f5a8bdc-The_Attic_Keeps_Its_Lamp_x_Moonst\_\_x_Moonstone_Sanctum_Mashup.m4a | [The Attic Keeps Its Lamp × Moonstone Sanctum](https://suno.com/song/5703a6c1-1e41-4976-945a-f0137d76c273) | 4:13     | 5.25 MB | `d024d36121f1eb17a8185fb3970965cb958bce2849d07f7ca65efd3a36c53512` | `e3bd0cce79a0830e376a79453caa1213ae8cc1fee597e590567af6b8017cb0bc` |
