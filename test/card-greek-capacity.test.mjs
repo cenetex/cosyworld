@@ -74,8 +74,9 @@ describe("roads around a full Agora", () => {
           expect(result.ok).toBe(true);
           world = result.world;
         }
-        // Vale knows no lane from Piraeus, so she waits aboard until the idle
-        // ship sails its first lane, to the Wine-Dark Harbor.
+        // Vale knows no lane from Piraeus, so she waits aboard. The voyage
+        // out used the provisions up, so the stuck ship puts in at its home
+        // port, the Wine-Dark Harbor, and sets her ashore there (rules 95).
         for (
           let n = 0;
           n < 8 &&
@@ -100,6 +101,7 @@ describe("roads around a full Agora", () => {
             }).world;
           }
         }
+        if (world.actors.vale.place === next) continue;
         const view = agoraView(decodeSave(encodeSave(world)));
         expect(view.world.presentActors).toHaveLength(5);
         expect(view.exits).not.toContain("greek-athens");
