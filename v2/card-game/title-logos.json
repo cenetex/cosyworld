@@ -20,7 +20,17 @@
       "width": 1672,
       "height": 941,
       "background": "dark",
-      "toolbar": 0
+      "toolbar": {
+        "src": "assets/title/toolbar/lonely-forest-hearth-and-oak.webp",
+        "width": 424,
+        "height": 160,
+        "crop": {
+          "left": 44,
+          "top": 164,
+          "width": 1596,
+          "height": 602
+        }
+      }
     },
     {
       "src": "assets/title/lonely-forest-listening-wood.webp",
@@ -28,7 +38,17 @@
       "width": 1672,
       "height": 941,
       "background": "dark",
-      "toolbar": 0
+      "toolbar": {
+        "src": "assets/title/toolbar/lonely-forest-listening-wood.webp",
+        "width": 388,
+        "height": 160,
+        "crop": {
+          "left": 40,
+          "top": 125,
+          "width": 1602,
+          "height": 660
+        }
+      }
     },
     {
       "src": "assets/title/lonely-forest-black-pond.webp",
@@ -36,7 +56,17 @@
       "width": 1672,
       "height": 941,
       "background": "dark",
-      "toolbar": 0
+      "toolbar": {
+        "src": "assets/title/toolbar/lonely-forest-black-pond.webp",
+        "width": 476,
+        "height": 160,
+        "crop": {
+          "left": 68,
+          "top": 180,
+          "width": 1554,
+          "height": 522
+        }
+      }
     }
   ]
 }

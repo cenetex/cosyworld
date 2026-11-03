@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import {
   LOGOS,
   chooseLogo,
+  showToolbarLogo,
   toolbarLogo,
   worldLogo,
 } from "../v2/card-game/title-logo.mjs";
@@ -91,13 +92,69 @@ test("approved title bytes and responsive variants are published exactly once", 
   }
 });
 
-test("wide artworks keep a legible wordmark in the toolbar", () => {
+// A stand-in for the toolbar's `.brand strong`, enough for showToolbarLogo.
+function fakeToolbar() {
+  const mark = { dataset: {}, image: null };
+  mark.querySelector = () => mark.image;
+  mark.replaceChildren = (image) => (mark.image = image);
+  return {
+    mark,
+    querySelector: () => mark,
+    createElement: () => ({}),
+  };
+}
+
+test("the toolbar shows the logo the title chose, for every logo", () => {
+  for (const [index, logo] of LOGOS.entries()) {
+    const memory = { worlds: { "world:shown": index } };
+    const storage = {
+      getItem: () => JSON.stringify(memory),
+      setItem() {},
+    };
+    // entry.mjs hands the same pick to the title and the toolbar.
+    const chosen = worldLogo({
+      href: "https://lonelyforest.com/?world=shown",
+      storage,
+    });
+    assert.equal(chosen, logo);
+    const root = fakeToolbar();
+    showToolbarLogo(chosen, root);
+    showToolbarLogo(chosen, root); // a reload or New game reuses the image
+    const { mark } = root;
+    assert.equal(mark.dataset.logo, logo.src);
+    assert.equal(mark.image.alt, logo.name, "keeps the accessible name");
+    const shown = toolbarLogo(logo);
+    assert.equal(mark.image.width, shown.width);
+    assert.equal(mark.image.height, shown.height);
+    assert.match(mark.image.src, new RegExp(shown.src.split("/").at(-1)));
+  }
+});
+
+test("wide artworks show their own lettering, never another logo", () => {
   for (const logo of LOGOS.slice(0, 2)) assert.equal(toolbarLogo(logo), logo);
   for (const src of alternatives) {
     const logo = LOGOS.find((entry) => entry.src === src);
-    const shown = toolbarLogo(logo);
-    assert.notEqual(shown, logo, src);
-    assert.equal(shown.toolbar, undefined, src);
-    assert.ok(shown.width / shown.height >= 2.5, src);
+    const { toolbar } = logo;
+    assert.ok(toolbar?.crop, src);
+    assert.ok(!LOGOS.some((other) => other.src === toolbar.src), src);
+    assert.ok(
+      publicAssets.some(({ file }) => file === toolbar.src),
+      src,
+    );
+    assert.ok(variants.crops[toolbar.src], `Build the crop of ${src}`);
+    const { crop } = toolbar;
+    assert.ok(crop.left + crop.width <= logo.width, src);
+    assert.ok(crop.top + crop.height <= logo.height, src);
+    // The crop keeps the artwork's proportions and reads at toolbar height.
+    const ratio = toolbar.width / toolbar.height;
+    assert.ok(Math.abs(ratio - crop.width / crop.height) < 0.02, src);
+    assert.ok(ratio >= 2 && ratio <= 3.2, src);
+    assert.ok(toolbar.height >= 120, src);
+    assert.deepEqual(toolbarLogo(logo), {
+      name: logo.name,
+      src: toolbar.src,
+      width: toolbar.width,
+      height: toolbar.height,
+    });
   }
 });

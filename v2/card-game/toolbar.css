@@ -299,12 +299,13 @@ body.local-app #shared-worlds-button {
   font-size: 12px;
 }
 /* The world's Lonely Forest logo in place of the COSYWORLD wordmark
-   (title-logo.mjs): its own aspect ratio, capped to the toolbar height. */
+   (title-logo.mjs): its own aspect ratio, as tall as the toolbar buttons so
+   hand lettering reads. */
 .brand .brand-logo {
   display: block;
-  height: 40px;
+  height: 46px;
   width: auto;
-  max-width: min(150px, 34vw);
+  max-width: min(160px, 40vw);
   object-fit: contain;
   border-radius: 6px;
 }
@@ -314,6 +315,6 @@ body.local-app #shared-worlds-button {
 }
 @media (max-width: 700px) {
   .brand .brand-logo {
-    height: 34px;
+    height: 40px;
   }
 }

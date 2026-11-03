@@ -42,6 +42,10 @@
       "smokes": ["smoke-card-title-intro"]
     },
     {
+      "paths": "^v2/card-game/title-logo|^v2/card-game/assets/title/",
+      "smokes": ["smoke-card-toolbar-logo"]
+    },
+    {
       "paths": "^v2/card-game/toolbar",
       "smokes": ["smoke-card-toolbar", "smoke-card-world-menu"]
     },

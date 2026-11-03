@@ -37,7 +37,9 @@ const files = [
   "boardyai.json",
   "assets/card-back.webp",
   // The new-world title (title-intro.mjs).
-  ...titleLogos.logos.map(({ src }) => src),
+  ...titleLogos.logos.flatMap(({ src, toolbar }) =>
+    toolbar ? [src, toolbar.src] : [src],
+  ),
   "assets/music/title-attic-lamp.mp3",
   // Rest card paintings for issue #1849; the rest-card feature follows.
   "assets/rest/short-rest.webp",
