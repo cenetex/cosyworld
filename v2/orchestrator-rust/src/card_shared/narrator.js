@@ -2181,7 +2181,9 @@
       return "I want to introduce you to someone.";
     const making = want?.kind === "item" && world.actors?.[id] && makerChoice(id, want.target);
     if (making) {
-      const set = making.requires.filter((r) => r.kind === "holding" && r.role === "actor").map((r) => article(nameOf2(r.item)));
+      const set = heldSlots(making.requires).map(
+        (slot) => slot.map((item) => article(nameOf2(item))).join(" or ")
+      );
       return `I want ${article(nameOf2(want.target))}: ${set.slice(0, -1).join(", ")}${set.length > 1 ? " and " : ""}${set.at(-1)}.`;
     }
     if (!want || !world.actors?.[id] || !entityActive(world, want.target))
@@ -13988,10 +13990,10 @@
       );
     };
     for (const [id, i] of Object.entries(items2)) {
-      if (i.home === void 0 && i.regrow === void 0 && !i.startsUsed)
+      if (i.home === void 0 && i.regrow === void 0 && !i.startsUsed && i.absentReturn === void 0)
         continue;
       check(
-        (i.home === void 0 || owns2(places2, i.home)) && (i.regrow === void 0 || REGROW_EVENTS.includes(i.regrow) && i.home !== void 0) && (i.startsUsed === void 0 || i.startsUsed === true) && owns2(places2, i.holder),
+        (i.home === void 0 || owns2(places2, i.home)) && (i.regrow === void 0 || REGROW_EVENTS.includes(i.regrow) && i.home !== void 0) && (i.startsUsed === void 0 || i.startsUsed === true) && (i.absentReturn === void 0 || i.absentReturn === true && i.home !== void 0) && owns2(places2, i.holder),
         `item ${id} home, regrow and startsUsed need a place of the pack to rest at`
       );
       check(
@@ -14816,7 +14818,8 @@
           "tags",
           "home",
           "regrow",
-          "startsUsed"
+          "startsUsed",
+          "absentReturn"
         ]) && (i.tags === void 0 || Array.isArray(i.tags) && i.tags.length >= 1 && i.tags.length <= 4 && i.tags.every(idOk2)) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns3(places2, i.holder) || owns3(avatars, i.holder) || hub2?.places?.includes(i.holder)),
         `item ${id} is invalid`
       );
@@ -14893,7 +14896,7 @@
         if (e.kind === "upgrade")
           valid = keysOk(e, ["kind", "upgrade"]) && idOk2(e.upgrade) && c.for !== void 0;
         if (e.kind === "retire_item")
-          valid = keysOk(e, ["kind", "item"]) && owns3(items2, e.item) && (c.requires || []).some(
+          valid = keysOk(e, ["kind", "item"]) && owns3(items2, e.item) && (c.requires || []).flatMap((r) => r.kind === "any" ? r.conditions : [r]).some(
             (r) => r.item === e.item && (r.kind === "holding" && r.role === "actor" || ["item_near", "item_at"].includes(r.kind) && r.place === c.at)
           );
         if (e.kind === "drop_item")
@@ -15567,6 +15570,9 @@
       return domains.includes(home) && domains.includes(target) && crossings.filter((c) => c.transport === id).every((c) => c.travelers === "any");
     });
   }
+  var heldSlots = (requires = []) => requires.map(
+    (r) => r.kind === "any" ? r.conditions.filter((c) => c.kind === "holding" && c.role === "actor") : r.kind === "holding" && r.role === "actor" ? [r] : []
+  ).filter((slot) => slot.length).map((slot) => slot.map((r) => r.item));
   var makerChoice = (subject, item) => packDefinitions.flatMap((pack) => pack.choices || []).find(
     (c) => c.repeats && c.subject === subject && c.effects.some((e) => e.kind === "drop_item" && e.item === item)
   ) ?? null;
@@ -16182,7 +16188,9 @@
   var whole4 = (n) => Number.isSafeInteger(n) && n > 0;
   var validItemCycle = (s) => Array.isArray(s.usedUp) && s.usedUp.every(
     (id, i) => Boolean(packThings[id]) && (!i || s.usedUp[i - 1] < id) && s.items[id]?.holder === packThings[id].holder && s.items[id].history.length === 0
-  ) && (s.scatters === void 0 || Boolean(s.scatters) && typeof s.scatters === "object" && !Array.isArray(s.scatters) && Object.entries(s.scatters).every(
+  ) && (s.astray === void 0 || Boolean(s.astray) && typeof s.astray === "object" && !Array.isArray(s.astray) && Object.keys(s.astray).length > 0 && Object.entries(s.astray).every(
+    ([id, place]) => homed.includes(id) && typeof place === "string"
+  )) && (s.scatters === void 0 || Boolean(s.scatters) && typeof s.scatters === "object" && !Array.isArray(s.scatters) && Object.entries(s.scatters).every(
     ([id, n]) => packKits.some((kit) => kit.id === id) && whole4(n)
   ));
 

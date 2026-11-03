@@ -48,13 +48,20 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
   };
 
   for (const [id, i] of Object.entries(items)) {
-    if (i.home === undefined && i.regrow === undefined && !i.startsUsed)
+    if (
+      i.home === undefined &&
+      i.regrow === undefined &&
+      !i.startsUsed &&
+      i.absentReturn === undefined
+    )
       continue;
     check(
       (i.home === undefined || owns(places, i.home)) &&
         (i.regrow === undefined ||
           (REGROW_EVENTS.includes(i.regrow) && i.home !== undefined)) &&
         (i.startsUsed === undefined || i.startsUsed === true) &&
+        (i.absentReturn === undefined ||
+          (i.absentReturn === true && i.home !== undefined)) &&
         owns(places, i.holder),
       `item ${id} home, regrow and startsUsed need a place of the pack to rest at`,
     );

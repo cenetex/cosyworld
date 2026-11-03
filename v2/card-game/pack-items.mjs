@@ -3,9 +3,13 @@
 //
 //   home + regrow   A used-up thing with a `home` place and `regrow` (dawn,
 //                   dusk or rest) reappears at home on the next such event.
-//   dawn safeguard  At dawn a homed thing held by an absent traveler, or lying
-//                   unheld away from both its home and its starting place,
-//                   goes home. A kit thing may lie anywhere.
+//   dawn safeguard  At dawn a homed thing found lying unheld in the same place,
+//                   away from both its home and its starting place, at two
+//                   dawns in a row (`astray` keeps the first sighting), so a
+//                   thing laid down for a rite is not swept away. A kit thing
+//                   may lie anywhere. Only a thing marked `absentReturn`
+//                   also goes home from an absent traveler's hands (held
+//                   for the owner's decision on absence penalties).
 //   spends          A lane marked `spends` uses up the cargo that opened it
 //                   when the ship arrives. Its free return leaves loose homed
 //                   things on the quay it sails from.
@@ -127,13 +131,17 @@ export function settleVoyageCargo(s, voyages, nameOf, log) {
   }
 }
 
-// Away from home and from where it started, or held by an absent traveler.
+// Held by an absent traveler ("absent"), or lying unheld away from home and
+// from where it started ("astray"), or neither.
 function stray(s, id) {
   const thing = packThings[id],
     root = rootOf(s, id);
-  if (root === thing.home) return false;
-  if (humanAvatar(root)) return !humanPresent(s, root);
-  return !s.actors[root] && root !== thing.holder && !kitThings.has(id);
+  if (root === thing.home) return null;
+  if (humanAvatar(root))
+    return thing.absentReturn && !humanPresent(s, root) ? "absent" : null;
+  return !s.actors[root] && root !== thing.holder && !kitThings.has(id)
+    ? "astray"
+    : null;
 }
 
 // The end of a round: regrowth on its event, the dawn safeguard, then kits.
@@ -147,15 +155,24 @@ export function settleItemCycle(s, nameOf, log) {
     if (tryBack(s, id, home))
       log(`${capital(the(nameOf(home)))} has ${the(nameOf(id))} again.`, home);
   }
-  if (events.includes("dawn"))
+  if (events.includes("dawn")) {
+    const seen = {};
     for (const id of homed) {
-      const home = packThings[id].home;
-      if (usedUp(s, id) || !entityActive(s, home) || !stray(s, id)) continue;
+      const home = packThings[id].home,
+        why = !usedUp(s, id) && entityActive(s, home) && stray(s, id);
+      if (!why) continue;
+      if (why === "astray" && s.astray?.[id] !== rootOf(s, id)) {
+        seen[id] = rootOf(s, id);
+        continue;
+      }
       const text = `${capital(the(nameOf(home)))} has ${the(nameOf(id))} back.`;
       s.items[id].holder = home;
       note(s, id, text);
       log(text, home);
     }
+    if (Object.keys(seen).length) s.astray = seen;
+    else delete s.astray;
+  }
   for (const kit of packKits) scatterKit(s, kit, events, nameOf, log);
 }
 
@@ -215,6 +232,14 @@ export const validItemCycle = (s) =>
       s.items[id]?.holder === packThings[id].holder &&
       s.items[id].history.length === 0,
   ) &&
+  (s.astray === undefined ||
+    (Boolean(s.astray) &&
+      typeof s.astray === "object" &&
+      !Array.isArray(s.astray) &&
+      Object.keys(s.astray).length > 0 &&
+      Object.entries(s.astray).every(
+        ([id, place]) => homed.includes(id) && typeof place === "string",
+      ))) &&
   (s.scatters === undefined ||
     (Boolean(s.scatters) &&
       typeof s.scatters === "object" &&

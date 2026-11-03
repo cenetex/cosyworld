@@ -1151,6 +1151,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "home",
         "regrow",
         "startsUsed",
+        "absentReturn",
       ]) &&
         (i.tags === undefined ||
           (Array.isArray(i.tags) &&
@@ -1306,13 +1307,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         valid =
           keysOk(e, ["kind", "item"]) &&
           owns(items, e.item) &&
-          (c.requires || []).some(
-            (r) =>
-              r.item === e.item &&
-              ((r.kind === "holding" && r.role === "actor") ||
-                (["item_near", "item_at"].includes(r.kind) &&
-                  r.place === c.at)),
-          );
+          (c.requires || [])
+            .flatMap((r) => (r.kind === "any" ? r.conditions : [r]))
+            .some(
+              (r) =>
+                r.item === e.item &&
+                ((r.kind === "holding" && r.role === "actor") ||
+                  (["item_near", "item_at"].includes(r.kind) &&
+                    r.place === c.at)),
+            );
       // The subject sets a used-up thing down at the choice's place.
       if (e.kind === "drop_item")
         valid =

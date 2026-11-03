@@ -358,11 +358,14 @@ Item fields:
   of that kind, or any long rest ending. It never regrows while it is in
   play, and it waits while its home or its own `requires` are inactive.
 - `startsUsed: true`: the item starts used up, for a thing someone makes.
+- `absentReturn: true`: at dawn the item also leaves an absent traveler's
+  hands for home (a human avatar whose holder is not present, from the
+  journaled presence). It is off unless a pack marks it, pending the owner's
+  decision on absence penalties.
 
-At dawn a homed item held by an absent traveler (a human avatar whose holder
-is not present, from the journaled presence) goes home. So does one lying
-unheld away from both its home and its starting `holder`, unless it belongs
-to a kit.
+At dawn a homed item lying unheld away from both its home and its starting
+`holder` is noted in the save's `astray`; if it still lies there at the next
+dawn, it goes home. A kit item may lie anywhere.
 
 ```json
 "greek-figs": {
@@ -379,7 +382,9 @@ A give choice can require a set and repeat. With `"repeats": true`, an
 `"on": "give"` choice may fire again whenever its one `drop_item` output is
 used up. Its effects are only `retire_item`, `drop_item` and `set_flag`. It
 fires when the actor gives the subject any item of the set while holding the
-whole set; no new verb. A resident whose `want` is that output wants it as a
+whole set; no new verb. A slot may be an `any` of `holding` conditions: any
+one of them fills it, and only the item given is used up. The choice keeps
+one receipt, the turn of its latest firing. A resident whose `want` is that output wants it as a
 maker: Talk names the set ("I want the Travel Provisions: the Courtyard
 Bread, the Dried Figs and the Wine Skin."), and the resident leaves the
 output for others to carry.

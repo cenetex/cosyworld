@@ -2,7 +2,12 @@
 // It reads the world and never changes it. Another avatar's want reaches the
 // player only through a Talk play with that avatar.
 import forest from "./forest.json" with { type: "json" };
-import { entityActive, makerChoice, packPeople } from "./pack-registry.mjs";
+import {
+  entityActive,
+  heldSlots,
+  makerChoice,
+  packPeople,
+} from "./pack-registry.mjs";
 
 // The authored first want, until the rules keep one on the actor.
 export const authoredWant = (id) =>
@@ -39,9 +44,9 @@ export function wantFact(world, id, nameOf) {
   const making =
     want?.kind === "item" && world.actors?.[id] && makerChoice(id, want.target);
   if (making) {
-    const set = making.requires
-      .filter((r) => r.kind === "holding" && r.role === "actor")
-      .map((r) => article(nameOf(r.item)));
+    const set = heldSlots(making.requires).map((slot) =>
+      slot.map((item) => article(nameOf(item))).join(" or "),
+    );
     return `I want ${article(nameOf(want.target))}: ${set.slice(0, -1).join(", ")}${set.length > 1 ? " and " : ""}${set.at(-1)}.`;
   }
   if (!want || !world.actors?.[id] || !entityActive(world, want.target))

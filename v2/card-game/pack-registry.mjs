@@ -532,6 +532,19 @@ export function applyMeetingChoices(world, actor, placeIds) {
     }
   return applied;
 }
+// The things a choice needs its actor to hold, slot by slot: one item, or
+// the alternatives of an `any` (rules 95).
+export const heldSlots = (requires = []) =>
+  requires
+    .map((r) =>
+      r.kind === "any"
+        ? r.conditions.filter((c) => c.kind === "holding" && c.role === "actor")
+        : r.kind === "holding" && r.role === "actor"
+          ? [r]
+          : [],
+    )
+    .filter((slot) => slot.length)
+    .map((slot) => slot.map((r) => r.item));
 // Choices marked "on": "give" are the effect of giving their subject the
 // item the choice needs the actor to hold. They are never offered as cards.
 export function packGiveChoice(world, action) {
@@ -540,12 +553,7 @@ export function packGiveChoice(world, action) {
       if (
         c.on === "give" &&
         c.subject === action.target &&
-        c.requires.some(
-          (r) =>
-            r.kind === "holding" &&
-            r.role === "actor" &&
-            r.item === action.item,
-        ) &&
+        heldSlots(c.requires).some((slot) => slot.includes(action.item)) &&
         choiceFeasible(world, pack, c, action.actor, "give")
       )
         return { packId: pack.id, choiceId: c.id, actor: action.actor };
@@ -666,8 +674,15 @@ export function applyPackChoice(
   for (const e of choice.effects) {
     // A retired item is used up: it leaves play and waits, unseen, at its
     // authored holder until it regrows or a choice drops it again.
-    if (e.kind === "retire_item")
-      useUp(world, e.item, pack.items[e.item].holder);
+    // An alternative a set slot did not use stays where it is.
+    if (e.kind === "retire_item") {
+      const root = rootOf(world, e.item);
+      if (
+        root === action.actor ||
+        (world.actors[root]?.place ?? root) === choice.at
+      )
+        useUp(world, e.item, pack.items[e.item].holder);
+    }
     // The subject sets a used-up thing down at the choice's place.
     if (e.kind === "drop_item") {
       bringBack(world, e.item, choice.at);

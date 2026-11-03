@@ -160,7 +160,7 @@ describe("rules 95 item cycle", () => {
       refusals: 0,
     };
     expect(wantFact(s, "greek-shipmaster", nameOf)).toBe(
-      "I want the Travel Provisions: the Courtyard Bread, the Test Figs and the Test Wine.",
+      "I want the Travel Provisions: the Courtyard Bread, the Test Figs and the Test Wine or the Test Water.",
     );
     s = act(s, "give", { item: "greek-test-figs", target: "greek-shipmaster" });
     expect(s.items["greek-provisions"].holder).toBe("greek-harbor");
@@ -233,6 +233,7 @@ describe("rules 95 item cycle", () => {
     let s = dispatchShared({ op: "create", save: encodeSave(harbor()) }).world;
     for (const id of players) s.actors[id].place = "greek-harbor";
     s.items["greek-test-figs"].holder = "mara";
+    s.items["greek-test-water"].holder = "mara";
     s.items["greek-test-wine"].holder = "greek-harbor";
     s.items["greek-bread"].holder = "vale";
     s = toTurn(s, DAYLIGHT_TURNS * 2 - 1);
@@ -245,12 +246,23 @@ describe("rules 95 item cycle", () => {
         present: ["vale"],
         ...extra,
       });
-    const action = ask(s, "view").actions.find((a) => a.kind === "wait");
-    s = ask(s, "play", { action }).world;
+    const dawn = (world) =>
+      ask(world, "play", {
+        action: ask(world, "view").actions.find((a) => a.kind === "wait"),
+      }).world;
+    s = dawn(s);
+    // Only a thing marked absentReturn leaves an absent traveler's hands.
     expect(s.items["greek-test-figs"].holder).toBe("greek-sanctuary");
-    expect(s.items["greek-test-wine"].holder).toBe("greek-gate");
+    expect(s.items["greek-test-water"].holder).toBe("mara");
+    // A thing laid down is first only seen astray, so a rite can use it.
+    expect(s.items["greek-test-wine"].holder).toBe("greek-harbor");
+    expect(s.astray).toEqual({ "greek-test-wine": "greek-harbor" });
     // A present traveler keeps what they hold.
     expect(s.items["greek-bread"].holder).toBe("vale");
+    // Still there at the next dawn, it goes home.
+    s = dawn(toTurn(s, DAYLIGHT_TURNS * 4 - 1));
+    expect(s.items["greek-test-wine"].holder).toBe("greek-gate");
+    expect(s.astray).toBeUndefined();
   });
 
   it("scatters a kit once it is home, the same way on every replay", () => {
@@ -362,5 +374,28 @@ describe("rules 95 item cycle", () => {
       s = wait(s);
       s = act(s, "move", { target: "greek-harbor" });
     }
+  });
+
+  it("takes either alternative for a set slot and uses up only the one given", () => {
+    let s = harbor();
+    for (const id of ["greek-bread", "greek-test-figs", "greek-test-water"])
+      s.items[id].holder = "vale";
+    s = act(reload(s), "give", {
+      item: "greek-test-water",
+      target: "greek-shipmaster",
+    });
+    expect(s.items["greek-provisions"].holder).toBe("greek-harbor");
+    expect(usedUp(s, "greek-test-water")).toBe(true);
+    expect(s.items["greek-test-wine"].holder).toBe("greek-gate");
+    expect(usedUp(s, "greek-test-wine")).toBe(false);
+    s.actors["greek-shipmaster"].want = {
+      kind: "item",
+      target: "greek-provisions",
+      since: 0,
+      refusals: 0,
+    };
+    expect(wantFact(s, "greek-shipmaster", nameOf)).toBe(
+      "I want the Travel Provisions: the Courtyard Bread, the Test Figs and the Test Wine or the Test Water.",
+    );
   });
 });

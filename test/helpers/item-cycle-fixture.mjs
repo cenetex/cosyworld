@@ -21,6 +21,11 @@ export function itemCycleFixture(compiled) {
     "greek-test-figs": thing("Test Figs", "greek-sanctuary", {
       home: "greek-sanctuary",
       regrow: "rest",
+      absentReturn: true,
+    }),
+    "greek-test-water": thing("Test Water", "greek-well", {
+      home: "greek-well",
+      regrow: "dawn",
     }),
     "greek-test-wine": thing("Test Wine", "greek-gate", {
       home: "greek-gate",
@@ -45,11 +50,29 @@ export function itemCycleFixture(compiled) {
     text: "Myrto packs the provisions and sets them on the landing.",
     on: "give",
     repeats: true,
-    requires: ["greek-bread", "greek-test-figs", "greek-test-wine"].map(
-      (item) => ({ kind: "holding", item, role: "actor" }),
-    ),
+    // The drink slot takes the wine or the water.
+    requires: [
+      ...["greek-bread", "greek-test-figs"].map((item) => ({
+        kind: "holding",
+        item,
+        role: "actor",
+      })),
+      {
+        kind: "any",
+        conditions: ["greek-test-wine", "greek-test-water"].map((item) => ({
+          kind: "holding",
+          item,
+          role: "actor",
+        })),
+      },
+    ],
     effects: [
-      ...["greek-bread", "greek-test-figs", "greek-test-wine"].map((item) => ({
+      ...[
+        "greek-bread",
+        "greek-test-figs",
+        "greek-test-wine",
+        "greek-test-water",
+      ].map((item) => ({
         kind: "retire_item",
         item,
       })),
@@ -67,6 +90,7 @@ export function itemCycleFixture(compiled) {
   greek.release.items.push(
     "greek-test-figs",
     "greek-test-wine",
+    "greek-test-water",
     "greek-test-shell",
     "greek-test-stone",
   );

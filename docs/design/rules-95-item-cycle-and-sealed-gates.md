@@ -19,8 +19,18 @@ are in [card packs](../../v2/docs/card-packs.md#things-used-up-and-coming-back-r
   stakes, so a regrown thing cannot repair an old incident.
 - **Repeating set give.** An `on: "give"` choice with `repeats: true` and one
   `drop_item` fires again whenever that output is used up. The set is every
-  `holding role: actor` item; giving any one of them fires it. No new verb.
-  The receipt keeps the latest turn, so receipt validation replays it.
+  `holding role: actor` slot, and a slot may be an `any` of alternatives;
+  giving any item of the set fires it, and an alternative not held stays
+  where it is. No new verb.
+- **Receipts for a repeating give.** Choices fire once because a receipt
+  blocks them (`choiceFeasible`). Rules 95 extends the model for `repeats`
+  only: the receipt does not block, and each firing replaces it with its own
+  turn, so the receipt is the latest firing. This keeps replay exact
+  because a repeating give may not `choose` (the pack check refuses it):
+  its `set_flag` effects write the same value at every firing, so validation
+  derives the same flags from the latest receipt as from all of them. The
+  one-choice-per-turn guard still applies, and the output being used up is
+  the gate between firings, so a world never holds two outputs.
 - **Voyages spend cargo.** A `spends` lane uses up its opening cargo on
   arrival (`sailTransports` now reports the lane's `from`). Only homed things
   are spent. The return voyage leaves loose homed things at the quay it
@@ -28,11 +38,16 @@ are in [card packs](../../v2/docs/card-packs.md#things-used-up-and-coming-back-r
 - **Regrowth.** `home` plus `regrow: dawn | dusk | rest`. Rest is any long
   rest ending this round. A thing regrows only while its home is active and
   its own `requires` hold; otherwise it waits.
-- **Dawn safeguard.** At dawn a homed thing held by an absent traveler goes
-  home. Absent means a human avatar not in `presentActors`, which the shared
-  host sets per journaled request, so replay agrees. A thing lying unheld
-  away from both home and its starting holder goes home too, except a kit
-  thing, whose job is to lie abroad.
+- **Dawn safeguard.** A homed thing lying unheld away from both home and its
+  starting holder is noted in `world.astray` at one dawn and goes home if it
+  still lies there at the next, so a cloth laid on a grave for a rite is not
+  swept away overnight. Kit things are exempt: their job is to lie abroad.
+- **Absent holders, held.** Taking a thing from an absent traveler's hands
+  conflicts with "no absence penalties", so it is off by default and pending
+  the owner's decision. An item marked `absentReturn: true` opts in: at dawn
+  it goes home from a human avatar not in `presentActors`, which the shared
+  host sets per journaled request, so replay agrees. Dropping the rule is
+  deleting that field and one branch of `stray` in `pack-items.mjs`.
 - **Kits.** When every kit thing lies at home, the kit's event scatters them
   to active listed places in any world, one per place until all have one.
   The pick is FNV-1a over the run seed, kit, scatter count, turn and thing
