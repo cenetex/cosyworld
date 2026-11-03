@@ -224,6 +224,22 @@ is a speaker and a speech verb after a closing quote (`," I say`); a
 quotation inside speech keeps its words. The corpus in `framing.rs` lists
 lines that must pass and lines that must fail.
 
+The check flags by default (owner, 2026-11-03). It **blocks** only:
+an empty reply; one over its size cap or unfinished (`shape`); an
+instruction aimed at a model (`instruction`); system talk (`assistant`); a
+run of ten or more words from the prompt's own instructions (`echoed
+brief`); and a false world claim (`observable_state`, `custody`,
+`story_outcome`). A blocked reply is retried once, and the retry's system
+message ends with a short first-person correction for that reason, such as
+"I stay in this moment and speak as myself." (`CORRECTIONS` in
+`framing.rs`). Everything else is **flagged**: self-narration, stage
+action, narration tag, repeat, atmosphere, a short read-back of a label or
+the instructions, third person, an unknown name or item, and an
+unpunctuated or cut line. A flagged reply is published as written on its
+first attempt, and the server logs `card voice flagged` with its `reasons`.
+A missed fact is still published as `untold`. Facts, the scene and memories
+are background any line, thought or persona may say.
+
 In shared play the server finishes a play whose words failed as a silent
 scene: no speech op is journaled (exactly as for words that never came, so
 replay and the rules are unchanged), the scene record has no lines, lists
