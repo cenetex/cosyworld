@@ -654,7 +654,7 @@ describe("authored topics keep their saved deed identity", () => {
         choiceId: choice.id,
       },
     ];
-    let world = openDoorWalk(openDoorStart(), "harbor", "athens", "eleusis");
+    let world = openDoorWalk(openDoorStart(), "eleusis");
     const action = legalActions(world).find(
       (a) => a.kind === "talk" && a.target === "greek-aethra",
     );
@@ -689,7 +689,7 @@ describe("authored topics keep their saved deed identity", () => {
         choiceId: choice.id,
       },
     ];
-    let world = openDoorWalk(openDoorStart(), "harbor", "athens", "eleusis");
+    let world = openDoorWalk(openDoorStart(), "eleusis");
     // Aethra's own quest is to talk with Vale, so she speaks first.
     world.actors[choice.subject].want = {
       kind: "person",
@@ -744,7 +744,7 @@ describe("authored topics keep their saved deed identity", () => {
       choiceId: choice.id,
     };
     pack.topics = [topic];
-    let world = openDoorWalk(openDoorStart(), "harbor", "athens", "eleusis");
+    let world = openDoorWalk(openDoorStart(), "eleusis");
     const entry = { seq: ++world.eventSeq, turn: world.turn };
     reserveKnowledge(world, topic.speaker, "vale", entry, [
       { ...topic, packId: pack.id },

@@ -201,9 +201,16 @@ describe("the Open Door", () => {
       expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
       expect(state(world).choices["greek-theban-response"]).toBe(branch);
       expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
-      world = openDoorWalk(reload(world), "harbor", "athens");
-      // The Long Walls stay shut until the herald's truce is in the Agora;
-      // the Sacred Way leads out to the countryside.
+      world = openDoorWalk(reload(world), "harbor", "piraeus");
+      // The Long Walls stay shut from both ends until the herald's truce is
+      // in the Agora: a sea arrival stays at the quays. From the Agora the
+      // Sacred Way leads out to the countryside.
+      expect(world.actors.vale.place).toBe("greek-piraeus");
+      expect(
+        exits(world, "greek-piraeus", "vale").filter(
+          (to) => to !== "greek-ship",
+        ),
+      ).toEqual([]);
       expect(exits(world, "greek-athens", "vale")).toEqual([
         "greek-road-athens-eleusis",
       ]);

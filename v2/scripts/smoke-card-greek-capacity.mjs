@@ -180,6 +180,14 @@ try {
     if (avatar === "vale") {
       const saved = crowdedAgoraWorld();
       saved.actors.vale.place = "greek-road-athens-piraeus";
+      // The herald's truce has opened the Long Walls from Piraeus too.
+      saved.openedRoutes = [
+        ...new Set([
+          ...(saved.openedRoutes || []),
+          "greek-athens>greek-road-athens-piraeus",
+          "greek-piraeus>greek-road-athens-piraeus",
+        ]),
+      ].sort();
       const result = await request(
         page,
         { save: encodeSave(saved) },
@@ -291,8 +299,7 @@ try {
   assert.equal(arrived.world.actors.vale.place, "greek-athens");
   await command(tavi, { op: "enter" });
   assert.equal((await view(tavi)).world.presentActors.includes("tavi"), false);
-  // The Long Walls open from the Agora only beside the olive branch, so Vale
-  // leaves by the Eleusis road, which is always open.
+  // Vale leaves by the Eleusis road, which is always open from the Agora.
   await step("move", "greek-road-athens-eleusis");
   await command(tavi, { op: "enter" });
   assert.equal((await view(tavi)).world.presentActors.includes("tavi"), true);

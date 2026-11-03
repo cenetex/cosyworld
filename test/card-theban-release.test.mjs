@@ -149,14 +149,21 @@ describe("the Theban release and its ship", () => {
     s = act(s, "give", { item: "greek-guard-tablet", target: "greek-baker" });
     // The tablet on Dione's table opens the Cithaeron road from the
     // battlefield to the countryside. The Sacred Way waits for the mothers'
-    // petition; the ship with the Travel Provisions reaches the city.
+    // petition; the ship with the Travel Provisions reaches Piraeus, whose
+    // Long Walls wait for the herald's truce (rules 94).
     expect(reachable(s)).toContain("greek-eleusis");
     expect(reachable(s)).not.toContain("greek-athens");
     s.items["greek-provisions"].holder = "greek-ship";
-    expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
-    expect(reachable(s)).toHaveLength(16);
+    const city = [
+      "greek-athens",
+      "greek-road-athens-eleusis",
+      "greek-road-athens-piraeus",
+    ];
+    const sailed = openDoorReleasedPlaces.filter((id) => !city.includes(id));
+    expect(reachable(s)).toEqual(sailed.sort());
+    expect(reachable(s)).toHaveLength(13);
     s = decodeSave(encodeSave(s));
-    expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
+    expect(reachable(s)).toEqual(sailed.sort());
     for (const start of openDoorPlaces) {
       const trip = structuredClone(s);
       trip.transports["greek-ship"].dock = "greek-piraeus";

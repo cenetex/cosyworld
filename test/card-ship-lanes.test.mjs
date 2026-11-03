@@ -11,6 +11,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import {
   knowsLane,
+  learnLane,
   summonTransport,
 } from "../v2/card-game/pack-transport.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
@@ -72,9 +73,9 @@ describe("knowing a lane is personal", () => {
     expect(knowsLane(s, "vale", "pond", "greek-harbor")).toBe(true);
     expect(knowsLane(s, "vale", "greek-harbor", "pond")).toBe(true);
     expect(knowsLane(s, "mara", "greek-harbor", "greek-piraeus")).toBe(false);
-    expect(knowsLane(s, "greek-antigone", "greek-harbor", "greek-piraeus")).toBe(
-      true,
-    );
+    expect(
+      knowsLane(s, "greek-antigone", "greek-harbor", "greek-piraeus"),
+    ).toBe(true);
     for (const [from, to] of [
       ["greek-harbor", "greek-piraeus"],
       ["greek-marathon", "greek-ajax-landing"],
@@ -85,8 +86,10 @@ describe("knowing a lane is personal", () => {
   // Every lane past the Wine-Dark Harbor now opens with a thing aboard or a
   // story dock, so knowing one changes what Myrto tells, not the course cards.
   it("everyone who sails a lane learns it, both ways", () => {
-    let s = dispatchShared({ op: "create", save: encodeSave(openSeas()) })
-      .world;
+    let s = dispatchShared({
+      op: "create",
+      save: encodeSave(openSeas()),
+    }).world;
     for (const id of players) s.actors[id].place = "greek-piraeus";
     // The roaming Bard may be aboard, bound for Marathon Bay; set him ashore.
     if (s.actors["greek-rhapsode"].place === "greek-ship") {
@@ -97,7 +100,9 @@ describe("knowing a lane is personal", () => {
     s = reload(s);
     s = act(s, "vale", "move", "greek-ship");
     s = act(s, "mara", "move", "greek-ship");
-    // The ship always sails home from Piraeus, for both, known or not.
+    // Vale has sailed home from Piraeus before; Mara has not. The ship
+    // always sails home from Piraeus, for both, known or not.
+    learnLane(s, "vale", "greek-piraeus", "greek-harbor");
     expect(courses(s, "vale")).toContain("greek-harbor");
     expect(knowsLane(s, "mara", "greek-piraeus", "greek-harbor")).toBe(false);
     s = act(s, "vale", "course", "greek-harbor");
@@ -144,8 +149,9 @@ describe("knowing a lane is personal", () => {
     s = act(s, "vale", "move", "greek-piraeus");
     expect(s.actors.vale.place).toBe("greek-piraeus");
     expect(knowsLane(s, "vale", "greek-harbor", "greek-piraeus")).toBe(true);
-    // The quay opens with the Open Door, and the Long Walls lead inland.
-    expect(ask(s, "vale").exits).toContain("greek-road-athens-piraeus");
+    // The quay opens with the Open Door; the Long Walls inland wait for the
+    // herald's truce.
+    expect(ask(s, "vale").exits).not.toContain("greek-road-athens-piraeus");
     // The lane home from Piraeus stays open, even with the provisions
     // left on the quay; with them aboard the ship also sails on to the
     // Hoppy Cat jetty. It no longer rounds the cape to Marathon.

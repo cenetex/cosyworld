@@ -76,9 +76,9 @@ Otherwise they read as an inventory lock accepting its key.
 
 When Dione receives the account of burial, permission or warning, she opens
 the road to Athens. That records a lasting opening
-for the Athenian Agora, Colonus Grove and the Eleusinian Sanctuary, and the
-Long Walls from Piraeus Quays. One shared traveler can open the roads for
-everyone. Marathon Altar is a rumour in this release.
+for the Athenian Agora, Colonus Grove and the Eleusinian Sanctuary, reached
+through the City Gate; the Long Walls from Piraeus Quays open with the
+herald's truce. One shared traveler can open the roads for everyone. Marathon Altar is a rumour in this release.
 
 The main journey follows the mothers in Euripides' _Suppliant Women_.
 Carry their petition to Theseus, choose the civic response, hear its report,
@@ -137,25 +137,27 @@ Black Pond route. Its lanes are in `v2/worlds/greek-drama/card-bridge.json`:
   needs the same cargo aboard. Voyages do not use the cargo up.
 - Every way back toward Black Pond, jetty to Piraeus and Piraeus to the
   harbor, is free.
+- The cargo rule binds only a voyage with riders. Called away empty, the
+  ship comes back to a traveler waiting at any dock without cargo.
 
 Piraeus is Thebes's sea exit. It lies outside every section, so the
 provisions carry a traveler there before Dione's invitation; the Long Walls
-inland wait for the invitation, so before it Piraeus is a quay with the ship
-home. The Hoppy Cat jetty beyond it is reachable as early, with cargo.
+inland wait for the herald's truce, so until then Piraeus is a quay with the
+ship home. The Hoppy Cat jetty beyond it is reachable as early, with cargo.
 
 The ship is the quick way to a port, never a trap (#2049). From every dock
 the Charybdis sails to, a traveler reaches home on foot or by a free leg,
 even with the City Gate shut and every gate key out of reach.
 `test/card-ship-port-roads.test.mjs` checks that by search over every walk,
-carry and hand-over and every free lane. From Piraeus the land route is the
-real geography: the Long Walls to the Agora, the Sacred Way to Eleusis, the
-Cithaeron road to the battlefield, then the City Gate into Thebes, which
-opens only once the guard has held the decree there. The Coast Road,
-Piraeus to the Wine-Dark Harbor, retired. One way still waits on a gate: a
-traveler who sails to Piraeus after the invitation and walks into the Agora
-returns to Piraeus by the Long Walls only once the herald's truce is in the
-Agora, or through Thebes once the City Gate is open. With the Agora's
-keys at hand that is the mothers' story, played from inside Attica.
+carry and hand-over and every free lane, wherever someone else has called
+the empty ship. The land route is the real geography: the Long Walls to the
+Agora, the Sacred Way to Eleusis, the Cithaeron road to the battlefield,
+then the City Gate into Thebes, which opens only once the guard has held
+the decree there. The Coast Road, Piraeus to the Wine-Dark Harbor, retired.
+The Long Walls open from both ends only with the herald's truce, so a sea
+arrival waits at Piraeus until then and Attica is entered through the City
+Gate. After the exposure the gate may never open; then nobody reaches
+Attica by land or sea, and nobody is stranded there.
 
 Marathon, the Trojan landing, the Greek camp and its household and grave,
 and the Northern Road leave the release. The Lemnian Cave, the Thracian
@@ -242,7 +244,7 @@ boarding shores open through lamp changes, reloads and later voyages. It
 sails the Black Pond route described above. Boarding the ship is a dock's
 one link to the sea. Giving Theseus the mothers' petition brings the
 herald's truce (`greek-olive-branch`, the Open Door's Agora outcome) into the
-Agora. While it is in the Agora, the Long Walls open from the Agora to Piraeus.
+Agora. While it is in the Agora, the Long Walls open from both ends.
 Its card uses `assets/greek-drama/olive-branch.webp`, the wool-bound branch
 painting documented in [the Argos art handoff](../../card-game/assets/greek-drama/argos-alternates-README.md).
 Boarding keeps the ship at its harbour. The first course

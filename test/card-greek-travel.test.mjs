@@ -174,11 +174,9 @@ describe("Greek ports and fixed roads", () => {
     // Athens Harbor has joined Piraeus, whose Long Walls lead to the city.
     expect(entityActive(after, "greek-athens-harbor")).toBe(false);
     expect(entityActive(after, "greek-road-athens-piraeus")).toBe(true);
-    // The Coast Road retired: Piraeus walks home by the Long Walls and the
-    // land route through Thebes (#2049).
-    expect(exits(after, "greek-piraeus", "vale")).toEqual([
-      "greek-road-athens-piraeus",
-    ]);
+    // The Coast Road retired (#2049). Until the herald's truce opens the
+    // Long Walls, Piraeus has no road: the ship home is free.
+    expect(exits(after, "greek-piraeus", "vale")).toEqual([]);
     expect(exits(after, "greek-harbor", "vale")).toContain("greek-road-thebes");
     expect(exits(after, "greek-harbor", "vale")).not.toContain(
       "greek-courtyard",

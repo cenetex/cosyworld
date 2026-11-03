@@ -1795,10 +1795,10 @@
     (lane) => lane.opensWith && (lane.from === from && lane.to === to || !lane.oneWay && lane.from === to && lane.to === from)
   )?.opensWith ?? null;
   var laneConditions = (from, to) => Object.values(transports).map((t) => laneGate(t, from, to)).find(Boolean) ?? null;
-  var openLanes = (s, t, dock, actor = null) => lanesFrom(t, dock).filter((to) => {
+  var openLanes = (s, t, dock, actor = null, empty = false) => lanesFrom(t, dock).filter((to) => {
     if (!entityActive(s, to)) return false;
     const gate = laneGate(t, dock, to);
-    return gate ? conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
+    return gate ? empty || conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
   });
   function laneReach(s, id, from, actor = null) {
     const t = transports[id];
@@ -2783,9 +2783,7 @@
           "greek-piraeus": {
             name: "Piraeus Quays",
             text: "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. The Long Walls run inland to Athens.",
-            exits: [
-              "greek-road-athens-piraeus"
-            ],
+            exits: [],
             backdrop: "assets/greek-drama/piraeus-open-berth.webp",
             persona: "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler\u2019s chosen terms."
           },
@@ -2869,7 +2867,7 @@
           },
           "greek-colonus": {
             name: "Colonus Grove",
-            text: "A cup and a small pot of honey stand at the grove\u2019s edge. A keeper rests beside a smooth stone. Country paths lead to Eleusis, the farm and the Marathon altar.",
+            text: "A cup and a small pot of honey stand at the grove\u2019s edge. A keeper rests beside a smooth stone. Country paths lead to Eleusis and the farm. Travelers speak of an altar at Marathon beyond the hills.",
             exits: [
               "greek-eleusis",
               "greek-marathon",
@@ -3365,7 +3363,7 @@
           "greek-road-athens-piraeus": {
             name: "The Long Walls",
             text: "A road runs between two long walls from the city to its port. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
-            persona: "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. From the Agora the walls open only while the Suppliant\u2019s Olive Branch is in the Agora. Travelers can meet, talk, rest and carry their belongings here.",
+            persona: "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. The walls open from either end once the herald has registered the mothers\u2019 plea with the Suppliant\u2019s Olive Branch in the Agora. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-piraeus",
               "greek-athens"
@@ -4652,7 +4650,7 @@
           },
           "greek-shelter-blanket": {
             name: "The Shelter Blanket",
-            text: "A thick clean blanket is folded beside the cargo baskets. The altar keeper at Marathon has asked for it.",
+            text: "A thick clean blanket is folded beside the cargo baskets. Sailors say an altar keeper at Marathon once asked for it.",
             holder: "greek-piraeus",
             art: "assets/greek-drama/shelter-blanket.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
@@ -5036,6 +5034,22 @@
           },
           {
             from: "greek-athens",
+            to: "greek-road-athens-piraeus",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-open-door-plea-registered",
+                value: true
+              },
+              {
+                kind: "item_near",
+                item: "greek-olive-branch",
+                place: "greek-athens"
+              }
+            ]
+          },
+          {
+            from: "greek-piraeus",
             to: "greek-road-athens-piraeus",
             requires: [
               {
@@ -6322,8 +6336,8 @@
             subject: "greek-quay-host",
             at: "greek-piraeus",
             label: "Ask what the returning households need",
-            text: "Thaleia shows Vale the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket for Marathon. She asks for the mothers\u2019 own list before assigning the berth.",
-            textTemplate: "Thaleia shows {actor} the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket for Marathon. She asks for the mothers\u2019 own list before assigning the berth.",
+            text: "Thaleia shows Vale the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket the sailors say was meant for Marathon. She asks for the mothers\u2019 own list before assigning the berth.",
+            textTemplate: "Thaleia shows {actor} the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket the sailors say was meant for Marathon. She asks for the mothers\u2019 own list before assigning the berth.",
             requires: [
               {
                 kind: "flag",
@@ -9155,13 +9169,8 @@
             "greek-homecoming-report-eleusis-pledge",
             "greek-homecoming-report-piraeus-family",
             "greek-homecoming-report-colonus-custom",
-            "greek-homecoming-report-marathon-alcmene",
             "greek-homecoming-agree-journey",
-            "greek-homecoming-receive-family",
-            "greek-ajax-invitation",
-            "greek-ajax-return-public",
-            "greek-ajax-return-household",
-            "greek-ajax-return-appeal"
+            "greek-homecoming-receive-family"
           ]
         },
         recital: {
@@ -16386,6 +16395,13 @@
     foldRetiredRoads(s);
     if (Array.isArray(s.openedRoutes)) {
       s.openedRoutes = s.openedRoutes.filter(latchingRoute);
+      if (s.openedRoutes.includes("greek-athens>greek-road-athens-piraeus"))
+        s.openedRoutes = [
+          .../* @__PURE__ */ new Set([
+            ...s.openedRoutes,
+            "greek-piraeus>greek-road-athens-piraeus"
+          ])
+        ].sort();
       if (!s.openedRoutes.length) delete s.openedRoutes;
     }
     leaveTheRumours(s, pack);
@@ -16430,6 +16446,25 @@
       for (const [id, item] of Object.entries(pack.items))
         if (s.items[id] && !pack.release.items.includes(id))
           Object.assign(s.items[id], { holder: item.holder, history: [] });
+      const rumour = /* @__PURE__ */ new Set([
+        ...Object.keys(back),
+        ...Object.keys(pack.places).filter((id) => pack.places[id].retired),
+        ...Object.keys(pack.avatars).filter(
+          (id) => !pack.release.avatars.includes(id) && pack.recital?.actor !== id
+        ),
+        ...Object.keys(pack.items).filter(
+          (id) => !pack.release.items.includes(id)
+        )
+      ]);
+      const names2 = (w) => [w.target, w.step?.to, w.step?.at].some((id) => rumour.has(id));
+      for (const a of Object.values(s.actors || {})) {
+        const quests = [a?.want, ...a?.under || []].filter(Boolean);
+        const kept = quests.filter((w) => !names2(w));
+        if (kept.length === quests.length) continue;
+        a.want = kept[0] ?? null;
+        if (kept.length > 1) a.under = kept.slice(1);
+        else delete a.under;
+      }
     }
     const ship = transports["greek-ship"], old = s.transports?.["greek-ship"];
     if (!ship || !old) return;

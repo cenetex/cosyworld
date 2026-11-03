@@ -650,6 +650,14 @@ export function upgradeGreekLandRouteSave(s) {
   foldRetiredRoads(s);
   if (Array.isArray(s.openedRoutes)) {
     s.openedRoutes = s.openedRoutes.filter(latchingRoute);
+    // The Long Walls now open from both ends with the herald's truce.
+    if (s.openedRoutes.includes("greek-athens>greek-road-athens-piraeus"))
+      s.openedRoutes = [
+        ...new Set([
+          ...s.openedRoutes,
+          "greek-piraeus>greek-road-athens-piraeus",
+        ]),
+      ].sort();
     if (!s.openedRoutes.length) delete s.openedRoutes;
   }
   leaveTheRumours(s, pack);
@@ -707,6 +715,30 @@ function leaveTheRumours(s, pack) {
     for (const [id, item] of Object.entries(pack.items))
       if (s.items[id] && !pack.release.items.includes(id))
         Object.assign(s.items[id], { holder: item.holder, history: [] });
+    // A quest that names a rumour's place, person or thing, or a retired
+    // stop, is let go, a player's as well as a resident's; an emptied stack
+    // draws its next want as any empty one does.
+    const rumour = new Set([
+      ...Object.keys(back),
+      ...Object.keys(pack.places).filter((id) => pack.places[id].retired),
+      ...Object.keys(pack.avatars).filter(
+        (id) =>
+          !pack.release.avatars.includes(id) && pack.recital?.actor !== id,
+      ),
+      ...Object.keys(pack.items).filter(
+        (id) => !pack.release.items.includes(id),
+      ),
+    ]);
+    const names = (w) =>
+      [w.target, w.step?.to, w.step?.at].some((id) => rumour.has(id));
+    for (const a of Object.values(s.actors || {})) {
+      const quests = [a?.want, ...(a?.under || [])].filter(Boolean);
+      const kept = quests.filter((w) => !names(w));
+      if (kept.length === quests.length) continue;
+      a.want = kept[0] ?? null;
+      if (kept.length > 1) a.under = kept.slice(1);
+      else delete a.under;
+    }
   }
   // A ship at, or bound for, a port it no longer sails to comes in to
   // Piraeus with everyone aboard.

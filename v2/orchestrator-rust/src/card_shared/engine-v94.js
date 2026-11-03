@@ -1238,10 +1238,10 @@
     (lane) => lane.opensWith && (lane.from === from && lane.to === to || !lane.oneWay && lane.from === to && lane.to === from)
   )?.opensWith ?? null;
   var laneConditions = (from, to) => Object.values(transports).map((t) => laneGate(t, from, to)).find(Boolean) ?? null;
-  var openLanes = (s, t, dock, actor = null) => lanesFrom(t, dock).filter((to) => {
+  var openLanes = (s, t, dock, actor = null, empty = false) => lanesFrom(t, dock).filter((to) => {
     if (!entityActive(s, to)) return false;
     const gate = laneGate(t, dock, to);
-    return gate ? conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
+    return gate ? empty || conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
   });
   function berthOpen(s, place) {
     const ships2 = Object.values(transports).filter(
@@ -1254,13 +1254,13 @@
       })
     );
   }
-  function lanePath(s, id, from, to, actor = null) {
+  function lanePath(s, id, from, to, actor = null, empty = false) {
     const t = transports[id];
     const queue = [[from]], seen = /* @__PURE__ */ new Set([from]);
     for (let i = 0; i < queue.length; i++) {
       const path = queue[i];
       if (path.at(-1) === to) return path;
-      for (const next of openLanes(s, t, path.at(-1), actor)) {
+      for (const next of openLanes(s, t, path.at(-1), actor, empty)) {
         if (seen.has(next)) continue;
         seen.add(next);
         queue.push([...path, next]);
@@ -1386,7 +1386,7 @@
         ([who, a]) => a.place === state.dock && controlledByHuman(s, who)
       ) || !transportUnlocked(s, id) || state.phase !== "docked" || state.dock === place || state.since === s.turn && s.turn > 0 || passengers(s, id).length)
         continue;
-      const path = lanePath(s, id, state.dock, place);
+      const path = lanePath(s, id, state.dock, place, null, true);
       if (path) Object.assign(state, { dock: path[1], since: s.turn });
     }
   }
@@ -5082,6 +5082,13 @@
     foldRetiredRoads(s);
     if (Array.isArray(s.openedRoutes)) {
       s.openedRoutes = s.openedRoutes.filter(latchingRoute);
+      if (s.openedRoutes.includes("greek-athens>greek-road-athens-piraeus"))
+        s.openedRoutes = [
+          .../* @__PURE__ */ new Set([
+            ...s.openedRoutes,
+            "greek-piraeus>greek-road-athens-piraeus"
+          ])
+        ].sort();
       if (!s.openedRoutes.length) delete s.openedRoutes;
     }
     leaveTheRumours(s, pack);
@@ -5126,6 +5133,25 @@
       for (const [id, item] of Object.entries(pack.items))
         if (s.items[id] && !pack.release.items.includes(id))
           Object.assign(s.items[id], { holder: item.holder, history: [] });
+      const rumour = /* @__PURE__ */ new Set([
+        ...Object.keys(back),
+        ...Object.keys(pack.places).filter((id) => pack.places[id].retired),
+        ...Object.keys(pack.avatars).filter(
+          (id) => !pack.release.avatars.includes(id) && pack.recital?.actor !== id
+        ),
+        ...Object.keys(pack.items).filter(
+          (id) => !pack.release.items.includes(id)
+        )
+      ]);
+      const names2 = (w) => [w.target, w.step?.to, w.step?.at].some((id) => rumour.has(id));
+      for (const a of Object.values(s.actors || {})) {
+        const quests = [a?.want, ...a?.under || []].filter(Boolean);
+        const kept = quests.filter((w) => !names2(w));
+        if (kept.length === quests.length) continue;
+        a.want = kept[0] ?? null;
+        if (kept.length > 1) a.under = kept.slice(1);
+        else delete a.under;
+      }
     }
     const ship = transports["greek-ship"], old = s.transports?.["greek-ship"];
     if (!ship || !old) return;

@@ -12,7 +12,6 @@
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
-  currentActor,
   decodeSave,
   encodeSave,
   exits,
@@ -34,6 +33,8 @@ import {
 } from "../v2/card-game/pack-transport.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
+import { sailTo } from "./helpers/voyage.mjs";
+import { openingFixture } from "./helpers/greek-opening.mjs";
 
 const pack = packDefinition("greek-drama");
 const ships = new Set(Object.values(transports).map((t) => t.place));
@@ -103,9 +104,45 @@ const placeOf = (s, item) => {
   return s.actors[holder]?.place ?? holder;
 };
 
+// Whether a traveler waiting at a dock can always call the empty ship there:
+// someone else may have called it to any other active dock, its riders and
+// cargo gone ashore there. The call is the rules' own, one lane a round.
+function callable(world, dock) {
+  return Object.entries(transports)
+    .filter(([, t]) => t.docks.includes(dock))
+    .some(([id, t]) =>
+      t.docks
+        .filter((from) => entityActive(world, from))
+        .every((from) => {
+          const s = structuredClone(world);
+          for (const a of Object.values(s.actors))
+            if (a.place === t.place) a.place = from;
+          for (const item of Object.values(s.items))
+            if (item.holder === t.place) item.holder = from;
+          Object.assign(s.transports[id], {
+            phase: "docked",
+            dock: from,
+            destination: null,
+            riders: [],
+            recall: null,
+          });
+          for (
+            let i = 0;
+            i < t.docks.length && s.transports[id].dock !== dock;
+            i++
+          ) {
+            s.turn += 1;
+            callTransport(s, dock);
+          }
+          return s.transports[id].dock === dock;
+        }),
+    );
+}
+
 // Where a traveler can get to. On foot, and by every free sea lane if `free`.
 // With `ship`, also any sea lane whose conditions some carried thing aboard
-// could meet joins its docks.
+// could meet joins its docks. A lane counts only from a dock the traveler can
+// call the empty ship to, wherever it lies.
 // Every key not `pinned` that lies in a place already reached can be carried
 // to any reached place, set down there, put aboard, or handed to a resident
 // there; each hand-over that opens a gate latches it, as play does. So the
@@ -129,12 +166,16 @@ function reach(
         (s.items[id].holder === "vale" || seen.has(placeOf(s, id))) &&
         !packPeople[s.items[id].holder],
     );
-  const lanes = (dock) =>
-    ship || free
+  const calls = new Map();
+  const lanes = (dock) => {
+    if (!(ship || free)) return [];
+    if (!calls.has(dock)) calls.set(dock, callable(s, dock));
+    return calls.get(dock)
       ? Object.values(transports).flatMap((t) =>
           t.docks.includes(dock) ? lanesFrom(t, dock) : [],
         )
       : [];
+  };
   for (let grew = true; grew; ) {
     grew = false;
     for (const place of [...seen]) {
@@ -274,18 +315,72 @@ describe("ports reachable on foot or by a free leg home", () => {
         expect(has(new Set(t.docks), [...RUMOURS, ...FAR_SHORES])).toEqual([]);
     });
 
-  it("walks home from Piraeus when another traveler calls the ship away", () => {
-    // The #2049 strand, after the invitation: Vale ashore at Piraeus, the
-    // ship called to the harbor and the provisions carried ashore there.
-    // The burial opened the City Gate and Dione's invitation.
+  it("calls the empty ship back to Piraeus before the invitation", () => {
+    // The Piraeus strand (#2049 review): Vale lands with the provisions and
+    // carries them ashore, and Mara at the harbor calls the empty ship away.
+    // Piraeus has no road yet. The cargo rule binds only a voyage with
+    // riders, so Vale's wait calls the ship back and the free lane home
+    // takes her and the provisions to the harbor.
+    let s = openingFixture("exposure", { water: false }).arrival;
+    expect(s.packs["greek-drama"].flags["greek-open-door-open"]).not.toBe(true);
+    s.controlledActors = ["vale"];
+    s.actors.vale.place = "greek-piraeus";
+    s.items["greek-provisions"].holder = "vale";
+    Object.assign(s.transports["greek-ship"], {
+      phase: "docked",
+      dock: "greek-piraeus",
+      destination: null,
+      riders: [],
+      recall: null,
+    });
+    callTransport(s, "greek-harbor");
+    expect(s.transports["greek-ship"].dock).toBe("greek-harbor");
+    expect(exits(s, "greek-piraeus", "vale")).toEqual([]);
+    const boards = () =>
+      legalActions(s, "vale").find(
+        (a) => a.kind === "move" && a.target === "greek-ship",
+      );
+    for (let i = 0; i < 8 && !boards(); i++) {
+      const result = play(
+        s,
+        legalActions(s, "vale").find((a) => a.kind === "wait"),
+        s.revision,
+      );
+      expect(result.ok, result.error).toBe(true);
+      s = result.state;
+    }
+    expect(s.transports["greek-ship"].dock).toBe("greek-piraeus");
+    const result = play(s, boards(), s.revision);
+    expect(result.ok, result.error).toBe(true);
+    s = sailTo(result.state, "greek-harbor", { actor: "vale" });
+    expect(s.actors.vale.place).toBe("greek-harbor");
+    expect(s.items["greek-provisions"].holder).toBe("vale");
+  });
+
+  it("walks the land route home from Piraeus once the truce opens the Long Walls", () => {
+    // After the invitation: Vale ashore at Piraeus, the ship called to the
+    // harbor and the provisions carried ashore there. Until the herald's
+    // truce the quays have no road (the call brings the ship back, above).
+    // With the truce the Long Walls open, and the burial opened the City
+    // Gate, so the land route leads home.
     let s = openDoorStart("burial");
     expect(s.openedRoutes).toContain(CITY_GATE);
-    s.controlledActors = ["vale", "mara"];
     s.actors.vale.place = "greek-piraeus";
     s.transports["greek-ship"].dock = "greek-piraeus";
     s.items["greek-provisions"].holder = "greek-ship";
     callTransport(s, "greek-harbor");
     s.items["greek-provisions"].holder = "greek-harbor";
+    expect(s.transports["greek-ship"].dock).toBe("greek-harbor");
+    expect(exits(s, "greek-piraeus", "vale")).toEqual([]);
+    // The truce latched both ends of the Long Walls.
+    s.openedRoutes = [
+      ...s.openedRoutes,
+      "greek-athens>greek-road-athens-piraeus",
+      "greek-piraeus>greek-road-athens-piraeus",
+    ].sort();
+    expect(exits(s, "greek-piraeus", "vale")).toEqual([
+      "greek-road-athens-piraeus",
+    ]);
     const step = (fields) => {
       const action = legalActions(s, "vale").find((a) =>
         Object.entries(fields).every(([k, v]) => a[k] === v),
@@ -295,10 +390,6 @@ describe("ports reachable on foot or by a free leg home", () => {
       expect(result.ok, result.error).toBe(true);
       s = result.state;
     };
-    for (let i = 0; i < 20 && currentActor(s) === "vale"; i++)
-      step({ kind: "wait" });
-    // The ship stays away: the lanes and the call are unchanged.
-    expect(s.transports["greek-ship"].dock).not.toBe("greek-piraeus");
     expect(pack.places["greek-road-coast"].retired).toBe(true);
     for (const target of [
       "greek-road-athens-piraeus",
@@ -363,9 +454,10 @@ describe("the roads home keep the Greek story gates", () => {
 
   for (const stage of ["open door", "ajax"])
     it(`keeps Thebes behind the City Gate from outside the walls: ${stage}`, () => {
-      // Thebes settled by the tablet; the Agora's keys at hand.
+      // Thebes settled by the tablet; the herald's truce in the Agora opens
+      // the Long Walls from Piraeus.
       const s = holding(
-        stages[stage](),
+        flags(stages[stage](), "greek-open-door-plea-registered"),
         "greek-guard-tablet",
         "greek-courtyard",
       );
@@ -410,7 +502,7 @@ describe("the roads home keep the Greek story gates", () => {
     });
 
   for (const stage of ["open door", "ajax"])
-    it(`keeps the Agora behind the petition or the provisions: ${stage}`, () => {
+    it(`keeps the Agora behind the petition or the truce: ${stage}`, () => {
       // Thebes is settled and the countryside open: only the city waits.
       const s = holding(
         holding(stages[stage](), "greek-decree", "greek-guard"),
@@ -430,12 +522,15 @@ describe("the roads home keep the Greek story gates", () => {
         expect(before.has("greek-eleusis"), from).toBe(true);
         expect(has(before, CITY), from).toEqual([]);
         expect(before.has("greek-piraeus"), from).toBe(false);
-        // The provisions aboard sail to Piraeus, whose Long Walls lead in.
+        // The provisions aboard sail to Piraeus, but its Long Walls wait for
+        // the truce: a sea arrival stays at the quays, with the free voyage
+        // home (#2049 review).
         const sailed = reach(s, from, {
           pinned: keys.filter((id) => id !== "greek-provisions"),
           ship: true,
         });
-        expect(has(sailed, CITY), from).toEqual(CITY);
+        expect(sailed.has("greek-piraeus"), from).toBe(true);
+        expect(has(sailed, CITY), from).toEqual([]);
         // On foot, the mothers' petition at Eleusis opens the city road.
         const heard = holding(
           flags(structuredClone(s), "greek-open-door-mothers-heard"),
@@ -445,7 +540,7 @@ describe("the roads home keep the Greek story gates", () => {
         const walked = reach(heard, from, { pinned: keys });
         expect(walked.has("greek-athens"), from).toBe(true);
         expect(walked.has("greek-piraeus"), from).toBe(false);
-        // The herald's truce in the Agora opens the Long Walls.
+        // The herald's truce in the Agora opens the Long Walls both ways.
         const truce = holding(
           flags(structuredClone(heard), "greek-open-door-plea-registered"),
           "greek-olive-branch",
@@ -453,8 +548,38 @@ describe("the roads home keep the Greek story gates", () => {
         );
         const open = reach(truce, from, { pinned: keys });
         expect(open.has("greek-piraeus"), from).toBe(true);
+        const landed = reach(truce, "greek-piraeus", { pinned: keys });
+        expect(has(landed, CITY), from).toEqual(CITY);
       }
     });
+});
+
+// The exposure ending: the guard's tablet settles Thebes and the City Gate
+// never opens. A sea arrival stays at Piraeus until the truce, and the truce
+// is only reached through the gate, so the land route waits. Everywhere a
+// traveler can get to still leads home with every key carried off.
+describe("the exposure ending with the City Gate shut", () => {
+  it("strands nobody", () => {
+    const s = openDoorStart("exposure", { gate: false });
+    expect(s.openedRoutes).not.toContain(CITY_GATE);
+    const reached = reach(s, "greek-harbor", {
+      pinned: ["greek-decree"],
+      ship: true,
+      local: false,
+    });
+    expect(reached.has("greek-piraeus")).toBe(true);
+    expect(has(reached, [...CITY, ...COUNTRYSIDE, ...BATTLEFIELD])).toEqual([]);
+    const bare = structuredClone(s);
+    for (const id of KEYS)
+      if (bare.items[id]) bare.items[id].holder = "greek-ship";
+    const stranded = [...reached].filter(
+      (place) =>
+        !reach(bare, place, { pinned: KEYS, free: true, local: false }).has(
+          "pond",
+        ),
+    );
+    expect(stranded).toEqual([]);
+  });
 });
 
 // A save from rules 93 (Greek revision 17) still holds the Coast Road and the
@@ -468,8 +593,10 @@ describe("a rules 93 save on the Coast Road", () => {
     s.packs["greek-drama"].revision = 17;
     s.actors.vale.place = "greek-road-coast";
     s.items["greek-water-jar"].holder = "greek-road-coast";
+    // The herald's truce had opened the Long Walls from the Agora.
     s.openedRoutes = [
       ...s.openedRoutes,
+      "greek-athens>greek-road-athens-piraeus",
       "greek-harbor>greek-road-coast",
       "greek-sanctuary>greek-road-north",
     ].sort();
@@ -483,6 +610,8 @@ describe("a rules 93 save on the Coast Road", () => {
     expect(w.actors.vale.place).toBe("greek-piraeus");
     expect(w.items["greek-water-jar"].holder).toBe("greek-piraeus");
     expect(w.openedRoutes).toContain(CITY_GATE);
+    // Rules 94 opens the Long Walls from both ends with the truce.
+    expect(w.openedRoutes).toContain("greek-piraeus>greek-road-athens-piraeus");
     expect(w.openedRoutes).not.toContain("greek-harbor>greek-road-coast");
     expect(w.openedRoutes).not.toContain("greek-sanctuary>greek-road-north");
     const edges = w.routeKnowledge["greek-rhapsode"],
@@ -504,8 +633,9 @@ describe("a rules 93 save on the Coast Road", () => {
 // rumours' own people and things wait unmet at home, and their story steps
 // are forgotten.
 describe("a rules 93 save at Marathon and Troy", () => {
-  const saved = (vale, ship) => {
+  const saved = (vale, ship, edit = () => {}) => {
     const s = JSON.parse(encodeSave(openDoorStart("burial")));
+    edit(s);
     s.packs["greek-drama"].revision = 17;
     s.actors.vale.place = vale;
     s.items["greek-water-jar"].holder = "greek-marathon";
@@ -550,6 +680,29 @@ describe("a rules 93 save at Marathon and Troy", () => {
       "sea:greek-marathon",
     ]);
     expect(home(w, "greek-piraeus")).toBe(true);
+  });
+
+  it("lets go of quests that name the rumours, a player's and a resident's", () => {
+    const want = (kind, target) => ({ kind, target, since: 0, refusals: 0 });
+    const w = saved(
+      "greek-harbor",
+      { dock: "greek-piraeus", destination: "greek-harbor" },
+      (s) => {
+        s.actors.vale.want = want("person", "greek-marathon-keeper");
+        s.actors.vale.under = [
+          want("place", "greek-ajax-grave"),
+          want("place", "greek-eleusis"),
+        ];
+        s.actors["greek-baker"].want = want("item", "greek-marathon-record");
+        delete s.actors["greek-baker"].under;
+      },
+    );
+    // Vale keeps the quest that leads somewhere; the rest are let go.
+    expect(w.actors.vale.want).toMatchObject(want("place", "greek-eleusis"));
+    expect(w.actors.vale.under).toBeUndefined();
+    expect(w.actors["greek-baker"].want?.target).not.toBe(
+      "greek-marathon-record",
+    );
   });
 
   it("lands a ship bound for Marathon at Piraeus with its riders", () => {

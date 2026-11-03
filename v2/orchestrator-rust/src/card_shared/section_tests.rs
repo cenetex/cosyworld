@@ -230,65 +230,41 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
         world.game["packs"]["greek-drama"]["flags"]["greek-open-door-open"],
         true
     );
-    // Mara loads the Travel Provisions at the harbor, which opens the lane
-    // to Piraeus. Dione's invitation opens the road on to Athens.
-    let take = world.project(1).unwrap()["actions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["kind"] == "take" && a["item"] == "greek-provisions")
-        .expect("Mara can take the provisions at the harbor")
-        .clone();
-    full_store::commit(
-        &c,
-        &id,
-        &mut world,
-        json!({"op":"play","actor":"mara","action":take}),
-        now(),
-    )
-    .unwrap();
-    for target in [
-        "greek-ship",
-        "greek-piraeus",
-        "greek-road-athens-piraeus",
-        "greek-athens",
-    ] {
-        if target == "greek-ship" {
-            for _ in 0..32 {
-                if world.project(1).unwrap()["exits"]
-                    .as_array()
-                    .unwrap()
-                    .contains(&json!(target))
-                {
-                    break;
-                }
-                play(&c, &id, &mut world, 1, "kind", "wait");
-            }
-        }
-        // Aboard, Piraeus is a voyage of course cards and rounds at sea.
-        if target == "greek-piraeus" {
-            for _ in 0..8 {
-                if world.game["actors"]["mara"]["place"] == target {
-                    break;
-                }
-                let step = super::sea_steps::toward(&world.project(1).unwrap()["actions"], target);
-                full_store::commit(
-                    &c,
-                    &id,
-                    &mut world,
-                    json!({"op":"play","actor":"mara","action":step}),
-                    now(),
-                )
-                .unwrap();
-            }
-            assert_eq!(world.game["actors"]["mara"]["place"], target);
-            continue;
-        }
-        play(&c, &id, &mut world, 1, "target", target);
+    // Until the herald's truce opens the Long Walls, the Open Door is walked
+    // through the City Gate: Mara opens it with the decree and walks the
+    // land route to Eleusis with the guard's tablet.
+    let act = |world: &mut World, kind: &str, field: &str, value: &str| {
+        let action = world.project(1).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == kind && a[field] == value)
+            .unwrap_or_else(|| panic!("Missing {kind} {value}"))
+            .clone();
+        full_store::commit(
+            &c,
+            &id,
+            world,
+            json!({"op":"play","actor":"mara","action":action}),
+            now(),
+        )
+        .unwrap();
+    };
+    for target in ["greek-road-thebes", "greek-courtyard", "greek-palace"] {
+        act(&mut world, "move", "target", target);
+    }
+    act(&mut world, "take", "item", "greek-decree");
+    act(&mut world, "move", "target", "greek-courtyard");
+    act(&mut world, "move", "target", "greek-gate");
+    act(&mut world, "give", "target", "greek-guard");
+    // The guard's tablet, carried out, opens the Cithaeron road.
+    act(&mut world, "take", "item", "greek-guard-tablet");
+    for target in ["greek-battlefield", "greek-cithaeron", "greek-eleusis"] {
+        act(&mut world, "move", "target", target);
     }
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     let recovered = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(recovered, world);
-    assert_eq!(recovered.project(1).unwrap()["room"], "greek-athens");
+    assert_eq!(recovered.project(1).unwrap()["room"], "greek-eleusis");
     assert_eq!(recovered.project(0).unwrap()["room"], "greek-courtyard");
 }

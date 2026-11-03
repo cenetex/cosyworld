@@ -9,6 +9,7 @@ import { profiles } from "../card-game/memory.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import {
   OPEN_DOOR_PLACES,
+  cityGateSteps,
   openDoorAction,
   openDoorSteps,
 } from "../../test/helpers/open-door.mjs";
@@ -173,7 +174,11 @@ export async function checkOpenDoor(browser, origin) {
       );
       await step({ kind: "drop", item: "lamp", target: "greek-courtyard" });
       // Every story step is an ordinary play: a meeting, a Wait or a gift.
-      for (const action of openDoorSteps({ rumours: true })) {
+      // The decree opens the City Gate first: the land route to Eleusis.
+      for (const action of [
+        ...cityGateSteps(),
+        ...openDoorSteps({ rumours: true }),
+      ]) {
         const prior = (await state()).packs["greek-drama"].receipts;
         await step(action);
         const now = await state();

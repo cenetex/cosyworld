@@ -71,13 +71,34 @@ export const openDoorWalk = (world, ...places) =>
     world,
   );
 
+// After the exposure the City Gate is shut. Until the herald's truce opens
+// the Long Walls, Eleusis and Athens are walked through it, so the traveler
+// opens it with the decree.
+export function cityGateSteps() {
+  const move = greekMoveSteps("greek-courtyard");
+  return [
+    ...move("palace"),
+    { kind: "take", item: "greek-decree" },
+    ...move("gate"),
+    { kind: "give", item: "greek-decree", target: "greek-guard" },
+    ...move("courtyard"),
+  ];
+}
+
 // Giving Dione a Theban outcome opens the road to Eleusis. With `rumours`,
 // the world is an old full-scope one, where Marathon and Troy still stand.
-export function openDoorStart(branch = "exposure", { rumours = false } = {}) {
-  const world = openingFixture(branch).closed;
+// After the exposure the City Gate is opened too, unless `gate` is false.
+export function openDoorStart(
+  branch = "exposure",
+  { rumours = false, gate = true } = {},
+) {
+  let world = openingFixture(branch).closed;
   if (!world.packs["greek-drama"].flags["greek-open-door-open"])
     throw new Error(`The road stayed closed after ${branch}`);
   if (rumours) world.packs["greek-drama"].scope = "full";
+  if (gate && branch === "exposure")
+    for (const { kind, ...fields } of cityGateSteps())
+      world = playOpenDoor(world, kind, fields);
   return playOpenDoor(world, "drop", {
     item: "lamp",
     target: "greek-courtyard",
@@ -101,8 +122,8 @@ export function openDoorSteps({ rumours = false } = {}) {
   const dione = (...ids) => ids.map((id) => give(id, "baker"));
   return [
     // Meeting Aethra on arrival tells the mothers' request; Adrastus speaks
-    // at the next play.
-    ...move("harbor", "athens", "eleusis"),
+    // at the next play. Eleusis is walked through the City Gate.
+    ...move("eleusis"),
     take("burial-petition"),
     ...move("athens"),
     give("burial-petition", "theseus"),
@@ -137,7 +158,7 @@ export function openDoorSteps({ rumours = false } = {}) {
     ...talk("colonus-keeper", 2),
     wait,
     // Three hands are full: the first reports go home to Dione.
-    ...greekMoveSteps("greek-colonus")("athens", "harbor", "courtyard"),
+    ...greekMoveSteps("greek-colonus")("courtyard"),
     ...dione("pyre-account", "return-list", "refuge-tablet"),
     ...greekMoveSteps("greek-courtyard")("harbor", "piraeus"),
     ...(rumours
@@ -156,7 +177,7 @@ export function openDoorSteps({ rumours = false } = {}) {
         ]
       : greekMoveSteps("greek-piraeus")("athens")),
     take("olive-branch"),
-    ...greekMoveSteps("greek-athens")("harbor", "courtyard"),
+    ...greekMoveSteps("greek-athens")("courtyard"),
     // The full return needs the Marathon Record: only where Marathon stands.
     ...(rumours
       ? [...dione("olive-branch", "marathon-record"), ...talk("baker")]

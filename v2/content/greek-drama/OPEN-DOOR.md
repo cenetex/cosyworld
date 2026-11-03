@@ -6,12 +6,15 @@ rumour in this release (Greek revision 18, rules 94): no way leads to it, so
 its tale and the full account below play only in old full-scope worlds.
 Piraeus Quays is Thebes's sea exit. It lies outside the section, so the
 Charybdis calls there before the invitation whenever the Travel Provisions
-or a Hoppy Cat thing are aboard, and sails home to the harbor free. The Long
-Walls inland open with the invitation. The walk home from Piraeus is the
-land route: the Long Walls to the Agora, the Sacred Way to Eleusis, the
-Cithaeron road to the battlefield and the Theban City Gate into Thebes
-(#2049). The gate guards the city both ways, so that walk enters Thebes
-only once the guard has held the decree at the gate. The Coast Road from
+or a Hoppy Cat thing are aboard, and sails home to the harbor free. Called
+away empty, the ship answers a wait at Piraeus without cargo. The Long
+Walls open from either end only once the mothers' plea is registered with
+the herald's truce in the Agora, so until then a sea arrival stays at the
+quays, beside the ship home, and the Open Door is walked from Thebes: the
+City Gate to the battlefield, the Cithaeron road to Eleusis and the Sacred
+Way to the Agora (#2049). The gate guards the city both ways and opens
+only once the guard has held the decree at the gate; after the exposure
+the traveler brings it to him. The Coast Road from
 Piraeus to the Wine-Dark Harbor retired. Athens has three districts of at
 most four places each: the countryside (Eleusis, Colonus, Marathon and the
 Attic Farm, with Acharnae Market within it), the city (the Agora, Assembly
@@ -19,10 +22,10 @@ Hill, the Acropolis and the Thinkery, with the House of Demos and the
 Women's Festival within) and the harbour (Piraeus, which took in Athens
 Harbor). Places in a district link directly. Two gate roads join the
 districts. The Sacred Way leads from Eleusis into the city once the mothers'
-petition is at Eleusis or in the Agora. The Long Walls lead from the Agora
-to Piraeus once the herald's truce is in the Agora. A gate stays open once
-opened, for everyone in that world, even after its thing moves away. It
-blocks only the way out: the way back is always open. These routes share
+petition is at Eleusis or in the Agora; the way back is always open. The
+Long Walls open from both ends once the herald's truce is in the Agora. A
+gate stays open once opened, for everyone in that world, even after its
+thing moves away. These routes share
 Dione’s lasting invitation. Waiting at a port lets the empty ship complete
 its circuit.
 

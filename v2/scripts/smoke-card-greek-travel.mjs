@@ -83,6 +83,16 @@ try {
     "greek-ship",
     "greek-piraeus",
   ];
+  // The Open Door fixture opened the City Gate with the decree; this one
+  // shuts it again, as after an exposure the gate never opened.
+  const gateShut = () => {
+    const world = openSeas();
+    world.items["greek-decree"].holder = "greek-palace";
+    world.openedRoutes = world.openedRoutes.filter(
+      (key) => key !== "greek-gate>greek-battlefield",
+    );
+    return world;
+  };
   const gateOpen = () => {
     const world = openSeas();
     world.openedRoutes = [
@@ -92,14 +102,14 @@ try {
   };
   const journeys = [
     // After the plea, the petition and the Suppliant's Olive Branch rest in
-    // the Agora, so the Sacred Way and the Long Walls stand open. Thebes
-    // ended in exposure: the City Gate never opened.
+    // the Agora, so the Sacred Way and the Long Walls stand open from both
+    // ends. Thebes ended in exposure.
     { name: "athens", start: "greek-athens", route: athens, make: openSeas },
     {
       name: "land",
       start: "greek-piraeus",
       route: [...land, ...back, ...free],
-      make: openSeas,
+      make: gateShut,
       shut: true,
       cargo: false,
     },
