@@ -193,7 +193,10 @@ The Thinking chip shows only on that card, never on a line. Dialogue never
 holds play for long: five seconds after a play commits, its slow words stop
 holding the hand. The Thinking card stays, a choice comes forward over it,
 and the late line types in when it arrives (#2008's failure and Retry follow
-if it never does). A choice over
+if it never does). A play made from that choice never drops the late line:
+it waits behind it with its own Thinking card, locally as at a shared seat,
+and runs once the line has typed into its beat or failed, so the next scene
+is asked after it and the lines keep their order. A choice over
 words that did not arrive is offered with the failure and its Retry in the
 action beat, since the new play also asks again.
 

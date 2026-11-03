@@ -528,9 +528,16 @@ function ownSharedEntry() {
     (entry) => entry.actor === currentActor(world),
   );
 }
+// A local play's words still coming for the play before. The rules have
+// run, so a choice comes forward after the grace, but a next play waits
+// behind those words: the late line types into its own beat first, as the
+// shared table's seat makes it do, and the next scene is asked after it.
+const localWordsPending = () =>
+  !sharedSession && storyStatus === "pending" && !openingWordsDue();
 const playQueue = createPlayQueue({
-  ready: () =>
+  ready: (action) =>
     !cardsCooling &&
+    (action.kind === "focus" || !localWordsPending()) &&
     reveal.complete &&
     (!sharedSession ||
       (!sharedSending &&
@@ -1082,6 +1089,9 @@ const narrator = createNarrator({
   },
   status: (value) => {
     storyStatus = value;
+    // Words that came, or failed, free a play waiting behind them.
+    if (value !== "pending" && playQueue.pending)
+      queueMicrotask(() => playQueue.flush());
     if (value === "pending") rememberWordsFailed(world.revision, true);
     if (value === "pending" && !exchange.active) exchange.begin();
     if (value === "retry") {
